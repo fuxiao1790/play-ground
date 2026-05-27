@@ -30,6 +30,8 @@ namespace PlayGround.Player
         [SerializeField] private float targetRadius = 0.45f;
 
         private InputAction moveAction;
+        private InputAction lookAction;
+        private InputAction pointAction;
         private InputAction attackAction;
         private InputAction dashAction;
         private InputActionMap playerMap;
@@ -97,9 +99,12 @@ namespace PlayGround.Player
 
             playerMap = inputActions.FindActionMap("Player", true);
             moveAction = playerMap.FindAction("Move", true);
+            lookAction = playerMap.FindAction("Look", false);
             attackAction = playerMap.FindAction("Attack", true);
             dashAction = playerMap.FindAction("Jump", true);
+            pointAction = inputActions.FindAction("UI/Point", false);
             playerMap.Enable();
+            pointAction?.Enable();
 
             targetId = ++nextTargetId;
             animatorDriver = new PlayerAnimatorDriver(animator, spriteRenderer);
@@ -130,10 +135,12 @@ namespace PlayGround.Player
         private void OnEnable()
         {
             playerMap?.Enable();
+            pointAction?.Enable();
         }
 
         private void OnDisable()
         {
+            pointAction?.Disable();
             playerMap?.Disable();
             registry?.Unregister(this);
             aoeRegistry?.Unregister(this);
@@ -147,15 +154,15 @@ namespace PlayGround.Player
             }
 
             Vector2 move = ReadMoveInput();
-            Vector2 mouseWorldPosition = GetMouseWorldPosition();
+            Vector2 aimWorldPosition = ReadAimWorldPosition();
             movement.SetMoveInput(move);
             if (ReadDashPressedThisFrame())
             {
-                movement.TryStartDash(mouseWorldPosition);
+                movement.TryStartDash(aimWorldPosition);
             }
 
-            facing.AimAt(mouseWorldPosition);
-            loadout.TickHeldFire(ReadAttackHeld(), facing.AimDirection, mouseWorldPosition);
+            facing.AimAt(aimWorldPosition);
+            loadout.TickHeldFire(ReadAttackHeld(), facing.AimDirection, aimWorldPosition);
             animatorDriver.Tick(Time.deltaTime);
             stateDriver.Tick();
         }
@@ -204,74 +211,35 @@ namespace PlayGround.Player
 
         private Vector2 ReadMoveInput()
         {
-            Vector2 move = moveAction.ReadValue<Vector2>();
-            if (move.sqrMagnitude > 0f)
-            {
-                return move;
-            }
-
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard == null)
-            {
-                return Vector2.zero;
-            }
-
-            Vector2 keyboardMove = Vector2.zero;
-            if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed)
-            {
-                keyboardMove.y += 1f;
-            }
-
-            if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed)
-            {
-                keyboardMove.y -= 1f;
-            }
-
-            if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed)
-            {
-                keyboardMove.x += 1f;
-            }
-
-            if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed)
-            {
-                keyboardMove.x -= 1f;
-            }
-
-            return Vector2.ClampMagnitude(keyboardMove, 1f);
+            return Vector2.ClampMagnitude(moveAction.ReadValue<Vector2>(), 1f);
         }
 
         private bool ReadAttackHeld()
         {
-            if (attackAction.IsPressed())
-            {
-                return true;
-            }
-
-            Mouse mouse = Mouse.current;
-            return mouse != null && mouse.leftButton.isPressed;
+            return attackAction.IsPressed();
         }
 
         private bool ReadDashPressedThisFrame()
         {
-            if (dashAction.WasPressedThisFrame())
-            {
-                return true;
-            }
-
-            Keyboard keyboard = Keyboard.current;
-            return keyboard != null && keyboard.spaceKey.wasPressedThisFrame;
+            return dashAction.WasPressedThisFrame();
         }
 
-        private Vector2 GetMouseWorldPosition()
+        private Vector2 ReadAimWorldPosition()
         {
-            if (Mouse.current == null)
+            if (pointAction != null && pointAction.controls.Count > 0)
             {
-                return (Vector2)transform.position + AimDirection;
+                Vector2 screenPosition = pointAction.ReadValue<Vector2>();
+                Vector3 world = worldCamera.ScreenToWorldPoint(new Vector3(screenPosition.x, screenPosition.y, -worldCamera.transform.position.z));
+                return world;
             }
 
-            Vector2 screenPosition = Mouse.current.position.ReadValue();
-            Vector3 world = worldCamera.ScreenToWorldPoint(new Vector3(screenPosition.x, screenPosition.y, -worldCamera.transform.position.z));
-            return world;
+            Vector2 look = lookAction != null ? lookAction.ReadValue<Vector2>() : Vector2.zero;
+            if (look.sqrMagnitude > 0.0001f)
+            {
+                return (Vector2)transform.position + look.normalized;
+            }
+
+            return (Vector2)transform.position + AimDirection;
         }
     }
 }
