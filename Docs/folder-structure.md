@@ -100,7 +100,7 @@ Create these as systems are ported:
 - `Assets/Scripts/System/Projectile/ProjectileCollisionMath.cs`: pure
   circle/box/capsule narrow-phase math
 - `Assets/Scripts/System/Projectile/ProjectileRenderPrepareSystem.cs`:
-  presentation-stage render matrix preparation for scoped projectile draw
+  late-simulation render matrix preparation for scoped projectile draw
   submission
 
 ## Old Scene Reference Folders

@@ -282,7 +282,7 @@ exist as a low-count fallback or debug path, but they are not enough for the
 projectile proof of concept and must not be the default path.
 
 Current rendering keeps Unity object access outside ECS simulation. The
-presentation-stage `ProjectileRenderPrepareSystem` scans active projectile
+late-simulation `ProjectileRenderPrepareSystem` scans active projectile
 entities, builds plain render matrices, and writes type-grouped instance data to
 the scope render buffer component. `ProjectileRoot` submits those already grouped
 instance buffers in `LateUpdate` through `Graphics.RenderMeshInstanced`, avoiding

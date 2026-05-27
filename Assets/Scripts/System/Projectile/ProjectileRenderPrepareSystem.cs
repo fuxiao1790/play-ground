@@ -7,7 +7,8 @@ using UnityEngine;
 
 namespace PlayGround.System.Projectile
 {
-    [UpdateInGroup(typeof(PresentationSystemGroup))]
+    [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
+    [UpdateAfter(typeof(ProjectileCollisionSystem))]
     public partial struct ProjectileRenderPrepareSystem : ISystem
     {
         private const float ProjectileRenderZ = -0.25f;

@@ -677,6 +677,8 @@ namespace PlayGround.System.Projectile
             }
         }
 
+        // this function should ONLY submit projectiles rendering data.
+        // DO NOT loop over individual projectiles.
         private void SubmitProjectiles()
         {
             if (renderResourcesByType.Count == 0 || !entityManager.HasBuffer<ProjectileRenderElement>(scopeEntity))
