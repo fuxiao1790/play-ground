@@ -1,0 +1,27 @@
+[gd_scene format=3 uid="uid://dgbc8f2w81xak"]
+
+[ext_resource type="Script" uid="uid://c5mt6njefimd7" path="res://scripts_cs/Attack/ProjectileAttack.cs" id="1_attack"]
+[ext_resource type="PackedScene" uid="uid://cmie5s71tsytm" path="res://scenes/projectiles/basic_projectile.tscn" id="2_projectile"]
+[ext_resource type="AudioStream" uid="uid://ds3jixw1cx8fi" path="res://assets/Sounds/shoot-a.ogg" id="3_audio"]
+[ext_resource type="PackedScene" uid="uid://ds0hl348d8j3d" path="res://scenes/attacks/basic_aoe_effect.tscn" id="4_aoe_effect"]
+[ext_resource type="Script" uid="uid://cnfel4aqsw1hb" path="res://scripts_cs/Attack/ProjectileStackExplosionEffect.cs" id="5_stack_effect"]
+
+[node name="StackingExplosiveProjectileAttack" type="Node2D" unique_id=1423816891]
+script = ExtResource("1_attack")
+recovery_seconds = 0.16
+projectile_effect_scene = ExtResource("2_projectile")
+perform_sound = ExtResource("3_audio")
+projectile_speed = 480.0
+projectile_lifetime = 1.6
+tracking_enabled = true
+tracking_range = 520.0
+tracking_turn_speed_degrees = 540.0
+
+[node name="StackExplosionEffect" type="Node" parent="." unique_id=1088566831]
+script = ExtResource("5_stack_effect")
+stack_explosion_threshold = 5
+stack_explosion_aoe_effect_scene = ExtResource("4_aoe_effect")
+stack_explosion_damage = 4
+
+[node name="MuzzleMarker" type="Marker2D" parent="." unique_id=1760472660]
+gizmo_extents = 8.0

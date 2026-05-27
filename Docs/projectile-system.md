@@ -106,8 +106,8 @@ During fixed simulation:
 4. world promotes pending spawns
 5. world rebuilds broad-phase target data
 6. ECS systems run focused stages in order:
-   tracking/reacquire, movement, child spawn requests, lifetime expiry tagging,
-   contact-gate expiry, collision/pierce hit output, and expired entity despawn
+   tracking/reacquire, movement, child spawn requests, lifetime expiry disable,
+   contact-gate expiry, and collision/pierce hit output
 7. root drains world events
 8. root handles adapter side effects such as visual slots and registry cleanup
 
@@ -137,8 +137,8 @@ Required practices:
 - keep spawn commands compact
 - avoid per-projectile allocations
 - avoid Transform access inside collision loops
-- track active count, spawn count, despawn count, simulation time, render time,
-  and allocation spikes
+- track active count, spawn count, deactivate/despawn count, simulation time,
+  render time, and allocation spikes
 
 Scene-object bridge:
 
@@ -168,7 +168,7 @@ Projectile state should include:
 - cached bounds
 - hit state
 - pierce/contact gate state
-- despawn state
+- enableable active state
 
 Target state should include:
 
@@ -188,10 +188,10 @@ land in the narrow system that owns that behavior:
 - `ProjectileTrackingSystem`: optional homing, target refresh, reacquire interval, and steering while preserving speed
 - `ProjectileMovementSystem`: position integration from velocity and delta time
 - `ProjectileChildSpawnSystem`: timed child projectile spawn request events
-- `ProjectileLifetimeSystem`: lifetime countdown and expired tagging
+- `ProjectileLifetimeSystem`: lifetime countdown and disabling expired active state
 - `ProjectileContactGateSystem`: repeat-hit gate cooldown expiry
 - `ProjectileCollisionSystem`: target mask filtering, shape hit checks, pierce count, contact gate creation, and ordered hit events
-- `ProjectileDespawnSystem`: actual entity destruction for projectiles tagged as expired
+- `ProjectileRoot`: scoped Unity bridge, event replay, render submission, and teardown-only destruction
 - `ProjectileCollisionMath`: pure narrow-phase shape math only
 
 Do not merge these stages back into one large projectile system. Shared data

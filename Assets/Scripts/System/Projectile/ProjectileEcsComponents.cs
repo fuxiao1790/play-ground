@@ -78,7 +78,7 @@ namespace PlayGround.System.Projectile
     {
     }
 
-    public struct ProjectileExpiredTag : IComponentData
+    public struct ProjectileActiveTag : IComponentData, IEnableableComponent
     {
     }
 

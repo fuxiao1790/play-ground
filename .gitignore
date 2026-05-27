@@ -1,0 +1,85 @@
+# Unity generated folders
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+
+# Unity asset meta files (only ignore if not tracking assets)
+# *.meta
+
+# Unity crash reports
+sysinfo.txt
+Crashes/
+
+# Unity cache
+[Aa]sset[Bb]undle[Cc]ache/
+[Aa]sset[Ss]tore-5.x/
+[Ss]tream[Ii]ngAssets/[Aa]ddress[Aa]bles[Ss]ettings.asset
+Assets/[Aa]ddressable[Aa]ssets[Dd]ata/*/*.bin*
+Assets/[Ss]tream[Ii]ngAssets/aa.meta
+Assets/[Ss]tream[Ii]ngAssets/aa/
+
+# Unity version-specific files
+ExportedObj/
+.consulo/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity3D generated meta files
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# Unity3D generated file on crash reports
+sysinfo.txt
+
+# Visual Studio / Rider cache and generated files
+.vs/
+.idea/
+*.DotSettings.user
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# JetBrains Rider
+.idea/
+
+# Visual Studio Code
+.vscode/
+
+# Builds
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+# IL2CPP generated files
+Il2CppOutputProject/
+
+# Gradle cache (Android builds)
+.gradle/
+
+# Node modules (if using any JS tooling)
+node_modules/

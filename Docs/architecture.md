@@ -66,10 +66,10 @@ General rule:
 - `ProjectileTrackingSystem`: owns homing target refresh, reacquire cadence, and steering
 - `ProjectileMovementSystem`: owns projectile position integration
 - `ProjectileChildSpawnSystem`: owns timed child projectile spawn request events
-- `ProjectileLifetimeSystem`: owns lifetime countdown and expired tagging
-- `ProjectileDespawnSystem`: owns actual projectile entity destruction for expired projectiles
+- `ProjectileLifetimeSystem`: owns lifetime countdown and disabling expired projectile entities
 - `ProjectileContactGateSystem`: owns repeat-hit gate cooldown expiry
 - `ProjectileCollisionSystem`: owns projectile target mask filtering, baked-shape hit checks, pierce handling, and ordered hit event output
+- `ProjectileRoot`: owns scoped projectile bridge cleanup and destroys scoped entities only when the root tears down
 - `ProjectileCollisionMath`: owns pure circle, rectangle, and capsule narrow-phase math
 - `AoeRoot`: owns one scoped AOE target flow, AOE template baking, target sync, optional effect lifetime, hit replay, and spawn requests
 - `AoeWorld`: owns only plain runtime AOE data, target queries, pulse hits, lingering ticks, and re-entry gates

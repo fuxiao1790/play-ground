@@ -92,9 +92,7 @@ Create these as systems are ported:
 - `Assets/Scripts/System/Projectile/ProjectileChildSpawnSystem.cs`: timed child
   spawn request events
 - `Assets/Scripts/System/Projectile/ProjectileLifetimeSystem.cs`: lifetime
-  countdown and expired tagging
-- `Assets/Scripts/System/Projectile/ProjectileDespawnSystem.cs`: actual entity
-  destruction for expired projectiles
+  countdown and active-state disable for expired projectiles
 - `Assets/Scripts/System/Projectile/ProjectileContactGateSystem.cs`: repeat-hit
   contact gate expiry
 - `Assets/Scripts/System/Projectile/ProjectileCollisionSystem.cs`: target mask

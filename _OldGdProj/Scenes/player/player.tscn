@@ -1,0 +1,148 @@
+[gd_scene format=3 uid="uid://bq6nphcgblwwe"]
+
+[ext_resource type="Script" uid="uid://chyl8st10d8w" path="res://scripts_cs/Player/Player.cs" id="1"]
+[ext_resource type="Script" uid="uid://em0rkobuarsq" path="res://scripts_cs/Attack/ProjectileSideSpraySpawnPattern.cs" id="3_0owmy"]
+[ext_resource type="Texture2D" uid="uid://c3m5tva2ux8ca" path="res://assets/Players/Tilemap/tilemap.png" id="3_1jxqw"]
+[ext_resource type="PackedScene" uid="uid://cmie5s71tsytm" path="res://scenes/projectiles/basic_projectile.tscn" id="3_qek5x"]
+[ext_resource type="PackedScene" uid="uid://dgbc8f2w81xak" path="res://scenes/attacks/stacking_explosive_projectile_attack.tscn" id="3_stack_attack"]
+[ext_resource type="Texture2D" uid="uid://ql607logawnf" path="res://assets/Players/Tiles/tile_0000.png" id="4"]
+[ext_resource type="Texture2D" uid="uid://e4igfapgmhsu" path="res://assets/Players/Tilemap/tilemap_packed.png" id="5_dw050"]
+[ext_resource type="Texture2D" uid="uid://bodsj8t5sqjya" path="res://assets/Players/Tiles/tile_0012.png" id="16"]
+
+[sub_resource type="Resource" id="Resource_qek5x"]
+script = ExtResource("3_0owmy")
+metadata/_custom_type_script = "uid://em0rkobuarsq"
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_sweqy"]
+radius = 8.0
+height = 22.0
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_hurtbox"]
+radius = 8.0
+height = 22.0
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_b26j0"]
+atlas = ExtResource("3_1jxqw")
+region = Rect2(48, 0, 24, 24)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_n7ghd"]
+atlas = ExtResource("5_dw050")
+region = Rect2(24, 0, 24, 24)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_nvl01"]
+atlas = ExtResource("5_dw050")
+region = Rect2(48, 0, 24, 24)
+
+[sub_resource type="SpriteFrames" id="2"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("4")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 8.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_b26j0")
+}],
+"loop": false,
+"name": &"jump",
+"speed": 8.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("16")
+}],
+"loop": false,
+"name": &"stagger",
+"speed": 8.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_n7ghd")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_nvl01")
+}],
+"loop": true,
+"name": &"walk",
+"speed": 10.0
+}]
+
+[node name="Player" type="RigidBody2D" unique_id=818519320]
+collision_mask = 1026
+gravity_scale = 0.0
+can_sleep = false
+lock_rotation = true
+script = ExtResource("1")
+max_attack_count = 8
+health = 500
+actor_group = &"player"
+projectile_target_group = &"player"
+
+[node name="StackingExplosiveProjectileAttack" parent="." unique_id=1423816891 instance=ExtResource("3_stack_attack")]
+position = Vector2(0, -100)
+projectile_volley_spread_degrees = 15.0
+projectile_jitter_degrees = 5.0
+projectile_count = 10
+projectile_pierce_count = 5
+child_projectile_effect_scene = ExtResource("3_qek5x")
+child_projectile_count = 15
+child_spawn_interval_seconds = 0.2
+child_spawn_interval_jitter_seconds = 0.1
+child_spawn_pattern = SubResource("Resource_qek5x")
+
+[node name="StackingExplosiveProjectileAttack3" parent="." unique_id=1139165013 instance=ExtResource("3_stack_attack")]
+position = Vector2(-100, 0)
+projectile_volley_spread_degrees = 15.0
+projectile_jitter_degrees = 5.0
+projectile_count = 10
+projectile_pierce_count = 5
+child_projectile_effect_scene = ExtResource("3_qek5x")
+child_projectile_count = 15
+child_spawn_interval_seconds = 0.2
+child_spawn_interval_jitter_seconds = 0.1
+child_spawn_pattern = SubResource("Resource_qek5x")
+
+[node name="StackingExplosiveProjectileAttack4" parent="." unique_id=43660740 instance=ExtResource("3_stack_attack")]
+position = Vector2(0, 100)
+projectile_volley_spread_degrees = 15.0
+projectile_jitter_degrees = 5.0
+projectile_count = 10
+projectile_pierce_count = 5
+child_projectile_effect_scene = ExtResource("3_qek5x")
+child_projectile_count = 15
+child_spawn_interval_seconds = 0.2
+child_spawn_interval_jitter_seconds = 0.1
+child_spawn_pattern = SubResource("Resource_qek5x")
+
+[node name="StackingExplosiveProjectileAttack2" parent="." unique_id=1139868795 instance=ExtResource("3_stack_attack")]
+position = Vector2(100, 0)
+projectile_volley_spread_degrees = 15.0
+projectile_jitter_degrees = 5.0
+projectile_count = 10
+projectile_pierce_count = 5
+child_projectile_effect_scene = ExtResource("3_qek5x")
+child_projectile_count = 15
+child_spawn_interval_seconds = 0.2
+child_spawn_interval_jitter_seconds = 0.1
+child_spawn_pattern = SubResource("Resource_qek5x")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1768498669]
+position = Vector2(0, 2)
+shape = SubResource("CapsuleShape2D_sweqy")
+debug_color = Color(1, 0.043137256, 0.49803922, 0.7764706)
+
+[node name="Hurtbox" type="Area2D" parent="." unique_id=219368863]
+collision_layer = 2
+collision_mask = 0
+
+[node name="HurtboxShape" type="CollisionShape2D" parent="Hurtbox" unique_id=1000146219]
+position = Vector2(0, 2)
+shape = SubResource("CapsuleShape2D_hurtbox")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=847408363]
+sprite_frames = SubResource("2")
+animation = &"stagger"

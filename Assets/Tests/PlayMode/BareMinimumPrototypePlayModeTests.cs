@@ -98,7 +98,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void ProjectileLifetimeDespawnsEcsEntity()
+        public void ProjectileLifetimeDeactivatesEcsEntity()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
 

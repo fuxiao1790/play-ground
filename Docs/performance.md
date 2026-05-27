@@ -101,8 +101,7 @@ Projectiles:
 - high-count path needs batched rendering by projectile type
 - gameplay collision should use baked shapes and target snapshots
 - simulation stages stay split by responsibility: target tracking, movement,
-  child spawn requests, lifetime expiry tagging, contact gates, collision, and
-  expired entity despawn
+  child spawn requests, lifetime expiry disable, contact gates, and collision
 - `ProjectileRoot` exposes active count, spawn/despawn totals, hit event count,
   child spawn request count, simulation milliseconds, and render milliseconds
 - first POC target is the old release-build class of scale: about 50k

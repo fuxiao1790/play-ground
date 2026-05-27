@@ -22,7 +22,7 @@ namespace PlayGround.System.Projectile
         }
 
         [BurstCompile]
-        [WithNone(typeof(ProjectileExpiredTag))]
+        [WithAll(typeof(ProjectileActiveTag))]
         private partial struct ProjectileCollisionJob : IJobEntity
         {
             [ReadOnly] public BufferLookup<ProjectileTargetElement> Targets;
@@ -30,19 +30,19 @@ namespace PlayGround.System.Projectile
 
             private void Execute(
                 [ChunkIndexInQuery] int chunkIndex,
-                Entity entity,
                 ref ProjectileComponent projectile,
+                EnabledRefRW<ProjectileActiveTag> active,
                 DynamicBuffer<ProjectileContactGateElement> contactGates)
             {
                 if (projectile.Scope == Entity.Null || !Targets.HasBuffer(projectile.Scope))
                 {
-                    projectile.RemainingLifetime = 0f;
-                    CommandBuffer.AddComponent<ProjectileExpiredTag>(chunkIndex, entity);
+                    Deactivate(ref projectile, active);
                     return;
                 }
 
                 if (projectile.RemainingLifetime <= 0f)
                 {
+                    Deactivate(ref projectile, active);
                     return;
                 }
 
@@ -75,13 +75,20 @@ namespace PlayGround.System.Projectile
                     AddOrRefreshGate(contactGates, target.TargetId, projectile.RepeatHitCooldownSeconds);
                     if (projectile.PierceRemaining <= 0)
                     {
-                        projectile.RemainingLifetime = 0f;
-                        CommandBuffer.AddComponent<ProjectileExpiredTag>(chunkIndex, entity);
+                        Deactivate(ref projectile, active);
                         return;
                     }
 
                     projectile.PierceRemaining--;
                 }
+            }
+
+            private void Deactivate(
+                ref ProjectileComponent projectile,
+                EnabledRefRW<ProjectileActiveTag> active)
+            {
+                projectile.RemainingLifetime = 0f;
+                active.ValueRW = false;
             }
 
             private static bool IsGated(DynamicBuffer<ProjectileContactGateElement> contactGates, int targetId)

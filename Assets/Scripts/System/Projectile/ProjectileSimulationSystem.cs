@@ -10,10 +10,11 @@ namespace PlayGround.System.Projectile
         private EntityQuery projectileQuery;
         private EntityQuery scopeQuery;
 
-        [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            projectileQuery = state.GetEntityQuery(ComponentType.ReadOnly<ProjectileComponent>());
+            projectileQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<ProjectileComponent>(),
+                ComponentType.ReadOnly<ProjectileActiveTag>());
             scopeQuery = state.GetEntityQuery(ComponentType.ReadOnly<ProjectileScope>());
         }
 

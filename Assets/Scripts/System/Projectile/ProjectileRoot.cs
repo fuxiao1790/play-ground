@@ -36,6 +36,7 @@ namespace PlayGround.System.Projectile
         private EntityManager entityManager;
         private Entity scopeEntity;
         private EntityQuery projectileQuery;
+        private EntityQuery allProjectileQuery;
         private Mesh projectileMesh;
         private Material projectileMaterial;
         private MaterialPropertyBlock projectileProperties;
@@ -96,7 +97,7 @@ namespace PlayGround.System.Projectile
                     entityManager.DestroyEntity(scopeEntity);
                 }
 
-                using var projectileEntities = projectileQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
+                using var projectileEntities = allProjectileQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
                 for (int i = 0; i < projectileEntities.Length; i++)
                 {
                     Entity entity = projectileEntities[i];
@@ -222,7 +223,7 @@ namespace PlayGround.System.Projectile
 
         public int Spawn(ProjectileSpawnCommand command)
         {
-            Entity entity = entityManager.CreateEntity(typeof(ProjectileComponent));
+            Entity entity = entityManager.CreateEntity(typeof(ProjectileComponent), typeof(ProjectileActiveTag));
             int projectileId = ++nextProjectileId;
             entityManager.SetComponentData(entity, new ProjectileComponent
             {
@@ -256,6 +257,7 @@ namespace PlayGround.System.Projectile
                 ChildSpawnTickIndex = 0
             });
             entityManager.AddBuffer<ProjectileContactGateElement>(entity);
+            entityManager.SetComponentEnabled<ProjectileActiveTag>(entity, true);
             spawnedProjectiles++;
             return projectileId;
         }
@@ -263,12 +265,10 @@ namespace PlayGround.System.Projectile
         public void Step(float deltaTime)
         {
             SyncTargetsToEcs();
-            int activeBefore = ActiveProjectileCount;
             stopwatch.Restart();
             World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<SimulationSystemGroup>().Update();
             stopwatch.Stop();
             simulationMilliseconds = (float)stopwatch.Elapsed.TotalMilliseconds;
-            despawnedProjectiles += Mathf.Max(0, activeBefore - ActiveProjectileCount);
             DrainHits();
             DrainChildSpawnRequests();
         }
@@ -290,7 +290,10 @@ namespace PlayGround.System.Projectile
             entityManager.AddBuffer<ProjectileTargetElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileHitElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileChildSpawnRequestElement>(scopeEntity);
-            projectileQuery = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileComponent>());
+            projectileQuery = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<ProjectileComponent>(),
+                ComponentType.ReadOnly<ProjectileActiveTag>());
+            allProjectileQuery = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileComponent>());
         }
 
         private void SyncTargetsToEcs()

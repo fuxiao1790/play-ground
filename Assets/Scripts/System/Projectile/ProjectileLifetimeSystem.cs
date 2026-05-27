@@ -12,31 +12,29 @@ namespace PlayGround.System.Projectile
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            EndSimulationEntityCommandBufferSystem.Singleton ecbSingleton =
-                SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var job = new ProjectileLifetimeJob
             {
-                DeltaTime = SystemAPI.Time.DeltaTime,
-                CommandBuffer = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged).AsParallelWriter()
+                DeltaTime = SystemAPI.Time.DeltaTime
             };
 
             state.Dependency = job.ScheduleParallel(state.Dependency);
         }
 
         [BurstCompile]
-        [WithNone(typeof(ProjectileExpiredTag))]
+        [WithAll(typeof(ProjectileActiveTag))]
         private partial struct ProjectileLifetimeJob : IJobEntity
         {
             public float DeltaTime;
-            public EntityCommandBuffer.ParallelWriter CommandBuffer;
 
-            private void Execute([ChunkIndexInQuery] int chunkIndex, Entity entity, ref ProjectileComponent projectile)
+            private void Execute(
+                ref ProjectileComponent projectile,
+                EnabledRefRW<ProjectileActiveTag> active)
             {
                 projectile.RemainingLifetime -= DeltaTime;
                 if (projectile.RemainingLifetime <= 0f)
                 {
                     projectile.RemainingLifetime = 0f;
-                    CommandBuffer.AddComponent<ProjectileExpiredTag>(chunkIndex, entity);
+                    active.ValueRW = false;
                 }
             }
         }
