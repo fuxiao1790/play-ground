@@ -494,8 +494,16 @@ namespace PlayGround.Attack
 
             try
             {
-                GameObject rootObject = GameObject.FindWithTag(tag);
-                return rootObject != null ? rootObject.GetComponent<ProjectileRoot>() : null;
+                GameObject[] rootObjects = GameObject.FindGameObjectsWithTag(tag);
+                for (int i = 0; i < rootObjects.Length; i++)
+                {
+                    if (rootObjects[i].TryGetComponent(out ProjectileRoot root))
+                    {
+                        return root;
+                    }
+                }
+
+                return null;
             }
             catch (UnityException)
             {

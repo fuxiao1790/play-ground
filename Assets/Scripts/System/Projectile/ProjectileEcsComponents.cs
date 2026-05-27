@@ -90,6 +90,7 @@ namespace PlayGround.System.Projectile
         public int TargetId;
         public float2 Position;
         public float DamageAmount;
+        public bool DirectDamageEnabled;
         public uint Order;
     }
 

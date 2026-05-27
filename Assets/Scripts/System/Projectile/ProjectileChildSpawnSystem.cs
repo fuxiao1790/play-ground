@@ -1,5 +1,7 @@
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 
 namespace PlayGround.System.Projectile
 {
@@ -10,15 +12,21 @@ namespace PlayGround.System.Projectile
     {
         public void OnUpdate(ref SystemState state)
         {
-            EndSimulationEntityCommandBufferSystem.Singleton ecbSingleton =
-                SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+            var pendingRequests = new NativeQueue<ProjectilePendingChildSpawn>(Allocator.TempJob);
             var job = new ProjectileChildSpawnJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
-                CommandBuffer = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged).AsParallelWriter()
+                PendingRequests = pendingRequests.AsParallelWriter()
             };
 
-            state.Dependency = job.ScheduleParallel(state.Dependency);
+            var spawnHandle = job.ScheduleParallel(state.Dependency);
+            var flushHandle = new ProjectileChildSpawnFlushJob
+            {
+                PendingRequests = pendingRequests,
+                Requests = SystemAPI.GetBufferLookup<ProjectileChildSpawnRequestElement>()
+            }.Schedule(spawnHandle);
+
+            state.Dependency = pendingRequests.Dispose(flushHandle);
         }
 
         [BurstCompile]
@@ -26,9 +34,9 @@ namespace PlayGround.System.Projectile
         private partial struct ProjectileChildSpawnJob : IJobEntity
         {
             public float DeltaTime;
-            public EntityCommandBuffer.ParallelWriter CommandBuffer;
+            public NativeQueue<ProjectilePendingChildSpawn>.ParallelWriter PendingRequests;
 
-            private void Execute([ChunkIndexInQuery] int chunkIndex, ref ProjectileComponent projectile)
+            private void Execute(ref ProjectileComponent projectile)
             {
                 if (projectile.RemainingLifetime <= 0f
                     || projectile.Scope == Entity.Null
@@ -43,8 +51,9 @@ namespace PlayGround.System.Projectile
                 while (cooldown <= 0f)
                 {
                     tickIndex++;
-                    CommandBuffer.AppendToBuffer(chunkIndex, projectile.Scope, new ProjectileChildSpawnRequestElement
+                    PendingRequests.Enqueue(new ProjectilePendingChildSpawn
                     {
+                        Scope = projectile.Scope,
                         ProjectileId = projectile.ProjectileId,
                         ProjectileTypeId = projectile.TypeId,
                         ChildSpawnerId = projectile.ChildSpawnerId,
@@ -59,6 +68,37 @@ namespace PlayGround.System.Projectile
 
                 projectile.ChildSpawnCooldownRemaining = cooldown;
                 projectile.ChildSpawnTickIndex = tickIndex;
+            }
+        }
+
+        [BurstCompile]
+        private struct ProjectileChildSpawnFlushJob : IJob
+        {
+            public NativeQueue<ProjectilePendingChildSpawn> PendingRequests;
+            public BufferLookup<ProjectileChildSpawnRequestElement> Requests;
+
+            public void Execute()
+            {
+                while (PendingRequests.TryDequeue(out ProjectilePendingChildSpawn pending))
+                {
+                    if (pending.Scope == Entity.Null || !Requests.HasBuffer(pending.Scope))
+                    {
+                        continue;
+                    }
+
+                    Requests[pending.Scope].Add(new ProjectileChildSpawnRequestElement
+                    {
+                        ProjectileId = pending.ProjectileId,
+                        ProjectileTypeId = pending.ProjectileTypeId,
+                        ChildSpawnerId = pending.ChildSpawnerId,
+                        TickIndex = pending.TickIndex,
+                        Position = pending.Position,
+                        Velocity = pending.Velocity,
+                        DamageAmount = pending.DamageAmount,
+                        DirectDamageEnabled = false,
+                        Order = pending.Order
+                    });
+                }
             }
         }
     }

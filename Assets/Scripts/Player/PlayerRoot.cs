@@ -32,6 +32,7 @@ namespace PlayGround.Player
         private InputAction moveAction;
         private InputAction attackAction;
         private InputAction dashAction;
+        private InputActionMap playerMap;
         private PlayerMovement movement;
         private PlayerFacing facing;
         private PlayerAttackLoadout loadout;
@@ -94,7 +95,7 @@ namespace PlayGround.Player
                 throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} needs a world camera.");
             }
 
-            InputActionMap playerMap = inputActions.FindActionMap("Player", true);
+            playerMap = inputActions.FindActionMap("Player", true);
             moveAction = playerMap.FindAction("Move", true);
             attackAction = playerMap.FindAction("Attack", true);
             dashAction = playerMap.FindAction("Jump", true);
@@ -126,8 +127,14 @@ namespace PlayGround.Player
             }
         }
 
+        private void OnEnable()
+        {
+            playerMap?.Enable();
+        }
+
         private void OnDisable()
         {
+            playerMap?.Disable();
             registry?.Unregister(this);
             aoeRegistry?.Unregister(this);
         }
@@ -139,16 +146,16 @@ namespace PlayGround.Player
                 return;
             }
 
-            Vector2 move = moveAction.ReadValue<Vector2>();
+            Vector2 move = ReadMoveInput();
             Vector2 mouseWorldPosition = GetMouseWorldPosition();
             movement.SetMoveInput(move);
-            if (dashAction.WasPressedThisFrame())
+            if (ReadDashPressedThisFrame())
             {
                 movement.TryStartDash(mouseWorldPosition);
             }
 
             facing.AimAt(mouseWorldPosition);
-            loadout.TickHeldFire(attackAction.IsPressed(), facing.AimDirection, mouseWorldPosition);
+            loadout.TickHeldFire(ReadAttackHeld(), facing.AimDirection, mouseWorldPosition);
             animatorDriver.Tick(Time.deltaTime);
             stateDriver.Tick();
         }
@@ -193,6 +200,66 @@ namespace PlayGround.Player
         public void ReceiveAoeHit(DamageSnapshot damage)
         {
             health.TakeDamage(damage);
+        }
+
+        private Vector2 ReadMoveInput()
+        {
+            Vector2 move = moveAction.ReadValue<Vector2>();
+            if (move.sqrMagnitude > 0f)
+            {
+                return move;
+            }
+
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard == null)
+            {
+                return Vector2.zero;
+            }
+
+            Vector2 keyboardMove = Vector2.zero;
+            if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed)
+            {
+                keyboardMove.y += 1f;
+            }
+
+            if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed)
+            {
+                keyboardMove.y -= 1f;
+            }
+
+            if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed)
+            {
+                keyboardMove.x += 1f;
+            }
+
+            if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed)
+            {
+                keyboardMove.x -= 1f;
+            }
+
+            return Vector2.ClampMagnitude(keyboardMove, 1f);
+        }
+
+        private bool ReadAttackHeld()
+        {
+            if (attackAction.IsPressed())
+            {
+                return true;
+            }
+
+            Mouse mouse = Mouse.current;
+            return mouse != null && mouse.leftButton.isPressed;
+        }
+
+        private bool ReadDashPressedThisFrame()
+        {
+            if (dashAction.WasPressedThisFrame())
+            {
+                return true;
+            }
+
+            Keyboard keyboard = Keyboard.current;
+            return keyboard != null && keyboard.spaceKey.wasPressedThisFrame;
         }
 
         private Vector2 GetMouseWorldPosition()

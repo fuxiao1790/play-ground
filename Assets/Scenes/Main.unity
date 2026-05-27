@@ -14688,6 +14688,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1593919881}
     - target: {fileID: 2956451268465802523, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+      propertyPath: performSound
+      value: 
+      objectReference: {fileID: 8300000, guid: d6e5d5d95af56d744b2ba01ac9753b3f, type: 3}
+    - target: {fileID: 2956451268465802523, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: projectileRoot
       value: 
       objectReference: {fileID: 310291308}

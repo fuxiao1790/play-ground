@@ -1,6 +1,7 @@
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 
 namespace PlayGround.System.Projectile
 {
@@ -10,15 +11,21 @@ namespace PlayGround.System.Projectile
     {
         public void OnUpdate(ref SystemState state)
         {
-            EndSimulationEntityCommandBufferSystem.Singleton ecbSingleton =
-                SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+            var pendingHits = new NativeQueue<ProjectilePendingHit>(Allocator.TempJob);
             var job = new ProjectileCollisionJob
             {
                 Targets = SystemAPI.GetBufferLookup<ProjectileTargetElement>(true),
-                CommandBuffer = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged).AsParallelWriter()
+                PendingHits = pendingHits.AsParallelWriter()
             };
 
-            state.Dependency = job.ScheduleParallel(state.Dependency);
+            var collisionHandle = job.ScheduleParallel(state.Dependency);
+            var flushHandle = new ProjectileHitFlushJob
+            {
+                PendingHits = pendingHits,
+                Hits = SystemAPI.GetBufferLookup<ProjectileHitElement>()
+            }.Schedule(collisionHandle);
+
+            state.Dependency = pendingHits.Dispose(flushHandle);
         }
 
         [BurstCompile]
@@ -26,10 +33,9 @@ namespace PlayGround.System.Projectile
         private partial struct ProjectileCollisionJob : IJobEntity
         {
             [ReadOnly] public BufferLookup<ProjectileTargetElement> Targets;
-            public EntityCommandBuffer.ParallelWriter CommandBuffer;
+            public NativeQueue<ProjectilePendingHit>.ParallelWriter PendingHits;
 
             private void Execute(
-                [ChunkIndexInQuery] int chunkIndex,
                 ref ProjectileComponent projectile,
                 EnabledRefRW<ProjectileActiveTag> active,
                 DynamicBuffer<ProjectileContactGateElement> contactGates)
@@ -61,8 +67,9 @@ namespace PlayGround.System.Projectile
                     }
 
                     uint order = ProjectileEventOrder.ForProjectileTarget(projectile.ProjectileId, target.TargetId);
-                    CommandBuffer.AppendToBuffer((int)order, projectile.Scope, new ProjectileHitElement
+                    PendingHits.Enqueue(new ProjectilePendingHit
                     {
+                        Scope = projectile.Scope,
                         ProjectileId = projectile.ProjectileId,
                         ProjectileTypeId = projectile.TypeId,
                         TargetId = target.TargetId,
@@ -132,6 +139,35 @@ namespace PlayGround.System.Projectile
                     TargetId = targetId,
                     CooldownRemaining = cooldownSeconds
                 });
+            }
+        }
+
+        [BurstCompile]
+        private struct ProjectileHitFlushJob : IJob
+        {
+            public NativeQueue<ProjectilePendingHit> PendingHits;
+            public BufferLookup<ProjectileHitElement> Hits;
+
+            public void Execute()
+            {
+                while (PendingHits.TryDequeue(out ProjectilePendingHit pending))
+                {
+                    if (pending.Scope == Entity.Null || !Hits.HasBuffer(pending.Scope))
+                    {
+                        continue;
+                    }
+
+                    Hits[pending.Scope].Add(new ProjectileHitElement
+                    {
+                        ProjectileId = pending.ProjectileId,
+                        ProjectileTypeId = pending.ProjectileTypeId,
+                        TargetId = pending.TargetId,
+                        Position = pending.Position,
+                        DamageAmount = pending.DamageAmount,
+                        DirectDamageEnabled = pending.DirectDamageEnabled,
+                        Order = pending.Order
+                    });
+                }
             }
         }
     }

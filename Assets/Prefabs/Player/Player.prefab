@@ -340,7 +340,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4459914088298401000, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
       propertyPath: m_TagString
-      value: PlayerProjectileRoot
+      value: Untagged
       objectReference: {fileID: 0}
     - target: {fileID: 4459914088298401001, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
       propertyPath: m_LocalPosition.x
