@@ -685,9 +685,11 @@ namespace PlayGround.System.Projectile
             }
 
             DynamicBuffer<ProjectileRenderElement> renderBuffer = entityManager.GetBuffer<ProjectileRenderElement>(scopeEntity);
+            NativeArray<ProjectileRenderElement> instances = renderBuffer.AsNativeArray();
             ProjectileRenderResources resources = null;
             int currentTypeId = int.MinValue;
             int batchCount = 0;
+            int batchStart = 0;
             for (int i = 0; i < renderBuffer.Length; i++)
             {
                 ProjectileRenderElement renderElement = renderBuffer[i];
@@ -695,45 +697,86 @@ namespace PlayGround.System.Projectile
                 {
                     if (batchCount > 0 && resources != null)
                     {
-                        DrawBatch(batchCount, resources);
+                        SubmitBatch(instances, batchStart, batchCount, resources);
                     }
 
                     currentTypeId = renderElement.TypeId;
                     batchCount = 0;
+                    batchStart = i;
                     renderResourcesByType.TryGetValue(currentTypeId, out resources);
                 }
 
                 if (resources == null)
                 {
+                    batchStart = i + 1;
                     continue;
                 }
 
-                resources.Batch[batchCount++] = ToMatrix4x4(renderElement.Matrix);
+                batchCount++;
                 if (batchCount == MaxInstancesPerDraw)
                 {
-                    DrawBatch(batchCount, resources);
+                    SubmitBatch(instances, batchStart, batchCount, resources);
+                    batchStart = i + 1;
                     batchCount = 0;
                 }
             }
 
             if (batchCount > 0 && resources != null)
             {
-                DrawBatch(batchCount, resources);
+                SubmitBatch(instances, batchStart, batchCount, resources);
             }
         }
 
-        private void DrawBatch(int batchCount, ProjectileRenderResources resources)
+        private void SubmitBatch(
+            NativeArray<ProjectileRenderElement> instances,
+            int startInstance,
+            int instanceCount,
+            ProjectileRenderResources resources)
         {
-            Graphics.DrawMeshInstanced(
+            var renderParams = new RenderParams(resources.Material)
+            {
+                matProps = resources.Properties,
+                shadowCastingMode = ShadowCastingMode.Off,
+                receiveShadows = false,
+                layer = gameObject.layer,
+                worldBounds = BuildBatchBounds(instances, startInstance, instanceCount, resources.Mesh.bounds)
+            };
+            Graphics.RenderMeshInstanced(
+                renderParams,
                 resources.Mesh,
                 0,
-                resources.Material,
-                resources.Batch,
-                batchCount,
-                resources.Properties,
-                ShadowCastingMode.Off,
-                false,
-                gameObject.layer);
+                instances,
+                instanceCount,
+                startInstance);
+        }
+
+        private static Bounds BuildBatchBounds(
+            NativeArray<ProjectileRenderElement> instances,
+            int startInstance,
+            int instanceCount,
+            Bounds meshBounds)
+        {
+            Vector3 min = new(float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity);
+            Vector3 max = new(float.NegativeInfinity, float.NegativeInfinity, float.NegativeInfinity);
+            Vector3 localExtents = meshBounds.extents;
+
+            int endInstance = startInstance + instanceCount;
+            for (int i = startInstance; i < endInstance; i++)
+            {
+                Matrix4x4 matrix = instances[i].objectToWorld;
+                Vector3 center = new(matrix.m03, matrix.m13, matrix.m23);
+                Vector3 extents = new(
+                    Mathf.Abs(matrix.m00) * localExtents.x + Mathf.Abs(matrix.m01) * localExtents.y + Mathf.Abs(matrix.m02) * localExtents.z,
+                    Mathf.Abs(matrix.m10) * localExtents.x + Mathf.Abs(matrix.m11) * localExtents.y + Mathf.Abs(matrix.m12) * localExtents.z,
+                    Mathf.Abs(matrix.m20) * localExtents.x + Mathf.Abs(matrix.m21) * localExtents.y + Mathf.Abs(matrix.m22) * localExtents.z);
+
+                min = Vector3.Min(min, center - extents);
+                max = Vector3.Max(max, center + extents);
+            }
+
+            Bounds bounds = new();
+            bounds.SetMinMax(min, max);
+            return bounds;
         }
 
         private int CountRootProjectiles()
@@ -770,29 +813,6 @@ namespace PlayGround.System.Projectile
             }
 
             return count;
-        }
-
-        private static Matrix4x4 ToMatrix4x4(float4x4 matrix)
-        {
-            return new Matrix4x4
-            {
-                m00 = matrix.c0.x,
-                m01 = matrix.c1.x,
-                m02 = matrix.c2.x,
-                m03 = matrix.c3.x,
-                m10 = matrix.c0.y,
-                m11 = matrix.c1.y,
-                m12 = matrix.c2.y,
-                m13 = matrix.c3.y,
-                m20 = matrix.c0.z,
-                m21 = matrix.c1.z,
-                m22 = matrix.c2.z,
-                m23 = matrix.c3.z,
-                m30 = matrix.c0.w,
-                m31 = matrix.c1.w,
-                m32 = matrix.c2.w,
-                m33 = matrix.c3.w
-            };
         }
 
         private static float DeterministicJitter(int projectileId, float maxOffsetSeconds)
@@ -863,7 +883,6 @@ namespace PlayGround.System.Projectile
                 math.sincos(math.radians(visualRotationDegrees), out float visualRotationSin, out float visualRotationCos);
                 VisualRotationSin = visualRotationSin;
                 VisualRotationCos = visualRotationCos;
-                Batch = new Matrix4x4[MaxInstancesPerDraw];
             }
 
             public Mesh Mesh { get; }
@@ -872,8 +891,6 @@ namespace PlayGround.System.Projectile
             public float VisualScale { get; }
             public float VisualRotationSin { get; }
             public float VisualRotationCos { get; }
-            public Matrix4x4[] Batch { get; }
-            public int BatchCount { get; set; }
 
             public void Destroy()
             {

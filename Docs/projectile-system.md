@@ -285,8 +285,9 @@ Current rendering keeps Unity object access outside ECS simulation. The
 presentation-stage `ProjectileRenderPrepareSystem` scans active projectile
 entities, builds plain render matrices, and writes type-grouped instance data to
 the scope render buffer component. `ProjectileRoot` submits those already grouped
-instance buffers in `LateUpdate`. Render type definitions can point a projectile
-type id at a sprite and visual scale.
+instance buffers in `LateUpdate` through `Graphics.RenderMeshInstanced`, avoiding
+per-instance managed matrix copies. Render type definitions can point a
+projectile type id at a sprite and visual scale.
 
 Keep rendering outside projectile simulation systems.
 

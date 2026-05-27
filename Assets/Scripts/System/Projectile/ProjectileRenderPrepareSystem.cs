@@ -3,6 +3,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace PlayGround.System.Projectile
 {
@@ -89,11 +90,25 @@ namespace PlayGround.System.Projectile
                 PendingRender.Add(projectile.TypeId, new ProjectilePendingRender
                 {
                     Scope = projectile.Scope,
-                    Matrix = new float4x4(
-                        new float4(rightX, rightY, 0f, 0f),
-                        new float4(upX, upY, 0f, 0f),
-                        new float4(0f, 0f, scale, 0f),
-                        new float4(projectile.Position.x, projectile.Position.y, ProjectileRenderZ, 1f))
+                    objectToWorld = new Matrix4x4
+                    {
+                        m00 = rightX,
+                        m01 = upX,
+                        m02 = 0f,
+                        m03 = projectile.Position.x,
+                        m10 = rightY,
+                        m11 = upY,
+                        m12 = 0f,
+                        m13 = projectile.Position.y,
+                        m20 = 0f,
+                        m21 = 0f,
+                        m22 = scale,
+                        m23 = ProjectileRenderZ,
+                        m30 = 0f,
+                        m31 = 0f,
+                        m32 = 0f,
+                        m33 = 1f
+                    }
                 });
             }
         }
@@ -132,7 +147,7 @@ namespace PlayGround.System.Projectile
                         RenderBuffers[pending.Scope].Add(new ProjectileRenderElement
                         {
                             TypeId = typeId,
-                            Matrix = pending.Matrix
+                            objectToWorld = pending.objectToWorld
                         });
                     }
                     while (PendingRender.TryGetNextValue(out pending, ref iterator));

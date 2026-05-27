@@ -1,5 +1,6 @@
 using Unity.Entities;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace PlayGround.System.Projectile
 {
@@ -78,8 +79,8 @@ namespace PlayGround.System.Projectile
 
     public struct ProjectileRenderElement : IBufferElementData
     {
+        public Matrix4x4 objectToWorld;
         public int TypeId;
-        public float4x4 Matrix;
     }
 
     public struct ProjectileContactGateElement : IBufferElementData
@@ -124,6 +125,6 @@ namespace PlayGround.System.Projectile
     public struct ProjectilePendingRender
     {
         public Entity Scope;
-        public float4x4 Matrix;
+        public Matrix4x4 objectToWorld;
     }
 }
