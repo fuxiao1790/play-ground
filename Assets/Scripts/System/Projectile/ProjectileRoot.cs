@@ -27,6 +27,9 @@ namespace PlayGround.System.Projectile
         [SerializeField] private string targetTag;
         [SerializeField] private BasicAttackPrefab[] projectileTemplates = global::System.Array.Empty<BasicAttackPrefab>();
         [SerializeField] private ProjectileRenderDefinition[] renderTypes = global::System.Array.Empty<ProjectileRenderDefinition>();
+        [SerializeField, Tooltip("Half-extent used for the batch world bounds. Increase to avoid GPU culling; decrease for tighter culling.")]
+        [Min(0f)]
+        private float batchBoundsHalfExtent = 100000f;
 
         private readonly ProjectileTargetRegistry targetRegistry = new();
         private readonly Dictionary<int, IProjectileTarget> targetsById = new();
@@ -735,50 +738,20 @@ namespace PlayGround.System.Projectile
             int instanceCount,
             ProjectileRenderResources resources)
         {
-            var renderParams = new RenderParams(resources.Material)
-            {
-                matProps = resources.Properties,
-                shadowCastingMode = ShadowCastingMode.Off,
-                receiveShadows = false,
-                layer = gameObject.layer,
-                worldBounds = BuildBatchBounds(instances, startInstance, instanceCount, resources.Mesh.bounds)
-            };
             Graphics.RenderMeshInstanced(
-                renderParams,
+                new RenderParams(resources.Material)
+                {
+                    matProps = resources.Properties,
+                    shadowCastingMode = ShadowCastingMode.Off,
+                    receiveShadows = false,
+                    layer = gameObject.layer,
+                    worldBounds = new Bounds(Vector3.zero, new Vector3(batchBoundsHalfExtent, batchBoundsHalfExtent, batchBoundsHalfExtent) * 2f)
+                },
                 resources.Mesh,
                 0,
                 instances,
                 instanceCount,
                 startInstance);
-        }
-
-        private static Bounds BuildBatchBounds(
-            NativeArray<ProjectileRenderElement> instances,
-            int startInstance,
-            int instanceCount,
-            Bounds meshBounds)
-        {
-            Vector3 min = new(float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity);
-            Vector3 max = new(float.NegativeInfinity, float.NegativeInfinity, float.NegativeInfinity);
-            Vector3 localExtents = meshBounds.extents;
-
-            int endInstance = startInstance + instanceCount;
-            for (int i = startInstance; i < endInstance; i++)
-            {
-                Matrix4x4 matrix = instances[i].objectToWorld;
-                Vector3 center = new(matrix.m03, matrix.m13, matrix.m23);
-                Vector3 extents = new(
-                    Mathf.Abs(matrix.m00) * localExtents.x + Mathf.Abs(matrix.m01) * localExtents.y + Mathf.Abs(matrix.m02) * localExtents.z,
-                    Mathf.Abs(matrix.m10) * localExtents.x + Mathf.Abs(matrix.m11) * localExtents.y + Mathf.Abs(matrix.m12) * localExtents.z,
-                    Mathf.Abs(matrix.m20) * localExtents.x + Mathf.Abs(matrix.m21) * localExtents.y + Mathf.Abs(matrix.m22) * localExtents.z);
-
-                min = Vector3.Min(min, center - extents);
-                max = Vector3.Max(max, center + extents);
-            }
-
-            Bounds bounds = new();
-            bounds.SetMinMax(min, max);
-            return bounds;
         }
 
         private int CountRootProjectiles()
