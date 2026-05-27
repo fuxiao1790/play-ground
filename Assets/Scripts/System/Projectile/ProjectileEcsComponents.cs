@@ -33,6 +33,15 @@ namespace PlayGround.System.Projectile
         public int ChildSpawnTickIndex;
     }
 
+    public struct ProjectileRenderComponent : IComponentData
+    {
+        public int IsRenderable;
+        public float VisualScale;
+        public float VisualRotationSin;
+        public float VisualRotationCos;
+        public float4x4 PreparedMatrix;
+    }
+
     public struct ProjectileTargetElement : IBufferElementData
     {
         public int TargetId;

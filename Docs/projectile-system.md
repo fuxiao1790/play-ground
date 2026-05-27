@@ -281,9 +281,11 @@ Start with a batched renderer by projectile type. Pooled prefab visuals may
 exist as a low-count fallback or debug path, but they are not enough for the
 projectile proof of concept and must not be the default path.
 
-Current `ProjectileRoot` keeps rendering outside ECS simulation and submits
-instanced draw batches grouped by projectile type id. Render type definitions
-can point a projectile type id at a sprite and visual scale.
+Current rendering keeps Unity object access outside ECS simulation. The
+presentation-stage `ProjectileRenderPrepareSystem` builds plain render matrices
+into each active projectile's render component, and `ProjectileRoot` submits
+instanced draw batches from that prepared component data in `LateUpdate`. Render
+type definitions can point a projectile type id at a sprite and visual scale.
 
 Keep rendering outside projectile simulation systems.
 

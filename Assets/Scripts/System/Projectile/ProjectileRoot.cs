@@ -14,11 +14,10 @@ namespace PlayGround.System.Projectile
     public sealed class ProjectileRoot : MonoBehaviour
     {
         private const int MaxInstancesPerDraw = 1023;
-        private const float ProjectileRenderZ = -0.25f;
         private const int ProjectileRenderQueue = (int)RenderQueue.Transparent + 50;
         private static readonly ProfilerMarker DrainHitsProfilerMarker = new("ProjectileRoot.DrainHits");
         private static readonly ProfilerMarker DrainChildSpawnRequestsProfilerMarker = new("ProjectileRoot.DrainChildSpawnRequests");
-        private static readonly ProfilerMarker DrawProjectilesProfilerMarker = new("ProjectileRoot.DrawProjectiles");
+        private static readonly ProfilerMarker SubmitProjectilesProfilerMarker = new("ProjectileRoot.SubmitProjectiles");
         private static readonly ProfilerMarker ReplayProjectileHitEventsProfilerMarker = new("ProjectileRoot.ReplayProjectileHitEvents");
         private static readonly ProfilerMarker StepSimulationProfilerMarker = new("ProjectileRoot.StepSimulation");
 
@@ -106,9 +105,9 @@ namespace PlayGround.System.Projectile
                 DrainChildSpawnRequests();
             }
 
-            using (DrawProjectilesProfilerMarker.Auto())
+            using (SubmitProjectilesProfilerMarker.Auto())
             {
-                DrawProjectiles();
+                SubmitProjectiles();
             }
         }
 
@@ -274,6 +273,7 @@ namespace PlayGround.System.Projectile
                     : 0f,
                 ChildSpawnTickIndex = 0
             });
+            entityManager.SetComponentData(entity, RenderComponentFor(command.ProjectileTypeId));
             entityManager.SetComponentEnabled<ProjectileActiveTag>(entity, true);
             spawnedProjectiles++;
             return projectileId;
@@ -306,6 +306,7 @@ namespace PlayGround.System.Projectile
             entityManager = entityWorld.EntityManager;
             projectileArchetype = entityManager.CreateArchetype(
                 typeof(ProjectileComponent),
+                typeof(ProjectileRenderComponent),
                 typeof(ProjectileActiveTag),
                 typeof(ProjectileContactGateElement));
             scopeEntity = entityManager.CreateEntity(typeof(ProjectileScope));
@@ -314,6 +315,7 @@ namespace PlayGround.System.Projectile
             entityManager.AddBuffer<ProjectileChildSpawnRequestElement>(scopeEntity);
             projectileQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileComponent>(),
+                ComponentType.ReadOnly<ProjectileRenderComponent>(),
                 ComponentType.ReadOnly<ProjectileActiveTag>());
             allProjectileQuery = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileComponent>());
         }
@@ -524,6 +526,22 @@ namespace PlayGround.System.Projectile
             return new ProjectileRenderResources(mesh, material, properties, scale > 0f ? scale : visualScale, visualRotationDegrees);
         }
 
+        private ProjectileRenderComponent RenderComponentFor(int projectileTypeId)
+        {
+            if (!renderResourcesByType.TryGetValue(projectileTypeId, out ProjectileRenderResources resources))
+            {
+                return default;
+            }
+
+            return new ProjectileRenderComponent
+            {
+                IsRenderable = 1,
+                VisualScale = resources.VisualScale,
+                VisualRotationSin = resources.VisualRotationSin,
+                VisualRotationCos = resources.VisualRotationCos
+            };
+        }
+
         private void DestroyRenderResources()
         {
             foreach (KeyValuePair<int, ProjectileRenderResources> pair in renderResourcesByType)
@@ -658,7 +676,7 @@ namespace PlayGround.System.Projectile
             }
         }
 
-        private void DrawProjectiles()
+        private void SubmitProjectiles()
         {
             if (renderResourcesByType.Count == 0)
             {
@@ -667,18 +685,11 @@ namespace PlayGround.System.Projectile
 
             ComponentTypeHandle<ProjectileComponent> projectileTypeHandle =
                 entityManager.GetComponentTypeHandle<ProjectileComponent>(true);
+            ComponentTypeHandle<ProjectileRenderComponent> renderTypeHandle =
+                entityManager.GetComponentTypeHandle<ProjectileRenderComponent>(true);
             ComponentTypeHandle<ProjectileActiveTag> activeTypeHandle =
                 entityManager.GetComponentTypeHandle<ProjectileActiveTag>(true);
             using NativeArray<ArchetypeChunk> chunks = projectileQuery.ToArchetypeChunkArray(Allocator.Temp);
-            if (renderResourcesByType.Count == 1)
-            {
-                using Dictionary<int, ProjectileRenderResources>.Enumerator enumerator = renderResourcesByType.GetEnumerator();
-                enumerator.MoveNext();
-                KeyValuePair<int, ProjectileRenderResources> pair = enumerator.Current;
-                DrawSingleRenderType(chunks, ref projectileTypeHandle, ref activeTypeHandle, pair.Key, pair.Value);
-                return;
-            }
-
             foreach (KeyValuePair<int, ProjectileRenderResources> pair in renderResourcesByType)
             {
                 pair.Value.BatchCount = 0;
@@ -688,6 +699,7 @@ namespace PlayGround.System.Projectile
             {
                 ArchetypeChunk chunk = chunks[chunkIndex];
                 NativeArray<ProjectileComponent> projectiles = chunk.GetNativeArray(ref projectileTypeHandle);
+                NativeArray<ProjectileRenderComponent> renders = chunk.GetNativeArray(ref renderTypeHandle);
                 EnabledMask activeMask = chunk.GetEnabledMask(ref activeTypeHandle);
                 for (int i = 0; i < projectiles.Length; i++)
                 {
@@ -697,13 +709,15 @@ namespace PlayGround.System.Projectile
                     }
 
                     ProjectileComponent projectile = projectiles[i];
+                    ProjectileRenderComponent render = renders[i];
                     if (projectile.Scope != scopeEntity
+                        || render.IsRenderable == 0
                         || !renderResourcesByType.TryGetValue(projectile.TypeId, out ProjectileRenderResources resources))
                     {
                         continue;
                     }
 
-                    resources.Batch[resources.BatchCount++] = ProjectileMatrix(projectile, resources);
+                    resources.Batch[resources.BatchCount++] = ToMatrix4x4(render.PreparedMatrix);
                     if (resources.BatchCount == MaxInstancesPerDraw)
                     {
                         DrawBatch(resources.BatchCount, resources);
@@ -719,48 +733,6 @@ namespace PlayGround.System.Projectile
                 {
                     DrawBatch(resources.BatchCount, resources);
                 }
-            }
-
-        }
-
-        private void DrawSingleRenderType(
-            NativeArray<ArchetypeChunk> chunks,
-            ref ComponentTypeHandle<ProjectileComponent> projectileTypeHandle,
-            ref ComponentTypeHandle<ProjectileActiveTag> activeTypeHandle,
-            int typeId,
-            ProjectileRenderResources resources)
-        {
-            resources.BatchCount = 0;
-            for (int chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
-            {
-                ArchetypeChunk chunk = chunks[chunkIndex];
-                NativeArray<ProjectileComponent> projectiles = chunk.GetNativeArray(ref projectileTypeHandle);
-                EnabledMask activeMask = chunk.GetEnabledMask(ref activeTypeHandle);
-                for (int i = 0; i < projectiles.Length; i++)
-                {
-                    if (!activeMask.GetBit(i))
-                    {
-                        continue;
-                    }
-
-                    ProjectileComponent projectile = projectiles[i];
-                    if (projectile.Scope != scopeEntity || projectile.TypeId != typeId)
-                    {
-                        continue;
-                    }
-
-                    resources.Batch[resources.BatchCount++] = ProjectileMatrix(projectile, resources);
-                    if (resources.BatchCount == MaxInstancesPerDraw)
-                    {
-                        DrawBatch(resources.BatchCount, resources);
-                        resources.BatchCount = 0;
-                    }
-                }
-            }
-
-            if (resources.BatchCount > 0)
-            {
-                DrawBatch(resources.BatchCount, resources);
             }
         }
 
@@ -814,47 +786,27 @@ namespace PlayGround.System.Projectile
             return count;
         }
 
-        private static Matrix4x4 ProjectileMatrix(ProjectileComponent projectile, ProjectileRenderResources resources)
+        private static Matrix4x4 ToMatrix4x4(float4x4 matrix)
         {
-            float velocityLengthSquared = math.lengthsq(projectile.Velocity);
-            float directionX = 1f;
-            float directionY = 0f;
-            if (velocityLengthSquared > ProjectileSimulationConstants.MinimumDirectionLengthSquared)
+            return new Matrix4x4
             {
-                float inverseLength = math.rsqrt(velocityLengthSquared);
-                directionX = projectile.Velocity.x * inverseLength;
-                directionY = projectile.Velocity.y * inverseLength;
-            }
-
-            float cos = directionX * resources.VisualRotationCos - directionY * resources.VisualRotationSin;
-            float sin = directionX * resources.VisualRotationSin + directionY * resources.VisualRotationCos;
-
-            float scale = resources.VisualScale;
-            float rightX = cos * scale;
-            float rightY = sin * scale;
-            float upX = -sin * scale;
-            float upY = cos * scale;
-
-            var matrix = new Matrix4x4
-            {
-                m00 = rightX,
-                m01 = upX,
-                m02 = 0f,
-                m03 = projectile.Position.x,
-                m10 = rightY,
-                m11 = upY,
-                m12 = 0f,
-                m13 = projectile.Position.y,
-                m20 = 0f,
-                m21 = 0f,
-                m22 = scale,
-                m23 = ProjectileRenderZ,
-                m30 = 0f,
-                m31 = 0f,
-                m32 = 0f,
-                m33 = 1f
+                m00 = matrix.c0.x,
+                m01 = matrix.c1.x,
+                m02 = matrix.c2.x,
+                m03 = matrix.c3.x,
+                m10 = matrix.c0.y,
+                m11 = matrix.c1.y,
+                m12 = matrix.c2.y,
+                m13 = matrix.c3.y,
+                m20 = matrix.c0.z,
+                m21 = matrix.c1.z,
+                m22 = matrix.c2.z,
+                m23 = matrix.c3.z,
+                m30 = matrix.c0.w,
+                m31 = matrix.c1.w,
+                m32 = matrix.c2.w,
+                m33 = matrix.c3.w
             };
-            return matrix;
         }
 
         private static float DeterministicJitter(int projectileId, float maxOffsetSeconds)

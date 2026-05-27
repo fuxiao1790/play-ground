@@ -99,6 +99,9 @@ Create these as systems are ported:
   filtering, shape hit checks, pierce, and hit events
 - `Assets/Scripts/System/Projectile/ProjectileCollisionMath.cs`: pure
   circle/box/capsule narrow-phase math
+- `Assets/Scripts/System/Projectile/ProjectileRenderPrepareSystem.cs`:
+  presentation-stage render matrix preparation for scoped projectile draw
+  submission
 
 ## Old Scene Reference Folders
 
