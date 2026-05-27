@@ -1,3 +1,4 @@
+using PlayGround.Audio;
 using PlayGround.Common;
 using PlayGround.System.Aoe;
 using UnityEngine;
@@ -8,7 +9,7 @@ namespace PlayGround.Attack
     {
         [SerializeField] private AoeRoot aoeRoot;
         [SerializeField] private AudioClip performSound;
-        [SerializeField] private AudioSource audioSource;
+        [SerializeField] private AudioManager audioManager;
         [SerializeField] private int aoeTypeId;
         [SerializeField] private float recoverySeconds = 0.25f;
         [SerializeField] private float damage = 1f;
@@ -32,6 +33,7 @@ namespace PlayGround.Attack
                 throw new MissingReferenceException($"{nameof(AoeAttack)} on {name} needs an AOE root.");
             }
 
+            audioManager ??= AudioManager.Instance != null ? AudioManager.Instance : FindAnyObjectByType<AudioManager>();
             deterministicSeed = gameObject.GetHashCode();
         }
 
@@ -119,13 +121,12 @@ namespace PlayGround.Attack
 
         private void PlayPerformSound(Vector2 worldPosition)
         {
-            if (performSound == null || audioSource == null)
+            if (performSound == null || audioManager == null)
             {
                 return;
             }
 
-            audioSource.transform.position = worldPosition;
-            audioSource.PlayOneShot(performSound);
+            audioManager.PlaySound(performSound, worldPosition);
         }
     }
 }

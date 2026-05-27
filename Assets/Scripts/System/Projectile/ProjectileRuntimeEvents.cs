@@ -65,17 +65,13 @@ namespace PlayGround.System.Projectile
             int spawnedProjectiles,
             int despawnedProjectiles,
             int hitEvents,
-            int childSpawnRequests,
-            float simulationMilliseconds,
-            float renderMilliseconds)
+            int childSpawnRequests)
         {
             ActiveProjectiles = activeProjectiles;
             SpawnedProjectiles = spawnedProjectiles;
             DespawnedProjectiles = despawnedProjectiles;
             HitEvents = hitEvents;
             ChildSpawnRequests = childSpawnRequests;
-            SimulationMilliseconds = simulationMilliseconds;
-            RenderMilliseconds = renderMilliseconds;
         }
 
         public int ActiveProjectiles { get; }
@@ -83,7 +79,5 @@ namespace PlayGround.System.Projectile
         public int DespawnedProjectiles { get; }
         public int HitEvents { get; }
         public int ChildSpawnRequests { get; }
-        public float SimulationMilliseconds { get; }
-        public float RenderMilliseconds { get; }
     }
 }

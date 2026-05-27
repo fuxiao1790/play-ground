@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 4459914088298401001}
   - component: {fileID: 4459914088298401002}
   m_Layer: 0
-  m_Name: BasicProjectileAttack
+  m_Name: BasicProjectileAttackYellow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -46,8 +46,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.ProjectileAttack
   projectileRoot: {fileID: 0}
   recoverySeconds: 0.15
-  performSound: {fileID: 0}
-  audioSource: {fileID: 0}
+  performSound: {fileID: 8300000, guid: d6e5d5d95af56d744b2ba01ac9753b3f, type: 3}
+  audioManager: {fileID: 0}
   aoeRoot: {fileID: 0}
   basicPrefab: {fileID: 1001001001001001004, guid: 071728db48e762a4683ee17177b48aaa, type: 3}
   childBasicPrefab: {fileID: 1001001001001001004, guid: 071728db48e762a4683ee17177b48aaa, type: 3}
@@ -56,13 +56,13 @@ MonoBehaviour:
   projectileSpeed: 16
   projectileLifetime: 1.5
   projectileDamage: 10
-  projectileCount: 1
-  spreadDegrees: 0
-  jitterDegrees: 0
+  projectileCount: 5
+  spreadDegrees: 10
+  jitterDegrees: 5
   targetMask: 1
   pierceCount: 0
   repeatHitCooldownSeconds: 0
-  trackingEnabled: 0
+  trackingEnabled: 1
   trackingRange: 150
   trackingTurnSpeedDegrees: 360
   trackingQueryIntervalSeconds: 0.25
@@ -72,7 +72,7 @@ MonoBehaviour:
   impactAoeDamage: 1
   impactAoeLifetimeSeconds: 0
   impactAoeTickIntervalSeconds: 0
-  childProjectileCount: 10
+  childProjectileCount: 40
   childSpawnIntervalSeconds: 0.15
   childSpawnIntervalJitterSeconds: 0.1
   childSpawnPattern: {fileID: 0}

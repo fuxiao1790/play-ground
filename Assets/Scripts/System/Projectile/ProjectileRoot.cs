@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Diagnostics;
 using PlayGround.Attack;
 using PlayGround.Common;
 using Unity.Collections;
@@ -21,6 +20,7 @@ namespace PlayGround.System.Projectile
         private static readonly ProfilerMarker DrainChildSpawnRequestsProfilerMarker = new("ProjectileRoot.DrainChildSpawnRequests");
         private static readonly ProfilerMarker DrawProjectilesProfilerMarker = new("ProjectileRoot.DrawProjectiles");
         private static readonly ProfilerMarker ReplayProjectileHitEventsProfilerMarker = new("ProjectileRoot.ReplayProjectileHitEvents");
+        private static readonly ProfilerMarker StepSimulationProfilerMarker = new("ProjectileRoot.StepSimulation");
 
         [SerializeField] private Sprite projectileSprite;
         [SerializeField] private float visualScale = 1f;
@@ -35,8 +35,6 @@ namespace PlayGround.System.Projectile
         private readonly Dictionary<int, ProjectileRenderResources> renderResourcesByType = new();
         private readonly List<ProjectileHitReplay> pendingHits = new();
         private readonly List<ProjectileChildSpawnReplay> pendingChildSpawnRequests = new();
-        private readonly Matrix4x4[] renderBatch = new Matrix4x4[MaxInstancesPerDraw];
-        private readonly Stopwatch stopwatch = new();
         private static readonly ProjectileHitReplayOrderComparer HitReplayOrderComparer = new();
         private static readonly ProjectileChildSpawnReplayOrderComparer ChildSpawnReplayOrderComparer = new();
 
@@ -46,17 +44,12 @@ namespace PlayGround.System.Projectile
         private EntityArchetype projectileArchetype;
         private EntityQuery projectileQuery;
         private EntityQuery allProjectileQuery;
-        private Mesh projectileMesh;
-        private Material projectileMaterial;
-        private MaterialPropertyBlock projectileProperties;
         private int nextProjectileId;
         private int nextTemplateTypeId = 1;
         private int spawnedProjectiles;
         private int despawnedProjectiles;
         private int hitEvents;
         private int childSpawnRequests;
-        private float simulationMilliseconds;
-        private float renderMilliseconds;
         private bool runtimeReady;
 
         public event global::System.Action<ProjectileHitContext> ProjectileHit;
@@ -70,9 +63,7 @@ namespace PlayGround.System.Projectile
             spawnedProjectiles,
             despawnedProjectiles,
             hitEvents,
-            childSpawnRequests,
-            simulationMilliseconds,
-            renderMilliseconds);
+            childSpawnRequests);
 
         private void Awake()
         {
@@ -143,15 +134,7 @@ namespace PlayGround.System.Projectile
             }
             runtimeReady = false;
 
-            if (projectileMaterial != null)
-            {
-                Destroy(projectileMaterial);
-            }
-
-            if (projectileMesh != null)
-            {
-                Destroy(projectileMesh);
-            }
+            DestroyRenderResources();
         }
 
         public void Configure(Sprite sprite)
@@ -300,10 +283,10 @@ namespace PlayGround.System.Projectile
         {
             EnsureRuntimeReady();
             SyncTargetsToEcs();
-            stopwatch.Restart();
-            World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<SimulationSystemGroup>().Update();
-            stopwatch.Stop();
-            simulationMilliseconds = (float)stopwatch.Elapsed.TotalMilliseconds;
+            using (StepSimulationProfilerMarker.Auto())
+            {
+                World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<SimulationSystemGroup>().Update();
+            }
             DrainHits();
             DrainChildSpawnRequests();
         }
@@ -494,18 +477,7 @@ namespace PlayGround.System.Projectile
             nextTemplateTypeId = 1;
             if (projectileSprite != null)
             {
-                projectileMesh = BuildProjectileMesh(projectileSprite);
-                Texture texture = projectileSprite.texture;
-                projectileMaterial = new Material(FindProjectileShader())
-                {
-                    mainTexture = texture,
-                    enableInstancing = true,
-                    renderQueue = ProjectileRenderQueue
-                };
-                ConfigureProjectileMaterial(projectileMaterial, texture);
-                projectileProperties = new MaterialPropertyBlock();
-                ConfigureProjectileProperties(projectileProperties, projectileMaterial, texture);
-                renderResourcesByType[0] = new ProjectileRenderResources(projectileMesh, projectileMaterial, projectileProperties, visualScale, 0f);
+                renderResourcesByType[0] = BuildRenderResourcesFor(projectileSprite, visualScale, 0f);
             }
 
             if (projectileTemplates != null)
@@ -550,6 +522,16 @@ namespace PlayGround.System.Projectile
             MaterialPropertyBlock properties = new();
             ConfigureProjectileProperties(properties, material, texture);
             return new ProjectileRenderResources(mesh, material, properties, scale > 0f ? scale : visualScale, visualRotationDegrees);
+        }
+
+        private void DestroyRenderResources()
+        {
+            foreach (KeyValuePair<int, ProjectileRenderResources> pair in renderResourcesByType)
+            {
+                pair.Value.Destroy();
+            }
+
+            renderResourcesByType.Clear();
         }
 
         private static Mesh BuildProjectileMesh(Sprite sprite)
@@ -683,52 +665,103 @@ namespace PlayGround.System.Projectile
                 return;
             }
 
-            stopwatch.Restart();
             ComponentTypeHandle<ProjectileComponent> projectileTypeHandle =
                 entityManager.GetComponentTypeHandle<ProjectileComponent>(true);
             ComponentTypeHandle<ProjectileActiveTag> activeTypeHandle =
                 entityManager.GetComponentTypeHandle<ProjectileActiveTag>(true);
             using NativeArray<ArchetypeChunk> chunks = projectileQuery.ToArchetypeChunkArray(Allocator.Temp);
+            if (renderResourcesByType.Count == 1)
+            {
+                using Dictionary<int, ProjectileRenderResources>.Enumerator enumerator = renderResourcesByType.GetEnumerator();
+                enumerator.MoveNext();
+                KeyValuePair<int, ProjectileRenderResources> pair = enumerator.Current;
+                DrawSingleRenderType(chunks, ref projectileTypeHandle, ref activeTypeHandle, pair.Key, pair.Value);
+                return;
+            }
+
             foreach (KeyValuePair<int, ProjectileRenderResources> pair in renderResourcesByType)
             {
-                int batchCount = 0;
-                for (int chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
+                pair.Value.BatchCount = 0;
+            }
+
+            for (int chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
+            {
+                ArchetypeChunk chunk = chunks[chunkIndex];
+                NativeArray<ProjectileComponent> projectiles = chunk.GetNativeArray(ref projectileTypeHandle);
+                EnabledMask activeMask = chunk.GetEnabledMask(ref activeTypeHandle);
+                for (int i = 0; i < projectiles.Length; i++)
                 {
-                    ArchetypeChunk chunk = chunks[chunkIndex];
-                    NativeArray<ProjectileComponent> projectiles = chunk.GetNativeArray(ref projectileTypeHandle);
-                    EnabledMask activeMask = chunk.GetEnabledMask(ref activeTypeHandle);
-                    for (int i = 0; i < projectiles.Length; i++)
+                    if (!activeMask.GetBit(i))
                     {
-                        if (!activeMask.GetBit(i))
-                        {
-                            continue;
-                        }
-
-                        ProjectileComponent projectile = projectiles[i];
-                        if (projectile.Scope != scopeEntity
-                            || projectile.TypeId != pair.Key)
-                        {
-                            continue;
-                        }
-
-                        renderBatch[batchCount++] = ProjectileMatrix(projectile, pair.Value);
-
-                        if (batchCount == MaxInstancesPerDraw)
-                        {
-                            DrawBatch(batchCount, pair.Value);
-                            batchCount = 0;
-                        }
+                        continue;
                     }
-                }
 
-                if (batchCount > 0)
-                {
-                    DrawBatch(batchCount, pair.Value);
+                    ProjectileComponent projectile = projectiles[i];
+                    if (projectile.Scope != scopeEntity
+                        || !renderResourcesByType.TryGetValue(projectile.TypeId, out ProjectileRenderResources resources))
+                    {
+                        continue;
+                    }
+
+                    resources.Batch[resources.BatchCount++] = ProjectileMatrix(projectile, resources);
+                    if (resources.BatchCount == MaxInstancesPerDraw)
+                    {
+                        DrawBatch(resources.BatchCount, resources);
+                        resources.BatchCount = 0;
+                    }
                 }
             }
 
-            stopwatch.Stop();
-            renderMilliseconds = (float)stopwatch.Elapsed.TotalMilliseconds;
+            foreach (KeyValuePair<int, ProjectileRenderResources> pair in renderResourcesByType)
+            {
+                ProjectileRenderResources resources = pair.Value;
+                if (resources.BatchCount > 0)
+                {
+                    DrawBatch(resources.BatchCount, resources);
+                }
+            }
+
+        }
+
+        private void DrawSingleRenderType(
+            NativeArray<ArchetypeChunk> chunks,
+            ref ComponentTypeHandle<ProjectileComponent> projectileTypeHandle,
+            ref ComponentTypeHandle<ProjectileActiveTag> activeTypeHandle,
+            int typeId,
+            ProjectileRenderResources resources)
+        {
+            resources.BatchCount = 0;
+            for (int chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
+            {
+                ArchetypeChunk chunk = chunks[chunkIndex];
+                NativeArray<ProjectileComponent> projectiles = chunk.GetNativeArray(ref projectileTypeHandle);
+                EnabledMask activeMask = chunk.GetEnabledMask(ref activeTypeHandle);
+                for (int i = 0; i < projectiles.Length; i++)
+                {
+                    if (!activeMask.GetBit(i))
+                    {
+                        continue;
+                    }
+
+                    ProjectileComponent projectile = projectiles[i];
+                    if (projectile.Scope != scopeEntity || projectile.TypeId != typeId)
+                    {
+                        continue;
+                    }
+
+                    resources.Batch[resources.BatchCount++] = ProjectileMatrix(projectile, resources);
+                    if (resources.BatchCount == MaxInstancesPerDraw)
+                    {
+                        DrawBatch(resources.BatchCount, resources);
+                        resources.BatchCount = 0;
+                    }
+                }
+            }
+
+            if (resources.BatchCount > 0)
+            {
+                DrawBatch(resources.BatchCount, resources);
+            }
         }
 
         private void DrawBatch(int batchCount, ProjectileRenderResources resources)
@@ -737,7 +770,7 @@ namespace PlayGround.System.Projectile
                 resources.Mesh,
                 0,
                 resources.Material,
-                renderBatch,
+                resources.Batch,
                 batchCount,
                 resources.Properties,
                 ShadowCastingMode.Off,
@@ -783,9 +816,18 @@ namespace PlayGround.System.Projectile
 
         private static Matrix4x4 ProjectileMatrix(ProjectileComponent projectile, ProjectileRenderResources resources)
         {
-            float angleRadians = math.atan2(projectile.Velocity.y, projectile.Velocity.x)
-                + math.radians(resources.VisualRotationDegrees);
-            math.sincos(angleRadians, out float sin, out float cos);
+            float velocityLengthSquared = math.lengthsq(projectile.Velocity);
+            float directionX = 1f;
+            float directionY = 0f;
+            if (velocityLengthSquared > ProjectileSimulationConstants.MinimumDirectionLengthSquared)
+            {
+                float inverseLength = math.rsqrt(velocityLengthSquared);
+                directionX = projectile.Velocity.x * inverseLength;
+                directionY = projectile.Velocity.y * inverseLength;
+            }
+
+            float cos = directionX * resources.VisualRotationCos - directionY * resources.VisualRotationSin;
+            float sin = directionX * resources.VisualRotationSin + directionY * resources.VisualRotationCos;
 
             float scale = resources.VisualScale;
             float rightX = cos * scale;
@@ -872,7 +914,7 @@ namespace PlayGround.System.Projectile
             public float VisualRotationDegrees => visualRotationDegrees;
         }
 
-        private readonly struct ProjectileRenderResources
+        private sealed class ProjectileRenderResources
         {
             public ProjectileRenderResources(Mesh mesh, Material material, MaterialPropertyBlock properties, float visualScale, float visualRotationDegrees)
             {
@@ -880,14 +922,33 @@ namespace PlayGround.System.Projectile
                 Material = material;
                 Properties = properties;
                 VisualScale = visualScale;
-                VisualRotationDegrees = visualRotationDegrees;
+                math.sincos(math.radians(visualRotationDegrees), out float visualRotationSin, out float visualRotationCos);
+                VisualRotationSin = visualRotationSin;
+                VisualRotationCos = visualRotationCos;
+                Batch = new Matrix4x4[MaxInstancesPerDraw];
             }
 
             public Mesh Mesh { get; }
             public Material Material { get; }
             public MaterialPropertyBlock Properties { get; }
             public float VisualScale { get; }
-            public float VisualRotationDegrees { get; }
+            public float VisualRotationSin { get; }
+            public float VisualRotationCos { get; }
+            public Matrix4x4[] Batch { get; }
+            public int BatchCount { get; set; }
+
+            public void Destroy()
+            {
+                if (Material != null)
+                {
+                    UnityEngine.Object.Destroy(Material);
+                }
+
+                if (Mesh != null)
+                {
+                    UnityEngine.Object.Destroy(Mesh);
+                }
+            }
         }
 
         private readonly struct ProjectileHitReplay

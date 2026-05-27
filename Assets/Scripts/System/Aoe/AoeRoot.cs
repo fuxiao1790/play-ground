@@ -1,13 +1,16 @@
 using System.Collections.Generic;
-using System.Diagnostics;
 using PlayGround.Attack;
 using PlayGround.Common;
+using Unity.Profiling;
 using UnityEngine;
 
 namespace PlayGround.System.Aoe
 {
     public sealed class AoeRoot : MonoBehaviour
     {
+        private static readonly ProfilerMarker StepProfilerMarker = new("AoeRoot.Step");
+        private static readonly ProfilerMarker DrainEventsProfilerMarker = new("AoeRoot.DrainEvents");
+
         [SerializeField] private AoeTypeDefinition[] aoeTypes = global::System.Array.Empty<AoeTypeDefinition>();
         [SerializeField] private int targetMask = 1;
         [SerializeField, Min(0)] private int maximumAoeCount = 10000;
@@ -20,14 +23,12 @@ namespace PlayGround.System.Aoe
         private readonly List<AoeDespawnedEvent> pendingDespawns = new();
         private readonly Dictionary<int, PooledVisual> activeVisualsByAoeId = new();
         private readonly Dictionary<int, Stack<GameObject>> visualPoolsByType = new();
-        private readonly Stopwatch stopwatch = new();
 
         private AoeTypeRegistry typeRegistry;
         private AoeTargetSync targetSync;
         private int spawnedAoes;
         private int despawnedAoes;
         private int hitEvents;
-        private float simulationMilliseconds;
 
         public event global::System.Action<AoeHitContext> AoeHit;
 
@@ -37,8 +38,7 @@ namespace PlayGround.System.Aoe
             spawnedAoes,
             despawnedAoes,
             hitEvents,
-            activeVisualsByAoeId.Count,
-            simulationMilliseconds);
+            activeVisualsByAoeId.Count);
 
         private void Awake()
         {
@@ -111,11 +111,15 @@ namespace PlayGround.System.Aoe
         {
             IReadOnlyList<AoeTargetSnapshot> snapshots = targetSync.Snapshot();
             world.SubmitTargets(snapshots);
-            stopwatch.Restart();
-            world.Step(deltaTime);
-            stopwatch.Stop();
-            simulationMilliseconds = (float)stopwatch.Elapsed.TotalMilliseconds;
-            DrainEvents();
+            using (StepProfilerMarker.Auto())
+            {
+                world.Step(deltaTime);
+            }
+
+            using (DrainEventsProfilerMarker.Auto())
+            {
+                DrainEvents();
+            }
         }
 
         private void DrainEvents()

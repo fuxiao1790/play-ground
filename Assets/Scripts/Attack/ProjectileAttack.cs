@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using PlayGround.Audio;
 using PlayGround.Common;
 using PlayGround.System.Aoe;
 using PlayGround.System.Projectile;
@@ -13,7 +14,7 @@ namespace PlayGround.Attack
         [SerializeField] private ProjectileRoot projectileRoot;
         [SerializeField] private float recoverySeconds = 0.15f;
         [SerializeField] private AudioClip performSound;
-        [SerializeField] private AudioSource audioSource;
+        [SerializeField] private AudioManager audioManager;
         [SerializeField] private AoeRoot aoeRoot;
         [SerializeField] private BasicAttackPrefab basicPrefab;
         [SerializeField] private BasicAttackPrefab childBasicPrefab;
@@ -66,6 +67,7 @@ namespace PlayGround.Attack
             }
 
             ValidateReferences();
+            audioManager ??= AudioManager.Instance != null ? AudioManager.Instance : FindAnyObjectByType<AudioManager>();
             hitEffects = GetComponentsInChildren<ProjectileHitEffect>(true);
             for (int i = 0; i < hitEffects.Length; i++)
             {
@@ -477,13 +479,12 @@ namespace PlayGround.Attack
 
         private void PlayPerformSound(Vector2 worldPosition)
         {
-            if (performSound == null || audioSource == null)
+            if (performSound == null || audioManager == null)
             {
                 return;
             }
 
-            audioSource.transform.position = worldPosition;
-            audioSource.PlayOneShot(performSound);
+            audioManager.PlaySound(performSound, worldPosition);
         }
 
         private ProjectileRoot FindProjectileRootForOwner()

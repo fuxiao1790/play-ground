@@ -1,5 +1,6 @@
 using System.IO;
 using PlayGround.Attack;
+using PlayGround.Audio;
 using PlayGround.CameraSystem;
 using PlayGround.Common;
 using PlayGround.Game;
@@ -51,6 +52,9 @@ namespace PlayGround.Editor
 
             GameObject gameRootObject = new("GameRoot");
             GameRoot gameRoot = gameRootObject.AddComponent<GameRoot>();
+
+            GameObject audioObject = new("AudioManager");
+            audioObject.AddComponent<AudioManager>();
 
             GameObject projectileObject = new("ProjectileRoot_PlayerToMob");
             ProjectileRoot projectileRoot = projectileObject.AddComponent<ProjectileRoot>();

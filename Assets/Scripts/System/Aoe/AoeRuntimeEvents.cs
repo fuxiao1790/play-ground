@@ -84,15 +84,13 @@ namespace PlayGround.System.Aoe
             int spawnedAoes,
             int despawnedAoes,
             int hitEvents,
-            int activeVisuals,
-            float simulationMilliseconds)
+            int activeVisuals)
         {
             ActiveAoes = activeAoes;
             SpawnedAoes = spawnedAoes;
             DespawnedAoes = despawnedAoes;
             HitEvents = hitEvents;
             ActiveVisuals = activeVisuals;
-            SimulationMilliseconds = simulationMilliseconds;
         }
 
         public int ActiveAoes { get; }
@@ -100,6 +98,5 @@ namespace PlayGround.System.Aoe
         public int DespawnedAoes { get; }
         public int HitEvents { get; }
         public int ActiveVisuals { get; }
-        public float SimulationMilliseconds { get; }
     }
 }
