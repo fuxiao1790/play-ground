@@ -206,6 +206,7 @@ MonoBehaviour:
   targetTag: 
   projectileTemplates: []
   renderTypes: []
+  batchBoundsHalfExtent: 100000
 --- !u!4 &135829713
 Transform:
   m_ObjectHideFlags: 0
@@ -311,6 +312,7 @@ MonoBehaviour:
   targetTag: 
   projectileTemplates: []
   renderTypes: []
+  batchBoundsHalfExtent: 100000
 --- !u!4 &310291309
 Transform:
   m_ObjectHideFlags: 0
@@ -1486,7 +1488,7 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1807457112}
-  m_Text: test
+  m_Text: 
   m_OffsetZ: 0
   m_CharacterSize: 1
   m_LineSpacing: 1

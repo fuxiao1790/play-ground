@@ -745,7 +745,9 @@ namespace PlayGround.System.Projectile
                     shadowCastingMode = ShadowCastingMode.Off,
                     receiveShadows = false,
                     layer = gameObject.layer,
-                    worldBounds = new Bounds(Vector3.zero, new Vector3(batchBoundsHalfExtent, batchBoundsHalfExtent, batchBoundsHalfExtent) * 2f)
+                    worldBounds = new Bounds(
+                        Vector3.zero, 
+                        new Vector3(batchBoundsHalfExtent, batchBoundsHalfExtent, batchBoundsHalfExtent) * 2f)
                 },
                 resources.Mesh,
                 0,
