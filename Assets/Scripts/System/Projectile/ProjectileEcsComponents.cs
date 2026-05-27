@@ -15,6 +15,8 @@ namespace PlayGround.System.Projectile
         public float Radius;
         public float2 HalfExtents;
         public float RotationRadians;
+        public float2 BoundsMin;
+        public float2 BoundsMax;
         public float RemainingLifetime;
         public float DamageAmount;
         public bool DirectDamageEnabled;
@@ -50,6 +52,8 @@ namespace PlayGround.System.Projectile
         public float Radius;
         public float2 HalfExtents;
         public float RotationRadians;
+        public float2 BoundsMin;
+        public float2 BoundsMax;
         public ProjectileShapeType ShapeType;
     }
 

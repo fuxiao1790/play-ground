@@ -190,9 +190,9 @@ land in the narrow system that owns that behavior:
 - `ProjectileChildSpawnSystem`: timed child projectile spawn request events
 - `ProjectileLifetimeSystem`: lifetime countdown and disabling expired active state
 - `ProjectileContactGateSystem`: repeat-hit gate cooldown expiry
-- `ProjectileCollisionSystem`: target mask filtering, shape hit checks, pierce count, contact gate creation, and ordered hit events
-- `ProjectileRoot`: scoped Unity bridge, event replay, render submission, and teardown-only destruction
-- `ProjectileCollisionMath`: pure narrow-phase shape math only
+- `ProjectileCollisionSystem`: spatial-hash broad phase, target AABB filtering, target mask filtering, shape hit checks, pierce count, contact gate creation, and ordered hit events
+- `ProjectileRoot`: scoped Unity bridge, target/projectile bounds setup, event replay, render submission, and teardown-only destruction
+- `ProjectileCollisionMath`: pure bounds and narrow-phase shape math
 
 Do not merge these stages back into one large projectile system. Shared data
 belongs in `ProjectileEcsComponents`; small cross-stage constants or ordering
@@ -226,9 +226,10 @@ Narrow phase should cover:
 - rectangle-capsule
 - capsule-capsule
 
-`ProjectileCollisionSystem` performs mask and gate filtering, then delegates
-narrow-phase checks to `ProjectileCollisionMath`. It does not read Unity
-colliders or call Physics2D.
+`ProjectileCollisionSystem` builds a per-scope spatial hash from target bounds,
+rejects projectiles that overlap no occupied target cells, applies target AABB
+checks, then delegates narrow-phase checks to `ProjectileCollisionMath`. It does
+not read Unity colliders or call Physics2D.
 
 ## Damage
 
@@ -302,7 +303,7 @@ Port in this order:
 2. Add projectile authoring fields for tracking, pierce, child spawns, and type ids
 3. Add player-to-mob and mob-to-player smoke tests for the expanded runtime
 4. Add projectile stress scene and counters to measure high-scale batches
-5. Add broad-phase acceleration only when profiling shows the simple target loop is the bottleneck
+5. Tune broad-phase cell sizing and add an AABB tree only if profiling shows the current spatial-hash path is the bottleneck
 6. Keep adding Burst-compatible jobs for hot projectile stages where managed merge steps are not required
 7. Add pooled/debug visual adapter only if useful for authoring or low-count cases
 
@@ -314,7 +315,7 @@ This section documents how the current Unity implementation aligns with this des
 - **Boundary rule:** The implementation follows the bridge pattern: the root reads scene objects and snapshots targets, ECS systems run on plain data and do not touch GameObjects or call `Physics2D` (see `ProjectileRoot.cs` and the simulation systems under `Assets/Scripts/System/Projectile/`).
 - **Frame flow & systems:** Systems implement the staged pipeline described in this doc: `ProjectileSimulationSystem`, `ProjectileTrackingSystem`, `ProjectileMovementSystem`, `ProjectileChildSpawnSystem`, `ProjectileLifetimeSystem`, `ProjectileContactGateSystem`, `ProjectileCollisionSystem`, and `ProjectileRenderPrepareSystem` (see the corresponding source files in `Assets/Scripts/System/Projectile/`).
 - **Data layout & events:** ECS components and buffer elements (`ProjectileComponent`, `ProjectileTargetElement`, hit/child/render buffers) match the documented layout. Hits and child-spawn requests are written into scope buffers and replayed by `ProjectileRoot` via `ProjectileHit` and `ChildSpawnRequested` events (`Assets/Scripts/System/Projectile/ProjectileEcsComponents.cs`, `ProjectileRuntimeEvents.cs`, `ProjectileSpawnCommand.cs`).
-- **Collision shapes & math:** Circle, rectangle (box), and capsule shapes are supported and narrow-phase math is implemented in `ProjectileCollisionMath.cs`.
+- **Collision shapes & math:** Circle, rectangle (box), and capsule shapes are supported. Projectile and target AABB bounds are cached in ECS data, spatial-hash broad phase runs in `ProjectileCollisionSystem.cs`, and bounds/narrow-phase math is implemented in `ProjectileCollisionMath.cs`.
 - **Pierce & contact gates:** Contact gates are per-projectile buffer elements and are added/refreshed by the collision system and expired by `ProjectileContactGateSystem`.
 - **Tracking & steering:** Full tracking support exists with query intervals, reacquire logic, and steering that preserves projectile speed (`ProjectileTrackingSystem.cs`).
 - **Rendering:** Batched instanced rendering is implemented: `ProjectileRenderPrepareSystem` groups instance matrices and `ProjectileRoot` submits via `Graphics.RenderMeshInstanced` using built `ProjectileRenderResources`.
@@ -323,7 +324,7 @@ This section documents how the current Unity implementation aligns with this des
 
 - **Prefab "baking":** The doc describes baking prefab collider and render data. The implementation performs template registration and builds render resources at runtime via `RegisterTemplate` / `BuildRenderResources` inside `ProjectileRoot` rather than a separate offline/bake pipeline. This achieves the intent but is runtime-driven.
 - **Damage snapshot shape:** The runtime carries a `DamageSnapshot` value recorded on spawn; current buffer fields pass a float `DamageAmount`. If you intended a richer typed snapshot, inspect `PlayGround.Common.DamageSnapshot` and extend the buffer payloads accordingly.
-- **Broad-phase acceleration:** The current implementation uses a simple target list (the `ProjectileTargetRegistry`) and per-scope target buffers. Spatial-hash or AABB trees are not present yet — this matches the doc's plan to add broad-phase acceleration later when profiling justifies it.
+- **Broad-phase acceleration:** The implementation uses per-scope target buffers plus a fixed-size spatial hash over target AABBs. An AABB tree is not present; add it only if profiling shows the hash plus bounds filter is insufficient.
 - **Impact AOE / hit effects:** The system exposes child-spawn requests and hit events; AOE or complex hit reactions are implemented outside the core collision math by listening to `ProjectileHit` and `ChildSpawnRequested`. This matches the intent (adapter-side effects) rather than embedding AOE logic inside collision systems.
 - **Stress tests:** Runtime counters are present (`ProjectileRoot.Counters`) but no dedicated stress-test scene was found in this directory; adding a stress scene and counters visualization remains a future task.
 
@@ -341,5 +342,3 @@ This section documents how the current Unity implementation aligns with this des
 - `Assets/Scripts/System/Projectile/ProjectileCollisionMath.cs`
 - `Assets/Scripts/System/Projectile/ProjectileRenderPrepareSystem.cs`
 - `Assets/Scripts/System/Projectile/ProjectileTargetShapeUtility.cs`
-
-If you want, I can: (1) change the doc wording further to require runtime baking or (2) add a short checklist for missing tasks (stress scene, broad-phase, richer damage snapshot). Which would you prefer? 

@@ -245,17 +245,30 @@ namespace PlayGround.System.Projectile
             EnsureRuntimeReady();
             Entity entity = entityManager.CreateEntity(projectileArchetype);
             int projectileId = ++nextProjectileId;
+            float2 position = new(command.Position.x, command.Position.y);
+            float2 halfExtents = new(command.HalfExtents.x, command.HalfExtents.y);
+            ProjectileCollisionMath.ComputeWorldBounds(
+                position,
+                command.Radius,
+                halfExtents,
+                command.RotationRadians,
+                command.ShapeType,
+                out float2 boundsMin,
+                out float2 boundsMax);
+
             entityManager.SetComponentData(entity, new ProjectileComponent
             {
                 Scope = scopeEntity,
                 ProjectileId = projectileId,
                 TypeId = command.ProjectileTypeId,
                 TargetMask = command.TargetMask,
-                Position = new float2(command.Position.x, command.Position.y),
+                Position = position,
                 Velocity = new float2(command.Direction.x, command.Direction.y) * command.Speed,
                 Radius = command.Radius,
-                HalfExtents = new float2(command.HalfExtents.x, command.HalfExtents.y),
+                HalfExtents = halfExtents,
                 RotationRadians = command.RotationRadians,
+                BoundsMin = boundsMin,
+                BoundsMax = boundsMax,
                 RemainingLifetime = command.Lifetime,
                 DamageAmount = command.Damage.Amount,
                 DirectDamageEnabled = command.DirectDamageEnabled,
@@ -387,15 +400,31 @@ namespace PlayGround.System.Projectile
                 }
 
                 Vector2 position = target.ProjectileTargetPosition;
+                float2 targetPosition = new(position.x, position.y);
+                float targetRadius = target.ProjectileTargetRadius;
+                float2 targetHalfExtents = new(target.ProjectileTargetHalfExtents.x, target.ProjectileTargetHalfExtents.y);
+                float targetRotationRadians = target.ProjectileTargetRotationRadians;
+                ProjectileShapeType targetShapeType = target.ProjectileTargetShapeType;
+                ProjectileCollisionMath.ComputeWorldBounds(
+                    targetPosition,
+                    targetRadius,
+                    targetHalfExtents,
+                    targetRotationRadians,
+                    targetShapeType,
+                    out float2 boundsMin,
+                    out float2 boundsMax);
+
                 targetBuffer.Add(new ProjectileTargetElement
                 {
                     TargetId = target.TargetId,
                     TargetMask = target.ProjectileTargetMask,
-                    Position = new float2(position.x, position.y),
-                    Radius = target.ProjectileTargetRadius,
-                    HalfExtents = new float2(target.ProjectileTargetHalfExtents.x, target.ProjectileTargetHalfExtents.y),
-                    RotationRadians = target.ProjectileTargetRotationRadians,
-                    ShapeType = target.ProjectileTargetShapeType
+                    Position = targetPosition,
+                    Radius = targetRadius,
+                    HalfExtents = targetHalfExtents,
+                    RotationRadians = targetRotationRadians,
+                    BoundsMin = boundsMin,
+                    BoundsMax = boundsMax,
+                    ShapeType = targetShapeType
                 });
                 targetsById[target.TargetId] = target;
             }

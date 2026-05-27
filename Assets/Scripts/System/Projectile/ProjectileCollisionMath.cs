@@ -4,6 +4,39 @@ namespace PlayGround.System.Projectile
 {
     public static class ProjectileCollisionMath
     {
+        public static void ComputeWorldBounds(
+            float2 position,
+            float radius,
+            float2 halfExtents,
+            float rotationRadians,
+            ProjectileShapeType shapeType,
+            out float2 min,
+            out float2 max)
+        {
+            switch (shapeType)
+            {
+                case ProjectileShapeType.Rectangle:
+                    RectangleBounds(position, halfExtents, rotationRadians, out min, out max);
+                    return;
+                case ProjectileShapeType.Capsule:
+                    CapsuleBounds(position, radius, halfExtents.x, rotationRadians, out min, out max);
+                    return;
+                default:
+                    float2 radiusVector = new(radius, radius);
+                    min = position - radiusVector;
+                    max = position + radiusVector;
+                    return;
+            }
+        }
+
+        public static bool BoundsIntersect(float2 leftMin, float2 leftMax, float2 rightMin, float2 rightMax)
+        {
+            return leftMax.x >= rightMin.x
+                && rightMax.x >= leftMin.x
+                && leftMax.y >= rightMin.y
+                && rightMax.y >= leftMin.y;
+        }
+
         public static bool Hit(ProjectileComponent projectile, ProjectileTargetElement target)
         {
             return (projectile.ShapeType, target.ShapeType) switch
@@ -114,6 +147,25 @@ namespace PlayGround.System.Projectile
             c1 = center + xHalf - yHalf;
             c2 = center + xHalf + yHalf;
             c3 = center - xHalf + yHalf;
+        }
+
+        private static void RectangleBounds(float2 center, float2 halfExtents, float rotationRadians, out float2 min, out float2 max)
+        {
+            float2 xAxis = Rotate(new float2(1f, 0f), rotationRadians);
+            float2 yAxis = Rotate(new float2(0f, 1f), rotationRadians);
+            float2 half = new(
+                (math.abs(xAxis.x) * halfExtents.x) + (math.abs(yAxis.x) * halfExtents.y),
+                (math.abs(xAxis.y) * halfExtents.x) + (math.abs(yAxis.y) * halfExtents.y));
+            min = center - half;
+            max = center + half;
+        }
+
+        private static void CapsuleBounds(float2 center, float radius, float halfSegment, float rotationRadians, out float2 min, out float2 max)
+        {
+            GetCapsuleSegment(center, halfSegment, rotationRadians, out float2 a, out float2 b);
+            float2 radiusVector = new(radius, radius);
+            min = math.min(a, b) - radiusVector;
+            max = math.max(a, b) + radiusVector;
         }
 
         private static bool OverlapsOnAxes(float2 a0, float2 a1, float2 a2, float2 a3, float2 b0, float2 b1, float2 b2, float2 b3)

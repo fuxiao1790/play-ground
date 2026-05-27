@@ -28,6 +28,14 @@ namespace PlayGround.System.Projectile
             private void Execute(ref ProjectileComponent projectile)
             {
                 projectile.Position += projectile.Velocity * DeltaTime;
+                ProjectileCollisionMath.ComputeWorldBounds(
+                    projectile.Position,
+                    projectile.Radius,
+                    projectile.HalfExtents,
+                    projectile.RotationRadians,
+                    projectile.ShapeType,
+                    out projectile.BoundsMin,
+                    out projectile.BoundsMax);
             }
         }
     }
