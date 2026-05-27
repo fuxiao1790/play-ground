@@ -96,8 +96,18 @@ namespace PlayGround.Attack
 
         private void OnValidate()
         {
-            ClearInvalidPrefab(ref basicPrefab, nameof(basicPrefab));
-            ClearInvalidPrefab(ref childBasicPrefab, nameof(childBasicPrefab));
+            // Keep existing automatic wiring for child components
+            // Do not clear invalid prefab references silently; instead throw so authoring errors are visible.
+            // This prevents inspector fields from being nulled and ensures developers correct renderability issues.
+            if (basicPrefab != null && !IsValidBasicPrefab(basicPrefab, out string basicReason))
+            {
+                throw new MissingReferenceException($"{nameof(ProjectileAttack)} on {name} has invalid {nameof(basicPrefab)} '{basicPrefab.name}': {basicReason}.");
+            }
+
+            if (childBasicPrefab != null && !IsValidBasicPrefab(childBasicPrefab, out string childReason))
+            {
+                throw new MissingReferenceException($"{nameof(ProjectileAttack)} on {name} has invalid {nameof(childBasicPrefab)} '{childBasicPrefab.name}': {childReason}.");
+            }
         }
 
         public void Configure(ProjectileRoot root)

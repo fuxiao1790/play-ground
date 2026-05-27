@@ -159,7 +159,7 @@ namespace PlayGround.System.Projectile
 
             if (!renderResourcesByType.ContainsKey(typeId))
             {
-                renderResourcesByType[typeId] = BuildRenderResourcesFor(template.Sprite, template.VisualScale, template.VisualRotationDegrees);
+                renderResourcesByType[typeId] = BuildRenderResourcesFor(template.Sprite, template.VisualScale, template.VisualRotationDegrees, template.Material);
             }
 
             return typeId;
@@ -514,17 +514,55 @@ namespace PlayGround.System.Projectile
             }
         }
 
-        private ProjectileRenderResources BuildRenderResourcesFor(Sprite sprite, float scale, float visualRotationDegrees)
+        private ProjectileRenderResources BuildRenderResourcesFor(Sprite sprite, float scale, float visualRotationDegrees, Material sourceMaterial = null)
         {
             Mesh mesh = BuildProjectileMesh(sprite);
             Texture texture = sprite.texture;
-            Material material = new(FindProjectileShader())
+            Material material;
+            if (sourceMaterial != null)
             {
-                mainTexture = texture,
-                enableInstancing = true,
-                renderQueue = ProjectileRenderQueue
-            };
-            ConfigureProjectileMaterial(material, texture);
+                material = new Material(sourceMaterial)
+                {
+                    mainTexture = texture,
+                    enableInstancing = true,
+                    renderQueue = ProjectileRenderQueue
+                };
+                // Ensure cloned authoring materials receive the same property setup
+                // as the fallback material so URP/Shader graph properties like
+                // _BaseMap are populated and keywords/tags are configured.
+                ConfigureProjectileMaterial(material, texture);
+            }
+            else
+            {
+                material = new(FindProjectileShader())
+                {
+                    mainTexture = texture,
+                    enableInstancing = true,
+                    renderQueue = ProjectileRenderQueue
+                };
+                ConfigureProjectileMaterial(material, texture);
+            }
+
+            // Sanity checks: instanced rendering requires a valid material with a main texture
+            if (material == null)
+            {
+                throw new MissingReferenceException($"Projectile render material could not be created for sprite {sprite.name}.");
+            }
+
+            if (material.mainTexture == null)
+            {
+                throw new MissingReferenceException($"Projectile render material for sprite {sprite.name} has no main texture assigned.");
+            }
+
+            if (!material.enableInstancing)
+            {
+                throw new global::System.InvalidOperationException($"Projectile render material for sprite {sprite.name} does not support GPU instancing.");
+            }
+
+            if (material.shader == null || !material.shader.isSupported)
+            {
+                throw new MissingReferenceException($"Projectile render material shader is not supported for sprite {sprite.name}.");
+            }
             MaterialPropertyBlock properties = new();
             ConfigureProjectileProperties(properties, material, texture);
             return new ProjectileRenderResources(mesh, material, properties, scale > 0f ? scale : visualScale, visualRotationDegrees);
@@ -738,6 +776,10 @@ namespace PlayGround.System.Projectile
             int instanceCount,
             ProjectileRenderResources resources)
         {
+            if (instanceCount <= 0)
+            {
+                return;
+            }
             Graphics.RenderMeshInstanced(
                 new RenderParams(resources.Material)
                 {

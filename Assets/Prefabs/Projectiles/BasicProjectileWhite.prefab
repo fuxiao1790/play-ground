@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2593184631872514307}
   - component: {fileID: 6416970736168755285}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Visual
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -58,7 +58,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
+  - {fileID: 2100000, guid: f5bb667fc8cd43948a59f5bd9dbc9e02, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -101,7 +101,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8126269937979373232}
   - component: {fileID: 1001001001001001004}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: BasicProjectileWhite
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -149,7 +149,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6150559438662261112}
   - component: {fileID: 1469189744092702574}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Hurtbox
   m_TagString: Untagged
   m_Icon: {fileID: 0}

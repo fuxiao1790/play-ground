@@ -9,6 +9,7 @@ namespace PlayGround.Attack
         [SerializeField] private Collider2D hurtbox;
 
         public Sprite Sprite => spriteRenderer != null ? spriteRenderer.sprite : null;
+        public Material Material => spriteRenderer != null ? spriteRenderer.sharedMaterial : null;
         public float VisualScale => spriteRenderer != null
             ? Mathf.Max(Mathf.Abs(spriteRenderer.transform.lossyScale.x), Mathf.Abs(spriteRenderer.transform.lossyScale.y))
             : 1f;
@@ -72,6 +73,32 @@ namespace PlayGround.Attack
             if (!ProjectileTargetShapeUtility.IsSupportedShape(hurtbox))
             {
                 reason = $"unsupported hurtbox collider type {hurtbox.GetType().Name}";
+                return false;
+            }
+
+            // Material validation: ensure material supports instancing and has either a main texture or the sprite provides a texture
+            Material mat = spriteRenderer.sharedMaterial;
+            if (mat == null)
+            {
+                reason = "Visual sprite renderer has no assigned Material";
+                return false;
+            }
+
+            if (mat.mainTexture == null && (spriteRenderer.sprite == null || spriteRenderer.sprite.texture == null))
+            {
+                reason = "Visual Material has no main texture assigned and sprite has no texture";
+                return false;
+            }
+
+            if (!mat.enableInstancing)
+            {
+                reason = "Visual Material does not have GPU instancing enabled";
+                return false;
+            }
+
+            if (mat.shader == null || !mat.shader.isSupported)
+            {
+                reason = $"Visual Material shader is not supported: {mat.shader?.name ?? "(none)"}";
                 return false;
             }
 
