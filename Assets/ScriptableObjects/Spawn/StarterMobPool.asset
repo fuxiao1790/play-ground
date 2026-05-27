@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 21e80962a02948dcb42decb881349382, type: 3}
+  m_Name: StarterMobPool
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Spawn.MobSpawnPool
+  entries:
+  - prefab: {fileID: 3357404410216037366, guid: 348f14a5c55869f44862f20e77f4abb0, type: 3}
+    weight: 1
+  - prefab: {fileID: 1289112836052260575, guid: 8a44ed0f7bb64bc4593bd7c65b0379d3, type: 3}
+    weight: 1
+  - prefab: {fileID: 6524352425051473047, guid: d7254c363c11b5548b35db16954b7581, type: 3}
+    weight: 1

@@ -1,0 +1,165 @@
+# Mobs
+
+All docs in `Docs/` are preliminary. They describe the current port intent, not
+final decisions, and should be revisited in detail before implementation locks in.
+
+## Summary
+
+Target mob behavior from old prototype:
+
+- spawn from authored spawn points
+- idle for one tick, then wander
+- detect player by radius
+- chase player with selected behavior
+- switch into hurt state when damaged
+- recover back into chase or wander
+- soft-die when health reaches zero
+- free spawn cap immediately on soft death
+- support at least one ranged mob with projectile attack later
+
+Mobs are scene objects in the hybrid architecture. Their count should stay low
+enough for Unity GameObjects, Rigidbody2D, Collider2D, Animator, and
+SpriteRenderer to be appropriate. Player plus mobs below roughly `50` is an
+early performance target, not a hard design cap. Target count is expected to be
+far below projectile count.
+
+Old implementation reference:
+
+- `_OldGdProj/Script_Cs/Mob/`
+- `_OldGdProj/Script_Cs/Mob/Behaviours/`
+- `_OldGdProj/Script_Cs/Mob/Triggers/`
+- `_OldGdProj/Scenes/mobs/`
+
+Missing gameplay to add during port:
+
+- melee/contact damage
+- player damage/death feedback
+- ranged mob attack content
+- death animation before cleanup
+- meaningful per-mob behavior tuning
+
+For the earliest foundation work, any simple wandering mob can act as a target
+dummy.
+
+## Runtime Ownership
+
+`MobRoot` owns:
+
+- serialized prefab validation
+- animation FSM setup
+- behavior FSM setup
+- local event queue
+- trigger update order
+- Rigidbody2D movement application
+- optional projectile attack setup
+- health and soft death
+- local debug widget drawing if enabled
+
+Mob body movement and wall/player collision use Unity Physics2D. Body hitboxes
+and damage hurtboxes must remain separately configurable, matching the old
+project's split. Mob hurtboxes also register with projectile/AOE/beam target
+registries so high-count attack runtimes can snapshot them.
+
+Focused helpers own decisions:
+
+- `MobStateDriver`: behavior state transitions
+- `MobBehaviourSelector`: behavior choice from trigger requests
+- `MobBlackboard`: shared per-mob runtime state
+- `MobEventQueue`: frame-local event intake
+- `MobAnimatorDriver`: animation requests
+- behavior ScriptableObjects
+- trigger ScriptableObjects
+
+## Scene Variants To Rebuild
+
+### Slime
+
+Target:
+
+- speed `30`
+- health `35`
+- body/hurtbox shape: circle
+- no projectile attack
+- slow ground chaser
+
+### Skeleton
+
+Target:
+
+- speed `45`
+- health `30`
+- body/hurtbox shape: capsule
+- no projectile attack
+- medium-speed ground chaser
+
+### Bat
+
+Target:
+
+- speed `60`
+- health `20`
+- body shape: small capsule
+- hurtbox shape: circle
+- projectile attack enabled
+- projectile cooldown `1.4`
+- projectile range `130`
+- projectile speed `220`
+- projectile lifetime `1.8`
+- projectile damage `1`
+- fastest mob and first ranged mob
+
+## Spawn Integration
+
+`MobSpawnerRoot`:
+
+- enforces global `maxMobs`
+- instantiates mob prefab from spawn point or shared config
+- tracks alive and soft-dead mobs
+- frees spawn cap when mob soft-dies
+
+`SpawnPoint`:
+
+- owns timer
+- owns local overlap checks
+- references optional mob prefab list or shared spawn config
+- falls back to root-level list if no local list exists
+
+## Damage And Death
+
+Damage entry should be:
+
+- `TakeDamage(DamageSnapshot damage)` for full path
+
+Damage should stay typed, matching the old project. Avoid adding an integer-only
+damage path that becomes a second parallel combat model.
+
+Per-mob status stacks should be generic named or typed slots so poison, burning,
+shock, volatile explosions, and later effects can share one status-stack
+storage model.
+
+Soft death behavior:
+
+- health reaches zero
+- mob becomes not alive
+- body and hurtbox colliders disable
+- target registry unregisters mob
+- visual hides or switches to death animation later
+- update stops
+- `SoftDied` event fires for spawner accounting
+
+Keep soft-dead object validity long enough for projectile/AOE worlds to replay
+hit events without null targets. Cleanup can be pooling or delayed destruction
+after replay safety is guaranteed.
+
+## Debugging
+
+Per-mob debug widget may show:
+
+- behavior state
+- animation state
+- active trigger key
+- active behavior key
+- target name and distance
+- health
+
+Shared scene counters belong in `DebugOverlay`, not mob root.

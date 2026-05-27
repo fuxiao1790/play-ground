@@ -1,0 +1,79 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4459914088298401000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4459914088298401001}
+  - component: {fileID: 4459914088298401002}
+  m_Layer: 0
+  m_Name: BasicProjectileAttack
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4459914088298401001
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4459914088298401000}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4459914088298401002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4459914088298401000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3118521124c0c8f4f9f321056d478ba0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.ProjectileAttack
+  projectileRoot: {fileID: 0}
+  recoverySeconds: 0.15
+  performSound: {fileID: 0}
+  audioSource: {fileID: 0}
+  aoeRoot: {fileID: 0}
+  basicPrefab: {fileID: 1001001001001001004, guid: 071728db48e762a4683ee17177b48aaa, type: 3}
+  childBasicPrefab: {fileID: 1001001001001001004, guid: 071728db48e762a4683ee17177b48aaa, type: 3}
+  projectileTypeId: 0
+  childProjectileTypeId: 0
+  projectileSpeed: 16
+  projectileLifetime: 1.5
+  projectileDamage: 10
+  projectileCount: 1
+  spreadDegrees: 0
+  jitterDegrees: 0
+  targetMask: 1
+  pierceCount: 0
+  repeatHitCooldownSeconds: 0
+  trackingEnabled: 0
+  trackingRange: 150
+  trackingTurnSpeedDegrees: 360
+  trackingQueryIntervalSeconds: 0.25
+  trackingInitialQueryDelaySeconds: 0.15
+  projectileDirectDamageEnabled: 1
+  impactAoeTypeId: -1
+  impactAoeDamage: 1
+  impactAoeLifetimeSeconds: 0
+  impactAoeTickIntervalSeconds: 0
+  childProjectileCount: 10
+  childSpawnIntervalSeconds: 0.15
+  childSpawnIntervalJitterSeconds: 0.1
+  childSpawnPattern: {fileID: 0}
+  childDamageMultiplier: 1

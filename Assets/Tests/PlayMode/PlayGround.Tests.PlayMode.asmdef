@@ -1,0 +1,22 @@
+{
+    "name": "PlayGround.Tests.PlayMode",
+    "rootNamespace": "",
+    "references": [
+        "PlayGround.Runtime",
+        "Unity.Collections",
+        "Unity.Entities",
+        "Unity.Mathematics"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "noEngineReferences": false
+}
