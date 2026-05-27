@@ -282,10 +282,11 @@ exist as a low-count fallback or debug path, but they are not enough for the
 projectile proof of concept and must not be the default path.
 
 Current rendering keeps Unity object access outside ECS simulation. The
-presentation-stage `ProjectileRenderPrepareSystem` builds plain render matrices
-into each active projectile's render component, and `ProjectileRoot` submits
-instanced draw batches from that prepared component data in `LateUpdate`. Render
-type definitions can point a projectile type id at a sprite and visual scale.
+presentation-stage `ProjectileRenderPrepareSystem` scans active projectile
+entities, builds plain render matrices, and writes type-grouped instance data to
+the scope render buffer component. `ProjectileRoot` submits those already grouped
+instance buffers in `LateUpdate`. Render type definitions can point a projectile
+type id at a sprite and visual scale.
 
 Keep rendering outside projectile simulation systems.
 

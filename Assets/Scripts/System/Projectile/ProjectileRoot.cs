@@ -313,6 +313,7 @@ namespace PlayGround.System.Projectile
             entityManager.AddBuffer<ProjectileTargetElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileHitElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileChildSpawnRequestElement>(scopeEntity);
+            entityManager.AddBuffer<ProjectileRenderElement>(scopeEntity);
             projectileQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileComponent>(),
                 ComponentType.ReadOnly<ProjectileRenderComponent>(),
@@ -678,61 +679,46 @@ namespace PlayGround.System.Projectile
 
         private void SubmitProjectiles()
         {
-            if (renderResourcesByType.Count == 0)
+            if (renderResourcesByType.Count == 0 || !entityManager.HasBuffer<ProjectileRenderElement>(scopeEntity))
             {
                 return;
             }
 
-            ComponentTypeHandle<ProjectileComponent> projectileTypeHandle =
-                entityManager.GetComponentTypeHandle<ProjectileComponent>(true);
-            ComponentTypeHandle<ProjectileRenderComponent> renderTypeHandle =
-                entityManager.GetComponentTypeHandle<ProjectileRenderComponent>(true);
-            ComponentTypeHandle<ProjectileActiveTag> activeTypeHandle =
-                entityManager.GetComponentTypeHandle<ProjectileActiveTag>(true);
-            using NativeArray<ArchetypeChunk> chunks = projectileQuery.ToArchetypeChunkArray(Allocator.Temp);
-            foreach (KeyValuePair<int, ProjectileRenderResources> pair in renderResourcesByType)
+            DynamicBuffer<ProjectileRenderElement> renderBuffer = entityManager.GetBuffer<ProjectileRenderElement>(scopeEntity);
+            ProjectileRenderResources resources = null;
+            int currentTypeId = int.MinValue;
+            int batchCount = 0;
+            for (int i = 0; i < renderBuffer.Length; i++)
             {
-                pair.Value.BatchCount = 0;
-            }
-
-            for (int chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
-            {
-                ArchetypeChunk chunk = chunks[chunkIndex];
-                NativeArray<ProjectileComponent> projectiles = chunk.GetNativeArray(ref projectileTypeHandle);
-                NativeArray<ProjectileRenderComponent> renders = chunk.GetNativeArray(ref renderTypeHandle);
-                EnabledMask activeMask = chunk.GetEnabledMask(ref activeTypeHandle);
-                for (int i = 0; i < projectiles.Length; i++)
+                ProjectileRenderElement renderElement = renderBuffer[i];
+                if (renderElement.TypeId != currentTypeId)
                 {
-                    if (!activeMask.GetBit(i))
+                    if (batchCount > 0 && resources != null)
                     {
-                        continue;
+                        DrawBatch(batchCount, resources);
                     }
 
-                    ProjectileComponent projectile = projectiles[i];
-                    ProjectileRenderComponent render = renders[i];
-                    if (projectile.Scope != scopeEntity
-                        || render.IsRenderable == 0
-                        || !renderResourcesByType.TryGetValue(projectile.TypeId, out ProjectileRenderResources resources))
-                    {
-                        continue;
-                    }
+                    currentTypeId = renderElement.TypeId;
+                    batchCount = 0;
+                    renderResourcesByType.TryGetValue(currentTypeId, out resources);
+                }
 
-                    resources.Batch[resources.BatchCount++] = ToMatrix4x4(render.PreparedMatrix);
-                    if (resources.BatchCount == MaxInstancesPerDraw)
-                    {
-                        DrawBatch(resources.BatchCount, resources);
-                        resources.BatchCount = 0;
-                    }
+                if (resources == null)
+                {
+                    continue;
+                }
+
+                resources.Batch[batchCount++] = ToMatrix4x4(renderElement.Matrix);
+                if (batchCount == MaxInstancesPerDraw)
+                {
+                    DrawBatch(batchCount, resources);
+                    batchCount = 0;
                 }
             }
 
-            foreach (KeyValuePair<int, ProjectileRenderResources> pair in renderResourcesByType)
+            if (batchCount > 0 && resources != null)
             {
-                ProjectileRenderResources resources = pair.Value;
-                if (resources.BatchCount > 0)
-                {
-                    DrawBatch(resources.BatchCount, resources);
-                }
+                DrawBatch(batchCount, resources);
             }
         }
 

@@ -39,7 +39,6 @@ namespace PlayGround.System.Projectile
         public float VisualScale;
         public float VisualRotationSin;
         public float VisualRotationCos;
-        public float4x4 PreparedMatrix;
     }
 
     public struct ProjectileTargetElement : IBufferElementData
@@ -75,6 +74,12 @@ namespace PlayGround.System.Projectile
         public float DamageAmount;
         public bool DirectDamageEnabled;
         public uint Order;
+    }
+
+    public struct ProjectileRenderElement : IBufferElementData
+    {
+        public int TypeId;
+        public float4x4 Matrix;
     }
 
     public struct ProjectileContactGateElement : IBufferElementData
@@ -114,5 +119,11 @@ namespace PlayGround.System.Projectile
         public float2 Velocity;
         public float DamageAmount;
         public uint Order;
+    }
+
+    public struct ProjectilePendingRender
+    {
+        public Entity Scope;
+        public float4x4 Matrix;
     }
 }
