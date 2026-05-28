@@ -44,6 +44,46 @@ namespace PlayGround.System.Projectile
         public float VisualRotationCos;
     }
 
+    public struct ProjectileRenderBatch : IComponentData
+    {
+        public Entity Scope;
+        public int TypeId;
+    }
+
+    public struct ProjectileRenderType0Tag : IComponentData {}
+    public struct ProjectileRenderType1Tag : IComponentData {}
+    public struct ProjectileRenderType2Tag : IComponentData {}
+    public struct ProjectileRenderType3Tag : IComponentData {}
+    public struct ProjectileRenderType4Tag : IComponentData {}
+    public struct ProjectileRenderType5Tag : IComponentData {}
+    public struct ProjectileRenderType6Tag : IComponentData {}
+    public struct ProjectileRenderType7Tag : IComponentData {}
+    public struct ProjectileRenderType8Tag : IComponentData {}
+    public struct ProjectileRenderType9Tag : IComponentData {}
+    public struct ProjectileRenderType10Tag : IComponentData {}
+    public struct ProjectileRenderType11Tag : IComponentData {}
+    public struct ProjectileRenderType12Tag : IComponentData {}
+    public struct ProjectileRenderType13Tag : IComponentData {}
+    public struct ProjectileRenderType14Tag : IComponentData {}
+    public struct ProjectileRenderType15Tag : IComponentData {}
+
+    public struct ProjectileRenderType0BatchTag : IComponentData {}
+    public struct ProjectileRenderType1BatchTag : IComponentData {}
+    public struct ProjectileRenderType2BatchTag : IComponentData {}
+    public struct ProjectileRenderType3BatchTag : IComponentData {}
+    public struct ProjectileRenderType4BatchTag : IComponentData {}
+    public struct ProjectileRenderType5BatchTag : IComponentData {}
+    public struct ProjectileRenderType6BatchTag : IComponentData {}
+    public struct ProjectileRenderType7BatchTag : IComponentData {}
+    public struct ProjectileRenderType8BatchTag : IComponentData {}
+    public struct ProjectileRenderType9BatchTag : IComponentData {}
+    public struct ProjectileRenderType10BatchTag : IComponentData {}
+    public struct ProjectileRenderType11BatchTag : IComponentData {}
+    public struct ProjectileRenderType12BatchTag : IComponentData {}
+    public struct ProjectileRenderType13BatchTag : IComponentData {}
+    public struct ProjectileRenderType14BatchTag : IComponentData {}
+    public struct ProjectileRenderType15BatchTag : IComponentData {}
+
     public struct ProjectileTargetElement : IBufferElementData
     {
         public int TargetId;
@@ -84,7 +124,6 @@ namespace PlayGround.System.Projectile
     public struct ProjectileRenderElement : IBufferElementData
     {
         public Matrix4x4 objectToWorld;
-        public int TypeId;
     }
 
     public struct ProjectileContactGateElement : IBufferElementData
@@ -126,9 +165,4 @@ namespace PlayGround.System.Projectile
         public uint Order;
     }
 
-    public struct ProjectilePendingRender
-    {
-        public Entity Scope;
-        public Matrix4x4 objectToWorld;
-    }
 }

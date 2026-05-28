@@ -282,13 +282,20 @@ Start with a batched renderer by projectile type. Pooled prefab visuals may
 exist as a low-count fallback or debug path, but they are not enough for the
 projectile proof of concept and must not be the default path.
 
-Current rendering keeps Unity object access outside ECS simulation. The
-late-simulation `ProjectileRenderPrepareSystem` scans active projectile
-entities, builds plain render matrices, and writes type-grouped instance data to
-the scope render buffer component. `ProjectileRoot` submits those already grouped
-instance buffers in `LateUpdate` through `Graphics.RenderMeshInstanced`, avoiding
-per-instance managed matrix copies. Render type definitions can point a
-projectile type id at a sprite and visual scale.
+Current rendering keeps Unity object access outside ECS simulation. Projectile
+prefabs remain the authoring source for `SpriteRenderer`, material, and collider
+setup, and `ProjectileRoot` bakes those prefab values into runtime render
+resources and ECS metadata. Projectile entities carry a structural render-type
+tag component, currently one fixed tag type per supported render type. The
+late-simulation `ProjectileRenderPrepareSystem` queries each render type
+independently and writes matrices directly into that root/type dynamic buffer,
+avoiding global hash-map grouping, key sorting, copied staging buffers, and
+dynamic-buffer flush steps. Render queries include the enableable active tag, so
+disabled projectiles are excluded from matrix generation. The render jobs are
+scheduled from the post-collision system dependency, then buffers are trimmed to
+the written count before `ProjectileRoot` submits each type buffer in
+`LateUpdate` through `Graphics.RenderMeshInstanced`, split into chunks of at
+most 1023 instances.
 
 Keep rendering outside projectile simulation systems.
 
@@ -318,7 +325,7 @@ This section documents how the current Unity implementation aligns with this des
 - **Collision shapes & math:** Circle, rectangle (box), and capsule shapes are supported. Projectile and target AABB bounds are cached in ECS data, spatial-hash broad phase runs in `ProjectileCollisionSystem.cs`, and bounds/narrow-phase math is implemented in `ProjectileCollisionMath.cs`.
 - **Pierce & contact gates:** Contact gates are per-projectile buffer elements and are added/refreshed by the collision system and expired by `ProjectileContactGateSystem`.
 - **Tracking & steering:** Full tracking support exists with query intervals, reacquire logic, and steering that preserves projectile speed (`ProjectileTrackingSystem.cs`).
-- **Rendering:** Batched instanced rendering is implemented: `ProjectileRenderPrepareSystem` groups instance matrices and `ProjectileRoot` submits via `Graphics.RenderMeshInstanced` using built `ProjectileRenderResources`.
+- **Rendering:** Batched instanced rendering is implemented: `ProjectileRenderPrepareSystem` writes matrices into per-scope/per-type render batch buffers and `ProjectileRoot` submits via `Graphics.RenderMeshInstanced` using built `ProjectileRenderResources`.
 
 ### Minor differences / implementation notes
 
