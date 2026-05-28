@@ -169,6 +169,99 @@ Transform:
   - {fileID: 1864862267}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &11975269
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 830174276}
+    m_Modifications:
+    - target: {fileID: 4459914088298401000, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: m_Name
+      value: BasicProjectileAttackStar
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401000, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: m_Layer
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: pierceCount
+      value: 40
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: performSound
+      value: 
+      objectReference: {fileID: 8300000, guid: 5df9ec618d503a643ae4f174c283939e, type: 3}
+    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: projectileSpeed
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: trackingEnabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: projectileDamage
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: projectileLifetime
+      value: 4.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: childProjectileCount
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: childSpawnIntervalSeconds
+      value: 0.25
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
 --- !u!1 &135829711
 GameObject:
   m_ObjectHideFlags: 0
@@ -521,6 +614,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7214301001001001013, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1694218028}
+    - targetCorrespondingSourceObject: {fileID: 7214301001001001013, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1079036051}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
 --- !u!4 &830174276 stripped
@@ -825,11 +921,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
       propertyPath: spreadDegrees
-      value: 45
+      value: 15
       objectReference: {fileID: 0}
     - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
       propertyPath: projectileCount
-      value: 30
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
+      propertyPath: recoverySeconds
+      value: 0.05
       objectReference: {fileID: 0}
     - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
       propertyPath: childBasicPrefab
@@ -956,6 +1056,11 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 4
   useConfigTiming: 0
+--- !u!4 &1079036051 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+  m_PrefabInstance: {fileID: 11975269}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1179593598
 GameObject:
   m_ObjectHideFlags: 0
@@ -1493,7 +1598,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -3.87, y: 4.54}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 20, y: 5}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!102 &1807457118

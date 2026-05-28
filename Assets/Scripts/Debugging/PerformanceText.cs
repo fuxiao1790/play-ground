@@ -65,37 +65,53 @@ public class PerformanceText : MonoBehaviour
 
     private void EnsureOverlayText()
     {
+        // Ensure there is a root overlay Canvas dedicated to the performance UI so
+        // it isn't clipped by other UI or parent transforms.
         Canvas canvas = GetComponent<Canvas>();
+        GameObject canvasGO;
+
         if (canvas == null)
         {
-            canvas = gameObject.AddComponent<Canvas>();
+            // Create a new root GameObject for the overlay so it covers the whole screen.
+            canvasGO = new GameObject("PerformanceOverlayCanvas");
+            canvas = canvasGO.AddComponent<Canvas>();
+            canvasGO.AddComponent<CanvasScaler>();
+            canvasGO.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+            // Make sure the canvas is at root (no parent) so it's not affected by other transforms.
+            canvasGO.transform.SetParent(null);
+        }
+        else
+        {
+            canvasGO = canvas.gameObject;
         }
 
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = short.MaxValue;
 
-        CanvasScaler scaler = GetComponent<CanvasScaler>();
+        CanvasScaler scaler = canvasGO.GetComponent<CanvasScaler>();
         if (scaler == null)
         {
-            scaler = gameObject.AddComponent<CanvasScaler>();
+            scaler = canvasGO.AddComponent<CanvasScaler>();
         }
 
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
 
         if (text == null)
         {
-            text = GetComponentInChildren<Text>(true);
+            // Try to find an existing Text anywhere under the canvas
+            text = canvasGO.GetComponentInChildren<Text>(true) ?? GetComponentInChildren<Text>(true);
         }
 
         if (text == null)
         {
-            GameObject labelObject = new("PerformanceLabel");
-            labelObject.transform.SetParent(transform, false);
+            GameObject labelObject = new GameObject("PerformanceLabel");
+            labelObject.transform.SetParent(canvasGO.transform, false);
             labelObject.AddComponent<CanvasRenderer>();
             text = labelObject.AddComponent<Text>();
         }
 
         RectTransform rectTransform = text.rectTransform;
+        rectTransform.SetParent(canvasGO.transform, false);
         rectTransform.anchorMin = new Vector2(0f, 1f);
         rectTransform.anchorMax = new Vector2(0f, 1f);
         rectTransform.pivot = new Vector2(0f, 1f);
