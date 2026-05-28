@@ -307,7 +307,7 @@ plain data, then merge before callbacks or rendering.
 Port in this order:
 
 1. Add impact AOE and stack hit effect adapters on top of child spawn/hit events
-2. Add projectile authoring fields for tracking, pierce, child spawns, and type ids
+2. Add projectile authoring fields for tracking, pierce, lifetime, speed, child spawns, and type ids — including separate child-specific overrides for lifetime, speed, pierce count, and tracking parameters
 3. Add player-to-mob and mob-to-player smoke tests for the expanded runtime
 4. Add projectile stress scene and counters to measure high-scale batches
 5. Tune broad-phase cell sizing and add an AABB tree only if profiling shows the current spatial-hash path is the bottleneck
@@ -333,6 +333,8 @@ This section documents how the current Unity implementation aligns with this des
 - **Damage snapshot shape:** The runtime carries a `DamageSnapshot` value recorded on spawn; current buffer fields pass a float `DamageAmount`. If you intended a richer typed snapshot, inspect `PlayGround.Common.DamageSnapshot` and extend the buffer payloads accordingly.
 - **Broad-phase acceleration:** The implementation uses per-scope target buffers plus a fixed-size spatial hash over target AABBs. An AABB tree is not present; add it only if profiling shows the hash plus bounds filter is insufficient.
 - **Impact AOE / hit effects:** The system exposes child-spawn requests and hit events; AOE or complex hit reactions are implemented outside the core collision math by listening to `ProjectileHit` and `ChildSpawnRequested`. This matches the intent (adapter-side effects) rather than embedding AOE logic inside collision systems.
+
+- **Child-specific authoring:** Projectile authoring fields now support child-specific overrides for lifetime, speed, pierce count, and tracking parameters; scene-side spawn adapters (for example, `ProjectileAttack`) apply these child overrides when issuing child spawns.
 - **Stress tests:** Runtime counters are present (`ProjectileRoot.Counters`) but no dedicated stress-test scene was found in this directory; adding a stress scene and counters visualization remains a future task.
 
 ### Files referenced while verifying

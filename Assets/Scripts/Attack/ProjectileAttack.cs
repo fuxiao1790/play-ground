@@ -44,6 +44,17 @@ namespace PlayGround.Attack
         [SerializeField] private float childSpawnIntervalJitterSeconds;
         [SerializeField] private ProjectileChildSpawnPattern childSpawnPattern;
         [SerializeField] private float childDamageMultiplier = 1f;
+        // Child-specific override values. When set, child spawns use these instead
+        // of the parent values. Grouped here with other child spawn settings so
+        // inspector ordering is logical.
+        [SerializeField] private float childProjectileSpeed = 16f;
+        [SerializeField] private float childProjectileLifetime = 1.5f;
+        [SerializeField] private int childPierceCount;
+        [SerializeField] private bool childTrackingEnabled;
+        [SerializeField] private float childTrackingRange;
+        [SerializeField] private float childTrackingTurnSpeedDegrees;
+        [SerializeField] private float childTrackingQueryIntervalSeconds;
+        [SerializeField] private float childTrackingInitialQueryDelaySeconds;
 
         private readonly List<ProjectileSpawnCommand> commands = new();
         private readonly List<ProjectileVolleyBuilder.SpawnRequest> childRequests = new();
@@ -229,6 +240,22 @@ namespace PlayGround.Attack
                 trackingInitialQueryDelaySeconds);
         }
 
+        private ProjectileTrackingConfig ChildTrackingConfig()
+        {
+            bool enabled = childTrackingEnabled ? childTrackingEnabled : trackingEnabled;
+            float range = childTrackingRange > 0f ? childTrackingRange : trackingRange;
+            float turn = childTrackingTurnSpeedDegrees > 0f ? childTrackingTurnSpeedDegrees : trackingTurnSpeedDegrees;
+            float query = childTrackingQueryIntervalSeconds > 0f ? childTrackingQueryIntervalSeconds : trackingQueryIntervalSeconds;
+            float initial = childTrackingInitialQueryDelaySeconds > 0f ? childTrackingInitialQueryDelaySeconds : trackingInitialQueryDelaySeconds;
+
+            return new ProjectileTrackingConfig(
+                enabled,
+                range,
+                turn,
+                query,
+                initial);
+        }
+
         private ProjectileChildSpawnConfig ChildSpawnConfig()
         {
             if (childProjectileCount <= 0 || childSpawnIntervalSeconds <= 0f)
@@ -335,11 +362,12 @@ namespace PlayGround.Attack
                 ProjectileVolleyBuilder.SpawnRequest child = childRequests[i];
                 Vector2 direction = child.Velocity.sqrMagnitude > 0f ? child.Velocity.normalized : Vector2.right;
                 BasicAttackPrefab childPrefab = ChildBasicPrefab();
+                int effectiveChildPierce = childPierceCount != 0 ? childPierceCount : pierceCount;
                 var command = new ProjectileSpawnCommand(
                     child.Position,
                     direction,
                     child.Velocity.magnitude,
-                    projectileLifetime,
+                    childProjectileLifetime,
                     ProjectileRadius(childPrefab),
                     ProjectileHalfExtents(childPrefab),
                     ProjectileRotationRadians(childPrefab),
@@ -347,9 +375,9 @@ namespace PlayGround.Attack
                     ProjectileShape(childPrefab),
                     ProjectileTypeId(childPrefab, childProjectileTypeId),
                     EffectiveTargetMask(),
-                    pierceCount,
+                    effectiveChildPierce,
                     repeatHitCooldownSeconds,
-                    TrackingConfig(),
+                    ChildTrackingConfig(),
                     ProjectileChildSpawnConfig.Disabled,
                     projectileDirectDamageEnabled);
                 ownedProjectileIds.Add(projectileRoot.Spawn(command));
@@ -450,7 +478,7 @@ namespace PlayGround.Attack
                     request.Position,
                     request.Velocity,
                     childProjectileCount,
-                    projectileSpeed,
+                    childProjectileSpeed,
                     request.TickIndex);
                 return;
             }
@@ -460,7 +488,7 @@ namespace PlayGround.Attack
                 request.Position,
                 request.Velocity,
                 childProjectileCount,
-                projectileSpeed);
+                childProjectileSpeed);
         }
 
         private int EffectiveTargetMask()
