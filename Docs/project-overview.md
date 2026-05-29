@@ -1,18 +1,18 @@
 # Project Overview
 
-All docs in `Docs/` are preliminary. They describe the current port intent, not
+All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
 ## Summary
 
-`play-ground` is now a Unity 6000.4 2D URP port target for the old Godot top-down prototype.
+`play-ground` is a Unity 6000.4 2D URP top-down action game.
 
 The long-term game identity is attack scaling pushed to extreme levels: many
 projectiles, beams, lasers, AOEs, particles, chained effects, and screen-filling
 spell combinations. Performance is a primary design constraint, not a later
 optimization pass.
 
-The old prototype loop to preserve:
+Core gameplay loop:
 
 - move with WASD
 - dash with Space
@@ -30,20 +30,14 @@ Current Unity state:
 - render path: Universal Render Pipeline 2D
 - input package is installed
 - 2D animation, tilemap, SpriteShape, and Unity Test Framework packages are installed
-- only starter Unity content exists under `Assets/`
-- old Godot docs live under `_OldGdProj/Docs/`
-- old Godot scenes live under `_OldGdProj/Scenes/`
-- old Godot C# scripts live under `_OldGdProj/Script_Cs/`
 
-Port rule:
+Runtime rules:
 
-- treat old docs as behavior source, not as Unity architecture
-- treat old C# scripts as implementation reference, not as drop-in Unity code
-- implement new runtime using Unity-native scenes, prefabs, MonoBehaviours, ScriptableObjects, Physics2D, pooling, and PlayMode/EditMode tests
+- implement runtime using Unity-native scenes, prefabs, MonoBehaviours, ScriptableObjects, Physics2D, pooling, and PlayMode/EditMode tests
 - design combat systems around pooled objects, batched rendering, allocation-light
   updates, and plain-data simulation boundaries from the start
-- preserve the old hybrid model: low-count actors live as scene objects, while
-  high-count projectile, AOE, and beam gameplay lives in data-oriented runtimes
+- hybrid model: low-count actors live as scene objects, while high-count projectile,
+  AOE, and beam gameplay lives in data-oriented runtimes
 
 ## Runtime Target
 
@@ -80,7 +74,7 @@ Use Unity Input System actions for these bindings.
 
 ## Physics Layers
 
-Use named Unity layers instead of Godot numeric layer masks.
+Use named Unity layers.
 
 Required gameplay layers:
 
@@ -124,17 +118,9 @@ Hybrid runtime boundary:
   with pooled GameObjects and later add batched renderers, but
   their gameplay state is not owned by scene objects
 
-## Feature Port Status
+## Feature Status
 
-Not yet ported:
-
-- AOE runtime
-- camera follow and zoom
-- play area wall
-- audio manager
-- full gameplay smoke/stress coverage
-
-Recently ported:
+Implemented:
 
 - spawn system root, spawn points, spawn config/pools, cap rules, and mob prefab
   selection
@@ -145,6 +131,14 @@ Recently ported:
 - scoped projectile runtime with split ECS stages for tracking, movement, child
   spawn requests, lifetime, contact gates, collision, hit replay, counters, and
   batched rendering by projectile type
+
+Not yet implemented:
+
+- AOE runtime
+- camera follow and zoom
+- play area wall
+- audio manager
+- full gameplay smoke/stress coverage
 
 Performance-critical systems to design before content grows:
 
@@ -164,26 +158,9 @@ Performance-critical systems to design before content grows:
 - attacks are composable child components under the actor
 - attack damage, crit, child spawns, and AOE payloads are snapshotted when the
   attack fires
-- projectile POC should target the same class of scale as the old release build:
-  about 50k projectiles on screen with 20 targets at 120 fps
-- Jobs/Burst should be used for high-volume projectile work, while avoiding a
-  direct port of the old custom ECS into Unity DOTS
+- projectile POC target: about 50k projectiles on screen with 20 targets at 120 fps
+- Jobs/Burst should be used for high-volume projectile work
 - beam and laser gameplay is future work
-
-Use this doc set as the first port milestone before writing runtime code.
-
-## Old-To-New Mapping
-
-- Godot scene -> Unity scene or prefab
-- Godot root script -> Unity root MonoBehaviour
-- Godot child scene instance -> Unity child prefab instance
-- Godot exported field -> Unity serialized field
-- Godot resource -> Unity ScriptableObject
-- Godot group -> Unity layer, tag, or explicit registry
-- Godot signal -> C# event, UnityEvent only for designer-facing hooks
-- Godot `RigidBody2D` -> Unity `Rigidbody2D`
-- Godot `Area2D` hurtbox -> Unity `Collider2D` on hurtbox layer, usually trigger
-- Godot headless GDScript smoke -> Unity PlayMode/EditMode test
 
 ## Key Docs
 
@@ -199,22 +176,3 @@ Use this doc set as the first port milestone before writing runtime code.
 - [testing.md](./testing.md): Unity test approach
 - [release.md](./release.md): Unity Windows build notes
 
-## Old Source References
-
-Use these when porting behavior:
-
-- `_OldGdProj/Scenes/`: old scene composition, attack scenes, mobs, player, projectiles, and level
-- `_OldGdProj/Scenes/level/main.tscn`: old main composition reference
-- `_OldGdProj/Scenes/player/player.tscn`: old player composition reference
-- `_OldGdProj/Scenes/mobs/`: old bat, slime, and skeleton composition reference
-- `_OldGdProj/Scenes/attacks/`: old attack and AOE effect composition reference
-- `_OldGdProj/Script_Cs/Player/`: player movement, facing, animation, and attack orchestration reference
-- `_OldGdProj/Script_Cs/Attack/`: projectile, AOE, volley, and hit-effect authoring reference
-- `_OldGdProj/Script_Cs/Mob/`: mob root, behavior FSM, triggers, behaviors, and projectile attack reference
-- `_OldGdProj/Script_Cs/System/Projectile/`: data-oriented projectile runtime reference
-- `_OldGdProj/Script_Cs/System/Aoe/`: data-oriented AOE runtime reference
-- `_OldGdProj/Script_Cs/Common/`: state machine, damage, and shared structure reference
-- `_OldGdProj/Script_Cs/Spawn/`: spawn root, spawn point, and spawn config reference
-- `_OldGdProj/Script_Cs/Camera/`: camera behavior reference
-- `_OldGdProj/Script_Cs/Level/`: play area wall reference
-- `_OldGdProj/Script_Cs/Audio/`: one-shot audio manager reference

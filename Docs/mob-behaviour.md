@@ -1,6 +1,6 @@
 # Mob Behaviour
 
-All docs in `Docs/` are preliminary. They describe the current port intent, not
+All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
 ## Summary

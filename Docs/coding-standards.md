@@ -1,6 +1,6 @@
 # Coding Standards
 
-All docs in `Docs/` are preliminary. They describe the current port intent, not
+All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
 ## Root Component Rule
@@ -120,9 +120,7 @@ Hot paths include:
 
 Use reusable lists, arrays, pools, Native containers, or Entities/DOTS where the
 system needs them. For high-volume projectile work, use Unity Entities plus
-Jobs/Burst early enough that the proof of concept validates the intended
-performance class. Keep the old custom ECS as behavior reference, not as a
-literal data model to copy.
+Jobs/Burst.
 
 The intended game has extreme spell scaling. Treat repeated allocations,
 Instantiate/Destroy churn, per-frame LINQ, closure captures, broad component

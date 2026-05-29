@@ -1,20 +1,16 @@
 # Folder Structure
 
-All docs in `Docs/` are preliminary. They describe the current port intent, not
+All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
-Quick map for the Unity port.
+Quick map.
 
 ## Current Folders
 
 - `Assets/`: Unity assets, scenes, prefabs, scripts, art, audio, settings
 - `Assets/Scenes/`: Unity scene files
 - `Assets/Settings/`: URP and project settings assets
-- `Docs/`: new Unity port docs
-- `_OldGdProj/`: old Godot scene and C# source reference
-- `_OldGdProj/Docs/`: old Godot docs copied from the prior project
-- `_OldGdProj/Scenes/`: old Godot `.tscn` scenes copied from the prior project
-- `_OldGdProj/Script_Cs/`: old Godot C# scripts copied from the prior project
+- `Docs/`: design docs
 - `Packages/`: Unity package manifest and lock files
 - `ProjectSettings/`: Unity project settings
 
@@ -54,29 +50,12 @@ Create these as systems are ported:
 - Want project summary: [project-overview.md](./project-overview.md)
 - Want architecture: [architecture.md](./architecture.md)
 - Want coding rules: [coding-standards.md](./coding-standards.md)
-- Want player attack port: [player-attacks.md](./player-attacks.md)
+- Want player attacks: [player-attacks.md](./player-attacks.md)
 - Want projectiles: [projectile-system.md](./projectile-system.md)
 - Want AOEs: [aoe-system.md](./aoe-system.md)
 - Want mobs: [mobs.md](./mobs.md) and [mob-behaviour.md](./mob-behaviour.md)
 - Want spawning: [spawn-system.md](./spawn-system.md)
 - Want tests: [testing.md](./testing.md)
-- Want old behavior source: `_OldGdProj/Docs/`
-- Want old implementation source: `_OldGdProj/Script_Cs/`
-- Want old scene composition source: `_OldGdProj/Scenes/`
-- Want old docs source: `_OldGdProj/Docs/`
-
-## Old Script Reference Folders
-
-- `_OldGdProj/Script_Cs/Attack/`: old attack components, volley builder, hit effects
-- `_OldGdProj/Script_Cs/Audio/`: old audio manager
-- `_OldGdProj/Script_Cs/Camera/`: old gameplay camera
-- `_OldGdProj/Script_Cs/Common/`: old state machine, damage, AABB tree
-- `_OldGdProj/Script_Cs/Level/`: old play area wall
-- `_OldGdProj/Script_Cs/Mob/`: old mob runtime, behaviors, triggers, status stacks
-- `_OldGdProj/Script_Cs/Player/`: old player root and helpers
-- `_OldGdProj/Script_Cs/Spawn/`: old spawn runtime
-- `_OldGdProj/Script_Cs/System/Projectile/`: old projectile ECS/data runtime
-- `_OldGdProj/Script_Cs/System/Aoe/`: old AOE ECS/data runtime
 
 ## Current Projectile Runtime Map
 
@@ -103,10 +82,3 @@ Create these as systems are ported:
   late-simulation render matrix preparation for scoped projectile draw
   submission
 
-## Old Scene Reference Folders
-
-- `_OldGdProj/Scenes/level/`: old `main.tscn` and play area wall
-- `_OldGdProj/Scenes/player/`: old player scene
-- `_OldGdProj/Scenes/mobs/`: old bat, slime, and skeleton scenes
-- `_OldGdProj/Scenes/attacks/`: old projectile attack, AOE attack, and effect scenes
-- `_OldGdProj/Scenes/projectiles/`: old basic and bat projectile scenes

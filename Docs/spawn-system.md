@@ -1,6 +1,6 @@
 # Spawn System
 
-All docs in `Docs/` are preliminary. They describe the current port intent, not
+All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
 ## Current Shape
@@ -43,9 +43,3 @@ removed target dummy.
 Replace this fallback by assigning real mob prefabs through `MobSpawnPool` assets
 under `Assets/ScriptableObjects/Spawn/`.
 
-## Old References
-
-- `_OldGdProj/Script_Cs/Spawn/MobSpawnerRoot.cs`
-- `_OldGdProj/Script_Cs/Spawn/SpawnPoint.cs`
-- `_OldGdProj/Script_Cs/Spawn/SpawnConfig.cs`
-- `_OldGdProj/Script_Cs/Spawn/SpawnCoordinator.cs`

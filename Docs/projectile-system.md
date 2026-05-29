@@ -1,29 +1,15 @@
 # Projectile System
 
-All docs in `Docs/` are preliminary. They describe the current port intent, not
+All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
 ## Summary
-
-The Unity port should keep the old scoped, data-oriented projectile design.
 
 Projectiles are the data-runtime half of the hybrid architecture. Player, mobs,
 and walls remain scene objects; projectile gameplay state does not. The Unity
 runtime uses Entities/DOTS for projectile state and simulation, with `ProjectileRoot`
 remaining as the scene-object bridge for target snapshots, hit replay, and
 render submission.
-
-Old implementation reference:
-
-- `_OldGdProj/Script_Cs/System/Projectile/`
-- `_OldGdProj/Script_Cs/Attack/ProjectileAttack.cs`
-- `_OldGdProj/Script_Cs/Attack/ProjectileVolleyBuilder.cs`
-- `_OldGdProj/Scenes/projectiles/`
-- `_OldGdProj/Scenes/attacks/basic_projectile_attack.tscn`
-
-Use the old implementation only for behavior and tuning reference. Do not mirror
-its halfway custom-ECS/object-oriented structure in Unity. The Unity version
-should use idiomatic Entities data, systems, buffers, and scene bridges.
 
 Primary uses:
 
@@ -147,9 +133,8 @@ Scene-object bridge:
 - projectile hits replay back into actor components after world step
 - built-in Physics2D still handles player/mob/wall body collision separately
 
-Stress tests should cover the old release-build class of scale: about 50k
-projectiles on screen with 20 targets at 120 fps. They do not need fixed
-pass/fail thresholds before a Unity baseline exists.
+Stress tests should target about 50k projectiles on screen with 20 targets at
+120 fps. They do not need fixed pass/fail thresholds before a baseline exists.
 
 ## Data Layout
 
@@ -243,8 +228,8 @@ Rules:
 - projectile world forwards damage data but does not understand it
 - crit and secondary damage payloads are resolved into the snapshot before spawn
 
-Damage should stay typed, matching the old project. Do not collapse the port to
-integer-only damage just because the first content is simple.
+Damage should stay typed. Do not collapse to integer-only damage just because the
+first content is simple.
 
 ## Tracking
 
@@ -256,9 +241,6 @@ When enabled:
 - reacquire targets at configured interval
 - filter by range and target set
 - allow spawn-query jitter to avoid all projectiles retargeting in same frame
-
-The Unity port should support the old tracking behavior early. Old reference:
-`_OldGdProj/Docs/projectile-system.md`, section `Tracking`.
 
 ## Pierce And Contact Gates
 

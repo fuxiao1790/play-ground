@@ -1,11 +1,11 @@
 # AOE System
 
-All docs in `Docs/` are preliminary. They describe the current port intent, not
+All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
 ## Summary
 
-The Unity AOE runtime should mirror the projectile runtime shape:
+The AOE runtime mirrors the projectile runtime shape:
 
 - scoped roots own Unity interop
 - plain `AoeWorld` owns collision and timing
@@ -14,14 +14,6 @@ The Unity AOE runtime should mirror the projectile runtime shape:
 AOEs are part of the data-runtime half of the hybrid architecture. They query
 snapshots of player and mob hurtboxes instead of depending on one live trigger
 GameObject per gameplay AOE.
-
-Old implementation reference:
-
-- `_OldGdProj/Script_Cs/System/Aoe/`
-- `_OldGdProj/Script_Cs/Attack/AoeAttack.cs`
-- `_OldGdProj/Script_Cs/Attack/ProjectileStackExplosionEffect.cs`
-- `_OldGdProj/Scenes/attacks/basic_aoe_attack.tscn`
-- `_OldGdProj/Scenes/attacks/basic_aoe_effect.tscn`
 
 Primary uses:
 

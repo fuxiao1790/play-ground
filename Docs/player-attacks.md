@@ -1,6 +1,6 @@
 # Player Attacks
 
-All docs in `Docs/` are preliminary. They describe the current port intent, not
+All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
 ## Equipped Attack Loadout
@@ -15,13 +15,7 @@ Attack components live on scene-object actors, but spawned attack gameplay lives
 in data runtimes. The player is a GameObject; its projectiles, AOEs, and beams
 are not authoritative GameObjects.
 
-Old implementation reference:
-
-- `_OldGdProj/Script_Cs/Player/PlayerAttack.cs`
-- `_OldGdProj/Script_Cs/Attack/`
-- `_OldGdProj/Scenes/attacks/`
-
-Unity target:
+Target:
 
 - `PlayerRoot` owns setup and delegates attack updates to `PlayerAttackLoadout`
 - attack components under the player's `Attacks` child are equipped attacks

@@ -1,6 +1,6 @@
 # Testing
 
-All docs in `Docs/` are preliminary. They describe the current port intent, not
+All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
 ## Summary
@@ -106,13 +106,13 @@ batch mode and include `-quit` because the called editor method owns the work:
 
 Use the installed Unity path on this machine if it differs.
 
-## Porting Old Smoke Tests
+## Writing Smoke Tests
 
-Old Godot smoke tests were headless GDScript scripts. Do not port them line-for-line.
+Do not replicate low-level implementation details in tests.
 
-Port the assertions:
+Write assertions:
 
-- setup same gameplay condition
+- setup the same gameplay condition
 - run enough frames
 - assert the real expected result
 - fail clearly when result is wrong

@@ -1,18 +1,16 @@
 # Port Plan
 
-All docs in `Docs/` are preliminary. They describe the current port intent, not
+All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
 ## Goal
 
-Move the old Godot prototype into Unity without losing behavior.
+Build a top-down action game in Unity with extreme attack scaling.
 
-Docs first, runtime second.
+Performance is part of the game identity. Future builds should support huge
+projectile storms, lasers, AOEs, and particle-heavy chains.
 
-Performance is part of the game identity. The port should assume future builds
-can create huge projectile storms, lasers, AOEs, and particle-heavy chains.
-
-Preserve old hybrid split:
+Hybrid split:
 
 - player, mobs, walls, spawners, camera, audio, and debug are scene objects
 - target count is expected to be far below projectile count; player plus mobs
@@ -20,21 +18,7 @@ Preserve old hybrid split:
 - Unity Physics2D handles player/mob/wall movement and collision
 - projectiles, AOEs, and beams use data-oriented runtimes
 
-## Source Of Truth
-
-Old behavior source:
-
-- `_OldGdProj/Docs/`
-
-Old implementation source:
-
-- `_OldGdProj/Script_Cs/`
-
-Old scene composition source:
-
-- `_OldGdProj/Scenes/`
-
-New Unity target docs:
+## Docs
 
 - `Docs/project-overview.md`
 - `Docs/folder-structure.md`
@@ -68,32 +52,12 @@ New Unity target docs:
 14. Beam/laser runtime skeleton when beam gameplay becomes active work.
 15. Windows build.
 
-## Port Rules
+## Development Rules
 
-- Do not copy Godot scene structure blindly.
-- Preserve gameplay behavior and system boundaries.
 - Use Unity-native prefab, scene, ScriptableObject, Physics2D, and Test Framework patterns.
-- Read old C# scripts for algorithms and contracts, then rewrite Unity boundary
-  code around Unity APIs.
 - Keep root components as coordinators.
 - Keep high-volume simulation plain-data and Jobs/Burst-friendly.
 - Keep actor movement/collision on Physics2D unless profiling or gameplay proves
   it cannot satisfy the low-count actor requirement.
 - Add stress scenes early.
-- Use Jobs/Burst and batched projectile rendering early enough that the
-  projectile proof of concept validates the intended scale.
-
-## Script Port Reference
-
-Good first old script references by milestone:
-
-- shared primitives: `_OldGdProj/Script_Cs/Common/StateMachineCore.cs`, `DamageSnapshot.cs`, `DamageableState.cs`
-- player: `_OldGdProj/Script_Cs/Player/` and `_OldGdProj/Scenes/player/player.tscn`
-- camera: `_OldGdProj/Script_Cs/Camera/GameplayCamera.cs`
-- play area: `_OldGdProj/Script_Cs/Level/PlayAreaWall.cs` and `_OldGdProj/Scenes/level/play_area_wall.tscn`
-- mob behavior: `_OldGdProj/Script_Cs/Mob/` and `_OldGdProj/Scenes/mobs/`
-- projectile runtime: `_OldGdProj/Script_Cs/System/Projectile/` and `_OldGdProj/Scenes/projectiles/`
-- AOE runtime: `_OldGdProj/Script_Cs/System/Aoe/` and `_OldGdProj/Scenes/attacks/basic_aoe_effect.tscn`
-- attacks: `_OldGdProj/Script_Cs/Attack/` and `_OldGdProj/Scenes/attacks/`
-- spawn: `_OldGdProj/Script_Cs/Spawn/` and `_OldGdProj/Scenes/level/main.tscn`
-- audio: `_OldGdProj/Script_Cs/Audio/AudioManager.cs`
+- Use Jobs/Burst and batched projectile rendering to validate the intended scale.

@@ -1,11 +1,11 @@
 # Mobs
 
-All docs in `Docs/` are preliminary. They describe the current port intent, not
+All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
 ## Summary
 
-Target mob behavior from old prototype:
+Mob behavior:
 
 - spawn from authored spawn points
 - idle for one tick, then wander
@@ -23,14 +23,7 @@ SpriteRenderer to be appropriate. Player plus mobs below roughly `50` is an
 early performance target, not a hard design cap. Target count is expected to be
 far below projectile count.
 
-Old implementation reference:
-
-- `_OldGdProj/Script_Cs/Mob/`
-- `_OldGdProj/Script_Cs/Mob/Behaviours/`
-- `_OldGdProj/Script_Cs/Mob/Triggers/`
-- `_OldGdProj/Scenes/mobs/`
-
-Missing gameplay to add during port:
+Planned gameplay to add:
 
 - melee/contact damage
 - player damage/death feedback
@@ -130,8 +123,8 @@ Damage entry should be:
 
 - `TakeDamage(DamageSnapshot damage)` for full path
 
-Damage should stay typed, matching the old project. Avoid adding an integer-only
-damage path that becomes a second parallel combat model.
+Damage should stay typed. Avoid adding an integer-only damage path that becomes a
+second parallel combat model.
 
 Per-mob status stacks should be generic named or typed slots so poison, burning,
 shock, volatile explosions, and later effects can share one status-stack

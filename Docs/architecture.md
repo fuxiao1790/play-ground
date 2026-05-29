@@ -1,11 +1,9 @@
 # Architecture
 
-All docs in `Docs/` are preliminary. They describe the current port intent, not
+All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
 ## Runtime Shape
-
-The Unity port should keep the old project pattern:
 
 - small root components coordinate
 - focused helpers and ScriptableObjects decide behavior
@@ -20,12 +18,6 @@ is good for body movement and wall collision. Projectiles, AOEs, and future
 beams live in data-oriented runtime worlds because their counts can become huge.
 Projectiles specifically use Entities/DOTS so high-count projectile state is not
 represented by one GameObject or scene node per projectile.
-
-Old implementation reference lives in `_OldGdProj/Script_Cs/`. Old scene
-composition reference lives in `_OldGdProj/Scenes/`. Old docs live in
-`_OldGdProj/Docs/`. Use them for algorithms,
-runtime contracts, authored values, and behavior details. Do not copy Godot
-adapter code directly into Unity runtime classes.
 
 High-level runtime path:
 
@@ -136,8 +128,7 @@ Core rules:
 - expose counters so stress cases can be measured early
 
 Initial stress scenes should expose counters before fixed pass/fail thresholds
-exist. The projectile proof of concept should be judged against the old release
-build class of scale: about 50k projectiles on screen with 20 targets at 120 fps.
+exist. Projectile performance target: about 50k projectiles on screen with 20 targets at 120 fps.
 Important counters:
 
 - active projectiles
@@ -163,11 +154,6 @@ Important counters:
 - `PlayerAnimatorDriver`: animation requests and priority rules
 - `StateMachineCore`: reusable transition callback core
 
-Old references:
-
-- `_OldGdProj/Script_Cs/Player/`
-- `_OldGdProj/Scenes/player/player.tscn`
-
 Attack children under the player's `Attacks` child are equipped attacks. Each
 attack container child owns its Transform offset. One held fire input can
 perform every ready equipped attack in the same frame.
@@ -183,13 +169,10 @@ perform every ready equipped attack in the same frame.
 - authored camera limits for normal play
 - optional expanded debug limits for local inspection
 
-Old reference: `_OldGdProj/Script_Cs/Camera/GameplayCamera.cs`.
-
 ## Play Area
 
 The prototype arena currently uses 1280x720 world units for convenience, but the
-arena size must be serialized/configurable. New assets may use a different art
-scale, so runtime code should not bake in old Godot dimensions.
+arena size must be serialized/configurable.
 
 `PlayAreaRoot` should own:
 
@@ -199,11 +182,6 @@ scale, so runtime code should not bake in old Godot dimensions.
 - layer assignment
 
 Player and mobs should collide with walls through Physics2D, not custom wall logic.
-
-Old references:
-
-- `_OldGdProj/Script_Cs/Level/PlayAreaWall.cs`
-- `_OldGdProj/Scenes/level/play_area_wall.tscn`
 
 ## Projectile And AOE Systems
 
@@ -215,13 +193,6 @@ Keep projectile and AOE roots scoped by target set:
 - mob AOEs target player
 
 The data runtime should not touch live Unity objects. It receives snapshots and returns events. The root adapts those events back into gameplay callbacks.
-
-Old references:
-
-- `_OldGdProj/Script_Cs/System/Projectile/`
-- `_OldGdProj/Script_Cs/System/Aoe/`
-- `_OldGdProj/Scenes/projectiles/`
-- `_OldGdProj/Scenes/attacks/`
 
 Lasers and beams are future work. When added, they should get their own scoped
 runtime instead of being modeled as projectile spam.

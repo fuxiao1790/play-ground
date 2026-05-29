@@ -1,6 +1,6 @@
 # Performance
 
-All docs in `Docs/` are preliminary. They describe the current port intent, not
+All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
 ## Goal
@@ -39,8 +39,7 @@ Simulation:
 - arrays or reusable lists for hot state
 - spatial partitioning for broad-phase target queries
 - callbacks replayed after simulation
-- Jobs/Burst should be used early for high-volume projectile work; do not force
-  the old custom ECS directly onto Unity DOTS
+- Jobs/Burst for high-volume projectile work
 
 Visuals:
 
@@ -104,8 +103,7 @@ Projectiles:
   child spawn requests, lifetime expiry disable, contact gates, and collision
 - `ProjectileRoot` exposes active count, spawn/despawn totals, hit event count,
   child spawn request count, simulation milliseconds, and render milliseconds
-- first POC target is the old release-build class of scale: about 50k
-  projectiles on screen with 20 targets at 120 fps
+- performance target: about 50k projectiles on screen with 20 targets at 120 fps
 
 AOEs:
 
