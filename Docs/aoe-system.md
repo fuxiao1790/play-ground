@@ -30,12 +30,11 @@ Non-goal:
 
 ## Scoped Roots
 
-Target roots:
+One `AoeRoot` class serves both targeting directions. The scene contains two
+instances: one configured for player AOEs targeting mob hurtboxes, one for mob
+AOEs targeting player hurtboxes. The class itself is not split.
 
-- `AoeRoot_PlayerToMob`: player AOEs targeting mob hurtboxes
-- `AoeRoot_MobToPlayer`: mob AOEs targeting player hurtboxes
-
-Each root owns:
+Each root instance owns:
 
 - one plain `AoeWorld`
 - one Unity adapter boundary
@@ -136,7 +135,11 @@ Piercing projectiles spawn impact AOE on each allowed pierce hit.
 
 ## Stack-Triggered AOE
 
-Stack effect flow:
+Stack-triggered AOE is an attack-layer concern, not part of the AOE system
+itself. The AOE system only spawns and resolves hits. What triggers a spawn is
+decided above it.
+
+The intended flow lives in the attack layer:
 
 1. projectile hits valid mob
 2. hit effect adds stacks to mob status slot
@@ -146,9 +149,9 @@ Stack effect flow:
 
 Default explosion position is mob position, not projectile edge contact.
 
-Stack-triggered AOE is a special attack used to prove that projectile hit
-effects, generic status stacks, and AOE spawn callbacks compose cleanly. It
-should not be hard-coded as the only status-stack behavior.
+This flow is a proof that projectile hit effects, generic status stacks, and AOE
+spawn callbacks compose cleanly. It should not be hard-coded as the only
+status-stack behavior.
 
 Status stacks should be generic so later effects such as poison, burning, shock,
 or volatile explosions can share the same runtime concept.
