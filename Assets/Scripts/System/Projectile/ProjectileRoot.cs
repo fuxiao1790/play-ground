@@ -88,10 +88,6 @@ namespace PlayGround.System.Projectile
         private EntityQuery allProjectileQuery;
         private int nextProjectileId;
         private int nextTemplateTypeId = 1;
-        private int spawnedProjectiles;
-        private int despawnedProjectiles;
-        private int hitEvents;
-        private int childSpawnRequests;
         private bool runtimeReady;
 
         public event global::System.Action<ProjectileHitContext> ProjectileHit;
@@ -99,13 +95,6 @@ namespace PlayGround.System.Projectile
 
         public ProjectileTargetRegistry TargetRegistry => targetRegistry;
         public int TargetMask => targetLayers.value != 0 ? targetLayers.value : ~0;
-        public int ActiveProjectileCount => CountRootProjectiles();
-        public ProjectileRuntimeCounters Counters => new(
-            ActiveProjectileCount,
-            spawnedProjectiles,
-            despawnedProjectiles,
-            hitEvents,
-            childSpawnRequests);
 
         private void Awake()
         {
@@ -138,6 +127,11 @@ namespace PlayGround.System.Projectile
                 return;
             }
 
+            using (SubmitProjectilesProfilerMarker.Auto())
+            {
+                SubmitProjectiles();
+            }
+
             using (DrainHitsProfilerMarker.Auto())
             {
                 DrainHits();
@@ -146,11 +140,6 @@ namespace PlayGround.System.Projectile
             using (DrainChildSpawnRequestsProfilerMarker.Auto())
             {
                 DrainChildSpawnRequests();
-            }
-
-            using (SubmitProjectilesProfilerMarker.Auto())
-            {
-                SubmitProjectiles();
             }
         }
 
@@ -333,7 +322,6 @@ namespace PlayGround.System.Projectile
             });
             entityManager.SetComponentData(entity, RenderComponentFor(command.ProjectileTypeId));
             entityManager.SetComponentEnabled<ProjectileActiveTag>(entity, true);
-            spawnedProjectiles++;
             return projectileId;
         }
 
@@ -474,9 +462,6 @@ namespace PlayGround.System.Projectile
             DynamicBuffer<ProjectileHitElement> hitBuffer =
                 entityManager.GetBuffer<ProjectileHitElement>(scopeEntity);
 
-            hitEvents += hitBuffer.Length;
-
-
             using (ReplayProjectileHitEventsProfilerMarker.Auto())
             {
                 for (int i = 0; i < hitBuffer.Length; i++)
@@ -511,33 +496,24 @@ namespace PlayGround.System.Projectile
         {
             DynamicBuffer<ProjectileChildSpawnRequestElement> requestBuffer =
                 entityManager.GetBuffer<ProjectileChildSpawnRequestElement>(scopeEntity);
-            pendingChildSpawnRequests.Clear();
-            for (int i = 0; i < requestBuffer.Length; i++)
+
+            int requestCount = requestBuffer.Length;
+
+            for (int i = 0; i < requestCount; i++)
             {
                 ProjectileChildSpawnRequestElement request = requestBuffer[i];
-                pendingChildSpawnRequests.Add(new ProjectileChildSpawnReplay(
-                    new ProjectileChildSpawnRequest(
-                        request.ProjectileId,
-                        request.ProjectileTypeId,
-                        request.ChildSpawnerId,
-                        request.TickIndex,
-                        new Vector2(request.Position.x, request.Position.y),
-                        new Vector2(request.Velocity.x, request.Velocity.y),
-                        new DamageSnapshot(request.DamageAmount)),
-                    request.Order));
+
+                ChildSpawnRequested?.Invoke(new ProjectileChildSpawnRequest(
+                    request.ProjectileId,
+                    request.ProjectileTypeId,
+                    request.ChildSpawnerId,
+                    request.TickIndex,
+                    new Vector2(request.Position.x, request.Position.y),
+                    new Vector2(request.Velocity.x, request.Velocity.y),
+                    new DamageSnapshot(request.DamageAmount)));
             }
 
-            childSpawnRequests += requestBuffer.Length;
             requestBuffer.Clear();
-            if (pendingChildSpawnRequests.Count > 1)
-            {
-                pendingChildSpawnRequests.Sort(ChildSpawnReplayOrderComparer);
-            }
-
-            for (int i = 0; i < pendingChildSpawnRequests.Count; i++)
-            {
-                ChildSpawnRequested?.Invoke(pendingChildSpawnRequests[i].Request);
-            }
         }
 
         private void BuildRenderResources()
@@ -919,42 +895,6 @@ namespace PlayGround.System.Projectile
                 instances,
                 instanceCount,
                 startInstance);
-        }
-
-        private int CountRootProjectiles()
-        {
-            if (!IsRuntimeReady())
-            {
-                return 0;
-            }
-
-            ComponentTypeHandle<ProjectileComponent> projectileTypeHandle =
-                entityManager.GetComponentTypeHandle<ProjectileComponent>(true);
-            ComponentTypeHandle<ProjectileActiveTag> activeTypeHandle =
-                entityManager.GetComponentTypeHandle<ProjectileActiveTag>(true);
-            using NativeArray<ArchetypeChunk> chunks = projectileQuery.ToArchetypeChunkArray(Allocator.Temp);
-            int count = 0;
-            for (int chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
-            {
-                ArchetypeChunk chunk = chunks[chunkIndex];
-                NativeArray<ProjectileComponent> projectiles = chunk.GetNativeArray(ref projectileTypeHandle);
-                EnabledMask activeMask = chunk.GetEnabledMask(ref activeTypeHandle);
-                for (int i = 0; i < projectiles.Length; i++)
-                {
-                    if (!activeMask.GetBit(i))
-                    {
-                        continue;
-                    }
-
-                    ProjectileComponent projectile = projectiles[i];
-                    if (projectile.Scope == scopeEntity)
-                    {
-                        count++;
-                    }
-                }
-            }
-
-            return count;
         }
 
         private static float DeterministicJitter(int projectileId, float maxOffsetSeconds)

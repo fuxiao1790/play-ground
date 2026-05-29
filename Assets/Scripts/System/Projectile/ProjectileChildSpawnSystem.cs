@@ -73,7 +73,8 @@ namespace PlayGround.System.Projectile
         }
 
 
-        // todo: why can't the reader of the Requests just read from PendingRequests? The ecb play back is executed on the main thread because it modifies the entity list.
+        // todo: why can't the reader of the Requests just read from PendingRequests? The ecb play back is executed on the main thread because it modifies the entity list
+        // todo: is there any benefit to create a specific child spawn event instead of calculating the child spawn data here and use a generic spawn event instead?
         [BurstCompile]
         private struct ProjectileChildSpawnFlushJob : IJob
         {

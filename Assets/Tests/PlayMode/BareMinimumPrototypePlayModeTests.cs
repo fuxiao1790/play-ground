@@ -105,7 +105,6 @@ namespace PlayGround.Tests.PlayMode
             projectileRoot.Spawn(new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(4f), ProjectileShapeType.Circle));
             projectileRoot.Step(0.01f);
 
-            Assert.That(projectileRoot.ActiveProjectileCount, Is.EqualTo(0));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
         }
