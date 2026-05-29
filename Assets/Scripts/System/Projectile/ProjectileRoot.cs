@@ -77,15 +77,15 @@ namespace PlayGround.System.Projectile
         private readonly Dictionary<int, Entity> renderBatchEntitiesByType = new();
         private readonly Dictionary<int, EntityArchetype> projectileArchetypesByType = new();
         private readonly List<ProjectileHitReplay> pendingHits = new();
-        private readonly List<ProjectileChildSpawnReplay> pendingChildSpawnRequests = new();
         private static readonly ProjectileHitReplayOrderComparer HitReplayOrderComparer = new();
-        private static readonly ProjectileChildSpawnReplayOrderComparer ChildSpawnReplayOrderComparer = new();
 
         private World entityWorld;
         private EntityManager entityManager;
         private Entity scopeEntity;
         private EntityQuery projectileQuery;
         private EntityQuery allProjectileQuery;
+        private EntityQuery childSpawnedQuery;
+        private readonly Dictionary<int, BlobAssetReference<ProjectileChildSpawnerBlob>> childSpawnerBlobsBySpawnerId = new();
         private int nextProjectileId;
         private int nextTemplateTypeId = 1;
         private bool runtimeReady;
@@ -167,6 +167,12 @@ namespace PlayGround.System.Projectile
 
             DestroyRenderBatchEntities();
             DestroyRenderResources();
+
+            foreach (var kvp in childSpawnerBlobsBySpawnerId)
+            {
+                if (kvp.Value.IsCreated) kvp.Value.Dispose();
+            }
+            childSpawnerBlobsBySpawnerId.Clear();
         }
 
         public void Configure(Sprite sprite)
@@ -313,8 +319,9 @@ namespace PlayGround.System.Projectile
                 TrackingQueryIntervalSeconds = command.Tracking.QueryIntervalSeconds,
                 TrackedTargetId = 0,
                 TrackedTargetIndex = -1,
-                ChildSpawnerId = command.ChildSpawn.SpawnerId,
-                ChildSpawnIntervalSeconds = command.ChildSpawn.IntervalSeconds,
+                ChildSpawnerConfig = command.ChildSpawn.Enabled
+                    ? GetOrBuildChildSpawnerBlob(command.ChildSpawn)
+                    : default,
                 ChildSpawnCooldownRemaining = command.ChildSpawn.Enabled
                     ? command.ChildSpawn.IntervalSeconds + DeterministicJitter(projectileId, command.ChildSpawn.IntervalJitterSeconds)
                     : 0f,
@@ -354,7 +361,7 @@ namespace PlayGround.System.Projectile
             scopeEntity = entityManager.CreateEntity(typeof(ProjectileScope));
             entityManager.AddBuffer<ProjectileTargetElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileHitElement>(scopeEntity);
-            entityManager.AddBuffer<ProjectileChildSpawnRequestElement>(scopeEntity);
+            childSpawnedQuery = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileChildSpawnedComponent>());
             projectileQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileComponent>(),
                 ComponentType.ReadOnly<ProjectileRenderComponent>(),
@@ -494,26 +501,81 @@ namespace PlayGround.System.Projectile
 
         private void DrainChildSpawnRequests()
         {
-            DynamicBuffer<ProjectileChildSpawnRequestElement> requestBuffer =
-                entityManager.GetBuffer<ProjectileChildSpawnRequestElement>(scopeEntity);
-
-            int requestCount = requestBuffer.Length;
-
-            for (int i = 0; i < requestCount; i++)
+            using NativeArray<Entity> spawnedEntities = childSpawnedQuery.ToEntityArray(Allocator.Temp);
+            for (int i = 0; i < spawnedEntities.Length; i++)
             {
-                ProjectileChildSpawnRequestElement request = requestBuffer[i];
+                Entity entity = spawnedEntities[i];
+                ProjectileChildSpawnedComponent spawned =
+                    entityManager.GetComponentData<ProjectileChildSpawnedComponent>(entity);
+                if (spawned.Scope != scopeEntity)
+                {
+                    continue;
+                }
+
+                ProjectileComponent projectile = entityManager.GetComponentData<ProjectileComponent>(entity);
+                projectile.ProjectileId = ++nextProjectileId;
+                entityManager.SetComponentData(entity, projectile);
+
+                // RemoveComponent is a structural change, but spawned is already on the stack
+                // and GetComponentData does a fresh lookup each call so subsequent iterations
+                // on different entities are unaffected.
+                entityManager.RemoveComponent<ProjectileChildSpawnedComponent>(entity);
 
                 ChildSpawnRequested?.Invoke(new ProjectileChildSpawnRequest(
-                    request.ProjectileId,
-                    request.ProjectileTypeId,
-                    request.ChildSpawnerId,
-                    request.TickIndex,
-                    new Vector2(request.Position.x, request.Position.y),
-                    new Vector2(request.Velocity.x, request.Velocity.y),
-                    new DamageSnapshot(request.DamageAmount)));
+                    spawned.ParentProjectileId,
+                    spawned.ParentProjectileTypeId,
+                    spawned.SpawnerId,
+                    spawned.TickIndex,
+                    projectile.ProjectileId,
+                    new Vector2(projectile.Position.x, projectile.Position.y),
+                    new Vector2(projectile.Velocity.x, projectile.Velocity.y),
+                    new DamageSnapshot(projectile.DamageAmount)));
+            }
+        }
+
+        private BlobAssetReference<ProjectileChildSpawnerBlob> GetOrBuildChildSpawnerBlob(ProjectileChildSpawnConfig config)
+        {
+            if (childSpawnerBlobsBySpawnerId.TryGetValue(config.SpawnerId, out BlobAssetReference<ProjectileChildSpawnerBlob> existing))
+            {
+                return existing;
             }
 
-            requestBuffer.Clear();
+            var builder = new BlobBuilder(Allocator.Temp);
+            ref ProjectileChildSpawnerBlob root = ref builder.ConstructRoot<ProjectileChildSpawnerBlob>();
+            root.SpawnerId = config.SpawnerId;
+            root.TypeId = config.TypeId;
+            root.ChildCountPerTick = Mathf.Max(1, config.Behavior.Count);
+            root.SpawnPatternType = config.Behavior.PatternType;
+            root.SideSpreadDegrees = config.Behavior.SpreadDegrees;
+            root.IntervalSeconds = config.IntervalSeconds;
+            root.IntervalJitterSeconds = config.IntervalJitterSeconds;
+            root.Speed = config.Speed;
+            root.Lifetime = config.Lifetime;
+            root.Radius = config.Radius;
+            root.HalfExtents = new float2(config.HalfExtents.x, config.HalfExtents.y);
+            root.RotationRadians = config.RotationRadians;
+            root.ShapeType = config.ShapeType;
+            root.DamageAmount = config.Damage.Amount;
+            root.DirectDamageEnabled = config.DirectDamageEnabled;
+            root.PierceCount = config.PierceCount;
+            root.RepeatHitCooldownSeconds = config.RepeatHitCooldownSeconds;
+            root.TargetMask = config.TargetMask;
+            root.VisualScale = config.VisualScale > 0f ? config.VisualScale : 1f;
+            math.sincos(math.radians(config.VisualRotationDegrees), out float sin, out float cos);
+            root.VisualRotationSin = sin;
+            root.VisualRotationCos = cos;
+            root.TrackingEnabled = config.Tracking.Enabled;
+            root.TrackingRangeSquared = config.Tracking.Range * config.Tracking.Range;
+            root.TrackingTurnSpeedRadians = math.radians(config.Tracking.TurnSpeedDegrees);
+            root.TrackingQueryIntervalSeconds = config.Tracking.QueryIntervalSeconds;
+            root.TrackingInitialQueryDelaySeconds = config.Tracking.InitialQueryDelaySeconds;
+
+            BlobAssetReference<ProjectileChildSpawnerBlob> blob =
+                builder.CreateBlobAssetReference<ProjectileChildSpawnerBlob>(Allocator.Persistent);
+            builder.Dispose();
+
+            childSpawnerBlobsBySpawnerId[config.SpawnerId] = blob;
+            return blob;
         }
 
         private void BuildRenderResources()
@@ -1004,29 +1066,9 @@ namespace PlayGround.System.Projectile
             public uint Order { get; }
         }
 
-        private readonly struct ProjectileChildSpawnReplay
-        {
-            public ProjectileChildSpawnReplay(ProjectileChildSpawnRequest request, uint order)
-            {
-                Request = request;
-                Order = order;
-            }
-
-            public ProjectileChildSpawnRequest Request { get; }
-            public uint Order { get; }
-        }
-
         private sealed class ProjectileHitReplayOrderComparer : IComparer<ProjectileHitReplay>
         {
             public int Compare(ProjectileHitReplay left, ProjectileHitReplay right)
-            {
-                return left.Order.CompareTo(right.Order);
-            }
-        }
-
-        private sealed class ProjectileChildSpawnReplayOrderComparer : IComparer<ProjectileChildSpawnReplay>
-        {
-            public int Compare(ProjectileChildSpawnReplay left, ProjectileChildSpawnReplay right)
             {
                 return left.Order.CompareTo(right.Order);
             }

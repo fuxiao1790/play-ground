@@ -36,6 +36,7 @@ namespace PlayGround.System.Projectile
             int projectileTypeId,
             int childSpawnerId,
             int tickIndex,
+            int childProjectileId,
             Vector2 position,
             Vector2 velocity,
             DamageSnapshot damage)
@@ -44,6 +45,7 @@ namespace PlayGround.System.Projectile
             ProjectileTypeId = projectileTypeId;
             ChildSpawnerId = childSpawnerId;
             TickIndex = tickIndex;
+            ChildProjectileId = childProjectileId;
             Position = position;
             Velocity = velocity;
             Damage = damage;
@@ -53,6 +55,7 @@ namespace PlayGround.System.Projectile
         public int ProjectileTypeId { get; }
         public int ChildSpawnerId { get; }
         public int TickIndex { get; }
+        public int ChildProjectileId { get; }
         public Vector2 Position { get; }
         public Vector2 Velocity { get; }
         public DamageSnapshot Damage { get; }

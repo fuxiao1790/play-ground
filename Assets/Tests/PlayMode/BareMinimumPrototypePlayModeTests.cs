@@ -259,7 +259,7 @@ namespace PlayGround.Tests.PlayMode
                 0f,
                 new DamageSnapshot(2f),
                 ProjectileShapeType.Circle,
-                childSpawn: new ProjectileChildSpawnConfig(1, 0.01f));
+                childSpawn: new ProjectileChildSpawnConfig(1, 0, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), ProjectileShapeType.Circle, 0f, new DamageSnapshot(1f)));
 
             projectileRoot.Spawn(command);
             projectileRoot.Step(0.02f);
@@ -297,7 +297,7 @@ namespace PlayGround.Tests.PlayMode
                 0f,
                 new DamageSnapshot(2f),
                 ProjectileShapeType.Circle,
-                childSpawn: new ProjectileChildSpawnConfig(1, 0.01f));
+                childSpawn: new ProjectileChildSpawnConfig(1, 0, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), ProjectileShapeType.Circle, 0f, new DamageSnapshot(1f)));
 
             Assert.DoesNotThrow(() =>
             {

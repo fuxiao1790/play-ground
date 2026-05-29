@@ -187,7 +187,7 @@ land in the narrow system that owns that behavior:
 
 - `ProjectileTrackingSystem`: optional homing, target refresh, reacquire interval, and steering while preserving speed
 - `ProjectileMovementSystem`: position integration from velocity and delta time
-- `ProjectileChildSpawnSystem`: timed child projectile spawn request events
+- `ProjectileChildSpawnSystem`: timed child entity creation; on each interval tick, spawns `ChildCountPerTick` entities via `EntityCommandBuffer.ParallelWriter`, fully initialized from `ProjectileChildSpawnerBlob` (shape, damage, tracking, spawn pattern); tagged with `ProjectileChildSpawnedComponent` for ID assignment and event replay by the root
 - `ProjectileLifetimeSystem`: lifetime countdown and disabling expired active state
 - `ProjectileContactGateSystem`: repeat-hit gate cooldown expiry
 - `ProjectileCollisionSystem`: spatial-hash broad phase, target AABB filtering, target mask filtering, shape hit checks, pierce count, contact gate creation, and ordered hit events
@@ -314,17 +314,17 @@ Port in this order:
 6. Keep adding Burst-compatible jobs for hot projectile stages where managed merge steps are not required
 7. Add pooled/debug visual adapter only if useful for authoring or low-count cases
 
-## Implementation status (as of 2026-05-27)
+## Implementation status (as of 2026-05-29)
 
 This section documents how the current Unity implementation aligns with this design doc and notes small, actionable differences found in the codebase.
 
 - **Core match:** The overall scoped, data-oriented design is implemented. `ProjectileRoot` owns a scope entity, target registry, template/type maps, and runtime counters (see `Assets/Scripts/System/Projectile/ProjectileRoot.cs`).
 - **Boundary rule:** The implementation follows the bridge pattern: the root reads scene objects and snapshots targets, ECS systems run on plain data and do not touch GameObjects or call `Physics2D` (see `ProjectileRoot.cs` and the simulation systems under `Assets/Scripts/System/Projectile/`).
 - **Frame flow & systems:** Systems implement the staged pipeline described in this doc: `ProjectileSimulationSystem`, `ProjectileTrackingSystem`, `ProjectileMovementSystem`, `ProjectileChildSpawnSystem`, `ProjectileLifetimeSystem`, `ProjectileContactGateSystem`, `ProjectileCollisionSystem`, and `ProjectileRenderPrepareSystem` (see the corresponding source files in `Assets/Scripts/System/Projectile/`).
-- **Data layout & events:** ECS components and buffer elements (`ProjectileComponent`, `ProjectileTargetElement`, hit/child/render buffers) match the documented layout. Hits and child-spawn requests are written into scope buffers and replayed by `ProjectileRoot` via `ProjectileHit` and `ChildSpawnRequested` events (`Assets/Scripts/System/Projectile/ProjectileEcsComponents.cs`, `ProjectileRuntimeEvents.cs`, `ProjectileSpawnCommand.cs`).
+- **Data layout & events:** ECS components and buffer elements (`ProjectileComponent`, `ProjectileTargetElement`, hit/render buffers) match the documented layout. Hits are written into the scope hit buffer and replayed by `ProjectileRoot` via `ProjectileHit`. Child-spawn events use a different path described below (`Assets/Scripts/System/Projectile/ProjectileEcsComponents.cs`, `ProjectileRuntimeEvents.cs`, `ProjectileSpawnCommand.cs`).
 - **Collision shapes & math:** Circle, rectangle (box), and capsule shapes are supported. Projectile and target AABB bounds are cached in ECS data, spatial-hash broad phase runs in `ProjectileCollisionSystem.cs`, and bounds/narrow-phase math is implemented in `ProjectileCollisionMath.cs`.
 - **Pierce & contact gates:** Contact gates are per-projectile buffer elements and are added/refreshed by the collision system and expired by `ProjectileContactGateSystem`.
-- **Tracking & steering:** Full tracking support exists with query intervals, reacquire logic, and steering that preserves projectile speed (`ProjectileTrackingSystem.cs`).
+- **Tracking & steering:** Full tracking support exists with query intervals, reacquire logic, and steering that preserves projectile speed (`ProjectileTrackingSystem.cs`). Child projectiles inherit tracking config baked into `ProjectileChildSpawnerBlob`.
 - **Rendering:** Batched instanced rendering is implemented: `ProjectileRenderPrepareSystem` writes matrices into per-scope/per-type render batch buffers and `ProjectileRoot` submits via `Graphics.RenderMeshInstanced` using built `ProjectileRenderResources`.
 
 ### Minor differences / implementation notes
@@ -332,9 +332,10 @@ This section documents how the current Unity implementation aligns with this des
 - **Prefab "baking":** The doc describes baking prefab collider and render data. The implementation performs template registration and builds render resources at runtime via `RegisterTemplate` / `BuildRenderResources` inside `ProjectileRoot` rather than a separate offline/bake pipeline. This achieves the intent but is runtime-driven.
 - **Damage snapshot shape:** The runtime carries a `DamageSnapshot` value recorded on spawn; current buffer fields pass a float `DamageAmount`. If you intended a richer typed snapshot, inspect `PlayGround.Common.DamageSnapshot` and extend the buffer payloads accordingly.
 - **Broad-phase acceleration:** The implementation uses per-scope target buffers plus a fixed-size spatial hash over target AABBs. An AABB tree is not present; add it only if profiling shows the hash plus bounds filter is insufficient.
-- **Impact AOE / hit effects:** The system exposes child-spawn requests and hit events; AOE or complex hit reactions are implemented outside the core collision math by listening to `ProjectileHit` and `ChildSpawnRequested`. This matches the intent (adapter-side effects) rather than embedding AOE logic inside collision systems.
-
-- **Child-specific authoring:** Projectile authoring fields now support child-specific overrides for lifetime, speed, pierce count, and tracking parameters; scene-side spawn adapters (for example, `ProjectileAttack`) apply these child overrides when issuing child spawns.
+- **Impact AOE / hit effects:** The system exposes child-spawn and hit events; AOE or complex hit reactions are implemented outside the core collision math by listening to `ProjectileHit` and `ChildSpawnRequested`. This matches the intent (adapter-side effects) rather than embedding AOE logic inside collision systems.
+- **Child spawn — ECB entity creation:** Child projectiles are created entirely by `ProjectileChildSpawnSystem` via `EntityCommandBuffer.ParallelWriter`. The system reads `BlobAssetReference<ProjectileChildSpawnerBlob>` from the parent's `ProjectileComponent` and creates fully initialized child entities each interval tick. Children are tagged with `ProjectileChildSpawnedComponent`; `ProjectileRoot.DrainChildSpawnRequests` iterates those entities in `LateUpdate`, assigns sequential `ProjectileId`s, removes the tag, and fires the `ChildSpawnRequested` event. The event is observational on the managed side — no `Spawn()` call is issued.
+- **Child spawn pattern:** `ProjectileChildSpawnBehavior` (attached to `ProjectileChildSpawnConfig`) holds `Count`, `PatternType` (`ProjectileChildSpawnPatternType`: `SideSpray` or `Forward`), and `SpreadDegrees`. `SideSpray` fans `(count+1)/2` shots left and `count/2` shots right, each side spread evenly across `±SpreadDegrees/2` around the perpendicular — matching the behavior of `ProjectileSideSpraySpawnPattern`. These values are baked into `ProjectileChildSpawnerBlob` at spawn time and consumed entirely inside the Burst job; adding a new pattern requires only a new enum case and a velocity branch in `ComputeChildVelocity`.
+- **Child-specific authoring:** `ProjectileChildSpawnConfig` carries full child projectile definition (shape, damage, speed, lifetime, pierce, visual) plus `ProjectileTrackingConfig` and `ProjectileChildSpawnBehavior` as optional tail parameters; `ProjectileAttack` derives these from its child-specific inspector fields and bakes them once into a blob asset cached by spawner ID.
 - **Stress tests:** Runtime counters are present (`ProjectileRoot.Counters`) but no dedicated stress-test scene was found in this directory; adding a stress scene and counters visualization remains a future task.
 
 ### Files referenced while verifying

@@ -112,20 +112,96 @@ namespace PlayGround.System.Projectile
         public float InitialQueryDelaySeconds { get; }
     }
 
+    public enum ProjectileChildSpawnPatternType
+    {
+        SideSpray = 0,
+        Forward = 1,
+    }
+
+    public readonly struct ProjectileChildSpawnBehavior
+    {
+        public static readonly ProjectileChildSpawnBehavior Default = new(1, ProjectileChildSpawnPatternType.SideSpray);
+
+        public ProjectileChildSpawnBehavior(
+            int count,
+            ProjectileChildSpawnPatternType pattern = ProjectileChildSpawnPatternType.SideSpray,
+            float spreadDegrees = 30f)
+        {
+            Count = Mathf.Max(1, count);
+            PatternType = pattern;
+            SpreadDegrees = Mathf.Max(0f, spreadDegrees);
+        }
+
+        public int Count { get; }
+        public ProjectileChildSpawnPatternType PatternType { get; }
+        public float SpreadDegrees { get; }
+    }
+
     public readonly struct ProjectileChildSpawnConfig
     {
-        public static readonly ProjectileChildSpawnConfig Disabled = new(0, 0f, 0f);
+        public static readonly ProjectileChildSpawnConfig Disabled = default;
 
-        public ProjectileChildSpawnConfig(int spawnerId, float intervalSeconds, float intervalJitterSeconds = 0f)
+        public ProjectileChildSpawnConfig(
+            int spawnerId,
+            int typeId,
+            float intervalSeconds,
+            float intervalJitterSeconds,
+            float speed,
+            float lifetime,
+            float radius,
+            Vector2 halfExtents,
+            ProjectileShapeType shapeType,
+            float rotationRadians,
+            DamageSnapshot damage,
+            int targetMask = 0,
+            bool directDamageEnabled = true,
+            int pierceCount = 0,
+            float repeatHitCooldownSeconds = 0f,
+            float visualScale = 1f,
+            float visualRotationDegrees = 0f,
+            ProjectileTrackingConfig tracking = default,
+            ProjectileChildSpawnBehavior behavior = default)
         {
             SpawnerId = spawnerId;
+            TypeId = typeId;
             IntervalSeconds = Mathf.Max(0f, intervalSeconds);
             IntervalJitterSeconds = Mathf.Max(0f, intervalJitterSeconds);
+            Speed = Mathf.Max(0f, speed);
+            Lifetime = Mathf.Max(0f, lifetime);
+            Radius = Mathf.Max(0f, radius);
+            HalfExtents = halfExtents;
+            ShapeType = shapeType;
+            RotationRadians = rotationRadians;
+            Damage = damage;
+            TargetMask = targetMask;
+            DirectDamageEnabled = directDamageEnabled;
+            PierceCount = Mathf.Max(0, pierceCount);
+            RepeatHitCooldownSeconds = Mathf.Max(0f, repeatHitCooldownSeconds);
+            VisualScale = Mathf.Max(0f, visualScale);
+            VisualRotationDegrees = visualRotationDegrees;
+            Tracking = tracking;
+            Behavior = behavior;
         }
 
         public int SpawnerId { get; }
+        public int TypeId { get; }
         public float IntervalSeconds { get; }
         public float IntervalJitterSeconds { get; }
+        public float Speed { get; }
+        public float Lifetime { get; }
+        public float Radius { get; }
+        public Vector2 HalfExtents { get; }
+        public ProjectileShapeType ShapeType { get; }
+        public float RotationRadians { get; }
+        public DamageSnapshot Damage { get; }
+        public int TargetMask { get; }
+        public bool DirectDamageEnabled { get; }
+        public int PierceCount { get; }
+        public float RepeatHitCooldownSeconds { get; }
+        public float VisualScale { get; }
+        public float VisualRotationDegrees { get; }
+        public ProjectileTrackingConfig Tracking { get; }
+        public ProjectileChildSpawnBehavior Behavior { get; }
         public bool Enabled => SpawnerId > 0 && IntervalSeconds > 0f;
     }
 }

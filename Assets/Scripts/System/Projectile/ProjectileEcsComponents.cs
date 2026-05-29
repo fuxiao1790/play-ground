@@ -30,8 +30,7 @@ namespace PlayGround.System.Projectile
         public float TrackingQueryIntervalSeconds;
         public int TrackedTargetId;
         public int TrackedTargetIndex;
-        public int ChildSpawnerId;
-        public float ChildSpawnIntervalSeconds;
+        public BlobAssetReference<ProjectileChildSpawnerBlob> ChildSpawnerConfig;
         public float ChildSpawnCooldownRemaining;
         public int ChildSpawnTickIndex;
     }
@@ -108,19 +107,6 @@ namespace PlayGround.System.Projectile
         public uint Order;
     }
 
-    public struct ProjectileChildSpawnRequestElement : IBufferElementData
-    {
-        public int ProjectileId;
-        public int ProjectileTypeId;
-        public int ChildSpawnerId;
-        public int TickIndex;
-        public float2 Position;
-        public float2 Velocity;
-        public float DamageAmount;
-        public bool DirectDamageEnabled;
-        public uint Order;
-    }
-
     public struct ProjectileRenderElement : IBufferElementData
     {
         public Matrix4x4 objectToWorld;
@@ -140,6 +126,48 @@ namespace PlayGround.System.Projectile
     {
     }
 
+    // Added to each child entity by ProjectileChildSpawnSystem via ECB.
+    // Read and removed by ProjectileRoot.DrainChildSpawnRequests in LateUpdate,
+    // which assigns the child's ProjectileId and fires the ChildSpawnRequested event.
+    public struct ProjectileChildSpawnedComponent : IComponentData
+    {
+        public Entity Scope;
+        public int ParentProjectileId;
+        public int ParentProjectileTypeId;
+        public int SpawnerId;
+        public int TickIndex;
+    }
+
+    public struct ProjectileChildSpawnerBlob
+    {
+        public int SpawnerId;
+        public int TypeId;
+        public int ChildCountPerTick;
+        public ProjectileChildSpawnPatternType SpawnPatternType;
+        public float SideSpreadDegrees;
+        public float IntervalSeconds;
+        public float IntervalJitterSeconds;
+        public float Speed;
+        public float Lifetime;
+        public float Radius;
+        public float2 HalfExtents;
+        public float RotationRadians;
+        public ProjectileShapeType ShapeType;
+        public float DamageAmount;
+        public bool DirectDamageEnabled;
+        public int PierceCount;
+        public float RepeatHitCooldownSeconds;
+        public int TargetMask;
+        public float VisualScale;
+        public float VisualRotationSin;
+        public float VisualRotationCos;
+        public bool TrackingEnabled;
+        public float TrackingRangeSquared;
+        public float TrackingTurnSpeedRadians;
+        public float TrackingQueryIntervalSeconds;
+        public float TrackingInitialQueryDelaySeconds;
+    }
+
     public struct ProjectilePendingHit
     {
         public Entity Scope;
@@ -149,19 +177,6 @@ namespace PlayGround.System.Projectile
         public float2 Position;
         public float DamageAmount;
         public bool DirectDamageEnabled;
-        public uint Order;
-    }
-
-    public struct ProjectilePendingChildSpawn
-    {
-        public Entity Scope;
-        public int ProjectileId;
-        public int ProjectileTypeId;
-        public int ChildSpawnerId;
-        public int TickIndex;
-        public float2 Position;
-        public float2 Velocity;
-        public float DamageAmount;
         public uint Order;
     }
 

@@ -30,7 +30,6 @@ namespace PlayGround.System.Projectile
             for (int i = 0; i < scopes.Length; i++)
             {
                 state.EntityManager.GetBuffer<ProjectileHitElement>(scopes[i]).Clear();
-                state.EntityManager.GetBuffer<ProjectileChildSpawnRequestElement>(scopes[i]).Clear();
             }
 
             scopes.Dispose();

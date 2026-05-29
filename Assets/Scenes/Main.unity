@@ -944,12 +944,32 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
+      propertyPath: childTrackingRange
+      value: 150
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
       propertyPath: childProjectileCount
       value: 12
       objectReference: {fileID: 0}
     - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
+      propertyPath: childTrackingEnabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
       propertyPath: childSpawnIntervalSeconds
       value: 0.25
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
+      propertyPath: childTrackingTurnSpeedDegrees
+      value: 360
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
+      propertyPath: childTrackingQueryIntervalSeconds
+      value: 0.25
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
+      propertyPath: childTrackingInitialQueryDelaySeconds
+      value: 0.15
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1500,12 +1520,32 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1001001001001001004, guid: 5b2a8c81fe279674c86068f87ce0a516, type: 3}
     - target: {fileID: 4459914088298401002, guid: 82f949d068ca3094483bf4147eddaf46, type: 3}
+      propertyPath: childTrackingRange
+      value: 150
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 82f949d068ca3094483bf4147eddaf46, type: 3}
       propertyPath: childProjectileCount
       value: 20
       objectReference: {fileID: 0}
     - target: {fileID: 4459914088298401002, guid: 82f949d068ca3094483bf4147eddaf46, type: 3}
+      propertyPath: childTrackingEnabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 82f949d068ca3094483bf4147eddaf46, type: 3}
       propertyPath: childSpawnIntervalSeconds
       value: 0.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 82f949d068ca3094483bf4147eddaf46, type: 3}
+      propertyPath: childTrackingTurnSpeedDegrees
+      value: 360
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 82f949d068ca3094483bf4147eddaf46, type: 3}
+      propertyPath: childTrackingQueryIntervalSeconds
+      value: 0.25
+      objectReference: {fileID: 0}
+    - target: {fileID: 4459914088298401002, guid: 82f949d068ca3094483bf4147eddaf46, type: 3}
+      propertyPath: childTrackingInitialQueryDelaySeconds
+      value: 0.15
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

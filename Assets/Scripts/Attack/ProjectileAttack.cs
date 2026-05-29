@@ -42,6 +42,7 @@ namespace PlayGround.Attack
         [SerializeField] private int childProjectileCount;
         [SerializeField] private float childSpawnIntervalSeconds;
         [SerializeField] private float childSpawnIntervalJitterSeconds;
+        [SerializeField, Range(0f, 180f)] private float childSideSpreadDegrees = 30f;
         [SerializeField] private ProjectileChildSpawnPattern childSpawnPattern;
         [SerializeField] private float childDamageMultiplier = 1f;
         // Child-specific override values. When set, child spawns use these instead
@@ -268,10 +269,27 @@ namespace PlayGround.Attack
                 childSpawnerId = ++nextChildSpawnerId;
             }
 
+            BasicAttackPrefab childPrefab = ChildBasicPrefab();
             return new ProjectileChildSpawnConfig(
                 childSpawnerId,
+                ProjectileTypeId(childPrefab, childProjectileTypeId),
                 Mathf.Max(0.01f, childSpawnIntervalSeconds),
-                childSpawnIntervalJitterSeconds);
+                childSpawnIntervalJitterSeconds,
+                childProjectileSpeed,
+                childProjectileLifetime,
+                ProjectileRadius(childPrefab),
+                ProjectileHalfExtents(childPrefab),
+                ProjectileShape(childPrefab),
+                ProjectileRotationRadians(childPrefab),
+                new DamageSnapshot(projectileDamage * Mathf.Max(0f, childDamageMultiplier)),
+                EffectiveTargetMask(),
+                projectileDirectDamageEnabled,
+                childPierceCount != 0 ? childPierceCount : pierceCount,
+                repeatHitCooldownSeconds,
+                childPrefab.VisualScale,
+                childPrefab.VisualRotationDegrees,
+                ChildTrackingConfig(),
+                new ProjectileChildSpawnBehavior(childProjectileCount, ProjectileChildSpawnPatternType.SideSpray, childSideSpreadDegrees));
         }
 
         private void SubscribeProjectileRoot()
@@ -355,33 +373,8 @@ namespace PlayGround.Attack
                 return;
             }
 
-            BuildChildRequests(request);
-            DamageSnapshot childDamage = new(request.Damage.Amount * Mathf.Max(0f, childDamageMultiplier));
-            for (int i = 0; i < childRequests.Count; i++)
-            {
-                ProjectileVolleyBuilder.SpawnRequest child = childRequests[i];
-                Vector2 direction = child.Velocity.sqrMagnitude > 0f ? child.Velocity.normalized : Vector2.right;
-                BasicAttackPrefab childPrefab = ChildBasicPrefab();
-                int effectiveChildPierce = childPierceCount != 0 ? childPierceCount : pierceCount;
-                var command = new ProjectileSpawnCommand(
-                    child.Position,
-                    direction,
-                    child.Velocity.magnitude,
-                    childProjectileLifetime,
-                    ProjectileRadius(childPrefab),
-                    ProjectileHalfExtents(childPrefab),
-                    ProjectileRotationRadians(childPrefab),
-                    childDamage,
-                    ProjectileShape(childPrefab),
-                    ProjectileTypeId(childPrefab, childProjectileTypeId),
-                    EffectiveTargetMask(),
-                    effectiveChildPierce,
-                    repeatHitCooldownSeconds,
-                    ChildTrackingConfig(),
-                    ProjectileChildSpawnConfig.Disabled,
-                    projectileDirectDamageEnabled);
-                ownedProjectileIds.Add(projectileRoot.Spawn(command));
-            }
+            // Child entity is created by the ECS system; track its ID so hit events propagate.
+            ownedProjectileIds.Add(request.ChildProjectileId);
         }
 
         private void RegisterBasicPrefabs()
