@@ -38,10 +38,11 @@ namespace PlayGround.System.Projectile
 
             private void Execute(ref ProjectileComponent projectile)
             {
-                if (projectile.RemainingLifetime <= 0f
-                    || projectile.Scope == Entity.Null
-                    || projectile.ChildSpawnerId <= 0
-                    || projectile.ChildSpawnIntervalSeconds <= 0f)
+                
+                if (projectile.RemainingLifetime <= 0f                  // todo: this system should be scheduled after the lifetime system so this can be optimized away by using entity query
+                    || projectile.Scope == Entity.Null                  // todo: why is this even possible?
+                    || projectile.ChildSpawnerId <= 0                   // todo: should use entity query here instead of if statement on id
+                    || projectile.ChildSpawnIntervalSeconds <= 0f)      // todo: this is basically the same condition, optimize it away by using the same query, reject tiny spawn interval before entities enter the ecs
                 {
                     return;
                 }
@@ -71,6 +72,8 @@ namespace PlayGround.System.Projectile
             }
         }
 
+
+        // todo: why can't the reader of the Requests just read from PendingRequests? The ecb play back is executed on the main thread because it modifies the entity list.
         [BurstCompile]
         private struct ProjectileChildSpawnFlushJob : IJob
         {

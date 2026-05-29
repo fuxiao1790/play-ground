@@ -467,46 +467,44 @@ namespace PlayGround.System.Projectile
             }
         }
 
+        // optimization: sort the buffer so that hits to the same target are clustered in the buffer. 
+        // this can be done using component and entity query, should help reduce cache misses and vtable lookups.
         private void DrainHits()
         {
-            DynamicBuffer<ProjectileHitElement> hitBuffer = entityManager.GetBuffer<ProjectileHitElement>(scopeEntity);
-            pendingHits.Clear();
-            for (int i = 0; i < hitBuffer.Length; i++)
-            {
-                ProjectileHitElement hit = hitBuffer[i];
-                DamageSnapshot damage = new(hit.DamageAmount);
-                targetsById.TryGetValue(hit.TargetId, out IProjectileTarget target);
-                var context = new ProjectileHitContext(
-                    hit.ProjectileId,
-                    hit.ProjectileTypeId,
-                    hit.TargetId,
-                    new Vector2(hit.Position.x, hit.Position.y),
-                    damage,
-                    target);
-                pendingHits.Add(new ProjectileHitReplay(context, hit.DirectDamageEnabled, target, hit.Order));
-            }
+            DynamicBuffer<ProjectileHitElement> hitBuffer =
+                entityManager.GetBuffer<ProjectileHitElement>(scopeEntity);
 
             hitEvents += hitBuffer.Length;
-            hitBuffer.Clear();
-            if (pendingHits.Count > 1)
-            {
-                pendingHits.Sort(HitReplayOrderComparer);
-            }
+
 
             using (ReplayProjectileHitEventsProfilerMarker.Auto())
             {
-                for (int i = 0; i < pendingHits.Count; i++)
+                for (int i = 0; i < hitBuffer.Length; i++)
                 {
-                    ProjectileHitReplay replay = pendingHits[i];
-                    ProjectileHitContext context = replay.Context;
+                    ProjectileHitElement hit = hitBuffer[i];
+
+                    targetsById.TryGetValue(hit.TargetId, out IProjectileTarget target);
+
+                    DamageSnapshot damage = new(hit.DamageAmount);
+
+                    var context = new ProjectileHitContext(
+                        hit.ProjectileId,
+                        hit.ProjectileTypeId,
+                        hit.TargetId,
+                        new Vector2(hit.Position.x, hit.Position.y),
+                        damage,
+                        target);
+
                     ProjectileHit?.Invoke(context);
 
-                    if (replay.DirectDamageEnabled && replay.Target != null)
+                    if (hit.DirectDamageEnabled && target != null)
                     {
-                        replay.Target.ReceiveProjectileHit(context.Damage);
+                        target.ReceiveProjectileHit(context.Damage);
                     }
                 }
             }
+
+            hitBuffer.Clear();
         }
 
         private void DrainChildSpawnRequests()
