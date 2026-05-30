@@ -171,7 +171,7 @@ namespace PlayGround.System.Projectile
             {
                 if (cooldownSeconds <= 0f)
                 {
-                    return;
+                    cooldownSeconds = float.MaxValue;
                 }
 
                 for (int i = 0; i < contactGates.Length; i++)
