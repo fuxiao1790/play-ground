@@ -124,11 +124,12 @@ namespace PlayGround.Player
             loadout = new PlayerAttackLoadout(
                 attackSearchRoot.GetComponentsInChildren<ProjectileAttack>(true),
                 attackSearchRoot.GetComponentsInChildren<AoeAttack>(true),
+                attackSearchRoot.GetComponentsInChildren<ChildSpawningProjectileAttack>(true),
                 maxAttackCount);
 
             if (loadout.AttackCount == 0)
             {
-                throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} needs at least one child ProjectileAttack.");
+                throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} needs at least one child ProjectileAttack or ChildSpawningProjectileAttack.");
             }
         }
 

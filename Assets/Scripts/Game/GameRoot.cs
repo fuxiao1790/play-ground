@@ -179,6 +179,12 @@ namespace PlayGround.Game
             {
                 aoeAttacks[i].Configure(root);
             }
+
+            ChildSpawningProjectileAttack[] childSpawningAttacks = player.GetComponentsInChildren<ChildSpawningProjectileAttack>(true);
+            for (int i = 0; i < childSpawningAttacks.Length; i++)
+            {
+                childSpawningAttacks[i].ConfigureAoeRoot(root);
+            }
         }
 
         private static T FindTaggedComponent<T>(string tag)

@@ -9,17 +9,13 @@ namespace PlayGround.Attack
 {
     public sealed class ProjectileAttack : MonoBehaviour
     {
-        private static int nextChildSpawnerId;
-
         [SerializeField] private ProjectileRoot projectileRoot;
         [SerializeField] private float recoverySeconds = 0.15f;
         [SerializeField] private AudioClip performSound;
         [SerializeField] private AudioManager audioManager;
         [SerializeField] private AoeRoot aoeRoot;
         [SerializeField] private BasicAttackPrefab basicPrefab;
-        [SerializeField] private BasicAttackPrefab childBasicPrefab;
         [SerializeField, HideInInspector] private int projectileTypeId;
-        [SerializeField, HideInInspector] private int childProjectileTypeId;
         [SerializeField] private float projectileSpeed = 16f;
         [SerializeField] private float projectileLifetime = 1.5f;
         [SerializeField] private float projectileDamage = 10f;
@@ -39,36 +35,35 @@ namespace PlayGround.Attack
         [SerializeField] private float impactAoeDamage = 1f;
         [SerializeField] private float impactAoeLifetimeSeconds;
         [SerializeField] private float impactAoeTickIntervalSeconds;
-        [SerializeField] private int childProjectileCount;
-        [SerializeField] private float childSpawnIntervalSeconds;
-        [SerializeField] private float childSpawnIntervalJitterSeconds;
-        [SerializeField, Range(0f, 180f)] private float childSideSpreadDegrees = 30f;
-        [SerializeField] private ProjectileChildSpawnPattern childSpawnPattern;
-        [SerializeField] private float childDamageMultiplier = 1f;
-        // Child-specific override values. When set, child spawns use these instead
-        // of the parent values. Grouped here with other child spawn settings so
-        // inspector ordering is logical.
-        [SerializeField] private float childProjectileSpeed = 16f;
-        [SerializeField] private float childProjectileLifetime = 1.5f;
-        [SerializeField] private int childPierceCount;
-        [SerializeField] private bool childTrackingEnabled;
-        [SerializeField] private float childTrackingRange;
-        [SerializeField] private float childTrackingTurnSpeedDegrees;
-        [SerializeField] private float childTrackingQueryIntervalSeconds;
-        [SerializeField] private float childTrackingInitialQueryDelaySeconds;
 
         private readonly List<ProjectileSpawnCommand> commands = new();
-        private readonly List<ProjectileVolleyBuilder.SpawnRequest> childRequests = new();
         private readonly HashSet<int> ownedProjectileIds = new();
         private ProjectileHitEffect[] hitEffects = global::System.Array.Empty<ProjectileHitEffect>();
         private ProjectileRoot subscribedRoot;
         private AoeRoot subscribedAoeRoot;
-        private int childSpawnerId;
         private float cooldownRemaining;
+        private ProjectileChildSpawnConfig activeChildConfig = ProjectileChildSpawnConfig.Disabled;
 
         public event global::System.Action<ProjectileAoeSpawnRequest> AoeSpawnRequested;
 
+        // --- surface for ChildSpawningProjectileAttack ---
+        public ProjectileRoot Root => projectileRoot;
+        public BasicAttackPrefab Prefab => basicPrefab;
+        public float Damage => projectileDamage;
+        public float Speed => projectileSpeed;
+        public float Lifetime => projectileLifetime;
+        public int PierceCount => pierceCount;
+        public int ActiveTargetMask => EffectiveTargetMask();
+        public bool DirectDamageEnabled => projectileDirectDamageEnabled;
+        public float RepeatHitCooldown => repeatHitCooldownSeconds;
         public bool IsReady => cooldownRemaining <= 0f;
+
+        public ProjectileTrackingConfig GetTrackingConfig() => TrackingConfig();
+        public bool OwnsProjectile(int id) => ownedProjectileIds.Contains(id);
+        public void TrackProjectileId(int id) => ownedProjectileIds.Add(id);
+        public void SetChildConfig(ProjectileChildSpawnConfig config) => activeChildConfig = config;
+
+        // --- lifecycle ---
 
         private void Awake()
         {
@@ -108,26 +103,17 @@ namespace PlayGround.Attack
 
         private void OnValidate()
         {
-            // Keep existing automatic wiring for child components
-            // Do not clear invalid prefab references silently; instead throw so authoring errors are visible.
-            // This prevents inspector fields from being nulled and ensures developers correct renderability issues.
-            if (basicPrefab != null && !IsValidBasicPrefab(basicPrefab, out string basicReason))
+            if (basicPrefab != null && !IsValidBasicPrefab(basicPrefab, out string reason))
             {
-                throw new MissingReferenceException($"{nameof(ProjectileAttack)} on {name} has invalid {nameof(basicPrefab)} '{basicPrefab.name}': {basicReason}.");
-            }
-
-            if (childBasicPrefab != null && !IsValidBasicPrefab(childBasicPrefab, out string childReason))
-            {
-                throw new MissingReferenceException($"{nameof(ProjectileAttack)} on {name} has invalid {nameof(childBasicPrefab)} '{childBasicPrefab.name}': {childReason}.");
+                throw new MissingReferenceException($"{nameof(ProjectileAttack)} on {name} has invalid {nameof(basicPrefab)} '{basicPrefab.name}': {reason}.");
             }
         }
 
+        // --- public API ---
+
         public void Configure(ProjectileRoot root)
         {
-            if (projectileRoot == root)
-            {
-                return;
-            }
+            if (projectileRoot == root) return;
 
             UnsubscribeProjectileRoot();
             projectileRoot = root;
@@ -140,10 +126,7 @@ namespace PlayGround.Attack
 
         public void ConfigureAoeRoot(AoeRoot root)
         {
-            if (aoeRoot == root)
-            {
-                return;
-            }
+            if (aoeRoot == root) return;
 
             UnsubscribeAoeRoot();
             aoeRoot = root;
@@ -160,10 +143,7 @@ namespace PlayGround.Attack
 
         public bool TryFire(Vector2 aimDirection)
         {
-            if (!IsReady)
-            {
-                return false;
-            }
+            if (!IsReady) return false;
 
             DamageSnapshot damage = new(projectileDamage);
             ProjectileVolleyBuilder.Build(
@@ -175,13 +155,13 @@ namespace PlayGround.Attack
                 jitterDegrees,
                 projectileSpeed,
                 projectileLifetime,
-                ProjectileRadius(basicPrefab),
+                basicPrefab.Radius,
                 damage,
-                ProjectileShape(basicPrefab));
+                basicPrefab.ShapeType);
 
             for (int i = 0; i < commands.Count; i++)
             {
-                ProjectileSpawnCommand command = WithAuthoredOptions(commands[i], damage, ChildSpawnConfig(), basicPrefab);
+                ProjectileSpawnCommand command = WithAuthoredOptions(commands[i], damage);
                 ownedProjectileIds.Add(projectileRoot.Spawn(command));
             }
 
@@ -194,40 +174,34 @@ namespace PlayGround.Attack
             int projectileCount,
             int pierceCount,
             bool directDamageEnabled,
-            bool trackingEnabled,
-            int childProjectileCount,
-            float childSpawnIntervalSeconds)
+            bool trackingEnabled)
         {
             this.projectileCount = projectileCount;
             this.pierceCount = pierceCount;
             projectileDirectDamageEnabled = directDamageEnabled;
             this.trackingEnabled = trackingEnabled;
-            this.childProjectileCount = childProjectileCount;
-            this.childSpawnIntervalSeconds = childSpawnIntervalSeconds;
         }
 
-        private ProjectileSpawnCommand WithAuthoredOptions(
-            ProjectileSpawnCommand baseCommand,
-            DamageSnapshot damage,
-            ProjectileChildSpawnConfig childSpawn,
-            BasicAttackPrefab basicPrefab)
+        // --- private ---
+
+        private ProjectileSpawnCommand WithAuthoredOptions(ProjectileSpawnCommand baseCommand, DamageSnapshot damage)
         {
             return new ProjectileSpawnCommand(
                 baseCommand.Position,
                 baseCommand.Direction,
                 projectileSpeed,
                 projectileLifetime,
-                ProjectileRadius(basicPrefab),
-                ProjectileHalfExtents(basicPrefab),
-                ProjectileRotationRadians(basicPrefab),
+                basicPrefab.Radius,
+                basicPrefab.HalfExtents,
+                basicPrefab.RotationRadians,
                 damage,
-                ProjectileShape(basicPrefab),
-                ProjectileTypeId(basicPrefab, projectileTypeId),
+                basicPrefab.ShapeType,
+                projectileRoot.RegisterTemplate(basicPrefab),
                 EffectiveTargetMask(),
                 pierceCount,
                 repeatHitCooldownSeconds,
                 TrackingConfig(),
-                childSpawn,
+                activeChildConfig,
                 projectileDirectDamageEnabled);
         }
 
@@ -241,87 +215,25 @@ namespace PlayGround.Attack
                 trackingInitialQueryDelaySeconds);
         }
 
-        private ProjectileTrackingConfig ChildTrackingConfig()
-        {
-            bool enabled = childTrackingEnabled ? childTrackingEnabled : trackingEnabled;
-            float range = childTrackingRange > 0f ? childTrackingRange : trackingRange;
-            float turn = childTrackingTurnSpeedDegrees > 0f ? childTrackingTurnSpeedDegrees : trackingTurnSpeedDegrees;
-            float query = childTrackingQueryIntervalSeconds > 0f ? childTrackingQueryIntervalSeconds : trackingQueryIntervalSeconds;
-            float initial = childTrackingInitialQueryDelaySeconds > 0f ? childTrackingInitialQueryDelaySeconds : trackingInitialQueryDelaySeconds;
-
-            return new ProjectileTrackingConfig(
-                enabled,
-                range,
-                turn,
-                query,
-                initial);
-        }
-
-        private ProjectileChildSpawnConfig ChildSpawnConfig()
-        {
-            if (childProjectileCount <= 0 || childSpawnIntervalSeconds <= 0f)
-            {
-                return ProjectileChildSpawnConfig.Disabled;
-            }
-
-            if (childSpawnerId <= 0)
-            {
-                childSpawnerId = ++nextChildSpawnerId;
-            }
-
-            BasicAttackPrefab childPrefab = ChildBasicPrefab();
-            return new ProjectileChildSpawnConfig(
-                childSpawnerId,
-                ProjectileTypeId(childPrefab, childProjectileTypeId),
-                Mathf.Max(0.01f, childSpawnIntervalSeconds),
-                childSpawnIntervalJitterSeconds,
-                childProjectileSpeed,
-                childProjectileLifetime,
-                ProjectileRadius(childPrefab),
-                ProjectileHalfExtents(childPrefab),
-                ProjectileShape(childPrefab),
-                ProjectileRotationRadians(childPrefab),
-                new DamageSnapshot(projectileDamage * Mathf.Max(0f, childDamageMultiplier)),
-                EffectiveTargetMask(),
-                projectileDirectDamageEnabled,
-                childPierceCount != 0 ? childPierceCount : pierceCount,
-                repeatHitCooldownSeconds,
-                childPrefab.VisualScale,
-                childPrefab.VisualRotationDegrees,
-                ChildTrackingConfig(),
-                new ProjectileChildSpawnBehavior(childProjectileCount, ProjectileChildSpawnPatternType.SideSpray, childSideSpreadDegrees));
-        }
-
         private void SubscribeProjectileRoot()
         {
-            if (projectileRoot == null || subscribedRoot == projectileRoot)
-            {
-                return;
-            }
+            if (projectileRoot == null || subscribedRoot == projectileRoot) return;
 
             projectileRoot.ProjectileHit += OnProjectileHit;
-            projectileRoot.ChildSpawnRequested += OnChildSpawnRequested;
             subscribedRoot = projectileRoot;
         }
 
         private void UnsubscribeProjectileRoot()
         {
-            if (subscribedRoot == null)
-            {
-                return;
-            }
+            if (subscribedRoot == null) return;
 
             subscribedRoot.ProjectileHit -= OnProjectileHit;
-            subscribedRoot.ChildSpawnRequested -= OnChildSpawnRequested;
             subscribedRoot = null;
         }
 
         private void SubscribeAoeRoot()
         {
-            if (aoeRoot == null || subscribedAoeRoot == aoeRoot)
-            {
-                return;
-            }
+            if (aoeRoot == null || subscribedAoeRoot == aoeRoot) return;
 
             AoeSpawnRequested += OnAoeSpawnRequested;
             subscribedAoeRoot = aoeRoot;
@@ -329,10 +241,7 @@ namespace PlayGround.Attack
 
         private void UnsubscribeAoeRoot()
         {
-            if (subscribedAoeRoot == null)
-            {
-                return;
-            }
+            if (subscribedAoeRoot == null) return;
 
             AoeSpawnRequested -= OnAoeSpawnRequested;
             subscribedAoeRoot = null;
@@ -345,10 +254,7 @@ namespace PlayGround.Attack
 
         private void OnProjectileHit(ProjectileHitContext hit)
         {
-            if (!ownedProjectileIds.Contains(hit.ProjectileId))
-            {
-                return;
-            }
+            if (!ownedProjectileIds.Contains(hit.ProjectileId)) return;
 
             if (impactAoeTypeId >= 0)
             {
@@ -366,60 +272,16 @@ namespace PlayGround.Attack
             }
         }
 
-        private void OnChildSpawnRequested(ProjectileChildSpawnRequest request)
-        {
-            if (request.ChildSpawnerId != childSpawnerId || !ownedProjectileIds.Contains(request.ProjectileId))
-            {
-                return;
-            }
-
-            // Child entity is created by the ECS system; track its ID so hit events propagate.
-            ownedProjectileIds.Add(request.ChildProjectileId);
-        }
-
         private void RegisterBasicPrefabs()
         {
-            if (projectileRoot == null)
-            {
-                return;
-            }
+            if (projectileRoot == null) return;
 
             projectileRoot.RegisterTemplate(basicPrefab);
-
-            if (childBasicPrefab != null)
-            {
-                projectileRoot.RegisterTemplate(childBasicPrefab);
-            }
         }
 
-        private BasicAttackPrefab ChildBasicPrefab()
+        private int EffectiveTargetMask()
         {
-            return childBasicPrefab != null ? childBasicPrefab : basicPrefab;
-        }
-
-        private float ProjectileRadius(BasicAttackPrefab basicPrefab)
-        {
-            return basicPrefab.Radius;
-        }
-
-        private Vector2 ProjectileHalfExtents(BasicAttackPrefab basicPrefab)
-        {
-            return basicPrefab.HalfExtents;
-        }
-
-        private float ProjectileRotationRadians(BasicAttackPrefab basicPrefab)
-        {
-            return basicPrefab.RotationRadians;
-        }
-
-        private ProjectileShapeType ProjectileShape(BasicAttackPrefab basicPrefab)
-        {
-            return basicPrefab.ShapeType;
-        }
-
-        private int ProjectileTypeId(BasicAttackPrefab basicPrefab, int fallbackTypeId)
-        {
-            return projectileRoot != null ? projectileRoot.RegisterTemplate(basicPrefab) : fallbackTypeId;
+            return targetMask != 1 || projectileRoot == null ? targetMask : projectileRoot.TargetMask;
         }
 
         private void ValidateReferences()
@@ -428,27 +290,6 @@ namespace PlayGround.Attack
             {
                 throw new MissingReferenceException($"{nameof(ProjectileAttack)} on {name} needs a valid {nameof(basicPrefab)}: {reason}.");
             }
-
-            if (childBasicPrefab != null && !IsValidBasicPrefab(childBasicPrefab, out string childReason))
-            {
-                throw new MissingReferenceException($"{nameof(ProjectileAttack)} on {name} has invalid {nameof(childBasicPrefab)}: {childReason}.");
-            }
-        }
-
-        private void ClearInvalidPrefab(ref BasicAttackPrefab template, string fieldName)
-        {
-            if (template == null)
-            {
-                return;
-            }
-
-            if (IsValidBasicPrefab(template, out string reason))
-            {
-                return;
-            }
-
-            Debug.LogError($"{nameof(ProjectileAttack)} on {name} rejected {fieldName} '{template.name}': {reason}.", this);
-            template = null;
         }
 
         private static bool IsValidBasicPrefab(BasicAttackPrefab template, out string reason)
@@ -462,58 +303,9 @@ namespace PlayGround.Attack
             return template.IsValidTemplate(out reason);
         }
 
-        private void BuildChildRequests(ProjectileChildSpawnRequest request)
-        {
-            if (childSpawnPattern != null)
-            {
-                childSpawnPattern.Build(
-                    childRequests,
-                    request.Position,
-                    request.Velocity,
-                    childProjectileCount,
-                    childProjectileSpeed,
-                    request.TickIndex);
-                return;
-            }
-
-            BuildDefaultSideSpray(
-                childRequests,
-                request.Position,
-                request.Velocity,
-                childProjectileCount,
-                childProjectileSpeed);
-        }
-
-        private int EffectiveTargetMask()
-        {
-            return targetMask != 1 || projectileRoot == null ? targetMask : projectileRoot.TargetMask;
-        }
-
-        private static void BuildDefaultSideSpray(
-            List<ProjectileVolleyBuilder.SpawnRequest> buffer,
-            Vector2 parentPosition,
-            Vector2 parentVelocity,
-            int childCount,
-            float childSpeed)
-        {
-            buffer.Clear();
-            int count = Mathf.Max(1, childCount);
-            Vector2 forward = parentVelocity.sqrMagnitude > 0f ? parentVelocity.normalized : Vector2.right;
-            Vector2 left = Quaternion.Euler(0f, 0f, -90f) * forward;
-            Vector2 right = Quaternion.Euler(0f, 0f, 90f) * forward;
-            for (int i = 0; i < count; i++)
-            {
-                Vector2 direction = (i % 2) == 0 ? left : right;
-                buffer.Add(new ProjectileVolleyBuilder.SpawnRequest(parentPosition, direction * childSpeed));
-            }
-        }
-
         private void PlayPerformSound(Vector2 worldPosition)
         {
-            if (performSound == null || audioManager == null)
-            {
-                return;
-            }
+            if (performSound == null || audioManager == null) return;
 
             audioManager.PlaySound(performSound, worldPosition);
         }
