@@ -105,6 +105,18 @@ namespace PlayGround.Attack
         {
             if (!IsReady) return false;
 
+            PerformVolley(aimDirection, childConfig);
+            cooldownRemaining = recoverySeconds;
+            return true;
+        }
+
+        internal void SpawnForChildSpawner(Vector2 aimDirection, ProjectileChildSpawnConfig childConfig)
+        {
+            PerformVolley(aimDirection, childConfig);
+        }
+
+        private void PerformVolley(Vector2 aimDirection, ProjectileChildSpawnConfig childConfig)
+        {
             DamageSnapshot damage = new(config.Damage);
             ProjectileVolleyBuilder.Build(
                 commands,
@@ -126,8 +138,6 @@ namespace PlayGround.Attack
             }
 
             PlayPerformSound(transform.position);
-            cooldownRemaining = recoverySeconds;
-            return true;
         }
 
         // --- private ---

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using PlayGround.Common;
 using PlayGround.Mob;
@@ -7,6 +9,7 @@ using PlayGround.Player;
 using PlayGround.Game;
 using PlayGround.Spawn;
 using PlayGround.System.Projectile;
+using Unity.Entities;
 using UnityEngine;
 
 namespace PlayGround.Tests.PlayMode
@@ -310,6 +313,53 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void ProjectileChildSpawnedChildrenArePreparedForRenderBatchOnNextStep()
+        {
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+
+            var command = new ProjectileSpawnCommand(
+                new Vector2(50f, 50f),
+                Vector2.right,
+                0f,
+                1f,
+                1f,
+                new Vector2(1f, 1f),
+                0f,
+                new DamageSnapshot(2f),
+                ProjectileShapeType.Circle,
+                childSpawn: new ProjectileChildSpawnConfig(1, 0, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), ProjectileShapeType.Circle, 0f, new DamageSnapshot(1f)));
+
+            projectileRoot.Spawn(command);
+            projectileRoot.Step(0.02f);
+            projectileRoot.Step(0.001f);
+
+            Assert.That(RenderInstanceCount(projectileRoot, 0), Is.EqualTo(3));
+            Object.Destroy(projectileObject);
+            Object.Destroy(mobObject);
+        }
+
+        [Test]
+        public void ProjectileChildSpawnRejectsUnsupportedRenderType()
+        {
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            var command = new ProjectileSpawnCommand(
+                new Vector2(50f, 50f),
+                Vector2.right,
+                0f,
+                1f,
+                1f,
+                new Vector2(1f, 1f),
+                0f,
+                new DamageSnapshot(2f),
+                ProjectileShapeType.Circle,
+                childSpawn: new ProjectileChildSpawnConfig(1, 16, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), ProjectileShapeType.Circle, 0f, new DamageSnapshot(1f)));
+
+            Assert.Throws<global::System.InvalidOperationException>(() => projectileRoot.Spawn(command));
+            Object.Destroy(projectileObject);
+            Object.Destroy(mobObject);
+        }
+
+        [Test]
         public void SpawnerUsesPoolAndEnforcesGlobalCap()
         {
             CreateSpawnFixture(1, 0, out GameObject spawnerObject, out MobSpawnerRoot spawner, out SpawnPoint point, out GameObject prefabObject, out MobSpawnPool pool);
@@ -412,6 +462,25 @@ namespace PlayGround.Tests.PlayMode
                 0f,
                 0.5f);
             mobObject.SetActive(true);
+        }
+
+        private static int RenderInstanceCount(ProjectileRoot projectileRoot, int typeId)
+        {
+            const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var batchField = typeof(ProjectileRoot).GetField("renderBatchEntitiesByType", Flags);
+            var entityManagerField = typeof(ProjectileRoot).GetField("entityManager", Flags);
+            var batches = (Dictionary<int, Entity>)batchField.GetValue(projectileRoot);
+            var entityManager = (EntityManager)entityManagerField.GetValue(projectileRoot);
+
+            if (!batches.TryGetValue(typeId, out Entity batchEntity)
+                || batchEntity == Entity.Null
+                || !entityManager.Exists(batchEntity)
+                || !entityManager.HasBuffer<ProjectileRenderElement>(batchEntity))
+            {
+                return 0;
+            }
+
+            return entityManager.GetBuffer<ProjectileRenderElement>(batchEntity).Length;
         }
 
         private static void CreateSpawnFixture(

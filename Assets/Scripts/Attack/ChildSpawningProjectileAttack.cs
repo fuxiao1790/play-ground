@@ -18,12 +18,19 @@ namespace PlayGround.Attack
         [SerializeField, Range(0f, 180f)] private float childSideSpreadDegrees = 30f;
 
         private int childSpawnerId;
+        private float localCooldown;
         private ProjectileRoot subscribedRoot;
-        private ProjectileChildSpawnConfig activeChildConfig = ProjectileChildSpawnConfig.Disabled;
 
-        public bool IsReady => parentAttack.IsReady;
+        public ProjectileAttack ParentAttack => parentAttack;
+        public bool IsReady => localCooldown <= 0f;
 
-        public bool TryFire(Vector2 aimDirection) => parentAttack.TryFire(aimDirection, activeChildConfig);
+        public bool TryFire(Vector2 aimDirection)
+        {
+            if (!IsReady) return false;
+            parentAttack.SpawnForChildSpawner(aimDirection, BuildActiveChildConfig());
+            localCooldown = childSpawnIntervalSeconds;
+            return true;
+        }
 
         public void ConfigureAoeRoot(AoeRoot root) => parentAttack.ConfigureAoeRoot(root);
 
@@ -37,6 +44,12 @@ namespace PlayGround.Attack
             AssignChildSpawnerId();
             InjectChildConfig();
             SubscribeRoot();
+        }
+
+        private void Update()
+        {
+            if (localCooldown > 0f)
+                localCooldown = Mathf.Max(0f, localCooldown - Time.deltaTime);
         }
 
         private void OnDisable()
@@ -64,14 +77,11 @@ namespace PlayGround.Attack
         {
             if (childProjectileCount <= 0 || childSpawnIntervalSeconds <= 0f)
             {
-                activeChildConfig = ProjectileChildSpawnConfig.Disabled;
                 return;
             }
 
             if (childConfig.Prefab != null)
                 parentAttack.Root.RegisterTemplate(childConfig.Prefab);
-
-            activeChildConfig = BuildChildConfig();
         }
 
         private void SubscribeRoot()
@@ -124,6 +134,16 @@ namespace PlayGround.Attack
                 prefab.VisualRotationDegrees,
                 childConfig.GetTrackingConfig(),
                 new ProjectileChildSpawnBehavior(childProjectileCount, ProjectileChildSpawnPatternType.SideSpray, childSideSpreadDegrees));
+        }
+
+        private ProjectileChildSpawnConfig BuildActiveChildConfig()
+        {
+            if (childProjectileCount <= 0 || childSpawnIntervalSeconds <= 0f)
+            {
+                return ProjectileChildSpawnConfig.Disabled;
+            }
+
+            return BuildChildConfig();
         }
     }
 }

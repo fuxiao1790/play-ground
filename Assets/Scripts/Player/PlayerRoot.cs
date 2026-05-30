@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using PlayGround.Attack;
 using PlayGround.Common;
 using PlayGround.System.Aoe;
@@ -121,10 +122,25 @@ namespace PlayGround.Player
             stateDriver = new PlayerStateDriver(movement, animatorDriver);
             health = new PlayerHealth(body, bodyCollider, hurtbox, spriteRenderer, animatorDriver, maxHealth, hurtFlashSeconds);
             Transform attackSearchRoot = attacksRoot != null ? attacksRoot : transform;
+            ChildSpawningProjectileAttack[] childSpawningAttacks =
+                attackSearchRoot.GetComponentsInChildren<ChildSpawningProjectileAttack>(true);
+            ProjectileAttack[] allProjectileAttacks =
+                attackSearchRoot.GetComponentsInChildren<ProjectileAttack>(true);
+
+            var managedAttacks = new HashSet<ProjectileAttack>(childSpawningAttacks.Length);
+            for (int i = 0; i < childSpawningAttacks.Length; i++)
+            {
+                if (childSpawningAttacks[i].ParentAttack != null)
+                    managedAttacks.Add(childSpawningAttacks[i].ParentAttack);
+            }
+
+            ProjectileAttack[] standaloneAttacks =
+                global::System.Array.FindAll(allProjectileAttacks, a => !managedAttacks.Contains(a));
+
             loadout = new PlayerAttackLoadout(
-                attackSearchRoot.GetComponentsInChildren<ProjectileAttack>(true),
+                standaloneAttacks,
                 attackSearchRoot.GetComponentsInChildren<AoeAttack>(true),
-                attackSearchRoot.GetComponentsInChildren<ChildSpawningProjectileAttack>(true),
+                childSpawningAttacks,
                 maxAttackCount);
 
             if (loadout.AttackCount == 0)

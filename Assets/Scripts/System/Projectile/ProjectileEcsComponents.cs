@@ -126,6 +126,10 @@ namespace PlayGround.System.Projectile
     {
     }
 
+    public struct ProjectileChildSpawnerTag : IComponentData
+    {
+    }
+
     // Added to each child entity by ProjectileChildSpawnSystem via ECB.
     // Read and removed by ProjectileRoot.DrainChildSpawnRequests in LateUpdate,
     // which assigns the child's ProjectileId and fires the ChildSpawnRequested event.
@@ -147,20 +151,26 @@ namespace PlayGround.System.Projectile
         public float SideSpreadDegrees;
         public float IntervalSeconds;
         public float IntervalJitterSeconds;
-        public float Speed;
-        public float Lifetime;
         public float Radius;
         public float2 HalfExtents;
         public float RotationRadians;
         public ProjectileShapeType ShapeType;
-        public float DamageAmount;
-        public bool DirectDamageEnabled;
-        public int PierceCount;
-        public float RepeatHitCooldownSeconds;
         public int TargetMask;
         public float VisualScale;
         public float VisualRotationSin;
         public float VisualRotationCos;
+    }
+
+    // Stat-derived child spawner values live here so they can be updated when player stats change.
+    // The blob only stores static authored/prefab data.
+    public struct ProjectileChildSpawnerStatsComponent : IComponentData
+    {
+        public float Speed;
+        public float Lifetime;
+        public float DamageAmount;
+        public bool DirectDamageEnabled;
+        public int PierceCount;
+        public float RepeatHitCooldownSeconds;
         public bool TrackingEnabled;
         public float TrackingRangeSquared;
         public float TrackingTurnSpeedRadians;

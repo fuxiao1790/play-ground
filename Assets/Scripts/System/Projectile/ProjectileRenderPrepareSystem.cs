@@ -116,7 +116,8 @@ namespace PlayGround.System.Projectile
             renderHandle = PrepareRenderType(renderType14Query, batchType14Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
             renderHandle = PrepareRenderType(renderType15Query, batchType15Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
 
-            state.Dependency = default;
+            // todo: is this actually needed?
+            state.Dependency = renderHandle;
         }
 
         private static EntityQuery RenderTypeQuery<T>(ref SystemState state)

@@ -22,17 +22,15 @@ namespace PlayGround.System.Projectile
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileActiveTag))]
+        [WithAll(typeof(ProjectileActiveTag), typeof(ProjectileChildSpawnerTag))]
         private partial struct ProjectileChildSpawnJob : IJobEntity
         {
             public float DeltaTime;
             public EntityCommandBuffer.ParallelWriter Ecb;
 
-            private void Execute([ChunkIndexInQuery] int chunkIndex, ref ProjectileComponent projectile)
+            private void Execute([ChunkIndexInQuery] int chunkIndex, ref ProjectileComponent projectile, in ProjectileChildSpawnerStatsComponent spawnerStats)
             {
-                if (projectile.RemainingLifetime <= 0f
-                    || projectile.Scope == Entity.Null
-                    || !projectile.ChildSpawnerConfig.IsCreated)
+                if (projectile.RemainingLifetime <= 0f || projectile.Scope == Entity.Null)
                 {
                     return;
                 }
@@ -45,7 +43,7 @@ namespace PlayGround.System.Projectile
                     tickIndex++;
                     for (int childIndex = 0; childIndex < config.ChildCountPerTick; childIndex++)
                     {
-                        SpawnChild(chunkIndex, ref projectile, ref config, tickIndex, childIndex);
+                        SpawnChild(chunkIndex, ref projectile, ref config, in spawnerStats, tickIndex, childIndex);
                     }
                     cooldown += config.IntervalSeconds;
                 }
@@ -58,10 +56,11 @@ namespace PlayGround.System.Projectile
                 int chunkIndex,
                 ref ProjectileComponent parent,
                 ref ProjectileChildSpawnerBlob config,
+                in ProjectileChildSpawnerStatsComponent stats,
                 int tickIndex,
                 int childIndex)
             {
-                float2 velocity = ComputeChildVelocity(ref parent, ref config, childIndex);
+                float2 velocity = ComputeChildVelocity(ref parent, ref config, stats.Speed, childIndex);
                 int targetMask = config.TargetMask != 0 ? config.TargetMask : parent.TargetMask;
 
                 ProjectileCollisionMath.ComputeWorldBounds(
@@ -87,17 +86,17 @@ namespace PlayGround.System.Projectile
                     RotationRadians = config.RotationRadians,
                     BoundsMin = boundsMin,
                     BoundsMax = boundsMax,
-                    RemainingLifetime = config.Lifetime,
-                    DamageAmount = config.DamageAmount,
-                    DirectDamageEnabled = config.DirectDamageEnabled,
+                    RemainingLifetime = stats.Lifetime,
+                    DamageAmount = stats.DamageAmount,
+                    DirectDamageEnabled = stats.DirectDamageEnabled,
                     ShapeType = config.ShapeType,
-                    PierceRemaining = config.PierceCount,
-                    RepeatHitCooldownSeconds = config.RepeatHitCooldownSeconds,
-                    TrackingEnabled = config.TrackingEnabled,
-                    TrackingRangeSquared = config.TrackingRangeSquared,
-                    TrackingTurnSpeedRadians = config.TrackingTurnSpeedRadians,
-                    TrackingQueryCooldownRemaining = config.TrackingInitialQueryDelaySeconds,
-                    TrackingQueryIntervalSeconds = config.TrackingQueryIntervalSeconds,
+                    PierceRemaining = stats.PierceCount,
+                    RepeatHitCooldownSeconds = stats.RepeatHitCooldownSeconds,
+                    TrackingEnabled = stats.TrackingEnabled,
+                    TrackingRangeSquared = stats.TrackingRangeSquared,
+                    TrackingTurnSpeedRadians = stats.TrackingTurnSpeedRadians,
+                    TrackingQueryCooldownRemaining = stats.TrackingInitialQueryDelaySeconds,
+                    TrackingQueryIntervalSeconds = stats.TrackingQueryIntervalSeconds,
                     TrackedTargetId = 0,
                     TrackedTargetIndex = -1,
                     ChildSpawnerConfig = default,
@@ -128,6 +127,7 @@ namespace PlayGround.System.Projectile
             private static float2 ComputeChildVelocity(
                 ref ProjectileComponent parent,
                 ref ProjectileChildSpawnerBlob config,
+                float speed,
                 int childIndex)
             {
                 float2 forward = math.normalizesafe(parent.Velocity, new float2(1f, 0f));
@@ -156,7 +156,7 @@ namespace PlayGround.System.Projectile
                         dir = forward;
                         break;
                 }
-                return config.Speed > 0f ? dir * config.Speed : dir * math.length(parent.Velocity);
+                return speed > 0f ? dir * speed : dir * math.length(parent.Velocity);
             }
 
             private static float SideSpreadAngle(float totalRad, int shotIndex, int shotCount)
