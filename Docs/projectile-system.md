@@ -296,7 +296,7 @@ Port in this order:
 6. Keep adding Burst-compatible jobs for hot projectile stages where managed merge steps are not required
 7. Add pooled/debug visual adapter only if useful for authoring or low-count cases
 
-## Implementation status (as of 2026-05-29)
+## Implementation status (as of 2026-05-30)
 
 This section documents how the current Unity implementation aligns with this design doc and notes small, actionable differences found in the codebase.
 
