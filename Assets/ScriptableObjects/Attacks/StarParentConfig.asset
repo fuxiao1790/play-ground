@@ -13,14 +13,14 @@ MonoBehaviour:
   m_Name: StarParentConfig
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.ProjectileConfig
   basicPrefab: {fileID: 1001001001001001004, guid: f2bf0b25f990d4343824efe48ae5c034, type: 3}
-  speed: 16
-  lifetime: 1.5
+  speed: 5
+  lifetime: 4.5
   damage: 10
   count: 5
   spreadDegrees: 10
-  jitterDegrees: 5
+  jitterDegrees: 10
   targetMask: 1
-  pierceCount: 0
+  pierceCount: 20
   repeatHitCooldownSeconds: 0
   trackingEnabled: 1
   trackingRange: 150

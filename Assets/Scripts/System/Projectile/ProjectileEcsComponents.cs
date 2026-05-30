@@ -30,7 +30,6 @@ namespace PlayGround.System.Projectile
         public float TrackingQueryIntervalSeconds;
         public int TrackedTargetId;
         public int TrackedTargetIndex;
-        public BlobAssetReference<ProjectileChildSpawnerBlob> ChildSpawnerConfig;
         public float ChildSpawnCooldownRemaining;
         public int ChildSpawnTickIndex;
     }
@@ -142,7 +141,7 @@ namespace PlayGround.System.Projectile
         public int TickIndex;
     }
 
-    public struct ProjectileChildSpawnerBlob
+    public struct ProjectileChildSpawnerComponent : IComponentData
     {
         public int SpawnerId;
         public int TypeId;
@@ -151,26 +150,20 @@ namespace PlayGround.System.Projectile
         public float SideSpreadDegrees;
         public float IntervalSeconds;
         public float IntervalJitterSeconds;
+        public float Speed;
+        public float Lifetime;
         public float Radius;
         public float2 HalfExtents;
         public float RotationRadians;
         public ProjectileShapeType ShapeType;
-        public int TargetMask;
-        public float VisualScale;
-        public float VisualRotationSin;
-        public float VisualRotationCos;
-    }
-
-    // Stat-derived child spawner values live here so they can be updated when player stats change.
-    // The blob only stores static authored/prefab data.
-    public struct ProjectileChildSpawnerStatsComponent : IComponentData
-    {
-        public float Speed;
-        public float Lifetime;
         public float DamageAmount;
         public bool DirectDamageEnabled;
         public int PierceCount;
         public float RepeatHitCooldownSeconds;
+        public int TargetMask;
+        public float VisualScale;
+        public float VisualRotationSin;
+        public float VisualRotationCos;
         public bool TrackingEnabled;
         public float TrackingRangeSquared;
         public float TrackingTurnSpeedRadians;

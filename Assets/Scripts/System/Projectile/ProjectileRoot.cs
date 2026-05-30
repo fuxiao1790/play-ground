@@ -85,7 +85,6 @@ namespace PlayGround.System.Projectile
         private EntityQuery projectileQuery;
         private EntityQuery allProjectileQuery;
         private EntityQuery childSpawnedQuery;
-        private readonly Dictionary<int, BlobAssetReference<ProjectileChildSpawnerBlob>> childSpawnerBlobsBySpawnerId = new();
         private int nextProjectileId;
         private int nextTemplateTypeId = 1;
         private bool runtimeReady;
@@ -167,12 +166,6 @@ namespace PlayGround.System.Projectile
 
             DestroyRenderBatchEntities();
             DestroyRenderResources();
-
-            foreach (var kvp in childSpawnerBlobsBySpawnerId)
-            {
-                if (kvp.Value.IsCreated) kvp.Value.Dispose();
-            }
-            childSpawnerBlobsBySpawnerId.Clear();
         }
 
         public void Configure(Sprite sprite)
@@ -326,9 +319,6 @@ namespace PlayGround.System.Projectile
                 TrackingQueryIntervalSeconds = command.Tracking.QueryIntervalSeconds,
                 TrackedTargetId = 0,
                 TrackedTargetIndex = -1,
-                ChildSpawnerConfig = command.ChildSpawn.Enabled
-                    ? GetOrBuildChildSpawnerBlob(command.ChildSpawn)
-                    : default,
                 ChildSpawnCooldownRemaining = command.ChildSpawn.Enabled
                     ? command.ChildSpawn.IntervalSeconds + DeterministicJitter(projectileId, command.ChildSpawn.IntervalJitterSeconds)
                     : 0f,
@@ -338,20 +328,7 @@ namespace PlayGround.System.Projectile
             if (command.ChildSpawn.Enabled)
             {
                 entityManager.AddComponent<ProjectileChildSpawnerTag>(entity);
-                entityManager.SetComponentData(entity, new ProjectileChildSpawnerStatsComponent
-                {
-                    Speed = command.ChildSpawn.Speed,
-                    Lifetime = command.ChildSpawn.Lifetime,
-                    DamageAmount = command.ChildSpawn.Damage.Amount,
-                    DirectDamageEnabled = command.ChildSpawn.DirectDamageEnabled,
-                    PierceCount = command.ChildSpawn.PierceCount,
-                    RepeatHitCooldownSeconds = command.ChildSpawn.RepeatHitCooldownSeconds,
-                    TrackingEnabled = command.ChildSpawn.Tracking.Enabled,
-                    TrackingRangeSquared = command.ChildSpawn.Tracking.Range * command.ChildSpawn.Tracking.Range,
-                    TrackingTurnSpeedRadians = math.radians(command.ChildSpawn.Tracking.TurnSpeedDegrees),
-                    TrackingQueryIntervalSeconds = command.ChildSpawn.Tracking.QueryIntervalSeconds,
-                    TrackingInitialQueryDelaySeconds = command.ChildSpawn.Tracking.InitialQueryDelaySeconds
-                });
+                entityManager.SetComponentData(entity, ChildSpawnerComponentFor(command.ChildSpawn));
             }
             entityManager.SetComponentEnabled<ProjectileActiveTag>(entity, true);
             return projectileId;
@@ -557,38 +534,38 @@ namespace PlayGround.System.Projectile
             }
         }
 
-        private BlobAssetReference<ProjectileChildSpawnerBlob> GetOrBuildChildSpawnerBlob(ProjectileChildSpawnConfig config)
+        private static ProjectileChildSpawnerComponent ChildSpawnerComponentFor(ProjectileChildSpawnConfig config)
         {
-            if (childSpawnerBlobsBySpawnerId.TryGetValue(config.SpawnerId, out BlobAssetReference<ProjectileChildSpawnerBlob> existing))
-            {
-                return existing;
-            }
-
-            var builder = new BlobBuilder(Allocator.Temp);
-            ref ProjectileChildSpawnerBlob root = ref builder.ConstructRoot<ProjectileChildSpawnerBlob>();
-            root.SpawnerId = config.SpawnerId;
-            root.TypeId = config.TypeId;
-            root.ChildCountPerTick = Mathf.Max(1, config.Behavior.Count);
-            root.SpawnPatternType = config.Behavior.PatternType;
-            root.SideSpreadDegrees = config.Behavior.SpreadDegrees;
-            root.IntervalSeconds = config.IntervalSeconds;
-            root.IntervalJitterSeconds = config.IntervalJitterSeconds;
-            root.Radius = config.Radius;
-            root.HalfExtents = new float2(config.HalfExtents.x, config.HalfExtents.y);
-            root.RotationRadians = config.RotationRadians;
-            root.ShapeType = config.ShapeType;
-            root.TargetMask = config.TargetMask;
-            root.VisualScale = config.VisualScale > 0f ? config.VisualScale : 1f;
             math.sincos(math.radians(config.VisualRotationDegrees), out float sin, out float cos);
-            root.VisualRotationSin = sin;
-            root.VisualRotationCos = cos;
-
-            BlobAssetReference<ProjectileChildSpawnerBlob> blob =
-                builder.CreateBlobAssetReference<ProjectileChildSpawnerBlob>(Allocator.Persistent);
-            builder.Dispose();
-
-            childSpawnerBlobsBySpawnerId[config.SpawnerId] = blob;
-            return blob;
+            return new ProjectileChildSpawnerComponent
+            {
+                SpawnerId = config.SpawnerId,
+                TypeId = config.TypeId,
+                ChildCountPerTick = Mathf.Max(1, config.Behavior.Count),
+                SpawnPatternType = config.Behavior.PatternType,
+                SideSpreadDegrees = config.Behavior.SpreadDegrees,
+                IntervalSeconds = config.IntervalSeconds,
+                IntervalJitterSeconds = config.IntervalJitterSeconds,
+                Speed = config.Speed,
+                Lifetime = config.Lifetime,
+                Radius = config.Radius,
+                HalfExtents = new float2(config.HalfExtents.x, config.HalfExtents.y),
+                RotationRadians = config.RotationRadians,
+                ShapeType = config.ShapeType,
+                DamageAmount = config.Damage.Amount,
+                DirectDamageEnabled = config.DirectDamageEnabled,
+                PierceCount = config.PierceCount,
+                RepeatHitCooldownSeconds = config.RepeatHitCooldownSeconds,
+                TargetMask = config.TargetMask,
+                VisualScale = config.VisualScale > 0f ? config.VisualScale : 1f,
+                VisualRotationSin = sin,
+                VisualRotationCos = cos,
+                TrackingEnabled = config.Tracking.Enabled,
+                TrackingRangeSquared = config.Tracking.Range * config.Tracking.Range,
+                TrackingTurnSpeedRadians = math.radians(config.Tracking.TurnSpeedDegrees),
+                TrackingQueryIntervalSeconds = config.Tracking.QueryIntervalSeconds,
+                TrackingInitialQueryDelaySeconds = config.Tracking.InitialQueryDelaySeconds
+            };
         }
 
         private void ValidateSpawnCommand(ProjectileSpawnCommand command)
@@ -750,7 +727,7 @@ namespace PlayGround.System.Projectile
             archetype = entityManager.CreateArchetype(
                 typeof(ProjectileComponent),
                 typeof(ProjectileRenderComponent),
-                typeof(ProjectileChildSpawnerStatsComponent),
+                typeof(ProjectileChildSpawnerComponent),
                 RenderTagTypeFor(projectileTypeId),
                 typeof(ProjectileActiveTag),
                 typeof(ProjectileContactGateElement));

@@ -28,24 +28,23 @@ namespace PlayGround.System.Projectile
             public float DeltaTime;
             public EntityCommandBuffer.ParallelWriter Ecb;
 
-            private void Execute([ChunkIndexInQuery] int chunkIndex, ref ProjectileComponent projectile, in ProjectileChildSpawnerStatsComponent spawnerStats)
+            private void Execute([ChunkIndexInQuery] int chunkIndex, ref ProjectileComponent projectile, in ProjectileChildSpawnerComponent spawner)
             {
                 if (projectile.RemainingLifetime <= 0f || projectile.Scope == Entity.Null)
                 {
                     return;
                 }
 
-                ref ProjectileChildSpawnerBlob config = ref projectile.ChildSpawnerConfig.Value;
                 float cooldown = projectile.ChildSpawnCooldownRemaining - DeltaTime;
                 int tickIndex = projectile.ChildSpawnTickIndex;
                 while (cooldown <= 0f)
                 {
                     tickIndex++;
-                    for (int childIndex = 0; childIndex < config.ChildCountPerTick; childIndex++)
+                    for (int childIndex = 0; childIndex < spawner.ChildCountPerTick; childIndex++)
                     {
-                        SpawnChild(chunkIndex, ref projectile, ref config, in spawnerStats, tickIndex, childIndex);
+                        SpawnChild(chunkIndex, ref projectile, in spawner, tickIndex, childIndex);
                     }
-                    cooldown += config.IntervalSeconds;
+                    cooldown += spawner.IntervalSeconds;
                 }
 
                 projectile.ChildSpawnCooldownRemaining = cooldown;
@@ -55,20 +54,19 @@ namespace PlayGround.System.Projectile
             private void SpawnChild(
                 int chunkIndex,
                 ref ProjectileComponent parent,
-                ref ProjectileChildSpawnerBlob config,
-                in ProjectileChildSpawnerStatsComponent stats,
+                in ProjectileChildSpawnerComponent spawner,
                 int tickIndex,
                 int childIndex)
             {
-                float2 velocity = ComputeChildVelocity(ref parent, ref config, stats.Speed, childIndex);
-                int targetMask = config.TargetMask != 0 ? config.TargetMask : parent.TargetMask;
+                float2 velocity = ComputeChildVelocity(ref parent, in spawner, childIndex);
+                int targetMask = spawner.TargetMask != 0 ? spawner.TargetMask : parent.TargetMask;
 
                 ProjectileCollisionMath.ComputeWorldBounds(
                     parent.Position,
-                    config.Radius,
-                    config.HalfExtents,
-                    config.RotationRadians,
-                    config.ShapeType,
+                    spawner.Radius,
+                    spawner.HalfExtents,
+                    spawner.RotationRadians,
+                    spawner.ShapeType,
                     out float2 boundsMin,
                     out float2 boundsMax);
 
@@ -77,62 +75,60 @@ namespace PlayGround.System.Projectile
                 {
                     Scope = parent.Scope,
                     ProjectileId = 0, // assigned by ProjectileRoot.DrainChildSpawnRequests after ECB playback
-                    TypeId = config.TypeId,
+                    TypeId = spawner.TypeId,
                     TargetMask = targetMask,
                     Position = parent.Position,
                     Velocity = velocity,
-                    Radius = config.Radius,
-                    HalfExtents = config.HalfExtents,
-                    RotationRadians = config.RotationRadians,
+                    Radius = spawner.Radius,
+                    HalfExtents = spawner.HalfExtents,
+                    RotationRadians = spawner.RotationRadians,
                     BoundsMin = boundsMin,
                     BoundsMax = boundsMax,
-                    RemainingLifetime = stats.Lifetime,
-                    DamageAmount = stats.DamageAmount,
-                    DirectDamageEnabled = stats.DirectDamageEnabled,
-                    ShapeType = config.ShapeType,
-                    PierceRemaining = stats.PierceCount,
-                    RepeatHitCooldownSeconds = stats.RepeatHitCooldownSeconds,
-                    TrackingEnabled = stats.TrackingEnabled,
-                    TrackingRangeSquared = stats.TrackingRangeSquared,
-                    TrackingTurnSpeedRadians = stats.TrackingTurnSpeedRadians,
-                    TrackingQueryCooldownRemaining = stats.TrackingInitialQueryDelaySeconds,
-                    TrackingQueryIntervalSeconds = stats.TrackingQueryIntervalSeconds,
+                    RemainingLifetime = spawner.Lifetime,
+                    DamageAmount = spawner.DamageAmount,
+                    DirectDamageEnabled = spawner.DirectDamageEnabled,
+                    ShapeType = spawner.ShapeType,
+                    PierceRemaining = spawner.PierceCount,
+                    RepeatHitCooldownSeconds = spawner.RepeatHitCooldownSeconds,
+                    TrackingEnabled = spawner.TrackingEnabled,
+                    TrackingRangeSquared = spawner.TrackingRangeSquared,
+                    TrackingTurnSpeedRadians = spawner.TrackingTurnSpeedRadians,
+                    TrackingQueryCooldownRemaining = spawner.TrackingInitialQueryDelaySeconds,
+                    TrackingQueryIntervalSeconds = spawner.TrackingQueryIntervalSeconds,
                     TrackedTargetId = 0,
                     TrackedTargetIndex = -1,
-                    ChildSpawnerConfig = default,
                     ChildSpawnCooldownRemaining = 0f,
                     ChildSpawnTickIndex = 0
                 });
                 Ecb.AddComponent(chunkIndex, child, new ProjectileRenderComponent
                 {
                     IsRenderable = 1,
-                    VisualScale = config.VisualScale,
-                    VisualRotationSin = config.VisualRotationSin,
-                    VisualRotationCos = config.VisualRotationCos
+                    VisualScale = spawner.VisualScale,
+                    VisualRotationSin = spawner.VisualRotationSin,
+                    VisualRotationCos = spawner.VisualRotationCos
                 });
                 Ecb.AddComponent(chunkIndex, child, new ProjectileChildSpawnedComponent
                 {
                     Scope = parent.Scope,
                     ParentProjectileId = parent.ProjectileId,
                     ParentProjectileTypeId = parent.TypeId,
-                    SpawnerId = config.SpawnerId,
+                    SpawnerId = spawner.SpawnerId,
                     TickIndex = tickIndex
                 });
                 Ecb.AddComponent<ProjectileActiveTag>(chunkIndex, child);
                 Ecb.SetComponentEnabled<ProjectileActiveTag>(chunkIndex, child, true);
                 Ecb.AddBuffer<ProjectileContactGateElement>(chunkIndex, child);
-                AddRenderTypeTag(chunkIndex, child, config.TypeId);
+                AddRenderTypeTag(chunkIndex, child, spawner.TypeId);
             }
 
             private static float2 ComputeChildVelocity(
                 ref ProjectileComponent parent,
-                ref ProjectileChildSpawnerBlob config,
-                float speed,
+                in ProjectileChildSpawnerComponent spawner,
                 int childIndex)
             {
                 float2 forward = math.normalizesafe(parent.Velocity, new float2(1f, 0f));
                 float2 dir;
-                switch (config.SpawnPatternType)
+                switch (spawner.SpawnPatternType)
                 {
                     case ProjectileChildSpawnPatternType.SideSpray:
                     {
@@ -142,12 +138,12 @@ namespace PlayGround.System.Projectile
                         float2 left  = new float2(-forward.y,  forward.x);
                         float2 right = new float2( forward.y, -forward.x);
                         bool isLeft  = (childIndex & 1) == 0;
-                        int leftCount  = (config.ChildCountPerTick + 1) / 2;
-                        int rightCount =  config.ChildCountPerTick / 2;
+                        int leftCount  = (spawner.ChildCountPerTick + 1) / 2;
+                        int rightCount =  spawner.ChildCountPerTick / 2;
                         int sideIndex  = childIndex / 2;
                         int sideCount  = isLeft ? leftCount : rightCount;
                         float2 sideDir = isLeft ? left : right;
-                        float spreadRad = math.radians(config.SideSpreadDegrees);
+                        float spreadRad = math.radians(spawner.SideSpreadDegrees);
                         float angle = SideSpreadAngle(spreadRad, sideIndex, sideCount);
                         dir = Rotate(sideDir, angle);
                         break;
@@ -156,7 +152,7 @@ namespace PlayGround.System.Projectile
                         dir = forward;
                         break;
                 }
-                return speed > 0f ? dir * speed : dir * math.length(parent.Velocity);
+                return spawner.Speed > 0f ? dir * spawner.Speed : dir * math.length(parent.Velocity);
             }
 
             private static float SideSpreadAngle(float totalRad, int shotIndex, int shotCount)
