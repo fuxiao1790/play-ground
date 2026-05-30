@@ -5,9 +5,20 @@ using UnityEngine;
 
 namespace PlayGround.Attack
 {
-    // Assign parentAttack and childAttack by dragging ProjectileAttack prefabs into the inspector.
-    // All projectile settings (speed, lifetime, shape, tracking, pierce, damage) are authored on
-    // those prefabs. This component only holds the spawn schedule (count, interval, spread).
+    // Required prefab structure:
+    //
+    //   SampleChildSpawningAttack   ← this component  [DefaultExecutionOrder(100)]
+    //     ParentProjectile          ← ProjectileAttack (fires and owns child spawn config)
+    //     ChildProjectile           ← ProjectileAttack (config source; deactivated at runtime)
+    //
+    // Both child nodes must be direct children of this GameObject.
+    // All projectile settings live on the two ProjectileAttack children.
+    // This component only holds the spawn schedule (count, interval, spread).
+    //
+    // [DefaultExecutionOrder(100)] ensures both child ProjectileAttack.Awake() calls
+    // (order 0) complete before this Awake runs. ChildProjectile is then deactivated
+    // so GetComponentsInChildren does not expose it to PlayerAttackLoadout.
+    [DefaultExecutionOrder(100)]
     public sealed class ChildSpawningProjectileAttack : MonoBehaviour
     {
         private static int nextChildSpawnerId;
@@ -23,24 +34,25 @@ namespace PlayGround.Attack
         private int childSpawnerId;
         private ProjectileRoot subscribedRoot;
 
-        public bool IsReady => parentAttack != null && parentAttack.IsReady;
+        public bool IsReady => parentAttack.IsReady;
 
-        public bool TryFire(Vector2 aimDirection) => parentAttack != null && parentAttack.TryFire(aimDirection);
+        public bool TryFire(Vector2 aimDirection) => parentAttack.TryFire(aimDirection);
 
-        public void ConfigureAoeRoot(AoeRoot root)
-        {
-            if (parentAttack != null)
-                parentAttack.ConfigureAoeRoot(root);
-        }
+        public void ConfigureAoeRoot(AoeRoot root) => parentAttack.ConfigureAoeRoot(root);
 
         private void Awake()
         {
+            AutoWireChildren();
             ValidateReferences();
+            // child ProjectileAttack.Awake() has already run (order 0 < 100).
+            // Deactivate ChildProjectile before the OnEnable phase so it is never
+            // discovered by GetComponentsInChildren or subscribed to root events.
+            childAttack.gameObject.SetActive(false);
         }
 
         private void OnEnable()
         {
-            // All Awakes have completed, so parentAttack.Root is guaranteed set.
+            // All Awakes completed; parentAttack.Root is guaranteed set.
             AssignChildSpawnerId();
             InjectChildConfig();
             SubscribeRoot();
@@ -53,12 +65,31 @@ namespace PlayGround.Attack
 
         // --- private ---
 
+        private void AutoWireChildren()
+        {
+            if (parentAttack == null)
+            {
+                Transform t = transform.Find("ParentProjectile");
+                if (t != null) parentAttack = t.GetComponent<ProjectileAttack>();
+            }
+
+            if (childAttack == null)
+            {
+                Transform t = transform.Find("ChildProjectile");
+                if (t != null) childAttack = t.GetComponent<ProjectileAttack>();
+            }
+        }
+
         private void ValidateReferences()
         {
             if (parentAttack == null)
-                throw new MissingReferenceException($"{nameof(ChildSpawningProjectileAttack)} on {name}: parentAttack is not assigned.");
+                throw new MissingReferenceException($"{nameof(ChildSpawningProjectileAttack)} on {name}: missing ParentProjectile child with ProjectileAttack.");
             if (childAttack == null)
-                throw new MissingReferenceException($"{nameof(ChildSpawningProjectileAttack)} on {name}: childAttack is not assigned.");
+                throw new MissingReferenceException($"{nameof(ChildSpawningProjectileAttack)} on {name}: missing ChildProjectile child with ProjectileAttack.");
+            if (parentAttack.transform.parent != transform)
+                throw new MissingReferenceException($"{nameof(ChildSpawningProjectileAttack)} on {name}: ParentProjectile must be a direct child of this GameObject.");
+            if (childAttack.transform.parent != transform)
+                throw new MissingReferenceException($"{nameof(ChildSpawningProjectileAttack)} on {name}: ChildProjectile must be a direct child of this GameObject.");
         }
 
         private void AssignChildSpawnerId()
