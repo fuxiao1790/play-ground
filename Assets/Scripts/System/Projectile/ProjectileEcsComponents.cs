@@ -65,12 +65,6 @@ namespace PlayGround.System.Projectile
         public float VisualRotationCos;
     }
 
-    public struct ProjectileRenderBatch : IComponentData
-    {
-        public Entity Scope;
-        public int TypeId;
-    }
-
     public struct ProjectileRenderType0Tag : IComponentData {}
     public struct ProjectileRenderType1Tag : IComponentData {}
     public struct ProjectileRenderType2Tag : IComponentData {}
@@ -88,22 +82,12 @@ namespace PlayGround.System.Projectile
     public struct ProjectileRenderType14Tag : IComponentData {}
     public struct ProjectileRenderType15Tag : IComponentData {}
 
-    public struct ProjectileRenderType0BatchTag : IComponentData {}
-    public struct ProjectileRenderType1BatchTag : IComponentData {}
-    public struct ProjectileRenderType2BatchTag : IComponentData {}
-    public struct ProjectileRenderType3BatchTag : IComponentData {}
-    public struct ProjectileRenderType4BatchTag : IComponentData {}
-    public struct ProjectileRenderType5BatchTag : IComponentData {}
-    public struct ProjectileRenderType6BatchTag : IComponentData {}
-    public struct ProjectileRenderType7BatchTag : IComponentData {}
-    public struct ProjectileRenderType8BatchTag : IComponentData {}
-    public struct ProjectileRenderType9BatchTag : IComponentData {}
-    public struct ProjectileRenderType10BatchTag : IComponentData {}
-    public struct ProjectileRenderType11BatchTag : IComponentData {}
-    public struct ProjectileRenderType12BatchTag : IComponentData {}
-    public struct ProjectileRenderType13BatchTag : IComponentData {}
-    public struct ProjectileRenderType14BatchTag : IComponentData {}
-    public struct ProjectileRenderType15BatchTag : IComponentData {}
+    public struct ProjectileRenderScope : ISharedComponentData, global::System.IEquatable<ProjectileRenderScope>
+    {
+        public Entity Scope;
+        public readonly bool Equals(ProjectileRenderScope other) => Scope == other.Scope;
+        public override int GetHashCode() => Scope.GetHashCode();
+    }
 
     public struct ProjectileTargetElement : IBufferElementData
     {
@@ -128,7 +112,7 @@ namespace PlayGround.System.Projectile
         public uint Order;
     }
 
-    public struct ProjectileRenderElement : IBufferElementData
+    public struct ProjectileRenderElement : IComponentData
     {
         public Matrix4x4 objectToWorld;
     }

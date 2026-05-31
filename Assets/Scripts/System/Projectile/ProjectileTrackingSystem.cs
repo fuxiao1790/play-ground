@@ -52,7 +52,7 @@ namespace PlayGround.System.Projectile
                 bool hasTrackedTarget = TryRefreshTrackedTarget(ref tracking, kinematics, hit, targets);
                 if (tracking.TrackingQueryCooldownRemaining <= 0f)
                 {
-                    hasTrackedTarget = TryAcquireTrackedTarget(ref tracking, kinematics, hit, targets, currentDirection);
+                    hasTrackedTarget = TryAcquireTrackedTarget(ref tracking, kinematics, hit, targets);
                     tracking.TrackingQueryCooldownRemaining = tracking.TrackingQueryIntervalSeconds;
                 }
                 else if (!hasTrackedTarget)
@@ -123,8 +123,7 @@ namespace PlayGround.System.Projectile
                 ref ProjectileTrackingComponent tracking,
                 ProjectileKinematicsComponent kinematics,
                 ProjectileHitComponent hit,
-                DynamicBuffer<ProjectileTargetElement> targets,
-                float2 currentDirection)
+                DynamicBuffer<ProjectileTargetElement> targets)
             {
                 tracking.TrackedTargetId = 0;
                 tracking.TrackedTargetIndex = -1;
@@ -152,8 +151,7 @@ namespace PlayGround.System.Projectile
                         return true;
                     }
 
-                    float forwardDot = math.dot(currentDirection, toTarget * math.rsqrt(distanceSquared));
-                    if (forwardDot <= 0f || distanceSquared >= bestDistanceSquared)
+                    if (distanceSquared >= bestDistanceSquared)
                     {
                         continue;
                     }

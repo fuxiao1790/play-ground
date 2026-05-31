@@ -12,16 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f251e81f91ec27a4884bcc25b88b8725, type: 3}
   m_Name: YellowParentConfig
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.ProjectileConfig
-  basicPrefab: {fileID: 1001001001001001004, guid: 071728db48e762a4683ee17177b48aaa, type: 3}
+  basicPrefab: {fileID: 1001001001001001004, guid: e7758e210128aa14484024efc694a154, type: 3}
   speed: 16
   lifetime: 1.5
   damage: 10
-  count: 5
+  count: 1
   spreadDegrees: 10
   jitterDegrees: 5
   targetMask: 1
-  pierceCount: 0
-  repeatHitCooldownSeconds: 0
+  pierceCount: 20
+  repeatHitCooldownSeconds: 0.5
   trackingEnabled: 1
   trackingRange: 150
   trackingTurnSpeedDegrees: 360

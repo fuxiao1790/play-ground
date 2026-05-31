@@ -35,25 +35,6 @@ namespace PlayGround.System.Projectile
             typeof(ProjectileRenderType14Tag),
             typeof(ProjectileRenderType15Tag)
         };
-        private static readonly global::System.Type[] RenderBatchTagTypes =
-        {
-            typeof(ProjectileRenderType0BatchTag),
-            typeof(ProjectileRenderType1BatchTag),
-            typeof(ProjectileRenderType2BatchTag),
-            typeof(ProjectileRenderType3BatchTag),
-            typeof(ProjectileRenderType4BatchTag),
-            typeof(ProjectileRenderType5BatchTag),
-            typeof(ProjectileRenderType6BatchTag),
-            typeof(ProjectileRenderType7BatchTag),
-            typeof(ProjectileRenderType8BatchTag),
-            typeof(ProjectileRenderType9BatchTag),
-            typeof(ProjectileRenderType10BatchTag),
-            typeof(ProjectileRenderType11BatchTag),
-            typeof(ProjectileRenderType12BatchTag),
-            typeof(ProjectileRenderType13BatchTag),
-            typeof(ProjectileRenderType14BatchTag),
-            typeof(ProjectileRenderType15BatchTag)
-        };
         private static readonly ProfilerMarker DrainHitsProfilerMarker = new("ProjectileRoot.DrainHits");
         private static readonly ProfilerMarker SubmitProjectilesProfilerMarker = new("ProjectileRoot.SubmitProjectiles");
         private static readonly ProfilerMarker ReplayProjectileHitEventsProfilerMarker = new("ProjectileRoot.ReplayProjectileHitEvents");
@@ -73,14 +54,14 @@ namespace PlayGround.System.Projectile
         private readonly Dictionary<int, IProjectileTarget> targetsById = new();
         private readonly Dictionary<BasicAttackPrefab, int> templateTypeIds = new();
         private readonly Dictionary<int, ProjectileRenderResources> renderResourcesByType = new();
-        private readonly Dictionary<int, Entity> renderBatchEntitiesByType = new();
         private readonly Dictionary<int, EntityArchetype> projectileArchetypesByType = new();
 
         private World entityWorld;
         private EntityManager entityManager;
         private Entity scopeEntity;
-        private EntityQuery projectileQuery;
         private EntityQuery allProjectileQuery;
+        private EntityQuery[] submitQueriesByType;
+        private NativeArray<ProjectileRenderElement> submitBuffer;
         private int nextProjectileId;
         private int nextTemplateTypeId = 1;
         private bool runtimeReady;
@@ -154,7 +135,6 @@ namespace PlayGround.System.Projectile
             }
             runtimeReady = false;
 
-            DestroyRenderBatchEntities();
             DestroyRenderResources();
         }
 
@@ -181,7 +161,6 @@ namespace PlayGround.System.Projectile
                 renderResourcesByType[typeId] = BuildRenderResourcesFor(template.Sprite, template.VisualScale, template.VisualRotationDegrees, template.Material);
             }
 
-            EnsureRenderBatchForType(typeId);
             return typeId;
         }
 
@@ -264,11 +243,6 @@ namespace PlayGround.System.Projectile
         {
             EnsureRuntimeReady();
             ValidateSpawnCommand(command);
-            EnsureRenderBatchForType(command.ProjectileTypeId);
-            if (command.ChildSpawn.Enabled)
-            {
-                EnsureRenderBatchForType(command.ChildSpawn.TypeId);
-            }
 
             Entity entity = entityManager.CreateEntity(ProjectileArchetypeFor(command.ProjectileTypeId));
             int projectileId = ++nextProjectileId;
@@ -336,6 +310,7 @@ namespace PlayGround.System.Projectile
                     ChildSpawnTickIndex = 0
                 });
             }
+            entityManager.AddSharedComponent(entity, new ProjectileRenderScope { Scope = scopeEntity });
             entityManager.SetComponentEnabled<ProjectileActiveTag>(entity, true);
             return projectileId;
         }
@@ -368,11 +343,34 @@ namespace PlayGround.System.Projectile
             scopeEntity = entityManager.CreateEntity(typeof(ProjectileScope));
             entityManager.AddBuffer<ProjectileTargetElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileHitElement>(scopeEntity);
-            projectileQuery = entityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<ProjectileIdentityComponent>(),
-                ComponentType.ReadOnly<ProjectileRenderComponent>(),
-                ComponentType.ReadOnly<ProjectileActiveTag>());
             allProjectileQuery = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileIdentityComponent>());
+            submitQueriesByType = new EntityQuery[MaxStructuralRenderTypes];
+            submitQueriesByType[0]  = SubmitQuery<ProjectileRenderType0Tag>();
+            submitQueriesByType[1]  = SubmitQuery<ProjectileRenderType1Tag>();
+            submitQueriesByType[2]  = SubmitQuery<ProjectileRenderType2Tag>();
+            submitQueriesByType[3]  = SubmitQuery<ProjectileRenderType3Tag>();
+            submitQueriesByType[4]  = SubmitQuery<ProjectileRenderType4Tag>();
+            submitQueriesByType[5]  = SubmitQuery<ProjectileRenderType5Tag>();
+            submitQueriesByType[6]  = SubmitQuery<ProjectileRenderType6Tag>();
+            submitQueriesByType[7]  = SubmitQuery<ProjectileRenderType7Tag>();
+            submitQueriesByType[8]  = SubmitQuery<ProjectileRenderType8Tag>();
+            submitQueriesByType[9]  = SubmitQuery<ProjectileRenderType9Tag>();
+            submitQueriesByType[10] = SubmitQuery<ProjectileRenderType10Tag>();
+            submitQueriesByType[11] = SubmitQuery<ProjectileRenderType11Tag>();
+            submitQueriesByType[12] = SubmitQuery<ProjectileRenderType12Tag>();
+            submitQueriesByType[13] = SubmitQuery<ProjectileRenderType13Tag>();
+            submitQueriesByType[14] = SubmitQuery<ProjectileRenderType14Tag>();
+            submitQueriesByType[15] = SubmitQuery<ProjectileRenderType15Tag>();
+            submitBuffer = new NativeArray<ProjectileRenderElement>(MaxInstancesPerDraw, Allocator.Persistent);
+        }
+
+        private EntityQuery SubmitQuery<T>() where T : unmanaged, IComponentData
+        {
+            return entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<ProjectileRenderElement>(),
+                ComponentType.ReadOnly<ProjectileRenderScope>(),
+                ComponentType.ReadOnly<T>(),
+                ComponentType.ReadOnly<ProjectileActiveTag>());
         }
 
         private bool IsRuntimeReady()
@@ -530,7 +528,7 @@ namespace PlayGround.System.Projectile
             }
         }
 
-        private static ProjectileChildSpawnerComponent ChildSpawnerComponentFor(ProjectileChildSpawnConfig config)
+        private ProjectileChildSpawnerComponent ChildSpawnerComponentFor(ProjectileChildSpawnConfig config)
         {
             math.sincos(math.radians(config.VisualRotationDegrees), out float sin, out float cos);
             return new ProjectileChildSpawnerComponent
@@ -552,7 +550,7 @@ namespace PlayGround.System.Projectile
                 DirectDamageEnabled = config.DirectDamageEnabled,
                 PierceCount = config.PierceCount,
                 RepeatHitCooldownSeconds = config.RepeatHitCooldownSeconds,
-                TargetMask = config.TargetMask,
+                TargetMask = config.TargetMask != 1 ? config.TargetMask : TargetMask,
                 VisualScale = config.VisualScale > 0f ? config.VisualScale : 1f,
                 VisualRotationSin = sin,
                 VisualRotationCos = cos,
@@ -585,14 +583,12 @@ namespace PlayGround.System.Projectile
 
         private void BuildRenderResources()
         {
-            DestroyRenderBatchEntities();
             renderResourcesByType.Clear();
             templateTypeIds.Clear();
             nextTemplateTypeId = 1;
             if (projectileSprite != null)
             {
                 renderResourcesByType[0] = BuildRenderResourcesFor(projectileSprite, visualScale, 0f);
-                EnsureRenderBatchForType(0);
             }
 
             if (projectileTemplates != null)
@@ -619,7 +615,6 @@ namespace PlayGround.System.Projectile
                     }
 
                     renderResourcesByType[definition.TypeId] = BuildRenderResourcesFor(definition.Sprite, definition.VisualScale, definition.VisualRotationDegrees);
-                    EnsureRenderBatchForType(definition.TypeId);
                 }
             }
         }
@@ -694,24 +689,6 @@ namespace PlayGround.System.Projectile
             };
         }
 
-        private void EnsureRenderBatchForType(int projectileTypeId)
-        {
-            EnsureSupportedStructuralRenderType(projectileTypeId);
-            if (!HasValidEcsState() || renderBatchEntitiesByType.ContainsKey(projectileTypeId))
-            {
-                return;
-            }
-
-            Entity batchEntity = entityManager.CreateEntity(typeof(ProjectileRenderBatch), RenderBatchTagTypeFor(projectileTypeId));
-            entityManager.SetComponentData(batchEntity, new ProjectileRenderBatch
-            {
-                Scope = scopeEntity,
-                TypeId = projectileTypeId
-            });
-            entityManager.AddBuffer<ProjectileRenderElement>(batchEntity);
-            renderBatchEntitiesByType.Add(projectileTypeId, batchEntity);
-        }
-
         private EntityArchetype ProjectileArchetypeFor(int projectileTypeId)
         {
             EnsureSupportedStructuralRenderType(projectileTypeId);
@@ -728,6 +705,7 @@ namespace PlayGround.System.Projectile
                 typeof(ProjectileHitComponent),
                 typeof(ProjectileTrackingComponent),
                 typeof(ProjectileRenderComponent),
+                typeof(ProjectileRenderElement),
                 RenderTagTypeFor(projectileTypeId),
                 typeof(ProjectileActiveTag),
                 typeof(ProjectileContactGateElement));
@@ -748,32 +726,6 @@ namespace PlayGround.System.Projectile
         {
             EnsureSupportedStructuralRenderType(projectileTypeId);
             return RenderTagTypes[projectileTypeId];
-        }
-
-        private static global::System.Type RenderBatchTagTypeFor(int projectileTypeId)
-        {
-            EnsureSupportedStructuralRenderType(projectileTypeId);
-            return RenderBatchTagTypes[projectileTypeId];
-        }
-
-        private void DestroyRenderBatchEntities()
-        {
-            if (entityWorld == null || !entityWorld.IsCreated || entityManager == default)
-            {
-                renderBatchEntitiesByType.Clear();
-                return;
-            }
-
-            foreach (KeyValuePair<int, Entity> pair in renderBatchEntitiesByType)
-            {
-                Entity batchEntity = pair.Value;
-                if (batchEntity != Entity.Null && entityManager.Exists(batchEntity))
-                {
-                    entityManager.DestroyEntity(batchEntity);
-                }
-            }
-
-            renderBatchEntitiesByType.Clear();
         }
 
         private void DestroyRenderResources()
@@ -914,30 +866,31 @@ namespace PlayGround.System.Projectile
         // DO NOT loop over individual projectiles.
         private void SubmitProjectiles()
         {
-            if (renderResourcesByType.Count == 0 || renderBatchEntitiesByType.Count == 0)
+            if (renderResourcesByType.Count == 0 || submitQueriesByType == null)
             {
                 return;
             }
 
-            foreach (KeyValuePair<int, Entity> pair in renderBatchEntitiesByType)
+            for (int typeId = 0; typeId < MaxStructuralRenderTypes; typeId++)
             {
-                int typeId = pair.Key;
-                Entity batchEntity = pair.Value;
-                if (batchEntity == Entity.Null
-                    || !entityManager.Exists(batchEntity)
-                    || !entityManager.HasBuffer<ProjectileRenderElement>(batchEntity)
-                    || !renderResourcesByType.TryGetValue(typeId, out ProjectileRenderResources resources))
+                if (!renderResourcesByType.TryGetValue(typeId, out ProjectileRenderResources resources))
                 {
                     continue;
                 }
 
-                DynamicBuffer<ProjectileRenderElement> renderBuffer = entityManager.GetBuffer<ProjectileRenderElement>(batchEntity);
-                NativeArray<ProjectileRenderElement> instances = renderBuffer.AsNativeArray();
-                for (int startInstance = 0; startInstance < renderBuffer.Length; startInstance += MaxInstancesPerDraw)
+                EntityQuery query = submitQueriesByType[typeId];
+                query.SetSharedComponentFilter(new ProjectileRenderScope { Scope = scopeEntity });
+                entityManager.CompleteDependencyBeforeRO<ProjectileRenderElement>();
+                NativeArray<ProjectileRenderElement> active =
+                    query.ToComponentDataArray<ProjectileRenderElement>(Allocator.Temp);
+                for (int start = 0; start < active.Length; start += MaxInstancesPerDraw)
                 {
-                    int instanceCount = Mathf.Min(MaxInstancesPerDraw, renderBuffer.Length - startInstance);
-                    SubmitBatch(instances, startInstance, instanceCount, resources);
+                    int count = Mathf.Min(MaxInstancesPerDraw, active.Length - start);
+                    NativeArray<ProjectileRenderElement>.Copy(active, start, submitBuffer, 0, count);
+                    SubmitBatch(submitBuffer, 0, count, resources);
                 }
+                active.Dispose();
+                query.ResetFilter();
             }
         }
 

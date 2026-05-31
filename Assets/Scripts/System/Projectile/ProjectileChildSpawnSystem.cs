@@ -133,6 +133,8 @@ namespace PlayGround.System.Projectile
                     VisualRotationSin = spawner.VisualRotationSin,
                     VisualRotationCos = spawner.VisualRotationCos
                 });
+                Ecb.AddComponent(chunkIndex, child, new ProjectileRenderElement());
+                Ecb.AddSharedComponent(chunkIndex, child, new ProjectileRenderScope { Scope = parentIdentity.Scope });
                 Ecb.AddComponent<ProjectileActiveTag>(chunkIndex, child);
                 Ecb.SetComponentEnabled<ProjectileActiveTag>(chunkIndex, child, true);
                 Ecb.AddBuffer<ProjectileContactGateElement>(chunkIndex, child);

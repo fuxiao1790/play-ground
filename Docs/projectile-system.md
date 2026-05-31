@@ -267,17 +267,26 @@ projectile proof of concept and must not be the default path.
 Current rendering keeps Unity object access outside ECS simulation. Projectile
 prefabs remain the authoring source for `SpriteRenderer`, material, and collider
 setup, and `ProjectileRoot` bakes those prefab values into runtime render
-resources and ECS metadata. Projectile entities carry a structural render-type
-tag component, currently one fixed tag type per supported render type. The
-late-simulation `ProjectileRenderPrepareSystem` queries each render type
-independently and writes matrices directly into that root/type dynamic buffer,
-avoiding global hash-map grouping, key sorting, copied staging buffers, and
-dynamic-buffer flush steps. Render queries include the enableable active tag, so
-disabled projectiles are excluded from matrix generation. The render jobs are
-scheduled from the post-collision system dependency, then buffers are trimmed to
-the written count before `ProjectileRoot` submits each type buffer in
-`LateUpdate` through `Graphics.RenderMeshInstanced`, split into chunks of at
-most 1023 instances.
+resources and ECS metadata. Each projectile entity carries a structural
+render-type tag component and a `ProjectileRenderElement` component holding one
+`Matrix4x4 objectToWorld`. A `ProjectileRenderScope` shared component (holding
+the owning root's scope entity) partitions projectile chunks by root at the ECS
+chunk level.
+
+The late-simulation `ProjectileRenderPrepareSystem` queries each render type
+independently and writes the `objectToWorld` matrix directly into
+`ProjectileRenderElement` on each active projectile entity. Render queries
+include the enableable active tag so disabled projectiles are skipped. The job
+is Burst-compiled and scheduled in parallel per render type, then completed
+before `LateUpdate`.
+
+`ProjectileRoot.SubmitProjectiles()` iterates each registered render type,
+applies a `ProjectileRenderScope` shared-component filter so only that root's
+chunks are visible, then calls `query.ToComponentDataArray<ProjectileRenderElement>`
+to collect active-entity matrices. The result is copied into a pre-allocated
+1023-element submit buffer and submitted via `Graphics.RenderMeshInstanced`,
+split into chunks of at most 1023 instances. No separate batch entities,
+dynamic buffers, or trim jobs are required.
 
 Keep rendering outside projectile simulation systems.
 

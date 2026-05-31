@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f251e81f91ec27a4884bcc25b88b8725, type: 3}
   m_Name: WhiteParentConfig
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.ProjectileConfig
-  basicPrefab: {fileID: 1001001001001001004, guid: baeb278528c76aa4e996b0a93bdf4fcc, type: 3}
+  basicPrefab: {fileID: 1001001001001001004, guid: 7fc20002aafc4694b8063a42dc613059, type: 3}
   speed: 16
   lifetime: 1.5
   damage: 1
-  count: 100
+  count: 1
   spreadDegrees: 45
   jitterDegrees: 15
   targetMask: 1

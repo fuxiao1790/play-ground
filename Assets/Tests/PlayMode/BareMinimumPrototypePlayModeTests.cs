@@ -9,6 +9,7 @@ using PlayGround.Player;
 using PlayGround.Game;
 using PlayGround.Spawn;
 using PlayGround.System.Projectile;
+using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
 
@@ -134,6 +135,34 @@ namespace PlayGround.Tests.PlayMode
             projectileRoot.Step(0.01f);
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(10f));
+            Object.Destroy(projectileObject);
+            Object.Destroy(mobObject);
+        }
+
+        [Test]
+        public void ProjectileTrackingAcquiresTargetOutsideInitialForwardHemisphere()
+        {
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            mobObject.transform.position = new Vector2(0f, 10f);
+            mob.Register(projectileRoot.TargetRegistry);
+
+            var command = new ProjectileSpawnCommand(
+                Vector2.zero,
+                Vector2.right,
+                10f,
+                1f,
+                0.25f,
+                new Vector2(0.25f, 0.25f),
+                0f,
+                new DamageSnapshot(1f),
+                ProjectileShapeType.Circle,
+                tracking: new ProjectileTrackingConfig(true, 50f, 360f, 0f));
+
+            projectileRoot.Spawn(command);
+            projectileRoot.Step(0.1f);
+
+            Vector2 velocity = ProjectileVelocity(projectileRoot);
+            Assert.That(velocity.y, Is.GreaterThan(0f));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
         }
@@ -270,6 +299,55 @@ namespace PlayGround.Tests.PlayMode
             projectileRoot.Step(0.001f);
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(9f));
+            Object.Destroy(projectileObject);
+            Object.Destroy(mobObject);
+        }
+
+        [Test]
+        public void ProjectileChildSpawnedChildUsesRootTargetMaskForTracking()
+        {
+            int mobHurtboxLayer = LayerMask.NameToLayer(GameplayLayers.MobHurtbox);
+            Assume.That(mobHurtboxLayer, Is.GreaterThanOrEqualTo(0));
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            int mobHurtboxMask = 1 << mobHurtboxLayer;
+            projectileRoot.ConfigureTargetBinding(mobHurtboxMask);
+            mobObject.layer = mobHurtboxLayer;
+            mobObject.transform.position = new Vector2(0f, 10f);
+            mob.Register(projectileRoot.TargetRegistry);
+
+            var childSpawn = new ProjectileChildSpawnConfig(
+                1,
+                0,
+                0.01f,
+                0f,
+                10f,
+                1f,
+                0.25f,
+                new Vector2(0.25f, 0.25f),
+                ProjectileShapeType.Circle,
+                0f,
+                new DamageSnapshot(1f),
+                targetMask: 1,
+                tracking: new ProjectileTrackingConfig(true, 50f, 360f, 0f),
+                behavior: new ProjectileChildSpawnBehavior(1, ProjectileChildSpawnPatternType.Forward));
+            var command = new ProjectileSpawnCommand(
+                Vector2.zero,
+                Vector2.right,
+                0f,
+                1f,
+                0.25f,
+                new Vector2(0.25f, 0.25f),
+                0f,
+                new DamageSnapshot(1f),
+                ProjectileShapeType.Circle,
+                childSpawn: childSpawn,
+                directDamageEnabled: false);
+
+            projectileRoot.Spawn(command);
+            projectileRoot.Step(0.02f);
+            projectileRoot.Step(0.1f);
+
+            Assert.That(MaxProjectileVelocityY(projectileRoot), Is.GreaterThan(0f));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
         }
@@ -462,20 +540,80 @@ namespace PlayGround.Tests.PlayMode
         private static int RenderInstanceCount(ProjectileRoot projectileRoot, int typeId)
         {
             const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            var batchField = typeof(ProjectileRoot).GetField("renderBatchEntitiesByType", Flags);
-            var entityManagerField = typeof(ProjectileRoot).GetField("entityManager", Flags);
-            var batches = (Dictionary<int, Entity>)batchField.GetValue(projectileRoot);
-            var entityManager = (EntityManager)entityManagerField.GetValue(projectileRoot);
+            var scopeEntityField   = typeof(ProjectileRoot).GetField("scopeEntity", Flags);
+            var submitQueriesField = typeof(ProjectileRoot).GetField("submitQueriesByType", Flags);
+            var scopeEntity   = (Entity)scopeEntityField.GetValue(projectileRoot);
+            var submitQueries = (EntityQuery[])submitQueriesField.GetValue(projectileRoot);
 
-            if (!batches.TryGetValue(typeId, out Entity batchEntity)
-                || batchEntity == Entity.Null
-                || !entityManager.Exists(batchEntity)
-                || !entityManager.HasBuffer<ProjectileRenderElement>(batchEntity))
+            if (submitQueries == null || typeId >= submitQueries.Length)
             {
                 return 0;
             }
 
-            return entityManager.GetBuffer<ProjectileRenderElement>(batchEntity).Length;
+            EntityQuery query = submitQueries[typeId];
+            query.SetSharedComponentFilter(new ProjectileRenderScope { Scope = scopeEntity });
+            int count = query.CalculateEntityCount();
+            query.ResetFilter();
+            return count;
+        }
+
+        private static Vector2 ProjectileVelocity(ProjectileRoot projectileRoot)
+        {
+            const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var scopeEntityField = typeof(ProjectileRoot).GetField("scopeEntity", Flags);
+            var scopeEntity = (Entity)scopeEntityField.GetValue(projectileRoot);
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<ProjectileIdentityComponent>(),
+                ComponentType.ReadOnly<ProjectileKinematicsComponent>());
+            using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                ProjectileIdentityComponent identity = entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]);
+                if (identity.Scope != scopeEntity)
+                {
+                    continue;
+                }
+
+                ProjectileKinematicsComponent kinematics = entityManager.GetComponentData<ProjectileKinematicsComponent>(entities[i]);
+                return new Vector2(kinematics.Velocity.x, kinematics.Velocity.y);
+            }
+
+            Assert.Fail("No projectile entity found for root.");
+            return Vector2.zero;
+        }
+
+        private static float MaxProjectileVelocityY(ProjectileRoot projectileRoot)
+        {
+            const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var scopeEntityField = typeof(ProjectileRoot).GetField("scopeEntity", Flags);
+            var scopeEntity = (Entity)scopeEntityField.GetValue(projectileRoot);
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<ProjectileIdentityComponent>(),
+                ComponentType.ReadOnly<ProjectileKinematicsComponent>());
+            using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
+            float maxVelocityY = float.NegativeInfinity;
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                ProjectileIdentityComponent identity = entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]);
+                if (identity.Scope != scopeEntity)
+                {
+                    continue;
+                }
+
+                ProjectileKinematicsComponent kinematics = entityManager.GetComponentData<ProjectileKinematicsComponent>(entities[i]);
+                maxVelocityY = Mathf.Max(maxVelocityY, kinematics.Velocity.y);
+            }
+
+            if (float.IsNegativeInfinity(maxVelocityY))
+            {
+                Assert.Fail("No projectile entity found for root.");
+            }
+
+            return maxVelocityY;
         }
 
         private static void CreateSpawnFixture(
