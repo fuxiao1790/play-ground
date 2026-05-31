@@ -15,7 +15,7 @@ namespace PlayGround.System.Projectile
             var ecb = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>()
                 .CreateCommandBuffer(state.WorldUnmanaged).AsParallelWriter();
 
-            state.Dependency = new ProjectileChildSpawnJob
+            state.Dependency = new ProjectileChildSpawnEntityJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
                 Ecb = ecb
@@ -24,7 +24,7 @@ namespace PlayGround.System.Projectile
 
         [BurstCompile]
         [WithAll(typeof(ProjectileActiveTag), typeof(ProjectileChildSpawnerTag))]
-        private partial struct ProjectileChildSpawnJob : IJobEntity
+        private partial struct ProjectileChildSpawnEntityJob : IJobEntity
         {
             public float DeltaTime;
             public EntityCommandBuffer.ParallelWriter Ecb;

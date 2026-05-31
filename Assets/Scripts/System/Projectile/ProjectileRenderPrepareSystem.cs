@@ -101,23 +101,75 @@ namespace PlayGround.System.Projectile
             kinematicsTypeHandle.Update(ref state);
             renderTypeHandle.Update(ref state);
 
-            JobHandle renderHandle = state.Dependency;
-            renderHandle = PrepareRenderType(renderType0Query, batchType0Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType1Query, batchType1Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType2Query, batchType2Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType3Query, batchType3Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType4Query, batchType4Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType5Query, batchType5Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType6Query, batchType6Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType7Query, batchType7Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType8Query, batchType8Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType9Query, batchType9Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType10Query, batchType10Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType11Query, batchType11Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType12Query, batchType12Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType13Query, batchType13Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType14Query, batchType14Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType15Query, batchType15Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
+            RenderTypeWork type0 = BuildRenderTypeWork(renderType0Query, batchType0Query, batchLookup, renderBuffers);
+            RenderTypeWork type1 = BuildRenderTypeWork(renderType1Query, batchType1Query, batchLookup, renderBuffers);
+            RenderTypeWork type2 = BuildRenderTypeWork(renderType2Query, batchType2Query, batchLookup, renderBuffers);
+            RenderTypeWork type3 = BuildRenderTypeWork(renderType3Query, batchType3Query, batchLookup, renderBuffers);
+            RenderTypeWork type4 = BuildRenderTypeWork(renderType4Query, batchType4Query, batchLookup, renderBuffers);
+            RenderTypeWork type5 = BuildRenderTypeWork(renderType5Query, batchType5Query, batchLookup, renderBuffers);
+            RenderTypeWork type6 = BuildRenderTypeWork(renderType6Query, batchType6Query, batchLookup, renderBuffers);
+            RenderTypeWork type7 = BuildRenderTypeWork(renderType7Query, batchType7Query, batchLookup, renderBuffers);
+            RenderTypeWork type8 = BuildRenderTypeWork(renderType8Query, batchType8Query, batchLookup, renderBuffers);
+            RenderTypeWork type9 = BuildRenderTypeWork(renderType9Query, batchType9Query, batchLookup, renderBuffers);
+            RenderTypeWork type10 = BuildRenderTypeWork(renderType10Query, batchType10Query, batchLookup, renderBuffers);
+            RenderTypeWork type11 = BuildRenderTypeWork(renderType11Query, batchType11Query, batchLookup, renderBuffers);
+            RenderTypeWork type12 = BuildRenderTypeWork(renderType12Query, batchType12Query, batchLookup, renderBuffers);
+            RenderTypeWork type13 = BuildRenderTypeWork(renderType13Query, batchType13Query, batchLookup, renderBuffers);
+            RenderTypeWork type14 = BuildRenderTypeWork(renderType14Query, batchType14Query, batchLookup, renderBuffers);
+            RenderTypeWork type15 = BuildRenderTypeWork(renderType15Query, batchType15Query, batchLookup, renderBuffers);
+
+            CaptureRenderBuffers(ref type0, renderBuffers);
+            CaptureRenderBuffers(ref type1, renderBuffers);
+            CaptureRenderBuffers(ref type2, renderBuffers);
+            CaptureRenderBuffers(ref type3, renderBuffers);
+            CaptureRenderBuffers(ref type4, renderBuffers);
+            CaptureRenderBuffers(ref type5, renderBuffers);
+            CaptureRenderBuffers(ref type6, renderBuffers);
+            CaptureRenderBuffers(ref type7, renderBuffers);
+            CaptureRenderBuffers(ref type8, renderBuffers);
+            CaptureRenderBuffers(ref type9, renderBuffers);
+            CaptureRenderBuffers(ref type10, renderBuffers);
+            CaptureRenderBuffers(ref type11, renderBuffers);
+            CaptureRenderBuffers(ref type12, renderBuffers);
+            CaptureRenderBuffers(ref type13, renderBuffers);
+            CaptureRenderBuffers(ref type14, renderBuffers);
+            CaptureRenderBuffers(ref type15, renderBuffers);
+
+            JobHandle prepareHandle = state.Dependency;
+            prepareHandle = ScheduleRenderTypeWork(type0, renderType0Query, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, prepareHandle);
+            prepareHandle = ScheduleRenderTypeWork(type1, renderType1Query, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, prepareHandle);
+            prepareHandle = ScheduleRenderTypeWork(type2, renderType2Query, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, prepareHandle);
+            prepareHandle = ScheduleRenderTypeWork(type3, renderType3Query, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, prepareHandle);
+            prepareHandle = ScheduleRenderTypeWork(type4, renderType4Query, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, prepareHandle);
+            prepareHandle = ScheduleRenderTypeWork(type5, renderType5Query, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, prepareHandle);
+            prepareHandle = ScheduleRenderTypeWork(type6, renderType6Query, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, prepareHandle);
+            prepareHandle = ScheduleRenderTypeWork(type7, renderType7Query, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, prepareHandle);
+            prepareHandle = ScheduleRenderTypeWork(type8, renderType8Query, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, prepareHandle);
+            prepareHandle = ScheduleRenderTypeWork(type9, renderType9Query, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, prepareHandle);
+            prepareHandle = ScheduleRenderTypeWork(type10, renderType10Query, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, prepareHandle);
+            prepareHandle = ScheduleRenderTypeWork(type11, renderType11Query, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, prepareHandle);
+            prepareHandle = ScheduleRenderTypeWork(type12, renderType12Query, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, prepareHandle);
+            prepareHandle = ScheduleRenderTypeWork(type13, renderType13Query, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, prepareHandle);
+            prepareHandle = ScheduleRenderTypeWork(type14, renderType14Query, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, prepareHandle);
+            prepareHandle = ScheduleRenderTypeWork(type15, renderType15Query, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, prepareHandle);
+
+            JobHandle renderHandle = prepareHandle;
+            renderHandle = ScheduleTrim(type0, renderBuffers, renderHandle);
+            renderHandle = ScheduleTrim(type1, renderBuffers, renderHandle);
+            renderHandle = ScheduleTrim(type2, renderBuffers, renderHandle);
+            renderHandle = ScheduleTrim(type3, renderBuffers, renderHandle);
+            renderHandle = ScheduleTrim(type4, renderBuffers, renderHandle);
+            renderHandle = ScheduleTrim(type5, renderBuffers, renderHandle);
+            renderHandle = ScheduleTrim(type6, renderBuffers, renderHandle);
+            renderHandle = ScheduleTrim(type7, renderBuffers, renderHandle);
+            renderHandle = ScheduleTrim(type8, renderBuffers, renderHandle);
+            renderHandle = ScheduleTrim(type9, renderBuffers, renderHandle);
+            renderHandle = ScheduleTrim(type10, renderBuffers, renderHandle);
+            renderHandle = ScheduleTrim(type11, renderBuffers, renderHandle);
+            renderHandle = ScheduleTrim(type12, renderBuffers, renderHandle);
+            renderHandle = ScheduleTrim(type13, renderBuffers, renderHandle);
+            renderHandle = ScheduleTrim(type14, renderBuffers, renderHandle);
+            renderHandle = ScheduleTrim(type15, renderBuffers, renderHandle);
 
             state.Dependency = renderHandle;
         }
@@ -142,20 +194,17 @@ namespace PlayGround.System.Projectile
                 ComponentType.ReadWrite<ProjectileRenderElement>());
         }
 
-        private JobHandle PrepareRenderType(
+        private RenderTypeWork BuildRenderTypeWork(
             EntityQuery projectileQuery,
             EntityQuery batchQuery,
             ComponentLookup<ProjectileRenderBatch> batchLookup,
-            BufferLookup<ProjectileRenderElement> renderBuffers,
-            ComponentTypeHandle<ProjectileIdentityComponent> identityTypeHandle,
-            ComponentTypeHandle<ProjectileKinematicsComponent> kinematicsTypeHandle,
-            ComponentTypeHandle<ProjectileRenderComponent> renderTypeHandle,
-            JobHandle dependency)
+            BufferLookup<ProjectileRenderElement> renderBuffers)
         {
-            using NativeArray<Entity> batchEntities = batchQuery.ToEntityArray(Allocator.Temp);
+            NativeArray<Entity> batchEntities = batchQuery.ToEntityArray(Allocator.TempJob);
             if (batchEntities.Length == 0)
             {
-                return dependency;
+                batchEntities.Dispose();
+                return default;
             }
 
             int capacity = projectileQuery.CalculateEntityCount();
@@ -166,12 +215,13 @@ namespace PlayGround.System.Projectile
                     renderBuffers[batchEntities[i]].Clear();
                 }
 
-                return dependency;
+                batchEntities.Dispose();
+                return default;
             }
 
-            using var renderCounts = new NativeArray<int>(batchEntities.Length, Allocator.TempJob);
-            JobHandle typeHandle = default;
-            bool scheduledAny = false;
+            var renderCounts = new NativeArray<int>(batchEntities.Length, Allocator.TempJob);
+            var scopes = new NativeArray<Entity>(batchEntities.Length, Allocator.TempJob);
+            bool hasWork = false;
             for (int i = 0; i < batchEntities.Length; i++)
             {
                 Entity batchEntity = batchEntities[i];
@@ -184,61 +234,159 @@ namespace PlayGround.System.Projectile
                     continue;
                 }
 
+                renderBuffer.ResizeUninitialized(capacity);
+                scopes[i] = batch.Scope;
+                hasWork = true;
+            }
+
+            if (!hasWork)
+            {
+                renderCounts.Dispose();
+                scopes.Dispose();
+                batchEntities.Dispose();
+                return default;
+            }
+
+            return new RenderTypeWork
+            {
+                BatchEntities = batchEntities,
+                Scopes = scopes,
+                RenderCounts = renderCounts,
+                HasWork = true
+            };
+        }
+
+        private static void CaptureRenderBuffers(
+            ref RenderTypeWork work,
+            BufferLookup<ProjectileRenderElement> renderBuffers)
+        {
+            if (!work.HasWork)
+            {
+                return;
+            }
+
+            work.RenderElements = new NativeArray<ProjectileRenderElement>[work.BatchEntities.Length];
+            for (int i = 0; i < work.BatchEntities.Length; i++)
+            {
+                if (work.Scopes[i] == Entity.Null)
+                {
+                    continue;
+                }
+
+                work.RenderElements[i] = renderBuffers[work.BatchEntities[i]].AsNativeArray();
+            }
+        }
+
+        private JobHandle ScheduleRenderTypeWork(
+            RenderTypeWork work,
+            EntityQuery projectileQuery,
+            ComponentTypeHandle<ProjectileIdentityComponent> identityTypeHandle,
+            ComponentTypeHandle<ProjectileKinematicsComponent> kinematicsTypeHandle,
+            ComponentTypeHandle<ProjectileRenderComponent> renderTypeHandle,
+            JobHandle combinedHandle)
+        {
+            if (!work.HasWork)
+            {
+                return combinedHandle;
+            }
+
+            JobHandle typeHandle = default;
+            for (int i = 0; i < work.Scopes.Length; i++)
+            {
+                Entity scope = work.Scopes[i];
+                if (scope == Entity.Null)
+                {
+                    continue;
+                }
+
                 JobHandle batchHandle = PrepareBatch(
                     projectileQuery,
-                    batch.Scope,
+                    scope,
                     i,
-                    ref renderBuffer,
-                    renderCounts,
-                    capacity,
+                    work.RenderElements[i],
+                    work.RenderCounts,
                     identityTypeHandle,
                     kinematicsTypeHandle,
                     renderTypeHandle,
-                    dependency);
+                    combinedHandle);
                 typeHandle = JobHandle.CombineDependencies(typeHandle, batchHandle);
-                scheduledAny = true;
             }
 
-            if (!scheduledAny)
-            {
-                return dependency;
-            }
-
-            typeHandle.Complete();
-            for (int i = 0; i < batchEntities.Length; i++)
-            {
-                DynamicBuffer<ProjectileRenderElement> renderBuffer = renderBuffers[batchEntities[i]];
-                renderBuffer.ResizeUninitialized(renderCounts[i]);
-            }
-
-            return typeHandle;
+            return JobHandle.CombineDependencies(combinedHandle, typeHandle);
         }
 
         private JobHandle PrepareBatch(
             EntityQuery projectileQuery,
             Entity scope,
             int renderCountIndex,
-            ref DynamicBuffer<ProjectileRenderElement> renderBuffer,
+            NativeArray<ProjectileRenderElement> renderElements,
             NativeArray<int> renderCounts,
-            int capacity,
             ComponentTypeHandle<ProjectileIdentityComponent> identityTypeHandle,
             ComponentTypeHandle<ProjectileKinematicsComponent> kinematicsTypeHandle,
             ComponentTypeHandle<ProjectileRenderComponent> renderTypeHandle,
             JobHandle dependency)
         {
-            renderBuffer.ResizeUninitialized(capacity);
             var prepareJob = new ProjectileRenderPrepareJob
             {
                 Scope = scope,
                 Identities = identityTypeHandle,
                 Kinematics = kinematicsTypeHandle,
                 RenderComponents = renderTypeHandle,
-                RenderElements = renderBuffer.AsNativeArray(),
+                RenderElements = renderElements,
                 RenderCounts = renderCounts,
                 RenderCountIndex = renderCountIndex
             };
 
             return prepareJob.Schedule(projectileQuery, dependency);
+        }
+
+        private static JobHandle ScheduleTrim(
+            RenderTypeWork work,
+            BufferLookup<ProjectileRenderElement> renderBuffers,
+            JobHandle dependency)
+        {
+            if (!work.HasWork)
+            {
+                return dependency;
+            }
+
+            var trimJob = new ProjectileRenderTrimJob
+            {
+                BatchEntities = work.BatchEntities,
+                RenderCounts = work.RenderCounts,
+                RenderBuffers = renderBuffers
+            };
+
+            JobHandle trimHandle = trimJob.Schedule(dependency);
+            JobHandle disposeCountsHandle = work.RenderCounts.Dispose(trimHandle);
+            JobHandle disposeScopesHandle = work.Scopes.Dispose(disposeCountsHandle);
+            return work.BatchEntities.Dispose(disposeScopesHandle);
+        }
+
+        private struct RenderTypeWork
+        {
+            public NativeArray<Entity> BatchEntities;
+            public NativeArray<Entity> Scopes;
+            public NativeArray<ProjectileRenderElement>[] RenderElements;
+            public NativeArray<int> RenderCounts;
+            public bool HasWork;
+        }
+
+        [BurstCompile]
+        private struct ProjectileRenderTrimJob : IJob
+        {
+            [ReadOnly] public NativeArray<Entity> BatchEntities;
+            [ReadOnly] public NativeArray<int> RenderCounts;
+            public BufferLookup<ProjectileRenderElement> RenderBuffers;
+
+            public void Execute()
+            {
+                for (int i = 0; i < BatchEntities.Length; i++)
+                {
+                    DynamicBuffer<ProjectileRenderElement> renderBuffer = RenderBuffers[BatchEntities[i]];
+                    renderBuffer.ResizeUninitialized(RenderCounts[i]);
+                }
+            }
         }
 
         [BurstCompile]
@@ -248,7 +396,9 @@ namespace PlayGround.System.Projectile
             [ReadOnly] public ComponentTypeHandle<ProjectileIdentityComponent> Identities;
             [ReadOnly] public ComponentTypeHandle<ProjectileKinematicsComponent> Kinematics;
             [ReadOnly] public ComponentTypeHandle<ProjectileRenderComponent> RenderComponents;
+            [NativeDisableContainerSafetyRestriction]
             [NativeDisableParallelForRestriction] public NativeArray<ProjectileRenderElement> RenderElements;
+            [NativeDisableContainerSafetyRestriction]
             [NativeDisableParallelForRestriction] public NativeArray<int> RenderCounts;
             public int RenderCountIndex;
 
