@@ -13,6 +13,9 @@ namespace PlayGround.System.Projectile
     [UpdateAfter(typeof(ProjectileCollisionSystem))]
     public partial struct ProjectileRenderPrepareSystem : ISystem
     {
+        // Render prep currently chains each render type and schedules per-batch chunk scans without ScheduleParallel,
+        // so the work behaves like a large single-threaded block. CPU render prep/draw submission is about 5% of
+        // frame cost right now, so deeper optimization is deferred.
         private const float ProjectileRenderZ = -0.25f;
         private EntityQuery renderType0Query;
         private EntityQuery renderType1Query;
