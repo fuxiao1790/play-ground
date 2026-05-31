@@ -175,6 +175,7 @@ namespace PlayGround.System.Projectile
             renderHandle = ScheduleTrim(type15, renderBuffers, renderHandle);
 
             state.Dependency = renderHandle;
+            state.Dependency.Complete();
         }
 
         private static EntityQuery RenderTypeQuery<T>(ref SystemState state)
