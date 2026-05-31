@@ -58,7 +58,7 @@ public class PerformanceText : MonoBehaviour
             World.DefaultGameObjectInjectionWorld.EntityManager;
 
         projectileQuery = entityManager.CreateEntityQuery(
-            ComponentType.ReadOnly<PlayGround.System.Projectile.ProjectileComponent>(),
+            ComponentType.ReadOnly<PlayGround.System.Projectile.ProjectileIdentityComponent>(),
             ComponentType.ReadOnly<PlayGround.System.Projectile.ProjectileActiveTag>());
         queryReady = true;
     }

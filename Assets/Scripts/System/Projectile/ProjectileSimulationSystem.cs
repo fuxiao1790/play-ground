@@ -13,7 +13,7 @@ namespace PlayGround.System.Projectile
         public void OnCreate(ref SystemState state)
         {
             projectileQuery = state.GetEntityQuery(
-                ComponentType.ReadOnly<ProjectileComponent>(),
+                ComponentType.ReadOnly<ProjectileIdentityComponent>(),
                 ComponentType.ReadOnly<ProjectileActiveTag>());
             scopeQuery = state.GetEntityQuery(ComponentType.ReadOnly<ProjectileScope>());
         }

@@ -4,24 +4,44 @@ using UnityEngine;
 
 namespace PlayGround.System.Projectile
 {
-    public struct ProjectileComponent : IComponentData
+    public struct ProjectileIdentityComponent : IComponentData
     {
         public Entity Scope;
         public int ProjectileId;
         public int TypeId;
-        public int TargetMask;
+    }
+
+    public struct ProjectileKinematicsComponent : IComponentData
+    {
         public float2 Position;
         public float2 Velocity;
+    }
+
+    public struct ProjectileCollisionComponent : IComponentData
+    {
         public float Radius;
         public float2 HalfExtents;
         public float RotationRadians;
         public float2 BoundsMin;
         public float2 BoundsMax;
-        public float RemainingLifetime;
-        public ProjectileHitPayload HitPayload;
         public ProjectileShapeType ShapeType;
+    }
+
+    public struct ProjectileLifetimeComponent : IComponentData
+    {
+        public float RemainingLifetime;
+    }
+
+    public struct ProjectileHitComponent : IComponentData
+    {
+        public int TargetMask;
+        public ProjectileHitPayload HitPayload;
         public int PierceRemaining;
         public float RepeatHitCooldownSeconds;
+    }
+
+    public struct ProjectileTrackingComponent : IComponentData
+    {
         public bool TrackingEnabled;
         public float TrackingRangeSquared;
         public float TrackingTurnSpeedRadians;
@@ -29,6 +49,10 @@ namespace PlayGround.System.Projectile
         public float TrackingQueryIntervalSeconds;
         public int TrackedTargetId;
         public int TrackedTargetIndex;
+    }
+
+    public struct ProjectileChildSpawnStateComponent : IComponentData
+    {
         public float ChildSpawnCooldownRemaining;
         public int ChildSpawnTickIndex;
     }

@@ -25,17 +25,19 @@ namespace PlayGround.System.Projectile
         {
             public float DeltaTime;
 
-            private void Execute(ref ProjectileComponent projectile)
+            private void Execute(
+                ref ProjectileKinematicsComponent kinematics,
+                ref ProjectileCollisionComponent collision)
             {
-                projectile.Position += projectile.Velocity * DeltaTime;
+                kinematics.Position += kinematics.Velocity * DeltaTime;
                 ProjectileCollisionMath.ComputeWorldBounds(
-                    projectile.Position,
-                    projectile.Radius,
-                    projectile.HalfExtents,
-                    projectile.RotationRadians,
-                    projectile.ShapeType,
-                    out projectile.BoundsMin,
-                    out projectile.BoundsMax);
+                    kinematics.Position,
+                    collision.Radius,
+                    collision.HalfExtents,
+                    collision.RotationRadians,
+                    collision.ShapeType,
+                    out collision.BoundsMin,
+                    out collision.BoundsMax);
             }
         }
     }

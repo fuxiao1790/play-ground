@@ -27,13 +27,13 @@ namespace PlayGround.System.Projectile
             public float DeltaTime;
 
             private void Execute(
-                ref ProjectileComponent projectile,
+                ref ProjectileLifetimeComponent lifetime,
                 EnabledRefRW<ProjectileActiveTag> active)
             {
-                projectile.RemainingLifetime -= DeltaTime;
-                if (projectile.RemainingLifetime <= 0f)
+                lifetime.RemainingLifetime -= DeltaTime;
+                if (lifetime.RemainingLifetime <= 0f)
                 {
-                    projectile.RemainingLifetime = 0f;
+                    lifetime.RemainingLifetime = 0f;
                     active.ValueRW = false;
                 }
             }

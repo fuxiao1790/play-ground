@@ -29,45 +29,54 @@ namespace PlayGround.System.Projectile
             public float DeltaTime;
             public EntityCommandBuffer.ParallelWriter Ecb;
 
-            private void Execute([ChunkIndexInQuery] int chunkIndex, ref ProjectileComponent projectile, in ProjectileChildSpawnerComponent spawner)
+            private void Execute(
+                [ChunkIndexInQuery] int chunkIndex,
+                ref ProjectileChildSpawnStateComponent childSpawnState,
+                in ProjectileIdentityComponent identity,
+                in ProjectileKinematicsComponent kinematics,
+                in ProjectileLifetimeComponent lifetime,
+                in ProjectileHitComponent hit,
+                in ProjectileChildSpawnerComponent spawner)
             {
-                if (projectile.RemainingLifetime <= 0f || projectile.Scope == Entity.Null)
+                if (lifetime.RemainingLifetime <= 0f || identity.Scope == Entity.Null)
                 {
                     return;
                 }
 
-                float cooldown = projectile.ChildSpawnCooldownRemaining - DeltaTime;
-                int tickIndex = projectile.ChildSpawnTickIndex;
+                float cooldown = childSpawnState.ChildSpawnCooldownRemaining - DeltaTime;
+                int tickIndex = childSpawnState.ChildSpawnTickIndex;
                 while (cooldown <= 0f)
                 {
                     tickIndex++;
                     for (int childIndex = 0; childIndex < spawner.ChildCountPerTick; childIndex++)
                     {
-                        SpawnChild(chunkIndex, ref projectile, in spawner, tickIndex, childIndex);
+                        SpawnChild(chunkIndex, identity, kinematics, hit, in spawner, tickIndex, childIndex);
                     }
                     cooldown += spawner.IntervalSeconds;
                 }
 
-                projectile.ChildSpawnCooldownRemaining = cooldown;
-                projectile.ChildSpawnTickIndex = tickIndex;
+                childSpawnState.ChildSpawnCooldownRemaining = cooldown;
+                childSpawnState.ChildSpawnTickIndex = tickIndex;
             }
 
             private void SpawnChild(
                 int chunkIndex,
-                ref ProjectileComponent parent,
+                ProjectileIdentityComponent parentIdentity,
+                ProjectileKinematicsComponent parentKinematics,
+                ProjectileHitComponent parentHit,
                 in ProjectileChildSpawnerComponent spawner,
                 int tickIndex,
                 int childIndex)
             {
-                float2 velocity = ComputeChildVelocity(ref parent, in spawner, childIndex);
-                int targetMask = spawner.TargetMask != 0 ? spawner.TargetMask : parent.TargetMask;
+                float2 velocity = ComputeChildVelocity(parentKinematics, in spawner, childIndex);
+                int targetMask = spawner.TargetMask != 0 ? spawner.TargetMask : parentHit.TargetMask;
                 ProjectileHitPayload hitPayload = new(
-                    parent.HitPayload.SourceNodeId,
+                    parentHit.HitPayload.SourceNodeId,
                     spawner.DamageAmount,
                     spawner.DirectDamageEnabled);
 
                 ProjectileCollisionMath.ComputeWorldBounds(
-                    parent.Position,
+                    parentKinematics.Position,
                     spawner.Radius,
                     spawner.HalfExtents,
                     spawner.RotationRadians,
@@ -76,33 +85,46 @@ namespace PlayGround.System.Projectile
                     out float2 boundsMax);
                 
                 Entity child = Ecb.CreateEntity(chunkIndex);
-                Ecb.AddComponent(chunkIndex, child, new ProjectileComponent
+                Ecb.AddComponent(chunkIndex, child, new ProjectileIdentityComponent
                 {
-                    Scope = parent.Scope,
+                    Scope = parentIdentity.Scope,
                     ProjectileId = 0,
-                    TypeId = spawner.TypeId,
-                    TargetMask = targetMask,
-                    Position = parent.Position,
-                    Velocity = velocity,
+                    TypeId = spawner.TypeId
+                });
+                Ecb.AddComponent(chunkIndex, child, new ProjectileKinematicsComponent
+                {
+                    Position = parentKinematics.Position,
+                    Velocity = velocity
+                });
+                Ecb.AddComponent(chunkIndex, child, new ProjectileCollisionComponent
+                {
                     Radius = spawner.Radius,
                     HalfExtents = spawner.HalfExtents,
                     RotationRadians = spawner.RotationRadians,
                     BoundsMin = boundsMin,
                     BoundsMax = boundsMax,
-                    RemainingLifetime = spawner.Lifetime,
+                    ShapeType = spawner.ShapeType
+                });
+                Ecb.AddComponent(chunkIndex, child, new ProjectileLifetimeComponent
+                {
+                    RemainingLifetime = spawner.Lifetime
+                });
+                Ecb.AddComponent(chunkIndex, child, new ProjectileHitComponent
+                {
+                    TargetMask = targetMask,
                     HitPayload = hitPayload,
-                    ShapeType = spawner.ShapeType,
                     PierceRemaining = spawner.PierceCount,
-                    RepeatHitCooldownSeconds = spawner.RepeatHitCooldownSeconds,
+                    RepeatHitCooldownSeconds = spawner.RepeatHitCooldownSeconds
+                });
+                Ecb.AddComponent(chunkIndex, child, new ProjectileTrackingComponent
+                {
                     TrackingEnabled = spawner.TrackingEnabled,
                     TrackingRangeSquared = spawner.TrackingRangeSquared,
                     TrackingTurnSpeedRadians = spawner.TrackingTurnSpeedRadians,
                     TrackingQueryCooldownRemaining = spawner.TrackingInitialQueryDelaySeconds,
                     TrackingQueryIntervalSeconds = spawner.TrackingQueryIntervalSeconds,
                     TrackedTargetId = 0,
-                    TrackedTargetIndex = -1,
-                    ChildSpawnCooldownRemaining = 0f,
-                    ChildSpawnTickIndex = 0
+                    TrackedTargetIndex = -1
                 });
                 Ecb.AddComponent(chunkIndex, child, new ProjectileRenderComponent
                 {
@@ -118,11 +140,11 @@ namespace PlayGround.System.Projectile
             }
 
             private static float2 ComputeChildVelocity(
-                ref ProjectileComponent parent,
+                ProjectileKinematicsComponent parentKinematics,
                 in ProjectileChildSpawnerComponent spawner,
                 int childIndex)
             {
-                float2 forward = math.normalizesafe(parent.Velocity, new float2(1f, 0f));
+                float2 forward = math.normalizesafe(parentKinematics.Velocity, new float2(1f, 0f));
                 float2 dir;
                 switch (spawner.SpawnPatternType)
                 {
@@ -148,7 +170,7 @@ namespace PlayGround.System.Projectile
                         dir = forward;
                         break;
                 }
-                return spawner.Speed > 0f ? dir * spawner.Speed : dir * math.length(parent.Velocity);
+                return spawner.Speed > 0f ? dir * spawner.Speed : dir * math.length(parentKinematics.Velocity);
             }
 
             private static float SideSpreadAngle(float totalRad, int shotIndex, int shotCount)

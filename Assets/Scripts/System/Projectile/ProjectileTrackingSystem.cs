@@ -29,116 +29,126 @@ namespace PlayGround.System.Projectile
             public float DeltaTime;
             [ReadOnly] public BufferLookup<ProjectileTargetElement> Targets;
 
-            private void Execute(ref ProjectileComponent projectile)
+            private void Execute(
+                ref ProjectileKinematicsComponent kinematics,
+                ref ProjectileTrackingComponent tracking,
+                in ProjectileIdentityComponent identity,
+                in ProjectileHitComponent hit)
             {
-                if (!projectile.TrackingEnabled || projectile.Scope == Entity.Null || !Targets.HasBuffer(projectile.Scope))
+                if (!tracking.TrackingEnabled || identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
                 {
                     return;
                 }
 
-                DynamicBuffer<ProjectileTargetElement> targets = Targets[projectile.Scope];
-                float speed = math.length(projectile.Velocity);
+                DynamicBuffer<ProjectileTargetElement> targets = Targets[identity.Scope];
+                float speed = math.length(kinematics.Velocity);
                 if (speed <= 0.0001f)
                 {
                     return;
                 }
 
-                float2 currentDirection = projectile.Velocity / speed;
-                projectile.TrackingQueryCooldownRemaining = math.max(0f, projectile.TrackingQueryCooldownRemaining - DeltaTime);
-                bool hasTrackedTarget = TryRefreshTrackedTarget(ref projectile, targets);
-                if (projectile.TrackingQueryCooldownRemaining <= 0f)
+                float2 currentDirection = kinematics.Velocity / speed;
+                tracking.TrackingQueryCooldownRemaining = math.max(0f, tracking.TrackingQueryCooldownRemaining - DeltaTime);
+                bool hasTrackedTarget = TryRefreshTrackedTarget(ref tracking, kinematics, hit, targets);
+                if (tracking.TrackingQueryCooldownRemaining <= 0f)
                 {
-                    hasTrackedTarget = TryAcquireTrackedTarget(ref projectile, targets, currentDirection);
-                    projectile.TrackingQueryCooldownRemaining = projectile.TrackingQueryIntervalSeconds;
+                    hasTrackedTarget = TryAcquireTrackedTarget(ref tracking, kinematics, hit, targets, currentDirection);
+                    tracking.TrackingQueryCooldownRemaining = tracking.TrackingQueryIntervalSeconds;
                 }
                 else if (!hasTrackedTarget)
                 {
                     return;
                 }
 
-                int trackedTargetIndex = projectile.TrackedTargetIndex;
+                int trackedTargetIndex = tracking.TrackedTargetIndex;
                 if (trackedTargetIndex < 0 || trackedTargetIndex >= targets.Length)
                 {
                     return;
                 }
 
-                float2 toTarget = targets[trackedTargetIndex].Position - projectile.Position;
+                float2 toTarget = targets[trackedTargetIndex].Position - kinematics.Position;
                 if (math.lengthsq(toTarget) <= ProjectileSimulationConstants.MinimumDirectionLengthSquared)
                 {
                     return;
                 }
 
                 float2 desiredDirection = math.normalize(toTarget);
-                float maxTurnRadians = projectile.TrackingTurnSpeedRadians * DeltaTime;
-                projectile.Velocity = SteerDirection(currentDirection, desiredDirection, maxTurnRadians) * speed;
+                float maxTurnRadians = tracking.TrackingTurnSpeedRadians * DeltaTime;
+                kinematics.Velocity = SteerDirection(currentDirection, desiredDirection, maxTurnRadians) * speed;
             }
 
-            private static bool TryRefreshTrackedTarget(ref ProjectileComponent projectile, DynamicBuffer<ProjectileTargetElement> targets)
+            private static bool TryRefreshTrackedTarget(
+                ref ProjectileTrackingComponent tracking,
+                ProjectileKinematicsComponent kinematics,
+                ProjectileHitComponent hit,
+                DynamicBuffer<ProjectileTargetElement> targets)
             {
-                if (projectile.TrackedTargetId == 0)
+                if (tracking.TrackedTargetId == 0)
                 {
-                    projectile.TrackedTargetIndex = -1;
+                    tracking.TrackedTargetIndex = -1;
                     return false;
                 }
 
-                int cachedIndex = projectile.TrackedTargetIndex;
+                int cachedIndex = tracking.TrackedTargetIndex;
                 if (cachedIndex >= 0
                     && cachedIndex < targets.Length
-                    && targets[cachedIndex].TargetId == projectile.TrackedTargetId
-                    && IsValidTrackedTarget(projectile, targets[cachedIndex]))
+                    && targets[cachedIndex].TargetId == tracking.TrackedTargetId
+                    && IsValidTrackedTarget(kinematics, tracking, hit, targets[cachedIndex]))
                 {
                     return true;
                 }
 
                 for (int i = 0; i < targets.Length; i++)
                 {
-                    if (targets[i].TargetId != projectile.TrackedTargetId)
+                    if (targets[i].TargetId != tracking.TrackedTargetId)
                     {
                         continue;
                     }
 
-                    if (!IsValidTrackedTarget(projectile, targets[i]))
+                    if (!IsValidTrackedTarget(kinematics, tracking, hit, targets[i]))
                     {
                         break;
                     }
 
-                    projectile.TrackedTargetIndex = i;
+                    tracking.TrackedTargetIndex = i;
                     return true;
                 }
 
-                projectile.TrackedTargetId = 0;
-                projectile.TrackedTargetIndex = -1;
+                tracking.TrackedTargetId = 0;
+                tracking.TrackedTargetIndex = -1;
                 return false;
             }
 
             private static bool TryAcquireTrackedTarget(
-                ref ProjectileComponent projectile,
+                ref ProjectileTrackingComponent tracking,
+                ProjectileKinematicsComponent kinematics,
+                ProjectileHitComponent hit,
                 DynamicBuffer<ProjectileTargetElement> targets,
                 float2 currentDirection)
             {
-                projectile.TrackedTargetId = 0;
-                projectile.TrackedTargetIndex = -1;
+                tracking.TrackedTargetId = 0;
+                tracking.TrackedTargetIndex = -1;
                 float bestDistanceSquared = float.MaxValue;
 
                 for (int i = 0; i < targets.Length; i++)
                 {
                     ProjectileTargetElement target = targets[i];
-                    if ((projectile.TargetMask & target.TargetMask) == 0)
+                    if ((hit.TargetMask & target.TargetMask) == 0)
                     {
                         continue;
                     }
 
-                    float2 toTarget = target.Position - projectile.Position;
+                    float2 toTarget = target.Position - kinematics.Position;
                     float distanceSquared = math.lengthsq(toTarget);
-                    if (distanceSquared > projectile.TrackingRangeSquared)
+                    if (distanceSquared > tracking.TrackingRangeSquared)
                     {
                         continue;
                     }
 
                     if (distanceSquared <= ProjectileSimulationConstants.MinimumDirectionLengthSquared)
                     {
-                        projectile.TrackedTargetId = target.TargetId;
-                        projectile.TrackedTargetIndex = i;
+                        tracking.TrackedTargetId = target.TargetId;
+                        tracking.TrackedTargetIndex = i;
                         return true;
                     }
 
@@ -149,22 +159,26 @@ namespace PlayGround.System.Projectile
                     }
 
                     bestDistanceSquared = distanceSquared;
-                    projectile.TrackedTargetId = target.TargetId;
-                    projectile.TrackedTargetIndex = i;
+                    tracking.TrackedTargetId = target.TargetId;
+                    tracking.TrackedTargetIndex = i;
                 }
 
-                return projectile.TrackedTargetId != 0;
+                return tracking.TrackedTargetId != 0;
             }
 
-            private static bool IsValidTrackedTarget(ProjectileComponent projectile, ProjectileTargetElement target)
+            private static bool IsValidTrackedTarget(
+                ProjectileKinematicsComponent kinematics,
+                ProjectileTrackingComponent tracking,
+                ProjectileHitComponent hit,
+                ProjectileTargetElement target)
             {
-                if ((projectile.TargetMask & target.TargetMask) == 0)
+                if ((hit.TargetMask & target.TargetMask) == 0)
                 {
                     return false;
                 }
 
-                float distanceSquared = math.lengthsq(target.Position - projectile.Position);
-                return distanceSquared <= projectile.TrackingRangeSquared;
+                float distanceSquared = math.lengthsq(target.Position - kinematics.Position);
+                return distanceSquared <= tracking.TrackingRangeSquared;
             }
 
             private static float2 SteerDirection(float2 currentDirection, float2 desiredDirection, float maxTurnRadians)

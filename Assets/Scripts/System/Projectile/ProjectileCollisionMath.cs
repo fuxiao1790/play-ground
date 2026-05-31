@@ -37,26 +37,29 @@ namespace PlayGround.System.Projectile
                 && rightMax.y >= leftMin.y;
         }
 
-        public static bool Hit(ProjectileComponent projectile, ProjectileTargetElement target)
+        public static bool Hit(
+            ProjectileKinematicsComponent projectileKinematics,
+            ProjectileCollisionComponent projectileCollision,
+            ProjectileTargetElement target)
         {
-            return (projectile.ShapeType, target.ShapeType) switch
+            return (projectileCollision.ShapeType, target.ShapeType) switch
             {
-                (ProjectileShapeType.Circle, ProjectileShapeType.Circle) => CircleCircle(projectile, target),
+                (ProjectileShapeType.Circle, ProjectileShapeType.Circle) => CircleCircle(projectileKinematics, projectileCollision, target),
                 (ProjectileShapeType.Circle, ProjectileShapeType.Rectangle) => CircleRectangle(
-                    projectile.Position,
-                    projectile.Radius,
+                    projectileKinematics.Position,
+                    projectileCollision.Radius,
                     target.Position,
                     target.HalfExtents,
                     target.RotationRadians),
                 (ProjectileShapeType.Rectangle, ProjectileShapeType.Circle) => CircleRectangle(
                     target.Position,
                     target.Radius,
-                    projectile.Position,
-                    projectile.HalfExtents,
-                    projectile.RotationRadians),
+                    projectileKinematics.Position,
+                    projectileCollision.HalfExtents,
+                    projectileCollision.RotationRadians),
                 (ProjectileShapeType.Circle, ProjectileShapeType.Capsule) => CircleCapsule(
-                    projectile.Position,
-                    projectile.Radius,
+                    projectileKinematics.Position,
+                    projectileCollision.Radius,
                     target.Position,
                     target.Radius,
                     target.HalfExtents.x,
@@ -64,22 +67,25 @@ namespace PlayGround.System.Projectile
                 (ProjectileShapeType.Capsule, ProjectileShapeType.Circle) => CircleCapsule(
                     target.Position,
                     target.Radius,
-                    projectile.Position,
-                    projectile.Radius,
-                    projectile.HalfExtents.x,
-                    projectile.RotationRadians),
-                (ProjectileShapeType.Rectangle, ProjectileShapeType.Rectangle) => RectangleRectangle(projectile, target),
-                (ProjectileShapeType.Rectangle, ProjectileShapeType.Capsule) => RectangleCapsule(projectile, target),
-                (ProjectileShapeType.Capsule, ProjectileShapeType.Rectangle) => RectangleCapsule(target, projectile),
-                (ProjectileShapeType.Capsule, ProjectileShapeType.Capsule) => CapsuleCapsule(projectile, target),
+                    projectileKinematics.Position,
+                    projectileCollision.Radius,
+                    projectileCollision.HalfExtents.x,
+                    projectileCollision.RotationRadians),
+                (ProjectileShapeType.Rectangle, ProjectileShapeType.Rectangle) => RectangleRectangle(projectileKinematics, projectileCollision, target),
+                (ProjectileShapeType.Rectangle, ProjectileShapeType.Capsule) => RectangleCapsule(projectileKinematics, projectileCollision, target),
+                (ProjectileShapeType.Capsule, ProjectileShapeType.Rectangle) => RectangleCapsule(target, projectileKinematics, projectileCollision),
+                (ProjectileShapeType.Capsule, ProjectileShapeType.Capsule) => CapsuleCapsule(projectileKinematics, projectileCollision, target),
                 _ => false
             };
         }
 
-        private static bool CircleCircle(ProjectileComponent projectile, ProjectileTargetElement target)
+        private static bool CircleCircle(
+            ProjectileKinematicsComponent projectileKinematics,
+            ProjectileCollisionComponent projectileCollision,
+            ProjectileTargetElement target)
         {
-            float radius = projectile.Radius + target.Radius;
-            return math.distancesq(projectile.Position, target.Position) <= radius * radius;
+            float radius = projectileCollision.Radius + target.Radius;
+            return math.distancesq(projectileKinematics.Position, target.Position) <= radius * radius;
         }
 
         private static bool CircleRectangle(float2 circleCenter, float circleRadius, float2 rectangleCenter, float2 halfExtents, float rotationRadians)
@@ -96,38 +102,50 @@ namespace PlayGround.System.Projectile
             return DistancePointSegmentSquared(circleCenter, a, b) <= radius * radius;
         }
 
-        private static bool CapsuleCapsule(ProjectileComponent left, ProjectileTargetElement right)
+        private static bool CapsuleCapsule(
+            ProjectileKinematicsComponent leftKinematics,
+            ProjectileCollisionComponent leftCollision,
+            ProjectileTargetElement right)
         {
-            GetCapsuleSegment(left.Position, left.HalfExtents.x, left.RotationRadians, out float2 a0, out float2 a1);
+            GetCapsuleSegment(leftKinematics.Position, leftCollision.HalfExtents.x, leftCollision.RotationRadians, out float2 a0, out float2 a1);
             GetCapsuleSegment(right.Position, right.HalfExtents.x, right.RotationRadians, out float2 b0, out float2 b1);
-            float radius = left.Radius + right.Radius;
+            float radius = leftCollision.Radius + right.Radius;
             return DistanceSegmentSegmentSquared(a0, a1, b0, b1) <= radius * radius;
         }
 
-        private static bool RectangleRectangle(ProjectileComponent left, ProjectileTargetElement right)
+        private static bool RectangleRectangle(
+            ProjectileKinematicsComponent leftKinematics,
+            ProjectileCollisionComponent leftCollision,
+            ProjectileTargetElement right)
         {
-            GetRectangleCorners(left.Position, left.HalfExtents, left.RotationRadians, out float2 a0, out float2 a1, out float2 a2, out float2 a3);
+            GetRectangleCorners(leftKinematics.Position, leftCollision.HalfExtents, leftCollision.RotationRadians, out float2 a0, out float2 a1, out float2 a2, out float2 a3);
             GetRectangleCorners(right.Position, right.HalfExtents, right.RotationRadians, out float2 b0, out float2 b1, out float2 b2, out float2 b3);
             return OverlapsOnAxes(a0, a1, a2, a3, b0, b1, b2, b3)
                 && OverlapsOnAxes(b0, b1, b2, b3, a0, a1, a2, a3);
         }
 
-        private static bool RectangleCapsule(ProjectileComponent rectangle, ProjectileTargetElement capsule)
+        private static bool RectangleCapsule(
+            ProjectileKinematicsComponent rectangleKinematics,
+            ProjectileCollisionComponent rectangleCollision,
+            ProjectileTargetElement capsule)
         {
             GetCapsuleSegment(capsule.Position, capsule.HalfExtents.x, capsule.RotationRadians, out float2 a, out float2 b);
-            a = Rotate(a - rectangle.Position, -rectangle.RotationRadians);
-            b = Rotate(b - rectangle.Position, -rectangle.RotationRadians);
-            float distanceSquared = DistanceSegmentAabbSquared(a, b, -rectangle.HalfExtents, rectangle.HalfExtents);
+            a = Rotate(a - rectangleKinematics.Position, -rectangleCollision.RotationRadians);
+            b = Rotate(b - rectangleKinematics.Position, -rectangleCollision.RotationRadians);
+            float distanceSquared = DistanceSegmentAabbSquared(a, b, -rectangleCollision.HalfExtents, rectangleCollision.HalfExtents);
             return distanceSquared <= capsule.Radius * capsule.Radius;
         }
 
-        private static bool RectangleCapsule(ProjectileTargetElement rectangle, ProjectileComponent capsule)
+        private static bool RectangleCapsule(
+            ProjectileTargetElement rectangle,
+            ProjectileKinematicsComponent capsuleKinematics,
+            ProjectileCollisionComponent capsuleCollision)
         {
-            GetCapsuleSegment(capsule.Position, capsule.HalfExtents.x, capsule.RotationRadians, out float2 a, out float2 b);
+            GetCapsuleSegment(capsuleKinematics.Position, capsuleCollision.HalfExtents.x, capsuleCollision.RotationRadians, out float2 a, out float2 b);
             a = Rotate(a - rectangle.Position, -rectangle.RotationRadians);
             b = Rotate(b - rectangle.Position, -rectangle.RotationRadians);
             float distanceSquared = DistanceSegmentAabbSquared(a, b, -rectangle.HalfExtents, rectangle.HalfExtents);
-            return distanceSquared <= capsule.Radius * capsule.Radius;
+            return distanceSquared <= capsuleCollision.Radius * capsuleCollision.Radius;
         }
 
         private static void GetCapsuleSegment(float2 center, float halfSegment, float rotationRadians, out float2 a, out float2 b)

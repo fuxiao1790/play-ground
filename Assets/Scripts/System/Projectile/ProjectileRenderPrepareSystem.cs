@@ -46,7 +46,8 @@ namespace PlayGround.System.Projectile
         private EntityQuery batchType13Query;
         private EntityQuery batchType14Query;
         private EntityQuery batchType15Query;
-        private ComponentTypeHandle<ProjectileComponent> projectileTypeHandle;
+        private ComponentTypeHandle<ProjectileIdentityComponent> identityTypeHandle;
+        private ComponentTypeHandle<ProjectileKinematicsComponent> kinematicsTypeHandle;
         private ComponentTypeHandle<ProjectileRenderComponent> renderTypeHandle;
 
         public void OnCreate(ref SystemState state)
@@ -86,7 +87,8 @@ namespace PlayGround.System.Projectile
             batchType15Query = BatchTypeQuery<ProjectileRenderType15BatchTag>(ref state);
 
             // Cache component type handles to avoid creating them every OnUpdate.
-            projectileTypeHandle = state.GetComponentTypeHandle<ProjectileComponent>(true);
+            identityTypeHandle = state.GetComponentTypeHandle<ProjectileIdentityComponent>(true);
+            kinematicsTypeHandle = state.GetComponentTypeHandle<ProjectileKinematicsComponent>(true);
             renderTypeHandle = state.GetComponentTypeHandle<ProjectileRenderComponent>(true);
         }
 
@@ -95,26 +97,27 @@ namespace PlayGround.System.Projectile
             ComponentLookup<ProjectileRenderBatch> batchLookup = SystemAPI.GetComponentLookup<ProjectileRenderBatch>(true);
             BufferLookup<ProjectileRenderElement> renderBuffers = SystemAPI.GetBufferLookup<ProjectileRenderElement>();
             // Keep cached handles up to date instead of creating them each frame.
-            projectileTypeHandle.Update(ref state);
+            identityTypeHandle.Update(ref state);
+            kinematicsTypeHandle.Update(ref state);
             renderTypeHandle.Update(ref state);
 
             JobHandle renderHandle = state.Dependency;
-            renderHandle = PrepareRenderType(renderType0Query, batchType0Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType1Query, batchType1Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType2Query, batchType2Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType3Query, batchType3Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType4Query, batchType4Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType5Query, batchType5Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType6Query, batchType6Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType7Query, batchType7Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType8Query, batchType8Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType9Query, batchType9Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType10Query, batchType10Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType11Query, batchType11Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType12Query, batchType12Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType13Query, batchType13Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType14Query, batchType14Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
-            renderHandle = PrepareRenderType(renderType15Query, batchType15Query, batchLookup, renderBuffers, projectileTypeHandle, renderTypeHandle, renderHandle);
+            renderHandle = PrepareRenderType(renderType0Query, batchType0Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
+            renderHandle = PrepareRenderType(renderType1Query, batchType1Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
+            renderHandle = PrepareRenderType(renderType2Query, batchType2Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
+            renderHandle = PrepareRenderType(renderType3Query, batchType3Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
+            renderHandle = PrepareRenderType(renderType4Query, batchType4Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
+            renderHandle = PrepareRenderType(renderType5Query, batchType5Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
+            renderHandle = PrepareRenderType(renderType6Query, batchType6Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
+            renderHandle = PrepareRenderType(renderType7Query, batchType7Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
+            renderHandle = PrepareRenderType(renderType8Query, batchType8Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
+            renderHandle = PrepareRenderType(renderType9Query, batchType9Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
+            renderHandle = PrepareRenderType(renderType10Query, batchType10Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
+            renderHandle = PrepareRenderType(renderType11Query, batchType11Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
+            renderHandle = PrepareRenderType(renderType12Query, batchType12Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
+            renderHandle = PrepareRenderType(renderType13Query, batchType13Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
+            renderHandle = PrepareRenderType(renderType14Query, batchType14Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
+            renderHandle = PrepareRenderType(renderType15Query, batchType15Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
 
             // todo: is this actually needed?
             state.Dependency = renderHandle;
@@ -124,7 +127,8 @@ namespace PlayGround.System.Projectile
             where T : unmanaged, IComponentData
         {
             return state.GetEntityQuery(
-                ComponentType.ReadOnly<ProjectileComponent>(),
+                ComponentType.ReadOnly<ProjectileIdentityComponent>(),
+                ComponentType.ReadOnly<ProjectileKinematicsComponent>(),
                 ComponentType.ReadOnly<ProjectileRenderComponent>(),
                 ComponentType.ReadOnly<T>(),
                 ComponentType.ReadOnly<ProjectileActiveTag>());
@@ -144,7 +148,8 @@ namespace PlayGround.System.Projectile
             EntityQuery batchQuery,
             ComponentLookup<ProjectileRenderBatch> batchLookup,
             BufferLookup<ProjectileRenderElement> renderBuffers,
-            ComponentTypeHandle<ProjectileComponent> projectileTypeHandle,
+            ComponentTypeHandle<ProjectileIdentityComponent> identityTypeHandle,
+            ComponentTypeHandle<ProjectileKinematicsComponent> kinematicsTypeHandle,
             ComponentTypeHandle<ProjectileRenderComponent> renderTypeHandle,
             JobHandle dependency)
         {
@@ -187,7 +192,8 @@ namespace PlayGround.System.Projectile
                     ref renderBuffer,
                     renderCounts,
                     capacity,
-                    projectileTypeHandle,
+                    identityTypeHandle,
+                    kinematicsTypeHandle,
                     renderTypeHandle,
                     dependency);
                 typeHandle = JobHandle.CombineDependencies(typeHandle, batchHandle);
@@ -216,7 +222,8 @@ namespace PlayGround.System.Projectile
             ref DynamicBuffer<ProjectileRenderElement> renderBuffer,
             NativeArray<int> renderCounts,
             int capacity,
-            ComponentTypeHandle<ProjectileComponent> projectileTypeHandle,
+            ComponentTypeHandle<ProjectileIdentityComponent> identityTypeHandle,
+            ComponentTypeHandle<ProjectileKinematicsComponent> kinematicsTypeHandle,
             ComponentTypeHandle<ProjectileRenderComponent> renderTypeHandle,
             JobHandle dependency)
         {
@@ -224,7 +231,8 @@ namespace PlayGround.System.Projectile
             var prepareJob = new ProjectileRenderPrepareJob
             {
                 Scope = scope,
-                Projectiles = projectileTypeHandle,
+                Identities = identityTypeHandle,
+                Kinematics = kinematicsTypeHandle,
                 RenderComponents = renderTypeHandle,
                 RenderElements = renderBuffer.AsNativeArray(),
                 RenderCounts = renderCounts,
@@ -238,7 +246,8 @@ namespace PlayGround.System.Projectile
         private struct ProjectileRenderPrepareJob : IJobChunk
         {
             public Entity Scope;
-            [ReadOnly] public ComponentTypeHandle<ProjectileComponent> Projectiles;
+            [ReadOnly] public ComponentTypeHandle<ProjectileIdentityComponent> Identities;
+            [ReadOnly] public ComponentTypeHandle<ProjectileKinematicsComponent> Kinematics;
             [ReadOnly] public ComponentTypeHandle<ProjectileRenderComponent> RenderComponents;
             [NativeDisableParallelForRestriction] public NativeArray<ProjectileRenderElement> RenderElements;
             [NativeDisableParallelForRestriction] public NativeArray<int> RenderCounts;
@@ -250,37 +259,39 @@ namespace PlayGround.System.Projectile
                 bool useEnabledMask,
                 in v128 chunkEnabledMask)
             {
-                NativeArray<ProjectileComponent> projectiles = chunk.GetNativeArray(ref Projectiles);
+                NativeArray<ProjectileIdentityComponent> identities = chunk.GetNativeArray(ref Identities);
+                NativeArray<ProjectileKinematicsComponent> kinematicsComponents = chunk.GetNativeArray(ref Kinematics);
                 NativeArray<ProjectileRenderComponent> renderComponents = chunk.GetNativeArray(ref RenderComponents);
 
                 var enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
                 while (enumerator.NextEntityIndex(out int i))
                 {
-                    ProjectileComponent projectile = projectiles[i];
+                    ProjectileIdentityComponent identity = identities[i];
+                    ProjectileKinematicsComponent kinematics = kinematicsComponents[i];
                     ProjectileRenderComponent render = renderComponents[i];
-                    if (render.IsRenderable == 0 || projectile.Scope != Scope)
+                    if (render.IsRenderable == 0 || identity.Scope != Scope)
                     {
                         continue;
                     }
 
                     int writeIndex = RenderCounts[RenderCountIndex];
-                    RenderElements[writeIndex] = BuildRenderElement(projectile, render);
+                    RenderElements[writeIndex] = BuildRenderElement(kinematics, render);
                     RenderCounts[RenderCountIndex] = writeIndex + 1;
                 }
             }
 
             private static ProjectileRenderElement BuildRenderElement(
-                ProjectileComponent projectile,
+                ProjectileKinematicsComponent kinematics,
                 ProjectileRenderComponent render)
             {
-                float velocityLengthSquared = math.lengthsq(projectile.Velocity);
+                float velocityLengthSquared = math.lengthsq(kinematics.Velocity);
                 float directionX = 1f;
                 float directionY = 0f;
                 if (velocityLengthSquared > ProjectileSimulationConstants.MinimumDirectionLengthSquared)
                 {
                     float inverseLength = math.rsqrt(velocityLengthSquared);
-                    directionX = projectile.Velocity.x * inverseLength;
-                    directionY = projectile.Velocity.y * inverseLength;
+                    directionX = kinematics.Velocity.x * inverseLength;
+                    directionY = kinematics.Velocity.y * inverseLength;
                 }
 
                 float cos = directionX * render.VisualRotationCos - directionY * render.VisualRotationSin;
@@ -299,11 +310,11 @@ namespace PlayGround.System.Projectile
                         m00 = rightX,
                         m01 = upX,
                         m02 = 0f,
-                        m03 = projectile.Position.x,
+                        m03 = kinematics.Position.x,
                         m10 = rightY,
                         m11 = upY,
                         m12 = 0f,
-                        m13 = projectile.Position.y,
+                        m13 = kinematics.Position.y,
                         m20 = 0f,
                         m21 = 0f,
                         m22 = scale,

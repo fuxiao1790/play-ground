@@ -75,78 +75,82 @@ namespace PlayGround.System.Projectile
             public NativeQueue<ProjectilePendingHit>.ParallelWriter PendingHits;
 
             private void Execute(
-                ref ProjectileComponent projectile,
+                in ProjectileIdentityComponent identity,
+                in ProjectileKinematicsComponent kinematics,
+                in ProjectileCollisionComponent collision,
+                ref ProjectileLifetimeComponent lifetime,
+                ref ProjectileHitComponent hit,
                 EnabledRefRW<ProjectileActiveTag> active,
                 DynamicBuffer<ProjectileContactGateElement> contactGates)
             {
-                if (projectile.Scope == Entity.Null || !Targets.HasBuffer(projectile.Scope))
+                if (identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
                 {
-                    Deactivate(ref projectile, active);
+                    Deactivate(ref lifetime, active);
                     return;
                 }
 
-                if (projectile.RemainingLifetime <= 0f)
+                if (lifetime.RemainingLifetime <= 0f)
                 {
-                    Deactivate(ref projectile, active);
+                    Deactivate(ref lifetime, active);
                     return;
                 }
 
-                if (!SpatialHashIntersects(projectile))
+                if (!SpatialHashIntersects(identity, collision))
                 {
                     return;
                 }
 
-                DynamicBuffer<ProjectileTargetElement> targets = Targets[projectile.Scope];
+                DynamicBuffer<ProjectileTargetElement> targets = Targets[identity.Scope];
                 for (int i = 0; i < targets.Length; i++)
                 {
                     ProjectileTargetElement target = targets[i];
-                    if ((projectile.TargetMask & target.TargetMask) == 0 || IsGated(contactGates, target.TargetId))
+                    if ((hit.TargetMask & target.TargetMask) == 0 || IsGated(contactGates, target.TargetId))
                     {
                         continue;
                     }
 
                     if (!ProjectileCollisionMath.BoundsIntersect(
-                        projectile.BoundsMin,
-                        projectile.BoundsMax,
+                        collision.BoundsMin,
+                        collision.BoundsMax,
                         target.BoundsMin,
                         target.BoundsMax))
                     {
                         continue;
                     }
 
-                    if (!ProjectileCollisionMath.Hit(projectile, target))
+                    if (!ProjectileCollisionMath.Hit(kinematics, collision, target))
                     {
                         continue;
                     }
 
-                    uint order = ProjectileEventOrder.ForProjectileTarget(projectile.ProjectileId, target.TargetId);
+                    uint order = ProjectileEventOrder.ForProjectileTarget(identity.ProjectileId, target.TargetId);
                     PendingHits.Enqueue(new ProjectilePendingHit
                     {
-                        Scope = projectile.Scope,
-                        ProjectileId = projectile.ProjectileId,
-                        ProjectileTypeId = projectile.TypeId,
+                        Scope = identity.Scope,
+                        ProjectileId = identity.ProjectileId,
+                        ProjectileTypeId = identity.TypeId,
                         TargetId = target.TargetId,
-                        Position = projectile.Position,
-                        HitPayload = projectile.HitPayload,
+                        Position = kinematics.Position,
+                        HitPayload = hit.HitPayload,
                         Order = order
                     });
 
-                    AddOrRefreshGate(contactGates, target.TargetId, projectile.RepeatHitCooldownSeconds);
-                    if (projectile.PierceRemaining <= 0)
+                    AddOrRefreshGate(contactGates, target.TargetId, hit.RepeatHitCooldownSeconds);
+                    if (hit.PierceRemaining <= 0)
                     {
-                        Deactivate(ref projectile, active);
+                        Deactivate(ref lifetime, active);
                         return;
                     }
 
-                    projectile.PierceRemaining--;
+                    hit.PierceRemaining--;
                 }
             }
 
             private void Deactivate(
-                ref ProjectileComponent projectile,
+                ref ProjectileLifetimeComponent lifetime,
                 EnabledRefRW<ProjectileActiveTag> active)
             {
-                projectile.RemainingLifetime = 0f;
+                lifetime.RemainingLifetime = 0f;
                 active.ValueRW = false;
             }
 
@@ -193,20 +197,22 @@ namespace PlayGround.System.Projectile
                 });
             }
 
-            private bool SpatialHashIntersects(ProjectileComponent projectile)
+            private bool SpatialHashIntersects(
+                ProjectileIdentityComponent identity,
+                ProjectileCollisionComponent collision)
             {
                 if (OccupiedTargetCellCount == 0)
                 {
                     return false;
                 }
 
-                int2 min = MinCell(projectile.BoundsMin);
-                int2 max = MaxCell(projectile.BoundsMax);
+                int2 min = MinCell(collision.BoundsMin);
+                int2 max = MaxCell(collision.BoundsMax);
                 for (int y = min.y; y <= max.y; y++)
                 {
                     for (int x = min.x; x <= max.x; x++)
                     {
-                        if (OccupiedTargetCells.Contains(CellKey(projectile.Scope, x, y)))
+                        if (OccupiedTargetCells.Contains(CellKey(identity.Scope, x, y)))
                         {
                             return true;
                         }

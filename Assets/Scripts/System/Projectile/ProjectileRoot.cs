@@ -145,8 +145,8 @@ namespace PlayGround.System.Projectile
                 for (int i = 0; i < projectileEntities.Length; i++)
                 {
                     Entity entity = projectileEntities[i];
-                    ProjectileComponent projectile = entityManager.GetComponentData<ProjectileComponent>(entity);
-                    if (projectile.Scope == scopeEntity)
+                    ProjectileIdentityComponent identity = entityManager.GetComponentData<ProjectileIdentityComponent>(entity);
+                    if (identity.Scope == scopeEntity)
                     {
                         entityManager.DestroyEntity(entity);
                     }
@@ -283,41 +283,58 @@ namespace PlayGround.System.Projectile
                 out float2 boundsMin,
                 out float2 boundsMax);
 
-            entityManager.SetComponentData(entity, new ProjectileComponent
+            entityManager.SetComponentData(entity, new ProjectileIdentityComponent
             {
                 Scope = scopeEntity,
                 ProjectileId = projectileId,
-                TypeId = command.ProjectileTypeId,
-                TargetMask = command.TargetMask,
+                TypeId = command.ProjectileTypeId
+            });
+            entityManager.SetComponentData(entity, new ProjectileKinematicsComponent
+            {
                 Position = position,
-                Velocity = new float2(command.Direction.x, command.Direction.y) * command.Speed,
+                Velocity = new float2(command.Direction.x, command.Direction.y) * command.Speed
+            });
+            entityManager.SetComponentData(entity, new ProjectileCollisionComponent
+            {
                 Radius = command.Radius,
                 HalfExtents = halfExtents,
                 RotationRadians = command.RotationRadians,
                 BoundsMin = boundsMin,
                 BoundsMax = boundsMax,
-                RemainingLifetime = command.Lifetime,
+                ShapeType = command.ShapeType
+            });
+            entityManager.SetComponentData(entity, new ProjectileLifetimeComponent
+            {
+                RemainingLifetime = command.Lifetime
+            });
+            entityManager.SetComponentData(entity, new ProjectileHitComponent
+            {
+                TargetMask = command.TargetMask,
                 HitPayload = command.HitPayload,
-                ShapeType = command.ShapeType,
                 PierceRemaining = command.PierceCount,
-                RepeatHitCooldownSeconds = command.RepeatHitCooldownSeconds,
+                RepeatHitCooldownSeconds = command.RepeatHitCooldownSeconds
+            });
+            entityManager.SetComponentData(entity, new ProjectileTrackingComponent
+            {
                 TrackingEnabled = command.Tracking.Enabled,
                 TrackingRangeSquared = command.Tracking.Range * command.Tracking.Range,
                 TrackingTurnSpeedRadians = math.radians(command.Tracking.TurnSpeedDegrees),
                 TrackingQueryCooldownRemaining = command.Tracking.InitialQueryDelaySeconds,
                 TrackingQueryIntervalSeconds = command.Tracking.QueryIntervalSeconds,
                 TrackedTargetId = 0,
-                TrackedTargetIndex = -1,
-                ChildSpawnCooldownRemaining = command.ChildSpawn.Enabled
-                    ? command.ChildSpawn.IntervalSeconds + DeterministicJitter(projectileId, command.ChildSpawn.IntervalJitterSeconds)
-                    : 0f,
-                ChildSpawnTickIndex = 0
+                TrackedTargetIndex = -1
             });
             entityManager.SetComponentData(entity, RenderComponentFor(command.ProjectileTypeId));
             if (command.ChildSpawn.Enabled)
             {
                 entityManager.AddComponent<ProjectileChildSpawnerTag>(entity);
-                entityManager.SetComponentData(entity, ChildSpawnerComponentFor(command.ChildSpawn));
+                entityManager.AddComponentData(entity, ChildSpawnerComponentFor(command.ChildSpawn));
+                entityManager.AddComponentData(entity, new ProjectileChildSpawnStateComponent
+                {
+                    ChildSpawnCooldownRemaining = command.ChildSpawn.IntervalSeconds
+                        + DeterministicJitter(projectileId, command.ChildSpawn.IntervalJitterSeconds),
+                    ChildSpawnTickIndex = 0
+                });
             }
             entityManager.SetComponentEnabled<ProjectileActiveTag>(entity, true);
             return projectileId;
@@ -352,10 +369,10 @@ namespace PlayGround.System.Projectile
             entityManager.AddBuffer<ProjectileTargetElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileHitElement>(scopeEntity);
             projectileQuery = entityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<ProjectileComponent>(),
+                ComponentType.ReadOnly<ProjectileIdentityComponent>(),
                 ComponentType.ReadOnly<ProjectileRenderComponent>(),
                 ComponentType.ReadOnly<ProjectileActiveTag>());
-            allProjectileQuery = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileComponent>());
+            allProjectileQuery = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileIdentityComponent>());
         }
 
         private bool IsRuntimeReady()
@@ -704,9 +721,13 @@ namespace PlayGround.System.Projectile
             }
 
             archetype = entityManager.CreateArchetype(
-                typeof(ProjectileComponent),
+                typeof(ProjectileIdentityComponent),
+                typeof(ProjectileKinematicsComponent),
+                typeof(ProjectileCollisionComponent),
+                typeof(ProjectileLifetimeComponent),
+                typeof(ProjectileHitComponent),
+                typeof(ProjectileTrackingComponent),
                 typeof(ProjectileRenderComponent),
-                typeof(ProjectileChildSpawnerComponent),
                 RenderTagTypeFor(projectileTypeId),
                 typeof(ProjectileActiveTag),
                 typeof(ProjectileContactGateElement));
