@@ -246,11 +246,11 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void ProjectileRootEmitsChildSpawnRequests()
+        public void ProjectileChildSpawnedChildAppliesChildPayloadDamage()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
-            int requestCount = 0;
-            projectileRoot.ChildSpawnRequested += _ => requestCount++;
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            mobObject.transform.position = new Vector2(50f, 50f);
+            mob.Register(projectileRoot.TargetRegistry);
 
             var command = new ProjectileSpawnCommand(
                 new Vector2(50f, 50f),
@@ -262,36 +262,29 @@ namespace PlayGround.Tests.PlayMode
                 0f,
                 new DamageSnapshot(2f),
                 ProjectileShapeType.Circle,
-                childSpawn: new ProjectileChildSpawnConfig(1, 0, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), ProjectileShapeType.Circle, 0f, new DamageSnapshot(1f)));
+                childSpawn: new ProjectileChildSpawnConfig(1, 0, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), ProjectileShapeType.Circle, 0f, new DamageSnapshot(1f)),
+                directDamageEnabled: false);
 
             projectileRoot.Spawn(command);
             projectileRoot.Step(0.02f);
+            projectileRoot.Step(0.001f);
 
-            Assert.That(requestCount, Is.EqualTo(2));
+            Assert.That(mob.CurrentHealth, Is.EqualTo(9f));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
         }
 
         [Test]
-        public void ProjectileChildSpawnHandlerCanSpawnWithoutInvalidatingReplayBuffer()
+        public void ProjectileHitPayloadDispatchesToSourceAndTargetActors()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
-            int requestCount = 0;
-            projectileRoot.ChildSpawnRequested += request =>
-            {
-                requestCount++;
-                projectileRoot.Spawn(new ProjectileSpawnCommand(
-                    request.Position,
-                    Vector2.up,
-                    0f,
-                    1f,
-                    1f,
-                    new DamageSnapshot(1f),
-                    ProjectileShapeType.Circle));
-            };
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            mob.Register(projectileRoot.TargetRegistry);
+            GameObject sourceObject = new("ProjectileSource");
+            HitActorProbe sourceProbe = sourceObject.AddComponent<HitActorProbe>();
+            EntityId sourceNodeId = sourceObject.GetEntityId();
 
             var command = new ProjectileSpawnCommand(
-                new Vector2(50f, 50f),
+                Vector2.zero,
                 Vector2.right,
                 0f,
                 1f,
@@ -300,16 +293,18 @@ namespace PlayGround.Tests.PlayMode
                 0f,
                 new DamageSnapshot(2f),
                 ProjectileShapeType.Circle,
-                childSpawn: new ProjectileChildSpawnConfig(1, 0, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), ProjectileShapeType.Circle, 0f, new DamageSnapshot(1f)));
+                sourceNodeId: sourceNodeId);
 
-            Assert.DoesNotThrow(() =>
-            {
-                projectileRoot.Spawn(command);
-                projectileRoot.Step(0.02f);
-            });
-            Assert.That(requestCount, Is.EqualTo(2));
+            projectileRoot.Spawn(command);
+            projectileRoot.Step(0.01f);
+
+            Assert.That(sourceProbe.CallCount, Is.EqualTo(1));
+            Assert.That(sourceProbe.LastRole, Is.EqualTo(ProjectileHitActorRole.Source));
+            Assert.That(sourceProbe.LastPayload.SourceNodeId, Is.EqualTo(sourceNodeId));
+            Assert.That(mob.CurrentHealth, Is.EqualTo(8f));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
+            Object.Destroy(sourceObject);
         }
 
         [Test]
@@ -530,6 +525,24 @@ namespace PlayGround.Tests.PlayMode
                 0.5f);
             mobObject.SetActive(true);
             return mobObject;
+        }
+
+        private sealed class HitActorProbe : MonoBehaviour, IProjectileHitActor
+        {
+            public EntityId ProjectileHitNodeId => gameObject.GetEntityId();
+            public int CallCount { get; private set; }
+            public ProjectileHitActorRole LastRole { get; private set; }
+            public ProjectileHitPayload LastPayload { get; private set; }
+
+            public void ReceiveProjectileHitPayload(
+                in ProjectileHitPayload payload,
+                in ProjectileHitContext context,
+                ProjectileHitActorRole role)
+            {
+                CallCount++;
+                LastRole = role;
+                LastPayload = payload;
+            }
         }
     }
 }

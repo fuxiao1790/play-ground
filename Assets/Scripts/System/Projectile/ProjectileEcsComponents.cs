@@ -18,8 +18,7 @@ namespace PlayGround.System.Projectile
         public float2 BoundsMin;
         public float2 BoundsMax;
         public float RemainingLifetime;
-        public float DamageAmount;
-        public bool DirectDamageEnabled;
+        public ProjectileHitPayload HitPayload;
         public ProjectileShapeType ShapeType;
         public int PierceRemaining;
         public float RepeatHitCooldownSeconds;
@@ -101,8 +100,7 @@ namespace PlayGround.System.Projectile
         public int ProjectileTypeId;
         public int TargetId;
         public float2 Position;
-        public float DamageAmount;
-        public bool DirectDamageEnabled;
+        public ProjectileHitPayload HitPayload;
         public uint Order;
     }
 
@@ -127,18 +125,6 @@ namespace PlayGround.System.Projectile
 
     public struct ProjectileChildSpawnerTag : IComponentData
     {
-    }
-
-    // Added to each child entity by ProjectileChildSpawnSystem via ECB.
-    // Read and removed by ProjectileRoot.DrainChildSpawnRequests in LateUpdate,
-    // which assigns the child's ProjectileId and fires the ChildSpawnRequested event.
-    public struct ProjectileChildSpawnedComponent : IComponentData
-    {
-        public Entity Scope;
-        public int ParentProjectileId;
-        public int ParentProjectileTypeId;
-        public int SpawnerId;
-        public int TickIndex;
     }
 
     public struct ProjectileChildSpawnerComponent : IComponentData
@@ -178,8 +164,7 @@ namespace PlayGround.System.Projectile
         public int ProjectileTypeId;
         public int TargetId;
         public float2 Position;
-        public float DamageAmount;
-        public bool DirectDamageEnabled;
+        public ProjectileHitPayload HitPayload;
         public uint Order;
     }
 

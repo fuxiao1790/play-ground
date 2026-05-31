@@ -42,7 +42,7 @@ Hybrid split:
 5. Spawn root and one mob prefab.
 6. Mob behavior FSM, soft death, and mob projectile path.
 7. Projectile runtime with scoped roots, split ECS stages, baked shapes, tracking,
-   pierce/contact gates, child spawn requests, counters, and batched rendering.
+   pierce/contact gates, child projectile creation, counters, and batched rendering.
 8. Camera and play area parity.
 9. AOE runtime and direct player AOE.
 10. Projectile impact AOE and stack-triggered explosion.

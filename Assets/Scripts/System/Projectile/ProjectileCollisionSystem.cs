@@ -127,8 +127,7 @@ namespace PlayGround.System.Projectile
                         ProjectileTypeId = projectile.TypeId,
                         TargetId = target.TargetId,
                         Position = projectile.Position,
-                        DamageAmount = projectile.DamageAmount,
-                        DirectDamageEnabled = projectile.DirectDamageEnabled,
+                        HitPayload = projectile.HitPayload,
                         Order = order
                     });
 
@@ -239,8 +238,7 @@ namespace PlayGround.System.Projectile
                         ProjectileTypeId = pending.ProjectileTypeId,
                         TargetId = pending.TargetId,
                         Position = pending.Position,
-                        DamageAmount = pending.DamageAmount,
-                        DirectDamageEnabled = pending.DirectDamageEnabled,
+                        HitPayload = pending.HitPayload,
                         Order = pending.Order
                     });
                 }

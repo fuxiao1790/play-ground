@@ -49,6 +49,7 @@ namespace PlayGround.Player
 
         public Vector2 AimDirection => facing?.AimDirection ?? Vector2.right;
         public int TargetId => targetId;
+        public EntityId ProjectileHitNodeId => gameObject.GetEntityId();
         public Vector2 ProjectileTargetPosition => ProjectileTargetShapeUtility.Position(hurtbox, transform);
         public float ProjectileTargetRadius => ProjectileTargetShapeUtility.Radius(hurtbox, targetRadius);
         public Vector2 ProjectileTargetHalfExtents => ProjectileTargetShapeUtility.HalfExtents(hurtbox, targetRadius);
@@ -219,6 +220,17 @@ namespace PlayGround.Player
         public void ReceiveProjectileHit(DamageSnapshot damage)
         {
             health.TakeDamage(damage);
+        }
+
+        public void ReceiveProjectileHitPayload(
+            in ProjectileHitPayload payload,
+            in ProjectileHitContext context,
+            ProjectileHitActorRole role)
+        {
+            if (role == ProjectileHitActorRole.Target && payload.DirectDamageEnabled)
+            {
+                health.TakeDamage(payload.Damage);
+            }
         }
 
         public void ReceiveAoeHit(DamageSnapshot damage)

@@ -100,9 +100,9 @@ Projectiles:
 - high-count path needs batched rendering by projectile type
 - gameplay collision should use baked shapes and target snapshots
 - simulation stages stay split by responsibility: target tracking, movement,
-  child spawn requests, lifetime expiry disable, contact gates, and collision
+  child projectile creation, lifetime expiry disable, contact gates, and collision
 - `ProjectileRoot` exposes active count, spawn/despawn totals, hit event count,
-  child spawn request count, simulation milliseconds, and render milliseconds
+  simulation milliseconds, and render milliseconds
 - performance target: about 50k projectiles on screen with 20 targets at 120 fps
 
 AOEs:

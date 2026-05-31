@@ -49,7 +49,8 @@ namespace PlayGround.System.Projectile
             float repeatHitCooldownSeconds = 0f,
             ProjectileTrackingConfig tracking = default,
             ProjectileChildSpawnConfig childSpawn = default,
-            bool directDamageEnabled = true)
+            bool directDamageEnabled = true,
+            EntityId sourceNodeId = default)
         {
             Position = position;
             Direction = direction.sqrMagnitude > 0f ? direction.normalized : Vector2.right;
@@ -67,6 +68,7 @@ namespace PlayGround.System.Projectile
             Tracking = tracking;
             ChildSpawn = childSpawn;
             DirectDamageEnabled = directDamageEnabled;
+            HitPayload = new ProjectileHitPayload(sourceNodeId, damage.Amount, directDamageEnabled);
         }
 
         public Vector2 Position { get; }
@@ -85,6 +87,7 @@ namespace PlayGround.System.Projectile
         public ProjectileTrackingConfig Tracking { get; }
         public ProjectileChildSpawnConfig ChildSpawn { get; }
         public bool DirectDamageEnabled { get; }
+        public ProjectileHitPayload HitPayload { get; }
     }
 
     public readonly struct ProjectileTrackingConfig

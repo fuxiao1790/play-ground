@@ -59,6 +59,7 @@ namespace PlayGround.Mob
         public Transform Target => target;
         public MobBlackboard Blackboard => blackboard;
         public int TargetId => targetId;
+        public EntityId ProjectileHitNodeId => gameObject.GetEntityId();
         public Vector2 ProjectileTargetPosition => ProjectileTargetShapeUtility.Position(hurtbox, transform);
         public float ProjectileTargetRadius => ProjectileTargetShapeUtility.Radius(hurtbox, targetRadius);
         public Vector2 ProjectileTargetHalfExtents => ProjectileTargetShapeUtility.HalfExtents(hurtbox, targetRadius);
@@ -228,6 +229,17 @@ namespace PlayGround.Mob
         public void ReceiveProjectileHit(DamageSnapshot damage)
         {
             TakeDamage(damage);
+        }
+
+        public void ReceiveProjectileHitPayload(
+            in ProjectileHitPayload payload,
+            in ProjectileHitContext context,
+            ProjectileHitActorRole role)
+        {
+            if (role == ProjectileHitActorRole.Target && payload.DirectDamageEnabled)
+            {
+                TakeDamage(payload.Damage);
+            }
         }
 
         public void ReceiveAoeHit(DamageSnapshot damage)

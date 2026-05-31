@@ -17,18 +17,14 @@ namespace PlayGround.Attack
         [SerializeField] private AoeRoot aoeRoot;
 
         private readonly List<ProjectileSpawnCommand> commands = new();
-        private readonly HashSet<int> ownedProjectileIds = new();
         private ProjectileHitEffect[] hitEffects = global::System.Array.Empty<ProjectileHitEffect>();
-        private ProjectileRoot subscribedRoot;
         private AoeRoot subscribedAoeRoot;
+        private IProjectileHitActor hitSource;
         private float cooldownRemaining;
         public event global::System.Action<ProjectileAoeSpawnRequest> AoeSpawnRequested;
 
         public ProjectileRoot Root => projectileRoot;
         public bool IsReady => cooldownRemaining <= 0f;
-
-        public bool OwnsProjectile(int id) => ownedProjectileIds.Contains(id);
-        public void TrackProjectileId(int id) => ownedProjectileIds.Add(id);
 
         // --- lifecycle ---
 
@@ -40,6 +36,7 @@ namespace PlayGround.Attack
 
             ValidateConfig();
             audioManager ??= AudioManager.Instance != null ? AudioManager.Instance : FindAnyObjectByType<AudioManager>();
+            hitSource = GetComponentInParent<IProjectileHitActor>();
             hitEffects = GetComponentsInChildren<ProjectileHitEffect>(true);
             for (int i = 0; i < hitEffects.Length; i++)
                 hitEffects[i].Configure(this);
@@ -49,13 +46,11 @@ namespace PlayGround.Attack
 
         private void OnEnable()
         {
-            SubscribeProjectileRoot();
             SubscribeAoeRoot();
         }
 
         private void OnDisable()
         {
-            UnsubscribeProjectileRoot();
             UnsubscribeAoeRoot();
         }
 
@@ -76,11 +71,8 @@ namespace PlayGround.Attack
         {
             if (projectileRoot == root) return;
 
-            UnsubscribeProjectileRoot();
             projectileRoot = root;
             RegisterBasicPrefabs();
-            if (isActiveAndEnabled)
-                SubscribeProjectileRoot();
         }
 
         public void ConfigureAoeRoot(AoeRoot root)
@@ -134,7 +126,7 @@ namespace PlayGround.Attack
             for (int i = 0; i < commands.Count; i++)
             {
                 ProjectileSpawnCommand command = WithAuthoredOptions(commands[i], damage, childConfig);
-                ownedProjectileIds.Add(projectileRoot.Spawn(command));
+                projectileRoot.Spawn(command);
             }
 
             PlayPerformSound(transform.position);
@@ -160,23 +152,8 @@ namespace PlayGround.Attack
                 config.RepeatHitCooldown,
                 config.GetTrackingConfig(),
                 childConfig,
-                config.DirectDamageEnabled);
-        }
-
-        private void SubscribeProjectileRoot()
-        {
-            if (projectileRoot == null || subscribedRoot == projectileRoot) return;
-
-            projectileRoot.ProjectileHit += OnProjectileHit;
-            subscribedRoot = projectileRoot;
-        }
-
-        private void UnsubscribeProjectileRoot()
-        {
-            if (subscribedRoot == null) return;
-
-            subscribedRoot.ProjectileHit -= OnProjectileHit;
-            subscribedRoot = null;
+                config.DirectDamageEnabled,
+                hitSource != null ? hitSource.ProjectileHitNodeId : default);
         }
 
         private void SubscribeAoeRoot()
@@ -202,8 +179,6 @@ namespace PlayGround.Attack
 
         private void OnProjectileHit(ProjectileHitContext hit)
         {
-            if (!ownedProjectileIds.Contains(hit.ProjectileId)) return;
-
             if (config.ImpactAoeTypeId >= 0)
             {
                 AoeSpawnRequested?.Invoke(new ProjectileAoeSpawnRequest(

@@ -3,6 +3,21 @@ using UnityEngine;
 
 namespace PlayGround.System.Projectile
 {
+    public readonly struct ProjectileHitPayload
+    {
+        public ProjectileHitPayload(EntityId sourceNodeId, float damageAmount, bool directDamageEnabled)
+        {
+            SourceNodeId = sourceNodeId;
+            DamageAmount = damageAmount;
+            DirectDamageEnabled = directDamageEnabled;
+        }
+
+        public EntityId SourceNodeId { get; }
+        public float DamageAmount { get; }
+        public bool DirectDamageEnabled { get; }
+        public DamageSnapshot Damage => new(DamageAmount);
+    }
+
     public readonly struct ProjectileHitContext
     {
         public ProjectileHitContext(
@@ -11,6 +26,7 @@ namespace PlayGround.System.Projectile
             int targetId,
             Vector2 position,
             DamageSnapshot damage,
+            ProjectileHitPayload payload,
             IProjectileTarget target = null)
         {
             ProjectileId = projectileId;
@@ -18,6 +34,7 @@ namespace PlayGround.System.Projectile
             TargetId = targetId;
             Position = position;
             Damage = damage;
+            Payload = payload;
             Target = target;
         }
 
@@ -26,39 +43,8 @@ namespace PlayGround.System.Projectile
         public int TargetId { get; }
         public Vector2 Position { get; }
         public DamageSnapshot Damage { get; }
+        public ProjectileHitPayload Payload { get; }
         public IProjectileTarget Target { get; }
-    }
-
-    public readonly struct ProjectileChildSpawnRequest
-    {
-        public ProjectileChildSpawnRequest(
-            int projectileId,
-            int projectileTypeId,
-            int childSpawnerId,
-            int tickIndex,
-            int childProjectileId,
-            Vector2 position,
-            Vector2 velocity,
-            DamageSnapshot damage)
-        {
-            ProjectileId = projectileId;
-            ProjectileTypeId = projectileTypeId;
-            ChildSpawnerId = childSpawnerId;
-            TickIndex = tickIndex;
-            ChildProjectileId = childProjectileId;
-            Position = position;
-            Velocity = velocity;
-            Damage = damage;
-        }
-
-        public int ProjectileId { get; }
-        public int ProjectileTypeId { get; }
-        public int ChildSpawnerId { get; }
-        public int TickIndex { get; }
-        public int ChildProjectileId { get; }
-        public Vector2 Position { get; }
-        public Vector2 Velocity { get; }
-        public DamageSnapshot Damage { get; }
     }
 
     public readonly struct ProjectileRuntimeCounters

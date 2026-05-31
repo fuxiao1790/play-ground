@@ -50,7 +50,7 @@ EditMode:
 - projectile collision shape math
 - projectile tracking/reacquire behavior
 - projectile pierce/contact gate behavior
-- projectile child spawn request behavior
+- projectile child entity creation and payload forwarding behavior
 - AOE pulse hit rules
 - AOE lingering tick and re-entry rules
 - mob state transition rules
@@ -68,7 +68,7 @@ PlayMode:
 - mob projectile hits player
 - projectile target masks filter hits
 - piercing projectile can repeat-hit after cooldown
-- projectile child spawn requests are replayed by the root
+- projectile children carry child-specific hit payloads
 - player AOE hits mobs only
 - mob AOE hits player only
 - stack-triggered projectile explosion

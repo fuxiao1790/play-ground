@@ -22,7 +22,7 @@ MonoBehaviour:
   targetMask: 1
   pierceCount: 20
   repeatHitCooldownSeconds: 0
-  trackingEnabled: 1
+  trackingEnabled: 0
   trackingRange: 150
   trackingTurnSpeedDegrees: 360
   trackingQueryIntervalSeconds: 0.25

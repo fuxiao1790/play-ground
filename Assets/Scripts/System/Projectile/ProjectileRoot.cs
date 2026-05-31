@@ -55,7 +55,6 @@ namespace PlayGround.System.Projectile
             typeof(ProjectileRenderType15BatchTag)
         };
         private static readonly ProfilerMarker DrainHitsProfilerMarker = new("ProjectileRoot.DrainHits");
-        private static readonly ProfilerMarker DrainChildSpawnRequestsProfilerMarker = new("ProjectileRoot.DrainChildSpawnRequests");
         private static readonly ProfilerMarker SubmitProjectilesProfilerMarker = new("ProjectileRoot.SubmitProjectiles");
         private static readonly ProfilerMarker ReplayProjectileHitEventsProfilerMarker = new("ProjectileRoot.ReplayProjectileHitEvents");
         private static readonly ProfilerMarker StepSimulationProfilerMarker = new("ProjectileRoot.StepSimulation");
@@ -76,21 +75,17 @@ namespace PlayGround.System.Projectile
         private readonly Dictionary<int, ProjectileRenderResources> renderResourcesByType = new();
         private readonly Dictionary<int, Entity> renderBatchEntitiesByType = new();
         private readonly Dictionary<int, EntityArchetype> projectileArchetypesByType = new();
-        private readonly List<ProjectileHitReplay> pendingHits = new();
-        private static readonly ProjectileHitReplayOrderComparer HitReplayOrderComparer = new();
 
         private World entityWorld;
         private EntityManager entityManager;
         private Entity scopeEntity;
         private EntityQuery projectileQuery;
         private EntityQuery allProjectileQuery;
-        private EntityQuery childSpawnedQuery;
         private int nextProjectileId;
         private int nextTemplateTypeId = 1;
         private bool runtimeReady;
 
         public event global::System.Action<ProjectileHitContext> ProjectileHit;
-        public event global::System.Action<ProjectileChildSpawnRequest> ChildSpawnRequested;
 
         public ProjectileTargetRegistry TargetRegistry => targetRegistry;
         public int TargetMask => targetLayers.value != 0 ? targetLayers.value : ~0;
@@ -134,11 +129,6 @@ namespace PlayGround.System.Projectile
             using (DrainHitsProfilerMarker.Auto())
             {
                 DrainHits();
-            }
-
-            using (DrainChildSpawnRequestsProfilerMarker.Auto())
-            {
-                DrainChildSpawnRequests();
             }
         }
 
@@ -307,8 +297,7 @@ namespace PlayGround.System.Projectile
                 BoundsMin = boundsMin,
                 BoundsMax = boundsMax,
                 RemainingLifetime = command.Lifetime,
-                DamageAmount = command.Damage.Amount,
-                DirectDamageEnabled = command.DirectDamageEnabled,
+                HitPayload = command.HitPayload,
                 ShapeType = command.ShapeType,
                 PierceRemaining = command.PierceCount,
                 RepeatHitCooldownSeconds = command.RepeatHitCooldownSeconds,
@@ -343,7 +332,6 @@ namespace PlayGround.System.Projectile
                 World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<SimulationSystemGroup>().Update();
             }
             DrainHits();
-            DrainChildSpawnRequests();
         }
 
         private void BindWorld()
@@ -363,7 +351,6 @@ namespace PlayGround.System.Projectile
             scopeEntity = entityManager.CreateEntity(typeof(ProjectileScope));
             entityManager.AddBuffer<ProjectileTargetElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileHitElement>(scopeEntity);
-            childSpawnedQuery = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileChildSpawnedComponent>());
             projectileQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileComponent>(),
                 ComponentType.ReadOnly<ProjectileRenderComponent>(),
@@ -479,21 +466,24 @@ namespace PlayGround.System.Projectile
 
                     targetsById.TryGetValue(hit.TargetId, out IProjectileTarget target);
 
-                    DamageSnapshot damage = new(hit.DamageAmount);
+                    ProjectileHitPayload payload = hit.HitPayload;
 
                     var context = new ProjectileHitContext(
                         hit.ProjectileId,
                         hit.ProjectileTypeId,
                         hit.TargetId,
                         new Vector2(hit.Position.x, hit.Position.y),
-                        damage,
+                        payload.Damage,
+                        payload,
                         target);
 
                     ProjectileHit?.Invoke(context);
 
-                    if (hit.DirectDamageEnabled && target != null)
+                    DispatchSourceHit(payload, context);
+
+                    if (target != null)
                     {
-                        target.ReceiveProjectileHit(context.Damage);
+                        target.ReceiveProjectileHitPayload(payload, context, ProjectileHitActorRole.Target);
                     }
                 }
             }
@@ -501,36 +491,25 @@ namespace PlayGround.System.Projectile
             hitBuffer.Clear();
         }
 
-        private void DrainChildSpawnRequests()
+        private static void DispatchSourceHit(ProjectileHitPayload payload, in ProjectileHitContext context)
         {
-            using NativeArray<Entity> spawnedEntities = childSpawnedQuery.ToEntityArray(Allocator.Temp);
-            for (int i = 0; i < spawnedEntities.Length; i++)
+            if (payload.SourceNodeId.Equals(default(EntityId)))
             {
-                Entity entity = spawnedEntities[i];
-                ProjectileChildSpawnedComponent spawned =
-                    entityManager.GetComponentData<ProjectileChildSpawnedComponent>(entity);
-                if (spawned.Scope != scopeEntity)
-                {
-                    continue;
-                }
+                return;
+            }
 
-                ProjectileComponent projectile = entityManager.GetComponentData<ProjectileComponent>(entity);
-                projectile.ProjectileId = ++nextProjectileId;
-                entityManager.SetComponentData(entity, projectile);
-                // RemoveComponent is a structural change that moves the entity to a new chunk and
-                // can reset IEnableableComponent bits — enable ProjectileActiveTag after it.
-                entityManager.RemoveComponent<ProjectileChildSpawnedComponent>(entity);
-                entityManager.SetComponentEnabled<ProjectileActiveTag>(entity, true);
+            Object sourceObject = Resources.EntityIdToObject(payload.SourceNodeId);
+            if (sourceObject is GameObject sourceGameObject
+                && sourceGameObject.TryGetComponent(out IProjectileHitActor sourceActor))
+            {
+                sourceActor.ReceiveProjectileHitPayload(payload, context, ProjectileHitActorRole.Source);
+                return;
+            }
 
-                ChildSpawnRequested?.Invoke(new ProjectileChildSpawnRequest(
-                    spawned.ParentProjectileId,
-                    spawned.ParentProjectileTypeId,
-                    spawned.SpawnerId,
-                    spawned.TickIndex,
-                    projectile.ProjectileId,
-                    new Vector2(projectile.Position.x, projectile.Position.y),
-                    new Vector2(projectile.Velocity.x, projectile.Velocity.y),
-                    new DamageSnapshot(projectile.DamageAmount)));
+            if (sourceObject is Component sourceComponent
+                && sourceComponent.TryGetComponent(out IProjectileHitActor componentActor))
+            {
+                componentActor.ReceiveProjectileHitPayload(payload, context, ProjectileHitActorRole.Source);
             }
         }
 
@@ -1060,28 +1039,5 @@ namespace PlayGround.System.Projectile
             }
         }
 
-        private readonly struct ProjectileHitReplay
-        {
-            public ProjectileHitReplay(ProjectileHitContext context, bool directDamageEnabled, IProjectileTarget target, uint order)
-            {
-                Context = context;
-                DirectDamageEnabled = directDamageEnabled;
-                Target = target;
-                Order = order;
-            }
-
-            public ProjectileHitContext Context { get; }
-            public bool DirectDamageEnabled { get; }
-            public IProjectileTarget Target { get; }
-            public uint Order { get; }
-        }
-
-        private sealed class ProjectileHitReplayOrderComparer : IComparer<ProjectileHitReplay>
-        {
-            public int Compare(ProjectileHitReplay left, ProjectileHitReplay right)
-            {
-                return left.Order.CompareTo(right.Order);
-            }
-        }
     }
 }

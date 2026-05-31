@@ -19,7 +19,6 @@ namespace PlayGround.Attack
 
         private int childSpawnerId;
         private float localCooldown;
-        private ProjectileRoot subscribedRoot;
 
         public ProjectileAttack ParentAttack => parentAttack;
         public bool IsReady => localCooldown <= 0f;
@@ -43,7 +42,6 @@ namespace PlayGround.Attack
         {
             AssignChildSpawnerId();
             InjectChildConfig();
-            SubscribeRoot();
         }
 
         private void Update()
@@ -54,7 +52,6 @@ namespace PlayGround.Attack
 
         private void OnDisable()
         {
-            UnsubscribeRoot();
         }
 
         // --- private ---
@@ -82,31 +79,6 @@ namespace PlayGround.Attack
 
             if (childConfig.Prefab != null)
                 parentAttack.Root.RegisterTemplate(childConfig.Prefab);
-        }
-
-        private void SubscribeRoot()
-        {
-            ProjectileRoot root = parentAttack.Root;
-            if (root == null || subscribedRoot == root) return;
-
-            root.ChildSpawnRequested += OnChildSpawnRequested;
-            subscribedRoot = root;
-        }
-
-        private void UnsubscribeRoot()
-        {
-            if (subscribedRoot == null) return;
-
-            subscribedRoot.ChildSpawnRequested -= OnChildSpawnRequested;
-            subscribedRoot = null;
-        }
-
-        private void OnChildSpawnRequested(ProjectileChildSpawnRequest request)
-        {
-            if (request.ChildSpawnerId != childSpawnerId) return;
-            if (!parentAttack.OwnsProjectile(request.ProjectileId)) return;
-
-            parentAttack.TrackProjectileId(request.ChildProjectileId);
         }
 
         private ProjectileChildSpawnConfig BuildChildConfig()

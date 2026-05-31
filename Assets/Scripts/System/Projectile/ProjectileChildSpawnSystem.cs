@@ -4,6 +4,7 @@ using Unity.Mathematics;
 
 namespace PlayGround.System.Projectile
 {
+    // Timed child spawns create fully initialized child projectile entities through ECB.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileMovementSystem))]
     [UpdateBefore(typeof(ProjectileLifetimeSystem))]
@@ -60,6 +61,10 @@ namespace PlayGround.System.Projectile
             {
                 float2 velocity = ComputeChildVelocity(ref parent, in spawner, childIndex);
                 int targetMask = spawner.TargetMask != 0 ? spawner.TargetMask : parent.TargetMask;
+                ProjectileHitPayload hitPayload = new(
+                    parent.HitPayload.SourceNodeId,
+                    spawner.DamageAmount,
+                    spawner.DirectDamageEnabled);
 
                 ProjectileCollisionMath.ComputeWorldBounds(
                     parent.Position,
@@ -69,12 +74,12 @@ namespace PlayGround.System.Projectile
                     spawner.ShapeType,
                     out float2 boundsMin,
                     out float2 boundsMax);
-
+                
                 Entity child = Ecb.CreateEntity(chunkIndex);
                 Ecb.AddComponent(chunkIndex, child, new ProjectileComponent
                 {
                     Scope = parent.Scope,
-                    ProjectileId = 0, // assigned by ProjectileRoot.DrainChildSpawnRequests after ECB playback
+                    ProjectileId = 0,
                     TypeId = spawner.TypeId,
                     TargetMask = targetMask,
                     Position = parent.Position,
@@ -85,8 +90,7 @@ namespace PlayGround.System.Projectile
                     BoundsMin = boundsMin,
                     BoundsMax = boundsMax,
                     RemainingLifetime = spawner.Lifetime,
-                    DamageAmount = spawner.DamageAmount,
-                    DirectDamageEnabled = spawner.DirectDamageEnabled,
+                    HitPayload = hitPayload,
                     ShapeType = spawner.ShapeType,
                     PierceRemaining = spawner.PierceCount,
                     RepeatHitCooldownSeconds = spawner.RepeatHitCooldownSeconds,
@@ -106,14 +110,6 @@ namespace PlayGround.System.Projectile
                     VisualScale = spawner.VisualScale,
                     VisualRotationSin = spawner.VisualRotationSin,
                     VisualRotationCos = spawner.VisualRotationCos
-                });
-                Ecb.AddComponent(chunkIndex, child, new ProjectileChildSpawnedComponent
-                {
-                    Scope = parent.Scope,
-                    ParentProjectileId = parent.ProjectileId,
-                    ParentProjectileTypeId = parent.TypeId,
-                    SpawnerId = spawner.SpawnerId,
-                    TickIndex = tickIndex
                 });
                 Ecb.AddComponent<ProjectileActiveTag>(chunkIndex, child);
                 Ecb.SetComponentEnabled<ProjectileActiveTag>(chunkIndex, child, true);

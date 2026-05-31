@@ -169,112 +169,6 @@ Transform:
   - {fileID: 1864862267}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1001 &11975269
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 830174276}
-    m_Modifications:
-    - target: {fileID: 4459914088298401000, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: m_Name
-      value: BasicProjectileAttackStar
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401000, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: m_Layer
-      value: 10
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: pierceCount
-      value: 40
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: performSound
-      value: 
-      objectReference: {fileID: 8300000, guid: 5df9ec618d503a643ae4f174c283939e, type: 3}
-    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: projectileSpeed
-      value: 5
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: trackingEnabled
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: childBasicPrefab
-      value: 
-      objectReference: {fileID: 1001001001001001004, guid: baeb278528c76aa4e996b0a93bdf4fcc, type: 3}
-    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: projectileDamage
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: projectileLifetime
-      value: 4.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: childProjectileCount
-      value: 10
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: childSpawnIntervalSeconds
-      value: 0.25
-      objectReference: {fileID: 0}
-    m_RemovedComponents:
-    - {fileID: 4459914088298401002, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-    - {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-    m_RemovedGameObjects:
-    - {fileID: 2122856068779335880, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-    m_AddedGameObjects:
-    - targetCorrespondingSourceObject: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 523293725}
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 4459914088298401000, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1079036052}
-  m_SourcePrefab: {fileID: 100100000, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
 --- !u!1 &135829711
 GameObject:
   m_ObjectHideFlags: 0
@@ -440,11 +334,23 @@ PrefabInstance:
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 1079036051}
+    m_TransformParent: {fileID: 830174276}
     m_Modifications:
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: m_Enabled
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: childProjectileCount
+      value: 70
+      objectReference: {fileID: 0}
+    - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: childSideSpreadDegrees
+      value: 180
+      objectReference: {fileID: 0}
+    - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: childSpawnIntervalSeconds
+      value: 0.1
       objectReference: {fileID: 0}
     - target: {fileID: 1170333781181839152, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: m_Enabled
@@ -507,11 +413,6 @@ PrefabInstance:
 Transform:
   m_CorrespondingSourceObject: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
   m_PrefabInstance: {fileID: 523293724}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &566684246 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 4459914088298401000, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-  m_PrefabInstance: {fileID: 11975269}
   m_PrefabAsset: {fileID: 0}
 --- !u!1 &635960602
 GameObject:
@@ -697,7 +598,7 @@ PrefabInstance:
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: 7214301001001001013, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 1079036051}
+      addedObject: {fileID: 523293725}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
 --- !u!4 &830174276 stripped
@@ -1044,29 +945,6 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 4
   useConfigTiming: 0
---- !u!4 &1079036051 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-  m_PrefabInstance: {fileID: 11975269}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &1079036052
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 566684246}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7e577de2b66e655468d13f94792ac041, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.ChildSpawningProjectileAttack
-  parentAttack: {fileID: 0}
-  childConfig: {fileID: 11400000, guid: 0195608fb30f6d342a9e6ffea64cb5e6, type: 2}
-  childProjectileCount: 15
-  childSpawnIntervalSeconds: 0.15
-  childSpawnIntervalJitterSeconds: 0.1
-  childSideSpreadDegrees: 15.7
 --- !u!1 &1179593598
 GameObject:
   m_ObjectHideFlags: 0

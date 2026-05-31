@@ -60,8 +60,8 @@ Create these as systems are ported:
 ## Current Projectile Runtime Map
 
 - `Assets/Scripts/System/Projectile/ProjectileRoot.cs`: scene-object bridge,
-  target snapshot sync, hit replay, child spawn request replay, counters, and
-  batched render submission
+  target snapshot sync, hit replay, raw payload dispatch, counters, and batched
+  render submission
 - `Assets/Scripts/System/Projectile/ProjectileSimulationSystem.cs`: per-scope
   projectile event buffer clearing at the start of simulation
 - `Assets/Scripts/System/Projectile/ProjectileTrackingSystem.cs`: homing target
@@ -69,7 +69,7 @@ Create these as systems are ported:
 - `Assets/Scripts/System/Projectile/ProjectileMovementSystem.cs`: position
   integration
 - `Assets/Scripts/System/Projectile/ProjectileChildSpawnSystem.cs`: timed child
-  spawn request events
+  projectile entity creation
 - `Assets/Scripts/System/Projectile/ProjectileLifetimeSystem.cs`: lifetime
   countdown and active-state disable for expired projectiles
 - `Assets/Scripts/System/Projectile/ProjectileContactGateSystem.cs`: repeat-hit

@@ -23,10 +23,10 @@ MonoBehaviour:
   pierceCount: 0
   repeatHitCooldownSeconds: 0
   trackingEnabled: 1
-  trackingRange: 0
-  trackingTurnSpeedDegrees: 0
-  trackingQueryIntervalSeconds: 0
-  trackingInitialQueryDelaySeconds: 0
+  trackingRange: 350
+  trackingTurnSpeedDegrees: 360
+  trackingQueryIntervalSeconds: 0.25
+  trackingInitialQueryDelaySeconds: 0.1
   directDamageEnabled: 1
   impactAoeTypeId: -1
   impactAoeDamage: 1

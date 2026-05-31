@@ -80,7 +80,7 @@ Output from world:
 - projectile despawned event
 - target despawned event
 - hit event
-- child projectile or AOE spawn request event if needed
+- raw hit payload data carried through projectile hit events
 
 ## Frame Flow
 
@@ -92,7 +92,7 @@ During fixed simulation:
 4. world promotes pending spawns
 5. world rebuilds broad-phase target data
 6. ECS systems run focused stages in order:
-   tracking/reacquire, movement, child spawn requests, lifetime expiry disable,
+   tracking/reacquire, movement, child projectile creation, lifetime expiry disable,
    contact-gate expiry, and collision/pierce hit output
 7. root drains world events
 8. root handles adapter side effects such as visual slots and registry cleanup
@@ -172,7 +172,7 @@ land in the narrow system that owns that behavior:
 
 - `ProjectileTrackingSystem`: optional homing, target refresh, reacquire interval, and steering while preserving speed
 - `ProjectileMovementSystem`: position integration from velocity and delta time
-- `ProjectileChildSpawnSystem`: timed child entity creation; on each interval tick, spawns `ChildCountPerTick` entities via `EntityCommandBuffer.ParallelWriter`, fully initialized from `ProjectileChildSpawnerComponent` (shape, damage, tracking, spawn pattern); tagged with `ProjectileChildSpawnedComponent` for ID assignment and event replay by the root
+- `ProjectileChildSpawnSystem`: timed child entity creation; on each interval tick, spawns `ChildCountPerTick` entities via `EntityCommandBuffer.ParallelWriter`, fully initialized from `ProjectileChildSpawnerComponent` (shape, raw hit payload, tracking, spawn pattern)
 - `ProjectileLifetimeSystem`: lifetime countdown and disabling expired active state
 - `ProjectileContactGateSystem`: repeat-hit gate cooldown expiry
 - `ProjectileCollisionSystem`: spatial-hash broad phase, target AABB filtering, target mask filtering, shape hit checks, pierce count, contact gate creation, and ordered hit events
@@ -288,7 +288,7 @@ plain data, then merge before callbacks or rendering.
 
 Port in this order:
 
-1. Add impact AOE and stack hit effect adapters on top of child spawn/hit events
+1. Add impact AOE and stack hit effect data on top of raw projectile hit payloads
 2. Add projectile authoring fields for tracking, pierce, lifetime, speed, child spawns, and type ids — including separate child-specific overrides for lifetime, speed, pierce count, and tracking parameters
 3. Add player-to-mob and mob-to-player smoke tests for the expanded runtime
 4. Add projectile stress scene and counters to measure high-scale batches
@@ -303,7 +303,7 @@ This section documents how the current Unity implementation aligns with this des
 - **Core match:** The overall scoped, data-oriented design is implemented. `ProjectileRoot` owns a scope entity, target registry, template/type maps, and runtime counters (see `Assets/Scripts/System/Projectile/ProjectileRoot.cs`).
 - **Boundary rule:** The implementation follows the bridge pattern: the root reads scene objects and snapshots targets, ECS systems run on plain data and do not touch GameObjects or call `Physics2D` (see `ProjectileRoot.cs` and the simulation systems under `Assets/Scripts/System/Projectile/`).
 - **Frame flow & systems:** Systems implement the staged pipeline described in this doc: `ProjectileSimulationSystem`, `ProjectileTrackingSystem`, `ProjectileMovementSystem`, `ProjectileChildSpawnSystem`, `ProjectileLifetimeSystem`, `ProjectileContactGateSystem`, `ProjectileCollisionSystem`, and `ProjectileRenderPrepareSystem` (see the corresponding source files in `Assets/Scripts/System/Projectile/`).
-- **Data layout & events:** ECS components and buffer elements (`ProjectileComponent`, `ProjectileTargetElement`, hit/render buffers) match the documented layout. Hits are written into the scope hit buffer and replayed by `ProjectileRoot` via `ProjectileHit`. Child-spawn events use a different path described below (`Assets/Scripts/System/Projectile/ProjectileEcsComponents.cs`, `ProjectileRuntimeEvents.cs`, `ProjectileSpawnCommand.cs`).
+- **Data layout & events:** ECS components and buffer elements (`ProjectileComponent`, `ProjectileTargetElement`, hit/render buffers) match the documented layout. Hits are written into the scope hit buffer and replayed by `ProjectileRoot` via `ProjectileHit`. Hit payloads are raw unmanaged data copied through ECS and dispatched to source/target scene actors (`Assets/Scripts/System/Projectile/ProjectileEcsComponents.cs`, `ProjectileRuntimeEvents.cs`, `ProjectileSpawnCommand.cs`).
 - **Collision shapes & math:** Circle, rectangle (box), and capsule shapes are supported. Projectile and target AABB bounds are cached in ECS data, spatial-hash broad phase runs in `ProjectileCollisionSystem.cs`, and bounds/narrow-phase math is implemented in `ProjectileCollisionMath.cs`.
 - **Pierce & contact gates:** Contact gates are per-projectile buffer elements and are added/refreshed by the collision system and expired by `ProjectileContactGateSystem`.
 - **Tracking & steering:** Full tracking support exists with query intervals, reacquire logic, and steering that preserves projectile speed (`ProjectileTrackingSystem.cs`). Child projectiles inherit tracking config stored in `ProjectileChildSpawnerComponent`.
@@ -314,8 +314,8 @@ This section documents how the current Unity implementation aligns with this des
 - **Prefab "baking":** The doc describes baking prefab collider and render data. The implementation performs template registration and builds render resources at runtime via `RegisterTemplate` / `BuildRenderResources` inside `ProjectileRoot` rather than a separate offline/bake pipeline. This achieves the intent but is runtime-driven.
 - **Damage snapshot shape:** The runtime carries a `DamageSnapshot` value recorded on spawn; current buffer fields pass a float `DamageAmount`. If you intended a richer typed snapshot, inspect `PlayGround.Common.DamageSnapshot` and extend the buffer payloads accordingly.
 - **Broad-phase acceleration:** The implementation uses per-scope target buffers plus a fixed-size spatial hash over target AABBs. An AABB tree is not present; add it only if profiling shows the hash plus bounds filter is insufficient.
-- **Impact AOE / hit effects:** The system exposes child-spawn and hit events; AOE or complex hit reactions are implemented outside the core collision math by listening to `ProjectileHit` and `ChildSpawnRequested`. This matches the intent (adapter-side effects) rather than embedding AOE logic inside collision systems.
-- **Child spawn — ECB entity creation:** Child projectiles are created entirely by `ProjectileChildSpawnSystem` via `EntityCommandBuffer.ParallelWriter`. The system reads `ProjectileChildSpawnerComponent` from the parent entity and creates fully initialized child entities each interval tick. Children are tagged with `ProjectileChildSpawnedComponent`; `ProjectileRoot.DrainChildSpawnRequests` iterates those entities in `LateUpdate`, assigns sequential `ProjectileId`s, removes the tag, and fires the `ChildSpawnRequested` event. The event is observational on the managed side — no `Spawn()` call is issued.
+- **Impact AOE / hit effects:** AOE and complex hit reactions should be added as explicit payload data, then interpreted by scene actor hit handlers after `ProjectileRoot` drains hit events. The collision and child spawn systems stay free of managed callbacks.
+- **Child spawn — ECB entity creation:** Child projectiles are created entirely by `ProjectileChildSpawnSystem` via `EntityCommandBuffer.ParallelWriter`. The system reads `ProjectileChildSpawnerComponent` from the parent entity and creates fully initialized child entities each interval tick. Children copy the parent's source node id and use child-specific damage/direct-damage payload data; no managed child-spawn ownership event is emitted.
 - **Child spawn pattern:** `ProjectileChildSpawnBehavior` (attached to `ProjectileChildSpawnConfig`) holds `Count`, `PatternType` (`ProjectileChildSpawnPatternType`: `SideSpray` or `Forward`), and `SpreadDegrees`. `SideSpray` fans `(count+1)/2` shots left and `count/2` shots right, each side spread evenly across `±SpreadDegrees/2` around the perpendicular — matching the behavior of `ProjectileSideSpraySpawnPattern`. These values are copied into `ProjectileChildSpawnerComponent` at spawn time and consumed entirely inside the Burst job; adding a new pattern requires only a new enum case and a velocity branch in `ComputeChildVelocity`.
 - **Attack authoring — `ProjectileConfig`:** `ProjectileAttack` no longer holds inline serialized projectile simulation fields. All projectile data (prefab, speed, lifetime, damage, count, spread, tracking, pierce, impact AOE, etc.) lives in a `ProjectileConfig` ScriptableObject assigned via the Inspector. `ProjectileAttack` retains only behavior fields: `projectileRoot`, `recoverySeconds`, `performSound`, and `audioManager`. `ProjectileConfig` also exposes `GetTrackingConfig()` so the SO is the single authoring source for a projectile type.
 - **Child-specific authoring:** `ProjectileChildSpawnConfig` carries full child projectile definition (shape, damage, speed, lifetime, pierce, visual) plus `ProjectileTrackingConfig` and `ProjectileChildSpawnBehavior`. `ChildSpawningProjectileAttack` holds a serialized reference to a `ProjectileAttack` (`parentAttack`) and a `ProjectileConfig` (`childConfig`) SO — no child `ProjectileAttack` component or child GameObject needed. The built `ProjectileChildSpawnConfig` is owned by `ChildSpawningProjectileAttack` and passed per-call via `parentAttack.TryFire(aimDirection, childConfig)` — `ProjectileAttack` has no `activeChildConfig` state or `SetChildConfig` method. Prefab structure: root GameObject carries `ChildSpawningProjectileAttack`; a child GameObject "ParentProjectile" carries `ProjectileAttack` with its own `ProjectileConfig`. No execution-order attribute or runtime deactivation required.
