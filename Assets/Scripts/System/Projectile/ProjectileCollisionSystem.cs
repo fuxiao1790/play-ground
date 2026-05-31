@@ -14,7 +14,7 @@ namespace PlayGround.System.Projectile
 
         public void OnUpdate(ref SystemState state)
         {
-            state.Dependency.Complete();
+            state.EntityManager.CompleteDependencyBeforeRO<ProjectileTargetElement>();
             int targetCellCapacity = 0;
             foreach (DynamicBuffer<ProjectileTargetElement> targets in SystemAPI.Query<DynamicBuffer<ProjectileTargetElement>>())
             {

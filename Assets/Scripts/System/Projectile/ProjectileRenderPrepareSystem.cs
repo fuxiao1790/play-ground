@@ -119,7 +119,6 @@ namespace PlayGround.System.Projectile
             renderHandle = PrepareRenderType(renderType14Query, batchType14Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
             renderHandle = PrepareRenderType(renderType15Query, batchType15Query, batchLookup, renderBuffers, identityTypeHandle, kinematicsTypeHandle, renderTypeHandle, renderHandle);
 
-            // todo: is this actually needed?
             state.Dependency = renderHandle;
         }
 

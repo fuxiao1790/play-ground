@@ -5,7 +5,7 @@ namespace PlayGround.System.Projectile
 {
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(ProjectileLifetimeSystem))]
+    [UpdateAfter(typeof(ProjectileMovementSystem))]
     [UpdateBefore(typeof(ProjectileCollisionSystem))]
     public partial struct ProjectileContactGateSystem : ISystem
     {
@@ -21,7 +21,6 @@ namespace PlayGround.System.Projectile
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileActiveTag))]
         private partial struct ProjectileContactGateJob : IJobEntity
         {
             public float DeltaTime;
