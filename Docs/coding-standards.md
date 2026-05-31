@@ -104,6 +104,22 @@ Player and mob movement/collision should use Unity Physics2D. Projectile and AOE
 hit simulation should use target snapshots and baked shapes instead of thousands
 of live trigger objects.
 
+## ECS Lifecycle Comments
+
+ECS component, tag, buffer, and shared-component declarations that document
+their entity lifecycle must be updated in the same change that alters that
+lifecycle.
+
+Use the searchable prefix `ECS Lifecycle:` for these comments.
+
+Examples of lifecycle changes:
+
+- component is added or removed at a new runtime point
+- component changes from structural add/remove to enable/disable
+- component becomes optional or becomes part of the base archetype
+- buffer ownership, clearing, reuse, or teardown behavior changes
+- shared component value starts changing after creation
+
 ## Allocation Rule
 
 Combat paths should be allocation-light.
