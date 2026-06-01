@@ -101,3 +101,20 @@ Create these as systems are ported:
   late-simulation render matrix preparation for scoped projectile draw
   submission
 
+## Current AOE Runtime Map
+
+- `Assets/Scripts/System/Aoe/AoeRoot.cs`: scene-object bridge, AOE type baking,
+  spawn request submission, target snapshot sync, hit replay, counters, and
+  batched render submission
+- `Assets/Scripts/System/Aoe/AoeEcsComponents.cs`: AOE scope, tag, identity,
+  active, spawn, hit, recycle, contact-gate, and render ECS data
+- `Assets/Scripts/System/Aoe/AoeSimulationSystem.cs`: per-scope AOE hit-buffer
+  clearing at the start of simulation
+- `Assets/Scripts/System/Aoe/AoeSpawnSystem.cs`: per-scope AOE recycle-buffer
+  draining, spawn request materialization, inactive entity reuse by scope/type,
+  and cold entity creation
+- `Assets/Scripts/System/Aoe/AoeCollisionSystem.cs`: target mask filtering,
+  bounds/narrow-phase collision, hit events, and pulse-AOE recycle records
+- `Assets/Scripts/System/Aoe/AoeRenderPrepareSystem.cs`: late-simulation render
+  matrix preparation for batched AOE draw submission
+

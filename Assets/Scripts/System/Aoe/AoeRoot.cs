@@ -45,6 +45,7 @@ namespace PlayGround.System.Aoe
         private int despawnedAoes;
         private int hitEvents;
         private int activeVisuals;
+        private int renderBatches;
         private int nextAoeId;
         private bool runtimeReady;
 
@@ -56,7 +57,8 @@ namespace PlayGround.System.Aoe
             spawnedAoes,
             despawnedAoes,
             hitEvents,
-            activeVisuals);
+            activeVisuals,
+            renderBatches);
 
         private void Awake()
         {
@@ -225,7 +227,8 @@ namespace PlayGround.System.Aoe
                 BoundsMin = boundsMin,
                 BoundsMax = boundsMax,
                 ShapeType = shape.ShapeType,
-                Render = RenderComponentFor(command.TypeId)
+                Render = RenderComponentFor(command.TypeId),
+                ProjectileBurst = command.ProjectileBurst
             };
         }
 
@@ -247,6 +250,7 @@ namespace PlayGround.System.Aoe
                     hit.TargetId,
                     new Vector2(hit.Position.x, hit.Position.y),
                     damage,
+                    hit.ProjectileBurst,
                     target);
                 AoeHit?.Invoke(context);
                 target?.ReceiveAoeHit(damage);
@@ -613,6 +617,7 @@ namespace PlayGround.System.Aoe
         private void SubmitAoes()
         {
             activeVisuals = 0;
+            renderBatches = 0;
             if (!spawnVisuals || renderResourcesByType.Count == 0 || submitQuery == null || !submitBuffer.IsCreated)
             {
                 return;
@@ -702,6 +707,7 @@ namespace PlayGround.System.Aoe
                 instances,
                 instanceCount,
                 startInstance);
+            renderBatches++;
         }
 
         private void DestroyRenderResources()

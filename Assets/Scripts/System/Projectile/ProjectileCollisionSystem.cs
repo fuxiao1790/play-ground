@@ -152,10 +152,7 @@ namespace PlayGround.System.Projectile
                         ProjectileTypeId = identity.TypeId,
                         TargetId = target.TargetId,
                         Position = kinematics.Position,
-                        HitPayload = new ProjectileHitPayload(
-                            hit.SourceNodeId,
-                            hit.DamageAmount,
-                            hit.DirectDamageEnabled),
+                        HitPayload = projectileHit.HitPayload,
                         Order = order
                     });
 

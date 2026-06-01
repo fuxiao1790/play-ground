@@ -29,7 +29,11 @@ High-level runtime path:
 6. Projectile roots enqueue spawn requests and sync target snapshots into ECS
    scope entities, projectile ECS systems materialize/reuse projectile entities
    and simulate hits, and roots replay hit events.
-7. `DebugOverlay` gathers scene-level counters.
+7. AOE roots enqueue spawn requests and sync target snapshots into ECS scope
+   entities, AOE ECS systems materialize/reuse AOE entities and simulate hits,
+   and roots replay hit events.
+8. `GameRoot` wires the managed combat spawn router for cross-domain commands.
+9. `DebugOverlay` gathers scene-level counters.
 
 ## Scene And Prefab Ownership
 
@@ -74,7 +78,10 @@ General rule:
   narrow-phase math; projectile code reaches it through a projectile
   compatibility adapter where old APIs still exist
 - `AoeRoot`: owns one scoped AOE target flow, AOE template baking, target sync, optional effect lifetime, hit replay, and spawn requests
-- `AoeWorld`: owns only plain runtime AOE data, target queries, pulse hits, lingering ticks, and re-entry gates
+- `AoeSimulationSystem`: clears per-scope AOE hit buffers at the start of the simulation stage
+- `AoeSpawnSystem`: drains scoped AOE recycle and spawn request buffers, reuses inactive AOE entities by scope/type, and cold-creates only when no reusable entity exists
+- `AoeCollisionSystem`: owns AOE target mask filtering, baked-shape hit checks, hit event output, and recycle records
+- `AoeRenderPrepareSystem`: prepares batched AOE render matrices for scoped draw submission
 - `BeamRoot`: future scoped beam/laser flow for continuous or sweeping attacks,
   target snapshots, tick gates, and visual line/batch ownership
 - `AudioManager`: owns one-shot audio pooling and duplicate culling
@@ -108,8 +115,9 @@ Data-runtime side:
 - target snapshots used by attack collision
 
 Projectile and AOE data-runtime entities must carry explicit domain tags
-(`ProjectileTag`, later `AoeTag`) or scope components. Common combat components
-alone are not enough to make an entity eligible for a domain system.
+(`ProjectileTag` or `AoeTag`) or scope components (`ProjectileScope` or
+`AoeScope`). Common combat components alone are not enough to make an entity
+eligible for a domain system.
 
 Do not move player and mob body collision into the projectile/AOE runtime. Also
 do not move high-count projectiles and AOEs into one GameObject per gameplay

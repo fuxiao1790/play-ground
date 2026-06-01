@@ -24,11 +24,12 @@ namespace PlayGround.System.Projectile
     {
     }
 
-    // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; reset on reuse.
+    // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; reset on reuse; carries fire-time hit-spawn snapshot data.
     public struct ProjectileHitComponent : IComponentData
     {
         public int PierceRemaining;
         public float RepeatHitCooldownSeconds;
+        public ProjectileHitPayload HitPayload;
     }
 
     // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; reset on reuse.

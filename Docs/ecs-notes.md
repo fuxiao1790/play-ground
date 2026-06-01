@@ -211,6 +211,21 @@ When entities need frequent state changes every frame:
 - Child-spawner components are part of the entity archetype at creation time.
   Do not add/remove those components during reuse.
 
+### Current AOE Pool Pattern
+
+- AOE roots and projectile roots share `World.DefaultGameObjectInjectionWorld`.
+- AOE scope entities carry `AoeScope`; projectile scope entities carry
+  `ProjectileScope`.
+- AOE entities carry `AoeTag` plus common `CombatKinematicsComponent`,
+  `CombatCollisionComponent`, and `CombatHitComponent`. AOE systems must query
+  `AoeTag` or `AoeScope`, never common combat components alone.
+- Runtime despawn disables `AoeActiveTag` and records the entity in the owning
+  scope recycle buffer.
+- `AoeSpawnSystem` drains recycle buffers into keyed inactive pools before
+  materializing spawn requests. Reuse key is scope and AOE type id.
+- AOE counters track active, spawned, despawned/reused, hit events, active
+  visuals, and render batches.
+
 ---
 
 ## Frame Timing for Structural Changes

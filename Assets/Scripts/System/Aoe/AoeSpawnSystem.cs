@@ -29,6 +29,7 @@ namespace PlayGround.System.Aoe
                 typeof(AoeIdentityComponent),
                 typeof(AoeLifetimeComponent),
                 typeof(AoeHitGateComponent),
+                typeof(AoeHitSpawnComponent),
                 typeof(AoeRenderComponent),
                 typeof(AoeRenderElement),
                 typeof(CombatKinematicsComponent),
@@ -180,6 +181,7 @@ namespace PlayGround.System.Aoe
             EntityManager.SetComponentData(entity, HitFor(request));
             EntityManager.SetComponentData(entity, LifetimeFor(request));
             EntityManager.SetComponentData(entity, HitGateFor(request));
+            EntityManager.SetComponentData(entity, HitSpawnFor(request));
             EntityManager.SetComponentData(entity, request.Render);
             EntityManager.SetComponentData(entity, new AoeRenderElement());
             EntityManager.GetBuffer<AoeContactGateElement>(entity).Clear();
@@ -194,6 +196,7 @@ namespace PlayGround.System.Aoe
             ecb.SetComponent(entity, HitFor(request));
             ecb.SetComponent(entity, LifetimeFor(request));
             ecb.SetComponent(entity, HitGateFor(request));
+            ecb.SetComponent(entity, HitSpawnFor(request));
             ecb.SetComponent(entity, request.Render);
             ecb.SetComponent(entity, new AoeRenderElement());
             ecb.SetComponentEnabled<AoeActiveTag>(entity, true);
@@ -255,6 +258,14 @@ namespace PlayGround.System.Aoe
             return new AoeHitGateComponent
             {
                 RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds
+            };
+        }
+
+        private static AoeHitSpawnComponent HitSpawnFor(AoeSpawnRequestElement request)
+        {
+            return new AoeHitSpawnComponent
+            {
+                ProjectileBurst = request.ProjectileBurst
             };
         }
 

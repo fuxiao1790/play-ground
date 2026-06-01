@@ -18,6 +18,8 @@ namespace PlayGround.Game
         [SerializeField] private MobRoot[] mobs;
         [SerializeField] private PlayGround.Player.PlayerRoot player;
 
+        private readonly CombatSpawnRouter combatSpawnRouter = new();
+
         private void Awake()
         {
             if (playerProjectileRoot == null)
@@ -108,6 +110,13 @@ namespace PlayGround.Game
             {
                 BindPlayerAoeAttacks(playerAoeRoot);
             }
+
+            combatSpawnRouter.Bind(playerProjectileRoot, mobProjectileRoot, playerAoeRoot, mobAoeRoot);
+        }
+
+        private void OnDestroy()
+        {
+            combatSpawnRouter.Unbind();
         }
 
         public void Configure(ProjectileRoot projectileRoot, MobRoot[] mobRoots)
@@ -171,7 +180,7 @@ namespace PlayGround.Game
             ProjectileAttack[] projectileAttacks = player.GetComponentsInChildren<ProjectileAttack>(true);
             for (int i = 0; i < projectileAttacks.Length; i++)
             {
-                projectileAttacks[i].ConfigureAoeRoot(root);
+                projectileAttacks[i].ConfigureAoeRoot(null);
             }
 
             AoeAttack[] aoeAttacks = player.GetComponentsInChildren<AoeAttack>(true);
@@ -183,7 +192,7 @@ namespace PlayGround.Game
             ChildSpawningProjectileAttack[] childSpawningAttacks = player.GetComponentsInChildren<ChildSpawningProjectileAttack>(true);
             for (int i = 0; i < childSpawningAttacks.Length; i++)
             {
-                childSpawningAttacks[i].ConfigureAoeRoot(root);
+                childSpawningAttacks[i].ConfigureAoeRoot(null);
             }
         }
 

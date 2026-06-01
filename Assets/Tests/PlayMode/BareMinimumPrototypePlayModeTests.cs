@@ -8,6 +8,7 @@ using PlayGround.Mob.Triggers;
 using PlayGround.Player;
 using PlayGround.Game;
 using PlayGround.Spawn;
+using PlayGround.System.Aoe;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using Unity.Collections;
@@ -286,6 +287,99 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(mob.CurrentHealth, Is.EqualTo(10f));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
+        }
+
+        [Test]
+        public void ProjectileImpactAoeRoutesThroughAoeRootOnNextStep()
+        {
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            CreateAoeFixture(out GameObject aoeObject, out AoeRoot aoeRoot, out GameObject aoeTemplateObject);
+            var router = new CombatSpawnRouter();
+            router.Bind(projectileRoot, null, aoeRoot, null);
+            mob.Register(projectileRoot.TargetRegistry);
+            mob.Register(aoeRoot.TargetRegistry);
+
+            var command = new ProjectileSpawnCommand(
+                Vector2.zero,
+                Vector2.right,
+                0f,
+                1f,
+                1f,
+                new Vector2(1f, 1f),
+                0f,
+                new DamageSnapshot(4f),
+                CombatShapeType.Circle,
+                targetMask: ~0,
+                directDamageEnabled: false,
+                impactAoe: new ProjectileImpactAoeSnapshot(
+                    typeId: 0,
+                    targetMask: ~0,
+                    damageAmount: 3f,
+                    lifetimeSeconds: 0f,
+                    tickIntervalSeconds: 0f));
+
+            projectileRoot.Spawn(command);
+            projectileRoot.Step(0.01f);
+            Assert.That(mob.CurrentHealth, Is.EqualTo(10f));
+
+            aoeRoot.Step(0.01f);
+
+            Assert.That(mob.CurrentHealth, Is.EqualTo(7f));
+            router.Unbind();
+            Object.Destroy(projectileObject);
+            Object.Destroy(mobObject);
+            Object.Destroy(aoeObject);
+            Object.Destroy(aoeTemplateObject);
+        }
+
+        [Test]
+        public void AoeProjectileBurstRoutesThroughProjectileRootOnNextStepWithoutImpactPayload()
+        {
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            CreateAoeFixture(out GameObject aoeObject, out AoeRoot aoeRoot, out GameObject aoeTemplateObject);
+            var router = new CombatSpawnRouter();
+            router.Bind(projectileRoot, null, aoeRoot, null);
+            mob.Register(projectileRoot.TargetRegistry);
+            mob.Register(aoeRoot.TargetRegistry);
+            bool spawnedProjectileCarriedImpactAoe = true;
+            projectileRoot.ProjectileHit += context =>
+            {
+                spawnedProjectileCarriedImpactAoe = context.Payload.ImpactAoe.Enabled;
+            };
+
+            var burst = new AoeProjectileBurstSnapshot(
+                projectileTypeId: 0,
+                targetMask: ~0,
+                count: 1,
+                spreadDegrees: 0f,
+                speed: 0f,
+                lifetimeSeconds: 1f,
+                radius: 1f,
+                halfExtents: Vector2.one,
+                rotationRadians: 0f,
+                shapeType: CombatShapeType.Circle,
+                damage: new DamageSnapshot(2f));
+
+            aoeRoot.Spawn(new AoeSpawnCommand(
+                typeId: 0,
+                position: Vector2.zero,
+                targetMask: ~0,
+                damage: new DamageSnapshot(0f),
+                lifetimeSeconds: 0f,
+                tickIntervalSeconds: 0f,
+                projectileBurst: burst));
+            aoeRoot.Step(0.01f);
+            Assert.That(mob.CurrentHealth, Is.EqualTo(10f));
+
+            projectileRoot.Step(0.01f);
+
+            Assert.That(mob.CurrentHealth, Is.EqualTo(8f));
+            Assert.That(spawnedProjectileCarriedImpactAoe, Is.False);
+            router.Unbind();
+            Object.Destroy(projectileObject);
+            Object.Destroy(mobObject);
+            Object.Destroy(aoeObject);
+            Object.Destroy(aoeTemplateObject);
         }
 
         [Test]
@@ -657,6 +751,26 @@ namespace PlayGround.Tests.PlayMode
                 0f,
                 0.5f);
             mobObject.SetActive(true);
+        }
+
+        private static void CreateAoeFixture(
+            out GameObject rootObject,
+            out AoeRoot root,
+            out GameObject templateObject)
+        {
+            templateObject = new GameObject("AoeTemplate");
+            templateObject.SetActive(false);
+            CircleCollider2D shape = templateObject.AddComponent<CircleCollider2D>();
+            shape.radius = 1f;
+
+            var definition = new AoeTypeDefinition();
+            definition.Configure(0, templateObject, shape, 1f);
+
+            rootObject = new GameObject("AoeRoot");
+            rootObject.SetActive(false);
+            root = rootObject.AddComponent<AoeRoot>();
+            root.Configure(new[] { definition }, ~0);
+            rootObject.SetActive(true);
         }
 
         private static ProjectileSpawnCommand ChildSpawnerCommand()

@@ -83,6 +83,32 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void SpawnCommandPreservesImpactAoeSnapshot()
+        {
+            var impact = new ProjectileImpactAoeSnapshot(
+                typeId: 2,
+                targetMask: 4,
+                damageAmount: 9f,
+                lifetimeSeconds: 0.5f,
+                tickIntervalSeconds: 0.25f);
+            var command = new ProjectileSpawnCommand(
+                Vector2.zero,
+                Vector2.right,
+                3f,
+                1f,
+                0.25f,
+                new Vector2(0.25f, 0.25f),
+                0f,
+                new DamageSnapshot(7f),
+                CombatShapeType.Circle,
+                impactAoe: impact);
+
+            Assert.That(command.HitPayload.ImpactAoe.Enabled, Is.True);
+            Assert.That(command.HitPayload.ImpactAoe.TypeId, Is.EqualTo(2));
+            Assert.That(command.HitPayload.ImpactAoe.DamageAmount, Is.EqualTo(9f));
+        }
+
+        [Test]
         public void BasicAttackPrefabBakesSpriteAndHurtboxShape()
         {
             GameObject attackObject = new("BasicAttackPrefabTest");

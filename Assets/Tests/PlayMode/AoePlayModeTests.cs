@@ -3,6 +3,7 @@ using NUnit.Framework;
 using PlayGround.Common;
 using PlayGround.System.Aoe;
 using PlayGround.System.Common;
+using PlayGround.System.Projectile;
 using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
@@ -123,6 +124,82 @@ namespace PlayGround.Tests.PlayMode
             Cleanup(rootObject, templateObject, target.gameObject);
         }
 
+        [Test]
+        public void AoeSystemsIgnoreCommonCombatEntityWithoutAoeTag()
+        {
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            Entity entity = entityManager.CreateEntity(
+                typeof(CombatKinematicsComponent),
+                typeof(CombatCollisionComponent),
+                typeof(CombatHitComponent),
+                typeof(AoeActiveTag));
+
+            entityManager.SetComponentData(entity, new CombatKinematicsComponent
+            {
+                Position = new Unity.Mathematics.float2(1f, 2f),
+                Velocity = new Unity.Mathematics.float2(5f, 0f)
+            });
+            entityManager.SetComponentData(entity, new CombatCollisionComponent
+            {
+                ShapeType = CombatShapeType.Circle,
+                Radius = 0.5f,
+                BoundsMin = new Unity.Mathematics.float2(0.5f, 1.5f),
+                BoundsMax = new Unity.Mathematics.float2(1.5f, 2.5f)
+            });
+            entityManager.SetComponentData(entity, new CombatHitComponent
+            {
+                TargetMask = ~0,
+                DamageAmount = 1f,
+                DirectDamageEnabled = true
+            });
+
+            root.Step(0.01f);
+
+            CombatKinematicsComponent kinematics = entityManager.GetComponentData<CombatKinematicsComponent>(entity);
+            Assert.That(kinematics.Position.x, Is.EqualTo(1f));
+            Assert.That(kinematics.Position.y, Is.EqualTo(2f));
+
+            entityManager.DestroyEntity(entity);
+            Cleanup(rootObject, templateObject);
+        }
+
+        [Test]
+        public void ProjectileAndAoeRootsShareDefaultWorldButUseSeparateScopes()
+        {
+            CreateProjectileRoot(out GameObject projectileObject, out ProjectileRoot projectileRoot);
+            CreateAoeFixture(out GameObject aoeObject, out AoeRoot aoeRoot, out GameObject templateObject);
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            Entity projectileScope = ProjectileScopeEntity(projectileRoot);
+            Entity aoeScope = AoeScopeEntity(aoeRoot);
+
+            Assert.That(projectileScope, Is.Not.EqualTo(aoeScope));
+            Assert.That(entityManager.HasComponent<ProjectileScope>(projectileScope), Is.True);
+            Assert.That(entityManager.HasComponent<AoeScope>(projectileScope), Is.False);
+            Assert.That(entityManager.HasComponent<AoeScope>(aoeScope), Is.True);
+            Assert.That(entityManager.HasComponent<ProjectileScope>(aoeScope), Is.False);
+
+            Cleanup(projectileObject, aoeObject, templateObject);
+        }
+
+        [Test]
+        public void AoeCountersTrackSpawnDespawnHitAndRenderBatchFields()
+        {
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
+            root.TargetRegistry.Register(target);
+
+            root.Spawn(Command(Vector2.zero, DefaultTargetMask, 2f));
+            root.Step(0.01f);
+
+            AoeRuntimeCounters counters = root.Counters;
+            Assert.That(counters.SpawnedAoes, Is.EqualTo(1));
+            Assert.That(counters.DespawnedOrReusedAoes, Is.EqualTo(1));
+            Assert.That(counters.HitEvents, Is.EqualTo(1));
+            Assert.That(counters.RenderBatches, Is.GreaterThanOrEqualTo(0));
+            Cleanup(rootObject, templateObject, target.gameObject);
+        }
+
         private static AoeSpawnCommand Command(Vector2 position, int targetMask, float damage)
         {
             return new AoeSpawnCommand(
@@ -151,6 +228,16 @@ namespace PlayGround.Tests.PlayMode
             rootObject.SetActive(false);
             root = rootObject.AddComponent<AoeRoot>();
             root.Configure(new[] { definition }, ~0);
+            rootObject.SetActive(true);
+        }
+
+        private static void CreateProjectileRoot(out GameObject rootObject, out ProjectileRoot root)
+        {
+            Sprite sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
+            rootObject = new GameObject("ProjectileRoot");
+            rootObject.SetActive(false);
+            root = rootObject.AddComponent<ProjectileRoot>();
+            root.Configure(sprite);
             rootObject.SetActive(true);
         }
 
@@ -206,6 +293,13 @@ namespace PlayGround.Tests.PlayMode
         {
             const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
             FieldInfo scopeEntityField = typeof(AoeRoot).GetField("scopeEntity", Flags);
+            return (Entity)scopeEntityField.GetValue(root);
+        }
+
+        private static Entity ProjectileScopeEntity(ProjectileRoot root)
+        {
+            const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            FieldInfo scopeEntityField = typeof(ProjectileRoot).GetField("scopeEntity", Flags);
             return (Entity)scopeEntityField.GetValue(root);
         }
 

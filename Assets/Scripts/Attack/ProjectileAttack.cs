@@ -136,6 +136,7 @@ namespace PlayGround.Attack
 
         private ProjectileSpawnCommand WithAuthoredOptions(ProjectileSpawnCommand baseCommand, DamageSnapshot damage, ProjectileChildSpawnConfig childConfig)
         {
+            int targetMask = EffectiveTargetMask();
             return new ProjectileSpawnCommand(
                 baseCommand.Position,
                 baseCommand.Direction,
@@ -147,13 +148,29 @@ namespace PlayGround.Attack
                 damage,
                 config.Prefab.ShapeType,
                 projectileRoot.RegisterTemplate(config.Prefab),
-                EffectiveTargetMask(),
+                targetMask,
                 config.PierceCount,
                 config.RepeatHitCooldown,
                 config.GetTrackingConfig(),
                 childConfig,
                 config.DirectDamageEnabled,
-                hitSource != null ? hitSource.ProjectileHitNodeId : default);
+                hitSource != null ? hitSource.ProjectileHitNodeId : default,
+                ImpactAoeSnapshot(targetMask));
+        }
+
+        private ProjectileImpactAoeSnapshot ImpactAoeSnapshot(int targetMask)
+        {
+            if (config.ImpactAoeTypeId < 0)
+            {
+                return default;
+            }
+
+            return new ProjectileImpactAoeSnapshot(
+                config.ImpactAoeTypeId,
+                targetMask,
+                Mathf.Max(0f, config.ImpactAoeDamage),
+                config.ImpactAoeLifetimeSeconds,
+                config.ImpactAoeTickIntervalSeconds);
         }
 
         private void SubscribeAoeRoot()

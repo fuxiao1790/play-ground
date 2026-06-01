@@ -219,7 +219,8 @@ namespace PlayGround.System.Projectile
             EntityManager.SetComponentData(entity, new ProjectileHitComponent
             {
                 PierceRemaining = request.PierceRemaining,
-                RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds
+                RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds,
+                HitPayload = request.HitPayload
             });
             EntityManager.SetComponentData(entity, request.Tracking);
             EntityManager.SetComponentData(entity, request.Render);
@@ -276,7 +277,8 @@ namespace PlayGround.System.Projectile
             ecb.SetComponent(entity, new ProjectileHitComponent
             {
                 PierceRemaining = request.PierceRemaining,
-                RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds
+                RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds,
+                HitPayload = request.HitPayload
             });
             ecb.SetComponent(entity, request.Tracking);
             ecb.SetComponent(entity, request.Render);

@@ -64,7 +64,8 @@ namespace PlayGround.System.Projectile
             ProjectileTrackingConfig tracking = default,
             ProjectileChildSpawnConfig childSpawn = default,
             bool directDamageEnabled = true,
-            EntityId sourceNodeId = default)
+            EntityId sourceNodeId = default,
+            ProjectileImpactAoeSnapshot impactAoe = default)
         {
             Position = position;
             Direction = direction.sqrMagnitude > 0f ? direction.normalized : Vector2.right;
@@ -82,7 +83,8 @@ namespace PlayGround.System.Projectile
             Tracking = tracking;
             ChildSpawn = childSpawn;
             DirectDamageEnabled = directDamageEnabled;
-            HitPayload = new ProjectileHitPayload(sourceNodeId, damage.Amount, directDamageEnabled);
+            ImpactAoe = impactAoe;
+            HitPayload = new ProjectileHitPayload(sourceNodeId, damage.Amount, directDamageEnabled, impactAoe);
         }
 
         [global::System.Obsolete("Use the CombatShapeType overload.")]
@@ -103,7 +105,8 @@ namespace PlayGround.System.Projectile
             ProjectileTrackingConfig tracking = default,
             ProjectileChildSpawnConfig childSpawn = default,
             bool directDamageEnabled = true,
-            EntityId sourceNodeId = default)
+            EntityId sourceNodeId = default,
+            ProjectileImpactAoeSnapshot impactAoe = default)
             : this(
                 position,
                 direction,
@@ -121,7 +124,8 @@ namespace PlayGround.System.Projectile
                 tracking,
                 childSpawn,
                 directDamageEnabled,
-                sourceNodeId)
+                sourceNodeId,
+                impactAoe)
         {
         }
 
@@ -141,6 +145,7 @@ namespace PlayGround.System.Projectile
         public ProjectileTrackingConfig Tracking { get; }
         public ProjectileChildSpawnConfig ChildSpawn { get; }
         public bool DirectDamageEnabled { get; }
+        public ProjectileImpactAoeSnapshot ImpactAoe { get; }
         public ProjectileHitPayload HitPayload { get; }
     }
 

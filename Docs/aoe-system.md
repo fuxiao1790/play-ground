@@ -8,7 +8,7 @@ final decisions, and should be revisited in detail before implementation locks i
 The AOE runtime mirrors the projectile runtime shape:
 
 - scoped roots own Unity interop
-- plain `AoeWorld` owns collision and timing
+- DOTS AOE systems own spawn materialization, collision, recycling, and batched rendering
 - gameplay callbacks replay after simulation
 
 AOEs are part of the data-runtime half of the hybrid architecture. They query
@@ -36,12 +36,12 @@ AOEs targeting player hurtboxes. The class itself is not split.
 
 Each root instance owns:
 
-- one plain `AoeWorld`
+- one DOTS scope entity in `World.DefaultGameObjectInjectionWorld`
 - one Unity adapter boundary
 - AOE effect template cache
 - target hurtbox shape cache
 - listener maps for gameplay callbacks
-- optional effect prefab instances and cleanup
+- batched AOE render resources
 - profiling counters and visual budget ownership
 
 ## Boundary Rule
@@ -51,12 +51,11 @@ Each root instance owns:
 - read target registries
 - validate live Unity objects
 - bake AOE effect collider shapes
-- instantiate optional visual prefabs
 - register hit listeners
 - replay hits into gameplay callbacks
-- remove visuals when AOEs despawn
+- submit batched AOE visuals
 
-`AoeWorld` must not:
+AOE ECS systems must not:
 
 - touch GameObjects, Transforms, Components, or Colliders
 - instantiate effects
@@ -73,7 +72,7 @@ Input into world:
 Output from world:
 
 - AOE hit events
-- AOE despawned events
+- AOE recycle events
 
 ## Damage Rules
 
@@ -158,7 +157,8 @@ or volatile explosions can share the same runtime concept.
 
 ## Visuals
 
-Start with one optional visual prefab per AOE for correctness.
+AOE visuals use batched GPU-instanced render submission by AOE type. Live visual
+objects do not own gameplay state.
 
 Because scaled builds may create many overlapping AOEs, do not let this become
 the only rendering path. Plan for:
@@ -181,15 +181,32 @@ Required practices:
 - keep per-target tick gates allocation-light
 - avoid one coroutine per AOE
 - avoid live trigger callbacks as the authoritative damage path
-- track active AOEs, hit events, simulation time, visual count, and allocations
+- track active AOEs, spawned AOEs, despawned/reused AOEs, hit events, render
+  batches, simulation time, visual count, and allocations
 
 Scene-object bridge:
 
 - actor hurtboxes are registered from player and mob GameObjects
-- `AoeRoot` snapshots target state before stepping `AoeWorld`
-- `AoeWorld` emits plain hit events
+- `AoeRoot` snapshots target state into its `AoeScope` entity
+- AOE ECS systems emit plain hit events into scoped buffers
 - root replays hits to actor components after simulation
 - Physics2D remains responsible for player/mob/wall body collision
+
+## DOTS Runtime Status
+
+The current implementation uses Entities/DOTS in the shared default world:
+
+- `AoeRoot` creates an `AoeScope` entity with target, spawn, hit, and recycle buffers.
+- AOE entities carry `AoeTag`, `AoeActiveTag`, `AoeIdentityComponent`, common
+  combat components, render data, and hit-spawn snapshot data.
+- AOE systems require `AoeTag` or `AoeScope`; common combat components alone do
+  not make an entity eligible for AOE simulation.
+- `AoeSpawnSystem` drains scoped spawn/recycle buffers and reuses inactive AOE
+  entities by scope/type.
+- `AoeCollisionSystem` runs target-mask filtering and shape collision against
+  `CombatTargetElement` snapshots, emits `AoeHitElement`, and recycles pulse AOEs.
+- `AoeRenderPrepareSystem` writes render matrices for active AOEs, and
+  `AoeRoot` submits GPU-instanced batches.
 
 ## Tests To Port
 

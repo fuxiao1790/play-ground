@@ -41,6 +41,12 @@ namespace PlayGround.System.Aoe
         public float RepeatHitCooldownSeconds;
     }
 
+    // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse; carries fire-time hit-spawn snapshot data.
+    public struct AoeHitSpawnComponent : IComponentData
+    {
+        public AoeProjectileBurstSnapshot ProjectileBurst;
+    }
+
     // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse.
     public struct AoeRenderComponent : IComponentData
     {
@@ -82,6 +88,7 @@ namespace PlayGround.System.Aoe
         public float2 BoundsMax;
         public CombatShapeType ShapeType;
         public AoeRenderComponent Render;
+        public AoeProjectileBurstSnapshot ProjectileBurst;
     }
 
     // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; cleared during simulation/replay.
@@ -92,6 +99,7 @@ namespace PlayGround.System.Aoe
         public int TargetId;
         public float2 Position;
         public float DamageAmount;
+        public AoeProjectileBurstSnapshot ProjectileBurst;
     }
 
     // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by AoeSpawnSystem into its reuse pool.
@@ -110,6 +118,7 @@ namespace PlayGround.System.Aoe
         public int TargetId;
         public float2 Position;
         public float DamageAmount;
+        public AoeProjectileBurstSnapshot ProjectileBurst;
     }
 
     // ECS Lifecycle: transient native payload; not added to entities; queued during lifetime/collision recycle flush.

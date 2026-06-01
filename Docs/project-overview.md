@@ -131,10 +131,11 @@ Implemented:
 - scoped projectile runtime with split ECS stages for tracking, movement, child
   spawn requests, lifetime, contact gates, collision, hit replay, counters, and
   batched rendering by projectile type
+- scoped DOTS AOE runtime with ECS scope entities, spawn/recycle buffers, target
+  snapshots, pulse collision, hit replay, counters, and batched rendering by AOE type
 
 Not yet implemented:
 
-- AOE runtime
 - camera follow and zoom
 - play area wall
 - audio manager
@@ -142,7 +143,7 @@ Not yet implemented:
 
 Performance-critical systems to design before content grows:
 
-- AOE pooling and optional batched visual rendering
+- AOE stress tuning and visual-budget policies beyond the current batched path
 - laser/beam runtime for continuous collision and rendering
 - effect budget controls for particles, decals, and transient visuals
 - explicit profiling counters for AOE, beam, spawn, mob, and render cost beyond
@@ -175,4 +176,3 @@ Performance-critical systems to design before content grows:
 - [mob-behaviour.md](./mob-behaviour.md): mob AI design
 - [testing.md](./testing.md): Unity test approach
 - [release.md](./release.md): Unity Windows build notes
-

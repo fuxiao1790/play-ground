@@ -121,6 +121,7 @@ namespace PlayGround.System.Aoe
                 in CombatKinematicsComponent kinematics,
                 in CombatCollisionComponent collision,
                 in CombatHitComponent hit,
+                in AoeHitSpawnComponent hitSpawn,
                 EnabledRefRW<AoeActiveTag> active,
                 DynamicBuffer<AoeContactGateElement> contactGates)
             {
@@ -155,7 +156,7 @@ namespace PlayGround.System.Aoe
                             continue;
                         }
 
-                        ResolveHit(identity, kinematics, hit, target, contactGates);
+                        ResolveHit(identity, kinematics, hit, hitSpawn, target, contactGates);
                     }
                 }
 
@@ -166,6 +167,7 @@ namespace PlayGround.System.Aoe
                 AoeIdentityComponent identity,
                 CombatKinematicsComponent kinematics,
                 CombatHitComponent hit,
+                AoeHitSpawnComponent hitSpawn,
                 CombatTargetElement target,
                 DynamicBuffer<AoeContactGateElement> contactGates)
             {
@@ -187,7 +189,8 @@ namespace PlayGround.System.Aoe
                     TypeId = identity.TypeId,
                     TargetId = target.TargetId,
                     Position = kinematics.Position,
-                    DamageAmount = hit.DamageAmount
+                    DamageAmount = hit.DamageAmount,
+                    ProjectileBurst = hitSpawn.ProjectileBurst
                 });
             }
 
@@ -263,7 +266,8 @@ namespace PlayGround.System.Aoe
                         TypeId = pending.TypeId,
                         TargetId = pending.TargetId,
                         Position = pending.Position,
-                        DamageAmount = pending.DamageAmount
+                        DamageAmount = pending.DamageAmount,
+                        ProjectileBurst = pending.ProjectileBurst
                     });
                 }
             }
