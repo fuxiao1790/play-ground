@@ -90,12 +90,24 @@ Move shared combat ECS data into `Assets/Scripts/System/Common/`, migrate projec
 - AOE root creates no per-AOE live damage/collider objects.
 
 ## Phase 3: Projectile + AOE Integration
-### Milestone 3.1: Impact AOE Flow
+### Milestone 3.1: Cross-Domain Spawn Flow
 - Projectile ECS collision emits projectile hit events only.
+- AOE ECS collision emits AOE hit events only.
+- Domain ECS systems do not write spawn requests into another domain's buffers.
 - `ProjectileRoot.LateUpdate()` drains projectile hits and replays managed callbacks.
-- `ProjectileAttack` and hit effects emit `ProjectileAoeSpawnRequest` during managed hit replay.
-- `AoeRoot.Spawn(...)` appends AOE spawn requests to the AOE scope.
-- Impact AOE resolves on the next ECS simulation step because the request is submitted after current simulation has completed.
+- `AoeRoot.LateUpdate()` drains AOE hits and replays managed callbacks.
+- `ProjectileAttack`, `AoeAttack`, and hit effects may emit typed combat spawn commands during managed hit replay:
+  - projectile-to-AOE impact commands.
+  - AOE-to-projectile burst commands.
+  - future domain-to-domain effect commands.
+- A managed combat spawn router, wired by `GameRoot`, maps typed spawn commands to the correct scoped root:
+  - player projectile effects that target mobs route to `AoeRoot_PlayerToMob`.
+  - mob projectile effects that target the player route to `AoeRoot_MobToPlayer`.
+  - player AOE effects that target mobs route to `ProjectileRoot_PlayerToMob`.
+  - mob AOE effects that target the player route to `ProjectileRoot_MobToPlayer`.
+- Destination roots append received spawn commands to their own scoped request buffers through public APIs such as `ProjectileRoot.Spawn(...)` and `AoeRoot.Spawn(...)`.
+- Cross-domain spawn commands carry only snapshot data such as position, direction, damage, source id, target mask, and template/type id. They do not carry live `GameObject`, `Transform`, `Collider2D`, or target references.
+- Cross-domain spawns resolve on the next ECS simulation step because requests are submitted after the current simulation has completed.
 
 ### Milestone 3.2: Mixed Runtime Safety
 - Projectile and AOE roots share `World.DefaultGameObjectInjectionWorld`.
