@@ -8,9 +8,11 @@ using PlayGround.Mob.Triggers;
 using PlayGround.Player;
 using PlayGround.Game;
 using PlayGround.Spawn;
+using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace PlayGround.Tests.PlayMode
@@ -79,7 +81,7 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
-            projectileRoot.Spawn(new ProjectileSpawnCommand(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(4f), ProjectileShapeType.Circle));
+            projectileRoot.Spawn(new ProjectileSpawnCommand(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
             projectileRoot.Step(0.01f);
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(6f));
@@ -93,7 +95,7 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
-            projectileRoot.Spawn(new ProjectileSpawnCommand(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(4f), ProjectileShapeType.Circle));
+            projectileRoot.Spawn(new ProjectileSpawnCommand(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
             projectileRoot.Step(0.01f);
 
             Assert.That(projectileObject.transform.childCount, Is.EqualTo(0));
@@ -106,9 +108,50 @@ namespace PlayGround.Tests.PlayMode
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
 
-            projectileRoot.Spawn(new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(4f), ProjectileShapeType.Circle));
+            projectileRoot.Spawn(new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
             projectileRoot.Step(0.01f);
 
+            Object.Destroy(projectileObject);
+            Object.Destroy(mobObject);
+        }
+
+        [Test]
+        public void ProjectileSystemsIgnoreCommonCombatEntityWithoutProjectileTag()
+        {
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            Entity entity = entityManager.CreateEntity(
+                typeof(CombatKinematicsComponent),
+                typeof(CombatCollisionComponent),
+                typeof(CombatHitComponent),
+                typeof(ProjectileActiveTag));
+
+            entityManager.SetComponentData(entity, new CombatKinematicsComponent
+            {
+                Position = new float2(1f, 2f),
+                Velocity = new float2(5f, 0f)
+            });
+            entityManager.SetComponentData(entity, new CombatCollisionComponent
+            {
+                ShapeType = CombatShapeType.Circle,
+                Radius = 0.5f,
+                BoundsMin = new float2(0.5f, 1.5f),
+                BoundsMax = new float2(1.5f, 2.5f)
+            });
+            entityManager.SetComponentData(entity, new CombatHitComponent
+            {
+                TargetMask = ~0,
+                DamageAmount = 1f,
+                DirectDamageEnabled = true
+            });
+
+            projectileRoot.Step(1f);
+
+            CombatKinematicsComponent kinematics = entityManager.GetComponentData<CombatKinematicsComponent>(entity);
+            Assert.That(kinematics.Position.x, Is.EqualTo(1f));
+            Assert.That(kinematics.Position.y, Is.EqualTo(2f));
+
+            entityManager.DestroyEntity(entity);
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
         }
@@ -128,7 +171,7 @@ namespace PlayGround.Tests.PlayMode
                 new Vector2(1f, 1f),
                 0f,
                 new DamageSnapshot(4f),
-                ProjectileShapeType.Circle,
+                CombatShapeType.Circle,
                 targetMask: 2);
 
             projectileRoot.Spawn(command);
@@ -155,7 +198,7 @@ namespace PlayGround.Tests.PlayMode
                 new Vector2(0.25f, 0.25f),
                 0f,
                 new DamageSnapshot(1f),
-                ProjectileShapeType.Circle,
+                CombatShapeType.Circle,
                 tracking: new ProjectileTrackingConfig(true, 50f, 360f, 0f));
 
             projectileRoot.Spawn(command);
@@ -204,7 +247,7 @@ namespace PlayGround.Tests.PlayMode
                 new Vector2(1f, 1f),
                 0f,
                 new DamageSnapshot(4f),
-                ProjectileShapeType.Circle,
+                CombatShapeType.Circle,
                 targetMask: projectileRoot.TargetMask);
 
             projectileRoot.Spawn(command);
@@ -233,7 +276,7 @@ namespace PlayGround.Tests.PlayMode
                 new Vector2(1f, 1f),
                 0f,
                 new DamageSnapshot(4f),
-                ProjectileShapeType.Circle,
+                CombatShapeType.Circle,
                 directDamageEnabled: false);
 
             projectileRoot.Spawn(command);
@@ -260,7 +303,7 @@ namespace PlayGround.Tests.PlayMode
                 new Vector2(1f, 1f),
                 0f,
                 new DamageSnapshot(2f),
-                ProjectileShapeType.Circle,
+                CombatShapeType.Circle,
                 pierceCount: 2,
                 repeatHitCooldownSeconds: 0.02f);
 
@@ -290,8 +333,8 @@ namespace PlayGround.Tests.PlayMode
                 new Vector2(1f, 1f),
                 0f,
                 new DamageSnapshot(2f),
-                ProjectileShapeType.Circle,
-                childSpawn: new ProjectileChildSpawnConfig(1, 0, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), ProjectileShapeType.Circle, 0f, new DamageSnapshot(1f)),
+                CombatShapeType.Circle,
+                childSpawn: new ProjectileChildSpawnConfig(1, 0, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)),
                 directDamageEnabled: false);
 
             projectileRoot.Spawn(command);
@@ -324,7 +367,7 @@ namespace PlayGround.Tests.PlayMode
                 1f,
                 0.25f,
                 new Vector2(0.25f, 0.25f),
-                ProjectileShapeType.Circle,
+                CombatShapeType.Circle,
                 0f,
                 new DamageSnapshot(1f),
                 targetMask: 1,
@@ -339,7 +382,7 @@ namespace PlayGround.Tests.PlayMode
                 new Vector2(0.25f, 0.25f),
                 0f,
                 new DamageSnapshot(1f),
-                ProjectileShapeType.Circle,
+                CombatShapeType.Circle,
                 childSpawn: childSpawn,
                 directDamageEnabled: false);
 
@@ -370,7 +413,7 @@ namespace PlayGround.Tests.PlayMode
                 new Vector2(1f, 1f),
                 0f,
                 new DamageSnapshot(2f),
-                ProjectileShapeType.Circle,
+                CombatShapeType.Circle,
                 sourceNodeId: sourceNodeId);
 
             projectileRoot.Spawn(command);
@@ -399,8 +442,8 @@ namespace PlayGround.Tests.PlayMode
                 new Vector2(1f, 1f),
                 0f,
                 new DamageSnapshot(2f),
-                ProjectileShapeType.Circle,
-                childSpawn: new ProjectileChildSpawnConfig(1, 0, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), ProjectileShapeType.Circle, 0f, new DamageSnapshot(1f)));
+                CombatShapeType.Circle,
+                childSpawn: new ProjectileChildSpawnConfig(1, 0, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)));
 
             projectileRoot.Spawn(command);
             projectileRoot.Step(0.02f);
@@ -424,8 +467,8 @@ namespace PlayGround.Tests.PlayMode
                 new Vector2(1f, 1f),
                 0f,
                 new DamageSnapshot(2f),
-                ProjectileShapeType.Circle,
-                childSpawn: new ProjectileChildSpawnConfig(1, 16, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), ProjectileShapeType.Circle, 0f, new DamageSnapshot(1f)));
+                CombatShapeType.Circle,
+                childSpawn: new ProjectileChildSpawnConfig(1, 16, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)));
 
             Assert.Throws<global::System.InvalidOperationException>(() => projectileRoot.Spawn(command));
             Object.Destroy(projectileObject);
@@ -436,7 +479,7 @@ namespace PlayGround.Tests.PlayMode
         public void ProjectileSpawnReusesExpiredEcsEntityAfterPoolWarmup()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
-            var command = new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(1f), ProjectileShapeType.Circle);
+            var command = new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle);
 
             projectileRoot.Spawn(command);
             projectileRoot.Step(0.01f);
@@ -460,11 +503,11 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
-            projectileRoot.Spawn(new ProjectileSpawnCommand(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), ProjectileShapeType.Circle));
+            projectileRoot.Spawn(new ProjectileSpawnCommand(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle));
             projectileRoot.Step(0.01f);
             Assert.That(SumScopedContactGates(projectileRoot), Is.GreaterThan(0));
 
-            projectileRoot.Spawn(new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), ProjectileShapeType.Circle));
+            projectileRoot.Spawn(new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle));
             projectileRoot.Step(0.01f);
 
             Assert.That(CountScopedProjectileEntities(projectileRoot), Is.EqualTo(1));
@@ -627,7 +670,7 @@ namespace PlayGround.Tests.PlayMode
                 new Vector2(1f, 1f),
                 0f,
                 new DamageSnapshot(1f),
-                ProjectileShapeType.Circle,
+                CombatShapeType.Circle,
                 childSpawn: new ProjectileChildSpawnConfig(
                     1,
                     0,
@@ -637,7 +680,7 @@ namespace PlayGround.Tests.PlayMode
                     0f,
                     1f,
                     new Vector2(1f, 1f),
-                    ProjectileShapeType.Circle,
+                    CombatShapeType.Circle,
                     0f,
                     new DamageSnapshot(1f),
                     behavior: new ProjectileChildSpawnBehavior(1, ProjectileChildSpawnPatternType.Forward)),
@@ -679,7 +722,7 @@ namespace PlayGround.Tests.PlayMode
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
-                ComponentType.ReadOnly<ProjectileKinematicsComponent>());
+                ComponentType.ReadOnly<CombatKinematicsComponent>());
             using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
 
             for (int i = 0; i < entities.Length; i++)
@@ -690,7 +733,7 @@ namespace PlayGround.Tests.PlayMode
                     continue;
                 }
 
-                ProjectileKinematicsComponent kinematics = entityManager.GetComponentData<ProjectileKinematicsComponent>(entities[i]);
+                CombatKinematicsComponent kinematics = entityManager.GetComponentData<CombatKinematicsComponent>(entities[i]);
                 return new Vector2(kinematics.Velocity.x, kinematics.Velocity.y);
             }
 
@@ -706,7 +749,7 @@ namespace PlayGround.Tests.PlayMode
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
-                ComponentType.ReadOnly<ProjectileKinematicsComponent>());
+                ComponentType.ReadOnly<CombatKinematicsComponent>());
             using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
             float maxVelocityY = float.NegativeInfinity;
 
@@ -718,7 +761,7 @@ namespace PlayGround.Tests.PlayMode
                     continue;
                 }
 
-                ProjectileKinematicsComponent kinematics = entityManager.GetComponentData<ProjectileKinematicsComponent>(entities[i]);
+                CombatKinematicsComponent kinematics = entityManager.GetComponentData<CombatKinematicsComponent>(entities[i]);
                 maxVelocityY = Mathf.Max(maxVelocityY, kinematics.Velocity.y);
             }
 

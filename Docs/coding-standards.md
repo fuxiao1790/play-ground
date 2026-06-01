@@ -100,6 +100,11 @@ Use data-oriented runtime worlds for high-count combat entities:
 - beams/lasers
 - transient chained hit effects
 
+Shared combat ECS components under `Assets/Scripts/System/Common/` must stay
+domain-neutral. Systems that consume them must also require a domain tag or
+scope component such as `ProjectileTag` or `ProjectileScope`; common components
+alone should never opt an entity into projectile or AOE behavior.
+
 Player and mob movement/collision should use Unity Physics2D. Projectile and AOE
 hit simulation should use target snapshots and baked shapes instead of thousands
 of live trigger objects.

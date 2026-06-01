@@ -1,3 +1,4 @@
+using PlayGround.System.Common;
 using UnityEngine;
 
 namespace PlayGround.System.Projectile
@@ -21,7 +22,7 @@ namespace PlayGround.System.Projectile
         float ProjectileTargetRadius { get; }
         Vector2 ProjectileTargetHalfExtents { get; }
         float ProjectileTargetRotationRadians { get; }
-        ProjectileShapeType ProjectileTargetShapeType { get; }
+        CombatShapeType ProjectileTargetShapeType { get; }
         int ProjectileTargetMask { get; }
         bool IsProjectileTargetActive { get; }
     }

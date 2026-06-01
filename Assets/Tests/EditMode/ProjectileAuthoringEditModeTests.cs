@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using PlayGround.Attack;
 using PlayGround.Common;
+using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using UnityEngine;
 
@@ -25,7 +26,7 @@ namespace PlayGround.Tests.EditMode
                 1f,
                 0.2f,
                 new DamageSnapshot(1f),
-                ProjectileShapeType.Circle);
+                CombatShapeType.Circle);
 
             Assert.That(count, Is.EqualTo(3));
             Assert.That(commands[0].Direction.y, Is.LessThan(0f));
@@ -43,7 +44,7 @@ namespace PlayGround.Tests.EditMode
                 1f,
                 0.25f,
                 new DamageSnapshot(7f),
-                ProjectileShapeType.Circle);
+                CombatShapeType.Circle);
 
             Assert.That(command.Direction, Is.EqualTo(Vector2.right).Using(Vector2Comparer.Instance));
             Assert.That(command.Damage.Amount, Is.EqualTo(7f));
@@ -75,7 +76,7 @@ namespace PlayGround.Tests.EditMode
                 new Vector2(0.25f, 0.25f),
                 0f,
                 new DamageSnapshot(7f),
-                ProjectileShapeType.Circle,
+                CombatShapeType.Circle,
                 directDamageEnabled: false);
 
             Assert.That(command.DirectDamageEnabled, Is.False);
@@ -103,7 +104,7 @@ namespace PlayGround.Tests.EditMode
             Assert.That(basicPrefab.Sprite, Is.EqualTo(renderer.sprite));
             Assert.That(basicPrefab.VisualScale, Is.EqualTo(2f).Within(0.0001f));
             Assert.That(Mathf.DeltaAngle(basicPrefab.VisualRotationDegrees, 270f), Is.EqualTo(0f).Within(0.0001f));
-            Assert.That(basicPrefab.ShapeType, Is.EqualTo(ProjectileShapeType.Rectangle));
+            Assert.That(basicPrefab.ShapeType, Is.EqualTo(CombatShapeType.Rectangle));
             Assert.That(basicPrefab.HalfExtents, Is.EqualTo(new Vector2(1f, 2f)).Using(Vector2Comparer.Instance));
             Object.DestroyImmediate(attackObject);
         }

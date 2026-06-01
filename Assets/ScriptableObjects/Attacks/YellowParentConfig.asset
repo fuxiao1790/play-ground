@@ -16,7 +16,7 @@ MonoBehaviour:
   speed: 16
   lifetime: 1.5
   damage: 10
-  count: 1
+  count: 5
   spreadDegrees: 10
   jitterDegrees: 5
   targetMask: 1

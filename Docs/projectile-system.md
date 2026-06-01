@@ -149,26 +149,26 @@ Keep projectile runtime data plain and compact.
 Projectile state should include:
 
 - ECS entity
+- `ProjectileTag` domain marker
 - projectile type id
 - target mask or target set id
 - immutable damage snapshot reference
-- position and velocity
+- `CombatKinematicsComponent` position and velocity
+- `CombatCollisionComponent` shape, radius, half extents, rotation, and cached bounds
+- `CombatHitComponent` target mask, damage amount, direct-damage flag, and source node id
 - lifetime
 - tracking config and tracked target handle/index
 - render slot or pooled visual id
-- cached bounds
-- hit state
-- pierce/contact gate state
+- projectile-only pierce/contact gate state
 - enableable active state
 
 Target state should include:
 
-- entity handle
-- target type id
-- collision layer or target set id
+- `CombatTargetElement` on the owning projectile scope entity
+- target id and mask
 - position
 - cached bounds
-- baked shape type, radius, half extents, and rotation
+- baked `CombatShapeType`, radius, half extents, and rotation
 
 ## ECS Stage Ownership
 
@@ -190,11 +190,13 @@ land in the narrow system that owns that behavior:
 - `ProjectileContactGateSystem`: repeat-hit gate cooldown expiry
 - `ProjectileCollisionSystem`: spatial-hash broad phase, target AABB filtering, target mask filtering, shape hit checks, pierce count, contact gate creation, ordered hit events, and recycle records for hit-despawned projectiles
 - `ProjectileRoot`: scoped Unity bridge, target/projectile bounds setup, event replay, render submission, and teardown-only destruction
-- `ProjectileCollisionMath`: pure bounds and narrow-phase shape math
+- `CombatCollisionMath`: shared pure bounds and narrow-phase shape math, reached
+  by projectile systems through `ProjectileCollisionMath` compatibility methods
 
-Do not merge these stages back into one large projectile system. Shared data
-belongs in `ProjectileEcsComponents`; small cross-stage constants or ordering
-helpers belong in tiny helper files.
+Do not merge these stages back into one large projectile system. Domain-neutral
+combat data and math belong under `Assets/Scripts/System/Common/`; projectile
+identity, active state, render tags, contact gates, child spawning, and
+spawn/recycle buffers stay in `ProjectileEcsComponents`.
 
 ## Collision
 
@@ -204,10 +206,12 @@ Bake supported 2D shapes from prefab data from the first projectile POC:
 - rectangle/box
 - capsule
 
-Current Unity target snapshots bake collider-derived shape data through
-`ProjectileTargetShapeUtility`. Circle, box, and capsule hurtboxes are converted
-to plain ECS target elements before simulation. Projectile spawn commands also
-carry shape type, radius, half extents, and rotation.
+Current Unity target snapshots bake collider-derived shape data through shared
+`CombatTargetShapeUtility` (with projectile compatibility wrappers where needed).
+Circle, box, and capsule hurtboxes are converted to `CombatTargetElement`
+entries before simulation. Projectile spawn commands carry `CombatShapeType`,
+radius, half extents, and rotation while retaining obsolete `ProjectileShapeType`
+overloads for compatibility.
 
 Broad phase target options:
 
@@ -226,8 +230,9 @@ Narrow phase should cover:
 
 `ProjectileCollisionSystem` builds a per-scope spatial hash from target bounds,
 rejects projectiles that overlap no occupied target cells, applies target AABB
-checks, then delegates narrow-phase checks to `ProjectileCollisionMath`. It does
-not read Unity colliders or call Physics2D.
+checks, then delegates narrow-phase checks to shared `CombatCollisionMath`
+through the projectile adapter. It does not read Unity colliders or call
+Physics2D.
 
 ## Damage
 
@@ -325,8 +330,8 @@ This section documents how the current Unity implementation aligns with this des
 - **Core match:** The overall scoped, data-oriented design is implemented. `ProjectileRoot` owns a scope entity, target registry, template/type maps, and runtime counters (see `Assets/Scripts/System/Projectile/ProjectileRoot.cs`).
 - **Boundary rule:** The implementation follows the bridge pattern: the root reads scene objects and snapshots targets, ECS systems run on plain data and do not touch GameObjects or call `Physics2D` (see `ProjectileRoot.cs` and the simulation systems under `Assets/Scripts/System/Projectile/`).
 - **Frame flow & systems:** Systems implement the staged pipeline described in this doc: `ProjectileSimulationSystem`, `ProjectileSpawnSystem`, `ProjectileTrackingSystem`, `ProjectileMovementSystem`, `ProjectileChildSpawnSystem`, `ProjectileLifetimeSystem`, `ProjectileContactGateSystem`, `ProjectileCollisionSystem`, and `ProjectileRenderPrepareSystem` (see the corresponding source files in `Assets/Scripts/System/Projectile/`).
-- **Data layout & events:** ECS components and buffer elements (`ProjectileComponent`, `ProjectileSpawnRequestElement`, `ProjectileTargetElement`, hit/render buffers) match the documented layout. Hits are written into the scope hit buffer and replayed by `ProjectileRoot` via `ProjectileHit`. Hit payloads are raw unmanaged data copied through ECS and dispatched to source/target scene actors (`Assets/Scripts/System/Projectile/ProjectileEcsComponents.cs`, `ProjectileRuntimeEvents.cs`, `ProjectileSpawnCommand.cs`).
-- **Collision shapes & math:** Circle, rectangle (box), and capsule shapes are supported. Projectile and target AABB bounds are cached in ECS data, spatial-hash broad phase runs in `ProjectileCollisionSystem.cs`, and bounds/narrow-phase math is implemented in `ProjectileCollisionMath.cs`.
+- **Data layout & events:** Projectile entities carry `ProjectileTag` plus common `CombatKinematicsComponent`, `CombatCollisionComponent`, and `CombatHitComponent`. Projectile-only identity, lifetime, pierce/repeat-hit state, tracking, render, child-spawner, and recycle/spawn buffers stay in projectile components. Hits are written into the scope hit buffer and replayed by `ProjectileRoot` via `ProjectileHit`. Hit payloads are reconstructed from common hit data and dispatched to source/target scene actors (`Assets/Scripts/System/Common/CombatEcsComponents.cs`, `Assets/Scripts/System/Projectile/ProjectileEcsComponents.cs`, `ProjectileRuntimeEvents.cs`, `ProjectileSpawnCommand.cs`).
+- **Collision shapes & math:** Circle, rectangle (box), and capsule shapes are supported through `CombatShapeType`. Projectile and target AABB bounds are cached in common ECS data, spatial-hash broad phase runs in `ProjectileCollisionSystem.cs`, and bounds/narrow-phase math is implemented in `CombatCollisionMath.cs`.
 - **Pierce & contact gates:** Contact gates are per-projectile buffer elements and are added/refreshed by the collision system and expired by `ProjectileContactGateSystem`.
 - **Tracking & steering:** Full tracking support exists with query intervals, reacquire logic, and steering that preserves projectile speed (`ProjectileTrackingSystem.cs`). Child projectiles inherit tracking config stored in `ProjectileChildSpawnerComponent`.
 - **Rendering:** Batched instanced rendering is implemented: `ProjectileRenderPrepareSystem` writes matrices into per-scope/per-type render batch buffers and `ProjectileRoot` submits via `Graphics.RenderMeshInstanced` using built `ProjectileRenderResources`.
@@ -348,6 +353,10 @@ This section documents how the current Unity implementation aligns with this des
 
 - `Assets/Scripts/System/Projectile/ProjectileRoot.cs`
 - `Assets/Scripts/System/Projectile/ProjectileEcsComponents.cs`
+- `Assets/Scripts/System/Common/CombatEcsComponents.cs`
+- `Assets/Scripts/System/Common/CombatShapeType.cs`
+- `Assets/Scripts/System/Common/CombatCollisionMath.cs`
+- `Assets/Scripts/System/Common/CombatTargetShapeUtility.cs`
 - `Assets/Scripts/System/Projectile/ProjectileSimulationSystem.cs`
 - `Assets/Scripts/System/Projectile/ProjectileSpawnSystem.cs`
 - `Assets/Scripts/System/Projectile/ProjectileRecycleFlushJob.cs`

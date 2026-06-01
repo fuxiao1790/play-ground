@@ -1,11 +1,11 @@
-using PlayGround.System.Projectile;
+using PlayGround.System.Common;
 using UnityEngine;
 
 namespace PlayGround.System.Aoe
 {
     public readonly struct AoeShape
     {
-        public AoeShape(ProjectileShapeType shapeType, float radius, Vector2 halfExtents, float rotationRadians)
+        public AoeShape(CombatShapeType shapeType, float radius, Vector2 halfExtents, float rotationRadians)
         {
             ShapeType = shapeType;
             Radius = Mathf.Max(0f, radius);
@@ -13,7 +13,7 @@ namespace PlayGround.System.Aoe
             RotationRadians = rotationRadians;
         }
 
-        public ProjectileShapeType ShapeType { get; }
+        public CombatShapeType ShapeType { get; }
         public float Radius { get; }
         public Vector2 HalfExtents { get; }
         public float RotationRadians { get; }

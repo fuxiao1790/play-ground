@@ -1,3 +1,4 @@
+using PlayGround.System.Common;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
@@ -29,7 +30,7 @@ namespace PlayGround.System.Projectile
         private EntityQuery renderType13Query;
         private EntityQuery renderType14Query;
         private EntityQuery renderType15Query;
-        private ComponentTypeHandle<ProjectileKinematicsComponent> kinematicsTypeHandle;
+        private ComponentTypeHandle<CombatKinematicsComponent> kinematicsTypeHandle;
         private ComponentTypeHandle<ProjectileRenderComponent> renderTypeHandle;
         private ComponentTypeHandle<ProjectileRenderElement> renderElementTypeHandle;
 
@@ -52,7 +53,7 @@ namespace PlayGround.System.Projectile
             renderType14Query = RenderTypeQuery<ProjectileRenderType14Tag>(ref state);
             renderType15Query = RenderTypeQuery<ProjectileRenderType15Tag>(ref state);
 
-            kinematicsTypeHandle    = state.GetComponentTypeHandle<ProjectileKinematicsComponent>(true);
+            kinematicsTypeHandle    = state.GetComponentTypeHandle<CombatKinematicsComponent>(true);
             renderTypeHandle        = state.GetComponentTypeHandle<ProjectileRenderComponent>(true);
             renderElementTypeHandle = state.GetComponentTypeHandle<ProjectileRenderElement>(false);
         }
@@ -96,7 +97,8 @@ namespace PlayGround.System.Projectile
             where T : unmanaged, IComponentData
         {
             return state.GetEntityQuery(
-                ComponentType.ReadOnly<ProjectileKinematicsComponent>(),
+                ComponentType.ReadOnly<ProjectileTag>(),
+                ComponentType.ReadOnly<CombatKinematicsComponent>(),
                 ComponentType.ReadOnly<ProjectileRenderComponent>(),
                 ComponentType.ReadWrite<ProjectileRenderElement>(),
                 ComponentType.ReadOnly<T>(),
@@ -106,7 +108,7 @@ namespace PlayGround.System.Projectile
         [BurstCompile]
         private struct ProjectileRenderPrepareJob : IJobChunk
         {
-            [ReadOnly] public ComponentTypeHandle<ProjectileKinematicsComponent> Kinematics;
+            [ReadOnly] public ComponentTypeHandle<CombatKinematicsComponent> Kinematics;
             [ReadOnly] public ComponentTypeHandle<ProjectileRenderComponent> RenderComponents;
             public ComponentTypeHandle<ProjectileRenderElement> RenderElements;
 
@@ -116,7 +118,7 @@ namespace PlayGround.System.Projectile
                 bool useEnabledMask,
                 in v128 chunkEnabledMask)
             {
-                NativeArray<ProjectileKinematicsComponent> kin  = chunk.GetNativeArray(ref Kinematics);
+                NativeArray<CombatKinematicsComponent> kin  = chunk.GetNativeArray(ref Kinematics);
                 NativeArray<ProjectileRenderComponent>     rend = chunk.GetNativeArray(ref RenderComponents);
                 NativeArray<ProjectileRenderElement>       elem = chunk.GetNativeArray(ref RenderElements);
 
@@ -128,7 +130,7 @@ namespace PlayGround.System.Projectile
                         continue;
                     }
 
-                    ProjectileKinematicsComponent k = kin[i];
+                    CombatKinematicsComponent k = kin[i];
                     ProjectileRenderComponent r = rend[i];
 
                     float velocityLengthSquared = math.lengthsq(k.Velocity);

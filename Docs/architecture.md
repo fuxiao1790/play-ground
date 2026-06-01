@@ -56,6 +56,9 @@ General rule:
 - `MobSpawnerRoot`: owns global spawn cap and final mob instantiation
 - `SpawnPoint`: owns local timer, overlap checks, and optional spawn pool
 - `ProjectileRoot`: owns one scoped projectile flow, target registry reference, template baking, listener maps, event replay, and rendering coordination
+- `System/Common`: owns shared combat ECS components, `CombatShapeType`, collider
+  shape baking, bounds, and shape collision math used by projectile and AOE
+  domains
 - `ProjectileSimulationSystem`: clears per-scope projectile event buffers at the start of the simulation stage
 - `ProjectileSpawnSystem`: drains scoped projectile recycle and spawn request
   buffers, reuses inactive projectile entities by scope/render type/slot kind,
@@ -67,7 +70,9 @@ General rule:
 - `ProjectileContactGateSystem`: owns repeat-hit gate cooldown expiry
 - `ProjectileCollisionSystem`: owns projectile target mask filtering, baked-shape hit checks, pierce handling, ordered hit event output, and hit-despawn recycle records
 - `ProjectileRoot`: owns scoped projectile bridge cleanup and destroys scoped entities only when the root tears down
-- `ProjectileCollisionMath`: owns pure circle, rectangle, and capsule narrow-phase math
+- `CombatCollisionMath`: owns pure circle, rectangle, and capsule bounds and
+  narrow-phase math; projectile code reaches it through a projectile
+  compatibility adapter where old APIs still exist
 - `AoeRoot`: owns one scoped AOE target flow, AOE template baking, target sync, optional effect lifetime, hit replay, and spawn requests
 - `AoeWorld`: owns only plain runtime AOE data, target queries, pulse hits, lingering ticks, and re-entry gates
 - `BeamRoot`: future scoped beam/laser flow for continuous or sweeping attacks,
@@ -101,6 +106,10 @@ Data-runtime side:
 - beams/lasers
 - high-count transient hit effects
 - target snapshots used by attack collision
+
+Projectile and AOE data-runtime entities must carry explicit domain tags
+(`ProjectileTag`, later `AoeTag`) or scope components. Common combat components
+alone are not enough to make an entity eligible for a domain system.
 
 Do not move player and mob body collision into the projectile/AOE runtime. Also
 do not move high-count projectiles and AOEs into one GameObject per gameplay

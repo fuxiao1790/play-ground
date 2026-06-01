@@ -1,4 +1,5 @@
 using PlayGround.Common;
+using PlayGround.System.Common;
 using UnityEngine;
 
 namespace PlayGround.System.Projectile
@@ -12,7 +13,7 @@ namespace PlayGround.System.Projectile
             float lifetime,
             float radius,
             DamageSnapshot damage,
-            ProjectileShapeType shapeType)
+            CombatShapeType shapeType)
             : this(
                 position,
                 direction,
@@ -33,6 +34,19 @@ namespace PlayGround.System.Projectile
         {
         }
 
+        [global::System.Obsolete("Use the CombatShapeType overload.")]
+        public ProjectileSpawnCommand(
+            Vector2 position,
+            Vector2 direction,
+            float speed,
+            float lifetime,
+            float radius,
+            DamageSnapshot damage,
+            ProjectileShapeType shapeType)
+            : this(position, direction, speed, lifetime, radius, damage, (CombatShapeType)(int)shapeType)
+        {
+        }
+
         public ProjectileSpawnCommand(
             Vector2 position,
             Vector2 direction,
@@ -42,7 +56,7 @@ namespace PlayGround.System.Projectile
             Vector2 halfExtents,
             float rotationRadians,
             DamageSnapshot damage,
-            ProjectileShapeType shapeType,
+            CombatShapeType shapeType,
             int projectileTypeId = 0,
             int targetMask = 1,
             int pierceCount = 0,
@@ -71,6 +85,46 @@ namespace PlayGround.System.Projectile
             HitPayload = new ProjectileHitPayload(sourceNodeId, damage.Amount, directDamageEnabled);
         }
 
+        [global::System.Obsolete("Use the CombatShapeType overload.")]
+        public ProjectileSpawnCommand(
+            Vector2 position,
+            Vector2 direction,
+            float speed,
+            float lifetime,
+            float radius,
+            Vector2 halfExtents,
+            float rotationRadians,
+            DamageSnapshot damage,
+            ProjectileShapeType shapeType,
+            int projectileTypeId = 0,
+            int targetMask = 1,
+            int pierceCount = 0,
+            float repeatHitCooldownSeconds = 0f,
+            ProjectileTrackingConfig tracking = default,
+            ProjectileChildSpawnConfig childSpawn = default,
+            bool directDamageEnabled = true,
+            EntityId sourceNodeId = default)
+            : this(
+                position,
+                direction,
+                speed,
+                lifetime,
+                radius,
+                halfExtents,
+                rotationRadians,
+                damage,
+                (CombatShapeType)(int)shapeType,
+                projectileTypeId,
+                targetMask,
+                pierceCount,
+                repeatHitCooldownSeconds,
+                tracking,
+                childSpawn,
+                directDamageEnabled,
+                sourceNodeId)
+        {
+        }
+
         public Vector2 Position { get; }
         public Vector2 Direction { get; }
         public float Speed { get; }
@@ -79,7 +133,7 @@ namespace PlayGround.System.Projectile
         public Vector2 HalfExtents { get; }
         public float RotationRadians { get; }
         public DamageSnapshot Damage { get; }
-        public ProjectileShapeType ShapeType { get; }
+        public CombatShapeType ShapeType { get; }
         public int ProjectileTypeId { get; }
         public int TargetMask { get; }
         public int PierceCount { get; }
@@ -153,7 +207,7 @@ namespace PlayGround.System.Projectile
             float lifetime,
             float radius,
             Vector2 halfExtents,
-            ProjectileShapeType shapeType,
+            CombatShapeType shapeType,
             float rotationRadians,
             DamageSnapshot damage,
             int targetMask = 0,
@@ -186,6 +240,50 @@ namespace PlayGround.System.Projectile
             Behavior = behavior;
         }
 
+        [global::System.Obsolete("Use the CombatShapeType overload.")]
+        public ProjectileChildSpawnConfig(
+            int spawnerId,
+            int typeId,
+            float intervalSeconds,
+            float intervalJitterSeconds,
+            float speed,
+            float lifetime,
+            float radius,
+            Vector2 halfExtents,
+            ProjectileShapeType shapeType,
+            float rotationRadians,
+            DamageSnapshot damage,
+            int targetMask = 0,
+            bool directDamageEnabled = true,
+            int pierceCount = 0,
+            float repeatHitCooldownSeconds = 0f,
+            float visualScale = 1f,
+            float visualRotationDegrees = 0f,
+            ProjectileTrackingConfig tracking = default,
+            ProjectileChildSpawnBehavior behavior = default)
+            : this(
+                spawnerId,
+                typeId,
+                intervalSeconds,
+                intervalJitterSeconds,
+                speed,
+                lifetime,
+                radius,
+                halfExtents,
+                (CombatShapeType)(int)shapeType,
+                rotationRadians,
+                damage,
+                targetMask,
+                directDamageEnabled,
+                pierceCount,
+                repeatHitCooldownSeconds,
+                visualScale,
+                visualRotationDegrees,
+                tracking,
+                behavior)
+        {
+        }
+
         public int SpawnerId { get; }
         public int TypeId { get; }
         public float IntervalSeconds { get; }
@@ -194,7 +292,7 @@ namespace PlayGround.System.Projectile
         public float Lifetime { get; }
         public float Radius { get; }
         public Vector2 HalfExtents { get; }
-        public ProjectileShapeType ShapeType { get; }
+        public CombatShapeType ShapeType { get; }
         public float RotationRadians { get; }
         public DamageSnapshot Damage { get; }
         public int TargetMask { get; }

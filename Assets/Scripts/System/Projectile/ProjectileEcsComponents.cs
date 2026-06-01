@@ -1,3 +1,4 @@
+using PlayGround.System.Common;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
@@ -12,35 +13,20 @@ namespace PlayGround.System.Projectile
         public int TypeId;
     }
 
-    // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; reset on reuse.
-    public struct ProjectileKinematicsComponent : IComponentData
-    {
-        public float2 Position;
-        public float2 Velocity;
-    }
-
-    // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; reset on reuse.
-    public struct ProjectileCollisionComponent : IComponentData
-    {
-        public float Radius;
-        public float2 HalfExtents;
-        public float RotationRadians;
-        public float2 BoundsMin;
-        public float2 BoundsMax;
-        public ProjectileShapeType ShapeType;
-    }
-
     // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; active tag disabled on expiry.
     public struct ProjectileLifetimeComponent : IComponentData
     {
         public float RemainingLifetime;
     }
 
+    // ECS Lifecycle: base projectile tag; added at entity creation; kept until root teardown; gates projectile systems from common combat components.
+    public struct ProjectileTag : IComponentData
+    {
+    }
+
     // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; reset on reuse.
     public struct ProjectileHitComponent : IComponentData
     {
-        public int TargetMask;
-        public ProjectileHitPayload HitPayload;
         public int PierceRemaining;
         public float RepeatHitCooldownSeconds;
     }
@@ -99,20 +85,6 @@ namespace PlayGround.System.Projectile
         public override int GetHashCode() => Scope.GetHashCode();
     }
 
-    // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; cleared and rebuilt during sync.
-    public struct ProjectileTargetElement : IBufferElementData
-    {
-        public int TargetId;
-        public int TargetMask;
-        public float2 Position;
-        public float Radius;
-        public float2 HalfExtents;
-        public float RotationRadians;
-        public float2 BoundsMin;
-        public float2 BoundsMax;
-        public ProjectileShapeType ShapeType;
-    }
-
     // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; cleared during simulation/replay.
     public struct ProjectileHitElement : IBufferElementData
     {
@@ -167,7 +139,7 @@ namespace PlayGround.System.Projectile
         public float Radius;
         public float2 HalfExtents;
         public float RotationRadians;
-        public ProjectileShapeType ShapeType;
+        public CombatShapeType ShapeType;
         public float DamageAmount;
         public bool DirectDamageEnabled;
         public int PierceCount;
@@ -200,7 +172,7 @@ namespace PlayGround.System.Projectile
         public float2 HalfExtents;
         public float2 BoundsMin;
         public float2 BoundsMax;
-        public ProjectileShapeType ShapeType;
+        public CombatShapeType ShapeType;
         public ProjectileHitPayload HitPayload;
         public ProjectileTrackingComponent Tracking;
         public ProjectileRenderComponent Render;

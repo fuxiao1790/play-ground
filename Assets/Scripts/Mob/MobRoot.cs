@@ -2,6 +2,7 @@ using System;
 using PlayGround.Attack;
 using PlayGround.Common;
 using PlayGround.System.Aoe;
+using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using UnityEngine;
 
@@ -33,7 +34,7 @@ namespace PlayGround.Mob
         [SerializeField] private float projectileLifetime = 1.8f;
         [SerializeField] private float projectileDamage = 1f;
         [SerializeField] private float projectileRadius = 0.25f;
-        [SerializeField] private ProjectileShapeType projectileShapeType = ProjectileShapeType.Circle;
+        [SerializeField] private CombatShapeType projectileShapeType = CombatShapeType.Circle;
         [SerializeField] private BasicAttackPrefab projectileBasicPrefab;
 
         private static int nextTargetId;
@@ -64,14 +65,14 @@ namespace PlayGround.Mob
         public float ProjectileTargetRadius => ProjectileTargetShapeUtility.Radius(hurtbox, targetRadius);
         public Vector2 ProjectileTargetHalfExtents => ProjectileTargetShapeUtility.HalfExtents(hurtbox, targetRadius);
         public float ProjectileTargetRotationRadians => ProjectileTargetShapeUtility.RotationRadians(hurtbox);
-        public ProjectileShapeType ProjectileTargetShapeType => ProjectileTargetShapeUtility.ShapeType(hurtbox);
+        public CombatShapeType ProjectileTargetShapeType => ProjectileTargetShapeUtility.ShapeType(hurtbox);
         public int ProjectileTargetMask => 1 << hurtbox.gameObject.layer;
         public bool IsProjectileTargetActive => isActiveAndEnabled && isAlive && CurrentHealth > 0f;
         public Vector2 AoeTargetPosition => ProjectileTargetPosition;
         public float AoeTargetRadius => ProjectileTargetRadius;
         public Vector2 AoeTargetHalfExtents => ProjectileTargetHalfExtents;
         public float AoeTargetRotationRadians => ProjectileTargetRotationRadians;
-        public ProjectileShapeType AoeTargetShapeType => ProjectileTargetShapeType;
+        public CombatShapeType AoeTargetShapeType => ProjectileTargetShapeType;
         public int AoeTargetMask => ProjectileTargetMask;
         public bool IsAoeTargetActive => IsProjectileTargetActive;
 

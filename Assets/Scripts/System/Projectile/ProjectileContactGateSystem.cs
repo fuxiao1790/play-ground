@@ -21,6 +21,7 @@ namespace PlayGround.System.Projectile
         }
 
         [BurstCompile]
+        [WithAll(typeof(ProjectileTag))]
         private partial struct ProjectileContactGateJob : IJobEntity
         {
             public float DeltaTime;

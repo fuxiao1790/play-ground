@@ -1,3 +1,4 @@
+using PlayGround.System.Common;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -16,31 +17,31 @@ namespace PlayGround.System.Projectile
             var job = new ProjectileTrackingJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
-                Targets = SystemAPI.GetBufferLookup<ProjectileTargetElement>(true)
+                Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true)
             };
 
             state.Dependency = job.ScheduleParallel(state.Dependency);
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileActiveTag))]
+        [WithAll(typeof(ProjectileTag), typeof(ProjectileActiveTag))]
         private partial struct ProjectileTrackingJob : IJobEntity
         {
             public float DeltaTime;
-            [ReadOnly] public BufferLookup<ProjectileTargetElement> Targets;
+            [ReadOnly] public BufferLookup<CombatTargetElement> Targets;
 
             private void Execute(
-                ref ProjectileKinematicsComponent kinematics,
+                ref CombatKinematicsComponent kinematics,
                 ref ProjectileTrackingComponent tracking,
                 in ProjectileIdentityComponent identity,
-                in ProjectileHitComponent hit)
+                in CombatHitComponent hit)
             {
                 if (!tracking.TrackingEnabled || identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
                 {
                     return;
                 }
 
-                DynamicBuffer<ProjectileTargetElement> targets = Targets[identity.Scope];
+                DynamicBuffer<CombatTargetElement> targets = Targets[identity.Scope];
                 float speed = math.length(kinematics.Velocity);
                 if (speed <= 0.0001f)
                 {
@@ -79,9 +80,9 @@ namespace PlayGround.System.Projectile
 
             private static bool TryRefreshTrackedTarget(
                 ref ProjectileTrackingComponent tracking,
-                ProjectileKinematicsComponent kinematics,
-                ProjectileHitComponent hit,
-                DynamicBuffer<ProjectileTargetElement> targets)
+                CombatKinematicsComponent kinematics,
+                CombatHitComponent hit,
+                DynamicBuffer<CombatTargetElement> targets)
             {
                 if (tracking.TrackedTargetId == 0)
                 {
@@ -121,9 +122,9 @@ namespace PlayGround.System.Projectile
 
             private static bool TryAcquireTrackedTarget(
                 ref ProjectileTrackingComponent tracking,
-                ProjectileKinematicsComponent kinematics,
-                ProjectileHitComponent hit,
-                DynamicBuffer<ProjectileTargetElement> targets)
+                CombatKinematicsComponent kinematics,
+                CombatHitComponent hit,
+                DynamicBuffer<CombatTargetElement> targets)
             {
                 tracking.TrackedTargetId = 0;
                 tracking.TrackedTargetIndex = -1;
@@ -131,7 +132,7 @@ namespace PlayGround.System.Projectile
 
                 for (int i = 0; i < targets.Length; i++)
                 {
-                    ProjectileTargetElement target = targets[i];
+                    CombatTargetElement target = targets[i];
                     if ((hit.TargetMask & target.TargetMask) == 0)
                     {
                         continue;
@@ -165,10 +166,10 @@ namespace PlayGround.System.Projectile
             }
 
             private static bool IsValidTrackedTarget(
-                ProjectileKinematicsComponent kinematics,
+                CombatKinematicsComponent kinematics,
                 ProjectileTrackingComponent tracking,
-                ProjectileHitComponent hit,
-                ProjectileTargetElement target)
+                CombatHitComponent hit,
+                CombatTargetElement target)
             {
                 if ((hit.TargetMask & target.TargetMask) == 0)
                 {

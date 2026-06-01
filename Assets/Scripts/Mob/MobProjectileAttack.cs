@@ -1,5 +1,6 @@
 using PlayGround.Common;
 using PlayGround.Attack;
+using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using UnityEngine;
 
@@ -16,7 +17,7 @@ namespace PlayGround.Mob
         private readonly float lifetimeSeconds;
         private readonly float damage;
         private readonly float radius;
-        private readonly ProjectileShapeType shapeType;
+        private readonly CombatShapeType shapeType;
         private readonly BasicAttackPrefab basicPrefab;
         private float cooldownRemaining;
 
@@ -30,7 +31,7 @@ namespace PlayGround.Mob
             float lifetimeSeconds,
             float damage,
             float radius,
-            ProjectileShapeType shapeType,
+            CombatShapeType shapeType,
             BasicAttackPrefab basicPrefab = null)
         {
             this.owner = owner;
@@ -83,7 +84,7 @@ namespace PlayGround.Mob
         private float ProjectileRadius => basicPrefab != null ? basicPrefab.Radius : radius;
         private Vector2 ProjectileHalfExtents => basicPrefab != null ? basicPrefab.HalfExtents : new Vector2(radius, radius);
         private float ProjectileRotationRadians => basicPrefab != null ? basicPrefab.RotationRadians : 0f;
-        private ProjectileShapeType ProjectileShape => basicPrefab != null ? basicPrefab.ShapeType : shapeType;
+        private CombatShapeType ProjectileShape => basicPrefab != null ? basicPrefab.ShapeType : shapeType;
         private int ProjectileTypeId => basicPrefab != null ? projectileRoot.RegisterTemplate(basicPrefab) : 0;
     }
 }

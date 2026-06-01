@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using PlayGround.Attack;
 using PlayGround.Common;
+using PlayGround.System.Common;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -305,11 +306,13 @@ namespace PlayGround.System.Projectile
 
             entityManager = entityWorld.EntityManager;
             scopeEntity = entityManager.CreateEntity(typeof(ProjectileScope));
-            entityManager.AddBuffer<ProjectileTargetElement>(scopeEntity);
+            entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileHitElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileSpawnRequestElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileRecycleElement>(scopeEntity);
-            allProjectileQuery = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileIdentityComponent>());
+            allProjectileQuery = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<ProjectileTag>(),
+                ComponentType.ReadOnly<ProjectileIdentityComponent>());
             submitQueriesByType = new EntityQuery[MaxStructuralRenderTypes];
             submitQueriesByType[0]  = SubmitQuery<ProjectileRenderType0Tag>();
             submitQueriesByType[1]  = SubmitQuery<ProjectileRenderType1Tag>();
@@ -333,6 +336,7 @@ namespace PlayGround.System.Projectile
         private EntityQuery SubmitQuery<T>() where T : unmanaged, IComponentData
         {
             return entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<ProjectileRenderElement>(),
                 ComponentType.ReadOnly<ProjectileRenderScope>(),
                 ComponentType.ReadOnly<T>(),
@@ -388,7 +392,7 @@ namespace PlayGround.System.Projectile
 
         private void SyncTargetsToEcs()
         {
-            DynamicBuffer<ProjectileTargetElement> targetBuffer = entityManager.GetBuffer<ProjectileTargetElement>(scopeEntity);
+            DynamicBuffer<CombatTargetElement> targetBuffer = entityManager.GetBuffer<CombatTargetElement>(scopeEntity);
             targetBuffer.Clear();
             targetsById.Clear();
 
@@ -406,7 +410,7 @@ namespace PlayGround.System.Projectile
                 float targetRadius = target.ProjectileTargetRadius;
                 float2 targetHalfExtents = new(target.ProjectileTargetHalfExtents.x, target.ProjectileTargetHalfExtents.y);
                 float targetRotationRadians = target.ProjectileTargetRotationRadians;
-                ProjectileShapeType targetShapeType = target.ProjectileTargetShapeType;
+                CombatShapeType targetShapeType = target.ProjectileTargetShapeType;
                 ProjectileCollisionMath.ComputeWorldBounds(
                     targetPosition,
                     targetRadius,
@@ -416,17 +420,17 @@ namespace PlayGround.System.Projectile
                     out float2 boundsMin,
                     out float2 boundsMax);
 
-                targetBuffer.Add(new ProjectileTargetElement
+                targetBuffer.Add(new CombatTargetElement
                 {
                     TargetId = target.TargetId,
                     TargetMask = target.ProjectileTargetMask,
                     Position = targetPosition,
+                    ShapeType = targetShapeType,
                     Radius = targetRadius,
                     HalfExtents = targetHalfExtents,
                     RotationRadians = targetRotationRadians,
                     BoundsMin = boundsMin,
-                    BoundsMax = boundsMax,
-                    ShapeType = targetShapeType
+                    BoundsMax = boundsMax
                 });
                 targetsById[target.TargetId] = target;
             }

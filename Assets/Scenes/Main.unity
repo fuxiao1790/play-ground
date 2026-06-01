@@ -1097,6 +1097,10 @@ PrefabInstance:
       propertyPath: projectileRoot
       value: 
       objectReference: {fileID: 310291308}
+    - target: {fileID: 1170333781181839152, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: recoverySeconds
+      value: 0.25
+      objectReference: {fileID: 0}
     - target: {fileID: 4459914088298401000, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: m_Name
       value: Yellow

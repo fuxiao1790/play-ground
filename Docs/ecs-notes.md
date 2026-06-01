@@ -192,6 +192,10 @@ When entities need frequent state changes every frame:
 
 ### Current Projectile Pool Pattern
 
+- Projectile entities carry `ProjectileTag` plus common
+  `CombatKinematicsComponent`, `CombatCollisionComponent`, and
+  `CombatHitComponent`. Projectile-only systems must query `ProjectileTag` or
+  projectile identity/scope data, never common combat components alone.
 - Runtime despawn disables `ProjectileActiveTag`; it does not destroy projectile
   entities during normal churn.
 - Lifetime and collision systems enqueue recycle records, then

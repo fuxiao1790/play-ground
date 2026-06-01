@@ -1,3 +1,4 @@
+using PlayGround.System.Common;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -19,13 +20,13 @@ namespace PlayGround.System.Projectile
         {
             using (DespawnFrameTimeProfilerMarker.Auto())
             {
-                state.EntityManager.CompleteDependencyBeforeRO<ProjectileTargetElement>();
+                state.EntityManager.CompleteDependencyBeforeRO<CombatTargetElement>();
                 int targetCellCapacity = 0;
-                foreach (DynamicBuffer<ProjectileTargetElement> targets in SystemAPI.Query<DynamicBuffer<ProjectileTargetElement>>())
+                foreach (DynamicBuffer<CombatTargetElement> targets in SystemAPI.Query<DynamicBuffer<CombatTargetElement>>().WithAll<ProjectileScope>())
                 {
                     for (int i = 0; i < targets.Length; i++)
                     {
-                        ProjectileTargetElement target = targets[i];
+                        CombatTargetElement target = targets[i];
                         int2 min = MinCell(target.BoundsMin);
                         int2 max = MaxCell(target.BoundsMax);
                         targetCellCapacity += ((max.x - min.x) + 1) * ((max.y - min.y) + 1);
@@ -33,11 +34,11 @@ namespace PlayGround.System.Projectile
                 }
 
                 var occupiedTargetCells = new NativeParallelHashSet<long>(math.max(1, targetCellCapacity), Allocator.TempJob);
-                foreach ((DynamicBuffer<ProjectileTargetElement> targets, Entity scope) in SystemAPI.Query<DynamicBuffer<ProjectileTargetElement>>().WithEntityAccess())
+                foreach ((DynamicBuffer<CombatTargetElement> targets, Entity scope) in SystemAPI.Query<DynamicBuffer<CombatTargetElement>>().WithAll<ProjectileScope>().WithEntityAccess())
                 {
                     for (int i = 0; i < targets.Length; i++)
                     {
-                        ProjectileTargetElement target = targets[i];
+                        CombatTargetElement target = targets[i];
                         int2 min = MinCell(target.BoundsMin);
                         int2 max = MaxCell(target.BoundsMax);
                         for (int y = min.y; y <= max.y; y++)
@@ -54,7 +55,7 @@ namespace PlayGround.System.Projectile
                 var recycled = new NativeQueue<ProjectilePendingRecycle>(Allocator.TempJob);
                 var job = new ProjectileCollisionJob
                 {
-                    Targets = SystemAPI.GetBufferLookup<ProjectileTargetElement>(true),
+                    Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
                     ChildSpawnerTags = SystemAPI.GetComponentLookup<ProjectileChildSpawnerTag>(true),
                     OccupiedTargetCells = occupiedTargetCells,
                     OccupiedTargetCellCount = occupiedTargetCells.Count(),
@@ -82,10 +83,10 @@ namespace PlayGround.System.Projectile
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileActiveTag))]
+        [WithAll(typeof(ProjectileTag), typeof(ProjectileActiveTag))]
         private partial struct ProjectileCollisionJob : IJobEntity
         {
-            [ReadOnly] public BufferLookup<ProjectileTargetElement> Targets;
+            [ReadOnly] public BufferLookup<CombatTargetElement> Targets;
             [ReadOnly] public ComponentLookup<ProjectileChildSpawnerTag> ChildSpawnerTags;
             [ReadOnly] public NativeParallelHashSet<long> OccupiedTargetCells;
             public int OccupiedTargetCellCount;
@@ -95,10 +96,11 @@ namespace PlayGround.System.Projectile
             private void Execute(
                 Entity entity,
                 in ProjectileIdentityComponent identity,
-                in ProjectileKinematicsComponent kinematics,
-                in ProjectileCollisionComponent collision,
+                in CombatKinematicsComponent kinematics,
+                in CombatCollisionComponent collision,
+                in CombatHitComponent hit,
                 ref ProjectileLifetimeComponent lifetime,
-                ref ProjectileHitComponent hit,
+                ref ProjectileHitComponent projectileHit,
                 EnabledRefRW<ProjectileActiveTag> active,
                 DynamicBuffer<ProjectileContactGateElement> contactGates)
             {
@@ -119,10 +121,10 @@ namespace PlayGround.System.Projectile
                     return;
                 }
 
-                DynamicBuffer<ProjectileTargetElement> targets = Targets[identity.Scope];
+                DynamicBuffer<CombatTargetElement> targets = Targets[identity.Scope];
                 for (int i = 0; i < targets.Length; i++)
                 {
-                    ProjectileTargetElement target = targets[i];
+                    CombatTargetElement target = targets[i];
                     if ((hit.TargetMask & target.TargetMask) == 0 || IsGated(contactGates, target.TargetId))
                     {
                         continue;
@@ -150,18 +152,21 @@ namespace PlayGround.System.Projectile
                         ProjectileTypeId = identity.TypeId,
                         TargetId = target.TargetId,
                         Position = kinematics.Position,
-                        HitPayload = hit.HitPayload,
+                        HitPayload = new ProjectileHitPayload(
+                            hit.SourceNodeId,
+                            hit.DamageAmount,
+                            hit.DirectDamageEnabled),
                         Order = order
                     });
 
-                    AddOrRefreshGate(contactGates, target.TargetId, hit.RepeatHitCooldownSeconds);
-                    if (hit.PierceRemaining <= 0)
+                    AddOrRefreshGate(contactGates, target.TargetId, projectileHit.RepeatHitCooldownSeconds);
+                    if (projectileHit.PierceRemaining <= 0)
                     {
                         Deactivate(entity, identity, ref lifetime, active);
                         return;
                     }
 
-                    hit.PierceRemaining--;
+                    projectileHit.PierceRemaining--;
                 }
             }
 
@@ -227,7 +232,7 @@ namespace PlayGround.System.Projectile
 
             private bool SpatialHashIntersects(
                 ProjectileIdentityComponent identity,
-                ProjectileCollisionComponent collision)
+                CombatCollisionComponent collision)
             {
                 if (OccupiedTargetCellCount == 0)
                 {

@@ -1,3 +1,4 @@
+using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using UnityEngine;
 
@@ -17,7 +18,7 @@ namespace PlayGround.Attack
         public float Radius => ProjectileTargetShapeUtility.Radius(hurtbox);
         public Vector2 HalfExtents => ProjectileTargetShapeUtility.HalfExtents(hurtbox);
         public float RotationRadians => ProjectileTargetShapeUtility.RotationRadians(hurtbox);
-        public ProjectileShapeType ShapeType => ProjectileTargetShapeUtility.ShapeType(hurtbox);
+        public CombatShapeType ShapeType => ProjectileTargetShapeUtility.ShapeType(hurtbox);
 
         private void Awake()
         {

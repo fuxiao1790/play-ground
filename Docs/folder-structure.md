@@ -29,6 +29,8 @@ Create these as systems are ported:
 - `Assets/Scripts/Audio/`: gameplay audio manager and pooled one-shots
 - `Assets/Scripts/Debugging/`: shared debug overlay
 - `Assets/Scripts/System/Projectile/`: scoped projectile runtime
+- `Assets/Scripts/System/Common/`: shared combat ECS data, shape baking, bounds,
+  and narrow-phase collision helpers used by projectile and AOE runtimes
 - `Assets/Scripts/System/Aoe/`: scoped AOE runtime
 - `Assets/Scripts/System/Vfx/`: optional batched VFX runtime
 - `Assets/Prefabs/Player/`: player prefab and child attack loadout prefabs
@@ -59,6 +61,15 @@ Create these as systems are ported:
 
 ## Current Projectile Runtime Map
 
+- `Assets/Scripts/System/Common/CombatEcsComponents.cs`: shared
+  `CombatKinematicsComponent`, `CombatCollisionComponent`, `CombatHitComponent`,
+  and `CombatTargetElement` data used by projectile now and AOE later
+- `Assets/Scripts/System/Common/CombatShapeType.cs`: shared circle, rectangle,
+  and capsule shape enum
+- `Assets/Scripts/System/Common/CombatTargetShapeUtility.cs`: shared collider
+  shape baking from Unity `Collider2D`
+- `Assets/Scripts/System/Common/CombatCollisionMath.cs`: shared bounds and
+  narrow-phase collision math
 - `Assets/Scripts/System/Projectile/ProjectileRoot.cs`: scene-object bridge,
   spawn request submission, target snapshot sync, hit replay, raw payload
   dispatch, counters, and batched render submission
@@ -84,8 +95,8 @@ Create these as systems are ported:
 - `Assets/Scripts/System/Projectile/ProjectileCollisionSystem.cs`: target mask
   filtering, shape hit checks, pierce, hit events, and recycle record enqueue
   for hit-despawned projectiles
-- `Assets/Scripts/System/Projectile/ProjectileCollisionMath.cs`: pure
-  circle/box/capsule narrow-phase math
+- `Assets/Scripts/System/Projectile/ProjectileCollisionMath.cs`: projectile
+  compatibility adapter over shared common collision math
 - `Assets/Scripts/System/Projectile/ProjectileRenderPrepareSystem.cs`:
   late-simulation render matrix preparation for scoped projectile draw
   submission

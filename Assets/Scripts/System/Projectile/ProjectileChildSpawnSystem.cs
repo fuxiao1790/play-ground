@@ -1,3 +1,4 @@
+using PlayGround.System.Common;
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -23,7 +24,7 @@ namespace PlayGround.System.Projectile
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileActiveTag), typeof(ProjectileChildSpawnerTag))]
+        [WithAll(typeof(ProjectileTag), typeof(ProjectileActiveTag), typeof(ProjectileChildSpawnerTag))]
         private partial struct ProjectileChildSpawnEntityJob : IJobEntity
         {
             public float DeltaTime;
@@ -33,9 +34,9 @@ namespace PlayGround.System.Projectile
                 [ChunkIndexInQuery] int chunkIndex,
                 ref ProjectileChildSpawnStateComponent childSpawnState,
                 in ProjectileIdentityComponent identity,
-                in ProjectileKinematicsComponent kinematics,
+                in CombatKinematicsComponent kinematics,
                 in ProjectileLifetimeComponent lifetime,
-                in ProjectileHitComponent hit,
+                in CombatHitComponent hit,
                 in ProjectileChildSpawnerComponent spawner)
             {
                 if (lifetime.RemainingLifetime <= 0f || identity.Scope == Entity.Null)
@@ -62,8 +63,8 @@ namespace PlayGround.System.Projectile
             private void EnqueueChildSpawn(
                 int chunkIndex,
                 ProjectileIdentityComponent parentIdentity,
-                ProjectileKinematicsComponent parentKinematics,
-                ProjectileHitComponent parentHit,
+                CombatKinematicsComponent parentKinematics,
+                CombatHitComponent parentHit,
                 in ProjectileChildSpawnerComponent spawner,
                 int tickIndex,
                 int childIndex)
@@ -71,7 +72,7 @@ namespace PlayGround.System.Projectile
                 float2 velocity = ComputeChildVelocity(parentKinematics, in spawner, childIndex);
                 int targetMask = spawner.TargetMask != 0 ? spawner.TargetMask : parentHit.TargetMask;
                 ProjectileHitPayload hitPayload = new(
-                    parentHit.HitPayload.SourceNodeId,
+                    parentHit.SourceNodeId,
                     spawner.DamageAmount,
                     spawner.DirectDamageEnabled);
 
@@ -123,7 +124,7 @@ namespace PlayGround.System.Projectile
             }
 
             private static float2 ComputeChildVelocity(
-                ProjectileKinematicsComponent parentKinematics,
+                CombatKinematicsComponent parentKinematics,
                 in ProjectileChildSpawnerComponent spawner,
                 int childIndex)
             {

@@ -1,3 +1,4 @@
+using PlayGround.System.Common;
 using Unity.Burst;
 using Unity.Entities;
 
@@ -20,14 +21,14 @@ namespace PlayGround.System.Projectile
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileActiveTag))]
+        [WithAll(typeof(ProjectileTag), typeof(ProjectileActiveTag))]
         private partial struct ProjectileMovementJob : IJobEntity
         {
             public float DeltaTime;
 
             private void Execute(
-                ref ProjectileKinematicsComponent kinematics,
-                ref ProjectileCollisionComponent collision)
+                ref CombatKinematicsComponent kinematics,
+                ref CombatCollisionComponent collision)
             {
                 kinematics.Position += kinematics.Velocity * DeltaTime;
                 ProjectileCollisionMath.ComputeWorldBounds(

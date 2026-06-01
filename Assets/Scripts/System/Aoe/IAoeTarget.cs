@@ -1,5 +1,5 @@
 using PlayGround.Common;
-using PlayGround.System.Projectile;
+using PlayGround.System.Common;
 using UnityEngine;
 
 namespace PlayGround.System.Aoe
@@ -11,7 +11,7 @@ namespace PlayGround.System.Aoe
         float AoeTargetRadius { get; }
         Vector2 AoeTargetHalfExtents { get; }
         float AoeTargetRotationRadians { get; }
-        ProjectileShapeType AoeTargetShapeType { get; }
+        CombatShapeType AoeTargetShapeType { get; }
         int AoeTargetMask { get; }
         bool IsAoeTargetActive { get; }
         void ReceiveAoeHit(DamageSnapshot damage);

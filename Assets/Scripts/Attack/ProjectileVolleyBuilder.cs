@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using PlayGround.Common;
+using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using UnityEngine;
 
@@ -30,7 +31,7 @@ namespace PlayGround.Attack
             float lifetime,
             float radius,
             DamageSnapshot damage,
-            ProjectileShapeType shapeType)
+            CombatShapeType shapeType)
         {
             commands.Clear();
             projectileCount = Mathf.Max(1, projectileCount);

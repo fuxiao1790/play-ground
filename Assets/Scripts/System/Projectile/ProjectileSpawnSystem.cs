@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using PlayGround.System.Common;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Profiling;
@@ -190,19 +191,26 @@ namespace PlayGround.System.Projectile
                 ProjectileId = request.ProjectileId,
                 TypeId = request.TypeId
             });
-            EntityManager.SetComponentData(entity, new ProjectileKinematicsComponent
+            EntityManager.SetComponentData(entity, new CombatKinematicsComponent
             {
                 Position = request.Position,
                 Velocity = request.Velocity
             });
-            EntityManager.SetComponentData(entity, new ProjectileCollisionComponent
+            EntityManager.SetComponentData(entity, new CombatCollisionComponent
             {
+                ShapeType = request.ShapeType,
                 Radius = request.Radius,
                 HalfExtents = request.HalfExtents,
                 RotationRadians = request.RotationRadians,
                 BoundsMin = request.BoundsMin,
-                BoundsMax = request.BoundsMax,
-                ShapeType = request.ShapeType
+                BoundsMax = request.BoundsMax
+            });
+            EntityManager.SetComponentData(entity, new CombatHitComponent
+            {
+                TargetMask = request.TargetMask,
+                DamageAmount = request.HitPayload.DamageAmount,
+                DirectDamageEnabled = request.HitPayload.DirectDamageEnabled,
+                SourceNodeId = request.HitPayload.SourceNodeId
             });
             EntityManager.SetComponentData(entity, new ProjectileLifetimeComponent
             {
@@ -210,8 +218,6 @@ namespace PlayGround.System.Projectile
             });
             EntityManager.SetComponentData(entity, new ProjectileHitComponent
             {
-                TargetMask = request.TargetMask,
-                HitPayload = request.HitPayload,
                 PierceRemaining = request.PierceRemaining,
                 RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds
             });
@@ -242,19 +248,26 @@ namespace PlayGround.System.Projectile
                 ProjectileId = request.ProjectileId,
                 TypeId = request.TypeId
             });
-            ecb.SetComponent(entity, new ProjectileKinematicsComponent
+            ecb.SetComponent(entity, new CombatKinematicsComponent
             {
                 Position = request.Position,
                 Velocity = request.Velocity
             });
-            ecb.SetComponent(entity, new ProjectileCollisionComponent
+            ecb.SetComponent(entity, new CombatCollisionComponent
             {
+                ShapeType = request.ShapeType,
                 Radius = request.Radius,
                 HalfExtents = request.HalfExtents,
                 RotationRadians = request.RotationRadians,
                 BoundsMin = request.BoundsMin,
-                BoundsMax = request.BoundsMax,
-                ShapeType = request.ShapeType
+                BoundsMax = request.BoundsMax
+            });
+            ecb.SetComponent(entity, new CombatHitComponent
+            {
+                TargetMask = request.TargetMask,
+                DamageAmount = request.HitPayload.DamageAmount,
+                DirectDamageEnabled = request.HitPayload.DirectDamageEnabled,
+                SourceNodeId = request.HitPayload.SourceNodeId
             });
             ecb.SetComponent(entity, new ProjectileLifetimeComponent
             {
@@ -262,8 +275,6 @@ namespace PlayGround.System.Projectile
             });
             ecb.SetComponent(entity, new ProjectileHitComponent
             {
-                TargetMask = request.TargetMask,
-                HitPayload = request.HitPayload,
                 PierceRemaining = request.PierceRemaining,
                 RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds
             });
@@ -290,9 +301,11 @@ namespace PlayGround.System.Projectile
 
             archetype = hasChildSpawner
                 ? EntityManager.CreateArchetype(
+                    typeof(ProjectileTag),
                     typeof(ProjectileIdentityComponent),
-                    typeof(ProjectileKinematicsComponent),
-                    typeof(ProjectileCollisionComponent),
+                    typeof(CombatKinematicsComponent),
+                    typeof(CombatCollisionComponent),
+                    typeof(CombatHitComponent),
                     typeof(ProjectileLifetimeComponent),
                     typeof(ProjectileHitComponent),
                     typeof(ProjectileTrackingComponent),
@@ -305,9 +318,11 @@ namespace PlayGround.System.Projectile
                     typeof(ProjectileChildSpawnerComponent),
                     typeof(ProjectileChildSpawnStateComponent))
                 : EntityManager.CreateArchetype(
+                    typeof(ProjectileTag),
                     typeof(ProjectileIdentityComponent),
-                    typeof(ProjectileKinematicsComponent),
-                    typeof(ProjectileCollisionComponent),
+                    typeof(CombatKinematicsComponent),
+                    typeof(CombatCollisionComponent),
+                    typeof(CombatHitComponent),
                     typeof(ProjectileLifetimeComponent),
                     typeof(ProjectileHitComponent),
                     typeof(ProjectileTrackingComponent),
