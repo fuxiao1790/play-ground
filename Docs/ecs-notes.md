@@ -190,6 +190,23 @@ When entities need frequent state changes every frame:
 **Avoid: enableable components for rare/persistent changes**
 - If state changes infrequently, add/remove is fine and saves memory
 
+### Current Projectile Pool Pattern
+
+- Runtime despawn disables `ProjectileActiveTag`; it does not destroy projectile
+  entities during normal churn.
+- Lifetime and collision systems enqueue recycle records, then
+  `ProjectileRecycleFlushJob` appends them to the owning scope buffer.
+- `ProjectileSpawnSystem` drains recycle buffers into keyed inactive pools before
+  materializing spawn requests. It should not scan all inactive projectile
+  entities every spawn frame.
+- Reuse key is scope, render type id, and slot kind. Slot kind is normal or
+  child-spawner archetype.
+- Root/external spawn requests use a child-spawner slot only when the spawn
+  command has child spawning enabled. Child-spawned children currently request
+  normal slots with `HasChildSpawner = 0`.
+- Child-spawner components are part of the entity archetype at creation time.
+  Do not add/remove those components during reuse.
+
 ---
 
 ## Frame Timing for Structural Changes

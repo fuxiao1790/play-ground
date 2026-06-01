@@ -57,15 +57,15 @@ General rule:
 - `SpawnPoint`: owns local timer, overlap checks, and optional spawn pool
 - `ProjectileRoot`: owns one scoped projectile flow, target registry reference, template baking, listener maps, event replay, and rendering coordination
 - `ProjectileSimulationSystem`: clears per-scope projectile event buffers at the start of the simulation stage
-- `ProjectileSpawnSystem`: drains scoped projectile spawn request buffers, reuses
-  inactive projectile entities, and creates cold entities through ECB only when
-  no reusable entity exists
+- `ProjectileSpawnSystem`: drains scoped projectile recycle and spawn request
+  buffers, reuses inactive projectile entities by scope/render type/slot kind,
+  and creates cold entities through ECB only when no reusable entity exists
 - `ProjectileTrackingSystem`: owns homing target refresh, reacquire cadence, and steering
 - `ProjectileMovementSystem`: owns projectile position integration
 - `ProjectileChildSpawnSystem`: owns timed child projectile spawn request events
-- `ProjectileLifetimeSystem`: owns lifetime countdown and disabling expired projectile entities
+- `ProjectileLifetimeSystem`: owns lifetime countdown, disabling expired projectile entities, and recycle records
 - `ProjectileContactGateSystem`: owns repeat-hit gate cooldown expiry
-- `ProjectileCollisionSystem`: owns projectile target mask filtering, baked-shape hit checks, pierce handling, and ordered hit event output
+- `ProjectileCollisionSystem`: owns projectile target mask filtering, baked-shape hit checks, pierce handling, ordered hit event output, and hit-despawn recycle records
 - `ProjectileRoot`: owns scoped projectile bridge cleanup and destroys scoped entities only when the root tears down
 - `ProjectileCollisionMath`: owns pure circle, rectangle, and capsule narrow-phase math
 - `AoeRoot`: owns one scoped AOE target flow, AOE template baking, target sync, optional effect lifetime, hit replay, and spawn requests

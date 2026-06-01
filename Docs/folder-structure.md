@@ -65,20 +65,25 @@ Create these as systems are ported:
 - `Assets/Scripts/System/Projectile/ProjectileSimulationSystem.cs`: per-scope
   projectile event buffer clearing at the start of simulation
 - `Assets/Scripts/System/Projectile/ProjectileSpawnSystem.cs`: per-scope
-  projectile spawn request materialization, inactive entity reuse, and cold
-  entity creation through ECB
+  projectile recycle-buffer draining, spawn request materialization, inactive
+  entity reuse by scope/render type/slot kind, and cold entity creation through
+  ECB
 - `Assets/Scripts/System/Projectile/ProjectileTrackingSystem.cs`: homing target
   refresh, reacquire, and steering
 - `Assets/Scripts/System/Projectile/ProjectileMovementSystem.cs`: position
   integration
 - `Assets/Scripts/System/Projectile/ProjectileChildSpawnSystem.cs`: timed child
-  projectile entity creation
+  projectile spawn request creation
+- `Assets/Scripts/System/Projectile/ProjectileRecycleFlushJob.cs`: native queue
+  flush into scoped projectile recycle buffers
 - `Assets/Scripts/System/Projectile/ProjectileLifetimeSystem.cs`: lifetime
-  countdown and active-state disable for expired projectiles
+  countdown, active-state disable, and recycle record enqueue for expired
+  projectiles
 - `Assets/Scripts/System/Projectile/ProjectileContactGateSystem.cs`: repeat-hit
   contact gate expiry
 - `Assets/Scripts/System/Projectile/ProjectileCollisionSystem.cs`: target mask
-  filtering, shape hit checks, pierce, and hit events
+  filtering, shape hit checks, pierce, hit events, and recycle record enqueue
+  for hit-despawned projectiles
 - `Assets/Scripts/System/Projectile/ProjectileCollisionMath.cs`: pure
   circle/box/capsule narrow-phase math
 - `Assets/Scripts/System/Projectile/ProjectileRenderPrepareSystem.cs`:

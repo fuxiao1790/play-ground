@@ -89,15 +89,17 @@ During fixed simulation:
 1. root syncs live targets from explicit registry
 2. root converts target objects into plain target snapshots
 3. root submits target snapshots to world
-4. root-submitted and ECS-submitted spawn requests are materialized by
+4. lifetime/collision recycle events from the previous simulation pass are
+   drained into the scoped inactive pool
+5. root-submitted and ECS-submitted spawn requests are materialized by
    `ProjectileSpawnSystem`, reusing inactive entities before cold creation
-5. world rebuilds broad-phase target data
-6. ECS systems run focused stages in order:
+6. world rebuilds broad-phase target data
+7. ECS systems run focused stages in order:
    spawn materialization, tracking/reacquire, movement, child projectile request
    creation, lifetime expiry disable, contact-gate expiry, and
    collision/pierce hit output
-7. root drains world events
-8. root handles adapter side effects such as visual slots and registry cleanup
+8. root drains world events
+9. root handles adapter side effects such as visual slots and registry cleanup
 
 During normal update:
 
@@ -123,6 +125,8 @@ Required practices:
 - use batched rendering for the projectile POC; pooled visual objects are only a
   low-count fallback
 - keep spawn commands compact
+- reuse inactive projectile entities by scope, render type, and slot kind instead
+  of scanning every inactive projectile during spawn
 - avoid per-projectile allocations
 - avoid Transform access inside collision loops
 - track active count, spawn count, deactivate/despawn count, simulation time,
@@ -173,17 +177,18 @@ is only the start-of-frame scope/event-buffer coordinator. Feature work should
 land in the narrow system that owns that behavior:
 
 - `ProjectileTrackingSystem`: optional homing, target refresh, reacquire interval, and steering while preserving speed
-- `ProjectileSpawnSystem`: scoped spawn request materialization, inactive
-  projectile reuse by scope/render type/layout, and cold entity creation through
-  ECB when the pool is empty
+- `ProjectileSpawnSystem`: scoped recycle-buffer draining, spawn request
+  materialization, inactive projectile reuse by scope/render type/layout, and
+  cold entity creation through ECB when the matching pool is empty
 - `ProjectileMovementSystem`: position integration from velocity and delta time
 - `ProjectileChildSpawnSystem`: timed child spawn request creation; on each
   interval tick, appends `ChildCountPerTick` spawn requests to the owning scope
   through `EntityCommandBuffer.ParallelWriter`, fully initialized from
   `ProjectileChildSpawnerComponent` (shape, raw hit payload, tracking, spawn pattern)
-- `ProjectileLifetimeSystem`: lifetime countdown and disabling expired active state
+- `ProjectileLifetimeSystem`: lifetime countdown, disabling expired active
+  state, and enqueueing recycle records for later spawn reuse
 - `ProjectileContactGateSystem`: repeat-hit gate cooldown expiry
-- `ProjectileCollisionSystem`: spatial-hash broad phase, target AABB filtering, target mask filtering, shape hit checks, pierce count, contact gate creation, and ordered hit events
+- `ProjectileCollisionSystem`: spatial-hash broad phase, target AABB filtering, target mask filtering, shape hit checks, pierce count, contact gate creation, ordered hit events, and recycle records for hit-despawned projectiles
 - `ProjectileRoot`: scoped Unity bridge, target/projectile bounds setup, event replay, render submission, and teardown-only destruction
 - `ProjectileCollisionMath`: pure bounds and narrow-phase shape math
 
@@ -332,7 +337,8 @@ This section documents how the current Unity implementation aligns with this des
 - **Damage snapshot shape:** The runtime carries a `DamageSnapshot` value recorded on spawn; current buffer fields pass a float `DamageAmount`. If you intended a richer typed snapshot, inspect `PlayGround.Common.DamageSnapshot` and extend the buffer payloads accordingly.
 - **Broad-phase acceleration:** The implementation uses per-scope target buffers plus a fixed-size spatial hash over target AABBs. An AABB tree is not present; add it only if profiling shows the hash plus bounds filter is insufficient.
 - **Impact AOE / hit effects:** AOE and complex hit reactions should be added as explicit payload data, then interpreted by scene actor hit handlers after `ProjectileRoot` drains hit events. The collision and child spawn systems stay free of managed callbacks.
-- **Child spawn / request materialization:** Child projectiles are requested by `ProjectileChildSpawnSystem` via `EntityCommandBuffer.ParallelWriter.AppendToBuffer` on the owning scope. `ProjectileSpawnSystem` materializes those requests on the next simulation pass, reusing inactive child entities before cold creation. Children copy the parent's source node id and use child-specific damage/direct-damage payload data; no managed child-spawn ownership event is emitted.
+- **Spawn reuse / slot kind:** Runtime despawn disables `ProjectileActiveTag` and records the entity in the owning scope's recycle buffer. `ProjectileSpawnSystem` drains those recycle records into keyed inactive pools instead of scanning every projectile entity. Reuse only matches `ProjectileRenderScope.Scope`, render type id, and slot kind. Slot kind is normal or child-spawner archetype; normal slots never gain child-spawner components later, and child-spawner slots are not reused for normal projectiles.
+- **Child spawn / request materialization:** Child projectiles are requested by `ProjectileChildSpawnSystem` via `EntityCommandBuffer.ParallelWriter.AppendToBuffer` on the owning scope. `ProjectileSpawnSystem` materializes those requests on the next simulation pass, reusing inactive child entities before cold creation. Children copy the parent's source node id and use child-specific damage/direct-damage payload data; no managed child-spawn ownership event is emitted. Current child requests set `HasChildSpawner = 0`, so spawned children use normal slots unless a future feature explicitly supports child-spawners spawning more child-spawners.
 - **Child spawn pattern:** `ProjectileChildSpawnBehavior` (attached to `ProjectileChildSpawnConfig`) holds `Count`, `PatternType` (`ProjectileChildSpawnPatternType`: `SideSpray` or `Forward`), and `SpreadDegrees`. `SideSpray` fans `(count+1)/2` shots left and `count/2` shots right, each side spread evenly across `+/-SpreadDegrees/2` around the perpendicular, matching the behavior of `ProjectileSideSpraySpawnPattern`. These values are copied into `ProjectileChildSpawnerComponent` at spawn time and consumed entirely inside the Burst job; adding a new pattern requires only a new enum case and a velocity branch in `ComputeChildVelocity`.
 - **Attack authoring - `ProjectileConfig`:** `ProjectileAttack` no longer holds inline serialized projectile simulation fields. All projectile data (prefab, speed, lifetime, damage, count, spread, tracking, pierce, impact AOE, etc.) lives in a `ProjectileConfig` ScriptableObject assigned via the Inspector. `ProjectileAttack` retains only behavior fields: `projectileRoot`, `recoverySeconds`, `performSound`, and `audioManager`. `ProjectileConfig` also exposes `GetTrackingConfig()` so the SO is the single authoring source for a projectile type.
 - **Child-specific authoring:** `ProjectileChildSpawnConfig` carries full child projectile definition (shape, damage, speed, lifetime, pierce, visual) plus `ProjectileTrackingConfig` and `ProjectileChildSpawnBehavior`. `ChildSpawningProjectileAttack` holds a serialized reference to a `ProjectileAttack` (`parentAttack`) and a `ProjectileConfig` (`childConfig`) SO; no child `ProjectileAttack` component or child GameObject needed. The built `ProjectileChildSpawnConfig` is owned by `ChildSpawningProjectileAttack` and passed per-call via `parentAttack.TryFire(aimDirection, childConfig)`; `ProjectileAttack` has no `activeChildConfig` state or `SetChildConfig` method. Prefab structure: root GameObject carries `ChildSpawningProjectileAttack`; a child GameObject "ParentProjectile" carries `ProjectileAttack` with its own `ProjectileConfig`. No execution-order attribute or runtime deactivation required.
@@ -344,6 +350,7 @@ This section documents how the current Unity implementation aligns with this des
 - `Assets/Scripts/System/Projectile/ProjectileEcsComponents.cs`
 - `Assets/Scripts/System/Projectile/ProjectileSimulationSystem.cs`
 - `Assets/Scripts/System/Projectile/ProjectileSpawnSystem.cs`
+- `Assets/Scripts/System/Projectile/ProjectileRecycleFlushJob.cs`
 - `Assets/Scripts/System/Projectile/ProjectileTrackingSystem.cs`
 - `Assets/Scripts/System/Projectile/ProjectileMovementSystem.cs`
 - `Assets/Scripts/System/Projectile/ProjectileChildSpawnSystem.cs`
