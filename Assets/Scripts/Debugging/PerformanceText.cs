@@ -6,12 +6,13 @@ public class PerformanceText : MonoBehaviour
 {
     [SerializeField] private Text text;
     [SerializeField] private Vector2 padding = new(12f, 12f);
-    [SerializeField] private Vector2 size = new(320f, 72f);
+    [SerializeField] private Vector2 size = new(320f, 96f);
     [SerializeField] private int fontSize = 18;
 
     private EntityQuery projectileQuery;
+    private EntityQuery aoeQuery;
     private float smoothedDeltaTime;
-    private bool queryReady;
+    private bool queriesReady;
 
     private void Awake()
     {
@@ -20,7 +21,7 @@ public class PerformanceText : MonoBehaviour
 
     private void Start()
     {
-        TryBindProjectileQuery();
+        TryBindCombatQueries();
     }
 
     private void Update()
@@ -30,23 +31,25 @@ public class PerformanceText : MonoBehaviour
             return;
         }
 
-        if (!queryReady)
+        if (!queriesReady)
         {
-            TryBindProjectileQuery();
+            TryBindCombatQueries();
         }
 
         smoothedDeltaTime += (Time.unscaledDeltaTime - smoothedDeltaTime) * 0.1f;
 
         float fps = smoothedDeltaTime > 0f ? 1f / smoothedDeltaTime : 0f;
 
-        int entityCount = queryReady ? projectileQuery.CalculateEntityCount() : 0;
+        int projectileCount = queriesReady ? projectileQuery.CalculateEntityCount() : 0;
+        int aoeCount = queriesReady ? aoeQuery.CalculateEntityCount() : 0;
 
         text.text =
             $"FPS: {fps:0}\n" +
-            $"Projectiles: {entityCount:n0}";
+            $"Projectiles: {projectileCount:n0}\n" +
+            $"AOEs: {aoeCount:n0}";
     }
 
-    private void TryBindProjectileQuery()
+    private void TryBindCombatQueries()
     {
         if (World.DefaultGameObjectInjectionWorld == null
             || !World.DefaultGameObjectInjectionWorld.IsCreated)
@@ -60,7 +63,11 @@ public class PerformanceText : MonoBehaviour
         projectileQuery = entityManager.CreateEntityQuery(
             ComponentType.ReadOnly<PlayGround.System.Projectile.ProjectileIdentityComponent>(),
             ComponentType.ReadOnly<PlayGround.System.Projectile.ProjectileActiveTag>());
-        queryReady = true;
+
+        aoeQuery = entityManager.CreateEntityQuery(
+            ComponentType.ReadOnly<PlayGround.System.Aoe.AoeIdentityComponent>(),
+            ComponentType.ReadOnly<PlayGround.System.Aoe.AoeActiveTag>());
+        queriesReady = true;
     }
 
     private void EnsureOverlayText()

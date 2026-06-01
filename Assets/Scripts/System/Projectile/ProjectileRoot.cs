@@ -116,6 +116,11 @@ namespace PlayGround.System.Projectile
             }
             runtimeReady = false;
 
+            if (submitBuffer.IsCreated)
+            {
+                submitBuffer.Dispose();
+            }
+
             DestroyRenderResources();
         }
 
@@ -330,6 +335,11 @@ namespace PlayGround.System.Projectile
             submitQueriesByType[13] = SubmitQuery<ProjectileRenderType13Tag>();
             submitQueriesByType[14] = SubmitQuery<ProjectileRenderType14Tag>();
             submitQueriesByType[15] = SubmitQuery<ProjectileRenderType15Tag>();
+            if (submitBuffer.IsCreated)
+            {
+                submitBuffer.Dispose();
+            }
+
             submitBuffer = new NativeArray<ProjectileRenderElement>(MaxInstancesPerDraw, Allocator.Persistent);
         }
 
