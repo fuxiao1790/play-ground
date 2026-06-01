@@ -95,26 +95,75 @@ There is no global AOE tick. Repeat timing belongs to each AOE and target contac
 
 ## Authoring
 
-`AoeAttack` should expose:
+Current basic AOE content uses three authored pieces:
 
-- AOE effect prefab
-- damage amount or damage definition
-- lifetime seconds
-- tick interval seconds
-- AOE count
-- spawn at aim position
-- spawn at owner position
-- burst radius
-- randomized positions toggle
+- an AOE template prefab, such as
+  `Assets/Prefabs/Effects/BasicAoePulse.prefab`
+- an `AoeConfig` ScriptableObject, such as
+  `Assets/ScriptableObjects/Attacks/BasicAoeConfig.asset`, that maps a numeric
+  type id to that template prefab and owns AOE gameplay values
+- an equipped `AoeAttack` prefab or scene child under `Player/Attacks`
 
-AOE effect prefab should include:
+AOE template prefab requirements:
 
-- visual component or child visual
-- one Collider2D that defines hit shape
+- root GameObject has `BasicAoePrefab`
+- child GameObject named `Visual` has the `SpriteRenderer`
+- child GameObject named `Hurtbox` has one supported `Collider2D` that defines
+  hit shape
+- collision logic uses the `Hurtbox` shape multiplied by
+  `AoeConfig.sizeMultiplier`
+- batched rendering uses the sprite's own size multiplied by the same
+  `AoeConfig.sizeMultiplier`
+- prefab Transform scale is not the runtime sizing control; keep the root and
+  children at scale `1` and tune `sizeMultiplier`
 - no required live trigger damage behavior
 
 Circle AOEs are enough for the first implementation, but the baking boundary
 should allow box and capsule support later without rewriting the runtime shape.
+
+Basic pulse authoring steps:
+
+1. Create an AOE template prefab under `Assets/Prefabs/Effects/`.
+2. Add `BasicAoePrefab` to the root GameObject.
+3. Add a child named `Visual` with a `SpriteRenderer`.
+4. Add a child named `Hurtbox` with one supported `Collider2D`. A circle
+   collider is the default path for simple pulses.
+5. Create an AOE config asset with `Assets > Create > PlayGround > Attack >
+   AOE Config`.
+6. Assign these config fields:
+   - `typeId`: the id used by attacks, for example `0`
+   - `basicPrefab`: the AOE template prefab's `BasicAoePrefab`
+   - `sizeMultiplier`: uniform scale applied to both the batched visual and the
+     baked hurtbox shape
+   - `damage`: damage payload for each hit
+   - `lifetimeSeconds`: `0` for current pulse AOEs
+   - `tickIntervalSeconds`: unused by current pulse AOEs
+   - `count`: number of AOEs spawned per cast
+   - `spawnAtAimPosition`: spawn at mouse/world aim position
+   - `spawnAtOwnerPosition`: spawn at player root when aim position is off
+   - `burstRadius`: placement radius when `count > 1`
+   - `randomizePositions`: randomize burst placement instead of ring placement
+   - `targetMask`: leave as `1` to use the owning root mask
+7. Add or select an `AoeRoot` scene object for the targeting direction.
+8. Set the root `targetMask` to the intended hurtbox layer mask. Player AOEs
+   targeting mobs use `MobHurtbox`; mob AOEs targeting player use
+   `PlayerHurtbox`.
+9. Create an attack prefab under `Assets/Prefabs/Attacks/` with `AoeAttack`.
+10. Assign `AoeAttack.aoeRoot`, assign the AOE config, and tune only
+   attack-instance fields such as recovery and sound on the component.
+11. Put the attack prefab under `Player/Attacks` and enable the component on the
+   scene instance.
+
+`AoeAttack` registers its config's AOE type definition with the assigned root
+during setup. Scene roots can still carry hand-authored `aoeTypes` entries for
+shared content, but equipped attacks should prefer config-driven registration so
+AOE authoring stays symmetrical with projectile authoring.
+
+Current implementation note: the runtime data already carries lifetime and tick
+interval values, but the collision stage currently behaves as a pulse path and
+recycles AOEs after the collision step. Author basic content with
+`lifetimeSeconds = 0` until lingering AOE lifetime and contact-gate systems are
+finished.
 
 ## Projectile Impact AOE
 

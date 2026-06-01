@@ -350,6 +350,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 11400000, guid: 3188618fb9f9b1240bd970f1dfdc1043, type: 2}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: projectileRoot
+      value: 
+      objectReference: {fileID: 310291308}
+    - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childProjectileCount
       value: 100
       objectReference: {fileID: 0}
@@ -361,14 +365,6 @@ PrefabInstance:
       propertyPath: childSpawnIntervalSeconds
       value: 0.5
       objectReference: {fileID: 0}
-    - target: {fileID: 1170333781181839152, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: m_Enabled
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1170333781181839152, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: projectileRoot
-      value: 
-      objectReference: {fileID: 310291308}
     - target: {fileID: 4459914088298401000, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: m_Name
       value: Star
@@ -546,6 +542,14 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 11400000, guid: 05a60ea0a675cad4c83acf982ad5a7bf, type: 2}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: parentConfig
+      value: 
+      objectReference: {fileID: 11400000, guid: fa2cc2799aa0cd2439c658c91e967ea5, type: 2}
+    - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: projectileRoot
+      value: 
+      objectReference: {fileID: 310291308}
+    - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childProjectileCount
       value: 70
       objectReference: {fileID: 0}
@@ -557,18 +561,6 @@ PrefabInstance:
       propertyPath: childSpawnIntervalSeconds
       value: 0.4
       objectReference: {fileID: 0}
-    - target: {fileID: 1170333781181839152, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: config
-      value: 
-      objectReference: {fileID: 11400000, guid: fa2cc2799aa0cd2439c658c91e967ea5, type: 2}
-    - target: {fileID: 1170333781181839152, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: m_Enabled
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1170333781181839152, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: projectileRoot
-      value: 
-      objectReference: {fileID: 310291308}
     - target: {fileID: 4459914088298401000, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: m_Name
       value: Splinter
@@ -711,6 +703,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7214301001001001013, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       insertIndex: -1
       addedObject: {fileID: 773904194}
+    - targetCorrespondingSourceObject: {fileID: 7214301001001001013, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2100000101}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
 --- !u!4 &830174276 stripped
@@ -749,7 +744,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Game.GameRoot
   playerProjectileRoot: {fileID: 310291308}
   mobProjectileRoot: {fileID: 135829712}
-  playerAoeRoot: {fileID: 0}
+  playerAoeRoot: {fileID: 2100000002}
   mobAoeRoot: {fileID: 0}
   mobSpawner: {fileID: 2000001003}
   mobs: []
@@ -1074,6 +1069,14 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 11400000, guid: 39da7532a9e47a548839fa11dff31de9, type: 2}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: parentConfig
+      value: 
+      objectReference: {fileID: 11400000, guid: 73d47a0cff91d70448a61f48bf9ff8ae, type: 2}
+    - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: projectileRoot
+      value: 
+      objectReference: {fileID: 310291308}
+    - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childProjectileCount
       value: 10
       objectReference: {fileID: 0}
@@ -1084,22 +1087,6 @@ PrefabInstance:
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childSpawnIntervalSeconds
       value: 0.1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1170333781181839152, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: config
-      value: 
-      objectReference: {fileID: 11400000, guid: 73d47a0cff91d70448a61f48bf9ff8ae, type: 2}
-    - target: {fileID: 1170333781181839152, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: m_Enabled
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1170333781181839152, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: projectileRoot
-      value: 
-      objectReference: {fileID: 310291308}
-    - target: {fileID: 1170333781181839152, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: recoverySeconds
-      value: 0.25
       objectReference: {fileID: 0}
     - target: {fileID: 4459914088298401000, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: m_Name
@@ -1811,7 +1798,7 @@ MonoBehaviour:
   target: {fileID: 0}
   playerProjectileRoot: {fileID: 310291308}
   mobProjectileRoot: {fileID: 135829712}
-  playerAoeRoot: {fileID: 0}
+  playerAoeRoot: {fileID: 2100000002}
   runtimeMobSprite: {fileID: 0}
   randomSeed: 0
 --- !u!1 &2000001010
@@ -1990,6 +1977,14 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 11400000, guid: af7f88d77546e2c4598f9e8425d53abe, type: 2}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: parentConfig
+      value: 
+      objectReference: {fileID: 11400000, guid: 78715c3cc9f1c2e40b95d43c83564b46, type: 2}
+    - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: projectileRoot
+      value: 
+      objectReference: {fileID: 310291308}
+    - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childProjectileCount
       value: 5
       objectReference: {fileID: 0}
@@ -2001,18 +1996,6 @@ PrefabInstance:
       propertyPath: childSpawnIntervalSeconds
       value: 0.1
       objectReference: {fileID: 0}
-    - target: {fileID: 1170333781181839152, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: config
-      value: 
-      objectReference: {fileID: 11400000, guid: 78715c3cc9f1c2e40b95d43c83564b46, type: 2}
-    - target: {fileID: 1170333781181839152, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: m_Enabled
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1170333781181839152, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
-      propertyPath: projectileRoot
-      value: 
-      objectReference: {fileID: 310291308}
     - target: {fileID: 4459914088298401000, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: m_Name
       value: White
@@ -2066,6 +2049,130 @@ PrefabInstance:
 Transform:
   m_CorrespondingSourceObject: {fileID: 4459914088298401001, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
   m_PrefabInstance: {fileID: 2004286711}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &2100000000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2100000001}
+  - component: {fileID: 2100000002}
+  m_Layer: 11
+  m_Name: AoeRoot_PlayerToMob
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2100000001
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2100000000}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2100000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2100000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 748f28003d60e354ba9faffb9bff651d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.System.Aoe.AoeRoot
+  aoeTypes: []
+  targetMask: 8192
+  maximumAoeCount: 10000
+  maximumTargetCount: 100
+  spawnVisuals: 1
+  batchBoundsHalfExtent: 100000
+--- !u!1001 &2100000100
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 830174276}
+    m_Modifications:
+    - target: {fileID: 1002000000000000000, guid: ae0bbddf654c44b8a45d7c0c8260a012, type: 3}
+      propertyPath: m_Name
+      value: BasicAoeAttack
+      objectReference: {fileID: 0}
+    - target: {fileID: 1002000000000000000, guid: ae0bbddf654c44b8a45d7c0c8260a012, type: 3}
+      propertyPath: m_Layer
+      value: 11
+      objectReference: {fileID: 0}
+    - target: {fileID: 1002000000000000001, guid: ae0bbddf654c44b8a45d7c0c8260a012, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1002000000000000001, guid: ae0bbddf654c44b8a45d7c0c8260a012, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1002000000000000001, guid: ae0bbddf654c44b8a45d7c0c8260a012, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1002000000000000001, guid: ae0bbddf654c44b8a45d7c0c8260a012, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1002000000000000001, guid: ae0bbddf654c44b8a45d7c0c8260a012, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1002000000000000001, guid: ae0bbddf654c44b8a45d7c0c8260a012, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1002000000000000001, guid: ae0bbddf654c44b8a45d7c0c8260a012, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1002000000000000001, guid: ae0bbddf654c44b8a45d7c0c8260a012, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1002000000000000001, guid: ae0bbddf654c44b8a45d7c0c8260a012, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1002000000000000001, guid: ae0bbddf654c44b8a45d7c0c8260a012, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1002000000000000002, guid: ae0bbddf654c44b8a45d7c0c8260a012, type: 3}
+      propertyPath: aoeRoot
+      value: 
+      objectReference: {fileID: 2100000002}
+    - target: {fileID: 1002000000000000002, guid: ae0bbddf654c44b8a45d7c0c8260a012, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: ae0bbddf654c44b8a45d7c0c8260a012, type: 3}
+--- !u!4 &2100000101 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1002000000000000001, guid: ae0bbddf654c44b8a45d7c0c8260a012, type: 3}
+  m_PrefabInstance: {fileID: 2100000100}
   m_PrefabAsset: {fileID: 0}
 --- !u!1 &2139696280
 GameObject:
@@ -2150,6 +2257,7 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 912359185}
+  - {fileID: 2100000001}
   - {fileID: 310291309}
   - {fileID: 135829713}
   - {fileID: 2000001001}

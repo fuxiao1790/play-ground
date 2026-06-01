@@ -8,18 +8,10 @@ namespace PlayGround.Attack
     public sealed class AoeAttack : MonoBehaviour
     {
         [SerializeField] private AoeRoot aoeRoot;
+        [SerializeField] private AoeConfig config;
+        [SerializeField] private float recoverySeconds = 0.25f;
         [SerializeField] private AudioClip performSound;
         [SerializeField] private AudioManager audioManager;
-        [SerializeField] private int aoeTypeId;
-        [SerializeField] private float recoverySeconds = 0.25f;
-        [SerializeField] private float damage = 1f;
-        [SerializeField] private float lifetimeSeconds;
-        [SerializeField] private float tickIntervalSeconds;
-        [SerializeField, Min(1)] private int aoeCount = 1;
-        [SerializeField] private bool spawnAtAimPosition;
-        [SerializeField] private bool spawnAtOwnerPosition = true;
-        [SerializeField] private float burstRadius;
-        [SerializeField] private bool randomizePositions;
 
         private float cooldownRemaining;
         private int deterministicSeed;
@@ -33,8 +25,10 @@ namespace PlayGround.Attack
                 throw new MissingReferenceException($"{nameof(AoeAttack)} on {name} needs an AOE root.");
             }
 
+            ValidateConfig();
             audioManager ??= AudioManager.Instance != null ? AudioManager.Instance : FindAnyObjectByType<AudioManager>();
             deterministicSeed = gameObject.GetHashCode();
+            RegisterAoeType();
         }
 
         private void Update()
@@ -45,6 +39,7 @@ namespace PlayGround.Attack
         public void Configure(AoeRoot root)
         {
             aoeRoot = root;
+            RegisterAoeType();
         }
 
         public void Tick(float deltaTime)
@@ -60,17 +55,17 @@ namespace PlayGround.Attack
             }
 
             Vector2 center = SpawnCenter(aimWorldPosition);
-            int count = Mathf.Max(1, aoeCount);
-            DamageSnapshot damageSnapshot = new(Mathf.Max(0f, damage));
+            int count = Mathf.Max(1, config.Count);
+            DamageSnapshot damageSnapshot = new(Mathf.Max(0f, config.Damage));
             for (int i = 0; i < count; i++)
             {
                 aoeRoot.Spawn(new AoeSpawnCommand(
-                    aoeTypeId,
+                    config.TypeId,
                     SpawnPosition(center, i, count),
-                    1,
+                    EffectiveTargetMask(),
                     damageSnapshot,
-                    lifetimeSeconds,
-                    tickIntervalSeconds));
+                    config.LifetimeSeconds,
+                    config.TickIntervalSeconds));
             }
 
             PlayPerformSound(center);
@@ -80,23 +75,23 @@ namespace PlayGround.Attack
 
         private Vector2 SpawnCenter(Vector2 aimWorldPosition)
         {
-            if (spawnAtAimPosition)
+            if (config.SpawnAtAimPosition)
             {
                 return aimWorldPosition;
             }
 
-            return spawnAtOwnerPosition ? transform.root.position : (Vector2)transform.position;
+            return config.SpawnAtOwnerPosition ? transform.root.position : (Vector2)transform.position;
         }
 
         private Vector2 SpawnPosition(Vector2 center, int index, int count)
         {
-            float radius = Mathf.Max(0f, burstRadius);
+            float radius = Mathf.Max(0f, config.BurstRadius);
             if (count <= 1 || radius <= 0f)
             {
                 return center;
             }
 
-            if (randomizePositions)
+            if (config.RandomizePositions)
             {
                 float angle = Mathf.Repeat(Hash01(index, 0) * Mathf.PI * 2f, Mathf.PI * 2f);
                 float distance = Mathf.Sqrt(Hash01(index, 1)) * radius;
@@ -106,6 +101,27 @@ namespace PlayGround.Attack
             float ringAngle = Mathf.PI * 2f * index / count;
             float ringRadius = Mathf.Sqrt((index + 0.5f) / count) * radius;
             return center + new Vector2(Mathf.Cos(ringAngle), Mathf.Sin(ringAngle)) * ringRadius;
+        }
+
+        private void ValidateConfig()
+        {
+            if (config == null)
+                throw new MissingReferenceException($"{nameof(AoeAttack)} on {name} needs an {nameof(AoeConfig)}.");
+
+            if (!config.IsValidConfig(out string reason))
+                throw new MissingReferenceException($"{nameof(AoeAttack)} on {name} has invalid {nameof(AoeConfig)} '{config.name}': {reason}.");
+        }
+
+        private void RegisterAoeType()
+        {
+            if (aoeRoot == null || config == null) return;
+
+            aoeRoot.RegisterType(config.CreateTypeDefinition());
+        }
+
+        private int EffectiveTargetMask()
+        {
+            return config.TargetMask != 1 || aoeRoot == null ? config.TargetMask : aoeRoot.TargetMask;
         }
 
         private float Hash01(int index, int salt)

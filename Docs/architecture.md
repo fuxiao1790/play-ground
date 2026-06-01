@@ -54,8 +54,9 @@ General rule:
 - `BasicAttackPrefab`: authored attack piece with a `Visual` child
   `SpriteRenderer` and a `Hurtbox` child `CircleCollider2D`, `BoxCollider2D`,
   or `CapsuleCollider2D`
-- `ProjectileAttack`: container attack component/prefab that references one primary basic attack prefab, optional child basic attack prefab, and owns recovery, damage, sound, tracking, count, spread, jitter, pierce, and optional impact AOE
-- `AoeAttack`: attack component/prefab that owns AOE effect template, damage, lifetime, tick interval, count, burst radius, and spawn position mode
+- `ProjectileAttack`: container attack component/prefab that references one projectile config and owns recovery, sound, and optional AOE routing
+- `ChildSpawningProjectileAttack`: container attack component/prefab that references parent and child projectile configs directly and owns child spawn count, interval, jitter, and side spread
+- `AoeAttack`: container attack component/prefab that references one AOE config and owns recovery, sound, and root routing
 - `MobRoot`: owns Rigidbody2D, body collider, hurtbox, sprite/Animator, health, behavior FSM, local event queue, trigger updates, selected behavior, optional projectile attack, and soft death
 - `MobSpawnerRoot`: owns global spawn cap and final mob instantiation
 - `SpawnPoint`: owns local timer, overlap checks, and optional spawn pool

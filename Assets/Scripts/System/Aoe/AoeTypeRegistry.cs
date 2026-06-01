@@ -55,14 +55,53 @@ namespace PlayGround.System.Aoe
 
             if (collider == null)
             {
-                return new AoeShape(CombatShapeType.Circle, definition.FallbackRadius, Vector2.one * definition.FallbackRadius, 0f);
+                float radius = definition.SizeMultiplier;
+                return new AoeShape(CombatShapeType.Circle, radius, Vector2.one * radius, 0f);
             }
 
+            float sizeMultiplier = definition.SizeMultiplier;
             return new AoeShape(
                 CombatTargetShapeUtility.ShapeType(collider),
-                CombatTargetShapeUtility.Radius(collider, definition.FallbackRadius),
-                CombatTargetShapeUtility.HalfExtents(collider, definition.FallbackRadius),
+                UnscaledRadius(collider) * sizeMultiplier,
+                UnscaledHalfExtents(collider) * sizeMultiplier,
                 CombatTargetShapeUtility.RotationRadians(collider));
+        }
+
+        private static float UnscaledRadius(Collider2D collider)
+        {
+            if (collider is CircleCollider2D circle)
+            {
+                return Mathf.Max(0f, circle.radius);
+            }
+
+            if (collider is CapsuleCollider2D capsule)
+            {
+                return capsule.direction == CapsuleDirection2D.Vertical
+                    ? Mathf.Max(0f, capsule.size.x * 0.5f)
+                    : Mathf.Max(0f, capsule.size.y * 0.5f);
+            }
+
+            return 0f;
+        }
+
+        private static Vector2 UnscaledHalfExtents(Collider2D collider)
+        {
+            if (collider is BoxCollider2D box)
+            {
+                return box.size * 0.5f;
+            }
+
+            if (collider is CapsuleCollider2D capsule)
+            {
+                float radius = UnscaledRadius(capsule);
+                float halfSegment = capsule.direction == CapsuleDirection2D.Vertical
+                    ? Mathf.Max(0f, (capsule.size.y * 0.5f) - radius)
+                    : Mathf.Max(0f, (capsule.size.x * 0.5f) - radius);
+                return new Vector2(halfSegment, radius);
+            }
+
+            float radiusFallback = UnscaledRadius(collider);
+            return new Vector2(radiusFallback, radiusFallback);
         }
 
         private static bool TryBakeVisual(AoeTypeDefinition definition, out AoeVisualDefinition visual)
@@ -82,7 +121,7 @@ namespace PlayGround.System.Aoe
             visual = new AoeVisualDefinition(
                 spriteRenderer.sprite,
                 spriteRenderer.sharedMaterial,
-                definition.VisualScale,
+                definition.SizeMultiplier,
                 definition.VisualRotationDegrees);
             return true;
         }
@@ -110,16 +149,14 @@ namespace PlayGround.System.Aoe
         [SerializeField] private int typeId;
         [SerializeField] private GameObject visualPrefab;
         [SerializeField] private Collider2D collisionShape;
-        [SerializeField, Min(0.01f)] private float fallbackRadius = 1f;
-        [SerializeField, Min(0f)] private float visualScale = 1f;
+        [SerializeField, Min(0.01f)] private float sizeMultiplier = 1f;
         [SerializeField] private float visualRotationDegrees;
         [SerializeField, Min(0)] private int preloadCount;
 
         public int TypeId => typeId;
         public GameObject VisualPrefab => visualPrefab;
         public Collider2D CollisionShape => collisionShape;
-        public float FallbackRadius => fallbackRadius;
-        public float VisualScale => visualScale;
+        public float SizeMultiplier => sizeMultiplier;
         public float VisualRotationDegrees => visualRotationDegrees;
         public int PreloadCount => preloadCount;
 
@@ -127,16 +164,14 @@ namespace PlayGround.System.Aoe
             int typeId,
             GameObject visualPrefab,
             Collider2D collisionShape,
-            float fallbackRadius = 1f,
-            float visualScale = 1f,
+            float sizeMultiplier = 1f,
             float visualRotationDegrees = 0f,
             int preloadCount = 0)
         {
             this.typeId = typeId;
             this.visualPrefab = visualPrefab;
             this.collisionShape = collisionShape;
-            this.fallbackRadius = Mathf.Max(0.01f, fallbackRadius);
-            this.visualScale = Mathf.Max(0f, visualScale);
+            this.sizeMultiplier = Mathf.Max(0.01f, sizeMultiplier);
             this.visualRotationDegrees = visualRotationDegrees;
             this.preloadCount = Mathf.Max(0, preloadCount);
         }

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using PlayGround.Attack;
 using PlayGround.Common;
 using PlayGround.System.Aoe;
@@ -129,18 +128,8 @@ namespace PlayGround.Player
             ProjectileAttack[] allProjectileAttacks =
                 attackSearchRoot.GetComponentsInChildren<ProjectileAttack>(true);
 
-            var managedAttacks = new HashSet<ProjectileAttack>(childSpawningAttacks.Length);
-            for (int i = 0; i < childSpawningAttacks.Length; i++)
-            {
-                if (childSpawningAttacks[i].ParentAttack != null)
-                    managedAttacks.Add(childSpawningAttacks[i].ParentAttack);
-            }
-
-            ProjectileAttack[] standaloneAttacks =
-                global::System.Array.FindAll(allProjectileAttacks, a => !managedAttacks.Contains(a));
-
             loadout = new PlayerAttackLoadout(
-                standaloneAttacks,
+                allProjectileAttacks,
                 attackSearchRoot.GetComponentsInChildren<AoeAttack>(true),
                 childSpawningAttacks,
                 maxAttackCount);

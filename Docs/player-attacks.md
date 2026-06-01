@@ -69,8 +69,8 @@ Fields:
 - `speed`: projectile travel speed
 - `lifetime`: seconds before despawn
 - `damage`: direct hit payload damage
-- `count`: number of parent projectiles in one volley
-- `spreadDegrees`: total parent volley spread
+- `count`: number of projectiles in one authored volley
+- `spreadDegrees`: total volley spread
 - `jitterDegrees`: random aim offset after spread
 - `targetMask`: target mask override; leave as `1` for scoped root default
 - `pierceCount`: number of extra hits before disable
@@ -88,7 +88,7 @@ Fields:
 
 Target mask convention:
 
-- Use `1` for normal content so `ProjectileAttack` and child spawners use the
+- Use `1` for normal content so attack components and child spawners use the
   owning `ProjectileRoot.TargetMask`.
 - Use an explicit mask only for special content that intentionally targets a
   different target set.
@@ -137,32 +137,39 @@ Example:
 ## Child-Spawning Attack Authoring
 
 Use `ChildSpawningProjectileAttack` when a parent projectile should emit more
-projectiles over time.
+projectiles over time. The parent projectile and spawned child projectiles are
+both configured through `ProjectileConfig` ScriptableObjects on the same attack
+component.
 
 Prefab structure:
 
 - root GameObject: `ChildSpawningProjectileAttack`
-- child GameObject, commonly `ParentProjectile`: `ProjectileAttack`
 
 Root fields:
 
-- `parentAttack`: reference to the child `ProjectileAttack`
+- `projectileRoot`: optional when scene tags are correct; explicit reference is
+  preferred for scene-authored instances
+- `parentConfig`: `ProjectileConfig` used for the parent projectile volley
 - `childConfig`: `ProjectileConfig` used for spawned child projectiles
+- `performSound`: optional clip
+- `audioManager`: optional, resolved through `AudioManager.Instance` when blank
+- `aoeRoot`: optional, required for impact AOE or hit effects that request AOEs
 - `childProjectileCount`: children created per spawn tick
 - `childSpawnIntervalSeconds`: seconds between child spawn ticks
 - `childSpawnIntervalJitterSeconds`: deterministic per-parent offset
 - `childSideSpreadDegrees`: side-spray spread around the parent perpendicular
 
-Parent `ProjectileAttack` fields:
-
-- `config`: parent `ProjectileConfig`
-- `recoverySeconds`, sound, root, and AOE settings as normal
-
 Child config rules:
 
+- Parent projectile visual, collision, speed, lifetime, damage, count, spread,
+  jitter, pierce, direct damage, impact AOE, and tracking come from
+  `parentConfig`.
 - Child projectile visual, collision, speed, lifetime, damage, pierce, direct
   damage, and tracking come from `childConfig`.
 - Child spawner count and interval come from `ChildSpawningProjectileAttack`.
+- Parent projectiles spawn from the `ChildSpawningProjectileAttack` GameObject
+  Transform. There is no `ParentProjectile` child object and no nested
+  `ProjectileAttack` for this attack type.
 - Leave child `targetMask` as `1` unless the child intentionally uses a special
   target set; root default mask will be applied.
 - Child tracking is copied into ECS through `ProjectileChildSpawnerComponent`.
@@ -173,6 +180,53 @@ Current child spawn pattern:
 - Even child indices fire to the left side of parent travel direction.
 - Odd child indices fire to the right side.
 - Each side fans across `childSideSpreadDegrees`.
+
+## Basic AOE Attack Authoring
+
+Use `AoeAttack` when the player should place pulse AOEs through the scoped AOE
+runtime.
+
+Required scene setup:
+
+- `AoeRoot_PlayerToMob`: scene object with `AoeRoot`
+- `AoeRoot_PlayerToMob.targetMask`: set to `MobHurtbox`
+- `GameRoot.playerAoeRoot`: assigned to `AoeRoot_PlayerToMob`
+- `MobSpawnerRoot.playerAoeRoot`: assigned to `AoeRoot_PlayerToMob` so spawned
+  mobs register as AOE targets
+
+Required `AoeAttack` fields:
+
+- `aoeRoot`: assigned to the player-to-mob AOE root
+- `recoverySeconds`: cooldown after each cast
+- `config`: required `AoeConfig`
+- `performSound`: optional clip
+- `audioManager`: optional, resolved through `AudioManager.Instance` when blank
+
+Required `AoeConfig` fields:
+
+- `typeId`: AOE type id registered with the root by `AoeAttack`
+- `basicPrefab`: `BasicAoePrefab` AOE template
+- `sizeMultiplier`: uniform scale applied to both visual sprite size and
+  hurtbox collision size
+- `damage`: damage payload for each hit
+- `lifetimeSeconds`: `0` for current pulse AOEs
+- `tickIntervalSeconds`: unused by current pulse AOEs
+- `count`: number of AOEs spawned per cast
+- `spawnAtAimPosition`: spawn at mouse/world aim position
+- `spawnAtOwnerPosition`: spawn at player root when aim position is off
+- `burstRadius`: placement radius when `count > 1`
+- `randomizePositions`: randomize burst placement instead of ring placement
+- `targetMask`: leave as `1` to use the owning root mask
+
+Basic pulse example:
+
+- template prefab: `Assets/Prefabs/Effects/BasicAoePulse.prefab`
+- config asset: `Assets/ScriptableObjects/Attacks/BasicAoeConfig.asset`
+- attack prefab: `Assets/Prefabs/Attacks/BasicAoeAttack.prefab`
+- `typeId = 0`
+- `spawnAtAimPosition = true`
+- `lifetimeSeconds = 0`
+- `count = 1`
 
 ## Equipping On Player
 
@@ -188,9 +242,9 @@ Loadout selection order is:
 2. `AoeAttack`
 3. `ChildSpawningProjectileAttack`
 
-`PlayerRoot` removes child-spawning parent `ProjectileAttack` components from
-the standalone projectile list, so the parent is fired only by its
-`ChildSpawningProjectileAttack` wrapper.
+`ProjectileAttack` and `ChildSpawningProjectileAttack` are separate equipped
+attack components. Do not add a child-spawning parent projectile as a nested
+`ProjectileAttack`; put the parent projectile config in `parentConfig`.
 
 When adding an attack to the player:
 
@@ -203,7 +257,8 @@ When adding an attack to the player:
 
 ## Scoped Roots
 
-`ProjectileAttack` resolves roots in this order:
+`ProjectileAttack` and `ChildSpawningProjectileAttack` resolve projectile roots
+in this order:
 
 1. explicit `projectileRoot` field
 2. tagged scene root based on owner type
@@ -219,7 +274,8 @@ Root defaults:
 
 ## Hit Effects And AOEs
 
-`ProjectileAttack` can host child `ProjectileHitEffect` components. On hit:
+Projectile attack components can host child `ProjectileHitEffect` components.
+On hit:
 
 - direct damage is handled through the projectile payload when enabled
 - impact AOE is requested when `impactAoeTypeId >= 0`
@@ -237,14 +293,29 @@ Before playtesting a new projectile attack:
 - template `Visual` child has sprite and instanced material
 - template `Hurtbox` child uses supported 2D collider
 - `ProjectileConfig.basicPrefab` is assigned
-- `ProjectileAttack.config` is assigned
-- child-spawning attack has both `parentAttack` and `childConfig`
+- basic projectile attacks have `ProjectileAttack.config` assigned
+- child-spawning attacks have both `parentConfig` and `childConfig` assigned
 - attack is under `Player/Attacks`
 - attack component is enabled in the scene/prefab instance
 - player `maxAttackCount` includes the attack
 - projectile root target layers and tags match intended targets
 - tracking configs have nonzero range and turn speed when tracking is expected
 - child configs use target mask `1` unless a special mask is intentional
+
+Before playtesting a new AOE attack:
+
+- template prefab root has `BasicAoePrefab`
+- template prefab has `Visual` child with a `SpriteRenderer`
+- template prefab has `Hurtbox` child with a supported `Collider2D`
+- template prefab root, `Visual`, and `Hurtbox` Transforms stay at scale `1`;
+  use `AoeConfig.sizeMultiplier` for runtime size
+- AOE collision size is the `Hurtbox` child collider multiplied by
+  `AoeConfig.sizeMultiplier`
+- AOE render size is the sprite size multiplied by the same
+  `AoeConfig.sizeMultiplier`
+- `AoeConfig.basicPrefab` is assigned
+- `AoeAttack.config` is assigned
+- `AoeAttack.aoeRoot` points at the scoped AOE root
 
 ## Content Examples
 
@@ -285,7 +356,7 @@ Stacking explosive shot:
 - projectile hit effect adds stacks to mob runtime state
 - threshold clears stack slot
 - threshold requests AOE spawn at hit or target position
-- `ProjectileAttack.aoeRoot` must be assigned or configured by scene root
+- the projectile attack `aoeRoot` must be assigned or configured by scene root
 
 Future laser build:
 

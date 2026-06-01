@@ -52,6 +52,7 @@ namespace PlayGround.System.Aoe
         public event global::System.Action<AoeHitContext> AoeHit;
 
         public AoeTargetRegistry TargetRegistry => targetRegistry;
+        public int TargetMask => targetMask;
         public AoeRuntimeCounters Counters => new(
             ActiveAoeCount(),
             spawnedAoes,
@@ -153,6 +154,43 @@ namespace PlayGround.System.Aoe
                 typeRegistry.Register(aoeTypes[i]);
             }
 
+            DestroyRenderResources();
+            BuildRenderResources();
+        }
+
+        public void RegisterType(AoeTypeDefinition definition)
+        {
+            if (definition == null)
+            {
+                return;
+            }
+
+            bool replaced = false;
+            for (int i = 0; i < aoeTypes.Length; i++)
+            {
+                if (aoeTypes[i] == null || aoeTypes[i].TypeId != definition.TypeId)
+                {
+                    continue;
+                }
+
+                aoeTypes[i] = definition;
+                replaced = true;
+                break;
+            }
+
+            if (!replaced)
+            {
+                int oldLength = aoeTypes.Length;
+                global::System.Array.Resize(ref aoeTypes, oldLength + 1);
+                aoeTypes[oldLength] = definition;
+            }
+
+            if (!runtimeReady)
+            {
+                return;
+            }
+
+            typeRegistry.Register(definition);
             DestroyRenderResources();
             BuildRenderResources();
         }

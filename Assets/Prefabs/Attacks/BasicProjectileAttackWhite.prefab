@@ -29,8 +29,7 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 6273168572647400030}
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &9169913095634788993
@@ -45,59 +44,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7e577de2b66e655468d13f94792ac041, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.ChildSpawningProjectileAttack
-  parentAttack: {fileID: 2985126203375627954}
+  projectileRoot: {fileID: 0}
+  parentConfig: {fileID: 11400000, guid: af7f88d77546e2c4598f9e8425d53abe, type: 2}
   childConfig: {fileID: 11400000, guid: a49889183241bb04d816994e893a1fd2, type: 2}
+  performSound: {fileID: 8300000, guid: 79e376e87cd65444ca1e74cce5c5eb21, type: 3}
+  audioManager: {fileID: 0}
+  aoeRoot: {fileID: 0}
   childProjectileCount: 4
   childSpawnIntervalSeconds: 0.15
   childSpawnIntervalJitterSeconds: 0.1
   childSideSpreadDegrees: 30
---- !u!1 &6714326652567423200
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 6273168572647400030}
-  - component: {fileID: 2985126203375627954}
-  m_Layer: 0
-  m_Name: ParentProjectile
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &6273168572647400030
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6714326652567423200}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 4459914088298401001}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2985126203375627954
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6714326652567423200}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3118521124c0c8f4f9f321056d478ba0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.ProjectileAttack
-  projectileRoot: {fileID: 0}
-  config: {fileID: 11400000, guid: af7f88d77546e2c4598f9e8425d53abe, type: 2}
-  recoverySeconds: 0.15
-  performSound: {fileID: 8300000, guid: 79e376e87cd65444ca1e74cce5c5eb21, type: 3}
-  audioManager: {fileID: 0}
-  aoeRoot: {fileID: 0}

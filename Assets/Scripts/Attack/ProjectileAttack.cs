@@ -102,11 +102,6 @@ namespace PlayGround.Attack
             return true;
         }
 
-        internal void SpawnForChildSpawner(Vector2 aimDirection, ProjectileChildSpawnConfig childConfig)
-        {
-            PerformVolley(aimDirection, childConfig);
-        }
-
         private void PerformVolley(Vector2 aimDirection, ProjectileChildSpawnConfig childConfig)
         {
             DamageSnapshot damage = new(config.Damage);
