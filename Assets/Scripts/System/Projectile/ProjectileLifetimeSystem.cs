@@ -1,5 +1,8 @@
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
+using Unity.Profiling;
 
 namespace PlayGround.System.Projectile
 {
@@ -9,15 +12,30 @@ namespace PlayGround.System.Projectile
     [UpdateBefore(typeof(ProjectileCollisionSystem))]
     public partial struct ProjectileLifetimeSystem : ISystem
     {
-        [BurstCompile]
+        private static readonly ProfilerMarker DespawnFrameTimeProfilerMarker =
+            new("Projectile.Despawn.Lifetime.FrameTime");
+
         public void OnUpdate(ref SystemState state)
         {
-            var job = new ProjectileLifetimeJob
+            using (DespawnFrameTimeProfilerMarker.Auto())
             {
-                DeltaTime = SystemAPI.Time.DeltaTime
-            };
+                var recycled = new NativeQueue<ProjectilePendingRecycle>(Allocator.TempJob);
+                var job = new ProjectileLifetimeJob
+                {
+                    DeltaTime = SystemAPI.Time.DeltaTime,
+                    ChildSpawnerTags = SystemAPI.GetComponentLookup<ProjectileChildSpawnerTag>(true),
+                    Recycled = recycled.AsParallelWriter()
+                };
 
-            state.Dependency = job.ScheduleParallel(state.Dependency);
+                JobHandle lifetimeHandle = job.ScheduleParallel(state.Dependency);
+                JobHandle flushHandle = new ProjectileRecycleFlushJob
+                {
+                    Recycled = recycled,
+                    RecycleBuffers = SystemAPI.GetBufferLookup<ProjectileRecycleElement>()
+                }.Schedule(lifetimeHandle);
+
+                state.Dependency = recycled.Dispose(flushHandle);
+            }
         }
 
         [BurstCompile]
@@ -25,9 +43,13 @@ namespace PlayGround.System.Projectile
         private partial struct ProjectileLifetimeJob : IJobEntity
         {
             public float DeltaTime;
+            [ReadOnly] public ComponentLookup<ProjectileChildSpawnerTag> ChildSpawnerTags;
+            public NativeQueue<ProjectilePendingRecycle>.ParallelWriter Recycled;
 
             private void Execute(
+                Entity entity,
                 ref ProjectileLifetimeComponent lifetime,
+                in ProjectileIdentityComponent identity,
                 EnabledRefRW<ProjectileActiveTag> active)
             {
                 lifetime.RemainingLifetime -= DeltaTime;
@@ -35,6 +57,13 @@ namespace PlayGround.System.Projectile
                 {
                     lifetime.RemainingLifetime = 0f;
                     active.ValueRW = false;
+                    Recycled.Enqueue(new ProjectilePendingRecycle
+                    {
+                        Scope = identity.Scope,
+                        ProjectileEntity = entity,
+                        TypeId = identity.TypeId,
+                        HasChildSpawner = ChildSpawnerTags.HasComponent(entity) ? 1 : 0
+                    });
                 }
             }
         }

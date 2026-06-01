@@ -3,6 +3,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Unity.Profiling;
 
 namespace PlayGround.System.Projectile
 {
@@ -11,58 +12,73 @@ namespace PlayGround.System.Projectile
     public partial struct ProjectileCollisionSystem : ISystem
     {
         private const float SpatialHashCellSize = 64f;
+        private static readonly ProfilerMarker DespawnFrameTimeProfilerMarker =
+            new("Projectile.Despawn.Collision.FrameTime");
 
         public void OnUpdate(ref SystemState state)
         {
-            state.EntityManager.CompleteDependencyBeforeRO<ProjectileTargetElement>();
-            int targetCellCapacity = 0;
-            foreach (DynamicBuffer<ProjectileTargetElement> targets in SystemAPI.Query<DynamicBuffer<ProjectileTargetElement>>())
+            using (DespawnFrameTimeProfilerMarker.Auto())
             {
-                for (int i = 0; i < targets.Length; i++)
+                state.EntityManager.CompleteDependencyBeforeRO<ProjectileTargetElement>();
+                int targetCellCapacity = 0;
+                foreach (DynamicBuffer<ProjectileTargetElement> targets in SystemAPI.Query<DynamicBuffer<ProjectileTargetElement>>())
                 {
-                    ProjectileTargetElement target = targets[i];
-                    int2 min = MinCell(target.BoundsMin);
-                    int2 max = MaxCell(target.BoundsMax);
-                    targetCellCapacity += ((max.x - min.x) + 1) * ((max.y - min.y) + 1);
-                }
-            }
-
-            var occupiedTargetCells = new NativeParallelHashSet<long>(math.max(1, targetCellCapacity), Allocator.TempJob);
-            foreach ((DynamicBuffer<ProjectileTargetElement> targets, Entity scope) in SystemAPI.Query<DynamicBuffer<ProjectileTargetElement>>().WithEntityAccess())
-            {
-                for (int i = 0; i < targets.Length; i++)
-                {
-                    ProjectileTargetElement target = targets[i];
-                    int2 min = MinCell(target.BoundsMin);
-                    int2 max = MaxCell(target.BoundsMax);
-                    for (int y = min.y; y <= max.y; y++)
+                    for (int i = 0; i < targets.Length; i++)
                     {
-                        for (int x = min.x; x <= max.x; x++)
+                        ProjectileTargetElement target = targets[i];
+                        int2 min = MinCell(target.BoundsMin);
+                        int2 max = MaxCell(target.BoundsMax);
+                        targetCellCapacity += ((max.x - min.x) + 1) * ((max.y - min.y) + 1);
+                    }
+                }
+
+                var occupiedTargetCells = new NativeParallelHashSet<long>(math.max(1, targetCellCapacity), Allocator.TempJob);
+                foreach ((DynamicBuffer<ProjectileTargetElement> targets, Entity scope) in SystemAPI.Query<DynamicBuffer<ProjectileTargetElement>>().WithEntityAccess())
+                {
+                    for (int i = 0; i < targets.Length; i++)
+                    {
+                        ProjectileTargetElement target = targets[i];
+                        int2 min = MinCell(target.BoundsMin);
+                        int2 max = MaxCell(target.BoundsMax);
+                        for (int y = min.y; y <= max.y; y++)
                         {
-                            occupiedTargetCells.Add(CellKey(scope, x, y));
+                            for (int x = min.x; x <= max.x; x++)
+                            {
+                                occupiedTargetCells.Add(CellKey(scope, x, y));
+                            }
                         }
                     }
                 }
+
+                var pendingHits = new NativeQueue<ProjectilePendingHit>(Allocator.TempJob);
+                var recycled = new NativeQueue<ProjectilePendingRecycle>(Allocator.TempJob);
+                var job = new ProjectileCollisionJob
+                {
+                    Targets = SystemAPI.GetBufferLookup<ProjectileTargetElement>(true),
+                    ChildSpawnerTags = SystemAPI.GetComponentLookup<ProjectileChildSpawnerTag>(true),
+                    OccupiedTargetCells = occupiedTargetCells,
+                    OccupiedTargetCellCount = occupiedTargetCells.Count(),
+                    PendingHits = pendingHits.AsParallelWriter(),
+                    Recycled = recycled.AsParallelWriter()
+                };
+
+                var collisionHandle = job.ScheduleParallel(state.Dependency);
+                var flushHandle = new ProjectileHitFlushJob
+                {
+                    PendingHits = pendingHits,
+                    Hits = SystemAPI.GetBufferLookup<ProjectileHitElement>()
+                }.Schedule(collisionHandle);
+                var recycleFlushHandle = new ProjectileRecycleFlushJob
+                {
+                    Recycled = recycled,
+                    RecycleBuffers = SystemAPI.GetBufferLookup<ProjectileRecycleElement>()
+                }.Schedule(collisionHandle);
+
+                JobHandle disposeHitsHandle = pendingHits.Dispose(flushHandle);
+                JobHandle disposeRecycleHandle = recycled.Dispose(recycleFlushHandle);
+                JobHandle flushesHandle = JobHandle.CombineDependencies(disposeHitsHandle, disposeRecycleHandle);
+                state.Dependency = occupiedTargetCells.Dispose(flushesHandle);
             }
-
-            var pendingHits = new NativeQueue<ProjectilePendingHit>(Allocator.TempJob);
-            var job = new ProjectileCollisionJob
-            {
-                Targets = SystemAPI.GetBufferLookup<ProjectileTargetElement>(true),
-                OccupiedTargetCells = occupiedTargetCells,
-                OccupiedTargetCellCount = occupiedTargetCells.Count(),
-                PendingHits = pendingHits.AsParallelWriter()
-            };
-
-            var collisionHandle = job.ScheduleParallel(state.Dependency);
-            var flushHandle = new ProjectileHitFlushJob
-            {
-                PendingHits = pendingHits,
-                Hits = SystemAPI.GetBufferLookup<ProjectileHitElement>()
-            }.Schedule(collisionHandle);
-
-            JobHandle disposeHitsHandle = pendingHits.Dispose(flushHandle);
-            state.Dependency = occupiedTargetCells.Dispose(disposeHitsHandle);
         }
 
         [BurstCompile]
@@ -70,11 +86,14 @@ namespace PlayGround.System.Projectile
         private partial struct ProjectileCollisionJob : IJobEntity
         {
             [ReadOnly] public BufferLookup<ProjectileTargetElement> Targets;
+            [ReadOnly] public ComponentLookup<ProjectileChildSpawnerTag> ChildSpawnerTags;
             [ReadOnly] public NativeParallelHashSet<long> OccupiedTargetCells;
             public int OccupiedTargetCellCount;
             public NativeQueue<ProjectilePendingHit>.ParallelWriter PendingHits;
+            public NativeQueue<ProjectilePendingRecycle>.ParallelWriter Recycled;
 
             private void Execute(
+                Entity entity,
                 in ProjectileIdentityComponent identity,
                 in ProjectileKinematicsComponent kinematics,
                 in ProjectileCollisionComponent collision,
@@ -85,13 +104,13 @@ namespace PlayGround.System.Projectile
             {
                 if (identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
                 {
-                    Deactivate(ref lifetime, active);
+                    Deactivate(entity, identity, ref lifetime, active);
                     return;
                 }
 
                 if (lifetime.RemainingLifetime <= 0f)
                 {
-                    Deactivate(ref lifetime, active);
+                    Deactivate(entity, identity, ref lifetime, active);
                     return;
                 }
 
@@ -138,7 +157,7 @@ namespace PlayGround.System.Projectile
                     AddOrRefreshGate(contactGates, target.TargetId, hit.RepeatHitCooldownSeconds);
                     if (hit.PierceRemaining <= 0)
                     {
-                        Deactivate(ref lifetime, active);
+                        Deactivate(entity, identity, ref lifetime, active);
                         return;
                     }
 
@@ -147,11 +166,20 @@ namespace PlayGround.System.Projectile
             }
 
             private void Deactivate(
+                Entity entity,
+                ProjectileIdentityComponent identity,
                 ref ProjectileLifetimeComponent lifetime,
                 EnabledRefRW<ProjectileActiveTag> active)
             {
                 lifetime.RemainingLifetime = 0f;
                 active.ValueRW = false;
+                Recycled.Enqueue(new ProjectilePendingRecycle
+                {
+                    Scope = identity.Scope,
+                    ProjectileEntity = entity,
+                    TypeId = identity.TypeId,
+                    HasChildSpawner = ChildSpawnerTags.HasComponent(entity) ? 1 : 0
+                });
             }
 
             private static bool IsGated(DynamicBuffer<ProjectileContactGateElement> contactGates, int targetId)

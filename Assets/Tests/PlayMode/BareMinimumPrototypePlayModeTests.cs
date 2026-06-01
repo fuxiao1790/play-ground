@@ -433,6 +433,85 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void ProjectileSpawnReusesExpiredEcsEntityAfterPoolWarmup()
+        {
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            var command = new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(1f), ProjectileShapeType.Circle);
+
+            projectileRoot.Spawn(command);
+            projectileRoot.Step(0.01f);
+            int warmedCount = CountScopedProjectileEntities(projectileRoot);
+
+            for (int i = 0; i < 4; i++)
+            {
+                projectileRoot.Spawn(command);
+                projectileRoot.Step(0.01f);
+            }
+
+            Assert.That(warmedCount, Is.EqualTo(1));
+            Assert.That(CountScopedProjectileEntities(projectileRoot), Is.EqualTo(warmedCount));
+            Object.Destroy(projectileObject);
+            Object.Destroy(mobObject);
+        }
+
+        [Test]
+        public void ProjectileReuseClearsContactGatesAfterHitDespawn()
+        {
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            mob.Register(projectileRoot.TargetRegistry);
+
+            projectileRoot.Spawn(new ProjectileSpawnCommand(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), ProjectileShapeType.Circle));
+            projectileRoot.Step(0.01f);
+            Assert.That(SumScopedContactGates(projectileRoot), Is.GreaterThan(0));
+
+            projectileRoot.Spawn(new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), ProjectileShapeType.Circle));
+            projectileRoot.Step(0.01f);
+
+            Assert.That(CountScopedProjectileEntities(projectileRoot), Is.EqualTo(1));
+            Assert.That(SumScopedContactGates(projectileRoot), Is.EqualTo(0));
+            Object.Destroy(projectileObject);
+            Object.Destroy(mobObject);
+        }
+
+        [Test]
+        public void ProjectileChildSpawnRequestsReuseChildEntitiesAfterPoolWarmup()
+        {
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            var command = ChildSpawnerCommand();
+
+            SpawnAndDrainChildCycle(projectileRoot, command);
+            int warmedCount = CountScopedProjectileEntities(projectileRoot);
+
+            for (int i = 0; i < 3; i++)
+            {
+                SpawnAndDrainChildCycle(projectileRoot, command);
+            }
+
+            Assert.That(warmedCount, Is.EqualTo(3));
+            Assert.That(CountScopedProjectileEntities(projectileRoot), Is.EqualTo(warmedCount));
+            Object.Destroy(projectileObject);
+            Object.Destroy(mobObject);
+        }
+
+        [Test]
+        public void ProjectileChildSpawnerParentKeepsStableArchetypeDuringReuse()
+        {
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            var command = ChildSpawnerCommand();
+
+            SpawnAndDrainChildCycle(projectileRoot, command);
+            Entity firstParent = FirstScopedChildSpawnerEntity(projectileRoot);
+
+            SpawnAndDrainChildCycle(projectileRoot, command);
+            Entity reusedParent = FirstScopedChildSpawnerEntity(projectileRoot);
+
+            Assert.That(firstParent, Is.EqualTo(reusedParent));
+            Assert.That(CountScopedChildSpawnerEntities(projectileRoot), Is.EqualTo(1));
+            Object.Destroy(projectileObject);
+            Object.Destroy(mobObject);
+        }
+
+        [Test]
         public void SpawnerUsesPoolAndEnforcesGlobalCap()
         {
             CreateSpawnFixture(1, 0, out GameObject spawnerObject, out MobSpawnerRoot spawner, out SpawnPoint point, out GameObject prefabObject, out MobSpawnPool pool);
@@ -537,6 +616,41 @@ namespace PlayGround.Tests.PlayMode
             mobObject.SetActive(true);
         }
 
+        private static ProjectileSpawnCommand ChildSpawnerCommand()
+        {
+            return new ProjectileSpawnCommand(
+                new Vector2(50f, 50f),
+                Vector2.right,
+                0f,
+                0.001f,
+                1f,
+                new Vector2(1f, 1f),
+                0f,
+                new DamageSnapshot(1f),
+                ProjectileShapeType.Circle,
+                childSpawn: new ProjectileChildSpawnConfig(
+                    1,
+                    0,
+                    0.001f,
+                    0f,
+                    0f,
+                    0f,
+                    1f,
+                    new Vector2(1f, 1f),
+                    ProjectileShapeType.Circle,
+                    0f,
+                    new DamageSnapshot(1f),
+                    behavior: new ProjectileChildSpawnBehavior(1, ProjectileChildSpawnPatternType.Forward)),
+                directDamageEnabled: false);
+        }
+
+        private static void SpawnAndDrainChildCycle(ProjectileRoot projectileRoot, ProjectileSpawnCommand command)
+        {
+            projectileRoot.Spawn(command);
+            projectileRoot.Step(0.002f);
+            projectileRoot.Step(0.002f);
+        }
+
         private static int RenderInstanceCount(ProjectileRoot projectileRoot, int typeId)
         {
             const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -614,6 +728,89 @@ namespace PlayGround.Tests.PlayMode
             }
 
             return maxVelocityY;
+        }
+
+        private static int CountScopedProjectileEntities(ProjectileRoot projectileRoot)
+        {
+            return CountScopedProjectiles(projectileRoot, _ => true);
+        }
+
+        private static int CountScopedChildSpawnerEntities(ProjectileRoot projectileRoot)
+        {
+            return CountScopedProjectiles(
+                projectileRoot,
+                entity => World.DefaultGameObjectInjectionWorld.EntityManager.HasComponent<ProjectileChildSpawnerTag>(entity));
+        }
+
+        private static Entity FirstScopedChildSpawnerEntity(ProjectileRoot projectileRoot)
+        {
+            Entity result = Entity.Null;
+            CountScopedProjectiles(
+                projectileRoot,
+                entity =>
+                {
+                    EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+                    if (!entityManager.HasComponent<ProjectileChildSpawnerTag>(entity))
+                    {
+                        return false;
+                    }
+
+                    result = entity;
+                    return true;
+                });
+            Assert.That(result, Is.Not.EqualTo(Entity.Null));
+            return result;
+        }
+
+        private static int SumScopedContactGates(ProjectileRoot projectileRoot)
+        {
+            Entity scope = ProjectileScopeEntity(projectileRoot);
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<ProjectileIdentityComponent>(),
+                ComponentType.ReadOnly<ProjectileContactGateElement>());
+            using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
+            int gateCount = 0;
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                ProjectileIdentityComponent identity = entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]);
+                if (identity.Scope != scope)
+                {
+                    continue;
+                }
+
+                gateCount += entityManager.GetBuffer<ProjectileContactGateElement>(entities[i]).Length;
+            }
+
+            return gateCount;
+        }
+
+        private static int CountScopedProjectiles(ProjectileRoot projectileRoot, global::System.Func<Entity, bool> predicate)
+        {
+            Entity scope = ProjectileScopeEntity(projectileRoot);
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            using EntityQuery query = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileIdentityComponent>());
+            using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
+            int count = 0;
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                ProjectileIdentityComponent identity = entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]);
+                if (identity.Scope == scope && predicate(entities[i]))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static Entity ProjectileScopeEntity(ProjectileRoot projectileRoot)
+        {
+            const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var scopeEntityField = typeof(ProjectileRoot).GetField("scopeEntity", Flags);
+            return (Entity)scopeEntityField.GetValue(projectileRoot);
         }
 
         private static void CreateSpawnFixture(

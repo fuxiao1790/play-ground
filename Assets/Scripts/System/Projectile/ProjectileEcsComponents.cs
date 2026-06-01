@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace PlayGround.System.Projectile
 {
-    // ECS Lifecycle: base projectile component; added by archetype creation; kept until root teardown; reset on reuse.
+    // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; reset on reuse.
     public struct ProjectileIdentityComponent : IComponentData
     {
         public Entity Scope;
@@ -12,14 +12,14 @@ namespace PlayGround.System.Projectile
         public int TypeId;
     }
 
-    // ECS Lifecycle: base projectile component; added by archetype creation; kept until root teardown; reset on reuse.
+    // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; reset on reuse.
     public struct ProjectileKinematicsComponent : IComponentData
     {
         public float2 Position;
         public float2 Velocity;
     }
 
-    // ECS Lifecycle: base projectile component; added by archetype creation; kept until root teardown; reset on reuse.
+    // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; reset on reuse.
     public struct ProjectileCollisionComponent : IComponentData
     {
         public float Radius;
@@ -30,13 +30,13 @@ namespace PlayGround.System.Projectile
         public ProjectileShapeType ShapeType;
     }
 
-    // ECS Lifecycle: base projectile component; added by archetype creation; kept until root teardown; active tag disabled on expiry.
+    // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; active tag disabled on expiry.
     public struct ProjectileLifetimeComponent : IComponentData
     {
         public float RemainingLifetime;
     }
 
-    // ECS Lifecycle: base projectile component; added by archetype creation; kept until root teardown; reset on reuse.
+    // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; reset on reuse.
     public struct ProjectileHitComponent : IComponentData
     {
         public int TargetMask;
@@ -45,7 +45,7 @@ namespace PlayGround.System.Projectile
         public float RepeatHitCooldownSeconds;
     }
 
-    // ECS Lifecycle: base projectile component; added by archetype creation; kept until root teardown; reset on reuse.
+    // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; reset on reuse.
     public struct ProjectileTrackingComponent : IComponentData
     {
         public bool TrackingEnabled;
@@ -64,7 +64,7 @@ namespace PlayGround.System.Projectile
         public int ChildSpawnTickIndex;
     }
 
-    // ECS Lifecycle: base projectile component; added by archetype creation; kept until root teardown; reset on reuse.
+    // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; reset on reuse.
     public struct ProjectileRenderComponent : IComponentData
     {
         public int IsRenderable;
@@ -124,13 +124,13 @@ namespace PlayGround.System.Projectile
         public uint Order;
     }
 
-    // ECS Lifecycle: base projectile component; added by archetype creation; kept until root teardown; overwritten during render prep.
+    // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; overwritten during render prep.
     public struct ProjectileRenderElement : IComponentData
     {
         public Matrix4x4 objectToWorld;
     }
 
-    // ECS Lifecycle: projectile buffer; added by archetype creation; kept until root teardown; cleared on reuse.
+    // ECS Lifecycle: projectile buffer; added by spawn materialization; kept until root teardown; cleared on reuse.
     public struct ProjectileContactGateElement : IBufferElementData
     {
         public int TargetId;
@@ -142,7 +142,7 @@ namespace PlayGround.System.Projectile
     {
     }
 
-    // ECS Lifecycle: enableable projectile tag; added by archetype creation; kept until root teardown; enabled on spawn, disabled on despawn.
+    // ECS Lifecycle: enableable projectile tag; added by spawn materialization; kept until root teardown; enabled on spawn, disabled on despawn.
     public struct ProjectileActiveTag : IComponentData, IEnableableComponent
     {
     }
@@ -183,6 +183,39 @@ namespace PlayGround.System.Projectile
         public float TrackingInitialQueryDelaySeconds;
     }
 
+    // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by ProjectileSpawnSystem.
+    public struct ProjectileSpawnRequestElement : IBufferElementData
+    {
+        public int ProjectileId;
+        public int TypeId;
+        public int TargetMask;
+        public int PierceRemaining;
+        public int HasChildSpawner;
+        public float RepeatHitCooldownSeconds;
+        public float Lifetime;
+        public float Radius;
+        public float RotationRadians;
+        public float2 Position;
+        public float2 Velocity;
+        public float2 HalfExtents;
+        public float2 BoundsMin;
+        public float2 BoundsMax;
+        public ProjectileShapeType ShapeType;
+        public ProjectileHitPayload HitPayload;
+        public ProjectileTrackingComponent Tracking;
+        public ProjectileRenderComponent Render;
+        public ProjectileChildSpawnerComponent ChildSpawner;
+        public ProjectileChildSpawnStateComponent ChildSpawnState;
+    }
+
+    // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by ProjectileSpawnSystem into its reuse pool.
+    public struct ProjectileRecycleElement : IBufferElementData
+    {
+        public Entity ProjectileEntity;
+        public int TypeId;
+        public int HasChildSpawner;
+    }
+
     // ECS Lifecycle: transient native payload; not added to entities; queued during collision hit flush.
     public struct ProjectilePendingHit
     {
@@ -193,6 +226,14 @@ namespace PlayGround.System.Projectile
         public float2 Position;
         public ProjectileHitPayload HitPayload;
         public uint Order;
+    }
+
+    public struct ProjectilePendingRecycle
+    {
+        public Entity Scope;
+        public Entity ProjectileEntity;
+        public int TypeId;
+        public int HasChildSpawner;
     }
 
 }

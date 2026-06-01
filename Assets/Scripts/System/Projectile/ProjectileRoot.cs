@@ -16,25 +16,6 @@ namespace PlayGround.System.Projectile
         private const int MaxInstancesPerDraw = 1023;
         private const int MaxStructuralRenderTypes = 16;
         private const int ProjectileRenderQueue = (int)RenderQueue.Transparent + 50;
-        private static readonly global::System.Type[] RenderTagTypes =
-        {
-            typeof(ProjectileRenderType0Tag),
-            typeof(ProjectileRenderType1Tag),
-            typeof(ProjectileRenderType2Tag),
-            typeof(ProjectileRenderType3Tag),
-            typeof(ProjectileRenderType4Tag),
-            typeof(ProjectileRenderType5Tag),
-            typeof(ProjectileRenderType6Tag),
-            typeof(ProjectileRenderType7Tag),
-            typeof(ProjectileRenderType8Tag),
-            typeof(ProjectileRenderType9Tag),
-            typeof(ProjectileRenderType10Tag),
-            typeof(ProjectileRenderType11Tag),
-            typeof(ProjectileRenderType12Tag),
-            typeof(ProjectileRenderType13Tag),
-            typeof(ProjectileRenderType14Tag),
-            typeof(ProjectileRenderType15Tag)
-        };
         private static readonly ProfilerMarker DrainHitsProfilerMarker = new("ProjectileRoot.DrainHits");
         private static readonly ProfilerMarker SubmitProjectilesProfilerMarker = new("ProjectileRoot.SubmitProjectiles");
         private static readonly ProfilerMarker ReplayProjectileHitEventsProfilerMarker = new("ProjectileRoot.ReplayProjectileHitEvents");
@@ -54,7 +35,6 @@ namespace PlayGround.System.Projectile
         private readonly Dictionary<int, IProjectileTarget> targetsById = new();
         private readonly Dictionary<BasicAttackPrefab, int> templateTypeIds = new();
         private readonly Dictionary<int, ProjectileRenderResources> renderResourcesByType = new();
-        private readonly Dictionary<int, EntityArchetype> projectileArchetypesByType = new();
 
         private World entityWorld;
         private EntityManager entityManager;
@@ -244,9 +224,16 @@ namespace PlayGround.System.Projectile
             EnsureRuntimeReady();
             ValidateSpawnCommand(command);
 
-            Entity entity = entityManager.CreateEntity(ProjectileArchetypeFor(command.ProjectileTypeId));
             int projectileId = ++nextProjectileId;
+            entityManager.GetBuffer<ProjectileSpawnRequestElement>(scopeEntity)
+                .Add(SpawnRequestFor(command, projectileId));
+            return projectileId;
+        }
+
+        private ProjectileSpawnRequestElement SpawnRequestFor(ProjectileSpawnCommand command, int projectileId)
+        {
             float2 position = new(command.Position.x, command.Position.y);
+            float2 velocity = new float2(command.Direction.x, command.Direction.y) * command.Speed;
             float2 halfExtents = new(command.HalfExtents.x, command.HalfExtents.y);
             ProjectileCollisionMath.ComputeWorldBounds(
                 position,
@@ -257,62 +244,40 @@ namespace PlayGround.System.Projectile
                 out float2 boundsMin,
                 out float2 boundsMax);
 
-            entityManager.SetComponentData(entity, new ProjectileIdentityComponent
+            var request = new ProjectileSpawnRequestElement
             {
-                Scope = scopeEntity,
                 ProjectileId = projectileId,
-                TypeId = command.ProjectileTypeId
-            });
-            entityManager.SetComponentData(entity, new ProjectileKinematicsComponent
-            {
-                Position = position,
-                Velocity = new float2(command.Direction.x, command.Direction.y) * command.Speed
-            });
-            entityManager.SetComponentData(entity, new ProjectileCollisionComponent
-            {
+                TypeId = command.ProjectileTypeId,
+                TargetMask = command.TargetMask,
+                PierceRemaining = command.PierceCount,
+                HasChildSpawner = command.ChildSpawn.Enabled ? 1 : 0,
+                RepeatHitCooldownSeconds = command.RepeatHitCooldownSeconds,
+                Lifetime = command.Lifetime,
                 Radius = command.Radius,
-                HalfExtents = halfExtents,
                 RotationRadians = command.RotationRadians,
+                Position = position,
+                Velocity = velocity,
+                HalfExtents = halfExtents,
                 BoundsMin = boundsMin,
                 BoundsMax = boundsMax,
-                ShapeType = command.ShapeType
-            });
-            entityManager.SetComponentData(entity, new ProjectileLifetimeComponent
-            {
-                RemainingLifetime = command.Lifetime
-            });
-            entityManager.SetComponentData(entity, new ProjectileHitComponent
-            {
-                TargetMask = command.TargetMask,
+                ShapeType = command.ShapeType,
                 HitPayload = command.HitPayload,
-                PierceRemaining = command.PierceCount,
-                RepeatHitCooldownSeconds = command.RepeatHitCooldownSeconds
-            });
-            entityManager.SetComponentData(entity, new ProjectileTrackingComponent
-            {
-                TrackingEnabled = command.Tracking.Enabled,
-                TrackingRangeSquared = command.Tracking.Range * command.Tracking.Range,
-                TrackingTurnSpeedRadians = math.radians(command.Tracking.TurnSpeedDegrees),
-                TrackingQueryCooldownRemaining = command.Tracking.InitialQueryDelaySeconds,
-                TrackingQueryIntervalSeconds = command.Tracking.QueryIntervalSeconds,
-                TrackedTargetId = 0,
-                TrackedTargetIndex = -1
-            });
-            entityManager.SetComponentData(entity, RenderComponentFor(command.ProjectileTypeId));
+                Tracking = TrackingComponentFor(command.Tracking),
+                Render = RenderComponentFor(command.ProjectileTypeId)
+            };
+
             if (command.ChildSpawn.Enabled)
             {
-                entityManager.AddComponent<ProjectileChildSpawnerTag>(entity);
-                entityManager.AddComponentData(entity, ChildSpawnerComponentFor(command.ChildSpawn));
-                entityManager.AddComponentData(entity, new ProjectileChildSpawnStateComponent
+                request.ChildSpawner = ChildSpawnerComponentFor(command.ChildSpawn);
+                request.ChildSpawnState = new ProjectileChildSpawnStateComponent
                 {
                     ChildSpawnCooldownRemaining = command.ChildSpawn.IntervalSeconds
                         + DeterministicJitter(projectileId, command.ChildSpawn.IntervalJitterSeconds),
                     ChildSpawnTickIndex = 0
-                });
+                };
             }
-            entityManager.AddSharedComponent(entity, new ProjectileRenderScope { Scope = scopeEntity });
-            entityManager.SetComponentEnabled<ProjectileActiveTag>(entity, true);
-            return projectileId;
+
+            return request;
         }
 
         public void Step(float deltaTime)
@@ -339,10 +304,11 @@ namespace PlayGround.System.Projectile
             }
 
             entityManager = entityWorld.EntityManager;
-            projectileArchetypesByType.Clear();
             scopeEntity = entityManager.CreateEntity(typeof(ProjectileScope));
             entityManager.AddBuffer<ProjectileTargetElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileHitElement>(scopeEntity);
+            entityManager.AddBuffer<ProjectileSpawnRequestElement>(scopeEntity);
+            entityManager.AddBuffer<ProjectileRecycleElement>(scopeEntity);
             allProjectileQuery = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileIdentityComponent>());
             submitQueriesByType = new EntityQuery[MaxStructuralRenderTypes];
             submitQueriesByType[0]  = SubmitQuery<ProjectileRenderType0Tag>();
@@ -562,6 +528,20 @@ namespace PlayGround.System.Projectile
             };
         }
 
+        private static ProjectileTrackingComponent TrackingComponentFor(ProjectileTrackingConfig config)
+        {
+            return new ProjectileTrackingComponent
+            {
+                TrackingEnabled = config.Enabled,
+                TrackingRangeSquared = config.Range * config.Range,
+                TrackingTurnSpeedRadians = math.radians(config.TurnSpeedDegrees),
+                TrackingQueryCooldownRemaining = config.InitialQueryDelaySeconds,
+                TrackingQueryIntervalSeconds = config.QueryIntervalSeconds,
+                TrackedTargetId = 0,
+                TrackedTargetIndex = -1
+            };
+        }
+
         private void ValidateSpawnCommand(ProjectileSpawnCommand command)
         {
             ValidateRenderableType(command.ProjectileTypeId, nameof(command.ProjectileTypeId));
@@ -689,30 +669,6 @@ namespace PlayGround.System.Projectile
             };
         }
 
-        private EntityArchetype ProjectileArchetypeFor(int projectileTypeId)
-        {
-            EnsureSupportedStructuralRenderType(projectileTypeId);
-            if (projectileArchetypesByType.TryGetValue(projectileTypeId, out EntityArchetype archetype))
-            {
-                return archetype;
-            }
-
-            archetype = entityManager.CreateArchetype(
-                typeof(ProjectileIdentityComponent),
-                typeof(ProjectileKinematicsComponent),
-                typeof(ProjectileCollisionComponent),
-                typeof(ProjectileLifetimeComponent),
-                typeof(ProjectileHitComponent),
-                typeof(ProjectileTrackingComponent),
-                typeof(ProjectileRenderComponent),
-                typeof(ProjectileRenderElement),
-                RenderTagTypeFor(projectileTypeId),
-                typeof(ProjectileActiveTag),
-                typeof(ProjectileContactGateElement));
-            projectileArchetypesByType.Add(projectileTypeId, archetype);
-            return archetype;
-        }
-
         private static void EnsureSupportedStructuralRenderType(int projectileTypeId)
         {
             if (projectileTypeId < 0 || projectileTypeId >= MaxStructuralRenderTypes)
@@ -720,12 +676,6 @@ namespace PlayGround.System.Projectile
                 throw new global::System.InvalidOperationException(
                     $"Projectile render type {projectileTypeId} is outside supported structural render type range 0-{MaxStructuralRenderTypes - 1}.");
             }
-        }
-
-        private static global::System.Type RenderTagTypeFor(int projectileTypeId)
-        {
-            EnsureSupportedStructuralRenderType(projectileTypeId);
-            return RenderTagTypes[projectileTypeId];
         }
 
         private void DestroyRenderResources()

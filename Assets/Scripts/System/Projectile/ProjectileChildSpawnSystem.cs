@@ -4,7 +4,7 @@ using Unity.Mathematics;
 
 namespace PlayGround.System.Projectile
 {
-    // Timed child spawns create fully initialized child projectile entities through ECB.
+    // Timed child spawns enqueue projectile spawn requests through ECB.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileMovementSystem))]
     [UpdateBefore(typeof(ProjectileLifetimeSystem))]
@@ -50,7 +50,7 @@ namespace PlayGround.System.Projectile
                     tickIndex++;
                     for (int childIndex = 0; childIndex < spawner.ChildCountPerTick; childIndex++)
                     {
-                        SpawnChild(chunkIndex, identity, kinematics, hit, in spawner, tickIndex, childIndex);
+                        EnqueueChildSpawn(chunkIndex, identity, kinematics, hit, in spawner, tickIndex, childIndex);
                     }
                     cooldown += spawner.IntervalSeconds;
                 }
@@ -59,7 +59,7 @@ namespace PlayGround.System.Projectile
                 childSpawnState.ChildSpawnTickIndex = tickIndex;
             }
 
-            private void SpawnChild(
+            private void EnqueueChildSpawn(
                 int chunkIndex,
                 ProjectileIdentityComponent parentIdentity,
                 ProjectileKinematicsComponent parentKinematics,
@@ -83,62 +83,43 @@ namespace PlayGround.System.Projectile
                     spawner.ShapeType,
                     out float2 boundsMin,
                     out float2 boundsMax);
-                
-                Entity child = Ecb.CreateEntity(chunkIndex);
-                Ecb.AddComponent(chunkIndex, child, new ProjectileIdentityComponent
+
+                Ecb.AppendToBuffer(chunkIndex, parentIdentity.Scope, new ProjectileSpawnRequestElement
                 {
-                    Scope = parentIdentity.Scope,
-                    ProjectileId = 0,
-                    TypeId = spawner.TypeId
-                });
-                Ecb.AddComponent(chunkIndex, child, new ProjectileKinematicsComponent
-                {
-                    Position = parentKinematics.Position,
-                    Velocity = velocity
-                });
-                Ecb.AddComponent(chunkIndex, child, new ProjectileCollisionComponent
-                {
+                    ProjectileId = ChildProjectileId(parentIdentity.ProjectileId, spawner.SpawnerId, tickIndex, childIndex),
+                    TypeId = spawner.TypeId,
+                    TargetMask = targetMask,
+                    PierceRemaining = spawner.PierceCount,
+                    HasChildSpawner = 0,
+                    RepeatHitCooldownSeconds = spawner.RepeatHitCooldownSeconds,
+                    Lifetime = spawner.Lifetime,
                     Radius = spawner.Radius,
-                    HalfExtents = spawner.HalfExtents,
                     RotationRadians = spawner.RotationRadians,
+                    Position = parentKinematics.Position,
+                    Velocity = velocity,
+                    HalfExtents = spawner.HalfExtents,
                     BoundsMin = boundsMin,
                     BoundsMax = boundsMax,
-                    ShapeType = spawner.ShapeType
-                });
-                Ecb.AddComponent(chunkIndex, child, new ProjectileLifetimeComponent
-                {
-                    RemainingLifetime = spawner.Lifetime
-                });
-                Ecb.AddComponent(chunkIndex, child, new ProjectileHitComponent
-                {
-                    TargetMask = targetMask,
+                    ShapeType = spawner.ShapeType,
                     HitPayload = hitPayload,
-                    PierceRemaining = spawner.PierceCount,
-                    RepeatHitCooldownSeconds = spawner.RepeatHitCooldownSeconds
+                    Tracking = new ProjectileTrackingComponent
+                    {
+                        TrackingEnabled = spawner.TrackingEnabled,
+                        TrackingRangeSquared = spawner.TrackingRangeSquared,
+                        TrackingTurnSpeedRadians = spawner.TrackingTurnSpeedRadians,
+                        TrackingQueryCooldownRemaining = spawner.TrackingInitialQueryDelaySeconds,
+                        TrackingQueryIntervalSeconds = spawner.TrackingQueryIntervalSeconds,
+                        TrackedTargetId = 0,
+                        TrackedTargetIndex = -1
+                    },
+                    Render = new ProjectileRenderComponent
+                    {
+                        IsRenderable = 1,
+                        VisualScale = spawner.VisualScale,
+                        VisualRotationSin = spawner.VisualRotationSin,
+                        VisualRotationCos = spawner.VisualRotationCos
+                    }
                 });
-                Ecb.AddComponent(chunkIndex, child, new ProjectileTrackingComponent
-                {
-                    TrackingEnabled = spawner.TrackingEnabled,
-                    TrackingRangeSquared = spawner.TrackingRangeSquared,
-                    TrackingTurnSpeedRadians = spawner.TrackingTurnSpeedRadians,
-                    TrackingQueryCooldownRemaining = spawner.TrackingInitialQueryDelaySeconds,
-                    TrackingQueryIntervalSeconds = spawner.TrackingQueryIntervalSeconds,
-                    TrackedTargetId = 0,
-                    TrackedTargetIndex = -1
-                });
-                Ecb.AddComponent(chunkIndex, child, new ProjectileRenderComponent
-                {
-                    IsRenderable = 1,
-                    VisualScale = spawner.VisualScale,
-                    VisualRotationSin = spawner.VisualRotationSin,
-                    VisualRotationCos = spawner.VisualRotationCos
-                });
-                Ecb.AddComponent(chunkIndex, child, new ProjectileRenderElement());
-                Ecb.AddSharedComponent(chunkIndex, child, new ProjectileRenderScope { Scope = parentIdentity.Scope });
-                Ecb.AddComponent<ProjectileActiveTag>(chunkIndex, child);
-                Ecb.SetComponentEnabled<ProjectileActiveTag>(chunkIndex, child, true);
-                Ecb.AddBuffer<ProjectileContactGateElement>(chunkIndex, child);
-                AddRenderTypeTag(chunkIndex, child, spawner.TypeId);
             }
 
             private static float2 ComputeChildVelocity(
@@ -187,26 +168,16 @@ namespace PlayGround.System.Projectile
                 return new float2(c * v.x - s * v.y, s * v.x + c * v.y);
             }
 
-            private void AddRenderTypeTag(int chunkIndex, Entity child, int typeId)
+            private static int ChildProjectileId(int parentProjectileId, int spawnerId, int tickIndex, int childIndex)
             {
-                switch (typeId)
+                unchecked
                 {
-                    case 0:  Ecb.AddComponent<ProjectileRenderType0Tag>(chunkIndex, child);  break;
-                    case 1:  Ecb.AddComponent<ProjectileRenderType1Tag>(chunkIndex, child);  break;
-                    case 2:  Ecb.AddComponent<ProjectileRenderType2Tag>(chunkIndex, child);  break;
-                    case 3:  Ecb.AddComponent<ProjectileRenderType3Tag>(chunkIndex, child);  break;
-                    case 4:  Ecb.AddComponent<ProjectileRenderType4Tag>(chunkIndex, child);  break;
-                    case 5:  Ecb.AddComponent<ProjectileRenderType5Tag>(chunkIndex, child);  break;
-                    case 6:  Ecb.AddComponent<ProjectileRenderType6Tag>(chunkIndex, child);  break;
-                    case 7:  Ecb.AddComponent<ProjectileRenderType7Tag>(chunkIndex, child);  break;
-                    case 8:  Ecb.AddComponent<ProjectileRenderType8Tag>(chunkIndex, child);  break;
-                    case 9:  Ecb.AddComponent<ProjectileRenderType9Tag>(chunkIndex, child);  break;
-                    case 10: Ecb.AddComponent<ProjectileRenderType10Tag>(chunkIndex, child); break;
-                    case 11: Ecb.AddComponent<ProjectileRenderType11Tag>(chunkIndex, child); break;
-                    case 12: Ecb.AddComponent<ProjectileRenderType12Tag>(chunkIndex, child); break;
-                    case 13: Ecb.AddComponent<ProjectileRenderType13Tag>(chunkIndex, child); break;
-                    case 14: Ecb.AddComponent<ProjectileRenderType14Tag>(chunkIndex, child); break;
-                    case 15: Ecb.AddComponent<ProjectileRenderType15Tag>(chunkIndex, child); break;
+                    int hash = parentProjectileId;
+                    hash = (hash * 397) ^ spawnerId;
+                    hash = (hash * 397) ^ tickIndex;
+                    hash = (hash * 397) ^ childIndex;
+                    hash &= int.MaxValue;
+                    return hash == 0 ? 1 : hash;
                 }
             }
         }

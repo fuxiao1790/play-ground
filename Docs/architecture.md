@@ -26,7 +26,9 @@ High-level runtime path:
 3. `PlayerRoot` samples movement, dash, facing, animation, and attack loadout helpers.
 4. `MobSpawnerRoot` asks spawn points for spawn requests and enforces caps.
 5. `MobRoot` drains local events and updates behavior through a separate behavior FSM.
-6. Projectile roots sync target snapshots into ECS scope entities, projectile ECS systems simulate hits, and roots replay hit events.
+6. Projectile roots enqueue spawn requests and sync target snapshots into ECS
+   scope entities, projectile ECS systems materialize/reuse projectile entities
+   and simulate hits, and roots replay hit events.
 7. `DebugOverlay` gathers scene-level counters.
 
 ## Scene And Prefab Ownership
@@ -55,6 +57,9 @@ General rule:
 - `SpawnPoint`: owns local timer, overlap checks, and optional spawn pool
 - `ProjectileRoot`: owns one scoped projectile flow, target registry reference, template baking, listener maps, event replay, and rendering coordination
 - `ProjectileSimulationSystem`: clears per-scope projectile event buffers at the start of the simulation stage
+- `ProjectileSpawnSystem`: drains scoped projectile spawn request buffers, reuses
+  inactive projectile entities, and creates cold entities through ECB only when
+  no reusable entity exists
 - `ProjectileTrackingSystem`: owns homing target refresh, reacquire cadence, and steering
 - `ProjectileMovementSystem`: owns projectile position integration
 - `ProjectileChildSpawnSystem`: owns timed child projectile spawn request events
