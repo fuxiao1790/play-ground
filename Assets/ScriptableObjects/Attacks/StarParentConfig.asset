@@ -16,12 +16,12 @@ MonoBehaviour:
   speed: 5
   lifetime: 4.5
   damage: 10
-  count: 1
+  count: 5
   spreadDegrees: 10
   jitterDegrees: 10
   targetMask: 1
   pierceCount: 20
-  repeatHitCooldownSeconds: 0
+  repeatHitCooldownSeconds: 1
   trackingEnabled: 0
   trackingRange: 150
   trackingTurnSpeedDegrees: 360

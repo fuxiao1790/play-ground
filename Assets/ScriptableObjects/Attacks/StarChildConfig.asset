@@ -20,8 +20,8 @@ MonoBehaviour:
   spreadDegrees: 10
   jitterDegrees: 10
   targetMask: 1
-  pierceCount: 0
-  repeatHitCooldownSeconds: 0
+  pierceCount: 2
+  repeatHitCooldownSeconds: 0.25
   trackingEnabled: 1
   trackingRange: 150
   trackingTurnSpeedDegrees: 360
