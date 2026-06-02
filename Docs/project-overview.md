@@ -38,6 +38,10 @@ Runtime rules:
   updates, and plain-data simulation boundaries from the start
 - hybrid model: low-count actors live as scene objects, while high-count projectile,
   AOE, and beam gameplay lives in data-oriented runtimes
+ - project mixes OOP (MonoBehaviour) and DOP (ECS/DOTS); OOP-side code should
+   use the simplest possible constructs (plain components, minimal callbacks,
+   and minimal lifetime coupling) to avoid performance or lifetime clashes with
+   DOTS/ECS systems.
 
 ## Runtime Target
 

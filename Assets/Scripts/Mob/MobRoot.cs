@@ -1,6 +1,7 @@
 using System;
 using PlayGround.Attack;
 using PlayGround.Common;
+using PlayGround.Common.StatusEffects;
 using PlayGround.System.Aoe;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
@@ -39,6 +40,7 @@ namespace PlayGround.Mob
 
         private static int nextTargetId;
         private readonly MobDebuffStackState debuffStacks = new();
+        public StatusEffects StatusEffects { get; private set; }
         private readonly MobBlackboard blackboard = new();
         private ProjectileTargetRegistry registry;
         private AoeTargetRegistry aoeRegistry;
@@ -94,6 +96,8 @@ namespace PlayGround.Mob
             blackboard.MaxHealth = MaxHealth;
 
             RebuildProjectileAttack();
+            StatusEffects = GetComponent<StatusEffects>();
+            StatusEffects?.Initialize(d => TakeDamage(d), () => isAlive);
         }
 
         protected virtual void Update()
@@ -124,6 +128,7 @@ namespace PlayGround.Mob
                 triggers[i].UpdateTrigger(deltaTime, this, blackboard, eventQueue);
             }
 
+            StatusEffects?.Tick(deltaTime);
             eventQueue.PushType(MobEventType.Tick, this);
             stateDriver.Update(eventQueue.Drain());
             blackboard.BehaviourState = stateDriver.CurrentState;

@@ -1,5 +1,6 @@
 using PlayGround.Attack;
 using PlayGround.Common;
+using PlayGround.Common.StatusEffects;
 using PlayGround.System.Aoe;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
@@ -46,6 +47,7 @@ namespace PlayGround.Player
         private ProjectileTargetRegistry registry;
         private AoeTargetRegistry aoeRegistry;
         private int targetId;
+        public StatusEffects StatusEffects { get; private set; }
 
         public Vector2 AimDirection => facing?.AimDirection ?? Vector2.right;
         public int TargetId => targetId;
@@ -138,6 +140,9 @@ namespace PlayGround.Player
             {
                 throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} needs at least one child ProjectileAttack or ChildSpawningProjectileAttack.");
             }
+
+            StatusEffects = GetComponent<StatusEffects>();
+            StatusEffects?.Initialize(d => health.TakeDamage(d), () => health.IsAlive);
         }
 
         private void OnEnable()
@@ -183,6 +188,7 @@ namespace PlayGround.Player
             }
 
             movement.FixedTick();
+            StatusEffects?.Tick(Time.fixedDeltaTime);
         }
 
         public void Configure(InputActionAsset actions, Rigidbody2D playerBody, Collider2D playerHurtbox, SpriteRenderer renderer, Camera camera)
