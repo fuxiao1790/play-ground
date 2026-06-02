@@ -214,14 +214,15 @@ namespace PlayGround.System.Aoe
                 throw new global::System.InvalidOperationException($"Missing AOE collision definition for type id {command.TypeId}.");
             }
 
-            if (ActiveAoeCount() >= maximumAoeCount)
+            DynamicBuffer<AoeSpawnRequestElement> spawnRequests =
+                entityManager.GetBuffer<AoeSpawnRequestElement>(scopeEntity);
+            if (maximumAoeCount <= 0 || spawnRequests.Length >= maximumAoeCount)
             {
                 return 0;
             }
 
             int aoeId = ++nextAoeId;
-            entityManager.GetBuffer<AoeSpawnRequestElement>(scopeEntity)
-                .Add(SpawnRequestFor(command, shape, aoeId));
+            spawnRequests.Add(SpawnRequestFor(command, shape, aoeId));
             spawnedAoes++;
             return aoeId;
         }
@@ -307,7 +308,7 @@ namespace PlayGround.System.Aoe
             return new AoeRenderComponent
             {
                 IsRenderable = 1,
-                VisualScale = resources.VisualScale,
+                VisualScale = new Unity.Mathematics.float2(resources.VisualScale.x, resources.VisualScale.y),
                 VisualRotationSin = resources.VisualRotationSin,
                 VisualRotationCos = resources.VisualRotationCos
             };
@@ -475,7 +476,7 @@ namespace PlayGround.System.Aoe
 
         private AoeRenderResources BuildRenderResourcesFor(
             Sprite sprite,
-            float scale,
+            Vector2 scale,
             float visualRotationDegrees,
             Material sourceMaterial = null)
         {
@@ -525,7 +526,14 @@ namespace PlayGround.System.Aoe
 
             MaterialPropertyBlock properties = new();
             ConfigureAoeProperties(properties, material, texture);
-            return new AoeRenderResources(mesh, material, properties, scale > 0f ? scale : 1f, visualRotationDegrees);
+            return new AoeRenderResources(mesh, material, properties, PositiveScale(scale), visualRotationDegrees);
+        }
+
+        private static Vector2 PositiveScale(Vector2 scale)
+        {
+            return new Vector2(
+                scale.x > 0f ? scale.x : 1f,
+                scale.y > 0f ? scale.y : 1f);
         }
 
         private static Mesh BuildAoeMesh(Sprite sprite)
@@ -764,7 +772,7 @@ namespace PlayGround.System.Aoe
                 Mesh mesh,
                 Material material,
                 MaterialPropertyBlock properties,
-                float visualScale,
+                Vector2 visualScale,
                 float visualRotationDegrees)
             {
                 Mesh = mesh;
@@ -779,7 +787,7 @@ namespace PlayGround.System.Aoe
             public Mesh Mesh { get; }
             public Material Material { get; }
             public MaterialPropertyBlock Properties { get; }
-            public float VisualScale { get; }
+            public Vector2 VisualScale { get; }
             public float VisualRotationSin { get; }
             public float VisualRotationCos { get; }
 

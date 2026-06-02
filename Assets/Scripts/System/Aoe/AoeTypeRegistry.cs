@@ -55,53 +55,16 @@ namespace PlayGround.System.Aoe
 
             if (collider == null)
             {
-                float radius = definition.SizeMultiplier;
+                float radius = definition.SizeMultiplier * PrefabUniformScale(definition.VisualPrefab);
                 return new AoeShape(CombatShapeType.Circle, radius, Vector2.one * radius, 0f);
             }
 
             float sizeMultiplier = definition.SizeMultiplier;
             return new AoeShape(
                 CombatTargetShapeUtility.ShapeType(collider),
-                UnscaledRadius(collider) * sizeMultiplier,
-                UnscaledHalfExtents(collider) * sizeMultiplier,
+                CombatTargetShapeUtility.Radius(collider) * sizeMultiplier,
+                CombatTargetShapeUtility.HalfExtents(collider) * sizeMultiplier,
                 CombatTargetShapeUtility.RotationRadians(collider));
-        }
-
-        private static float UnscaledRadius(Collider2D collider)
-        {
-            if (collider is CircleCollider2D circle)
-            {
-                return Mathf.Max(0f, circle.radius);
-            }
-
-            if (collider is CapsuleCollider2D capsule)
-            {
-                return capsule.direction == CapsuleDirection2D.Vertical
-                    ? Mathf.Max(0f, capsule.size.x * 0.5f)
-                    : Mathf.Max(0f, capsule.size.y * 0.5f);
-            }
-
-            return 0f;
-        }
-
-        private static Vector2 UnscaledHalfExtents(Collider2D collider)
-        {
-            if (collider is BoxCollider2D box)
-            {
-                return box.size * 0.5f;
-            }
-
-            if (collider is CapsuleCollider2D capsule)
-            {
-                float radius = UnscaledRadius(capsule);
-                float halfSegment = capsule.direction == CapsuleDirection2D.Vertical
-                    ? Mathf.Max(0f, (capsule.size.y * 0.5f) - radius)
-                    : Mathf.Max(0f, (capsule.size.x * 0.5f) - radius);
-                return new Vector2(halfSegment, radius);
-            }
-
-            float radiusFallback = UnscaledRadius(collider);
-            return new Vector2(radiusFallback, radiusFallback);
         }
 
         private static bool TryBakeVisual(AoeTypeDefinition definition, out AoeVisualDefinition visual)
@@ -121,25 +84,42 @@ namespace PlayGround.System.Aoe
             visual = new AoeVisualDefinition(
                 spriteRenderer.sprite,
                 spriteRenderer.sharedMaterial,
-                definition.SizeMultiplier,
+                VisualScale(spriteRenderer) * definition.SizeMultiplier,
                 definition.VisualRotationDegrees);
             return true;
+        }
+
+        private static Vector2 VisualScale(SpriteRenderer spriteRenderer)
+        {
+            Vector3 scale = spriteRenderer.transform.lossyScale;
+            return new Vector2(Mathf.Abs(scale.x), Mathf.Abs(scale.y));
+        }
+
+        private static float PrefabUniformScale(GameObject prefab)
+        {
+            if (prefab == null)
+            {
+                return 1f;
+            }
+
+            Vector3 scale = prefab.transform.lossyScale;
+            return Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y));
         }
     }
 
     public readonly struct AoeVisualDefinition
     {
-        public AoeVisualDefinition(Sprite sprite, Material material, float visualScale, float visualRotationDegrees)
+        public AoeVisualDefinition(Sprite sprite, Material material, Vector2 visualScale, float visualRotationDegrees)
         {
             Sprite = sprite;
             Material = material;
-            VisualScale = Mathf.Max(0f, visualScale);
+            VisualScale = new Vector2(Mathf.Max(0f, visualScale.x), Mathf.Max(0f, visualScale.y));
             VisualRotationDegrees = visualRotationDegrees;
         }
 
         public Sprite Sprite { get; }
         public Material Material { get; }
-        public float VisualScale { get; }
+        public Vector2 VisualScale { get; }
         public float VisualRotationDegrees { get; }
     }
 

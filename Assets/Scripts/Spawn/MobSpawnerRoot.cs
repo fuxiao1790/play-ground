@@ -95,6 +95,13 @@ namespace PlayGround.Spawn
         public void BindAoeRoot(AoeRoot root)
         {
             playerAoeRoot = root;
+            for (int i = 0; i < spawnedMobs.Count; i++)
+            {
+                if (spawnedMobs[i] != null)
+                {
+                    spawnedMobs[i].BindAoeRoot(root);
+                }
+            }
         }
 
         public void BindProjectileRoots(ProjectileRoot playerToMobRoot, ProjectileRoot mobToPlayerRoot)
@@ -207,6 +214,7 @@ namespace PlayGround.Spawn
 
             if (playerAoeRoot != null)
             {
+                mob.BindAoeRoot(playerAoeRoot);
                 mob.Register(playerAoeRoot.TargetRegistry);
             }
 

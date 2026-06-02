@@ -14,17 +14,19 @@ namespace PlayGround.Attack
         [SerializeField] private float recoverySeconds = 0.15f;
         [SerializeField] private AudioClip performSound;
         [SerializeField] private AudioManager audioManager;
+        [SerializeField] private ProjectileHitEffectDefinition[] hitEffectDefinitions = global::System.Array.Empty<ProjectileHitEffectDefinition>();
         [SerializeField] private AoeRoot aoeRoot;
 
         private readonly List<ProjectileSpawnCommand> commands = new();
         private ProjectileHitEffect[] hitEffects = global::System.Array.Empty<ProjectileHitEffect>();
         private AoeRoot subscribedAoeRoot;
-        private IProjectileHitActor hitSource;
+        private ProjectileRoot subscribedProjectileRoot;
         private float cooldownRemaining;
         public event global::System.Action<ProjectileAoeSpawnRequest> AoeSpawnRequested;
 
         public ProjectileRoot Root => projectileRoot;
         public bool IsReady => cooldownRemaining <= 0f;
+        private EntityId SourceNodeId => gameObject.GetEntityId();
 
         // --- lifecycle ---
 
@@ -35,8 +37,8 @@ namespace PlayGround.Attack
                 throw new MissingReferenceException($"{nameof(ProjectileAttack)} on {name} needs a projectile root.");
 
             ValidateConfig();
+            ValidateHitEffects();
             audioManager ??= AudioManager.Instance != null ? AudioManager.Instance : FindAnyObjectByType<AudioManager>();
-            hitSource = GetComponentInParent<IProjectileHitActor>();
             hitEffects = GetComponentsInChildren<ProjectileHitEffect>(true);
             for (int i = 0; i < hitEffects.Length; i++)
                 hitEffects[i].Configure(this);
@@ -46,11 +48,13 @@ namespace PlayGround.Attack
 
         private void OnEnable()
         {
+            SubscribeProjectileRoot();
             SubscribeAoeRoot();
         }
 
         private void OnDisable()
         {
+            UnsubscribeProjectileRoot();
             UnsubscribeAoeRoot();
         }
 
@@ -71,8 +75,11 @@ namespace PlayGround.Attack
         {
             if (projectileRoot == root) return;
 
+            UnsubscribeProjectileRoot();
             projectileRoot = root;
             RegisterBasicPrefabs();
+            if (isActiveAndEnabled)
+                SubscribeProjectileRoot();
         }
 
         public void ConfigureAoeRoot(AoeRoot root)
@@ -149,7 +156,7 @@ namespace PlayGround.Attack
                 config.GetTrackingConfig(),
                 childConfig,
                 config.DirectDamageEnabled,
-                hitSource != null ? hitSource.ProjectileHitNodeId : default,
+                SourceNodeId,
                 ImpactAoeSnapshot(targetMask));
         }
 
@@ -184,22 +191,39 @@ namespace PlayGround.Attack
             subscribedAoeRoot = null;
         }
 
+        private void SubscribeProjectileRoot()
+        {
+            if (projectileRoot == null || subscribedProjectileRoot == projectileRoot) return;
+
+            projectileRoot.ProjectileHit += OnRootProjectileHit;
+            subscribedProjectileRoot = projectileRoot;
+        }
+
+        private void UnsubscribeProjectileRoot()
+        {
+            if (subscribedProjectileRoot == null) return;
+
+            subscribedProjectileRoot.ProjectileHit -= OnRootProjectileHit;
+            subscribedProjectileRoot = null;
+        }
+
         private void OnAoeSpawnRequested(ProjectileAoeSpawnRequest request)
         {
             subscribedAoeRoot?.Spawn(request);
         }
 
+        private void OnRootProjectileHit(ProjectileHitContext hit)
+        {
+            if (hit.Payload.SourceNodeId.Equals(SourceNodeId))
+            {
+                OnProjectileHit(hit);
+            }
+        }
+
         private void OnProjectileHit(ProjectileHitContext hit)
         {
-            if (config.ImpactAoeTypeId >= 0)
-            {
-                AoeSpawnRequested?.Invoke(new ProjectileAoeSpawnRequest(
-                    config.ImpactAoeTypeId,
-                    hit.Position,
-                    new DamageSnapshot(Mathf.Max(0f, config.ImpactAoeDamage)),
-                    config.ImpactAoeLifetimeSeconds,
-                    config.ImpactAoeTickIntervalSeconds));
-            }
+            for (int i = 0; i < hitEffectDefinitions.Length; i++)
+                hitEffectDefinitions[i].Apply(in hit, AoeSpawnRequested);
 
             for (int i = 0; i < hitEffects.Length; i++)
                 hitEffects[i].Apply(in hit, AoeSpawnRequested);
@@ -224,6 +248,21 @@ namespace PlayGround.Attack
 
             if (!IsValidBasicPrefab(config.Prefab, out string reason))
                 throw new MissingReferenceException($"{nameof(ProjectileAttack)} on {name} needs a valid {nameof(BasicAttackPrefab)} in its {nameof(ProjectileConfig)}: {reason}.");
+        }
+
+        private void ValidateHitEffects()
+        {
+            if (hitEffectDefinitions == null)
+            {
+                hitEffectDefinitions = global::System.Array.Empty<ProjectileHitEffectDefinition>();
+                return;
+            }
+
+            for (int i = 0; i < hitEffectDefinitions.Length; i++)
+            {
+                if (hitEffectDefinitions[i] == null)
+                    throw new MissingReferenceException($"{nameof(ProjectileAttack)} on {name} hit effect slot {i} is empty.");
+            }
         }
 
         private static bool IsValidBasicPrefab(BasicAttackPrefab template, out string reason)

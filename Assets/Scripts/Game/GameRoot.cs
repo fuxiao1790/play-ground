@@ -83,6 +83,7 @@ namespace PlayGround.Game
 
                     if (playerAoeRoot != null)
                     {
+                        mobs[i].BindAoeRoot(playerAoeRoot);
                         mobs[i].Register(playerAoeRoot.TargetRegistry);
                     }
 
@@ -180,7 +181,7 @@ namespace PlayGround.Game
             ProjectileAttack[] projectileAttacks = player.GetComponentsInChildren<ProjectileAttack>(true);
             for (int i = 0; i < projectileAttacks.Length; i++)
             {
-                projectileAttacks[i].ConfigureAoeRoot(null);
+                projectileAttacks[i].ConfigureAoeRoot(root);
             }
 
             AoeAttack[] aoeAttacks = player.GetComponentsInChildren<AoeAttack>(true);
@@ -192,7 +193,7 @@ namespace PlayGround.Game
             ChildSpawningProjectileAttack[] childSpawningAttacks = player.GetComponentsInChildren<ChildSpawningProjectileAttack>(true);
             for (int i = 0; i < childSpawningAttacks.Length; i++)
             {
-                childSpawningAttacks[i].ConfigureAoeRoot(null);
+                childSpawningAttacks[i].ConfigureAoeRoot(root);
             }
         }
 

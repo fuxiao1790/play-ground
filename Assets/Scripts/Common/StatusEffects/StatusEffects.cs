@@ -11,6 +11,9 @@ namespace PlayGround.Common.StatusEffects
 
         private readonly Dictionary<StatusEffectDef, ActiveStatusEffect> activeEffects = new();
         private readonly List<StatusEffectDef> tickKeys = new();
+        private readonly List<PendingStatusEffectTrigger> pendingTriggers = new();
+
+        public event Action<StatusEffectDef, StatusEffectTriggerResult> EffectTriggered;
 
         public void Initialize(Action<DamageSnapshot> onApplyDamage, Func<bool> activeCheck)
         {
@@ -62,13 +65,20 @@ namespace PlayGround.Common.StatusEffects
                 activeEffects.Remove(def);
             }
 
-            return triggerCount > 0
-                ? new StatusEffectTriggerResult(triggerCount, totalTriggerDamage, transform.position)
-                : default;
+            if (triggerCount <= 0)
+            {
+                return default;
+            }
+
+            var result = new StatusEffectTriggerResult(triggerCount, totalTriggerDamage, transform.position);
+            pendingTriggers.Add(new PendingStatusEffectTrigger(def, result));
+            return result;
         }
 
         public void Tick(float deltaTime)
         {
+            FlushPendingTriggers();
+
             if (activeEffects.Count == 0)
             {
                 return;
@@ -132,6 +142,35 @@ namespace PlayGround.Common.StatusEffects
         public void ClearAll()
         {
             activeEffects.Clear();
+            pendingTriggers.Clear();
         }
+
+        private void FlushPendingTriggers()
+        {
+            if (pendingTriggers.Count == 0)
+            {
+                return;
+            }
+
+            for (int i = 0; i < pendingTriggers.Count; i++)
+            {
+                PendingStatusEffectTrigger trigger = pendingTriggers[i];
+                EffectTriggered?.Invoke(trigger.Def, trigger.Result);
+            }
+
+            pendingTriggers.Clear();
+        }
+    }
+
+    internal readonly struct PendingStatusEffectTrigger
+    {
+        public PendingStatusEffectTrigger(StatusEffectDef def, StatusEffectTriggerResult result)
+        {
+            Def = def;
+            Result = result;
+        }
+
+        public StatusEffectDef Def { get; }
+        public StatusEffectTriggerResult Result { get; }
     }
 }

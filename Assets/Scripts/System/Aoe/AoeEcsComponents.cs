@@ -51,7 +51,7 @@ namespace PlayGround.System.Aoe
     public struct AoeRenderComponent : IComponentData
     {
         public int IsRenderable;
-        public float VisualScale;
+        public float2 VisualScale;
         public float VisualRotationSin;
         public float VisualRotationCos;
     }

@@ -32,7 +32,8 @@ Use these folders for current content:
 - `Assets/Prefabs/Player/`: player prefab and its `Attacks` child
 - `Assets/Prefabs/Attacks/`: equipped attack container prefabs
 - `Assets/Prefabs/Projectiles/`: projectile visual/collision templates
-- `Assets/ScriptableObjects/Attacks/`: `ProjectileConfig` assets
+- `Assets/ScriptableObjects/Attacks/`: `ProjectileConfig` and `AoeConfig` assets
+- `Assets/ScriptableObjects/StatusEffects/`: `StackingTriggerDef` and `StackingDoTDef` assets
 - `Assets/Audio/`: attack sound clips
 
 ## Projectile Template Authoring
@@ -206,8 +207,8 @@ Required `AoeConfig` fields:
 
 - `typeId`: AOE type id registered with the root by `AoeAttack`
 - `basicPrefab`: `BasicAoePrefab` AOE template
-- `sizeMultiplier`: uniform scale applied to both visual sprite size and
-  hurtbox collision size
+- `sizeMultiplier`: uniform scale applied after prefab Transform scale to both
+  visual sprite size and hurtbox collision size
 - `damage`: damage payload for each hit
 - `lifetimeSeconds`: `0` for current pulse AOEs
 - `tickIntervalSeconds`: unused by current pulse AOEs
@@ -274,16 +275,101 @@ Root defaults:
 
 ## Hit Effects And AOEs
 
-Projectile attack components can host child `ProjectileHitEffect` components.
+Projectile attack components can reference reusable `ProjectileHitEffectDefinition`
+ScriptableObjects. Legacy child `ProjectileHitEffect` components are still
+supported for local one-off content.
 On hit:
 
 - direct damage is handled through the projectile payload when enabled
 - impact AOE is requested when `impactAoeTypeId >= 0`
-- child hit effects may request additional AOEs through the configured `AoeRoot`
+- hit effects may request additional AOEs through the configured `AoeRoot`
 
 Hit effects should read snapshotted hit context and request explicit runtime
 effects. They should not mutate active projectile ECS data or run broad scene
 searches.
+
+## Stacking Explosion Attack Authoring
+
+Use `ProjectileAttack` with a `ProjectileStatusEffectHitEffectDefinition` when
+projectile hits should accumulate stacks on a target and explode at a threshold.
+The projectile hit effect only applies stacks. The target's `StatusEffects`
+component owns the threshold trigger, and `MobRoot` emits the explosion through
+the same scoped `AoeRoot` used by direct AOE attacks.
+
+Four authored assets are required in addition to the normal projectile template:
+
+- `StackingTriggerDef` — how many stacks trigger one explosion, which AOE type
+  fires, and how much damage that explosion carries
+- `AoeConfig` — explosion visual, shape, and size
+- `ProjectileConfig` — the carrier projectile
+
+- `ProjectileStatusEffectHitEffectDefinition` - stack application payload
+
+### Authoring steps
+
+1. Create a `StackingTriggerDef` asset via
+   `Assets > Create > PlayGround > Status Effects > Stacking Trigger`.
+   Set `stackThreshold` to the hit count needed for one explosion.
+   Set `triggerAoeTypeId`, `triggerAoeDamage`, `triggerAoeLifetimeSeconds`, and
+   `triggerAoeTickIntervalSeconds` for the mob-owned explosion.
+
+2. Create or reuse a `BasicAoePrefab` prefab for the explosion visual (same
+   structure as any AOE template: root has `BasicAoePrefab`, `Visual` child
+   has `SpriteRenderer`, `Hurtbox` child has a `Collider2D`).
+
+3. Create an `AoeConfig` asset via
+   `Assets > Create > PlayGround > Attack > AOE Config`. Required fields:
+   - `typeId`: unique integer not in use by any other `AoeConfig` on the same
+     `AoeRoot`
+   - `basicPrefab`: the explosion `BasicAoePrefab`
+   - `sizeMultiplier`: uniform scale applied after prefab Transform scale to
+     explosion radius and visual
+   - `lifetimeSeconds`: `0` for a one-frame pulse; positive for a lingering area
+   - `damage`: leave at `0`; explosion damage is owned by the hit effect field
+     `triggerAoeDamage`, not by the config
+
+4. Register the explosion AOE type with the scene `AoeRoot` that the attack
+   will use. Add the `AoeConfig` to `AoeRoot.aoeTypes` directly, or equip an
+   `AoeAttack` that references the same config (which registers it on `Awake`).
+
+5. Create a `ProjectileStatusEffectHitEffectDefinition` asset via
+   `Assets > Create > PlayGround > Attack > Hit Effects > Status Effect AOE Trigger`.
+   Required fields:
+   - `effectDef`: the `StackingTriggerDef`
+   - `stacksPerHit`: stacks applied per hit (usually `1`)
+   The projectile effect does not own explosion data.
+
+6. Create a `ProjectileConfig` for the carrier projectile. The stacking pattern
+   does not require specific values, but typical choices:
+   - `directDamageEnabled = false` when all damage should come from the explosion
+   - `impactAoeTypeId = -1` so the projectile does not also spawn an impact AOE
+   - `count`, `speed`, `spread`, and `lifetime` tuned for the intended hit rate
+
+7. Create an attack prefab under `Assets/Prefabs/Attacks/`. Add
+   `ProjectileAttack` to the root. Assign:
+   - `config`: the carrier `ProjectileConfig`
+   - `hitEffectDefinitions`: the stacking explosion hit effect asset
+   - `projectileRoot`: scoped projectile root, or leave blank if scene tag is set
+   - `aoeRoot`: the `AoeRoot` the explosion config is registered on
+
+8. Add a `StatusEffects` component to every target prefab (`MobRoot`,
+   `PlayerRoot`) that should receive stacks. It is a sibling component; no
+   fields require configuration.
+
+9. Place the attack prefab under `Player/Attacks` and confirm
+   `PlayerRoot.maxAttackCount` covers the new slot.
+
+### Damage model
+
+Damage is snapshotted into the debuff at hit time from the `StackingTriggerDef`.
+Each applied stack carries `triggerAoeDamage / stackThreshold` as its contribution.
+When stacks reach the threshold, the accumulated contributions fire as one
+explosion. Stacks above the threshold remain and begin charging the next cycle;
+partial cycles carry their proportional damage forward.
+
+Two stacks from different sources or attack power levels will blend proportionally
+in the accumulator: the explosion damage reflects the average power of whatever
+hits built it up.
 
 ## Validation Checklist
 
@@ -302,16 +388,28 @@ Before playtesting a new projectile attack:
 - tracking configs have nonzero range and turn speed when tracking is expected
 - child configs use target mask `1` unless a special mask is intentional
 
+Before playtesting a new stacking explosion attack:
+
+- `ProjectileAttack.hitEffectDefinitions` includes the stacking explosion hit effect asset
+- `effectDef` is a `StackingTriggerDef` with `stackThreshold >= 1`
+- `StackingTriggerDef.triggerAoeTypeId` matches the `AoeConfig.typeId` registered on the `AoeRoot`
+- `StackingTriggerDef.triggerAoeDamage > 0`
+- `ProjectileAttack.aoeRoot` is assigned to the same root the explosion config is registered on
+- explosion `AoeConfig.basicPrefab` is assigned
+- explosion `AoeConfig.lifetimeSeconds = 0` for a pulse
+- `StatusEffects` component present on every target mob prefab
+- `ProjectileConfig.directDamageEnabled = false` if carrier projectile deals no direct damage
+
 Before playtesting a new AOE attack:
 
 - template prefab root has `BasicAoePrefab`
 - template prefab has `Visual` child with a `SpriteRenderer`
 - template prefab has `Hurtbox` child with a supported `Collider2D`
-- template prefab root, `Visual`, and `Hurtbox` Transforms stay at scale `1`;
-  use `AoeConfig.sizeMultiplier` for runtime size
-- AOE collision size is the `Hurtbox` child collider multiplied by
+- template prefab root, `Visual`, and `Hurtbox` Transform scale participates in
+  baked AOE size
+- AOE collision size is the scaled `Hurtbox` child collider multiplied by
   `AoeConfig.sizeMultiplier`
-- AOE render size is the sprite size multiplied by the same
+- AOE render size is the sprite Transform scale multiplied by the same
   `AoeConfig.sizeMultiplier`
 - `AoeConfig.basicPrefab` is assigned
 - `AoeAttack.config` is assigned
@@ -353,10 +451,14 @@ Tracking side-spray:
 
 Stacking explosive shot:
 
-- projectile hit effect adds stacks to mob runtime state
-- threshold clears stack slot
-- threshold requests AOE spawn at hit or target position
-- the projectile attack `aoeRoot` must be assigned or configured by scene root
+- one `ProjectileAttack` with `directDamageEnabled = false`
+- `ProjectileStatusEffectHitEffectDefinition`: `stacksPerHit = 1`
+- `StackingTriggerDef` with chosen `stackThreshold`, explosion `triggerAoeTypeId`,
+  and `triggerAoeDamage`
+- pulse `AoeConfig` (`lifetimeSeconds = 0`) registered on `AoeRoot_PlayerToMob`
+- `ProjectileAttack.aoeRoot` → `AoeRoot_PlayerToMob`
+- `StatusEffects` component on mob prefabs
+- recovery and volley count tuned so the threshold cycle feels intentional
 
 Future laser build:
 

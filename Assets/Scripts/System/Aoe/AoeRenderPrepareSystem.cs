@@ -78,23 +78,23 @@ namespace PlayGround.System.Aoe
 
                     CombatKinematicsComponent k = kin[i];
                     AoeRenderComponent r = rend[i];
-                    float scale = r.VisualScale;
+                    float2 scale = r.VisualScale;
 
                     elem[i] = new AoeRenderElement
                     {
                         objectToWorld = new Matrix4x4
                         {
-                            m00 = r.VisualRotationCos * scale,
-                            m01 = -r.VisualRotationSin * scale,
+                            m00 = r.VisualRotationCos * scale.x,
+                            m01 = -r.VisualRotationSin * scale.y,
                             m02 = 0f,
                             m03 = k.Position.x,
-                            m10 = r.VisualRotationSin * scale,
-                            m11 = r.VisualRotationCos * scale,
+                            m10 = r.VisualRotationSin * scale.x,
+                            m11 = r.VisualRotationCos * scale.y,
                             m12 = 0f,
                             m13 = k.Position.y,
                             m20 = 0f,
                             m21 = 0f,
-                            m22 = scale,
+                            m22 = math.max(scale.x, scale.y),
                             m23 = AoeRenderZ,
                             m30 = 0f,
                             m31 = 0f,

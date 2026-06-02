@@ -1,6 +1,10 @@
 using System.Reflection;
 using NUnit.Framework;
 using PlayGround.Common;
+using PlayGround.Common.StatusEffects;
+using PlayGround.Mob;
+using PlayGround.Mob.Behaviours;
+using PlayGround.Mob.Triggers;
 using PlayGround.System.Aoe;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
@@ -47,6 +51,43 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void AoePrefabTransformScaleAffectsCollisionShape()
+        {
+            CreateAoeFixture(
+                out GameObject rootObject,
+                out AoeRoot root,
+                out GameObject templateObject,
+                templateScale: new Vector3(3f, 3f, 1f));
+            AoeTargetProbe target = CreateTarget(new Vector2(2.5f, 0f), DefaultTargetMask);
+            root.TargetRegistry.Register(target);
+
+            root.Spawn(Command(Vector2.zero, DefaultTargetMask, 2f));
+            root.Step(0.01f);
+
+            Assert.That(target.HitCount, Is.EqualTo(1));
+            Cleanup(rootObject, templateObject, target.gameObject);
+        }
+
+        [Test]
+        public void AoeVisualBakeUsesSpriteRendererTransformScale()
+        {
+            CreateAoeFixture(
+                out GameObject rootObject,
+                out AoeRoot root,
+                out GameObject templateObject,
+                templateScale: new Vector3(2f, 2f, 1f),
+                visualScale: new Vector3(3f, 4f, 1f));
+            root.Spawn(Command(Vector2.zero, DefaultTargetMask, 2f));
+            root.Step(0.01f);
+
+            Matrix4x4 matrix = FirstScopedAoeRenderMatrix(root);
+
+            Assert.That(matrix.m00, Is.EqualTo(6f).Within(0.0001f));
+            Assert.That(matrix.m11, Is.EqualTo(8f).Within(0.0001f));
+            Cleanup(rootObject, templateObject);
+        }
+
+        [Test]
         public void AoeTargetMaskFiltersHits()
         {
             CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
@@ -82,6 +123,31 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(target.HitCount, Is.EqualTo(1));
             Assert.That(target.LastDamage.Amount, Is.EqualTo(3f));
             Cleanup(rootObject, templateObject, target.gameObject);
+        }
+
+        [Test]
+        public void MobStatusTriggerSpawnsAoeThroughBoundAoeRoot()
+        {
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            MobRoot mob = CreateMobTarget(Vector2.zero);
+            mob.BindAoeRoot(root);
+            mob.Register(root.TargetRegistry);
+            StackingTriggerDef trigger = ScriptableObject.CreateInstance<StackingTriggerDef>();
+            trigger.Configure(3, AoeTypeId, 6f);
+
+            mob.StatusEffects.AddEffect(trigger, 3, trigger.DamageContributionPerStack);
+
+            Assert.That(root.Counters.SpawnedAoes, Is.EqualTo(0));
+
+            mob.StatusEffects.Tick(0f);
+
+            Assert.That(root.Counters.SpawnedAoes, Is.EqualTo(1));
+
+            root.Step(0.01f);
+
+            Assert.That(mob.CurrentHealth, Is.EqualTo(4f));
+            Object.Destroy(trigger);
+            Cleanup(rootObject, templateObject, mob.gameObject);
         }
 
         [Test]
@@ -214,12 +280,20 @@ namespace PlayGround.Tests.PlayMode
         private static void CreateAoeFixture(
             out GameObject rootObject,
             out AoeRoot root,
-            out GameObject templateObject)
+            out GameObject templateObject,
+            Vector3? templateScale = null,
+            Vector3? visualScale = null)
         {
             templateObject = new GameObject("AoeTemplate");
             templateObject.SetActive(false);
+            templateObject.transform.localScale = templateScale ?? Vector3.one;
             CircleCollider2D shape = templateObject.AddComponent<CircleCollider2D>();
             shape.radius = 1f;
+            GameObject visualObject = new("Visual");
+            visualObject.transform.SetParent(templateObject.transform, false);
+            visualObject.transform.localScale = visualScale ?? Vector3.one;
+            SpriteRenderer renderer = visualObject.AddComponent<SpriteRenderer>();
+            renderer.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
 
             var definition = new AoeTypeDefinition();
             definition.Configure(AoeTypeId, templateObject, shape, 1f);
@@ -229,6 +303,28 @@ namespace PlayGround.Tests.PlayMode
             root = rootObject.AddComponent<AoeRoot>();
             root.Configure(new[] { definition }, ~0);
             rootObject.SetActive(true);
+        }
+
+        private static Matrix4x4 FirstScopedAoeRenderMatrix(AoeRoot root)
+        {
+            Entity scope = AoeScopeEntity(root);
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<AoeIdentityComponent>(),
+                ComponentType.ReadOnly<AoeRenderElement>());
+            using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                AoeIdentityComponent identity = entityManager.GetComponentData<AoeIdentityComponent>(entities[i]);
+                if (identity.Scope == scope)
+                {
+                    return entityManager.GetComponentData<AoeRenderElement>(entities[i]).objectToWorld;
+                }
+            }
+
+            Assert.Fail("No AOE render entity found for root.");
+            return Matrix4x4.identity;
         }
 
         private static void CreateProjectileRoot(out GameObject rootObject, out ProjectileRoot root)
@@ -248,6 +344,30 @@ namespace PlayGround.Tests.PlayMode
             AoeTargetProbe target = targetObject.AddComponent<AoeTargetProbe>();
             target.Configure(++nextTargetId, targetMask, 0.25f);
             return target;
+        }
+
+        private static MobRoot CreateMobTarget(Vector2 position)
+        {
+            GameObject mobObject = new("MobStatusTarget");
+            mobObject.SetActive(false);
+            mobObject.transform.position = position;
+            Rigidbody2D body = mobObject.AddComponent<Rigidbody2D>();
+            body.gravityScale = 0f;
+            CircleCollider2D hurtbox = mobObject.AddComponent<CircleCollider2D>();
+            hurtbox.isTrigger = true;
+            SpriteRenderer renderer = mobObject.AddComponent<SpriteRenderer>();
+            mobObject.AddComponent<StatusEffects>();
+            MobRoot mob = mobObject.AddComponent<MobRoot>();
+            mob.Configure(body, hurtbox, hurtbox, renderer, null);
+            mob.ConfigureAuthoring(
+                new MobBehaviour[] { ScriptableObject.CreateInstance<WanderBehaviour>() },
+                new MobTrigger[] { ScriptableObject.CreateInstance<HurtRecoveryTrigger>() },
+                new[] { new MobTriggerBehaviourMapping { triggerKey = MobRoot.DefaultTriggerKey, behaviourKey = "wander" } },
+                10f,
+                0f,
+                0.5f);
+            mobObject.SetActive(true);
+            return mob;
         }
 
         private static Entity FirstScopedAoeEntity(AoeRoot root)

@@ -110,12 +110,12 @@ AOE template prefab requirements:
 - child GameObject named `Visual` has the `SpriteRenderer`
 - child GameObject named `Hurtbox` has one supported `Collider2D` that defines
   hit shape
-- collision logic uses the `Hurtbox` shape multiplied by
+- collision logic uses the scaled `Hurtbox` shape multiplied by
   `AoeConfig.sizeMultiplier`
-- batched rendering uses the sprite's own size multiplied by the same
+- batched rendering uses the sprite's scaled Transform multiplied by the same
   `AoeConfig.sizeMultiplier`
-- prefab Transform scale is not the runtime sizing control; keep the root and
-  children at scale `1` and tune `sizeMultiplier`
+- prefab Transform scale is an authoring control; `sizeMultiplier` is the
+  additional data-driven multiplier applied at runtime
 - no required live trigger damage behavior
 
 Circle AOEs are enough for the first implementation, but the baking boundary
@@ -133,8 +133,8 @@ Basic pulse authoring steps:
 6. Assign these config fields:
    - `typeId`: the id used by attacks, for example `0`
    - `basicPrefab`: the AOE template prefab's `BasicAoePrefab`
-   - `sizeMultiplier`: uniform scale applied to both the batched visual and the
-     baked hurtbox shape
+   - `sizeMultiplier`: uniform scale applied after prefab Transform scale to
+     both the batched visual and the baked hurtbox shape
    - `damage`: damage payload for each hit
    - `lifetimeSeconds`: `0` for current pulse AOEs
    - `tickIntervalSeconds`: unused by current pulse AOEs

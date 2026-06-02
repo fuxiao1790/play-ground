@@ -16,6 +16,7 @@ namespace PlayGround.Attack
         [SerializeField] private ProjectileConfig childConfig;
         [SerializeField] private AudioClip performSound;
         [SerializeField] private AudioManager audioManager;
+        [SerializeField] private ProjectileHitEffectDefinition[] hitEffectDefinitions = global::System.Array.Empty<ProjectileHitEffectDefinition>();
         [SerializeField] private AoeRoot aoeRoot;
 
         [SerializeField] private int childProjectileCount;
@@ -26,13 +27,14 @@ namespace PlayGround.Attack
         private readonly List<ProjectileSpawnCommand> commands = new();
         private ProjectileHitEffect[] hitEffects = global::System.Array.Empty<ProjectileHitEffect>();
         private AoeRoot subscribedAoeRoot;
-        private IProjectileHitActor hitSource;
+        private ProjectileRoot subscribedProjectileRoot;
         private int childSpawnerId;
         private float localCooldown;
         public event global::System.Action<ProjectileAoeSpawnRequest> AoeSpawnRequested;
 
         public ProjectileRoot Root => projectileRoot;
         public bool IsReady => localCooldown <= 0f;
+        private EntityId SourceNodeId => gameObject.GetEntityId();
 
         public bool TryFire(Vector2 aimDirection)
         {
@@ -56,8 +58,8 @@ namespace PlayGround.Attack
         {
             projectileRoot ??= FindProjectileRootForOwner();
             ValidateReferences();
+            ValidateHitEffects();
             audioManager ??= AudioManager.Instance != null ? AudioManager.Instance : FindAnyObjectByType<AudioManager>();
-            hitSource = GetComponentInParent<IProjectileHitActor>();
             hitEffects = GetComponentsInChildren<ProjectileHitEffect>(true);
             for (int i = 0; i < hitEffects.Length; i++)
                 hitEffects[i].Configure(this);
@@ -69,6 +71,7 @@ namespace PlayGround.Attack
         {
             AssignChildSpawnerId();
             RegisterBasicPrefabs();
+            SubscribeProjectileRoot();
             SubscribeAoeRoot();
         }
 
@@ -80,6 +83,7 @@ namespace PlayGround.Attack
 
         private void OnDisable()
         {
+            UnsubscribeProjectileRoot();
             UnsubscribeAoeRoot();
         }
 
@@ -197,7 +201,7 @@ namespace PlayGround.Attack
                 parentConfig.GetTrackingConfig(),
                 childSpawnConfig,
                 parentConfig.DirectDamageEnabled,
-                hitSource != null ? hitSource.ProjectileHitNodeId : default,
+                SourceNodeId,
                 ImpactAoeSnapshot(targetMask));
         }
 
@@ -237,25 +241,57 @@ namespace PlayGround.Attack
             subscribedAoeRoot = null;
         }
 
+        private void SubscribeProjectileRoot()
+        {
+            if (projectileRoot == null || subscribedProjectileRoot == projectileRoot) return;
+
+            projectileRoot.ProjectileHit += OnRootProjectileHit;
+            subscribedProjectileRoot = projectileRoot;
+        }
+
+        private void UnsubscribeProjectileRoot()
+        {
+            if (subscribedProjectileRoot == null) return;
+
+            subscribedProjectileRoot.ProjectileHit -= OnRootProjectileHit;
+            subscribedProjectileRoot = null;
+        }
+
         private void OnAoeSpawnRequested(ProjectileAoeSpawnRequest request)
         {
             subscribedAoeRoot?.Spawn(request);
         }
 
+        private void OnRootProjectileHit(ProjectileHitContext hit)
+        {
+            if (hit.Payload.SourceNodeId.Equals(SourceNodeId))
+            {
+                OnProjectileHit(hit);
+            }
+        }
+
         private void OnProjectileHit(ProjectileHitContext hit)
         {
-            if (parentConfig.ImpactAoeTypeId >= 0)
-            {
-                AoeSpawnRequested?.Invoke(new ProjectileAoeSpawnRequest(
-                    parentConfig.ImpactAoeTypeId,
-                    hit.Position,
-                    new DamageSnapshot(Mathf.Max(0f, parentConfig.ImpactAoeDamage)),
-                    parentConfig.ImpactAoeLifetimeSeconds,
-                    parentConfig.ImpactAoeTickIntervalSeconds));
-            }
+            for (int i = 0; i < hitEffectDefinitions.Length; i++)
+                hitEffectDefinitions[i].Apply(in hit, AoeSpawnRequested);
 
             for (int i = 0; i < hitEffects.Length; i++)
                 hitEffects[i].Apply(in hit, AoeSpawnRequested);
+        }
+
+        private void ValidateHitEffects()
+        {
+            if (hitEffectDefinitions == null)
+            {
+                hitEffectDefinitions = global::System.Array.Empty<ProjectileHitEffectDefinition>();
+                return;
+            }
+
+            for (int i = 0; i < hitEffectDefinitions.Length; i++)
+            {
+                if (hitEffectDefinitions[i] == null)
+                    throw new MissingReferenceException($"{nameof(ChildSpawningProjectileAttack)} on {name} hit effect slot {i} is empty.");
+            }
         }
 
         private static bool IsValidBasicPrefab(BasicAttackPrefab template, out string reason)

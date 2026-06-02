@@ -44,6 +44,7 @@ namespace PlayGround.Mob
         private readonly MobBlackboard blackboard = new();
         private ProjectileTargetRegistry registry;
         private AoeTargetRegistry aoeRegistry;
+        private AoeRoot aoeRoot;
         private MobEventQueue eventQueue;
         private MobStateDriver stateDriver;
         private MobBehaviourSelector behaviourSelector;
@@ -97,7 +98,11 @@ namespace PlayGround.Mob
 
             RebuildProjectileAttack();
             StatusEffects = GetComponent<StatusEffects>();
-            StatusEffects?.Initialize(d => TakeDamage(d), () => isAlive);
+            if (StatusEffects != null)
+            {
+                StatusEffects.Initialize(d => TakeDamage(d), () => isAlive);
+                StatusEffects.EffectTriggered += OnStatusEffectTriggered;
+            }
         }
 
         protected virtual void Update()
@@ -152,6 +157,14 @@ namespace PlayGround.Mob
         {
             registry?.Unregister(this);
             aoeRegistry?.Unregister(this);
+        }
+
+        protected virtual void OnDestroy()
+        {
+            if (StatusEffects != null)
+            {
+                StatusEffects.EffectTriggered -= OnStatusEffectTriggered;
+            }
         }
 
         public void Configure(
@@ -212,6 +225,11 @@ namespace PlayGround.Mob
         {
             projectileRoot = root;
             RebuildProjectileAttack();
+        }
+
+        public void BindAoeRoot(AoeRoot root)
+        {
+            aoeRoot = root;
         }
 
         public void Register(ProjectileTargetRegistry targetRegistry)
@@ -287,6 +305,31 @@ namespace PlayGround.Mob
         public void ClearDebuffStacks(MobDebuffStatus status)
         {
             debuffStacks.ClearStacks(status);
+        }
+
+        private void OnStatusEffectTriggered(StatusEffectDef def, StatusEffectTriggerResult result)
+        {
+            if (def is not StackingTriggerDef triggerDef
+                || triggerDef.TriggerAoeTypeId < 0
+                || aoeRoot == null
+                || !result.Triggered)
+            {
+                return;
+            }
+
+            float damagePerFire = result.TriggerCount > 0
+                ? result.TotalTriggerDamage / result.TriggerCount
+                : 0f;
+
+            for (int i = 0; i < result.TriggerCount; i++)
+            {
+                aoeRoot.Spawn(new ProjectileAoeSpawnRequest(
+                    triggerDef.TriggerAoeTypeId,
+                    result.OwnerPosition,
+                    new DamageSnapshot(Mathf.Max(0f, damagePerFire)),
+                    triggerDef.TriggerAoeLifetimeSeconds,
+                    triggerDef.TriggerAoeTickIntervalSeconds));
+            }
         }
 
         public void SoftDie()
