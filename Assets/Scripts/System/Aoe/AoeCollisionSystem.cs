@@ -122,12 +122,13 @@ namespace PlayGround.System.Aoe
                 in CombatCollisionComponent collision,
                 in CombatHitComponent hit,
                 in AoeHitSpawnComponent hitSpawn,
+                in AoeRenderElement renderElement,
                 EnabledRefRW<AoeActiveTag> active,
                 DynamicBuffer<AoeContactGateElement> contactGates)
             {
                 if (identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
                 {
-                    Deactivate(entity, identity, active);
+                    Deactivate(entity, identity, renderElement, active);
                     return;
                 }
 
@@ -160,7 +161,7 @@ namespace PlayGround.System.Aoe
                     }
                 }
 
-                Deactivate(entity, identity, active);
+                Deactivate(entity, identity, renderElement, active);
             }
 
             private void ResolveHit(
@@ -197,6 +198,7 @@ namespace PlayGround.System.Aoe
             private void Deactivate(
                 Entity entity,
                 AoeIdentityComponent identity,
+                AoeRenderElement renderElement,
                 EnabledRefRW<AoeActiveTag> active)
             {
                 active.ValueRW = false;
@@ -204,7 +206,8 @@ namespace PlayGround.System.Aoe
                 {
                     Scope = identity.Scope,
                     AoeEntity = entity,
-                    TypeId = identity.TypeId
+                    TypeId = identity.TypeId,
+                    Render = renderElement
                 });
             }
 
@@ -291,7 +294,8 @@ namespace PlayGround.System.Aoe
                     RecycleBuffers[recycle.Scope].Add(new AoeRecycleElement
                     {
                         AoeEntity = recycle.AoeEntity,
-                        TypeId = recycle.TypeId
+                        TypeId = recycle.TypeId,
+                        Render = recycle.Render
                     });
                 }
             }

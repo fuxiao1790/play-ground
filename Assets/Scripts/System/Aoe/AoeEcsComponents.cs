@@ -62,6 +62,14 @@ namespace PlayGround.System.Aoe
         public Matrix4x4 objectToWorld;
     }
 
+    // ECS Lifecycle: shared AOE component; added at entity creation; kept until root teardown; reuse only within same scope.
+    public struct AoeRenderScope : ISharedComponentData, global::System.IEquatable<AoeRenderScope>
+    {
+        public Entity Scope;
+        public readonly bool Equals(AoeRenderScope other) => Scope == other.Scope;
+        public override int GetHashCode() => Scope.GetHashCode();
+    }
+
     // ECS Lifecycle: AOE buffer; added by spawn materialization; kept until root teardown; cleared on reuse.
     public struct AoeContactGateElement : IBufferElementData
     {
@@ -102,11 +110,12 @@ namespace PlayGround.System.Aoe
         public AoeProjectileBurstSnapshot ProjectileBurst;
     }
 
-    // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by AoeSpawnSystem into its reuse pool.
+    // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by AoeSpawnSystem into its reuse pool; carries the last prepared render matrix for one-frame pulse visual submission.
     public struct AoeRecycleElement : IBufferElementData
     {
         public Entity AoeEntity;
         public int TypeId;
+        public AoeRenderElement Render;
     }
 
     // ECS Lifecycle: transient native payload; not added to entities; queued during collision hit flush.
@@ -127,5 +136,6 @@ namespace PlayGround.System.Aoe
         public Entity Scope;
         public Entity AoeEntity;
         public int TypeId;
+        public AoeRenderElement Render;
     }
 }

@@ -20,7 +20,7 @@ MonoBehaviour:
   spreadDegrees: 15
   jitterDegrees: 0
   targetMask: 1
-  pierceCount: 30
+  pierceCount: 5
   repeatHitCooldownSeconds: 0
   trackingEnabled: 1
   trackingRange: 400

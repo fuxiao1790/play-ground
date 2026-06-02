@@ -144,6 +144,7 @@ namespace PlayGround.System.Aoe
             if (entity == Entity.Null)
             {
                 entity = ecb.CreateEntity(archetype);
+                ecb.AddSharedComponent(entity, new AoeRenderScope { Scope = scope });
                 RecordAoeReset(ecb, entity, scope, request);
                 return;
             }

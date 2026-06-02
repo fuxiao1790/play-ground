@@ -8,7 +8,6 @@ using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Sprites;
 
 namespace PlayGround.System.Aoe
 {
@@ -31,7 +30,7 @@ namespace PlayGround.System.Aoe
         private float batchBoundsHalfExtent = 100000f;
 
         private readonly AoeTargetRegistry targetRegistry = new();
-        private readonly Dictionary<int, AoeRenderResources> renderResourcesByType = new();
+        private readonly Dictionary<int, CombatSpriteRenderResources> renderResourcesByType = new();
 
         private AoeTypeRegistry typeRegistry;
         private AoeTargetSync targetSync;
@@ -300,7 +299,7 @@ namespace PlayGround.System.Aoe
 
         private AoeRenderComponent RenderComponentFor(int typeId)
         {
-            if (!spawnVisuals || !renderResourcesByType.TryGetValue(typeId, out AoeRenderResources resources))
+            if (!spawnVisuals || !renderResourcesByType.TryGetValue(typeId, out CombatSpriteRenderResources resources))
             {
                 return default;
             }
@@ -338,7 +337,9 @@ namespace PlayGround.System.Aoe
             submitQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AoeTag>(),
                 ComponentType.ReadOnly<AoeIdentityComponent>(),
-                ComponentType.ReadOnly<AoeRenderElement>());
+                ComponentType.ReadOnly<AoeRenderScope>(),
+                ComponentType.ReadOnly<AoeRenderElement>(),
+                ComponentType.ReadOnly<AoeActiveTag>());
             submitBuffer = new NativeArray<AoeRenderElement>(MaxInstancesPerDraw, Allocator.Persistent);
         }
 
@@ -474,190 +475,19 @@ namespace PlayGround.System.Aoe
             }
         }
 
-        private AoeRenderResources BuildRenderResourcesFor(
+        private CombatSpriteRenderResources BuildRenderResourcesFor(
             Sprite sprite,
             Vector2 scale,
             float visualRotationDegrees,
             Material sourceMaterial = null)
         {
-            Mesh mesh = BuildAoeMesh(sprite);
-            Texture texture = sprite.texture;
-            Material material;
-            if (sourceMaterial != null)
-            {
-                material = new Material(sourceMaterial)
-                {
-                    mainTexture = texture,
-                    enableInstancing = true,
-                    renderQueue = AoeRenderQueue
-                };
-                ConfigureAoeMaterial(material, texture);
-            }
-            else
-            {
-                material = new(FindAoeShader())
-                {
-                    mainTexture = texture,
-                    enableInstancing = true,
-                    renderQueue = AoeRenderQueue
-                };
-                ConfigureAoeMaterial(material, texture);
-            }
-
-            if (material == null)
-            {
-                throw new MissingReferenceException($"AOE render material could not be created for sprite {sprite.name}.");
-            }
-
-            if (material.mainTexture == null)
-            {
-                throw new MissingReferenceException($"AOE render material for sprite {sprite.name} has no main texture assigned.");
-            }
-
-            if (!material.enableInstancing)
-            {
-                throw new global::System.InvalidOperationException($"AOE render material for sprite {sprite.name} does not support GPU instancing.");
-            }
-
-            if (material.shader == null || !material.shader.isSupported)
-            {
-                throw new MissingReferenceException($"AOE render material shader is not supported for sprite {sprite.name}.");
-            }
-
-            MaterialPropertyBlock properties = new();
-            ConfigureAoeProperties(properties, material, texture);
-            return new AoeRenderResources(mesh, material, properties, PositiveScale(scale), visualRotationDegrees);
-        }
-
-        private static Vector2 PositiveScale(Vector2 scale)
-        {
-            return new Vector2(
-                scale.x > 0f ? scale.x : 1f,
-                scale.y > 0f ? scale.y : 1f);
-        }
-
-        private static Mesh BuildAoeMesh(Sprite sprite)
-        {
-            Mesh mesh = new() { name = "AoeQuadMesh" };
-            Rect rect = sprite.rect;
-            float pixelsPerUnit = sprite.pixelsPerUnit;
-            float width = rect.width / pixelsPerUnit;
-            float height = rect.height / pixelsPerUnit;
-            Vector4 outerUv = DataUtility.GetOuterUV(sprite);
-
-            var vertices = new[]
-            {
-                new Vector3(-width * 0.5f, -height * 0.5f, 0f),
-                new Vector3(-width * 0.5f, height * 0.5f, 0f),
-                new Vector3(width * 0.5f, height * 0.5f, 0f),
-                new Vector3(width * 0.5f, -height * 0.5f, 0f)
-            };
-            var uvs = new[]
-            {
-                new Vector2(outerUv.x, outerUv.y),
-                new Vector2(outerUv.x, outerUv.w),
-                new Vector2(outerUv.z, outerUv.w),
-                new Vector2(outerUv.z, outerUv.y)
-            };
-
-            mesh.SetVertices(vertices);
-            mesh.SetUVs(0, uvs);
-            mesh.SetTriangles(new[] { 0, 1, 2, 0, 2, 3 }, 0);
-            mesh.RecalculateBounds();
-            return mesh;
-        }
-
-        private static Shader FindAoeShader()
-        {
-            Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (shader != null)
-            {
-                return shader;
-            }
-
-            shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default");
-            if (shader != null)
-            {
-                return shader;
-            }
-
-            shader = Shader.Find("Sprites/Default");
-            if (shader != null)
-            {
-                return shader;
-            }
-
-            throw new MissingReferenceException("No supported AOE render shader found.");
-        }
-
-        private static void ConfigureAoeMaterial(Material material, Texture texture)
-        {
-            material.enableInstancing = true;
-            material.renderQueue = AoeRenderQueue;
-            material.SetTexture("_MainTex", texture);
-
-            SetTextureIfPresent(material, "_BaseMap", texture);
-            SetColorIfPresent(material, "_Color", Color.white);
-            SetColorIfPresent(material, "_BaseColor", Color.white);
-            SetColorIfPresent(material, "_RendererColor", Color.white);
-            SetFloatIfPresent(material, "_Surface", 1f);
-            SetFloatIfPresent(material, "_Blend", 0f);
-            SetFloatIfPresent(material, "_SrcBlend", (float)BlendMode.SrcAlpha);
-            SetFloatIfPresent(material, "_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
-            SetFloatIfPresent(material, "_ZWrite", 0f);
-            SetFloatIfPresent(material, "_Cull", (float)CullMode.Off);
-
-            material.SetOverrideTag("RenderType", "Transparent");
-            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-        }
-
-        private static void ConfigureAoeProperties(MaterialPropertyBlock properties, Material material, Texture texture)
-        {
-            properties.SetTexture("_MainTex", texture);
-
-            if (material.HasProperty("_BaseMap"))
-            {
-                properties.SetTexture("_BaseMap", texture);
-            }
-
-            if (material.HasProperty("_Color"))
-            {
-                properties.SetColor("_Color", Color.white);
-            }
-
-            if (material.HasProperty("_BaseColor"))
-            {
-                properties.SetColor("_BaseColor", Color.white);
-            }
-
-            if (material.HasProperty("_RendererColor"))
-            {
-                properties.SetColor("_RendererColor", Color.white);
-            }
-        }
-
-        private static void SetTextureIfPresent(Material material, string propertyName, Texture texture)
-        {
-            if (material.HasProperty(propertyName))
-            {
-                material.SetTexture(propertyName, texture);
-            }
-        }
-
-        private static void SetColorIfPresent(Material material, string propertyName, Color color)
-        {
-            if (material.HasProperty(propertyName))
-            {
-                material.SetColor(propertyName, color);
-            }
-        }
-
-        private static void SetFloatIfPresent(Material material, string propertyName, float value)
-        {
-            if (material.HasProperty(propertyName))
-            {
-                material.SetFloat(propertyName, value);
-            }
+            return BatchedSpriteRenderer.BuildResources(
+                sprite,
+                scale,
+                visualRotationDegrees,
+                sourceMaterial,
+                AoeRenderQueue,
+                "AoeQuadMesh");
         }
 
         private void SubmitAoes()
@@ -671,26 +501,62 @@ namespace PlayGround.System.Aoe
 
             entityManager.CompleteDependencyBeforeRO<AoeRenderElement>();
             DynamicBuffer<AoeRecycleElement> recycleBuffer = entityManager.GetBuffer<AoeRecycleElement>(scopeEntity);
-            using NativeArray<Entity> entities =
-                submitQuery.ToEntityArray(Allocator.Temp);
+            SubmitRecycledPulseAoes(recycleBuffer);
+            SubmitActiveAoes();
+        }
+
+        private void SubmitRecycledPulseAoes(DynamicBuffer<AoeRecycleElement> recycleBuffer)
+        {
+            if (recycleBuffer.Length == 0)
+            {
+                return;
+            }
+
+            foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in renderResourcesByType)
+            {
+                int typeId = pair.Key;
+                int batchCount = 0;
+                for (int i = 0; i < recycleBuffer.Length; i++)
+                {
+                    AoeRecycleElement recycle = recycleBuffer[i];
+                    if (recycle.TypeId != typeId)
+                    {
+                        continue;
+                    }
+
+                    submitBuffer[batchCount] = recycle.Render;
+                    batchCount++;
+                    activeVisuals++;
+
+                    if (batchCount == MaxInstancesPerDraw)
+                    {
+                        SubmitBatch(submitBuffer, 0, batchCount, pair.Value);
+                        batchCount = 0;
+                    }
+                }
+
+                if (batchCount > 0)
+                {
+                    SubmitBatch(submitBuffer, 0, batchCount, pair.Value);
+                }
+            }
+        }
+
+        private void SubmitActiveAoes()
+        {
+            submitQuery.SetSharedComponentFilter(new AoeRenderScope { Scope = scopeEntity });
             using NativeArray<AoeIdentityComponent> identities =
                 submitQuery.ToComponentDataArray<AoeIdentityComponent>(Allocator.Temp);
             using NativeArray<AoeRenderElement> renderElements =
                 submitQuery.ToComponentDataArray<AoeRenderElement>(Allocator.Temp);
 
-            foreach (KeyValuePair<int, AoeRenderResources> pair in renderResourcesByType)
+            foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in renderResourcesByType)
             {
                 int typeId = pair.Key;
                 int batchCount = 0;
                 for (int i = 0; i < identities.Length; i++)
                 {
                     if (identities[i].Scope != scopeEntity || identities[i].TypeId != typeId)
-                    {
-                        continue;
-                    }
-
-                    if (!entityManager.IsComponentEnabled<AoeActiveTag>(entities[i])
-                        && !WasRecycledThisFrame(entities[i], recycleBuffer))
                     {
                         continue;
                     }
@@ -711,54 +577,19 @@ namespace PlayGround.System.Aoe
                     SubmitBatch(submitBuffer, 0, batchCount, pair.Value);
                 }
             }
+
+            submitQuery.ResetFilter();
         }
 
-        private static bool WasRecycledThisFrame(Entity entity, DynamicBuffer<AoeRecycleElement> recycleBuffer)
+        private void SubmitBatch(NativeArray<AoeRenderElement> instances, int startInstance, int instanceCount, CombatSpriteRenderResources resources)
         {
-            for (int i = 0; i < recycleBuffer.Length; i++)
-            {
-                if (recycleBuffer[i].AoeEntity == entity)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private void SubmitBatch(
-            NativeArray<AoeRenderElement> instances,
-            int startInstance,
-            int instanceCount,
-            AoeRenderResources resources)
-        {
-            if (instanceCount <= 0)
-            {
-                return;
-            }
-
-            Graphics.RenderMeshInstanced(
-                new RenderParams(resources.Material)
-                {
-                    matProps = resources.Properties,
-                    shadowCastingMode = ShadowCastingMode.Off,
-                    receiveShadows = false,
-                    layer = gameObject.layer,
-                    worldBounds = new Bounds(
-                        Vector3.zero,
-                        new Vector3(batchBoundsHalfExtent, batchBoundsHalfExtent, batchBoundsHalfExtent) * 2f)
-                },
-                resources.Mesh,
-                0,
-                instances,
-                instanceCount,
-                startInstance);
+            BatchedSpriteRenderer.SubmitBatch(instances, startInstance, instanceCount, resources, gameObject.layer, batchBoundsHalfExtent);
             renderBatches++;
         }
 
         private void DestroyRenderResources()
         {
-            foreach (KeyValuePair<int, AoeRenderResources> pair in renderResourcesByType)
+            foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in renderResourcesByType)
             {
                 pair.Value.Destroy();
             }
@@ -766,43 +597,5 @@ namespace PlayGround.System.Aoe
             renderResourcesByType.Clear();
         }
 
-        private sealed class AoeRenderResources
-        {
-            public AoeRenderResources(
-                Mesh mesh,
-                Material material,
-                MaterialPropertyBlock properties,
-                Vector2 visualScale,
-                float visualRotationDegrees)
-            {
-                Mesh = mesh;
-                Material = material;
-                Properties = properties;
-                VisualScale = visualScale;
-                math.sincos(math.radians(visualRotationDegrees), out float visualRotationSin, out float visualRotationCos);
-                VisualRotationSin = visualRotationSin;
-                VisualRotationCos = visualRotationCos;
-            }
-
-            public Mesh Mesh { get; }
-            public Material Material { get; }
-            public MaterialPropertyBlock Properties { get; }
-            public Vector2 VisualScale { get; }
-            public float VisualRotationSin { get; }
-            public float VisualRotationCos { get; }
-
-            public void Destroy()
-            {
-                if (Material != null)
-                {
-                    UnityEngine.Object.Destroy(Material);
-                }
-
-                if (Mesh != null)
-                {
-                    UnityEngine.Object.Destroy(Mesh);
-                }
-            }
-        }
     }
 }

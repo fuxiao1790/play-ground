@@ -8,7 +8,6 @@ using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Sprites;
 
 namespace PlayGround.System.Projectile
 {
@@ -35,7 +34,7 @@ namespace PlayGround.System.Projectile
         private readonly ProjectileTargetRegistry targetRegistry = new();
         private readonly Dictionary<int, IProjectileTarget> targetsById = new();
         private readonly Dictionary<BasicAttackPrefab, int> templateTypeIds = new();
-        private readonly Dictionary<int, ProjectileRenderResources> renderResourcesByType = new();
+        private readonly Dictionary<int, CombatSpriteRenderResources> renderResourcesByType = new();
 
         private World entityWorld;
         private EntityManager entityManager;
@@ -613,63 +612,21 @@ namespace PlayGround.System.Projectile
             }
         }
 
-        private ProjectileRenderResources BuildRenderResourcesFor(Sprite sprite, float scale, float visualRotationDegrees, Material sourceMaterial = null)
+        private CombatSpriteRenderResources BuildRenderResourcesFor(Sprite sprite, float scale, float visualRotationDegrees, Material sourceMaterial = null)
         {
-            Mesh mesh = BuildProjectileMesh(sprite);
-            Texture texture = sprite.texture;
-            Material material;
-            if (sourceMaterial != null)
-            {
-                material = new Material(sourceMaterial)
-                {
-                    mainTexture = texture,
-                    enableInstancing = true,
-                    renderQueue = ProjectileRenderQueue
-                };
-                // Ensure cloned authoring materials receive the same property setup
-                // as the fallback material so URP/Shader graph properties like
-                // _BaseMap are populated and keywords/tags are configured.
-                ConfigureProjectileMaterial(material, texture);
-            }
-            else
-            {
-                material = new(FindProjectileShader())
-                {
-                    mainTexture = texture,
-                    enableInstancing = true,
-                    renderQueue = ProjectileRenderQueue
-                };
-                ConfigureProjectileMaterial(material, texture);
-            }
-
-            // Sanity checks: instanced rendering requires a valid material with a main texture
-            if (material == null)
-            {
-                throw new MissingReferenceException($"Projectile render material could not be created for sprite {sprite.name}.");
-            }
-
-            if (material.mainTexture == null)
-            {
-                throw new MissingReferenceException($"Projectile render material for sprite {sprite.name} has no main texture assigned.");
-            }
-
-            if (!material.enableInstancing)
-            {
-                throw new global::System.InvalidOperationException($"Projectile render material for sprite {sprite.name} does not support GPU instancing.");
-            }
-
-            if (material.shader == null || !material.shader.isSupported)
-            {
-                throw new MissingReferenceException($"Projectile render material shader is not supported for sprite {sprite.name}.");
-            }
-            MaterialPropertyBlock properties = new();
-            ConfigureProjectileProperties(properties, material, texture);
-            return new ProjectileRenderResources(mesh, material, properties, scale > 0f ? scale : visualScale, visualRotationDegrees);
+            float positiveScale = scale > 0f ? scale : visualScale;
+            return BatchedSpriteRenderer.BuildResources(
+                sprite,
+                new Vector2(positiveScale, positiveScale),
+                visualRotationDegrees,
+                sourceMaterial,
+                ProjectileRenderQueue,
+                "ProjectileQuadMesh");
         }
 
         private ProjectileRenderComponent RenderComponentFor(int projectileTypeId)
         {
-            if (!renderResourcesByType.TryGetValue(projectileTypeId, out ProjectileRenderResources resources))
+            if (!renderResourcesByType.TryGetValue(projectileTypeId, out CombatSpriteRenderResources resources))
             {
                 return default;
             }
@@ -677,7 +634,7 @@ namespace PlayGround.System.Projectile
             return new ProjectileRenderComponent
             {
                 IsRenderable = 1,
-                VisualScale = resources.VisualScale,
+                VisualScale = resources.VisualScale.x,
                 VisualRotationSin = resources.VisualRotationSin,
                 VisualRotationCos = resources.VisualRotationCos
             };
@@ -694,136 +651,12 @@ namespace PlayGround.System.Projectile
 
         private void DestroyRenderResources()
         {
-            foreach (KeyValuePair<int, ProjectileRenderResources> pair in renderResourcesByType)
+            foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in renderResourcesByType)
             {
                 pair.Value.Destroy();
             }
 
             renderResourcesByType.Clear();
-        }
-
-        private static Mesh BuildProjectileMesh(Sprite sprite)
-        {
-            Mesh mesh = new() { name = "ProjectileQuadMesh" };
-            Rect rect = sprite.rect;
-            float pixelsPerUnit = sprite.pixelsPerUnit;
-            float width = rect.width / pixelsPerUnit;
-            float height = rect.height / pixelsPerUnit;
-            Vector4 outerUv = DataUtility.GetOuterUV(sprite);
-
-            var vertices = new[]
-            {
-                new Vector3(-width * 0.5f, -height * 0.5f, 0f),
-                new Vector3(-width * 0.5f, height * 0.5f, 0f),
-                new Vector3(width * 0.5f, height * 0.5f, 0f),
-                new Vector3(width * 0.5f, -height * 0.5f, 0f)
-            };
-            var uvs = new[]
-            {
-                new Vector2(outerUv.x, outerUv.y),
-                new Vector2(outerUv.x, outerUv.w),
-                new Vector2(outerUv.z, outerUv.w),
-                new Vector2(outerUv.z, outerUv.y)
-            };
-
-            mesh.SetVertices(vertices);
-            mesh.SetUVs(0, uvs);
-            mesh.SetTriangles(new[] { 0, 1, 2, 0, 2, 3 }, 0);
-            mesh.RecalculateBounds();
-            return mesh;
-        }
-
-        private static Shader FindProjectileShader()
-        {
-            Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (shader != null)
-            {
-                return shader;
-            }
-
-            shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default");
-            if (shader != null)
-            {
-                return shader;
-            }
-
-            shader = Shader.Find("Sprites/Default");
-            if (shader != null)
-            {
-                return shader;
-            }
-
-            throw new MissingReferenceException("No supported projectile render shader found.");
-        }
-
-        private static void ConfigureProjectileMaterial(Material material, Texture texture)
-        {
-            material.enableInstancing = true;
-            material.renderQueue = ProjectileRenderQueue;
-            material.SetTexture("_MainTex", texture);
-
-            SetTextureIfPresent(material, "_BaseMap", texture);
-            SetColorIfPresent(material, "_Color", Color.white);
-            SetColorIfPresent(material, "_BaseColor", Color.white);
-            SetColorIfPresent(material, "_RendererColor", Color.white);
-            SetFloatIfPresent(material, "_Surface", 1f);
-            SetFloatIfPresent(material, "_Blend", 0f);
-            SetFloatIfPresent(material, "_SrcBlend", (float)BlendMode.SrcAlpha);
-            SetFloatIfPresent(material, "_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
-            SetFloatIfPresent(material, "_ZWrite", 0f);
-            SetFloatIfPresent(material, "_Cull", (float)CullMode.Off);
-
-            material.SetOverrideTag("RenderType", "Transparent");
-            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-        }
-
-        private static void ConfigureProjectileProperties(MaterialPropertyBlock properties, Material material, Texture texture)
-        {
-            properties.SetTexture("_MainTex", texture);
-
-            if (material.HasProperty("_BaseMap"))
-            {
-                properties.SetTexture("_BaseMap", texture);
-            }
-
-            if (material.HasProperty("_Color"))
-            {
-                properties.SetColor("_Color", Color.white);
-            }
-
-            if (material.HasProperty("_BaseColor"))
-            {
-                properties.SetColor("_BaseColor", Color.white);
-            }
-
-            if (material.HasProperty("_RendererColor"))
-            {
-                properties.SetColor("_RendererColor", Color.white);
-            }
-        }
-
-        private static void SetTextureIfPresent(Material material, string propertyName, Texture texture)
-        {
-            if (material.HasProperty(propertyName))
-            {
-                material.SetTexture(propertyName, texture);
-            }
-        }
-
-        private static void SetColorIfPresent(Material material, string propertyName, Color color)
-        {
-            if (material.HasProperty(propertyName))
-            {
-                material.SetColor(propertyName, color);
-            }
-        }
-
-        private static void SetFloatIfPresent(Material material, string propertyName, float value)
-        {
-            if (material.HasProperty(propertyName))
-            {
-                material.SetFloat(propertyName, value);
-            }
         }
 
         // this function should ONLY submit projectiles rendering data.
@@ -837,7 +670,7 @@ namespace PlayGround.System.Projectile
 
             for (int typeId = 0; typeId < MaxStructuralRenderTypes; typeId++)
             {
-                if (!renderResourcesByType.TryGetValue(typeId, out ProjectileRenderResources resources))
+                if (!renderResourcesByType.TryGetValue(typeId, out CombatSpriteRenderResources resources))
                 {
                     continue;
                 }
@@ -851,39 +684,11 @@ namespace PlayGround.System.Projectile
                 {
                     int count = Mathf.Min(MaxInstancesPerDraw, active.Length - start);
                     NativeArray<ProjectileRenderElement>.Copy(active, start, submitBuffer, 0, count);
-                    SubmitBatch(submitBuffer, 0, count, resources);
+                    BatchedSpriteRenderer.SubmitBatch(submitBuffer, 0, count, resources, gameObject.layer, batchBoundsHalfExtent);
                 }
                 active.Dispose();
                 query.ResetFilter();
             }
-        }
-
-        private void SubmitBatch(
-            NativeArray<ProjectileRenderElement> instances,
-            int startInstance,
-            int instanceCount,
-            ProjectileRenderResources resources)
-        {
-            if (instanceCount <= 0)
-            {
-                return;
-            }
-            Graphics.RenderMeshInstanced(
-                new RenderParams(resources.Material)
-                {
-                    matProps = resources.Properties,
-                    shadowCastingMode = ShadowCastingMode.Off,
-                    receiveShadows = false,
-                    layer = gameObject.layer,
-                    worldBounds = new Bounds(
-                        Vector3.zero, 
-                        new Vector3(batchBoundsHalfExtent, batchBoundsHalfExtent, batchBoundsHalfExtent) * 2f)
-                },
-                resources.Mesh,
-                0,
-                instances,
-                instanceCount,
-                startInstance);
         }
 
         private static float DeterministicJitter(int projectileId, float maxOffsetSeconds)
@@ -941,40 +746,6 @@ namespace PlayGround.System.Projectile
             public Sprite Sprite => sprite;
             public float VisualScale => visualScale;
             public float VisualRotationDegrees => visualRotationDegrees;
-        }
-
-        private sealed class ProjectileRenderResources
-        {
-            public ProjectileRenderResources(Mesh mesh, Material material, MaterialPropertyBlock properties, float visualScale, float visualRotationDegrees)
-            {
-                Mesh = mesh;
-                Material = material;
-                Properties = properties;
-                VisualScale = visualScale;
-                math.sincos(math.radians(visualRotationDegrees), out float visualRotationSin, out float visualRotationCos);
-                VisualRotationSin = visualRotationSin;
-                VisualRotationCos = visualRotationCos;
-            }
-
-            public Mesh Mesh { get; }
-            public Material Material { get; }
-            public MaterialPropertyBlock Properties { get; }
-            public float VisualScale { get; }
-            public float VisualRotationSin { get; }
-            public float VisualRotationCos { get; }
-
-            public void Destroy()
-            {
-                if (Material != null)
-                {
-                    UnityEngine.Object.Destroy(Material);
-                }
-
-                if (Mesh != null)
-                {
-                    UnityEngine.Object.Destroy(Mesh);
-                }
-            }
         }
 
     }
