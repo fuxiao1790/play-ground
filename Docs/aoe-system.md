@@ -87,8 +87,8 @@ Lingering AOE:
 - lifetime is greater than `0`
 - hits target immediately on first overlap
 - repeats against same target after tick interval
-- resets target gate when target exits fully
-- hits immediately again after exit and re-entry
+- keeps each target gate ticking after exit
+- re-entry before cooldown expiry does not hit; re-entry after cooldown expiry hits
 - despawns when lifetime reaches zero
 
 There is no global AOE tick. Repeat timing belongs to each AOE and target contact pair.
@@ -159,11 +159,10 @@ during setup. Scene roots can still carry hand-authored `aoeTypes` entries for
 shared content, but equipped attacks should prefer config-driven registration so
 AOE authoring stays symmetrical with projectile authoring.
 
-Current implementation note: the runtime data already carries lifetime and tick
-interval values, but the collision stage currently behaves as a pulse path and
-recycles AOEs after the collision step. Author basic content with
-`lifetimeSeconds = 0` until lingering AOE lifetime and contact-gate systems are
-finished.
+Pulse content uses `lifetimeSeconds = 0`. Lingering content uses
+`lifetimeSeconds > 0` and `tickIntervalSeconds` for per-target repeat gates.
+Per-target gate entries live on the AOE, tick independently, and remain active
+through target exit until their cooldown expires.
 
 ## Projectile Impact AOE
 
@@ -253,7 +252,11 @@ The current implementation uses Entities/DOTS in the shared default world:
 - `AoeSpawnSystem` drains scoped spawn/recycle buffers and reuses inactive AOE
   entities by scope/type.
 - `AoeCollisionSystem` runs target-mask filtering and shape collision against
-  `CombatTargetElement` snapshots, emits `AoeHitElement`, and recycles pulse AOEs.
+  `CombatTargetElement` snapshots, emits `AoeHitElement`, recycles pulse AOEs,
+  and adds per-target hit gates for lingering AOEs.
+- `AoeContactGateSystem` decrements lingering repeat-hit gates and compacts
+  expired entries.
+- `AoeSimulationSystem` clears scoped hit buffers and expires lingering AOEs.
 - `CombatRenderPrepareSystem` writes render matrices for active AOEs, and
   `AoeRoot` submits GPU-instanced batches.
 
@@ -264,7 +267,7 @@ PlayMode tests should cover:
 - pulse hits each overlapping target once
 - lingering hits immediately
 - lingering repeats after per-target tick interval
-- full exit and re-entry hits immediately again
+- exit and re-entry before cooldown expiry does not hit
 - player AOE root ignores player targets
 - mob AOE root ignores mob targets
 - projectile impact AOE works

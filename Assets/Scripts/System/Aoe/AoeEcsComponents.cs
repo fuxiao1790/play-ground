@@ -28,7 +28,7 @@ namespace PlayGround.System.Aoe
     {
     }
 
-    // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse.
+    // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse; lingering AOEs disable through lifetime expiry.
     public struct AoeLifetimeComponent : IComponentData
     {
         public float RemainingLifetime;
@@ -47,7 +47,7 @@ namespace PlayGround.System.Aoe
         public AoeProjectileBurstSnapshot ProjectileBurst;
     }
 
-    // ECS Lifecycle: AOE buffer; added by spawn materialization; kept until root teardown; cleared on reuse.
+    // ECS Lifecycle: AOE buffer; added by spawn materialization; kept until root teardown; cooldown entries tick down while active and are cleared on reuse.
     public struct AoeContactGateElement : IBufferElementData
     {
         public int TargetId;

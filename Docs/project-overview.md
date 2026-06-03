@@ -136,7 +136,7 @@ Implemented:
   spawn requests, lifetime, contact gates, collision, hit replay, counters, and
   batched rendering by projectile type
 - scoped DOTS AOE runtime with ECS scope entities, spawn/recycle buffers, target
-  snapshots, pulse collision, hit replay, counters, and batched rendering by AOE type
+  snapshots, pulse and lingering collision, hit replay, counters, and batched rendering by AOE type
 
 Not yet implemented:
 

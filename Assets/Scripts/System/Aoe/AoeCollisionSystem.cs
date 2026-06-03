@@ -9,7 +9,7 @@ using Unity.Profiling;
 namespace PlayGround.System.Aoe
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(AoeSpawnSystem))]
+    [UpdateAfter(typeof(AoeContactGateSystem))]
     [UpdateAfter(typeof(PlayGround.System.Common.CombatRenderPrepareSystem))]
     public partial struct AoeCollisionSystem : ISystem
     {
@@ -122,6 +122,8 @@ namespace PlayGround.System.Aoe
                 in CombatKinematicsComponent kinematics,
                 in CombatCollisionComponent collision,
                 in CombatHitComponent hit,
+                in AoeLifetimeComponent lifetime,
+                in AoeHitGateComponent hitGate,
                 in AoeHitSpawnComponent hitSpawn,
                 in CombatRenderElement renderElement,
                 EnabledRefRW<AoeActiveTag> active,
@@ -159,14 +161,24 @@ namespace PlayGround.System.Aoe
                             continue;
                         }
 
-                        ResolveHit(identity, kinematics, hit, hitSpawn, target, contactGates);
+                        if (lifetime.IsPulse == 1)
+                        {
+                            ResolvePulseHit(identity, kinematics, hit, hitSpawn, target, contactGates);
+                        }
+                        else
+                        {
+                            ResolveLingeringHit(identity, kinematics, hit, hitGate, hitSpawn, target, contactGates);
+                        }
                     }
                 }
 
-                Deactivate(entity, identity, renderElement, active, renderActive);
+                if (lifetime.IsPulse == 1)
+                {
+                    Deactivate(entity, identity, renderElement, active, renderActive);
+                }
             }
 
-            private void ResolveHit(
+            private void ResolvePulseHit(
                 AoeIdentityComponent identity,
                 CombatKinematicsComponent kinematics,
                 CombatHitComponent hit,
@@ -184,6 +196,38 @@ namespace PlayGround.System.Aoe
                     TargetId = target.TargetId,
                     CooldownRemaining = 0f
                 });
+                EmitHit(identity, kinematics, hit, hitSpawn, target);
+            }
+
+            private void ResolveLingeringHit(
+                AoeIdentityComponent identity,
+                CombatKinematicsComponent kinematics,
+                CombatHitComponent hit,
+                AoeHitGateComponent hitGate,
+                AoeHitSpawnComponent hitSpawn,
+                CombatTargetElement target,
+                DynamicBuffer<AoeContactGateElement> contactGates)
+            {
+                if (IndexOfGate(contactGates, target.TargetId) >= 0)
+                {
+                    return;
+                }
+
+                contactGates.Add(new AoeContactGateElement
+                {
+                    TargetId = target.TargetId,
+                    CooldownRemaining = hitGate.RepeatHitCooldownSeconds
+                });
+                EmitHit(identity, kinematics, hit, hitSpawn, target);
+            }
+
+            private void EmitHit(
+                AoeIdentityComponent identity,
+                CombatKinematicsComponent kinematics,
+                CombatHitComponent hit,
+                AoeHitSpawnComponent hitSpawn,
+                CombatTargetElement target)
+            {
                 PendingHits.Enqueue(new AoePendingHit
                 {
                     Scope = identity.Scope,

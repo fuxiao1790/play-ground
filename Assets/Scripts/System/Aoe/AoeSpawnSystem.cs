@@ -281,7 +281,7 @@ namespace PlayGround.System.Aoe
             return new AoeLifetimeComponent
             {
                 RemainingLifetime = request.Lifetime,
-                IsPulse = 1
+                IsPulse = request.Lifetime <= 0f ? 1 : 0
             };
         }
 

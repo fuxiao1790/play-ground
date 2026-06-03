@@ -37,6 +37,58 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void AoeLingeringHitsImmediatelyAndRepeatsAfterCooldown()
+        {
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
+            root.TargetRegistry.Register(target);
+
+            root.Spawn(LingeringCommand(Vector2.zero, DefaultTargetMask, 2f, lifetimeSeconds: 10f, tickIntervalSeconds: 0.02f));
+            root.Step(0.01f);
+            root.Step(0.01f);
+            root.Step(0.02f);
+
+            Assert.That(target.HitCount, Is.EqualTo(2));
+            Assert.That(target.TotalDamage, Is.EqualTo(4f));
+            Cleanup(rootObject, templateObject, target.gameObject);
+        }
+
+        [Test]
+        public void AoeLingeringReentryWaitsForExistingCooldown()
+        {
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
+            root.TargetRegistry.Register(target);
+
+            root.Spawn(LingeringCommand(Vector2.zero, DefaultTargetMask, 2f, lifetimeSeconds: 10f, tickIntervalSeconds: 100f));
+            root.Step(0.01f);
+            target.transform.position = new Vector2(5f, 0f);
+            root.Step(0.01f);
+            target.transform.position = Vector2.zero;
+            root.Step(0.01f);
+
+            Assert.That(target.HitCount, Is.EqualTo(1));
+            Assert.That(target.TotalDamage, Is.EqualTo(2f));
+            Cleanup(rootObject, templateObject, target.gameObject);
+        }
+
+        [Test]
+        public void AoeLingeringExpiresAndRecycles()
+        {
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
+            root.TargetRegistry.Register(target);
+
+            root.Spawn(LingeringCommand(Vector2.zero, DefaultTargetMask, 2f, lifetimeSeconds: 0.001f, tickIntervalSeconds: 1f));
+            root.Step(0.01f);
+            root.Step(0.01f);
+
+            Assert.That(root.Counters.ActiveAoes, Is.EqualTo(0));
+            Assert.That(root.Counters.DespawnedOrReusedAoes, Is.EqualTo(1));
+            Cleanup(rootObject, templateObject, target.gameObject);
+        }
+
+        [Test]
         public void AoePulseDoesNotHitOutsideShape()
         {
             CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
@@ -273,8 +325,24 @@ namespace PlayGround.Tests.PlayMode
                 position,
                 targetMask,
                 new DamageSnapshot(damage),
-                lifetimeSeconds: 10f,
-                tickIntervalSeconds: 1f);
+                lifetimeSeconds: 0f,
+                tickIntervalSeconds: 0f);
+        }
+
+        private static AoeSpawnCommand LingeringCommand(
+            Vector2 position,
+            int targetMask,
+            float damage,
+            float lifetimeSeconds,
+            float tickIntervalSeconds)
+        {
+            return new AoeSpawnCommand(
+                AoeTypeId,
+                position,
+                targetMask,
+                new DamageSnapshot(damage),
+                lifetimeSeconds,
+                tickIntervalSeconds);
         }
 
         private static void CreateAoeFixture(
