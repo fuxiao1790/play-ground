@@ -10,6 +10,7 @@ namespace PlayGround.System.Aoe
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AoeSpawnSystem))]
+    [UpdateAfter(typeof(PlayGround.System.Common.CombatRenderPrepareSystem))]
     public partial struct AoeCollisionSystem : ISystem
     {
         private const float SpatialHashCellSize = 64f;
@@ -122,13 +123,14 @@ namespace PlayGround.System.Aoe
                 in CombatCollisionComponent collision,
                 in CombatHitComponent hit,
                 in AoeHitSpawnComponent hitSpawn,
-                in AoeRenderElement renderElement,
+                in CombatRenderElement renderElement,
                 EnabledRefRW<AoeActiveTag> active,
+                EnabledRefRW<CombatRenderActiveTag> renderActive,
                 DynamicBuffer<AoeContactGateElement> contactGates)
             {
                 if (identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
                 {
-                    Deactivate(entity, identity, renderElement, active);
+                    Deactivate(entity, identity, renderElement, active, renderActive);
                     return;
                 }
 
@@ -161,7 +163,7 @@ namespace PlayGround.System.Aoe
                     }
                 }
 
-                Deactivate(entity, identity, renderElement, active);
+                Deactivate(entity, identity, renderElement, active, renderActive);
             }
 
             private void ResolveHit(
@@ -198,10 +200,12 @@ namespace PlayGround.System.Aoe
             private void Deactivate(
                 Entity entity,
                 AoeIdentityComponent identity,
-                AoeRenderElement renderElement,
-                EnabledRefRW<AoeActiveTag> active)
+                CombatRenderElement renderElement,
+                EnabledRefRW<AoeActiveTag> active,
+                EnabledRefRW<CombatRenderActiveTag> renderActive)
             {
                 active.ValueRW = false;
+                renderActive.ValueRW = false;
                 Recycled.Enqueue(new AoePendingRecycle
                 {
                     Scope = identity.Scope,

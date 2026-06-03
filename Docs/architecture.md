@@ -82,7 +82,8 @@ General rule:
 - `AoeSimulationSystem`: clears per-scope AOE hit buffers at the start of the simulation stage
 - `AoeSpawnSystem`: drains scoped AOE recycle and spawn request buffers, reuses inactive AOE entities by scope/type, and cold-creates only when no reusable entity exists
 - `AoeCollisionSystem`: owns AOE target mask filtering, baked-shape hit checks, hit event output, and recycle records
-- `AoeRenderPrepareSystem`: prepares batched AOE render matrices for scoped draw submission
+- `CombatRenderPrepareSystem`: prepares shared batched render matrices for
+  active projectile and AOE entities
 - `BeamRoot`: future scoped beam/laser flow for continuous or sweeping attacks,
   target snapshots, tick gates, and visual line/batch ownership
 - `AudioManager`: owns one-shot audio pooling and duplicate culling

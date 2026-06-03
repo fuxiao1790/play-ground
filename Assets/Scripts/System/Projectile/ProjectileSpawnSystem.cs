@@ -175,7 +175,7 @@ namespace PlayGround.System.Projectile
             EntityCommandBuffer ecb)
         {
             Entity entity = ecb.CreateEntity(ArchetypeFor(request.TypeId, hasChildSpawner));
-            ecb.AddSharedComponent(entity, new ProjectileRenderScope { Scope = scope });
+            ecb.AddSharedComponent(entity, new CombatRenderScope { Scope = scope });
             RecordProjectileReset(ecb, entity, scope, request, hasChildSpawner);
         }
 
@@ -224,7 +224,7 @@ namespace PlayGround.System.Projectile
             });
             EntityManager.SetComponentData(entity, request.Tracking);
             EntityManager.SetComponentData(entity, request.Render);
-            EntityManager.SetComponentData(entity, new ProjectileRenderElement());
+            EntityManager.SetComponentData(entity, new CombatRenderElement());
             EntityManager.GetBuffer<ProjectileContactGateElement>(entity).Clear();
 
             if (hasChildSpawner)
@@ -234,6 +234,7 @@ namespace PlayGround.System.Projectile
             }
 
             EntityManager.SetComponentEnabled<ProjectileActiveTag>(entity, true);
+            EntityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
         }
 
         private static void RecordProjectileReset(
@@ -282,7 +283,7 @@ namespace PlayGround.System.Projectile
             });
             ecb.SetComponent(entity, request.Tracking);
             ecb.SetComponent(entity, request.Render);
-            ecb.SetComponent(entity, new ProjectileRenderElement());
+            ecb.SetComponent(entity, new CombatRenderElement());
 
             if (hasChildSpawner)
             {
@@ -291,6 +292,7 @@ namespace PlayGround.System.Projectile
             }
 
             ecb.SetComponentEnabled<ProjectileActiveTag>(entity, true);
+            ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
         }
 
         private EntityArchetype ArchetypeFor(int typeId, bool hasChildSpawner)
@@ -311,10 +313,11 @@ namespace PlayGround.System.Projectile
                     typeof(ProjectileLifetimeComponent),
                     typeof(ProjectileHitComponent),
                     typeof(ProjectileTrackingComponent),
-                    typeof(ProjectileRenderComponent),
-                    typeof(ProjectileRenderElement),
+                    typeof(CombatRenderComponent),
+                    typeof(CombatRenderElement),
                     RenderTagTypeFor(typeId),
                     typeof(ProjectileActiveTag),
+                    typeof(CombatRenderActiveTag),
                     typeof(ProjectileContactGateElement),
                     typeof(ProjectileChildSpawnerTag),
                     typeof(ProjectileChildSpawnerComponent),
@@ -328,10 +331,11 @@ namespace PlayGround.System.Projectile
                     typeof(ProjectileLifetimeComponent),
                     typeof(ProjectileHitComponent),
                     typeof(ProjectileTrackingComponent),
-                    typeof(ProjectileRenderComponent),
-                    typeof(ProjectileRenderElement),
+                    typeof(CombatRenderComponent),
+                    typeof(CombatRenderElement),
                     RenderTagTypeFor(typeId),
                     typeof(ProjectileActiveTag),
+                    typeof(CombatRenderActiveTag),
                     typeof(ProjectileContactGateElement));
 
             archetypesByKey.Add(key, archetype);

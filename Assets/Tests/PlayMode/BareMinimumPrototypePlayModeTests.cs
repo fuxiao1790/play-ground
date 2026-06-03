@@ -822,7 +822,7 @@ namespace PlayGround.Tests.PlayMode
             }
 
             EntityQuery query = submitQueries[typeId];
-            query.SetSharedComponentFilter(new ProjectileRenderScope { Scope = scopeEntity });
+            query.SetSharedComponentFilter(new CombatRenderScope { Scope = scopeEntity });
             int count = query.CalculateEntityCount();
             query.ResetFilter();
             return count;

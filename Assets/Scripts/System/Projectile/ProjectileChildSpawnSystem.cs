@@ -113,12 +113,14 @@ namespace PlayGround.System.Projectile
                         TrackedTargetId = 0,
                         TrackedTargetIndex = -1
                     },
-                    Render = new ProjectileRenderComponent
+                    Render = new CombatRenderComponent
                     {
                         IsRenderable = 1,
-                        VisualScale = spawner.VisualScale,
+                        AlignToVelocity = 1,
+                        VisualScale = new float2(spawner.VisualScale, spawner.VisualScale),
                         VisualRotationSin = spawner.VisualRotationSin,
-                        VisualRotationCos = spawner.VisualRotationCos
+                        VisualRotationCos = spawner.VisualRotationCos,
+                        RenderZ = -0.25f
                     }
                 });
             }

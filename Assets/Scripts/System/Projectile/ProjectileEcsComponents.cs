@@ -51,15 +51,6 @@ namespace PlayGround.System.Projectile
         public int ChildSpawnTickIndex;
     }
 
-    // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; reset on reuse.
-    public struct ProjectileRenderComponent : IComponentData
-    {
-        public int IsRenderable;
-        public float VisualScale;
-        public float VisualRotationSin;
-        public float VisualRotationCos;
-    }
-
     // ECS Lifecycle: structural render tag; added at entity creation; kept until root teardown; reuse only with same render type.
     public struct ProjectileRenderType0Tag : IComponentData {}
     public struct ProjectileRenderType1Tag : IComponentData {}
@@ -78,14 +69,6 @@ namespace PlayGround.System.Projectile
     public struct ProjectileRenderType14Tag : IComponentData {}
     public struct ProjectileRenderType15Tag : IComponentData {}
 
-    // ECS Lifecycle: shared projectile component; added at entity creation; kept until root teardown; not changed during churn.
-    public struct ProjectileRenderScope : ISharedComponentData, global::System.IEquatable<ProjectileRenderScope>
-    {
-        public Entity Scope;
-        public readonly bool Equals(ProjectileRenderScope other) => Scope == other.Scope;
-        public override int GetHashCode() => Scope.GetHashCode();
-    }
-
     // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; cleared during simulation/replay.
     public struct ProjectileHitElement : IBufferElementData
     {
@@ -95,12 +78,6 @@ namespace PlayGround.System.Projectile
         public float2 Position;
         public ProjectileHitPayload HitPayload;
         public uint Order;
-    }
-
-    // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; overwritten during render prep.
-    public struct ProjectileRenderElement : IComponentData
-    {
-        public Matrix4x4 objectToWorld;
     }
 
     // ECS Lifecycle: projectile buffer; added by spawn materialization; kept until root teardown; cleared on reuse.
@@ -176,7 +153,7 @@ namespace PlayGround.System.Projectile
         public CombatShapeType ShapeType;
         public ProjectileHitPayload HitPayload;
         public ProjectileTrackingComponent Tracking;
-        public ProjectileRenderComponent Render;
+        public CombatRenderComponent Render;
         public ProjectileChildSpawnerComponent ChildSpawner;
         public ProjectileChildSpawnStateComponent ChildSpawnState;
     }

@@ -69,7 +69,8 @@ Move shared combat ECS data into `Assets/Scripts/System/Common/`, migrate projec
 - `AoeSimulationSystem`: clears scoped AOE hit buffers at simulation start.
 - `AoeSpawnSystem`: drains spawn requests, reuses inactive AOE entities by scope/type, cold-creates only when pool empty.
 - `AoeCollisionSystem`: Burst parallel overlap check against scoped `CombatTargetElement`, emits `AoeHitElement`, disables/recycles AOE after first pulse.
-- `AoeRenderPrepareSystem`: prepares matrices for batched GPU-instanced AOE visuals.
+- `CombatRenderPrepareSystem`: prepares matrices for batched GPU-instanced AOE
+  and projectile visuals.
 - Do not add an ECS target-sync system; target sync remains root-owned managed bridge work.
 
 ### Milestone 2.4: AOE Authoring

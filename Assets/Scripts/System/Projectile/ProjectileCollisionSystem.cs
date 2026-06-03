@@ -102,17 +102,18 @@ namespace PlayGround.System.Projectile
                 ref ProjectileLifetimeComponent lifetime,
                 ref ProjectileHitComponent projectileHit,
                 EnabledRefRW<ProjectileActiveTag> active,
+                EnabledRefRW<CombatRenderActiveTag> renderActive,
                 DynamicBuffer<ProjectileContactGateElement> contactGates)
             {
                 if (identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
                 {
-                    Deactivate(entity, identity, ref lifetime, active);
+                    Deactivate(entity, identity, ref lifetime, active, renderActive);
                     return;
                 }
 
                 if (lifetime.RemainingLifetime <= 0f)
                 {
-                    Deactivate(entity, identity, ref lifetime, active);
+                    Deactivate(entity, identity, ref lifetime, active, renderActive);
                     return;
                 }
 
@@ -159,7 +160,7 @@ namespace PlayGround.System.Projectile
                     AddOrRefreshGate(contactGates, target.TargetId, projectileHit.RepeatHitCooldownSeconds);
                     if (projectileHit.PierceRemaining <= 0)
                     {
-                        Deactivate(entity, identity, ref lifetime, active);
+                        Deactivate(entity, identity, ref lifetime, active, renderActive);
                         return;
                     }
 
@@ -171,10 +172,12 @@ namespace PlayGround.System.Projectile
                 Entity entity,
                 ProjectileIdentityComponent identity,
                 ref ProjectileLifetimeComponent lifetime,
-                EnabledRefRW<ProjectileActiveTag> active)
+                EnabledRefRW<ProjectileActiveTag> active,
+                EnabledRefRW<CombatRenderActiveTag> renderActive)
             {
                 lifetime.RemainingLifetime = 0f;
                 active.ValueRW = false;
+                renderActive.ValueRW = false;
                 Recycled.Enqueue(new ProjectilePendingRecycle
                 {
                     Scope = identity.Scope,

@@ -9,6 +9,7 @@ namespace PlayGround.System.Aoe
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AoeSimulationSystem))]
     [UpdateBefore(typeof(AoeCollisionSystem))]
+    [UpdateBefore(typeof(PlayGround.System.Common.CombatRenderPrepareSystem))]
     public partial class AoeSpawnSystem : SystemBase
     {
         private static readonly ProfilerMarker SpawnFrameTimeProfilerMarker =
@@ -30,12 +31,13 @@ namespace PlayGround.System.Aoe
                 typeof(AoeLifetimeComponent),
                 typeof(AoeHitGateComponent),
                 typeof(AoeHitSpawnComponent),
-                typeof(AoeRenderComponent),
-                typeof(AoeRenderElement),
+                typeof(CombatRenderComponent),
+                typeof(CombatRenderElement),
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
                 typeof(CombatHitComponent),
                 typeof(AoeActiveTag),
+                typeof(CombatRenderActiveTag),
                 typeof(AoeContactGateElement));
         }
 
@@ -144,7 +146,7 @@ namespace PlayGround.System.Aoe
             if (entity == Entity.Null)
             {
                 entity = ecb.CreateEntity(archetype);
-                ecb.AddSharedComponent(entity, new AoeRenderScope { Scope = scope });
+                ecb.AddSharedComponent(entity, new CombatRenderScope { Scope = scope });
                 RecordAoeReset(ecb, entity, scope, request);
                 return;
             }
@@ -184,9 +186,10 @@ namespace PlayGround.System.Aoe
             EntityManager.SetComponentData(entity, HitGateFor(request));
             EntityManager.SetComponentData(entity, HitSpawnFor(request));
             EntityManager.SetComponentData(entity, request.Render);
-            EntityManager.SetComponentData(entity, new AoeRenderElement());
+            EntityManager.SetComponentData(entity, new CombatRenderElement());
             EntityManager.GetBuffer<AoeContactGateElement>(entity).Clear();
             EntityManager.SetComponentEnabled<AoeActiveTag>(entity, true);
+            EntityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
         }
 
         private static void RecordAoeReset(EntityCommandBuffer ecb, Entity entity, Entity scope, AoeSpawnRequestElement request)
@@ -199,8 +202,9 @@ namespace PlayGround.System.Aoe
             ecb.SetComponent(entity, HitGateFor(request));
             ecb.SetComponent(entity, HitSpawnFor(request));
             ecb.SetComponent(entity, request.Render);
-            ecb.SetComponent(entity, new AoeRenderElement());
+            ecb.SetComponent(entity, new CombatRenderElement());
             ecb.SetComponentEnabled<AoeActiveTag>(entity, true);
+            ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
         }
 
         private static AoeIdentityComponent IdentityFor(Entity scope, AoeSpawnRequestElement request)

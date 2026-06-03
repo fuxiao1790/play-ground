@@ -254,7 +254,7 @@ The current implementation uses Entities/DOTS in the shared default world:
   entities by scope/type.
 - `AoeCollisionSystem` runs target-mask filtering and shape collision against
   `CombatTargetElement` snapshots, emits `AoeHitElement`, and recycles pulse AOEs.
-- `AoeRenderPrepareSystem` writes render matrices for active AOEs, and
+- `CombatRenderPrepareSystem` writes render matrices for active AOEs, and
   `AoeRoot` submits GPU-instanced batches.
 
 ## Tests To Port

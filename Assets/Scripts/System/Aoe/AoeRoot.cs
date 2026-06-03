@@ -14,6 +14,7 @@ namespace PlayGround.System.Aoe
     public sealed class AoeRoot : MonoBehaviour
     {
         private const int MaxInstancesPerDraw = 1023;
+        private const float AoeRenderZ = -0.2f;
         private const int AoeRenderQueue = (int)RenderQueue.Transparent + 45;
         private static readonly ProfilerMarker SyncTargetsProfilerMarker = new("AoeRoot.SyncTargets");
         private static readonly ProfilerMarker SubmitAoesProfilerMarker = new("AoeRoot.SubmitAoes");
@@ -39,7 +40,7 @@ namespace PlayGround.System.Aoe
         private Entity scopeEntity;
         private EntityQuery allAoeQuery;
         private EntityQuery submitQuery;
-        private NativeArray<AoeRenderElement> submitBuffer;
+        private NativeArray<CombatRenderElement> submitBuffer;
         private int spawnedAoes;
         private int despawnedAoes;
         private int hitEvents;
@@ -297,19 +298,21 @@ namespace PlayGround.System.Aoe
             hitBuffer.Clear();
         }
 
-        private AoeRenderComponent RenderComponentFor(int typeId)
+        private CombatRenderComponent RenderComponentFor(int typeId)
         {
             if (!spawnVisuals || !renderResourcesByType.TryGetValue(typeId, out CombatSpriteRenderResources resources))
             {
                 return default;
             }
 
-            return new AoeRenderComponent
+            return new CombatRenderComponent
             {
                 IsRenderable = 1,
+                AlignToVelocity = 0,
                 VisualScale = new Unity.Mathematics.float2(resources.VisualScale.x, resources.VisualScale.y),
                 VisualRotationSin = resources.VisualRotationSin,
-                VisualRotationCos = resources.VisualRotationCos
+                VisualRotationCos = resources.VisualRotationCos,
+                RenderZ = AoeRenderZ
             };
         }
 
@@ -337,10 +340,10 @@ namespace PlayGround.System.Aoe
             submitQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AoeTag>(),
                 ComponentType.ReadOnly<AoeIdentityComponent>(),
-                ComponentType.ReadOnly<AoeRenderScope>(),
-                ComponentType.ReadOnly<AoeRenderElement>(),
+                ComponentType.ReadOnly<CombatRenderScope>(),
+                ComponentType.ReadOnly<CombatRenderElement>(),
                 ComponentType.ReadOnly<AoeActiveTag>());
-            submitBuffer = new NativeArray<AoeRenderElement>(MaxInstancesPerDraw, Allocator.Persistent);
+            submitBuffer = new NativeArray<CombatRenderElement>(MaxInstancesPerDraw, Allocator.Persistent);
         }
 
         private bool IsRuntimeReady()
@@ -499,7 +502,7 @@ namespace PlayGround.System.Aoe
                 return;
             }
 
-            entityManager.CompleteDependencyBeforeRO<AoeRenderElement>();
+            entityManager.CompleteDependencyBeforeRO<CombatRenderElement>();
             DynamicBuffer<AoeRecycleElement> recycleBuffer = entityManager.GetBuffer<AoeRecycleElement>(scopeEntity);
             SubmitRecycledPulseAoes(recycleBuffer);
             SubmitActiveAoes();
@@ -544,11 +547,11 @@ namespace PlayGround.System.Aoe
 
         private void SubmitActiveAoes()
         {
-            submitQuery.SetSharedComponentFilter(new AoeRenderScope { Scope = scopeEntity });
+            submitQuery.SetSharedComponentFilter(new CombatRenderScope { Scope = scopeEntity });
             using NativeArray<AoeIdentityComponent> identities =
                 submitQuery.ToComponentDataArray<AoeIdentityComponent>(Allocator.Temp);
-            using NativeArray<AoeRenderElement> renderElements =
-                submitQuery.ToComponentDataArray<AoeRenderElement>(Allocator.Temp);
+            using NativeArray<CombatRenderElement> renderElements =
+                submitQuery.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
 
             foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in renderResourcesByType)
             {
@@ -581,7 +584,7 @@ namespace PlayGround.System.Aoe
             submitQuery.ResetFilter();
         }
 
-        private void SubmitBatch(NativeArray<AoeRenderElement> instances, int startInstance, int instanceCount, CombatSpriteRenderResources resources)
+        private void SubmitBatch(NativeArray<CombatRenderElement> instances, int startInstance, int instanceCount, CombatSpriteRenderResources resources)
         {
             BatchedSpriteRenderer.SubmitBatch(instances, startInstance, instanceCount, resources, gameObject.layer, batchBoundsHalfExtent);
             renderBatches++;

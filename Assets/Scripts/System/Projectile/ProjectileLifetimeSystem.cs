@@ -1,3 +1,4 @@
+using PlayGround.System.Common;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -50,13 +51,15 @@ namespace PlayGround.System.Projectile
                 Entity entity,
                 ref ProjectileLifetimeComponent lifetime,
                 in ProjectileIdentityComponent identity,
-                EnabledRefRW<ProjectileActiveTag> active)
+                EnabledRefRW<ProjectileActiveTag> active,
+                EnabledRefRW<CombatRenderActiveTag> renderActive)
             {
                 lifetime.RemainingLifetime -= DeltaTime;
                 if (lifetime.RemainingLifetime <= 0f)
                 {
                     lifetime.RemainingLifetime = 0f;
                     active.ValueRW = false;
+                    renderActive.ValueRW = false;
                     Recycled.Enqueue(new ProjectilePendingRecycle
                     {
                         Scope = identity.Scope,

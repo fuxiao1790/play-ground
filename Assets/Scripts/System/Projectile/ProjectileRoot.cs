@@ -15,6 +15,7 @@ namespace PlayGround.System.Projectile
     {
         private const int MaxInstancesPerDraw = 1023;
         private const int MaxStructuralRenderTypes = 16;
+        private const float ProjectileRenderZ = -0.25f;
         private const int ProjectileRenderQueue = (int)RenderQueue.Transparent + 50;
         private static readonly ProfilerMarker DrainHitsProfilerMarker = new("ProjectileRoot.DrainHits");
         private static readonly ProfilerMarker SubmitProjectilesProfilerMarker = new("ProjectileRoot.SubmitProjectiles");
@@ -41,7 +42,7 @@ namespace PlayGround.System.Projectile
         private Entity scopeEntity;
         private EntityQuery allProjectileQuery;
         private EntityQuery[] submitQueriesByType;
-        private NativeArray<ProjectileRenderElement> submitBuffer;
+        private NativeArray<CombatRenderElement> submitBuffer;
         private int nextProjectileId;
         private int nextTemplateTypeId = 1;
         private bool runtimeReady;
@@ -339,15 +340,15 @@ namespace PlayGround.System.Projectile
                 submitBuffer.Dispose();
             }
 
-            submitBuffer = new NativeArray<ProjectileRenderElement>(MaxInstancesPerDraw, Allocator.Persistent);
+            submitBuffer = new NativeArray<CombatRenderElement>(MaxInstancesPerDraw, Allocator.Persistent);
         }
 
         private EntityQuery SubmitQuery<T>() where T : unmanaged, IComponentData
         {
             return entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
-                ComponentType.ReadOnly<ProjectileRenderElement>(),
-                ComponentType.ReadOnly<ProjectileRenderScope>(),
+                ComponentType.ReadOnly<CombatRenderElement>(),
+                ComponentType.ReadOnly<CombatRenderScope>(),
                 ComponentType.ReadOnly<T>(),
                 ComponentType.ReadOnly<ProjectileActiveTag>());
         }
@@ -624,19 +625,21 @@ namespace PlayGround.System.Projectile
                 "ProjectileQuadMesh");
         }
 
-        private ProjectileRenderComponent RenderComponentFor(int projectileTypeId)
+        private CombatRenderComponent RenderComponentFor(int projectileTypeId)
         {
             if (!renderResourcesByType.TryGetValue(projectileTypeId, out CombatSpriteRenderResources resources))
             {
                 return default;
             }
 
-            return new ProjectileRenderComponent
+            return new CombatRenderComponent
             {
                 IsRenderable = 1,
-                VisualScale = resources.VisualScale.x,
+                AlignToVelocity = 1,
+                VisualScale = new float2(resources.VisualScale.x, resources.VisualScale.y),
                 VisualRotationSin = resources.VisualRotationSin,
-                VisualRotationCos = resources.VisualRotationCos
+                VisualRotationCos = resources.VisualRotationCos,
+                RenderZ = ProjectileRenderZ
             };
         }
 
@@ -676,14 +679,14 @@ namespace PlayGround.System.Projectile
                 }
 
                 EntityQuery query = submitQueriesByType[typeId];
-                query.SetSharedComponentFilter(new ProjectileRenderScope { Scope = scopeEntity });
-                entityManager.CompleteDependencyBeforeRO<ProjectileRenderElement>();
-                NativeArray<ProjectileRenderElement> active =
-                    query.ToComponentDataArray<ProjectileRenderElement>(Allocator.Temp);
+                query.SetSharedComponentFilter(new CombatRenderScope { Scope = scopeEntity });
+                entityManager.CompleteDependencyBeforeRO<CombatRenderElement>();
+                NativeArray<CombatRenderElement> active =
+                    query.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
                 for (int start = 0; start < active.Length; start += MaxInstancesPerDraw)
                 {
                     int count = Mathf.Min(MaxInstancesPerDraw, active.Length - start);
-                    NativeArray<ProjectileRenderElement>.Copy(active, start, submitBuffer, 0, count);
+                    NativeArray<CombatRenderElement>.Copy(active, start, submitBuffer, 0, count);
                     BatchedSpriteRenderer.SubmitBatch(submitBuffer, 0, count, resources, gameObject.layer, batchBoundsHalfExtent);
                 }
                 active.Dispose();

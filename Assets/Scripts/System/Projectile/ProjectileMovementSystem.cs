@@ -7,6 +7,7 @@ namespace PlayGround.System.Projectile
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileTrackingSystem))]
+    [UpdateBefore(typeof(PlayGround.System.Common.CombatRenderPrepareSystem))]
     public partial struct ProjectileMovementSystem : ISystem
     {
         [BurstCompile]

@@ -47,29 +47,6 @@ namespace PlayGround.System.Aoe
         public AoeProjectileBurstSnapshot ProjectileBurst;
     }
 
-    // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse.
-    public struct AoeRenderComponent : IComponentData
-    {
-        public int IsRenderable;
-        public float2 VisualScale;
-        public float VisualRotationSin;
-        public float VisualRotationCos;
-    }
-
-    // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; overwritten during render prep.
-    public struct AoeRenderElement : IComponentData
-    {
-        public Matrix4x4 objectToWorld;
-    }
-
-    // ECS Lifecycle: shared AOE component; added at entity creation; kept until root teardown; reuse only within same scope.
-    public struct AoeRenderScope : ISharedComponentData, global::System.IEquatable<AoeRenderScope>
-    {
-        public Entity Scope;
-        public readonly bool Equals(AoeRenderScope other) => Scope == other.Scope;
-        public override int GetHashCode() => Scope.GetHashCode();
-    }
-
     // ECS Lifecycle: AOE buffer; added by spawn materialization; kept until root teardown; cleared on reuse.
     public struct AoeContactGateElement : IBufferElementData
     {
@@ -95,7 +72,7 @@ namespace PlayGround.System.Aoe
         public float2 BoundsMin;
         public float2 BoundsMax;
         public CombatShapeType ShapeType;
-        public AoeRenderComponent Render;
+        public CombatRenderComponent Render;
         public AoeProjectileBurstSnapshot ProjectileBurst;
     }
 
@@ -115,7 +92,7 @@ namespace PlayGround.System.Aoe
     {
         public Entity AoeEntity;
         public int TypeId;
-        public AoeRenderElement Render;
+        public CombatRenderElement Render;
     }
 
     // ECS Lifecycle: transient native payload; not added to entities; queued during collision hit flush.
@@ -136,6 +113,6 @@ namespace PlayGround.System.Aoe
         public Entity Scope;
         public Entity AoeEntity;
         public int TypeId;
-        public AoeRenderElement Render;
+        public CombatRenderElement Render;
     }
 }

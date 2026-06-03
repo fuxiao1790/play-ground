@@ -70,6 +70,8 @@ Create these as systems are ported:
   shape baking from Unity `Collider2D`
 - `Assets/Scripts/System/Common/CombatCollisionMath.cs`: shared bounds and
   narrow-phase collision math
+- `Assets/Scripts/System/Common/CombatRenderComponents.cs`: shared batched
+  sprite render ECS data and matrix preparation for projectile and AOE visuals
 - `Assets/Scripts/System/Projectile/ProjectileRoot.cs`: scene-object bridge,
   spawn request submission, target snapshot sync, hit replay, raw payload
   dispatch, counters, and batched render submission
@@ -97,9 +99,8 @@ Create these as systems are ported:
   for hit-despawned projectiles
 - `Assets/Scripts/System/Projectile/ProjectileCollisionMath.cs`: projectile
   compatibility adapter over shared common collision math
-- `Assets/Scripts/System/Projectile/ProjectileRenderPrepareSystem.cs`:
-  late-simulation render matrix preparation for scoped projectile draw
-  submission
+- projectile render submission lives in `ProjectileRoot`; shared matrix
+  preparation lives in `Assets/Scripts/System/Common/CombatRenderComponents.cs`
 
 ## Current AOE Runtime Map
 
@@ -115,6 +116,6 @@ Create these as systems are ported:
   and cold entity creation
 - `Assets/Scripts/System/Aoe/AoeCollisionSystem.cs`: target mask filtering,
   bounds/narrow-phase collision, hit events, and pulse-AOE recycle records
-- `Assets/Scripts/System/Aoe/AoeRenderPrepareSystem.cs`: late-simulation render
-  matrix preparation for batched AOE draw submission
+- AOE render submission lives in `AoeRoot`; shared matrix preparation lives in
+  `Assets/Scripts/System/Common/CombatRenderComponents.cs`
 
