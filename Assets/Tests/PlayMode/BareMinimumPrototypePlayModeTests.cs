@@ -293,7 +293,7 @@ namespace PlayGround.Tests.PlayMode
         public void ProjectileImpactAoeRoutesThroughAoeRootOnNextStep()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
-            CreateAoeFixture(out GameObject aoeObject, out AoeRoot aoeRoot, out GameObject aoeTemplateObject);
+            CreateAoeFixture(out GameObject aoeObject, out AoeRoot aoeRoot, out GameObject aoeTemplateObject, out int aoeTypeId);
             var router = new CombatSpawnRouter();
             router.Bind(projectileRoot, null, aoeRoot, null);
             mob.Register(projectileRoot.TargetRegistry);
@@ -312,7 +312,7 @@ namespace PlayGround.Tests.PlayMode
                 targetMask: ~0,
                 directDamageEnabled: false,
                 impactAoe: new ProjectileImpactAoeSnapshot(
-                    typeId: 0,
+                    typeId: aoeTypeId,
                     targetMask: ~0,
                     damageAmount: 3f,
                     lifetimeSeconds: 0f,
@@ -336,7 +336,7 @@ namespace PlayGround.Tests.PlayMode
         public void AoeProjectileBurstRoutesThroughProjectileRootOnNextStepWithoutImpactPayload()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
-            CreateAoeFixture(out GameObject aoeObject, out AoeRoot aoeRoot, out GameObject aoeTemplateObject);
+            CreateAoeFixture(out GameObject aoeObject, out AoeRoot aoeRoot, out GameObject aoeTemplateObject, out int aoeTypeId);
             var router = new CombatSpawnRouter();
             router.Bind(projectileRoot, null, aoeRoot, null);
             mob.Register(projectileRoot.TargetRegistry);
@@ -361,7 +361,7 @@ namespace PlayGround.Tests.PlayMode
                 damage: new DamageSnapshot(2f));
 
             aoeRoot.Spawn(new AoeSpawnCommand(
-                typeId: 0,
+                typeId: aoeTypeId,
                 position: Vector2.zero,
                 targetMask: ~0,
                 damage: new DamageSnapshot(0f),
@@ -756,7 +756,8 @@ namespace PlayGround.Tests.PlayMode
         private static void CreateAoeFixture(
             out GameObject rootObject,
             out AoeRoot root,
-            out GameObject templateObject)
+            out GameObject templateObject,
+            out int typeId)
         {
             templateObject = new GameObject("AoeTemplate");
             templateObject.SetActive(false);
@@ -764,13 +765,15 @@ namespace PlayGround.Tests.PlayMode
             shape.radius = 1f;
 
             var definition = new AoeTypeDefinition();
-            definition.Configure(0, templateObject, shape, 1f);
+            definition.Configure(templateObject, shape, 1f);
 
             rootObject = new GameObject("AoeRoot");
             rootObject.SetActive(false);
             root = rootObject.AddComponent<AoeRoot>();
-            root.Configure(new[] { definition }, ~0);
+            root.Configure(~0);
             rootObject.SetActive(true);
+
+            typeId = root.RegisterType(definition);
         }
 
         private static ProjectileSpawnCommand ChildSpawnerCommand()

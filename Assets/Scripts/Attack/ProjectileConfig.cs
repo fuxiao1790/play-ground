@@ -22,7 +22,7 @@ namespace PlayGround.Attack
         [SerializeField] private float trackingQueryIntervalSeconds;
         [SerializeField] private float trackingInitialQueryDelaySeconds;
         [SerializeField] private bool directDamageEnabled = true;
-        [SerializeField] private int impactAoeTypeId = -1;
+        [SerializeField] private AoeConfig impactAoeConfig;
         [SerializeField] private float impactAoeDamage = 1f;
         [SerializeField] private float impactAoeLifetimeSeconds;
         [SerializeField] private float impactAoeTickIntervalSeconds;
@@ -38,7 +38,7 @@ namespace PlayGround.Attack
         public int PierceCount => pierceCount;
         public float RepeatHitCooldown => repeatHitCooldownSeconds;
         public bool DirectDamageEnabled => directDamageEnabled;
-        public int ImpactAoeTypeId => impactAoeTypeId;
+        public AoeConfig ImpactAoeConfig => impactAoeConfig;
         public float ImpactAoeDamage => impactAoeDamage;
         public float ImpactAoeLifetimeSeconds => impactAoeLifetimeSeconds;
         public float ImpactAoeTickIntervalSeconds => impactAoeTickIntervalSeconds;

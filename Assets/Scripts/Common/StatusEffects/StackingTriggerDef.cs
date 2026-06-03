@@ -1,3 +1,4 @@
+using PlayGround.Attack;
 using UnityEngine;
 
 namespace PlayGround.Common.StatusEffects
@@ -6,13 +7,13 @@ namespace PlayGround.Common.StatusEffects
     public sealed class StackingTriggerDef : StatusEffectDef
     {
         [SerializeField, Min(1)] private int stackThreshold = 3;
-        [SerializeField] private int triggerAoeTypeId = -1;
+        [SerializeField] private AoeConfig triggerAoeConfig;
         [SerializeField] private float triggerAoeDamage;
         [SerializeField] private float triggerAoeLifetimeSeconds;
         [SerializeField] private float triggerAoeTickIntervalSeconds;
 
         public int StackThreshold => stackThreshold;
-        public int TriggerAoeTypeId => triggerAoeTypeId;
+        public AoeConfig TriggerAoeConfig => triggerAoeConfig;
         public float TriggerAoeDamage => triggerAoeDamage;
         public float TriggerAoeLifetimeSeconds => triggerAoeLifetimeSeconds;
         public float TriggerAoeTickIntervalSeconds => triggerAoeTickIntervalSeconds;
@@ -20,13 +21,13 @@ namespace PlayGround.Common.StatusEffects
 
         public void Configure(
             int threshold,
-            int aoeTypeId,
+            AoeConfig aoeConfig,
             float aoeDamage,
             float lifetimeSeconds = 0f,
             float tickIntervalSeconds = 0f)
         {
             stackThreshold = Mathf.Max(1, threshold);
-            triggerAoeTypeId = aoeTypeId;
+            triggerAoeConfig = aoeConfig;
             triggerAoeDamage = Mathf.Max(0f, aoeDamage);
             triggerAoeLifetimeSeconds = Mathf.Max(0f, lifetimeSeconds);
             triggerAoeTickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds);

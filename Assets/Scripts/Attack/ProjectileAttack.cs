@@ -22,6 +22,7 @@ namespace PlayGround.Attack
         private AoeRoot subscribedAoeRoot;
         private ProjectileRoot subscribedProjectileRoot;
         private float cooldownRemaining;
+        private int impactAoeTypeId = -1;
         public event global::System.Action<ProjectileAoeSpawnRequest> AoeSpawnRequested;
 
         public ProjectileRoot Root => projectileRoot;
@@ -89,6 +90,7 @@ namespace PlayGround.Attack
 
             UnsubscribeAoeRoot();
             aoeRoot = root;
+            RegisterImpactAoeConfig();
             if (isActiveAndEnabled)
                 SubscribeAoeRoot();
         }
@@ -163,13 +165,13 @@ namespace PlayGround.Attack
 
         private ProjectileImpactAoeSnapshot ImpactAoeSnapshot(int targetMask)
         {
-            if (config.ImpactAoeTypeId < 0)
+            if (impactAoeTypeId < 0)
             {
                 return default;
             }
 
             return new ProjectileImpactAoeSnapshot(
-                config.ImpactAoeTypeId,
+                impactAoeTypeId,
                 targetMask,
                 Mathf.Max(0f, config.ImpactAoeDamage),
                 config.ImpactAoeLifetimeSeconds,
@@ -235,6 +237,14 @@ namespace PlayGround.Attack
             if (projectileRoot == null || config == null) return;
 
             projectileRoot.RegisterTemplate(config.Prefab);
+            RegisterImpactAoeConfig();
+        }
+
+        private void RegisterImpactAoeConfig()
+        {
+            if (aoeRoot == null || config?.ImpactAoeConfig == null) return;
+
+            impactAoeTypeId = aoeRoot.RegisterConfig(config.ImpactAoeConfig);
         }
 
         private int EffectiveTargetMask()

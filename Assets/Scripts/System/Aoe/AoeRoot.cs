@@ -21,7 +21,6 @@ namespace PlayGround.System.Aoe
         private static readonly ProfilerMarker DrainEventsProfilerMarker = new("AoeRoot.DrainEvents");
         private static readonly ProfilerMarker StepSimulationProfilerMarker = new("AoeRoot.StepSimulation");
 
-        [SerializeField] private AoeTypeDefinition[] aoeTypes = global::System.Array.Empty<AoeTypeDefinition>();
         [SerializeField] private int targetMask = 1;
         [SerializeField, Min(0)] private int maximumAoeCount = 10000;
         [SerializeField, Min(0)] private int maximumTargetCount = 100;
@@ -32,6 +31,8 @@ namespace PlayGround.System.Aoe
 
         private readonly AoeTargetRegistry targetRegistry = new();
         private readonly Dictionary<int, CombatSpriteRenderResources> renderResourcesByType = new();
+        private readonly Dictionary<AoeConfig, int> configTypeIds = new();
+        private readonly Dictionary<AoeTypeDefinition, int> definitionTypeIds = new();
 
         private AoeTypeRegistry typeRegistry;
         private AoeTargetSync targetSync;
@@ -47,6 +48,7 @@ namespace PlayGround.System.Aoe
         private int activeVisuals;
         private int renderBatches;
         private int nextAoeId;
+        private int nextTypeId = 1;
         private bool runtimeReady;
 
         public event global::System.Action<AoeHitContext> AoeHit;
@@ -67,13 +69,6 @@ namespace PlayGround.System.Aoe
             typeRegistry = new AoeTypeRegistry();
             targetSync = new AoeTargetSync(targetRegistry);
             BindWorld();
-
-            for (int i = 0; i < aoeTypes.Length; i++)
-            {
-                typeRegistry.Register(aoeTypes[i]);
-            }
-
-            BuildRenderResources();
             runtimeReady = true;
         }
 
@@ -139,9 +134,8 @@ namespace PlayGround.System.Aoe
             DestroyRenderResources();
         }
 
-        public void Configure(AoeTypeDefinition[] definitions, int mask)
+        public void Configure(int mask)
         {
-            aoeTypes = definitions ?? global::System.Array.Empty<AoeTypeDefinition>();
             targetMask = mask;
             if (!runtimeReady)
             {
@@ -149,50 +143,49 @@ namespace PlayGround.System.Aoe
             }
 
             typeRegistry = new AoeTypeRegistry();
-            for (int i = 0; i < aoeTypes.Length; i++)
-            {
-                typeRegistry.Register(aoeTypes[i]);
-            }
-
+            configTypeIds.Clear();
+            definitionTypeIds.Clear();
+            nextTypeId = 1;
             DestroyRenderResources();
-            BuildRenderResources();
         }
 
-        public void RegisterType(AoeTypeDefinition definition)
+        public int RegisterConfig(AoeConfig config)
+        {
+            if (config == null)
+            {
+                throw new global::System.ArgumentNullException(nameof(config));
+            }
+
+            if (configTypeIds.TryGetValue(config, out int existing))
+            {
+                return existing;
+            }
+
+            int typeId = nextTypeId++;
+            configTypeIds[config] = typeId;
+            AoeTypeDefinition definition = config.CreateTypeDefinition();
+            typeRegistry.Register(typeId, definition);
+            TryBuildRenderResource(typeId);
+            return typeId;
+        }
+
+        public int RegisterType(AoeTypeDefinition definition)
         {
             if (definition == null)
             {
-                return;
+                throw new global::System.ArgumentNullException(nameof(definition));
             }
 
-            bool replaced = false;
-            for (int i = 0; i < aoeTypes.Length; i++)
+            if (definitionTypeIds.TryGetValue(definition, out int existing))
             {
-                if (aoeTypes[i] == null || aoeTypes[i].TypeId != definition.TypeId)
-                {
-                    continue;
-                }
-
-                aoeTypes[i] = definition;
-                replaced = true;
-                break;
+                return existing;
             }
 
-            if (!replaced)
-            {
-                int oldLength = aoeTypes.Length;
-                global::System.Array.Resize(ref aoeTypes, oldLength + 1);
-                aoeTypes[oldLength] = definition;
-            }
-
-            if (!runtimeReady)
-            {
-                return;
-            }
-
-            typeRegistry.Register(definition);
-            DestroyRenderResources();
-            BuildRenderResources();
+            int typeId = nextTypeId++;
+            definitionTypeIds[definition] = typeId;
+            typeRegistry.Register(typeId, definition);
+            TryBuildRenderResource(typeId);
+            return typeId;
         }
 
         public int Spawn(ProjectileAoeSpawnRequest request)
@@ -454,28 +447,18 @@ namespace PlayGround.System.Aoe
             return count;
         }
 
-        private void BuildRenderResources()
+        private void TryBuildRenderResource(int typeId)
         {
-            renderResourcesByType.Clear();
-            if (!spawnVisuals || aoeTypes == null)
+            if (!spawnVisuals || !typeRegistry.TryGetVisual(typeId, out AoeVisualDefinition visual))
             {
                 return;
             }
 
-            for (int i = 0; i < aoeTypes.Length; i++)
-            {
-                AoeTypeDefinition definition = aoeTypes[i];
-                if (definition == null || !typeRegistry.TryGetVisual(definition.TypeId, out AoeVisualDefinition visual))
-                {
-                    continue;
-                }
-
-                renderResourcesByType[definition.TypeId] = BuildRenderResourcesFor(
-                    visual.Sprite,
-                    visual.VisualScale,
-                    visual.VisualRotationDegrees,
-                    visual.Material);
-            }
+            renderResourcesByType[typeId] = BuildRenderResourcesFor(
+                visual.Sprite,
+                visual.VisualScale,
+                visual.VisualRotationDegrees,
+                visual.Material);
         }
 
         private CombatSpriteRenderResources BuildRenderResourcesFor(

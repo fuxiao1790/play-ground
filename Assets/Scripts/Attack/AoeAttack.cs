@@ -15,6 +15,8 @@ namespace PlayGround.Attack
 
         private float cooldownRemaining;
         private int deterministicSeed;
+        private int registeredTypeId = -1;
+        private bool started;
 
         public bool IsReady => cooldownRemaining <= 0f;
 
@@ -28,6 +30,11 @@ namespace PlayGround.Attack
             ValidateConfig();
             audioManager ??= AudioManager.Instance != null ? AudioManager.Instance : FindAnyObjectByType<AudioManager>();
             deterministicSeed = gameObject.GetHashCode();
+        }
+
+        private void Start()
+        {
+            started = true;
             RegisterAoeType();
         }
 
@@ -39,7 +46,8 @@ namespace PlayGround.Attack
         public void Configure(AoeRoot root)
         {
             aoeRoot = root;
-            RegisterAoeType();
+            if (started)
+                RegisterAoeType();
         }
 
         public void Tick(float deltaTime)
@@ -60,7 +68,7 @@ namespace PlayGround.Attack
             for (int i = 0; i < count; i++)
             {
                 aoeRoot.Spawn(new AoeSpawnCommand(
-                    config.TypeId,
+                    registeredTypeId,
                     SpawnPosition(center, i, count),
                     EffectiveTargetMask(),
                     damageSnapshot,
@@ -116,7 +124,7 @@ namespace PlayGround.Attack
         {
             if (aoeRoot == null || config == null) return;
 
-            aoeRoot.RegisterType(config.CreateTypeDefinition());
+            registeredTypeId = aoeRoot.RegisterConfig(config);
         }
 
         private int EffectiveTargetMask()

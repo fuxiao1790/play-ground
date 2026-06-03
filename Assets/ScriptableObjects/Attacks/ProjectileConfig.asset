@@ -28,7 +28,6 @@ MonoBehaviour:
   trackingQueryIntervalSeconds: 0.25
   trackingInitialQueryDelaySeconds: 0.1
   directDamageEnabled: 1
-  impactAoeTypeId: -1
   impactAoeDamage: 1
   impactAoeLifetimeSeconds: 0
   impactAoeTickIntervalSeconds: 0

@@ -1,5 +1,6 @@
 using System.Reflection;
 using NUnit.Framework;
+using PlayGround.Attack;
 using PlayGround.Common;
 using PlayGround.Common.StatusEffects;
 using PlayGround.Mob;
@@ -16,18 +17,17 @@ namespace PlayGround.Tests.PlayMode
 {
     public sealed class AoePlayModeTests
     {
-        private const int AoeTypeId = 0;
         private const int DefaultTargetMask = 1;
         private static int nextTargetId = 1000;
 
         [Test]
         public void AoePulseHitsOverlappingTargetOnce()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(Command(Vector2.zero, DefaultTargetMask, 2f));
+            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 2f));
             root.Step(0.01f);
             root.Step(0.01f);
 
@@ -39,11 +39,11 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void AoeLingeringHitsImmediatelyAndRepeatsAfterCooldown()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(LingeringCommand(Vector2.zero, DefaultTargetMask, 2f, lifetimeSeconds: 10f, tickIntervalSeconds: 0.02f));
+            root.Spawn(LingeringCommand(typeId, Vector2.zero, DefaultTargetMask, 2f, lifetimeSeconds: 10f, tickIntervalSeconds: 0.02f));
             root.Step(0.01f);
             root.Step(0.01f);
             root.Step(0.02f);
@@ -56,11 +56,11 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void AoeLingeringReentryWaitsForExistingCooldown()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(LingeringCommand(Vector2.zero, DefaultTargetMask, 2f, lifetimeSeconds: 10f, tickIntervalSeconds: 100f));
+            root.Spawn(LingeringCommand(typeId, Vector2.zero, DefaultTargetMask, 2f, lifetimeSeconds: 10f, tickIntervalSeconds: 100f));
             root.Step(0.01f);
             target.transform.position = new Vector2(5f, 0f);
             root.Step(0.01f);
@@ -75,11 +75,11 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void AoeLingeringExpiresAndRecycles()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(LingeringCommand(Vector2.zero, DefaultTargetMask, 2f, lifetimeSeconds: 0.001f, tickIntervalSeconds: 1f));
+            root.Spawn(LingeringCommand(typeId, Vector2.zero, DefaultTargetMask, 2f, lifetimeSeconds: 0.001f, tickIntervalSeconds: 1f));
             root.Step(0.01f);
             root.Step(0.01f);
 
@@ -91,11 +91,11 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void AoePulseDoesNotHitOutsideShape()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(new Vector2(3f, 0f), DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(Command(Vector2.zero, DefaultTargetMask, 2f));
+            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 2f));
             root.Step(0.01f);
 
             Assert.That(target.HitCount, Is.EqualTo(0));
@@ -109,11 +109,12 @@ namespace PlayGround.Tests.PlayMode
                 out GameObject rootObject,
                 out AoeRoot root,
                 out GameObject templateObject,
+                out int typeId,
                 templateScale: new Vector3(3f, 3f, 1f));
             AoeTargetProbe target = CreateTarget(new Vector2(2.5f, 0f), DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(Command(Vector2.zero, DefaultTargetMask, 2f));
+            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 2f));
             root.Step(0.01f);
 
             Assert.That(target.HitCount, Is.EqualTo(1));
@@ -127,9 +128,10 @@ namespace PlayGround.Tests.PlayMode
                 out GameObject rootObject,
                 out AoeRoot root,
                 out GameObject templateObject,
+                out int typeId,
                 templateScale: new Vector3(2f, 2f, 1f),
                 visualScale: new Vector3(3f, 4f, 1f));
-            root.Spawn(Command(Vector2.zero, DefaultTargetMask, 2f));
+            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 2f));
             root.Step(0.01f);
 
             Matrix4x4 matrix = FirstScopedAoeRenderMatrix(root);
@@ -142,11 +144,11 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void AoeTargetMaskFiltersHits()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(Vector2.zero, targetMask: 2);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(Command(Vector2.zero, targetMask: 4, 2f));
+            root.Spawn(Command(typeId, Vector2.zero, targetMask: 4, 2f));
             root.Step(0.01f);
 
             Assert.That(target.HitCount, Is.EqualTo(0));
@@ -156,7 +158,7 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void AoeHitReplayCallsTargetDamageCallback()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
             int replayCount = 0;
@@ -167,7 +169,7 @@ namespace PlayGround.Tests.PlayMode
                 replayContext = context;
             };
 
-            root.Spawn(Command(Vector2.zero, DefaultTargetMask, 3f));
+            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 3f));
             root.Step(0.01f);
 
             Assert.That(replayCount, Is.EqualTo(1));
@@ -180,12 +182,14 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void MobStatusTriggerSpawnsAoeThroughBoundAoeRoot()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out _);
             MobRoot mob = CreateMobTarget(Vector2.zero);
             mob.BindAoeRoot(root);
             mob.Register(root.TargetRegistry);
+
+            AoeConfig triggerConfig = CreateMinimalAoeConfig();
             StackingTriggerDef trigger = ScriptableObject.CreateInstance<StackingTriggerDef>();
-            trigger.Configure(3, AoeTypeId, 6f);
+            trigger.Configure(3, triggerConfig, 6f);
 
             mob.StatusEffects.AddEffect(trigger, 3, trigger.DamageContributionPerStack);
 
@@ -199,21 +203,22 @@ namespace PlayGround.Tests.PlayMode
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(4f));
             Object.Destroy(trigger);
+            Object.Destroy(triggerConfig);
             Cleanup(rootObject, templateObject, mob.gameObject);
         }
 
         [Test]
         public void AoeEntityIsReusedAfterPulse()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(Command(Vector2.zero, DefaultTargetMask, 1f));
+            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 1f));
             root.Step(0.01f);
             Entity firstEntity = FirstScopedAoeEntity(root);
 
-            root.Spawn(Command(Vector2.zero, DefaultTargetMask, 1f));
+            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 1f));
             root.Step(0.01f);
             Entity reusedEntity = FirstScopedAoeEntity(root);
 
@@ -226,13 +231,13 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void AoeRootCreatesNoPerAoeLiveDamageOrColliderObjects()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
             for (int i = 0; i < 3; i++)
             {
-                root.Spawn(Command(Vector2.zero, DefaultTargetMask, 1f));
+                root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 1f));
                 root.Step(0.01f);
             }
 
@@ -245,7 +250,7 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void AoeSystemsIgnoreCommonCombatEntityWithoutAoeTag()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out _);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             Entity entity = entityManager.CreateEntity(
                 typeof(CombatKinematicsComponent),
@@ -286,7 +291,7 @@ namespace PlayGround.Tests.PlayMode
         public void ProjectileAndAoeRootsShareDefaultWorldButUseSeparateScopes()
         {
             CreateProjectileRoot(out GameObject projectileObject, out ProjectileRoot projectileRoot);
-            CreateAoeFixture(out GameObject aoeObject, out AoeRoot aoeRoot, out GameObject templateObject);
+            CreateAoeFixture(out GameObject aoeObject, out AoeRoot aoeRoot, out GameObject templateObject, out _);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             Entity projectileScope = ProjectileScopeEntity(projectileRoot);
             Entity aoeScope = AoeScopeEntity(aoeRoot);
@@ -303,11 +308,11 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void AoeCountersTrackSpawnDespawnHitAndRenderBatchFields()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject);
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(Command(Vector2.zero, DefaultTargetMask, 2f));
+            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 2f));
             root.Step(0.01f);
 
             AoeRuntimeCounters counters = root.Counters;
@@ -318,10 +323,10 @@ namespace PlayGround.Tests.PlayMode
             Cleanup(rootObject, templateObject, target.gameObject);
         }
 
-        private static AoeSpawnCommand Command(Vector2 position, int targetMask, float damage)
+        private static AoeSpawnCommand Command(int typeId, Vector2 position, int targetMask, float damage)
         {
             return new AoeSpawnCommand(
-                AoeTypeId,
+                typeId,
                 position,
                 targetMask,
                 new DamageSnapshot(damage),
@@ -330,6 +335,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         private static AoeSpawnCommand LingeringCommand(
+            int typeId,
             Vector2 position,
             int targetMask,
             float damage,
@@ -337,7 +343,7 @@ namespace PlayGround.Tests.PlayMode
             float tickIntervalSeconds)
         {
             return new AoeSpawnCommand(
-                AoeTypeId,
+                typeId,
                 position,
                 targetMask,
                 new DamageSnapshot(damage),
@@ -349,6 +355,7 @@ namespace PlayGround.Tests.PlayMode
             out GameObject rootObject,
             out AoeRoot root,
             out GameObject templateObject,
+            out int typeId,
             Vector3? templateScale = null,
             Vector3? visualScale = null)
         {
@@ -364,13 +371,33 @@ namespace PlayGround.Tests.PlayMode
             renderer.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
 
             var definition = new AoeTypeDefinition();
-            definition.Configure(AoeTypeId, templateObject, shape, 1f);
+            definition.Configure(templateObject, shape, 1f);
 
             rootObject = new GameObject("AoeRoot");
             rootObject.SetActive(false);
             root = rootObject.AddComponent<AoeRoot>();
-            root.Configure(new[] { definition }, ~0);
+            root.Configure(~0);
             rootObject.SetActive(true);
+
+            typeId = root.RegisterType(definition);
+        }
+
+        private static AoeConfig CreateMinimalAoeConfig()
+        {
+            GameObject prefabObject = new GameObject("MinimalAoePrefab");
+            prefabObject.SetActive(false);
+            CircleCollider2D hurtbox = prefabObject.AddComponent<CircleCollider2D>();
+            hurtbox.radius = 0.5f;
+            GameObject visualObject = new GameObject("Visual");
+            visualObject.transform.SetParent(prefabObject.transform, false);
+            SpriteRenderer sr = visualObject.AddComponent<SpriteRenderer>();
+            sr.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
+            BasicAoePrefab basicPrefab = prefabObject.AddComponent<BasicAoePrefab>();
+            basicPrefab.Configure(sr, hurtbox);
+
+            AoeConfig config = ScriptableObject.CreateInstance<AoeConfig>();
+            config.Configure(basicPrefab);
+            return config;
         }
 
         private static Matrix4x4 FirstScopedAoeRenderMatrix(AoeRoot root)

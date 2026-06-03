@@ -310,13 +310,14 @@ namespace PlayGround.Mob
         private void OnStatusEffectTriggered(StatusEffectDef def, StatusEffectTriggerResult result)
         {
             if (def is not StackingTriggerDef triggerDef
-                || triggerDef.TriggerAoeTypeId < 0
+                || triggerDef.TriggerAoeConfig == null
                 || aoeRoot == null
                 || !result.Triggered)
             {
                 return;
             }
 
+            int typeId = aoeRoot.RegisterConfig(triggerDef.TriggerAoeConfig);
             float damagePerFire = result.TriggerCount > 0
                 ? result.TotalTriggerDamage / result.TriggerCount
                 : 0f;
@@ -324,7 +325,7 @@ namespace PlayGround.Mob
             for (int i = 0; i < result.TriggerCount; i++)
             {
                 aoeRoot.Spawn(new ProjectileAoeSpawnRequest(
-                    triggerDef.TriggerAoeTypeId,
+                    typeId,
                     result.OwnerPosition,
                     new DamageSnapshot(Mathf.Max(0f, damagePerFire)),
                     triggerDef.TriggerAoeLifetimeSeconds,

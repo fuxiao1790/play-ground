@@ -14,7 +14,7 @@ namespace PlayGround.System.Aoe
         {
         }
 
-        public void Register(AoeTypeDefinition definition)
+        public void Register(int typeId, AoeTypeDefinition definition)
         {
             if (definition == null)
             {
@@ -22,11 +22,11 @@ namespace PlayGround.System.Aoe
             }
 
             AoeShape shape = BakeShape(definition);
-            definitionsById[definition.TypeId] = definition;
-            shapesById[definition.TypeId] = shape;
+            definitionsById[typeId] = definition;
+            shapesById[typeId] = shape;
             if (TryBakeVisual(definition, out AoeVisualDefinition visual))
             {
-                visualsById[definition.TypeId] = visual;
+                visualsById[typeId] = visual;
             }
         }
 
@@ -126,14 +126,12 @@ namespace PlayGround.System.Aoe
     [global::System.Serializable]
     public sealed class AoeTypeDefinition
     {
-        [SerializeField] private int typeId;
         [SerializeField] private GameObject visualPrefab;
         [SerializeField] private Collider2D collisionShape;
         [SerializeField, Min(0.01f)] private float sizeMultiplier = 1f;
         [SerializeField] private float visualRotationDegrees;
         [SerializeField, Min(0)] private int preloadCount;
 
-        public int TypeId => typeId;
         public GameObject VisualPrefab => visualPrefab;
         public Collider2D CollisionShape => collisionShape;
         public float SizeMultiplier => sizeMultiplier;
@@ -141,14 +139,12 @@ namespace PlayGround.System.Aoe
         public int PreloadCount => preloadCount;
 
         public void Configure(
-            int typeId,
             GameObject visualPrefab,
             Collider2D collisionShape,
             float sizeMultiplier = 1f,
             float visualRotationDegrees = 0f,
             int preloadCount = 0)
         {
-            this.typeId = typeId;
             this.visualPrefab = visualPrefab;
             this.collisionShape = collisionShape;
             this.sizeMultiplier = Mathf.Max(0.01f, sizeMultiplier);

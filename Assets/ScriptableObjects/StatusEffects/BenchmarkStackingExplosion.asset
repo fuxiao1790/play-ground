@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: BenchmarkStackingExplosion
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Common.StatusEffects.StackingTriggerDef
   stackThreshold: 3
-  triggerAoeTypeId: 10
+  triggerAoeConfig: {fileID: 11400000, guid: b46985c8e9a10eb4a92ff9d054ac379a, type: 2}
   triggerAoeDamage: 120
   triggerAoeLifetimeSeconds: 0
   triggerAoeTickIntervalSeconds: 0

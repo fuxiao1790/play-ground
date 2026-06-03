@@ -6,7 +6,6 @@ namespace PlayGround.Attack
     [CreateAssetMenu(menuName = "PlayGround/Attack/AOE Config", fileName = "AoeConfig")]
     public sealed class AoeConfig : ScriptableObject
     {
-        [SerializeField] private int typeId;
         [SerializeField] private BasicAoePrefab basicPrefab;
         [SerializeField, Min(0.01f)] private float sizeMultiplier = 1f;
         [SerializeField, Min(0)] private int preloadCount;
@@ -20,7 +19,6 @@ namespace PlayGround.Attack
         [SerializeField] private bool randomizePositions;
         [SerializeField] private int targetMask = 1;
 
-        public int TypeId => typeId;
         public BasicAoePrefab Prefab => basicPrefab;
         public GameObject VisualPrefab => basicPrefab != null ? basicPrefab.gameObject : null;
         public Collider2D CollisionShape => basicPrefab != null ? basicPrefab.Hurtbox : null;
@@ -36,11 +34,15 @@ namespace PlayGround.Attack
         public bool RandomizePositions => randomizePositions;
         public int TargetMask => targetMask;
 
+        public void Configure(BasicAoePrefab prefab)
+        {
+            basicPrefab = prefab;
+        }
+
         public AoeTypeDefinition CreateTypeDefinition()
         {
             var definition = new AoeTypeDefinition();
             definition.Configure(
-                typeId,
                 VisualPrefab,
                 CollisionShape,
                 sizeMultiplier,
