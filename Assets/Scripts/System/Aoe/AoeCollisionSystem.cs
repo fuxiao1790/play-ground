@@ -182,8 +182,7 @@ namespace PlayGround.System.Aoe
                 contactGates.Add(new AoeContactGateElement
                 {
                     TargetId = target.TargetId,
-                    CooldownRemaining = 0f,
-                    TouchedThisStep = 1
+                    CooldownRemaining = 0f
                 });
                 PendingHits.Enqueue(new AoePendingHit
                 {

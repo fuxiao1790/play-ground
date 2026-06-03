@@ -52,7 +52,6 @@ namespace PlayGround.System.Aoe
     {
         public int TargetId;
         public float CooldownRemaining;
-        public int TouchedThisStep;
     }
 
     // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by AoeSpawnSystem.

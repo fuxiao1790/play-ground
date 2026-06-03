@@ -28,19 +28,14 @@ namespace PlayGround.System.Projectile
 
             private void Execute(DynamicBuffer<ProjectileContactGateElement> contactGates)
             {
+                // Pass 1: subtract DeltaTime from all cooldowns (no branches — Burst can vectorize).
+                for (int i = 0; i < contactGates.Length; i++)
+                    contactGates.ElementAt(i).CooldownRemaining -= DeltaTime;
+
+                // Pass 2: compact expired gates (structural mutation kept separate).
                 for (int i = contactGates.Length - 1; i >= 0; i--)
-                {
-                    ProjectileContactGateElement gate = contactGates[i];
-                    gate.CooldownRemaining -= DeltaTime;
-                    if (gate.CooldownRemaining <= 0f)
-                    {
+                    if (contactGates[i].CooldownRemaining <= 0f)
                         contactGates.RemoveAt(i);
-                    }
-                    else
-                    {
-                        contactGates[i] = gate;
-                    }
-                }
             }
         }
     }
