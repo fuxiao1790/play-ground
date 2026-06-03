@@ -46,8 +46,7 @@ namespace PlayGround.Attack
         public void Configure(AoeRoot root)
         {
             aoeRoot = root;
-            if (started)
-                RegisterAoeType();
+            RegisterAoeType();
         }
 
         public void Tick(float deltaTime)
@@ -122,7 +121,7 @@ namespace PlayGround.Attack
 
         private void RegisterAoeType()
         {
-            if (aoeRoot == null || config == null) return;
+            if (!started || aoeRoot == null || config == null) return;
 
             registeredTypeId = aoeRoot.RegisterConfig(config);
         }

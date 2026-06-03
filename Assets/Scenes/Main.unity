@@ -1891,7 +1891,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000002}
     - target: {fileID: 9901003, guid: d77d7fb3155c4a54a8b68ddce77b79c2, type: 3}
       propertyPath: recoverySeconds
-      value: 0.05
+      value: 0.02
       objectReference: {fileID: 0}
     - target: {fileID: 9223372036854775807, guid: d77d7fb3155c4a54a8b68ddce77b79c2, type: 3}
       propertyPath: m_Name
