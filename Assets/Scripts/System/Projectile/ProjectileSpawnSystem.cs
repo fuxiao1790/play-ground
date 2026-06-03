@@ -1,7 +1,10 @@
 using System.Collections.Generic;
 using PlayGround.System.Common;
+using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Profiling;
 
 namespace PlayGround.System.Projectile
@@ -49,6 +52,7 @@ namespace PlayGround.System.Projectile
                 }
 
                 using var createEcb = new EntityCommandBuffer(Allocator.Temp);
+                var reuseResets = new NativeList<ProjectileReuseReset>(Allocator.TempJob);
                 for (int i = 0; i < scopes.Length; i++)
                 {
                     Entity scope = scopes[i];
@@ -56,13 +60,14 @@ namespace PlayGround.System.Projectile
                         EntityManager.GetBuffer<ProjectileSpawnRequestElement>(scope);
                     for (int requestIndex = 0; requestIndex < requests.Length; requestIndex++)
                     {
-                        Materialize(scope, requests[requestIndex], createEcb);
+                        Materialize(scope, requests[requestIndex], createEcb, ref reuseResets);
                     }
 
                     requests.Clear();
                 }
 
                 createEcb.Playback(EntityManager);
+                ScheduleReuseResetJob(reuseResets);
             }
         }
 
@@ -132,7 +137,8 @@ namespace PlayGround.System.Projectile
         private void Materialize(
             Entity scope,
             ProjectileSpawnRequestElement request,
-            EntityCommandBuffer createEcb)
+            EntityCommandBuffer createEcb,
+            ref NativeList<ProjectileReuseReset> reuseResets)
         {
             bool hasChildSpawner = request.HasChildSpawner != 0;
             var poolKey = new ProjectilePoolKey(scope, request.TypeId, hasChildSpawner);
@@ -143,7 +149,12 @@ namespace PlayGround.System.Projectile
                 return;
             }
 
-            ResetProjectileEntity(entity, scope, request, hasChildSpawner);
+            reuseResets.Add(new ProjectileReuseReset
+            {
+                Entity = entity,
+                Scope = scope,
+                Request = request
+            });
         }
 
         private Entity TakeInactive(ProjectilePoolKey key)
@@ -179,62 +190,35 @@ namespace PlayGround.System.Projectile
             RecordProjectileReset(ecb, entity, scope, request, hasChildSpawner);
         }
 
-        private void ResetProjectileEntity(
-            Entity entity,
-            Entity scope,
-            ProjectileSpawnRequestElement request,
-            bool hasChildSpawner)
+        private void ScheduleReuseResetJob(NativeList<ProjectileReuseReset> reuseResets)
         {
-            EntityManager.SetComponentData(entity, new ProjectileIdentityComponent
+            if (reuseResets.Length <= 0)
             {
-                Scope = scope,
-                ProjectileId = request.ProjectileId,
-                TypeId = request.TypeId
-            });
-            EntityManager.SetComponentData(entity, new CombatKinematicsComponent
-            {
-                Position = request.Position,
-                Velocity = request.Velocity
-            });
-            EntityManager.SetComponentData(entity, new CombatCollisionComponent
-            {
-                ShapeType = request.ShapeType,
-                Radius = request.Radius,
-                HalfExtents = request.HalfExtents,
-                RotationRadians = request.RotationRadians,
-                BoundsMin = request.BoundsMin,
-                BoundsMax = request.BoundsMax
-            });
-            EntityManager.SetComponentData(entity, new CombatHitComponent
-            {
-                TargetMask = request.TargetMask,
-                DamageAmount = request.HitPayload.DamageAmount,
-                DirectDamageEnabled = request.HitPayload.DirectDamageEnabled,
-                SourceNodeId = request.HitPayload.SourceNodeId
-            });
-            EntityManager.SetComponentData(entity, new ProjectileLifetimeComponent
-            {
-                RemainingLifetime = request.Lifetime
-            });
-            EntityManager.SetComponentData(entity, new ProjectileHitComponent
-            {
-                PierceRemaining = request.PierceRemaining,
-                RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds,
-                HitPayload = request.HitPayload
-            });
-            EntityManager.SetComponentData(entity, request.Tracking);
-            EntityManager.SetComponentData(entity, request.Render);
-            EntityManager.SetComponentData(entity, new CombatRenderElement());
-            EntityManager.GetBuffer<ProjectileContactGateElement>(entity).Clear();
-
-            if (hasChildSpawner)
-            {
-                EntityManager.SetComponentData(entity, request.ChildSpawner);
-                EntityManager.SetComponentData(entity, request.ChildSpawnState);
+                reuseResets.Dispose();
+                return;
             }
 
-            EntityManager.SetComponentEnabled<ProjectileActiveTag>(entity, true);
-            EntityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
+            var job = new ProjectileReuseResetJob
+            {
+                Resets = reuseResets.AsArray(),
+                Identities = GetComponentLookup<ProjectileIdentityComponent>(),
+                Kinematics = GetComponentLookup<CombatKinematicsComponent>(),
+                Collisions = GetComponentLookup<CombatCollisionComponent>(),
+                Hits = GetComponentLookup<CombatHitComponent>(),
+                Lifetimes = GetComponentLookup<ProjectileLifetimeComponent>(),
+                ProjectileHits = GetComponentLookup<ProjectileHitComponent>(),
+                Tracking = GetComponentLookup<ProjectileTrackingComponent>(),
+                Renders = GetComponentLookup<CombatRenderComponent>(),
+                RenderElements = GetComponentLookup<CombatRenderElement>(),
+                ContactGates = GetBufferLookup<ProjectileContactGateElement>(),
+                ChildSpawners = GetComponentLookup<ProjectileChildSpawnerComponent>(),
+                ChildSpawnStates = GetComponentLookup<ProjectileChildSpawnStateComponent>(),
+                ActiveTags = GetComponentLookup<ProjectileActiveTag>(),
+                RenderActiveTags = GetComponentLookup<CombatRenderActiveTag>()
+            };
+
+            JobHandle resetHandle = job.Schedule(reuseResets.Length, 64, Dependency);
+            Dependency = reuseResets.Dispose(resetHandle);
         }
 
         private static void RecordProjectileReset(
@@ -293,6 +277,67 @@ namespace PlayGround.System.Projectile
 
             ecb.SetComponentEnabled<ProjectileActiveTag>(entity, true);
             ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
+        }
+
+        private static ProjectileIdentityComponent IdentityFor(Entity scope, ProjectileSpawnRequestElement request)
+        {
+            return new ProjectileIdentityComponent
+            {
+                Scope = scope,
+                ProjectileId = request.ProjectileId,
+                TypeId = request.TypeId
+            };
+        }
+
+        private static CombatKinematicsComponent KinematicsFor(ProjectileSpawnRequestElement request)
+        {
+            return new CombatKinematicsComponent
+            {
+                Position = request.Position,
+                Velocity = request.Velocity
+            };
+        }
+
+        private static CombatCollisionComponent CollisionFor(ProjectileSpawnRequestElement request)
+        {
+            return new CombatCollisionComponent
+            {
+                ShapeType = request.ShapeType,
+                Radius = request.Radius,
+                HalfExtents = request.HalfExtents,
+                RotationRadians = request.RotationRadians,
+                BoundsMin = request.BoundsMin,
+                BoundsMax = request.BoundsMax
+            };
+        }
+
+        private static CombatHitComponent HitFor(ProjectileSpawnRequestElement request)
+        {
+            return new CombatHitComponent
+            {
+                TargetMask = request.TargetMask,
+                DamageAmount = request.HitPayload.DamageAmount,
+                DirectDamageEnabled = request.HitPayload.DirectDamageEnabled,
+                SourceNodeId = request.HitPayload.SourceNodeId
+            };
+        }
+
+        private static ProjectileLifetimeComponent LifetimeFor(ProjectileSpawnRequestElement request)
+        {
+            return new ProjectileLifetimeComponent
+            {
+                RemainingLifetime = request.Lifetime
+            };
+        }
+
+        private static ProjectileHitComponent ProjectileHitFor(ProjectileSpawnRequestElement request)
+        {
+            return new ProjectileHitComponent
+            {
+                PierceRemaining = request.PierceRemaining,
+                RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds,
+                HitPayload = request.HitPayload
+            };
         }
 
         private EntityArchetype ArchetypeFor(int typeId, bool hasChildSpawner)
@@ -365,6 +410,60 @@ namespace PlayGround.System.Projectile
                 _ => throw new global::System.InvalidOperationException(
                     $"Projectile render type {typeId} is outside supported structural render type range 0-{MaxStructuralRenderTypes - 1}.")
             };
+        }
+
+        private struct ProjectileReuseReset
+        {
+            public Entity Entity;
+            public Entity Scope;
+            public ProjectileSpawnRequestElement Request;
+        }
+
+        [BurstCompile]
+        private struct ProjectileReuseResetJob : IJobParallelFor
+        {
+            [ReadOnly] public NativeArray<ProjectileReuseReset> Resets;
+            [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileIdentityComponent> Identities;
+            [NativeDisableParallelForRestriction] public ComponentLookup<CombatKinematicsComponent> Kinematics;
+            [NativeDisableParallelForRestriction] public ComponentLookup<CombatCollisionComponent> Collisions;
+            [NativeDisableParallelForRestriction] public ComponentLookup<CombatHitComponent> Hits;
+            [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileLifetimeComponent> Lifetimes;
+            [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileHitComponent> ProjectileHits;
+            [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileTrackingComponent> Tracking;
+            [NativeDisableParallelForRestriction] public ComponentLookup<CombatRenderComponent> Renders;
+            [NativeDisableParallelForRestriction] public ComponentLookup<CombatRenderElement> RenderElements;
+            [NativeDisableParallelForRestriction] public BufferLookup<ProjectileContactGateElement> ContactGates;
+            [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileChildSpawnerComponent> ChildSpawners;
+            [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileChildSpawnStateComponent> ChildSpawnStates;
+            [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileActiveTag> ActiveTags;
+            [NativeDisableParallelForRestriction] public ComponentLookup<CombatRenderActiveTag> RenderActiveTags;
+
+            public void Execute(int index)
+            {
+                ProjectileReuseReset reset = Resets[index];
+                Entity entity = reset.Entity;
+                ProjectileSpawnRequestElement request = reset.Request;
+
+                Identities[entity] = IdentityFor(reset.Scope, request);
+                Kinematics[entity] = KinematicsFor(request);
+                Collisions[entity] = CollisionFor(request);
+                Hits[entity] = HitFor(request);
+                Lifetimes[entity] = LifetimeFor(request);
+                ProjectileHits[entity] = ProjectileHitFor(request);
+                Tracking[entity] = request.Tracking;
+                Renders[entity] = request.Render;
+                RenderElements[entity] = new CombatRenderElement();
+                ContactGates[entity].Clear();
+
+                if (request.HasChildSpawner != 0)
+                {
+                    ChildSpawners[entity] = request.ChildSpawner;
+                    ChildSpawnStates[entity] = request.ChildSpawnState;
+                }
+
+                ActiveTags.SetComponentEnabled(entity, true);
+                RenderActiveTags.SetComponentEnabled(entity, true);
+            }
         }
 
         private readonly struct ProjectilePoolKey : global::System.IEquatable<ProjectilePoolKey>

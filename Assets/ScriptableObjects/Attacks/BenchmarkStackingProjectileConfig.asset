@@ -24,9 +24,9 @@ MonoBehaviour:
   repeatHitCooldownSeconds: 0.25
   trackingEnabled: 1
   trackingRange: 400
-  trackingTurnSpeedDegrees: 720
+  trackingTurnSpeedDegrees: 360
   trackingQueryIntervalSeconds: 0.15
-  trackingInitialQueryDelaySeconds: 0.1
+  trackingInitialQueryDelaySeconds: 0.15
   directDamageEnabled: 0
   impactAoeTypeId: -1
   impactAoeDamage: 1

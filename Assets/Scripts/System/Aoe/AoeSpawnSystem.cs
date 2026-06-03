@@ -1,7 +1,10 @@
 using System.Collections.Generic;
 using PlayGround.System.Common;
+using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Profiling;
 
 namespace PlayGround.System.Aoe
@@ -62,6 +65,7 @@ namespace PlayGround.System.Aoe
                 }
 
                 using var createEcb = new EntityCommandBuffer(Allocator.Temp);
+                var reuseResets = new NativeList<AoeReuseReset>(Allocator.TempJob);
                 for (int i = 0; i < scopes.Length; i++)
                 {
                     Entity scope = scopes[i];
@@ -69,13 +73,14 @@ namespace PlayGround.System.Aoe
                         EntityManager.GetBuffer<AoeSpawnRequestElement>(scope);
                     for (int requestIndex = 0; requestIndex < requests.Length; requestIndex++)
                     {
-                        Materialize(scope, requests[requestIndex], createEcb);
+                        Materialize(scope, requests[requestIndex], createEcb, ref reuseResets);
                     }
 
                     requests.Clear();
                 }
 
                 createEcb.Playback(EntityManager);
+                ScheduleReuseResetJob(reuseResets);
             }
         }
 
@@ -139,7 +144,11 @@ namespace PlayGround.System.Aoe
             inactive.Add(entity);
         }
 
-        private void Materialize(Entity scope, AoeSpawnRequestElement request, EntityCommandBuffer ecb)
+        private void Materialize(
+            Entity scope,
+            AoeSpawnRequestElement request,
+            EntityCommandBuffer ecb,
+            ref NativeList<AoeReuseReset> reuseResets)
         {
             var poolKey = new AoePoolKey(scope, request.TypeId);
             Entity entity = TakeInactive(poolKey);
@@ -151,7 +160,12 @@ namespace PlayGround.System.Aoe
                 return;
             }
 
-            ResetAoeEntity(entity, scope, request);
+            reuseResets.Add(new AoeReuseReset
+            {
+                Entity = entity,
+                Scope = scope,
+                Request = request
+            });
         }
 
         private Entity TakeInactive(AoePoolKey key)
@@ -176,20 +190,33 @@ namespace PlayGround.System.Aoe
             return Entity.Null;
         }
 
-        private void ResetAoeEntity(Entity entity, Entity scope, AoeSpawnRequestElement request)
+        private void ScheduleReuseResetJob(NativeList<AoeReuseReset> reuseResets)
         {
-            EntityManager.SetComponentData(entity, IdentityFor(scope, request));
-            EntityManager.SetComponentData(entity, KinematicsFor(request));
-            EntityManager.SetComponentData(entity, CollisionFor(request));
-            EntityManager.SetComponentData(entity, HitFor(request));
-            EntityManager.SetComponentData(entity, LifetimeFor(request));
-            EntityManager.SetComponentData(entity, HitGateFor(request));
-            EntityManager.SetComponentData(entity, HitSpawnFor(request));
-            EntityManager.SetComponentData(entity, request.Render);
-            EntityManager.SetComponentData(entity, new CombatRenderElement());
-            EntityManager.GetBuffer<AoeContactGateElement>(entity).Clear();
-            EntityManager.SetComponentEnabled<AoeActiveTag>(entity, true);
-            EntityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
+            if (reuseResets.Length <= 0)
+            {
+                reuseResets.Dispose();
+                return;
+            }
+
+            var job = new AoeReuseResetJob
+            {
+                Resets = reuseResets.AsArray(),
+                Identities = GetComponentLookup<AoeIdentityComponent>(),
+                Kinematics = GetComponentLookup<CombatKinematicsComponent>(),
+                Collisions = GetComponentLookup<CombatCollisionComponent>(),
+                Hits = GetComponentLookup<CombatHitComponent>(),
+                Lifetimes = GetComponentLookup<AoeLifetimeComponent>(),
+                HitGates = GetComponentLookup<AoeHitGateComponent>(),
+                HitSpawns = GetComponentLookup<AoeHitSpawnComponent>(),
+                Renders = GetComponentLookup<CombatRenderComponent>(),
+                RenderElements = GetComponentLookup<CombatRenderElement>(),
+                ContactGates = GetBufferLookup<AoeContactGateElement>(),
+                ActiveTags = GetComponentLookup<AoeActiveTag>(),
+                RenderActiveTags = GetComponentLookup<CombatRenderActiveTag>()
+            };
+
+            JobHandle resetHandle = job.Schedule(reuseResets.Length, 64, Dependency);
+            Dependency = reuseResets.Dispose(resetHandle);
         }
 
         private static void RecordAoeReset(EntityCommandBuffer ecb, Entity entity, Entity scope, AoeSpawnRequestElement request)
@@ -272,6 +299,51 @@ namespace PlayGround.System.Aoe
             {
                 ProjectileBurst = request.ProjectileBurst
             };
+        }
+
+        private struct AoeReuseReset
+        {
+            public Entity Entity;
+            public Entity Scope;
+            public AoeSpawnRequestElement Request;
+        }
+
+        [BurstCompile]
+        private struct AoeReuseResetJob : IJobParallelFor
+        {
+            [ReadOnly] public NativeArray<AoeReuseReset> Resets;
+            [NativeDisableParallelForRestriction] public ComponentLookup<AoeIdentityComponent> Identities;
+            [NativeDisableParallelForRestriction] public ComponentLookup<CombatKinematicsComponent> Kinematics;
+            [NativeDisableParallelForRestriction] public ComponentLookup<CombatCollisionComponent> Collisions;
+            [NativeDisableParallelForRestriction] public ComponentLookup<CombatHitComponent> Hits;
+            [NativeDisableParallelForRestriction] public ComponentLookup<AoeLifetimeComponent> Lifetimes;
+            [NativeDisableParallelForRestriction] public ComponentLookup<AoeHitGateComponent> HitGates;
+            [NativeDisableParallelForRestriction] public ComponentLookup<AoeHitSpawnComponent> HitSpawns;
+            [NativeDisableParallelForRestriction] public ComponentLookup<CombatRenderComponent> Renders;
+            [NativeDisableParallelForRestriction] public ComponentLookup<CombatRenderElement> RenderElements;
+            [NativeDisableParallelForRestriction] public BufferLookup<AoeContactGateElement> ContactGates;
+            [NativeDisableParallelForRestriction] public ComponentLookup<AoeActiveTag> ActiveTags;
+            [NativeDisableParallelForRestriction] public ComponentLookup<CombatRenderActiveTag> RenderActiveTags;
+
+            public void Execute(int index)
+            {
+                AoeReuseReset reset = Resets[index];
+                Entity entity = reset.Entity;
+                AoeSpawnRequestElement request = reset.Request;
+
+                Identities[entity] = IdentityFor(reset.Scope, request);
+                Kinematics[entity] = KinematicsFor(request);
+                Collisions[entity] = CollisionFor(request);
+                Hits[entity] = HitFor(request);
+                Lifetimes[entity] = LifetimeFor(request);
+                HitGates[entity] = HitGateFor(request);
+                HitSpawns[entity] = HitSpawnFor(request);
+                Renders[entity] = request.Render;
+                RenderElements[entity] = new CombatRenderElement();
+                ContactGates[entity].Clear();
+                ActiveTags.SetComponentEnabled(entity, true);
+                RenderActiveTags.SetComponentEnabled(entity, true);
+            }
         }
 
         private readonly struct AoePoolKey : global::System.IEquatable<AoePoolKey>
