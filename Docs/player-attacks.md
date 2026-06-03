@@ -63,6 +63,7 @@ Create projectile config assets with:
 
 `ProjectileConfig` is the single authoring source for projectile behavior. The
 same type is used for parent projectiles and child projectiles.
+Attack cadence is owned by attack MonoBehaviours, not projectile configs.
 
 Fields:
 
@@ -152,6 +153,7 @@ Root fields:
   preferred for scene-authored instances
 - `parentConfig`: `ProjectileConfig` used for the parent projectile volley
 - `childConfig`: `ProjectileConfig` used for spawned child projectiles
+- `recoverySeconds`: cooldown after each fired parent volley
 - `performSound`: optional clip
 - `audioManager`: optional, resolved through `AudioManager.Instance` when blank
 - `aoeRoot`: optional, required for impact AOE or hit effects that request AOEs
@@ -168,6 +170,7 @@ Child config rules:
 - Child projectile visual, collision, speed, lifetime, damage, pierce, direct
   damage, and tracking come from `childConfig`.
 - Child spawner count and interval come from `ChildSpawningProjectileAttack`.
+- Attack fire recovery comes from `ChildSpawningProjectileAttack.recoverySeconds`.
 - Parent projectiles spawn from the `ChildSpawningProjectileAttack` GameObject
   Transform. There is no `ParentProjectile` child object and no nested
   `ProjectileAttack` for this attack type.

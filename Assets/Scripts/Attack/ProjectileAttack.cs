@@ -65,6 +65,7 @@ namespace PlayGround.Attack
 
         private void OnValidate()
         {
+            recoverySeconds = Mathf.Max(0f, recoverySeconds);
             if (config != null && config.Prefab != null && !IsValidBasicPrefab(config.Prefab, out string reason))
                 throw new MissingReferenceException($"{nameof(ProjectileAttack)} on {name} has invalid prefab in {nameof(ProjectileConfig)} '{config.name}': {reason}.");
         }
@@ -105,7 +106,7 @@ namespace PlayGround.Attack
             if (!IsReady) return false;
 
             PerformVolley(aimDirection, childConfig);
-            cooldownRemaining = recoverySeconds;
+            cooldownRemaining = Mathf.Max(0.01f, recoverySeconds);
             return true;
         }
 

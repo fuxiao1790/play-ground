@@ -19,6 +19,7 @@ namespace PlayGround.Attack
         [SerializeField] private ProjectileHitEffectDefinition[] hitEffectDefinitions = global::System.Array.Empty<ProjectileHitEffectDefinition>();
         [SerializeField] private AoeRoot aoeRoot;
 
+        [SerializeField] private float recoverySeconds = 0.15f;
         [SerializeField] private int childProjectileCount;
         [SerializeField] private float childSpawnIntervalSeconds;
         [SerializeField] private float childSpawnIntervalJitterSeconds;
@@ -40,7 +41,7 @@ namespace PlayGround.Attack
         {
             if (!IsReady) return false;
             PerformVolley(aimDirection, BuildActiveChildConfig());
-            localCooldown = childSpawnIntervalSeconds;
+            localCooldown = Mathf.Max(0.01f, recoverySeconds);
             return true;
         }
 
@@ -85,6 +86,13 @@ namespace PlayGround.Attack
         {
             UnsubscribeProjectileRoot();
             UnsubscribeAoeRoot();
+        }
+
+        private void OnValidate()
+        {
+            recoverySeconds = Mathf.Max(0f, recoverySeconds);
+            childSpawnIntervalSeconds = Mathf.Max(0f, childSpawnIntervalSeconds);
+            childSpawnIntervalJitterSeconds = Mathf.Max(0f, childSpawnIntervalJitterSeconds);
         }
 
         // --- private ---

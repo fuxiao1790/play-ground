@@ -50,6 +50,7 @@ MonoBehaviour:
   performSound: {fileID: 8300000, guid: 79e376e87cd65444ca1e74cce5c5eb21, type: 3}
   audioManager: {fileID: 0}
   aoeRoot: {fileID: 0}
+  recoverySeconds: 0.15
   childProjectileCount: 4
   childSpawnIntervalSeconds: 0.15
   childSpawnIntervalJitterSeconds: 0.1
