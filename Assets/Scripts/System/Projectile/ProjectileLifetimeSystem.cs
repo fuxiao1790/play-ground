@@ -1,8 +1,10 @@
 using PlayGround.System.Common;
+using PlayGround.System.Vfx;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Mathematics;
 using Unity.Profiling;
 
 namespace PlayGround.System.Projectile
@@ -17,21 +19,31 @@ namespace PlayGround.System.Projectile
         public void OnUpdate(ref SystemState state)
         {
             var recycled = new NativeQueue<ProjectilePendingRecycle>(Allocator.TempJob);
+            var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
             var job = new ProjectileLifetimeJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
                 ChildSpawnerTags = SystemAPI.GetComponentLookup<ProjectileChildSpawnerTag>(true),
-                Recycled = recycled.AsParallelWriter()
+                Recycled = recycled.AsParallelWriter(),
+                VfxPending = vfxPending.AsParallelWriter()
             };
 
             JobHandle lifetimeHandle = job.ScheduleParallel(state.Dependency);
-            JobHandle flushHandle = new ProjectileRecycleFlushJob
+            JobHandle recycleFlushHandle = new ProjectileRecycleFlushJob
             {
                 Recycled = recycled,
                 RecycleBuffers = SystemAPI.GetBufferLookup<ProjectileRecycleElement>()
             }.Schedule(lifetimeHandle);
+            JobHandle vfxFlushHandle = new VfxFlushJob
+            {
+                Pending = vfxPending,
+                VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
+            }.Schedule(lifetimeHandle);
 
-            state.Dependency = recycled.Dispose(flushHandle);
+            JobHandle bothFlushes = JobHandle.CombineDependencies(recycleFlushHandle, vfxFlushHandle);
+            state.Dependency = JobHandle.CombineDependencies(
+                recycled.Dispose(bothFlushes),
+                vfxPending.Dispose(bothFlushes));
         }
 
         [BurstCompile]
@@ -41,11 +53,13 @@ namespace PlayGround.System.Projectile
             public float DeltaTime;
             [ReadOnly] public ComponentLookup<ProjectileChildSpawnerTag> ChildSpawnerTags;
             public NativeQueue<ProjectilePendingRecycle>.ParallelWriter Recycled;
+            public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
 
             private void Execute(
                 Entity entity,
                 ref ProjectileLifetimeComponent lifetime,
                 in ProjectileIdentityComponent identity,
+                in CombatKinematicsComponent kinematics,
                 EnabledRefRW<ProjectileActiveTag> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive)
             {
@@ -61,6 +75,13 @@ namespace PlayGround.System.Projectile
                         ProjectileEntity = entity,
                         TypeId = identity.TypeId,
                         HasChildSpawner = ChildSpawnerTags.HasComponent(entity) ? 1 : 0
+                    });
+                    VfxPending.Enqueue(new VfxPendingSpawn
+                    {
+                        Scope = identity.Scope,
+                        TypeId = identity.TypeId,
+                        Trigger = 2,
+                        Position = kinematics.Position
                     });
                 }
             }

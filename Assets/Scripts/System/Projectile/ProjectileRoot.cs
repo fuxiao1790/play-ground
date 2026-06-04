@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using PlayGround.Attack;
 using PlayGround.Common;
 using PlayGround.System.Common;
+using PlayGround.System.Vfx;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -14,6 +15,7 @@ namespace PlayGround.System.Projectile
     public sealed class ProjectileRoot : MonoBehaviour
     {
         private const int MaxInstancesPerDraw = 1023;
+        private const int MaxVfxPerFrame = 2048;
         private const int MaxStructuralRenderTypes = 16;
         private const float ProjectileRenderZ = -0.25f;
         private const float ProjectileZStep = 0.000001f;
@@ -37,6 +39,7 @@ namespace PlayGround.System.Projectile
         private readonly Dictionary<int, IProjectileTarget> targetsById = new();
         private readonly Dictionary<BasicAttackPrefab, int> templateTypeIds = new();
         private readonly Dictionary<int, CombatSpriteRenderResources> renderResourcesByType = new();
+        private CombatVfxDispatcher vfxDispatcher;
 
         private World entityWorld;
         private EntityManager entityManager;
@@ -56,6 +59,7 @@ namespace PlayGround.System.Projectile
         private void Awake()
         {
             runtimeReady = false;
+            vfxDispatcher = new CombatVfxDispatcher(transform);
             ApplyTaggedDefaults();
             if (projectileSprite == null && !HasAnyRenderSource())
             {
@@ -89,6 +93,10 @@ namespace PlayGround.System.Projectile
                 SubmitProjectiles();
             }
 
+            entityManager.CompleteDependencyBeforeRO<ProjectileActiveTag>();
+            DrainVfxRequests();
+            vfxDispatcher.Dispatch();
+
             using (DrainHitsProfilerMarker.Auto())
             {
                 DrainHits();
@@ -97,6 +105,9 @@ namespace PlayGround.System.Projectile
 
         private void OnDestroy()
         {
+            vfxDispatcher?.Dispose();
+            vfxDispatcher = null;
+
             if (IsRuntimeReady())
             {
                 if (scopeEntity != Entity.Null && entityManager.Exists(scopeEntity))
@@ -146,6 +157,9 @@ namespace PlayGround.System.Projectile
             if (!renderResourcesByType.ContainsKey(typeId))
             {
                 renderResourcesByType[typeId] = BuildRenderResourcesFor(template.Sprite, template.VisualScale, template.VisualRotationDegrees, template.Material);
+                vfxDispatcher.Register(typeId, 0, template.SpawnEffect, MaxVfxPerFrame);
+                vfxDispatcher.Register(typeId, 1, template.HitEffect, MaxVfxPerFrame);
+                vfxDispatcher.Register(typeId, 2, template.ExpireEffect, MaxVfxPerFrame);
             }
 
             return typeId;
@@ -316,6 +330,7 @@ namespace PlayGround.System.Projectile
             entityManager.AddBuffer<ProjectileHitElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileSpawnRequestElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileRecycleElement>(scopeEntity);
+            entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
             allProjectileQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<ProjectileIdentityComponent>());
@@ -447,7 +462,19 @@ namespace PlayGround.System.Projectile
             }
         }
 
-        // optimization: sort the buffer so that hits to the same target are clustered in the buffer. 
+        private void DrainVfxRequests()
+        {
+            DynamicBuffer<VfxSpawnRequestElement> vfxBuffer =
+                entityManager.GetBuffer<VfxSpawnRequestElement>(scopeEntity);
+            for (int i = 0; i < vfxBuffer.Length; i++)
+            {
+                VfxSpawnRequestElement e = vfxBuffer[i];
+                vfxDispatcher.StageSpawn(e.TypeId, e.Trigger, e.Position);
+            }
+            vfxBuffer.Clear();
+        }
+
+        // optimization: sort the buffer so that hits to the same target are clustered in the buffer.
         // this can be done using component and entity query, should help reduce cache misses and vtable lookups.
         private void DrainHits()
         {

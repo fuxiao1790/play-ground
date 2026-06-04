@@ -29,6 +29,10 @@ namespace PlayGround.Attack
             ValidateConfig();
             audioManager ??= AudioManager.Instance != null ? AudioManager.Instance : FindAnyObjectByType<AudioManager>();
             deterministicSeed = gameObject.GetHashCode();
+        }
+
+        private void OnEnable()
+        {
             RegisterAoeType();
         }
 

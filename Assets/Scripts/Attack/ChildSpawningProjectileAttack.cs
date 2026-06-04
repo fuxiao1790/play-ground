@@ -67,8 +67,6 @@ namespace PlayGround.Attack
             hitEffects = GetComponentsInChildren<ProjectileHitEffect>(true);
             for (int i = 0; i < hitEffects.Length; i++)
                 hitEffects[i].Configure(this);
-
-            RegisterBasicPrefabs();
         }
 
         private void OnEnable()

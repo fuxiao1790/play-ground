@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using PlayGround.Attack;
 using PlayGround.Common;
 using PlayGround.System.Common;
+using PlayGround.System.Vfx;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -14,6 +15,7 @@ namespace PlayGround.System.Aoe
     public sealed class AoeRoot : MonoBehaviour
     {
         private const int MaxInstancesPerDraw = 1023;
+        private const int MaxVfxPerFrame = 2048;
         private const float AoeRenderZ = 0.5f;
         private static readonly ProfilerMarker SyncTargetsProfilerMarker = new("AoeRoot.SyncTargets");
         private static readonly ProfilerMarker SubmitAoesProfilerMarker = new("AoeRoot.SubmitAoes");
@@ -35,6 +37,7 @@ namespace PlayGround.System.Aoe
 
         private AoeTypeRegistry typeRegistry = new();
         private AoeTargetSync targetSync;
+        private CombatVfxDispatcher vfxDispatcher;
         private World entityWorld;
         private EntityManager entityManager;
         private Entity scopeEntity;
@@ -65,6 +68,7 @@ namespace PlayGround.System.Aoe
         private void Awake()
         {
             runtimeReady = false;
+            vfxDispatcher = new CombatVfxDispatcher(transform);
             targetSync = new AoeTargetSync(targetRegistry);
             BindWorld();
             runtimeReady = true;
@@ -103,6 +107,9 @@ namespace PlayGround.System.Aoe
 
         private void OnDestroy()
         {
+            vfxDispatcher?.Dispose();
+            vfxDispatcher = null;
+
             if (IsRuntimeReady())
             {
                 if (scopeEntity != Entity.Null && entityManager.Exists(scopeEntity))
@@ -145,6 +152,8 @@ namespace PlayGround.System.Aoe
             definitionTypeIds.Clear();
             nextTypeId = 1;
             DestroyRenderResources();
+            vfxDispatcher?.Dispose();
+            vfxDispatcher = new CombatVfxDispatcher(transform);
         }
 
         public int RegisterConfig(AoeConfig config)
@@ -164,6 +173,7 @@ namespace PlayGround.System.Aoe
             AoeTypeDefinition definition = config.CreateTypeDefinition();
             typeRegistry.Register(typeId, definition);
             TryBuildRenderResource(typeId);
+            RegisterVfxForDefinition(typeId, definition);
             return typeId;
         }
 
@@ -183,6 +193,7 @@ namespace PlayGround.System.Aoe
             definitionTypeIds[definition] = typeId;
             typeRegistry.Register(typeId, definition);
             TryBuildRenderResource(typeId);
+            RegisterVfxForDefinition(typeId, definition);
             return typeId;
         }
 
@@ -287,6 +298,16 @@ namespace PlayGround.System.Aoe
             }
 
             hitBuffer.Clear();
+
+            DynamicBuffer<VfxSpawnRequestElement> vfxBuffer =
+                entityManager.GetBuffer<VfxSpawnRequestElement>(scopeEntity);
+            for (int i = 0; i < vfxBuffer.Length; i++)
+            {
+                VfxSpawnRequestElement e = vfxBuffer[i];
+                vfxDispatcher.StageSpawn(e.TypeId, e.Trigger, e.Position);
+            }
+            vfxBuffer.Clear();
+            vfxDispatcher.Dispatch();
         }
 
         private CombatRenderComponent RenderComponentFor(int typeId)
@@ -325,6 +346,7 @@ namespace PlayGround.System.Aoe
             entityManager.AddBuffer<AoeSpawnRequestElement>(scopeEntity);
             entityManager.AddBuffer<AoeHitElement>(scopeEntity);
             entityManager.AddBuffer<AoeRecycleElement>(scopeEntity);
+            entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
             allAoeQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AoeTag>(),
                 ComponentType.ReadOnly<AoeIdentityComponent>());
@@ -443,6 +465,15 @@ namespace PlayGround.System.Aoe
             }
 
             return count;
+        }
+
+        private void RegisterVfxForDefinition(int typeId, AoeTypeDefinition definition)
+        {
+            vfxDispatcher ??= new CombatVfxDispatcher(transform);
+            vfxDispatcher.Register(typeId, 0, definition.SpawnEffect, MaxVfxPerFrame);
+            vfxDispatcher.Register(typeId, 1, definition.HitEffect, MaxVfxPerFrame);
+            vfxDispatcher.Register(typeId, 2, definition.ExpireEffect, MaxVfxPerFrame);
+            vfxDispatcher.Register(typeId, 3, definition.PulseEffect, MaxVfxPerFrame);
         }
 
         private void TryBuildRenderResource(int typeId)

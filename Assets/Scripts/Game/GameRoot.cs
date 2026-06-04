@@ -107,12 +107,15 @@ namespace PlayGround.Game
                 player.Register(mobAoeRoot.TargetRegistry);
             }
 
+            combatSpawnRouter.Bind(playerProjectileRoot, mobProjectileRoot, playerAoeRoot, mobAoeRoot);
+        }
+
+        private void Start()
+        {
             if (player != null && playerAoeRoot != null)
             {
                 BindPlayerAoeAttacks(playerAoeRoot);
             }
-
-            combatSpawnRouter.Bind(playerProjectileRoot, mobProjectileRoot, playerAoeRoot, mobAoeRoot);
         }
 
         private void OnDestroy()

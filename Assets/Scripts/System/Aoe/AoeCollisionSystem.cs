@@ -1,4 +1,5 @@
 using PlayGround.System.Common;
+using PlayGround.System.Vfx;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -78,13 +79,15 @@ namespace PlayGround.System.Aoe
 
                 var pendingHits = new NativeQueue<AoePendingHit>(Allocator.TempJob);
                 var recycled = new NativeQueue<AoePendingRecycle>(Allocator.TempJob);
+                var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
                 var job = new AoeCollisionJob
                 {
                     Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
                     OccupiedTargetCells = occupiedTargetCells,
                     OccupiedTargetCellCount = occupiedTargetCells.Count(),
                     PendingHits = pendingHits.AsParallelWriter(),
-                    Recycled = recycled.AsParallelWriter()
+                    Recycled = recycled.AsParallelWriter(),
+                    VfxPending = vfxPending.AsParallelWriter()
                 };
 
                 JobHandle collisionHandle = job.ScheduleParallel(state.Dependency);
@@ -98,10 +101,18 @@ namespace PlayGround.System.Aoe
                     Recycled = recycled,
                     RecycleBuffers = SystemAPI.GetBufferLookup<AoeRecycleElement>()
                 }.Schedule(collisionHandle);
+                JobHandle vfxFlushHandle = new VfxFlushJob
+                {
+                    Pending = vfxPending,
+                    VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
+                }.Schedule(collisionHandle);
 
                 JobHandle disposeHitsHandle = pendingHits.Dispose(hitFlushHandle);
                 JobHandle disposeRecycleHandle = recycled.Dispose(recycleFlushHandle);
-                JobHandle flushesHandle = JobHandle.CombineDependencies(disposeHitsHandle, disposeRecycleHandle);
+                JobHandle disposeVfxHandle = vfxPending.Dispose(vfxFlushHandle);
+                JobHandle flushesHandle = JobHandle.CombineDependencies(
+                    JobHandle.CombineDependencies(disposeHitsHandle, disposeRecycleHandle),
+                    disposeVfxHandle);
                 state.Dependency = occupiedTargetCells.Dispose(flushesHandle);
             }
         }
@@ -115,6 +126,7 @@ namespace PlayGround.System.Aoe
             public int OccupiedTargetCellCount;
             public NativeQueue<AoePendingHit>.ParallelWriter PendingHits;
             public NativeQueue<AoePendingRecycle>.ParallelWriter Recycled;
+            public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
 
             private void Execute(
                 Entity entity,
@@ -237,6 +249,13 @@ namespace PlayGround.System.Aoe
                     Position = kinematics.Position,
                     DamageAmount = hit.DamageAmount,
                     ProjectileBurst = hitSpawn.ProjectileBurst
+                });
+                VfxPending.Enqueue(new VfxPendingSpawn
+                {
+                    Scope = identity.Scope,
+                    TypeId = identity.TypeId,
+                    Trigger = 1,
+                    Position = kinematics.Position
                 });
             }
 

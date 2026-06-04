@@ -38,6 +38,22 @@ The root component owns Unity references, setup validation, event wiring, update
 
 Gameplay logic belongs in focused classes, ScriptableObjects, child components, or data-oriented runtime cores.
 
+## Awake vs OnEnable Boundary
+
+`Awake()` may only set up state that belongs to the component itself: resolve
+self-owned references, validate fields, construct helper objects, configure
+children. It must not call methods on other MonoBehaviours, because Unity does
+not guarantee that other `Awake()` calls have completed first.
+
+Cross-MonoBehaviour work — registering types with a root, subscribing to events,
+wiring up systems — belongs in `OnEnable()` or `Start()`. Unity guarantees all
+`Awake()` calls in a scene complete before any `OnEnable()` fires for those
+scene-loaded objects, so by `OnEnable()` every dependency is safe to touch.
+
+Violating this rule produces NullReferenceExceptions that look like logic errors
+but are actually execution-order problems. The symptom is a null field that is
+clearly initialized in the dependency's own `Awake()`.
+
 ## Fail Fast Validation
 
 Serialized fields that are required must be validated once at setup.

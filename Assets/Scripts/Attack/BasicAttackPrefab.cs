@@ -1,6 +1,7 @@
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using UnityEngine;
+using UnityEngine.VFX;
 
 namespace PlayGround.Attack
 {
@@ -8,6 +9,13 @@ namespace PlayGround.Attack
     {
         [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField] private Collider2D hurtbox;
+        [SerializeField] private VisualEffectAsset spawnEffect;
+        [SerializeField] private VisualEffectAsset hitEffect;
+        [SerializeField] private VisualEffectAsset expireEffect;
+
+        public VisualEffectAsset SpawnEffect => spawnEffect;
+        public VisualEffectAsset HitEffect => hitEffect;
+        public VisualEffectAsset ExpireEffect => expireEffect;
 
         public Sprite Sprite => spriteRenderer != null ? spriteRenderer.sprite : null;
         public Material Material => spriteRenderer != null ? spriteRenderer.sharedMaterial : null;

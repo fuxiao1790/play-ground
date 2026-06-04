@@ -1,4 +1,5 @@
 using PlayGround.System.Common;
+using PlayGround.System.Vfx;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -58,6 +59,7 @@ namespace PlayGround.System.Projectile
 
             var pendingHits = new NativeQueue<ProjectilePendingHit>(Allocator.TempJob);
             var recycled = new NativeQueue<ProjectilePendingRecycle>(Allocator.TempJob);
+            var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
             var job = new ProjectileCollisionJob
             {
                 Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
@@ -66,7 +68,8 @@ namespace PlayGround.System.Projectile
                 TotalTargetCount = totalTargetCount,
                 MaxTargetRadius = maxTargetRadius,
                 PendingHits = pendingHits.AsParallelWriter(),
-                Recycled = recycled.AsParallelWriter()
+                Recycled = recycled.AsParallelWriter(),
+                VfxPending = vfxPending.AsParallelWriter()
             };
 
             var collisionHandle = job.ScheduleParallel(state.Dependency);
@@ -80,10 +83,18 @@ namespace PlayGround.System.Projectile
                 Recycled = recycled,
                 RecycleBuffers = SystemAPI.GetBufferLookup<ProjectileRecycleElement>()
             }.Schedule(collisionHandle);
+            var vfxFlushHandle = new VfxFlushJob
+            {
+                Pending = vfxPending,
+                VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
+            }.Schedule(collisionHandle);
 
             JobHandle disposeHitsHandle = pendingHits.Dispose(flushHandle);
             JobHandle disposeRecycleHandle = recycled.Dispose(recycleFlushHandle);
-            JobHandle flushesHandle = JobHandle.CombineDependencies(disposeHitsHandle, disposeRecycleHandle);
+            JobHandle disposeVfxHandle = vfxPending.Dispose(vfxFlushHandle);
+            JobHandle flushesHandle = JobHandle.CombineDependencies(
+                JobHandle.CombineDependencies(disposeHitsHandle, disposeRecycleHandle),
+                disposeVfxHandle);
             state.Dependency = targetCells.Dispose(flushesHandle);
         }
 
@@ -98,6 +109,7 @@ namespace PlayGround.System.Projectile
             public float MaxTargetRadius;
             public NativeQueue<ProjectilePendingHit>.ParallelWriter PendingHits;
             public NativeQueue<ProjectilePendingRecycle>.ParallelWriter Recycled;
+            public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
 
             private void Execute(
                 Entity entity,
@@ -113,13 +125,13 @@ namespace PlayGround.System.Projectile
             {
                 if (identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
                 {
-                    Deactivate(entity, identity, ref lifetime, active, renderActive);
+                    Deactivate(entity, identity, kinematics.Position, ref lifetime, active, renderActive);
                     return;
                 }
 
                 if (lifetime.RemainingLifetime <= 0f)
                 {
-                    Deactivate(entity, identity, ref lifetime, active, renderActive);
+                    Deactivate(entity, identity, kinematics.Position, ref lifetime, active, renderActive);
                     return;
                 }
 
@@ -186,13 +198,20 @@ namespace PlayGround.System.Projectile
                                 HitPayload = projectileHit.HitPayload,
                                 Order = order
                             });
+                            VfxPending.Enqueue(new VfxPendingSpawn
+                            {
+                                Scope = identity.Scope,
+                                TypeId = identity.TypeId,
+                                Trigger = 1,
+                                Position = kinematics.Position
+                            });
 
                             AddOrRefreshGate(contactGates, target.TargetId,
                                 projectileHit.RepeatHitCooldownSeconds);
 
                             if (projectileHit.PierceRemaining <= 0)
                             {
-                                Deactivate(entity, identity, ref lifetime, active, renderActive);
+                                Deactivate(entity, identity, kinematics.Position, ref lifetime, active, renderActive);
                                 return;
                             }
 
@@ -206,6 +225,7 @@ namespace PlayGround.System.Projectile
             private void Deactivate(
                 Entity entity,
                 ProjectileIdentityComponent identity,
+                float2 position,
                 ref ProjectileLifetimeComponent lifetime,
                 EnabledRefRW<ProjectileActiveTag> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive)
@@ -219,6 +239,13 @@ namespace PlayGround.System.Projectile
                     ProjectileEntity = entity,
                     TypeId = identity.TypeId,
                     HasChildSpawner = ChildSpawnerTags.HasComponent(entity) ? 1 : 0
+                });
+                VfxPending.Enqueue(new VfxPendingSpawn
+                {
+                    Scope = identity.Scope,
+                    TypeId = identity.TypeId,
+                    Trigger = 2,
+                    Position = position
                 });
             }
 

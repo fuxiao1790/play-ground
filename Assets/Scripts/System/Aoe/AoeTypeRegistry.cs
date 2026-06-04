@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using PlayGround.System.Common;
 using UnityEngine;
+using UnityEngine.VFX;
 
 namespace PlayGround.System.Aoe
 {
@@ -131,25 +132,41 @@ namespace PlayGround.System.Aoe
         [SerializeField, Min(0.01f)] private float sizeMultiplier = 1f;
         [SerializeField] private float visualRotationDegrees;
         [SerializeField, Min(0)] private int preloadCount;
+        [SerializeField] private VisualEffectAsset spawnEffect;
+        [SerializeField] private VisualEffectAsset hitEffect;
+        [SerializeField] private VisualEffectAsset expireEffect;
+        [SerializeField] private VisualEffectAsset pulseEffect;
 
         public GameObject VisualPrefab => visualPrefab;
         public Collider2D CollisionShape => collisionShape;
         public float SizeMultiplier => sizeMultiplier;
         public float VisualRotationDegrees => visualRotationDegrees;
         public int PreloadCount => preloadCount;
+        public VisualEffectAsset SpawnEffect => spawnEffect;
+        public VisualEffectAsset HitEffect => hitEffect;
+        public VisualEffectAsset ExpireEffect => expireEffect;
+        public VisualEffectAsset PulseEffect => pulseEffect;
 
         public void Configure(
             GameObject visualPrefab,
             Collider2D collisionShape,
             float sizeMultiplier = 1f,
             float visualRotationDegrees = 0f,
-            int preloadCount = 0)
+            int preloadCount = 0,
+            VisualEffectAsset spawnEffect = null,
+            VisualEffectAsset hitEffect = null,
+            VisualEffectAsset expireEffect = null,
+            VisualEffectAsset pulseEffect = null)
         {
             this.visualPrefab = visualPrefab;
             this.collisionShape = collisionShape;
             this.sizeMultiplier = Mathf.Max(0.01f, sizeMultiplier);
             this.visualRotationDegrees = visualRotationDegrees;
             this.preloadCount = Mathf.Max(0, preloadCount);
+            this.spawnEffect = spawnEffect;
+            this.hitEffect = hitEffect;
+            this.expireEffect = expireEffect;
+            this.pulseEffect = pulseEffect;
         }
     }
 }
