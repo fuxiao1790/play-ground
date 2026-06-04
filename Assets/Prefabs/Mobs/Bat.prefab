@@ -210,7 +210,7 @@ MonoBehaviour:
   animator: {fileID: 0}
   target: {fileID: 0}
   speed: 1.875
-  maxHealth: 2000000
+  maxHealth: 300000
   hurtFlashSeconds: 0.08
   targetRadius: 0.35
   behaviours:
@@ -235,6 +235,18 @@ MonoBehaviour:
   projectileRadius: 0.25
   projectileShapeType: 0
   projectileBasicPrefab: {fileID: 0}
+--- !u!114 &6524352425051473048
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6480988526549104490}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1864ebe8444f27a488f6b2a04e2c3af3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Common.StatusEffects.StatusEffects
 --- !u!1 &7079102651487229076
 GameObject:
   m_ObjectHideFlags: 0
@@ -303,15 +315,3 @@ CircleCollider2D:
   m_CompositeOrder: 0
   m_Offset: {x: 0, y: 0}
   m_Radius: 0.35
---- !u!114 &6524352425051473048
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6480988526549104490}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1864ebe8444f27a488f6b2a04e2c3af3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Common.StatusEffects.StatusEffects

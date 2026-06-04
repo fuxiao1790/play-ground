@@ -148,7 +148,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a535d886cafe0c842bbc60c4698f8cec, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Level.PlayAreaRoot
-  size: {x: 24, y: 14}
+  size: {x: 48, y: 27}
   wallThickness: 0.5
 --- !u!4 &5848153
 Transform:
@@ -1297,7 +1297,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childSideSpreadDegrees
-      value: 180
+      value: 79.2
       objectReference: {fileID: 0}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childSpawnIntervalSeconds
@@ -2133,7 +2133,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Spawn.MobSpawnerRoot
   fallbackPool: {fileID: 11400000, guid: c94cb476bf2e4f7eb5eac39a27169b76, type: 2}
-  maxMobs: 20
+  maxMobs: 400
   coordinator: {fileID: 0}
   spawnPoints:
   - {fileID: 2000001013}
@@ -2172,7 +2172,7 @@ Transform:
   m_GameObject: {fileID: 2000001010}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -5.75, y: 0.25, z: 0}
+  m_LocalPosition: {x: 0, y: -11, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2192,12 +2192,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Spawn.SpawnPoint
   pool: {fileID: 11400000, guid: c94cb476bf2e4f7eb5eac39a27169b76, type: 2}
   config: {fileID: 0}
-  spawnInterval: 1
+  spawnInterval: 0.3
   autostart: 1
-  spawnRadius: 1.25
+  spawnRadius: 30
   spawnOrigin: {x: 0, y: 0}
   mobClearanceRadius: 0.5
-  maxLocalMobs: 4
+  maxLocalMobs: 135
   useConfigTiming: 0
 --- !u!1 &2000001020
 GameObject:
@@ -2225,7 +2225,7 @@ Transform:
   m_GameObject: {fileID: 2000001020}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -8.83, y: 4.17, z: 0}
+  m_LocalPosition: {x: -18, y: 10, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2245,12 +2245,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Spawn.SpawnPoint
   pool: {fileID: 11400000, guid: c94cb476bf2e4f7eb5eac39a27169b76, type: 2}
   config: {fileID: 0}
-  spawnInterval: 1.4
+  spawnInterval: 0.3
   autostart: 1
-  spawnRadius: 1.25
+  spawnRadius: 30
   spawnOrigin: {x: 0, y: 0}
   mobClearanceRadius: 0.5
-  maxLocalMobs: 4
+  maxLocalMobs: 135
   useConfigTiming: 0
 --- !u!1 &2000001030
 GameObject:
@@ -2278,7 +2278,7 @@ Transform:
   m_GameObject: {fileID: 2000001030}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -8.46, y: -3.53, z: 0}
+  m_LocalPosition: {x: 18, y: 10, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2294,16 +2294,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 768d1715b8594859a70605617d520580, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Spawn.SpawnPoint
   pool: {fileID: 11400000, guid: c94cb476bf2e4f7eb5eac39a27169b76, type: 2}
   config: {fileID: 0}
-  spawnInterval: 1.8
+  spawnInterval: 0.3
   autostart: 1
-  spawnRadius: 1.25
+  spawnRadius: 30
   spawnOrigin: {x: 0, y: 0}
   mobClearanceRadius: 0.5
-  maxLocalMobs: 4
+  maxLocalMobs: 135
   useConfigTiming: 0
 --- !u!1001 &2004286711
 PrefabInstance:
@@ -2335,7 +2335,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childSideSpreadDegrees
-      value: 63.6
+      value: 58.3
       objectReference: {fileID: 0}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childSpawnIntervalSeconds

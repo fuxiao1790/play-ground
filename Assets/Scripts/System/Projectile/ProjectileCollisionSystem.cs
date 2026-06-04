@@ -12,7 +12,12 @@ namespace PlayGround.System.Projectile
     [UpdateAfter(typeof(ProjectileContactGateSystem))]
     public partial struct ProjectileCollisionSystem : ISystem
     {
-        private const float SpatialHashCellSize = 64f;
+        // Cell size in world units. Targets are registered at their center cell; the query
+        // side expands by MaxTargetRadius so no target is missed at cell boundaries.
+        // At 1 world unit, 400 mobs fill ~8% of the arena cells — most projectiles
+        // will query 9–16 cells and find 0–3 targets instead of scanning all 400.
+        private const float SpatialHashCellSize = 1f;
+
         private static readonly ProfilerMarker DespawnFrameTimeProfilerMarker =
             new("Projectile.Despawn.Collision.FrameTime");
 
@@ -21,33 +26,40 @@ namespace PlayGround.System.Projectile
             using (DespawnFrameTimeProfilerMarker.Auto())
             {
                 state.EntityManager.CompleteDependencyBeforeRO<CombatTargetElement>();
-                int targetCellCapacity = 0;
-                foreach (DynamicBuffer<CombatTargetElement> targets in SystemAPI.Query<DynamicBuffer<CombatTargetElement>>().WithAll<ProjectileScope>())
+
+                // Pass 1: count targets and find the largest bounding radius.
+                // Used to size the multimap and to expand the per-projectile query range
+                // so targets near cell boundaries are never missed.
+                int totalTargetCount = 0;
+                float maxTargetRadius = 0f;
+                foreach (DynamicBuffer<CombatTargetElement> targets in
+                    SystemAPI.Query<DynamicBuffer<CombatTargetElement>>().WithAll<ProjectileScope>())
                 {
                     for (int i = 0; i < targets.Length; i++)
                     {
-                        CombatTargetElement target = targets[i];
-                        int2 min = MinCell(target.BoundsMin);
-                        int2 max = MaxCell(target.BoundsMax);
-                        targetCellCapacity += ((max.x - min.x) + 1) * ((max.y - min.y) + 1);
+                        CombatTargetElement t = targets[i];
+                        totalTargetCount++;
+                        float r = CombatCollisionMath.BoundingRadius(t.Radius, t.HalfExtents, t.ShapeType);
+                        if (r > maxTargetRadius)
+                        {
+                            maxTargetRadius = r;
+                        }
                     }
                 }
 
-                var occupiedTargetCells = new NativeParallelHashSet<long>(math.max(1, targetCellCapacity), Allocator.TempJob);
-                foreach ((DynamicBuffer<CombatTargetElement> targets, Entity scope) in SystemAPI.Query<DynamicBuffer<CombatTargetElement>>().WithAll<ProjectileScope>().WithEntityAccess())
+                // Pass 2: register each target at its center cell (one entry per target,
+                // no duplicates). The query expansion handles boundary coverage.
+                var targetCells = new NativeParallelMultiHashMap<long, int>(
+                    math.max(1, totalTargetCount), Allocator.TempJob);
+                foreach ((DynamicBuffer<CombatTargetElement> targets, Entity scope) in
+                    SystemAPI.Query<DynamicBuffer<CombatTargetElement>>()
+                        .WithAll<ProjectileScope>()
+                        .WithEntityAccess())
                 {
                     for (int i = 0; i < targets.Length; i++)
                     {
-                        CombatTargetElement target = targets[i];
-                        int2 min = MinCell(target.BoundsMin);
-                        int2 max = MaxCell(target.BoundsMax);
-                        for (int y = min.y; y <= max.y; y++)
-                        {
-                            for (int x = min.x; x <= max.x; x++)
-                            {
-                                occupiedTargetCells.Add(CellKey(scope, x, y));
-                            }
-                        }
+                        int2 cell = FloorCell(targets[i].Position);
+                        targetCells.Add(CellKey(scope, cell.x, cell.y), i);
                     }
                 }
 
@@ -57,8 +69,9 @@ namespace PlayGround.System.Projectile
                 {
                     Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
                     ChildSpawnerTags = SystemAPI.GetComponentLookup<ProjectileChildSpawnerTag>(true),
-                    OccupiedTargetCells = occupiedTargetCells,
-                    OccupiedTargetCellCount = occupiedTargetCells.Count(),
+                    TargetCells = targetCells,
+                    TotalTargetCount = totalTargetCount,
+                    MaxTargetRadius = maxTargetRadius,
                     PendingHits = pendingHits.AsParallelWriter(),
                     Recycled = recycled.AsParallelWriter()
                 };
@@ -78,7 +91,7 @@ namespace PlayGround.System.Projectile
                 JobHandle disposeHitsHandle = pendingHits.Dispose(flushHandle);
                 JobHandle disposeRecycleHandle = recycled.Dispose(recycleFlushHandle);
                 JobHandle flushesHandle = JobHandle.CombineDependencies(disposeHitsHandle, disposeRecycleHandle);
-                state.Dependency = occupiedTargetCells.Dispose(flushesHandle);
+                state.Dependency = targetCells.Dispose(flushesHandle);
             }
         }
 
@@ -88,8 +101,9 @@ namespace PlayGround.System.Projectile
         {
             [ReadOnly] public BufferLookup<CombatTargetElement> Targets;
             [ReadOnly] public ComponentLookup<ProjectileChildSpawnerTag> ChildSpawnerTags;
-            [ReadOnly] public NativeParallelHashSet<long> OccupiedTargetCells;
-            public int OccupiedTargetCellCount;
+            [ReadOnly] public NativeParallelMultiHashMap<long, int> TargetCells;
+            public int TotalTargetCount;
+            public float MaxTargetRadius;
             public NativeQueue<ProjectilePendingHit>.ParallelWriter PendingHits;
             public NativeQueue<ProjectilePendingRecycle>.ParallelWriter Recycled;
 
@@ -117,54 +131,83 @@ namespace PlayGround.System.Projectile
                     return;
                 }
 
-                if (!SpatialHashIntersects(identity, collision))
+                if (TotalTargetCount == 0)
                 {
                     return;
                 }
 
                 DynamicBuffer<CombatTargetElement> targets = Targets[identity.Scope];
-                for (int i = 0; i < targets.Length; i++)
+
+                // Expand the projectile's AABB by MaxTargetRadius before converting to cell
+                // coordinates. Any target whose center falls within this expanded region is
+                // guaranteed to have its center cell included in the query, so no miss is
+                // possible at cell boundaries regardless of how large a target is.
+                float2 queryMin = collision.BoundsMin - new float2(MaxTargetRadius, MaxTargetRadius);
+                float2 queryMax = collision.BoundsMax + new float2(MaxTargetRadius, MaxTargetRadius);
+                int2 cellMin = FloorCell(queryMin);
+                int2 cellMax = FloorCell(queryMax);
+
+                for (int cy = cellMin.y; cy <= cellMax.y; cy++)
                 {
-                    CombatTargetElement target = targets[i];
-                    if ((hit.TargetMask & target.TargetMask) == 0 || IsGated(contactGates, target.TargetId))
+                    for (int cx = cellMin.x; cx <= cellMax.x; cx++)
                     {
-                        continue;
+                        long key = CellKey(identity.Scope, cx, cy);
+                        if (!TargetCells.TryGetFirstValue(key, out int targetIdx,
+                            out NativeParallelMultiHashMapIterator<long> iterator))
+                        {
+                            continue;
+                        }
+
+                        do
+                        {
+                            CombatTargetElement target = targets[targetIdx];
+
+                            if ((hit.TargetMask & target.TargetMask) == 0
+                                || IsGated(contactGates, target.TargetId))
+                            {
+                                continue;
+                            }
+
+                            if (!ProjectileCollisionMath.BoundsIntersect(
+                                collision.BoundsMin,
+                                collision.BoundsMax,
+                                target.BoundsMin,
+                                target.BoundsMax))
+                            {
+                                continue;
+                            }
+
+                            if (!ProjectileCollisionMath.Hit(kinematics, collision, target))
+                            {
+                                continue;
+                            }
+
+                            uint order = ProjectileEventOrder.ForProjectileTarget(
+                                identity.ProjectileId, target.TargetId);
+                            PendingHits.Enqueue(new ProjectilePendingHit
+                            {
+                                Scope = identity.Scope,
+                                ProjectileId = identity.ProjectileId,
+                                ProjectileTypeId = identity.TypeId,
+                                TargetId = target.TargetId,
+                                Position = kinematics.Position,
+                                HitPayload = projectileHit.HitPayload,
+                                Order = order
+                            });
+
+                            AddOrRefreshGate(contactGates, target.TargetId,
+                                projectileHit.RepeatHitCooldownSeconds);
+
+                            if (projectileHit.PierceRemaining <= 0)
+                            {
+                                Deactivate(entity, identity, ref lifetime, active, renderActive);
+                                return;
+                            }
+
+                            projectileHit.PierceRemaining--;
+                        }
+                        while (TargetCells.TryGetNextValue(out targetIdx, ref iterator));
                     }
-
-                    if (!ProjectileCollisionMath.BoundsIntersect(
-                        collision.BoundsMin,
-                        collision.BoundsMax,
-                        target.BoundsMin,
-                        target.BoundsMax))
-                    {
-                        continue;
-                    }
-
-                    if (!ProjectileCollisionMath.Hit(kinematics, collision, target))
-                    {
-                        continue;
-                    }
-
-                    uint order = ProjectileEventOrder.ForProjectileTarget(identity.ProjectileId, target.TargetId);
-                    PendingHits.Enqueue(new ProjectilePendingHit
-                    {
-                        Scope = identity.Scope,
-                        ProjectileId = identity.ProjectileId,
-                        ProjectileTypeId = identity.TypeId,
-                        TargetId = target.TargetId,
-                        Position = kinematics.Position,
-                        HitPayload = projectileHit.HitPayload,
-                        Order = order
-                    });
-
-                    AddOrRefreshGate(contactGates, target.TargetId, projectileHit.RepeatHitCooldownSeconds);
-                    if (projectileHit.PierceRemaining <= 0)
-                    {
-                        Deactivate(entity, identity, ref lifetime, active, renderActive);
-                        return;
-                    }
-
-                    projectileHit.PierceRemaining--;
                 }
             }
 
@@ -229,31 +272,6 @@ namespace PlayGround.System.Projectile
                     CooldownRemaining = cooldownSeconds
                 });
             }
-
-            private bool SpatialHashIntersects(
-                ProjectileIdentityComponent identity,
-                CombatCollisionComponent collision)
-            {
-                if (OccupiedTargetCellCount == 0)
-                {
-                    return false;
-                }
-
-                int2 min = MinCell(collision.BoundsMin);
-                int2 max = MaxCell(collision.BoundsMax);
-                for (int y = min.y; y <= max.y; y++)
-                {
-                    for (int x = min.x; x <= max.x; x++)
-                    {
-                        if (OccupiedTargetCells.Contains(CellKey(identity.Scope, x, y)))
-                        {
-                            return true;
-                        }
-                    }
-                }
-
-                return false;
-            }
         }
 
         [BurstCompile]
@@ -284,18 +302,11 @@ namespace PlayGround.System.Projectile
             }
         }
 
-        private static int2 MinCell(float2 min)
+        private static int2 FloorCell(float2 pos)
         {
             return new int2(
-                (int)math.floor(min.x / SpatialHashCellSize),
-                (int)math.floor(min.y / SpatialHashCellSize));
-        }
-
-        private static int2 MaxCell(float2 max)
-        {
-            return new int2(
-                (int)math.floor(max.x / SpatialHashCellSize),
-                (int)math.floor(max.y / SpatialHashCellSize));
+                (int)math.floor(pos.x / SpatialHashCellSize),
+                (int)math.floor(pos.y / SpatialHashCellSize));
         }
 
         private static long CellKey(Entity scope, int x, int y)
