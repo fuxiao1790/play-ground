@@ -16,7 +16,7 @@ MonoBehaviour:
   speed: 5
   lifetime: 4.5
   damage: 10
-  count: 5
+  count: 1
   spreadDegrees: 10
   jitterDegrees: 10
   targetMask: 1
@@ -28,6 +28,4 @@ MonoBehaviour:
   trackingQueryIntervalSeconds: 0.25
   trackingInitialQueryDelaySeconds: 0.15
   directDamageEnabled: 1
-  impactAoeDamage: 1
-  impactAoeLifetimeSeconds: 0
-  impactAoeTickIntervalSeconds: 0
+  impactAoeConfig: {fileID: 0}

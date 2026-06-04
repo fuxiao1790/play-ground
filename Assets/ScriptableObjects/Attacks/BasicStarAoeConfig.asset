@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: BasicStarAoeConfig
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.AoeConfig
   basicPrefab: {fileID: 1003000000000000002, guid: e4b99e89657a29846b967bfd8cb4e1ee, type: 3}
-  sizeMultiplier: 60
+  sizeMultiplier: 10
   preloadCount: 0
   damage: 1
-  lifetimeSeconds: 5
+  lifetimeSeconds: 3
   tickIntervalSeconds: 0.15
   count: 1
   spawnAtAimPosition: 1

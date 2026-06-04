@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: StarChildConfig
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.ProjectileConfig
   basicPrefab: {fileID: 1001001001001001004, guid: f2bf0b25f990d4343824efe48ae5c034, type: 3}
-  speed: 5
+  speed: 20
   lifetime: 4.5
-  damage: 10
-  count: 5
+  damage: 1
+  count: 1
   spreadDegrees: 10
   jitterDegrees: 10
   targetMask: 1
@@ -29,6 +29,3 @@ MonoBehaviour:
   trackingInitialQueryDelaySeconds: 0.15
   directDamageEnabled: 1
   impactAoeConfig: {fileID: 11400000, guid: 19ca20c6c736efc48ab71bfd0ce8cd51, type: 2}
-  impactAoeDamage: 1
-  impactAoeLifetimeSeconds: 0
-  impactAoeTickIntervalSeconds: 0

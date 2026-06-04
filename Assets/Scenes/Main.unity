@@ -448,6 +448,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 830174276}
     m_Modifications:
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: aoeRoot
+      value: 
+      objectReference: {fileID: 2100000002}
+    - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
@@ -456,20 +460,24 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 11400000, guid: 3188618fb9f9b1240bd970f1dfdc1043, type: 2}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
+      propertyPath: audioManager
+      value: 
+      objectReference: {fileID: 998230102}
+    - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: projectileRoot
       value: 
       objectReference: {fileID: 310291308}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childProjectileCount
-      value: 100
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childSideSpreadDegrees
-      value: 180
+      value: 90.4
       objectReference: {fileID: 0}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childSpawnIntervalSeconds
-      value: 0.5
+      value: 0.25
       objectReference: {fileID: 0}
     - target: {fileID: 4459914088298401000, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: m_Name
@@ -694,7 +702,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: m_Enabled
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childConfig
@@ -864,7 +872,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000002}
     - target: {fileID: 8145524006374604802, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: m_Enabled
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8145524006374604802, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: audioManager
@@ -1269,7 +1277,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: m_Enabled
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childConfig
@@ -2307,7 +2315,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: m_Enabled
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childConfig
