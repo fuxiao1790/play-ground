@@ -16,81 +16,75 @@ namespace PlayGround.System.Projectile
         // cellSize = sqrt(arenaWidth * arenaHeight / mobCount) * ~1.5
         private const float SpatialHashCellSize = 1f;
 
-        private static readonly ProfilerMarker DespawnFrameTimeProfilerMarker =
-            new("Projectile.Despawn.Collision.FrameTime");
-
         public void OnUpdate(ref SystemState state)
         {
-            using (DespawnFrameTimeProfilerMarker.Auto())
+            state.EntityManager.CompleteDependencyBeforeRO<CombatTargetElement>();
+
+            // Pass 1: count targets and find the largest bounding radius.
+            // Used to size the multimap and to expand the per-projectile query range
+            // so targets near cell boundaries are never missed.
+            int totalTargetCount = 0;
+            float maxTargetRadius = 0f;
+            foreach (DynamicBuffer<CombatTargetElement> targets in
+                SystemAPI.Query<DynamicBuffer<CombatTargetElement>>().WithAll<ProjectileScope>())
             {
-                state.EntityManager.CompleteDependencyBeforeRO<CombatTargetElement>();
-
-                // Pass 1: count targets and find the largest bounding radius.
-                // Used to size the multimap and to expand the per-projectile query range
-                // so targets near cell boundaries are never missed.
-                int totalTargetCount = 0;
-                float maxTargetRadius = 0f;
-                foreach (DynamicBuffer<CombatTargetElement> targets in
-                    SystemAPI.Query<DynamicBuffer<CombatTargetElement>>().WithAll<ProjectileScope>())
+                for (int i = 0; i < targets.Length; i++)
                 {
-                    for (int i = 0; i < targets.Length; i++)
+                    CombatTargetElement t = targets[i];
+                    totalTargetCount++;
+                    float r = CombatCollisionMath.BoundingRadius(t.Radius, t.HalfExtents, t.ShapeType);
+                    if (r > maxTargetRadius)
                     {
-                        CombatTargetElement t = targets[i];
-                        totalTargetCount++;
-                        float r = CombatCollisionMath.BoundingRadius(t.Radius, t.HalfExtents, t.ShapeType);
-                        if (r > maxTargetRadius)
-                        {
-                            maxTargetRadius = r;
-                        }
+                        maxTargetRadius = r;
                     }
                 }
-
-                // Pass 2: register each target at its center cell (one entry per target,
-                // no duplicates). The query expansion handles boundary coverage.
-                var targetCells = new NativeParallelMultiHashMap<long, int>(
-                    math.max(1, totalTargetCount), Allocator.TempJob);
-                foreach ((DynamicBuffer<CombatTargetElement> targets, Entity scope) in
-                    SystemAPI.Query<DynamicBuffer<CombatTargetElement>>()
-                        .WithAll<ProjectileScope>()
-                        .WithEntityAccess())
-                {
-                    for (int i = 0; i < targets.Length; i++)
-                    {
-                        int2 cell = FloorCell(targets[i].Position);
-                        targetCells.Add(CellKey(scope, cell.x, cell.y), i);
-                    }
-                }
-
-                var pendingHits = new NativeQueue<ProjectilePendingHit>(Allocator.TempJob);
-                var recycled = new NativeQueue<ProjectilePendingRecycle>(Allocator.TempJob);
-                var job = new ProjectileCollisionJob
-                {
-                    Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
-                    ChildSpawnerTags = SystemAPI.GetComponentLookup<ProjectileChildSpawnerTag>(true),
-                    TargetCells = targetCells,
-                    TotalTargetCount = totalTargetCount,
-                    MaxTargetRadius = maxTargetRadius,
-                    PendingHits = pendingHits.AsParallelWriter(),
-                    Recycled = recycled.AsParallelWriter()
-                };
-
-                var collisionHandle = job.ScheduleParallel(state.Dependency);
-                var flushHandle = new ProjectileHitFlushJob
-                {
-                    PendingHits = pendingHits,
-                    Hits = SystemAPI.GetBufferLookup<ProjectileHitElement>()
-                }.Schedule(collisionHandle);
-                var recycleFlushHandle = new ProjectileRecycleFlushJob
-                {
-                    Recycled = recycled,
-                    RecycleBuffers = SystemAPI.GetBufferLookup<ProjectileRecycleElement>()
-                }.Schedule(collisionHandle);
-
-                JobHandle disposeHitsHandle = pendingHits.Dispose(flushHandle);
-                JobHandle disposeRecycleHandle = recycled.Dispose(recycleFlushHandle);
-                JobHandle flushesHandle = JobHandle.CombineDependencies(disposeHitsHandle, disposeRecycleHandle);
-                state.Dependency = targetCells.Dispose(flushesHandle);
             }
+
+            // Pass 2: register each target at its center cell (one entry per target,
+            // no duplicates). The query expansion handles boundary coverage.
+            var targetCells = new NativeParallelMultiHashMap<long, int>(
+                math.max(1, totalTargetCount), Allocator.TempJob);
+            foreach ((DynamicBuffer<CombatTargetElement> targets, Entity scope) in
+                SystemAPI.Query<DynamicBuffer<CombatTargetElement>>()
+                    .WithAll<ProjectileScope>()
+                    .WithEntityAccess())
+            {
+                for (int i = 0; i < targets.Length; i++)
+                {
+                    int2 cell = FloorCell(targets[i].Position);
+                    targetCells.Add(CellKey(scope, cell.x, cell.y), i);
+                }
+            }
+
+            var pendingHits = new NativeQueue<ProjectilePendingHit>(Allocator.TempJob);
+            var recycled = new NativeQueue<ProjectilePendingRecycle>(Allocator.TempJob);
+            var job = new ProjectileCollisionJob
+            {
+                Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
+                ChildSpawnerTags = SystemAPI.GetComponentLookup<ProjectileChildSpawnerTag>(true),
+                TargetCells = targetCells,
+                TotalTargetCount = totalTargetCount,
+                MaxTargetRadius = maxTargetRadius,
+                PendingHits = pendingHits.AsParallelWriter(),
+                Recycled = recycled.AsParallelWriter()
+            };
+
+            var collisionHandle = job.ScheduleParallel(state.Dependency);
+            var flushHandle = new ProjectileHitFlushJob
+            {
+                PendingHits = pendingHits,
+                Hits = SystemAPI.GetBufferLookup<ProjectileHitElement>()
+            }.Schedule(collisionHandle);
+            var recycleFlushHandle = new ProjectileRecycleFlushJob
+            {
+                Recycled = recycled,
+                RecycleBuffers = SystemAPI.GetBufferLookup<ProjectileRecycleElement>()
+            }.Schedule(collisionHandle);
+
+            JobHandle disposeHitsHandle = pendingHits.Dispose(flushHandle);
+            JobHandle disposeRecycleHandle = recycled.Dispose(recycleFlushHandle);
+            JobHandle flushesHandle = JobHandle.CombineDependencies(disposeHitsHandle, disposeRecycleHandle);
+            state.Dependency = targetCells.Dispose(flushesHandle);
         }
 
         [BurstCompile]
