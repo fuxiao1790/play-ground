@@ -16,7 +16,8 @@ namespace PlayGround.System.Projectile
         private const int MaxInstancesPerDraw = 1023;
         private const int MaxStructuralRenderTypes = 16;
         private const float ProjectileRenderZ = -0.25f;
-        private const int ProjectileRenderQueue = (int)RenderQueue.Transparent + 50;
+        private const float ProjectileZStep = 0.000001f;
+        private const int ProjectileZSlots = 1_000_000;
         private static readonly ProfilerMarker DrainHitsProfilerMarker = new("ProjectileRoot.DrainHits");
         private static readonly ProfilerMarker SubmitProjectilesProfilerMarker = new("ProjectileRoot.SubmitProjectiles");
         private static readonly ProfilerMarker ReplayProjectileHitEventsProfilerMarker = new("ProjectileRoot.ReplayProjectileHitEvents");
@@ -269,7 +270,7 @@ namespace PlayGround.System.Projectile
                 ShapeType = command.ShapeType,
                 HitPayload = command.HitPayload,
                 Tracking = TrackingComponentFor(command.Tracking),
-                Render = RenderComponentFor(command.ProjectileTypeId)
+                Render = RenderComponentFor(command.ProjectileTypeId, projectileId)
             };
 
             if (command.ChildSpawn.Enabled)
@@ -622,11 +623,10 @@ namespace PlayGround.System.Projectile
                 new Vector2(positiveScale, positiveScale),
                 visualRotationDegrees,
                 sourceMaterial,
-                ProjectileRenderQueue,
                 "ProjectileQuadMesh");
         }
 
-        private CombatRenderComponent RenderComponentFor(int projectileTypeId)
+        private CombatRenderComponent RenderComponentFor(int projectileTypeId, int projectileId)
         {
             if (!renderResourcesByType.TryGetValue(projectileTypeId, out CombatSpriteRenderResources resources))
             {
@@ -640,7 +640,7 @@ namespace PlayGround.System.Projectile
                 VisualScale = new float2(resources.VisualScale.x, resources.VisualScale.y),
                 VisualRotationSin = resources.VisualRotationSin,
                 VisualRotationCos = resources.VisualRotationCos,
-                RenderZ = ProjectileRenderZ
+                RenderZ = ProjectileRenderZ - (projectileId % ProjectileZSlots) * ProjectileZStep
             };
         }
 

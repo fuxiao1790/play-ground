@@ -14,8 +14,7 @@ namespace PlayGround.System.Aoe
     public sealed class AoeRoot : MonoBehaviour
     {
         private const int MaxInstancesPerDraw = 1023;
-        private const float AoeRenderZ = -0.2f;
-        private const int AoeRenderQueue = (int)RenderQueue.Transparent + 45;
+        private const float AoeRenderZ = 0.5f;
         private static readonly ProfilerMarker SyncTargetsProfilerMarker = new("AoeRoot.SyncTargets");
         private static readonly ProfilerMarker SubmitAoesProfilerMarker = new("AoeRoot.SubmitAoes");
         private static readonly ProfilerMarker DrainEventsProfilerMarker = new("AoeRoot.DrainEvents");
@@ -471,7 +470,6 @@ namespace PlayGround.System.Aoe
                 scale,
                 visualRotationDegrees,
                 sourceMaterial,
-                AoeRenderQueue,
                 "AoeQuadMesh");
         }
 

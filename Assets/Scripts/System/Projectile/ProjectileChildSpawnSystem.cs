@@ -86,9 +86,10 @@ namespace PlayGround.System.Projectile
                     out float2 boundsMin,
                     out float2 boundsMax);
 
+                int childProjectileId = ChildProjectileId(parentIdentity.ProjectileId, spawner.SpawnerId, tickIndex, childIndex);
                 Ecb.AppendToBuffer(chunkIndex, parentIdentity.Scope, new ProjectileSpawnRequestElement
                 {
-                    ProjectileId = ChildProjectileId(parentIdentity.ProjectileId, spawner.SpawnerId, tickIndex, childIndex),
+                    ProjectileId = childProjectileId,
                     TypeId = spawner.TypeId,
                     TargetMask = targetMask,
                     PierceRemaining = spawner.PierceCount,
@@ -121,7 +122,7 @@ namespace PlayGround.System.Projectile
                         VisualScale = new float2(spawner.VisualScale, spawner.VisualScale),
                         VisualRotationSin = spawner.VisualRotationSin,
                         VisualRotationCos = spawner.VisualRotationCos,
-                        RenderZ = -0.25f
+                        RenderZ = -0.25f - (childProjectileId % 1_000_000) * 0.000001f
                     }
                 });
             }

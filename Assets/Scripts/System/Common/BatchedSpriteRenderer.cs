@@ -13,11 +13,13 @@ namespace PlayGround.System.Common
             Vector2 visualScale,
             float visualRotationDegrees,
             Material sourceMaterial,
-            int renderQueue,
             string meshName)
         {
             Mesh mesh = BuildSpriteMesh(sprite, meshName);
             Texture texture = sprite.texture;
+            int renderQueue = sourceMaterial != null && sourceMaterial.renderQueue >= 0
+                ? sourceMaterial.renderQueue
+                : (int)RenderQueue.Transparent;
             Material material;
             if (sourceMaterial != null)
             {
