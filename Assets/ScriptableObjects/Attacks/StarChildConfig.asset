@@ -28,7 +28,7 @@ MonoBehaviour:
   trackingQueryIntervalSeconds: 0.25
   trackingInitialQueryDelaySeconds: 0.15
   directDamageEnabled: 1
-  impactAoeTypeId: -1
+  impactAoeConfig: {fileID: 11400000, guid: 19ca20c6c736efc48ab71bfd0ce8cd51, type: 2}
   impactAoeDamage: 1
   impactAoeLifetimeSeconds: 0
   impactAoeTickIntervalSeconds: 0

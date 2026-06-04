@@ -23,9 +23,6 @@ namespace PlayGround.Attack
         [SerializeField] private float trackingInitialQueryDelaySeconds;
         [SerializeField] private bool directDamageEnabled = true;
         [SerializeField] private AoeConfig impactAoeConfig;
-        [SerializeField] private float impactAoeDamage = 1f;
-        [SerializeField] private float impactAoeLifetimeSeconds;
-        [SerializeField] private float impactAoeTickIntervalSeconds;
 
         public BasicAttackPrefab Prefab => basicPrefab;
         public float Speed => speed;
@@ -39,9 +36,6 @@ namespace PlayGround.Attack
         public float RepeatHitCooldown => repeatHitCooldownSeconds;
         public bool DirectDamageEnabled => directDamageEnabled;
         public AoeConfig ImpactAoeConfig => impactAoeConfig;
-        public float ImpactAoeDamage => impactAoeDamage;
-        public float ImpactAoeLifetimeSeconds => impactAoeLifetimeSeconds;
-        public float ImpactAoeTickIntervalSeconds => impactAoeTickIntervalSeconds;
 
         public ProjectileTrackingConfig GetTrackingConfig() =>
             new ProjectileTrackingConfig(

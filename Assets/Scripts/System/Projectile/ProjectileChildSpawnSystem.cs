@@ -74,7 +74,8 @@ namespace PlayGround.System.Projectile
                 ProjectileHitPayload hitPayload = new(
                     parentHit.SourceNodeId,
                     spawner.DamageAmount,
-                    spawner.DirectDamageEnabled);
+                    spawner.DirectDamageEnabled,
+                    spawner.ImpactAoe);
 
                 ProjectileCollisionMath.ComputeWorldBounds(
                     parentKinematics.Position,

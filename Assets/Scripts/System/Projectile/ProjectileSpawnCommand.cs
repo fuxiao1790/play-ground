@@ -222,7 +222,8 @@ namespace PlayGround.System.Projectile
             float visualScale = 1f,
             float visualRotationDegrees = 0f,
             ProjectileTrackingConfig tracking = default,
-            ProjectileChildSpawnBehavior behavior = default)
+            ProjectileChildSpawnBehavior behavior = default,
+            ProjectileImpactAoeSnapshot impactAoe = default)
         {
             SpawnerId = spawnerId;
             TypeId = typeId;
@@ -243,6 +244,7 @@ namespace PlayGround.System.Projectile
             VisualRotationDegrees = visualRotationDegrees;
             Tracking = tracking;
             Behavior = behavior;
+            ImpactAoe = impactAoe;
         }
 
         [global::System.Obsolete("Use the CombatShapeType overload.")]
@@ -308,6 +310,7 @@ namespace PlayGround.System.Projectile
         public float VisualRotationDegrees { get; }
         public ProjectileTrackingConfig Tracking { get; }
         public ProjectileChildSpawnBehavior Behavior { get; }
+        public ProjectileImpactAoeSnapshot ImpactAoe { get; }
         public bool Enabled => SpawnerId > 0 && IntervalSeconds > 0f;
     }
 }

@@ -34,7 +34,7 @@ namespace PlayGround.System.Aoe
         private readonly Dictionary<AoeConfig, int> configTypeIds = new();
         private readonly Dictionary<AoeTypeDefinition, int> definitionTypeIds = new();
 
-        private AoeTypeRegistry typeRegistry;
+        private AoeTypeRegistry typeRegistry = new();
         private AoeTargetSync targetSync;
         private World entityWorld;
         private EntityManager entityManager;
@@ -66,7 +66,6 @@ namespace PlayGround.System.Aoe
         private void Awake()
         {
             runtimeReady = false;
-            typeRegistry = new AoeTypeRegistry();
             targetSync = new AoeTargetSync(targetRegistry);
             BindWorld();
             runtimeReady = true;

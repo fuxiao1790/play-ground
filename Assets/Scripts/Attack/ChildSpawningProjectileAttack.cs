@@ -32,6 +32,7 @@ namespace PlayGround.Attack
         private int childSpawnerId;
         private float localCooldown;
         private int impactAoeTypeId = -1;
+        private int childImpactAoeTypeId = -1;
         public event global::System.Action<ProjectileAoeSpawnRequest> AoeSpawnRequested;
 
         public ProjectileRoot Root => projectileRoot;
@@ -132,9 +133,13 @@ namespace PlayGround.Attack
 
         private void RegisterImpactAoeConfig()
         {
-            if (aoeRoot == null || parentConfig?.ImpactAoeConfig == null) return;
+            if (aoeRoot == null) return;
 
-            impactAoeTypeId = aoeRoot.RegisterConfig(parentConfig.ImpactAoeConfig);
+            if (parentConfig?.ImpactAoeConfig != null)
+                impactAoeTypeId = aoeRoot.RegisterConfig(parentConfig.ImpactAoeConfig);
+
+            if (childConfig?.ImpactAoeConfig != null)
+                childImpactAoeTypeId = aoeRoot.RegisterConfig(childConfig.ImpactAoeConfig);
         }
 
         private ProjectileChildSpawnConfig BuildChildConfig()
@@ -161,7 +166,8 @@ namespace PlayGround.Attack
                 prefab.VisualScale,
                 prefab.VisualRotationDegrees,
                 childConfig.GetTrackingConfig(),
-                new ProjectileChildSpawnBehavior(childProjectileCount, ProjectileChildSpawnPatternType.SideSpray, childSideSpreadDegrees));
+                new ProjectileChildSpawnBehavior(childProjectileCount, ProjectileChildSpawnPatternType.SideSpray, childSideSpreadDegrees),
+                ChildImpactAoeSnapshot(childConfig.TargetMask));
         }
 
         private ProjectileChildSpawnConfig BuildActiveChildConfig()
@@ -226,16 +232,27 @@ namespace PlayGround.Attack
         private ProjectileImpactAoeSnapshot ImpactAoeSnapshot(int targetMask)
         {
             if (impactAoeTypeId < 0)
-            {
                 return default;
-            }
 
             return new ProjectileImpactAoeSnapshot(
                 impactAoeTypeId,
                 targetMask,
-                Mathf.Max(0f, parentConfig.ImpactAoeDamage),
-                parentConfig.ImpactAoeLifetimeSeconds,
-                parentConfig.ImpactAoeTickIntervalSeconds);
+                Mathf.Max(0f, parentConfig.ImpactAoeConfig.Damage),
+                parentConfig.ImpactAoeConfig.LifetimeSeconds,
+                parentConfig.ImpactAoeConfig.TickIntervalSeconds);
+        }
+
+        private ProjectileImpactAoeSnapshot ChildImpactAoeSnapshot(int targetMask)
+        {
+            if (childImpactAoeTypeId < 0)
+                return default;
+
+            return new ProjectileImpactAoeSnapshot(
+                childImpactAoeTypeId,
+                targetMask != 1 ? targetMask : EffectiveTargetMask(),
+                Mathf.Max(0f, childConfig.ImpactAoeConfig.Damage),
+                childConfig.ImpactAoeConfig.LifetimeSeconds,
+                childConfig.ImpactAoeConfig.TickIntervalSeconds);
         }
 
         private int EffectiveTargetMask()

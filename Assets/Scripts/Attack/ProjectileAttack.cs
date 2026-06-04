@@ -173,9 +173,9 @@ namespace PlayGround.Attack
             return new ProjectileImpactAoeSnapshot(
                 impactAoeTypeId,
                 targetMask,
-                Mathf.Max(0f, config.ImpactAoeDamage),
-                config.ImpactAoeLifetimeSeconds,
-                config.ImpactAoeTickIntervalSeconds);
+                Mathf.Max(0f, config.ImpactAoeConfig.Damage),
+                config.ImpactAoeConfig.LifetimeSeconds,
+                config.ImpactAoeConfig.TickIntervalSeconds);
         }
 
         private void SubscribeAoeRoot()

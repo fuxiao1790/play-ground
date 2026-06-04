@@ -131,6 +131,7 @@ namespace PlayGround.System.Projectile
         public float TrackingTurnSpeedRadians;
         public float TrackingQueryIntervalSeconds;
         public float TrackingInitialQueryDelaySeconds;
+        public ProjectileImpactAoeSnapshot ImpactAoe;
     }
 
     // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by ProjectileSpawnSystem.
