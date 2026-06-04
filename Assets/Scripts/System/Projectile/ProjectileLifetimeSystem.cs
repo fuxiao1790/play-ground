@@ -13,30 +13,25 @@ namespace PlayGround.System.Projectile
     [UpdateBefore(typeof(ProjectileCollisionSystem))]
     public partial struct ProjectileLifetimeSystem : ISystem
     {
-        private static readonly ProfilerMarker DespawnFrameTimeProfilerMarker =
-            new("Projectile.Despawn.Lifetime.FrameTime");
 
         public void OnUpdate(ref SystemState state)
         {
-            using (DespawnFrameTimeProfilerMarker.Auto())
+            var recycled = new NativeQueue<ProjectilePendingRecycle>(Allocator.TempJob);
+            var job = new ProjectileLifetimeJob
             {
-                var recycled = new NativeQueue<ProjectilePendingRecycle>(Allocator.TempJob);
-                var job = new ProjectileLifetimeJob
-                {
-                    DeltaTime = SystemAPI.Time.DeltaTime,
-                    ChildSpawnerTags = SystemAPI.GetComponentLookup<ProjectileChildSpawnerTag>(true),
-                    Recycled = recycled.AsParallelWriter()
-                };
+                DeltaTime = SystemAPI.Time.DeltaTime,
+                ChildSpawnerTags = SystemAPI.GetComponentLookup<ProjectileChildSpawnerTag>(true),
+                Recycled = recycled.AsParallelWriter()
+            };
 
-                JobHandle lifetimeHandle = job.ScheduleParallel(state.Dependency);
-                JobHandle flushHandle = new ProjectileRecycleFlushJob
-                {
-                    Recycled = recycled,
-                    RecycleBuffers = SystemAPI.GetBufferLookup<ProjectileRecycleElement>()
-                }.Schedule(lifetimeHandle);
+            JobHandle lifetimeHandle = job.ScheduleParallel(state.Dependency);
+            JobHandle flushHandle = new ProjectileRecycleFlushJob
+            {
+                Recycled = recycled,
+                RecycleBuffers = SystemAPI.GetBufferLookup<ProjectileRecycleElement>()
+            }.Schedule(lifetimeHandle);
 
-                state.Dependency = recycled.Dispose(flushHandle);
-            }
+            state.Dependency = recycled.Dispose(flushHandle);
         }
 
         [BurstCompile]
