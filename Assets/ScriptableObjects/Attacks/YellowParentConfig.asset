@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.ProjectileConfig
   basicPrefab: {fileID: 1001001001001001004, guid: e7758e210128aa14484024efc694a154, type: 3}
   speed: 16
-  lifetime: 1.5
+  lifetime: 7
   damage: 10
   count: 10
   spreadDegrees: 10
@@ -28,6 +28,4 @@ MonoBehaviour:
   trackingQueryIntervalSeconds: 0.25
   trackingInitialQueryDelaySeconds: 0.15
   directDamageEnabled: 1
-  impactAoeDamage: 1
-  impactAoeLifetimeSeconds: 0
-  impactAoeTickIntervalSeconds: 0
+  impactAoeConfig: {fileID: 0}

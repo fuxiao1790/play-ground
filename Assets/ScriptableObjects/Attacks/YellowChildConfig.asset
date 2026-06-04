@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: YellowChildConfig
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.ProjectileConfig
   basicPrefab: {fileID: 1001001001001001004, guid: 071728db48e762a4683ee17177b48aaa, type: 3}
-  speed: 16
+  speed: 25
   lifetime: 1.5
   damage: 10
   count: 5
@@ -28,7 +28,4 @@ MonoBehaviour:
   trackingQueryIntervalSeconds: 0.25
   trackingInitialQueryDelaySeconds: 0.15
   directDamageEnabled: 1
-  impactAoeTypeId: -1
-  impactAoeDamage: 1
-  impactAoeLifetimeSeconds: 0
-  impactAoeTickIntervalSeconds: 0
+  impactAoeConfig: {fileID: 0}

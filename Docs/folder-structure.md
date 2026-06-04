@@ -55,6 +55,7 @@ Create these as systems are ported:
 - Want player attacks: [player-attacks.md](./player-attacks.md)
 - Want projectiles: [projectile-system.md](./projectile-system.md)
 - Want AOEs: [aoe-system.md](./aoe-system.md)
+- Want VFX: [vfx-system.md](./vfx-system.md)
 - Want mobs: [mobs.md](./mobs.md) and [mob-behaviour.md](./mob-behaviour.md)
 - Want spawning: [spawn-system.md](./spawn-system.md)
 - Want tests: [testing.md](./testing.md)
@@ -118,4 +119,16 @@ Create these as systems are ported:
   bounds/narrow-phase collision, hit events, and pulse-AOE recycle records
 - AOE render submission lives in `AoeRoot`; shared matrix preparation lives in
   `Assets/Scripts/System/Common/CombatRenderComponents.cs`
+- `Assets/Scripts/System/Aoe/AoeLifetimeSystem.cs`: lingering AOE lifetime
+  countdown with expire deactivation and pulse VFX interval ticks
+
+## Current VFX Runtime Map
+
+- `Assets/Scripts/System/Vfx/VfxEcsComponents.cs`: `VfxPendingSpawn` transient
+  native payload and `VfxSpawnRequestElement` scope buffer
+- `Assets/Scripts/System/Vfx/VfxFlushJob.cs`: Burst IJob draining per-system
+  `NativeQueue<VfxPendingSpawn>` into the scope buffer
+- `Assets/Scripts/System/Vfx/CombatVfxDispatcher.cs`: `VfxTypeResources` and
+  `CombatVfxDispatcher`; owns VFX instances, GraphicsBuffers, staging lists,
+  and the per-frame stage→upload→dispatch loop; one instance per root
 
