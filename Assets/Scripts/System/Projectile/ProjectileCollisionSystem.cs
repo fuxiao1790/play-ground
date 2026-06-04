@@ -12,10 +12,8 @@ namespace PlayGround.System.Projectile
     [UpdateAfter(typeof(ProjectileContactGateSystem))]
     public partial struct ProjectileCollisionSystem : ISystem
     {
-        // Cell size in world units. Targets are registered at their center cell; the query
-        // side expands by MaxTargetRadius so no target is missed at cell boundaries.
-        // At 1 world unit, 400 mobs fill ~8% of the arena cells — most projectiles
-        // will query 9–16 cells and find 0–3 targets instead of scanning all 400.
+        // this depends on the arena size and mob count
+        // cellSize = sqrt(arenaWidth * arenaHeight / mobCount) * ~1.5
         private const float SpatialHashCellSize = 1f;
 
         private static readonly ProfilerMarker DespawnFrameTimeProfilerMarker =
