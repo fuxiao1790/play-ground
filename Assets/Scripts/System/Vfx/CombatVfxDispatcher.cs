@@ -32,6 +32,12 @@ namespace PlayGround.System.Vfx
 
     public sealed class CombatVfxDispatcher : global::System.IDisposable
     {
+        private const string PositionsPropertyName = "Positions";
+        private const string SpawnCountPropertyName = "SpawnCount";
+        private const string SpawnEventName = "OnSpawn";
+
+        private static readonly List<VfxTypeResources> LiveResources = new();
+
         // key = typeId * 256 + trigger
         private readonly Dictionary<int, VfxTypeResources> resources = new();
         private readonly Transform parent;
@@ -55,23 +61,71 @@ namespace PlayGround.System.Vfx
                 return;
             }
 
-            var go = new GameObject($"Vfx_{typeId}_{trigger}");
-            go.transform.SetParent(parent, false);
-            VisualEffect vfx = go.AddComponent<VisualEffect>();
-            vfx.visualEffectAsset = asset;
-
-            var res = new VfxTypeResources
+            GameObject go = null;
+            VfxTypeResources res = null;
+            try
             {
-                MaxPerFrame = maxPerFrame,
-                Instance = vfx,
-                PositionBuffer = new GraphicsBuffer(
+                go = new GameObject($"Vfx_{typeId}_{trigger}");
+                go.layer = parent != null ? parent.gameObject.layer : 0;
+                go.transform.SetParent(parent, false);
+                VisualEffect vfx = go.AddComponent<VisualEffect>();
+                vfx.visualEffectAsset = asset;
+                if (!ValidateGraphContract(vfx, asset, out string reason))
+                {
+                    Debug.LogError(reason);
+                    Object.Destroy(go);
+                    return;
+                }
+
+                res = new VfxTypeResources
+                {
+                    MaxPerFrame = maxPerFrame,
+                    Instance = vfx
+                };
+                res.PositionBuffer = new GraphicsBuffer(
                     GraphicsBuffer.Target.Structured,
                     maxPerFrame,
-                    sizeof(float) * 2),
-                Staging = new NativeList<float2>(maxPerFrame, Allocator.Persistent)
-            };
+                    sizeof(float) * 2);
+                res.Staging = new NativeList<float2>(maxPerFrame, Allocator.Persistent);
 
-            resources[key] = res;
+                resources[key] = res;
+                LiveResources.Add(res);
+            }
+            catch (global::System.Exception ex)
+            {
+                res?.Dispose();
+                if (res == null && go != null)
+                {
+                    Object.Destroy(go);
+                }
+
+                Debug.LogError(
+                    $"{nameof(CombatVfxDispatcher)} failed to register VFX asset '{asset.name}' "
+                    + $"for type {typeId}, trigger {trigger}: {ex.Message}");
+            }
+        }
+
+        public static int AliveParticleCount(bool visibleOnly = true)
+        {
+            int count = 0;
+            for (int i = LiveResources.Count - 1; i >= 0; i--)
+            {
+                VfxTypeResources res = LiveResources[i];
+                if (res == null || res.Instance == null)
+                {
+                    LiveResources.RemoveAt(i);
+                    continue;
+                }
+
+                if (visibleOnly && res.Instance.culled)
+                {
+                    continue;
+                }
+
+                count += Mathf.Max(0, res.Instance.aliveParticleCount);
+            }
+
+            return count;
         }
 
         public void StageSpawn(int typeId, int trigger, float2 position)
@@ -98,19 +152,36 @@ namespace PlayGround.System.Vfx
                     continue;
                 }
 
+                Vector3 worldPosition = new(0f, 0f, res.Instance.transform.position.z);
+                res.Instance.transform.position = worldPosition;
                 res.PositionBuffer.SetData(res.Staging.AsArray(), 0, 0, res.Staging.Length);
-                res.Instance.SetGraphicsBuffer("Positions", res.PositionBuffer);
-                res.Instance.SetInt("SpawnCount", res.Staging.Length);
-                res.Instance.SendEvent("OnSpawn");
+                res.Instance.SetGraphicsBuffer(PositionsPropertyName, res.PositionBuffer);
+                res.Instance.SetInt(SpawnCountPropertyName, res.Staging.Length);
+                res.Instance.SendEvent(SpawnEventName);
 
                 res.Staging.Clear();
             }
+        }
+
+        private static bool ValidateGraphContract(VisualEffect vfx, VisualEffectAsset asset, out string reason)
+        {
+            if (!vfx.HasGraphicsBuffer(PositionsPropertyName) || !vfx.HasInt(SpawnCountPropertyName))
+            {
+                reason = $"{nameof(CombatVfxDispatcher)} cannot register VFX asset '{asset.name}'. "
+                    + $"Graph must expose GraphicsBuffer '{PositionsPropertyName}', int '{SpawnCountPropertyName}', "
+                    + $"and event '{SpawnEventName}'.";
+                return false;
+            }
+
+            reason = string.Empty;
+            return true;
         }
 
         public void Dispose()
         {
             foreach (VfxTypeResources res in resources.Values)
             {
+                LiveResources.Remove(res);
                 res.Dispose();
             }
             resources.Clear();

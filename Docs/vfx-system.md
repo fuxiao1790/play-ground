@@ -38,7 +38,7 @@ skipped with zero allocation.
 
 | Value | Name   | When fired                                                  |
 |-------|--------|-------------------------------------------------------------|
-| 0     | spawn  | projectile or AOE materialized (reserved, not yet wired)    |
+| 0     | spawn  | AOE materialized; projectile spawn is reserved, not yet wired |
 | 1     | hit    | projectile hit target / AOE hit target                      |
 | 2     | expire | projectile lifetime end or collision deactivation / AOE lifetime end |
 | 3     | pulse  | lingering AOE interval tick (regardless of targets hit)     |
@@ -67,6 +67,22 @@ Each `VisualEffectAsset` assigned to a trigger slot must expose:
 
 All three are set by `CombatVfxDispatcher.Dispatch`. Effect definition (lifetime,
 color, size, shape) lives entirely in the VFX Graph asset.
+
+The dispatcher fails fast when a registered graph does not expose this contract.
+There is no simple `Play()` fallback; a graph that cannot consume uploaded ECS
+positions is invalid for this runtime.
+
+### Render Layering
+
+Combat VFX scene objects inherit the Unity GameObject layer from their owning
+root (`ProjectileRoot` or `AoeRoot`). This keeps camera culling behavior aligned
+with the scoped projectile/AOE root.
+
+SpriteRenderer Sorting Layers do not automatically order Visual Effect Graph
+outputs. VFX Graph outputs must set their own render ordering through output
+settings such as render queue, VFX sorting priority, depth test, and graph
+bounds. The bundled `BasicColorBlobVfx` is authored as a batched world-space
+effect and should draw in the transparent queue after gameplay sprites.
 
 ---
 
@@ -135,6 +151,11 @@ Enqueues `Trigger=1` (hit) for each confirmed AOE-target collision.
 Position is the AOE center (`CombatKinematicsComponent.Position`), not the
 target position.
 
+### `AoeSpawnSystem`
+
+Enqueues `Trigger=0` (spawn) when an AOE spawn request is materialized.
+Position is the AOE center.
+
 ### `AoeLifetimeSystem` (`Assets/Scripts/System/Aoe/AoeLifetimeSystem.cs`)
 
 Two `IJobEntity` jobs, both scheduled inside this system:
@@ -169,17 +190,19 @@ All three fields are optional. A null field means no VFX for that trigger.
 ### AOE VFX slots (`BasicAoePrefab`)
 
 ```
-spawnEffect   → Trigger 0 (reserved)
+spawnEffect   → Trigger 0 (fires when the AOE spawns at its center)
 hitEffect     → Trigger 1 (fires on each target hit)
 expireEffect  → Trigger 2 (fires on lifetime end, lingering AOEs only)
 pulseEffect   → Trigger 3 (fires on interval tick, lingering AOEs only)
 ```
 
 All four fields are optional and live on the AOE template prefab's
-`BasicAoePrefab`, beside the required `Visual` and `Hurtbox` references.
+`BasicAoePrefab`, beside the required `Hurtbox` reference and optional `Visual`
+debug sprite reference.
 `AoeConfig.CreateTypeDefinition` forwards them into the registered
-`AoeTypeDefinition`. Pulse AOEs (`IsPulse==1`) do not fire Trigger 2 or 3; their
-deactivation is handled by `AoeCollisionSystem`.
+`AoeTypeDefinition`; `pulseEffect` is forwarded only when
+`AoeConfig.lifetimeSeconds > 0`. Pulse AOEs (`IsPulse==1`) do not fire Trigger 2
+or 3; their deactivation is handled by `AoeCollisionSystem`.
 
 Direct code-side `AoeTypeDefinition` registration can still assign the same four
 slots directly.
