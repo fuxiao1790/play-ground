@@ -47,7 +47,11 @@ namespace PlayGround.Attack
                 CollisionShape,
                 sizeMultiplier,
                 basicPrefab != null ? basicPrefab.VisualRotationDegrees : 0f,
-                preloadCount);
+                preloadCount,
+                basicPrefab != null ? basicPrefab.SpawnEffect : null,
+                basicPrefab != null ? basicPrefab.HitEffect : null,
+                basicPrefab != null ? basicPrefab.ExpireEffect : null,
+                basicPrefab != null ? basicPrefab.PulseEffect : null);
             return definition;
         }
 

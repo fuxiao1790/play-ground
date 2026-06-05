@@ -1,5 +1,6 @@
 using PlayGround.System.Common;
 using UnityEngine;
+using UnityEngine.VFX;
 
 namespace PlayGround.Attack
 {
@@ -7,9 +8,17 @@ namespace PlayGround.Attack
     {
         [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField] private Collider2D hurtbox;
+        [SerializeField] private VisualEffectAsset spawnEffect;
+        [SerializeField] private VisualEffectAsset hitEffect;
+        [SerializeField] private VisualEffectAsset expireEffect;
+        [SerializeField] private VisualEffectAsset pulseEffect;
 
         public SpriteRenderer SpriteRenderer => spriteRenderer;
         public Collider2D Hurtbox => hurtbox;
+        public VisualEffectAsset SpawnEffect => spawnEffect;
+        public VisualEffectAsset HitEffect => hitEffect;
+        public VisualEffectAsset ExpireEffect => expireEffect;
+        public VisualEffectAsset PulseEffect => pulseEffect;
         public Sprite Sprite => spriteRenderer != null ? spriteRenderer.sprite : null;
         public Material Material => spriteRenderer != null ? spriteRenderer.sharedMaterial : null;
         public float VisualRotationDegrees => spriteRenderer != null ? spriteRenderer.transform.eulerAngles.z : 0f;
@@ -25,10 +34,20 @@ namespace PlayGround.Attack
             hurtbox ??= FindChildComponent<Collider2D>("Hurtbox");
         }
 
-        public void Configure(SpriteRenderer renderer, Collider2D hurtboxShape)
+        public void Configure(
+            SpriteRenderer renderer,
+            Collider2D hurtboxShape,
+            VisualEffectAsset spawnVisualEffect = null,
+            VisualEffectAsset hitVisualEffect = null,
+            VisualEffectAsset expireVisualEffect = null,
+            VisualEffectAsset pulseVisualEffect = null)
         {
             spriteRenderer = renderer;
             hurtbox = hurtboxShape;
+            spawnEffect = spawnVisualEffect;
+            hitEffect = hitVisualEffect;
+            expireEffect = expireVisualEffect;
+            pulseEffect = pulseVisualEffect;
         }
 
         public bool IsValidTemplate(out string reason)

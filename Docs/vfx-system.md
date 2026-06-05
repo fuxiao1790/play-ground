@@ -166,7 +166,7 @@ expireEffect  → Trigger 2 (fires on lifetime end or collision deactivation)
 
 All three fields are optional. A null field means no VFX for that trigger.
 
-### AOE VFX slots (`AoeTypeDefinition`)
+### AOE VFX slots (`BasicAoePrefab`)
 
 ```
 spawnEffect   → Trigger 0 (reserved)
@@ -175,8 +175,14 @@ expireEffect  → Trigger 2 (fires on lifetime end, lingering AOEs only)
 pulseEffect   → Trigger 3 (fires on interval tick, lingering AOEs only)
 ```
 
-All four fields are optional. Pulse AOEs (`IsPulse==1`) do not fire Trigger 2
-or 3; their deactivation is handled by `AoeCollisionSystem`.
+All four fields are optional and live on the AOE template prefab's
+`BasicAoePrefab`, beside the required `Visual` and `Hurtbox` references.
+`AoeConfig.CreateTypeDefinition` forwards them into the registered
+`AoeTypeDefinition`. Pulse AOEs (`IsPulse==1`) do not fire Trigger 2 or 3; their
+deactivation is handled by `AoeCollisionSystem`.
+
+Direct code-side `AoeTypeDefinition` registration can still assign the same four
+slots directly.
 
 ### `AoePulseVfxComponent`
 
