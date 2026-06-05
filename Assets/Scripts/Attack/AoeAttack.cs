@@ -14,7 +14,6 @@ namespace PlayGround.Attack
         [SerializeField] private AudioManager audioManager;
 
         private float cooldownRemaining;
-        private int deterministicSeed;
         private int registeredTypeId = -1;
 
         public bool IsReady => cooldownRemaining <= 0f;
@@ -28,7 +27,6 @@ namespace PlayGround.Attack
 
             ValidateConfig();
             audioManager ??= AudioManager.Instance != null ? AudioManager.Instance : FindAnyObjectByType<AudioManager>();
-            deterministicSeed = gameObject.GetHashCode();
         }
 
         private void OnEnable()
@@ -66,7 +64,7 @@ namespace PlayGround.Attack
             {
                 aoeRoot.Spawn(new AoeSpawnCommand(
                     registeredTypeId,
-                    SpawnPosition(center, i, count),
+                    center,
                     EffectiveTargetMask(),
                     damageSnapshot,
                     config.LifetimeSeconds,
@@ -85,27 +83,7 @@ namespace PlayGround.Attack
                 return aimWorldPosition;
             }
 
-            return config.SpawnAtOwnerPosition ? transform.root.position : (Vector2)transform.position;
-        }
-
-        private Vector2 SpawnPosition(Vector2 center, int index, int count)
-        {
-            float radius = Mathf.Max(0f, config.BurstRadius);
-            if (count <= 1 || radius <= 0f)
-            {
-                return center;
-            }
-
-            if (config.RandomizePositions)
-            {
-                float angle = Mathf.Repeat(Hash01(index, 0) * Mathf.PI * 2f, Mathf.PI * 2f);
-                float distance = Mathf.Sqrt(Hash01(index, 1)) * radius;
-                return center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * distance;
-            }
-
-            float ringAngle = Mathf.PI * 2f * index / count;
-            float ringRadius = Mathf.Sqrt((index + 0.5f) / count) * radius;
-            return center + new Vector2(Mathf.Cos(ringAngle), Mathf.Sin(ringAngle)) * ringRadius;
+            return transform.position;
         }
 
         private void ValidateConfig()
@@ -126,17 +104,6 @@ namespace PlayGround.Attack
         private int EffectiveTargetMask()
         {
             return config.TargetMask != 1 || aoeRoot == null ? config.TargetMask : aoeRoot.TargetMask;
-        }
-
-        private float Hash01(int index, int salt)
-        {
-            uint hash = (uint)(deterministicSeed + (index * 397) + (salt * 104729));
-            hash ^= hash >> 16;
-            hash *= 0x7FEB352Du;
-            hash ^= hash >> 15;
-            hash *= 0x846CA68Bu;
-            hash ^= hash >> 16;
-            return (hash & 0x00FFFFFFu) / 16777215f;
         }
 
         private void PlayPerformSound(Vector2 worldPosition)

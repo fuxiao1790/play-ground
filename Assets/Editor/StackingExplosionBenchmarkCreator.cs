@@ -72,7 +72,6 @@ namespace PlayGround.Editor
             so.FindProperty("damage").floatValue = 120f;
             so.FindProperty("lifetimeSeconds").floatValue = 0f;
             so.FindProperty("count").intValue = 1;
-            so.FindProperty("spawnAtOwnerPosition").boolValue = true;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             Debug.Log($"[StackingExplosion] Created {path} (typeId={ExplosionAoeTypeId}, damage=120, size=10x). Assign basicPrefab.");

@@ -20,7 +20,4 @@ MonoBehaviour:
   tickIntervalSeconds: 0
   count: 1
   spawnAtAimPosition: 0
-  spawnAtOwnerPosition: 1
-  burstRadius: 0
-  randomizePositions: 0
   targetMask: 1

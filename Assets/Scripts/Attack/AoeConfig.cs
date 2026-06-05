@@ -14,9 +14,6 @@ namespace PlayGround.Attack
         [SerializeField] private float tickIntervalSeconds;
         [SerializeField, Min(1)] private int count = 1;
         [SerializeField] private bool spawnAtAimPosition;
-        [SerializeField] private bool spawnAtOwnerPosition = true;
-        [SerializeField] private float burstRadius;
-        [SerializeField] private bool randomizePositions;
         [SerializeField] private int targetMask = 1;
 
         public BasicAoePrefab Prefab => basicPrefab;
@@ -29,9 +26,6 @@ namespace PlayGround.Attack
         public float TickIntervalSeconds => tickIntervalSeconds;
         public int Count => count;
         public bool SpawnAtAimPosition => spawnAtAimPosition;
-        public bool SpawnAtOwnerPosition => spawnAtOwnerPosition;
-        public float BurstRadius => burstRadius;
-        public bool RandomizePositions => randomizePositions;
         public int TargetMask => targetMask;
 
         public void Configure(BasicAoePrefab prefab)

@@ -403,7 +403,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000002}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: m_Enabled
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childConfig
@@ -652,7 +652,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: m_Enabled
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childConfig
@@ -852,8 +852,7 @@ PrefabInstance:
       propertyPath: m_LocalPosition.x
       value: -1
       objectReference: {fileID: 0}
-    m_RemovedComponents:
-    - {fileID: 8145524006374604802, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+    m_RemovedComponents: []
     m_RemovedGameObjects:
     - {fileID: 2956451268465802521, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
     m_AddedGameObjects:
@@ -908,7 +907,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 525bfcba82d9456cab3270d3f8ab970f, type: 2}
   aoeRoot: {fileID: 0}
   recoverySeconds: 0.15
-  childProjectileCount: 16
+  childProjectileCount: 4
   childSpawnIntervalSeconds: 0.25
   childSpawnIntervalJitterSeconds: 0.125
   childSideSpreadDegrees: 70.3
@@ -1183,7 +1182,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: m_Enabled
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childConfig
@@ -1605,7 +1604,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000002}
     - target: {fileID: 9901003, guid: d77d7fb3155c4a54a8b68ddce77b79c2, type: 3}
       propertyPath: m_Enabled
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 9901003, guid: d77d7fb3155c4a54a8b68ddce77b79c2, type: 3}
       propertyPath: recoverySeconds
@@ -2065,7 +2064,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: m_Enabled
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 914081258792579806, guid: 9cf502233477276458a51ff85ac0885f, type: 3}
       propertyPath: childConfig

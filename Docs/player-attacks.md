@@ -20,6 +20,91 @@ Current player attack flow:
 4. Attack components snapshot authored data into spawn commands.
 5. Scoped roots simulate hits and replay results back to scene actors.
 
+Editor authoring dependency graph:
+
+```mermaid
+graph TD
+    MainScene["Main scene"]
+    PlayerPrefab["Player prefab"]
+    AttacksChild["Attacks child"]
+    ProjectileAttackPrefab["ProjectileAttack prefab"]
+    ChildAttackPrefab["ChildSpawningProjectileAttack prefab"]
+    PulseAoeAttackPrefab["Pulse AoeAttack prefab"]
+    LingeringAoeAttackPrefab["Lingering AoeAttack prefab"]
+    ProjectileConfig["ProjectileConfig asset"]
+    ParentConfig["parent ProjectileConfig asset"]
+    ChildConfig["child ProjectileConfig asset"]
+    PulseAoeConfig["pulse AoeConfig asset"]
+    LingeringAoeConfig["lingering AoeConfig asset"]
+    ProjectileTemplate["BasicAttackPrefab projectile template"]
+    PulseAoeTemplate["BasicAoePrefab pulse template"]
+    LingeringAoeTemplate["BasicAoePrefab lingering template"]
+    HitEffectDef["ProjectileHitEffectDefinition asset"]
+    StatusTriggerDef["StackingTriggerDef asset"]
+    PlayerProjectileRoot["PlayerProjectileRoot scene object"]
+    PlayerAoeRoot["AoeRoot_PlayerToMob scene object"]
+    GameRoot["GameRoot scene object"]
+    MobSpawnerRoot["MobSpawnerRoot scene object"]
+    AudioClip["AudioClip asset"]
+    AudioManager["AudioManager scene object"]
+
+    MainScene --> GameRoot
+    MainScene --> PlayerPrefab
+    MainScene --> PlayerProjectileRoot
+    MainScene --> PlayerAoeRoot
+    MainScene --> MobSpawnerRoot
+    MainScene --> AudioManager
+
+    PlayerPrefab --> AttacksChild
+    AttacksChild --> ProjectileAttackPrefab
+    AttacksChild --> ChildAttackPrefab
+    AttacksChild --> PulseAoeAttackPrefab
+    AttacksChild --> LingeringAoeAttackPrefab
+
+    ProjectileAttackPrefab --> ProjectileConfig
+    ProjectileAttackPrefab --> HitEffectDef
+    ProjectileAttackPrefab --> PlayerProjectileRoot
+    ProjectileAttackPrefab --> PlayerAoeRoot
+    ProjectileAttackPrefab --> AudioClip
+    ProjectileAttackPrefab --> AudioManager
+
+    ChildAttackPrefab --> ParentConfig
+    ChildAttackPrefab --> ChildConfig
+    ChildAttackPrefab --> HitEffectDef
+    ChildAttackPrefab --> PlayerProjectileRoot
+    ChildAttackPrefab --> PlayerAoeRoot
+    ChildAttackPrefab --> AudioClip
+    ChildAttackPrefab --> AudioManager
+
+    PulseAoeAttackPrefab --> PulseAoeConfig
+    PulseAoeAttackPrefab --> PlayerAoeRoot
+    PulseAoeAttackPrefab --> AudioClip
+    PulseAoeAttackPrefab --> AudioManager
+
+    LingeringAoeAttackPrefab --> LingeringAoeConfig
+    LingeringAoeAttackPrefab --> PlayerAoeRoot
+    LingeringAoeAttackPrefab --> AudioClip
+    LingeringAoeAttackPrefab --> AudioManager
+
+    ProjectileConfig --> ProjectileTemplate
+    ParentConfig --> ProjectileTemplate
+    ChildConfig --> ProjectileTemplate
+    PulseAoeConfig --> PulseAoeTemplate
+    LingeringAoeConfig --> LingeringAoeTemplate
+    HitEffectDef --> StatusTriggerDef
+
+    GameRoot --> PlayerProjectileRoot
+    GameRoot --> PlayerAoeRoot
+    GameRoot --> MobSpawnerRoot
+    MobSpawnerRoot --> PlayerProjectileRoot
+    MobSpawnerRoot --> PlayerAoeRoot
+```
+
+Pulse and lingering AOEs may both use the `AoeAttack` component type, but they
+should be authored as separate attack prefabs with separate `AoeConfig` assets.
+Pulse configs use `lifetimeSeconds = 0`; lingering configs use a positive
+`lifetimeSeconds` and authored `tickIntervalSeconds`.
+
 Multiple firing points should be authored as multiple child attack prefabs with
 different local positions. The attack GameObject Transform is the firing offset.
 Do not add a second hidden spawn-offset field unless a future weapon truly needs
@@ -216,10 +301,8 @@ Required `AoeConfig` fields:
 - `lifetimeSeconds`: `0` for current pulse AOEs
 - `tickIntervalSeconds`: unused by current pulse AOEs
 - `count`: number of AOEs spawned per cast
-- `spawnAtAimPosition`: spawn at mouse/world aim position
-- `spawnAtOwnerPosition`: spawn at player root when aim position is off
-- `burstRadius`: placement radius when `count > 1`
-- `randomizePositions`: randomize burst placement instead of ring placement
+- `spawnAtAimPosition`: spawn at mouse/world aim position; when false, spawn at
+  the attack Transform position
 - `targetMask`: leave as `1` to use the owning root mask
 
 Basic pulse example:
