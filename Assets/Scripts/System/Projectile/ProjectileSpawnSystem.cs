@@ -266,6 +266,7 @@ namespace PlayGround.System.Projectile
                 HitPayload = request.HitPayload
             });
             ecb.SetComponent(entity, request.Tracking);
+            ecb.SetComponentEnabled<ProjectileTrackingComponent>(entity, request.Tracking.TrackingEnabled);
             ecb.SetComponent(entity, request.Render);
             ecb.SetComponent(entity, new CombatRenderElement());
 
@@ -451,6 +452,7 @@ namespace PlayGround.System.Projectile
                 Lifetimes[entity] = LifetimeFor(request);
                 ProjectileHits[entity] = ProjectileHitFor(request);
                 Tracking[entity] = request.Tracking;
+                Tracking.SetComponentEnabled(entity, request.Tracking.TrackingEnabled);
                 Renders[entity] = request.Render;
                 RenderElements[entity] = new CombatRenderElement();
                 ContactGates[entity].Clear();

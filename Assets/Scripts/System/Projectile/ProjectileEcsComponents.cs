@@ -32,8 +32,8 @@ namespace PlayGround.System.Projectile
         public ProjectileHitPayload HitPayload;
     }
 
-    // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; reset on reuse.
-    public struct ProjectileTrackingComponent : IComponentData
+    // ECS Lifecycle: enableable base projectile component; added by spawn materialization; kept until root teardown; reset and enabled only for homing projectiles on reuse.
+    public struct ProjectileTrackingComponent : IComponentData, IEnableableComponent
     {
         public bool TrackingEnabled;
         public float TrackingRangeSquared;
@@ -42,6 +42,7 @@ namespace PlayGround.System.Projectile
         public float TrackingQueryIntervalSeconds;
         public int TrackedTargetId;
         public int TrackedTargetIndex;
+        public float2 TrackedTargetPosition;
     }
 
     // ECS Lifecycle: optional child-spawner component; added to child-spawning archetypes; kept until root teardown; reset on reuse.

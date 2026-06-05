@@ -11,6 +11,7 @@ public class PerformanceText : MonoBehaviour
 
     private EntityQuery projectileQuery;
     private EntityQuery aoeQuery;
+    private World queryWorld;
     private float smoothedDeltaTime;
     private bool queriesReady;
 
@@ -31,6 +32,11 @@ public class PerformanceText : MonoBehaviour
             return;
         }
 
+        if (queriesReady && (queryWorld == null || !queryWorld.IsCreated))
+        {
+            DisposeQueries();
+        }
+
         if (!queriesReady)
         {
             TryBindCombatQueries();
@@ -49,6 +55,11 @@ public class PerformanceText : MonoBehaviour
             $"AOEs: {aoeCount:n0}";
     }
 
+    private void OnDestroy()
+    {
+        DisposeQueries();
+    }
+
     private void TryBindCombatQueries()
     {
         if (World.DefaultGameObjectInjectionWorld == null
@@ -59,6 +70,8 @@ public class PerformanceText : MonoBehaviour
 
         EntityManager entityManager =
             World.DefaultGameObjectInjectionWorld.EntityManager;
+        DisposeQueries();
+        queryWorld = World.DefaultGameObjectInjectionWorld;
 
         projectileQuery = entityManager.CreateEntityQuery(
             ComponentType.ReadOnly<PlayGround.System.Projectile.ProjectileIdentityComponent>(),
@@ -68,6 +81,36 @@ public class PerformanceText : MonoBehaviour
             ComponentType.ReadOnly<PlayGround.System.Aoe.AoeIdentityComponent>(),
             ComponentType.ReadOnly<PlayGround.System.Aoe.AoeActiveTag>());
         queriesReady = true;
+    }
+
+    private void DisposeQueries()
+    {
+        if (!queriesReady)
+        {
+            queryWorld = null;
+            return;
+        }
+
+        DisposeQuery(ref projectileQuery);
+        DisposeQuery(ref aoeQuery);
+        queryWorld = null;
+        queriesReady = false;
+    }
+
+    private static void DisposeQuery(ref EntityQuery query)
+    {
+        try
+        {
+            query.Dispose();
+        }
+        catch (System.InvalidOperationException)
+        {
+        }
+        catch (System.NullReferenceException)
+        {
+        }
+
+        query = default;
     }
 
     private void EnsureOverlayText()

@@ -10,22 +10,22 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f251e81f91ec27a4884bcc25b88b8725, type: 3}
-  m_Name: BenchmarkStackingProjectileConfig
+  m_Name: ArrowParentConfig
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.ProjectileConfig
-  basicPrefab: {fileID: 1001001001001001004, guid: e7758e210128aa14484024efc694a154, type: 3}
-  speed: 30
-  lifetime: 5
-  damage: 1
-  count: 225
-  spreadDegrees: 15
-  jitterDegrees: 0
+  basicPrefab: {fileID: 1001001001001001004, guid: 46a702549654c254ebf170131a282f79, type: 3}
+  speed: 16
+  lifetime: 7
+  damage: 10
+  count: 10
+  spreadDegrees: 10
+  jitterDegrees: 5
   targetMask: 1
-  pierceCount: 5
-  repeatHitCooldownSeconds: 0.25
+  pierceCount: 20
+  repeatHitCooldownSeconds: 0.5
   trackingEnabled: 1
   trackingRange: 150
   trackingTurnSpeedDegrees: 360
   trackingQueryIntervalSeconds: 0.25
   trackingInitialQueryDelaySeconds: 0.15
-  directDamageEnabled: 0
+  directDamageEnabled: 1
   impactAoeConfig: {fileID: 0}

@@ -852,7 +852,8 @@ PrefabInstance:
       propertyPath: m_LocalPosition.x
       value: -1
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 8145524006374604802, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
     m_RemovedGameObjects:
     - {fileID: 2956451268465802521, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
     m_AddedGameObjects:
@@ -871,13 +872,46 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7214301001001001013, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       insertIndex: -1
       addedObject: {fileID: 773904194}
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 8145524006374604800, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 891985251}
   m_SourcePrefab: {fileID: 100100000, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
 --- !u!4 &830174276 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7214301001001001013, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
   m_PrefabInstance: {fileID: 830174275}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &891985249 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8145524006374604800, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+  m_PrefabInstance: {fileID: 830174275}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &891985251
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 891985249}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e577de2b66e655468d13f94792ac041, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.ChildSpawningProjectileAttack
+  projectileRoot: {fileID: 310291308}
+  parentConfig: {fileID: 11400000, guid: 4aa89f2d7162e6c4ebd5c6c6c77fdcbe, type: 2}
+  childConfig: {fileID: 11400000, guid: 7448e6ddc4ed5654b9432712b762d8ba, type: 2}
+  performSound: {fileID: 8300000, guid: 5df9ec618d503a643ae4f174c283939e, type: 3}
+  audioManager: {fileID: 998230102}
+  hitEffectDefinitions:
+  - {fileID: 11400000, guid: 525bfcba82d9456cab3270d3f8ab970f, type: 2}
+  aoeRoot: {fileID: 0}
+  recoverySeconds: 0.15
+  childProjectileCount: 16
+  childSpawnIntervalSeconds: 0.25
+  childSpawnIntervalJitterSeconds: 0.125
+  childSideSpreadDegrees: 70.3
 --- !u!1 &912359183
 GameObject:
   m_ObjectHideFlags: 0

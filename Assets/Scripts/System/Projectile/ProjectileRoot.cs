@@ -50,6 +50,8 @@ namespace PlayGround.System.Projectile
         private int nextProjectileId;
         private int nextTemplateTypeId = 1;
         private bool runtimeReady;
+        private bool ecsWorldAcquired;
+        private bool ecsHandlesCreated;
 
         public event global::System.Action<ProjectileHitContext> ProjectileHit;
 
@@ -59,7 +61,7 @@ namespace PlayGround.System.Projectile
         private void Awake()
         {
             runtimeReady = false;
-            vfxDispatcher = new CombatVfxDispatcher(transform);
+            vfxDispatcher ??= new CombatVfxDispatcher(transform);
             ApplyTaggedDefaults();
             if (projectileSprite == null && !HasAnyRenderSource())
             {
@@ -108,7 +110,7 @@ namespace PlayGround.System.Projectile
             vfxDispatcher?.Dispose();
             vfxDispatcher = null;
 
-            if (IsRuntimeReady())
+            if (HasValidEcsState())
             {
                 if (scopeEntity != Entity.Null && entityManager.Exists(scopeEntity))
                 {
@@ -127,12 +129,8 @@ namespace PlayGround.System.Projectile
                 }
             }
             runtimeReady = false;
-
-            if (submitBuffer.IsCreated)
-            {
-                submitBuffer.Dispose();
-            }
-
+            DisposeEcsHandles();
+            ReleaseWorld();
             DestroyRenderResources();
         }
 
@@ -157,6 +155,7 @@ namespace PlayGround.System.Projectile
             if (!renderResourcesByType.ContainsKey(typeId))
             {
                 renderResourcesByType[typeId] = BuildRenderResourcesFor(template.Sprite, template.VisualScale, template.VisualRotationDegrees, template.Material);
+                vfxDispatcher ??= new CombatVfxDispatcher(transform);
                 vfxDispatcher.Register(typeId, 0, template.SpawnEffect, MaxVfxPerFrame);
                 vfxDispatcher.Register(typeId, 1, template.HitEffect, MaxVfxPerFrame);
                 vfxDispatcher.Register(typeId, 2, template.ExpireEffect, MaxVfxPerFrame);
@@ -314,16 +313,11 @@ namespace PlayGround.System.Projectile
 
         private void BindWorld()
         {
-            entityWorld = World.DefaultGameObjectInjectionWorld;
-            if (entityWorld == null || !entityWorld.IsCreated)
-            {
-                entityWorld = new World("PlayGround ECS World");
-                World.DefaultGameObjectInjectionWorld = entityWorld;
-                var systems = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.Default);
-                DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(entityWorld, systems);
-                ScriptBehaviourUpdateOrder.AppendWorldToCurrentPlayerLoop(entityWorld);
-            }
+            DisposeEcsHandles();
+            ReleaseWorld();
 
+            entityWorld = CombatEcsWorld.Acquire();
+            ecsWorldAcquired = true;
             entityManager = entityWorld.EntityManager;
             scopeEntity = entityManager.CreateEntity(typeof(ProjectileScope));
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
@@ -357,6 +351,7 @@ namespace PlayGround.System.Projectile
             }
 
             submitBuffer = new NativeArray<CombatRenderElement>(MaxInstancesPerDraw, Allocator.Persistent);
+            ecsHandlesCreated = true;
         }
 
         private EntityQuery SubmitQuery<T>() where T : unmanaged, IComponentData
@@ -581,7 +576,8 @@ namespace PlayGround.System.Projectile
                 TrackingQueryCooldownRemaining = config.InitialQueryDelaySeconds,
                 TrackingQueryIntervalSeconds = config.QueryIntervalSeconds,
                 TrackedTargetId = 0,
-                TrackedTargetIndex = -1
+                TrackedTargetIndex = -1,
+                TrackedTargetPosition = default
             };
         }
 
@@ -606,7 +602,7 @@ namespace PlayGround.System.Projectile
 
         private void BuildRenderResources()
         {
-            renderResourcesByType.Clear();
+            DestroyRenderResources();
             templateTypeIds.Clear();
             nextTemplateTypeId = 1;
             if (projectileSprite != null)
@@ -688,6 +684,65 @@ namespace PlayGround.System.Projectile
             }
 
             renderResourcesByType.Clear();
+        }
+
+        private void DisposeEcsHandles()
+        {
+            if (submitBuffer.IsCreated)
+            {
+                submitBuffer.Dispose();
+            }
+
+            if (!ecsHandlesCreated)
+            {
+                submitQueriesByType = null;
+                scopeEntity = Entity.Null;
+                entityManager = default;
+                return;
+            }
+
+            if (submitQueriesByType != null)
+            {
+                for (int i = 0; i < submitQueriesByType.Length; i++)
+                {
+                    DisposeQuery(ref submitQueriesByType[i]);
+                }
+            }
+
+            DisposeQuery(ref allProjectileQuery);
+            submitQueriesByType = null;
+            ecsHandlesCreated = false;
+            scopeEntity = Entity.Null;
+            entityManager = default;
+        }
+
+        private void ReleaseWorld()
+        {
+            if (!ecsWorldAcquired)
+            {
+                entityWorld = null;
+                return;
+            }
+
+            CombatEcsWorld.Release(entityWorld);
+            entityWorld = null;
+            ecsWorldAcquired = false;
+        }
+
+        private static void DisposeQuery(ref EntityQuery query)
+        {
+            try
+            {
+                query.Dispose();
+            }
+            catch (global::System.InvalidOperationException)
+            {
+            }
+            catch (global::System.NullReferenceException)
+            {
+            }
+
+            query = default;
         }
 
         // this function should ONLY submit projectiles rendering data.

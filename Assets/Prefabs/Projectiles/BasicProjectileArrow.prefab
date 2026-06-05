@@ -81,7 +81,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 9
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 853791991093955270, guid: b0c664c5f48df0c44a417c9b1cb7af99, type: 3}
+  m_Sprite: {fileID: 4928565880463290548, guid: 2c7fa394e726a174eb5bfb859cf9a73d, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -102,7 +102,7 @@ GameObject:
   - component: {fileID: 8126269937979373232}
   - component: {fileID: 1001001001001001004}
   m_Layer: 10
-  m_Name: BasicProjectileStar
+  m_Name: BasicProjectileArrow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -118,7 +118,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 4, y: 1.5, z: 0}
-  m_LocalScale: {x: 7, y: 7, z: 1}
+  m_LocalScale: {x: 5, y: 5, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6150559438662261112}
@@ -138,7 +138,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.BasicAttackPrefab
   spriteRenderer: {fileID: 6416970736168755285}
-  hurtbox: {fileID: 8589887192893604985}
+  hurtbox: {fileID: 1469189744092702574}
   spawnEffect: {fileID: 0}
   hitEffect: {fileID: 0}
   expireEffect: {fileID: 0}
@@ -151,7 +151,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6150559438662261112}
-  - component: {fileID: 8589887192893604985}
+  - component: {fileID: 1469189744092702574}
   m_Layer: 10
   m_Name: Hurtbox
   m_TagString: Untagged
@@ -174,8 +174,8 @@ Transform:
   m_Children: []
   m_Father: {fileID: 8126269937979373232}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 90}
---- !u!58 &8589887192893604985
-CircleCollider2D:
+--- !u!70 &1469189744092702574
+CapsuleCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -209,4 +209,5 @@ CircleCollider2D:
   m_CompositeOperation: 0
   m_CompositeOrder: 0
   m_Offset: {x: 0, y: 0}
-  m_Radius: 0.07
+  m_Size: {x: 0.1, y: 0.15}
+  m_Direction: 0

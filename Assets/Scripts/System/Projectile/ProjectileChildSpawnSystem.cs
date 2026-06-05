@@ -113,7 +113,8 @@ namespace PlayGround.System.Projectile
                         TrackingQueryCooldownRemaining = spawner.TrackingInitialQueryDelaySeconds,
                         TrackingQueryIntervalSeconds = spawner.TrackingQueryIntervalSeconds,
                         TrackedTargetId = 0,
-                        TrackedTargetIndex = -1
+                        TrackedTargetIndex = -1,
+                        TrackedTargetPosition = default
                     },
                     Render = new CombatRenderComponent
                     {

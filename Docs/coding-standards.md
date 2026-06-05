@@ -164,6 +164,40 @@ Instantiate/Destroy churn, per-frame LINQ, closure captures, broad component
 lookups, and implicit array copies in combat code as bugs unless there is a
 measured reason they are harmless.
 
+## Native And ECS Handle Ownership
+
+Any code that creates a native or ECS handle owns its cleanup unless it transfers
+ownership explicitly.
+
+Examples:
+
+- `EntityQuery` created by `EntityManager.CreateEntityQuery(...)` must be
+  disposed by the owner, usually in `OnDestroy()` for MonoBehaviour-owned
+  queries.
+- `NativeArray`, `NativeList`, `NativeQueue`, `GraphicsBuffer`, and similar
+  native/GPU resources must be disposed or released on every teardown path.
+- A custom `World` added to the player loop must be removed from the player loop
+  and disposed by the same ownership layer that created it.
+
+Bug example:
+
+- `ProjectileRoot` and `AoeRoot` created scope entities, `EntityQuery` handles,
+  persistent submit buffers, and sometimes the shared ECS world in `BindWorld()`.
+  Teardown destroyed scoped entities and buffers, but did not dispose the query
+  handles or the custom world. Unity then reported thousands of persistent leaks
+  from `ProjectileRoot.BindWorld()`, `AoeRoot.BindWorld()`, and
+  `SubmitQuery<T>()`. The fix was to centralize combat-world ownership and make
+  root teardown dispose queries, dispose native buffers, destroy scoped entities,
+  and release the world.
+
+Avoid:
+
+- creating ECS queries repeatedly without a matching `Dispose()`
+- creating a world from a root component without reference-counted ownership
+- relying on Unity playmode teardown to clean persistent native allocations
+- hiding cleanup behind `if (runtimeReady)` when a partial setup path may still
+  have allocated native handles
+
 ## Performance Budget Rule
 
 Every scalable combat system should have an obvious budget and fallback path.

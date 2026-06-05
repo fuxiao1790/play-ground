@@ -48,31 +48,34 @@ namespace PlayGround.System.Projectile
                     return;
                 }
 
-                float2 currentDirection = kinematics.Velocity / speed;
                 tracking.TrackingQueryCooldownRemaining = math.max(0f, tracking.TrackingQueryCooldownRemaining - DeltaTime);
-                bool hasTrackedTarget = TryRefreshTrackedTarget(ref tracking, kinematics, hit, targets);
                 if (tracking.TrackingQueryCooldownRemaining <= 0f)
                 {
-                    hasTrackedTarget = TryAcquireTrackedTarget(ref tracking, kinematics, hit, targets);
+                    bool hasTrackedTarget = TryRefreshTrackedTarget(ref tracking, kinematics, hit, targets);
+                    if (!hasTrackedTarget)
+                    {
+                        hasTrackedTarget = TryAcquireTrackedTarget(ref tracking, kinematics, hit, targets);
+                    }
+
                     tracking.TrackingQueryCooldownRemaining = tracking.TrackingQueryIntervalSeconds;
+                    if (!hasTrackedTarget)
+                    {
+                        return;
+                    }
                 }
-                else if (!hasTrackedTarget)
+
+                if (tracking.TrackedTargetId == 0)
                 {
                     return;
                 }
 
-                int trackedTargetIndex = tracking.TrackedTargetIndex;
-                if (trackedTargetIndex < 0 || trackedTargetIndex >= targets.Length)
-                {
-                    return;
-                }
-
-                float2 toTarget = targets[trackedTargetIndex].Position - kinematics.Position;
+                float2 toTarget = tracking.TrackedTargetPosition - kinematics.Position;
                 if (math.lengthsq(toTarget) <= ProjectileSimulationConstants.MinimumDirectionLengthSquared)
                 {
                     return;
                 }
 
+                float2 currentDirection = kinematics.Velocity / speed;
                 float2 desiredDirection = math.normalize(toTarget);
                 float maxTurnRadians = tracking.TrackingTurnSpeedRadians * DeltaTime;
                 kinematics.Velocity = SteerDirection(currentDirection, desiredDirection, maxTurnRadians) * speed;
@@ -96,6 +99,7 @@ namespace PlayGround.System.Projectile
                     && targets[cachedIndex].TargetId == tracking.TrackedTargetId
                     && IsValidTrackedTarget(kinematics, tracking, hit, targets[cachedIndex]))
                 {
+                    tracking.TrackedTargetPosition = targets[cachedIndex].Position;
                     return true;
                 }
 
@@ -112,11 +116,13 @@ namespace PlayGround.System.Projectile
                     }
 
                     tracking.TrackedTargetIndex = i;
+                    tracking.TrackedTargetPosition = targets[i].Position;
                     return true;
                 }
 
                 tracking.TrackedTargetId = 0;
                 tracking.TrackedTargetIndex = -1;
+                tracking.TrackedTargetPosition = default;
                 return false;
             }
 
@@ -149,6 +155,7 @@ namespace PlayGround.System.Projectile
                     {
                         tracking.TrackedTargetId = target.TargetId;
                         tracking.TrackedTargetIndex = i;
+                        tracking.TrackedTargetPosition = target.Position;
                         return true;
                     }
 
@@ -160,6 +167,7 @@ namespace PlayGround.System.Projectile
                     bestDistanceSquared = distanceSquared;
                     tracking.TrackedTargetId = target.TargetId;
                     tracking.TrackedTargetIndex = i;
+                    tracking.TrackedTargetPosition = target.Position;
                 }
 
                 return tracking.TrackedTargetId != 0;

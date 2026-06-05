@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
+using PlayGround.Attack;
 using PlayGround.Common;
 using PlayGround.Mob;
 using PlayGround.Mob.Behaviours;
@@ -102,6 +103,24 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(projectileObject.transform.childCount, Is.EqualTo(0));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
+        }
+
+        [Test]
+        public void ProjectileRootRegistersTemplateBeforeAwake()
+        {
+            Sprite sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
+            GameObject rootObject = new("ProjectileRoot");
+            rootObject.SetActive(false);
+            ProjectileRoot root = rootObject.AddComponent<ProjectileRoot>();
+            root.Configure(sprite);
+            GameObject templateObject = CreateBasicProjectileTemplate(sprite, out BasicAttackPrefab template);
+
+            int typeId = root.RegisterTemplate(template);
+            rootObject.SetActive(true);
+
+            Assert.That(typeId, Is.GreaterThan(0));
+            Object.Destroy(rootObject);
+            Object.Destroy(templateObject);
         }
 
         [Test]
@@ -751,6 +770,26 @@ namespace PlayGround.Tests.PlayMode
                 0f,
                 0.5f);
             mobObject.SetActive(true);
+        }
+
+        private static GameObject CreateBasicProjectileTemplate(Sprite sprite, out BasicAttackPrefab template)
+        {
+            GameObject templateObject = new("BasicProjectileTemplate");
+            templateObject.SetActive(false);
+
+            GameObject visualObject = new("Visual");
+            visualObject.transform.SetParent(templateObject.transform, false);
+            SpriteRenderer renderer = visualObject.AddComponent<SpriteRenderer>();
+            renderer.sprite = sprite;
+
+            GameObject hurtboxObject = new("Hurtbox");
+            hurtboxObject.transform.SetParent(templateObject.transform, false);
+            CircleCollider2D hurtbox = hurtboxObject.AddComponent<CircleCollider2D>();
+            hurtbox.radius = 0.5f;
+
+            template = templateObject.AddComponent<BasicAttackPrefab>();
+            template.Configure(renderer, hurtbox);
+            return templateObject;
         }
 
         private static void CreateAoeFixture(

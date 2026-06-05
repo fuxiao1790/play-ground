@@ -383,30 +383,6 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
-      propertyPath: pierceCount
-      value: 30
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
-      propertyPath: jitterDegrees
-      value: 10
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
-      propertyPath: spreadDegrees
-      value: 30
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
-      propertyPath: projectileCount
-      value: 15
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
-      propertyPath: trackingEnabled
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 4459914088298401002, guid: 5d671258a7b945844bd3c2be3f723b9d, type: 3}
-      propertyPath: repeatHitCooldownSeconds
-      value: 0.5
-      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

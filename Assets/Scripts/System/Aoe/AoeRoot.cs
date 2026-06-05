@@ -52,6 +52,8 @@ namespace PlayGround.System.Aoe
         private int nextAoeId;
         private int nextTypeId = 1;
         private bool runtimeReady;
+        private bool ecsWorldAcquired;
+        private bool ecsHandlesCreated;
 
         public event global::System.Action<AoeHitContext> AoeHit;
 
@@ -110,7 +112,7 @@ namespace PlayGround.System.Aoe
             vfxDispatcher?.Dispose();
             vfxDispatcher = null;
 
-            if (IsRuntimeReady())
+            if (HasValidEcsState())
             {
                 if (scopeEntity != Entity.Null && entityManager.Exists(scopeEntity))
                 {
@@ -130,12 +132,8 @@ namespace PlayGround.System.Aoe
             }
 
             runtimeReady = false;
-
-            if (submitBuffer.IsCreated)
-            {
-                submitBuffer.Dispose();
-            }
-
+            DisposeEcsHandles();
+            ReleaseWorld();
             DestroyRenderResources();
         }
 
@@ -330,16 +328,11 @@ namespace PlayGround.System.Aoe
 
         private void BindWorld()
         {
-            entityWorld = World.DefaultGameObjectInjectionWorld;
-            if (entityWorld == null || !entityWorld.IsCreated)
-            {
-                entityWorld = new World("PlayGround ECS World");
-                World.DefaultGameObjectInjectionWorld = entityWorld;
-                var systems = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.Default);
-                DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(entityWorld, systems);
-                ScriptBehaviourUpdateOrder.AppendWorldToCurrentPlayerLoop(entityWorld);
-            }
+            DisposeEcsHandles();
+            ReleaseWorld();
 
+            entityWorld = CombatEcsWorld.Acquire();
+            ecsWorldAcquired = true;
             entityManager = entityWorld.EntityManager;
             scopeEntity = entityManager.CreateEntity(typeof(AoeScope));
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
@@ -357,6 +350,7 @@ namespace PlayGround.System.Aoe
                 ComponentType.ReadOnly<CombatRenderElement>(),
                 ComponentType.ReadOnly<AoeActiveTag>());
             submitBuffer = new NativeArray<CombatRenderElement>(MaxInstancesPerDraw, Allocator.Persistent);
+            ecsHandlesCreated = true;
         }
 
         private bool IsRuntimeReady()
@@ -609,6 +603,56 @@ namespace PlayGround.System.Aoe
             }
 
             renderResourcesByType.Clear();
+        }
+
+        private void DisposeEcsHandles()
+        {
+            if (submitBuffer.IsCreated)
+            {
+                submitBuffer.Dispose();
+            }
+
+            if (!ecsHandlesCreated)
+            {
+                scopeEntity = Entity.Null;
+                entityManager = default;
+                return;
+            }
+
+            DisposeQuery(ref submitQuery);
+            DisposeQuery(ref allAoeQuery);
+            ecsHandlesCreated = false;
+            scopeEntity = Entity.Null;
+            entityManager = default;
+        }
+
+        private void ReleaseWorld()
+        {
+            if (!ecsWorldAcquired)
+            {
+                entityWorld = null;
+                return;
+            }
+
+            CombatEcsWorld.Release(entityWorld);
+            entityWorld = null;
+            ecsWorldAcquired = false;
+        }
+
+        private static void DisposeQuery(ref EntityQuery query)
+        {
+            try
+            {
+                query.Dispose();
+            }
+            catch (global::System.InvalidOperationException)
+            {
+            }
+            catch (global::System.NullReferenceException)
+            {
+            }
+
+            query = default;
         }
 
     }
