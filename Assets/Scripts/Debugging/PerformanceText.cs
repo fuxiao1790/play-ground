@@ -1,4 +1,3 @@
-using Unity.Entities;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -9,20 +8,11 @@ public class PerformanceText : MonoBehaviour
     [SerializeField] private Vector2 size = new(320f, 96f);
     [SerializeField] private int fontSize = 18;
 
-    private EntityQuery projectileQuery;
-    private EntityQuery aoeQuery;
-    private World queryWorld;
     private float smoothedDeltaTime;
-    private bool queriesReady;
 
     private void Awake()
     {
         EnsureOverlayText();
-    }
-
-    private void Start()
-    {
-        TryBindCombatQueries();
     }
 
     private void Update()
@@ -32,102 +22,22 @@ public class PerformanceText : MonoBehaviour
             return;
         }
 
-        if (queriesReady && (queryWorld == null || !queryWorld.IsCreated))
-        {
-            DisposeQueries();
-        }
-
-        if (!queriesReady)
-        {
-            TryBindCombatQueries();
-        }
-
         smoothedDeltaTime += (Time.unscaledDeltaTime - smoothedDeltaTime) * 0.1f;
-
         float fps = smoothedDeltaTime > 0f ? 1f / smoothedDeltaTime : 0f;
-
-        int projectileCount = queriesReady ? projectileQuery.CalculateEntityCount() : 0;
-        int aoeCount = queriesReady ? aoeQuery.CalculateEntityCount() : 0;
-
-        text.text =
-            $"FPS: {fps:0}\n" +
-            $"Projectiles: {projectileCount:n0}\n" +
-            $"AOEs: {aoeCount:n0}";
-    }
-
-    private void OnDestroy()
-    {
-        DisposeQueries();
-    }
-
-    private void TryBindCombatQueries()
-    {
-        if (World.DefaultGameObjectInjectionWorld == null
-            || !World.DefaultGameObjectInjectionWorld.IsCreated)
-        {
-            return;
-        }
-
-        EntityManager entityManager =
-            World.DefaultGameObjectInjectionWorld.EntityManager;
-        DisposeQueries();
-        queryWorld = World.DefaultGameObjectInjectionWorld;
-
-        projectileQuery = entityManager.CreateEntityQuery(
-            ComponentType.ReadOnly<PlayGround.System.Projectile.ProjectileIdentityComponent>(),
-            ComponentType.ReadOnly<PlayGround.System.Projectile.ProjectileActiveTag>());
-
-        aoeQuery = entityManager.CreateEntityQuery(
-            ComponentType.ReadOnly<PlayGround.System.Aoe.AoeIdentityComponent>(),
-            ComponentType.ReadOnly<PlayGround.System.Aoe.AoeActiveTag>());
-        queriesReady = true;
-    }
-
-    private void DisposeQueries()
-    {
-        if (!queriesReady)
-        {
-            queryWorld = null;
-            return;
-        }
-
-        DisposeQuery(ref projectileQuery);
-        DisposeQuery(ref aoeQuery);
-        queryWorld = null;
-        queriesReady = false;
-    }
-
-    private static void DisposeQuery(ref EntityQuery query)
-    {
-        try
-        {
-            query.Dispose();
-        }
-        catch (System.InvalidOperationException)
-        {
-        }
-        catch (System.NullReferenceException)
-        {
-        }
-
-        query = default;
+        text.text = $"FPS: {fps:0}";
     }
 
     private void EnsureOverlayText()
     {
-        // Ensure there is a root overlay Canvas dedicated to the performance UI so
-        // it isn't clipped by other UI or parent transforms.
         Canvas canvas = GetComponent<Canvas>();
         GameObject canvasGO;
 
         if (canvas == null)
         {
-            // Create a new root GameObject for the overlay so it covers the whole screen.
             canvasGO = new GameObject("PerformanceOverlayCanvas");
             canvas = canvasGO.AddComponent<Canvas>();
             canvasGO.AddComponent<CanvasScaler>();
             canvasGO.AddComponent<UnityEngine.UI.GraphicRaycaster>();
-            // Make sure the canvas is at root (no parent) so it's not affected by other transforms.
             canvasGO.transform.SetParent(null);
         }
         else
@@ -148,7 +58,6 @@ public class PerformanceText : MonoBehaviour
 
         if (text == null)
         {
-            // Try to find an existing Text anywhere under the canvas
             text = canvasGO.GetComponentInChildren<Text>(true) ?? GetComponentInChildren<Text>(true);
         }
 

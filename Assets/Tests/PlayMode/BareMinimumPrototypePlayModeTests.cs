@@ -79,28 +79,28 @@ namespace PlayGround.Tests.PlayMode
             Object.Destroy(player);
         }
 
-        [Test]
-        public void ProjectileHitReducesDummyHealth()
+        [UnityTest]
+        public IEnumerator ProjectileHitReducesDummyHealth()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
             projectileRoot.Spawn(new ProjectileSpawnCommand(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
-            projectileRoot.Step(0.01f);
+            yield return null;
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(6f));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
         }
 
-        [Test]
-        public void ProjectileRootDoesNotCreateProjectileSceneChildren()
+        [UnityTest]
+        public IEnumerator ProjectileRootDoesNotCreateProjectileSceneChildren()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
             projectileRoot.Spawn(new ProjectileSpawnCommand(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
-            projectileRoot.Step(0.01f);
+            yield return null;
 
             Assert.That(projectileObject.transform.childCount, Is.EqualTo(0));
             Object.Destroy(projectileObject);
@@ -125,20 +125,20 @@ namespace PlayGround.Tests.PlayMode
             Object.Destroy(templateObject);
         }
 
-        [Test]
-        public void ProjectileLifetimeDeactivatesEcsEntity()
+        [UnityTest]
+        public IEnumerator ProjectileLifetimeDeactivatesEcsEntity()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
 
             projectileRoot.Spawn(new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
-            projectileRoot.Step(0.01f);
+            yield return null;
 
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
         }
 
-        [Test]
-        public void ProjectileSystemsIgnoreCommonCombatEntityWithoutProjectileTag()
+        [UnityTest]
+        public IEnumerator ProjectileSystemsIgnoreCommonCombatEntityWithoutProjectileTag()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
@@ -167,7 +167,7 @@ namespace PlayGround.Tests.PlayMode
                 DirectDamageEnabled = true
             });
 
-            projectileRoot.Step(1f);
+            yield return null;
 
             CombatKinematicsComponent kinematics = entityManager.GetComponentData<CombatKinematicsComponent>(entity);
             Assert.That(kinematics.Position.x, Is.EqualTo(1f));
@@ -178,8 +178,8 @@ namespace PlayGround.Tests.PlayMode
             Object.Destroy(mobObject);
         }
 
-        [Test]
-        public void ProjectileTargetMaskFiltersHits()
+        [UnityTest]
+        public IEnumerator ProjectileTargetMaskFiltersHits()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
@@ -197,15 +197,15 @@ namespace PlayGround.Tests.PlayMode
                 targetMask: 2);
 
             projectileRoot.Spawn(command);
-            projectileRoot.Step(0.01f);
+            yield return null;
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(10f));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
         }
 
-        [Test]
-        public void ProjectileTrackingAcquiresTargetOutsideInitialForwardHemisphere()
+        [UnityTest]
+        public IEnumerator ProjectileTrackingAcquiresTargetOutsideInitialForwardHemisphere()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mobObject.transform.position = new Vector2(0f, 10f);
@@ -224,7 +224,9 @@ namespace PlayGround.Tests.PlayMode
                 tracking: new ProjectileTrackingConfig(true, 50f, 360f, 0f));
 
             projectileRoot.Spawn(command);
-            projectileRoot.Step(0.1f);
+            Time.captureDeltaTime = 0.1f;
+            yield return null;
+            Time.captureDeltaTime = 0f;
 
             Vector2 velocity = ProjectileVelocity(projectileRoot);
             Assert.That(velocity.y, Is.GreaterThan(0f));
@@ -245,8 +247,8 @@ namespace PlayGround.Tests.PlayMode
             Object.Destroy(mobObject);
         }
 
-        [Test]
-        public void GameRootBindsTaggedMobToProjectileRootByTagAndLayer()
+        [UnityTest]
+        public IEnumerator GameRootBindsTaggedMobToProjectileRootByTagAndLayer()
         {
             int mobHurtboxLayer = LayerMask.NameToLayer(GameplayLayers.MobHurtbox);
             Assume.That(mobHurtboxLayer, Is.GreaterThanOrEqualTo(0));
@@ -273,7 +275,7 @@ namespace PlayGround.Tests.PlayMode
                 targetMask: projectileRoot.TargetMask);
 
             projectileRoot.Spawn(command);
-            projectileRoot.Step(0.01f);
+            yield return null;
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(6f));
             Object.Destroy(gameRootObject);
@@ -281,8 +283,8 @@ namespace PlayGround.Tests.PlayMode
             Object.Destroy(mobObject);
         }
 
-        [Test]
-        public void ProjectileDirectDamageToggleSuppressesTargetDamageButKeepsHitEvent()
+        [UnityTest]
+        public IEnumerator ProjectileDirectDamageToggleSuppressesTargetDamageButKeepsHitEvent()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
@@ -302,7 +304,7 @@ namespace PlayGround.Tests.PlayMode
                 directDamageEnabled: false);
 
             projectileRoot.Spawn(command);
-            projectileRoot.Step(0.01f);
+            yield return null;
 
             Assert.That(hitCount, Is.EqualTo(1));
             Assert.That(mob.CurrentHealth, Is.EqualTo(10f));
@@ -403,8 +405,8 @@ namespace PlayGround.Tests.PlayMode
             Object.Destroy(aoeTemplateObject);
         }
 
-        [Test]
-        public void PiercingProjectileCanRepeatHitAfterCooldown()
+        [UnityTest]
+        public IEnumerator PiercingProjectileCanRepeatHitAfterCooldown()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
@@ -423,17 +425,20 @@ namespace PlayGround.Tests.PlayMode
                 repeatHitCooldownSeconds: 0.02f);
 
             projectileRoot.Spawn(command);
-            projectileRoot.Step(0.01f);
-            projectileRoot.Step(0.01f);
-            projectileRoot.Step(0.02f);
+            Time.captureDeltaTime = 0.01f;
+            yield return null;
+            yield return null;
+            Time.captureDeltaTime = 0.02f;
+            yield return null;
+            Time.captureDeltaTime = 0f;
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(6f));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
         }
 
-        [Test]
-        public void ProjectileChildSpawnedChildAppliesChildPayloadDamage()
+        [UnityTest]
+        public IEnumerator ProjectileChildSpawnedChildAppliesChildPayloadDamage()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mobObject.transform.position = new Vector2(50f, 50f);
@@ -453,16 +458,19 @@ namespace PlayGround.Tests.PlayMode
                 directDamageEnabled: false);
 
             projectileRoot.Spawn(command);
-            projectileRoot.Step(0.02f);
-            projectileRoot.Step(0.001f);
+            Time.captureDeltaTime = 0.02f;
+            yield return null;
+            Time.captureDeltaTime = 0.001f;
+            yield return null;
+            Time.captureDeltaTime = 0f;
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(9f));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
         }
 
-        [Test]
-        public void ProjectileChildSpawnedChildUsesRootTargetMaskForTracking()
+        [UnityTest]
+        public IEnumerator ProjectileChildSpawnedChildUsesRootTargetMaskForTracking()
         {
             int mobHurtboxLayer = LayerMask.NameToLayer(GameplayLayers.MobHurtbox);
             Assume.That(mobHurtboxLayer, Is.GreaterThanOrEqualTo(0));
@@ -502,16 +510,19 @@ namespace PlayGround.Tests.PlayMode
                 directDamageEnabled: false);
 
             projectileRoot.Spawn(command);
-            projectileRoot.Step(0.02f);
-            projectileRoot.Step(0.1f);
+            Time.captureDeltaTime = 0.02f;
+            yield return null;
+            Time.captureDeltaTime = 0.1f;
+            yield return null;
+            Time.captureDeltaTime = 0f;
 
             Assert.That(MaxProjectileVelocityY(projectileRoot), Is.GreaterThan(0f));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
         }
 
-        [Test]
-        public void ProjectileHitPayloadDispatchesToSourceAndTargetActors()
+        [UnityTest]
+        public IEnumerator ProjectileHitPayloadDispatchesToSourceAndTargetActors()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
@@ -532,7 +543,7 @@ namespace PlayGround.Tests.PlayMode
                 sourceNodeId: sourceNodeId);
 
             projectileRoot.Spawn(command);
-            projectileRoot.Step(0.01f);
+            yield return null;
 
             Assert.That(sourceProbe.CallCount, Is.EqualTo(1));
             Assert.That(sourceProbe.LastRole, Is.EqualTo(ProjectileHitActorRole.Source));
@@ -543,8 +554,8 @@ namespace PlayGround.Tests.PlayMode
             Object.Destroy(sourceObject);
         }
 
-        [Test]
-        public void ProjectileChildSpawnedChildrenArePreparedForRenderBatchOnNextStep()
+        [UnityTest]
+        public IEnumerator ProjectileChildSpawnedChildrenArePreparedForRenderBatchOnNextStep()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
 
@@ -561,8 +572,11 @@ namespace PlayGround.Tests.PlayMode
                 childSpawn: new ProjectileChildSpawnConfig(1, 0, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)));
 
             projectileRoot.Spawn(command);
-            projectileRoot.Step(0.02f);
-            projectileRoot.Step(0.001f);
+            Time.captureDeltaTime = 0.02f;
+            yield return null;
+            Time.captureDeltaTime = 0.001f;
+            yield return null;
+            Time.captureDeltaTime = 0f;
 
             Assert.That(RenderInstanceCount(projectileRoot, 0), Is.EqualTo(3));
             Object.Destroy(projectileObject);
@@ -590,40 +604,44 @@ namespace PlayGround.Tests.PlayMode
             Object.Destroy(mobObject);
         }
 
-        [Test]
-        public void ProjectileSpawnReusesExpiredEcsEntityAfterPoolWarmup()
+        [UnityTest]
+        public IEnumerator ProjectileSpawnReusesExpiredEcsEntityAfterPoolWarmup()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
             var command = new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle);
 
             projectileRoot.Spawn(command);
-            projectileRoot.Step(0.01f);
+            Time.captureDeltaTime = 0.01f;
+            yield return null;
             int warmedCount = CountScopedProjectileEntities(projectileRoot);
 
             for (int i = 0; i < 4; i++)
             {
                 projectileRoot.Spawn(command);
-                projectileRoot.Step(0.01f);
+                yield return null;
             }
 
+            Time.captureDeltaTime = 0f;
             Assert.That(warmedCount, Is.EqualTo(1));
             Assert.That(CountScopedProjectileEntities(projectileRoot), Is.EqualTo(warmedCount));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
         }
 
-        [Test]
-        public void ProjectileReuseClearsContactGatesAfterHitDespawn()
+        [UnityTest]
+        public IEnumerator ProjectileReuseClearsContactGatesAfterHitDespawn()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
             projectileRoot.Spawn(new ProjectileSpawnCommand(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle));
-            projectileRoot.Step(0.01f);
+            Time.captureDeltaTime = 0.01f;
+            yield return null;
             Assert.That(SumScopedContactGates(projectileRoot), Is.GreaterThan(0));
 
             projectileRoot.Spawn(new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle));
-            projectileRoot.Step(0.01f);
+            yield return null;
+            Time.captureDeltaTime = 0f;
 
             Assert.That(CountScopedProjectileEntities(projectileRoot), Is.EqualTo(1));
             Assert.That(SumScopedContactGates(projectileRoot), Is.EqualTo(0));
@@ -631,18 +649,18 @@ namespace PlayGround.Tests.PlayMode
             Object.Destroy(mobObject);
         }
 
-        [Test]
-        public void ProjectileChildSpawnRequestsReuseChildEntitiesAfterPoolWarmup()
+        [UnityTest]
+        public IEnumerator ProjectileChildSpawnRequestsReuseChildEntitiesAfterPoolWarmup()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
             var command = ChildSpawnerCommand();
 
-            SpawnAndDrainChildCycle(projectileRoot, command);
+            yield return SpawnAndDrainChildCycle(projectileRoot, command);
             int warmedCount = CountScopedProjectileEntities(projectileRoot);
 
             for (int i = 0; i < 3; i++)
             {
-                SpawnAndDrainChildCycle(projectileRoot, command);
+                yield return SpawnAndDrainChildCycle(projectileRoot, command);
             }
 
             Assert.That(warmedCount, Is.EqualTo(3));
@@ -651,16 +669,16 @@ namespace PlayGround.Tests.PlayMode
             Object.Destroy(mobObject);
         }
 
-        [Test]
-        public void ProjectileChildSpawnerParentKeepsStableArchetypeDuringReuse()
+        [UnityTest]
+        public IEnumerator ProjectileChildSpawnerParentKeepsStableArchetypeDuringReuse()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
             var command = ChildSpawnerCommand();
 
-            SpawnAndDrainChildCycle(projectileRoot, command);
+            yield return SpawnAndDrainChildCycle(projectileRoot, command);
             Entity firstParent = FirstScopedChildSpawnerEntity(projectileRoot);
 
-            SpawnAndDrainChildCycle(projectileRoot, command);
+            yield return SpawnAndDrainChildCycle(projectileRoot, command);
             Entity reusedParent = FirstScopedChildSpawnerEntity(projectileRoot);
 
             Assert.That(firstParent, Is.EqualTo(reusedParent));
@@ -845,11 +863,13 @@ namespace PlayGround.Tests.PlayMode
                 directDamageEnabled: false);
         }
 
-        private static void SpawnAndDrainChildCycle(ProjectileRoot projectileRoot, ProjectileSpawnCommand command)
+        private static IEnumerator SpawnAndDrainChildCycle(ProjectileRoot projectileRoot, ProjectileSpawnCommand command)
         {
             projectileRoot.Spawn(command);
-            projectileRoot.Step(0.002f);
-            projectileRoot.Step(0.002f);
+            Time.captureDeltaTime = 0.002f;
+            yield return null;
+            yield return null;
+            Time.captureDeltaTime = 0f;
         }
 
         private static int RenderInstanceCount(ProjectileRoot projectileRoot, int typeId)

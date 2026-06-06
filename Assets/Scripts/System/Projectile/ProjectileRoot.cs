@@ -23,7 +23,7 @@ namespace PlayGround.System.Projectile
         private static readonly ProfilerMarker DrainHitsProfilerMarker = new("ProjectileRoot.DrainHits");
         private static readonly ProfilerMarker SubmitProjectilesProfilerMarker = new("ProjectileRoot.SubmitProjectiles");
         private static readonly ProfilerMarker ReplayProjectileHitEventsProfilerMarker = new("ProjectileRoot.ReplayProjectileHitEvents");
-        private static readonly ProfilerMarker StepSimulationProfilerMarker = new("ProjectileRoot.StepSimulation");
+
 
         [SerializeField] private Sprite projectileSprite;
         [SerializeField] private float visualScale = 1f;
@@ -298,17 +298,6 @@ namespace PlayGround.System.Projectile
             }
 
             return request;
-        }
-
-        public void Step(float deltaTime)
-        {
-            EnsureRuntimeReady();
-            SyncTargetsToEcs();
-            using (StepSimulationProfilerMarker.Auto())
-            {
-                World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<SimulationSystemGroup>().Update();
-            }
-            DrainHits();
         }
 
         private void BindWorld()
