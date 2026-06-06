@@ -32,7 +32,7 @@ namespace PlayGround.Attack
             basicPrefab = prefab;
         }
 
-        public AoeTypeDefinition CreateTypeDefinition()
+        public virtual AoeTypeDefinition CreateTypeDefinition()
         {
             var definition = new AoeTypeDefinition();
             definition.Configure(
@@ -50,7 +50,7 @@ namespace PlayGround.Attack
 
         protected virtual VisualEffectAsset PulseEffect => null;
 
-        public bool IsValidConfig(out string reason)
+        public virtual bool IsValidConfig(out string reason)
         {
             if (basicPrefab == null)
             {

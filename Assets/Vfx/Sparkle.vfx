@@ -51,14 +51,25 @@ MonoBehaviour:
     - model: {fileID: 8926484042661618142}
       id: 0
       isStickyNote: 0
+  - title: New Group Node
+    position:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 100
+      height: 100
+    contents:
+    - model: {fileID: 8926484042661618168}
+      id: 0
+      isStickyNote: 0
   stickyNoteInfos: []
   categories: []
   uiBounds:
     serializedVersion: 2
-    x: 832
+    x: -0
     y: -1073
-    width: 1260
-    height: 1654
+    width: 2092
+    height: 1747
 --- !u!114 &114350483966674976
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -69,7 +80,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7d4c867f6b72b714dbb5fd1780afe208, type: 3}
-  m_Name: BasicColorBlobVfx
+  m_Name: Sparkle
   m_EditorClassIdentifier: 
   m_UIIgnoredErrors: []
   m_Parent: {fileID: 0}
@@ -132,7 +143,7 @@ VisualEffectResource:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: BasicColorBlobVfx
+  m_Name: Sparkle
   m_Graph: {fileID: 114350483966674976}
   m_Infos:
     m_RendererSettings:
@@ -307,7 +318,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: UnityEngine.Texture2D, UnityEngine.CoreModule, Version=0.0.0.0,
           Culture=neutral, PublicKeyToken=null
-      m_SerializableObject: '{"obj":{"fileID":2800000,"guid":"8aafaa78fe944854997fef757ff4ba72","type":3}}'
+      m_SerializableObject: '{"obj":{"fileID":2800000,"guid":"4a0aca3a5f2effb41b43cc0a1661d845","type":3}}'
     m_Space: -1
   m_Property:
     name: mainTexture
@@ -1517,7 +1528,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: UnityEngine.Vector3, UnityEngine.CoreModule, Version=0.0.0.0,
           Culture=neutral, PublicKeyToken=null
-      m_SerializableObject: '{"x":1.0,"y":0.0,"z":0.26575684547424319}'
+      m_SerializableObject: '{"x":0.8798794746398926,"y":1.0,"z":0.0}'
     m_Space: -1
   m_Property:
     name: A
@@ -1644,7 +1655,7 @@ MonoBehaviour:
   - {fileID: 8926484042661618120}
   - {fileID: 8926484042661618121}
   m_UIPosition: {x: 0, y: 0}
-  m_UICollapsed: 1
+  m_UICollapsed: 0
   m_UISuperCollapsed: 0
   m_MasterSlot: {fileID: 8926484042661618118}
   m_MasterData:
@@ -1653,7 +1664,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: UnityEngine.Vector3, UnityEngine.CoreModule, Version=0.0.0.0,
           Culture=neutral, PublicKeyToken=null
-      m_SerializableObject: '{"x":0.0,"y":0.6973068714141846,"z":2.0}'
+      m_SerializableObject: '{"x":2.0,"y":0.0,"z":0.84526127576828}'
     m_Space: -1
   m_Property:
     name: B

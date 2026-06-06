@@ -21,4 +21,4 @@ MonoBehaviour:
   targetMask: 1
   lifetimeSeconds: 3
   tickIntervalSeconds: 0.15
-  pulseEffect: {fileID: 8926484042661614526, guid: 5d59119edd3a9714eb51dc3af75dd222, type: 3}
+  lingeringPrefab: {fileID: 1037899157007725660, guid: e4b99e89657a29846b967bfd8cb4e1ee, type: 3}

@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 1003000000000000001}
   - component: {fileID: 1003000000000000002}
   m_Layer: 11
-  m_Name: BasicAoePulse2
+  m_Name: BasicAoe
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -49,8 +49,8 @@ MonoBehaviour:
   spriteRenderer: {fileID: 1003000000000000202}
   hurtbox: {fileID: 1003000000000000102}
   spawnEffect: {fileID: 8926484042661614526, guid: 5d59119edd3a9714eb51dc3af75dd222, type: 3}
-  hitEffect: {fileID: 8926484042661614526, guid: 5d59119edd3a9714eb51dc3af75dd222, type: 3}
-  expireEffect: {fileID: 8926484042661614526, guid: 5d59119edd3a9714eb51dc3af75dd222, type: 3}
+  hitEffect: {fileID: 0}
+  expireEffect: {fileID: 0}
 --- !u!1 &1003000000000000100
 GameObject:
   m_ObjectHideFlags: 0
@@ -146,7 +146,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 6, y: 5, z: 1}
+  m_LocalScale: {x: 7, y: 5.5, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1003000000000000001}
