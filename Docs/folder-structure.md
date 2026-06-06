@@ -53,6 +53,8 @@ Create these as systems are ported:
 - Want architecture: [architecture.md](./architecture.md)
 - Want coding rules: [coding-standards.md](./coding-standards.md)
 - Want player attacks: [player-attacks.md](./player-attacks.md)
+- Want skill/support system: [skill-system.md](./skill-system.md)
+- Want skill system integration plan: [skill-system-integration.md](./skill-system-integration.md)
 - Want projectiles: [projectile-system.md](./projectile-system.md)
 - Want AOEs: [aoe-system.md](./aoe-system.md)
 - Want VFX: [vfx-system.md](./vfx-system.md)
