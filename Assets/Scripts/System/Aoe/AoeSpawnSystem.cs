@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using PlayGround.System.Common;
+using PlayGround.System.Vfx;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -72,9 +73,18 @@ namespace PlayGround.System.Aoe
                     Entity scope = scopes[i];
                     DynamicBuffer<AoeSpawnRequestElement> requests =
                         EntityManager.GetBuffer<AoeSpawnRequestElement>(scope);
+                    DynamicBuffer<VfxSpawnRequestElement> vfxBuffer =
+                        EntityManager.GetBuffer<VfxSpawnRequestElement>(scope);
                     for (int requestIndex = 0; requestIndex < requests.Length; requestIndex++)
                     {
-                        Materialize(scope, requests[requestIndex], createEcb, ref reuseResets);
+                        AoeSpawnRequestElement request = requests[requestIndex];
+                        Materialize(scope, request, createEcb, ref reuseResets);
+                        vfxBuffer.Add(new VfxSpawnRequestElement
+                        {
+                            TypeId = request.TypeId,
+                            Trigger = 0,
+                            Position = request.Position
+                        });
                     }
 
                     requests.Clear();

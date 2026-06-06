@@ -254,6 +254,50 @@ Roots drain and clear the buffer each LateUpdate before dispatching to the GPU.
 
 ---
 
+## VFX Graph Authoring Pitfalls
+
+### Per-particle buffer indexing — do not use Get Spawn Index (Source)
+
+When sampling a `GraphicsBuffer` per-particle inside an Initialize Particle
+context driven by a Single Burst Spawn block, `Get Spawn Index` with Location
+`Source` returns the **spawn event index** — the same value for every particle
+in that burst. All particles in the burst therefore sample `buffer[eventIndex]`
+and spawn at the same world position, appearing stacked.
+
+**Correct pattern:** use `particleId % SpawnCount` as the buffer index.
+
+```
+Get Attribute: particleId  (Current)
+    ↓
+Modulo (%)  ←  SpawnCount  (property)
+    ↓
+Sample Graphics Buffer → Index
+```
+
+`particleId` is unique per particle across all time. Because each burst spawns
+exactly `SpawnCount` particles with consecutive IDs, `particleId % SpawnCount`
+resolves to `0, 1, 2 ... SpawnCount-1` for every burst regardless of how many
+bursts have already fired.
+
+### VisualEffect GO must be at world origin for world-space position buffers
+
+`BasicColorBlobVfx` and any graph authored against this runtime use **world
+simulation space**. Positions in the `Positions` buffer are absolute world-space
+`float2` coordinates. The `VisualEffect` component's GO must sit at world origin
+`(0, 0, z)` so that the graph's local-space transform does not offset the
+spawned particles.
+
+`CombatVfxDispatcher` enforces this by resetting the VFX GO position to
+`(0, 0, z)` in every `Dispatch()` call. Any standalone MonoBehaviour that owns
+its own `VisualEffect` must do the same before calling `SendEvent`, or must
+create a dedicated child GO at world origin rather than attaching the component
+to a moving actor.
+
+Symptom of violation: particles appear at `2 × actor_position` rather than
+around the actor, or at world origin when the actor is off-origin.
+
+---
+
 ## Performance Notes
 
 - `GraphicsBuffer` for each registered `(typeId, trigger)`: `maxPerFrame * 8` bytes on GPU.

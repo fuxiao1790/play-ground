@@ -16,8 +16,6 @@ MonoBehaviour:
   sizeMultiplier: 10
   preloadCount: 0
   damage: 120
-  lifetimeSeconds: 0
-  tickIntervalSeconds: 0
   count: 1
   spawnAtAimPosition: 0
   targetMask: 1

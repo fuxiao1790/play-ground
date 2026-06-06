@@ -5,10 +5,10 @@ using UnityEngine;
 
 namespace PlayGround.Attack
 {
-    public sealed class AoeAttack : MonoBehaviour
+    public class AoeAttack : MonoBehaviour
     {
         [SerializeField] private AoeRoot aoeRoot;
-        [SerializeField] private AoeConfig config;
+        [SerializeField] protected AoeConfig config;
         [SerializeField] private float recoverySeconds = 0.25f;
         [SerializeField] private AudioClip performSound;
         [SerializeField] private AudioManager audioManager;
@@ -17,6 +17,9 @@ namespace PlayGround.Attack
         private int registeredTypeId = -1;
 
         public bool IsReady => cooldownRemaining <= 0f;
+
+        protected virtual float SpawnLifetimeSeconds => 0f;
+        protected virtual float SpawnTickIntervalSeconds => 0f;
 
         private void Awake()
         {
@@ -67,8 +70,8 @@ namespace PlayGround.Attack
                     center,
                     EffectiveTargetMask(),
                     damageSnapshot,
-                    config.LifetimeSeconds,
-                    config.TickIntervalSeconds));
+                    SpawnLifetimeSeconds,
+                    SpawnTickIntervalSeconds));
             }
 
             PlayPerformSound(center);

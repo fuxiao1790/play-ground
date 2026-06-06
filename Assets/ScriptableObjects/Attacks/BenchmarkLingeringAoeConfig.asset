@@ -9,15 +9,16 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 61193c22c38d448ba6e3c5bca6b9be5f, type: 3}
+  m_Script: {fileID: 11500000, guid: c8f4a2e1b3d5467f9e0c1d2b3a4e5f6a, type: 3}
   m_Name: BenchmarkLingeringAoeConfig
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.AoeConfig
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.LingeringAoeConfig
   basicPrefab: {fileID: 1003000000000000002, guid: e4b99e89657a29846b967bfd8cb4e1ee, type: 3}
   sizeMultiplier: 8
   preloadCount: 64
   damage: 5
-  lifetimeSeconds: 3
-  tickIntervalSeconds: 0.25
   count: 1
   spawnAtAimPosition: 1
   targetMask: 1
+  lifetimeSeconds: 3
+  tickIntervalSeconds: 0.25
+  pulseEffect: {fileID: 8926484042661614526, guid: 5d59119edd3a9714eb51dc3af75dd222, type: 3}

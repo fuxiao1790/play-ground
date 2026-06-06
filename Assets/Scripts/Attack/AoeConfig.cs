@@ -1,17 +1,16 @@
 using PlayGround.System.Aoe;
 using UnityEngine;
+using UnityEngine.VFX;
 
 namespace PlayGround.Attack
 {
     [CreateAssetMenu(menuName = "PlayGround/Attack/AOE Config", fileName = "AoeConfig")]
-    public sealed class AoeConfig : ScriptableObject
+    public class AoeConfig : ScriptableObject
     {
         [SerializeField] private BasicAoePrefab basicPrefab;
         [SerializeField, Min(0.01f)] private float sizeMultiplier = 1f;
         [SerializeField, Min(0)] private int preloadCount;
         [SerializeField] private float damage = 1f;
-        [SerializeField] private float lifetimeSeconds;
-        [SerializeField] private float tickIntervalSeconds;
         [SerializeField, Min(1)] private int count = 1;
         [SerializeField] private bool spawnAtAimPosition;
         [SerializeField] private int targetMask = 1;
@@ -22,8 +21,8 @@ namespace PlayGround.Attack
         public float SizeMultiplier => sizeMultiplier;
         public int PreloadCount => preloadCount;
         public float Damage => damage;
-        public float LifetimeSeconds => lifetimeSeconds;
-        public float TickIntervalSeconds => tickIntervalSeconds;
+        public virtual float LifetimeSeconds => 0f;
+        public virtual float TickIntervalSeconds => 0f;
         public int Count => count;
         public bool SpawnAtAimPosition => spawnAtAimPosition;
         public int TargetMask => targetMask;
@@ -45,9 +44,11 @@ namespace PlayGround.Attack
                 basicPrefab != null ? basicPrefab.SpawnEffect : null,
                 basicPrefab != null ? basicPrefab.HitEffect : null,
                 basicPrefab != null ? basicPrefab.ExpireEffect : null,
-                basicPrefab != null ? basicPrefab.PulseEffect : null);
+                PulseEffect);
             return definition;
         }
+
+        protected virtual VisualEffectAsset PulseEffect => null;
 
         public bool IsValidConfig(out string reason)
         {

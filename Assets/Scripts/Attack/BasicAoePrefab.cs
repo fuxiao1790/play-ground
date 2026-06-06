@@ -11,14 +11,12 @@ namespace PlayGround.Attack
         [SerializeField] private VisualEffectAsset spawnEffect;
         [SerializeField] private VisualEffectAsset hitEffect;
         [SerializeField] private VisualEffectAsset expireEffect;
-        [SerializeField] private VisualEffectAsset pulseEffect;
 
         public SpriteRenderer SpriteRenderer => spriteRenderer;
         public Collider2D Hurtbox => hurtbox;
         public VisualEffectAsset SpawnEffect => spawnEffect;
         public VisualEffectAsset HitEffect => hitEffect;
         public VisualEffectAsset ExpireEffect => expireEffect;
-        public VisualEffectAsset PulseEffect => pulseEffect;
         public Sprite Sprite => spriteRenderer != null ? spriteRenderer.sprite : null;
         public Material Material => spriteRenderer != null ? spriteRenderer.sharedMaterial : null;
         public float VisualRotationDegrees => spriteRenderer != null ? spriteRenderer.transform.eulerAngles.z : 0f;
@@ -39,37 +37,51 @@ namespace PlayGround.Attack
             Collider2D hurtboxShape,
             VisualEffectAsset spawnVisualEffect = null,
             VisualEffectAsset hitVisualEffect = null,
-            VisualEffectAsset expireVisualEffect = null,
-            VisualEffectAsset pulseVisualEffect = null)
+            VisualEffectAsset expireVisualEffect = null)
         {
             spriteRenderer = renderer;
             hurtbox = hurtboxShape;
             spawnEffect = spawnVisualEffect;
             hitEffect = hitVisualEffect;
             expireEffect = expireVisualEffect;
-            pulseEffect = pulseVisualEffect;
         }
 
         public bool IsValidTemplate(out string reason)
         {
             reason = string.Empty;
 
-            if (spriteRenderer == null)
+            if (spriteRenderer != null && spriteRenderer.sprite != null)
             {
-                reason = "missing Visual child sprite renderer";
-                return false;
-            }
+                if (spriteRenderer.gameObject.name != "Visual")
+                {
+                    reason = "sprite renderer must be on a child named Visual";
+                    return false;
+                }
 
-            if (spriteRenderer.gameObject.name != "Visual")
-            {
-                reason = "sprite renderer must be on a child named Visual";
-                return false;
-            }
+                Material mat = spriteRenderer.sharedMaterial;
+                if (mat == null)
+                {
+                    reason = "Visual sprite renderer has no assigned Material";
+                    return false;
+                }
 
-            if (spriteRenderer.sprite == null)
-            {
-                reason = "sprite renderer has no sprite";
-                return false;
+                if (mat.mainTexture == null && (spriteRenderer.sprite == null || spriteRenderer.sprite.texture == null))
+                {
+                    reason = "Visual Material has no main texture assigned and sprite has no texture";
+                    return false;
+                }
+
+                if (!mat.enableInstancing)
+                {
+                    reason = "Visual Material does not have GPU instancing enabled";
+                    return false;
+                }
+
+                if (mat.shader == null || !mat.shader.isSupported)
+                {
+                    reason = $"Visual Material shader is not supported: {mat.shader?.name ?? "(none)"}";
+                    return false;
+                }
             }
 
             if (hurtbox == null)
@@ -87,31 +99,6 @@ namespace PlayGround.Attack
             if (!CombatTargetShapeUtility.IsSupportedShape(hurtbox))
             {
                 reason = $"unsupported hurtbox collider type {hurtbox.GetType().Name}";
-                return false;
-            }
-
-            Material mat = spriteRenderer.sharedMaterial;
-            if (mat == null)
-            {
-                reason = "Visual sprite renderer has no assigned Material";
-                return false;
-            }
-
-            if (mat.mainTexture == null && (spriteRenderer.sprite == null || spriteRenderer.sprite.texture == null))
-            {
-                reason = "Visual Material has no main texture assigned and sprite has no texture";
-                return false;
-            }
-
-            if (!mat.enableInstancing)
-            {
-                reason = "Visual Material does not have GPU instancing enabled";
-                return false;
-            }
-
-            if (mat.shader == null || !mat.shader.isSupported)
-            {
-                reason = $"Visual Material shader is not supported: {mat.shader?.name ?? "(none)"}";
                 return false;
             }
 
