@@ -1,6 +1,8 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
+using UnityEngine.TestTools;
 using PlayGround.Attack;
 using PlayGround.Common;
 using PlayGround.Mob;
@@ -308,8 +310,8 @@ namespace PlayGround.Tests.PlayMode
             Object.Destroy(mobObject);
         }
 
-        [Test]
-        public void ProjectileImpactAoeRoutesThroughAoeRootOnNextStep()
+        [UnityTest]
+        public IEnumerator ProjectileImpactAoeRoutesThroughAoeRootOnNextStep()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             CreateAoeFixture(out GameObject aoeObject, out AoeRoot aoeRoot, out GameObject aoeTemplateObject, out int aoeTypeId);
@@ -338,10 +340,10 @@ namespace PlayGround.Tests.PlayMode
                     tickIntervalSeconds: 0f));
 
             projectileRoot.Spawn(command);
-            projectileRoot.Step(0.01f);
+            yield return null;
             Assert.That(mob.CurrentHealth, Is.EqualTo(10f));
 
-            aoeRoot.Step(0.01f);
+            yield return null;
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(7f));
             router.Unbind();
@@ -351,8 +353,8 @@ namespace PlayGround.Tests.PlayMode
             Object.Destroy(aoeTemplateObject);
         }
 
-        [Test]
-        public void AoeProjectileBurstRoutesThroughProjectileRootOnNextStepWithoutImpactPayload()
+        [UnityTest]
+        public IEnumerator AoeProjectileBurstRoutesThroughProjectileRootOnNextStepWithoutImpactPayload()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             CreateAoeFixture(out GameObject aoeObject, out AoeRoot aoeRoot, out GameObject aoeTemplateObject, out int aoeTypeId);
@@ -387,10 +389,10 @@ namespace PlayGround.Tests.PlayMode
                 lifetimeSeconds: 0f,
                 tickIntervalSeconds: 0f,
                 projectileBurst: burst));
-            aoeRoot.Step(0.01f);
+            yield return null;
             Assert.That(mob.CurrentHealth, Is.EqualTo(10f));
 
-            projectileRoot.Step(0.01f);
+            yield return null;
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(8f));
             Assert.That(spawnedProjectileCarriedImpactAoe, Is.False);

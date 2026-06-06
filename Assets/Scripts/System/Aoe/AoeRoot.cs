@@ -20,7 +20,6 @@ namespace PlayGround.System.Aoe
         private static readonly ProfilerMarker SyncTargetsProfilerMarker = new("AoeRoot.SyncTargets");
         private static readonly ProfilerMarker SubmitAoesProfilerMarker = new("AoeRoot.SubmitAoes");
         private static readonly ProfilerMarker DrainEventsProfilerMarker = new("AoeRoot.DrainEvents");
-        private static readonly ProfilerMarker StepSimulationProfilerMarker = new("AoeRoot.StepSimulation");
 
         [SerializeField] private int targetMask = 1;
         [SerializeField, Min(0)] private int maximumAoeCount = 10000;
@@ -70,7 +69,7 @@ namespace PlayGround.System.Aoe
         private void Awake()
         {
             runtimeReady = false;
-            vfxDispatcher = new CombatVfxDispatcher(transform);
+            vfxDispatcher ??= new CombatVfxDispatcher(transform);
             targetSync = new AoeTargetSync(targetRegistry);
             BindWorld();
             runtimeReady = true;
@@ -225,17 +224,6 @@ namespace PlayGround.System.Aoe
             spawnRequests.Add(SpawnRequestFor(command, shape, aoeId));
             spawnedAoes++;
             return aoeId;
-        }
-
-        public void Step(float deltaTime)
-        {
-            EnsureRuntimeReady();
-            SyncTargetsToEcs();
-            using (StepSimulationProfilerMarker.Auto())
-            {
-                World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<SimulationSystemGroup>().Update();
-            }
-            DrainEvents();
         }
 
         private AoeSpawnRequestElement SpawnRequestFor(AoeSpawnCommand command, AoeShape shape, int aoeId)

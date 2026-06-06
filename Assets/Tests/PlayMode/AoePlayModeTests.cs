@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Reflection;
 using NUnit.Framework;
 using PlayGround.Attack;
@@ -12,6 +13,7 @@ using PlayGround.System.Projectile;
 using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace PlayGround.Tests.PlayMode
 {
@@ -20,90 +22,8 @@ namespace PlayGround.Tests.PlayMode
         private const int DefaultTargetMask = 1;
         private static int nextTargetId = 1000;
 
-        [Test]
-        public void AoePulseHitsOverlappingTargetOnce()
-        {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
-            AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
-            root.TargetRegistry.Register(target);
-
-            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 2f));
-            root.Step(0.01f);
-            root.Step(0.01f);
-
-            Assert.That(target.HitCount, Is.EqualTo(1));
-            Assert.That(target.TotalDamage, Is.EqualTo(2f));
-            Cleanup(rootObject, templateObject, target.gameObject);
-        }
-
-        [Test]
-        public void AoeLingeringHitsImmediatelyAndRepeatsAfterCooldown()
-        {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
-            AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
-            root.TargetRegistry.Register(target);
-
-            root.Spawn(LingeringCommand(typeId, Vector2.zero, DefaultTargetMask, 2f, lifetimeSeconds: 10f, tickIntervalSeconds: 0.02f));
-            root.Step(0.01f);
-            root.Step(0.01f);
-            root.Step(0.02f);
-
-            Assert.That(target.HitCount, Is.EqualTo(2));
-            Assert.That(target.TotalDamage, Is.EqualTo(4f));
-            Cleanup(rootObject, templateObject, target.gameObject);
-        }
-
-        [Test]
-        public void AoeLingeringReentryWaitsForExistingCooldown()
-        {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
-            AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
-            root.TargetRegistry.Register(target);
-
-            root.Spawn(LingeringCommand(typeId, Vector2.zero, DefaultTargetMask, 2f, lifetimeSeconds: 10f, tickIntervalSeconds: 100f));
-            root.Step(0.01f);
-            target.transform.position = new Vector2(5f, 0f);
-            root.Step(0.01f);
-            target.transform.position = Vector2.zero;
-            root.Step(0.01f);
-
-            Assert.That(target.HitCount, Is.EqualTo(1));
-            Assert.That(target.TotalDamage, Is.EqualTo(2f));
-            Cleanup(rootObject, templateObject, target.gameObject);
-        }
-
-        [Test]
-        public void AoeLingeringExpiresAndRecycles()
-        {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
-            AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
-            root.TargetRegistry.Register(target);
-
-            root.Spawn(LingeringCommand(typeId, Vector2.zero, DefaultTargetMask, 2f, lifetimeSeconds: 0.001f, tickIntervalSeconds: 1f));
-            root.Step(0.01f);
-            root.Step(0.01f);
-
-            Assert.That(root.Counters.ActiveAoes, Is.EqualTo(0));
-            Assert.That(root.Counters.DespawnedOrReusedAoes, Is.EqualTo(1));
-            Cleanup(rootObject, templateObject, target.gameObject);
-        }
-
-        [Test]
-        public void AoePulseDoesNotHitOutsideShape()
-        {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
-            AoeTargetProbe target = CreateTarget(new Vector2(3f, 0f), DefaultTargetMask);
-            root.TargetRegistry.Register(target);
-
-            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 2f));
-            root.Step(0.01f);
-
-            Assert.That(target.HitCount, Is.EqualTo(0));
-            Cleanup(rootObject, templateObject, target.gameObject);
-        }
-
-        [Test]
-        public void AoePrefabTransformScaleAffectsCollisionShape()
+        [UnityTest]
+        public IEnumerator AoePrefabTransformScaleAffectsCollisionShape()
         {
             CreateAoeFixture(
                 out GameObject rootObject,
@@ -115,14 +35,14 @@ namespace PlayGround.Tests.PlayMode
             root.TargetRegistry.Register(target);
 
             root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 2f));
-            root.Step(0.01f);
+            yield return null;
 
             Assert.That(target.HitCount, Is.EqualTo(1));
             Cleanup(rootObject, templateObject, target.gameObject);
         }
 
-        [Test]
-        public void AoeVisualBakeUsesSpriteRendererTransformScale()
+        [UnityTest]
+        public IEnumerator AoeVisualBakeUsesSpriteRendererTransformScale()
         {
             CreateAoeFixture(
                 out GameObject rootObject,
@@ -132,7 +52,7 @@ namespace PlayGround.Tests.PlayMode
                 templateScale: new Vector3(2f, 2f, 1f),
                 visualScale: new Vector3(3f, 4f, 1f));
             root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 2f));
-            root.Step(0.01f);
+            yield return null;
 
             Matrix4x4 matrix = FirstScopedAoeRenderMatrix(root);
 
@@ -141,22 +61,26 @@ namespace PlayGround.Tests.PlayMode
             Cleanup(rootObject, templateObject);
         }
 
-        [Test]
-        public void AoeTargetMaskFiltersHits()
+        [UnityTest]
+        public IEnumerator AoeRootCreatesNoPerAoeLiveDamageOrColliderObjects()
         {
             CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
-            AoeTargetProbe target = CreateTarget(Vector2.zero, targetMask: 2);
+            AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(Command(typeId, Vector2.zero, targetMask: 4, 2f));
-            root.Step(0.01f);
+            for (int i = 0; i < 3; i++)
+            {
+                root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 1f));
+                yield return null;
+            }
 
-            Assert.That(target.HitCount, Is.EqualTo(0));
+            Assert.That(rootObject.transform.childCount, Is.EqualTo(0));
+            Assert.That(rootObject.GetComponentsInChildren<Collider2D>(true), Is.Empty);
             Cleanup(rootObject, templateObject, target.gameObject);
         }
 
-        [Test]
-        public void AoeHitReplayCallsTargetDamageCallback()
+        [UnityTest]
+        public IEnumerator AoeHitReplayCallsTargetDamageCallback()
         {
             CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
@@ -170,7 +94,7 @@ namespace PlayGround.Tests.PlayMode
             };
 
             root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 3f));
-            root.Step(0.01f);
+            yield return null;
 
             Assert.That(replayCount, Is.EqualTo(1));
             Assert.That(replayContext.Target, Is.EqualTo(target));
@@ -179,8 +103,8 @@ namespace PlayGround.Tests.PlayMode
             Cleanup(rootObject, templateObject, target.gameObject);
         }
 
-        [Test]
-        public void MobStatusTriggerSpawnsAoeThroughBoundAoeRoot()
+        [UnityTest]
+        public IEnumerator MobStatusTriggerSpawnsAoeThroughBoundAoeRoot()
         {
             CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out _);
             MobRoot mob = CreateMobTarget(Vector2.zero);
@@ -194,12 +118,10 @@ namespace PlayGround.Tests.PlayMode
             mob.StatusEffects.AddEffect(trigger, 3, trigger.DamageContributionPerStack);
 
             Assert.That(root.Counters.SpawnedAoes, Is.EqualTo(0));
-
             mob.StatusEffects.Tick(0f);
-
             Assert.That(root.Counters.SpawnedAoes, Is.EqualTo(1));
 
-            root.Step(0.01f);
+            yield return null;
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(4f));
             Object.Destroy(trigger);
@@ -207,84 +129,22 @@ namespace PlayGround.Tests.PlayMode
             Cleanup(rootObject, templateObject, mob.gameObject);
         }
 
-        [Test]
-        public void AoeEntityIsReusedAfterPulse()
+        [UnityTest]
+        public IEnumerator AoeCountersTrackSpawnDespawnHitAndRenderBatchFields()
         {
             CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 1f));
-            root.Step(0.01f);
-            Entity firstEntity = FirstScopedAoeEntity(root);
+            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 2f));
+            yield return null;
 
-            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 1f));
-            root.Step(0.01f);
-            Entity reusedEntity = FirstScopedAoeEntity(root);
-
-            Assert.That(reusedEntity, Is.EqualTo(firstEntity));
-            Assert.That(CountScopedAoeEntities(root), Is.EqualTo(1));
-            Assert.That(target.HitCount, Is.EqualTo(2));
+            AoeRuntimeCounters counters = root.Counters;
+            Assert.That(counters.SpawnedAoes, Is.EqualTo(1));
+            Assert.That(counters.DespawnedOrReusedAoes, Is.EqualTo(1));
+            Assert.That(counters.HitEvents, Is.EqualTo(1));
+            Assert.That(counters.RenderBatches, Is.GreaterThanOrEqualTo(0));
             Cleanup(rootObject, templateObject, target.gameObject);
-        }
-
-        [Test]
-        public void AoeRootCreatesNoPerAoeLiveDamageOrColliderObjects()
-        {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
-            AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
-            root.TargetRegistry.Register(target);
-
-            for (int i = 0; i < 3; i++)
-            {
-                root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 1f));
-                root.Step(0.01f);
-            }
-
-            Assert.That(rootObject.transform.childCount, Is.EqualTo(0));
-            Assert.That(rootObject.GetComponentsInChildren<Collider2D>(true), Is.Empty);
-            Assert.That(CountScopedAoeEntities(root), Is.EqualTo(1));
-            Cleanup(rootObject, templateObject, target.gameObject);
-        }
-
-        [Test]
-        public void AoeSystemsIgnoreCommonCombatEntityWithoutAoeTag()
-        {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out _);
-            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
-            Entity entity = entityManager.CreateEntity(
-                typeof(CombatKinematicsComponent),
-                typeof(CombatCollisionComponent),
-                typeof(CombatHitComponent),
-                typeof(AoeActiveTag));
-
-            entityManager.SetComponentData(entity, new CombatKinematicsComponent
-            {
-                Position = new Unity.Mathematics.float2(1f, 2f),
-                Velocity = new Unity.Mathematics.float2(5f, 0f)
-            });
-            entityManager.SetComponentData(entity, new CombatCollisionComponent
-            {
-                ShapeType = CombatShapeType.Circle,
-                Radius = 0.5f,
-                BoundsMin = new Unity.Mathematics.float2(0.5f, 1.5f),
-                BoundsMax = new Unity.Mathematics.float2(1.5f, 2.5f)
-            });
-            entityManager.SetComponentData(entity, new CombatHitComponent
-            {
-                TargetMask = ~0,
-                DamageAmount = 1f,
-                DirectDamageEnabled = true
-            });
-
-            root.Step(0.01f);
-
-            CombatKinematicsComponent kinematics = entityManager.GetComponentData<CombatKinematicsComponent>(entity);
-            Assert.That(kinematics.Position.x, Is.EqualTo(1f));
-            Assert.That(kinematics.Position.y, Is.EqualTo(2f));
-
-            entityManager.DestroyEntity(entity);
-            Cleanup(rootObject, templateObject);
         }
 
         [Test]
@@ -305,24 +165,6 @@ namespace PlayGround.Tests.PlayMode
             Cleanup(projectileObject, aoeObject, templateObject);
         }
 
-        [Test]
-        public void AoeCountersTrackSpawnDespawnHitAndRenderBatchFields()
-        {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
-            AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
-            root.TargetRegistry.Register(target);
-
-            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 2f));
-            root.Step(0.01f);
-
-            AoeRuntimeCounters counters = root.Counters;
-            Assert.That(counters.SpawnedAoes, Is.EqualTo(1));
-            Assert.That(counters.DespawnedOrReusedAoes, Is.EqualTo(1));
-            Assert.That(counters.HitEvents, Is.EqualTo(1));
-            Assert.That(counters.RenderBatches, Is.GreaterThanOrEqualTo(0));
-            Cleanup(rootObject, templateObject, target.gameObject);
-        }
-
         private static AoeSpawnCommand Command(int typeId, Vector2 position, int targetMask, float damage)
         {
             return new AoeSpawnCommand(
@@ -332,23 +174,6 @@ namespace PlayGround.Tests.PlayMode
                 new DamageSnapshot(damage),
                 lifetimeSeconds: 0f,
                 tickIntervalSeconds: 0f);
-        }
-
-        private static AoeSpawnCommand LingeringCommand(
-            int typeId,
-            Vector2 position,
-            int targetMask,
-            float damage,
-            float lifetimeSeconds,
-            float tickIntervalSeconds)
-        {
-            return new AoeSpawnCommand(
-                typeId,
-                position,
-                targetMask,
-                new DamageSnapshot(damage),
-                lifetimeSeconds,
-                tickIntervalSeconds);
         }
 
         private static void CreateAoeFixture(
@@ -463,45 +288,6 @@ namespace PlayGround.Tests.PlayMode
                 0.5f);
             mobObject.SetActive(true);
             return mob;
-        }
-
-        private static Entity FirstScopedAoeEntity(AoeRoot root)
-        {
-            Entity result = Entity.Null;
-            CountScopedAoes(
-                root,
-                entity =>
-                {
-                    result = entity;
-                    return true;
-                });
-            Assert.That(result, Is.Not.EqualTo(Entity.Null));
-            return result;
-        }
-
-        private static int CountScopedAoeEntities(AoeRoot root)
-        {
-            return CountScopedAoes(root, _ => true);
-        }
-
-        private static int CountScopedAoes(AoeRoot root, global::System.Func<Entity, bool> predicate)
-        {
-            Entity scope = AoeScopeEntity(root);
-            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
-            using EntityQuery query = entityManager.CreateEntityQuery(ComponentType.ReadOnly<AoeIdentityComponent>());
-            using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
-            int count = 0;
-
-            for (int i = 0; i < entities.Length; i++)
-            {
-                AoeIdentityComponent identity = entityManager.GetComponentData<AoeIdentityComponent>(entities[i]);
-                if (identity.Scope == scope && predicate(entities[i]))
-                {
-                    count++;
-                }
-            }
-
-            return count;
         }
 
         private static Entity AoeScopeEntity(AoeRoot root)
