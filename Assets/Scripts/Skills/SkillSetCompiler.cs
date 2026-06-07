@@ -47,6 +47,25 @@ namespace PlayGround.Skills
                     continue;
                 }
 
+                if (link is OnStackTrigger stackTrigger)
+                {
+                    if (runtime is RuntimeProjectileDefinition projDef)
+                    {
+                        RuntimeSkillDefinition compiledTarget = Compile(stackTrigger.target, allLinks, snapshot);
+                        if (compiledTarget is RuntimeAoeDefinition aoeDef)
+                        {
+                            projDef.StackTriggerSetup = new RuntimeStackTriggerSetup
+                            {
+                                DebuffStatusId = (int)stackTrigger.debuffStatus,
+                                StacksPerHit = Mathf.Max(1, stackTrigger.stacksPerHit),
+                                StackThreshold = Mathf.Max(1, stackTrigger.stackThreshold),
+                                AoeDefinition = aoeDef,
+                            };
+                        }
+                    }
+                    continue;
+                }
+
             }
 
             return runtime;

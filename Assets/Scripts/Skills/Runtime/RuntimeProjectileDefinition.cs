@@ -32,6 +32,9 @@ namespace PlayGround.Skills.Runtime
         // Compiled from OnImpactAoeTrigger; null if none.
         public RuntimeAoeDefinition ImpactAoeDefinition { get; set; }
 
+        // Compiled from OnStackTrigger; null if none.
+        public RuntimeStackTriggerSetup StackTriggerSetup { get; set; }
+
         public ProjectileChildSpawnConfig BuildChildSpawnConfig()
         {
             RuntimeChildSpawnSetup setup = ChildSpawnSetup;
@@ -59,7 +62,22 @@ namespace PlayGround.Skills.Runtime
                 prefab.VisualScale,
                 prefab.VisualRotationDegrees,
                 child.Tracking,
-                setup.Behavior);
+                setup.Behavior,
+                stackEffect: BuildChildStackEffect(child.StackTriggerSetup));
+        }
+
+        private static ProjectileStackEffectSnapshot BuildChildStackEffect(RuntimeStackTriggerSetup stack)
+        {
+            if (stack == null || stack.AoeDefinition == null || stack.AoeDefinition.TypeId < 0)
+                return default;
+            return new ProjectileStackEffectSnapshot(
+                stack.DebuffStatusId,
+                Mathf.Max(1, stack.StacksPerHit),
+                Mathf.Max(1, stack.StackThreshold),
+                stack.AoeDefinition.TypeId,
+                Mathf.Max(0f, stack.AoeDefinition.Damage),
+                stack.AoeDefinition.LifetimeSeconds,
+                stack.AoeDefinition.TickIntervalSeconds);
         }
     }
 }

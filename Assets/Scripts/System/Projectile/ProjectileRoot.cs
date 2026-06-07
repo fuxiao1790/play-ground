@@ -551,7 +551,8 @@ namespace PlayGround.System.Projectile
                 TrackingTurnSpeedRadians = math.radians(config.Tracking.TurnSpeedDegrees),
                 TrackingQueryIntervalSeconds = config.Tracking.QueryIntervalSeconds,
                 TrackingInitialQueryDelaySeconds = config.Tracking.InitialQueryDelaySeconds,
-                ImpactAoe = config.ImpactAoe
+                ImpactAoe = config.ImpactAoe,
+                StackEffect = config.StackEffect
             };
         }
 

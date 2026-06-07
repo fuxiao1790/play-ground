@@ -3,6 +3,37 @@ using UnityEngine;
 
 namespace PlayGround.System.Projectile
 {
+    public readonly struct ProjectileStackEffectSnapshot
+    {
+        public ProjectileStackEffectSnapshot(
+            int debuffStatusId,
+            int stacksPerHit,
+            int stackThreshold,
+            int aoeTypeId,
+            float aoeDamage,
+            float aoeLifetimeSeconds,
+            float aoeTickIntervalSeconds)
+        {
+            Enabled = aoeTypeId >= 0;
+            DebuffStatusId = debuffStatusId;
+            StacksPerHit = stacksPerHit;
+            StackThreshold = stackThreshold;
+            AoeTypeId = aoeTypeId;
+            AoeDamage = aoeDamage;
+            AoeLifetimeSeconds = Mathf.Max(0f, aoeLifetimeSeconds);
+            AoeTickIntervalSeconds = Mathf.Max(0f, aoeTickIntervalSeconds);
+        }
+
+        public bool Enabled { get; }
+        public int DebuffStatusId { get; }
+        public int StacksPerHit { get; }
+        public int StackThreshold { get; }
+        public int AoeTypeId { get; }
+        public float AoeDamage { get; }
+        public float AoeLifetimeSeconds { get; }
+        public float AoeTickIntervalSeconds { get; }
+    }
+
     public readonly struct ProjectileImpactAoeSnapshot
     {
         public ProjectileImpactAoeSnapshot(
@@ -35,18 +66,21 @@ namespace PlayGround.System.Projectile
             EntityId sourceNodeId,
             float damageAmount,
             bool directDamageEnabled,
-            ProjectileImpactAoeSnapshot impactAoe = default)
+            ProjectileImpactAoeSnapshot impactAoe = default,
+            ProjectileStackEffectSnapshot stackEffect = default)
         {
             SourceNodeId = sourceNodeId;
             DamageAmount = damageAmount;
             DirectDamageEnabled = directDamageEnabled;
             ImpactAoe = impactAoe;
+            StackEffect = stackEffect;
         }
 
         public EntityId SourceNodeId { get; }
         public float DamageAmount { get; }
         public bool DirectDamageEnabled { get; }
         public ProjectileImpactAoeSnapshot ImpactAoe { get; }
+        public ProjectileStackEffectSnapshot StackEffect { get; }
         public DamageSnapshot Damage => new(DamageAmount);
     }
 

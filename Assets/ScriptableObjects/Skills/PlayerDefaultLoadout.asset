@@ -27,4 +27,4 @@ MonoBehaviour:
         target: {fileID: 11400000, guid: a2000000000000000000000000000004, type: 2}
         intervalSeconds: 0.15
         spawnCount: 40
-        sideSpreadDegrees: 30
+        sideSpreadDegrees: 59

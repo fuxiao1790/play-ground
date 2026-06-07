@@ -260,10 +260,31 @@ namespace PlayGround.Mob
             in ProjectileHitContext context,
             ProjectileHitActorRole role)
         {
-            if (role == ProjectileHitActorRole.Target && payload.DirectDamageEnabled)
-            {
+            if (role != ProjectileHitActorRole.Target)
+                return;
+
+            if (payload.DirectDamageEnabled)
                 TakeDamage(payload.Damage);
-            }
+
+            if (payload.StackEffect.Enabled)
+                ApplyStackEffect(payload.StackEffect);
+        }
+
+        private void ApplyStackEffect(ProjectileStackEffectSnapshot effect)
+        {
+            var status = (MobDebuffStatus)effect.DebuffStatusId;
+            bool triggered = debuffStacks.AddStacks(status, Mathf.Max(1, effect.StacksPerHit), Mathf.Max(1, effect.StackThreshold));
+            if (!triggered || aoeRoot == null || effect.AoeTypeId < 0)
+                return;
+
+            debuffStacks.ClearStacks(status);
+            aoeRoot.Spawn(new AoeSpawnCommand(
+                effect.AoeTypeId,
+                transform.position,
+                aoeRoot.TargetMask,
+                new DamageSnapshot(Mathf.Max(0f, effect.AoeDamage)),
+                effect.AoeLifetimeSeconds,
+                effect.AoeTickIntervalSeconds));
         }
 
         public void ReceiveAoeHit(DamageSnapshot damage)

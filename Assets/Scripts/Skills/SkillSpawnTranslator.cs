@@ -39,6 +39,7 @@ namespace PlayGround.Skills
             int targetMask = root.TargetMask;
 
             ProjectileImpactAoeSnapshot impactAoe = BuildImpactAoeSnapshot(def, targetMask);
+            ProjectileStackEffectSnapshot stackEffect = BuildStackEffectSnapshot(def);
             ProjectileChildSpawnConfig childSpawn = def.BuildChildSpawnConfig();
 
             for (int i = 0; i < count; i++)
@@ -67,7 +68,8 @@ namespace PlayGround.Skills
                     childSpawn,
                     def.DirectDamageEnabled,
                     default,
-                    impactAoe));
+                    impactAoe,
+                    stackEffect));
             }
         }
 
@@ -109,6 +111,22 @@ namespace PlayGround.Skills
                 Mathf.Max(0f, impact.Damage),
                 impact.LifetimeSeconds,
                 impact.TickIntervalSeconds);
+        }
+
+        private static ProjectileStackEffectSnapshot BuildStackEffectSnapshot(RuntimeProjectileDefinition def)
+        {
+            RuntimeStackTriggerSetup stack = def.StackTriggerSetup;
+            if (stack == null || stack.AoeDefinition == null || stack.AoeDefinition.TypeId < 0)
+                return default;
+
+            return new ProjectileStackEffectSnapshot(
+                stack.DebuffStatusId,
+                Mathf.Max(1, stack.StacksPerHit),
+                Mathf.Max(1, stack.StackThreshold),
+                stack.AoeDefinition.TypeId,
+                Mathf.Max(0f, stack.AoeDefinition.Damage),
+                stack.AoeDefinition.LifetimeSeconds,
+                stack.AoeDefinition.TickIntervalSeconds);
         }
     }
 }

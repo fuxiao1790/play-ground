@@ -1,4 +1,5 @@
 using System;
+using PlayGround.Mob;
 using UnityEngine;
 
 namespace PlayGround.Skills
@@ -23,4 +24,12 @@ namespace PlayGround.Skills
 
     [Serializable]
     public sealed class OnExpireTrigger : TriggerLink { }
+
+    [Serializable]
+    public sealed class OnStackTrigger : TriggerLink
+    {
+        public MobDebuffStatus debuffStatus = MobDebuffStatus.Volatile;
+        [Min(1)] public int stacksPerHit = 1;
+        [Min(1)] public int stackThreshold = 3;
+    }
 }

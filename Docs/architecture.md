@@ -19,6 +19,13 @@ beams live in data-oriented runtime worlds because their counts can become huge.
 Projectiles specifically use Entities/DOTS so high-count projectile state is not
 represented by one GameObject or scene node per projectile.
 
+The project intentionally mixes OOP and DOP. The scene-object side uses
+MonoBehaviours, prefabs, ScriptableObjects, and focused plain C# helpers for
+low-count authored gameplay. The high-count combat side uses ECS/DOTS data
+flows. OOP-side code should use the simplest possible constructs: plain
+components, minimal callbacks, explicit ownership, and minimal lifetime coupling,
+so it does not create performance or teardown conflicts with ECS systems.
+
 High-level runtime path:
 
 1. `Assets/Scenes/Main.unity` loads gameplay roots.
@@ -124,6 +131,11 @@ eligible for a domain system.
 Do not move player and mob body collision into the projectile/AOE runtime. Also
 do not move high-count projectiles and AOEs into one GameObject per gameplay
 entity as the authoritative simulation path.
+
+Keep the OOP/DOP boundary explicit. MonoBehaviours own authored references,
+Unity object lifetimes, and gameplay callbacks. ECS systems own scalable combat
+state, simulation, pooling, and event buffers. Cross-boundary communication must
+stay narrow: snapshots go into data runtimes, replayable events come back out.
 
 The bridge is snapshots and callbacks:
 
