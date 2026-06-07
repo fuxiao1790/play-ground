@@ -1,4 +1,3 @@
-using PlayGround.Attack;
 using PlayGround.Common;
 using PlayGround.Mob;
 using PlayGround.Spawn;
@@ -114,7 +113,9 @@ namespace PlayGround.Game
         {
             if (player != null && playerAoeRoot != null)
             {
-                BindPlayerAoeAttacks(playerAoeRoot);
+                PlayGround.Skills.PlayerSkillDriver driver =
+                    player.GetComponent<PlayGround.Skills.PlayerSkillDriver>();
+                driver?.BindAoeRoot(playerAoeRoot);
             }
         }
 
@@ -177,27 +178,6 @@ namespace PlayGround.Game
             player = playerRoot;
             mobSpawner = spawner;
             mobs = null;
-        }
-
-        private void BindPlayerAoeAttacks(AoeRoot root)
-        {
-            ProjectileAttack[] projectileAttacks = player.GetComponentsInChildren<ProjectileAttack>(true);
-            for (int i = 0; i < projectileAttacks.Length; i++)
-            {
-                projectileAttacks[i].ConfigureAoeRoot(root);
-            }
-
-            AoeAttack[] aoeAttacks = player.GetComponentsInChildren<AoeAttack>(true);
-            for (int i = 0; i < aoeAttacks.Length; i++)
-            {
-                aoeAttacks[i].Configure(root);
-            }
-
-            ChildSpawningProjectileAttack[] childSpawningAttacks = player.GetComponentsInChildren<ChildSpawningProjectileAttack>(true);
-            for (int i = 0; i < childSpawningAttacks.Length; i++)
-            {
-                childSpawningAttacks[i].ConfigureAoeRoot(root);
-            }
         }
 
         private static T FindTaggedComponent<T>(string tag)

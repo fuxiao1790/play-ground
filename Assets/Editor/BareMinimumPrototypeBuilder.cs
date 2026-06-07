@@ -1,5 +1,4 @@
 using System.IO;
-using PlayGround.Attack;
 using PlayGround.Audio;
 using PlayGround.CameraSystem;
 using PlayGround.Common;
@@ -78,12 +77,6 @@ namespace PlayGround.Editor
                 player.GetComponentInChildren<SpriteRenderer>(),
                 worldCamera);
 
-            ProjectileAttack[] playerAttacks = player.GetComponentsInChildren<ProjectileAttack>();
-            for (int i = 0; i < playerAttacks.Length; i++)
-            {
-                playerAttacks[i].Configure(projectileRoot);
-            }
-
             gameRoot.Configure(projectileRoot, mobProjectileRoot, player.GetComponent<PlayerRoot>(), spawner);
 
             GameObject level = CreateLevel(groundSprite);
@@ -130,20 +123,7 @@ namespace PlayGround.Editor
             PlayerRoot playerRoot = player.AddComponent<PlayerRoot>();
             playerRoot.Configure(inputActions, body, hurtbox, renderer, null);
 
-            CreatePlayerAttack(player.transform, "ProjectileAttack_Right", new Vector3(0.55f, 0f, 0f));
-            CreatePlayerAttack(player.transform, "ProjectileAttack_Left", new Vector3(-0.55f, 0f, 0f));
-            CreatePlayerAttack(player.transform, "ProjectileAttack_Up", new Vector3(0f, 0.55f, 0f));
-            CreatePlayerAttack(player.transform, "ProjectileAttack_Down", new Vector3(0f, -0.55f, 0f));
-
             return player;
-        }
-
-        private static void CreatePlayerAttack(Transform parent, string name, Vector3 localPosition)
-        {
-            GameObject muzzle = new(name);
-            muzzle.transform.SetParent(parent, false);
-            muzzle.transform.localPosition = localPosition;
-            muzzle.AddComponent<ProjectileAttack>();
         }
 
         private static MobRoot[] CreateMobPrefabAssets(Sprite sprite)

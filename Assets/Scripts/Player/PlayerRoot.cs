@@ -1,4 +1,3 @@
-using PlayGround.Attack;
 using PlayGround.Common;
 using PlayGround.Common.StatusEffects;
 using PlayGround.System.Aoe;
@@ -18,7 +17,6 @@ namespace PlayGround.Player
         [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField] private Animator animator;
         [SerializeField] private Camera worldCamera;
-        [SerializeField] private Transform attacksRoot;
         [SerializeField] private float moveSpeed = 7f;
         [SerializeField] private float stopThreshold = 0.1f;
         [SerializeField] private float accelerationMultiplier = 8f;
@@ -26,7 +24,6 @@ namespace PlayGround.Player
         [SerializeField] private float dashSpeed = 14f;
         [SerializeField] private float dashDuration = 0.16f;
         [SerializeField] private float dashCooldown = 0.45f;
-        [SerializeField] private int maxAttackCount = 8;
         [SerializeField] private float maxHealth = 500f;
         [SerializeField] private float hurtFlashSeconds = 0.08f;
         [SerializeField] private float targetRadius = 0.45f;
@@ -39,7 +36,7 @@ namespace PlayGround.Player
         private InputActionMap playerMap;
         private PlayerMovement movement;
         private PlayerFacing facing;
-        private PlayerAttackLoadout loadout;
+        private PlayGround.Skills.PlayerSkillDriver skillDriver;
         private PlayerAnimatorDriver animatorDriver;
         private PlayerStateDriver stateDriver;
         private PlayerHealth health;
@@ -67,39 +64,27 @@ namespace PlayGround.Player
         public int AoeTargetMask => ProjectileTargetMask;
         public bool IsAoeTargetActive => IsProjectileTargetActive;
         public float CurrentHealth => health?.CurrentHealth ?? 0f;
-        public int EquippedAttackCount => loadout?.AttackCount ?? 0;
+        public int EquippedAttackCount => skillDriver?.SlotCount ?? 0;
 
         private void Awake()
         {
             if (inputActions == null)
-            {
                 throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} needs InputSystem_Actions.");
-            }
 
             if (body == null)
-            {
                 throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} needs a Rigidbody2D.");
-            }
 
             if (bodyCollider == null)
-            {
                 bodyCollider = body.GetComponent<Collider2D>();
-            }
 
             if (hurtbox == null)
-            {
                 hurtbox = bodyCollider;
-            }
 
             if (spriteRenderer == null)
-            {
                 throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} needs a SpriteRenderer.");
-            }
 
             if (worldCamera == null)
-            {
                 throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} needs a world camera.");
-            }
 
             playerMap = inputActions.FindActionMap("Player", true);
             moveAction = playerMap.FindAction("Move", true);
@@ -124,22 +109,10 @@ namespace PlayGround.Player
             facing = new PlayerFacing(transform, spriteRenderer);
             stateDriver = new PlayerStateDriver(movement, animatorDriver);
             health = new PlayerHealth(body, bodyCollider, hurtbox, spriteRenderer, animatorDriver, maxHealth, hurtFlashSeconds);
-            Transform attackSearchRoot = attacksRoot != null ? attacksRoot : transform;
-            ChildSpawningProjectileAttack[] childSpawningAttacks =
-                attackSearchRoot.GetComponentsInChildren<ChildSpawningProjectileAttack>(true);
-            ProjectileAttack[] allProjectileAttacks =
-                attackSearchRoot.GetComponentsInChildren<ProjectileAttack>(true);
+            skillDriver = GetComponent<PlayGround.Skills.PlayerSkillDriver>();
 
-            loadout = new PlayerAttackLoadout(
-                allProjectileAttacks,
-                attackSearchRoot.GetComponentsInChildren<AoeAttack>(true),
-                childSpawningAttacks,
-                maxAttackCount);
-
-            if (loadout.AttackCount == 0)
-            {
-                throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} needs at least one child ProjectileAttack or ChildSpawningProjectileAttack.");
-            }
+            if (skillDriver == null)
+                throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} requires a {nameof(PlayGround.Skills.PlayerSkillDriver)} component.");
 
             StatusEffects = GetComponent<StatusEffects>();
             StatusEffects?.Initialize(d => health.TakeDamage(d), () => health.IsAlive);
@@ -162,20 +135,16 @@ namespace PlayGround.Player
         private void Update()
         {
             if (!health.IsAlive)
-            {
                 return;
-            }
 
             Vector2 move = ReadMoveInput();
             Vector2 aimWorldPosition = ReadAimWorldPosition();
             movement.SetMoveInput(move);
             if (ReadDashPressedThisFrame())
-            {
                 movement.TryStartDash(aimWorldPosition);
-            }
 
             facing.AimAt(aimWorldPosition);
-            loadout.TickHeldFire(ReadAttackHeld(), facing.AimDirection, aimWorldPosition);
+            skillDriver.Tick(ReadAttackHeld(), facing.AimDirection, aimWorldPosition);
             animatorDriver.Tick(Time.deltaTime);
             stateDriver.Tick();
         }
@@ -183,9 +152,7 @@ namespace PlayGround.Player
         private void FixedUpdate()
         {
             if (!health.IsAlive)
-            {
                 return;
-            }
 
             movement.FixedTick();
             StatusEffects?.Tick(Time.fixedDeltaTime);
@@ -224,9 +191,7 @@ namespace PlayGround.Player
             ProjectileHitActorRole role)
         {
             if (role == ProjectileHitActorRole.Target && payload.DirectDamageEnabled)
-            {
                 health.TakeDamage(payload.Damage);
-            }
         }
 
         public void ReceiveAoeHit(DamageSnapshot damage)
@@ -234,20 +199,14 @@ namespace PlayGround.Player
             health.TakeDamage(damage);
         }
 
-        private Vector2 ReadMoveInput()
-        {
-            return Vector2.ClampMagnitude(moveAction.ReadValue<Vector2>(), 1f);
-        }
+        private Vector2 ReadMoveInput() =>
+            Vector2.ClampMagnitude(moveAction.ReadValue<Vector2>(), 1f);
 
-        private bool ReadAttackHeld()
-        {
-            return attackAction.IsPressed();
-        }
+        private bool ReadAttackHeld() =>
+            attackAction.IsPressed();
 
-        private bool ReadDashPressedThisFrame()
-        {
-            return dashAction.WasPressedThisFrame();
-        }
+        private bool ReadDashPressedThisFrame() =>
+            dashAction.WasPressedThisFrame();
 
         private Vector2 ReadAimWorldPosition()
         {
@@ -260,9 +219,7 @@ namespace PlayGround.Player
 
             Vector2 look = lookAction != null ? lookAction.ReadValue<Vector2>() : Vector2.zero;
             if (look.sqrMagnitude > 0.0001f)
-            {
                 return (Vector2)transform.position + look.normalized;
-            }
 
             return (Vector2)transform.position + AimDirection;
         }
