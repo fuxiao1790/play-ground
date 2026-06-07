@@ -18,9 +18,6 @@ more Additive Supports. Self-contained: its Skills are only modified by its own
 Supports. Skill Sets have no knowledge of what triggers them or what they
 trigger.
 
-Current implementation uses exactly one Skill per set. Multi-skill set
-behaviour is TBD — see [Multi-Skill Sets](#multi-skill-sets).
-
 **Trigger Link** — external wiring between two Skill Sets. Owned by the
 loadout, not by either set. Defines the source set whose events fire the
 trigger, the target set that fires when triggered, the trigger condition, and
@@ -31,12 +28,115 @@ Trigger Links between sets, and the input bindings for root sets.
 
 ---
 
+## Architecture
+
+The skill system drives the combat runtime without knowing about `ProjectileRoot`,
+`AoeRoot`, or any internal config types. A translation layer sits between the two.
+The skill system only crosses the boundary through that layer. The player-facing
+authoring surface is limited to skill system types.
+
+```
+┌─────────────────────────────────┐
+│  Layer 1: Equipment state       │
+│  Skill, AdditiveSupport,        │
+│  SkillSet, TriggerLink,         │
+│  PlayerLoadout                  │
+│                                 │
+│  Mutable. Live equipment state. │
+│  Uses Layer 1.5 to produce      │
+│  PlayerStatSnapshot on change.  │
+└────────────────┬────────────────┘
+                 │ PlayerStatSnapshot + SkillSet
+┌────────────────▼────────────────┐
+│  Layer 2 (orchestration layer)  │
+│  PlayerSkillDriver              │
+│  SkillSlotState[] (cooldowns)   │
+│  RuntimeSkillDefinition[]       │
+│                                 │
+│  Owns runtime slot state.       │
+│  Gates input → internals.       │
+│  Uses Layer 2.5 to dispatch.    │
+└────────────────┬────────────────┘
+                 │ drives
+┌────────────────▼────────────────┐
+│  Combat runtime (internal)      │
+│  ProjectileRoot, AoeRoot,       │
+│  ECS systems, MonoBehaviours    │
+└─────────────────────────────────┘
+
+Layer 1.5 (PlayerStatAggregator) — stateless utility used by Layer 1. Not a chain tier.
+Layer 2.5 (SkillSpawnTranslator) — stateless utility used by Layer 2. Not a chain tier.
+```
+
+### Layer 1: Equipment State
+
+Types: `Skill`, `AdditiveSupport`, `SkillSet`, `TriggerLink`, `PlayerLoadout`
+
+- Owns all stat sources: base skill stats, supports, items, buffs, character level
+- `PlayerLoadout` is live mutable equipment state — not just an authoring template
+- `Skill` SOs are immutable authored templates; `PlayerLoadout` holds mutable slot references into them
+- Save/load serializes slot references, not compiled runtime trees
+- Emits change events when equipment or stat sources change (consumed by Layer 1.5)
+- No per-frame stat math; scaling is rebaked on equipment swaps, buff changes, level up, etc.
+
+### Layer 1.5: Stat Resolution
+
+Types: `PlayerStatSnapshot`, `PlayerStatAggregator`
+
+Stateless utility — not a chain tier. Pure aggregation function: inputs in, flat snapshot
+out, no stored state. Collapses all Layer 1 stat sources into a single flat multiplier set.
+Owns no data — all sources come from Layer 1.
+
+`PlayerStatSnapshot` fields:
+- `castSpeedMultiplier`
+- `damageMultiplier`
+
+Baking:
+- `recoveryTime = baseRecoveryTime * castSpeedMultiplier`
+- `damage = baseDamage * damageMultiplier`
+
+### Layer 2: Orchestration
+
+Types: `PlayerSkillDriver`, `SkillSlotState`, `SkillSetCompiler`
+
+- Reads the flat `PlayerStatSnapshot` from Layer 1.5 — does not compute stats
+- Compiles `SkillSet` + snapshot into `RuntimeSkillDefinition` trees whenever stats change
+- After compile: registers `BasicAttackPrefab` templates with `ProjectileRoot` and
+  `AoeTypeDefinition` entries with `AoeRoot`; stores resolved type IDs into compiled
+  definitions. Re-registration on equip change is safe — roots deduplicate by reference.
+- Owns `SkillSlotState` per root slot: tracks cooldown elapsed time, gates input-driven casts
+- On player input: checks slot cooldown; if ready, calls `SkillSpawnTranslator` and resets timer
+- On Layer 1 change: recompiles affected paths, re-registers types, updates slot `recoveryTime`
+- Holds scene-side references to `ProjectileRoot`, `AoeRoot`, `AudioManager` — internal wiring only
+
+`SkillSlotState` per root slot:
+- `elapsedSinceLastFire` — ticked each frame, reset on successful fire
+- `recoveryTime` — copied from `RuntimeSkillDefinition` whenever stats change
+- `IsReady` — `elapsedSinceLastFire >= recoveryTime`
+- `CooldownProgress` — 0..1, for UI
+
+### Layer 2.5: Translation
+
+Types: `SkillSpawnTranslator`
+
+Stateless utility — not a chain tier. Both roots require visual types to be pre-registered
+before any spawn; they bake sprite mesh, material, and VFX handlers at registration time
+and return a type ID used in spawn commands. IDs are generated inside the roots; roots
+deduplicate (re-registering same definition returns the existing ID). Type ID resolution
+is state — it belongs in Layer 2, not here.
+
+`SkillSpawnTranslator` takes a `RuntimeSkillDefinition` with type IDs already resolved
+by Layer 2 + origin + aim; submits spawn request to the appropriate root; returns nothing.
+
+---
+
 ## Skill Set Structure
 
 ```csharp
 class SkillSet : ScriptableObject {
-    Skill skill;                     // single skill — current implementation
-    List<AdditiveSupport> supports;
+    Skill skill;
+    AdditiveSupport[] supports;
+    float baseRecoveryTime;          // base cooldown in seconds; scaled by castSpeedMultiplier at compile time
 }
 ```
 
@@ -52,22 +152,35 @@ attack. The baseline is a definition tree of plain serializable C# classes
 containing visual, collision, and behavior data. Skills do not own augmentation
 — that belongs to Supports.
 
+`Skill` is abstract. Concrete types are `ProjectileSkill` and `AoeSkill`,
+each holding their typed definition inline. The SO is never mutated at runtime.
+
 ```csharp
-class Skill : ScriptableObject {
-    SkillDefinition definition;  // visual, collision, base behavior
+abstract class Skill : ScriptableObject {
+    public abstract SkillDefinition Definition { get; }
+}
+
+[CreateAssetMenu(menuName = "PlayGround/Skills/Projectile Skill")]
+sealed class ProjectileSkill : Skill {
+    ProjectileDefinition definition;
+}
+
+[CreateAssetMenu(menuName = "PlayGround/Skills/AOE Skill")]
+sealed class AoeSkill : Skill {
+    AoeDefinition definition;
 }
 ```
 
-`SkillDefinition` is a value type — it can be deep-copied at equip time into a
-mutable runtime instance. The SO is never mutated at runtime.
+`SkillDefinition` is an abstract serializable base class with a `DeepCopy()`
+method. Concrete definitions are copied at compile time into a mutable runtime
+instance. The SO template is never mutated.
 
 Current Skill types and their definition roots:
 
-| Skill type | Definition root |
-|---|---|
-| Projectile skill | `ProjectileDefinition` |
-| AOE skill | `AoeDefinition` |
-| Beam skill | `BeamDefinition` (future) |
+| Skill type | SO type | Definition root |
+|---|---|---|
+| Projectile skill | `ProjectileSkill` | `ProjectileDefinition` |
+| AOE skill | `AoeSkill` | `AoeDefinition` |
 
 ### ProjectileDefinition
 
@@ -91,7 +204,7 @@ nothing to behavior.
 ```
 AoeDefinition
  ├─ prefab:    BasicAoePrefab   ← sprite, material, hitbox collider, particle effects
- └─ behavior:  damage, lifetimeSeconds, tickIntervalSeconds,
+ └─ behavior:  sizeMultiplier, damage, lifetimeSeconds, tickIntervalSeconds,
                count, spawnAtAimPosition, directDamageEnabled
 ```
 
@@ -134,16 +247,20 @@ condition-specific parameters.
 abstract class TriggerLink {
     public SkillSet source;
     public SkillSet target;
-    public abstract HitEffect BuildHitEffect(SkillDefinition compiledTarget);
 }
 ```
+
+`TriggerLink` subclasses use `[SerializeReference]` on `PlayerLoadout.links`
+so polymorphic instances serialize correctly in Unity. The compiler
+pattern-matches on concrete subclass type to apply link behavior at compile time.
 
 ### Current Trigger Types
 
 **ChildSpawnTrigger**
 
 The source projectile periodically spawns child projectiles from the target set
-while in flight.
+while in flight. Compiles a `RuntimeChildSpawnSetup` onto the parent
+`RuntimeProjectileDefinition`. Target must compile to a `RuntimeProjectileDefinition`.
 
 ```csharp
 class ChildSpawnTrigger : TriggerLink {
@@ -153,50 +270,14 @@ class ChildSpawnTrigger : TriggerLink {
 }
 ```
 
-**OnHitTrigger**
-
-Fires the target set at the hit position when the source projectile or AOE
-records a hit.
-
-```csharp
-class OnHitTrigger : TriggerLink { }
-```
-
 **OnImpactAoeTrigger**
 
-Fires the target set as an AOE centered at the impact point.
+Fires the target set as an AOE centered at the projectile impact point. Compiles
+into `RuntimeProjectileDefinition.ImpactAoeDefinition`. Target must compile to
+a `RuntimeAoeDefinition`.
 
 ```csharp
 class OnImpactAoeTrigger : TriggerLink { }
-```
-
-**OnKillTrigger**
-
-Fires the target set when the source hit kills the target.
-
-```csharp
-class OnKillTrigger : TriggerLink { }
-```
-
-**OnExpireTrigger**
-
-Fires the target set at the source projectile or AOE position when its
-lifetime ends.
-
-```csharp
-class OnExpireTrigger : TriggerLink { }
-```
-
-**StackingTrigger**
-
-Applies stacks to hit targets. Fires the target set when a target's stack count
-reaches the threshold.
-
-```csharp
-class StackingTrigger : TriggerLink {
-    int stackThreshold;
-    int stacksPerHit;
-}
 ```
 
 ---
@@ -220,45 +301,50 @@ targets — they do not appear in `rootSets` and are only reachable through
 
 ## Compilation
 
-At equip time the loadout compiles each root set into a runtime definition
-tree. Compilation traverses the link graph to build the full chain. It does not
-run per frame.
+At equip time (`PlayerSkillDriver.Start`) the loadout compiles each root set
+into a `RuntimeSkillDefinition` tree via `SkillSetCompiler`. Compilation
+traverses the link graph to build the full chain. It does not run per frame.
 
 ```
-compile(SkillSet set, List<TriggerLink> allLinks) → RuntimeSkillDefinition:
-    def = set.skill.definition.DeepCopy()
+compile(SkillSet set, allLinks, snapshot) → RuntimeSkillDefinition:
+    def = set.skill.Definition.DeepCopy()
     for each support in set.supports:
         support.Apply(def)
+    runtime = BuildRuntime(def, snapshot)       // ProjectileDefinition → RuntimeProjectileDefinition, etc.
+    runtime.RecoveryTime = set.BaseRecoveryTime * snapshot.CastSpeedMultiplier
     for each link in allLinks where link.source == set:
-        compiledTarget = compile(link.target, allLinks)
-        def.onHit.Add(link.BuildHitEffect(compiledTarget))
-    return def
+        if link is ChildSpawnTrigger:
+            compile target recursively → RuntimeProjectileDefinition
+            bake RuntimeChildSpawnSetup onto runtime.ChildSpawnSetup
+        if link is OnImpactAoeTrigger:
+            compile target recursively → RuntimeAoeDefinition
+            set runtime.ImpactAoeDefinition
+    return runtime
 
 compileLoadout(PlayerLoadout loadout):
+    snapshot = PlayerStatAggregator.Aggregate(loadout)
     for each rootSet in loadout.rootSets:
-        runtimeDef = compile(rootSet, loadout.links)
-        attack.Equip(runtimeDef)
-    AoeRoot.RefreshRegistrations(allCompiledTrees)
+        compiledSlots[i] = compile(rootSet, loadout.links, snapshot)
+    RegisterProjectileTypes()   // walk compiled trees; call projectileRoot.RegisterTemplate per unique prefab
+    RegisterAoeTypes()          // walk compiled trees; call aoeRoot.RegisterType per unique AoeTypeDefinition
 ```
-
-`ChildSpawnTrigger.BuildHitEffect` produces a `ChildSpawnerSettings` entry on
-the parent definition using the compiled child definition.
-
-`OnImpactAoeTrigger.BuildHitEffect` produces a `SpawnAoeOnHitEffect` pointing
-at the compiled target definition.
-
-`StackingTrigger.BuildHitEffect` produces an `ApplyStacksEffect` with an
-embedded `OnThresholdEffect` that fires the compiled target definition.
 
 The compiled runtime tree feeds directly into the existing spawn request and
 ECS simulation path. The ECS systems receive snapshots and are unaware of the
 skill system above them.
 
-### AOE Type Registration
+### Type Registration
 
-After compilation, all compiled trees are traversed to discover referenced
-`AoeDefinition` instances. Each is registered with the appropriate `AoeRoot`.
-Registration re-runs whenever the compiled trees change.
+After compilation, `PlayerSkillDriver` recursively walks all compiled trees:
+- Projectile prefabs: each unique `BasicAttackPrefab` is registered once with
+  `ProjectileRoot.RegisterTemplate`; the returned `TypeId` is stored on the
+  `RuntimeProjectileDefinition`.
+- AOE definitions: each `RuntimeAoeDefinition` is converted to an
+  `AoeTypeDefinition` and registered with `AoeRoot.RegisterType`; the returned
+  `TypeId` is stored. Both roots deduplicate — re-registering the same reference
+  returns the existing ID.
+
+Registration re-runs via `BindAoeRoot` whenever `AoeRoot` is wired after compile.
 
 ---
 
@@ -271,16 +357,15 @@ Mid-game changes re-compile the affected paths:
 
 ```
 player adds a Support to SetA
-→ recompile(SetA, links)
-→ AoeRoot.RefreshRegistrations(newTree)
-→ attack component receives new runtime definition
+→ recompile all root sets
+→ re-register all projectile and AOE types
 
 player adds a TriggerLink SetA → SetB
 → links updated
-→ recompile(SetA, links)   // now includes the new outgoing link
+→ recompile all root sets   // now includes the new outgoing link
 
 player swaps SetA for a different SkillSet in a root slot
-→ recompile new root set with all links that reference it as source
+→ recompile all root sets
 ```
 
 Recompile cost is proportional to the depth of the outgoing link graph from
@@ -289,6 +374,20 @@ the changed set — typically two or three levels deep.
 ---
 
 ## Authoring
+
+Player-facing types only — these are the only types that appear in loadout
+editors, skill slot UIs, or player save data:
+
+| Type | Role |
+|---|---|
+| `Skill` | Authored baseline for one spell or attack; carries base stat fields |
+| `AdditiveSupport` | Augments the skill in its set |
+| `SkillSet` | One skill plus its supports |
+| `TriggerLink` | Wiring between sets (lives on `PlayerLoadout`) |
+| `PlayerLoadout` | Root sets, trigger links, input bindings; live equipment state |
+
+Internal runtime types (`ProjectileRoot`, `AoeRoot`, ECS systems) are not
+exposed to the player-facing authoring surface.
 
 ### Asset Locations
 
@@ -306,11 +405,14 @@ the changed set — typically two or three levels deep.
 
 1. `Assets > Create > PlayGround > Skills > Skill Set`.
 2. Assign one Skill to the `skill` field.
-3. Add Additive Supports to the `supports` list in desired order.
+3. Set `baseRecoveryTime` (cooldown in seconds before the set can fire again).
+4. Add Additive Supports to the `supports` array in desired order.
 
 ### Wiring Trigger Links
 
-Trigger Links are authored on the `PlayerLoadout` component, not on Skill Sets.
+Trigger Links are authored on the `PlayerLoadout` SO, not on Skill Sets.
+`PlayerLoadout.links` uses `[SerializeReference]` — add entries via the
+Unity inspector using the managed reference picker.
 
 1. Add a Trigger Link entry to `PlayerLoadout.links`.
 2. Set `source` to the firing Skill Set.
@@ -319,10 +421,11 @@ Trigger Links are authored on the `PlayerLoadout` component, not on Skill Sets.
 
 ### Equipping on the Player
 
-1. Assign root Skill Sets to `PlayerLoadout.rootSets`.
-2. Confirm `maxRootSets` covers the desired count.
-3. Assign an input binding to each root set.
+1. Create a `PlayerLoadout` SO (`Assets > Create > PlayGround > Skills > Player Loadout`).
+2. Assign root Skill Sets to `rootSets`.
+3. Confirm `maxRootSets` covers the desired count.
 4. Wire Trigger Links between sets as needed.
+5. Assign the `PlayerLoadout` SO to `PlayerSkillDriver.loadout` on the player prefab.
 
 ---
 
@@ -402,86 +505,6 @@ flight. Each child bullet releases an arcane burst (SetC) on impact.
 
 SetB's bullet has no pierce — SetA's pierce support does not carry over.
 SetC's burst radius is its own authored value, unaffected by SetA or SetB.
-
----
-
-### Stacking explosion
-
-```
-Sets:
-  SetA: [MultipleProjectiles] + MagicBullet
-  SetB: ArcaneBurst
-
-Links:
-  SetA --StackingTrigger(threshold=5, stacksPerHit=1)--> SetB
-
-Root: SetA → primary fire
-```
-
-Each bullet applies one stack per hit. At five stacks the target releases an
-arcane burst. SetB's explosion damage and radius are fully independent of SetA.
-
----
-
-### Shared trigger target
-
-```
-Sets:
-  SetA: [MultipleProjectiles] + MagicBullet
-  SetB: [Piercing] + PoisonArrow
-  SetC: ArcaneBurst
-
-Links:
-  SetA --OnImpactAoe--> SetC
-  SetB --OnKill--> SetC
-
-Root: SetA → primary fire
-      SetB → secondary fire
-```
-
-SetC is triggered by both SetA (on impact) and SetB (on kill). It is compiled
-independently for each source — its runtime definition is not shared.
-
----
-
-## Multi-Skill Sets
-
-Because Trigger Links are external to Skill Sets, the single-skill restriction
-is not architecturally required. Multi-skill sets are not currently implemented
-but are a planned design space.
-
-### Firing mode candidates
-
-**Fire together** — set fires, every ready skill in the set fires simultaneously.
-Each skill tracks its own recovery independently. Feels like a passive group
-rather than a single cast. Skills never block each other.
-
-**Cycle** — set fires, advances to the next skill in sequence, fires it, then
-waits for that skill's recovery before advancing again. Creates a learnable
-rhythm; authoring order is meaningful.
-
-Cycle is the stronger design candidate because ordering becomes an expressive
-authoring decision and players can build around the rhythm. Open question: if
-a skill in the cycle misfires (e.g. AOE cast with no valid targets), does the
-cycle advance or hold?
-
-### Unresolved: support binding with multiple skills
-
-The current support model applies each support to the set's one Skill. With
-multiple skills per set, it is not yet decided which skills each support
-modifies:
-
-- **Apply to all** — every support applies to every skill in the set.
-  Simple, but type-mismatched supports (e.g. an AOE-only support on a
-  projectile skill) produce meaningless or undefined results.
-- **Per-skill binding** — supports are explicitly bound to one skill within
-  the set at authoring time. Expressive but reintroduces internal set
-  structure.
-- **Type-filtered** — each support declares compatible `SkillDefinition`
-  types and silently skips incompatible skills. Automatic but opaque.
-
-This question must be resolved before multi-skill sets are implemented.
-Until then, one Skill per set is enforced.
 
 ---
 
