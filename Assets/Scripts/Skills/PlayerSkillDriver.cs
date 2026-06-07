@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using PlayGround.Audio;
 using PlayGround.Common;
 using PlayGround.Skills.Runtime;
@@ -70,9 +71,24 @@ namespace PlayGround.Skills
             if (loadout == null) return;
 
             PlayerStatSnapshot snapshot = PlayerStatAggregator.Aggregate(loadout);
-            SkillSet[] rootSets = loadout.RootSets;
-            int maxSlots = Mathf.Min(rootSets.Length, loadout.MaxRootSets);
+            IReadOnlyList<LoadoutSlot> slots = loadout.Slots;
 
+            TriggerChain[] chains = ParseChains(slots);
+
+            var effectSets = new HashSet<SkillSet>();
+            foreach (TriggerChain chain in chains)
+                if (chain.effect != chain.cause)
+                    effectSets.Add(chain.effect);
+
+            var rootSets = new List<SkillSet>();
+            foreach (LoadoutSlot slot in slots)
+            {
+                if (slot is not SkillSetSlot skillSlot || skillSlot.skillSet == null) continue;
+                if (!effectSets.Contains(skillSlot.skillSet) && !rootSets.Contains(skillSlot.skillSet))
+                    rootSets.Add(skillSlot.skillSet);
+            }
+
+            int maxSlots = Mathf.Min(rootSets.Count, loadout.MaxRootSets);
             compiledSlots = new RuntimeSkillDefinition[maxSlots];
             slotStates = new SkillSlotState[maxSlots];
             activeSlotCount = 0;
@@ -82,7 +98,7 @@ namespace PlayGround.Skills
                 SkillSet set = rootSets[i];
                 if (set == null) continue;
 
-                RuntimeSkillDefinition def = SkillSetCompiler.Compile(set, loadout.Links, snapshot);
+                RuntimeSkillDefinition def = SkillSetCompiler.Compile(set, chains, snapshot);
                 if (def == null) continue;
 
                 compiledSlots[activeSlotCount] = def;
@@ -93,6 +109,27 @@ namespace PlayGround.Skills
 
             RegisterProjectileTypes();
             RegisterAoeTypes();
+        }
+
+        private static TriggerChain[] ParseChains(IReadOnlyList<LoadoutSlot> slots)
+        {
+            var chains = new List<TriggerChain>();
+            for (int i = 0; i < slots.Count; i++)
+            {
+                if (slots[i] is not SkillSetSlot causeSlot || causeSlot.skillSet == null) continue;
+                if (i + 2 < slots.Count
+                    && slots[i + 1] is TriggerLinkSlot triggerSlot && triggerSlot.link != null
+                    && slots[i + 2] is SkillSetSlot effectSlot && effectSlot.skillSet != null)
+                {
+                    chains.Add(new TriggerChain
+                    {
+                        cause = causeSlot.skillSet,
+                        link = triggerSlot.link,
+                        effect = effectSlot.skillSet,
+                    });
+                }
+            }
+            return chains.ToArray();
         }
 
         private void RegisterProjectileTypes()

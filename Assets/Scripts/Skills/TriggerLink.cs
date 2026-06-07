@@ -1,35 +1,30 @@
 using System;
-using PlayGround.Mob;
 using UnityEngine;
 
 namespace PlayGround.Skills
 {
-    [Serializable]
-    public abstract class TriggerLink
+    // Runtime-only: parsed from LoadoutSlot list during compilation; not serialized
+    public sealed class TriggerChain
     {
-        public SkillSet source;
-        public SkillSet target;
+        public SkillSet cause;
+        public TriggerLink link;
+        public SkillSet effect;
     }
 
     [Serializable]
-    public sealed class ChildSpawnTrigger : TriggerLink
+    public abstract class LoadoutSlot { }
+
+    [Serializable]
+    public sealed class SkillSetSlot : LoadoutSlot
     {
-        [Min(0.01f)] public float intervalSeconds = 0.5f;
-        [Min(1)] public int spawnCount = 1;
-        [Range(0f, 180f)] public float sideSpreadDegrees = 30f;
+        public SkillSet skillSet;
     }
 
     [Serializable]
-    public sealed class OnImpactAoeTrigger : TriggerLink { }
-
-    [Serializable]
-    public sealed class OnExpireTrigger : TriggerLink { }
-
-    [Serializable]
-    public sealed class OnStackTrigger : TriggerLink
+    public sealed class TriggerLinkSlot : LoadoutSlot
     {
-        public MobDebuffStatus debuffStatus = MobDebuffStatus.Volatile;
-        [Min(1)] public int stacksPerHit = 1;
-        [Min(1)] public int stackThreshold = 3;
+        public TriggerLink link;
     }
+
+    public abstract class TriggerLink : ScriptableObject { }
 }

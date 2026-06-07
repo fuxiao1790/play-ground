@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using PlayGround.Skills.Runtime;
 using PlayGround.System.Projectile;
 using UnityEngine;
@@ -11,7 +10,7 @@ namespace PlayGround.Skills
 
         public static RuntimeSkillDefinition Compile(
             SkillSet set,
-            IReadOnlyList<TriggerLink> allLinks,
+            TriggerChain[] allChains,
             PlayerStatSnapshot snapshot)
         {
             if (set == null || set.Skill == null) return null;
@@ -25,33 +24,34 @@ namespace PlayGround.Skills
 
             runtime.RecoveryTime = Mathf.Max(0.01f, set.BaseRecoveryTime * snapshot.CastSpeedMultiplier);
 
-            foreach (TriggerLink link in allLinks)
+            foreach (TriggerChain chain in allChains)
             {
-                if (link == null || link.source != set || link.target == null) continue;
+                if (chain == null || chain.cause != set || chain.link == null || chain.effect == null) continue;
+                if (chain.effect == set) continue;
 
-                if (link is ChildSpawnTrigger childTrigger)
+                if (chain.link is ChildSpawnTrigger childTrigger)
                 {
                     if (runtime is RuntimeProjectileDefinition projDef)
-                        ApplyChildSpawn(projDef, childTrigger, allLinks, snapshot);
+                        ApplyChildSpawn(projDef, childTrigger, chain.effect, allChains, snapshot);
                     continue;
                 }
 
-                if (link is OnImpactAoeTrigger impactTrigger)
+                if (chain.link is OnImpactAoeTrigger)
                 {
                     if (runtime is RuntimeProjectileDefinition projDef)
                     {
-                        RuntimeSkillDefinition compiledTarget = Compile(impactTrigger.target, allLinks, snapshot);
+                        RuntimeSkillDefinition compiledTarget = Compile(chain.effect, allChains, snapshot);
                         if (compiledTarget is RuntimeAoeDefinition aoeDef)
                             projDef.ImpactAoeDefinition = aoeDef;
                     }
                     continue;
                 }
 
-                if (link is OnStackTrigger stackTrigger)
+                if (chain.link is OnStackTrigger stackTrigger)
                 {
                     if (runtime is RuntimeProjectileDefinition projDef)
                     {
-                        RuntimeSkillDefinition compiledTarget = Compile(stackTrigger.target, allLinks, snapshot);
+                        RuntimeSkillDefinition compiledTarget = Compile(chain.effect, allChains, snapshot);
                         if (compiledTarget is RuntimeAoeDefinition aoeDef)
                         {
                             projDef.StackTriggerSetup = new RuntimeStackTriggerSetup
@@ -65,7 +65,6 @@ namespace PlayGround.Skills
                     }
                     continue;
                 }
-
             }
 
             return runtime;
@@ -112,10 +111,11 @@ namespace PlayGround.Skills
         private static void ApplyChildSpawn(
             RuntimeProjectileDefinition parent,
             ChildSpawnTrigger trigger,
-            IReadOnlyList<TriggerLink> allLinks,
+            SkillSet effectSet,
+            TriggerChain[] allChains,
             PlayerStatSnapshot snapshot)
         {
-            RuntimeSkillDefinition compiledChild = Compile(trigger.target, allLinks, snapshot);
+            RuntimeSkillDefinition compiledChild = Compile(effectSet, allChains, snapshot);
             if (compiledChild is not RuntimeProjectileDefinition childDef) return;
 
             parent.ChildSpawnSetup = new RuntimeChildSpawnSetup

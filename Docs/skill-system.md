@@ -236,31 +236,70 @@ Examples:
 
 ---
 
-## Trigger Links
+## Loadout Slots
 
-Trigger Links live on the `PlayerLoadout`, not on any Skill Set. Each link
-names a source set, a target set, the trigger condition, and any
-condition-specific parameters.
+The `PlayerLoadout` is a flat ordered list of `LoadoutSlot` entries. Each slot
+is either a `SkillSetSlot` or a `TriggerLinkSlot`. Position determines
+relationship — no explicit source/target references exist.
 
 ```csharp
-[Serializable]
-abstract class TriggerLink {
-    public SkillSet source;
-    public SkillSet target;
+abstract class LoadoutSlot { }
+
+class SkillSetSlot : LoadoutSlot {
+    SkillSet skillSet;
+}
+
+class TriggerLinkSlot : LoadoutSlot {
+    [SerializeReference] TriggerLink link;
 }
 ```
 
-`TriggerLink` subclasses use `[SerializeReference]` on `PlayerLoadout.links`
-so polymorphic instances serialize correctly in Unity. The compiler
-pattern-matches on concrete subclass type to apply link behavior at compile time.
+`PlayerLoadout.slots` uses `[SerializeReference]` so polymorphic `TriggerLink`
+instances inside `TriggerLinkSlot` serialize correctly in Unity.
 
-### Current Trigger Types
+### Parsing Rule
+
+At compile time, `PlayerSkillDriver` scans the slot list. At every
+`SkillSetSlot` at index `i`, if `slots[i+1]` is a `TriggerLinkSlot` and
+`slots[i+2]` is a `SkillSetSlot`, those three form a `TriggerChain`:
+
+```
+cause  = slots[i].skillSet       ← left: always the trigger source
+link   = slots[i+1].link         ← trigger type and parameters
+effect = slots[i+2].skillSet     ← right: always the trigger target
+```
+
+`TriggerChain` is a runtime-only struct — it is never serialized.
+
+### Root Detection
+
+A `SkillSetSlot` is a **root** (fired by player input) if its skill set does not
+appear as an `effect` in any parsed chain. All other skill sets are triggered.
+
+```
+slots: [SetA | ChildSpawn | SetB | OnImpactAoe | SetC]
+
+chains:  SetA → ChildSpawn → SetB
+         SetB → OnImpactAoe → SetC
+
+effects: {SetB, SetC}
+roots:   {SetA}         ← SetA is the only player-input slot
+```
+
+### Trigger Types
+
+`TriggerLink` is abstract with no fields. The cause/effect relationship is
+implicit from slot position, not stored on the link.
+
+```csharp
+abstract class TriggerLink { }
+```
 
 **ChildSpawnTrigger**
 
-The source projectile periodically spawns child projectiles from the target set
-while in flight. Compiles a `RuntimeChildSpawnSetup` onto the parent
-`RuntimeProjectileDefinition`. Target must compile to a `RuntimeProjectileDefinition`.
+The cause projectile periodically spawns child projectiles from the effect set
+while in flight. Compiles a `RuntimeChildSpawnSetup` onto the cause
+`RuntimeProjectileDefinition`. Effect must compile to a `RuntimeProjectileDefinition`.
 
 ```csharp
 class ChildSpawnTrigger : TriggerLink {
@@ -272,12 +311,25 @@ class ChildSpawnTrigger : TriggerLink {
 
 **OnImpactAoeTrigger**
 
-Fires the target set as an AOE centered at the projectile impact point. Compiles
-into `RuntimeProjectileDefinition.ImpactAoeDefinition`. Target must compile to
-a `RuntimeAoeDefinition`.
+Fires the effect set as an AOE centered at the cause projectile's impact point.
+Compiles into `RuntimeProjectileDefinition.ImpactAoeDefinition`. Effect must
+compile to a `RuntimeAoeDefinition`.
 
 ```csharp
 class OnImpactAoeTrigger : TriggerLink { }
+```
+
+**OnStackTrigger**
+
+Fires the effect set as an AOE when a debuff stack threshold is reached on the
+hit target. Effect must compile to a `RuntimeAoeDefinition`.
+
+```csharp
+class OnStackTrigger : TriggerLink {
+    MobDebuffStatus debuffStatus;
+    int stacksPerHit;
+    int stackThreshold;
+}
 ```
 
 ---
@@ -286,16 +338,16 @@ class OnImpactAoeTrigger : TriggerLink { }
 
 ```csharp
 class PlayerLoadout {
-    List<SkillSet> rootSets;      // fired by player input; each has an input binding
-    List<TriggerLink> links;      // all inter-set wiring
+    [SerializeReference] List<LoadoutSlot> slots;   // ordered; position encodes wiring
     int maxRootSets;
 }
 ```
 
-Root sets are those fired directly by player input. All other sets are trigger
-targets — they do not appear in `rootSets` and are only reachable through
-`links`. A Skill Set can be the target of multiple links from different sources
-— it is compiled independently for each, so there is no shared mutable state.
+The slot list is the single authoring surface for both skill sets and trigger
+wiring. Root sets (player-input-driven) are derived at compile time — any skill
+set that does not appear as a trigger effect is a root. A skill set that appears
+as an effect in one chain and a cause in another is compiled as triggered-only;
+it is never fired directly by input.
 
 ---
 
@@ -303,28 +355,39 @@ targets — they do not appear in `rootSets` and are only reachable through
 
 At equip time (`PlayerSkillDriver.Start`) the loadout compiles each root set
 into a `RuntimeSkillDefinition` tree via `SkillSetCompiler`. Compilation
-traverses the link graph to build the full chain. It does not run per frame.
+traverses the chain graph to build the full tree. It does not run per frame.
 
 ```
-compile(SkillSet set, allLinks, snapshot) → RuntimeSkillDefinition:
+parseChains(slots) → TriggerChain[]:
+    for each SkillSetSlot at index i:
+        if slots[i+1] is TriggerLinkSlot and slots[i+2] is SkillSetSlot:
+            emit TriggerChain { cause=slots[i], link=slots[i+1], effect=slots[i+2] }
+
+compile(SkillSet set, allChains, snapshot) → RuntimeSkillDefinition:
     def = set.skill.Definition.DeepCopy()
     for each support in set.supports:
         support.Apply(def)
     runtime = BuildRuntime(def, snapshot)       // ProjectileDefinition → RuntimeProjectileDefinition, etc.
     runtime.RecoveryTime = set.BaseRecoveryTime * snapshot.CastSpeedMultiplier
-    for each link in allLinks where link.source == set:
-        if link is ChildSpawnTrigger:
-            compile target recursively → RuntimeProjectileDefinition
+    for each chain in allChains where chain.cause == set:
+        if chain.link is ChildSpawnTrigger:
+            compile chain.effect recursively → RuntimeProjectileDefinition
             bake RuntimeChildSpawnSetup onto runtime.ChildSpawnSetup
-        if link is OnImpactAoeTrigger:
-            compile target recursively → RuntimeAoeDefinition
+        if chain.link is OnImpactAoeTrigger:
+            compile chain.effect recursively → RuntimeAoeDefinition
             set runtime.ImpactAoeDefinition
+        if chain.link is OnStackTrigger:
+            compile chain.effect recursively → RuntimeAoeDefinition
+            set runtime.StackTriggerSetup
     return runtime
 
 compileLoadout(PlayerLoadout loadout):
     snapshot = PlayerStatAggregator.Aggregate(loadout)
-    for each rootSet in loadout.rootSets:
-        compiledSlots[i] = compile(rootSet, loadout.links, snapshot)
+    chains = parseChains(loadout.slots)
+    effects = { chain.effect for each chain }
+    rootSets = [ slot.skillSet for each SkillSetSlot in slots if slot.skillSet not in effects ]
+    for each rootSet:
+        compiledSlots[i] = compile(rootSet, chains, snapshot)
     RegisterProjectileTypes()   // walk compiled trees; call projectileRoot.RegisterTemplate per unique prefab
     RegisterAoeTypes()          // walk compiled trees; call aoeRoot.RegisterType per unique AoeTypeDefinition
 ```
@@ -360,11 +423,11 @@ player adds a Support to SetA
 → recompile all root sets
 → re-register all projectile and AOE types
 
-player adds a TriggerLink SetA → SetB
-→ links updated
-→ recompile all root sets   // now includes the new outgoing link
+player inserts a TriggerLinkSlot + SkillSetSlot after SetA's slot
+→ slot list updated
+→ recompile all root sets   // SetA now has an outgoing chain
 
-player swaps SetA for a different SkillSet in a root slot
+player swaps the SkillSet in a slot
 → recompile all root sets
 ```
 
@@ -383,8 +446,10 @@ editors, skill slot UIs, or player save data:
 | `Skill` | Authored baseline for one spell or attack; carries base stat fields |
 | `AdditiveSupport` | Augments the skill in its set |
 | `SkillSet` | One skill plus its supports |
-| `TriggerLink` | Wiring between sets (lives on `PlayerLoadout`) |
-| `PlayerLoadout` | Root sets, trigger links, input bindings; live equipment state |
+| `SkillSetSlot` | Slot entry wrapping a `SkillSet` in the loadout list |
+| `TriggerLinkSlot` | Slot entry wrapping a `TriggerLink` in the loadout list |
+| `TriggerLink` | Trigger condition and parameters; no source/target references |
+| `PlayerLoadout` | Ordered slot list; live equipment state |
 
 Internal runtime types (`ProjectileRoot`, `AoeRoot`, ECS systems) are not
 exposed to the player-facing authoring surface.
@@ -408,42 +473,54 @@ exposed to the player-facing authoring surface.
 3. Set `baseRecoveryTime` (cooldown in seconds before the set can fire again).
 4. Add Additive Supports to the `supports` array in desired order.
 
-### Wiring Trigger Links
+### Building the Slot List
 
-Trigger Links are authored on the `PlayerLoadout` SO, not on Skill Sets.
-`PlayerLoadout.links` uses `[SerializeReference]` — add entries via the
-Unity inspector using the managed reference picker.
+The `PlayerLoadout.slots` list uses `[SerializeReference]` — add entries via
+the Unity inspector using the managed reference picker.
 
-1. Add a Trigger Link entry to `PlayerLoadout.links`.
-2. Set `source` to the firing Skill Set.
-3. Set `target` to the Skill Set that fires when triggered.
-4. Set the trigger type and any type-specific parameters.
+Each entry is a `SkillSetSlot` or a `TriggerLinkSlot`. Position determines
+wiring: a `SkillSetSlot` at index `i` followed immediately by a
+`TriggerLinkSlot` at `i+1` and a `SkillSetSlot` at `i+2` forms a trigger
+chain. The left skill is always the cause; the right skill is always the effect.
+
+**Simple skill (no trigger):**
+```
+[SkillSetSlot: SetA]
+```
+
+**Skill with one trigger:**
+```
+[SkillSetSlot: SetA] [TriggerLinkSlot: OnImpactAoe] [SkillSetSlot: SetB]
+```
+
+**Deep chain:**
+```
+[SkillSetSlot: SetA] [TriggerLinkSlot: ChildSpawn] [SkillSetSlot: SetB]
+[SkillSetSlot: SetB] [TriggerLinkSlot: OnImpactAoe] [SkillSetSlot: SetC]
+```
+SetB appears as both effect (of SetA) and cause (for SetC). It is compiled as
+a triggered-only set — not player-input-driven.
 
 ### Equipping on the Player
 
 1. Create a `PlayerLoadout` SO (`Assets > Create > PlayGround > Skills > Player Loadout`).
-2. Assign root Skill Sets to `rootSets`.
-3. Confirm `maxRootSets` covers the desired count.
-4. Wire Trigger Links between sets as needed.
-5. Assign the `PlayerLoadout` SO to `PlayerSkillDriver.loadout` on the player prefab.
+2. Add `SkillSetSlot` and `TriggerLinkSlot` entries to `slots` in order.
+3. Confirm `maxRootSets` covers the number of independent root skills.
+4. Assign the `PlayerLoadout` SO to `PlayerSkillDriver.loadout` on the player prefab.
 
 ---
 
 ## Examples
 
-In all examples, Sets and Links are separate. Sets have no knowledge of
-each other.
+In all examples, sets have no knowledge of each other. The slot list is the
+only place where wiring exists.
 
 ### Simple: single skill, no supports
 
 ```
-Sets:
-  SetA: MagicBullet
+Slots: [SetA: MagicBullet]
 
-Links:
-  (none)
-
-Root: SetA → primary fire
+Root: SetA
 ```
 
 Fires one magic bullet at base speed and damage.
@@ -453,13 +530,9 @@ Fires one magic bullet at base speed and damage.
 ### Augmented: additive supports only
 
 ```
-Sets:
-  SetA: [MultipleProjectiles(count=5, spread=40°), Piercing(pierce=2)] + MagicBullet
+Slots: [SetA: [MultipleProjectiles(count=5, spread=40°), Piercing(pierce=2)] + MagicBullet]
 
-Links:
-  (none)
-
-Root: SetA → primary fire
+Root: SetA
 ```
 
 Fires five piercing magic bullets spread across 40 degrees.
@@ -469,14 +542,12 @@ Fires five piercing magic bullets spread across 40 degrees.
 ### Chained: one trigger link
 
 ```
-Sets:
-  SetA: [MultipleProjectiles, Piercing] + MagicBullet
-  SetB: ArcaneBurst
+Slots: [SetA: [MultipleProjectiles, Piercing] + MagicBullet]
+       [OnImpactAoe]
+       [SetB: ArcaneBurst]
 
-Links:
-  SetA --OnImpactAoe--> SetB
-
-Root: SetA → primary fire
+Parsed chain: SetA → OnImpactAoe → SetB
+Root: SetA
 ```
 
 Each magic bullet explodes into an arcane burst on impact. SetB has no
@@ -488,20 +559,23 @@ SetA.
 ### Deep chain: two trigger links
 
 ```
-Sets:
-  SetA: [MultipleProjectiles, Piercing] + MagicBullet
-  SetB: MagicBullet
-  SetC: ArcaneBurst
+Slots: [SetA: [MultipleProjectiles, Piercing] + MagicBullet]
+       [ChildSpawn(interval=0.2s, count=2, spread=45°)]
+       [SetB: MagicBullet]
+       [OnImpactAoe]
+       [SetC: ArcaneBurst]
 
-Links:
-  SetA --ChildSpawn(interval=0.2s, count=2, spread=45°)--> SetB
-  SetB --OnImpactAoe--> SetC
-
-Root: SetA → primary fire
+Parsed chains: SetA → ChildSpawn → SetB
+               SetB → OnImpactAoe → SetC
+Effects: {SetB, SetC}
+Root: SetA
 ```
 
 SetA fires many piercing bullets. Each spawns child bullets (SetB) while in
 flight. Each child bullet releases an arcane burst (SetC) on impact.
+
+SetB appears at index 2 (effect of SetA) and index 3 (cause for SetC). It is
+triggered only — never fired by player input.
 
 SetB's bullet has no pierce — SetA's pierce support does not carry over.
 SetC's burst radius is its own authored value, unaffected by SetA or SetB.
@@ -514,6 +588,6 @@ SetC's burst radius is its own authored value, unaffected by SetA or SetB.
 - Trigger Links carry no stats or behavior into the target set.
 - The target set's Skill and Supports fully determine triggered behavior.
 - Stat inheritance across sets does not exist.
-- A set used as a trigger target from multiple sources is compiled
-  independently for each source — edits to the set propagate to all
+- A set can appear as the effect in multiple chains (multiple causes pointing
+  to it). It is compiled independently for each — edits propagate to all
   compiled instances on next recompile.
