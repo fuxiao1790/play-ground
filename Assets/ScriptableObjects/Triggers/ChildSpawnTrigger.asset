@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ChildSpawnTrigger
   intervalSeconds: 0.15
   intervalJitterPercent: 50
-  spawnCount: 2
-  sideSpreadDegrees: 30
+  spawnCount: 6
+  sideSpreadDegrees: 45
