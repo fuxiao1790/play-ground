@@ -235,7 +235,7 @@ interval, and the runtime receives `0` for both timing fields.
 
 ```
 LingeringAoeDefinition
- ├─ prefab:    BasicAoePrefab   ← sprite, material, hitbox collider, particle effects
+ ├─ prefab:    LingeringAoePrefab ← sprite, material, hitbox collider, particle effects
  └─ behavior:  sizeMultiplier, damage, lifetimeSeconds, tickIntervalSeconds,
                count, spawnAtAimPosition, directDamageEnabled
 ```

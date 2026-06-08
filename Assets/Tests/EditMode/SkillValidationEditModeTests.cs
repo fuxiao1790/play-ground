@@ -147,6 +147,17 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void LingeringAoeDefinitionUsesLingeringPrefabField()
+        {
+            FieldInfo field = typeof(LingeringAoeDefinition).GetField(
+                "prefab",
+                BindingFlags.Instance | BindingFlags.Public);
+
+            Assert.That(field, Is.Not.Null);
+            Assert.That(field.FieldType, Is.EqualTo(typeof(LingeringAoePrefab)));
+        }
+
+        [Test]
         public void ValidatorDoesNotWarnForProjectileToAoeImpactLink()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");

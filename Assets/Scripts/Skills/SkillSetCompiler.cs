@@ -102,8 +102,14 @@ namespace PlayGround.Skills
 
                 return new RuntimeAoeDefinition
                 {
-                    Prefab = a.prefab,
+                    VisualPrefab = a.VisualPrefab,
+                    CollisionShape = a.CollisionShape,
                     SizeMultiplier = Mathf.Max(0.01f, a.sizeMultiplier),
+                    VisualRotationDegrees = a.VisualRotationDegrees,
+                    SpawnEffect = a.SpawnEffect,
+                    HitEffect = a.HitEffect,
+                    ExpireEffect = a.ExpireEffect,
+                    PulseEffect = a.PulseEffect,
                     Damage = Mathf.Max(0f, a.damage * snapshot.DamageMultiplier),
                     LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds),
                     TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds),
