@@ -15,11 +15,4 @@ namespace PlayGround.Skills
         public override SkillDefinition Definition => definition;
     }
 
-    [CreateAssetMenu(menuName = "PlayGround/Skills/Lingering AOE Skill", fileName = "NewLingeringAoeSkill")]
-    public sealed class LingeringAoeSkill : AoeSkillBase
-    {
-        [SerializeField] private LingeringAoeDefinition definition = new();
-
-        public override SkillDefinition Definition => definition;
-    }
 }
