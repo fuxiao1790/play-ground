@@ -5,12 +5,42 @@ final decisions, and should be revisited in detail before implementation locks i
 
 Quick map.
 
+## Docs Layout
+
+```
+Docs/
+  ├── project-overview.md       meta: project vision and scope
+  ├── architecture.md           meta: system ownership and runtime shape
+  ├── folder-structure.md       meta: this file
+  ├── coding-standards.md       meta: C# and Unity rules
+  ├── hit-spawn-snapshot.md     meta: spawn safety architectural decision
+  ├── performance.md            meta: performance constraints and stress tests
+  ├── profiling.md              meta: profiling data reference
+  ├── testing.md                meta: test strategy and coverage goals
+  ├── release.md                meta: build steps
+  │
+  ├── design/                   Layer 1 — player-facing design
+  │   └── gameplay.md
+  │
+  ├── game-logic/               Layer 2 — game rules and mechanics
+  │   ├── skill-system.md
+  │   ├── mobs.md
+  │   ├── mob-behaviour.md
+  │   └── spawn-system.md
+  │
+  └── simulation/               Layer 3 — internal ECS / simulation
+      ├── projectile-system.md
+      ├── aoe-system.md
+      ├── ecs-notes.md
+      └── vfx-system.md
+```
+
 ## Current Folders
 
 - `Assets/`: Unity assets, scenes, prefabs, scripts, art, audio, settings
 - `Assets/Scenes/`: Unity scene files
 - `Assets/Settings/`: URP and project settings assets
-- `Docs/`: design docs
+- `Docs/`: design docs (see layout above)
 - `Packages/`: Unity package manifest and lock files
 - `ProjectSettings/`: Unity project settings
 
@@ -52,15 +82,15 @@ Create these as systems are ported:
 - Want project summary: [project-overview.md](./project-overview.md)
 - Want architecture: [architecture.md](./architecture.md)
 - Want coding rules: [coding-standards.md](./coding-standards.md)
-- Want player attacks: [player-attacks.md](./player-attacks.md)
-- Want skill/support system: [skill-system.md](./skill-system.md)
-- Want skill system integration plan: [skill-system-integration.md](./skill-system-integration.md)
-- Want projectiles: [projectile-system.md](./projectile-system.md)
-- Want AOEs: [aoe-system.md](./aoe-system.md)
-- Want VFX: [vfx-system.md](./vfx-system.md)
-- Want mobs: [mobs.md](./mobs.md) and [mob-behaviour.md](./mob-behaviour.md)
-- Want spawning: [spawn-system.md](./spawn-system.md)
+- Want player controls and game loop: [design/gameplay.md](./design/gameplay.md)
+- Want skill/support system: [game-logic/skill-system.md](./game-logic/skill-system.md)
+- Want projectiles: [simulation/projectile-system.md](./simulation/projectile-system.md)
+- Want AOEs: [simulation/aoe-system.md](./simulation/aoe-system.md)
+- Want VFX: [simulation/vfx-system.md](./simulation/vfx-system.md)
+- Want mobs: [game-logic/mobs.md](./game-logic/mobs.md) and [game-logic/mob-behaviour.md](./game-logic/mob-behaviour.md)
+- Want spawning: [game-logic/spawn-system.md](./game-logic/spawn-system.md)
 - Want tests: [testing.md](./testing.md)
+- Want ECS patterns: [simulation/ecs-notes.md](./simulation/ecs-notes.md)
 
 ## Current Projectile Runtime Map
 
@@ -133,4 +163,3 @@ Create these as systems are ported:
 - `Assets/Scripts/System/Vfx/CombatVfxDispatcher.cs`: `VfxTypeResources` and
   `CombatVfxDispatcher`; owns VFX instances, GraphicsBuffers, staging lists,
   and the per-frame stage→upload→dispatch loop; one instance per root
-
