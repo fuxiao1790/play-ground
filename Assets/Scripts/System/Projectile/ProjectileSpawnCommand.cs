@@ -66,7 +66,9 @@ namespace PlayGround.System.Projectile
             bool directDamageEnabled = true,
             EntityId sourceNodeId = default,
             ProjectileImpactAoeSnapshot impactAoe = default,
-            ProjectileStackEffectSnapshot stackEffect = default)
+            ProjectileStackEffectSnapshot stackEffect = default,
+            float critChance = 0f,
+            float critMultiplier = 1.5f)
         {
             Position = position;
             Direction = direction.sqrMagnitude > 0f ? direction.normalized : Vector2.right;
@@ -85,7 +87,7 @@ namespace PlayGround.System.Projectile
             ChildSpawn = childSpawn;
             DirectDamageEnabled = directDamageEnabled;
             ImpactAoe = impactAoe;
-            HitPayload = new ProjectileHitPayload(sourceNodeId, damage.Amount, directDamageEnabled, impactAoe, stackEffect);
+            HitPayload = new ProjectileHitPayload(sourceNodeId, damage.Amount, directDamageEnabled, impactAoe, stackEffect, critChance, critMultiplier);
         }
 
         [global::System.Obsolete("Use the CombatShapeType overload.")]

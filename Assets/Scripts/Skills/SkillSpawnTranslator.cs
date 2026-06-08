@@ -68,7 +68,9 @@ namespace PlayGround.Skills
                     def.DirectDamageEnabled,
                     default,
                     impactAoe,
-                    stackEffect));
+                    stackEffect,
+                    def.CritChance,
+                    def.CritMultiplier));
             }
         }
 
@@ -92,7 +94,9 @@ namespace PlayGround.Skills
                     root.TargetMask,
                     damage,
                     def.LifetimeSeconds,
-                    def.TickIntervalSeconds));
+                    def.TickIntervalSeconds,
+                    critChance: def.CritChance,
+                    critMultiplier: def.CritMultiplier));
             }
         }
 

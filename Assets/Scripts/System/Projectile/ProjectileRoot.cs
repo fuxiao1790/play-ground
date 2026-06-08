@@ -474,13 +474,16 @@ namespace PlayGround.System.Projectile
                     targetsById.TryGetValue(hit.TargetId, out IProjectileTarget target);
 
                     ProjectileHitPayload payload = hit.HitPayload;
+                    bool isCrit = UnityEngine.Random.value < payload.CritChance;
+                    float rolledAmount = isCrit ? payload.DamageAmount * payload.CritMultiplier : payload.DamageAmount;
+                    DamageSnapshot rolledDamage = new(Mathf.Max(0f, rolledAmount), isCrit);
 
                     var context = new ProjectileHitContext(
                         hit.ProjectileId,
                         hit.ProjectileTypeId,
                         hit.TargetId,
                         new Vector2(hit.Position.x, hit.Position.y),
-                        payload.Damage,
+                        rolledDamage,
                         payload,
                         target);
 

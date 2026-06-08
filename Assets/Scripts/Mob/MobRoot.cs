@@ -264,7 +264,7 @@ namespace PlayGround.Mob
                 return;
 
             if (payload.DirectDamageEnabled)
-                TakeDamage(payload.Damage);
+                TakeDamage(context.Damage);
 
             if (payload.StackEffect.Enabled)
                 ApplyStackEffect(payload.StackEffect);
@@ -309,7 +309,7 @@ namespace PlayGround.Mob
             }
 
             animatorDriver.RequestHurt(hurtFlashSeconds);
-            eventQueue.PushType(MobEventType.Damaged, this, damage.Amount);
+            eventQueue.PushType(damage.IsCrit ? MobEventType.CritDamaged : MobEventType.Damaged, this, damage.Amount);
             return true;
         }
 

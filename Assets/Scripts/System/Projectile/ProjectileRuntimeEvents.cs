@@ -67,13 +67,17 @@ namespace PlayGround.System.Projectile
             float damageAmount,
             bool directDamageEnabled,
             ProjectileImpactAoeSnapshot impactAoe = default,
-            ProjectileStackEffectSnapshot stackEffect = default)
+            ProjectileStackEffectSnapshot stackEffect = default,
+            float critChance = 0f,
+            float critMultiplier = 1.5f)
         {
             SourceNodeId = sourceNodeId;
             DamageAmount = damageAmount;
             DirectDamageEnabled = directDamageEnabled;
             ImpactAoe = impactAoe;
             StackEffect = stackEffect;
+            CritChance = critChance;
+            CritMultiplier = critMultiplier;
         }
 
         public EntityId SourceNodeId { get; }
@@ -81,6 +85,8 @@ namespace PlayGround.System.Projectile
         public bool DirectDamageEnabled { get; }
         public ProjectileImpactAoeSnapshot ImpactAoe { get; }
         public ProjectileStackEffectSnapshot StackEffect { get; }
+        public float CritChance { get; }
+        public float CritMultiplier { get; }
         public DamageSnapshot Damage => new(DamageAmount);
     }
 

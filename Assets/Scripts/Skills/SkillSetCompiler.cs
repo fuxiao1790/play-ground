@@ -87,6 +87,8 @@ namespace PlayGround.Skills
                     RepeatHitCooldown = Mathf.Max(0f, p.repeatHitCooldown),
                     DirectDamageEnabled = p.directDamageEnabled,
                     Tracking = p.GetTrackingConfig(),
+                    CritChance = snapshot.CritChance,
+                    CritMultiplier = snapshot.CritMultiplier,
                 };
             }
 
@@ -116,6 +118,8 @@ namespace PlayGround.Skills
                     Count = Mathf.Max(1, a.count),
                     SpawnAtAimPosition = a.spawnAtAimPosition,
                     DirectDamageEnabled = a.directDamageEnabled,
+                    CritChance = snapshot.CritChance,
+                    CritMultiplier = snapshot.CritMultiplier,
                 };
             }
 

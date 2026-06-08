@@ -22,6 +22,7 @@ namespace PlayGround.Mob
         TargetSeen,
         TargetLost,
         Damaged,
+        CritDamaged,
         Recovered,
         Died
     }

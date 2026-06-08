@@ -65,7 +65,9 @@ namespace PlayGround.System.Aoe
             DamageSnapshot damage,
             float lifetimeSeconds,
             float tickIntervalSeconds,
-            AoeProjectileBurstSnapshot projectileBurst = default)
+            AoeProjectileBurstSnapshot projectileBurst = default,
+            float critChance = 0f,
+            float critMultiplier = 1.5f)
         {
             TypeId = typeId;
             Position = position;
@@ -74,6 +76,8 @@ namespace PlayGround.System.Aoe
             LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds);
             TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds);
             ProjectileBurst = projectileBurst;
+            CritChance = critChance;
+            CritMultiplier = critMultiplier;
         }
 
         public int TypeId { get; }
@@ -83,6 +87,8 @@ namespace PlayGround.System.Aoe
         public float LifetimeSeconds { get; }
         public float TickIntervalSeconds { get; }
         public AoeProjectileBurstSnapshot ProjectileBurst { get; }
+        public float CritChance { get; }
+        public float CritMultiplier { get; }
     }
 
     public readonly struct AoeHitContext

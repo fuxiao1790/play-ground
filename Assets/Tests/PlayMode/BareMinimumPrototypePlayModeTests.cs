@@ -1112,6 +1112,117 @@ namespace PlayGround.Tests.PlayMode
             return mobObject;
         }
 
+        private static int nextCritProbeId = 5000;
+
+        [UnityTest]
+        public IEnumerator Projectile_CritChanceOne_HitDealsMultipliedDamage()
+        {
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            mob.Register(projectileRoot.TargetRegistry);
+
+            projectileRoot.Spawn(new ProjectileSpawnCommand(
+                Vector2.zero, Vector2.right, 0f, 1f, 1f,
+                new Vector2(1f, 1f), 0f,
+                new DamageSnapshot(3f), CombatShapeType.Circle,
+                critChance: 1f, critMultiplier: 2f));
+            yield return null;
+
+            Assert.That(mob.CurrentHealth, Is.EqualTo(4f).Within(0.001f));
+            Object.Destroy(projectileObject);
+            Object.Destroy(mobObject);
+        }
+
+        [UnityTest]
+        public IEnumerator Projectile_CritChanceZero_HitDealsBaseDamage()
+        {
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            mob.Register(projectileRoot.TargetRegistry);
+
+            projectileRoot.Spawn(new ProjectileSpawnCommand(
+                Vector2.zero, Vector2.right, 0f, 1f, 1f,
+                new Vector2(1f, 1f), 0f,
+                new DamageSnapshot(3f), CombatShapeType.Circle,
+                critChance: 0f, critMultiplier: 2f));
+            yield return null;
+
+            Assert.That(mob.CurrentHealth, Is.EqualTo(7f).Within(0.001f));
+            Object.Destroy(projectileObject);
+            Object.Destroy(mobObject);
+        }
+
+        [UnityTest]
+        public IEnumerator Aoe_CritChanceOne_HitDealsMultipliedDamage()
+        {
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
+            CritProbe probe = CreateCritProbe(Vector2.zero);
+            root.TargetRegistry.Register(probe);
+
+            root.Spawn(new AoeSpawnCommand(typeId, Vector2.zero, ~0,
+                new DamageSnapshot(3f), 0f, 0f,
+                critChance: 1f, critMultiplier: 2f));
+            yield return null;
+
+            Assert.That(probe.LastDamage.Amount, Is.EqualTo(6f).Within(0.001f));
+            Assert.That(probe.LastDamage.IsCrit, Is.True);
+            Object.Destroy(rootObject);
+            Object.Destroy(templateObject);
+            Object.Destroy(probe.gameObject);
+        }
+
+        [UnityTest]
+        public IEnumerator Aoe_CritChanceZero_HitDealsBaseDamage()
+        {
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
+            CritProbe probe = CreateCritProbe(Vector2.zero);
+            root.TargetRegistry.Register(probe);
+
+            root.Spawn(new AoeSpawnCommand(typeId, Vector2.zero, ~0,
+                new DamageSnapshot(3f), 0f, 0f,
+                critChance: 0f, critMultiplier: 2f));
+            yield return null;
+
+            Assert.That(probe.LastDamage.Amount, Is.EqualTo(3f).Within(0.001f));
+            Assert.That(probe.LastDamage.IsCrit, Is.False);
+            Object.Destroy(rootObject);
+            Object.Destroy(templateObject);
+            Object.Destroy(probe.gameObject);
+        }
+
+        private static CritProbe CreateCritProbe(Vector2 position)
+        {
+            GameObject go = new("CritProbe");
+            go.transform.position = position;
+            CritProbe probe = go.AddComponent<CritProbe>();
+            probe.Configure(++nextCritProbeId, ~0, 0.5f);
+            return probe;
+        }
+
+        private sealed class CritProbe : MonoBehaviour, IAoeTarget
+        {
+            private int targetId;
+            private int targetMask;
+            private float radius;
+
+            public int TargetId => targetId;
+            public Vector2 AoeTargetPosition => transform.position;
+            public float AoeTargetRadius => radius;
+            public Vector2 AoeTargetHalfExtents => Vector2.one * radius;
+            public float AoeTargetRotationRadians => 0f;
+            public CombatShapeType AoeTargetShapeType => CombatShapeType.Circle;
+            public int AoeTargetMask => targetMask;
+            public bool IsAoeTargetActive => true;
+            public DamageSnapshot LastDamage { get; private set; }
+
+            public void Configure(int id, int mask, float r)
+            {
+                targetId = id;
+                targetMask = mask;
+                radius = r;
+            }
+
+            public void ReceiveAoeHit(DamageSnapshot damage) => LastDamage = damage;
+        }
+
         private sealed class HitActorProbe : MonoBehaviour, IProjectileHitActor
         {
             public EntityId ProjectileHitNodeId => gameObject.GetEntityId();

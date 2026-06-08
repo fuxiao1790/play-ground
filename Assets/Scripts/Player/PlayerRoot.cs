@@ -191,7 +191,7 @@ namespace PlayGround.Player
             ProjectileHitActorRole role)
         {
             if (role == ProjectileHitActorRole.Target && payload.DirectDamageEnabled)
-                health.TakeDamage(payload.Damage);
+                health.TakeDamage(context.Damage);
         }
 
         public void ReceiveAoeHit(DamageSnapshot damage)

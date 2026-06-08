@@ -32,6 +32,7 @@ namespace PlayGround.System.Aoe
         private readonly Dictionary<int, CombatSpriteRenderResources> renderResourcesByType = new();
         private readonly Dictionary<AoeConfig, int> configTypeIds = new();
         private readonly Dictionary<AoeTypeDefinition, int> definitionTypeIds = new();
+        private readonly Dictionary<int, (float critChance, float critMultiplier)> critByAoeId = new();
 
         private AoeTypeRegistry typeRegistry = new();
         private AoeTargetSync targetSync;
@@ -146,6 +147,7 @@ namespace PlayGround.System.Aoe
             typeRegistry = new AoeTypeRegistry();
             configTypeIds.Clear();
             definitionTypeIds.Clear();
+            critByAoeId.Clear();
             nextTypeId = 1;
             DestroyRenderResources();
             vfxDispatcher?.Dispose();
@@ -221,6 +223,7 @@ namespace PlayGround.System.Aoe
 
             int aoeId = ++nextAoeId;
             spawnRequests.Add(SpawnRequestFor(command, shape, aoeId));
+            critByAoeId[aoeId] = (command.CritChance, command.CritMultiplier);
             spawnedAoes++;
             return aoeId;
         }
@@ -269,7 +272,11 @@ namespace PlayGround.System.Aoe
             {
                 AoeHitElement hit = hitBuffer[i];
                 targetSync.TargetsById.TryGetValue(hit.TargetId, out IAoeTarget target);
-                var damage = new DamageSnapshot(Mathf.Max(0f, hit.DamageAmount));
+                float baseAmount = Mathf.Max(0f, hit.DamageAmount);
+                bool isCrit = critByAoeId.TryGetValue(hit.AoeId, out (float critChance, float critMultiplier) crit)
+                    && UnityEngine.Random.value < crit.critChance;
+                float rolledAmount = isCrit ? baseAmount * crit.critMultiplier : baseAmount;
+                var damage = new DamageSnapshot(rolledAmount, isCrit);
                 var context = new AoeHitContext(
                     hit.AoeId,
                     hit.TypeId,

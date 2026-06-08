@@ -37,6 +37,7 @@ namespace PlayGround.Mob
                     CurrentState = MobBehaviourState.Dead;
                     break;
                 case MobEventType.Damaged:
+                case MobEventType.CritDamaged:
                     blackboard.RequestTrigger("on_hit", 80);
                     CurrentState = MobBehaviourState.Hurt;
                     break;
