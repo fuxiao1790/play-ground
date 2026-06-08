@@ -26,6 +26,20 @@ namespace PlayGround.Skills
         }
     }
 
+    [CreateAssetMenu(menuName = "PlayGround/Skills/Supports/Additional Projectiles", fileName = "AdditionalProjectilesSupport")]
+    public sealed class AdditionalProjectilesSupport : AdditiveSupport
+    {
+        [SerializeField, Min(1)] private int additionalCount = 1;
+
+        public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Projectile;
+
+        public override void Apply(SkillDefinition def)
+        {
+            if (def is ProjectileDefinition p)
+                p.count += additionalCount;
+        }
+    }
+
     [CreateAssetMenu(menuName = "PlayGround/Skills/Supports/Piercing", fileName = "PiercingSupport")]
     public sealed class PiercingSupport : AdditiveSupport
     {

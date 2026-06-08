@@ -38,6 +38,20 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void AdditionalProjectilesSupportIncreasesProjectileCount()
+        {
+            ProjectileSkill skill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            AdditionalProjectilesSupport support = CreateAsset<AdditionalProjectilesSupport>("Additional Projectiles");
+            SetField(support, "additionalCount", 3);
+            SkillSet set = CreateSkillSet("Projectile Set", skill, support);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(set, global::System.Array.Empty<TriggerChain>(), PlayerStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
+            Assert.That(((RuntimeProjectileDefinition)runtime).Count, Is.EqualTo(4));
+        }
+
+        [Test]
         public void ValidatorWarnsWhenChildSpawnTargetsAoeSkill()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
