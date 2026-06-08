@@ -331,12 +331,17 @@ while in flight. Compiles a `RuntimeChildSpawnSetup` onto the cause
 ```csharp
 class ChildSpawnTrigger : TriggerLink {
     float intervalSeconds;
+    float intervalJitterPercent;
     int spawnCount;
     float sideSpreadDegrees;
 }
 ```
 
 Compatible tags: source `Projectile`, target `Projectile`.
+`intervalJitterPercent` is clamped from `0` to `100` and converted at compile
+time to jitter seconds using `intervalSeconds * intervalJitterPercent / 100`.
+The compiled jitter seconds are passed into the projectile ECS child-spawner and
+applied when scheduling child-spawn intervals.
 
 **OnImpactAoeTrigger**
 

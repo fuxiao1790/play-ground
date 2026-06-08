@@ -118,12 +118,13 @@ namespace PlayGround.Skills
             RuntimeSkillDefinition compiledChild = Compile(effectSet, allChains, snapshot);
             if (compiledChild is not RuntimeProjectileDefinition childDef) return;
 
+            float intervalSeconds = Mathf.Max(0.01f, trigger.intervalSeconds);
             parent.ChildSpawnSetup = new RuntimeChildSpawnSetup
             {
                 SpawnerId = ++nextChildSpawnerId,
                 ChildDefinition = childDef,
-                IntervalSeconds = Mathf.Max(0.01f, trigger.intervalSeconds),
-                IntervalJitterSeconds = 0f,
+                IntervalSeconds = intervalSeconds,
+                IntervalJitterSeconds = intervalSeconds * Mathf.Clamp(trigger.intervalJitterPercent, 0f, 100f) * 0.01f,
                 Behavior = new ProjectileChildSpawnBehavior(
                     Mathf.Max(1, trigger.spawnCount),
                     ProjectileChildSpawnPatternType.SideSpray,

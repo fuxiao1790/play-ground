@@ -583,6 +583,35 @@ namespace PlayGround.Tests.PlayMode
             Object.Destroy(mobObject);
         }
 
+        [UnityTest]
+        public IEnumerator ProjectileChildSpawnerStoresIntervalJitterInEcs()
+        {
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            const float IntervalJitterSeconds = 0.25f;
+            var command = new ProjectileSpawnCommand(
+                new Vector2(50f, 50f),
+                Vector2.right,
+                0f,
+                1f,
+                1f,
+                new Vector2(1f, 1f),
+                0f,
+                new DamageSnapshot(2f),
+                CombatShapeType.Circle,
+                childSpawn: new ProjectileChildSpawnConfig(1, 0, 1f, IntervalJitterSeconds, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)));
+
+            projectileRoot.Spawn(command);
+            yield return null;
+
+            Entity childSpawnerEntity = FirstScopedChildSpawnerEntity(projectileRoot);
+            ProjectileChildSpawnerComponent spawner =
+                World.DefaultGameObjectInjectionWorld.EntityManager.GetComponentData<ProjectileChildSpawnerComponent>(childSpawnerEntity);
+
+            Assert.That(spawner.IntervalJitterSeconds, Is.EqualTo(IntervalJitterSeconds).Within(0.0001f));
+            Object.Destroy(projectileObject);
+            Object.Destroy(mobObject);
+        }
+
         [Test]
         public void ProjectileChildSpawnRejectsUnsupportedRenderType()
         {

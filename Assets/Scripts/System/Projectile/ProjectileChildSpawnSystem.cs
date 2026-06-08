@@ -53,7 +53,7 @@ namespace PlayGround.System.Projectile
                     {
                         EnqueueChildSpawn(chunkIndex, identity, kinematics, hit, in spawner, tickIndex, childIndex);
                     }
-                    cooldown += spawner.IntervalSeconds;
+                    cooldown += NextIntervalSeconds(identity.ProjectileId, in spawner, tickIndex);
                 }
 
                 childSpawnState.ChildSpawnCooldownRemaining = cooldown;
@@ -185,6 +185,41 @@ namespace PlayGround.System.Projectile
                     hash = (hash * 397) ^ childIndex;
                     hash &= int.MaxValue;
                     return hash == 0 ? 1 : hash;
+                }
+            }
+
+            private static float NextIntervalSeconds(
+                int parentProjectileId,
+                in ProjectileChildSpawnerComponent spawner,
+                int tickIndex)
+            {
+                return spawner.IntervalSeconds
+                    + DeterministicJitter(parentProjectileId, spawner.SpawnerId, tickIndex, spawner.IntervalJitterSeconds);
+            }
+
+            private static float DeterministicJitter(
+                int parentProjectileId,
+                int spawnerId,
+                int tickIndex,
+                float maxOffsetSeconds)
+            {
+                if (maxOffsetSeconds <= 0f)
+                {
+                    return 0f;
+                }
+
+                unchecked
+                {
+                    uint hash = (uint)parentProjectileId;
+                    hash = (hash * 397u) ^ (uint)spawnerId;
+                    hash = (hash * 397u) ^ (uint)tickIndex;
+                    hash *= 0x9E3779B9u;
+                    hash ^= hash >> 16;
+                    hash *= 0x7FEB352Du;
+                    hash ^= hash >> 15;
+                    hash *= 0x846CA68Bu;
+                    hash ^= hash >> 16;
+                    return ((hash & 0x00FFFFFFu) + 1u) / 16777217f * maxOffsetSeconds;
                 }
             }
         }

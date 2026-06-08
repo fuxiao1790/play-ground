@@ -81,6 +81,35 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void CompilerConvertsChildSpawnJitterPercentToSeconds()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Child Projectile Skill");
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
+            ChildSpawnTrigger trigger = CreateAsset<ChildSpawnTrigger>("Child Spawn");
+            trigger.intervalSeconds = 2f;
+            trigger.intervalJitterPercent = 25f;
+            var chains = new[]
+            {
+                new TriggerChain
+                {
+                    cause = sourceSet,
+                    link = trigger,
+                    effect = targetSet,
+                },
+            };
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(sourceSet, chains, PlayerStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
+            RuntimeChildSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).ChildSpawnSetup;
+            Assert.That(setup, Is.Not.Null);
+            Assert.That(setup.IntervalSeconds, Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(setup.IntervalJitterSeconds, Is.EqualTo(0.5f).Within(0.0001f));
+        }
+
+        [Test]
         public void ValidatorDoesNotWarnForProjectileToAoeImpactLink()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");

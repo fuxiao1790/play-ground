@@ -13,5 +13,6 @@ MonoBehaviour:
   m_Name: StarParentSkillSet
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillSet
   skill: {fileID: 11400000, guid: a2000000000000000000000000000001, type: 2}
-  supports: []
+  supports:
+  - {fileID: 11400000, guid: 7d0cc39fd2349e849a97c91eb66cf04f, type: 2}
   baseRecoveryTime: 0.15
