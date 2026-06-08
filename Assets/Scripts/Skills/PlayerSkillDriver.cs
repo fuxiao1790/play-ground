@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using PlayGround.Audio;
 using PlayGround.Common;
@@ -17,9 +18,11 @@ namespace PlayGround.Skills
 
         private RuntimeSkillDefinition[] compiledSlots;
         private SkillSlotState[] slotStates;
+        private SkillValidationWarning[] validationWarnings = Array.Empty<SkillValidationWarning>();
         private int activeSlotCount;
 
         public int SlotCount => activeSlotCount;
+        public IReadOnlyList<SkillValidationWarning> ValidationWarnings => validationWarnings;
         public SkillSlotState GetSlotState(int index) => slotStates?[index];
 
         private void Awake()
@@ -69,6 +72,8 @@ namespace PlayGround.Skills
         private void CompileAndRegister()
         {
             if (loadout == null) return;
+
+            validationWarnings = SkillLoadoutValidator.Validate(loadout);
 
             PlayerStatSnapshot snapshot = PlayerStatAggregator.Aggregate(loadout);
             IReadOnlyList<LoadoutSlot> slots = loadout.Slots;

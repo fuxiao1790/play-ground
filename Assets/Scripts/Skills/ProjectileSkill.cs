@@ -7,6 +7,7 @@ namespace PlayGround.Skills
     {
         [SerializeField] private ProjectileDefinition definition = new();
 
+        public override SkillDefinitionTags Tags => SkillDefinitionTags.Projectile;
         public override SkillDefinition Definition => definition;
     }
 }

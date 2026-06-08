@@ -7,6 +7,7 @@ namespace PlayGround.Skills
     {
         [SerializeField] private AoeDefinition definition = new();
 
+        public override SkillDefinitionTags Tags => SkillDefinitionTags.Aoe;
         public override SkillDefinition Definition => definition;
     }
 }

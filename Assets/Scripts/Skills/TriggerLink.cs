@@ -26,5 +26,9 @@ namespace PlayGround.Skills
         public TriggerLink link;
     }
 
-    public abstract class TriggerLink : ScriptableObject { }
+    public abstract class TriggerLink : ScriptableObject
+    {
+        public abstract SkillDefinitionTags SourceSkillTags { get; }
+        public abstract SkillDefinitionTags TargetSkillTags { get; }
+    }
 }

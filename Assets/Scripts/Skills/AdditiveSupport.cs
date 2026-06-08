@@ -4,6 +4,7 @@ namespace PlayGround.Skills
 {
     public abstract class AdditiveSupport : ScriptableObject
     {
+        public abstract SkillDefinitionTags SupportedSkillTags { get; }
         public abstract void Apply(SkillDefinition def);
     }
 
@@ -12,6 +13,8 @@ namespace PlayGround.Skills
     {
         [SerializeField, Min(1)] private int count = 3;
         [SerializeField, Min(0f)] private float spreadDegrees = 30f;
+
+        public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Projectile;
 
         public override void Apply(SkillDefinition def)
         {
@@ -29,6 +32,8 @@ namespace PlayGround.Skills
         [SerializeField, Min(0)] private int pierceCount = 2;
         [SerializeField, Min(0f)] private float repeatHitCooldown = 0.5f;
 
+        public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Projectile;
+
         public override void Apply(SkillDefinition def)
         {
             if (def is ProjectileDefinition p)
@@ -45,6 +50,8 @@ namespace PlayGround.Skills
         [SerializeField] private float trackingRange = 20f;
         [SerializeField] private float trackingTurnSpeedDegrees = 180f;
         [SerializeField] private float trackingQueryIntervalSeconds = 0.1f;
+
+        public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Projectile;
 
         public override void Apply(SkillDefinition def)
         {
@@ -64,6 +71,8 @@ namespace PlayGround.Skills
         [SerializeField, Min(0.01f)] private float speedMultiplier = 1.5f;
         [SerializeField, Min(0.01f)] private float lifetimeMultiplier = 1.2f;
 
+        public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Projectile;
+
         public override void Apply(SkillDefinition def)
         {
             if (def is ProjectileDefinition p)
@@ -79,6 +88,8 @@ namespace PlayGround.Skills
     {
         [SerializeField] private float addedDamage = 5f;
 
+        public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Any;
+
         public override void Apply(SkillDefinition def)
         {
             if (def is ProjectileDefinition p)
@@ -93,6 +104,8 @@ namespace PlayGround.Skills
     {
         [SerializeField, Min(0.01f)] private float sizeMultiplier = 1.5f;
         [SerializeField] private float addedDamage = 5f;
+
+        public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Aoe;
 
         public override void Apply(SkillDefinition def)
         {

@@ -8,5 +8,8 @@ namespace PlayGround.Skills
         [Min(0.01f)] public float intervalSeconds = 0.5f;
         [Min(1)] public int spawnCount = 1;
         [Range(0f, 180f)] public float sideSpreadDegrees = 30f;
+
+        public override SkillDefinitionTags SourceSkillTags => SkillDefinitionTags.Projectile;
+        public override SkillDefinitionTags TargetSkillTags => SkillDefinitionTags.Projectile;
     }
 }

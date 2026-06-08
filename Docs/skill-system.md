@@ -157,6 +157,7 @@ each holding their typed definition inline. The SO is never mutated at runtime.
 
 ```csharp
 abstract class Skill : ScriptableObject {
+    public abstract SkillDefinitionTags Tags { get; }
     public abstract SkillDefinition Definition { get; }
 }
 
@@ -170,6 +171,17 @@ sealed class AoeSkill : Skill {
     AoeDefinition definition;
 }
 ```
+
+Skill tags are runtime-authoring metadata used for validation, not hard gates.
+Current tags:
+
+| Tag | Meaning |
+|---|---|
+| `Projectile` | Skill compiles to a projectile runtime definition |
+| `Aoe` | Skill compiles to an AOE runtime definition |
+
+Players may still place any support or trigger beside any skill. Incompatible
+links and supports compile as no-ops and return validation warnings for UI.
 
 `SkillDefinition` is an abstract serializable base class with a `DeepCopy()`
 method. Concrete definitions are copied at compile time into a mutable runtime
@@ -219,6 +231,7 @@ follows slot order left to right.
 
 ```csharp
 abstract class AdditiveSupport : ScriptableObject {
+    public abstract SkillDefinitionTags SupportedSkillTags { get; }
     public abstract void Apply(SkillDefinition def);
 }
 ```
@@ -233,6 +246,20 @@ Examples:
 | Concentrated Effect | `sizeMultiplier` (AOE), `damage` |
 | Faster Projectiles | `speed`, `lifetime` |
 | Added Damage | `damage` |
+
+Supports also declare compatible skill tags:
+
+| Support | Compatible tags |
+|---|---|
+| Multiple Projectiles | `Projectile` |
+| Piercing | `Projectile` |
+| Homing | `Projectile` |
+| Faster Projectiles | `Projectile` |
+| Added Damage | `Projectile`, `Aoe` |
+| Concentrated Effect | `Aoe` |
+
+Example: putting Multiple Projectiles on an AOE skill is allowed, but it does
+nothing and validation returns a warning.
 
 ---
 
@@ -309,6 +336,8 @@ class ChildSpawnTrigger : TriggerLink {
 }
 ```
 
+Compatible tags: source `Projectile`, target `Projectile`.
+
 **OnImpactAoeTrigger**
 
 Fires the effect set as an AOE centered at the cause projectile's impact point.
@@ -318,6 +347,8 @@ compile to a `RuntimeAoeDefinition`.
 ```csharp
 class OnImpactAoeTrigger : TriggerLink { }
 ```
+
+Compatible tags: source `Projectile`, target `Aoe`.
 
 **OnStackTrigger**
 
@@ -331,6 +362,28 @@ class OnStackTrigger : TriggerLink {
     int stackThreshold;
 }
 ```
+
+Compatible tags: source `Projectile`, target `Aoe`.
+
+Trigger links are also tag-validated but not blocked. A ChildSpawn trigger from
+a projectile set to an AOE set is allowed in the loadout, but no child spawn
+setup is compiled and validation returns a warning.
+
+### Validation Warnings
+
+Validation is non-blocking. It reports authored combinations that compile to
+no-ops without throwing setup errors. The current runtime exposes warnings as
+`SkillValidationWarning[]` from `SkillLoadoutValidator.Validate(...)`, and
+`PlayerSkillDriver.ValidationWarnings` stores the latest compile warnings for
+future UI.
+
+Current warning cases:
+
+- skill set slot missing a set or skill
+- support tag does not match the skill tag
+- trigger link is not between two valid skill sets
+- trigger has no runtime-compatible tags
+- trigger source or target tags do not match the neighboring skill sets
 
 ---
 
