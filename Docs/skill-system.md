@@ -152,8 +152,10 @@ attack. The baseline is a definition tree of plain serializable C# classes
 containing visual, collision, and behavior data. Skills do not own augmentation
 — that belongs to Supports.
 
-`Skill` is abstract. Concrete types are `ProjectileSkill` and `AoeSkill`,
-each holding their typed definition inline. The SO is never mutated at runtime.
+`Skill` is abstract. Concrete types are `ProjectileSkill`, regular `AoeSkill`,
+and `LingeringAoeSkill`, each holding their typed definition inline. Regular and
+lingering AOE skills derive from the same AOE skill base. The SO is never mutated
+at runtime.
 
 ```csharp
 abstract class Skill : ScriptableObject {
@@ -167,8 +169,13 @@ sealed class ProjectileSkill : Skill {
 }
 
 [CreateAssetMenu(menuName = "PlayGround/Skills/AOE Skill")]
-sealed class AoeSkill : Skill {
+sealed class AoeSkill : AoeSkillBase {
     AoeDefinition definition;
+}
+
+[CreateAssetMenu(menuName = "PlayGround/Skills/Lingering AOE Skill")]
+sealed class LingeringAoeSkill : AoeSkillBase {
+    LingeringAoeDefinition definition;
 }
 ```
 
@@ -193,6 +200,7 @@ Current Skill types and their definition roots:
 |---|---|---|
 | Projectile skill | `ProjectileSkill` | `ProjectileDefinition` |
 | AOE skill | `AoeSkill` | `AoeDefinition` |
+| Lingering AOE skill | `LingeringAoeSkill` | `LingeringAoeDefinition` |
 
 ### ProjectileDefinition
 
@@ -215,6 +223,18 @@ nothing to behavior.
 
 ```
 AoeDefinition
+ ├─ prefab:    BasicAoePrefab   ← sprite, material, hitbox collider, particle effects
+ └─ behavior:  sizeMultiplier, damage, count, spawnAtAimPosition,
+               directDamageEnabled
+```
+
+Regular AOE content compiles as pulse AOE. It does not expose lifetime or tick
+interval, and the runtime receives `0` for both timing fields.
+
+### LingeringAoeDefinition
+
+```
+LingeringAoeDefinition
  ├─ prefab:    BasicAoePrefab   ← sprite, material, hitbox collider, particle effects
  └─ behavior:  sizeMultiplier, damage, lifetimeSeconds, tickIntervalSeconds,
                count, spawnAtAimPosition, directDamageEnabled

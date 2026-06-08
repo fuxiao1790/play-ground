@@ -37,17 +37,28 @@ namespace PlayGround.Skills
     }
 
     [Serializable]
-    public sealed class AoeDefinition : SkillDefinition
+    public abstract class AoeDefinitionBase : SkillDefinition
     {
         public BasicAoePrefab prefab;
         [Min(0.01f)] public float sizeMultiplier = 1f;
         public float damage = 10f;
-        public float lifetimeSeconds;
-        public float tickIntervalSeconds;
         [Min(1)] public int count = 1;
         public bool spawnAtAimPosition;
         public bool directDamageEnabled = true;
+    }
 
+    [Serializable]
+    public sealed class AoeDefinition : AoeDefinitionBase
+    {
         public override SkillDefinition DeepCopy() => (AoeDefinition)MemberwiseClone();
+    }
+
+    [Serializable]
+    public sealed class LingeringAoeDefinition : AoeDefinitionBase
+    {
+        [Min(0f)] public float lifetimeSeconds = 1f;
+        [Min(0f)] public float tickIntervalSeconds = 0.25f;
+
+        public override SkillDefinition DeepCopy() => (LingeringAoeDefinition)MemberwiseClone();
     }
 }

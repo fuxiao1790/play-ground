@@ -110,6 +110,43 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void CompilerTreatsRegularAoeAsPulseAoe()
+        {
+            AoeSkill skill = CreateAsset<AoeSkill>("Regular AOE Skill");
+            SkillSet set = CreateSkillSet("Regular AOE Set", skill);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                set,
+                global::System.Array.Empty<TriggerChain>(),
+                PlayerStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
+            var aoe = (RuntimeAoeDefinition)runtime;
+            Assert.That(aoe.LifetimeSeconds, Is.EqualTo(0f));
+            Assert.That(aoe.TickIntervalSeconds, Is.EqualTo(0f));
+        }
+
+        [Test]
+        public void CompilerCopiesLingeringAoeTiming()
+        {
+            LingeringAoeSkill skill = CreateAsset<LingeringAoeSkill>("Lingering AOE Skill");
+            var definition = (LingeringAoeDefinition)skill.Definition;
+            definition.lifetimeSeconds = 3f;
+            definition.tickIntervalSeconds = 0.4f;
+            SkillSet set = CreateSkillSet("Lingering AOE Set", skill);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                set,
+                global::System.Array.Empty<TriggerChain>(),
+                PlayerStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
+            var aoe = (RuntimeAoeDefinition)runtime;
+            Assert.That(aoe.LifetimeSeconds, Is.EqualTo(3f).Within(0.0001f));
+            Assert.That(aoe.TickIntervalSeconds, Is.EqualTo(0.4f).Within(0.0001f));
+        }
+
+        [Test]
         public void ValidatorDoesNotWarnForProjectileToAoeImpactLink()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");

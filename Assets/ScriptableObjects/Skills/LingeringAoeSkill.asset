@@ -10,12 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000003, type: 3}
-  m_Name: BasicAoeSkill
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.AoeSkill
+  m_Name: LingeringAoeSkill
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.LingeringAoeSkill
   definition:
-    prefab: {fileID: 1003000000000000002, guid: b30d55f9f7c24d568ec80663b19f8c55, type: 3}
-    sizeMultiplier: 1.25
-    damage: 18
+    prefab: {fileID: 0}
+    sizeMultiplier: 1
+    damage: 10
+    lifetimeSeconds: 1
+    tickIntervalSeconds: 0.25
     count: 1
     spawnAtAimPosition: 0
     directDamageEnabled: 1

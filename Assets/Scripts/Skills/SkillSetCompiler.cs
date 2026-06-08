@@ -90,15 +90,23 @@ namespace PlayGround.Skills
                 };
             }
 
-            if (def is AoeDefinition a)
+            if (def is AoeDefinitionBase a)
             {
+                float lifetimeSeconds = 0f;
+                float tickIntervalSeconds = 0f;
+                if (a is LingeringAoeDefinition lingering)
+                {
+                    lifetimeSeconds = lingering.lifetimeSeconds;
+                    tickIntervalSeconds = lingering.tickIntervalSeconds;
+                }
+
                 return new RuntimeAoeDefinition
                 {
                     Prefab = a.prefab,
                     SizeMultiplier = Mathf.Max(0.01f, a.sizeMultiplier),
                     Damage = Mathf.Max(0f, a.damage * snapshot.DamageMultiplier),
-                    LifetimeSeconds = Mathf.Max(0f, a.lifetimeSeconds),
-                    TickIntervalSeconds = Mathf.Max(0f, a.tickIntervalSeconds),
+                    LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds),
+                    TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds),
                     Count = Mathf.Max(1, a.count),
                     SpawnAtAimPosition = a.spawnAtAimPosition,
                     DirectDamageEnabled = a.directDamageEnabled,

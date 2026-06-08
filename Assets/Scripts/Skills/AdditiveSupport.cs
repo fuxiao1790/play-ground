@@ -94,7 +94,7 @@ namespace PlayGround.Skills
         {
             if (def is ProjectileDefinition p)
                 p.damage += addedDamage;
-            else if (def is AoeDefinition a)
+            else if (def is AoeDefinitionBase a)
                 a.damage += addedDamage;
         }
     }
@@ -109,7 +109,7 @@ namespace PlayGround.Skills
 
         public override void Apply(SkillDefinition def)
         {
-            if (def is AoeDefinition a)
+            if (def is AoeDefinitionBase a)
             {
                 a.sizeMultiplier *= sizeMultiplier;
                 a.damage += addedDamage;
