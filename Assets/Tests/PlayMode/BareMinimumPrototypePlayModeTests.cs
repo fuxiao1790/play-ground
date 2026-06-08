@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine.TestTools;
-using PlayGround.Attack;
+using PlayGround.Skills;
 using PlayGround.Common;
 using PlayGround.Mob;
 using PlayGround.Mob.Behaviours;

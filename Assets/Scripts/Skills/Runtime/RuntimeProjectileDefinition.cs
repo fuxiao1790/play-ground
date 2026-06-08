@@ -1,4 +1,4 @@
-using PlayGround.Attack;
+using PlayGround.Skills;
 using PlayGround.System.Projectile;
 using UnityEngine;
 

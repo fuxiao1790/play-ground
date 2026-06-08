@@ -2,7 +2,7 @@ using PlayGround.System.Common;
 using UnityEngine;
 using UnityEngine.VFX;
 
-namespace PlayGround.Attack
+namespace PlayGround.Skills
 {
     public sealed class BasicAoePrefab : MonoBehaviour
     {

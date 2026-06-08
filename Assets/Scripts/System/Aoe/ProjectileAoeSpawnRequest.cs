@@ -1,7 +1,7 @@
 using PlayGround.Common;
 using UnityEngine;
 
-namespace PlayGround.Attack
+namespace PlayGround.System.Aoe
 {
     public readonly struct ProjectileAoeSpawnRequest
     {

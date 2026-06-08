@@ -1,8 +1,8 @@
 using System.Collections;
 using System.Reflection;
 using NUnit.Framework;
-using PlayGround.Attack;
 using PlayGround.Common;
+using PlayGround.Skills;
 using PlayGround.Common.StatusEffects;
 using PlayGround.Mob;
 using PlayGround.Mob.Behaviours;

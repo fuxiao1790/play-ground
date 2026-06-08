@@ -1,5 +1,5 @@
 using System;
-using PlayGround.Attack;
+using PlayGround.Skills;
 using PlayGround.Common;
 using PlayGround.Common.StatusEffects;
 using PlayGround.System.Aoe;

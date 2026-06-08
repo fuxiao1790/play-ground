@@ -1,8 +1,8 @@
-using PlayGround.System.Aoe;
+using PlayGround.Skills;
 using UnityEngine;
 using UnityEngine.VFX;
 
-namespace PlayGround.Attack
+namespace PlayGround.System.Aoe
 {
     [CreateAssetMenu(menuName = "PlayGround/Attack/AOE Config", fileName = "AoeConfig")]
     public class AoeConfig : ScriptableObject

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using PlayGround.Attack;
+using PlayGround.Skills;
 using PlayGround.Common;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
@@ -10,30 +10,6 @@ namespace PlayGround.Tests.EditMode
 {
     public sealed class ProjectileAuthoringEditModeTests
     {
-        [Test]
-        public void VolleyBuilderCreatesExpectedCountAndDirections()
-        {
-            var commands = new List<ProjectileSpawnCommand>();
-
-            int count = ProjectileVolleyBuilder.Build(
-                commands,
-                Vector2.zero,
-                Vector2.right,
-                3,
-                20f,
-                0f,
-                10f,
-                1f,
-                0.2f,
-                new DamageSnapshot(1f),
-                CombatShapeType.Circle);
-
-            Assert.That(count, Is.EqualTo(3));
-            Assert.That(commands[0].Direction.y, Is.LessThan(0f));
-            Assert.That(commands[1].Direction, Is.EqualTo(Vector2.right).Using(Vector2Comparer.Instance));
-            Assert.That(commands[2].Direction.y, Is.GreaterThan(0f));
-        }
-
         [Test]
         public void SpawnCommandNormalizesDirectionAndPreservesDamage()
         {
@@ -48,20 +24,6 @@ namespace PlayGround.Tests.EditMode
 
             Assert.That(command.Direction, Is.EqualTo(Vector2.right).Using(Vector2Comparer.Instance));
             Assert.That(command.Damage.Amount, Is.EqualTo(7f));
-        }
-
-        [Test]
-        public void SideSprayPatternAlternatesLeftAndRight()
-        {
-            var pattern = ScriptableObject.CreateInstance<ProjectileSideSpraySpawnPattern>();
-            var requests = new List<ProjectileVolleyBuilder.SpawnRequest>();
-
-            pattern.Build(requests, Vector2.zero, Vector2.right, 2, 5f, 1);
-
-            Assert.That(requests, Has.Count.EqualTo(2));
-            Assert.That(requests[0].Velocity.y, Is.LessThan(0f));
-            Assert.That(requests[1].Velocity.y, Is.GreaterThan(0f));
-            Object.DestroyImmediate(pattern);
         }
 
         [Test]

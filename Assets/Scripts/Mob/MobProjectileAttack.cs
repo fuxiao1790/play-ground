@@ -1,5 +1,5 @@
 using PlayGround.Common;
-using PlayGround.Attack;
+using PlayGround.Skills;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using UnityEngine;
