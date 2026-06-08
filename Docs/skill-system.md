@@ -241,7 +241,6 @@ Examples:
 | Support | Fields it modifies |
 |---|---|
 | Multiple Projectiles | `count`, `spreadDegrees` |
-| Additional Projectiles | `count` |
 | Piercing | `pierceCount`, `repeatHitCooldown` |
 | Homing | `trackingEnabled`, `trackingRange`, `trackingTurnSpeed` |
 | Concentrated Effect | `sizeMultiplier` (AOE), `damage` |
@@ -253,7 +252,6 @@ Supports also declare compatible skill tags:
 | Support | Compatible tags |
 |---|---|
 | Multiple Projectiles | `Projectile` |
-| Additional Projectiles | `Projectile` |
 | Piercing | `Projectile` |
 | Homing | `Projectile` |
 | Faster Projectiles | `Projectile` |
