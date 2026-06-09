@@ -1,4 +1,5 @@
 using PlayGround.Common;
+using PlayGround.System.Common;
 using UnityEngine;
 
 namespace PlayGround.System.Projectile
@@ -41,7 +42,9 @@ namespace PlayGround.System.Projectile
             int targetMask,
             float damageAmount,
             float lifetimeSeconds,
-            float tickIntervalSeconds)
+            float tickIntervalSeconds,
+            float critChance = 0f,
+            float critMultiplier = 1.5f)
         {
             Enabled = typeId >= 0;
             TypeId = typeId;
@@ -49,6 +52,8 @@ namespace PlayGround.System.Projectile
             DamageAmount = damageAmount;
             LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds);
             TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds);
+            CritChance = critChance;
+            CritMultiplier = critMultiplier;
         }
 
         public int TypeId { get; }
@@ -57,7 +62,70 @@ namespace PlayGround.System.Projectile
         public float LifetimeSeconds { get; }
         public float TickIntervalSeconds { get; }
         public bool Enabled { get; }
+        public float CritChance { get; }
+        public float CritMultiplier { get; }
         public DamageSnapshot Damage => new(Mathf.Max(0f, DamageAmount));
+    }
+
+    public readonly struct ProjectileImpactProjectileSnapshot
+    {
+        public ProjectileImpactProjectileSnapshot(
+            int projectileTypeId,
+            int targetMask,
+            int count,
+            float spreadDegrees,
+            float speed,
+            float lifetimeSeconds,
+            float radius,
+            Vector2 halfExtents,
+            float rotationRadians,
+            CombatShapeType shapeType,
+            DamageSnapshot damage,
+            bool directDamageEnabled = true,
+            int pierceCount = 0,
+            float repeatHitCooldownSeconds = 0f,
+            ProjectileTrackingConfig tracking = default,
+            ProjectileImpactAoeSnapshot impactAoe = default,
+            ProjectileStackEffectSnapshot stackEffect = default)
+        {
+            Enabled = projectileTypeId >= 0;
+            ProjectileTypeId = projectileTypeId;
+            TargetMask = targetMask;
+            Count = Mathf.Max(1, count);
+            SpreadDegrees = Mathf.Max(0f, spreadDegrees);
+            Speed = Mathf.Max(0f, speed);
+            LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds);
+            Radius = Mathf.Max(0f, radius);
+            HalfExtents = halfExtents;
+            RotationRadians = rotationRadians;
+            ShapeType = shapeType;
+            Damage = damage;
+            DirectDamageEnabled = directDamageEnabled;
+            PierceCount = Mathf.Max(0, pierceCount);
+            RepeatHitCooldownSeconds = Mathf.Max(0f, repeatHitCooldownSeconds);
+            Tracking = tracking;
+            ImpactAoe = impactAoe;
+            StackEffect = stackEffect;
+        }
+
+        public bool Enabled { get; }
+        public int ProjectileTypeId { get; }
+        public int TargetMask { get; }
+        public int Count { get; }
+        public float SpreadDegrees { get; }
+        public float Speed { get; }
+        public float LifetimeSeconds { get; }
+        public float Radius { get; }
+        public Vector2 HalfExtents { get; }
+        public float RotationRadians { get; }
+        public CombatShapeType ShapeType { get; }
+        public DamageSnapshot Damage { get; }
+        public bool DirectDamageEnabled { get; }
+        public int PierceCount { get; }
+        public float RepeatHitCooldownSeconds { get; }
+        public ProjectileTrackingConfig Tracking { get; }
+        public ProjectileImpactAoeSnapshot ImpactAoe { get; }
+        public ProjectileStackEffectSnapshot StackEffect { get; }
     }
 
     public readonly struct ProjectileHitPayload
@@ -68,6 +136,7 @@ namespace PlayGround.System.Projectile
             bool directDamageEnabled,
             ProjectileImpactAoeSnapshot impactAoe = default,
             ProjectileStackEffectSnapshot stackEffect = default,
+            ProjectileImpactProjectileSnapshot impactProjectile = default,
             float critChance = 0f,
             float critMultiplier = 1.5f)
         {
@@ -76,6 +145,7 @@ namespace PlayGround.System.Projectile
             DirectDamageEnabled = directDamageEnabled;
             ImpactAoe = impactAoe;
             StackEffect = stackEffect;
+            ImpactProjectile = impactProjectile;
             CritChance = critChance;
             CritMultiplier = critMultiplier;
         }
@@ -85,6 +155,7 @@ namespace PlayGround.System.Projectile
         public bool DirectDamageEnabled { get; }
         public ProjectileImpactAoeSnapshot ImpactAoe { get; }
         public ProjectileStackEffectSnapshot StackEffect { get; }
+        public ProjectileImpactProjectileSnapshot ImpactProjectile { get; }
         public float CritChance { get; }
         public float CritMultiplier { get; }
         public DamageSnapshot Damage => new(DamageAmount);

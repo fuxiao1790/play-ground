@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1000000000000000000000000000007, type: 3}
+  m_Name: TestTriggerLoadout
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.PlayerLoadout
+  slots:
+  - rid: 5501311866238796020
+  - rid: 5501311866238796024
+  - rid: 5501311866238796025
+  - rid: 3401311924791803976
+  - rid: 3401311924791803977
+  maxRootSets: 8
+  references:
+    version: 2
+    RefIds:
+    - rid: 3401311924791803976
+      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        link: {fileID: 11400000, guid: 502349cdbd8fc624f8dd28ba7b2eebbb, type: 2}
+    - rid: 3401311924791803977
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        skillSet: {fileID: 11400000, guid: a86dacf66b90050479250ca3d66c0049, type: 2}
+    - rid: 5501311866238796020
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        skillSet: {fileID: 11400000, guid: a2000000000000000000000000000003, type: 2}
+    - rid: 5501311866238796024
+      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        link: {fileID: 11400000, guid: 1a2b3c4d5e6f708192a3b4c5d6e7f801, type: 2}
+    - rid: 5501311866238796025
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        skillSet: {fileID: 11400000, guid: a2000000000000000000000000000004, type: 2}

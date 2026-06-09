@@ -5,6 +5,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Mathematics;
 using Unity.Profiling;
 
 namespace PlayGround.System.Projectile
@@ -276,6 +277,15 @@ namespace PlayGround.System.Projectile
                 ecb.SetComponent(entity, request.ChildSpawnState);
             }
 
+            if (request.SeedContactGateTargetId > 0)
+            {
+                ecb.AppendToBuffer(entity, new ProjectileContactGateElement
+                {
+                    TargetId = request.SeedContactGateTargetId,
+                    CooldownRemaining = math.max(0.1f, request.RepeatHitCooldownSeconds)
+                });
+            }
+
             ecb.SetComponentEnabled<ProjectileActiveTag>(entity, true);
             ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
         }
@@ -456,6 +466,14 @@ namespace PlayGround.System.Projectile
                 Renders[entity] = request.Render;
                 RenderElements[entity] = new CombatRenderElement();
                 ContactGates[entity].Clear();
+                if (request.SeedContactGateTargetId > 0)
+                {
+                    ContactGates[entity].Add(new ProjectileContactGateElement
+                    {
+                        TargetId = request.SeedContactGateTargetId,
+                        CooldownRemaining = math.max(0.1f, request.RepeatHitCooldownSeconds)
+                    });
+                }
 
                 if (request.HasChildSpawner != 0)
                 {

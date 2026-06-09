@@ -134,6 +134,7 @@ namespace PlayGround.System.Projectile
         public float TrackingInitialQueryDelaySeconds;
         public ProjectileImpactAoeSnapshot ImpactAoe;
         public ProjectileStackEffectSnapshot StackEffect;
+        public ProjectileImpactProjectileSnapshot ImpactProjectile;
     }
 
     // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by ProjectileSpawnSystem.
@@ -144,6 +145,7 @@ namespace PlayGround.System.Projectile
         public int TargetMask;
         public int PierceRemaining;
         public int HasChildSpawner;
+        public int SeedContactGateTargetId;
         public float RepeatHitCooldownSeconds;
         public float Lifetime;
         public float Radius;

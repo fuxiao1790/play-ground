@@ -39,6 +39,7 @@ namespace PlayGround.Skills
 
             ProjectileImpactAoeSnapshot impactAoe = BuildImpactAoeSnapshot(def, targetMask);
             ProjectileStackEffectSnapshot stackEffect = BuildStackEffectSnapshot(def);
+            ProjectileImpactProjectileSnapshot impactProjectile = BuildImpactProjectileSnapshot(def, targetMask);
             ProjectileChildSpawnConfig childSpawn = def.BuildChildSpawnConfig();
 
             for (int i = 0; i < count; i++)
@@ -69,6 +70,7 @@ namespace PlayGround.Skills
                     default,
                     impactAoe,
                     stackEffect,
+                    impactProjectile,
                     def.CritChance,
                     def.CritMultiplier));
             }
@@ -113,7 +115,41 @@ namespace PlayGround.Skills
                 targetMask,
                 Mathf.Max(0f, impact.Damage),
                 impact.LifetimeSeconds,
-                impact.TickIntervalSeconds);
+                impact.TickIntervalSeconds,
+                impact.CritChance,
+                impact.CritMultiplier);
+        }
+
+        private static ProjectileImpactProjectileSnapshot BuildImpactProjectileSnapshot(
+            RuntimeProjectileDefinition def,
+            int targetMask)
+        {
+            RuntimeProjectileDefinition impact = def.ImpactProjectileDefinition;
+            if (impact == null || impact.TypeId < 0)
+                return default;
+
+            BasicAttackPrefab prefab = impact.Prefab;
+            if (prefab == null)
+                return default;
+
+            return new ProjectileImpactProjectileSnapshot(
+                impact.TypeId,
+                targetMask,
+                Mathf.Max(1, impact.Count),
+                impact.SpreadDegrees,
+                impact.Speed,
+                impact.Lifetime,
+                prefab.Radius,
+                prefab.HalfExtents,
+                prefab.RotationRadians,
+                prefab.ShapeType,
+                new DamageSnapshot(Mathf.Max(0f, impact.Damage)),
+                impact.DirectDamageEnabled,
+                impact.PierceCount,
+                impact.RepeatHitCooldown,
+                impact.Tracking,
+                BuildImpactAoeSnapshot(impact, targetMask),
+                BuildStackEffectSnapshot(impact));
         }
 
         private static ProjectileStackEffectSnapshot BuildStackEffectSnapshot(RuntimeProjectileDefinition def)

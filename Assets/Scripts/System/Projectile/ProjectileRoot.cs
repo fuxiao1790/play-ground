@@ -239,18 +239,18 @@ namespace PlayGround.System.Projectile
             }
         }
 
-        public int Spawn(ProjectileSpawnCommand command)
+        public int Spawn(ProjectileSpawnCommand command, int seedContactGateTargetId = 0)
         {
             EnsureRuntimeReady();
             ValidateSpawnCommand(command);
 
             int projectileId = ++nextProjectileId;
             entityManager.GetBuffer<ProjectileSpawnRequestElement>(scopeEntity)
-                .Add(SpawnRequestFor(command, projectileId));
+                .Add(SpawnRequestFor(command, projectileId, seedContactGateTargetId));
             return projectileId;
         }
 
-        private ProjectileSpawnRequestElement SpawnRequestFor(ProjectileSpawnCommand command, int projectileId)
+        private ProjectileSpawnRequestElement SpawnRequestFor(ProjectileSpawnCommand command, int projectileId, int seedContactGateTargetId = 0)
         {
             float2 position = new(command.Position.x, command.Position.y);
             float2 velocity = new float2(command.Direction.x, command.Direction.y) * command.Speed;
@@ -271,6 +271,7 @@ namespace PlayGround.System.Projectile
                 TargetMask = command.TargetMask,
                 PierceRemaining = command.PierceCount,
                 HasChildSpawner = command.ChildSpawn.Enabled ? 1 : 0,
+                SeedContactGateTargetId = seedContactGateTargetId,
                 RepeatHitCooldownSeconds = command.RepeatHitCooldownSeconds,
                 Lifetime = command.Lifetime,
                 Radius = command.Radius,
@@ -555,7 +556,8 @@ namespace PlayGround.System.Projectile
                 TrackingQueryIntervalSeconds = config.Tracking.QueryIntervalSeconds,
                 TrackingInitialQueryDelaySeconds = config.Tracking.InitialQueryDelaySeconds,
                 ImpactAoe = config.ImpactAoe,
-                StackEffect = config.StackEffect
+                StackEffect = config.StackEffect,
+                ImpactProjectile = config.ImpactProjectile
             };
         }
 

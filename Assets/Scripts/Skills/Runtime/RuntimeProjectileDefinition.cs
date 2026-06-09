@@ -35,6 +35,9 @@ namespace PlayGround.Skills.Runtime
         // Compiled from OnStackTrigger; null if none.
         public RuntimeStackTriggerSetup StackTriggerSetup { get; set; }
 
+        // Compiled from OnImpactProjectileTrigger; null if none.
+        public RuntimeProjectileDefinition ImpactProjectileDefinition { get; set; }
+
         public ProjectileChildSpawnConfig BuildChildSpawnConfig()
         {
             RuntimeChildSpawnSetup setup = ChildSpawnSetup;
@@ -63,7 +66,20 @@ namespace PlayGround.Skills.Runtime
                 prefab.VisualRotationDegrees,
                 child.Tracking,
                 setup.Behavior,
-                stackEffect: BuildChildStackEffect(child.StackTriggerSetup));
+                impactAoe: BuildChildImpactAoeSnapshot(child),
+                stackEffect: BuildChildStackEffect(child.StackTriggerSetup),
+                impactProjectile: BuildChildImpactProjectileSnapshot(child));
+        }
+
+        private static ProjectileImpactAoeSnapshot BuildChildImpactAoeSnapshot(RuntimeProjectileDefinition child)
+        {
+            RuntimeAoeDefinition impact = child.ImpactAoeDefinition;
+            if (impact == null || impact.TypeId < 0)
+                return default;
+            return new ProjectileImpactAoeSnapshot(
+                impact.TypeId, 0, Mathf.Max(0f, impact.Damage),
+                impact.LifetimeSeconds, impact.TickIntervalSeconds,
+                impact.CritChance, impact.CritMultiplier);
         }
 
         private static ProjectileStackEffectSnapshot BuildChildStackEffect(RuntimeStackTriggerSetup stack)
@@ -78,6 +94,25 @@ namespace PlayGround.Skills.Runtime
                 Mathf.Max(0f, stack.AoeDefinition.Damage),
                 stack.AoeDefinition.LifetimeSeconds,
                 stack.AoeDefinition.TickIntervalSeconds);
+        }
+
+        private static ProjectileImpactProjectileSnapshot BuildChildImpactProjectileSnapshot(RuntimeProjectileDefinition child)
+        {
+            RuntimeProjectileDefinition impact = child.ImpactProjectileDefinition;
+            if (impact == null || impact.TypeId < 0)
+                return default;
+            BasicAttackPrefab prefab = impact.Prefab;
+            if (prefab == null)
+                return default;
+            return new ProjectileImpactProjectileSnapshot(
+                impact.TypeId, 0, Mathf.Max(1, impact.Count), impact.SpreadDegrees,
+                impact.Speed, impact.Lifetime, prefab.Radius, prefab.HalfExtents,
+                prefab.RotationRadians, prefab.ShapeType,
+                new PlayGround.Common.DamageSnapshot(Mathf.Max(0f, impact.Damage)),
+                impact.DirectDamageEnabled, impact.PierceCount, impact.RepeatHitCooldown,
+                impact.Tracking,
+                BuildChildImpactAoeSnapshot(impact),
+                BuildChildStackEffect(impact.StackTriggerSetup));
         }
     }
 }

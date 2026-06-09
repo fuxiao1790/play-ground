@@ -47,6 +47,22 @@ namespace PlayGround.Skills
                     continue;
                 }
 
+                if (chain.link is OnImpactProjectileTrigger impactProjTrigger)
+                {
+                    if (runtime is RuntimeProjectileDefinition projDef)
+                    {
+                        RuntimeSkillDefinition compiledTarget = Compile(chain.effect, allChains, snapshot);
+                        if (compiledTarget is RuntimeProjectileDefinition impactProjDef)
+                        {
+                            projDef.ImpactProjectileDefinition = impactProjDef;
+                            impactProjDef.SpreadDegrees = impactProjTrigger.spreadDegrees;
+                            if (impactProjDef.ImpactProjectileDefinition != null)
+                                Debug.LogWarning($"[SkillSetCompiler] '{chain.effect?.Skill?.name}' has OnImpactProjectileTrigger but is itself used as an impact-projectile target. The nested OnImpactProjectile chain will not fire — C# value-type structs cannot be recursive. Restructure the loadout to avoid proj→proj→proj nesting.");
+                        }
+                    }
+                    continue;
+                }
+
                 if (chain.link is OnStackTrigger stackTrigger)
                 {
                     if (runtime is RuntimeProjectileDefinition projDef)

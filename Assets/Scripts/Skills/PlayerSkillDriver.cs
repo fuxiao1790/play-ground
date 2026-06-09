@@ -159,6 +159,8 @@ namespace PlayGround.Skills
                     RegisterAoeTypeDefinition(p.ImpactAoeDefinition);
                 if (p.StackTriggerSetup?.AoeDefinition != null)
                     RegisterAoeTypeDefinition(p.StackTriggerSetup.AoeDefinition);
+                if (p.ImpactProjectileDefinition != null)
+                    RegisterProjectileTypesRecursive(p.ImpactProjectileDefinition);
             }
         }
 
@@ -184,6 +186,8 @@ namespace PlayGround.Skills
                     RegisterAoeTypeDefinition(projDef.ImpactAoeDefinition);
                 if (projDef.StackTriggerSetup?.AoeDefinition != null)
                     RegisterAoeTypeDefinition(projDef.StackTriggerSetup.AoeDefinition);
+                if (projDef.ImpactProjectileDefinition != null)
+                    RegisterAoeTypesRecursive(projDef.ImpactProjectileDefinition);
             }
         }
 

@@ -67,6 +67,7 @@ namespace PlayGround.System.Projectile
             EntityId sourceNodeId = default,
             ProjectileImpactAoeSnapshot impactAoe = default,
             ProjectileStackEffectSnapshot stackEffect = default,
+            ProjectileImpactProjectileSnapshot impactProjectile = default,
             float critChance = 0f,
             float critMultiplier = 1.5f)
         {
@@ -87,7 +88,7 @@ namespace PlayGround.System.Projectile
             ChildSpawn = childSpawn;
             DirectDamageEnabled = directDamageEnabled;
             ImpactAoe = impactAoe;
-            HitPayload = new ProjectileHitPayload(sourceNodeId, damage.Amount, directDamageEnabled, impactAoe, stackEffect, critChance, critMultiplier);
+            HitPayload = new ProjectileHitPayload(sourceNodeId, damage.Amount, directDamageEnabled, impactAoe, stackEffect, impactProjectile, critChance, critMultiplier);
         }
 
         [global::System.Obsolete("Use the CombatShapeType overload.")]
@@ -227,7 +228,8 @@ namespace PlayGround.System.Projectile
             ProjectileTrackingConfig tracking = default,
             ProjectileChildSpawnBehavior behavior = default,
             ProjectileImpactAoeSnapshot impactAoe = default,
-            ProjectileStackEffectSnapshot stackEffect = default)
+            ProjectileStackEffectSnapshot stackEffect = default,
+            ProjectileImpactProjectileSnapshot impactProjectile = default)
         {
             SpawnerId = spawnerId;
             TypeId = typeId;
@@ -250,6 +252,7 @@ namespace PlayGround.System.Projectile
             Behavior = behavior;
             ImpactAoe = impactAoe;
             StackEffect = stackEffect;
+            ImpactProjectile = impactProjectile;
         }
 
         [global::System.Obsolete("Use the CombatShapeType overload.")]
@@ -317,6 +320,7 @@ namespace PlayGround.System.Projectile
         public ProjectileChildSpawnBehavior Behavior { get; }
         public ProjectileImpactAoeSnapshot ImpactAoe { get; }
         public ProjectileStackEffectSnapshot StackEffect { get; }
+        public ProjectileImpactProjectileSnapshot ImpactProjectile { get; }
         public bool Enabled => SpawnerId > 0 && IntervalSeconds > 0f;
     }
 }
