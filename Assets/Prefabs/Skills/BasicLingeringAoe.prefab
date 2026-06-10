@@ -48,10 +48,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.LingeringAoePrefab
   spriteRenderer: {fileID: 1003000000000000202}
   hurtbox: {fileID: 1003000000000000102}
-  spawnEffect: {fileID: 8926484042661614526, guid: 5d59119edd3a9714eb51dc3af75dd222, type: 3}
+  spawnEffect: {fileID: 0}
   hitEffect: {fileID: 0}
   expireEffect: {fileID: 0}
-  pulseEffect: {fileID: 8926484042661614526, guid: 47da7452d930a7c46a1b4469c9b0ddda, type: 3}
+  pulseEffect: {fileID: 0}
+  sizeNormalizationCoefficient: 1
 --- !u!1 &1003000000000000100
 GameObject:
   m_ObjectHideFlags: 0

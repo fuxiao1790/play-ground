@@ -72,6 +72,34 @@ The dispatcher fails fast when a registered graph does not expose this contract.
 There is no simple `Play()` fallback; a graph that cannot consume uploaded ECS
 positions is invalid for this runtime.
 
+### AOE VFX size normalization
+
+AOE gameplay radius is expressed in world units and driven by the skill, not by
+the VFX graph. The canonical reference area is the `Standard1RadiusAoe` prefab
+(`Assets/Prefabs/Skills/Standard1RadiusAoe.prefab`). Its hurtbox defines radius
+`1.0` in gameplay terms — every AOE `sizeMultiplier` is relative to that prefab.
+
+VFX graphs are authored at an arbitrary native particle size. To align particle
+visuals with the gameplay hitbox at runtime:
+
+1. Each VFX Graph asset must expose a `float` property named
+   `"SizeNormalizationCoefficient"` that converts the graph's native authored
+   particle size to match the `Standard1RadiusAoe` radius. The relationship is:
+
+   ```
+   authored_particle_radius * SizeNormalizationCoefficient = Standard1RadiusAoe_hurtbox_radius
+   ```
+
+2. At AOE spawn time the runtime passes the resolved gameplay AOE radius
+   (= `Standard1RadiusAoe_radius * skill.sizeMultiplier`) into the VFX Graph.
+   The graph multiplies its particles by that value so visual size and logical
+   hitbox size stay in sync.
+
+`SizeNormalizationCoefficient` belongs in the VFX Graph asset, not on the
+`BasicAoePrefab` or `LingeringAoePrefab` component. The prefab component holds
+visual and collision structure; per-graph size calibration is authoring data
+that lives inside the graph itself.
+
 ### Render Layering
 
 Combat VFX scene objects inherit the Unity GameObject layer from their owning
@@ -199,6 +227,10 @@ pulseEffect   → Trigger 3 (fires on interval tick, lingering AOEs only)
 All four fields are optional and live on the AOE template prefab's
 `BasicAoePrefab`, beside the required `Hurtbox` reference and optional `Visual`
 debug sprite reference.
+
+Each assigned VFX Graph asset must also expose `SizeNormalizationCoefficient` so
+the runtime can scale particle size to match the gameplay AOE radius. See
+[AOE VFX size normalization](#aoe-vfx-size-normalization).
 `AoeConfig.CreateTypeDefinition` forwards them into the registered
 `AoeTypeDefinition`; `pulseEffect` is forwarded only when
 `AoeConfig.lifetimeSeconds > 0`. Pulse AOEs (`IsPulse==1`) do not fire Trigger 2
