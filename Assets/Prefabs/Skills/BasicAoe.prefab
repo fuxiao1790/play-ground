@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 1003000000000000001}
   - component: {fileID: 1003000000000000002}
   m_Layer: 11
-  m_Name: Standard1RadiusAoe
+  m_Name: BasicAoe
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
