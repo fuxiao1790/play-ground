@@ -88,6 +88,7 @@ namespace PlayGround.Skills
             Vector2 center = def.SpawnAtAimPosition ? aimWorldPos : origin;
             DamageSnapshot damage = new(Mathf.Max(0f, def.Damage));
             int count = Mathf.Max(1, def.Count);
+            AoeSpawnGeometry geometry = def.CreateSpawnGeometry();
 
             for (int i = 0; i < count; i++)
             {
@@ -98,6 +99,7 @@ namespace PlayGround.Skills
                     damage,
                     def.LifetimeSeconds,
                     def.TickIntervalSeconds,
+                    geometry,
                     critChance: def.CritChance,
                     critMultiplier: def.CritMultiplier));
             }
@@ -117,6 +119,7 @@ namespace PlayGround.Skills
                 Mathf.Max(0f, impact.Damage),
                 impact.LifetimeSeconds,
                 impact.TickIntervalSeconds,
+                impact.CreateSpawnGeometry(),
                 impact.CritChance,
                 impact.CritMultiplier);
         }
@@ -166,7 +169,8 @@ namespace PlayGround.Skills
                 stack.AoeDefinition.TypeId,
                 Mathf.Max(0f, stack.AoeDefinition.Damage),
                 stack.AoeDefinition.LifetimeSeconds,
-                stack.AoeDefinition.TickIntervalSeconds);
+                stack.AoeDefinition.TickIntervalSeconds,
+                stack.AoeDefinition.CreateSpawnGeometry());
         }
     }
 }

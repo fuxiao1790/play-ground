@@ -339,7 +339,8 @@ namespace PlayGround.Tests.PlayMode
                     targetMask: ~0,
                     damageAmount: 3f,
                     lifetimeSeconds: 0f,
-                    tickIntervalSeconds: 0f));
+                    tickIntervalSeconds: 0f,
+                    AoeGeometry(aoeTemplateObject)));
 
             projectileRoot.Spawn(command);
             yield return null;
@@ -390,6 +391,7 @@ namespace PlayGround.Tests.PlayMode
                 damage: new DamageSnapshot(0f),
                 lifetimeSeconds: 0f,
                 tickIntervalSeconds: 0f,
+                AoeGeometry(aoeTemplateObject),
                 projectileBurst: burst));
             yield return null;
             Assert.That(mob.CurrentHealth, Is.EqualTo(10f));
@@ -855,7 +857,7 @@ namespace PlayGround.Tests.PlayMode
             shape.radius = 1f;
 
             var definition = new AoeTypeDefinition();
-            definition.Configure(templateObject, shape, 1f);
+            definition.Configure(templateObject, shape);
 
             rootObject = new GameObject("AoeRoot");
             rootObject.SetActive(false);
@@ -864,6 +866,15 @@ namespace PlayGround.Tests.PlayMode
             rootObject.SetActive(true);
 
             typeId = root.RegisterType(definition);
+        }
+
+        private static AoeSpawnGeometry AoeGeometry(GameObject templateObject, float areaSize = 1f)
+        {
+            return AoeSpawnGeometry.FromTemplate(
+                templateObject,
+                templateObject.GetComponentInChildren<Collider2D>(true),
+                areaSize,
+                0f);
         }
 
         private static ProjectileSpawnCommand ChildSpawnerCommand()
@@ -1161,6 +1172,7 @@ namespace PlayGround.Tests.PlayMode
 
             root.Spawn(new AoeSpawnCommand(typeId, Vector2.zero, ~0,
                 new DamageSnapshot(3f), 0f, 0f,
+                AoeGeometry(templateObject),
                 critChance: 1f, critMultiplier: 2f));
             yield return null;
 
@@ -1180,6 +1192,7 @@ namespace PlayGround.Tests.PlayMode
 
             root.Spawn(new AoeSpawnCommand(typeId, Vector2.zero, ~0,
                 new DamageSnapshot(3f), 0f, 0f,
+                AoeGeometry(templateObject),
                 critChance: 0f, critMultiplier: 2f));
             yield return null;
 

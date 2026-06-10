@@ -52,7 +52,6 @@ MonoBehaviour:
   hitEffect: {fileID: 0}
   expireEffect: {fileID: 0}
   pulseEffect: {fileID: 0}
-  sizeNormalizationCoefficient: 1
 --- !u!1 &1003000000000000100
 GameObject:
   m_ObjectHideFlags: 0

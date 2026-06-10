@@ -9,7 +9,7 @@ namespace PlayGround.Skills.Runtime
     {
         public GameObject VisualPrefab { get; set; }
         public Collider2D CollisionShape { get; set; }
-        [Min(0.01f)] public float SizeMultiplier { get; set; } = 1f;
+        [Min(0.01f)] public float AreaSize { get; set; } = 1f;
         public float VisualRotationDegrees { get; set; }
         public VisualEffectAsset SpawnEffect { get; set; }
         public VisualEffectAsset HitEffect { get; set; }
@@ -21,13 +21,21 @@ namespace PlayGround.Skills.Runtime
         public bool SpawnAtAimPosition { get; set; }
         public bool DirectDamageEnabled { get; set; } = true;
 
+        public AoeSpawnGeometry CreateSpawnGeometry()
+        {
+            return AoeSpawnGeometry.FromTemplate(
+                VisualPrefab,
+                CollisionShape,
+                AreaSize,
+                VisualRotationDegrees);
+        }
+
         public AoeTypeDefinition CreateTypeDefinition()
         {
             var def = new AoeTypeDefinition();
             def.Configure(
                 VisualPrefab,
                 CollisionShape,
-                SizeMultiplier,
                 VisualRotationDegrees,
                 0,
                 SpawnEffect,

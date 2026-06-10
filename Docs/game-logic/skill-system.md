@@ -90,10 +90,12 @@ Owns no data — all sources come from Layer 1.
 `PlayerStatSnapshot` fields:
 - `castSpeedMultiplier`
 - `damageMultiplier`
+- `areaSizeMultiplier`
 
 Baking:
 - `recoveryTime = baseRecoveryTime * castSpeedMultiplier`
 - `damage = baseDamage * damageMultiplier`
+- `areaSize = baseAreaSize * areaSizeMultiplier`
 
 ### Layer 2: Orchestration
 
@@ -126,7 +128,9 @@ deduplicate (re-registering same definition returns the existing ID). Type ID re
 is state — it belongs in Layer 2, not here.
 
 `SkillSpawnTranslator` takes a `RuntimeSkillDefinition` with type IDs already resolved
-by Layer 2 + origin + aim; submits spawn request to the appropriate root; returns nothing.
+by Layer 2 + origin + aim; resolves AOE spawn geometry (logical collision size
+and visual sprite scale) before submitting spawn requests to the appropriate
+root; returns nothing.
 
 ---
 
@@ -224,7 +228,7 @@ nothing to behavior.
 ```
 AoeDefinition
  ├─ prefab:    BasicAoePrefab   ← sprite, material, hitbox collider, particle effects
- └─ behavior:  sizeMultiplier, damage, count, spawnAtAimPosition,
+ └─ behavior:  baseAreaSize, damage, count, spawnAtAimPosition,
                directDamageEnabled
 ```
 
@@ -236,7 +240,7 @@ interval, and the runtime receives `0` for both timing fields.
 ```
 LingeringAoeDefinition
  ├─ prefab:    LingeringAoePrefab ← sprite, material, hitbox collider, particle effects
- └─ behavior:  sizeMultiplier, damage, lifetimeSeconds, tickIntervalSeconds,
+ └─ behavior:  baseAreaSize, damage, lifetimeSeconds, tickIntervalSeconds,
                count, spawnAtAimPosition, directDamageEnabled
 ```
 
@@ -263,7 +267,7 @@ Examples:
 | Multiple Projectiles | `count`, `spreadDegrees` |
 | Piercing | `pierceCount`, `repeatHitCooldown` |
 | Homing | `trackingEnabled`, `trackingRange`, `trackingTurnSpeed` |
-| Concentrated Effect | `sizeMultiplier` (AOE), `damage` |
+| Concentrated Effect | `baseAreaSize` (AOE), `damage` |
 | Faster Projectiles | `speed`, `lifetime` |
 | Added Damage | `damage` |
 

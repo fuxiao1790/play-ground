@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using PlayGround.System.Common;
 using UnityEngine;
 using UnityEngine.VFX;
 
@@ -8,7 +7,6 @@ namespace PlayGround.System.Aoe
     public sealed class AoeTypeRegistry
     {
         private readonly Dictionary<int, AoeTypeDefinition> definitionsById = new();
-        private readonly Dictionary<int, AoeShape> shapesById = new();
         private readonly Dictionary<int, AoeVisualDefinition> visualsById = new();
 
         public AoeTypeRegistry()
@@ -22,9 +20,7 @@ namespace PlayGround.System.Aoe
                 return;
             }
 
-            AoeShape shape = BakeShape(definition);
             definitionsById[typeId] = definition;
-            shapesById[typeId] = shape;
             if (TryBakeVisual(definition, out AoeVisualDefinition visual))
             {
                 visualsById[typeId] = visual;
@@ -36,36 +32,9 @@ namespace PlayGround.System.Aoe
             return definitionsById.TryGetValue(typeId, out definition);
         }
 
-        public bool TryGetShape(int typeId, out AoeShape shape)
-        {
-            return shapesById.TryGetValue(typeId, out shape);
-        }
-
         public bool TryGetVisual(int typeId, out AoeVisualDefinition visual)
         {
             return visualsById.TryGetValue(typeId, out visual);
-        }
-
-        private static AoeShape BakeShape(AoeTypeDefinition definition)
-        {
-            Collider2D collider = definition.CollisionShape;
-            if (collider == null && definition.VisualPrefab != null)
-            {
-                collider = definition.VisualPrefab.GetComponentInChildren<Collider2D>(true);
-            }
-
-            if (collider == null)
-            {
-                float radius = definition.SizeMultiplier * PrefabUniformScale(definition.VisualPrefab);
-                return new AoeShape(CombatShapeType.Circle, radius, Vector2.one * radius, 0f);
-            }
-
-            float sizeMultiplier = definition.SizeMultiplier;
-            return new AoeShape(
-                CombatTargetShapeUtility.ShapeType(collider),
-                CombatTargetShapeUtility.Radius(collider) * sizeMultiplier,
-                CombatTargetShapeUtility.HalfExtents(collider) * sizeMultiplier,
-                CombatTargetShapeUtility.RotationRadians(collider));
         }
 
         private static bool TryBakeVisual(AoeTypeDefinition definition, out AoeVisualDefinition visual)
@@ -85,26 +54,9 @@ namespace PlayGround.System.Aoe
             visual = new AoeVisualDefinition(
                 spriteRenderer.sprite,
                 spriteRenderer.sharedMaterial,
-                VisualScale(spriteRenderer) * definition.SizeMultiplier,
-                definition.VisualRotationDegrees);
+                Vector2.one,
+                0f);
             return true;
-        }
-
-        private static Vector2 VisualScale(SpriteRenderer spriteRenderer)
-        {
-            Vector3 scale = spriteRenderer.transform.lossyScale;
-            return new Vector2(Mathf.Abs(scale.x), Mathf.Abs(scale.y));
-        }
-
-        private static float PrefabUniformScale(GameObject prefab)
-        {
-            if (prefab == null)
-            {
-                return 1f;
-            }
-
-            Vector3 scale = prefab.transform.lossyScale;
-            return Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y));
         }
     }
 
@@ -129,7 +81,6 @@ namespace PlayGround.System.Aoe
     {
         [SerializeField] private GameObject visualPrefab;
         [SerializeField] private Collider2D collisionShape;
-        [SerializeField, Min(0.01f)] private float sizeMultiplier = 1f;
         [SerializeField] private float visualRotationDegrees;
         [SerializeField, Min(0)] private int preloadCount;
         [SerializeField] private VisualEffectAsset spawnEffect;
@@ -139,7 +90,6 @@ namespace PlayGround.System.Aoe
 
         public GameObject VisualPrefab => visualPrefab;
         public Collider2D CollisionShape => collisionShape;
-        public float SizeMultiplier => sizeMultiplier;
         public float VisualRotationDegrees => visualRotationDegrees;
         public int PreloadCount => preloadCount;
         public VisualEffectAsset SpawnEffect => spawnEffect;
@@ -150,7 +100,6 @@ namespace PlayGround.System.Aoe
         public void Configure(
             GameObject visualPrefab,
             Collider2D collisionShape,
-            float sizeMultiplier = 1f,
             float visualRotationDegrees = 0f,
             int preloadCount = 0,
             VisualEffectAsset spawnEffect = null,
@@ -160,7 +109,6 @@ namespace PlayGround.System.Aoe
         {
             this.visualPrefab = visualPrefab;
             this.collisionShape = collisionShape;
-            this.sizeMultiplier = Mathf.Max(0.01f, sizeMultiplier);
             this.visualRotationDegrees = visualRotationDegrees;
             this.preloadCount = Mathf.Max(0, preloadCount);
             this.spawnEffect = spawnEffect;

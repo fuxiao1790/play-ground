@@ -80,6 +80,7 @@ namespace PlayGround.Skills.Runtime
             return new ProjectileImpactAoeSnapshot(
                 impact.TypeId, 0, Mathf.Max(0f, impact.Damage),
                 impact.LifetimeSeconds, impact.TickIntervalSeconds,
+                impact.CreateSpawnGeometry(),
                 impact.CritChance, impact.CritMultiplier);
         }
 
@@ -94,7 +95,8 @@ namespace PlayGround.Skills.Runtime
                 stack.AoeDefinition.TypeId,
                 Mathf.Max(0f, stack.AoeDefinition.Damage),
                 stack.AoeDefinition.LifetimeSeconds,
-                stack.AoeDefinition.TickIntervalSeconds);
+                stack.AoeDefinition.TickIntervalSeconds,
+                stack.AoeDefinition.CreateSpawnGeometry());
         }
 
         private static ProjectileImpactProjectileSnapshot BuildChildImpactProjectileSnapshot(RuntimeProjectileDefinition child)

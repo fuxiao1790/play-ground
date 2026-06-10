@@ -10,13 +10,17 @@ namespace PlayGround.System.Aoe
             Vector2 position,
             DamageSnapshot damage,
             float lifetimeSeconds,
-            float tickIntervalSeconds)
+            float tickIntervalSeconds,
+            AoeSpawnGeometry geometry = default,
+            float areaSize = 0f)
         {
             EffectTypeId = effectTypeId;
             Position = position;
             Damage = damage;
             LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds);
             TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds);
+            Geometry = geometry;
+            AreaSize = geometry.IsValid ? geometry.AreaSize : Mathf.Max(0f, areaSize);
         }
 
         public int EffectTypeId { get; }
@@ -24,5 +28,7 @@ namespace PlayGround.System.Aoe
         public DamageSnapshot Damage { get; }
         public float LifetimeSeconds { get; }
         public float TickIntervalSeconds { get; }
+        public AoeSpawnGeometry Geometry { get; }
+        public float AreaSize { get; }
     }
 }

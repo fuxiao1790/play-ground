@@ -1,4 +1,5 @@
 using PlayGround.Common;
+using PlayGround.System.Aoe;
 using UnityEngine;
 
 namespace PlayGround.System.Common
@@ -18,7 +19,9 @@ namespace PlayGround.System.Common
             int aoeTypeId,
             float aoeDamage,
             float aoeLifetimeSeconds,
-            float aoeTickIntervalSeconds)
+            float aoeTickIntervalSeconds,
+            AoeSpawnGeometry aoeGeometry = default,
+            float aoeAreaSize = 1f)
         {
             Enabled = aoeTypeId >= 0;
             DebuffStatusId = debuffStatusId;
@@ -28,6 +31,8 @@ namespace PlayGround.System.Common
             AoeDamage = aoeDamage;
             AoeLifetimeSeconds = Mathf.Max(0f, aoeLifetimeSeconds);
             AoeTickIntervalSeconds = Mathf.Max(0f, aoeTickIntervalSeconds);
+            AoeGeometry = aoeGeometry;
+            AoeAreaSize = aoeGeometry.IsValid ? aoeGeometry.AreaSize : Mathf.Max(0.01f, aoeAreaSize);
         }
 
         public bool Enabled { get; }
@@ -38,6 +43,8 @@ namespace PlayGround.System.Common
         public float AoeDamage { get; }
         public float AoeLifetimeSeconds { get; }
         public float AoeTickIntervalSeconds { get; }
+        public AoeSpawnGeometry AoeGeometry { get; }
+        public float AoeAreaSize { get; }
     }
 
     public readonly struct CombatHitData

@@ -35,6 +35,7 @@ namespace PlayGround.System.Aoe
                 typeof(AoeLifetimeComponent),
                 typeof(AoeHitGateComponent),
                 typeof(AoeHitSpawnComponent),
+                typeof(AoeAreaComponent),
                 typeof(AoePulseVfxComponent),
                 typeof(CombatRenderComponent),
                 typeof(CombatRenderElement),
@@ -89,7 +90,8 @@ namespace PlayGround.System.Aoe
                         {
                             TypeId = request.TypeId,
                             Trigger = 0,
-                            Position = request.Position
+                            Position = request.Position,
+                            AreaSize = request.AreaSize
                         });
                     }
 
@@ -212,6 +214,7 @@ namespace PlayGround.System.Aoe
                 Lifetimes = GetComponentLookup<AoeLifetimeComponent>(),
                 HitGates = GetComponentLookup<AoeHitGateComponent>(),
                 HitSpawns = GetComponentLookup<AoeHitSpawnComponent>(),
+                Areas = GetComponentLookup<AoeAreaComponent>(),
                 PulseVfxComponents = GetComponentLookup<AoePulseVfxComponent>(),
                 Renders = GetComponentLookup<CombatRenderComponent>(),
                 RenderElements = GetComponentLookup<CombatRenderElement>(),
@@ -235,6 +238,7 @@ namespace PlayGround.System.Aoe
             ecb.SetComponent(entity, LifetimeFor(request));
             ecb.SetComponent(entity, HitGateFor(request));
             ecb.SetComponent(entity, HitSpawnFor(request));
+            ecb.SetComponent(entity, AreaFor(request));
             ecb.SetComponent(entity, PulseVfxFor(request));
             ecb.SetComponent(entity, render);
             ecb.SetComponent(entity, CombatRenderMatrixUtility.ElementFor(kinematics, render));
@@ -311,6 +315,14 @@ namespace PlayGround.System.Aoe
             };
         }
 
+        private static AoeAreaComponent AreaFor(AoeSpawnRequestElement request)
+        {
+            return new AoeAreaComponent
+            {
+                Size = request.AreaSize > 0f ? request.AreaSize : 1f
+            };
+        }
+
         private static AoePulseVfxComponent PulseVfxFor(AoeSpawnRequestElement request)
         {
             float interval = request.RepeatHitCooldownSeconds > 0f ? request.RepeatHitCooldownSeconds : 0f;
@@ -339,6 +351,7 @@ namespace PlayGround.System.Aoe
             [NativeDisableParallelForRestriction] public ComponentLookup<AoeLifetimeComponent> Lifetimes;
             [NativeDisableParallelForRestriction] public ComponentLookup<AoeHitGateComponent> HitGates;
             [NativeDisableParallelForRestriction] public ComponentLookup<AoeHitSpawnComponent> HitSpawns;
+            [NativeDisableParallelForRestriction] public ComponentLookup<AoeAreaComponent> Areas;
             [NativeDisableParallelForRestriction] public ComponentLookup<AoePulseVfxComponent> PulseVfxComponents;
             [NativeDisableParallelForRestriction] public ComponentLookup<CombatRenderComponent> Renders;
             [NativeDisableParallelForRestriction] public ComponentLookup<CombatRenderElement> RenderElements;
@@ -361,6 +374,7 @@ namespace PlayGround.System.Aoe
                 Lifetimes[entity] = LifetimeFor(request);
                 HitGates[entity] = HitGateFor(request);
                 HitSpawns[entity] = HitSpawnFor(request);
+                Areas[entity] = AreaFor(request);
                 PulseVfxComponents[entity] = PulseVfxFor(request);
                 Renders[entity] = render;
                 RenderElements[entity] = CombatRenderMatrixUtility.ElementFor(kinematics, render);

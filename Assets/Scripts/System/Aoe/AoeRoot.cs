@@ -194,15 +194,20 @@ namespace PlayGround.System.Aoe
                 targetMask,
                 request.Damage,
                 request.LifetimeSeconds,
-                request.TickIntervalSeconds));
+                request.TickIntervalSeconds,
+                request.Geometry));
         }
 
         public int Spawn(AoeSpawnCommand command)
         {
             EnsureRuntimeReady();
-            if (!typeRegistry.TryGetShape(command.TypeId, out AoeShape shape))
+            if (!typeRegistry.TryGetDefinition(command.TypeId, out _))
             {
-                throw new global::System.InvalidOperationException($"Missing AOE collision definition for type id {command.TypeId}.");
+                throw new global::System.InvalidOperationException($"Missing AOE definition for type id {command.TypeId}.");
+            }
+            if (!command.Geometry.IsValid)
+            {
+                throw new global::System.InvalidOperationException($"AOE spawn command for type id {command.TypeId} has unresolved geometry.");
             }
 
             DynamicBuffer<AoeSpawnRequestElement> spawnRequests =
@@ -213,21 +218,22 @@ namespace PlayGround.System.Aoe
             }
 
             int aoeId = ++nextAoeId;
-            spawnRequests.Add(SpawnRequestFor(command, shape, aoeId));
+            spawnRequests.Add(SpawnRequestFor(command, aoeId));
             spawnedAoes++;
             return aoeId;
         }
 
-        private AoeSpawnRequestElement SpawnRequestFor(AoeSpawnCommand command, AoeShape shape, int aoeId)
+        private AoeSpawnRequestElement SpawnRequestFor(AoeSpawnCommand command, int aoeId)
         {
+            AoeSpawnGeometry geometry = command.Geometry;
             float2 position = new(command.Position.x, command.Position.y);
-            float2 halfExtents = new(shape.HalfExtents.x, shape.HalfExtents.y);
+            float2 halfExtents = new(geometry.HalfExtents.x, geometry.HalfExtents.y);
             CombatCollisionMath.ComputeWorldBounds(
                 position,
-                shape.Radius,
+                geometry.Radius,
                 halfExtents,
-                shape.RotationRadians,
-                shape.ShapeType,
+                geometry.RotationRadians,
+                geometry.ShapeType,
                 out float2 boundsMin,
                 out float2 boundsMax);
 
@@ -241,14 +247,15 @@ namespace PlayGround.System.Aoe
                 DamageAmount = command.Damage.Amount,
                 CritChance = command.CritChance,
                 CritMultiplier = command.CritMultiplier,
-                Radius = shape.Radius,
-                RotationRadians = shape.RotationRadians,
+                AreaSize = geometry.AreaSize,
+                Radius = geometry.Radius,
+                RotationRadians = geometry.RotationRadians,
                 Position = position,
                 HalfExtents = halfExtents,
                 BoundsMin = boundsMin,
                 BoundsMax = boundsMax,
-                ShapeType = shape.ShapeType,
-                Render = RenderComponentFor(command.TypeId),
+                ShapeType = geometry.ShapeType,
+                Render = RenderComponentFor(command.TypeId, geometry),
                 ProjectileBurst = command.ProjectileBurst
             };
         }
@@ -274,7 +281,7 @@ namespace PlayGround.System.Aoe
             for (int i = 0; i < vfxBuffer.Length; i++)
             {
                 VfxSpawnRequestElement e = vfxBuffer[i];
-                vfxDispatcher.StageSpawn(e.TypeId, e.Trigger, e.Position);
+                vfxDispatcher.StageSpawn(e.TypeId, e.Trigger, e.Position, e.AreaSize);
             }
             vfxBuffer.Clear();
             vfxDispatcher.Dispatch();
@@ -311,7 +318,7 @@ namespace PlayGround.System.Aoe
             }
         }
 
-        private CombatRenderComponent RenderComponentFor(int typeId)
+        private CombatRenderComponent RenderComponentFor(int typeId, AoeSpawnGeometry geometry)
         {
             if (!spawnVisuals || !renderResourcesByType.TryGetValue(typeId, out CombatSpriteRenderResources resources))
             {
@@ -322,9 +329,11 @@ namespace PlayGround.System.Aoe
             {
                 IsRenderable = 1,
                 AlignToVelocity = 0,
-                VisualScale = new Unity.Mathematics.float2(resources.VisualScale.x, resources.VisualScale.y),
-                VisualRotationSin = resources.VisualRotationSin,
-                VisualRotationCos = resources.VisualRotationCos,
+                VisualScale = new Unity.Mathematics.float2(
+                    geometry.VisualScale.x,
+                    geometry.VisualScale.y),
+                VisualRotationSin = geometry.VisualRotationSin,
+                VisualRotationCos = geometry.VisualRotationCos,
                 RenderZ = AoeRenderZ
             };
         }
@@ -435,10 +444,10 @@ namespace PlayGround.System.Aoe
         private void RegisterVfxForDefinition(int typeId, AoeTypeDefinition definition)
         {
             vfxDispatcher ??= new CombatVfxDispatcher(transform);
-            vfxDispatcher.Register(typeId, 0, definition.SpawnEffect, MaxVfxPerFrame);
-            vfxDispatcher.Register(typeId, 1, definition.HitEffect, MaxVfxPerFrame);
-            vfxDispatcher.Register(typeId, 2, definition.ExpireEffect, MaxVfxPerFrame);
-            vfxDispatcher.Register(typeId, 3, definition.PulseEffect, MaxVfxPerFrame);
+            vfxDispatcher.Register(typeId, 0, definition.SpawnEffect, MaxVfxPerFrame, requireAreaSizeContract: true);
+            vfxDispatcher.Register(typeId, 1, definition.HitEffect, MaxVfxPerFrame, requireAreaSizeContract: true);
+            vfxDispatcher.Register(typeId, 2, definition.ExpireEffect, MaxVfxPerFrame, requireAreaSizeContract: true);
+            vfxDispatcher.Register(typeId, 3, definition.PulseEffect, MaxVfxPerFrame, requireAreaSizeContract: true);
         }
 
         private void TryBuildRenderResource(int typeId)

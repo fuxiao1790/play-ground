@@ -2,6 +2,7 @@ using System;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.VFX;
 
 namespace PlayGround.Skills
@@ -41,7 +42,8 @@ namespace PlayGround.Skills
     [Serializable]
     public abstract class AoeDefinitionBase : SkillDefinition
     {
-        [Min(0.01f)] public float sizeMultiplier = 1f;
+        [FormerlySerializedAs("sizeMultiplier")]
+        [Min(0.01f)] public float baseAreaSize = 1f;
         public float damage = 10f;
         [Min(1)] public int count = 1;
         public bool spawnAtAimPosition;
@@ -50,7 +52,6 @@ namespace PlayGround.Skills
         public abstract GameObject VisualPrefab { get; }
         public abstract Collider2D CollisionShape { get; }
         public abstract float VisualRotationDegrees { get; }
-        public abstract float PrefabNormalizationCoefficient { get; }
         public abstract VisualEffectAsset SpawnEffect { get; }
         public abstract VisualEffectAsset HitEffect { get; }
         public abstract VisualEffectAsset ExpireEffect { get; }
@@ -65,7 +66,6 @@ namespace PlayGround.Skills
         public override GameObject VisualPrefab => prefab != null ? prefab.gameObject : null;
         public override Collider2D CollisionShape => prefab != null ? prefab.Hurtbox : null;
         public override float VisualRotationDegrees => prefab != null ? prefab.VisualRotationDegrees : 0f;
-        public override float PrefabNormalizationCoefficient => prefab != null ? prefab.SizeNormalizationCoefficient : 1f;
         public override VisualEffectAsset SpawnEffect => prefab != null ? prefab.SpawnEffect : null;
         public override VisualEffectAsset HitEffect => prefab != null ? prefab.HitEffect : null;
         public override VisualEffectAsset ExpireEffect => prefab != null ? prefab.ExpireEffect : null;
@@ -84,7 +84,6 @@ namespace PlayGround.Skills
         public override GameObject VisualPrefab => prefab != null ? prefab.gameObject : null;
         public override Collider2D CollisionShape => prefab != null ? prefab.Hurtbox : null;
         public override float VisualRotationDegrees => prefab != null ? prefab.VisualRotationDegrees : 0f;
-        public override float PrefabNormalizationCoefficient => prefab != null ? prefab.SizeNormalizationCoefficient : 1f;
         public override VisualEffectAsset SpawnEffect => prefab != null ? prefab.SpawnEffect : null;
         public override VisualEffectAsset HitEffect => prefab != null ? prefab.HitEffect : null;
         public override VisualEffectAsset ExpireEffect => prefab != null ? prefab.ExpireEffect : null;

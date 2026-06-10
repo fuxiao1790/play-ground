@@ -1,4 +1,5 @@
 using PlayGround.Common;
+using PlayGround.System.Aoe;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
@@ -38,8 +39,10 @@ namespace PlayGround.System.Common
             float damageAmount,
             float lifetimeSeconds,
             float tickIntervalSeconds,
+            AoeSpawnGeometry geometry = default,
             float critChance = 0f,
-            float critMultiplier = 1.5f)
+            float critMultiplier = 1.5f,
+            float areaSize = 1f)
         {
             Enabled = typeId >= 0;
             TypeId = typeId;
@@ -47,6 +50,8 @@ namespace PlayGround.System.Common
             DamageAmount = damageAmount;
             LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds);
             TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds);
+            Geometry = geometry;
+            AreaSize = geometry.IsValid ? geometry.AreaSize : Mathf.Max(0.01f, areaSize);
             CritChance = critChance;
             CritMultiplier = critMultiplier;
         }
@@ -56,6 +61,8 @@ namespace PlayGround.System.Common
         public float DamageAmount { get; }
         public float LifetimeSeconds { get; }
         public float TickIntervalSeconds { get; }
+        public AoeSpawnGeometry Geometry { get; }
+        public float AreaSize { get; }
         public bool Enabled { get; }
         public float CritChance { get; }
         public float CritMultiplier { get; }

@@ -89,6 +89,7 @@ namespace PlayGround.System.Aoe
                 Entity entity,
                 in AoeIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
+                in AoeAreaComponent area,
                 in CombatRenderElement renderElement,
                 ref AoeLifetimeComponent lifetime,
                 EnabledRefRW<AoeActiveTag> active,
@@ -120,7 +121,8 @@ namespace PlayGround.System.Aoe
                     Scope = identity.Scope,
                     TypeId = identity.TypeId,
                     Trigger = 2,
-                    Position = kinematics.Position
+                    Position = kinematics.Position,
+                    AreaSize = area.Size
                 });
             }
         }
@@ -136,6 +138,7 @@ namespace PlayGround.System.Aoe
                 in AoeIdentityComponent identity,
                 in AoeLifetimeComponent lifetime,
                 in CombatKinematicsComponent kinematics,
+                in AoeAreaComponent area,
                 ref AoePulseVfxComponent pulseVfx)
             {
                 if (pulseVfx.Interval <= 0f || lifetime.IsPulse == 1)
@@ -155,7 +158,8 @@ namespace PlayGround.System.Aoe
                     Scope = identity.Scope,
                     TypeId = identity.TypeId,
                     Trigger = 3,
-                    Position = kinematics.Position
+                    Position = kinematics.Position,
+                    AreaSize = area.Size
                 });
             }
         }

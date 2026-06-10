@@ -133,6 +133,7 @@ namespace PlayGround.System.Aoe
                 in AoeLifetimeComponent lifetime,
                 in AoeHitGateComponent hitGate,
                 in AoeHitSpawnComponent hitSpawn,
+                in AoeAreaComponent area,
                 in CombatRenderElement renderElement,
                 EnabledRefRW<AoeActiveTag> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive,
@@ -171,11 +172,11 @@ namespace PlayGround.System.Aoe
 
                         if (lifetime.IsPulse == 1)
                         {
-                            ResolvePulseHit(identity, kinematics, hit, hitSpawn, target, contactGates);
+                            ResolvePulseHit(identity, kinematics, hit, hitSpawn, area, target, contactGates);
                         }
                         else
                         {
-                            ResolveLingeringHit(identity, kinematics, hit, hitGate, hitSpawn, target, contactGates);
+                            ResolveLingeringHit(identity, kinematics, hit, hitGate, hitSpawn, area, target, contactGates);
                         }
                     }
                 }
@@ -191,6 +192,7 @@ namespace PlayGround.System.Aoe
                 CombatKinematicsComponent kinematics,
                 CombatHitComponent hit,
                 AoeHitSpawnComponent hitSpawn,
+                AoeAreaComponent area,
                 CombatTargetElement target,
                 DynamicBuffer<AoeContactGateElement> contactGates)
             {
@@ -204,7 +206,7 @@ namespace PlayGround.System.Aoe
                     TargetId = target.TargetId,
                     CooldownRemaining = 0f
                 });
-                EmitHit(identity, kinematics, hit, hitSpawn, target);
+                EmitHit(identity, kinematics, hit, hitSpawn, area, target);
             }
 
             private void ResolveLingeringHit(
@@ -213,6 +215,7 @@ namespace PlayGround.System.Aoe
                 CombatHitComponent hit,
                 AoeHitGateComponent hitGate,
                 AoeHitSpawnComponent hitSpawn,
+                AoeAreaComponent area,
                 CombatTargetElement target,
                 DynamicBuffer<AoeContactGateElement> contactGates)
             {
@@ -226,7 +229,7 @@ namespace PlayGround.System.Aoe
                     TargetId = target.TargetId,
                     CooldownRemaining = hitGate.RepeatHitCooldownSeconds
                 });
-                EmitHit(identity, kinematics, hit, hitSpawn, target);
+                EmitHit(identity, kinematics, hit, hitSpawn, area, target);
             }
 
             private void EmitHit(
@@ -234,6 +237,7 @@ namespace PlayGround.System.Aoe
                 CombatKinematicsComponent kinematics,
                 CombatHitComponent hit,
                 AoeHitSpawnComponent hitSpawn,
+                AoeAreaComponent area,
                 CombatTargetElement target)
             {
                 PendingHits.Enqueue(new CombatPendingHit
@@ -256,7 +260,8 @@ namespace PlayGround.System.Aoe
                     Scope = identity.Scope,
                     TypeId = identity.TypeId,
                     Trigger = 1,
-                    Position = kinematics.Position
+                    Position = kinematics.Position,
+                    AreaSize = area.Size
                 });
             }
 

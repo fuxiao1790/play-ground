@@ -13,6 +13,8 @@ namespace PlayGround.System.Aoe
             DamageSnapshot damage,
             float lifetimeSeconds,
             float tickIntervalSeconds,
+            AoeSpawnGeometry geometry = default,
+            float areaSize = 0f,
             AoeProjectileBurstSnapshot projectileBurst = default,
             float critChance = 0f,
             float critMultiplier = 1.5f)
@@ -23,6 +25,8 @@ namespace PlayGround.System.Aoe
             Damage = damage;
             LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds);
             TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds);
+            Geometry = geometry;
+            AreaSize = geometry.IsValid ? geometry.AreaSize : Mathf.Max(0f, areaSize);
             ProjectileBurst = projectileBurst;
             CritChance = critChance;
             CritMultiplier = critMultiplier;
@@ -34,6 +38,8 @@ namespace PlayGround.System.Aoe
         public DamageSnapshot Damage { get; }
         public float LifetimeSeconds { get; }
         public float TickIntervalSeconds { get; }
+        public AoeSpawnGeometry Geometry { get; }
+        public float AreaSize { get; }
         public AoeProjectileBurstSnapshot ProjectileBurst { get; }
         public float CritChance { get; }
         public float CritMultiplier { get; }

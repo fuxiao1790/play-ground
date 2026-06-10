@@ -1,5 +1,6 @@
 using PlayGround.Skills;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.VFX;
 
 namespace PlayGround.System.Aoe
@@ -8,7 +9,8 @@ namespace PlayGround.System.Aoe
     public class AoeConfig : ScriptableObject
     {
         [SerializeField] private BasicAoePrefab basicPrefab;
-        [SerializeField, Min(0.01f)] private float sizeMultiplier = 1f;
+        [SerializeField, FormerlySerializedAs("sizeMultiplier"), Min(0.01f)]
+        private float areaSize = 1f;
         [SerializeField, Min(0)] private int preloadCount;
         [SerializeField] private float damage = 1f;
         [SerializeField, Min(1)] private int count = 1;
@@ -18,7 +20,7 @@ namespace PlayGround.System.Aoe
         public BasicAoePrefab Prefab => basicPrefab;
         public GameObject VisualPrefab => basicPrefab != null ? basicPrefab.gameObject : null;
         public Collider2D CollisionShape => basicPrefab != null ? basicPrefab.Hurtbox : null;
-        public float SizeMultiplier => sizeMultiplier;
+        public float AreaSize => areaSize;
         public int PreloadCount => preloadCount;
         public float Damage => damage;
         public virtual float LifetimeSeconds => 0f;
@@ -32,13 +34,21 @@ namespace PlayGround.System.Aoe
             basicPrefab = prefab;
         }
 
+        public AoeSpawnGeometry CreateSpawnGeometry()
+        {
+            return AoeSpawnGeometry.FromTemplate(
+                VisualPrefab,
+                CollisionShape,
+                areaSize,
+                basicPrefab != null ? basicPrefab.VisualRotationDegrees : 0f);
+        }
+
         public virtual AoeTypeDefinition CreateTypeDefinition()
         {
             var definition = new AoeTypeDefinition();
             definition.Configure(
                 VisualPrefab,
                 CollisionShape,
-                sizeMultiplier,
                 basicPrefab != null ? basicPrefab.VisualRotationDegrees : 0f,
                 preloadCount,
                 basicPrefab != null ? basicPrefab.SpawnEffect : null,

@@ -24,7 +24,8 @@ namespace PlayGround.System.Vfx
                 {
                     TypeId = p.TypeId,
                     Trigger = p.Trigger,
-                    Position = p.Position
+                    Position = p.Position,
+                    AreaSize = p.AreaSize > 0f ? p.AreaSize : 1f
                 });
             }
         }

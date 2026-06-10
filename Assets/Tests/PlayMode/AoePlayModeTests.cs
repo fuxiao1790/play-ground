@@ -34,7 +34,7 @@ namespace PlayGround.Tests.PlayMode
             AoeTargetProbe target = CreateTarget(new Vector2(2.5f, 0f), DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 2f));
+            root.Spawn(Command(typeId, templateObject, Vector2.zero, DefaultTargetMask, 2f));
             yield return null;
 
             Assert.That(target.HitCount, Is.EqualTo(1));
@@ -51,7 +51,7 @@ namespace PlayGround.Tests.PlayMode
                 out int typeId,
                 templateScale: new Vector3(2f, 2f, 1f),
                 visualScale: new Vector3(3f, 4f, 1f));
-            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 2f));
+            root.Spawn(Command(typeId, templateObject, Vector2.zero, DefaultTargetMask, 2f));
             yield return null;
 
             Matrix4x4 matrix = FirstScopedAoeRenderMatrix(root);
@@ -59,6 +59,38 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(matrix.m00, Is.EqualTo(6f).Within(0.0001f));
             Assert.That(matrix.m11, Is.EqualTo(8f).Within(0.0001f));
             Cleanup(rootObject, templateObject);
+        }
+
+        [UnityTest]
+        public IEnumerator AoeSpawnAreaSizeScalesCollisionAndRenderBeforeEcsSimulation()
+        {
+            CreateAoeFixture(
+                out GameObject rootObject,
+                out AoeRoot root,
+                out GameObject templateObject,
+                out int typeId,
+                visualScale: new Vector3(3f, 4f, 1f));
+            AoeTargetProbe target = CreateTarget(new Vector2(1.5f, 0f), DefaultTargetMask);
+            root.TargetRegistry.Register(target);
+
+            root.Spawn(new AoeSpawnCommand(
+                typeId,
+                Vector2.zero,
+                DefaultTargetMask,
+                new DamageSnapshot(2f),
+                lifetimeSeconds: 0f,
+                tickIntervalSeconds: 0f,
+                Geometry(templateObject, 2f)));
+            yield return null;
+
+            CombatCollisionComponent collision = FirstScopedAoeCollision(root);
+            Matrix4x4 matrix = FirstScopedAoeRenderMatrix(root);
+
+            Assert.That(target.HitCount, Is.EqualTo(1));
+            Assert.That(collision.Radius, Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(matrix.m00, Is.EqualTo(6f).Within(0.0001f));
+            Assert.That(matrix.m11, Is.EqualTo(8f).Within(0.0001f));
+            Cleanup(rootObject, templateObject, target.gameObject);
         }
 
         [UnityTest]
@@ -70,7 +102,7 @@ namespace PlayGround.Tests.PlayMode
 
             for (int i = 0; i < 3; i++)
             {
-                root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 1f));
+                root.Spawn(Command(typeId, templateObject, Vector2.zero, DefaultTargetMask, 1f));
                 yield return null;
             }
 
@@ -93,7 +125,7 @@ namespace PlayGround.Tests.PlayMode
                 replayContext = context;
             };
 
-            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 3f));
+            root.Spawn(Command(typeId, templateObject, Vector2.zero, DefaultTargetMask, 3f));
             yield return null;
 
             Assert.That(replayCount, Is.EqualTo(1));
@@ -136,7 +168,7 @@ namespace PlayGround.Tests.PlayMode
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(Command(typeId, Vector2.zero, DefaultTargetMask, 2f));
+            root.Spawn(Command(typeId, templateObject, Vector2.zero, DefaultTargetMask, 2f));
             yield return null;
 
             AoeRuntimeCounters counters = root.Counters;
@@ -165,7 +197,12 @@ namespace PlayGround.Tests.PlayMode
             Cleanup(projectileObject, aoeObject, templateObject);
         }
 
-        private static AoeSpawnCommand Command(int typeId, Vector2 position, int targetMask, float damage)
+        private static AoeSpawnCommand Command(
+            int typeId,
+            GameObject templateObject,
+            Vector2 position,
+            int targetMask,
+            float damage)
         {
             return new AoeSpawnCommand(
                 typeId,
@@ -173,7 +210,17 @@ namespace PlayGround.Tests.PlayMode
                 targetMask,
                 new DamageSnapshot(damage),
                 lifetimeSeconds: 0f,
-                tickIntervalSeconds: 0f);
+                tickIntervalSeconds: 0f,
+                Geometry(templateObject));
+        }
+
+        private static AoeSpawnGeometry Geometry(GameObject templateObject, float areaSize = 1f)
+        {
+            return AoeSpawnGeometry.FromTemplate(
+                templateObject,
+                templateObject.GetComponentInChildren<Collider2D>(true),
+                areaSize,
+                0f);
         }
 
         private static void CreateAoeFixture(
@@ -196,7 +243,7 @@ namespace PlayGround.Tests.PlayMode
             renderer.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
 
             var definition = new AoeTypeDefinition();
-            definition.Configure(templateObject, shape, 1f);
+            definition.Configure(templateObject, shape);
 
             rootObject = new GameObject("AoeRoot");
             rootObject.SetActive(false);
@@ -245,6 +292,28 @@ namespace PlayGround.Tests.PlayMode
 
             Assert.Fail("No AOE render entity found for root.");
             return Matrix4x4.identity;
+        }
+
+        private static CombatCollisionComponent FirstScopedAoeCollision(AoeRoot root)
+        {
+            Entity scope = AoeScopeEntity(root);
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<AoeIdentityComponent>(),
+                ComponentType.ReadOnly<CombatCollisionComponent>());
+            using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                AoeIdentityComponent identity = entityManager.GetComponentData<AoeIdentityComponent>(entities[i]);
+                if (identity.Scope == scope)
+                {
+                    return entityManager.GetComponentData<CombatCollisionComponent>(entities[i]);
+                }
+            }
+
+            Assert.Fail("No AOE collision entity found for root.");
+            return default;
         }
 
         private static void CreateProjectileRoot(out GameObject rootObject, out ProjectileRoot root)

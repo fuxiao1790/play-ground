@@ -64,6 +64,20 @@ namespace PlayGround.Tests.EditMode
             Assert.That(result.CritMultiplier, Is.EqualTo(3f).Within(0.0001f));
         }
 
+        [Test]
+        public void Compiler_AppliesAreaSizeMultiplier_IntoRuntimeAoe()
+        {
+            AoeSkill skill = CreateAsset<AoeSkill>("Aoe Skill");
+            ((AoeDefinition)skill.Definition).baseAreaSize = 1.25f;
+            SkillSet set = CreateSkillSet("Set", skill);
+            var snapshot = new PlayerStatSnapshot(1f, 1f, critChance: 0f, critMultiplier: 1.5f, areaSizeMultiplier: 2f);
+
+            RuntimeSkillDefinition result = SkillSetCompiler.Compile(set, global::System.Array.Empty<TriggerChain>(), snapshot);
+
+            Assert.That(result, Is.TypeOf<RuntimeAoeDefinition>());
+            Assert.That(((RuntimeAoeDefinition)result).AreaSize, Is.EqualTo(2.5f).Within(0.0001f));
+        }
+
         private SkillSet CreateSkillSet(string name, Skill skill)
         {
             SkillSet set = CreateAsset<SkillSet>(name);

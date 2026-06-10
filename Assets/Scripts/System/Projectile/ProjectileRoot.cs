@@ -394,7 +394,7 @@ namespace PlayGround.System.Projectile
             for (int i = 0; i < vfxBuffer.Length; i++)
             {
                 VfxSpawnRequestElement e = vfxBuffer[i];
-                vfxDispatcher.StageSpawn(e.TypeId, e.Trigger, e.Position);
+                vfxDispatcher.StageSpawn(e.TypeId, e.Trigger, e.Position, e.AreaSize);
             }
             vfxBuffer.Clear();
         }

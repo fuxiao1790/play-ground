@@ -47,6 +47,12 @@ namespace PlayGround.System.Aoe
         public AoeProjectileBurstSnapshot ProjectileBurst;
     }
 
+    // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse; carries fire-time gameplay area size for VFX dispatch.
+    public struct AoeAreaComponent : IComponentData
+    {
+        public float Size;
+    }
+
     // ECS Lifecycle: AOE buffer; added by spawn materialization; kept until root teardown; cooldown entries tick down while active and are cleared on reuse.
     public struct AoeContactGateElement : IBufferElementData
     {
@@ -66,6 +72,7 @@ namespace PlayGround.System.Aoe
         public float DamageAmount;
         public float CritChance;
         public float CritMultiplier;
+        public float AreaSize;
         public float Radius;
         public float RotationRadians;
         public float2 Position;

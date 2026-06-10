@@ -113,6 +113,7 @@ namespace PlayGround.Game
                 new DamageSnapshot(Mathf.Max(0f, impact.DamageAmount)),
                 impact.LifetimeSeconds,
                 impact.TickIntervalSeconds,
+                impact.Geometry,
                 critChance: impact.CritChance,
                 critMultiplier: impact.CritMultiplier));
         }

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: BasicAoeSkill
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.AoeSkill
   definition:
-    sizeMultiplier: 1.25
+    baseAreaSize: 1.25
     damage: 18
     count: 1
     spawnAtAimPosition: 0

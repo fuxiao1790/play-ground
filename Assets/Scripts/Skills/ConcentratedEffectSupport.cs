@@ -1,11 +1,13 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace PlayGround.Skills
 {
     [CreateAssetMenu(menuName = "PlayGround/Skills/Supports/Concentrated Effect", fileName = "ConcentratedEffectSupport")]
     public sealed class ConcentratedEffectSupport : AdditiveSupport
     {
-        [SerializeField, Min(0.01f)] private float sizeMultiplier = 1.5f;
+        [SerializeField, FormerlySerializedAs("sizeMultiplier"), Min(0.01f)]
+        private float areaSizeMultiplier = 1.5f;
         [SerializeField] private float addedDamage = 5f;
 
         public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Aoe;
@@ -14,7 +16,7 @@ namespace PlayGround.Skills
         {
             if (def is AoeDefinitionBase a)
             {
-                a.sizeMultiplier *= sizeMultiplier;
+                a.baseAreaSize *= areaSizeMultiplier;
                 a.damage += addedDamage;
             }
         }

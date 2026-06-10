@@ -12,9 +12,6 @@ namespace PlayGround.Skills
         [SerializeField] private VisualEffectAsset hitEffect;
         [SerializeField] private VisualEffectAsset expireEffect;
         [SerializeField] private VisualEffectAsset pulseEffect;
-        // Set so that all native prefab dimensions * coefficient = 1 world unit.
-        // Gameplay sizeMultiplier then maps directly to world units.
-        [SerializeField, Min(0.001f)] private float sizeNormalizationCoefficient = 1f;
 
         public SpriteRenderer SpriteRenderer => spriteRenderer;
         public Collider2D Hurtbox => hurtbox;
@@ -22,7 +19,6 @@ namespace PlayGround.Skills
         public VisualEffectAsset HitEffect => hitEffect;
         public VisualEffectAsset ExpireEffect => expireEffect;
         public VisualEffectAsset PulseEffect => pulseEffect;
-        public float SizeNormalizationCoefficient => sizeNormalizationCoefficient;
         public Sprite Sprite => spriteRenderer != null ? spriteRenderer.sprite : null;
         public Material Material => spriteRenderer != null ? spriteRenderer.sharedMaterial : null;
         public float VisualRotationDegrees => spriteRenderer != null ? spriteRenderer.transform.eulerAngles.z : 0f;
@@ -44,8 +40,7 @@ namespace PlayGround.Skills
             VisualEffectAsset spawnVisualEffect = null,
             VisualEffectAsset hitVisualEffect = null,
             VisualEffectAsset expireVisualEffect = null,
-            VisualEffectAsset pulseVisualEffect = null,
-            float normalizationCoefficient = 1f)
+            VisualEffectAsset pulseVisualEffect = null)
         {
             spriteRenderer = renderer;
             hurtbox = hurtboxShape;
@@ -53,7 +48,6 @@ namespace PlayGround.Skills
             hitEffect = hitVisualEffect;
             expireEffect = expireVisualEffect;
             pulseEffect = pulseVisualEffect;
-            sizeNormalizationCoefficient = Mathf.Max(0.001f, normalizationCoefficient);
         }
 
         public bool IsValidTemplate(out string reason)

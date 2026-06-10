@@ -266,7 +266,8 @@ namespace PlayGround.Mob
                 aoeRoot.TargetMask,
                 new DamageSnapshot(Mathf.Max(0f, effect.AoeDamage)),
                 effect.AoeLifetimeSeconds,
-                effect.AoeTickIntervalSeconds));
+                effect.AoeTickIntervalSeconds,
+                effect.AoeGeometry));
         }
 
         public bool TakeDamage(DamageSnapshot damage)
@@ -327,7 +328,8 @@ namespace PlayGround.Mob
                     result.OwnerPosition,
                     new DamageSnapshot(Mathf.Max(0f, damagePerFire)),
                     triggerDef.TriggerAoeLifetimeSeconds,
-                    triggerDef.TriggerAoeTickIntervalSeconds));
+                    triggerDef.TriggerAoeTickIntervalSeconds,
+                    triggerDef.TriggerAoeConfig.CreateSpawnGeometry()));
             }
         }
 
