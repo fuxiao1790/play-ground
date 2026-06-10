@@ -52,24 +52,6 @@ namespace PlayGround.System.Projectile
         public int ChildSpawnTickIndex;
     }
 
-    // ECS Lifecycle: structural render tag; added at entity creation; kept until root teardown; reuse only with same render type.
-    public struct ProjectileRenderType0Tag : IComponentData {}
-    public struct ProjectileRenderType1Tag : IComponentData {}
-    public struct ProjectileRenderType2Tag : IComponentData {}
-    public struct ProjectileRenderType3Tag : IComponentData {}
-    public struct ProjectileRenderType4Tag : IComponentData {}
-    public struct ProjectileRenderType5Tag : IComponentData {}
-    public struct ProjectileRenderType6Tag : IComponentData {}
-    public struct ProjectileRenderType7Tag : IComponentData {}
-    public struct ProjectileRenderType8Tag : IComponentData {}
-    public struct ProjectileRenderType9Tag : IComponentData {}
-    public struct ProjectileRenderType10Tag : IComponentData {}
-    public struct ProjectileRenderType11Tag : IComponentData {}
-    public struct ProjectileRenderType12Tag : IComponentData {}
-    public struct ProjectileRenderType13Tag : IComponentData {}
-    public struct ProjectileRenderType14Tag : IComponentData {}
-    public struct ProjectileRenderType15Tag : IComponentData {}
-
     // ECS Lifecycle: projectile buffer; added by spawn materialization; kept until root teardown; cleared on reuse.
     public struct ProjectileContactGateElement : IBufferElementData
     {

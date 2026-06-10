@@ -16,7 +16,6 @@ namespace PlayGround.System.Projectile
     {
         private const int MaxInstancesPerDraw = 1023;
         private const int MaxVfxPerFrame = 2048;
-        private const int MaxStructuralRenderTypes = 16;
         private const float ProjectileRenderZ = -0.25f;
         private const float ProjectileZStep = 0.000001f;
         private const int ProjectileZSlots = 1_000_000;
@@ -42,7 +41,7 @@ namespace PlayGround.System.Projectile
         private EntityManager entityManager;
         private Entity scopeEntity;
         private EntityQuery allProjectileQuery;
-        private EntityQuery[] submitQueriesByType;
+        private EntityQuery submitQuery;
         private NativeArray<CombatRenderElement> submitBuffer;
         private int nextProjectileId;
         private int nextTemplateTypeId = 1;
@@ -315,23 +314,7 @@ namespace PlayGround.System.Projectile
             allProjectileQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<ProjectileIdentityComponent>());
-            submitQueriesByType = new EntityQuery[MaxStructuralRenderTypes];
-            submitQueriesByType[0]  = SubmitQuery<ProjectileRenderType0Tag>();
-            submitQueriesByType[1]  = SubmitQuery<ProjectileRenderType1Tag>();
-            submitQueriesByType[2]  = SubmitQuery<ProjectileRenderType2Tag>();
-            submitQueriesByType[3]  = SubmitQuery<ProjectileRenderType3Tag>();
-            submitQueriesByType[4]  = SubmitQuery<ProjectileRenderType4Tag>();
-            submitQueriesByType[5]  = SubmitQuery<ProjectileRenderType5Tag>();
-            submitQueriesByType[6]  = SubmitQuery<ProjectileRenderType6Tag>();
-            submitQueriesByType[7]  = SubmitQuery<ProjectileRenderType7Tag>();
-            submitQueriesByType[8]  = SubmitQuery<ProjectileRenderType8Tag>();
-            submitQueriesByType[9]  = SubmitQuery<ProjectileRenderType9Tag>();
-            submitQueriesByType[10] = SubmitQuery<ProjectileRenderType10Tag>();
-            submitQueriesByType[11] = SubmitQuery<ProjectileRenderType11Tag>();
-            submitQueriesByType[12] = SubmitQuery<ProjectileRenderType12Tag>();
-            submitQueriesByType[13] = SubmitQuery<ProjectileRenderType13Tag>();
-            submitQueriesByType[14] = SubmitQuery<ProjectileRenderType14Tag>();
-            submitQueriesByType[15] = SubmitQuery<ProjectileRenderType15Tag>();
+            submitQuery = SubmitQuery();
             if (submitBuffer.IsCreated)
             {
                 submitBuffer.Dispose();
@@ -341,13 +324,13 @@ namespace PlayGround.System.Projectile
             ecsHandlesCreated = true;
         }
 
-        private EntityQuery SubmitQuery<T>() where T : unmanaged, IComponentData
+        private EntityQuery SubmitQuery()
         {
             return entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<CombatRenderElement>(),
                 ComponentType.ReadOnly<CombatRenderScope>(),
-                ComponentType.ReadOnly<T>(),
+                ComponentType.ReadOnly<CombatRenderTypeId>(),
                 ComponentType.ReadOnly<ProjectileActiveTag>());
         }
 
@@ -535,7 +518,6 @@ namespace PlayGround.System.Projectile
 
         private void ValidateRenderableType(int projectileTypeId, string source)
         {
-            EnsureSupportedStructuralRenderType(projectileTypeId);
             if (!renderResourcesByType.ContainsKey(projectileTypeId))
             {
                 throw new global::System.InvalidOperationException(
@@ -610,15 +592,6 @@ namespace PlayGround.System.Projectile
             };
         }
 
-        private static void EnsureSupportedStructuralRenderType(int projectileTypeId)
-        {
-            if (projectileTypeId < 0 || projectileTypeId >= MaxStructuralRenderTypes)
-            {
-                throw new global::System.InvalidOperationException(
-                    $"Projectile render type {projectileTypeId} is outside supported structural render type range 0-{MaxStructuralRenderTypes - 1}.");
-            }
-        }
-
         private void DestroyRenderResources()
         {
             foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in renderResourcesByType)
@@ -638,22 +611,13 @@ namespace PlayGround.System.Projectile
 
             if (!ecsHandlesCreated)
             {
-                submitQueriesByType = null;
                 scopeEntity = Entity.Null;
                 entityManager = default;
                 return;
             }
 
-            if (submitQueriesByType != null)
-            {
-                for (int i = 0; i < submitQueriesByType.Length; i++)
-                {
-                    DisposeQuery(ref submitQueriesByType[i]);
-                }
-            }
-
+            DisposeQuery(ref submitQuery);
             DisposeQuery(ref allProjectileQuery);
-            submitQueriesByType = null;
             ecsHandlesCreated = false;
             scopeEntity = Entity.Null;
             entityManager = default;
@@ -692,31 +656,27 @@ namespace PlayGround.System.Projectile
         // DO NOT loop over individual projectiles.
         private void SubmitProjectiles()
         {
-            if (renderResourcesByType.Count == 0 || submitQueriesByType == null)
+            if (renderResourcesByType.Count == 0)
             {
                 return;
             }
 
-            for (int typeId = 0; typeId < MaxStructuralRenderTypes; typeId++)
+            entityManager.CompleteDependencyBeforeRO<CombatRenderElement>();
+            foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in renderResourcesByType)
             {
-                if (!renderResourcesByType.TryGetValue(typeId, out CombatSpriteRenderResources resources))
-                {
-                    continue;
-                }
-
-                EntityQuery query = submitQueriesByType[typeId];
-                query.SetSharedComponentFilter(new CombatRenderScope { Scope = scopeEntity });
-                entityManager.CompleteDependencyBeforeRO<CombatRenderElement>();
+                submitQuery.SetSharedComponentFilter(
+                    new CombatRenderScope { Scope = scopeEntity },
+                    new CombatRenderTypeId { TypeId = pair.Key });
                 NativeArray<CombatRenderElement> active =
-                    query.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
+                    submitQuery.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
                 for (int start = 0; start < active.Length; start += MaxInstancesPerDraw)
                 {
                     int count = Mathf.Min(MaxInstancesPerDraw, active.Length - start);
                     NativeArray<CombatRenderElement>.Copy(active, start, submitBuffer, 0, count);
-                    BatchedSpriteRenderer.SubmitBatch(submitBuffer, 0, count, resources, gameObject.layer, batchBoundsHalfExtent);
+                    BatchedSpriteRenderer.SubmitBatch(submitBuffer, 0, count, pair.Value, gameObject.layer, batchBoundsHalfExtent);
                 }
                 active.Dispose();
-                query.ResetFilter();
+                submitQuery.ResetFilter();
             }
         }
 

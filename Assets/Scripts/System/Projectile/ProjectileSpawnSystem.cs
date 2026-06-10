@@ -14,7 +14,6 @@ namespace PlayGround.System.Projectile
     [UpdateBefore(typeof(ProjectileTrackingSystem))]
     public partial class ProjectileSpawnSystem : SystemBase
     {
-        private const int MaxStructuralRenderTypes = 16;
         private static readonly ProfilerMarker SpawnMarker = new("Projectile.Spawn");
 
         private readonly Dictionary<ProjectilePoolKey, List<Entity>> inactiveByKey = new();
@@ -184,8 +183,9 @@ namespace PlayGround.System.Projectile
             bool hasChildSpawner,
             EntityCommandBuffer ecb)
         {
-            Entity entity = ecb.CreateEntity(ArchetypeFor(request.TypeId, hasChildSpawner));
+            Entity entity = ecb.CreateEntity(ArchetypeFor(hasChildSpawner));
             ecb.AddSharedComponent(entity, new CombatRenderScope { Scope = scope });
+            ecb.AddSharedComponent(entity, new CombatRenderTypeId { TypeId = request.TypeId });
             RecordProjectileReset(ecb, entity, scope, request, hasChildSpawner);
         }
 
@@ -349,9 +349,9 @@ namespace PlayGround.System.Projectile
             };
         }
 
-        private EntityArchetype ArchetypeFor(int typeId, bool hasChildSpawner)
+        private EntityArchetype ArchetypeFor(bool hasChildSpawner)
         {
-            var key = new ProjectileArchetypeKey(typeId, hasChildSpawner);
+            var key = new ProjectileArchetypeKey(hasChildSpawner);
             if (archetypesByKey.TryGetValue(key, out EntityArchetype archetype))
             {
                 return archetype;
@@ -369,7 +369,6 @@ namespace PlayGround.System.Projectile
                     typeof(ProjectileTrackingComponent),
                     typeof(CombatRenderComponent),
                     typeof(CombatRenderElement),
-                    RenderTagTypeFor(typeId),
                     typeof(ProjectileActiveTag),
                     typeof(CombatRenderActiveTag),
                     typeof(ProjectileContactGateElement),
@@ -387,38 +386,12 @@ namespace PlayGround.System.Projectile
                     typeof(ProjectileTrackingComponent),
                     typeof(CombatRenderComponent),
                     typeof(CombatRenderElement),
-                    RenderTagTypeFor(typeId),
                     typeof(ProjectileActiveTag),
                     typeof(CombatRenderActiveTag),
                     typeof(ProjectileContactGateElement));
 
             archetypesByKey.Add(key, archetype);
             return archetype;
-        }
-
-        private static global::System.Type RenderTagTypeFor(int typeId)
-        {
-            return typeId switch
-            {
-                0 => typeof(ProjectileRenderType0Tag),
-                1 => typeof(ProjectileRenderType1Tag),
-                2 => typeof(ProjectileRenderType2Tag),
-                3 => typeof(ProjectileRenderType3Tag),
-                4 => typeof(ProjectileRenderType4Tag),
-                5 => typeof(ProjectileRenderType5Tag),
-                6 => typeof(ProjectileRenderType6Tag),
-                7 => typeof(ProjectileRenderType7Tag),
-                8 => typeof(ProjectileRenderType8Tag),
-                9 => typeof(ProjectileRenderType9Tag),
-                10 => typeof(ProjectileRenderType10Tag),
-                11 => typeof(ProjectileRenderType11Tag),
-                12 => typeof(ProjectileRenderType12Tag),
-                13 => typeof(ProjectileRenderType13Tag),
-                14 => typeof(ProjectileRenderType14Tag),
-                15 => typeof(ProjectileRenderType15Tag),
-                _ => throw new global::System.InvalidOperationException(
-                    $"Projectile render type {typeId} is outside supported structural render type range 0-{MaxStructuralRenderTypes - 1}.")
-            };
         }
 
         private struct ProjectileReuseReset
@@ -519,29 +492,20 @@ namespace PlayGround.System.Projectile
 
         private readonly struct ProjectileArchetypeKey : global::System.IEquatable<ProjectileArchetypeKey>
         {
-            private readonly int typeId;
             private readonly bool hasChildSpawner;
 
-            public ProjectileArchetypeKey(int typeId, bool hasChildSpawner)
+            public ProjectileArchetypeKey(bool hasChildSpawner)
             {
-                this.typeId = typeId;
                 this.hasChildSpawner = hasChildSpawner;
             }
 
             public bool Equals(ProjectileArchetypeKey other) =>
-                typeId == other.typeId
-                && hasChildSpawner == other.hasChildSpawner;
+                hasChildSpawner == other.hasChildSpawner;
 
             public override bool Equals(object obj) =>
                 obj is ProjectileArchetypeKey other && Equals(other);
 
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    return (typeId * 397) ^ (hasChildSpawner ? 1 : 0);
-                }
-            }
+            public override int GetHashCode() => hasChildSpawner ? 1 : 0;
         }
     }
 }
