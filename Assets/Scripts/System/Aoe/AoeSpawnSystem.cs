@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using PlayGround.System.Common;
+using PlayGround.System.Projectile;
 using PlayGround.System.Vfx;
 using Unity.Burst;
 using Unity.Collections;
@@ -11,6 +12,7 @@ namespace PlayGround.System.Aoe
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AoeSimulationSystem))]
+    [UpdateBefore(typeof(ProjectileSpawnSystem))]
     [UpdateBefore(typeof(AoeCollisionSystem))]
     [UpdateBefore(typeof(PlayGround.System.Common.CombatRenderPrepareSystem))]
     public partial class AoeSpawnSystem : SystemBase
@@ -49,15 +51,14 @@ namespace PlayGround.System.Aoe
             Dependency.Complete();
 
             using var scopes = scopeQuery.ToEntityArray(Allocator.Temp);
-            bool hasSpawnRequests = HasSpawnRequests(scopes);
-            bool hasRecycleEvents = HasRecycleEvents(scopes);
-            if (!hasSpawnRequests && !hasRecycleEvents)
+            CountScopeWork(scopes, out int spawnRequestCount, out int recycleEventCount);
+            if (spawnRequestCount <= 0 && recycleEventCount <= 0)
             {
                 return;
             }
 
             DrainRecycleBuffers(scopes);
-            if (!hasSpawnRequests)
+            if (spawnRequestCount <= 0)
             {
                 return;
             }
@@ -65,15 +66,22 @@ namespace PlayGround.System.Aoe
             using (SpawnMarker.Auto())
             {
                 using var createEcb = new EntityCommandBuffer(Allocator.Temp);
-                var reuseResets = new NativeList<AoeReuseReset>(Allocator.TempJob);
+                var reuseResets = new NativeList<AoeReuseReset>(spawnRequestCount, Allocator.TempJob);
                 for (int i = 0; i < scopes.Length; i++)
                 {
                     Entity scope = scopes[i];
                     DynamicBuffer<AoeSpawnRequestElement> requests =
                         EntityManager.GetBuffer<AoeSpawnRequestElement>(scope);
+                    int requestCount = requests.Length;
+                    if (requestCount <= 0)
+                    {
+                        continue;
+                    }
+
                     DynamicBuffer<VfxSpawnRequestElement> vfxBuffer =
                         EntityManager.GetBuffer<VfxSpawnRequestElement>(scope);
-                    for (int requestIndex = 0; requestIndex < requests.Length; requestIndex++)
+                    vfxBuffer.EnsureCapacity(vfxBuffer.Length + requestCount);
+                    for (int requestIndex = 0; requestIndex < requestCount; requestIndex++)
                     {
                         AoeSpawnRequestElement request = requests[requestIndex];
                         Materialize(scope, request, createEcb, ref reuseResets);
@@ -93,30 +101,17 @@ namespace PlayGround.System.Aoe
             }
         }
 
-        private bool HasSpawnRequests(NativeArray<Entity> scopes)
+        private void CountScopeWork(NativeArray<Entity> scopes, out int spawnRequestCount, out int recycleEventCount)
         {
+            spawnRequestCount = 0;
+            recycleEventCount = 0;
+
             for (int i = 0; i < scopes.Length; i++)
             {
-                if (EntityManager.GetBuffer<AoeSpawnRequestElement>(scopes[i]).Length > 0)
-                {
-                    return true;
-                }
+                Entity scope = scopes[i];
+                spawnRequestCount += EntityManager.GetBuffer<AoeSpawnRequestElement>(scope).Length;
+                recycleEventCount += EntityManager.GetBuffer<AoeRecycleElement>(scope).Length;
             }
-
-            return false;
-        }
-
-        private bool HasRecycleEvents(NativeArray<Entity> scopes)
-        {
-            for (int i = 0; i < scopes.Length; i++)
-            {
-                if (EntityManager.GetBuffer<AoeRecycleElement>(scopes[i]).Length > 0)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private void DrainRecycleBuffers(NativeArray<Entity> scopes)
@@ -231,16 +226,18 @@ namespace PlayGround.System.Aoe
 
         private static void RecordAoeReset(EntityCommandBuffer ecb, Entity entity, Entity scope, AoeSpawnRequestElement request)
         {
+            CombatKinematicsComponent kinematics = KinematicsFor(request);
+            CombatRenderComponent render = request.Render;
             ecb.SetComponent(entity, IdentityFor(scope, request));
-            ecb.SetComponent(entity, KinematicsFor(request));
+            ecb.SetComponent(entity, kinematics);
             ecb.SetComponent(entity, CollisionFor(request));
             ecb.SetComponent(entity, HitFor(request));
             ecb.SetComponent(entity, LifetimeFor(request));
             ecb.SetComponent(entity, HitGateFor(request));
             ecb.SetComponent(entity, HitSpawnFor(request));
             ecb.SetComponent(entity, PulseVfxFor(request));
-            ecb.SetComponent(entity, request.Render);
-            ecb.SetComponent(entity, new CombatRenderElement());
+            ecb.SetComponent(entity, render);
+            ecb.SetComponent(entity, CombatRenderMatrixUtility.ElementFor(kinematics, render));
             ecb.SetComponentEnabled<AoeActiveTag>(entity, true);
             ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
         }
@@ -352,17 +349,19 @@ namespace PlayGround.System.Aoe
                 AoeReuseReset reset = Resets[index];
                 Entity entity = reset.Entity;
                 AoeSpawnRequestElement request = reset.Request;
+                CombatKinematicsComponent kinematics = KinematicsFor(request);
+                CombatRenderComponent render = request.Render;
 
                 Identities[entity] = IdentityFor(reset.Scope, request);
-                Kinematics[entity] = KinematicsFor(request);
+                Kinematics[entity] = kinematics;
                 Collisions[entity] = CollisionFor(request);
                 Hits[entity] = HitFor(request);
                 Lifetimes[entity] = LifetimeFor(request);
                 HitGates[entity] = HitGateFor(request);
                 HitSpawns[entity] = HitSpawnFor(request);
                 PulseVfxComponents[entity] = PulseVfxFor(request);
-                Renders[entity] = request.Render;
-                RenderElements[entity] = new CombatRenderElement();
+                Renders[entity] = render;
+                RenderElements[entity] = CombatRenderMatrixUtility.ElementFor(kinematics, render);
                 ContactGates[entity].Clear();
                 ActiveTags.SetComponentEnabled(entity, true);
                 RenderActiveTags.SetComponentEnabled(entity, true);

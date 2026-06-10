@@ -37,10 +37,64 @@ namespace PlayGround.System.Common
         public override int GetHashCode() => Scope.GetHashCode();
     }
 
+    public static class CombatRenderMatrixUtility
+    {
+        private const float MinimumDirectionLengthSquared = 0.000001f;
+
+        public static CombatRenderElement ElementFor(
+            CombatKinematicsComponent kinematics,
+            CombatRenderComponent render)
+        {
+            if (render.IsRenderable == 0)
+            {
+                return default;
+            }
+
+            float directionX = 1f;
+            float directionY = 0f;
+            if (render.AlignToVelocity != 0)
+            {
+                float velocityLengthSquared = math.lengthsq(kinematics.Velocity);
+                if (velocityLengthSquared > MinimumDirectionLengthSquared)
+                {
+                    float inverseLength = math.rsqrt(velocityLengthSquared);
+                    directionX = kinematics.Velocity.x * inverseLength;
+                    directionY = kinematics.Velocity.y * inverseLength;
+                }
+            }
+
+            float cos = directionX * render.VisualRotationCos - directionY * render.VisualRotationSin;
+            float sin = directionX * render.VisualRotationSin + directionY * render.VisualRotationCos;
+            float2 scale = render.VisualScale;
+
+            return new CombatRenderElement
+            {
+                objectToWorld = new Matrix4x4
+                {
+                    m00 = cos * scale.x,
+                    m01 = -sin * scale.y,
+                    m02 = 0f,
+                    m03 = kinematics.Position.x,
+                    m10 = sin * scale.x,
+                    m11 = cos * scale.y,
+                    m12 = 0f,
+                    m13 = kinematics.Position.y,
+                    m20 = 0f,
+                    m21 = 0f,
+                    m22 = math.max(scale.x, scale.y),
+                    m23 = render.RenderZ,
+                    m30 = 0f,
+                    m31 = 0f,
+                    m32 = 0f,
+                    m33 = 1f
+                }
+            };
+        }
+    }
+
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct CombatRenderPrepareSystem : ISystem
     {
-        private const float MinimumDirectionLengthSquared = 0.000001f;
         private EntityQuery renderQuery;
         private ComponentTypeHandle<CombatKinematicsComponent> kinematicsTypeHandle;
         private ComponentTypeHandle<CombatRenderComponent> renderTypeHandle;
@@ -94,52 +148,7 @@ namespace PlayGround.System.Common
                 var enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
                 while (enumerator.NextEntityIndex(out int i))
                 {
-                    CombatRenderComponent r = rend[i];
-                    if (r.IsRenderable == 0)
-                    {
-                        continue;
-                    }
-
-                    CombatKinematicsComponent k = kin[i];
-                    float directionX = 1f;
-                    float directionY = 0f;
-                    if (r.AlignToVelocity != 0)
-                    {
-                        float velocityLengthSquared = math.lengthsq(k.Velocity);
-                        if (velocityLengthSquared > MinimumDirectionLengthSquared)
-                        {
-                            float inverseLength = math.rsqrt(velocityLengthSquared);
-                            directionX = k.Velocity.x * inverseLength;
-                            directionY = k.Velocity.y * inverseLength;
-                        }
-                    }
-
-                    float cos = directionX * r.VisualRotationCos - directionY * r.VisualRotationSin;
-                    float sin = directionX * r.VisualRotationSin + directionY * r.VisualRotationCos;
-                    float2 scale = r.VisualScale;
-
-                    elem[i] = new CombatRenderElement
-                    {
-                        objectToWorld = new Matrix4x4
-                        {
-                            m00 = cos * scale.x,
-                            m01 = -sin * scale.y,
-                            m02 = 0f,
-                            m03 = k.Position.x,
-                            m10 = sin * scale.x,
-                            m11 = cos * scale.y,
-                            m12 = 0f,
-                            m13 = k.Position.y,
-                            m20 = 0f,
-                            m21 = 0f,
-                            m22 = math.max(scale.x, scale.y),
-                            m23 = r.RenderZ,
-                            m30 = 0f,
-                            m31 = 0f,
-                            m32 = 0f,
-                            m33 = 1f
-                        }
-                    };
+                    elem[i] = CombatRenderMatrixUtility.ElementFor(kin[i], rend[i]);
                 }
             }
         }

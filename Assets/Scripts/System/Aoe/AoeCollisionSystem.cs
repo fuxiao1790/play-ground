@@ -1,4 +1,5 @@
 using PlayGround.System.Common;
+using PlayGround.System.Projectile;
 using PlayGround.System.Vfx;
 using Unity.Burst;
 using Unity.Collections;
@@ -9,7 +10,8 @@ namespace PlayGround.System.Aoe
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AoeContactGateSystem))]
-    [UpdateAfter(typeof(PlayGround.System.Common.CombatRenderPrepareSystem))]
+    [UpdateBefore(typeof(ProjectileSpawnSystem))]
+    [UpdateBefore(typeof(CombatRenderPrepareSystem))]
     public partial struct AoeCollisionSystem : ISystem
     {
         private const float SpatialHashCellSize = 64f;
