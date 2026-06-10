@@ -51,25 +51,14 @@ MonoBehaviour:
     - model: {fileID: 8926484042661618142}
       id: 0
       isStickyNote: 0
-  - title: New Group Node
-    position:
-      serializedVersion: 2
-      x: 0
-      y: 0
-      width: 100
-      height: 100
-    contents:
-    - model: {fileID: 8926484042661618168}
-      id: 0
-      isStickyNote: 0
   stickyNoteInfos: []
   categories: []
   uiBounds:
     serializedVersion: 2
-    x: -0
+    x: 0
     y: -1073
     width: 2092
-    height: 1747
+    height: 1654
 --- !u!114 &114350483966674976
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -452,7 +441,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
           PublicKeyToken=b77a5c561934e089
-      m_SerializableObject: 0.2
+      m_SerializableObject: 0.1
     m_Space: -1
   m_Property:
     name: A
@@ -486,7 +475,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
           PublicKeyToken=b77a5c561934e089
-      m_SerializableObject: 0.4
+      m_SerializableObject: 0.15
     m_Space: -1
   m_Property:
     name: B
@@ -2735,7 +2724,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: UnityEngine.AnimationCurve, UnityEngine.CoreModule, Version=0.0.0.0,
           Culture=neutral, PublicKeyToken=null
-      m_SerializableObject: '{"frames":[{"time":0.0,"value":0.0,"inTangent":0.0,"outTangent":0.0,"tangentMode":0,"leftTangentMode":0,"rightTangentMode":0,"broken":false},{"time":0.19975221157073975,"value":0.6023485064506531,"inTangent":2.065342903137207,"outTangent":2.065342903137207,"tangentMode":0,"leftTangentMode":0,"rightTangentMode":0,"broken":false},{"time":0.7997503280639648,"value":0.9309871196746826,"inTangent":-0.2623312175273895,"outTangent":-0.2623312175273895,"tangentMode":0,"leftTangentMode":0,"rightTangentMode":0,"broken":false},{"time":0.9992544651031494,"value":0.8013701438903809,"inTangent":0.0,"outTangent":0.0,"tangentMode":0,"leftTangentMode":0,"rightTangentMode":0,"broken":false}],"preWrapMode":8,"postWrapMode":8,"version":1}'
+      m_SerializableObject: '{"frames":[{"time":0.0,"value":0.0,"inTangent":2.000776767730713,"outTangent":2.000776767730713,"tangentMode":0,"leftTangentMode":1,"rightTangentMode":1,"broken":false},{"time":0.49946287274360659,"value":0.9993137121200562,"inTangent":-0.0017336606979370118,"outTangent":-0.0017336606979370118,"tangentMode":0,"leftTangentMode":1,"rightTangentMode":1,"broken":false},{"time":0.9960454702377319,"value":0.004040956497192383,"inTangent":-2.004244089126587,"outTangent":-2.004244089126587,"tangentMode":0,"leftTangentMode":1,"rightTangentMode":1,"broken":false}],"preWrapMode":8,"postWrapMode":8,"version":1}'
     m_Space: -1
   m_Property:
     name: Size

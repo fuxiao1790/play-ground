@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1000000000000000000000000000002, type: 3}
+  m_Name: Arrow2Skill
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileSkill
+  definition:
+    prefab: {fileID: 1001001001001001004, guid: 5b2a8c81fe279674c86068f87ce0a516, type: 3}
+    speed: 10
+    lifetime: 3
+    damage: 10
+    count: 1
+    spreadDegrees: 0
+    jitterDegrees: 0
+    pierceCount: 0
+    repeatHitCooldown: 0
+    directDamageEnabled: 1
+    trackingEnabled: 0
+    trackingRange: 150
+    trackingTurnSpeedDegrees: 360
+    trackingQueryIntervalSeconds: 0.25
+    trackingInitialDelaySeconds: 0.15

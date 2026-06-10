@@ -122,7 +122,7 @@ namespace PlayGround.Skills
                 {
                     VisualPrefab = a.VisualPrefab,
                     CollisionShape = a.CollisionShape,
-                    SizeMultiplier = Mathf.Max(0.01f, a.sizeMultiplier),
+                    SizeMultiplier = Mathf.Max(0.01f, a.sizeMultiplier * a.PrefabNormalizationCoefficient),
                     VisualRotationDegrees = a.VisualRotationDegrees,
                     SpawnEffect = a.SpawnEffect,
                     HitEffect = a.HitEffect,
