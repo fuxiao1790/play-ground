@@ -256,14 +256,16 @@ namespace PlayGround.System.Aoe
         private void DrainEvents()
         {
             DynamicBuffer<CombatHitElement> hitBuffer = entityManager.GetBuffer<CombatHitElement>(scopeEntity);
+            DynamicBuffer<CombatHitPayloadElement> payloadBuffer = entityManager.GetBuffer<CombatHitPayloadElement>(scopeEntity);
             DynamicBuffer<AoeRecycleElement> recycleBuffer = entityManager.GetBuffer<AoeRecycleElement>(scopeEntity);
             int hitCount = hitBuffer.Length;
             hitEvents += hitCount;
             despawnedAoes += recycleBuffer.Length;
 
             var adapter = new AoeHitReplayAdapter { HitHandler = AoeHit };
-            CombatHitReplay.ReplayAndClear<CombatHitElement, IAoeTarget, AoeHitReplayAdapter>(
+            CombatHitReplay.ReplayAndClear<IAoeTarget, AoeHitReplayAdapter>(
                 hitBuffer,
+                payloadBuffer,
                 targetSync.TargetsById,
                 ref adapter);
 
@@ -278,14 +280,9 @@ namespace PlayGround.System.Aoe
             vfxDispatcher.Dispatch();
         }
 
-        private struct AoeHitReplayAdapter : ICombatHitReplayAdapter<CombatHitElement, IAoeTarget>
+        private struct AoeHitReplayAdapter : ICombatHitReplayAdapter<IAoeTarget>
         {
             public AoeHitHandler HitHandler;
-
-            public int TargetId(in CombatHitElement hit)
-            {
-                return hit.TargetId;
-            }
 
             public DamageSnapshot RollDamage(in CombatHitElement hit)
             {
@@ -295,21 +292,22 @@ namespace PlayGround.System.Aoe
                 return new DamageSnapshot(rolledAmount, isCrit);
             }
 
-            public void Replay(in CombatHitElement hit, IAoeTarget target, in DamageSnapshot damage)
+            public void Replay(in CombatHitElement hit, in CombatHitPayloadElement payload, IAoeTarget target, in DamageSnapshot damage)
             {
+                var position = new Vector2(hit.Position.x, hit.Position.y);
                 var context = new AoeHitContext(
                     hit.SourceId,
                     hit.TypeId,
                     hit.TargetId,
-                    new Vector2(hit.Position.x, hit.Position.y),
+                    position,
                     damage,
-                    hit.ProjectileBurst,
+                    payload.ProjectileBurst,
                     target);
                 HitHandler?.Invoke(in context);
                 target?.ReceiveHit(new CombatHitData(
                     CombatHitKind.Aoe,
                     damage,
-                    context.Position));
+                    position));
             }
         }
 
@@ -343,6 +341,7 @@ namespace PlayGround.System.Aoe
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
             entityManager.AddBuffer<AoeSpawnRequestElement>(scopeEntity);
             entityManager.AddBuffer<CombatHitElement>(scopeEntity);
+            entityManager.AddBuffer<CombatHitPayloadElement>(scopeEntity);
             entityManager.AddBuffer<AoeRecycleElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
             allAoeQuery = entityManager.CreateEntityQuery(

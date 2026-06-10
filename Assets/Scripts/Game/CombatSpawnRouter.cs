@@ -75,16 +75,16 @@ namespace PlayGround.Game
             mobAoeRoot = null;
         }
 
-        private void OnPlayerProjectileHit(in ProjectileHitContext context)
+        private void OnPlayerProjectileHit(in ProjectileHitContext context, in ProjectileHitPayload payload)
         {
-            SpawnImpactAoe(context, playerAoeRoot);
-            SpawnImpactProjectiles(context, playerProjectileRoot);
+            SpawnImpactAoe(context, in payload, playerAoeRoot);
+            SpawnImpactProjectiles(context, in payload, playerProjectileRoot);
         }
 
-        private void OnMobProjectileHit(in ProjectileHitContext context)
+        private void OnMobProjectileHit(in ProjectileHitContext context, in ProjectileHitPayload payload)
         {
-            SpawnImpactAoe(context, mobAoeRoot);
-            SpawnImpactProjectiles(context, mobProjectileRoot);
+            SpawnImpactAoe(context, in payload, mobAoeRoot);
+            SpawnImpactProjectiles(context, in payload, mobProjectileRoot);
         }
 
         private void OnPlayerAoeHit(in AoeHitContext context)
@@ -97,9 +97,9 @@ namespace PlayGround.Game
             SpawnProjectileBurst(context, mobProjectileRoot);
         }
 
-        private static void SpawnImpactAoe(in ProjectileHitContext context, AoeRoot destination)
+        private static void SpawnImpactAoe(in ProjectileHitContext context, in ProjectileHitPayload payload, AoeRoot destination)
         {
-            ProjectileImpactAoeSnapshot impact = context.Payload.ImpactAoe;
+            ProjectileImpactAoeSnapshot impact = payload.ImpactAoe;
             if (destination == null || !impact.Enabled)
             {
                 return;
@@ -117,9 +117,9 @@ namespace PlayGround.Game
                 critMultiplier: impact.CritMultiplier));
         }
 
-        private static void SpawnImpactProjectiles(in ProjectileHitContext context, ProjectileRoot destination)
+        private static void SpawnImpactProjectiles(in ProjectileHitContext context, in ProjectileHitPayload payload, ProjectileRoot destination)
         {
-            ProjectileImpactProjectileSnapshot burst = context.Payload.ImpactProjectile;
+            ProjectileImpactProjectileSnapshot burst = payload.ImpactProjectile;
             if (destination == null || !burst.Enabled)
             {
                 return;

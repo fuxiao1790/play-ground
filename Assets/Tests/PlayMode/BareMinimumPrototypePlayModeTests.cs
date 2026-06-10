@@ -289,7 +289,7 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
             int hitCount = 0;
-            projectileRoot.ProjectileHit += (in ProjectileHitContext _) => hitCount++;
+            projectileRoot.ProjectileHit += (in ProjectileHitContext _, in ProjectileHitPayload _2) => hitCount++;
 
             var command = new ProjectileSpawnCommand(
                 Vector2.zero,
@@ -365,9 +365,9 @@ namespace PlayGround.Tests.PlayMode
             mob.Register(projectileRoot.TargetRegistry);
             mob.Register(aoeRoot.TargetRegistry);
             bool spawnedProjectileCarriedImpactAoe = true;
-            projectileRoot.ProjectileHit += (in ProjectileHitContext context) =>
+            projectileRoot.ProjectileHit += (in ProjectileHitContext context, in ProjectileHitPayload payload) =>
             {
-                spawnedProjectileCarriedImpactAoe = context.Payload.ImpactAoe.Enabled;
+                spawnedProjectileCarriedImpactAoe = payload.ImpactAoe.Enabled;
             };
 
             var burst = new AoeProjectileBurstSnapshot(
@@ -529,9 +529,9 @@ namespace PlayGround.Tests.PlayMode
             GameObject sourceObject = new("ProjectileSource");
             EntityId sourceNodeId = sourceObject.GetEntityId();
             ProjectileHitPayload replayedPayload = default;
-            projectileRoot.ProjectileHit += (in ProjectileHitContext context) =>
+            projectileRoot.ProjectileHit += (in ProjectileHitContext context, in ProjectileHitPayload payload) =>
             {
-                replayedPayload = context.Payload;
+                replayedPayload = payload;
             };
 
             var command = new ProjectileSpawnCommand(

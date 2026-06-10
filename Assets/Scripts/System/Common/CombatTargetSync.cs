@@ -70,13 +70,11 @@ namespace PlayGround.System.Common
         }
     }
 
-    internal interface ICombatHitReplayAdapter<THit, TTarget>
-        where THit : unmanaged, IBufferElementData
+    internal interface ICombatHitReplayAdapter<TTarget>
         where TTarget : class
     {
-        int TargetId(in THit hit);
-        DamageSnapshot RollDamage(in THit hit);
-        void Replay(in THit hit, TTarget target, in DamageSnapshot damage);
+        DamageSnapshot RollDamage(in CombatHitElement hit);
+        void Replay(in CombatHitElement hit, in CombatHitPayloadElement payload, TTarget target, in DamageSnapshot damage);
     }
 
     internal static class CombatHitReplay
@@ -86,13 +84,13 @@ namespace PlayGround.System.Common
         private static readonly ProfilerCounterValue<int> ReplayEventCounter =
             new(ProfilerCategory.Scripts, "CombatHitReplay.Events", ProfilerMarkerDataUnit.Count);
 
-        public static void ReplayAndClear<THit, TTarget, TAdapter>(
-            DynamicBuffer<THit> hitBuffer,
+        public static void ReplayAndClear<TTarget, TAdapter>(
+            DynamicBuffer<CombatHitElement> hitBuffer,
+            DynamicBuffer<CombatHitPayloadElement> payloadBuffer,
             IReadOnlyDictionary<int, TTarget> targetsById,
             ref TAdapter adapter)
-            where THit : unmanaged, IBufferElementData
             where TTarget : class
-            where TAdapter : struct, ICombatHitReplayAdapter<THit, TTarget>
+            where TAdapter : struct, ICombatHitReplayAdapter<TTarget>
         {
             int hitCount = hitBuffer.Length;
             ReplayEventCounter.Value = hitCount;
@@ -101,14 +99,18 @@ namespace PlayGround.System.Common
             {
                 for (int i = 0; i < hitCount; i++)
                 {
-                    THit hit = hitBuffer[i];
-                    targetsById.TryGetValue(adapter.TargetId(in hit), out TTarget target);
+                    CombatHitElement hit = hitBuffer[i];
+                    targetsById.TryGetValue(hit.TargetId, out TTarget target);
                     DamageSnapshot damage = adapter.RollDamage(in hit);
-                    adapter.Replay(in hit, target, in damage);
+                    CombatHitPayloadElement payload = hit.PayloadIndex >= 0
+                        ? payloadBuffer[hit.PayloadIndex]
+                        : default;
+                    adapter.Replay(in hit, in payload, target, in damage);
                 }
             }
 
             hitBuffer.Clear();
+            payloadBuffer.Clear();
         }
     }
 }

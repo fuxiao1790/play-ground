@@ -244,19 +244,30 @@ The current implementation uses Entities/DOTS in the shared default world:
 
 - `AoeRoot` creates an `AoeScope` entity with target, spawn, hit, and recycle buffers.
 - AOE entities carry `AoeTag`, `AoeActiveTag`, `AoeIdentityComponent`, common
-  combat components, render data, and hit-spawn snapshot data.
+  combat components (including `CombatHitComponent` with `CritChance` and
+  `CritMultiplier` written at spawn time from `AoeSpawnRequestElement`), render
+  data, and hit-spawn snapshot data (`AoeHitSpawnComponent` holding
+  `AoeProjectileBurstSnapshot`).
 - AOE systems require `AoeTag` or `AoeScope`; common combat components alone do
   not make an entity eligible for AOE simulation.
 - `AoeSpawnSystem` drains scoped spawn/recycle buffers and reuses inactive AOE
-  entities by scope/type.
+  entities by scope/type. Crit values flow from `AoeSpawnCommand` →
+  `AoeSpawnRequestElement` → `CombatHitComponent` on the entity; no per-AOE
+  dictionary lookup is needed at replay time.
 - `AoeCollisionSystem` runs target-mask filtering and shape collision against
-  `CombatTargetElement` snapshots, emits `AoeHitElement`, recycles pulse AOEs,
-  and adds per-target hit gates for lingering AOEs.
+  `CombatTargetElement` snapshots, reads crit directly from `CombatHitComponent`,
+  emits `CombatPendingHit` (shared with the projectile pipeline), flushes into the
+  scoped `CombatHitElement` buffer, recycles pulse AOEs, and adds per-target hit
+  gates for lingering AOEs.
 - `AoeContactGateSystem` decrements lingering repeat-hit gates and compacts
   expired entries.
-- `AoeSimulationSystem` clears scoped hit buffers and expires lingering AOEs.
+- `AoeSimulationSystem` clears scoped `CombatHitElement` hit buffers and expires lingering AOEs.
 - `CombatRenderPrepareSystem` writes render matrices for active AOEs, and
   `AoeRoot` submits GPU-instanced batches.
+- Trigger-link snapshot type `AoeProjectileBurstSnapshot` lives in
+  `PlayGround.System.Common` (alongside `ProjectileImpactAoeSnapshot`,
+  `ProjectileImpactProjectileSnapshot`, `ProjectileTrackingConfig`) so both
+  systems share a single `CombatHitElement` buffer element type.
 
 ## Tests To Port
 

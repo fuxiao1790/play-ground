@@ -188,11 +188,17 @@ namespace PlayGround.System.Common
         public float CritMultiplier;
         public bool DirectDamageEnabled;
         public EntityId SourceNodeId;
+        public uint Order;
+        public int PayloadIndex; // -1 = no payload
+    }
+
+    // ECS Lifecycle: scope buffer; sparse side channel for hit effects; added at root setup; cleared with CombatHitElement.
+    public struct CombatHitPayloadElement : IBufferElementData
+    {
         public CombatStackEffectSnapshot StackEffect;
         public ProjectileImpactAoeSnapshot ImpactAoe;
         public ProjectileImpactProjectileSnapshot ImpactProjectile;
         public AoeProjectileBurstSnapshot ProjectileBurst;
-        public uint Order;
     }
 
     // ECS Lifecycle: transient native payload; not added to entities; queued during collision hit flush.

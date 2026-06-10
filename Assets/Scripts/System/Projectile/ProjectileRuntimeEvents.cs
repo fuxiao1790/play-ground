@@ -45,7 +45,6 @@ namespace PlayGround.System.Projectile
             int targetId,
             Vector2 position,
             DamageSnapshot damage,
-            ProjectileHitPayload payload,
             IProjectileTarget target = null)
         {
             ProjectileId = projectileId;
@@ -53,7 +52,6 @@ namespace PlayGround.System.Projectile
             TargetId = targetId;
             Position = position;
             Damage = damage;
-            Payload = payload;
             Target = target;
         }
 
@@ -62,7 +60,6 @@ namespace PlayGround.System.Projectile
         public int TargetId { get; }
         public Vector2 Position { get; }
         public DamageSnapshot Damage { get; }
-        public ProjectileHitPayload Payload { get; }
         public IProjectileTarget Target { get; }
     }
 

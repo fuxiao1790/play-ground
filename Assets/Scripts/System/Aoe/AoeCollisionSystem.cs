@@ -90,7 +90,8 @@ namespace PlayGround.System.Aoe
             JobHandle hitFlushHandle = new AoeHitFlushJob
             {
                 PendingHits = pendingHits,
-                Hits = SystemAPI.GetBufferLookup<CombatHitElement>()
+                Hits = SystemAPI.GetBufferLookup<CombatHitElement>(),
+                Payloads = SystemAPI.GetBufferLookup<CombatHitPayloadElement>()
             }.Schedule(collisionHandle);
             JobHandle recycleFlushHandle = new AoeRecycleFlushJob
             {
@@ -319,6 +320,7 @@ namespace PlayGround.System.Aoe
         {
             public NativeQueue<CombatPendingHit> PendingHits;
             public BufferLookup<CombatHitElement> Hits;
+            public BufferLookup<CombatHitPayloadElement> Payloads;
 
             public void Execute()
             {
@@ -327,6 +329,17 @@ namespace PlayGround.System.Aoe
                     if (pending.Scope == Entity.Null || !Hits.HasBuffer(pending.Scope))
                     {
                         continue;
+                    }
+
+                    int payloadIndex = -1;
+                    if (pending.ProjectileBurst.Enabled)
+                    {
+                        DynamicBuffer<CombatHitPayloadElement> payloadBuf = Payloads[pending.Scope];
+                        payloadIndex = payloadBuf.Length;
+                        payloadBuf.Add(new CombatHitPayloadElement
+                        {
+                            ProjectileBurst = pending.ProjectileBurst
+                        });
                     }
 
                     Hits[pending.Scope].Add(new CombatHitElement
@@ -341,7 +354,8 @@ namespace PlayGround.System.Aoe
                         CritMultiplier = pending.CritMultiplier,
                         DirectDamageEnabled = pending.DirectDamageEnabled,
                         SourceNodeId = pending.SourceNodeId,
-                        ProjectileBurst = pending.ProjectileBurst
+                        Order = pending.Order,
+                        PayloadIndex = payloadIndex
                     });
                 }
             }

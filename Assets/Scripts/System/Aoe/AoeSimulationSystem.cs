@@ -25,6 +25,7 @@ namespace PlayGround.System.Aoe
             for (int i = 0; i < scopes.Length; i++)
             {
                 state.EntityManager.GetBuffer<CombatHitElement>(scopes[i]).Clear();
+                state.EntityManager.GetBuffer<CombatHitPayloadElement>(scopes[i]).Clear();
             }
 
             scopes.Dispose();

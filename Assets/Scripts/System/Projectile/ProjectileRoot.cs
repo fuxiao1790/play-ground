@@ -50,7 +50,7 @@ namespace PlayGround.System.Projectile
         private bool ecsWorldAcquired;
         private bool ecsHandlesCreated;
 
-        public delegate void ProjectileHitHandler(in ProjectileHitContext context);
+        public delegate void ProjectileHitHandler(in ProjectileHitContext context, in ProjectileHitPayload payload);
 
         public event ProjectileHitHandler ProjectileHit;
 
@@ -308,6 +308,7 @@ namespace PlayGround.System.Projectile
             scopeEntity = entityManager.CreateEntity(typeof(ProjectileScope));
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
             entityManager.AddBuffer<CombatHitElement>(scopeEntity);
+            entityManager.AddBuffer<CombatHitPayloadElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileSpawnRequestElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileRecycleElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
@@ -415,27 +416,23 @@ namespace PlayGround.System.Projectile
             vfxBuffer.Clear();
         }
 
-        // optimization: sort the buffer so that hits to the same target are clustered in the buffer.
-        // this can be done using component and entity query, should help reduce cache misses and vtable lookups.
         private void DrainHits()
         {
             DynamicBuffer<CombatHitElement> hitBuffer =
                 entityManager.GetBuffer<CombatHitElement>(scopeEntity);
+            DynamicBuffer<CombatHitPayloadElement> payloadBuffer =
+                entityManager.GetBuffer<CombatHitPayloadElement>(scopeEntity);
             var adapter = new ProjectileHitReplayAdapter { HitHandler = ProjectileHit };
-            CombatHitReplay.ReplayAndClear<CombatHitElement, IProjectileTarget, ProjectileHitReplayAdapter>(
+            CombatHitReplay.ReplayAndClear<IProjectileTarget, ProjectileHitReplayAdapter>(
                 hitBuffer,
+                payloadBuffer,
                 targetSync.TargetsById,
                 ref adapter);
         }
 
-        private struct ProjectileHitReplayAdapter : ICombatHitReplayAdapter<CombatHitElement, IProjectileTarget>
+        private struct ProjectileHitReplayAdapter : ICombatHitReplayAdapter<IProjectileTarget>
         {
             public ProjectileHitHandler HitHandler;
-
-            public int TargetId(in CombatHitElement hit)
-            {
-                return hit.TargetId;
-            }
 
             public DamageSnapshot RollDamage(in CombatHitElement hit)
             {
@@ -444,32 +441,33 @@ namespace PlayGround.System.Projectile
                 return new DamageSnapshot(Mathf.Max(0f, rolledAmount), isCrit);
             }
 
-            public void Replay(in CombatHitElement hit, IProjectileTarget target, in DamageSnapshot damage)
+            public void Replay(in CombatHitElement hit, in CombatHitPayloadElement payload, IProjectileTarget target, in DamageSnapshot damage)
             {
-                var payload = new ProjectileHitPayload(
-                    hit.SourceNodeId,
-                    hit.DamageAmount,
-                    hit.DirectDamageEnabled,
-                    hit.ImpactAoe,
-                    hit.StackEffect,
-                    hit.ImpactProjectile,
-                    hit.CritChance,
-                    hit.CritMultiplier);
-                var context = new ProjectileHitContext(
-                    hit.SourceId,
-                    hit.TypeId,
-                    hit.TargetId,
-                    new Vector2(hit.Position.x, hit.Position.y),
-                    damage,
-                    payload,
-                    target);
-
-                HitHandler?.Invoke(in context);
+                if (HitHandler != null)
+                {
+                    var hitPayload = new ProjectileHitPayload(
+                        hit.SourceNodeId,
+                        hit.DamageAmount,
+                        hit.DirectDamageEnabled,
+                        payload.ImpactAoe,
+                        payload.StackEffect,
+                        payload.ImpactProjectile,
+                        hit.CritChance,
+                        hit.CritMultiplier);
+                    var context = new ProjectileHitContext(
+                        hit.SourceId,
+                        hit.TypeId,
+                        hit.TargetId,
+                        new Vector2(hit.Position.x, hit.Position.y),
+                        damage,
+                        target);
+                    HitHandler.Invoke(in context, in hitPayload);
+                }
                 target?.ReceiveHit(new CombatHitData(
                     CombatHitKind.Projectile,
                     damage,
-                    context.Position,
-                    payload.DirectDamageEnabled,
+                    new Vector2(hit.Position.x, hit.Position.y),
+                    hit.DirectDamageEnabled,
                     payload.StackEffect));
             }
         }

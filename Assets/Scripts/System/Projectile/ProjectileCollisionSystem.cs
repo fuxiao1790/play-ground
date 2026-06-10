@@ -76,7 +76,8 @@ namespace PlayGround.System.Projectile
             var flushHandle = new ProjectileHitFlushJob
             {
                 PendingHits = pendingHits,
-                Hits = SystemAPI.GetBufferLookup<CombatHitElement>()
+                Hits = SystemAPI.GetBufferLookup<CombatHitElement>(),
+                Payloads = SystemAPI.GetBufferLookup<CombatHitPayloadElement>()
             }.Schedule(collisionHandle);
             var recycleFlushHandle = new ProjectileRecycleFlushJob
             {
@@ -306,6 +307,7 @@ namespace PlayGround.System.Projectile
         {
             public NativeQueue<CombatPendingHit> PendingHits;
             public BufferLookup<CombatHitElement> Hits;
+            public BufferLookup<CombatHitPayloadElement> Payloads;
 
             public void Execute()
             {
@@ -314,6 +316,19 @@ namespace PlayGround.System.Projectile
                     if (pending.Scope == Entity.Null || !Hits.HasBuffer(pending.Scope))
                     {
                         continue;
+                    }
+
+                    int payloadIndex = -1;
+                    if (pending.StackEffect.Enabled || pending.ImpactAoe.Enabled || pending.ImpactProjectile.Enabled)
+                    {
+                        DynamicBuffer<CombatHitPayloadElement> payloadBuf = Payloads[pending.Scope];
+                        payloadIndex = payloadBuf.Length;
+                        payloadBuf.Add(new CombatHitPayloadElement
+                        {
+                            StackEffect = pending.StackEffect,
+                            ImpactAoe = pending.ImpactAoe,
+                            ImpactProjectile = pending.ImpactProjectile
+                        });
                     }
 
                     Hits[pending.Scope].Add(new CombatHitElement
@@ -328,11 +343,8 @@ namespace PlayGround.System.Projectile
                         CritMultiplier = pending.CritMultiplier,
                         DirectDamageEnabled = pending.DirectDamageEnabled,
                         SourceNodeId = pending.SourceNodeId,
-                        StackEffect = pending.StackEffect,
-                        ImpactAoe = pending.ImpactAoe,
-                        ImpactProjectile = pending.ImpactProjectile,
-                        ProjectileBurst = pending.ProjectileBurst,
-                        Order = pending.Order
+                        Order = pending.Order,
+                        PayloadIndex = payloadIndex
                     });
                 }
             }
