@@ -17,7 +17,10 @@ namespace PlayGround.System.Aoe
         private const int MaxVfxPerFrame = 2048;
         private const float AoeRenderZ = 0.5f;
         private static readonly ProfilerMarker SubmitAoesMarker = new("AoeRoot.SubmitAoes");
-        private static readonly ProfilerMarker HitReplayMarker = new("AoeRoot.HitReplay");
+        private static readonly ProfilerMarker<int> HitReplayMarker =
+            new("AoeRoot.HitReplay", "Hit Events");
+        private static readonly ProfilerCounterValue<int> HitReplayEventCounter =
+            new(ProfilerCategory.Scripts, "AoeRoot.HitReplay.Events", ProfilerMarkerDataUnit.Count);
 
         [SerializeField] private int targetMask = 1;
         [SerializeField, Min(0)] private int maximumAoeCount = 10000;
@@ -258,12 +261,14 @@ namespace PlayGround.System.Aoe
         {
             DynamicBuffer<AoeHitElement> hitBuffer = entityManager.GetBuffer<AoeHitElement>(scopeEntity);
             DynamicBuffer<AoeRecycleElement> recycleBuffer = entityManager.GetBuffer<AoeRecycleElement>(scopeEntity);
-            hitEvents += hitBuffer.Length;
+            int hitCount = hitBuffer.Length;
+            HitReplayEventCounter.Value = hitCount;
+            hitEvents += hitCount;
             despawnedAoes += recycleBuffer.Length;
 
-            using (HitReplayMarker.Auto())
+            using (HitReplayMarker.Auto(hitCount))
             {
-                for (int i = 0; i < hitBuffer.Length; i++)
+                for (int i = 0; i < hitCount; i++)
                 {
                     AoeHitElement hit = hitBuffer[i];
                     targetSync.TargetsById.TryGetValue(hit.TargetId, out IAoeTarget target);

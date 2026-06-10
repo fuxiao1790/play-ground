@@ -21,7 +21,10 @@ namespace PlayGround.System.Projectile
         private const float ProjectileZStep = 0.000001f;
         private const int ProjectileZSlots = 1_000_000;
         private static readonly ProfilerMarker SubmitProjectilesMarker = new("ProjectileRoot.SubmitProjectiles");
-        private static readonly ProfilerMarker HitReplayMarker = new("ProjectileRoot.HitReplay");
+        private static readonly ProfilerMarker<int> HitReplayMarker =
+            new("ProjectileRoot.HitReplay", "Hit Events");
+        private static readonly ProfilerCounterValue<int> HitReplayEventCounter =
+            new(ProfilerCategory.Scripts, "ProjectileRoot.HitReplay.Events", ProfilerMarkerDataUnit.Count);
 
         [SerializeField] private Sprite projectileSprite;
         [SerializeField] private float visualScale = 1f;
@@ -420,10 +423,12 @@ namespace PlayGround.System.Projectile
         {
             DynamicBuffer<ProjectileHitElement> hitBuffer =
                 entityManager.GetBuffer<ProjectileHitElement>(scopeEntity);
+            int hitCount = hitBuffer.Length;
+            HitReplayEventCounter.Value = hitCount;
 
-            using (HitReplayMarker.Auto())
+            using (HitReplayMarker.Auto(hitCount))
             {
-                for (int i = 0; i < hitBuffer.Length; i++)
+                for (int i = 0; i < hitCount; i++)
                 {
                     ProjectileHitElement hit = hitBuffer[i];
 

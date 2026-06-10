@@ -6,7 +6,8 @@
         "Unity.Collections",
         "Unity.Entities",
         "Unity.InputSystem",
-        "Unity.Mathematics"
+        "Unity.Mathematics",
+        "Unity.Profiling.Core"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
