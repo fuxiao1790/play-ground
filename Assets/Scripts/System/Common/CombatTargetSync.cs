@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using PlayGround.Common;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Profiling;
 
 namespace PlayGround.System.Common
 {
@@ -65,6 +67,48 @@ namespace PlayGround.System.Common
                 targetsById[target.TargetId] = target;
                 count++;
             }
+        }
+    }
+
+    internal interface ICombatHitReplayAdapter<THit, TTarget>
+        where THit : unmanaged, IBufferElementData
+        where TTarget : class
+    {
+        int TargetId(in THit hit);
+        DamageSnapshot RollDamage(in THit hit);
+        void Replay(in THit hit, TTarget target, in DamageSnapshot damage);
+    }
+
+    internal static class CombatHitReplay
+    {
+        private static readonly ProfilerMarker<int> ReplayMarker =
+            new("CombatHitReplay.Replay", "Hit Events");
+        private static readonly ProfilerCounterValue<int> ReplayEventCounter =
+            new(ProfilerCategory.Scripts, "CombatHitReplay.Events", ProfilerMarkerDataUnit.Count);
+
+        public static void ReplayAndClear<THit, TTarget, TAdapter>(
+            DynamicBuffer<THit> hitBuffer,
+            IReadOnlyDictionary<int, TTarget> targetsById,
+            ref TAdapter adapter)
+            where THit : unmanaged, IBufferElementData
+            where TTarget : class
+            where TAdapter : struct, ICombatHitReplayAdapter<THit, TTarget>
+        {
+            int hitCount = hitBuffer.Length;
+            ReplayEventCounter.Value = hitCount;
+
+            using (ReplayMarker.Auto(hitCount))
+            {
+                for (int i = 0; i < hitCount; i++)
+                {
+                    THit hit = hitBuffer[i];
+                    targetsById.TryGetValue(adapter.TargetId(in hit), out TTarget target);
+                    DamageSnapshot damage = adapter.RollDamage(in hit);
+                    adapter.Replay(in hit, target, in damage);
+                }
+            }
+
+            hitBuffer.Clear();
         }
     }
 }

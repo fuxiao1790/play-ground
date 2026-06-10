@@ -1,6 +1,7 @@
 using PlayGround.Common;
 using PlayGround.Skills.Runtime;
 using PlayGround.System.Aoe;
+using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using UnityEngine;
 
@@ -38,7 +39,7 @@ namespace PlayGround.Skills
             int targetMask = root.TargetMask;
 
             ProjectileImpactAoeSnapshot impactAoe = BuildImpactAoeSnapshot(def, targetMask);
-            ProjectileStackEffectSnapshot stackEffect = BuildStackEffectSnapshot(def);
+            CombatStackEffectSnapshot stackEffect = BuildStackEffectSnapshot(def);
             ProjectileImpactProjectileSnapshot impactProjectile = BuildImpactProjectileSnapshot(def, targetMask);
             ProjectileChildSpawnConfig childSpawn = def.BuildChildSpawnConfig();
 
@@ -152,13 +153,13 @@ namespace PlayGround.Skills
                 BuildStackEffectSnapshot(impact));
         }
 
-        private static ProjectileStackEffectSnapshot BuildStackEffectSnapshot(RuntimeProjectileDefinition def)
+        private static CombatStackEffectSnapshot BuildStackEffectSnapshot(RuntimeProjectileDefinition def)
         {
             RuntimeStackTriggerSetup stack = def.StackTriggerSetup;
             if (stack == null || stack.AoeDefinition == null || stack.AoeDefinition.TypeId < 0)
                 return default;
 
-            return new ProjectileStackEffectSnapshot(
+            return new CombatStackEffectSnapshot(
                 stack.DebuffStatusId,
                 Mathf.Max(1, stack.StacksPerHit),
                 Mathf.Max(1, stack.StackThreshold),

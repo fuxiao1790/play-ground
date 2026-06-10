@@ -133,7 +133,7 @@ namespace PlayGround.System.Projectile
         public float TrackingQueryIntervalSeconds;
         public float TrackingInitialQueryDelaySeconds;
         public ProjectileImpactAoeSnapshot ImpactAoe;
-        public ProjectileStackEffectSnapshot StackEffect;
+        public CombatStackEffectSnapshot StackEffect;
         public ProjectileImpactProjectileSnapshot ImpactProjectile;
     }
 

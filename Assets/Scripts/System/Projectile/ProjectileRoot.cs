@@ -21,10 +21,6 @@ namespace PlayGround.System.Projectile
         private const float ProjectileZStep = 0.000001f;
         private const int ProjectileZSlots = 1_000_000;
         private static readonly ProfilerMarker SubmitProjectilesMarker = new("ProjectileRoot.SubmitProjectiles");
-        private static readonly ProfilerMarker<int> HitReplayMarker =
-            new("ProjectileRoot.HitReplay", "Hit Events");
-        private static readonly ProfilerCounterValue<int> HitReplayEventCounter =
-            new(ProfilerCategory.Scripts, "ProjectileRoot.HitReplay.Events", ProfilerMarkerDataUnit.Count);
 
         [SerializeField] private Sprite projectileSprite;
         [SerializeField] private float visualScale = 1f;
@@ -54,7 +50,9 @@ namespace PlayGround.System.Projectile
         private bool ecsWorldAcquired;
         private bool ecsHandlesCreated;
 
-        public event global::System.Action<ProjectileHitContext> ProjectileHit;
+        public delegate void ProjectileHitHandler(in ProjectileHitContext context);
+
+        public event ProjectileHitHandler ProjectileHit;
 
         public CombatTargetRegistry<IProjectileTarget> TargetRegistry => targetRegistry;
         public int TargetMask => targetLayers.value != 0 ? targetLayers.value : ~0;
@@ -423,64 +421,49 @@ namespace PlayGround.System.Projectile
         {
             DynamicBuffer<ProjectileHitElement> hitBuffer =
                 entityManager.GetBuffer<ProjectileHitElement>(scopeEntity);
-            int hitCount = hitBuffer.Length;
-            HitReplayEventCounter.Value = hitCount;
-
-            using (HitReplayMarker.Auto(hitCount))
-            {
-                for (int i = 0; i < hitCount; i++)
-                {
-                    ProjectileHitElement hit = hitBuffer[i];
-
-                    targetSync.TargetsById.TryGetValue(hit.TargetId, out IProjectileTarget target);
-
-                    ProjectileHitPayload payload = hit.HitPayload;
-                    bool isCrit = UnityEngine.Random.value < payload.CritChance;
-                    float rolledAmount = isCrit ? payload.DamageAmount * payload.CritMultiplier : payload.DamageAmount;
-                    DamageSnapshot rolledDamage = new(Mathf.Max(0f, rolledAmount), isCrit);
-
-                    var context = new ProjectileHitContext(
-                        hit.ProjectileId,
-                        hit.ProjectileTypeId,
-                        hit.TargetId,
-                        new Vector2(hit.Position.x, hit.Position.y),
-                        rolledDamage,
-                        payload,
-                        target);
-
-                    ProjectileHit?.Invoke(context);
-
-                    DispatchSourceHit(payload, context);
-
-                    if (target != null)
-                    {
-                        target.ReceiveProjectileHitPayload(payload, context, ProjectileHitActorRole.Target);
-                    }
-                }
-            }
-
-            hitBuffer.Clear();
+            var adapter = new ProjectileHitReplayAdapter { HitHandler = ProjectileHit };
+            CombatHitReplay.ReplayAndClear<ProjectileHitElement, IProjectileTarget, ProjectileHitReplayAdapter>(
+                hitBuffer,
+                targetSync.TargetsById,
+                ref adapter);
         }
 
-        private static void DispatchSourceHit(ProjectileHitPayload payload, in ProjectileHitContext context)
+        private struct ProjectileHitReplayAdapter : ICombatHitReplayAdapter<ProjectileHitElement, IProjectileTarget>
         {
-            if (payload.SourceNodeId.Equals(default(EntityId)))
+            public ProjectileHitHandler HitHandler;
+
+            public int TargetId(in ProjectileHitElement hit)
             {
-                return;
+                return hit.TargetId;
             }
 
-            Object sourceObject = Resources.EntityIdToObject(payload.SourceNodeId);
-            if (sourceObject is GameObject sourceGameObject
-                && sourceGameObject.TryGetComponent(out IProjectileHitActor sourceActor))
+            public DamageSnapshot RollDamage(in ProjectileHitElement hit)
             {
-                sourceActor.ReceiveProjectileHitPayload(payload, context, ProjectileHitActorRole.Source);
-                return;
+                ProjectileHitPayload payload = hit.HitPayload;
+                bool isCrit = UnityEngine.Random.value < payload.CritChance;
+                float rolledAmount = isCrit ? payload.DamageAmount * payload.CritMultiplier : payload.DamageAmount;
+                return new DamageSnapshot(Mathf.Max(0f, rolledAmount), isCrit);
             }
 
-            if (sourceObject is Component sourceComponent
-                && sourceComponent.TryGetComponent(out IProjectileHitActor componentActor))
+            public void Replay(in ProjectileHitElement hit, IProjectileTarget target, in DamageSnapshot damage)
             {
-                componentActor.ReceiveProjectileHitPayload(payload, context, ProjectileHitActorRole.Source);
+                ProjectileHitPayload payload = hit.HitPayload;
+                var context = new ProjectileHitContext(
+                    hit.ProjectileId,
+                    hit.ProjectileTypeId,
+                    hit.TargetId,
+                    new Vector2(hit.Position.x, hit.Position.y),
+                    damage,
+                    payload,
+                    target);
+
+                HitHandler?.Invoke(in context);
+                target?.ReceiveHit(new CombatHitData(
+                    CombatHitKind.Projectile,
+                    damage,
+                    context.Position,
+                    payload.DirectDamageEnabled,
+                    payload.StackEffect));
             }
         }
 

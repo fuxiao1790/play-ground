@@ -4,37 +4,6 @@ using UnityEngine;
 
 namespace PlayGround.System.Projectile
 {
-    public readonly struct ProjectileStackEffectSnapshot
-    {
-        public ProjectileStackEffectSnapshot(
-            int debuffStatusId,
-            int stacksPerHit,
-            int stackThreshold,
-            int aoeTypeId,
-            float aoeDamage,
-            float aoeLifetimeSeconds,
-            float aoeTickIntervalSeconds)
-        {
-            Enabled = aoeTypeId >= 0;
-            DebuffStatusId = debuffStatusId;
-            StacksPerHit = stacksPerHit;
-            StackThreshold = stackThreshold;
-            AoeTypeId = aoeTypeId;
-            AoeDamage = aoeDamage;
-            AoeLifetimeSeconds = Mathf.Max(0f, aoeLifetimeSeconds);
-            AoeTickIntervalSeconds = Mathf.Max(0f, aoeTickIntervalSeconds);
-        }
-
-        public bool Enabled { get; }
-        public int DebuffStatusId { get; }
-        public int StacksPerHit { get; }
-        public int StackThreshold { get; }
-        public int AoeTypeId { get; }
-        public float AoeDamage { get; }
-        public float AoeLifetimeSeconds { get; }
-        public float AoeTickIntervalSeconds { get; }
-    }
-
     public readonly struct ProjectileImpactAoeSnapshot
     {
         public ProjectileImpactAoeSnapshot(
@@ -86,7 +55,7 @@ namespace PlayGround.System.Projectile
             float repeatHitCooldownSeconds = 0f,
             ProjectileTrackingConfig tracking = default,
             ProjectileImpactAoeSnapshot impactAoe = default,
-            ProjectileStackEffectSnapshot stackEffect = default)
+            CombatStackEffectSnapshot stackEffect = default)
         {
             Enabled = projectileTypeId >= 0;
             ProjectileTypeId = projectileTypeId;
@@ -125,7 +94,7 @@ namespace PlayGround.System.Projectile
         public float RepeatHitCooldownSeconds { get; }
         public ProjectileTrackingConfig Tracking { get; }
         public ProjectileImpactAoeSnapshot ImpactAoe { get; }
-        public ProjectileStackEffectSnapshot StackEffect { get; }
+        public CombatStackEffectSnapshot StackEffect { get; }
     }
 
     public readonly struct ProjectileHitPayload
@@ -135,7 +104,7 @@ namespace PlayGround.System.Projectile
             float damageAmount,
             bool directDamageEnabled,
             ProjectileImpactAoeSnapshot impactAoe = default,
-            ProjectileStackEffectSnapshot stackEffect = default,
+            CombatStackEffectSnapshot stackEffect = default,
             ProjectileImpactProjectileSnapshot impactProjectile = default,
             float critChance = 0f,
             float critMultiplier = 1.5f)
@@ -154,7 +123,7 @@ namespace PlayGround.System.Projectile
         public float DamageAmount { get; }
         public bool DirectDamageEnabled { get; }
         public ProjectileImpactAoeSnapshot ImpactAoe { get; }
-        public ProjectileStackEffectSnapshot StackEffect { get; }
+        public CombatStackEffectSnapshot StackEffect { get; }
         public ProjectileImpactProjectileSnapshot ImpactProjectile { get; }
         public float CritChance { get; }
         public float CritMultiplier { get; }

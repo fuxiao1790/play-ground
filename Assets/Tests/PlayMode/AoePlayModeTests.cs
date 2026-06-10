@@ -87,7 +87,7 @@ namespace PlayGround.Tests.PlayMode
             root.TargetRegistry.Register(target);
             int replayCount = 0;
             AoeHitContext replayContext = default;
-            root.AoeHit += context =>
+            root.AoeHit += (in AoeHitContext context) =>
             {
                 replayCount++;
                 replayContext = context;
@@ -337,11 +337,11 @@ namespace PlayGround.Tests.PlayMode
                 this.radius = radius;
             }
 
-            public void ReceiveAoeHit(DamageSnapshot damage)
+            public void ReceiveHit(in CombatHitData hit)
             {
                 HitCount++;
-                LastDamage = damage;
-                TotalDamage += damage.Amount;
+                LastDamage = hit.Damage;
+                TotalDamage += hit.Damage.Amount;
             }
         }
     }

@@ -289,7 +289,7 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
             int hitCount = 0;
-            projectileRoot.ProjectileHit += _ => hitCount++;
+            projectileRoot.ProjectileHit += (in ProjectileHitContext _) => hitCount++;
 
             var command = new ProjectileSpawnCommand(
                 Vector2.zero,
@@ -365,7 +365,7 @@ namespace PlayGround.Tests.PlayMode
             mob.Register(projectileRoot.TargetRegistry);
             mob.Register(aoeRoot.TargetRegistry);
             bool spawnedProjectileCarriedImpactAoe = true;
-            projectileRoot.ProjectileHit += context =>
+            projectileRoot.ProjectileHit += (in ProjectileHitContext context) =>
             {
                 spawnedProjectileCarriedImpactAoe = context.Payload.ImpactAoe.Enabled;
             };
@@ -522,13 +522,17 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileHitPayloadDispatchesToSourceAndTargetActors()
+        public IEnumerator ProjectileHitPayloadPreservesSourceIdForHitEventAndDamagesTarget()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
             GameObject sourceObject = new("ProjectileSource");
-            HitActorProbe sourceProbe = sourceObject.AddComponent<HitActorProbe>();
             EntityId sourceNodeId = sourceObject.GetEntityId();
+            ProjectileHitPayload replayedPayload = default;
+            projectileRoot.ProjectileHit += (in ProjectileHitContext context) =>
+            {
+                replayedPayload = context.Payload;
+            };
 
             var command = new ProjectileSpawnCommand(
                 Vector2.zero,
@@ -545,9 +549,7 @@ namespace PlayGround.Tests.PlayMode
             projectileRoot.Spawn(command);
             yield return null;
 
-            Assert.That(sourceProbe.CallCount, Is.EqualTo(1));
-            Assert.That(sourceProbe.LastRole, Is.EqualTo(ProjectileHitActorRole.Source));
-            Assert.That(sourceProbe.LastPayload.SourceNodeId, Is.EqualTo(sourceNodeId));
+            Assert.That(replayedPayload.SourceNodeId, Is.EqualTo(sourceNodeId));
             Assert.That(mob.CurrentHealth, Is.EqualTo(8f));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
@@ -1220,25 +1222,7 @@ namespace PlayGround.Tests.PlayMode
                 radius = r;
             }
 
-            public void ReceiveAoeHit(DamageSnapshot damage) => LastDamage = damage;
-        }
-
-        private sealed class HitActorProbe : MonoBehaviour, IProjectileHitActor
-        {
-            public EntityId ProjectileHitNodeId => gameObject.GetEntityId();
-            public int CallCount { get; private set; }
-            public ProjectileHitActorRole LastRole { get; private set; }
-            public ProjectileHitPayload LastPayload { get; private set; }
-
-            public void ReceiveProjectileHitPayload(
-                in ProjectileHitPayload payload,
-                in ProjectileHitContext context,
-                ProjectileHitActorRole role)
-            {
-                CallCount++;
-                LastRole = role;
-                LastPayload = payload;
-            }
+            public void ReceiveHit(in CombatHitData hit) => LastDamage = hit.Damage;
         }
     }
 }

@@ -74,29 +74,29 @@ namespace PlayGround.Game
             mobAoeRoot = null;
         }
 
-        private void OnPlayerProjectileHit(ProjectileHitContext context)
+        private void OnPlayerProjectileHit(in ProjectileHitContext context)
         {
             SpawnImpactAoe(context, playerAoeRoot);
             SpawnImpactProjectiles(context, playerProjectileRoot);
         }
 
-        private void OnMobProjectileHit(ProjectileHitContext context)
+        private void OnMobProjectileHit(in ProjectileHitContext context)
         {
             SpawnImpactAoe(context, mobAoeRoot);
             SpawnImpactProjectiles(context, mobProjectileRoot);
         }
 
-        private void OnPlayerAoeHit(AoeHitContext context)
+        private void OnPlayerAoeHit(in AoeHitContext context)
         {
             SpawnProjectileBurst(context, playerProjectileRoot);
         }
 
-        private void OnMobAoeHit(AoeHitContext context)
+        private void OnMobAoeHit(in AoeHitContext context)
         {
             SpawnProjectileBurst(context, mobProjectileRoot);
         }
 
-        private static void SpawnImpactAoe(ProjectileHitContext context, AoeRoot destination)
+        private static void SpawnImpactAoe(in ProjectileHitContext context, AoeRoot destination)
         {
             ProjectileImpactAoeSnapshot impact = context.Payload.ImpactAoe;
             if (destination == null || !impact.Enabled)
@@ -116,7 +116,7 @@ namespace PlayGround.Game
                 critMultiplier: impact.CritMultiplier));
         }
 
-        private static void SpawnImpactProjectiles(ProjectileHitContext context, ProjectileRoot destination)
+        private static void SpawnImpactProjectiles(in ProjectileHitContext context, ProjectileRoot destination)
         {
             ProjectileImpactProjectileSnapshot burst = context.Payload.ImpactProjectile;
             if (destination == null || !burst.Enabled)
@@ -163,7 +163,7 @@ namespace PlayGround.Game
             }
         }
 
-        private static void SpawnProjectileBurst(AoeHitContext context, ProjectileRoot destination)
+        private static void SpawnProjectileBurst(in AoeHitContext context, ProjectileRoot destination)
         {
             AoeProjectileBurstSnapshot burst = context.ProjectileBurst;
             if (destination == null || !burst.Enabled)

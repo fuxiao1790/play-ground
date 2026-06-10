@@ -173,23 +173,10 @@ namespace PlayGround.Player
             aoeRegistry.Register(this);
         }
 
-        public void ReceiveProjectileHit(DamageSnapshot damage)
+        public void ReceiveHit(in CombatHitData hit)
         {
-            health.TakeDamage(damage);
-        }
-
-        public void ReceiveProjectileHitPayload(
-            in ProjectileHitPayload payload,
-            in ProjectileHitContext context,
-            ProjectileHitActorRole role)
-        {
-            if (role == ProjectileHitActorRole.Target && payload.DirectDamageEnabled)
-                health.TakeDamage(context.Damage);
-        }
-
-        public void ReceiveAoeHit(DamageSnapshot damage)
-        {
-            health.TakeDamage(damage);
+            if (hit.DirectDamageEnabled)
+                health.TakeDamage(hit.Damage);
         }
 
         private Vector2 ReadMoveInput() =>

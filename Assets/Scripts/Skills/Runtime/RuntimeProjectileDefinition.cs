@@ -1,4 +1,5 @@
 using PlayGround.Skills;
+using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using UnityEngine;
 
@@ -82,11 +83,11 @@ namespace PlayGround.Skills.Runtime
                 impact.CritChance, impact.CritMultiplier);
         }
 
-        private static ProjectileStackEffectSnapshot BuildChildStackEffect(RuntimeStackTriggerSetup stack)
+        private static CombatStackEffectSnapshot BuildChildStackEffect(RuntimeStackTriggerSetup stack)
         {
             if (stack == null || stack.AoeDefinition == null || stack.AoeDefinition.TypeId < 0)
                 return default;
-            return new ProjectileStackEffectSnapshot(
+            return new CombatStackEffectSnapshot(
                 stack.DebuffStatusId,
                 Mathf.Max(1, stack.StacksPerHit),
                 Mathf.Max(1, stack.StackThreshold),

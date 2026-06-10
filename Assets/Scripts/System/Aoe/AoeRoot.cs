@@ -17,10 +17,6 @@ namespace PlayGround.System.Aoe
         private const int MaxVfxPerFrame = 2048;
         private const float AoeRenderZ = 0.5f;
         private static readonly ProfilerMarker SubmitAoesMarker = new("AoeRoot.SubmitAoes");
-        private static readonly ProfilerMarker<int> HitReplayMarker =
-            new("AoeRoot.HitReplay", "Hit Events");
-        private static readonly ProfilerCounterValue<int> HitReplayEventCounter =
-            new(ProfilerCategory.Scripts, "AoeRoot.HitReplay.Events", ProfilerMarkerDataUnit.Count);
 
         [SerializeField] private int targetMask = 1;
         [SerializeField, Min(0)] private int maximumAoeCount = 10000;
@@ -56,7 +52,9 @@ namespace PlayGround.System.Aoe
         private bool ecsWorldAcquired;
         private bool ecsHandlesCreated;
 
-        public event global::System.Action<AoeHitContext> AoeHit;
+        public delegate void AoeHitHandler(in AoeHitContext context);
+
+        public event AoeHitHandler AoeHit;
 
         public CombatTargetRegistry<IAoeTarget> TargetRegistry => targetRegistry;
         public int TargetMask => targetMask;
@@ -262,35 +260,18 @@ namespace PlayGround.System.Aoe
             DynamicBuffer<AoeHitElement> hitBuffer = entityManager.GetBuffer<AoeHitElement>(scopeEntity);
             DynamicBuffer<AoeRecycleElement> recycleBuffer = entityManager.GetBuffer<AoeRecycleElement>(scopeEntity);
             int hitCount = hitBuffer.Length;
-            HitReplayEventCounter.Value = hitCount;
             hitEvents += hitCount;
             despawnedAoes += recycleBuffer.Length;
 
-            using (HitReplayMarker.Auto(hitCount))
+            var adapter = new AoeHitReplayAdapter
             {
-                for (int i = 0; i < hitCount; i++)
-                {
-                    AoeHitElement hit = hitBuffer[i];
-                    targetSync.TargetsById.TryGetValue(hit.TargetId, out IAoeTarget target);
-                    float baseAmount = Mathf.Max(0f, hit.DamageAmount);
-                    bool isCrit = critByAoeId.TryGetValue(hit.AoeId, out (float critChance, float critMultiplier) crit)
-                        && UnityEngine.Random.value < crit.critChance;
-                    float rolledAmount = isCrit ? baseAmount * crit.critMultiplier : baseAmount;
-                    var damage = new DamageSnapshot(rolledAmount, isCrit);
-                    var context = new AoeHitContext(
-                        hit.AoeId,
-                        hit.TypeId,
-                        hit.TargetId,
-                        new Vector2(hit.Position.x, hit.Position.y),
-                        damage,
-                        hit.ProjectileBurst,
-                        target);
-                    AoeHit?.Invoke(context);
-                    target?.ReceiveAoeHit(damage);
-                }
-            }
-
-            hitBuffer.Clear();
+                HitHandler = AoeHit,
+                CritByAoeId = critByAoeId
+            };
+            CombatHitReplay.ReplayAndClear<AoeHitElement, IAoeTarget, AoeHitReplayAdapter>(
+                hitBuffer,
+                targetSync.TargetsById,
+                ref adapter);
 
             DynamicBuffer<VfxSpawnRequestElement> vfxBuffer =
                 entityManager.GetBuffer<VfxSpawnRequestElement>(scopeEntity);
@@ -301,6 +282,51 @@ namespace PlayGround.System.Aoe
             }
             vfxBuffer.Clear();
             vfxDispatcher.Dispatch();
+        }
+
+        private struct AoeHitReplayAdapter : ICombatHitReplayAdapter<AoeHitElement, IAoeTarget>
+        {
+            public AoeHitHandler HitHandler;
+            public IReadOnlyDictionary<int, (float critChance, float critMultiplier)> CritByAoeId;
+
+            public int TargetId(in AoeHitElement hit)
+            {
+                return hit.TargetId;
+            }
+
+            public DamageSnapshot RollDamage(in AoeHitElement hit)
+            {
+                float baseAmount = Mathf.Max(0f, hit.DamageAmount);
+                bool isCrit = false;
+                float critMultiplier = 1f;
+                if (CritByAoeId != null
+                    && CritByAoeId.TryGetValue(hit.AoeId, out (float critChance, float critMultiplier) crit)
+                    && UnityEngine.Random.value < crit.critChance)
+                {
+                    isCrit = true;
+                    critMultiplier = crit.critMultiplier;
+                }
+
+                float rolledAmount = isCrit ? baseAmount * critMultiplier : baseAmount;
+                return new DamageSnapshot(rolledAmount, isCrit);
+            }
+
+            public void Replay(in AoeHitElement hit, IAoeTarget target, in DamageSnapshot damage)
+            {
+                var context = new AoeHitContext(
+                    hit.AoeId,
+                    hit.TypeId,
+                    hit.TargetId,
+                    new Vector2(hit.Position.x, hit.Position.y),
+                    damage,
+                    hit.ProjectileBurst,
+                    target);
+                HitHandler?.Invoke(in context);
+                target?.ReceiveHit(new CombatHitData(
+                    CombatHitKind.Aoe,
+                    damage,
+                    context.Position));
+            }
         }
 
         private CombatRenderComponent RenderComponentFor(int typeId)

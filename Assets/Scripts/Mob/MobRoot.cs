@@ -243,27 +243,16 @@ namespace PlayGround.Mob
             blackboard.Target = targetTransform;
         }
 
-        public void ReceiveProjectileHit(DamageSnapshot damage)
+        public void ReceiveHit(in CombatHitData hit)
         {
-            TakeDamage(damage);
+            if (hit.DirectDamageEnabled)
+                TakeDamage(hit.Damage);
+
+            if (hit.StackEffect.Enabled)
+                ApplyStackEffect(hit.StackEffect);
         }
 
-        public void ReceiveProjectileHitPayload(
-            in ProjectileHitPayload payload,
-            in ProjectileHitContext context,
-            ProjectileHitActorRole role)
-        {
-            if (role != ProjectileHitActorRole.Target)
-                return;
-
-            if (payload.DirectDamageEnabled)
-                TakeDamage(context.Damage);
-
-            if (payload.StackEffect.Enabled)
-                ApplyStackEffect(payload.StackEffect);
-        }
-
-        private void ApplyStackEffect(ProjectileStackEffectSnapshot effect)
+        private void ApplyStackEffect(CombatStackEffectSnapshot effect)
         {
             var status = (MobDebuffStatus)effect.DebuffStatusId;
             bool triggered = debuffStacks.AddStacks(status, Mathf.Max(1, effect.StacksPerHit), Mathf.Max(1, effect.StackThreshold));
@@ -278,11 +267,6 @@ namespace PlayGround.Mob
                 new DamageSnapshot(Mathf.Max(0f, effect.AoeDamage)),
                 effect.AoeLifetimeSeconds,
                 effect.AoeTickIntervalSeconds));
-        }
-
-        public void ReceiveAoeHit(DamageSnapshot damage)
-        {
-            TakeDamage(damage);
         }
 
         public bool TakeDamage(DamageSnapshot damage)
