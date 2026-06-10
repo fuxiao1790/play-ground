@@ -15,15 +15,7 @@ namespace PlayGround.System.Projectile
         void ReceiveProjectileHitPayload(in ProjectileHitPayload payload, in ProjectileHitContext context, ProjectileHitActorRole role);
     }
 
-    public interface IProjectileTarget : IProjectileHitActor
+    public interface IProjectileTarget : ICombatTarget, IProjectileHitActor
     {
-        int TargetId { get; }
-        Vector2 ProjectileTargetPosition { get; }
-        float ProjectileTargetRadius { get; }
-        Vector2 ProjectileTargetHalfExtents { get; }
-        float ProjectileTargetRotationRadians { get; }
-        CombatShapeType ProjectileTargetShapeType { get; }
-        int ProjectileTargetMask { get; }
-        bool IsProjectileTargetActive { get; }
     }
 }

@@ -127,7 +127,7 @@ namespace PlayGround.Game
             Vector2 baseDirection = Vector2.right;
             if (context.Target != null)
             {
-                Vector2 toTarget = context.Target.ProjectileTargetPosition - context.Position;
+                Vector2 toTarget = context.Target.CombatTargetPosition - context.Position;
                 if (toTarget.sqrMagnitude > 0.0001f)
                 {
                     baseDirection = -toTarget.normalized;
@@ -174,7 +174,7 @@ namespace PlayGround.Game
             Vector2 baseDirection = Vector2.right;
             if (context.Target != null)
             {
-                Vector2 toTarget = context.Target.AoeTargetPosition - context.Position;
+                Vector2 toTarget = context.Target.CombatTargetPosition - context.Position;
                 if (toTarget.sqrMagnitude > 0.0001f)
                 {
                     baseDirection = toTarget.normalized;

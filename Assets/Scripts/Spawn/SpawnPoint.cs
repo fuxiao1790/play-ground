@@ -155,7 +155,7 @@ namespace PlayGround.Spawn
             for (int i = 0; i < localMobs.Count; i++)
             {
                 MobRoot mob = localMobs[i];
-                if (mob != null && mob.IsProjectileTargetActive)
+                if (mob != null && mob.IsCombatTargetActive)
                 {
                     float distance = Vector2.Distance(mob.transform.position, candidate);
                     if (distance < minSeparation)
@@ -179,7 +179,7 @@ namespace PlayGround.Spawn
             for (int i = localMobs.Count - 1; i >= 0; i--)
             {
                 MobRoot mob = localMobs[i];
-                if (mob != null && mob.IsProjectileTargetActive)
+                if (mob != null && mob.IsCombatTargetActive)
                 {
                     continue;
                 }

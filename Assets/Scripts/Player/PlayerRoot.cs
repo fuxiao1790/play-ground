@@ -41,28 +41,21 @@ namespace PlayGround.Player
         private PlayerStateDriver stateDriver;
         private PlayerHealth health;
         private static int nextTargetId;
-        private ProjectileTargetRegistry registry;
-        private AoeTargetRegistry aoeRegistry;
+        private CombatTargetRegistry<IProjectileTarget> registry;
+        private CombatTargetRegistry<IAoeTarget> aoeRegistry;
         private int targetId;
         public StatusEffects StatusEffects { get; private set; }
 
         public Vector2 AimDirection => facing?.AimDirection ?? Vector2.right;
         public int TargetId => targetId;
         public EntityId ProjectileHitNodeId => gameObject.GetEntityId();
-        public Vector2 ProjectileTargetPosition => ProjectileTargetShapeUtility.Position(hurtbox, transform);
-        public float ProjectileTargetRadius => ProjectileTargetShapeUtility.Radius(hurtbox, targetRadius);
-        public Vector2 ProjectileTargetHalfExtents => ProjectileTargetShapeUtility.HalfExtents(hurtbox, targetRadius);
-        public float ProjectileTargetRotationRadians => ProjectileTargetShapeUtility.RotationRadians(hurtbox);
-        public CombatShapeType ProjectileTargetShapeType => ProjectileTargetShapeUtility.ShapeType(hurtbox);
-        public int ProjectileTargetMask => 1 << hurtbox.gameObject.layer;
-        public bool IsProjectileTargetActive => isActiveAndEnabled && health != null && health.IsAlive;
-        public Vector2 AoeTargetPosition => ProjectileTargetPosition;
-        public float AoeTargetRadius => ProjectileTargetRadius;
-        public Vector2 AoeTargetHalfExtents => ProjectileTargetHalfExtents;
-        public float AoeTargetRotationRadians => ProjectileTargetRotationRadians;
-        public CombatShapeType AoeTargetShapeType => ProjectileTargetShapeType;
-        public int AoeTargetMask => ProjectileTargetMask;
-        public bool IsAoeTargetActive => IsProjectileTargetActive;
+        public Vector2 CombatTargetPosition => ProjectileTargetShapeUtility.Position(hurtbox, transform);
+        public float CombatTargetRadius => ProjectileTargetShapeUtility.Radius(hurtbox, targetRadius);
+        public Vector2 CombatTargetHalfExtents => ProjectileTargetShapeUtility.HalfExtents(hurtbox, targetRadius);
+        public float CombatTargetRotationRadians => ProjectileTargetShapeUtility.RotationRadians(hurtbox);
+        public CombatShapeType CombatTargetShapeType => ProjectileTargetShapeUtility.ShapeType(hurtbox);
+        public int CombatTargetMask => 1 << hurtbox.gameObject.layer;
+        public bool IsCombatTargetActive => isActiveAndEnabled && health != null && health.IsAlive;
         public float CurrentHealth => health?.CurrentHealth ?? 0f;
         public int EquippedAttackCount => skillDriver?.SlotCount ?? 0;
 
@@ -168,13 +161,13 @@ namespace PlayGround.Player
             worldCamera = camera;
         }
 
-        public void Register(ProjectileTargetRegistry targetRegistry)
+        public void Register(CombatTargetRegistry<IProjectileTarget> targetRegistry)
         {
             registry = targetRegistry;
             registry.Register(this);
         }
 
-        public void Register(AoeTargetRegistry targetRegistry)
+        public void Register(CombatTargetRegistry<IAoeTarget> targetRegistry)
         {
             aoeRegistry = targetRegistry;
             aoeRegistry.Register(this);

@@ -42,8 +42,8 @@ namespace PlayGround.Mob
         private readonly MobDebuffStackState debuffStacks = new();
         public StatusEffects StatusEffects { get; private set; }
         private readonly MobBlackboard blackboard = new();
-        private ProjectileTargetRegistry registry;
-        private AoeTargetRegistry aoeRegistry;
+        private CombatTargetRegistry<IProjectileTarget> registry;
+        private CombatTargetRegistry<IAoeTarget> aoeRegistry;
         private AoeRoot aoeRoot;
         private MobEventQueue eventQueue;
         private MobStateDriver stateDriver;
@@ -64,20 +64,13 @@ namespace PlayGround.Mob
         public MobBlackboard Blackboard => blackboard;
         public int TargetId => targetId;
         public EntityId ProjectileHitNodeId => gameObject.GetEntityId();
-        public Vector2 ProjectileTargetPosition => ProjectileTargetShapeUtility.Position(hurtbox, transform);
-        public float ProjectileTargetRadius => ProjectileTargetShapeUtility.Radius(hurtbox, targetRadius);
-        public Vector2 ProjectileTargetHalfExtents => ProjectileTargetShapeUtility.HalfExtents(hurtbox, targetRadius);
-        public float ProjectileTargetRotationRadians => ProjectileTargetShapeUtility.RotationRadians(hurtbox);
-        public CombatShapeType ProjectileTargetShapeType => ProjectileTargetShapeUtility.ShapeType(hurtbox);
-        public int ProjectileTargetMask => 1 << hurtbox.gameObject.layer;
-        public bool IsProjectileTargetActive => isActiveAndEnabled && isAlive && CurrentHealth > 0f;
-        public Vector2 AoeTargetPosition => ProjectileTargetPosition;
-        public float AoeTargetRadius => ProjectileTargetRadius;
-        public Vector2 AoeTargetHalfExtents => ProjectileTargetHalfExtents;
-        public float AoeTargetRotationRadians => ProjectileTargetRotationRadians;
-        public CombatShapeType AoeTargetShapeType => ProjectileTargetShapeType;
-        public int AoeTargetMask => ProjectileTargetMask;
-        public bool IsAoeTargetActive => IsProjectileTargetActive;
+        public Vector2 CombatTargetPosition => ProjectileTargetShapeUtility.Position(hurtbox, transform);
+        public float CombatTargetRadius => ProjectileTargetShapeUtility.Radius(hurtbox, targetRadius);
+        public Vector2 CombatTargetHalfExtents => ProjectileTargetShapeUtility.HalfExtents(hurtbox, targetRadius);
+        public float CombatTargetRotationRadians => ProjectileTargetShapeUtility.RotationRadians(hurtbox);
+        public CombatShapeType CombatTargetShapeType => ProjectileTargetShapeUtility.ShapeType(hurtbox);
+        public int CombatTargetMask => 1 << hurtbox.gameObject.layer;
+        public bool IsCombatTargetActive => isActiveAndEnabled && isAlive && CurrentHealth > 0f;
 
         protected virtual void Awake()
         {
@@ -232,13 +225,13 @@ namespace PlayGround.Mob
             aoeRoot = root;
         }
 
-        public void Register(ProjectileTargetRegistry targetRegistry)
+        public void Register(CombatTargetRegistry<IProjectileTarget> targetRegistry)
         {
             registry = targetRegistry;
             registry.Register(this);
         }
 
-        public void Register(AoeTargetRegistry targetRegistry)
+        public void Register(CombatTargetRegistry<IAoeTarget> targetRegistry)
         {
             aoeRegistry = targetRegistry;
             aoeRegistry.Register(this);

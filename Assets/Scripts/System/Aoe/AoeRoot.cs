@@ -28,14 +28,14 @@ namespace PlayGround.System.Aoe
         [Min(0f)]
         private float batchBoundsHalfExtent = 100000f;
 
-        private readonly AoeTargetRegistry targetRegistry = new();
+        private readonly CombatTargetRegistry<IAoeTarget> targetRegistry = new();
         private readonly Dictionary<int, CombatSpriteRenderResources> renderResourcesByType = new();
         private readonly Dictionary<AoeConfig, int> configTypeIds = new();
         private readonly Dictionary<AoeTypeDefinition, int> definitionTypeIds = new();
         private readonly Dictionary<int, (float critChance, float critMultiplier)> critByAoeId = new();
 
         private AoeTypeRegistry typeRegistry = new();
-        private AoeTargetSync targetSync;
+        private CombatTargetSync<IAoeTarget> targetSync;
         private CombatVfxDispatcher vfxDispatcher;
         private World entityWorld;
         private EntityManager entityManager;
@@ -56,7 +56,7 @@ namespace PlayGround.System.Aoe
 
         public event global::System.Action<AoeHitContext> AoeHit;
 
-        public AoeTargetRegistry TargetRegistry => targetRegistry;
+        public CombatTargetRegistry<IAoeTarget> TargetRegistry => targetRegistry;
         public int TargetMask => targetMask;
         public AoeRuntimeCounters Counters => new(
             ActiveAoeCount(),
@@ -70,7 +70,7 @@ namespace PlayGround.System.Aoe
         {
             runtimeReady = false;
             vfxDispatcher ??= new CombatVfxDispatcher(transform);
-            targetSync = new AoeTargetSync(targetRegistry);
+            targetSync = new CombatTargetSync<IAoeTarget>(targetRegistry);
             BindWorld();
             runtimeReady = true;
         }
@@ -397,40 +397,7 @@ namespace PlayGround.System.Aoe
         private void SyncTargetsToEcs()
         {
             DynamicBuffer<CombatTargetElement> targetBuffer = entityManager.GetBuffer<CombatTargetElement>(scopeEntity);
-            targetBuffer.Clear();
-
-            IReadOnlyList<AoeTargetSnapshot> snapshots = targetSync.Snapshot();
-            int count = Mathf.Min(snapshots.Count, maximumTargetCount);
-            for (int i = 0; i < count; i++)
-            {
-                AoeTargetSnapshot snapshot = snapshots[i];
-                float2 targetPosition = new(snapshot.Position.x, snapshot.Position.y);
-                float targetRadius = snapshot.Shape.Radius;
-                float2 targetHalfExtents = new(snapshot.Shape.HalfExtents.x, snapshot.Shape.HalfExtents.y);
-                float targetRotationRadians = snapshot.Shape.RotationRadians;
-                CombatShapeType targetShapeType = snapshot.Shape.ShapeType;
-                CombatCollisionMath.ComputeWorldBounds(
-                    targetPosition,
-                    targetRadius,
-                    targetHalfExtents,
-                    targetRotationRadians,
-                    targetShapeType,
-                    out float2 boundsMin,
-                    out float2 boundsMax);
-
-                targetBuffer.Add(new CombatTargetElement
-                {
-                    TargetId = snapshot.TargetId,
-                    TargetMask = snapshot.TargetMask,
-                    Position = targetPosition,
-                    ShapeType = targetShapeType,
-                    Radius = targetRadius,
-                    HalfExtents = targetHalfExtents,
-                    RotationRadians = targetRotationRadians,
-                    BoundsMin = boundsMin,
-                    BoundsMax = boundsMax
-                });
-            }
+            targetSync.SyncToBuffer(targetBuffer, maxCount: maximumTargetCount);
         }
 
         private int ActiveAoeCount()

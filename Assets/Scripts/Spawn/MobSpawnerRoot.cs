@@ -130,7 +130,7 @@ namespace PlayGround.Spawn
             int count = 0;
             for (int i = 0; i < spawnedMobs.Count; i++)
             {
-                if (spawnedMobs[i] != null && spawnedMobs[i].IsProjectileTargetActive)
+                if (spawnedMobs[i] != null && spawnedMobs[i].IsCombatTargetActive)
                 {
                     count++;
                 }

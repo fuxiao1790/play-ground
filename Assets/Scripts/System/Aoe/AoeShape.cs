@@ -18,24 +18,4 @@ namespace PlayGround.System.Aoe
         public Vector2 HalfExtents { get; }
         public float RotationRadians { get; }
     }
-
-    public readonly struct AoeTargetSnapshot
-    {
-        public AoeTargetSnapshot(
-            int targetId,
-            int targetMask,
-            Vector2 position,
-            AoeShape shape)
-        {
-            TargetId = targetId;
-            TargetMask = targetMask;
-            Position = position;
-            Shape = shape;
-        }
-
-        public int TargetId { get; }
-        public int TargetMask { get; }
-        public Vector2 Position { get; }
-        public AoeShape Shape { get; }
-    }
 }

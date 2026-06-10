@@ -35,8 +35,8 @@ namespace PlayGround.System.Projectile
         [Min(0f)]
         private float batchBoundsHalfExtent = 100000f;
 
-        private readonly ProjectileTargetRegistry targetRegistry = new();
-        private readonly Dictionary<int, IProjectileTarget> targetsById = new();
+        private readonly CombatTargetRegistry<IProjectileTarget> targetRegistry = new();
+        private CombatTargetSync<IProjectileTarget> targetSync;
         private readonly Dictionary<BasicAttackPrefab, int> templateTypeIds = new();
         private readonly Dictionary<int, CombatSpriteRenderResources> renderResourcesByType = new();
         private CombatVfxDispatcher vfxDispatcher;
@@ -55,12 +55,13 @@ namespace PlayGround.System.Projectile
 
         public event global::System.Action<ProjectileHitContext> ProjectileHit;
 
-        public ProjectileTargetRegistry TargetRegistry => targetRegistry;
+        public CombatTargetRegistry<IProjectileTarget> TargetRegistry => targetRegistry;
         public int TargetMask => targetLayers.value != 0 ? targetLayers.value : ~0;
 
         private void Awake()
         {
             runtimeReady = false;
+            targetSync = new CombatTargetSync<IProjectileTarget>(targetRegistry);
             vfxDispatcher ??= new CombatVfxDispatcher(transform);
             ApplyTaggedDefaults();
             if (projectileSprite == null && !HasAnyRenderSource())
@@ -172,7 +173,7 @@ namespace PlayGround.System.Projectile
 
         public bool CanTarget(IProjectileTarget target)
         {
-            if (target == null || (target.ProjectileTargetMask & TargetMask) == 0)
+            if (target == null || (target.CombatTargetMask & TargetMask) == 0)
             {
                 return false;
             }
@@ -404,47 +405,7 @@ namespace PlayGround.System.Projectile
         private void SyncTargetsToEcs()
         {
             DynamicBuffer<CombatTargetElement> targetBuffer = entityManager.GetBuffer<CombatTargetElement>(scopeEntity);
-            targetBuffer.Clear();
-            targetsById.Clear();
-
-            IReadOnlyList<IProjectileTarget> targets = targetRegistry.Targets;
-            for (int i = 0; i < targets.Count; i++)
-            {
-                IProjectileTarget target = targets[i];
-                if (target == null || !target.IsProjectileTargetActive || !CanTarget(target))
-                {
-                    continue;
-                }
-
-                Vector2 position = target.ProjectileTargetPosition;
-                float2 targetPosition = new(position.x, position.y);
-                float targetRadius = target.ProjectileTargetRadius;
-                float2 targetHalfExtents = new(target.ProjectileTargetHalfExtents.x, target.ProjectileTargetHalfExtents.y);
-                float targetRotationRadians = target.ProjectileTargetRotationRadians;
-                CombatShapeType targetShapeType = target.ProjectileTargetShapeType;
-                ProjectileCollisionMath.ComputeWorldBounds(
-                    targetPosition,
-                    targetRadius,
-                    targetHalfExtents,
-                    targetRotationRadians,
-                    targetShapeType,
-                    out float2 boundsMin,
-                    out float2 boundsMax);
-
-                targetBuffer.Add(new CombatTargetElement
-                {
-                    TargetId = target.TargetId,
-                    TargetMask = target.ProjectileTargetMask,
-                    Position = targetPosition,
-                    ShapeType = targetShapeType,
-                    Radius = targetRadius,
-                    HalfExtents = targetHalfExtents,
-                    RotationRadians = targetRotationRadians,
-                    BoundsMin = boundsMin,
-                    BoundsMax = boundsMax
-                });
-                targetsById[target.TargetId] = target;
-            }
+            targetSync.SyncToBuffer(targetBuffer, additionalFilter: CanTarget);
         }
 
         private void DrainVfxRequests()
@@ -472,7 +433,7 @@ namespace PlayGround.System.Projectile
                 {
                     ProjectileHitElement hit = hitBuffer[i];
 
-                    targetsById.TryGetValue(hit.TargetId, out IProjectileTarget target);
+                    targetSync.TargetsById.TryGetValue(hit.TargetId, out IProjectileTarget target);
 
                     ProjectileHitPayload payload = hit.HitPayload;
                     bool isCrit = UnityEngine.Random.value < payload.CritChance;

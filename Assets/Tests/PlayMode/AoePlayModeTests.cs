@@ -319,13 +319,13 @@ namespace PlayGround.Tests.PlayMode
             private float radius;
 
             public int TargetId => targetId;
-            public Vector2 AoeTargetPosition => transform.position;
-            public float AoeTargetRadius => radius;
-            public Vector2 AoeTargetHalfExtents => Vector2.one * radius;
-            public float AoeTargetRotationRadians => 0f;
-            public CombatShapeType AoeTargetShapeType => CombatShapeType.Circle;
-            public int AoeTargetMask => targetMask;
-            public bool IsAoeTargetActive => true;
+            public Vector2 CombatTargetPosition => transform.position;
+            public float CombatTargetRadius => radius;
+            public Vector2 CombatTargetHalfExtents => Vector2.one * radius;
+            public float CombatTargetRotationRadians => 0f;
+            public CombatShapeType CombatTargetShapeType => CombatShapeType.Circle;
+            public int CombatTargetMask => targetMask;
+            public bool IsCombatTargetActive => true;
             public int HitCount { get; private set; }
             public float TotalDamage { get; private set; }
             public DamageSnapshot LastDamage { get; private set; }

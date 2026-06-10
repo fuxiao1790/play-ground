@@ -242,7 +242,7 @@ namespace PlayGround.Tests.PlayMode
             Assume.That(mobHurtboxLayer, Is.GreaterThanOrEqualTo(0));
             mobObject.GetComponent<Collider2D>().gameObject.layer = mobHurtboxLayer;
 
-            Assert.That(mob.ProjectileTargetMask, Is.EqualTo(1 << mobHurtboxLayer));
+            Assert.That(mob.CombatTargetMask, Is.EqualTo(1 << mobHurtboxLayer));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
         }
@@ -760,7 +760,7 @@ namespace PlayGround.Tests.PlayMode
 
             Assert.That(mob, Is.Not.Null);
             Assert.That(mob.gameObject.activeSelf, Is.True);
-            Assert.That(mob.IsProjectileTargetActive, Is.True);
+            Assert.That(mob.IsCombatTargetActive, Is.True);
             Object.Destroy(spawnerObject);
             Object.Destroy(prefabObject);
             Object.Destroy(pool);
@@ -1204,13 +1204,13 @@ namespace PlayGround.Tests.PlayMode
             private float radius;
 
             public int TargetId => targetId;
-            public Vector2 AoeTargetPosition => transform.position;
-            public float AoeTargetRadius => radius;
-            public Vector2 AoeTargetHalfExtents => Vector2.one * radius;
-            public float AoeTargetRotationRadians => 0f;
-            public CombatShapeType AoeTargetShapeType => CombatShapeType.Circle;
-            public int AoeTargetMask => targetMask;
-            public bool IsAoeTargetActive => true;
+            public Vector2 CombatTargetPosition => transform.position;
+            public float CombatTargetRadius => radius;
+            public Vector2 CombatTargetHalfExtents => Vector2.one * radius;
+            public float CombatTargetRotationRadians => 0f;
+            public CombatShapeType CombatTargetShapeType => CombatShapeType.Circle;
+            public int CombatTargetMask => targetMask;
+            public bool IsCombatTargetActive => true;
             public DamageSnapshot LastDamage { get; private set; }
 
             public void Configure(int id, int mask, float r)
