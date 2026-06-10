@@ -70,17 +70,6 @@ namespace PlayGround.System.Projectile
     public struct ProjectileRenderType14Tag : IComponentData {}
     public struct ProjectileRenderType15Tag : IComponentData {}
 
-    // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; cleared during simulation/replay.
-    public struct ProjectileHitElement : IBufferElementData
-    {
-        public int ProjectileId;
-        public int ProjectileTypeId;
-        public int TargetId;
-        public float2 Position;
-        public ProjectileHitPayload HitPayload;
-        public uint Order;
-    }
-
     // ECS Lifecycle: projectile buffer; added by spawn materialization; kept until root teardown; cleared on reuse.
     public struct ProjectileContactGateElement : IBufferElementData
     {
@@ -169,18 +158,6 @@ namespace PlayGround.System.Projectile
         public Entity ProjectileEntity;
         public int TypeId;
         public int HasChildSpawner;
-    }
-
-    // ECS Lifecycle: transient native payload; not added to entities; queued during collision hit flush.
-    public struct ProjectilePendingHit
-    {
-        public Entity Scope;
-        public int ProjectileId;
-        public int ProjectileTypeId;
-        public int TargetId;
-        public float2 Position;
-        public ProjectileHitPayload HitPayload;
-        public uint Order;
     }
 
     public struct ProjectilePendingRecycle

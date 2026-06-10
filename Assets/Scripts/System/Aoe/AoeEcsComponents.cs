@@ -64,6 +64,8 @@ namespace PlayGround.System.Aoe
         public float Lifetime;
         public float RepeatHitCooldownSeconds;
         public float DamageAmount;
+        public float CritChance;
+        public float CritMultiplier;
         public float Radius;
         public float RotationRadians;
         public float2 Position;
@@ -75,35 +77,12 @@ namespace PlayGround.System.Aoe
         public AoeProjectileBurstSnapshot ProjectileBurst;
     }
 
-    // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; cleared during simulation/replay.
-    public struct AoeHitElement : IBufferElementData
-    {
-        public int AoeId;
-        public int TypeId;
-        public int TargetId;
-        public float2 Position;
-        public float DamageAmount;
-        public AoeProjectileBurstSnapshot ProjectileBurst;
-    }
-
     // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by AoeSpawnSystem into its reuse pool; carries the last prepared render matrix for one-frame pulse visual submission.
     public struct AoeRecycleElement : IBufferElementData
     {
         public Entity AoeEntity;
         public int TypeId;
         public CombatRenderElement Render;
-    }
-
-    // ECS Lifecycle: transient native payload; not added to entities; queued during collision hit flush.
-    public struct AoePendingHit
-    {
-        public Entity Scope;
-        public int AoeId;
-        public int TypeId;
-        public int TargetId;
-        public float2 Position;
-        public float DamageAmount;
-        public AoeProjectileBurstSnapshot ProjectileBurst;
     }
 
     // ECS Lifecycle: base AOE component; added at entity creation; kept until root teardown; reset on reuse; used by AoeLifetimeSystem for pulse VFX ticks on lingering AOEs.

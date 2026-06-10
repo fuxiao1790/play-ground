@@ -57,7 +57,7 @@ namespace PlayGround.System.Projectile
                 }
             }
 
-            var pendingHits = new NativeQueue<ProjectilePendingHit>(Allocator.TempJob);
+            var pendingHits = new NativeQueue<CombatPendingHit>(Allocator.TempJob);
             var recycled = new NativeQueue<ProjectilePendingRecycle>(Allocator.TempJob);
             var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
             var job = new ProjectileCollisionJob
@@ -76,7 +76,7 @@ namespace PlayGround.System.Projectile
             var flushHandle = new ProjectileHitFlushJob
             {
                 PendingHits = pendingHits,
-                Hits = SystemAPI.GetBufferLookup<ProjectileHitElement>()
+                Hits = SystemAPI.GetBufferLookup<CombatHitElement>()
             }.Schedule(collisionHandle);
             var recycleFlushHandle = new ProjectileRecycleFlushJob
             {
@@ -107,7 +107,7 @@ namespace PlayGround.System.Projectile
             [ReadOnly] public NativeParallelMultiHashMap<long, int> TargetCells;
             public int TotalTargetCount;
             public float MaxTargetRadius;
-            public NativeQueue<ProjectilePendingHit>.ParallelWriter PendingHits;
+            public NativeQueue<CombatPendingHit>.ParallelWriter PendingHits;
             public NativeQueue<ProjectilePendingRecycle>.ParallelWriter Recycled;
             public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
 
@@ -188,14 +188,22 @@ namespace PlayGround.System.Projectile
 
                             uint order = ProjectileEventOrder.ForProjectileTarget(
                                 identity.ProjectileId, target.TargetId);
-                            PendingHits.Enqueue(new ProjectilePendingHit
+                            PendingHits.Enqueue(new CombatPendingHit
                             {
                                 Scope = identity.Scope,
-                                ProjectileId = identity.ProjectileId,
-                                ProjectileTypeId = identity.TypeId,
+                                SourceId = identity.ProjectileId,
+                                TypeId = identity.TypeId,
                                 TargetId = target.TargetId,
                                 Position = kinematics.Position,
-                                HitPayload = projectileHit.HitPayload,
+                                Kind = CombatHitKind.Projectile,
+                                DamageAmount = projectileHit.HitPayload.DamageAmount,
+                                CritChance = projectileHit.HitPayload.CritChance,
+                                CritMultiplier = projectileHit.HitPayload.CritMultiplier,
+                                DirectDamageEnabled = projectileHit.HitPayload.DirectDamageEnabled,
+                                SourceNodeId = projectileHit.HitPayload.SourceNodeId,
+                                StackEffect = projectileHit.HitPayload.StackEffect,
+                                ImpactAoe = projectileHit.HitPayload.ImpactAoe,
+                                ImpactProjectile = projectileHit.HitPayload.ImpactProjectile,
                                 Order = order
                             });
                             VfxPending.Enqueue(new VfxPendingSpawn
@@ -296,25 +304,34 @@ namespace PlayGround.System.Projectile
         [BurstCompile]
         private struct ProjectileHitFlushJob : IJob
         {
-            public NativeQueue<ProjectilePendingHit> PendingHits;
-            public BufferLookup<ProjectileHitElement> Hits;
+            public NativeQueue<CombatPendingHit> PendingHits;
+            public BufferLookup<CombatHitElement> Hits;
 
             public void Execute()
             {
-                while (PendingHits.TryDequeue(out ProjectilePendingHit pending))
+                while (PendingHits.TryDequeue(out CombatPendingHit pending))
                 {
                     if (pending.Scope == Entity.Null || !Hits.HasBuffer(pending.Scope))
                     {
                         continue;
                     }
 
-                    Hits[pending.Scope].Add(new ProjectileHitElement
+                    Hits[pending.Scope].Add(new CombatHitElement
                     {
-                        ProjectileId = pending.ProjectileId,
-                        ProjectileTypeId = pending.ProjectileTypeId,
+                        SourceId = pending.SourceId,
+                        TypeId = pending.TypeId,
                         TargetId = pending.TargetId,
                         Position = pending.Position,
-                        HitPayload = pending.HitPayload,
+                        Kind = pending.Kind,
+                        DamageAmount = pending.DamageAmount,
+                        CritChance = pending.CritChance,
+                        CritMultiplier = pending.CritMultiplier,
+                        DirectDamageEnabled = pending.DirectDamageEnabled,
+                        SourceNodeId = pending.SourceNodeId,
+                        StackEffect = pending.StackEffect,
+                        ImpactAoe = pending.ImpactAoe,
+                        ImpactProjectile = pending.ImpactProjectile,
+                        ProjectileBurst = pending.ProjectileBurst,
                         Order = pending.Order
                     });
                 }

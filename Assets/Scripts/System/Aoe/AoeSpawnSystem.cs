@@ -280,6 +280,8 @@ namespace PlayGround.System.Aoe
             {
                 TargetMask = request.TargetMask,
                 DamageAmount = request.DamageAmount,
+                CritChance = request.CritChance,
+                CritMultiplier = request.CritMultiplier,
                 DirectDamageEnabled = true
             };
         }

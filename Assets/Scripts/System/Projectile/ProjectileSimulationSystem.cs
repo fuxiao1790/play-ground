@@ -1,3 +1,4 @@
+using PlayGround.System.Common;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -30,7 +31,7 @@ namespace PlayGround.System.Projectile
             NativeArray<Entity> scopes = scopeQuery.ToEntityArray(Allocator.Temp);
             for (int i = 0; i < scopes.Length; i++)
             {
-                state.EntityManager.GetBuffer<ProjectileHitElement>(scopes[i]).Clear();
+                state.EntityManager.GetBuffer<CombatHitElement>(scopes[i]).Clear();
             }
 
             scopes.Dispose();

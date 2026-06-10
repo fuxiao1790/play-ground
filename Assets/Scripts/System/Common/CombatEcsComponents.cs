@@ -82,6 +82,8 @@ namespace PlayGround.System.Common
     {
         public int TargetMask;
         public float DamageAmount;
+        public float CritChance;
+        public float CritMultiplier;
         public bool DirectDamageEnabled;
         public EntityId SourceNodeId;
     }

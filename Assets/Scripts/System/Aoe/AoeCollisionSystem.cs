@@ -73,7 +73,7 @@ namespace PlayGround.System.Aoe
                 }
             }
 
-            var pendingHits = new NativeQueue<AoePendingHit>(Allocator.TempJob);
+            var pendingHits = new NativeQueue<CombatPendingHit>(Allocator.TempJob);
             var recycled = new NativeQueue<AoePendingRecycle>(Allocator.TempJob);
             var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
             var job = new AoeCollisionJob
@@ -90,7 +90,7 @@ namespace PlayGround.System.Aoe
             JobHandle hitFlushHandle = new AoeHitFlushJob
             {
                 PendingHits = pendingHits,
-                Hits = SystemAPI.GetBufferLookup<AoeHitElement>()
+                Hits = SystemAPI.GetBufferLookup<CombatHitElement>()
             }.Schedule(collisionHandle);
             JobHandle recycleFlushHandle = new AoeRecycleFlushJob
             {
@@ -119,7 +119,7 @@ namespace PlayGround.System.Aoe
             [ReadOnly] public BufferLookup<CombatTargetElement> Targets;
             [ReadOnly] public NativeParallelHashSet<long> OccupiedTargetCells;
             public int OccupiedTargetCellCount;
-            public NativeQueue<AoePendingHit>.ParallelWriter PendingHits;
+            public NativeQueue<CombatPendingHit>.ParallelWriter PendingHits;
             public NativeQueue<AoePendingRecycle>.ParallelWriter Recycled;
             public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
 
@@ -235,14 +235,19 @@ namespace PlayGround.System.Aoe
                 AoeHitSpawnComponent hitSpawn,
                 CombatTargetElement target)
             {
-                PendingHits.Enqueue(new AoePendingHit
+                PendingHits.Enqueue(new CombatPendingHit
                 {
                     Scope = identity.Scope,
-                    AoeId = identity.AoeId,
+                    SourceId = identity.AoeId,
                     TypeId = identity.TypeId,
                     TargetId = target.TargetId,
                     Position = kinematics.Position,
+                    Kind = CombatHitKind.Aoe,
                     DamageAmount = hit.DamageAmount,
+                    CritChance = hit.CritChance,
+                    CritMultiplier = hit.CritMultiplier,
+                    DirectDamageEnabled = hit.DirectDamageEnabled,
+                    SourceNodeId = hit.SourceNodeId,
                     ProjectileBurst = hitSpawn.ProjectileBurst
                 });
                 VfxPending.Enqueue(new VfxPendingSpawn
@@ -312,25 +317,30 @@ namespace PlayGround.System.Aoe
         [BurstCompile]
         private struct AoeHitFlushJob : IJob
         {
-            public NativeQueue<AoePendingHit> PendingHits;
-            public BufferLookup<AoeHitElement> Hits;
+            public NativeQueue<CombatPendingHit> PendingHits;
+            public BufferLookup<CombatHitElement> Hits;
 
             public void Execute()
             {
-                while (PendingHits.TryDequeue(out AoePendingHit pending))
+                while (PendingHits.TryDequeue(out CombatPendingHit pending))
                 {
                     if (pending.Scope == Entity.Null || !Hits.HasBuffer(pending.Scope))
                     {
                         continue;
                     }
 
-                    Hits[pending.Scope].Add(new AoeHitElement
+                    Hits[pending.Scope].Add(new CombatHitElement
                     {
-                        AoeId = pending.AoeId,
+                        SourceId = pending.SourceId,
                         TypeId = pending.TypeId,
                         TargetId = pending.TargetId,
                         Position = pending.Position,
+                        Kind = pending.Kind,
                         DamageAmount = pending.DamageAmount,
+                        CritChance = pending.CritChance,
+                        CritMultiplier = pending.CritMultiplier,
+                        DirectDamageEnabled = pending.DirectDamageEnabled,
+                        SourceNodeId = pending.SourceNodeId,
                         ProjectileBurst = pending.ProjectileBurst
                     });
                 }

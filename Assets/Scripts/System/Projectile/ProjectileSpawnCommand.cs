@@ -153,31 +153,6 @@ namespace PlayGround.System.Projectile
         public ProjectileHitPayload HitPayload { get; }
     }
 
-    public readonly struct ProjectileTrackingConfig
-    {
-        public static readonly ProjectileTrackingConfig Disabled = new(false, 0f, 0f, 0f, 0f);
-
-        public ProjectileTrackingConfig(
-            bool enabled,
-            float range,
-            float turnSpeedDegrees,
-            float queryIntervalSeconds,
-            float initialQueryDelaySeconds = 0f)
-        {
-            Enabled = enabled;
-            Range = Mathf.Max(0f, range);
-            TurnSpeedDegrees = Mathf.Max(0f, turnSpeedDegrees);
-            QueryIntervalSeconds = Mathf.Max(0f, queryIntervalSeconds);
-            InitialQueryDelaySeconds = Mathf.Max(0f, initialQueryDelaySeconds);
-        }
-
-        public bool Enabled { get; }
-        public float Range { get; }
-        public float TurnSpeedDegrees { get; }
-        public float QueryIntervalSeconds { get; }
-        public float InitialQueryDelaySeconds { get; }
-    }
-
     public enum ProjectileChildSpawnPatternType
     {
         SideSpray = 0,

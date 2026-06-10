@@ -30,8 +30,6 @@ namespace PlayGround.System.Aoe
         private readonly Dictionary<int, CombatSpriteRenderResources> renderResourcesByType = new();
         private readonly Dictionary<AoeConfig, int> configTypeIds = new();
         private readonly Dictionary<AoeTypeDefinition, int> definitionTypeIds = new();
-        private readonly Dictionary<int, (float critChance, float critMultiplier)> critByAoeId = new();
-
         private AoeTypeRegistry typeRegistry = new();
         private CombatTargetSync<IAoeTarget> targetSync;
         private CombatVfxDispatcher vfxDispatcher;
@@ -141,7 +139,6 @@ namespace PlayGround.System.Aoe
             typeRegistry = new AoeTypeRegistry();
             configTypeIds.Clear();
             definitionTypeIds.Clear();
-            critByAoeId.Clear();
             nextTypeId = 1;
             DestroyRenderResources();
             vfxDispatcher?.Dispose();
@@ -217,7 +214,6 @@ namespace PlayGround.System.Aoe
 
             int aoeId = ++nextAoeId;
             spawnRequests.Add(SpawnRequestFor(command, shape, aoeId));
-            critByAoeId[aoeId] = (command.CritChance, command.CritMultiplier);
             spawnedAoes++;
             return aoeId;
         }
@@ -243,6 +239,8 @@ namespace PlayGround.System.Aoe
                 Lifetime = command.LifetimeSeconds,
                 RepeatHitCooldownSeconds = command.TickIntervalSeconds,
                 DamageAmount = command.Damage.Amount,
+                CritChance = command.CritChance,
+                CritMultiplier = command.CritMultiplier,
                 Radius = shape.Radius,
                 RotationRadians = shape.RotationRadians,
                 Position = position,
@@ -257,18 +255,14 @@ namespace PlayGround.System.Aoe
 
         private void DrainEvents()
         {
-            DynamicBuffer<AoeHitElement> hitBuffer = entityManager.GetBuffer<AoeHitElement>(scopeEntity);
+            DynamicBuffer<CombatHitElement> hitBuffer = entityManager.GetBuffer<CombatHitElement>(scopeEntity);
             DynamicBuffer<AoeRecycleElement> recycleBuffer = entityManager.GetBuffer<AoeRecycleElement>(scopeEntity);
             int hitCount = hitBuffer.Length;
             hitEvents += hitCount;
             despawnedAoes += recycleBuffer.Length;
 
-            var adapter = new AoeHitReplayAdapter
-            {
-                HitHandler = AoeHit,
-                CritByAoeId = critByAoeId
-            };
-            CombatHitReplay.ReplayAndClear<AoeHitElement, IAoeTarget, AoeHitReplayAdapter>(
+            var adapter = new AoeHitReplayAdapter { HitHandler = AoeHit };
+            CombatHitReplay.ReplayAndClear<CombatHitElement, IAoeTarget, AoeHitReplayAdapter>(
                 hitBuffer,
                 targetSync.TargetsById,
                 ref adapter);
@@ -284,37 +278,27 @@ namespace PlayGround.System.Aoe
             vfxDispatcher.Dispatch();
         }
 
-        private struct AoeHitReplayAdapter : ICombatHitReplayAdapter<AoeHitElement, IAoeTarget>
+        private struct AoeHitReplayAdapter : ICombatHitReplayAdapter<CombatHitElement, IAoeTarget>
         {
             public AoeHitHandler HitHandler;
-            public IReadOnlyDictionary<int, (float critChance, float critMultiplier)> CritByAoeId;
 
-            public int TargetId(in AoeHitElement hit)
+            public int TargetId(in CombatHitElement hit)
             {
                 return hit.TargetId;
             }
 
-            public DamageSnapshot RollDamage(in AoeHitElement hit)
+            public DamageSnapshot RollDamage(in CombatHitElement hit)
             {
                 float baseAmount = Mathf.Max(0f, hit.DamageAmount);
-                bool isCrit = false;
-                float critMultiplier = 1f;
-                if (CritByAoeId != null
-                    && CritByAoeId.TryGetValue(hit.AoeId, out (float critChance, float critMultiplier) crit)
-                    && UnityEngine.Random.value < crit.critChance)
-                {
-                    isCrit = true;
-                    critMultiplier = crit.critMultiplier;
-                }
-
-                float rolledAmount = isCrit ? baseAmount * critMultiplier : baseAmount;
+                bool isCrit = UnityEngine.Random.value < hit.CritChance;
+                float rolledAmount = isCrit ? baseAmount * hit.CritMultiplier : baseAmount;
                 return new DamageSnapshot(rolledAmount, isCrit);
             }
 
-            public void Replay(in AoeHitElement hit, IAoeTarget target, in DamageSnapshot damage)
+            public void Replay(in CombatHitElement hit, IAoeTarget target, in DamageSnapshot damage)
             {
                 var context = new AoeHitContext(
-                    hit.AoeId,
+                    hit.SourceId,
                     hit.TypeId,
                     hit.TargetId,
                     new Vector2(hit.Position.x, hit.Position.y),
@@ -358,7 +342,7 @@ namespace PlayGround.System.Aoe
             scopeEntity = entityManager.CreateEntity(typeof(AoeScope));
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
             entityManager.AddBuffer<AoeSpawnRequestElement>(scopeEntity);
-            entityManager.AddBuffer<AoeHitElement>(scopeEntity);
+            entityManager.AddBuffer<CombatHitElement>(scopeEntity);
             entityManager.AddBuffer<AoeRecycleElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
             allAoeQuery = entityManager.CreateEntityQuery(

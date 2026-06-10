@@ -4,58 +4,6 @@ using UnityEngine;
 
 namespace PlayGround.System.Aoe
 {
-    public readonly struct AoeProjectileBurstSnapshot
-    {
-        public AoeProjectileBurstSnapshot(
-            int projectileTypeId,
-            int targetMask,
-            int count,
-            float spreadDegrees,
-            float speed,
-            float lifetimeSeconds,
-            float radius,
-            Vector2 halfExtents,
-            float rotationRadians,
-            CombatShapeType shapeType,
-            DamageSnapshot damage,
-            bool directDamageEnabled = true,
-            int pierceCount = 0,
-            float repeatHitCooldownSeconds = 0f)
-        {
-            Enabled = projectileTypeId >= 0;
-            ProjectileTypeId = projectileTypeId;
-            TargetMask = targetMask;
-            Count = Mathf.Max(1, count);
-            SpreadDegrees = Mathf.Max(0f, spreadDegrees);
-            Speed = Mathf.Max(0f, speed);
-            LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds);
-            Radius = Mathf.Max(0f, radius);
-            HalfExtents = halfExtents;
-            RotationRadians = rotationRadians;
-            ShapeType = shapeType;
-            Damage = damage;
-            DirectDamageEnabled = directDamageEnabled;
-            PierceCount = Mathf.Max(0, pierceCount);
-            RepeatHitCooldownSeconds = Mathf.Max(0f, repeatHitCooldownSeconds);
-        }
-
-        public bool Enabled { get; }
-        public int ProjectileTypeId { get; }
-        public int TargetMask { get; }
-        public int Count { get; }
-        public float SpreadDegrees { get; }
-        public float Speed { get; }
-        public float LifetimeSeconds { get; }
-        public float Radius { get; }
-        public Vector2 HalfExtents { get; }
-        public float RotationRadians { get; }
-        public CombatShapeType ShapeType { get; }
-        public DamageSnapshot Damage { get; }
-        public bool DirectDamageEnabled { get; }
-        public int PierceCount { get; }
-        public float RepeatHitCooldownSeconds { get; }
-    }
-
     public readonly struct AoeSpawnCommand
     {
         public AoeSpawnCommand(

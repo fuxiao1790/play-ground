@@ -35,7 +35,7 @@ namespace PlayGround.Tests.PlayMode
             scopeEntity = entityManager.CreateEntity(typeof(AoeScope));
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
             entityManager.AddBuffer<AoeSpawnRequestElement>(scopeEntity);
-            entityManager.AddBuffer<AoeHitElement>(scopeEntity);
+            entityManager.AddBuffer<CombatHitElement>(scopeEntity);
             entityManager.AddBuffer<AoeRecycleElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
         }
@@ -223,7 +223,7 @@ namespace PlayGround.Tests.PlayMode
             AddTargetById(position, radius, targetMask, targetId);
         }
 
-        private int ReadHitCount() => entityManager.GetBuffer<AoeHitElement>(scopeEntity).Length;
+        private int ReadHitCount() => entityManager.GetBuffer<CombatHitElement>(scopeEntity).Length;
 
         private int ActiveAoeCount()
         {

@@ -1,3 +1,4 @@
+using PlayGround.System.Common;
 using Unity.Collections;
 using Unity.Entities;
 
@@ -23,7 +24,7 @@ namespace PlayGround.System.Aoe
             NativeArray<Entity> scopes = scopeQuery.ToEntityArray(Allocator.Temp);
             for (int i = 0; i < scopes.Length; i++)
             {
-                state.EntityManager.GetBuffer<AoeHitElement>(scopes[i]).Clear();
+                state.EntityManager.GetBuffer<CombatHitElement>(scopes[i]).Clear();
             }
 
             scopes.Dispose();
