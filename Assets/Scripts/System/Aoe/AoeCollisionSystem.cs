@@ -5,8 +5,6 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
-using Unity.Profiling;
-
 namespace PlayGround.System.Aoe
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -15,8 +13,6 @@ namespace PlayGround.System.Aoe
     public partial struct AoeCollisionSystem : ISystem
     {
         private const float SpatialHashCellSize = 64f;
-        private static readonly ProfilerMarker CollisionFrameTimeProfilerMarker =
-            new("Aoe.Collision.FrameTime");
 
         private EntityQuery activeAoeQuery;
         private EntityQuery scopeQuery;
@@ -38,83 +34,80 @@ namespace PlayGround.System.Aoe
                 return;
             }
 
-            using (CollisionFrameTimeProfilerMarker.Auto())
+            state.EntityManager.CompleteDependencyBeforeRO<CombatTargetElement>();
+            int targetCellCapacity = 0;
+            using NativeArray<Entity> scopes = scopeQuery.ToEntityArray(Allocator.Temp);
+            for (int scopeIndex = 0; scopeIndex < scopes.Length; scopeIndex++)
             {
-                state.EntityManager.CompleteDependencyBeforeRO<CombatTargetElement>();
-                int targetCellCapacity = 0;
-                using NativeArray<Entity> scopes = scopeQuery.ToEntityArray(Allocator.Temp);
-                for (int scopeIndex = 0; scopeIndex < scopes.Length; scopeIndex++)
+                DynamicBuffer<CombatTargetElement> targets =
+                    state.EntityManager.GetBuffer<CombatTargetElement>(scopes[scopeIndex]);
+                for (int i = 0; i < targets.Length; i++)
                 {
-                    DynamicBuffer<CombatTargetElement> targets =
-                        state.EntityManager.GetBuffer<CombatTargetElement>(scopes[scopeIndex]);
-                    for (int i = 0; i < targets.Length; i++)
-                    {
-                        CombatTargetElement target = targets[i];
-                        int2 min = MinCell(target.BoundsMin);
-                        int2 max = MaxCell(target.BoundsMax);
-                        targetCellCapacity += ((max.x - min.x) + 1) * ((max.y - min.y) + 1);
-                    }
+                    CombatTargetElement target = targets[i];
+                    int2 min = MinCell(target.BoundsMin);
+                    int2 max = MaxCell(target.BoundsMax);
+                    targetCellCapacity += ((max.x - min.x) + 1) * ((max.y - min.y) + 1);
                 }
+            }
 
-                var occupiedTargetCells = new NativeParallelHashSet<long>(math.max(1, targetCellCapacity), Allocator.TempJob);
-                for (int scopeIndex = 0; scopeIndex < scopes.Length; scopeIndex++)
+            var occupiedTargetCells = new NativeParallelHashSet<long>(math.max(1, targetCellCapacity), Allocator.TempJob);
+            for (int scopeIndex = 0; scopeIndex < scopes.Length; scopeIndex++)
+            {
+                Entity scope = scopes[scopeIndex];
+                DynamicBuffer<CombatTargetElement> targets =
+                    state.EntityManager.GetBuffer<CombatTargetElement>(scope);
+                for (int i = 0; i < targets.Length; i++)
                 {
-                    Entity scope = scopes[scopeIndex];
-                    DynamicBuffer<CombatTargetElement> targets =
-                        state.EntityManager.GetBuffer<CombatTargetElement>(scope);
-                    for (int i = 0; i < targets.Length; i++)
+                    CombatTargetElement target = targets[i];
+                    int2 min = MinCell(target.BoundsMin);
+                    int2 max = MaxCell(target.BoundsMax);
+                    for (int y = min.y; y <= max.y; y++)
                     {
-                        CombatTargetElement target = targets[i];
-                        int2 min = MinCell(target.BoundsMin);
-                        int2 max = MaxCell(target.BoundsMax);
-                        for (int y = min.y; y <= max.y; y++)
+                        for (int x = min.x; x <= max.x; x++)
                         {
-                            for (int x = min.x; x <= max.x; x++)
-                            {
-                                occupiedTargetCells.Add(CellKey(scope, x, y));
-                            }
+                            occupiedTargetCells.Add(CellKey(scope, x, y));
                         }
                     }
                 }
-
-                var pendingHits = new NativeQueue<AoePendingHit>(Allocator.TempJob);
-                var recycled = new NativeQueue<AoePendingRecycle>(Allocator.TempJob);
-                var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
-                var job = new AoeCollisionJob
-                {
-                    Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
-                    OccupiedTargetCells = occupiedTargetCells,
-                    OccupiedTargetCellCount = occupiedTargetCells.Count(),
-                    PendingHits = pendingHits.AsParallelWriter(),
-                    Recycled = recycled.AsParallelWriter(),
-                    VfxPending = vfxPending.AsParallelWriter()
-                };
-
-                JobHandle collisionHandle = job.ScheduleParallel(state.Dependency);
-                JobHandle hitFlushHandle = new AoeHitFlushJob
-                {
-                    PendingHits = pendingHits,
-                    Hits = SystemAPI.GetBufferLookup<AoeHitElement>()
-                }.Schedule(collisionHandle);
-                JobHandle recycleFlushHandle = new AoeRecycleFlushJob
-                {
-                    Recycled = recycled,
-                    RecycleBuffers = SystemAPI.GetBufferLookup<AoeRecycleElement>()
-                }.Schedule(collisionHandle);
-                JobHandle vfxFlushHandle = new VfxFlushJob
-                {
-                    Pending = vfxPending,
-                    VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
-                }.Schedule(collisionHandle);
-
-                JobHandle disposeHitsHandle = pendingHits.Dispose(hitFlushHandle);
-                JobHandle disposeRecycleHandle = recycled.Dispose(recycleFlushHandle);
-                JobHandle disposeVfxHandle = vfxPending.Dispose(vfxFlushHandle);
-                JobHandle flushesHandle = JobHandle.CombineDependencies(
-                    JobHandle.CombineDependencies(disposeHitsHandle, disposeRecycleHandle),
-                    disposeVfxHandle);
-                state.Dependency = occupiedTargetCells.Dispose(flushesHandle);
             }
+
+            var pendingHits = new NativeQueue<AoePendingHit>(Allocator.TempJob);
+            var recycled = new NativeQueue<AoePendingRecycle>(Allocator.TempJob);
+            var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
+            var job = new AoeCollisionJob
+            {
+                Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
+                OccupiedTargetCells = occupiedTargetCells,
+                OccupiedTargetCellCount = occupiedTargetCells.Count(),
+                PendingHits = pendingHits.AsParallelWriter(),
+                Recycled = recycled.AsParallelWriter(),
+                VfxPending = vfxPending.AsParallelWriter()
+            };
+
+            JobHandle collisionHandle = job.ScheduleParallel(state.Dependency);
+            JobHandle hitFlushHandle = new AoeHitFlushJob
+            {
+                PendingHits = pendingHits,
+                Hits = SystemAPI.GetBufferLookup<AoeHitElement>()
+            }.Schedule(collisionHandle);
+            JobHandle recycleFlushHandle = new AoeRecycleFlushJob
+            {
+                Recycled = recycled,
+                RecycleBuffers = SystemAPI.GetBufferLookup<AoeRecycleElement>()
+            }.Schedule(collisionHandle);
+            JobHandle vfxFlushHandle = new VfxFlushJob
+            {
+                Pending = vfxPending,
+                VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
+            }.Schedule(collisionHandle);
+
+            JobHandle disposeHitsHandle = pendingHits.Dispose(hitFlushHandle);
+            JobHandle disposeRecycleHandle = recycled.Dispose(recycleFlushHandle);
+            JobHandle disposeVfxHandle = vfxPending.Dispose(vfxFlushHandle);
+            JobHandle flushesHandle = JobHandle.CombineDependencies(
+                JobHandle.CombineDependencies(disposeHitsHandle, disposeRecycleHandle),
+                disposeVfxHandle);
+            state.Dependency = occupiedTargetCells.Dispose(flushesHandle);
         }
 
         [BurstCompile]

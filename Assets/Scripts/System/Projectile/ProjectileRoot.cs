@@ -20,10 +20,8 @@ namespace PlayGround.System.Projectile
         private const float ProjectileRenderZ = -0.25f;
         private const float ProjectileZStep = 0.000001f;
         private const int ProjectileZSlots = 1_000_000;
-        private static readonly ProfilerMarker DrainHitsProfilerMarker = new("ProjectileRoot.DrainHits");
-        private static readonly ProfilerMarker SubmitProjectilesProfilerMarker = new("ProjectileRoot.SubmitProjectiles");
-        private static readonly ProfilerMarker ReplayProjectileHitEventsProfilerMarker = new("ProjectileRoot.ReplayProjectileHitEvents");
-
+        private static readonly ProfilerMarker SubmitProjectilesMarker = new("ProjectileRoot.SubmitProjectiles");
+        private static readonly ProfilerMarker HitReplayMarker = new("ProjectileRoot.HitReplay");
 
         [SerializeField] private Sprite projectileSprite;
         [SerializeField] private float visualScale = 1f;
@@ -91,7 +89,7 @@ namespace PlayGround.System.Projectile
                 return;
             }
 
-            using (SubmitProjectilesProfilerMarker.Auto())
+            using (SubmitProjectilesMarker.Auto())
             {
                 SubmitProjectiles();
             }
@@ -99,11 +97,7 @@ namespace PlayGround.System.Projectile
             entityManager.CompleteDependencyBeforeRO<ProjectileActiveTag>();
             DrainVfxRequests();
             vfxDispatcher.Dispatch();
-
-            using (DrainHitsProfilerMarker.Auto())
-            {
-                DrainHits();
-            }
+            DrainHits();
         }
 
         private void OnDestroy()
@@ -427,7 +421,7 @@ namespace PlayGround.System.Projectile
             DynamicBuffer<ProjectileHitElement> hitBuffer =
                 entityManager.GetBuffer<ProjectileHitElement>(scopeEntity);
 
-            using (ReplayProjectileHitEventsProfilerMarker.Auto())
+            using (HitReplayMarker.Auto())
             {
                 for (int i = 0; i < hitBuffer.Length; i++)
                 {

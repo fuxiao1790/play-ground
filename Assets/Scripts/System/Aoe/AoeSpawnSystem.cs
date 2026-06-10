@@ -7,7 +7,6 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Profiling;
-
 namespace PlayGround.System.Aoe
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -16,8 +15,7 @@ namespace PlayGround.System.Aoe
     [UpdateBefore(typeof(PlayGround.System.Common.CombatRenderPrepareSystem))]
     public partial class AoeSpawnSystem : SystemBase
     {
-        private static readonly ProfilerMarker SpawnFrameTimeProfilerMarker =
-            new("Aoe.Spawn.FrameTime");
+        private static readonly ProfilerMarker SpawnMarker = new("Aoe.Spawn");
 
         private readonly Dictionary<AoePoolKey, List<Entity>> inactiveByKey = new();
         private EntityArchetype archetype;
@@ -58,14 +56,14 @@ namespace PlayGround.System.Aoe
                 return;
             }
 
-            using (SpawnFrameTimeProfilerMarker.Auto())
+            DrainRecycleBuffers(scopes);
+            if (!hasSpawnRequests)
             {
-                DrainRecycleBuffers(scopes);
-                if (!hasSpawnRequests)
-                {
-                    return;
-                }
+                return;
+            }
 
+            using (SpawnMarker.Auto())
+            {
                 using var createEcb = new EntityCommandBuffer(Allocator.Temp);
                 var reuseResets = new NativeList<AoeReuseReset>(Allocator.TempJob);
                 for (int i = 0; i < scopes.Length; i++)

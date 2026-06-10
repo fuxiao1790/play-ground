@@ -7,7 +7,6 @@ using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Profiling;
-
 namespace PlayGround.System.Projectile
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -16,8 +15,7 @@ namespace PlayGround.System.Projectile
     public partial class ProjectileSpawnSystem : SystemBase
     {
         private const int MaxStructuralRenderTypes = 16;
-        private static readonly ProfilerMarker SpawnFrameTimeProfilerMarker =
-            new("Projectile.Spawn.FrameTime");
+        private static readonly ProfilerMarker SpawnMarker = new("Projectile.Spawn");
 
         private readonly Dictionary<ProjectilePoolKey, List<Entity>> inactiveByKey = new();
         private readonly Dictionary<ProjectileArchetypeKey, EntityArchetype> archetypesByKey = new();
@@ -44,14 +42,14 @@ namespace PlayGround.System.Projectile
                 return;
             }
 
-            using (SpawnFrameTimeProfilerMarker.Auto())
+            DrainRecycleBuffers(scopes);
+            if (!hasSpawnRequests)
             {
-                DrainRecycleBuffers(scopes);
-                if (!hasSpawnRequests)
-                {
-                    return;
-                }
+                return;
+            }
 
+            using (SpawnMarker.Auto())
+            {
                 using var createEcb = new EntityCommandBuffer(Allocator.Temp);
                 var reuseResets = new NativeList<ProjectileReuseReset>(Allocator.TempJob);
                 for (int i = 0; i < scopes.Length; i++)
