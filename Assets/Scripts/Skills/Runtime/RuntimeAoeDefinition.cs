@@ -18,7 +18,6 @@ namespace PlayGround.Skills.Runtime
         public float LifetimeSeconds { get; set; }
         public float TickIntervalSeconds { get; set; }
         public int Count { get; set; } = 1;
-        public bool SpawnAtAimPosition { get; set; }
         public bool DirectDamageEnabled { get; set; } = true;
 
         public AoeSpawnGeometry CreateSpawnGeometry()

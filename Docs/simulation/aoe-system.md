@@ -140,8 +140,6 @@ Basic pulse authoring steps:
    - `lifetimeSeconds`: `0` for current pulse AOEs
    - `tickIntervalSeconds`: unused by current pulse AOEs
    - `count`: number of AOEs spawned per cast
-   - `spawnAtAimPosition`: spawn at mouse/world aim position; when false, spawn
-     at the attack Transform position
    - `targetMask`: leave as `1` to use the owning root mask
 7. Add or select an `AoeRoot` scene object for the targeting direction.
 8. Set the root `targetMask` to the intended hurtbox layer mask. Player AOEs

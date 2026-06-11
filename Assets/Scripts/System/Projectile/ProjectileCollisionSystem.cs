@@ -118,21 +118,23 @@ namespace PlayGround.System.Projectile
                 in CombatKinematicsComponent kinematics,
                 in CombatCollisionComponent collision,
                 in CombatHitComponent hit,
+                in CombatRenderComponent render,
                 ref ProjectileLifetimeComponent lifetime,
                 ref ProjectileHitComponent projectileHit,
                 EnabledRefRW<ProjectileActiveTag> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive,
                 DynamicBuffer<ProjectileContactGateElement> contactGates)
             {
+                float areaSize = math.max(render.VisualScale.x, render.VisualScale.y);
                 if (identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
                 {
-                    Deactivate(entity, identity, kinematics.Position, ref lifetime, active, renderActive);
+                    Deactivate(entity, identity, kinematics.Position, areaSize, ref lifetime, active, renderActive);
                     return;
                 }
 
                 if (lifetime.RemainingLifetime <= 0f)
                 {
-                    Deactivate(entity, identity, kinematics.Position, ref lifetime, active, renderActive);
+                    Deactivate(entity, identity, kinematics.Position, areaSize, ref lifetime, active, renderActive);
                     return;
                 }
 
@@ -212,7 +214,8 @@ namespace PlayGround.System.Projectile
                                 Scope = identity.Scope,
                                 TypeId = identity.TypeId,
                                 Trigger = 1,
-                                Position = kinematics.Position
+                                Position = kinematics.Position,
+                                AreaSize = areaSize
                             });
 
                             AddOrRefreshGate(contactGates, target.TargetId,
@@ -220,7 +223,7 @@ namespace PlayGround.System.Projectile
 
                             if (projectileHit.PierceRemaining <= 0)
                             {
-                                Deactivate(entity, identity, kinematics.Position, ref lifetime, active, renderActive);
+                                Deactivate(entity, identity, kinematics.Position, areaSize, ref lifetime, active, renderActive);
                                 return;
                             }
 
@@ -235,6 +238,7 @@ namespace PlayGround.System.Projectile
                 Entity entity,
                 ProjectileIdentityComponent identity,
                 float2 position,
+                float areaSize,
                 ref ProjectileLifetimeComponent lifetime,
                 EnabledRefRW<ProjectileActiveTag> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive)
@@ -254,7 +258,8 @@ namespace PlayGround.System.Projectile
                     Scope = identity.Scope,
                     TypeId = identity.TypeId,
                     Trigger = 2,
-                    Position = position
+                    Position = position,
+                    AreaSize = areaSize
                 });
             }
 

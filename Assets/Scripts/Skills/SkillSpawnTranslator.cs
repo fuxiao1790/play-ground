@@ -85,7 +85,7 @@ namespace PlayGround.Skills
         {
             if (root == null || def.TypeId < 0) return;
 
-            Vector2 center = def.SpawnAtAimPosition ? aimWorldPos : origin;
+            Vector2 center = aimWorldPos;
             DamageSnapshot damage = new(Mathf.Max(0f, def.Damage));
             int count = Mathf.Max(1, def.Count);
             AoeSpawnGeometry geometry = def.CreateSpawnGeometry();

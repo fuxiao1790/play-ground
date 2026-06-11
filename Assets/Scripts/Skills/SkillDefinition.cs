@@ -46,7 +46,6 @@ namespace PlayGround.Skills
         [Min(0.01f)] public float baseAreaSize = 1f;
         public float damage = 10f;
         [Min(1)] public int count = 1;
-        public bool spawnAtAimPosition;
         public bool directDamageEnabled = true;
 
         public abstract GameObject VisualPrefab { get; }

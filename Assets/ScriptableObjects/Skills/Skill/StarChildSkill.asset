@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: StarChildSkill
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileSkill
   definition:
-    prefab: {fileID: 1001001001001001004, guid: 071728db48e762a4683ee17177b48aaa, type: 3}
+    prefab: {fileID: 1001001001001001004, guid: f2bf0b25f990d4343824efe48ae5c034, type: 3}
     speed: 16
     lifetime: 1.5
     damage: 10

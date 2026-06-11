@@ -41,9 +41,8 @@ namespace PlayGround.System.Vfx
     public sealed class CombatVfxDispatcher : global::System.IDisposable
     {
         private const string PositionsPropertyName = "Positions";
-        private const string AreaSizePropertyName = "AreaSize";
+        private const string AreaSizePropertyName = "AreaSizes";
         private const string SpawnCountPropertyName = "SpawnCount";
-        private const string SizeNormalizationCoefficientPropertyName = "SizeNormalizationCoefficient";
         private const string SpawnEventName = "OnSpawn";
 
         private static readonly List<VfxTypeResources> LiveResources = new();
@@ -85,7 +84,7 @@ namespace PlayGround.System.Vfx
                 go.transform.SetParent(parent, false);
                 VisualEffect vfx = go.AddComponent<VisualEffect>();
                 vfx.visualEffectAsset = asset;
-                if (!ValidateGraphContract(vfx, asset, requireAreaSizeContract, out string reason))
+                if (!ValidateGraphContract(asset, requireAreaSizeContract, out string reason))
                 {
                     Debug.LogError(reason);
                     Object.Destroy(go);
@@ -188,12 +187,24 @@ namespace PlayGround.System.Vfx
         }
 
         private static bool ValidateGraphContract(
-            VisualEffect vfx,
             VisualEffectAsset asset,
             bool requireAreaSizeContract,
             out string reason)
         {
-            if (!vfx.HasGraphicsBuffer(PositionsPropertyName) || !vfx.HasInt(SpawnCountPropertyName))
+            var props = new List<VFXExposedProperty>();
+            asset.GetExposedProperties(props);
+
+            bool hasPositions = false;
+            bool hasSpawnCount = false;
+            bool hasAreaSize = false;
+            foreach (VFXExposedProperty p in props)
+            {
+                if (p.name == PositionsPropertyName) hasPositions = p.type == typeof(GraphicsBuffer);
+                if (p.name == SpawnCountPropertyName) hasSpawnCount = p.type == typeof(int);
+                if (p.name == AreaSizePropertyName) hasAreaSize = p.type == typeof(GraphicsBuffer);
+            }
+
+            if (!hasPositions || !hasSpawnCount)
             {
                 reason = $"{nameof(CombatVfxDispatcher)} cannot register VFX asset '{asset.name}'. "
                     + $"Graph must expose GraphicsBuffer '{PositionsPropertyName}', int '{SpawnCountPropertyName}', "
@@ -201,13 +212,10 @@ namespace PlayGround.System.Vfx
                 return false;
             }
 
-            if (requireAreaSizeContract
-                && (!vfx.HasGraphicsBuffer(AreaSizePropertyName)
-                    || !vfx.HasFloat(SizeNormalizationCoefficientPropertyName)))
+            if (requireAreaSizeContract && !hasAreaSize)
             {
                 reason = $"{nameof(CombatVfxDispatcher)} cannot register AOE VFX asset '{asset.name}'. "
-                    + $"Graph must expose GraphicsBuffer '{AreaSizePropertyName}' and float "
-                    + $"'{SizeNormalizationCoefficientPropertyName}'.";
+                    + $"Graph must expose GraphicsBuffer '{AreaSizePropertyName}'.";
                 return false;
             }
 

@@ -132,7 +132,6 @@ namespace PlayGround.Skills
                     LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds),
                     TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds),
                     Count = Mathf.Max(1, a.count),
-                    SpawnAtAimPosition = a.spawnAtAimPosition,
                     DirectDamageEnabled = a.directDamageEnabled,
                     CritChance = snapshot.CritChance,
                     CritMultiplier = snapshot.CritMultiplier,

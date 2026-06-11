@@ -85,24 +85,11 @@ visuals with the gameplay hitbox at runtime:
 1. Each AOE VFX Graph asset must expose a `GraphicsBuffer` property named
    `"AreaSize"` that carries one `float` area size per spawn event.
 
-2. Each AOE VFX Graph asset must expose a `float` property named
-   `"SizeNormalizationCoefficient"` that converts the graph's native authored
-   particle size to match the `Standard1RadiusAoe` radius. The relationship is:
-
-   ```
-   authored_particle_radius * SizeNormalizationCoefficient = Standard1RadiusAoe_hurtbox_radius
-   ```
-
-3. At AOE spawn time the runtime passes the resolved gameplay AOE area size
+2. At AOE spawn time the runtime passes the resolved gameplay AOE area size
    (= `baseAreaSize * player.areaSizeMultiplier`, after support changes) into
-   the VFX Graph. The graph multiplies its particles by that value and by
-   `SizeNormalizationCoefficient` so visual size and logical hitbox size stay
-   in sync.
-
-`SizeNormalizationCoefficient` belongs in the VFX Graph asset, not on the
-`BasicAoePrefab` or `LingeringAoePrefab` component. The prefab component holds
-visual and collision structure; per-graph size calibration is authoring data
-that lives inside the graph itself.
+   the VFX Graph. The graph scales its particles by that value. Any size
+   normalization coefficient needed to match authored particle size to the
+   logical hitbox radius is baked directly into the VFX Graph asset.
 
 ### Render Layering
 
@@ -232,9 +219,8 @@ All four fields are optional and live on the AOE template prefab's
 `BasicAoePrefab`, beside the required `Hurtbox` reference and optional `Visual`
 debug sprite reference.
 
-Each assigned AOE VFX Graph asset must also expose `AreaSize` and
-`SizeNormalizationCoefficient` so the runtime can scale particle size to match
-the gameplay AOE area size. See
+Each assigned AOE VFX Graph asset must also expose `AreaSize` so the runtime
+can scale particle size to match the gameplay AOE area size. See
 [AOE VFX size normalization](#aoe-vfx-size-normalization).
 `AoeConfig.CreateTypeDefinition` forwards them into the registered
 `AoeTypeDefinition`; `pulseEffect` is forwarded only when

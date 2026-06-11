@@ -228,8 +228,7 @@ nothing to behavior.
 ```
 AoeDefinition
  ├─ prefab:    BasicAoePrefab   ← sprite, material, hitbox collider, particle effects
- └─ behavior:  baseAreaSize, damage, count, spawnAtAimPosition,
-               directDamageEnabled
+ └─ behavior:  baseAreaSize, damage, count, directDamageEnabled
 ```
 
 Regular AOE content compiles as pulse AOE. It does not expose lifetime or tick
@@ -241,7 +240,7 @@ interval, and the runtime receives `0` for both timing fields.
 LingeringAoeDefinition
  ├─ prefab:    LingeringAoePrefab ← sprite, material, hitbox collider, particle effects
  └─ behavior:  baseAreaSize, damage, lifetimeSeconds, tickIntervalSeconds,
-               count, spawnAtAimPosition, directDamageEnabled
+               count, directDamageEnabled
 ```
 
 ---

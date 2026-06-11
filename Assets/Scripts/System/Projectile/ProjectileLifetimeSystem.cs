@@ -60,6 +60,7 @@ namespace PlayGround.System.Projectile
                 ref ProjectileLifetimeComponent lifetime,
                 in ProjectileIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
+                in CombatRenderComponent render,
                 EnabledRefRW<ProjectileActiveTag> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive)
             {
@@ -81,7 +82,8 @@ namespace PlayGround.System.Projectile
                         Scope = identity.Scope,
                         TypeId = identity.TypeId,
                         Trigger = 2,
-                        Position = kinematics.Position
+                        Position = kinematics.Position,
+                        AreaSize = math.max(render.VisualScale.x, render.VisualScale.y)
                     });
                 }
             }
