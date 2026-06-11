@@ -21,8 +21,6 @@ namespace PlayGround.System.Aoe
         private static readonly ProfilerMarker DrainHitsMarker = new("AoeRoot.DrainHits");
 
         [SerializeField] private int targetMask = 1;
-        [SerializeField, Min(0)] private int maximumAoeCount = 10000;
-        [SerializeField, Min(0)] private int maximumTargetCount = 100;
         [SerializeField] private bool spawnVisuals = true;
         [SerializeField, Tooltip("Half-extent used for the batch world bounds. Increase to avoid GPU culling; decrease for tighter culling.")]
         [Min(0f)]
@@ -222,11 +220,6 @@ namespace PlayGround.System.Aoe
 
             DynamicBuffer<AoeSpawnRequestElement> spawnRequests =
                 entityManager.GetBuffer<AoeSpawnRequestElement>(scopeEntity);
-            if (maximumAoeCount <= 0 || spawnRequests.Length >= maximumAoeCount)
-            {
-                return 0;
-            }
-
             int aoeId = ++nextAoeId;
             spawnRequests.Add(SpawnRequestFor(command, aoeId));
             spawnedAoes++;
@@ -431,7 +424,7 @@ namespace PlayGround.System.Aoe
         private void SyncTargetsToEcs()
         {
             DynamicBuffer<CombatTargetElement> targetBuffer = entityManager.GetBuffer<CombatTargetElement>(scopeEntity);
-            targetSync.SyncToBuffer(targetBuffer, maxCount: maximumTargetCount);
+            targetSync.SyncToBuffer(targetBuffer);
         }
 
         private int ActiveAoeCount()
