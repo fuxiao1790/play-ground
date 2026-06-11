@@ -289,7 +289,7 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
             int hitCount = 0;
-            projectileRoot.ProjectileHit += (in ProjectileHitContext _, in ProjectileHitPayload _2) => hitCount++;
+            projectileRoot.ProjectileHit += (in ProjectileHitContext _, in CombatHitPayloadElement _2) => hitCount++;
 
             var command = new ProjectileSpawnCommand(
                 Vector2.zero,
@@ -366,7 +366,7 @@ namespace PlayGround.Tests.PlayMode
             mob.Register(projectileRoot.TargetRegistry);
             mob.Register(aoeRoot.TargetRegistry);
             bool spawnedProjectileCarriedImpactAoe = true;
-            projectileRoot.ProjectileHit += (in ProjectileHitContext context, in ProjectileHitPayload payload) =>
+            projectileRoot.ProjectileHit += (in ProjectileHitContext context, in CombatHitPayloadElement payload) =>
             {
                 spawnedProjectileCarriedImpactAoe = payload.ImpactAoe.Enabled;
             };
@@ -530,10 +530,10 @@ namespace PlayGround.Tests.PlayMode
             mob.Register(projectileRoot.TargetRegistry);
             GameObject sourceObject = new("ProjectileSource");
             EntityId sourceNodeId = sourceObject.GetEntityId();
-            ProjectileHitPayload replayedPayload = default;
-            projectileRoot.ProjectileHit += (in ProjectileHitContext context, in ProjectileHitPayload payload) =>
+            EntityId replayedSourceNodeId = default;
+            projectileRoot.ProjectileHit += (in ProjectileHitContext context, in CombatHitPayloadElement payload) =>
             {
-                replayedPayload = payload;
+                replayedSourceNodeId = context.SourceNodeId;
             };
 
             var command = new ProjectileSpawnCommand(
@@ -551,7 +551,7 @@ namespace PlayGround.Tests.PlayMode
             projectileRoot.Spawn(command);
             yield return null;
 
-            Assert.That(replayedPayload.SourceNodeId, Is.EqualTo(sourceNodeId));
+            Assert.That(replayedSourceNodeId, Is.EqualTo(sourceNodeId));
             Assert.That(mob.CurrentHealth, Is.EqualTo(8f));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);

@@ -45,7 +45,8 @@ namespace PlayGround.System.Projectile
             int targetId,
             Vector2 position,
             DamageSnapshot damage,
-            IProjectileTarget target = null)
+            IProjectileTarget target = null,
+            EntityId sourceNodeId = default)
         {
             ProjectileId = projectileId;
             ProjectileTypeId = projectileTypeId;
@@ -53,6 +54,7 @@ namespace PlayGround.System.Projectile
             Position = position;
             Damage = damage;
             Target = target;
+            SourceNodeId = sourceNodeId;
         }
 
         public int ProjectileId { get; }
@@ -61,6 +63,7 @@ namespace PlayGround.System.Projectile
         public Vector2 Position { get; }
         public DamageSnapshot Damage { get; }
         public IProjectileTarget Target { get; }
+        public EntityId SourceNodeId { get; }
     }
 
     public readonly struct ProjectileRuntimeCounters

@@ -75,13 +75,13 @@ namespace PlayGround.Game
             mobAoeRoot = null;
         }
 
-        private void OnPlayerProjectileHit(in ProjectileHitContext context, in ProjectileHitPayload payload)
+        private void OnPlayerProjectileHit(in ProjectileHitContext context, in CombatHitPayloadElement payload)
         {
             SpawnImpactAoe(context, in payload, playerAoeRoot);
             SpawnImpactProjectiles(context, in payload, playerProjectileRoot);
         }
 
-        private void OnMobProjectileHit(in ProjectileHitContext context, in ProjectileHitPayload payload)
+        private void OnMobProjectileHit(in ProjectileHitContext context, in CombatHitPayloadElement payload)
         {
             SpawnImpactAoe(context, in payload, mobAoeRoot);
             SpawnImpactProjectiles(context, in payload, mobProjectileRoot);
@@ -97,7 +97,7 @@ namespace PlayGround.Game
             SpawnProjectileBurst(context, mobProjectileRoot);
         }
 
-        private static void SpawnImpactAoe(in ProjectileHitContext context, in ProjectileHitPayload payload, AoeRoot destination)
+        private static void SpawnImpactAoe(in ProjectileHitContext context, in CombatHitPayloadElement payload, AoeRoot destination)
         {
             ProjectileImpactAoeSnapshot impact = payload.ImpactAoe;
             if (destination == null || !impact.Enabled)
@@ -118,7 +118,7 @@ namespace PlayGround.Game
                 critMultiplier: impact.CritMultiplier));
         }
 
-        private static void SpawnImpactProjectiles(in ProjectileHitContext context, in ProjectileHitPayload payload, ProjectileRoot destination)
+        private static void SpawnImpactProjectiles(in ProjectileHitContext context, in CombatHitPayloadElement payload, ProjectileRoot destination)
         {
             ProjectileImpactProjectileSnapshot burst = payload.ImpactProjectile;
             if (destination == null || !burst.Enabled)

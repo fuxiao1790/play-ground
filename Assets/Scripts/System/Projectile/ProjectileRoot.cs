@@ -51,7 +51,7 @@ namespace PlayGround.System.Projectile
         private bool ecsWorldAcquired;
         private bool ecsHandlesCreated;
 
-        public delegate void ProjectileHitHandler(in ProjectileHitContext context, in ProjectileHitPayload payload);
+        public delegate void ProjectileHitHandler(in ProjectileHitContext context, in CombatHitPayloadElement payload);
 
         public event ProjectileHitHandler ProjectileHit;
 
@@ -434,32 +434,25 @@ namespace PlayGround.System.Projectile
 
             public void Replay(in CombatHitElement hit, in CombatHitPayloadElement payload, IProjectileTarget target, in DamageSnapshot damage)
             {
+                var position = new Vector2(hit.Position.x, hit.Position.y);
                 if (HitHandler != null)
                 {
-                    var hitPayload = new ProjectileHitPayload(
-                        hit.SourceNodeId,
-                        hit.DamageAmount,
-                        hit.DirectDamageEnabled,
-                        payload.ImpactAoe,
-                        payload.StackEffect,
-                        payload.ImpactProjectile,
-                        hit.CritChance,
-                        hit.CritMultiplier);
                     var context = new ProjectileHitContext(
                         hit.SourceId,
                         hit.TypeId,
                         hit.TargetId,
-                        new Vector2(hit.Position.x, hit.Position.y),
+                        position,
                         damage,
-                        target);
-                    HitHandler.Invoke(in context, in hitPayload);
+                        target,
+                        hit.SourceNodeId);
+                    HitHandler.Invoke(in context, in payload);
                 }
                 target?.ReceiveHit(new CombatHitData(
                     CombatHitKind.Projectile,
                     damage,
-                    new Vector2(hit.Position.x, hit.Position.y),
+                    position,
                     hit.DirectDamageEnabled,
-                    payload.StackEffect));
+                    payload.StackEffect.Enabled ? payload.StackEffect : default));
             }
         }
 
