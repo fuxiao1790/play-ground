@@ -226,6 +226,102 @@ When entities need frequent state changes every frame:
 - AOE counters track active, spawned, despawned/reused, hit events, active
   visuals, and render batches.
 
+### Known Design Issues: Presentation Bridge
+
+Current projectile and AOE roots use `LateUpdate()` to pull ECS buffers for
+batched render submission, VFX buffer upload/dispatch, and hit-event replay.
+This is a temporary bridge, not the desired ownership model.
+
+Problems:
+
+- ECS simulation and MonoBehaviour lifecycle are coupled too tightly.
+- Root scripts need repeated runtime/lifecycle guards because presentation work
+  is driven by Unity object callbacks instead of an explicit combat phase.
+- Projectile and AOE roots duplicate the same bridge pattern for target sync,
+  VFX drain, hit replay, render submission, and teardown checks.
+- Presentation work is ordered by scene-object callback timing, which is harder
+  to reason about than an ECS-owned post-simulation/presentation phase.
+- VFX request buffers are ECS data, but GPU staging and dispatch are owned by
+  root `LateUpdate()` code, so buffer lifetime and root lifetime stay tangled.
+
+Target direction:
+
+- Keep ECS as the owner of scalable simulation state, event buffers, recycle
+  buffers, and render/VFX request data.
+- Move post-simulation draining into a single explicit combat presentation phase
+  after projectile/AOE simulation and render-matrix preparation.
+- Keep MonoBehaviours as authoring/lifetime owners only: they register
+  resources, target registries, materials, VFX graph assets, and callback sinks.
+- Avoid per-root `LateUpdate()` polling for ECS buffers. Roots may expose narrow
+  presentation endpoints, but they should not decide when ECS data is drained.
+- Centralize lifecycle checks at bind/unbind of the presentation bridge instead
+  of repeating them in every per-frame root callback.
+- Keep GPU resource ownership explicit: whoever creates `GraphicsBuffer`,
+  `Material`, `Mesh`, `EntityQuery`, or persistent native containers must also
+  release them on the matching teardown path.
+
+Open design questions:
+
+- Whether combat presentation should be one managed ECS system, a shared
+  `CombatPresentationRoot`, or a small service owned by `GameRoot`.
+- Whether projectile and AOE render submission should share one grouped submit
+  path keyed by scope/type instead of per-domain root loops.
+- How VFX graph resources should be registered so ECS can batch request data
+  without knowing about Unity scene objects.
+
+### Known Design Issues: Collision Event Dispatch
+
+Current projectile and AOE collision systems emit one replayable hit event for
+each hit. That means the MonoBehaviour-side replay cost grows with projectile
+and AOE collision count. This is the wrong scale boundary for plain damage:
+projectile and AOE counts can be huge, while player/mob target count is expected
+to stay comparatively small.
+
+Problems:
+
+- Plain damage application is dispatched as `O(hit events)`, which can approach
+  `O(projectiles + AOEs)` in dense frames.
+- The low-count target side should receive compact per-target results, not one
+  callback per projectile/AOE contact when no per-hit gameplay side effect is
+  needed.
+- Direct damage, crit rolling, and some stack/gate bookkeeping are still replay
+  responsibilities on the MonoBehaviour side.
+- The same event stream carries two different meanings: high-volume damage
+  accumulation and lower-volume semantic side effects such as impact AOE,
+  projectile burst, or stack-triggered follow-up gameplay.
+
+Target direction:
+
+- Move damage accumulation into ECS before crossing back to scene objects.
+- Aggregate direct damage by target id and scope, so the boundary cost is closer
+  to `O(hit targets)` for plain damage.
+- Keep per-hit replay events only for effects that truly require per-hit
+  semantics, such as impact AOEs, impact projectile bursts, unique source-node
+  callbacks, or stack-trigger behavior that cannot yet be aggregated.
+- Split buffers by meaning:
+  - damage aggregates for direct health changes
+  - side-effect hit events for follow-up gameplay
+  - VFX spawn requests for visual-only work
+- Prefer ECS-side deterministic random state for crit rolls if crit results are
+  aggregated before replay. Do not depend on `UnityEngine.Random` inside a large
+  Mono replay loop.
+- If stack effects become high-volume, mirror enough target status state into
+  ECS to aggregate stack increments and threshold triggers by target instead of
+  replaying every stack application through MonoBehaviours.
+- Preserve the hybrid boundary: final health/status mutation can still be
+  applied to low-count actor roots, but the data crossing that boundary should
+  already be compact.
+
+Acceptance shape:
+
+- A frame with many plain projectile/AOE hits against a small mob set should
+  produce at most one direct-damage application per target per combat scope,
+  plus only the side-effect events that are actually authored.
+- Projectile and AOE collision systems should not require MonoBehaviour replay
+  to know whether plain damage occurred.
+- Debug counters should distinguish raw collision hits, aggregated damage
+  applications, side-effect replay events, and VFX requests.
+
 ---
 
 ## Frame Timing for Structural Changes
