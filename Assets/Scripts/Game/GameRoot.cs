@@ -1,4 +1,6 @@
+using PlayGround.CameraSystem;
 using PlayGround.Common;
+using PlayGround.Level;
 using PlayGround.Mob;
 using PlayGround.Spawn;
 using PlayGround.System.Aoe;
@@ -16,6 +18,8 @@ namespace PlayGround.Game
         [SerializeField] private MobSpawnerRoot mobSpawner;
         [SerializeField] private MobRoot[] mobs;
         [SerializeField] private PlayGround.Player.PlayerRoot player;
+        [SerializeField] private GameplayCamera gameplayCamera;
+        [SerializeField] private PlayAreaRoot playArea;
 
         private readonly CombatSpawnRouter combatSpawnRouter = new();
 
@@ -107,6 +111,25 @@ namespace PlayGround.Game
             }
 
             combatSpawnRouter.Bind(playerProjectileRoot, mobProjectileRoot, playerAoeRoot, mobAoeRoot);
+
+            if (gameplayCamera == null)
+            {
+                gameplayCamera = FindAnyObjectByType<GameplayCamera>();
+            }
+
+            if (playArea == null)
+            {
+                playArea = FindAnyObjectByType<PlayAreaRoot>();
+            }
+
+            if (gameplayCamera != null && player != null && playArea != null)
+            {
+                gameplayCamera.Configure(player.transform, playArea.Bounds);
+            }
+            else if (gameplayCamera != null && player != null)
+            {
+                gameplayCamera.Configure(player.transform);
+            }
         }
 
         private void Start()

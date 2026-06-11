@@ -165,7 +165,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Spawn.SpawnPoint
   pool: {fileID: 11400000, guid: c94cb476bf2e4f7eb5eac39a27169b76, type: 2}
   config: {fileID: 0}
-  spawnInterval: 0.3
+  spawnInterval: 0.1
   autostart: 1
   spawnRadius: 30
   spawnOrigin: {x: 0, y: 0}
@@ -218,7 +218,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Spawn.SpawnPoint
   pool: {fileID: 11400000, guid: c94cb476bf2e4f7eb5eac39a27169b76, type: 2}
   config: {fileID: 0}
-  spawnInterval: 0.3
+  spawnInterval: 0.1
   autostart: 1
   spawnRadius: 30
   spawnOrigin: {x: 0, y: 0}
@@ -377,7 +377,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Spawn.SpawnPoint
   pool: {fileID: 11400000, guid: c94cb476bf2e4f7eb5eac39a27169b76, type: 2}
   config: {fileID: 0}
-  spawnInterval: 0.3
+  spawnInterval: 0.1
   autostart: 1
   spawnRadius: 30
   spawnOrigin: {x: 0, y: 0}
@@ -563,6 +563,8 @@ MonoBehaviour:
   mobSpawner: {fileID: 2000001003}
   mobs: []
   player: {fileID: 0}
+  gameplayCamera: {fileID: 0}
+  playArea: {fileID: 0}
 --- !u!4 &912359185
 Transform:
   m_ObjectHideFlags: 0
@@ -675,7 +677,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Spawn.SpawnPoint
   pool: {fileID: 11400000, guid: c94cb476bf2e4f7eb5eac39a27169b76, type: 2}
   config: {fileID: 0}
-  spawnInterval: 0.3
+  spawnInterval: 0.1
   autostart: 1
   spawnRadius: 30
   spawnOrigin: {x: 0, y: 0}
@@ -728,7 +730,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Spawn.SpawnPoint
   pool: {fileID: 11400000, guid: c94cb476bf2e4f7eb5eac39a27169b76, type: 2}
   config: {fileID: 0}
-  spawnInterval: 0.3
+  spawnInterval: 0.1
   autostart: 1
   spawnRadius: 30
   spawnOrigin: {x: 0, y: 0}
@@ -1181,7 +1183,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Spawn.SpawnPoint
   pool: {fileID: 11400000, guid: c94cb476bf2e4f7eb5eac39a27169b76, type: 2}
   config: {fileID: 0}
-  spawnInterval: 0.3
+  spawnInterval: 0.1
   autostart: 1
   spawnRadius: 30
   spawnOrigin: {x: 0, y: 0}
@@ -1234,7 +1236,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Spawn.SpawnPoint
   pool: {fileID: 11400000, guid: c94cb476bf2e4f7eb5eac39a27169b76, type: 2}
   config: {fileID: 0}
-  spawnInterval: 0.3
+  spawnInterval: 0.1
   autostart: 1
   spawnRadius: 30
   spawnOrigin: {x: 0, y: 0}
@@ -1287,7 +1289,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Spawn.SpawnPoint
   pool: {fileID: 11400000, guid: c94cb476bf2e4f7eb5eac39a27169b76, type: 2}
   config: {fileID: 0}
-  spawnInterval: 0.3
+  spawnInterval: 0.1
   autostart: 1
   spawnRadius: 30
   spawnOrigin: {x: 0, y: 0}
@@ -1389,7 +1391,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Spawn.SpawnPoint
   pool: {fileID: 11400000, guid: c94cb476bf2e4f7eb5eac39a27169b76, type: 2}
   config: {fileID: 0}
-  spawnInterval: 0.3
+  spawnInterval: 0.1
   autostart: 1
   spawnRadius: 30
   spawnOrigin: {x: 0, y: 0}

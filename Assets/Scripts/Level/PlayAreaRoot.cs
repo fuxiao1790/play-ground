@@ -14,6 +14,8 @@ namespace PlayGround.Level
             gameObject.layer = environmentLayer;
         }
 
+        public Rect Bounds => new(-size.x * 0.5f, -size.y * 0.5f, size.x, size.y);
+
         public void Configure(Vector2 arenaSize, float thickness)
         {
             size = arenaSize;
