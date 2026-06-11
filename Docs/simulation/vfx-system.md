@@ -83,7 +83,7 @@ VFX graphs are authored at an arbitrary native particle size. To align particle
 visuals with the gameplay hitbox at runtime:
 
 1. Each AOE VFX Graph asset must expose a `GraphicsBuffer` property named
-   `"AreaSizes"` that carries one `float` area size per spawn event.
+   `"AreaSize"` that carries one `float` area size per spawn event.
 
 2. Each AOE VFX Graph asset must expose a `float` property named
    `"SizeNormalizationCoefficient"` that converts the graph's native authored
@@ -232,7 +232,7 @@ All four fields are optional and live on the AOE template prefab's
 `BasicAoePrefab`, beside the required `Hurtbox` reference and optional `Visual`
 debug sprite reference.
 
-Each assigned AOE VFX Graph asset must also expose `AreaSizes` and
+Each assigned AOE VFX Graph asset must also expose `AreaSize` and
 `SizeNormalizationCoefficient` so the runtime can scale particle size to match
 the gameplay AOE area size. See
 [AOE VFX size normalization](#aoe-vfx-size-normalization).

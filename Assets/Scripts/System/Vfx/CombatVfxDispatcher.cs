@@ -14,7 +14,6 @@ namespace PlayGround.System.Vfx
         public NativeList<float2> Staging;
         public NativeList<float> AreaSizeStaging;
         public int MaxPerFrame;
-        public bool UsesAreaSizes;
 
         public void Dispose()
         {
@@ -42,7 +41,7 @@ namespace PlayGround.System.Vfx
     public sealed class CombatVfxDispatcher : global::System.IDisposable
     {
         private const string PositionsPropertyName = "Positions";
-        private const string AreaSizesPropertyName = "AreaSizes";
+        private const string AreaSizePropertyName = "AreaSize";
         private const string SpawnCountPropertyName = "SpawnCount";
         private const string SizeNormalizationCoefficientPropertyName = "SizeNormalizationCoefficient";
         private const string SpawnEventName = "OnSpawn";
@@ -97,21 +96,17 @@ namespace PlayGround.System.Vfx
                 {
                     MaxPerFrame = maxPerFrame,
                     Instance = vfx,
-                    UsesAreaSizes = requireAreaSizeContract
                 };
                 res.PositionBuffer = new GraphicsBuffer(
                     GraphicsBuffer.Target.Structured,
                     maxPerFrame,
                     sizeof(float) * 2);
                 res.Staging = new NativeList<float2>(maxPerFrame, Allocator.Persistent);
-                if (requireAreaSizeContract)
-                {
-                    res.AreaSizeBuffer = new GraphicsBuffer(
-                        GraphicsBuffer.Target.Structured,
-                        maxPerFrame,
-                        sizeof(float));
-                    res.AreaSizeStaging = new NativeList<float>(maxPerFrame, Allocator.Persistent);
-                }
+                res.AreaSizeBuffer = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Structured,
+                    maxPerFrame,
+                    sizeof(float));
+                res.AreaSizeStaging = new NativeList<float>(maxPerFrame, Allocator.Persistent);
 
                 resources[key] = res;
                 LiveResources.Add(res);
@@ -164,10 +159,7 @@ namespace PlayGround.System.Vfx
             if (res.Staging.Length < res.MaxPerFrame)
             {
                 res.Staging.Add(position);
-                if (res.UsesAreaSizes)
-                {
-                    res.AreaSizeStaging.Add(math.max(0.01f, areaSize));
-                }
+                res.AreaSizeStaging.Add(math.max(0.01f, areaSize));
             }
         }
 
@@ -185,19 +177,13 @@ namespace PlayGround.System.Vfx
                 res.Instance.transform.position = worldPosition;
                 res.PositionBuffer.SetData(res.Staging.AsArray(), 0, 0, res.Staging.Length);
                 res.Instance.SetGraphicsBuffer(PositionsPropertyName, res.PositionBuffer);
-                if (res.UsesAreaSizes)
-                {
-                    res.AreaSizeBuffer.SetData(res.AreaSizeStaging.AsArray(), 0, 0, res.AreaSizeStaging.Length);
-                    res.Instance.SetGraphicsBuffer(AreaSizesPropertyName, res.AreaSizeBuffer);
-                }
+                res.AreaSizeBuffer.SetData(res.AreaSizeStaging.AsArray(), 0, 0, res.AreaSizeStaging.Length);
+                res.Instance.SetGraphicsBuffer(AreaSizePropertyName, res.AreaSizeBuffer);
                 res.Instance.SetInt(SpawnCountPropertyName, res.Staging.Length);
                 res.Instance.SendEvent(SpawnEventName);
 
                 res.Staging.Clear();
-                if (res.UsesAreaSizes)
-                {
-                    res.AreaSizeStaging.Clear();
-                }
+                res.AreaSizeStaging.Clear();
             }
         }
 
@@ -216,11 +202,11 @@ namespace PlayGround.System.Vfx
             }
 
             if (requireAreaSizeContract
-                && (!vfx.HasGraphicsBuffer(AreaSizesPropertyName)
+                && (!vfx.HasGraphicsBuffer(AreaSizePropertyName)
                     || !vfx.HasFloat(SizeNormalizationCoefficientPropertyName)))
             {
                 reason = $"{nameof(CombatVfxDispatcher)} cannot register AOE VFX asset '{asset.name}'. "
-                    + $"Graph must expose GraphicsBuffer '{AreaSizesPropertyName}' and float "
+                    + $"Graph must expose GraphicsBuffer '{AreaSizePropertyName}' and float "
                     + $"'{SizeNormalizationCoefficientPropertyName}'.";
                 return false;
             }

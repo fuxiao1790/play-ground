@@ -10,7 +10,7 @@ namespace PlayGround.System.Vfx
     public sealed class CombatVfxPreviewDriver : MonoBehaviour
     {
         private const string PositionsPropertyName = "Positions";
-        private const string AreaSizesPropertyName = "AreaSizes";
+        private const string AreaSizePropertyName = "AreaSize";
         private const string SpawnCountPropertyName = "SpawnCount";
         private const string SpawnEventName = "OnSpawn";
 
@@ -19,7 +19,7 @@ namespace PlayGround.System.Vfx
         [SerializeField, Min(0.02f)] private float intervalSeconds = 0.5f;
         [SerializeField] private bool emitOnEnable = true;
         [SerializeField] private bool emitContinuously = true;
-        [SerializeField] private bool provideAreaSizes;
+        [SerializeField] private bool provideAreaSize;
         [SerializeField, Min(0.01f)] private float areaSize = 1f;
         [SerializeField] private PreviewPattern pattern = PreviewPattern.Point;
         [SerializeField] private Vector2 centerOffset;
@@ -29,7 +29,7 @@ namespace PlayGround.System.Vfx
 
         private VisualEffect visualEffect;
         private GraphicsBuffer positionsBuffer;
-        private GraphicsBuffer areaSizesBuffer;
+        private GraphicsBuffer areaSizeBuffer;
         private Vector2[] positions;
         private float[] areaSizes;
         private double nextEmitTime;
@@ -117,11 +117,11 @@ namespace PlayGround.System.Vfx
             positionsBuffer.SetData(positions, 0, 0, count);
             visualEffect.SetGraphicsBuffer(PositionsPropertyName, positionsBuffer);
 
-            if (provideAreaSizes)
+            if (provideAreaSize)
             {
-                FillAreaSizes(count);
-                areaSizesBuffer.SetData(areaSizes, 0, 0, count);
-                visualEffect.SetGraphicsBuffer(AreaSizesPropertyName, areaSizesBuffer);
+                FillAreaSize(count);
+                areaSizeBuffer.SetData(areaSizes, 0, 0, count);
+                visualEffect.SetGraphicsBuffer(AreaSizePropertyName, areaSizeBuffer);
             }
 
             visualEffect.SetInt(SpawnCountPropertyName, count);
@@ -140,9 +140,9 @@ namespace PlayGround.System.Vfx
         {
             int capacity = Mathf.Max(1, bufferCapacity);
             bool positionsReady = positionsBuffer != null && positionsBuffer.count == capacity;
-            bool areaSizesReady = provideAreaSizes
-                ? areaSizesBuffer != null && areaSizesBuffer.count == capacity
-                : areaSizesBuffer == null;
+            bool areaSizesReady = provideAreaSize
+                ? areaSizeBuffer != null && areaSizeBuffer.count == capacity
+                : areaSizeBuffer == null;
             if (positionsReady && areaSizesReady)
             {
                 return;
@@ -155,10 +155,10 @@ namespace PlayGround.System.Vfx
                 capacity,
                 sizeof(float) * 2);
 
-            if (provideAreaSizes)
+            if (provideAreaSize)
             {
                 areaSizes = new float[capacity];
-                areaSizesBuffer = new GraphicsBuffer(
+                areaSizeBuffer = new GraphicsBuffer(
                     GraphicsBuffer.Target.Structured,
                     capacity,
                     sizeof(float));
@@ -169,8 +169,8 @@ namespace PlayGround.System.Vfx
         {
             positionsBuffer?.Release();
             positionsBuffer = null;
-            areaSizesBuffer?.Release();
-            areaSizesBuffer = null;
+            areaSizeBuffer?.Release();
+            areaSizeBuffer = null;
             positions = null;
             areaSizes = null;
         }
@@ -179,8 +179,8 @@ namespace PlayGround.System.Vfx
         {
             bool hasPositions = visualEffect.HasGraphicsBuffer(PositionsPropertyName);
             bool hasSpawnCount = visualEffect.HasInt(SpawnCountPropertyName);
-            bool hasAreaSizes = !provideAreaSizes || visualEffect.HasGraphicsBuffer(AreaSizesPropertyName);
-            if (hasPositions && hasSpawnCount && hasAreaSizes)
+            bool hasAreaSize = !provideAreaSize || visualEffect.HasGraphicsBuffer(AreaSizePropertyName);
+            if (hasPositions && hasSpawnCount && hasAreaSize)
             {
                 missingContractLogged = false;
                 return true;
@@ -188,7 +188,7 @@ namespace PlayGround.System.Vfx
 
             if (!missingContractLogged)
             {
-                string missingProperties = MissingPropertiesMessage(hasPositions, hasSpawnCount, hasAreaSizes);
+                string missingProperties = MissingPropertiesMessage(hasPositions, hasSpawnCount, hasAreaSize);
                 Debug.LogError(
                     $"{nameof(CombatVfxPreviewDriver)} on {name} cannot preview this VFX graph. "
                     + $"Missing exposed properties: {missingProperties}. "
@@ -200,12 +200,12 @@ namespace PlayGround.System.Vfx
             return false;
         }
 
-        private static string MissingPropertiesMessage(bool hasPositions, bool hasSpawnCount, bool hasAreaSizes)
+        private static string MissingPropertiesMessage(bool hasPositions, bool hasSpawnCount, bool hasAreaSize)
         {
             StringBuilder builder = new();
             AppendMissing(builder, hasPositions, $"GraphicsBuffer '{PositionsPropertyName}'");
             AppendMissing(builder, hasSpawnCount, $"int '{SpawnCountPropertyName}'");
-            AppendMissing(builder, hasAreaSizes, $"GraphicsBuffer '{AreaSizesPropertyName}'");
+            AppendMissing(builder, hasAreaSize, $"GraphicsBuffer '{AreaSizePropertyName}'");
             return builder.ToString();
         }
 
@@ -304,7 +304,7 @@ namespace PlayGround.System.Vfx
             }
         }
 
-        private void FillAreaSizes(int count)
+        private void FillAreaSize(int count)
         {
             float safeAreaSize = Mathf.Max(0.01f, areaSize);
             for (int i = 0; i < count; i++)
