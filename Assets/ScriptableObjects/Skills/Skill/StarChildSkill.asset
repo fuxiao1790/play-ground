@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileSkill
   definition:
     prefab: {fileID: 1001001001001001004, guid: f2bf0b25f990d4343824efe48ae5c034, type: 3}
-    speed: 16
+    speed: 30
     lifetime: 1.5
     damage: 10
     count: 1

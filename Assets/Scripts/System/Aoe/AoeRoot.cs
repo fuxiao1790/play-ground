@@ -17,6 +17,8 @@ namespace PlayGround.System.Aoe
         private const int MaxVfxPerFrame = 2048;
         private const float AoeRenderZ = 0.5f;
         private static readonly ProfilerMarker SubmitAoesMarker = new("AoeRoot.SubmitAoes");
+        private static readonly ProfilerMarker DrainVfxMarker = new("AoeRoot.DrainVfxRequests");
+        private static readonly ProfilerMarker DrainHitsMarker = new("AoeRoot.DrainHits");
 
         [SerializeField] private int targetMask = 1;
         [SerializeField, Min(0)] private int maximumAoeCount = 10000;
@@ -95,7 +97,15 @@ namespace PlayGround.System.Aoe
                 SubmitAoes();
             }
 
-            DrainEvents();
+            using (DrainVfxMarker.Auto())
+            {
+                DrainVfxRequests();
+            }
+
+            using (DrainHitsMarker.Auto())
+            {
+                DrainHits();
+            }
         }
 
         private void OnDestroy()
@@ -260,22 +270,8 @@ namespace PlayGround.System.Aoe
             };
         }
 
-        private void DrainEvents()
+        private void DrainVfxRequests()
         {
-            DynamicBuffer<CombatHitElement> hitBuffer = entityManager.GetBuffer<CombatHitElement>(scopeEntity);
-            DynamicBuffer<CombatHitPayloadElement> payloadBuffer = entityManager.GetBuffer<CombatHitPayloadElement>(scopeEntity);
-            DynamicBuffer<AoeRecycleElement> recycleBuffer = entityManager.GetBuffer<AoeRecycleElement>(scopeEntity);
-            int hitCount = hitBuffer.Length;
-            hitEvents += hitCount;
-            despawnedAoes += recycleBuffer.Length;
-
-            var adapter = new AoeHitReplayAdapter { HitHandler = AoeHit };
-            CombatHitReplay.ReplayAndClear<IAoeTarget, AoeHitReplayAdapter>(
-                hitBuffer,
-                payloadBuffer,
-                targetSync.TargetsById,
-                ref adapter);
-
             DynamicBuffer<VfxSpawnRequestElement> vfxBuffer =
                 entityManager.GetBuffer<VfxSpawnRequestElement>(scopeEntity);
             for (int i = 0; i < vfxBuffer.Length; i++)
@@ -285,6 +281,22 @@ namespace PlayGround.System.Aoe
             }
             vfxBuffer.Clear();
             vfxDispatcher.Dispatch();
+        }
+
+        private void DrainHits()
+        {
+            DynamicBuffer<CombatHitElement> hitBuffer = entityManager.GetBuffer<CombatHitElement>(scopeEntity);
+            DynamicBuffer<CombatHitPayloadElement> payloadBuffer = entityManager.GetBuffer<CombatHitPayloadElement>(scopeEntity);
+            DynamicBuffer<AoeRecycleElement> recycleBuffer = entityManager.GetBuffer<AoeRecycleElement>(scopeEntity);
+            hitEvents += hitBuffer.Length;
+            despawnedAoes += recycleBuffer.Length;
+
+            var adapter = new AoeHitReplayAdapter { HitHandler = AoeHit };
+            CombatHitReplay.ReplayAndClear<IAoeTarget, AoeHitReplayAdapter>(
+                hitBuffer,
+                payloadBuffer,
+                targetSync.TargetsById,
+                ref adapter);
         }
 
         private struct AoeHitReplayAdapter : ICombatHitReplayAdapter<IAoeTarget>
@@ -480,14 +492,14 @@ namespace PlayGround.System.Aoe
 
         private void SubmitAoes()
         {
+            entityManager.CompleteDependencyBeforeRO<AoeActiveTag>();
+            entityManager.CompleteDependencyBeforeRO<CombatRenderElement>();
             activeVisuals = 0;
             renderBatches = 0;
             if (!spawnVisuals || renderResourcesByType.Count == 0 || submitQuery == null || !submitBuffer.IsCreated)
             {
                 return;
             }
-
-            entityManager.CompleteDependencyBeforeRO<CombatRenderElement>();
             DynamicBuffer<AoeRecycleElement> recycleBuffer = entityManager.GetBuffer<AoeRecycleElement>(scopeEntity);
             SubmitRecycledPulseAoes(recycleBuffer);
             SubmitActiveAoes();

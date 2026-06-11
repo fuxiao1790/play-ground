@@ -18,6 +18,10 @@ namespace PlayGround.System.Aoe
     public partial class AoeSpawnSystem : SystemBase
     {
         private static readonly ProfilerMarker SpawnMarker = new("Aoe.Spawn");
+        private static readonly ProfilerCounterValue<int> SpawnColdCreateCounter =
+            new(ProfilerCategory.Scripts, "Aoe.Spawn.Cold", ProfilerMarkerDataUnit.Count);
+        private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
+            new(ProfilerCategory.Scripts, "Aoe.Spawn.Reuse", ProfilerMarkerDataUnit.Count);
 
         private readonly Dictionary<AoePoolKey, List<Entity>> inactiveByKey = new();
         private EntityArchetype archetype;
@@ -98,8 +102,11 @@ namespace PlayGround.System.Aoe
                     requests.Clear();
                 }
 
+                int reuseCount = reuseResets.Length;
                 createEcb.Playback(EntityManager);
                 ScheduleReuseResetJob(reuseResets);
+                SpawnReuseCounter.Value = reuseCount;
+                SpawnColdCreateCounter.Value = spawnRequestCount - reuseCount;
             }
         }
 

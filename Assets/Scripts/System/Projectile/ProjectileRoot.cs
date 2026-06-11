@@ -20,6 +20,8 @@ namespace PlayGround.System.Projectile
         private const float ProjectileZStep = 0.000001f;
         private const int ProjectileZSlots = 1_000_000;
         private static readonly ProfilerMarker SubmitProjectilesMarker = new("ProjectileRoot.SubmitProjectiles");
+        private static readonly ProfilerMarker DrainVfxMarker = new("ProjectileRoot.DrainVfxRequests");
+        private static readonly ProfilerMarker DrainHitsMarker = new("ProjectileRoot.DrainHits");
 
         [SerializeField] private Sprite projectileSprite;
         [SerializeField] private float visualScale = 1f;
@@ -94,10 +96,15 @@ namespace PlayGround.System.Projectile
                 SubmitProjectiles();
             }
 
-            entityManager.CompleteDependencyBeforeRO<ProjectileActiveTag>();
-            DrainVfxRequests();
-            vfxDispatcher.Dispatch();
-            DrainHits();
+            using (DrainVfxMarker.Auto())
+            {
+                DrainVfxRequests();
+            }
+
+            using (DrainHitsMarker.Auto())
+            {
+                DrainHits();
+            }
         }
 
         private void OnDestroy()
@@ -397,6 +404,7 @@ namespace PlayGround.System.Projectile
                 vfxDispatcher.StageSpawn(e.TypeId, e.Trigger, e.Position, e.AreaSize);
             }
             vfxBuffer.Clear();
+            vfxDispatcher.Dispatch();
         }
 
         private void DrainHits()
@@ -656,12 +664,12 @@ namespace PlayGround.System.Projectile
         // DO NOT loop over individual projectiles.
         private void SubmitProjectiles()
         {
+            entityManager.CompleteDependencyBeforeRO<ProjectileActiveTag>();
+            entityManager.CompleteDependencyBeforeRO<CombatRenderElement>();
             if (renderResourcesByType.Count == 0)
             {
                 return;
             }
-
-            entityManager.CompleteDependencyBeforeRO<CombatRenderElement>();
             foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in renderResourcesByType)
             {
                 submitQuery.SetSharedComponentFilter(

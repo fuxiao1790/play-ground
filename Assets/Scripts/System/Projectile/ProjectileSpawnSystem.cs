@@ -15,6 +15,10 @@ namespace PlayGround.System.Projectile
     public partial class ProjectileSpawnSystem : SystemBase
     {
         private static readonly ProfilerMarker SpawnMarker = new("Projectile.Spawn");
+        private static readonly ProfilerCounterValue<int> SpawnColdCreateCounter =
+            new(ProfilerCategory.Scripts, "Projectile.Spawn.Cold", ProfilerMarkerDataUnit.Count);
+        private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
+            new(ProfilerCategory.Scripts, "Projectile.Spawn.Reuse", ProfilerMarkerDataUnit.Count);
 
         private readonly Dictionary<ProjectilePoolKey, List<Entity>> inactiveByKey = new();
         private readonly Dictionary<ProjectileArchetypeKey, EntityArchetype> archetypesByKey = new();
@@ -51,11 +55,13 @@ namespace PlayGround.System.Projectile
             {
                 using var createEcb = new EntityCommandBuffer(Allocator.Temp);
                 var reuseResets = new NativeList<ProjectileReuseReset>(Allocator.TempJob);
+                int totalSpawnRequests = 0;
                 for (int i = 0; i < scopes.Length; i++)
                 {
                     Entity scope = scopes[i];
                     DynamicBuffer<ProjectileSpawnRequestElement> requests =
                         EntityManager.GetBuffer<ProjectileSpawnRequestElement>(scope);
+                    totalSpawnRequests += requests.Length;
                     for (int requestIndex = 0; requestIndex < requests.Length; requestIndex++)
                     {
                         Materialize(scope, requests[requestIndex], createEcb, ref reuseResets);
@@ -64,8 +70,11 @@ namespace PlayGround.System.Projectile
                     requests.Clear();
                 }
 
+                int reuseCount = reuseResets.Length;
                 createEcb.Playback(EntityManager);
                 ScheduleReuseResetJob(reuseResets);
+                SpawnReuseCounter.Value = reuseCount;
+                SpawnColdCreateCounter.Value = totalSpawnRequests - reuseCount;
             }
         }
 
