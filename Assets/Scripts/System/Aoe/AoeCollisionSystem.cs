@@ -253,7 +253,8 @@ namespace PlayGround.System.Aoe
                     CritMultiplier = hit.CritMultiplier,
                     DirectDamageEnabled = hit.DirectDamageEnabled,
                     SourceNodeId = hit.SourceNodeId,
-                    ProjectileBurst = hitSpawn.ProjectileBurst
+                    ProjectileBurst = hitSpawn.ProjectileBurst,
+                    StackEffect = hitSpawn.StackEffect
                 });
                 VfxPending.Enqueue(new VfxPendingSpawn
                 {
@@ -337,13 +338,14 @@ namespace PlayGround.System.Aoe
                     }
 
                     int payloadIndex = -1;
-                    if (pending.ProjectileBurst.Enabled)
+                    if (pending.ProjectileBurst.Enabled || pending.StackEffect.Enabled)
                     {
                         DynamicBuffer<CombatHitPayloadElement> payloadBuf = Payloads[pending.Scope];
                         payloadIndex = payloadBuf.Length;
                         payloadBuf.Add(new CombatHitPayloadElement
                         {
-                            ProjectileBurst = pending.ProjectileBurst
+                            ProjectileBurst = pending.ProjectileBurst,
+                            StackEffect = pending.StackEffect
                         });
                     }
 

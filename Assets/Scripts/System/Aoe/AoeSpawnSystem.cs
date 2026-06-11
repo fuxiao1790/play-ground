@@ -318,7 +318,8 @@ namespace PlayGround.System.Aoe
         {
             return new AoeHitSpawnComponent
             {
-                ProjectileBurst = request.ProjectileBurst
+                ProjectileBurst = request.ProjectileBurst,
+                StackEffect = request.StackEffect
             };
         }
 

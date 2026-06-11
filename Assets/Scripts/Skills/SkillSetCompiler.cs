@@ -27,6 +27,34 @@ namespace PlayGround.Skills
             foreach (TriggerChain chain in allChains)
             {
                 if (chain == null || chain.cause != set || chain.link == null || chain.effect == null) continue;
+
+                if (chain.link is OnStackTrigger stackTrigger)
+                {
+                    // Self-referential chain (cause == effect): compile the effect without any
+                    // chains so it is a bare definition — avoids infinite recursion while still
+                    // producing a valid chained AOE type for the snapshot.
+                    bool selfRef = chain.effect == set;
+                    RuntimeSkillDefinition compiledTarget = Compile(
+                        chain.effect,
+                        selfRef ? new TriggerChain[0] : allChains,
+                        snapshot);
+                    if (compiledTarget is RuntimeAoeDefinition chainedAoe)
+                    {
+                        var setup = new RuntimeStackTriggerSetup
+                        {
+                            DebuffStatusId = (int)stackTrigger.debuffStatus,
+                            StacksPerHit = Mathf.Max(1, stackTrigger.stacksPerHit),
+                            StackThreshold = Mathf.Max(1, stackTrigger.stackThreshold),
+                            AoeDefinition = chainedAoe,
+                        };
+                        if (runtime is RuntimeProjectileDefinition projDef)
+                            projDef.StackTriggerSetup = setup;
+                        else if (runtime is RuntimeAoeDefinition sourceAoe)
+                            sourceAoe.StackTriggerSetup = setup;
+                    }
+                    continue;
+                }
+
                 if (chain.effect == set) continue;
 
                 if (chain.link is ChildSpawnTrigger childTrigger)
@@ -58,25 +86,6 @@ namespace PlayGround.Skills
                             impactProjDef.SpreadDegrees = impactProjTrigger.spreadDegrees;
                             if (impactProjDef.ImpactProjectileDefinition != null)
                                 Debug.LogWarning($"[SkillSetCompiler] '{chain.effect?.Skill?.name}' has OnImpactProjectileTrigger but is itself used as an impact-projectile target. The nested OnImpactProjectile chain will not fire — C# value-type structs cannot be recursive. Restructure the loadout to avoid proj→proj→proj nesting.");
-                        }
-                    }
-                    continue;
-                }
-
-                if (chain.link is OnStackTrigger stackTrigger)
-                {
-                    if (runtime is RuntimeProjectileDefinition projDef)
-                    {
-                        RuntimeSkillDefinition compiledTarget = Compile(chain.effect, allChains, snapshot);
-                        if (compiledTarget is RuntimeAoeDefinition aoeDef)
-                        {
-                            projDef.StackTriggerSetup = new RuntimeStackTriggerSetup
-                            {
-                                DebuffStatusId = (int)stackTrigger.debuffStatus,
-                                StacksPerHit = Mathf.Max(1, stackTrigger.stacksPerHit),
-                                StackThreshold = Mathf.Max(1, stackTrigger.stackThreshold),
-                                AoeDefinition = aoeDef,
-                            };
                         }
                     }
                     continue;

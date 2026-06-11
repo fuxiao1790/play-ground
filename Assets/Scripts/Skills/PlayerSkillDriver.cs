@@ -176,7 +176,11 @@ namespace PlayGround.Skills
             if (def == null) return;
 
             if (def is RuntimeAoeDefinition aoeDef)
+            {
                 RegisterAoeTypeDefinition(aoeDef);
+                if (aoeDef.StackTriggerSetup?.AoeDefinition != null)
+                    RegisterAoeTypeDefinition(aoeDef.StackTriggerSetup.AoeDefinition);
+            }
 
             if (def is RuntimeProjectileDefinition projDef)
             {

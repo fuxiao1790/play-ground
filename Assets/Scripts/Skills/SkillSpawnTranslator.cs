@@ -89,6 +89,7 @@ namespace PlayGround.Skills
             DamageSnapshot damage = new(Mathf.Max(0f, def.Damage));
             int count = Mathf.Max(1, def.Count);
             AoeSpawnGeometry geometry = def.CreateSpawnGeometry();
+            CombatStackEffectSnapshot stackEffect = BuildAoeStackEffectSnapshot(def);
 
             for (int i = 0; i < count; i++)
             {
@@ -101,8 +102,26 @@ namespace PlayGround.Skills
                     def.TickIntervalSeconds,
                     geometry,
                     critChance: def.CritChance,
-                    critMultiplier: def.CritMultiplier));
+                    critMultiplier: def.CritMultiplier,
+                    stackEffect: stackEffect));
             }
+        }
+
+        private static CombatStackEffectSnapshot BuildAoeStackEffectSnapshot(RuntimeAoeDefinition def)
+        {
+            RuntimeStackTriggerSetup stack = def.StackTriggerSetup;
+            if (stack == null || stack.AoeDefinition == null || stack.AoeDefinition.TypeId < 0)
+                return default;
+
+            return new CombatStackEffectSnapshot(
+                stack.DebuffStatusId,
+                Mathf.Max(1, stack.StacksPerHit),
+                Mathf.Max(1, stack.StackThreshold),
+                stack.AoeDefinition.TypeId,
+                Mathf.Max(0f, stack.AoeDefinition.Damage),
+                stack.AoeDefinition.LifetimeSeconds,
+                stack.AoeDefinition.TickIntervalSeconds,
+                stack.AoeDefinition.CreateSpawnGeometry());
         }
 
         private static ProjectileImpactAoeSnapshot BuildImpactAoeSnapshot(

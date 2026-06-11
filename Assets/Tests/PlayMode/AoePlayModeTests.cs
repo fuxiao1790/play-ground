@@ -373,6 +373,114 @@ namespace PlayGround.Tests.PlayMode
             return (Entity)scopeEntityField.GetValue(root);
         }
 
+        // ── AOE stack trigger chain tests ─────────────────────────────────────────
+
+        [UnityTest]
+        public IEnumerator LingeringAoeInitialHitAndPulseApplyDebuffStacks()
+        {
+            // Lingering AOE (damage=0, tickInterval=0) applies Volatile stacks each hit.
+            // Threshold=10 ensures the chain never fires within 2 frames; a registered
+            // chain type is still required for CombatStackEffectSnapshot.Enabled = true.
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out _);
+            var lingeringDef = new AoeTypeDefinition();
+            lingeringDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
+            int lingeringTypeId = root.RegisterType(lingeringDef);
+            var chainDef = new AoeTypeDefinition();
+            chainDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
+            int chainTypeId = root.RegisterType(chainDef);
+
+            MobRoot mob = CreateMobTarget(Vector2.zero);
+            mob.BindAoeRoot(root);
+            mob.Register(root.TargetRegistry);
+
+            AoeSpawnGeometry geometry = Geometry(templateObject, 2f);
+            var stackEffect = new CombatStackEffectSnapshot(
+                debuffStatusId: (int)MobDebuffStatus.Volatile,
+                stacksPerHit: 1,
+                stackThreshold: 10,
+                aoeTypeId: chainTypeId,
+                aoeDamage: 0f,
+                aoeLifetimeSeconds: 0f,
+                aoeTickIntervalSeconds: 0f,
+                aoeGeometry: geometry);
+
+            root.Spawn(new AoeSpawnCommand(
+                lingeringTypeId,
+                Vector2.zero,
+                DefaultTargetMask,
+                new DamageSnapshot(0f),
+                lifetimeSeconds: 10f,
+                tickIntervalSeconds: 0f,
+                geometry: geometry,
+                stackEffect: stackEffect));
+
+            yield return null; // frame 1: initial hit → 1 stack
+            Assert.That(mob.GetDebuffStackCount(MobDebuffStatus.Volatile), Is.EqualTo(1),
+                "Initial AOE hit should apply 1 Volatile stack.");
+
+            yield return null; // frame 2: pulse hit (gate expired at dt=0) → 2 stacks
+            Assert.That(mob.GetDebuffStackCount(MobDebuffStatus.Volatile), Is.EqualTo(2),
+                "AOE pulse hit should increment stack to 2.");
+
+            Cleanup(rootObject, templateObject, mob.gameObject);
+        }
+
+        [UnityTest]
+        public IEnumerator AoeStackThresholdChainFiresLinkedPulseAoe()
+        {
+            // Lingering AOE (damage=0, tickInterval=0) builds Volatile stacks.
+            // After 3 hits the threshold fires a linked pulse AOE that deals 5 damage.
+            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out _);
+            var lingeringDef = new AoeTypeDefinition();
+            lingeringDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
+            int lingeringTypeId = root.RegisterType(lingeringDef);
+            var pulseDef = new AoeTypeDefinition();
+            pulseDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
+            int pulseTypeId = root.RegisterType(pulseDef);
+
+            MobRoot mob = CreateMobTarget(Vector2.zero);
+            mob.BindAoeRoot(root);
+            mob.Register(root.TargetRegistry);
+
+            const float ChainDamage = 5f;
+            AoeSpawnGeometry geometry = Geometry(templateObject, 2f);
+            var stackEffect = new CombatStackEffectSnapshot(
+                debuffStatusId: (int)MobDebuffStatus.Volatile,
+                stacksPerHit: 1,
+                stackThreshold: 3,
+                aoeTypeId: pulseTypeId,
+                aoeDamage: ChainDamage,
+                aoeLifetimeSeconds: 0f,
+                aoeTickIntervalSeconds: 0f,
+                aoeGeometry: geometry);
+
+            root.Spawn(new AoeSpawnCommand(
+                lingeringTypeId,
+                Vector2.zero,
+                DefaultTargetMask,
+                new DamageSnapshot(0f),
+                lifetimeSeconds: 10f,
+                tickIntervalSeconds: 0f,
+                geometry: geometry,
+                stackEffect: stackEffect));
+
+            yield return null; // frame 1: 1 stack
+            yield return null; // frame 2: 2 stacks
+            yield return null; // frame 3: 3 stacks → threshold → chain spawned
+
+            Assert.That(root.Counters.SpawnedAoes, Is.EqualTo(2),
+                "Stack threshold should have spawned the linked pulse AOE (total spawns = lingering + chain).");
+            Assert.That(mob.GetDebuffStackCount(MobDebuffStatus.Volatile), Is.EqualTo(0),
+                "Stacks should be cleared after the threshold fires.");
+
+            yield return null; // frame 4: chain pulse materialises and hits
+
+            Assert.That(mob.CurrentHealth, Is.EqualTo(mob.MaxHealth - ChainDamage).Within(0.001f),
+                "Chain pulse AOE should deal its damage on the frame it materialises.");
+
+            Cleanup(rootObject, templateObject, mob.gameObject);
+        }
+
         private static void Cleanup(params GameObject[] objects)
         {
             for (int i = 0; i < objects.Length; i++)

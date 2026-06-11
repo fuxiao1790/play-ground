@@ -391,7 +391,7 @@ class OnStackTrigger : TriggerLink {
 }
 ```
 
-Compatible tags: source `Projectile`, target `Aoe`.
+Compatible tags: source `Projectile | Aoe`, target `Aoe`.
 
 Trigger links are also tag-validated but not blocked. A ChildSpawn trigger from
 a projectile set to an AOE set is allowed in the loadout, but no child spawn
@@ -672,3 +672,50 @@ SetC's burst radius is its own authored value, unaffected by SetA or SetB.
 - A set can appear as the effect in multiple chains (multiple causes pointing
   to it). It is compiled independently for each — edits propagate to all
   compiled instances on next recompile.
+
+---
+
+## Chain Depth and Trigger Scope
+
+Triggers fire strictly by **slot position**, not by skill identity. A trigger chain only
+connects the specific cause-effect pair defined by adjacent slots — no cross-chain
+firing, no transitive propagation beyond the authored depth.
+
+```
+Skill1 → Trigger → Skill2
+```
+
+Only Skill1 fires Skill2 via the trigger. Skill2 never re-fires itself through that
+trigger, even if it hits the same targets under the same conditions.
+
+```
+Skill1 → TriggerA → Skill2 → TriggerB → Skill3
+```
+
+Skill1 fires Skill2 via TriggerA. Skill2 fires Skill3 via TriggerB. No other
+trigger relationships exist. Skill3 has no outgoing trigger, regardless of what
+SkillSets it shares identity with.
+
+### Self-Referential Chains
+
+A SkillSet asset may appear as both cause and effect in the same chain:
+
+```
+[SkillSetSlot: SetA] [TriggerLinkSlot: OnStack] [SkillSetSlot: SetA]
+```
+
+This is valid. SOs are configuration templates, not instances. Each slot is always an
+**independent compilation unit** — two slots that reference the same asset still produce
+two separate `RuntimeSkillDefinition` instances, just as two slots with different assets
+would. Instance identity is determined by slot position, not asset identity.
+
+The cause slot compiles normally with its outgoing trigger wired. The effect slot
+compiles with an empty chain list. This is a **recursion guard** in the compiler: when
+the compiler detects it would recurse into the same SkillSet object it is already
+compiling (cause and effect share the same SO reference), it passes an empty chain list
+for that pass to prevent an infinite loop. The effect instance produced is still fully
+independent — it just carries no outgoing trigger setup.
+
+Practical use: a lingering AOE that builds stacks and at threshold spawns another
+instance of the same AOE type — that spawned instance deals damage only, with no
+further stack accumulation or re-triggering.

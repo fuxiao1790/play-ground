@@ -266,7 +266,8 @@ namespace PlayGround.System.Aoe
                 BoundsMax = boundsMax,
                 ShapeType = geometry.ShapeType,
                 Render = RenderComponentFor(command.TypeId, geometry),
-                ProjectileBurst = command.ProjectileBurst
+                ProjectileBurst = command.ProjectileBurst,
+                StackEffect = command.StackEffect
             };
         }
 
@@ -326,7 +327,9 @@ namespace PlayGround.System.Aoe
                 target?.ReceiveHit(new CombatHitData(
                     CombatHitKind.Aoe,
                     damage,
-                    position));
+                    position,
+                    hit.DirectDamageEnabled,
+                    payload.StackEffect));
             }
         }
 

@@ -45,6 +45,7 @@ namespace PlayGround.System.Aoe
     public struct AoeHitSpawnComponent : IComponentData
     {
         public AoeProjectileBurstSnapshot ProjectileBurst;
+        public CombatStackEffectSnapshot StackEffect;
     }
 
     // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse; carries fire-time gameplay area size for VFX dispatch.
@@ -82,6 +83,7 @@ namespace PlayGround.System.Aoe
         public CombatShapeType ShapeType;
         public CombatRenderComponent Render;
         public AoeProjectileBurstSnapshot ProjectileBurst;
+        public CombatStackEffectSnapshot StackEffect;
     }
 
     // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by AoeSpawnSystem into its reuse pool; carries the last prepared render matrix for one-frame pulse visual submission.

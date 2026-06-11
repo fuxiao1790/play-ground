@@ -17,7 +17,8 @@ namespace PlayGround.System.Aoe
             float areaSize = 0f,
             AoeProjectileBurstSnapshot projectileBurst = default,
             float critChance = 0f,
-            float critMultiplier = 1.5f)
+            float critMultiplier = 1.5f,
+            CombatStackEffectSnapshot stackEffect = default)
         {
             TypeId = typeId;
             Position = position;
@@ -30,6 +31,7 @@ namespace PlayGround.System.Aoe
             ProjectileBurst = projectileBurst;
             CritChance = critChance;
             CritMultiplier = critMultiplier;
+            StackEffect = stackEffect;
         }
 
         public int TypeId { get; }
@@ -43,6 +45,7 @@ namespace PlayGround.System.Aoe
         public AoeProjectileBurstSnapshot ProjectileBurst { get; }
         public float CritChance { get; }
         public float CritMultiplier { get; }
+        public CombatStackEffectSnapshot StackEffect { get; }
     }
 
     public readonly struct AoeHitContext
