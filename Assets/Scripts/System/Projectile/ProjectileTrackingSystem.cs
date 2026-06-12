@@ -14,26 +14,33 @@ namespace PlayGround.System.Projectile
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            var job = new ProjectileTrackingJob
+            var acquisitionJob = new ProjectileTargetAcquisitionJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
                 Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true)
             };
 
-            state.Dependency = job.ScheduleParallel(state.Dependency);
+            state.Dependency = acquisitionJob.ScheduleParallel(state.Dependency);
+
+            var steeringJob = new ProjectileSteeringJob
+            {
+                DeltaTime = SystemAPI.Time.DeltaTime
+            };
+
+            state.Dependency = steeringJob.ScheduleParallel(state.Dependency);
         }
 
         [BurstCompile]
         [WithAll(typeof(ProjectileTag), typeof(ProjectileActiveTag))]
-        private partial struct ProjectileTrackingJob : IJobEntity
+        private partial struct ProjectileTargetAcquisitionJob : IJobEntity
         {
             public float DeltaTime;
             [ReadOnly] public BufferLookup<CombatTargetElement> Targets;
 
             private void Execute(
-                ref CombatKinematicsComponent kinematics,
                 ref ProjectileTrackingComponent tracking,
                 in ProjectileIdentityComponent identity,
+                in CombatKinematicsComponent kinematics,
                 in CombatHitComponent hit)
             {
                 if (!tracking.TrackingEnabled || identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
@@ -63,22 +70,6 @@ namespace PlayGround.System.Projectile
                         return;
                     }
                 }
-
-                if (tracking.TrackedTargetId == 0)
-                {
-                    return;
-                }
-
-                float2 toTarget = tracking.TrackedTargetPosition - kinematics.Position;
-                if (math.lengthsq(toTarget) <= ProjectileSimulationConstants.MinimumDirectionLengthSquared)
-                {
-                    return;
-                }
-
-                float2 currentDirection = kinematics.Velocity / speed;
-                float2 desiredDirection = math.normalize(toTarget);
-                float maxTurnRadians = tracking.TrackingTurnSpeedRadians * DeltaTime;
-                kinematics.Velocity = SteerDirection(currentDirection, desiredDirection, maxTurnRadians) * speed;
             }
 
             private static bool TryRefreshTrackedTarget(
@@ -186,6 +177,45 @@ namespace PlayGround.System.Projectile
 
                 float distanceSquared = math.lengthsq(target.Position - kinematics.Position);
                 return distanceSquared <= tracking.TrackingRangeSquared;
+            }
+        }
+
+        [BurstCompile]
+        [WithAll(typeof(ProjectileTag), typeof(ProjectileActiveTag))]
+        private partial struct ProjectileSteeringJob : IJobEntity
+        {
+            public float DeltaTime;
+
+            private void Execute(
+                ref CombatKinematicsComponent kinematics,
+                in ProjectileTrackingComponent tracking)
+            {
+                if (!tracking.TrackingEnabled)
+                {
+                    return;
+                }
+
+                float speed = math.length(kinematics.Velocity);
+                if (speed <= 0.0001f)
+                {
+                    return;
+                }
+
+                if (tracking.TrackedTargetId == 0)
+                {
+                    return;
+                }
+
+                float2 toTarget = tracking.TrackedTargetPosition - kinematics.Position;
+                if (math.lengthsq(toTarget) <= ProjectileSimulationConstants.MinimumDirectionLengthSquared)
+                {
+                    return;
+                }
+
+                float2 currentDirection = kinematics.Velocity / speed;
+                float2 desiredDirection = math.normalize(toTarget);
+                float maxTurnRadians = tracking.TrackingTurnSpeedRadians * DeltaTime;
+                kinematics.Velocity = SteerDirection(currentDirection, desiredDirection, maxTurnRadians) * speed;
             }
 
             private static float2 SteerDirection(float2 currentDirection, float2 desiredDirection, float maxTurnRadians)

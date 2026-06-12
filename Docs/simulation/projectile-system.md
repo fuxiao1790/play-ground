@@ -176,7 +176,10 @@ Keep projectile simulation split by responsibility. `ProjectileSimulationSystem`
 is only the start-of-frame scope/event-buffer coordinator. Feature work should
 land in the narrow system that owns that behavior:
 
-- `ProjectileTrackingSystem`: optional homing, target refresh, reacquire interval, and steering while preserving speed
+- `ProjectileTrackingSystem`: optional homing, target refresh, reacquire interval, and steering while preserving speed.
+  Profiling splits this system into `ProjectileTargetAcquisitionJob` for target
+  refresh/reacquire work and `ProjectileSteeringJob` for per-frame velocity
+  steering, so captures can show acquisition cost separately from steering cost.
 - `ProjectileSpawnSystem`: scoped recycle-buffer draining, spawn request
   materialization, inactive projectile reuse by scope/render type/layout, and
   cold entity creation through ECB when the matching pool is empty
