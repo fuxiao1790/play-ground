@@ -205,10 +205,10 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileTrackingAcquiresTargetOutsideInitialForwardHemisphere()
+        public IEnumerator ProjectileTrackingAcquiresTargetInForwardArea()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
-            mobObject.transform.position = new Vector2(0f, 10f);
+            mobObject.transform.position = new Vector2(10f, 10f);
             mob.Register(projectileRoot.TargetRegistry);
 
             var command = new ProjectileSpawnCommand(
@@ -480,7 +480,7 @@ namespace PlayGround.Tests.PlayMode
             int mobHurtboxMask = 1 << mobHurtboxLayer;
             projectileRoot.ConfigureTargetBinding(mobHurtboxMask);
             mobObject.layer = mobHurtboxLayer;
-            mobObject.transform.position = new Vector2(0f, 10f);
+            mobObject.transform.position = new Vector2(10f, 10f);
             mob.Register(projectileRoot.TargetRegistry);
 
             var childSpawn = new ProjectileChildSpawnConfig(

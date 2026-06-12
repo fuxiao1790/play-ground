@@ -4,6 +4,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Unity.Profiling;
 
 namespace PlayGround.System.Projectile
 {
@@ -12,6 +13,13 @@ namespace PlayGround.System.Projectile
     public partial struct ProjectileTrackingSystem : ISystem
     {
         private const float TrackingSpatialHashCellSize = 64f;
+        private const int ForwardAcquisitionLateralCellRadius = 1;
+        private const int MaxForwardAcquisitionCellSteps = 16;
+        private const float ForwardAcquisitionMinimumDot = 0.25f;
+        private const float ForwardAcquisitionMinimumDotSquared =
+            ForwardAcquisitionMinimumDot * ForwardAcquisitionMinimumDot;
+        private static readonly ProfilerMarker<int> TargetSpatialHashBuildMarker =
+            new("Projectile.Tracking.TargetSpatialHashBuild", "Targets");
 
         public void OnUpdate(ref SystemState state)
         {
@@ -24,22 +32,28 @@ namespace PlayGround.System.Projectile
                 totalTargetCount += targets.Length;
             }
 
-            var targetIndicesById = new NativeParallelHashMap<long, int>(
-                math.max(1, totalTargetCount), Allocator.TempJob);
-            var targetCells = new NativeParallelMultiHashMap<long, int>(
-                math.max(1, totalTargetCount), Allocator.TempJob);
+            NativeParallelHashMap<long, int> targetIndicesById;
+            NativeParallelMultiHashMap<long, int> targetCells;
 
-            foreach ((DynamicBuffer<CombatTargetElement> targets, Entity scope) in
-                SystemAPI.Query<DynamicBuffer<CombatTargetElement>>()
-                    .WithAll<ProjectileScope>()
-                    .WithEntityAccess())
+            using (TargetSpatialHashBuildMarker.Auto(totalTargetCount))
             {
-                for (int i = 0; i < targets.Length; i++)
+                targetIndicesById = new NativeParallelHashMap<long, int>(
+                    math.max(1, totalTargetCount), Allocator.TempJob);
+                targetCells = new NativeParallelMultiHashMap<long, int>(
+                    math.max(1, totalTargetCount), Allocator.TempJob);
+
+                foreach ((DynamicBuffer<CombatTargetElement> targets, Entity scope) in
+                    SystemAPI.Query<DynamicBuffer<CombatTargetElement>>()
+                        .WithAll<ProjectileScope>()
+                        .WithEntityAccess())
                 {
-                    CombatTargetElement target = targets[i];
-                    targetIndicesById.TryAdd(TargetIdKey(scope, target.TargetId), i);
-                    int2 cell = FloorCell(target.Position);
-                    targetCells.Add(CellKey(scope, cell.x, cell.y), i);
+                    for (int i = 0; i < targets.Length; i++)
+                    {
+                        CombatTargetElement target = targets[i];
+                        targetIndicesById.TryAdd(TargetIdKey(scope, target.TargetId), i);
+                        int2 cell = FloorCell(target.Position);
+                        targetCells.Add(CellKey(scope, cell.x, cell.y), i);
+                    }
                 }
             }
 
@@ -99,7 +113,7 @@ namespace PlayGround.System.Projectile
                     bool hasTrackedTarget = TryRefreshTrackedTarget(ref tracking, identity, kinematics, hit, targets);
                     if (!hasTrackedTarget)
                     {
-                        hasTrackedTarget = TryAcquireTrackedTarget(ref tracking, identity, kinematics, hit, targets);
+                        hasTrackedTarget = TryAcquireTrackedTarget(ref tracking, identity, kinematics, hit, targets, speed);
                     }
 
                     tracking.TrackingQueryCooldownRemaining = tracking.TrackingQueryIntervalSeconds;
@@ -157,69 +171,126 @@ namespace PlayGround.System.Projectile
                 ProjectileIdentityComponent identity,
                 CombatKinematicsComponent kinematics,
                 CombatHitComponent hit,
-                DynamicBuffer<CombatTargetElement> targets)
+                DynamicBuffer<CombatTargetElement> targets,
+                float speed)
             {
                 tracking.TrackedTargetId = 0;
                 tracking.TrackedTargetIndex = -1;
-                float bestDistanceSquared = float.MaxValue;
                 float range = math.sqrt(tracking.TrackingRangeSquared);
-                int2 cellMin = FloorCell(kinematics.Position - range);
-                int2 cellMax = FloorCell(kinematics.Position + range);
+                int maxForwardSteps = math.min(
+                    MaxForwardAcquisitionCellSteps,
+                    math.max(0, (int)math.ceil(range / TrackingSpatialHashCellSize)));
+                float2 forward = kinematics.Velocity / speed;
+                float2 side = new(-forward.y, forward.x);
 
-                for (int cy = cellMin.y; cy <= cellMax.y; cy++)
+                for (int step = 0; step <= maxForwardSteps; step++)
                 {
-                    for (int cx = cellMin.x; cx <= cellMax.x; cx++)
+                    float forwardDistance = step * TrackingSpatialHashCellSize;
+                    for (int lane = 0; lane <= ForwardAcquisitionLateralCellRadius * 2; lane++)
                     {
-                        long key = CellKey(identity.Scope, cx, cy);
-                        if (!TargetCells.TryGetFirstValue(
-                                key,
-                                out int targetIndex,
-                                out NativeParallelMultiHashMapIterator<long> iterator))
+                        int lateralOffset = LaneToLateralOffset(lane);
+                        float2 probePosition = kinematics.Position
+                            + forward * forwardDistance
+                            + side * lateralOffset * TrackingSpatialHashCellSize;
+                        int2 cell = FloorCell(probePosition);
+                        if (TryAcquireFirstTargetInCell(
+                                ref tracking,
+                                identity,
+                                kinematics,
+                                hit,
+                                targets,
+                                forward,
+                                CellKey(identity.Scope, cell.x, cell.y)))
                         {
-                            continue;
+                            return true;
                         }
-
-                        do
-                        {
-                            if (targetIndex < 0 || targetIndex >= targets.Length)
-                            {
-                                continue;
-                            }
-
-                            CombatTargetElement target = targets[targetIndex];
-                            if (!TryGetTargetDistanceSquared(
-                                    kinematics,
-                                    tracking,
-                                    hit,
-                                    target,
-                                    out float distanceSquared))
-                            {
-                                continue;
-                            }
-
-                            if (distanceSquared <= ProjectileSimulationConstants.MinimumDirectionLengthSquared)
-                            {
-                                tracking.TrackedTargetId = target.TargetId;
-                                tracking.TrackedTargetIndex = targetIndex;
-                                tracking.TrackedTargetPosition = target.Position;
-                                return true;
-                            }
-
-                            if (distanceSquared >= bestDistanceSquared)
-                            {
-                                continue;
-                            }
-
-                            bestDistanceSquared = distanceSquared;
-                            tracking.TrackedTargetId = target.TargetId;
-                            tracking.TrackedTargetIndex = targetIndex;
-                            tracking.TrackedTargetPosition = target.Position;
-                        }
-                        while (TargetCells.TryGetNextValue(out targetIndex, ref iterator));
                     }
                 }
 
-                return tracking.TrackedTargetId != 0;
+                return false;
+            }
+
+            private bool TryAcquireFirstTargetInCell(
+                ref ProjectileTrackingComponent tracking,
+                ProjectileIdentityComponent identity,
+                CombatKinematicsComponent kinematics,
+                CombatHitComponent hit,
+                DynamicBuffer<CombatTargetElement> targets,
+                float2 forward,
+                long cellKey)
+            {
+                if (!TargetCells.TryGetFirstValue(
+                        cellKey,
+                        out int targetIndex,
+                        out NativeParallelMultiHashMapIterator<long> iterator))
+                {
+                    return false;
+                }
+
+                do
+                {
+                    if (targetIndex < 0 || targetIndex >= targets.Length)
+                    {
+                        continue;
+                    }
+
+                    CombatTargetElement target = targets[targetIndex];
+                    if (!IsValidForwardAcquisitionTarget(kinematics, tracking, hit, target, forward))
+                    {
+                        continue;
+                    }
+
+                    tracking.TrackedTargetId = target.TargetId;
+                    tracking.TrackedTargetIndex = targetIndex;
+                    tracking.TrackedTargetPosition = target.Position;
+                    return true;
+                }
+                while (TargetCells.TryGetNextValue(out targetIndex, ref iterator));
+
+                return false;
+            }
+
+            private static int LaneToLateralOffset(int lane)
+            {
+                if (lane == 0)
+                {
+                    return 0;
+                }
+
+                return (lane & 1) == 1 ? (lane + 1) / 2 : -(lane / 2);
+            }
+
+            private static bool IsValidForwardAcquisitionTarget(
+                CombatKinematicsComponent kinematics,
+                ProjectileTrackingComponent tracking,
+                CombatHitComponent hit,
+                CombatTargetElement target,
+                float2 forward)
+            {
+                if (!TryGetTargetDistanceSquared(
+                        kinematics,
+                        tracking,
+                        hit,
+                        target,
+                        out float distanceSquared))
+                {
+                    return false;
+                }
+
+                float2 toTarget = target.Position - kinematics.Position;
+                if (distanceSquared <= ProjectileSimulationConstants.MinimumDirectionLengthSquared)
+                {
+                    return true;
+                }
+
+                float forwardDistance = math.dot(toTarget, forward);
+                if (forwardDistance <= 0f)
+                {
+                    return false;
+                }
+
+                return forwardDistance * forwardDistance
+                    >= distanceSquared * ForwardAcquisitionMinimumDotSquared;
             }
 
             private static bool IsValidTrackedTarget(

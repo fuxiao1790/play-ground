@@ -82,7 +82,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void AcquiresNearestTargetInRange()
+        public void AcquiresForwardTargetInsteadOfNearestSideTarget()
         {
             AddTarget(targetId: 100, position: new float2(0f, 10f), radius: 0.25f, targetMask: 1);
             AddTarget(targetId: 101, position: new float2(40f, 0f), radius: 0.25f, targetMask: 1);
@@ -95,7 +95,7 @@ namespace PlayGround.Tests.PlayMode
 
             ProjectileTrackingComponent tracking =
                 entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
-            Assert.That(tracking.TrackedTargetId, Is.EqualTo(100));
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(101));
         }
 
         [Test]
