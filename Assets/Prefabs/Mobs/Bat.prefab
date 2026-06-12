@@ -210,7 +210,7 @@ MonoBehaviour:
   animator: {fileID: 0}
   target: {fileID: 0}
   speed: 1.875
-  maxHealth: 1500
+  maxHealth: 1500000
   hurtFlashSeconds: 0.08
   targetRadius: 0.35
   behaviours:
@@ -235,6 +235,7 @@ MonoBehaviour:
   projectileRadius: 0.25
   projectileShapeType: 0
   projectileBasicPrefab: {fileID: 0}
+  deathCleanupDelaySeconds: 0
 --- !u!114 &6524352425051473048
 MonoBehaviour:
   m_ObjectHideFlags: 0
