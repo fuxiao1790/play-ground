@@ -12,9 +12,7 @@ namespace PlayGround.System.Aoe
 {
     public sealed class AoeRoot : MonoBehaviour, ICombatScopeEndpoint
     {
-        private const int MaxVfxPerFrame = 2048;
         private const float AoeRenderZ = 0.5f;
-        private static readonly ProfilerMarker DrainVfxMarker = new("AoeRoot.DrainVfxRequests");
         private static readonly ProfilerMarker DrainHitsMarker = new("AoeRoot.DrainHits");
 
         [SerializeField] private int targetMask = 1;
@@ -29,7 +27,6 @@ namespace PlayGround.System.Aoe
         private readonly Dictionary<AoeTypeDefinition, int> definitionTypeIds = new();
         private AoeTypeRegistry typeRegistry = new();
         private CombatTargetSync<IAoeTarget> targetSync;
-        private CombatVfxDispatcher vfxDispatcher;
         private World entityWorld;
         private EntityManager entityManager;
         private Entity scopeEntity;
@@ -63,7 +60,6 @@ namespace PlayGround.System.Aoe
         private void Awake()
         {
             runtimeReady = false;
-            vfxDispatcher ??= new CombatVfxDispatcher(transform);
             targetSync = new CombatTargetSync<IAoeTarget>(targetRegistry);
             targetSyncCallback = buffer => targetSync.SyncToBuffer(buffer);
             BindWorld();
@@ -82,11 +78,6 @@ namespace PlayGround.System.Aoe
                 return;
             }
 
-            using (DrainVfxMarker.Auto())
-            {
-                DrainVfxRequests();
-            }
-
             using (DrainHitsMarker.Auto())
             {
                 DrainHits();
@@ -95,9 +86,6 @@ namespace PlayGround.System.Aoe
 
         private void OnDestroy()
         {
-            vfxDispatcher?.Dispose();
-            vfxDispatcher = null;
-
             if (HasValidEcsState())
             {
                 if (scopeEntity != Entity.Null && entityManager.Exists(scopeEntity))
@@ -136,8 +124,6 @@ namespace PlayGround.System.Aoe
             definitionTypeIds.Clear();
             nextTypeId = 1;
             DestroyRenderResources();
-            vfxDispatcher?.Dispose();
-            vfxDispatcher = new CombatVfxDispatcher(transform);
         }
 
         public int RegisterConfig(AoeConfig config)
@@ -157,7 +143,6 @@ namespace PlayGround.System.Aoe
             AoeTypeDefinition definition = config.CreateTypeDefinition();
             typeRegistry.Register(typeId, definition);
             TryBuildRenderResource(typeId);
-            RegisterVfxForDefinition(typeId, definition);
             return typeId;
         }
 
@@ -177,7 +162,6 @@ namespace PlayGround.System.Aoe
             definitionTypeIds[definition] = typeId;
             typeRegistry.Register(typeId, definition);
             TryBuildRenderResource(typeId);
-            RegisterVfxForDefinition(typeId, definition);
             return typeId;
         }
 
@@ -249,19 +233,6 @@ namespace PlayGround.System.Aoe
                 ProjectileBurst = command.ProjectileBurst,
                 StackEffect = command.StackEffect
             };
-        }
-
-        private void DrainVfxRequests()
-        {
-            DynamicBuffer<VfxSpawnRequestElement> vfxBuffer =
-                entityManager.GetBuffer<VfxSpawnRequestElement>(scopeEntity);
-            for (int i = 0; i < vfxBuffer.Length; i++)
-            {
-                VfxSpawnRequestElement e = vfxBuffer[i];
-                vfxDispatcher.StageSpawn(e.TypeId, e.Trigger, e.Position, e.AreaSize);
-            }
-            vfxBuffer.Clear();
-            vfxDispatcher.Dispatch();
         }
 
         private void DrainHits()
@@ -446,15 +417,6 @@ namespace PlayGround.System.Aoe
             return count;
         }
 
-        private void RegisterVfxForDefinition(int typeId, AoeTypeDefinition definition)
-        {
-            vfxDispatcher ??= new CombatVfxDispatcher(transform);
-            vfxDispatcher.Register(typeId, 0, definition.SpawnEffect, MaxVfxPerFrame, requireAreaSizeContract: true);
-            vfxDispatcher.Register(typeId, 1, definition.HitEffect, MaxVfxPerFrame, requireAreaSizeContract: true);
-            vfxDispatcher.Register(typeId, 2, definition.ExpireEffect, MaxVfxPerFrame, requireAreaSizeContract: true);
-            vfxDispatcher.Register(typeId, 3, definition.PulseEffect, MaxVfxPerFrame, requireAreaSizeContract: true);
-        }
-
         private void TryBuildRenderResource(int typeId)
         {
             if (!spawnVisuals || !typeRegistry.TryGetVisual(typeId, out AoeVisualDefinition visual))
@@ -575,11 +537,6 @@ namespace PlayGround.System.Aoe
 
         void ICombatScopeEndpoint.PresentFromCombatRuntime()
         {
-            using (DrainVfxMarker.Auto())
-            {
-                DrainVfxRequests();
-            }
-
             using (DrainHitsMarker.Auto())
             {
                 DrainHits();

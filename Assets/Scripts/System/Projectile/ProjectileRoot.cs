@@ -3,7 +3,6 @@ using PlayGround.Skills;
 using PlayGround.Common;
 using PlayGround.System.Common;
 using PlayGround.System.Vfx;
-using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Profiling;
@@ -13,11 +12,9 @@ namespace PlayGround.System.Projectile
 {
     public sealed class ProjectileRoot : MonoBehaviour, ICombatScopeEndpoint
     {
-        private const int MaxVfxPerFrame = 2048;
         private const float ProjectileRenderZ = -0.25f;
         private const float ProjectileZStep = 0.000001f;
         private const int ProjectileZSlots = 1_000_000;
-        private static readonly ProfilerMarker DrainVfxMarker = new("ProjectileRoot.DrainVfxRequests");
         private static readonly ProfilerMarker DrainHitsMarker = new("ProjectileRoot.DrainHits");
 
         [SerializeField] private Sprite projectileSprite;
@@ -34,8 +31,6 @@ namespace PlayGround.System.Projectile
         private CombatTargetSync<IProjectileTarget> targetSync;
         private readonly Dictionary<BasicAttackPrefab, int> templateTypeIds = new();
         private readonly Dictionary<int, CombatSpriteRenderResources> renderResourcesByType = new();
-        private CombatVfxDispatcher vfxDispatcher;
-
         private World entityWorld;
         private EntityManager entityManager;
         private Entity scopeEntity;
@@ -63,7 +58,6 @@ namespace PlayGround.System.Projectile
             targetSync = new CombatTargetSync<IProjectileTarget>(targetRegistry);
             canTargetFilter = CanTarget;
             targetSyncCallback = buffer => targetSync.SyncToBuffer(buffer, additionalFilter: canTargetFilter);
-            vfxDispatcher ??= new CombatVfxDispatcher(transform);
             ApplyTaggedDefaults();
             if (projectileSprite == null && !HasAnyRenderSource())
             {
@@ -87,11 +81,6 @@ namespace PlayGround.System.Projectile
                 return;
             }
 
-            using (DrainVfxMarker.Auto())
-            {
-                DrainVfxRequests();
-            }
-
             using (DrainHitsMarker.Auto())
             {
                 DrainHits();
@@ -100,9 +89,6 @@ namespace PlayGround.System.Projectile
 
         private void OnDestroy()
         {
-            vfxDispatcher?.Dispose();
-            vfxDispatcher = null;
-
             if (HasValidEcsState())
             {
                 if (scopeEntity != Entity.Null && entityManager.Exists(scopeEntity))
@@ -148,10 +134,6 @@ namespace PlayGround.System.Projectile
             if (!renderResourcesByType.ContainsKey(typeId))
             {
                 renderResourcesByType[typeId] = BuildRenderResourcesFor(template.Sprite, template.VisualScale, template.VisualRotationDegrees, template.Material);
-                vfxDispatcher ??= new CombatVfxDispatcher(transform);
-                vfxDispatcher.Register(typeId, 0, template.SpawnEffect, MaxVfxPerFrame);
-                vfxDispatcher.Register(typeId, 1, template.HitEffect, MaxVfxPerFrame);
-                vfxDispatcher.Register(typeId, 2, template.ExpireEffect, MaxVfxPerFrame);
             }
 
             return typeId;
@@ -367,19 +349,6 @@ namespace PlayGround.System.Projectile
             {
                 throw new global::System.InvalidOperationException($"{nameof(ProjectileRoot)} on {name} has not finished ECS setup.");
             }
-        }
-
-        private void DrainVfxRequests()
-        {
-            DynamicBuffer<VfxSpawnRequestElement> vfxBuffer =
-                entityManager.GetBuffer<VfxSpawnRequestElement>(scopeEntity);
-            for (int i = 0; i < vfxBuffer.Length; i++)
-            {
-                VfxSpawnRequestElement e = vfxBuffer[i];
-                vfxDispatcher.StageSpawn(e.TypeId, e.Trigger, e.Position, e.AreaSize);
-            }
-            vfxBuffer.Clear();
-            vfxDispatcher.Dispatch();
         }
 
         private void DrainHits()
@@ -720,11 +689,6 @@ namespace PlayGround.System.Projectile
 
         void ICombatScopeEndpoint.PresentFromCombatRuntime()
         {
-            using (DrainVfxMarker.Auto())
-            {
-                DrainVfxRequests();
-            }
-
             using (DrainHitsMarker.Auto())
             {
                 DrainHits();

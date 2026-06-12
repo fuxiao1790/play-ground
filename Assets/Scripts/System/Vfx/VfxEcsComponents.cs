@@ -13,12 +13,18 @@ namespace PlayGround.System.Vfx
         public float AreaSize;
     }
 
-    // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by roots in LateUpdate before VFX dispatch.
+    // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by CombatVfxDispatchSystem in PresentationSystemGroup.
     public struct VfxSpawnRequestElement : IBufferElementData
     {
         public int TypeId;
         public int Trigger;    // 0=spawn 1=hit 2=expire 3=pulse
         public float2 Position;
         public float AreaSize;
+    }
+
+    // ECS Lifecycle: managed component; added to scope entities at root setup; references CombatVfxRoot so the dispatch system can drain and forward GPU work without MonoBehaviour callbacks.
+    internal sealed class CombatScopeVfxCatalog : IComponentData
+    {
+        public CombatVfxRoot VfxRoot;
     }
 }
