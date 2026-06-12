@@ -2,32 +2,68 @@ using PlayGround.System.Common;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 namespace PlayGround.System.Projectile
 {
-    [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileSimulationSystem))]
     public partial struct ProjectileTrackingSystem : ISystem
     {
-        [BurstCompile]
+        private const float TrackingSpatialHashCellSize = 64f;
+
         public void OnUpdate(ref SystemState state)
         {
+            state.EntityManager.CompleteDependencyBeforeRO<CombatTargetElement>();
+
+            int totalTargetCount = 0;
+            foreach (DynamicBuffer<CombatTargetElement> targets in
+                SystemAPI.Query<DynamicBuffer<CombatTargetElement>>().WithAll<ProjectileScope>())
+            {
+                totalTargetCount += targets.Length;
+            }
+
+            var targetIndicesById = new NativeParallelHashMap<long, int>(
+                math.max(1, totalTargetCount), Allocator.TempJob);
+            var targetCells = new NativeParallelMultiHashMap<long, int>(
+                math.max(1, totalTargetCount), Allocator.TempJob);
+
+            foreach ((DynamicBuffer<CombatTargetElement> targets, Entity scope) in
+                SystemAPI.Query<DynamicBuffer<CombatTargetElement>>()
+                    .WithAll<ProjectileScope>()
+                    .WithEntityAccess())
+            {
+                for (int i = 0; i < targets.Length; i++)
+                {
+                    CombatTargetElement target = targets[i];
+                    targetIndicesById.TryAdd(TargetIdKey(scope, target.TargetId), i);
+                    int2 cell = FloorCell(target.Position);
+                    targetCells.Add(CellKey(scope, cell.x, cell.y), i);
+                }
+            }
+
             var acquisitionJob = new ProjectileTargetAcquisitionJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
-                Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true)
+                Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
+                TargetIndicesById = targetIndicesById,
+                TargetCells = targetCells
             };
 
-            state.Dependency = acquisitionJob.ScheduleParallel(state.Dependency);
+            JobHandle acquisitionHandle = acquisitionJob.ScheduleParallel(state.Dependency);
 
             var steeringJob = new ProjectileSteeringJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime
             };
 
-            state.Dependency = steeringJob.ScheduleParallel(state.Dependency);
+            JobHandle steeringHandle = steeringJob.ScheduleParallel(acquisitionHandle);
+            JobHandle disposeIdHandle = targetIndicesById.Dispose(acquisitionHandle);
+            JobHandle disposeCellsHandle = targetCells.Dispose(acquisitionHandle);
+            state.Dependency = JobHandle.CombineDependencies(
+                steeringHandle,
+                JobHandle.CombineDependencies(disposeIdHandle, disposeCellsHandle));
         }
 
         [BurstCompile]
@@ -36,6 +72,8 @@ namespace PlayGround.System.Projectile
         {
             public float DeltaTime;
             [ReadOnly] public BufferLookup<CombatTargetElement> Targets;
+            [ReadOnly] public NativeParallelHashMap<long, int> TargetIndicesById;
+            [ReadOnly] public NativeParallelMultiHashMap<long, int> TargetCells;
 
             private void Execute(
                 ref ProjectileTrackingComponent tracking,
@@ -58,10 +96,10 @@ namespace PlayGround.System.Projectile
                 tracking.TrackingQueryCooldownRemaining = math.max(0f, tracking.TrackingQueryCooldownRemaining - DeltaTime);
                 if (tracking.TrackingQueryCooldownRemaining <= 0f)
                 {
-                    bool hasTrackedTarget = TryRefreshTrackedTarget(ref tracking, kinematics, hit, targets);
+                    bool hasTrackedTarget = TryRefreshTrackedTarget(ref tracking, identity, kinematics, hit, targets);
                     if (!hasTrackedTarget)
                     {
-                        hasTrackedTarget = TryAcquireTrackedTarget(ref tracking, kinematics, hit, targets);
+                        hasTrackedTarget = TryAcquireTrackedTarget(ref tracking, identity, kinematics, hit, targets);
                     }
 
                     tracking.TrackingQueryCooldownRemaining = tracking.TrackingQueryIntervalSeconds;
@@ -72,8 +110,9 @@ namespace PlayGround.System.Projectile
                 }
             }
 
-            private static bool TryRefreshTrackedTarget(
+            private bool TryRefreshTrackedTarget(
                 ref ProjectileTrackingComponent tracking,
+                ProjectileIdentityComponent identity,
                 CombatKinematicsComponent kinematics,
                 CombatHitComponent hit,
                 DynamicBuffer<CombatTargetElement> targets)
@@ -94,20 +133,16 @@ namespace PlayGround.System.Projectile
                     return true;
                 }
 
-                for (int i = 0; i < targets.Length; i++)
+                if (TargetIndicesById.TryGetValue(
+                        TargetIdKey(identity.Scope, tracking.TrackedTargetId),
+                        out int mappedIndex)
+                    && mappedIndex >= 0
+                    && mappedIndex < targets.Length
+                    && targets[mappedIndex].TargetId == tracking.TrackedTargetId
+                    && IsValidTrackedTarget(kinematics, tracking, hit, targets[mappedIndex]))
                 {
-                    if (targets[i].TargetId != tracking.TrackedTargetId)
-                    {
-                        continue;
-                    }
-
-                    if (!IsValidTrackedTarget(kinematics, tracking, hit, targets[i]))
-                    {
-                        break;
-                    }
-
-                    tracking.TrackedTargetIndex = i;
-                    tracking.TrackedTargetPosition = targets[i].Position;
+                    tracking.TrackedTargetIndex = mappedIndex;
+                    tracking.TrackedTargetPosition = targets[mappedIndex].Position;
                     return true;
                 }
 
@@ -117,8 +152,9 @@ namespace PlayGround.System.Projectile
                 return false;
             }
 
-            private static bool TryAcquireTrackedTarget(
+            private bool TryAcquireTrackedTarget(
                 ref ProjectileTrackingComponent tracking,
+                ProjectileIdentityComponent identity,
                 CombatKinematicsComponent kinematics,
                 CombatHitComponent hit,
                 DynamicBuffer<CombatTargetElement> targets)
@@ -126,39 +162,61 @@ namespace PlayGround.System.Projectile
                 tracking.TrackedTargetId = 0;
                 tracking.TrackedTargetIndex = -1;
                 float bestDistanceSquared = float.MaxValue;
+                float range = math.sqrt(tracking.TrackingRangeSquared);
+                int2 cellMin = FloorCell(kinematics.Position - range);
+                int2 cellMax = FloorCell(kinematics.Position + range);
 
-                for (int i = 0; i < targets.Length; i++)
+                for (int cy = cellMin.y; cy <= cellMax.y; cy++)
                 {
-                    CombatTargetElement target = targets[i];
-                    if ((hit.TargetMask & target.TargetMask) == 0)
+                    for (int cx = cellMin.x; cx <= cellMax.x; cx++)
                     {
-                        continue;
-                    }
+                        long key = CellKey(identity.Scope, cx, cy);
+                        if (!TargetCells.TryGetFirstValue(
+                                key,
+                                out int targetIndex,
+                                out NativeParallelMultiHashMapIterator<long> iterator))
+                        {
+                            continue;
+                        }
 
-                    float2 toTarget = target.Position - kinematics.Position;
-                    float distanceSquared = math.lengthsq(toTarget);
-                    if (distanceSquared > tracking.TrackingRangeSquared)
-                    {
-                        continue;
-                    }
+                        do
+                        {
+                            if (targetIndex < 0 || targetIndex >= targets.Length)
+                            {
+                                continue;
+                            }
 
-                    if (distanceSquared <= ProjectileSimulationConstants.MinimumDirectionLengthSquared)
-                    {
-                        tracking.TrackedTargetId = target.TargetId;
-                        tracking.TrackedTargetIndex = i;
-                        tracking.TrackedTargetPosition = target.Position;
-                        return true;
-                    }
+                            CombatTargetElement target = targets[targetIndex];
+                            if (!TryGetTargetDistanceSquared(
+                                    kinematics,
+                                    tracking,
+                                    hit,
+                                    target,
+                                    out float distanceSquared))
+                            {
+                                continue;
+                            }
 
-                    if (distanceSquared >= bestDistanceSquared)
-                    {
-                        continue;
-                    }
+                            if (distanceSquared <= ProjectileSimulationConstants.MinimumDirectionLengthSquared)
+                            {
+                                tracking.TrackedTargetId = target.TargetId;
+                                tracking.TrackedTargetIndex = targetIndex;
+                                tracking.TrackedTargetPosition = target.Position;
+                                return true;
+                            }
 
-                    bestDistanceSquared = distanceSquared;
-                    tracking.TrackedTargetId = target.TargetId;
-                    tracking.TrackedTargetIndex = i;
-                    tracking.TrackedTargetPosition = target.Position;
+                            if (distanceSquared >= bestDistanceSquared)
+                            {
+                                continue;
+                            }
+
+                            bestDistanceSquared = distanceSquared;
+                            tracking.TrackedTargetId = target.TargetId;
+                            tracking.TrackedTargetIndex = targetIndex;
+                            tracking.TrackedTargetPosition = target.Position;
+                        }
+                        while (TargetCells.TryGetNextValue(out targetIndex, ref iterator));
+                    }
                 }
 
                 return tracking.TrackedTargetId != 0;
@@ -170,13 +228,35 @@ namespace PlayGround.System.Projectile
                 CombatHitComponent hit,
                 CombatTargetElement target)
             {
+                return TryGetTargetDistanceSquared(
+                    kinematics,
+                    tracking,
+                    hit,
+                    target,
+                    out _);
+            }
+
+            private static bool TryGetTargetDistanceSquared(
+                CombatKinematicsComponent kinematics,
+                ProjectileTrackingComponent tracking,
+                CombatHitComponent hit,
+                CombatTargetElement target,
+                out float distanceSquared)
+            {
+                distanceSquared = float.MaxValue;
                 if ((hit.TargetMask & target.TargetMask) == 0)
                 {
                     return false;
                 }
 
-                float distanceSquared = math.lengthsq(target.Position - kinematics.Position);
-                return distanceSquared <= tracking.TrackingRangeSquared;
+                float2 toTarget = target.Position - kinematics.Position;
+                distanceSquared = math.lengthsq(toTarget);
+                if (distanceSquared > tracking.TrackingRangeSquared)
+                {
+                    return false;
+                }
+
+                return true;
             }
         }
 
@@ -242,6 +322,38 @@ namespace PlayGround.System.Projectile
                 return math.lengthsq(steered) <= ProjectileSimulationConstants.MinimumDirectionLengthSquared
                     ? currentDirection
                     : math.normalize(steered);
+            }
+        }
+
+        private static int2 FloorCell(float2 pos)
+        {
+            return new int2(
+                (int)math.floor(pos.x / TrackingSpatialHashCellSize),
+                (int)math.floor(pos.y / TrackingSpatialHashCellSize));
+        }
+
+        private static long CellKey(Entity scope, int x, int y)
+        {
+            unchecked
+            {
+                ulong hash = 1469598103934665603UL;
+                hash = (hash ^ (uint)scope.Index) * 1099511628211UL;
+                hash = (hash ^ (uint)scope.Version) * 1099511628211UL;
+                hash = (hash ^ (uint)x) * 1099511628211UL;
+                hash = (hash ^ (uint)y) * 1099511628211UL;
+                return (long)hash;
+            }
+        }
+
+        private static long TargetIdKey(Entity scope, int targetId)
+        {
+            unchecked
+            {
+                ulong hash = 1469598103934665603UL;
+                hash = (hash ^ (uint)scope.Index) * 1099511628211UL;
+                hash = (hash ^ (uint)scope.Version) * 1099511628211UL;
+                hash = (hash ^ (uint)targetId) * 1099511628211UL;
+                return (long)hash;
             }
         }
     }

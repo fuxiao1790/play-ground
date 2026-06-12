@@ -11,7 +11,7 @@ namespace PlayGround.Mob
 
         public MobBehaviourState CurrentState { get; private set; } = MobBehaviourState.Idle;
 
-        public void Update(global::System.Collections.Generic.List<MobEvent> events)
+        public void Update(global::System.Collections.Generic.IReadOnlyList<MobEvent> events)
         {
             for (int i = 0; i < events.Count; i++)
             {

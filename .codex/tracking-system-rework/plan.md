@@ -33,7 +33,20 @@
 - Keep `CombatTargetElement` and `ICombatTarget` unchanged.
 
 **Implementation Notes**
-- Start with static helper methods shared with collision-style cell hashing where practical, but do not merge tracking and collision systems.
+- Reuse collision-style hash math where practical, but do not reuse the
+  `ProjectileCollisionSystem` map instance directly. Collision builds and
+  disposes its target cell map inside the later collision system, after tracking
+  and movement have already run.
+- Extract/share small static helper methods for `FloorCell` and scope-aware
+  `CellKey` if duplication grows, but keep tracking and collision maps separate.
+- Do not use the collision cell size for tracking. Collision currently uses a
+  fine `1f` cell size because projectile hit queries are projectile-AABB sized.
+  Tracking reacquire queries are homing-range sized, often `150-200` units, so
+  `1f` cells would cause tens of thousands of mostly empty hash probes per
+  reacquire.
+- Use a much coarser tracking cell size, likely `32f`, `64f`, or a value derived
+  from tracking range / target density. For example, range `200` with `1f` cells
+  can touch about `160,000` cells, while `64f` cells touches about `49` cells.
 - Use `NativeParallelHashMap` / `NativeParallelMultiHashMap` with `Allocator.TempJob`, disposed after scheduled tracking job.
 - Keep hash keys scope-aware so player-to-mob and mob-to-player roots stay isolated.
 - Preserve tracking cooldown and initial query delay behavior.

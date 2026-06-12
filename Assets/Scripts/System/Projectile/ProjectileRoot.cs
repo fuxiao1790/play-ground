@@ -45,6 +45,7 @@ namespace PlayGround.System.Projectile
         private EntityQuery allProjectileQuery;
         private EntityQuery submitQuery;
         private NativeArray<CombatRenderElement> submitBuffer;
+        private global::System.Func<IProjectileTarget, bool> canTargetFilter;
         private int nextProjectileId;
         private int nextTemplateTypeId = 1;
         private bool runtimeReady;
@@ -62,6 +63,7 @@ namespace PlayGround.System.Projectile
         {
             runtimeReady = false;
             targetSync = new CombatTargetSync<IProjectileTarget>(targetRegistry);
+            canTargetFilter = CanTarget;
             vfxDispatcher ??= new CombatVfxDispatcher(transform);
             ApplyTaggedDefaults();
             if (projectileSprite == null && !HasAnyRenderSource())
@@ -391,7 +393,7 @@ namespace PlayGround.System.Projectile
         private void SyncTargetsToEcs()
         {
             DynamicBuffer<CombatTargetElement> targetBuffer = entityManager.GetBuffer<CombatTargetElement>(scopeEntity);
-            targetSync.SyncToBuffer(targetBuffer, additionalFilter: CanTarget);
+            targetSync.SyncToBuffer(targetBuffer, additionalFilter: canTargetFilter);
         }
 
         private void DrainVfxRequests()

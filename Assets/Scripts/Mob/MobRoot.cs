@@ -128,7 +128,8 @@ namespace PlayGround.Mob
 
             StatusEffects?.Tick(deltaTime);
             eventQueue.PushType(MobEventType.Tick, this);
-            stateDriver.Update(eventQueue.Drain());
+            stateDriver.Update(eventQueue.Events);
+            eventQueue.Clear();
             blackboard.BehaviourState = stateDriver.CurrentState;
             animatorDriver.RequestState(stateDriver.CurrentState);
 

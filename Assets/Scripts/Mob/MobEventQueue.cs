@@ -6,6 +6,9 @@ namespace PlayGround.Mob
     public sealed class MobEventQueue
     {
         private readonly List<MobEvent> events = new();
+        private readonly List<MobEvent> drainBuffer = new();
+
+        public IReadOnlyList<MobEvent> Events => events;
 
         public void Push(MobEvent mobEvent)
         {
@@ -19,9 +22,15 @@ namespace PlayGround.Mob
 
         public List<MobEvent> Drain()
         {
-            List<MobEvent> drained = new(events);
+            drainBuffer.Clear();
+            drainBuffer.AddRange(events);
             events.Clear();
-            return drained;
+            return drainBuffer;
+        }
+
+        public void Clear()
+        {
+            events.Clear();
         }
     }
 }
