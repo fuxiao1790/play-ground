@@ -7,16 +7,13 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace PlayGround.System.Aoe
 {
     public sealed class AoeRoot : MonoBehaviour, ICombatScopeEndpoint
     {
-        private const int MaxInstancesPerDraw = 1023;
         private const int MaxVfxPerFrame = 2048;
         private const float AoeRenderZ = 0.5f;
-        private static readonly ProfilerMarker SubmitAoesMarker = new("AoeRoot.SubmitAoes");
         private static readonly ProfilerMarker DrainVfxMarker = new("AoeRoot.DrainVfxRequests");
         private static readonly ProfilerMarker DrainHitsMarker = new("AoeRoot.DrainHits");
 
@@ -37,14 +34,10 @@ namespace PlayGround.System.Aoe
         private EntityManager entityManager;
         private Entity scopeEntity;
         private EntityQuery allAoeQuery;
-        private EntityQuery submitQuery;
-        private NativeArray<CombatRenderElement> submitBuffer;
         private IReadOnlyDictionary<int, ICombatTarget> runtimeTargetsById;
         private int spawnedAoes;
         private int despawnedAoes;
         private int hitEvents;
-        private int activeVisuals;
-        private int renderBatches;
         private int nextAoeId;
         private int nextTypeId = 1;
         private global::System.Action<DynamicBuffer<CombatTargetElement>> targetSyncCallback;
@@ -64,8 +57,8 @@ namespace PlayGround.System.Aoe
             spawnedAoes,
             despawnedAoes,
             hitEvents,
-            activeVisuals,
-            renderBatches);
+            0,
+            0);
 
         private void Awake()
         {
@@ -87,11 +80,6 @@ namespace PlayGround.System.Aoe
             if (!EnsureRuntimeAvailable())
             {
                 return;
-            }
-
-            using (SubmitAoesMarker.Auto())
-            {
-                SubmitAoes();
             }
 
             using (DrainVfxMarker.Auto())
@@ -380,13 +368,12 @@ namespace PlayGround.System.Aoe
             allAoeQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AoeTag>(),
                 ComponentType.ReadOnly<AoeIdentityComponent>());
-            submitQuery = entityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<AoeTag>(),
-                ComponentType.ReadOnly<CombatRenderScope>(),
-                ComponentType.ReadOnly<CombatRenderTypeId>(),
-                ComponentType.ReadOnly<CombatRenderElement>(),
-                ComponentType.ReadOnly<AoeActiveTag>());
-            submitBuffer = new NativeArray<CombatRenderElement>(MaxInstancesPerDraw, Allocator.Persistent);
+            entityManager.AddComponentObject(scopeEntity, new CombatScopeRenderCatalog
+            {
+                Resources = renderResourcesByType,
+                Layer = gameObject.layer,
+                BoundsHalfExtent = batchBoundsHalfExtent
+            });
             ecsHandlesCreated = true;
         }
 
@@ -496,86 +483,6 @@ namespace PlayGround.System.Aoe
                 "AoeQuadMesh");
         }
 
-        private void SubmitAoes()
-        {
-            entityManager.CompleteDependencyBeforeRO<AoeActiveTag>();
-            entityManager.CompleteDependencyBeforeRO<CombatRenderElement>();
-            activeVisuals = 0;
-            renderBatches = 0;
-            if (!spawnVisuals || renderResourcesByType.Count == 0 || submitQuery == null || !submitBuffer.IsCreated)
-            {
-                return;
-            }
-            DynamicBuffer<AoeRecycleElement> recycleBuffer = entityManager.GetBuffer<AoeRecycleElement>(scopeEntity);
-            SubmitRecycledPulseAoes(recycleBuffer);
-            SubmitActiveAoes();
-        }
-
-        private void SubmitRecycledPulseAoes(DynamicBuffer<AoeRecycleElement> recycleBuffer)
-        {
-            if (recycleBuffer.Length == 0)
-            {
-                return;
-            }
-
-            foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in renderResourcesByType)
-            {
-                int typeId = pair.Key;
-                int batchCount = 0;
-                for (int i = 0; i < recycleBuffer.Length; i++)
-                {
-                    AoeRecycleElement recycle = recycleBuffer[i];
-                    if (recycle.TypeId != typeId)
-                    {
-                        continue;
-                    }
-
-                    submitBuffer[batchCount] = recycle.Render;
-                    batchCount++;
-                    activeVisuals++;
-
-                    if (batchCount == MaxInstancesPerDraw)
-                    {
-                        SubmitBatch(submitBuffer, 0, batchCount, pair.Value);
-                        batchCount = 0;
-                    }
-                }
-
-                if (batchCount > 0)
-                {
-                    SubmitBatch(submitBuffer, 0, batchCount, pair.Value);
-                }
-            }
-        }
-
-        private void SubmitActiveAoes()
-        {
-            foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in renderResourcesByType)
-            {
-                submitQuery.SetSharedComponentFilter(
-                    new CombatRenderScope { Scope = scopeEntity },
-                    new CombatRenderTypeId { TypeId = pair.Key });
-                using NativeArray<CombatRenderElement> renderElements =
-                    submitQuery.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
-                activeVisuals += renderElements.Length;
-
-                for (int start = 0; start < renderElements.Length; start += MaxInstancesPerDraw)
-                {
-                    int count = Mathf.Min(MaxInstancesPerDraw, renderElements.Length - start);
-                    NativeArray<CombatRenderElement>.Copy(renderElements, start, submitBuffer, 0, count);
-                    SubmitBatch(submitBuffer, 0, count, pair.Value);
-                }
-
-                submitQuery.ResetFilter();
-            }
-        }
-
-        private void SubmitBatch(NativeArray<CombatRenderElement> instances, int startInstance, int instanceCount, CombatSpriteRenderResources resources)
-        {
-            BatchedSpriteRenderer.SubmitBatch(instances, startInstance, instanceCount, resources, gameObject.layer, batchBoundsHalfExtent);
-            renderBatches++;
-        }
-
         private void DestroyRenderResources()
         {
             foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in renderResourcesByType)
@@ -588,11 +495,6 @@ namespace PlayGround.System.Aoe
 
         private void DisposeEcsHandles()
         {
-            if (submitBuffer.IsCreated)
-            {
-                submitBuffer.Dispose();
-            }
-
             if (!ecsHandlesCreated)
             {
                 scopeEntity = Entity.Null;
@@ -600,7 +502,6 @@ namespace PlayGround.System.Aoe
                 return;
             }
 
-            DisposeQuery(ref submitQuery);
             DisposeQuery(ref allAoeQuery);
             ecsHandlesCreated = false;
             scopeEntity = Entity.Null;
@@ -674,11 +575,6 @@ namespace PlayGround.System.Aoe
 
         void ICombatScopeEndpoint.PresentFromCombatRuntime()
         {
-            using (SubmitAoesMarker.Auto())
-            {
-                SubmitAoes();
-            }
-
             using (DrainVfxMarker.Auto())
             {
                 DrainVfxRequests();

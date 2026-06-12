@@ -91,7 +91,6 @@ namespace PlayGround.System.Aoe
     {
         public Entity AoeEntity;
         public int TypeId;
-        public CombatRenderElement Render;
     }
 
     // ECS Lifecycle: base AOE component; added at entity creation; kept until root teardown; reset on reuse; used by AoeLifetimeSystem for pulse VFX ticks on lingering AOEs.
@@ -107,6 +106,5 @@ namespace PlayGround.System.Aoe
         public Entity Scope;
         public Entity AoeEntity;
         public int TypeId;
-        public CombatRenderElement Render;
     }
 }

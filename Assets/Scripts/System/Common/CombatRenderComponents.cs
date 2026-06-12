@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
@@ -98,6 +99,14 @@ namespace PlayGround.System.Common
                 }
             };
         }
+    }
+
+    // ECS Lifecycle: managed component; added to scope entities at root setup; references the root's render resource dictionary by reference so catalog stays in sync without explicit updates.
+    internal sealed class CombatScopeRenderCatalog : IComponentData
+    {
+        public Dictionary<int, CombatSpriteRenderResources> Resources;
+        public int Layer;
+        public float BoundsHalfExtent;
     }
 
     [UpdateInGroup(typeof(SimulationSystemGroup))]

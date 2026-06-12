@@ -31,8 +31,7 @@ namespace PlayGround.System.Aoe
                     RecycleBuffers[recycle.Scope].Add(new AoeRecycleElement
                     {
                         AoeEntity = recycle.AoeEntity,
-                        TypeId = recycle.TypeId,
-                        Render = recycle.Render
+                        TypeId = recycle.TypeId
                     });
                 }
             }
@@ -90,7 +89,6 @@ namespace PlayGround.System.Aoe
                 in AoeIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
                 in AoeAreaComponent area,
-                in CombatRenderElement renderElement,
                 ref AoeLifetimeComponent lifetime,
                 EnabledRefRW<AoeActiveTag> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive)
@@ -113,8 +111,7 @@ namespace PlayGround.System.Aoe
                 {
                     Scope = identity.Scope,
                     AoeEntity = entity,
-                    TypeId = identity.TypeId,
-                    Render = renderElement
+                    TypeId = identity.TypeId
                 });
                 VfxPending.Enqueue(new VfxPendingSpawn
                 {

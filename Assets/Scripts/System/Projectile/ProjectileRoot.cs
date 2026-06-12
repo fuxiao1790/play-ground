@@ -8,18 +8,15 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace PlayGround.System.Projectile
 {
     public sealed class ProjectileRoot : MonoBehaviour, ICombatScopeEndpoint
     {
-        private const int MaxInstancesPerDraw = 1023;
         private const int MaxVfxPerFrame = 2048;
         private const float ProjectileRenderZ = -0.25f;
         private const float ProjectileZStep = 0.000001f;
         private const int ProjectileZSlots = 1_000_000;
-        private static readonly ProfilerMarker SubmitProjectilesMarker = new("ProjectileRoot.SubmitProjectiles");
         private static readonly ProfilerMarker DrainVfxMarker = new("ProjectileRoot.DrainVfxRequests");
         private static readonly ProfilerMarker DrainHitsMarker = new("ProjectileRoot.DrainHits");
 
@@ -43,8 +40,6 @@ namespace PlayGround.System.Projectile
         private EntityManager entityManager;
         private Entity scopeEntity;
         private EntityQuery allProjectileQuery;
-        private EntityQuery submitQuery;
-        private NativeArray<CombatRenderElement> submitBuffer;
         private IReadOnlyDictionary<int, ICombatTarget> runtimeTargetsById;
         private global::System.Func<IProjectileTarget, bool> canTargetFilter;
         private int nextProjectileId;
@@ -90,11 +85,6 @@ namespace PlayGround.System.Projectile
             if (!EnsureRuntimeAvailable())
             {
                 return;
-            }
-
-            using (SubmitProjectilesMarker.Auto())
-            {
-                SubmitProjectiles();
             }
 
             using (DrainVfxMarker.Auto())
@@ -323,24 +313,13 @@ namespace PlayGround.System.Projectile
             allProjectileQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<ProjectileIdentityComponent>());
-            submitQuery = SubmitQuery();
-            if (submitBuffer.IsCreated)
+            entityManager.AddComponentObject(scopeEntity, new CombatScopeRenderCatalog
             {
-                submitBuffer.Dispose();
-            }
-
-            submitBuffer = new NativeArray<CombatRenderElement>(MaxInstancesPerDraw, Allocator.Persistent);
+                Resources = renderResourcesByType,
+                Layer = gameObject.layer,
+                BoundsHalfExtent = batchBoundsHalfExtent
+            });
             ecsHandlesCreated = true;
-        }
-
-        private EntityQuery SubmitQuery()
-        {
-            return entityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<ProjectileTag>(),
-                ComponentType.ReadOnly<CombatRenderElement>(),
-                ComponentType.ReadOnly<CombatRenderScope>(),
-                ComponentType.ReadOnly<CombatRenderTypeId>(),
-                ComponentType.ReadOnly<ProjectileActiveTag>());
         }
 
         private bool IsRuntimeReady()
@@ -618,11 +597,6 @@ namespace PlayGround.System.Projectile
 
         private void DisposeEcsHandles()
         {
-            if (submitBuffer.IsCreated)
-            {
-                submitBuffer.Dispose();
-            }
-
             if (!ecsHandlesCreated)
             {
                 scopeEntity = Entity.Null;
@@ -630,7 +604,6 @@ namespace PlayGround.System.Projectile
                 return;
             }
 
-            DisposeQuery(ref submitQuery);
             DisposeQuery(ref allProjectileQuery);
             ecsHandlesCreated = false;
             scopeEntity = Entity.Null;
@@ -664,34 +637,6 @@ namespace PlayGround.System.Projectile
             }
 
             query = default;
-        }
-
-        // this function should ONLY submit projectiles rendering data.
-        // DO NOT loop over individual projectiles.
-        private void SubmitProjectiles()
-        {
-            entityManager.CompleteDependencyBeforeRO<ProjectileActiveTag>();
-            entityManager.CompleteDependencyBeforeRO<CombatRenderElement>();
-            if (renderResourcesByType.Count == 0)
-            {
-                return;
-            }
-            foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in renderResourcesByType)
-            {
-                submitQuery.SetSharedComponentFilter(
-                    new CombatRenderScope { Scope = scopeEntity },
-                    new CombatRenderTypeId { TypeId = pair.Key });
-                NativeArray<CombatRenderElement> active =
-                    submitQuery.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
-                for (int start = 0; start < active.Length; start += MaxInstancesPerDraw)
-                {
-                    int count = Mathf.Min(MaxInstancesPerDraw, active.Length - start);
-                    NativeArray<CombatRenderElement>.Copy(active, start, submitBuffer, 0, count);
-                    BatchedSpriteRenderer.SubmitBatch(submitBuffer, 0, count, pair.Value, gameObject.layer, batchBoundsHalfExtent);
-                }
-                active.Dispose();
-                submitQuery.ResetFilter();
-            }
         }
 
         private static float DeterministicJitter(int projectileId, float maxOffsetSeconds)
@@ -775,11 +720,6 @@ namespace PlayGround.System.Projectile
 
         void ICombatScopeEndpoint.PresentFromCombatRuntime()
         {
-            using (SubmitProjectilesMarker.Auto())
-            {
-                SubmitProjectiles();
-            }
-
             using (DrainVfxMarker.Auto())
             {
                 DrainVfxRequests();

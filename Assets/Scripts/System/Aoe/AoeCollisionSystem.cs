@@ -134,14 +134,13 @@ namespace PlayGround.System.Aoe
                 in AoeHitGateComponent hitGate,
                 in AoeHitSpawnComponent hitSpawn,
                 in AoeAreaComponent area,
-                in CombatRenderElement renderElement,
                 EnabledRefRW<AoeActiveTag> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive,
                 DynamicBuffer<AoeContactGateElement> contactGates)
             {
                 if (identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
                 {
-                    Deactivate(entity, identity, renderElement, active, renderActive);
+                    Deactivate(entity, identity, active, renderActive);
                     return;
                 }
 
@@ -183,7 +182,7 @@ namespace PlayGround.System.Aoe
 
                 if (lifetime.IsPulse == 1)
                 {
-                    Deactivate(entity, identity, renderElement, active, renderActive);
+                    Deactivate(entity, identity, active, renderActive);
                 }
             }
 
@@ -269,7 +268,6 @@ namespace PlayGround.System.Aoe
             private void Deactivate(
                 Entity entity,
                 AoeIdentityComponent identity,
-                CombatRenderElement renderElement,
                 EnabledRefRW<AoeActiveTag> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive)
             {
@@ -279,8 +277,7 @@ namespace PlayGround.System.Aoe
                 {
                     Scope = identity.Scope,
                     AoeEntity = entity,
-                    TypeId = identity.TypeId,
-                    Render = renderElement
+                    TypeId = identity.TypeId
                 });
             }
 
@@ -386,8 +383,7 @@ namespace PlayGround.System.Aoe
                     RecycleBuffers[recycle.Scope].Add(new AoeRecycleElement
                     {
                         AoeEntity = recycle.AoeEntity,
-                        TypeId = recycle.TypeId,
-                        Render = recycle.Render
+                        TypeId = recycle.TypeId
                     });
                 }
             }
