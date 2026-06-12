@@ -49,6 +49,7 @@ namespace PlayGround.System.Projectile
         private global::System.Func<IProjectileTarget, bool> canTargetFilter;
         private int nextProjectileId;
         private int nextTemplateTypeId = 1;
+        private global::System.Action<DynamicBuffer<CombatTargetElement>> targetSyncCallback;
         private bool runtimeReady;
         private bool ecsWorldAcquired;
         private bool ecsHandlesCreated;
@@ -66,6 +67,7 @@ namespace PlayGround.System.Projectile
             runtimeReady = false;
             targetSync = new CombatTargetSync<IProjectileTarget>(targetRegistry);
             canTargetFilter = CanTarget;
+            targetSyncCallback = buffer => targetSync.SyncToBuffer(buffer, additionalFilter: canTargetFilter);
             vfxDispatcher ??= new CombatVfxDispatcher(transform);
             ApplyTaggedDefaults();
             if (projectileSprite == null && !HasAnyRenderSource())
@@ -76,21 +78,6 @@ namespace PlayGround.System.Projectile
             BindWorld();
             BuildRenderResources();
             runtimeReady = true;
-        }
-
-        private void Update()
-        {
-            if (combatRuntimeManaged)
-            {
-                return;
-            }
-
-            if (!EnsureRuntimeAvailable())
-            {
-                return;
-            }
-
-            SyncTargetsToEcs();
         }
 
         private void LateUpdate()
@@ -332,6 +319,7 @@ namespace PlayGround.System.Projectile
             entityManager.AddBuffer<ProjectileSpawnRequestElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileRecycleElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
+            entityManager.AddComponentObject(scopeEntity, new CombatTargetSyncSource { Sync = combatRuntimeManaged ? null : targetSyncCallback });
             allProjectileQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<ProjectileIdentityComponent>());
@@ -400,12 +388,6 @@ namespace PlayGround.System.Projectile
             {
                 throw new global::System.InvalidOperationException($"{nameof(ProjectileRoot)} on {name} has not finished ECS setup.");
             }
-        }
-
-        private void SyncTargetsToEcs()
-        {
-            DynamicBuffer<CombatTargetElement> targetBuffer = entityManager.GetBuffer<CombatTargetElement>(scopeEntity);
-            targetSync.SyncToBuffer(targetBuffer, additionalFilter: canTargetFilter);
         }
 
         private void DrainVfxRequests()
@@ -765,6 +747,10 @@ namespace PlayGround.System.Projectile
             if (!managed)
             {
                 runtimeTargetsById = null;
+            }
+            if (HasValidEcsState())
+            {
+                entityManager.GetComponentObject<CombatTargetSyncSource>(scopeEntity).Sync = managed ? null : targetSyncCallback;
             }
         }
 

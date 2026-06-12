@@ -47,6 +47,7 @@ namespace PlayGround.System.Aoe
         private int renderBatches;
         private int nextAoeId;
         private int nextTypeId = 1;
+        private global::System.Action<DynamicBuffer<CombatTargetElement>> targetSyncCallback;
         private bool runtimeReady;
         private bool ecsWorldAcquired;
         private bool ecsHandlesCreated;
@@ -71,23 +72,9 @@ namespace PlayGround.System.Aoe
             runtimeReady = false;
             vfxDispatcher ??= new CombatVfxDispatcher(transform);
             targetSync = new CombatTargetSync<IAoeTarget>(targetRegistry);
+            targetSyncCallback = buffer => targetSync.SyncToBuffer(buffer);
             BindWorld();
             runtimeReady = true;
-        }
-
-        private void Update()
-        {
-            if (combatRuntimeManaged)
-            {
-                return;
-            }
-
-            if (!EnsureRuntimeAvailable())
-            {
-                return;
-            }
-
-            SyncTargetsToEcs();
         }
 
         private void LateUpdate()
@@ -389,6 +376,7 @@ namespace PlayGround.System.Aoe
             entityManager.AddBuffer<CombatHitPayloadElement>(scopeEntity);
             entityManager.AddBuffer<AoeRecycleElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
+            entityManager.AddComponentObject(scopeEntity, new CombatTargetSyncSource { Sync = combatRuntimeManaged ? null : targetSyncCallback });
             allAoeQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AoeTag>(),
                 ComponentType.ReadOnly<AoeIdentityComponent>());
@@ -447,12 +435,6 @@ namespace PlayGround.System.Aoe
             {
                 throw new global::System.InvalidOperationException($"{nameof(AoeRoot)} on {name} has not finished ECS setup.");
             }
-        }
-
-        private void SyncTargetsToEcs()
-        {
-            DynamicBuffer<CombatTargetElement> targetBuffer = entityManager.GetBuffer<CombatTargetElement>(scopeEntity);
-            targetSync.SyncToBuffer(targetBuffer);
         }
 
         private int ActiveAoeCount()
@@ -664,6 +646,10 @@ namespace PlayGround.System.Aoe
             if (!managed)
             {
                 runtimeTargetsById = null;
+            }
+            if (HasValidEcsState())
+            {
+                entityManager.GetComponentObject<CombatTargetSyncSource>(scopeEntity).Sync = managed ? null : targetSyncCallback;
             }
         }
 
