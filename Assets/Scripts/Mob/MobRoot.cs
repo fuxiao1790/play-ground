@@ -37,7 +37,6 @@ namespace PlayGround.Mob
         [SerializeField] private float projectileRadius = 0.25f;
         [SerializeField] private CombatShapeType projectileShapeType = CombatShapeType.Circle;
         [SerializeField] private BasicAttackPrefab projectileBasicPrefab;
-        [SerializeField, Min(0f)] private float deathCleanupDelaySeconds;
 
         private static int nextTargetId;
         private readonly MobDebuffStackState debuffStacks = new();
@@ -366,14 +365,7 @@ namespace PlayGround.Mob
             combatTargetSet?.Unregister(this);
             softDeathNotified = true;
             SoftDied?.Invoke(this);
-            if (deathCleanupDelaySeconds <= 0f)
-            {
-                Destroy(gameObject);
-            }
-            else
-            {
-                Destroy(gameObject, deathCleanupDelaySeconds);
-            }
+            Destroy(gameObject);
         }
 
         private void ValidateReferences()

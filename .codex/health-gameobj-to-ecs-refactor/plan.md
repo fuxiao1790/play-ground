@@ -4,7 +4,7 @@
 - Move player and mob direct health damage into one ECS path.
 - Use one ECS health entity per combat target id.
 - Tag health entities with `CombatTargetHealth`.
-- Keep GameObjects responsible for movement, colliders, animation, input, behavior, and death presentation.
+- Keep GameObjects responsible for movement, colliders, animation, input, and behavior. Mob death is a hard destroy; player retains death presentation.
 - MonoBehaviours do not touch ECS directly.
 
 **Key Data**
@@ -51,7 +51,7 @@
 - Add a non-ECS actor health registry owned by `GameRoot`.
 - `PlayerRoot` and `MobRoot` register target id, max health, and presentation sink through scene setup/spawn setup.
 - Managed ECS systems read registry changes and call registered sinks by target id during presentation sync.
-- `MobRoot` sync updates mirrored health, blackboard, hurt/crit/death events, and soft death.
+- `MobRoot` sync updates mirrored health, blackboard, and hurt/crit events; on death the GameObject is immediately destroyed (hard death, no death animation).
 - `PlayerRoot`/`PlayerHealth` sync updates mirrored health, hurt animation, and player death presentation.
 - No `Entity`, `World`, or `EntityManager` is stored on actor MonoBehaviours.
 
@@ -61,7 +61,7 @@
 - Many hits on one target in one frame produce one health sync record.
 - Aggregation tests cover both target-id correctness and no duplicate per-frame health application.
 - `directDamageEnabled = false` creates no damage event but keeps semantic hit event.
-- Mob and player death presentation still works.
+- Mob death destroys the GameObject (hard death); player death presentation still works.
 
 **Assumptions**
 - `TargetId` is unique across player and mobs.
