@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
@@ -124,6 +125,77 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(tracking.TrackedTargetId, Is.EqualTo(200));
         }
 
+        [Test]
+        public void AcquiresImmediatelyWhenNoTargetDespiteCooldown()
+        {
+            AddTarget(targetId: 300, position: new float2(0f, 40f), radius: 0.25f, targetMask: 1);
+            SpawnTrackedProjectile(
+                position: float2.zero,
+                velocity: new float2(0f, 10f),
+                turnSpeedRadians: math.radians(180f),
+                trackingRange: 60f,
+                queryCooldownRemaining: 5f,
+                queryIntervalSeconds: 5f);
+
+            Tick(0.1f);
+
+            ProjectileTrackingComponent tracking =
+                entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(300));
+        }
+
+        [Test]
+        public void ReacquiresImmediatelyWhenTrackedTargetIsMissingDespiteCooldown()
+        {
+            AddTarget(targetId: 401, position: new float2(0f, 40f), radius: 0.25f, targetMask: 1);
+            SpawnTrackedProjectile(
+                position: float2.zero,
+                velocity: new float2(0f, 10f),
+                turnSpeedRadians: math.radians(180f),
+                trackingRange: 60f,
+                trackedTargetId: 400,
+                trackedTargetIndex: -1,
+                trackedTargetPosition: new float2(0f, -40f),
+                queryCooldownRemaining: 5f,
+                queryIntervalSeconds: 5f);
+
+            Tick(0.1f);
+
+            ProjectileTrackingComponent tracking =
+                entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(401));
+        }
+
+        [Test]
+        public void AcquisitionSpreadsIdenticalProjectilesAcrossEqualTargets()
+        {
+            AddTarget(targetId: 500, position: new float2(-5f, 40f), radius: 0.25f, targetMask: 1);
+            AddTarget(targetId: 501, position: new float2(5f, 40f), radius: 0.25f, targetMask: 1);
+            var acquiredTargets = new HashSet<int>();
+            var projectiles = new Entity[12];
+
+            for (int i = 0; i < projectiles.Length; i++)
+            {
+                projectiles[i] = SpawnTrackedProjectile(
+                    position: float2.zero,
+                    velocity: new float2(0f, 10f),
+                    turnSpeedRadians: math.radians(180f),
+                    trackingRange: 60f,
+                    projectileId: i + 1);
+            }
+
+            Tick(0.1f);
+
+            for (int i = 0; i < projectiles.Length; i++)
+            {
+                ProjectileTrackingComponent tracking =
+                    entityManager.GetComponentData<ProjectileTrackingComponent>(projectiles[i]);
+                acquiredTargets.Add(tracking.TrackedTargetId);
+            }
+
+            Assert.That(acquiredTargets.Count, Is.GreaterThan(1));
+        }
+
         private void Tick(float dt)
         {
             elapsedTime += dt;
@@ -132,14 +204,17 @@ namespace PlayGround.Tests.PlayMode
             entityManager.CompleteAllTrackedJobs();
         }
 
-        private void SpawnTrackedProjectile(
+        private Entity SpawnTrackedProjectile(
             float2 position,
             float2 velocity,
             float turnSpeedRadians,
             float trackingRange = 100f,
             int trackedTargetId = 0,
             int trackedTargetIndex = -1,
-            float2 trackedTargetPosition = default)
+            float2 trackedTargetPosition = default,
+            float queryCooldownRemaining = 0f,
+            float queryIntervalSeconds = 0f,
+            int projectileId = 1)
         {
             projectileEntity = entityManager.CreateEntity(
                 typeof(ProjectileTag),
@@ -154,7 +229,7 @@ namespace PlayGround.Tests.PlayMode
             entityManager.SetComponentData(projectileEntity, new ProjectileIdentityComponent
             {
                 Scope = scopeEntity,
-                ProjectileId = 1,
+                ProjectileId = projectileId,
                 TypeId = 1
             });
             entityManager.SetComponentData(projectileEntity, new CombatKinematicsComponent
@@ -185,13 +260,14 @@ namespace PlayGround.Tests.PlayMode
                 TrackingEnabled = true,
                 TrackingRangeSquared = trackingRange * trackingRange,
                 TrackingTurnSpeedRadians = turnSpeedRadians,
-                TrackingQueryCooldownRemaining = 0f,
-                TrackingQueryIntervalSeconds = 0f,
+                TrackingQueryCooldownRemaining = queryCooldownRemaining,
+                TrackingQueryIntervalSeconds = queryIntervalSeconds,
                 TrackedTargetId = trackedTargetId,
                 TrackedTargetIndex = trackedTargetIndex,
                 TrackedTargetPosition = trackedTargetPosition
             });
             entityManager.SetComponentEnabled<ProjectileTrackingComponent>(projectileEntity, true);
+            return projectileEntity;
         }
 
         private void AddTarget(int targetId, float2 position, float radius, int targetMask)

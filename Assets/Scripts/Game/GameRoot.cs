@@ -4,6 +4,7 @@ using PlayGround.Level;
 using PlayGround.Mob;
 using PlayGround.Spawn;
 using PlayGround.System.Aoe;
+using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using UnityEngine;
 
@@ -15,6 +16,7 @@ namespace PlayGround.Game
         [SerializeField] private ProjectileRoot mobProjectileRoot;
         [SerializeField] private AoeRoot playerAoeRoot;
         [SerializeField] private AoeRoot mobAoeRoot;
+        [SerializeField] private CombatRuntimeRoot combatRuntimeRoot;
         [SerializeField] private MobSpawnerRoot mobSpawner;
         [SerializeField] private MobRoot[] mobs;
         [SerializeField] private PlayGround.Player.PlayerRoot player;
@@ -22,6 +24,8 @@ namespace PlayGround.Game
         [SerializeField] private PlayAreaRoot playArea;
 
         private readonly CombatSpawnRouter combatSpawnRouter = new();
+        private const string PrimaryTargetSetKey = "PrimaryTargets";
+        private const string SecondaryTargetSetKey = "SecondaryTargets";
 
         private void Awake()
         {
@@ -51,6 +55,9 @@ namespace PlayGround.Game
                 mobSpawner = FindAnyObjectByType<MobSpawnerRoot>();
             }
 
+            EnsureCombatRuntimeRoot();
+            BindCombatScopes();
+
             if (mobSpawner != null && playerAoeRoot != null)
             {
                 mobSpawner.BindAoeRoot(playerAoeRoot);
@@ -59,6 +66,7 @@ namespace PlayGround.Game
             if (mobSpawner != null)
             {
                 mobSpawner.BindProjectileRoots(playerProjectileRoot, mobProjectileRoot);
+                mobSpawner.BindCombatRuntime(combatRuntimeRoot, PrimaryTargetSetKey);
             }
 
             if ((mobs == null || mobs.Length == 0) && mobSpawner == null)
@@ -79,7 +87,11 @@ namespace PlayGround.Game
                         throw new MissingReferenceException($"{nameof(GameRoot)} mob slot {i} is empty.");
                     }
 
-                    if (playerProjectileRoot.CanTarget(mobs[i]))
+                    if (combatRuntimeRoot != null)
+                    {
+                        mobs[i].Register(combatRuntimeRoot.GetOrCreateTargetSet(PrimaryTargetSetKey));
+                    }
+                    else if (playerProjectileRoot.CanTarget(mobs[i]))
                     {
                         mobs[i].Register(playerProjectileRoot.TargetRegistry);
                     }
@@ -87,7 +99,10 @@ namespace PlayGround.Game
                     if (playerAoeRoot != null)
                     {
                         mobs[i].BindAoeRoot(playerAoeRoot);
-                        mobs[i].Register(playerAoeRoot.TargetRegistry);
+                        if (combatRuntimeRoot == null)
+                        {
+                            mobs[i].Register(playerAoeRoot.TargetRegistry);
+                        }
                     }
 
                     if (player != null)
@@ -97,7 +112,11 @@ namespace PlayGround.Game
                 }
             }
 
-            if (mobProjectileRoot != null && player != null)
+            if (combatRuntimeRoot != null && player != null)
+            {
+                player.Register(combatRuntimeRoot.GetOrCreateTargetSet(SecondaryTargetSetKey));
+            }
+            else if (mobProjectileRoot != null && player != null)
             {
                 if (mobProjectileRoot.CanTarget(player))
                 {
@@ -105,7 +124,7 @@ namespace PlayGround.Game
                 }
             }
 
-            if (mobAoeRoot != null && player != null)
+            if (mobAoeRoot != null && player != null && combatRuntimeRoot == null)
             {
                 player.Register(mobAoeRoot.TargetRegistry);
             }
@@ -145,6 +164,53 @@ namespace PlayGround.Game
         private void OnDestroy()
         {
             combatSpawnRouter.Unbind();
+        }
+
+        private void EnsureCombatRuntimeRoot()
+        {
+            if (combatRuntimeRoot != null)
+            {
+                return;
+            }
+
+            combatRuntimeRoot = GetComponent<CombatRuntimeRoot>();
+            if (combatRuntimeRoot == null)
+            {
+                combatRuntimeRoot = FindAnyObjectByType<CombatRuntimeRoot>();
+            }
+
+            if (combatRuntimeRoot == null)
+            {
+                combatRuntimeRoot = gameObject.AddComponent<CombatRuntimeRoot>();
+            }
+        }
+
+        private void BindCombatScopes()
+        {
+            if (combatRuntimeRoot == null)
+            {
+                return;
+            }
+
+            if (playerProjectileRoot != null)
+            {
+                combatRuntimeRoot.BindScope(playerProjectileRoot, PrimaryTargetSetKey);
+            }
+
+            if (playerAoeRoot != null)
+            {
+                combatRuntimeRoot.BindScope(playerAoeRoot, PrimaryTargetSetKey);
+            }
+
+            if (mobProjectileRoot != null)
+            {
+                combatRuntimeRoot.BindScope(mobProjectileRoot, SecondaryTargetSetKey);
+            }
+
+            if (mobAoeRoot != null)
+            {
+                combatRuntimeRoot.BindScope(mobAoeRoot, SecondaryTargetSetKey);
+            }
         }
 
         public void Configure(ProjectileRoot projectileRoot, MobRoot[] mobRoots)

@@ -44,6 +44,7 @@ namespace PlayGround.Mob
         private readonly MobBlackboard blackboard = new();
         private CombatTargetRegistry<IProjectileTarget> registry;
         private CombatTargetRegistry<IAoeTarget> aoeRegistry;
+        private CombatTargetSet combatTargetSet;
         private AoeRoot aoeRoot;
         private MobEventQueue eventQueue;
         private MobStateDriver stateDriver;
@@ -151,6 +152,7 @@ namespace PlayGround.Mob
         {
             registry?.Unregister(this);
             aoeRegistry?.Unregister(this);
+            combatTargetSet?.Unregister(this);
         }
 
         protected virtual void OnDestroy()
@@ -236,6 +238,12 @@ namespace PlayGround.Mob
         {
             aoeRegistry = targetRegistry;
             aoeRegistry.Register(this);
+        }
+
+        public void Register(CombatTargetSet targetSet)
+        {
+            combatTargetSet = targetSet;
+            combatTargetSet.Register(this);
         }
 
         public void SetTarget(Transform targetTransform)
@@ -354,6 +362,7 @@ namespace PlayGround.Mob
             spriteRenderer.enabled = false;
             registry?.Unregister(this);
             aoeRegistry?.Unregister(this);
+            combatTargetSet?.Unregister(this);
             softDeathNotified = true;
             SoftDied?.Invoke(this);
         }

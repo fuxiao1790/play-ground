@@ -116,7 +116,8 @@ namespace PlayGround.System.Projectile
                         TrackingQueryIntervalSeconds = spawner.TrackingQueryIntervalSeconds,
                         TrackedTargetId = 0,
                         TrackedTargetIndex = -1,
-                        TrackedTargetPosition = default
+                        TrackedTargetPosition = default,
+                        TrackingRandomState = 0
                     },
                     Render = new CombatRenderComponent
                     {

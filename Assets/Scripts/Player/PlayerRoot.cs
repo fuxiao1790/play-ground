@@ -43,6 +43,7 @@ namespace PlayGround.Player
         private static int nextTargetId;
         private CombatTargetRegistry<IProjectileTarget> registry;
         private CombatTargetRegistry<IAoeTarget> aoeRegistry;
+        private CombatTargetSet combatTargetSet;
         private int targetId;
         public StatusEffects StatusEffects { get; private set; }
 
@@ -123,6 +124,7 @@ namespace PlayGround.Player
             playerMap?.Disable();
             registry?.Unregister(this);
             aoeRegistry?.Unregister(this);
+            combatTargetSet?.Unregister(this);
         }
 
         private void Update()
@@ -171,6 +173,12 @@ namespace PlayGround.Player
         {
             aoeRegistry = targetRegistry;
             aoeRegistry.Register(this);
+        }
+
+        public void Register(CombatTargetSet targetSet)
+        {
+            combatTargetSet = targetSet;
+            combatTargetSet.Register(this);
         }
 
         public void ReceiveHit(in CombatHitData hit)

@@ -12,7 +12,7 @@ using UnityEngine.Rendering;
 
 namespace PlayGround.System.Projectile
 {
-    public sealed class ProjectileRoot : MonoBehaviour
+    public sealed class ProjectileRoot : MonoBehaviour, ICombatScopeEndpoint
     {
         private const int MaxInstancesPerDraw = 1023;
         private const int MaxVfxPerFrame = 2048;
@@ -45,12 +45,14 @@ namespace PlayGround.System.Projectile
         private EntityQuery allProjectileQuery;
         private EntityQuery submitQuery;
         private NativeArray<CombatRenderElement> submitBuffer;
+        private IReadOnlyDictionary<int, ICombatTarget> runtimeTargetsById;
         private global::System.Func<IProjectileTarget, bool> canTargetFilter;
         private int nextProjectileId;
         private int nextTemplateTypeId = 1;
         private bool runtimeReady;
         private bool ecsWorldAcquired;
         private bool ecsHandlesCreated;
+        private bool combatRuntimeManaged;
 
         public delegate void ProjectileHitHandler(in ProjectileHitContext context, in CombatHitPayloadElement payload);
 
@@ -78,6 +80,11 @@ namespace PlayGround.System.Projectile
 
         private void Update()
         {
+            if (combatRuntimeManaged)
+            {
+                return;
+            }
+
             if (!EnsureRuntimeAvailable())
             {
                 return;
@@ -88,6 +95,11 @@ namespace PlayGround.System.Projectile
 
         private void LateUpdate()
         {
+            if (combatRuntimeManaged)
+            {
+                return;
+            }
+
             if (!EnsureRuntimeAvailable())
             {
                 return;
@@ -415,15 +427,27 @@ namespace PlayGround.System.Projectile
                 entityManager.GetBuffer<CombatHitElement>(scopeEntity);
             DynamicBuffer<CombatHitPayloadElement> payloadBuffer =
                 entityManager.GetBuffer<CombatHitPayloadElement>(scopeEntity);
-            var adapter = new ProjectileHitReplayAdapter { HitHandler = ProjectileHit };
-            CombatHitReplay.ReplayAndClear<IProjectileTarget, ProjectileHitReplayAdapter>(
+            if (combatRuntimeManaged && runtimeTargetsById != null)
+            {
+                var runtimeAdapter = new ProjectileHitReplayAdapter<ICombatTarget> { HitHandler = ProjectileHit };
+                CombatHitReplay.ReplayAndClear<ICombatTarget, ProjectileHitReplayAdapter<ICombatTarget>>(
+                    hitBuffer,
+                    payloadBuffer,
+                    runtimeTargetsById,
+                    ref runtimeAdapter);
+                return;
+            }
+
+            var adapter = new ProjectileHitReplayAdapter<IProjectileTarget> { HitHandler = ProjectileHit };
+            CombatHitReplay.ReplayAndClear<IProjectileTarget, ProjectileHitReplayAdapter<IProjectileTarget>>(
                 hitBuffer,
                 payloadBuffer,
                 targetSync.TargetsById,
                 ref adapter);
         }
 
-        private struct ProjectileHitReplayAdapter : ICombatHitReplayAdapter<IProjectileTarget>
+        private struct ProjectileHitReplayAdapter<TTarget> : ICombatHitReplayAdapter<TTarget>
+            where TTarget : class, ICombatTarget
         {
             public ProjectileHitHandler HitHandler;
 
@@ -434,9 +458,10 @@ namespace PlayGround.System.Projectile
                 return new DamageSnapshot(Mathf.Max(0f, rolledAmount), isCrit);
             }
 
-            public void Replay(in CombatHitElement hit, in CombatHitPayloadElement payload, IProjectileTarget target, in DamageSnapshot damage)
+            public void Replay(in CombatHitElement hit, in CombatHitPayloadElement payload, TTarget target, in DamageSnapshot damage)
             {
                 var position = new Vector2(hit.Position.x, hit.Position.y);
+                IProjectileTarget projectileTarget = target as IProjectileTarget;
                 if (HitHandler != null)
                 {
                     var context = new ProjectileHitContext(
@@ -445,7 +470,7 @@ namespace PlayGround.System.Projectile
                         hit.TargetId,
                         position,
                         damage,
-                        target,
+                        projectileTarget,
                         hit.SourceNodeId);
                     HitHandler.Invoke(in context, in payload);
                 }
@@ -506,7 +531,8 @@ namespace PlayGround.System.Projectile
                 TrackingQueryIntervalSeconds = config.QueryIntervalSeconds,
                 TrackedTargetId = 0,
                 TrackedTargetIndex = -1,
-                TrackedTargetPosition = default
+                TrackedTargetPosition = default,
+                TrackingRandomState = 0
             };
         }
 
@@ -724,6 +750,56 @@ namespace PlayGround.System.Projectile
             }
 
             return false;
+        }
+
+        Entity ICombatScopeEndpoint.ScopeEntity => scopeEntity;
+        EntityManager ICombatScopeEndpoint.EntityManager => entityManager;
+        bool ICombatScopeEndpoint.EnsureRuntimeAvailable() => EnsureRuntimeAvailable();
+
+        void ICombatScopeEndpoint.SetCombatRuntimeManaged(bool managed)
+        {
+            combatRuntimeManaged = managed;
+            if (!managed)
+            {
+                runtimeTargetsById = null;
+            }
+        }
+
+        void ICombatScopeEndpoint.WriteTargets(
+            IReadOnlyList<CombatTargetElement> targets,
+            IReadOnlyDictionary<int, ICombatTarget> targetsById)
+        {
+            if (!EnsureRuntimeAvailable())
+            {
+                return;
+            }
+
+            DynamicBuffer<CombatTargetElement> targetBuffer = entityManager.GetBuffer<CombatTargetElement>(scopeEntity);
+            targetBuffer.Clear();
+            for (int i = 0; i < targets.Count; i++)
+            {
+                targetBuffer.Add(targets[i]);
+            }
+
+            runtimeTargetsById = targetsById;
+        }
+
+        void ICombatScopeEndpoint.PresentFromCombatRuntime()
+        {
+            using (SubmitProjectilesMarker.Auto())
+            {
+                SubmitProjectiles();
+            }
+
+            using (DrainVfxMarker.Auto())
+            {
+                DrainVfxRequests();
+            }
+
+            using (DrainHitsMarker.Auto())
+            {
+                DrainHits();
+            }
         }
 
         [global::System.Serializable]

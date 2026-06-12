@@ -169,6 +169,7 @@ namespace PlayGround.System.Aoe
             {
                 entity = ecb.CreateEntity(archetype);
                 ecb.AddSharedComponent(entity, new CombatRenderScope { Scope = scope });
+                ecb.AddSharedComponent(entity, new CombatRenderTypeId { TypeId = request.TypeId });
                 RecordAoeReset(ecb, entity, scope, request);
                 return;
             }

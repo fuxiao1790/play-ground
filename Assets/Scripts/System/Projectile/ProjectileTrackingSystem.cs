@@ -107,20 +107,15 @@ namespace PlayGround.System.Projectile
                     return;
                 }
 
-                tracking.TrackingQueryCooldownRemaining = math.max(0f, tracking.TrackingQueryCooldownRemaining - DeltaTime);
-                if (tracking.TrackingQueryCooldownRemaining <= 0f)
+                if (TryRefreshTrackedTarget(ref tracking, identity, kinematics, hit, targets))
                 {
-                    bool hasTrackedTarget = TryRefreshTrackedTarget(ref tracking, identity, kinematics, hit, targets);
-                    if (!hasTrackedTarget)
-                    {
-                        hasTrackedTarget = TryAcquireTrackedTarget(ref tracking, identity, kinematics, hit, targets, speed);
-                    }
+                    tracking.TrackingQueryCooldownRemaining = math.max(0f, tracking.TrackingQueryCooldownRemaining - DeltaTime);
+                    return;
+                }
 
+                if (TryAcquireTrackedTarget(ref tracking, identity, kinematics, hit, targets, speed))
+                {
                     tracking.TrackingQueryCooldownRemaining = tracking.TrackingQueryIntervalSeconds;
-                    if (!hasTrackedTarget)
-                    {
-                        return;
-                    }
                 }
             }
 
@@ -177,6 +172,11 @@ namespace PlayGround.System.Projectile
                 tracking.TrackedTargetId = 0;
                 tracking.TrackedTargetIndex = -1;
                 float range = math.sqrt(tracking.TrackingRangeSquared);
+                int selectedTargetIndex = -1;
+                int validTargetCount = 0;
+                uint randomState = tracking.TrackingRandomState != 0
+                    ? tracking.TrackingRandomState
+                    : SeedFor(identity.ProjectileId, kinematics.Position);
                 int maxForwardSteps = math.min(
                     MaxForwardAcquisitionCellSteps,
                     math.max(0, (int)math.ceil(range / TrackingSpatialHashCellSize)));
@@ -193,27 +193,40 @@ namespace PlayGround.System.Projectile
                             + forward * forwardDistance
                             + side * lateralOffset * TrackingSpatialHashCellSize;
                         int2 cell = FloorCell(probePosition);
-                        if (TryAcquireFirstTargetInCell(
-                                ref tracking,
+                        TrySelectRandomTargetInCell(
+                                ref randomState,
+                                ref validTargetCount,
+                                ref selectedTargetIndex,
                                 identity,
                                 kinematics,
+                                tracking,
                                 hit,
                                 targets,
                                 forward,
-                                CellKey(identity.Scope, cell.x, cell.y)))
-                        {
-                            return true;
-                        }
+                                CellKey(identity.Scope, cell.x, cell.y));
                     }
                 }
 
-                return false;
+                tracking.TrackingRandomState = randomState;
+                if (selectedTargetIndex < 0)
+                {
+                    return false;
+                }
+
+                CombatTargetElement target = targets[selectedTargetIndex];
+                tracking.TrackedTargetId = target.TargetId;
+                tracking.TrackedTargetIndex = selectedTargetIndex;
+                tracking.TrackedTargetPosition = target.Position;
+                return true;
             }
 
-            private bool TryAcquireFirstTargetInCell(
-                ref ProjectileTrackingComponent tracking,
+            private bool TrySelectRandomTargetInCell(
+                ref uint randomState,
+                ref int validTargetCount,
+                ref int selectedTargetIndex,
                 ProjectileIdentityComponent identity,
                 CombatKinematicsComponent kinematics,
+                ProjectileTrackingComponent tracking,
                 CombatHitComponent hit,
                 DynamicBuffer<CombatTargetElement> targets,
                 float2 forward,
@@ -240,14 +253,16 @@ namespace PlayGround.System.Projectile
                         continue;
                     }
 
-                    tracking.TrackedTargetId = target.TargetId;
-                    tracking.TrackedTargetIndex = targetIndex;
-                    tracking.TrackedTargetPosition = target.Position;
-                    return true;
+                    validTargetCount++;
+                    randomState = NextRandomState(randomState);
+                    if (randomState % (uint)validTargetCount == 0u)
+                    {
+                        selectedTargetIndex = targetIndex;
+                    }
                 }
                 while (TargetCells.TryGetNextValue(out targetIndex, ref iterator));
 
-                return false;
+                return selectedTargetIndex >= 0;
             }
 
             private static int LaneToLateralOffset(int lane)
@@ -289,8 +304,13 @@ namespace PlayGround.System.Projectile
                     return false;
                 }
 
-                return forwardDistance * forwardDistance
-                    >= distanceSquared * ForwardAcquisitionMinimumDotSquared;
+                if (forwardDistance * forwardDistance
+                    < distanceSquared * ForwardAcquisitionMinimumDotSquared)
+                {
+                    return false;
+                }
+
+                return true;
             }
 
             private static bool IsValidTrackedTarget(
@@ -328,6 +348,33 @@ namespace PlayGround.System.Projectile
                 }
 
                 return true;
+            }
+
+            private static uint SeedFor(int projectileId, float2 position)
+            {
+                unchecked
+                {
+                    uint hash = (uint)projectileId * 0x9E3779B9u;
+                    hash ^= math.asuint(position.x) + 0x85EBCA6Bu + (hash << 6) + (hash >> 2);
+                    hash ^= math.asuint(position.y) + 0xC2B2AE35u + (hash << 6) + (hash >> 2);
+                    hash ^= hash >> 16;
+                    hash *= 0x7FEB352Du;
+                    hash ^= hash >> 15;
+                    hash *= 0x846CA68Bu;
+                    hash ^= hash >> 16;
+                    return hash == 0u ? 1u : hash;
+                }
+            }
+
+            private static uint NextRandomState(uint state)
+            {
+                unchecked
+                {
+                    state ^= state << 13;
+                    state ^= state >> 17;
+                    state ^= state << 5;
+                    return state == 0u ? 1u : state;
+                }
             }
         }
 

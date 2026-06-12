@@ -5,6 +5,7 @@ using PlayGround.Mob;
 using PlayGround.Mob.Behaviours;
 using PlayGround.Mob.Triggers;
 using PlayGround.System.Aoe;
+using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using UnityEngine;
 
@@ -21,6 +22,8 @@ namespace PlayGround.Spawn
         [SerializeField] private ProjectileRoot playerProjectileRoot;
         [SerializeField] private ProjectileRoot mobProjectileRoot;
         [SerializeField] private AoeRoot playerAoeRoot;
+        [SerializeField] private CombatRuntimeRoot combatRuntimeRoot;
+        [SerializeField] private string spawnedTargetSetKey = "PrimaryTargets";
         [SerializeField] private Sprite runtimeMobSprite;
         [SerializeField] private int randomSeed;
 
@@ -108,6 +111,27 @@ namespace PlayGround.Spawn
         {
             playerProjectileRoot = playerToMobRoot;
             mobProjectileRoot = mobToPlayerRoot;
+        }
+
+        public void BindCombatRuntime(CombatRuntimeRoot runtimeRoot, string targetSetKey)
+        {
+            combatRuntimeRoot = runtimeRoot;
+            spawnedTargetSetKey = string.IsNullOrWhiteSpace(targetSetKey) ? spawnedTargetSetKey : targetSetKey;
+            CombatTargetSet targetSet = combatRuntimeRoot != null
+                ? combatRuntimeRoot.GetOrCreateTargetSet(spawnedTargetSetKey)
+                : null;
+            if (targetSet == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < spawnedMobs.Count; i++)
+            {
+                if (spawnedMobs[i] != null)
+                {
+                    spawnedMobs[i].Register(targetSet);
+                }
+            }
         }
 
         public void BindSpawnPointForRuntime(SpawnPoint spawnPoint)
@@ -207,7 +231,11 @@ namespace PlayGround.Spawn
                 mob.SetTarget(target);
             }
 
-            if (playerProjectileRoot != null)
+            if (combatRuntimeRoot != null)
+            {
+                mob.Register(combatRuntimeRoot.GetOrCreateTargetSet(spawnedTargetSetKey));
+            }
+            else if (playerProjectileRoot != null)
             {
                 mob.Register(playerProjectileRoot.TargetRegistry);
             }
@@ -215,7 +243,10 @@ namespace PlayGround.Spawn
             if (playerAoeRoot != null)
             {
                 mob.BindAoeRoot(playerAoeRoot);
-                mob.Register(playerAoeRoot.TargetRegistry);
+                if (combatRuntimeRoot == null)
+                {
+                    mob.Register(playerAoeRoot.TargetRegistry);
+                }
             }
 
             if (mobProjectileRoot != null)

@@ -11,7 +11,7 @@ using UnityEngine.Rendering;
 
 namespace PlayGround.System.Aoe
 {
-    public sealed class AoeRoot : MonoBehaviour
+    public sealed class AoeRoot : MonoBehaviour, ICombatScopeEndpoint
     {
         private const int MaxInstancesPerDraw = 1023;
         private const int MaxVfxPerFrame = 2048;
@@ -39,6 +39,7 @@ namespace PlayGround.System.Aoe
         private EntityQuery allAoeQuery;
         private EntityQuery submitQuery;
         private NativeArray<CombatRenderElement> submitBuffer;
+        private IReadOnlyDictionary<int, ICombatTarget> runtimeTargetsById;
         private int spawnedAoes;
         private int despawnedAoes;
         private int hitEvents;
@@ -49,6 +50,7 @@ namespace PlayGround.System.Aoe
         private bool runtimeReady;
         private bool ecsWorldAcquired;
         private bool ecsHandlesCreated;
+        private bool combatRuntimeManaged;
 
         public delegate void AoeHitHandler(in AoeHitContext context);
 
@@ -75,6 +77,11 @@ namespace PlayGround.System.Aoe
 
         private void Update()
         {
+            if (combatRuntimeManaged)
+            {
+                return;
+            }
+
             if (!EnsureRuntimeAvailable())
             {
                 return;
@@ -85,6 +92,11 @@ namespace PlayGround.System.Aoe
 
         private void LateUpdate()
         {
+            if (combatRuntimeManaged)
+            {
+                return;
+            }
+
             if (!EnsureRuntimeAvailable())
             {
                 return;
@@ -285,15 +297,27 @@ namespace PlayGround.System.Aoe
             hitEvents += hitBuffer.Length;
             despawnedAoes += recycleBuffer.Length;
 
-            var adapter = new AoeHitReplayAdapter { HitHandler = AoeHit };
-            CombatHitReplay.ReplayAndClear<IAoeTarget, AoeHitReplayAdapter>(
+            if (combatRuntimeManaged && runtimeTargetsById != null)
+            {
+                var runtimeAdapter = new AoeHitReplayAdapter<ICombatTarget> { HitHandler = AoeHit };
+                CombatHitReplay.ReplayAndClear<ICombatTarget, AoeHitReplayAdapter<ICombatTarget>>(
+                    hitBuffer,
+                    payloadBuffer,
+                    runtimeTargetsById,
+                    ref runtimeAdapter);
+                return;
+            }
+
+            var adapter = new AoeHitReplayAdapter<IAoeTarget> { HitHandler = AoeHit };
+            CombatHitReplay.ReplayAndClear<IAoeTarget, AoeHitReplayAdapter<IAoeTarget>>(
                 hitBuffer,
                 payloadBuffer,
                 targetSync.TargetsById,
                 ref adapter);
         }
 
-        private struct AoeHitReplayAdapter : ICombatHitReplayAdapter<IAoeTarget>
+        private struct AoeHitReplayAdapter<TTarget> : ICombatHitReplayAdapter<TTarget>
+            where TTarget : class, ICombatTarget
         {
             public AoeHitHandler HitHandler;
 
@@ -305,9 +329,10 @@ namespace PlayGround.System.Aoe
                 return new DamageSnapshot(rolledAmount, isCrit);
             }
 
-            public void Replay(in CombatHitElement hit, in CombatHitPayloadElement payload, IAoeTarget target, in DamageSnapshot damage)
+            public void Replay(in CombatHitElement hit, in CombatHitPayloadElement payload, TTarget target, in DamageSnapshot damage)
             {
                 var position = new Vector2(hit.Position.x, hit.Position.y);
+                IAoeTarget aoeTarget = target as IAoeTarget;
                 var context = new AoeHitContext(
                     hit.SourceId,
                     hit.TypeId,
@@ -315,7 +340,7 @@ namespace PlayGround.System.Aoe
                     position,
                     damage,
                     payload.ProjectileBurst,
-                    target);
+                    aoeTarget);
                 HitHandler?.Invoke(in context);
                 target?.ReceiveHit(new CombatHitData(
                     CombatHitKind.Aoe,
@@ -366,8 +391,8 @@ namespace PlayGround.System.Aoe
                 ComponentType.ReadOnly<AoeIdentityComponent>());
             submitQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AoeTag>(),
-                ComponentType.ReadOnly<AoeIdentityComponent>(),
                 ComponentType.ReadOnly<CombatRenderScope>(),
+                ComponentType.ReadOnly<CombatRenderTypeId>(),
                 ComponentType.ReadOnly<CombatRenderElement>(),
                 ComponentType.ReadOnly<AoeActiveTag>());
             submitBuffer = new NativeArray<CombatRenderElement>(MaxInstancesPerDraw, Allocator.Persistent);
@@ -540,41 +565,24 @@ namespace PlayGround.System.Aoe
 
         private void SubmitActiveAoes()
         {
-            submitQuery.SetSharedComponentFilter(new CombatRenderScope { Scope = scopeEntity });
-            using NativeArray<AoeIdentityComponent> identities =
-                submitQuery.ToComponentDataArray<AoeIdentityComponent>(Allocator.Temp);
-            using NativeArray<CombatRenderElement> renderElements =
-                submitQuery.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
-
             foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in renderResourcesByType)
             {
-                int typeId = pair.Key;
-                int batchCount = 0;
-                for (int i = 0; i < identities.Length; i++)
+                submitQuery.SetSharedComponentFilter(
+                    new CombatRenderScope { Scope = scopeEntity },
+                    new CombatRenderTypeId { TypeId = pair.Key });
+                using NativeArray<CombatRenderElement> renderElements =
+                    submitQuery.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
+                activeVisuals += renderElements.Length;
+
+                for (int start = 0; start < renderElements.Length; start += MaxInstancesPerDraw)
                 {
-                    if (identities[i].Scope != scopeEntity || identities[i].TypeId != typeId)
-                    {
-                        continue;
-                    }
-
-                    submitBuffer[batchCount] = renderElements[i];
-                    batchCount++;
-                    activeVisuals++;
-
-                    if (batchCount == MaxInstancesPerDraw)
-                    {
-                        SubmitBatch(submitBuffer, 0, batchCount, pair.Value);
-                        batchCount = 0;
-                    }
+                    int count = Mathf.Min(MaxInstancesPerDraw, renderElements.Length - start);
+                    NativeArray<CombatRenderElement>.Copy(renderElements, start, submitBuffer, 0, count);
+                    SubmitBatch(submitBuffer, 0, count, pair.Value);
                 }
 
-                if (batchCount > 0)
-                {
-                    SubmitBatch(submitBuffer, 0, batchCount, pair.Value);
-                }
+                submitQuery.ResetFilter();
             }
-
-            submitQuery.ResetFilter();
         }
 
         private void SubmitBatch(NativeArray<CombatRenderElement> instances, int startInstance, int instanceCount, CombatSpriteRenderResources resources)
@@ -641,6 +649,56 @@ namespace PlayGround.System.Aoe
             }
 
             query = default;
+        }
+
+        Entity ICombatScopeEndpoint.ScopeEntity => scopeEntity;
+        EntityManager ICombatScopeEndpoint.EntityManager => entityManager;
+        bool ICombatScopeEndpoint.EnsureRuntimeAvailable() => EnsureRuntimeAvailable();
+
+        void ICombatScopeEndpoint.SetCombatRuntimeManaged(bool managed)
+        {
+            combatRuntimeManaged = managed;
+            if (!managed)
+            {
+                runtimeTargetsById = null;
+            }
+        }
+
+        void ICombatScopeEndpoint.WriteTargets(
+            IReadOnlyList<CombatTargetElement> targets,
+            IReadOnlyDictionary<int, ICombatTarget> targetsById)
+        {
+            if (!EnsureRuntimeAvailable())
+            {
+                return;
+            }
+
+            DynamicBuffer<CombatTargetElement> targetBuffer = entityManager.GetBuffer<CombatTargetElement>(scopeEntity);
+            targetBuffer.Clear();
+            for (int i = 0; i < targets.Count; i++)
+            {
+                targetBuffer.Add(targets[i]);
+            }
+
+            runtimeTargetsById = targetsById;
+        }
+
+        void ICombatScopeEndpoint.PresentFromCombatRuntime()
+        {
+            using (SubmitAoesMarker.Auto())
+            {
+                SubmitAoes();
+            }
+
+            using (DrainVfxMarker.Auto())
+            {
+                DrainVfxRequests();
+            }
+
+            using (DrainHitsMarker.Auto())
+            {
+                DrainHits();
+            }
         }
 
     }

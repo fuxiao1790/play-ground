@@ -43,6 +43,7 @@ namespace PlayGround.System.Projectile
         public int TrackedTargetId;
         public int TrackedTargetIndex;
         public float2 TrackedTargetPosition;
+        public uint TrackingRandomState;
     }
 
     // ECS Lifecycle: optional child-spawner component; added to child-spawning archetypes; kept until root teardown; reset on reuse.
