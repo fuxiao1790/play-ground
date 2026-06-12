@@ -26,8 +26,9 @@ namespace PlayGround.System.Vfx
             for (int s = 0; s < scopes.Length; s++)
             {
                 Entity scope = scopes[s];
-                CombatScopeVfxCatalog catalog = EntityManager.GetComponentObject<CombatScopeVfxCatalog>(scope);
-                catalog.VfxRoot.DrainAndDispatch(EntityManager.GetBuffer<VfxSpawnRequestElement>(scope));
+                CombatScopeVfxCatalog catalog = EntityManager.GetComponentData<CombatScopeVfxCatalog>(scope);
+                if (CombatVfxRoot.TryGetRoot(catalog.VfxRootId, out CombatVfxRoot root))
+                    root.DrainAndDispatch(EntityManager.GetBuffer<VfxSpawnRequestElement>(scope));
             }
         }
     }

@@ -39,8 +39,11 @@ High-level runtime path:
 7. AOE roots enqueue spawn requests and sync target snapshots into ECS scope
    entities, AOE ECS systems materialize/reuse AOE entities and simulate hits,
    and roots replay hit events.
-8. `GameRoot` wires the managed combat spawn router for cross-domain commands.
-9. `DebugOverlay` gathers scene-level counters.
+8. `CombatVfxDispatchSystem` (in `PresentationSystemGroup`) drains
+   `VfxSpawnRequestElement` scope buffers and dispatches staged spawn events to
+   the GPU through the registered `CombatVfxRoot`.
+9. `GameRoot` wires the managed combat spawn router for cross-domain commands.
+10. `DebugOverlay` gathers scene-level counters.
 
 ## Scene And Prefab Ownership
 
@@ -91,6 +94,15 @@ General rule:
 - `AoeCollisionSystem`: owns AOE target mask filtering, baked-shape hit checks, hit event output, and recycle records
 - `CombatRenderPrepareSystem`: prepares shared batched render matrices for
   active projectile and AOE entities
+- `CombatVfxRoot`: scene-object MonoBehaviour owning one `CombatVfxDispatcher`
+  instance; maintains a static int-keyed registry so ECS holds only an opaque
+  int key; `Register` records a `(typeId, trigger, VisualEffectAsset)` mapping;
+  `Bind` upserts `CombatScopeVfxCatalog` onto a scope entity; `DrainAndDispatch`
+  stages and submits all pending VFX events to the GPU each `PresentationSystemGroup` tick
+- `CombatVfxDispatchSystem`: ECS `SystemBase` in `PresentationSystemGroup`;
+  queries all scope entities with `CombatScopeVfxCatalog`; resolves each scope's
+  `CombatVfxRoot` from the static registry and calls `DrainAndDispatch`; VFX
+  graphs remain fully encapsulated in `CombatVfxRoot`
 - `BeamRoot`: future scoped beam/laser flow for continuous or sweeping attacks,
   target snapshots, tick gates, and visual line/batch ownership
 - `AudioManager`: owns one-shot audio pooling and duplicate culling

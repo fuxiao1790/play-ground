@@ -477,6 +477,14 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 11400000, guid: a300000000000000000000000000000c, type: 2}
     - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+      propertyPath: vfxRoot
+      value: 
+      objectReference: {fileID: 1019222040}
+    - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+      propertyPath: aoeVfxRoot
+      value: 
+      objectReference: {fileID: 1019222040}
+    - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: audioManager
       value: 
       objectReference: {fileID: 998230102}
@@ -484,6 +492,10 @@ PrefabInstance:
       propertyPath: projectileRoot
       value: 
       objectReference: {fileID: 310291308}
+    - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+      propertyPath: projectileVfxRoot
+      value: 
+      objectReference: {fileID: 1019222040}
     - target: {fileID: 8145524006374604802, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: aoeRoot
       value: 

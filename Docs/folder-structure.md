@@ -157,9 +157,26 @@ Create these as systems are ported:
 ## Current VFX Runtime Map
 
 - `Assets/Scripts/System/Vfx/VfxEcsComponents.cs`: `VfxPendingSpawn` transient
-  native payload and `VfxSpawnRequestElement` scope buffer
+  native payload; `VfxSpawnRequestElement` scope buffer (drained by
+  `CombatVfxDispatchSystem`, not by roots); `CombatScopeVfxCatalog` unmanaged
+  `IComponentData` holding an opaque `int VfxRootId` — the only VFX reference
+  stored in ECS; added to scope entities via `CombatVfxRoot.Bind`
 - `Assets/Scripts/System/Vfx/VfxFlushJob.cs`: Burst IJob draining per-system
   `NativeQueue<VfxPendingSpawn>` into the scope buffer
 - `Assets/Scripts/System/Vfx/CombatVfxDispatcher.cs`: `VfxTypeResources` and
   `CombatVfxDispatcher`; owns VFX instances, GraphicsBuffers, staging lists,
-  and the per-frame stage→upload→dispatch loop; one instance per root
+  and the per-frame stage→upload→dispatch loop; one instance owned by
+  `CombatVfxRoot` (not by `ProjectileRoot` or `AoeRoot`)
+- `Assets/Scripts/System/Vfx/CombatVfxRoot.cs`: scene-object MonoBehaviour;
+  holds a static `Dictionary<int, CombatVfxRoot>` registry keyed by
+  auto-incremented int; `Register(typeId, trigger, asset)` delegates to the
+  owned `CombatVfxDispatcher`; `Bind(scopeEntity, entityManager)` upserts
+  `CombatScopeVfxCatalog` onto a scope entity; `DrainAndDispatch` stages events
+  from the scope buffer and calls `Dispatcher.Dispatch`; registerers
+  (`PlayerSkillDriver`, `MobProjectileAttack`) hold a serialized `vfxRoot`
+  reference and call both their domain root and `CombatVfxRoot.Register` —
+  `ProjectileRoot` and `AoeRoot` have no dependency on `CombatVfxRoot`
+- `Assets/Scripts/System/Vfx/CombatVfxDispatchSystem.cs`: ECS `SystemBase` in
+  `PresentationSystemGroup`; queries scope entities with `CombatScopeVfxCatalog`;
+  resolves each scope's `CombatVfxRoot` via the static registry and calls
+  `DrainAndDispatch`; VFX graphs remain fully encapsulated in `CombatVfxRoot`

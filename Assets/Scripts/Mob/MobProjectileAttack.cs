@@ -2,6 +2,7 @@ using PlayGround.Common;
 using PlayGround.Skills;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
+using PlayGround.System.Vfx;
 using UnityEngine;
 
 namespace PlayGround.Mob
@@ -10,6 +11,7 @@ namespace PlayGround.Mob
     {
         private readonly MobRoot owner;
         private readonly ProjectileRoot projectileRoot;
+        private readonly CombatVfxRoot vfxRoot;
         private readonly float cooldownSeconds;
         private readonly float range;
         private readonly float spawnOffset;
@@ -32,7 +34,8 @@ namespace PlayGround.Mob
             float damage,
             float radius,
             CombatShapeType shapeType,
-            BasicAttackPrefab basicPrefab = null)
+            BasicAttackPrefab basicPrefab = null,
+            CombatVfxRoot vfxRoot = null)
         {
             this.owner = owner;
             this.projectileRoot = projectileRoot;
@@ -45,7 +48,17 @@ namespace PlayGround.Mob
             this.radius = Mathf.Max(0.01f, radius);
             this.shapeType = shapeType;
             this.basicPrefab = basicPrefab;
-            this.projectileRoot.RegisterTemplate(basicPrefab);
+            this.vfxRoot = vfxRoot;
+            if (basicPrefab != null)
+            {
+                int typeId = projectileRoot.RegisterTemplate(basicPrefab);
+                if (vfxRoot != null)
+                {
+                    vfxRoot.Register(typeId, 0, basicPrefab.SpawnEffect);
+                    vfxRoot.Register(typeId, 1, basicPrefab.HitEffect);
+                    vfxRoot.Register(typeId, 2, basicPrefab.ExpireEffect);
+                }
+            }
         }
 
         public void Update(float deltaTime, Transform target)

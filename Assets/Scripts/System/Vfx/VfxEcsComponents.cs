@@ -22,9 +22,9 @@ namespace PlayGround.System.Vfx
         public float AreaSize;
     }
 
-    // ECS Lifecycle: managed component; added to scope entities at root setup; references CombatVfxRoot so the dispatch system can drain and forward GPU work without MonoBehaviour callbacks.
-    internal sealed class CombatScopeVfxCatalog : IComponentData
+    // ECS Lifecycle: unmanaged component; added to scope entities via CombatVfxRoot.Bind; stores only an opaque int key used by CombatVfxDispatchSystem to look up the owning CombatVfxRoot from its static registry.
+    internal struct CombatScopeVfxCatalog : IComponentData
     {
-        public CombatVfxRoot VfxRoot;
+        public int VfxRootId;
     }
 }

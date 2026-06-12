@@ -4,7 +4,9 @@ using PlayGround.Audio;
 using PlayGround.Common;
 using PlayGround.Skills.Runtime;
 using PlayGround.System.Aoe;
+using PlayGround.System.Common;
 using PlayGround.System.Projectile;
+using PlayGround.System.Vfx;
 using UnityEngine;
 
 namespace PlayGround.Skills
@@ -14,6 +16,7 @@ namespace PlayGround.Skills
         [SerializeField] private PlayerLoadout loadout;
         [SerializeField] private ProjectileRoot projectileRoot;
         [SerializeField] private AoeRoot aoeRoot;
+        [SerializeField] private CombatVfxRoot vfxRoot;
         [SerializeField] private AudioManager audioManager;
 
         private RuntimeSkillDefinition[] compiledSlots;
@@ -33,7 +36,17 @@ namespace PlayGround.Skills
             audioManager ??= AudioManager.Instance ?? FindAnyObjectByType<AudioManager>();
         }
 
-        private void Start() => CompileAndRegister();
+        private void Start()
+        {
+            if (vfxRoot != null)
+            {
+                if (projectileRoot != null)
+                    vfxRoot.Bind(((ICombatScopeEndpoint)projectileRoot).ScopeEntity, ((ICombatScopeEndpoint)projectileRoot).EntityManager);
+                if (aoeRoot != null)
+                    vfxRoot.Bind(((ICombatScopeEndpoint)aoeRoot).ScopeEntity, ((ICombatScopeEndpoint)aoeRoot).EntityManager);
+            }
+            CompileAndRegister();
+        }
 
         public void Tick(bool attackHeld, Vector2 aimDir, Vector2 aimWorldPos)
         {
@@ -64,6 +77,8 @@ namespace PlayGround.Skills
         {
             if (aoeRoot == root) return;
             aoeRoot = root;
+            if (vfxRoot != null && aoeRoot != null)
+                vfxRoot.Bind(((ICombatScopeEndpoint)aoeRoot).ScopeEntity, ((ICombatScopeEndpoint)aoeRoot).EntityManager);
             RegisterAoeTypes();
         }
 
@@ -149,7 +164,15 @@ namespace PlayGround.Skills
             if (def == null) return;
 
             if (def is RuntimeProjectileDefinition projDef && projDef.Prefab != null && projDef.TypeId < 0)
+            {
                 projDef.TypeId = projectileRoot.RegisterTemplate(projDef.Prefab);
+                if (vfxRoot != null)
+                {
+                    vfxRoot.Register(projDef.TypeId, 0, projDef.Prefab.SpawnEffect);
+                    vfxRoot.Register(projDef.TypeId, 1, projDef.Prefab.HitEffect);
+                    vfxRoot.Register(projDef.TypeId, 2, projDef.Prefab.ExpireEffect);
+                }
+            }
 
             if (def is RuntimeProjectileDefinition p)
             {
@@ -198,7 +221,15 @@ namespace PlayGround.Skills
         private void RegisterAoeTypeDefinition(RuntimeAoeDefinition aoeDef)
         {
             if (aoeDef == null || aoeRoot == null || aoeDef.TypeId >= 0) return;
-            aoeDef.TypeId = aoeRoot.RegisterType(aoeDef.CreateTypeDefinition());
+            AoeTypeDefinition definition = aoeDef.CreateTypeDefinition();
+            aoeDef.TypeId = aoeRoot.RegisterType(definition);
+            if (vfxRoot != null)
+            {
+                vfxRoot.Register(aoeDef.TypeId, 0, definition.SpawnEffect, requireAreaSizeContract: true);
+                vfxRoot.Register(aoeDef.TypeId, 1, definition.HitEffect, requireAreaSizeContract: true);
+                vfxRoot.Register(aoeDef.TypeId, 2, definition.ExpireEffect, requireAreaSizeContract: true);
+                vfxRoot.Register(aoeDef.TypeId, 3, definition.PulseEffect, requireAreaSizeContract: true);
+            }
         }
 
         private static T FindRootByTag<T>(string tag) where T : Component

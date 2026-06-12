@@ -50,11 +50,12 @@ ECS simulation jobs
   → NativeQueue<VfxPendingSpawn>   (one queue per system per frame)
   → VfxFlushJob                    (drains queue into scope buffer, IJob, Burst)
   → DynamicBuffer<VfxSpawnRequestElement> on scope entity
-  → Root.LateUpdate DrainVfxRequests / DrainEvents
-  → CombatVfxDispatcher.StageSpawn (main thread, O(events))
-  → CombatVfxDispatcher.Dispatch   (main thread, O(registered types))
-      → GraphicsBuffer.SetData
-      → VisualEffect.SetGraphicsBuffer + SetInt + SendEvent
+  → CombatVfxDispatchSystem.OnUpdate (PresentationSystemGroup, main thread)
+      → CombatVfxRoot.DrainAndDispatch
+          → CombatVfxDispatcher.StageSpawn (O(events))
+          → CombatVfxDispatcher.Dispatch   (O(registered types))
+              → GraphicsBuffer.SetData
+              → VisualEffect.SetGraphicsBuffer + SetInt + SendEvent
 ```
 
 ### VFX Graph authoring contract
@@ -94,8 +95,8 @@ visuals with the gameplay hitbox at runtime:
 ### Render Layering
 
 Combat VFX scene objects inherit the Unity GameObject layer from their owning
-root (`ProjectileRoot` or `AoeRoot`). This keeps camera culling behavior aligned
-with the scoped projectile/AOE root.
+`CombatVfxRoot`. This keeps camera culling behavior aligned with the scope the
+root is bound to.
 
 SpriteRenderer Sorting Layers do not automatically order Visual Effect Graph
 outputs. VFX Graph outputs must set their own render ordering through output
@@ -107,9 +108,34 @@ effect and should draw in the transparent queue after gameplay sprites.
 
 ## Key Classes
 
+### `CombatVfxRoot` (`Assets/Scripts/System/Vfx/CombatVfxRoot.cs`)
+
+MonoBehaviour; one scene-object instance wired to one or more scope roots via
+the Inspector. Maintains a static `Dictionary<int, CombatVfxRoot>` keyed by
+auto-incremented int so ECS never holds a managed reference.
+
+| Method | Description |
+|---|---|
+| `Register(typeId, trigger, asset, maxPerFrame, requireAreaSizeContract)` | Delegates to owned `CombatVfxDispatcher`. No-op if `asset == null` or already registered. |
+| `Bind(scopeEntity, entityManager)` | Upserts `CombatScopeVfxCatalog { VfxRootId }` onto the scope entity. Safe to call multiple times. |
+| `ResetDispatcher()` | Disposes current dispatcher and creates a fresh one (used when type registry resets). |
+| `DrainAndDispatch(buffer)` | Stages all events from the scope buffer, clears it, then calls `Dispatcher.Dispatch()`. Called by `CombatVfxDispatchSystem`. |
+
+Registerers (`PlayerSkillDriver`, `MobProjectileAttack`) hold a serialized
+`vfxRoot` field and call `vfxRoot.Register(...)` directly after registering
+with `ProjectileRoot`/`AoeRoot`. Neither domain root depends on `CombatVfxRoot`.
+
+### `CombatVfxDispatchSystem` (`Assets/Scripts/System/Vfx/CombatVfxDispatchSystem.cs`)
+
+ECS `SystemBase` in `PresentationSystemGroup`. Queries all scope entities with
+`CombatScopeVfxCatalog`, resolves the owning `CombatVfxRoot` via `TryGetRoot`,
+and calls `root.DrainAndDispatch(buffer)` per scope. Calls `CompleteDependency()`
+at the top of `OnUpdate` to ensure all `VfxFlushJob` work is complete before
+reading the scope buffer.
+
 ### `CombatVfxDispatcher` (`Assets/Scripts/System/Vfx/CombatVfxDispatcher.cs`)
 
-Managed class; one instance owned by `ProjectileRoot` and one by `AoeRoot`.
+Managed class; one instance owned by `CombatVfxRoot`.
 
 | Method | Description |
 |---|---|
@@ -136,13 +162,18 @@ This ensures the native memory is freed even if GPU teardown throws.
 `DynamicBuffer<VfxSpawnRequestElement>` on the owning scope entity. One job
 per system per frame. Runs after the simulation job that wrote the queue.
 
-### `VfxPendingSpawn` / `VfxSpawnRequestElement` (`Assets/Scripts/System/Vfx/VfxEcsComponents.cs`)
+### `VfxPendingSpawn` / `VfxSpawnRequestElement` / `CombatScopeVfxCatalog` (`Assets/Scripts/System/Vfx/VfxEcsComponents.cs`)
 
 `VfxPendingSpawn` — transient native payload; queued by simulation jobs,
 drained by `VfxFlushJob`. Holds `Scope`, `TypeId`, `Trigger`, `Position`.
 
 `VfxSpawnRequestElement` — scope buffer; added to scope entity at root setup;
-drained by root in LateUpdate before `CombatVfxDispatcher.Dispatch`.
+drained by `CombatVfxDispatchSystem` in `PresentationSystemGroup`.
+
+`CombatScopeVfxCatalog` — unmanaged `IComponentData`; added to scope entities
+by `CombatVfxRoot.Bind`; holds only `int VfxRootId` — the opaque key used by
+`CombatVfxDispatchSystem` to look up the owning `CombatVfxRoot` from the static
+registry. No managed reference crosses the ECS boundary.
 
 ---
 
@@ -240,27 +271,31 @@ no-op. Set from `RepeatHitCooldownSeconds` on the spawn request.
 
 ## Root Wiring
 
-### `ProjectileRoot`
+### `CombatVfxRoot`
 
-- `Awake`: creates `CombatVfxDispatcher`
-- `RegisterTemplate`: after building render resources, calls
-  `vfxDispatcher.Register` for triggers 0, 1, 2
-- `LateUpdate`: after `SubmitProjectiles` and before `DrainHits`:
-  1. `entityManager.CompleteDependencyBeforeRO<ProjectileActiveTag>()` — ensures all VFX flush jobs complete
-  2. `DrainVfxRequests()` — drains `VfxSpawnRequestElement` scope buffer into `vfxDispatcher.StageSpawn`
-  3. `vfxDispatcher.Dispatch()` — uploads and fires
-- `OnDestroy`: `vfxDispatcher.Dispose()`
+- `Awake`: auto-registers in static registry; creates owned `CombatVfxDispatcher`
+- `Register(typeId, trigger, asset, ...)`: delegates to dispatcher; called by
+  registerers (`PlayerSkillDriver`, `MobProjectileAttack`) after each
+  `RegisterTemplate` / `RegisterType` call
+- `Bind(scopeEntity, entityManager)`: upserts `CombatScopeVfxCatalog` onto a
+  scope entity; called from `PlayerSkillDriver.Start` and `BindAoeRoot` for
+  each bound scope
+- `ResetDispatcher()`: disposes dispatcher and creates a new one; call when
+  type registry resets (e.g., scene reload)
+- `OnDestroy`: removes from registry; disposes dispatcher
 
-### `AoeRoot`
+### `CombatVfxDispatchSystem`
 
-- `Awake`: creates `CombatVfxDispatcher`
-- `RegisterConfig` / `RegisterType`: after `TryBuildRenderResource`, calls
-  `RegisterVfxForDefinition` for triggers 0, 1, 2, 3
-- `DrainEvents` (called from LateUpdate): after replaying hit callbacks:
-  1. Drains `VfxSpawnRequestElement` scope buffer into `vfxDispatcher.StageSpawn`
-  2. `vfxDispatcher.Dispatch()`
-- `Configure`: disposes old dispatcher, creates new one (type registry reset)
-- `OnDestroy`: `vfxDispatcher.Dispose()`
+- `OnCreate`: builds `EntityQuery` for `CombatScopeVfxCatalog`
+- `OnUpdate` (runs in `PresentationSystemGroup`):
+  1. `CompleteDependency()` — ensures all `VfxFlushJob` completions are visible
+  2. Iterates scope entities; resolves `CombatVfxRoot` from static registry
+  3. Calls `root.DrainAndDispatch(buffer)` per scope
+
+`ProjectileRoot` and `AoeRoot` do not own or reference `CombatVfxDispatcher`.
+Their `BindWorld` methods still add the `VfxSpawnRequestElement` buffer to scope
+entities (needed by simulation jobs), but drain and dispatch are handled
+entirely by `CombatVfxDispatchSystem`.
 
 ---
 
@@ -273,7 +308,9 @@ existing hit and recycle buffers:
 - `AoeRoot`: added in `BindWorld`
 
 Systems write to the buffer via `VfxFlushJob` using `BufferLookup<VfxSpawnRequestElement>`.
-Roots drain and clear the buffer each LateUpdate before dispatching to the GPU.
+`CombatVfxDispatchSystem` drains and clears the buffer each `PresentationSystemGroup`
+tick via `CombatVfxRoot.DrainAndDispatch`. Roots do not touch the buffer after
+`BindWorld`.
 
 ---
 
