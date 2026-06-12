@@ -14,7 +14,7 @@ Mob behavior:
 - switch into hurt state when damaged
 - recover back into chase or wander
 - soft-die when health reaches zero
-- free spawn cap immediately on soft death
+- free spawn cap immediately on death
 - support at least one ranged mob with projectile attack later
 
 Mobs are scene objects in the hybrid architecture. Their count should stay low
@@ -45,7 +45,8 @@ dummy.
 - trigger update order
 - Rigidbody2D movement application
 - optional projectile attack setup
-- health and soft death
+- health and death transition
+- cleanup scheduling after death
 - local debug widget drawing if enabled
 
 Mob body movement and wall/player collision use Unity Physics2D. Body hitboxes
@@ -107,7 +108,7 @@ Target:
 
 - enforces global `maxMobs`
 - instantiates mob prefab from spawn point or shared config
-- tracks alive and soft-dead mobs
+- tracks active spawned mobs and death/despawn accounting
 - frees spawn cap when mob soft-dies
 
 `SpawnPoint`:
@@ -139,10 +140,14 @@ Soft death behavior:
 - visual hides or switches to death animation later
 - update stops
 - `SoftDied` event fires for spawner accounting
+- object cleanup is scheduled after death, immediately by default or after the
+  authored death cleanup delay
 
-Keep soft-dead object validity long enough for projectile/AOE worlds to replay
-hit events without null targets. Cleanup can be pooling or delayed destruction
-after replay safety is guaranteed.
+Projectile/AOE hit replay resolves the target id back to a live target before
+each managed callback. If the target was already destroyed or became inactive
+earlier in the same hit buffer, replay passes a null target context and skips
+direct target mutation. Mob objects no longer need to be retained indefinitely
+only to protect hit callbacks.
 
 ## Debugging
 

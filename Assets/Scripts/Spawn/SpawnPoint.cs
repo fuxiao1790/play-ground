@@ -23,11 +23,7 @@ namespace PlayGround.Spawn
 
         public int ActiveLocalMobCount
         {
-            get
-            {
-                CleanupLocal();
-                return localMobs.Count;
-            }
+            get => localMobs.Count;
         }
 
         private float EffectiveSpawnInterval => useConfigTiming && config != null ? config.SpawnInterval : spawnInterval;
@@ -121,7 +117,6 @@ namespace PlayGround.Spawn
 
         public bool TryFindSpawnPosition(out Vector2 position)
         {
-            CleanupLocal();
             Vector2 origin = spawnOrigin == Vector2.zero ? (Vector2)transform.position : spawnOrigin;
             float searchRadius = Mathf.Max(EffectiveSpawnRadius, EffectiveMobClearanceRadius);
             float minSeparation = EffectiveMobClearanceRadius * 2f;
@@ -170,27 +165,17 @@ namespace PlayGround.Spawn
 
         private void OnLocalMobSoftDied(MobRoot mob)
         {
-            mob.SoftDied -= OnLocalMobSoftDied;
-            localMobs.Remove(mob);
+            ReleaseMob(mob);
         }
 
-        private void CleanupLocal()
+        internal void ReleaseMob(MobRoot mob)
         {
-            for (int i = localMobs.Count - 1; i >= 0; i--)
+            if (mob != null)
             {
-                MobRoot mob = localMobs[i];
-                if (mob != null && mob.IsCombatTargetActive)
-                {
-                    continue;
-                }
-
-                if (mob != null)
-                {
-                    mob.SoftDied -= OnLocalMobSoftDied;
-                }
-
-                localMobs.RemoveAt(i);
+                mob.SoftDied -= OnLocalMobSoftDied;
             }
+
+            localMobs.Remove(mob);
         }
 
         private void OnDrawGizmosSelected()

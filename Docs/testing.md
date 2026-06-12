@@ -63,7 +63,7 @@ PlayMode:
 - play area wall blocks player and mobs
 - spawn point instantiates mobs and respects cap
 - mob detects player and chases
-- mob damage, hurt, recovery, and soft death
+- mob damage, hurt, recovery, and death cleanup
 - player projectile hits mob
 - mob projectile hits player
 - projectile target masks filter hits

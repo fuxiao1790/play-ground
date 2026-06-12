@@ -64,7 +64,7 @@ General rule:
 - `ProjectileAttack`: container attack component/prefab that references one projectile config and owns recovery, sound, and optional AOE routing
 - `ChildSpawningProjectileAttack`: container attack component/prefab that references parent and child projectile configs directly and owns child spawn count, interval, jitter, and side spread
 - `AoeAttack`: container attack component/prefab that references one AOE config and owns recovery, sound, and root routing
-- `MobRoot`: owns Rigidbody2D, body collider, hurtbox, sprite/Animator, health, behavior FSM, local event queue, trigger updates, selected behavior, optional projectile attack, and soft death
+- `MobRoot`: owns Rigidbody2D, body collider, hurtbox, sprite/Animator, health, behavior FSM, local event queue, trigger updates, selected behavior, optional projectile attack, death notification, and cleanup scheduling
 - `MobSpawnerRoot`: owns global spawn cap and final mob instantiation
 - `SpawnPoint`: owns local timer, overlap checks, and optional spawn pool
 - `ProjectileRoot`: owns one scoped projectile flow, target registry reference, template baking, listener maps, event replay, and rendering coordination
@@ -143,7 +143,8 @@ The bridge is snapshots and callbacks:
 2. attack roots snapshot target positions and baked hurtbox shapes
 3. data runtimes or ECS systems simulate hits
 4. roots replay hit events back to actor components
-5. actors apply health, status stacks, animation requests, and soft death
+5. actors apply health, status stacks, animation requests, death notification,
+   and cleanup scheduling
 
 ## Performance Architecture
 

@@ -342,12 +342,15 @@ namespace PlayGround.System.Aoe
                     payload.ProjectileBurst,
                     aoeTarget);
                 HitHandler?.Invoke(in context);
-                target?.ReceiveHit(new CombatHitData(
-                    CombatHitKind.Aoe,
-                    damage,
-                    position,
-                    hit.DirectDamageEnabled,
-                    payload.StackEffect));
+                if (CombatHitReplay.IsTargetUsable(target))
+                {
+                    target.ReceiveHit(new CombatHitData(
+                        CombatHitKind.Aoe,
+                        damage,
+                        position,
+                        hit.DirectDamageEnabled,
+                        payload.StackEffect));
+                }
             }
         }
 

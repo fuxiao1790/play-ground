@@ -313,6 +313,43 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator ProjectileReplaySkipsTargetThatDiesEarlierInSameHitBuffer()
+        {
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            ProjectileReplayProbe probe = CreateProjectileReplayProbe(Vector2.zero);
+            projectileRoot.TargetRegistry.Register(probe);
+            int replayCount = 0;
+            int missingTargetReplayCount = 0;
+            projectileRoot.ProjectileHit += (in ProjectileHitContext context, in CombatHitPayloadElement _) =>
+            {
+                replayCount++;
+                if (context.Target == null)
+                {
+                    missingTargetReplayCount++;
+                }
+            };
+
+            var command = new ProjectileSpawnCommand(
+                Vector2.zero,
+                Vector2.right,
+                0f,
+                1f,
+                1f,
+                new DamageSnapshot(10f),
+                CombatShapeType.Circle);
+            projectileRoot.Spawn(command);
+            projectileRoot.Spawn(command);
+            yield return null;
+
+            Assert.That(replayCount, Is.EqualTo(2));
+            Assert.That(missingTargetReplayCount, Is.EqualTo(1));
+            Assert.That(probe.HitCount, Is.EqualTo(1));
+            Object.Destroy(projectileObject);
+            Object.Destroy(mobObject);
+            Object.Destroy(probe.gameObject);
+        }
+
+        [UnityTest]
         public IEnumerator ProjectileImpactAoeRoutesThroughAoeRootOnNextStep()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
@@ -755,6 +792,57 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void SpawnerGlobalCapReopensAfterSoftDeath()
+        {
+            CreateSpawnFixture(1, 0, out GameObject spawnerObject, out MobSpawnerRoot spawner, out SpawnPoint point, out GameObject prefabObject, out MobSpawnPool pool);
+
+            MobRoot first = spawner.RequestSpawn(point);
+            MobRoot blocked = spawner.RequestSpawn(point);
+            first.SoftDie();
+            MobRoot second = spawner.RequestSpawn(point);
+
+            Assert.That(blocked, Is.Null);
+            Assert.That(spawner.ActiveMobCount(), Is.EqualTo(1));
+            Assert.That(second, Is.Not.Null);
+            Object.Destroy(spawnerObject);
+            Object.Destroy(prefabObject);
+            Object.Destroy(pool);
+        }
+
+        [UnityTest]
+        public IEnumerator MobSoftDeathSchedulesHardCleanup()
+        {
+            CreateSpawnFixture(1, 1, out GameObject spawnerObject, out MobSpawnerRoot spawner, out SpawnPoint point, out GameObject prefabObject, out MobSpawnPool pool);
+
+            MobRoot mob = spawner.RequestSpawn(point);
+            mob.SoftDie();
+            yield return null;
+
+            Assert.That(mob == null, Is.True);
+            Assert.That(spawner.ActiveMobCount(), Is.EqualTo(0));
+            Assert.That(point.ActiveLocalMobCount, Is.EqualTo(0));
+            Object.Destroy(spawnerObject);
+            Object.Destroy(prefabObject);
+            Object.Destroy(pool);
+        }
+
+        [Test]
+        public void SpawnerDespawnAllClearsActiveAndLocalCaps()
+        {
+            CreateSpawnFixture(2, 2, out GameObject spawnerObject, out MobSpawnerRoot spawner, out SpawnPoint point, out GameObject prefabObject, out MobSpawnPool pool);
+
+            spawner.RequestSpawn(point);
+            spawner.RequestSpawn(point);
+            spawner.DespawnAll();
+
+            Assert.That(spawner.ActiveMobCount(), Is.EqualTo(0));
+            Assert.That(point.ActiveLocalMobCount, Is.EqualTo(0));
+            Object.Destroy(spawnerObject);
+            Object.Destroy(prefabObject);
+            Object.Destroy(pool);
+        }
+
+        [Test]
         public void SpawnerActivatesMobsClonedFromInactivePrefab()
         {
             CreateSpawnFixture(1, 0, out GameObject spawnerObject, out MobSpawnerRoot spawner, out SpawnPoint point, out GameObject prefabObject, out MobSpawnPool pool);
@@ -1126,6 +1214,16 @@ namespace PlayGround.Tests.PlayMode
         }
 
         private static int nextCritProbeId = 5000;
+        private static int nextProjectileReplayProbeId = 6000;
+
+        private static ProjectileReplayProbe CreateProjectileReplayProbe(Vector2 position)
+        {
+            GameObject go = new("ProjectileReplayProbe");
+            go.transform.position = position;
+            ProjectileReplayProbe probe = go.AddComponent<ProjectileReplayProbe>();
+            probe.Configure(++nextProjectileReplayProbeId, ~0, 0.5f);
+            return probe;
+        }
 
         [UnityTest]
         public IEnumerator Projectile_CritChanceOne_HitDealsMultipliedDamage()
@@ -1236,6 +1334,38 @@ namespace PlayGround.Tests.PlayMode
             }
 
             public void ReceiveHit(in CombatHitData hit) => LastDamage = hit.Damage;
+        }
+
+        private sealed class ProjectileReplayProbe : MonoBehaviour, IProjectileTarget
+        {
+            private int targetId;
+            private int targetMask;
+            private float radius;
+            private bool alive = true;
+
+            public int HitCount { get; private set; }
+            public int TargetId => targetId;
+            public EntityId ProjectileHitNodeId => gameObject.GetEntityId();
+            public Vector2 CombatTargetPosition => transform.position;
+            public float CombatTargetRadius => radius;
+            public Vector2 CombatTargetHalfExtents => Vector2.one * radius;
+            public float CombatTargetRotationRadians => 0f;
+            public CombatShapeType CombatTargetShapeType => CombatShapeType.Circle;
+            public int CombatTargetMask => targetMask;
+            public bool IsCombatTargetActive => alive;
+
+            public void Configure(int id, int mask, float r)
+            {
+                targetId = id;
+                targetMask = mask;
+                radius = r;
+            }
+
+            public void ReceiveHit(in CombatHitData hit)
+            {
+                HitCount++;
+                alive = false;
+            }
         }
     }
 }

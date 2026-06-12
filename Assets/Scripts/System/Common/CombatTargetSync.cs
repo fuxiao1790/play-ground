@@ -100,7 +100,7 @@ namespace PlayGround.System.Common
                 for (int i = 0; i < hitCount; i++)
                 {
                     CombatHitElement hit = hitBuffer[i];
-                    targetsById.TryGetValue(hit.TargetId, out TTarget target);
+                    TryGetLiveTarget(targetsById, hit.TargetId, out TTarget target);
                     DamageSnapshot damage = adapter.RollDamage(in hit);
                     CombatHitPayloadElement payload = hit.PayloadIndex >= 0
                         ? payloadBuffer[hit.PayloadIndex]
@@ -111,6 +111,30 @@ namespace PlayGround.System.Common
 
             hitBuffer.Clear();
             payloadBuffer.Clear();
+        }
+
+        public static bool IsTargetUsable<TTarget>(TTarget target)
+            where TTarget : class
+        {
+            return target != null
+                && (target is not UnityEngine.Object unityObject || unityObject != null)
+                && target is ICombatTarget combatTarget
+                && combatTarget.IsCombatTargetActive;
+        }
+
+        private static bool TryGetLiveTarget<TTarget>(
+            IReadOnlyDictionary<int, TTarget> targetsById,
+            int targetId,
+            out TTarget target)
+            where TTarget : class
+        {
+            if (targetsById.TryGetValue(targetId, out target) && IsTargetUsable(target))
+            {
+                return true;
+            }
+
+            target = null;
+            return false;
         }
     }
 }

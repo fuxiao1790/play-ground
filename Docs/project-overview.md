@@ -130,7 +130,7 @@ Implemented:
   selection
 - player movement, dash, aim/facing, attack loadout, health/hurt handling, and
   basic animation drivers
-- mob roots with health, hurtboxes, soft death, behavior FSM hooks, and mob
+- mob roots with health, hurtboxes, death cleanup, behavior FSM hooks, and mob
   projectile attack support
 - scoped projectile runtime with split ECS stages for tracking, movement, child
   spawn requests, lifetime, contact gates, collision, hit replay, counters, and

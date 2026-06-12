@@ -29,8 +29,10 @@ namespace PlayGround.Spawn
 
         private readonly List<MobRoot> spawnedMobs = new();
         private readonly HashSet<MobRoot> softDeadMobs = new();
+        private readonly Dictionary<MobRoot, SpawnPoint> spawnPointByMob = new();
         private global::System.Random random;
         private bool active = true;
+        private int activeMobCount;
 
         public int MaxMobs => maxMobs;
         public bool IsActive => active;
@@ -141,26 +143,15 @@ namespace PlayGround.Spawn
 
         public bool CanSpawn(SpawnPoint spawnPoint)
         {
-            Cleanup();
             return active
-                && ActiveMobCount() < maxMobs
+                && activeMobCount < maxMobs
                 && (coordinator == null || coordinator.CanSpawn(spawnPoint))
                 && (spawnPoint == null || spawnPoint.CanSpawnLocal());
         }
 
         public int ActiveMobCount()
         {
-            Cleanup();
-            int count = 0;
-            for (int i = 0; i < spawnedMobs.Count; i++)
-            {
-                if (spawnedMobs[i] != null && spawnedMobs[i].IsCombatTargetActive)
-                {
-                    count++;
-                }
-            }
-
-            return count;
+            return activeMobCount;
         }
 
         public MobRoot RequestSpawn(SpawnPoint spawnPoint)
@@ -200,14 +191,22 @@ namespace PlayGround.Spawn
         {
             for (int i = spawnedMobs.Count - 1; i >= 0; i--)
             {
-                if (spawnedMobs[i] != null)
+                MobRoot mob = spawnedMobs[i];
+                if (mob != null)
                 {
-                    Destroy(spawnedMobs[i].gameObject);
+                    if (spawnPointByMob.TryGetValue(mob, out SpawnPoint spawnPoint) && spawnPoint != null)
+                    {
+                        spawnPoint.ReleaseMob(mob);
+                    }
+
+                    Destroy(mob.gameObject);
                 }
             }
 
             spawnedMobs.Clear();
             softDeadMobs.Clear();
+            spawnPointByMob.Clear();
+            activeMobCount = 0;
         }
 
         public void Stop()
@@ -223,6 +222,8 @@ namespace PlayGround.Spawn
         private void RegisterMob(SpawnPoint spawnPoint, MobRoot mob)
         {
             spawnedMobs.Add(mob);
+            spawnPointByMob[mob] = spawnPoint;
+            activeMobCount++;
             mob.SoftDied += OnMobSoftDied;
             SpawnedMobLifetime lifetime = mob.gameObject.AddComponent<SpawnedMobLifetime>();
             lifetime.Initialize(mob, OnMobDestroyed);
@@ -264,6 +265,8 @@ namespace PlayGround.Spawn
                 return;
             }
 
+            activeMobCount = Mathf.Max(0, activeMobCount - 1);
+            spawnPointByMob.Remove(mob);
             coordinator?.OnDespawned(mob);
         }
 
@@ -276,26 +279,16 @@ namespace PlayGround.Spawn
 
             bool wasTracked = spawnedMobs.Remove(mob);
             bool wasSoftDead = softDeadMobs.Remove(mob);
+            if (spawnPointByMob.Remove(mob, out SpawnPoint spawnPoint) && spawnPoint != null)
+            {
+                spawnPoint.ReleaseMob(mob);
+            }
+
             if (wasTracked && !wasSoftDead)
             {
+                activeMobCount = Mathf.Max(0, activeMobCount - 1);
                 coordinator?.OnDespawned(mob);
             }
-        }
-
-        private void Cleanup()
-        {
-            for (int i = spawnedMobs.Count - 1; i >= 0; i--)
-            {
-                MobRoot mob = spawnedMobs[i];
-                if (mob != null)
-                {
-                    continue;
-                }
-
-                spawnedMobs.RemoveAt(i);
-            }
-
-            softDeadMobs.RemoveWhere(mob => mob == null);
         }
 
         private MobSpawnPool CreateRuntimePool()

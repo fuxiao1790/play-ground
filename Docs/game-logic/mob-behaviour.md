@@ -39,7 +39,7 @@ Animation mapping:
 - `Wander` -> walk animation
 - `Chase` -> walk animation
 - `Hurt` -> hurt animation
-- `Dead` -> soft death now, death animation later
+- `Dead` -> death transition and cleanup now, death animation later
 
 ## Two State Machines
 
@@ -113,7 +113,7 @@ Triggers should produce events or behavior-selection hints. They should not tran
 `MobRoot`:
 
 - validates prefab setup
-- owns health and soft death
+- owns health, death transition, and cleanup scheduling
 - owns Rigidbody2D velocity application
 - creates behavior FSM and animation FSM
 - drains local event queue

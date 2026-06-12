@@ -474,12 +474,15 @@ namespace PlayGround.System.Projectile
                         hit.SourceNodeId);
                     HitHandler.Invoke(in context, in payload);
                 }
-                target?.ReceiveHit(new CombatHitData(
-                    CombatHitKind.Projectile,
-                    damage,
-                    position,
-                    hit.DirectDamageEnabled,
-                    payload.StackEffect.Enabled ? payload.StackEffect : default));
+                if (CombatHitReplay.IsTargetUsable(target))
+                {
+                    target.ReceiveHit(new CombatHitData(
+                        CombatHitKind.Projectile,
+                        damage,
+                        position,
+                        hit.DirectDamageEnabled,
+                        payload.StackEffect.Enabled ? payload.StackEffect : default));
+                }
             }
         }
 

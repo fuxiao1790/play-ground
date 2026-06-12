@@ -19,7 +19,7 @@ Mob GameObjects should continue to own authored Unity presentation and movement:
 - body and hurtbox colliders
 - sprite and animation state
 - behavior FSM presentation
-- soft-death presentation and object lifetime
+- death presentation and object lifetime
 
 Mob health and status should move to ECS-owned combat data:
 
@@ -42,7 +42,7 @@ stay in ECS.
 
 Current ownership shape:
 
-- `MobRoot` owns health, status-like local combat reactions, and soft death.
+- `MobRoot` owns health, status-like local combat reactions, and death cleanup.
 - `ProjectileCollisionSystem` and `AoeCollisionSystem` emit hit events for each
   contact.
 - `ProjectileRoot.DrainHits` and `AoeRoot.DrainHits` replay those hits on the
@@ -62,7 +62,7 @@ lives and what crosses the ECS/GameObject boundary.
 ## Redesign Goals
 
 - Move authoritative mob health and status state out of `MobRoot` and into ECS.
-- Keep mob transform, movement, animation, and soft-death presentation on the
+- Keep mob transform, movement, animation, and death presentation on the
   GameObject.
 - Convert plain projectile/AOE hits into ECS damage and status aggregates.
 - Sync compact final health/status results to mobs in late update on the main
@@ -118,7 +118,7 @@ GameObject code sees it.
 - body collision through Unity Physics2D
 - behavior and animation drivers
 - hurt flash or hit animation requests from synced combat results
-- soft-death presentation after ECS reports death
+- death presentation after ECS reports death
 - pooling or delayed destruction after replay/sync safety is guaranteed
 
 `MobRoot` should not be the authoritative owner of current health or status
@@ -168,7 +168,7 @@ Late main-thread sync:
 2. The bridge maps target ids back to live actor roots.
 3. Mob roots receive the final health/status view for the frame.
 4. Mob roots update animation requests, hurt presentation, debug display, and
-   soft death object state.
+   death object state.
 
 ## Replacement Shape
 
@@ -261,7 +261,7 @@ Status:
 Death:
 
 - ECS sets the authoritative combat dead flag when health reaches zero
-- late sync tells `MobRoot` to enter soft-death presentation
+- late sync tells `MobRoot` to enter death presentation
 - mob root disables body/hurtbox colliders and unregisters from target registries
 - object cleanup waits until target id sync/replay safety is guaranteed
 
