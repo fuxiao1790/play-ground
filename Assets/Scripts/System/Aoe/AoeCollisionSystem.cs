@@ -114,7 +114,7 @@ namespace PlayGround.System.Aoe
         }
 
         [BurstCompile]
-        [WithAll(typeof(AoeTag), typeof(AoeActiveTag))]
+        [WithAll(typeof(AoeTag), typeof(AoeActiveTag), typeof(AoeCollisionActiveTag))]
         private partial struct AoeCollisionJob : IJobEntity
         {
             [ReadOnly] public BufferLookup<CombatTargetElement> Targets;

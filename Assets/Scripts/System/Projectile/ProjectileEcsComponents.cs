@@ -70,6 +70,11 @@ namespace PlayGround.System.Projectile
     {
     }
 
+    // ECS Lifecycle: enableable projectile tag; added at entity creation; kept until root teardown; enabled when the projectile produces collision effects (damage, stack, impact AOE/projectile); disabled for visual-only projectiles so the collision job skips them entirely.
+    public struct ProjectileCollisionActiveTag : IComponentData, IEnableableComponent
+    {
+    }
+
     // ECS Lifecycle: optional child-spawner tag; added to child-spawning archetypes; kept until root teardown.
     public struct ProjectileChildSpawnerTag : IComponentData
     {

@@ -101,7 +101,7 @@ namespace PlayGround.System.Projectile
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileTag), typeof(ProjectileActiveTag))]
+        [WithAll(typeof(ProjectileTag), typeof(ProjectileActiveTag), typeof(ProjectileCollisionActiveTag))]
         private partial struct ProjectileCollisionJob : IJobEntity
         {
             [ReadOnly] public BufferLookup<CombatTargetElement> Targets;

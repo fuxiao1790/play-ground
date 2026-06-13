@@ -47,6 +47,7 @@ namespace PlayGround.System.Aoe
                 typeof(CombatCollisionComponent),
                 typeof(CombatHitComponent),
                 typeof(AoeActiveTag),
+                typeof(AoeCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
                 typeof(AoeContactGateElement));
         }
@@ -228,6 +229,7 @@ namespace PlayGround.System.Aoe
                 RenderElements = GetComponentLookup<CombatRenderElement>(),
                 ContactGates = GetBufferLookup<AoeContactGateElement>(),
                 ActiveTags = GetComponentLookup<AoeActiveTag>(),
+                CollisionActiveTags = GetComponentLookup<AoeCollisionActiveTag>(),
                 RenderActiveTags = GetComponentLookup<CombatRenderActiveTag>()
             };
 
@@ -251,8 +253,14 @@ namespace PlayGround.System.Aoe
             ecb.SetComponent(entity, render);
             ecb.SetComponent(entity, CombatRenderMatrixUtility.ElementFor(kinematics, render));
             ecb.SetComponentEnabled<AoeActiveTag>(entity, true);
+            ecb.SetComponentEnabled<AoeCollisionActiveTag>(entity, NeedsCollision(request));
             ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
         }
+
+        private static bool NeedsCollision(AoeSpawnRequestElement request) =>
+            request.DamageAmount > 0f
+            || request.StackEffect.Enabled
+            || request.ProjectileBurst.Enabled;
 
         private static AoeIdentityComponent IdentityFor(Entity scope, AoeSpawnRequestElement request)
         {
@@ -367,6 +375,7 @@ namespace PlayGround.System.Aoe
             [NativeDisableParallelForRestriction] public ComponentLookup<CombatRenderElement> RenderElements;
             [NativeDisableParallelForRestriction] public BufferLookup<AoeContactGateElement> ContactGates;
             [NativeDisableParallelForRestriction] public ComponentLookup<AoeActiveTag> ActiveTags;
+            [NativeDisableParallelForRestriction] public ComponentLookup<AoeCollisionActiveTag> CollisionActiveTags;
             [NativeDisableParallelForRestriction] public ComponentLookup<CombatRenderActiveTag> RenderActiveTags;
 
             public void Execute(int index)
@@ -390,6 +399,7 @@ namespace PlayGround.System.Aoe
                 RenderElements[entity] = CombatRenderMatrixUtility.ElementFor(kinematics, render);
                 ContactGates[entity].Clear();
                 ActiveTags.SetComponentEnabled(entity, true);
+                CollisionActiveTags.SetComponentEnabled(entity, NeedsCollision(request));
                 RenderActiveTags.SetComponentEnabled(entity, true);
             }
         }

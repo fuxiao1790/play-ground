@@ -222,6 +222,7 @@ namespace PlayGround.System.Projectile
                 ChildSpawners = GetComponentLookup<ProjectileChildSpawnerComponent>(),
                 ChildSpawnStates = GetComponentLookup<ProjectileChildSpawnStateComponent>(),
                 ActiveTags = GetComponentLookup<ProjectileActiveTag>(),
+                CollisionActiveTags = GetComponentLookup<ProjectileCollisionActiveTag>(),
                 RenderActiveTags = GetComponentLookup<CombatRenderActiveTag>()
             };
 
@@ -294,8 +295,15 @@ namespace PlayGround.System.Projectile
             }
 
             ecb.SetComponentEnabled<ProjectileActiveTag>(entity, true);
+            ecb.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, NeedsCollision(request.HitPayload));
             ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
         }
+
+        private static bool NeedsCollision(in ProjectileHitPayload payload) =>
+            payload.DirectDamageEnabled
+            || payload.ImpactAoe.Enabled
+            || payload.StackEffect.Enabled
+            || payload.ImpactProjectile.Enabled;
 
         private static ProjectileIdentityComponent IdentityFor(Entity scope, ProjectileSpawnRequestElement request)
         {
@@ -379,6 +387,7 @@ namespace PlayGround.System.Projectile
                     typeof(CombatRenderComponent),
                     typeof(CombatRenderElement),
                     typeof(ProjectileActiveTag),
+                    typeof(ProjectileCollisionActiveTag),
                     typeof(CombatRenderActiveTag),
                     typeof(ProjectileContactGateElement),
                     typeof(ProjectileChildSpawnerTag),
@@ -396,6 +405,7 @@ namespace PlayGround.System.Projectile
                     typeof(CombatRenderComponent),
                     typeof(CombatRenderElement),
                     typeof(ProjectileActiveTag),
+                    typeof(ProjectileCollisionActiveTag),
                     typeof(CombatRenderActiveTag),
                     typeof(ProjectileContactGateElement));
 
@@ -427,6 +437,7 @@ namespace PlayGround.System.Projectile
             [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileChildSpawnerComponent> ChildSpawners;
             [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileChildSpawnStateComponent> ChildSpawnStates;
             [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileActiveTag> ActiveTags;
+            [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileCollisionActiveTag> CollisionActiveTags;
             [NativeDisableParallelForRestriction] public ComponentLookup<CombatRenderActiveTag> RenderActiveTags;
 
             public void Execute(int index)
@@ -462,6 +473,7 @@ namespace PlayGround.System.Projectile
                 }
 
                 ActiveTags.SetComponentEnabled(entity, true);
+                CollisionActiveTags.SetComponentEnabled(entity, NeedsCollision(request.HitPayload));
                 RenderActiveTags.SetComponentEnabled(entity, true);
             }
         }
