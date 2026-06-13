@@ -145,8 +145,46 @@ namespace PlayGround.System.Aoe
                     return;
                 }
 
-                if (SpatialHashIntersects(identity, collision))
+                if (lifetime.IsPulse == 1)
                 {
+                    if (SpatialHashIntersects(identity, collision))
+                    {
+                        DynamicBuffer<CombatTargetElement> targets = Targets[identity.Scope];
+                        for (int i = 0; i < targets.Length; i++)
+                        {
+                            CombatTargetElement target = targets[i];
+                            if ((hit.TargetMask & target.TargetMask) == 0)
+                            {
+                                continue;
+                            }
+
+                            if (!CombatCollisionMath.BoundsIntersect(
+                                collision.BoundsMin,
+                                collision.BoundsMax,
+                                target.BoundsMin,
+                                target.BoundsMax))
+                            {
+                                continue;
+                            }
+
+                            if (!CombatCollisionMath.Hit(kinematics, collision, target))
+                            {
+                                continue;
+                            }
+
+                            ResolvePulseHit(identity, kinematics, hit, hitSpawn, area, target, contactGates);
+                        }
+                    }
+
+                    Deactivate(entity, identity, active, renderActive);
+                }
+                else
+                {
+                    if (!SpatialHashIntersects(identity, collision))
+                    {
+                        return;
+                    }
+
                     DynamicBuffer<CombatTargetElement> targets = Targets[identity.Scope];
                     for (int i = 0; i < targets.Length; i++)
                     {
@@ -170,20 +208,8 @@ namespace PlayGround.System.Aoe
                             continue;
                         }
 
-                        if (lifetime.IsPulse == 1)
-                        {
-                            ResolvePulseHit(identity, kinematics, hit, hitSpawn, area, target, contactGates);
-                        }
-                        else
-                        {
-                            ResolveLingeringHit(identity, kinematics, hit, hitGate, hitSpawn, area, target, contactGates);
-                        }
+                        ResolveLingeringHit(identity, kinematics, hit, hitGate, hitSpawn, area, target, contactGates);
                     }
-                }
-
-                if (lifetime.IsPulse == 1)
-                {
-                    Deactivate(entity, identity, active, renderActive);
                 }
             }
 
