@@ -52,7 +52,7 @@ namespace PlayGround.System.Aoe
                 }
             }
 
-            var occupiedTargetCells = new NativeParallelHashSet<long>(math.max(1, targetCellCapacity), Allocator.TempJob);
+            var occupiedTargetCells = new NativeParallelMultiHashMap<long, int>(math.max(1, targetCellCapacity), Allocator.TempJob);
             for (int scopeIndex = 0; scopeIndex < scopes.Length; scopeIndex++)
             {
                 Entity scope = scopes[scopeIndex];
@@ -67,7 +67,7 @@ namespace PlayGround.System.Aoe
                     {
                         for (int x = min.x; x <= max.x; x++)
                         {
-                            occupiedTargetCells.Add(CellKey(scope, x, y));
+                            occupiedTargetCells.Add(CellKey(scope, x, y), i);
                         }
                     }
                 }
@@ -80,7 +80,6 @@ namespace PlayGround.System.Aoe
             {
                 Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
                 OccupiedTargetCells = occupiedTargetCells,
-                OccupiedTargetCellCount = occupiedTargetCells.Count(),
                 PendingHits = pendingHits.AsParallelWriter(),
                 Recycled = recycled.AsParallelWriter(),
                 VfxPending = vfxPending.AsParallelWriter()
@@ -119,8 +118,7 @@ namespace PlayGround.System.Aoe
         private partial struct AoeCollisionJob : IJobEntity
         {
             [ReadOnly] public BufferLookup<CombatTargetElement> Targets;
-            [ReadOnly] public NativeParallelHashSet<long> OccupiedTargetCells;
-            public int OccupiedTargetCellCount;
+            [ReadOnly] public NativeParallelMultiHashMap<long, int> OccupiedTargetCells;
             public NativeQueue<CombatPendingHit>.ParallelWriter PendingHits;
             public NativeQueue<AoePendingRecycle>.ParallelWriter Recycled;
             public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
@@ -145,48 +143,13 @@ namespace PlayGround.System.Aoe
                     return;
                 }
 
-                if (lifetime.IsPulse == 1)
+                var candidates = new NativeHashSet<int>(4, Allocator.Temp);
+                CollectCandidates(identity, collision, ref candidates);
+
+                if (!candidates.IsEmpty)
                 {
-                    if (SpatialHashIntersects(identity, collision))
-                    {
-                        DynamicBuffer<CombatTargetElement> targets = Targets[identity.Scope];
-                        for (int i = 0; i < targets.Length; i++)
-                        {
-                            CombatTargetElement target = targets[i];
-                            if ((hit.TargetMask & target.TargetMask) == 0)
-                            {
-                                continue;
-                            }
-
-                            if (!CombatCollisionMath.BoundsIntersect(
-                                collision.BoundsMin,
-                                collision.BoundsMax,
-                                target.BoundsMin,
-                                target.BoundsMax))
-                            {
-                                continue;
-                            }
-
-                            if (!CombatCollisionMath.Hit(kinematics, collision, target))
-                            {
-                                continue;
-                            }
-
-                            ResolvePulseHit(identity, kinematics, hit, hitSpawn, area, target, contactGates);
-                        }
-                    }
-
-                    Deactivate(entity, identity, active, renderActive);
-                }
-                else
-                {
-                    if (!SpatialHashIntersects(identity, collision))
-                    {
-                        return;
-                    }
-
                     DynamicBuffer<CombatTargetElement> targets = Targets[identity.Scope];
-                    for (int i = 0; i < targets.Length; i++)
+                    foreach (int i in candidates)
                     {
                         CombatTargetElement target = targets[i];
                         if ((hit.TargetMask & target.TargetMask) == 0)
@@ -208,19 +171,28 @@ namespace PlayGround.System.Aoe
                             continue;
                         }
 
-                        ResolveLingeringHit(identity, kinematics, hit, hitGate, hitSpawn, area, target, contactGates);
+                        float cooldown = lifetime.IsPulse == 1 ? 0f : hitGate.RepeatHitCooldownSeconds;
+                        ResolveHit(identity, kinematics, hit, hitSpawn, area, target, contactGates, cooldown);
                     }
                 }
+
+                candidates.Dispose();
+
+                if (lifetime.IsPulse == 1)
+                {
+                    Deactivate(entity, identity, active, renderActive);
+                }
             }
 
-            private void ResolvePulseHit(
+            private void ResolveHit(
                 AoeIdentityComponent identity,
                 CombatKinematicsComponent kinematics,
                 CombatHitComponent hit,
                 AoeHitSpawnComponent hitSpawn,
                 AoeAreaComponent area,
                 CombatTargetElement target,
-                DynamicBuffer<AoeContactGateElement> contactGates)
+                DynamicBuffer<AoeContactGateElement> contactGates,
+                float cooldown)
             {
                 if (IndexOfGate(contactGates, target.TargetId) >= 0)
                 {
@@ -230,30 +202,7 @@ namespace PlayGround.System.Aoe
                 contactGates.Add(new AoeContactGateElement
                 {
                     TargetId = target.TargetId,
-                    CooldownRemaining = 0f
-                });
-                EmitHit(identity, kinematics, hit, hitSpawn, area, target);
-            }
-
-            private void ResolveLingeringHit(
-                AoeIdentityComponent identity,
-                CombatKinematicsComponent kinematics,
-                CombatHitComponent hit,
-                AoeHitGateComponent hitGate,
-                AoeHitSpawnComponent hitSpawn,
-                AoeAreaComponent area,
-                CombatTargetElement target,
-                DynamicBuffer<AoeContactGateElement> contactGates)
-            {
-                if (IndexOfGate(contactGates, target.TargetId) >= 0)
-                {
-                    return;
-                }
-
-                contactGates.Add(new AoeContactGateElement
-                {
-                    TargetId = target.TargetId,
-                    CooldownRemaining = hitGate.RepeatHitCooldownSeconds
+                    CooldownRemaining = cooldown
                 });
                 EmitHit(identity, kinematics, hit, hitSpawn, area, target);
             }
@@ -308,27 +257,24 @@ namespace PlayGround.System.Aoe
                 });
             }
 
-            private bool SpatialHashIntersects(AoeIdentityComponent identity, CombatCollisionComponent collision)
+            private void CollectCandidates(AoeIdentityComponent identity, CombatCollisionComponent collision, ref NativeHashSet<int> candidates)
             {
-                if (OccupiedTargetCellCount == 0)
-                {
-                    return false;
-                }
-
                 int2 min = MinCell(collision.BoundsMin);
                 int2 max = MaxCell(collision.BoundsMax);
-                for (int y = min.y; y <= max.y; y++)
+                for (int cy = min.y; cy <= max.y; cy++)
                 {
-                    for (int x = min.x; x <= max.x; x++)
+                    for (int cx = min.x; cx <= max.x; cx++)
                     {
-                        if (OccupiedTargetCells.Contains(CellKey(identity.Scope, x, y)))
+                        long key = CellKey(identity.Scope, cx, cy);
+                        if (OccupiedTargetCells.TryGetFirstValue(key, out int targetIdx, out NativeParallelMultiHashMapIterator<long> it))
                         {
-                            return true;
+                            do
+                            {
+                                candidates.Add(targetIdx);
+                            } while (OccupiedTargetCells.TryGetNextValue(out targetIdx, ref it));
                         }
                     }
                 }
-
-                return false;
             }
 
             private static int IndexOfGate(DynamicBuffer<AoeContactGateElement> contactGates, int targetId)
