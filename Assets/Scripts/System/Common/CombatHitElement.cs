@@ -197,12 +197,18 @@ namespace PlayGround.System.Common
         public EntityId SourceNodeId;
         public uint Order;
         public int PayloadIndex; // -1 = no payload
+        public int EffectIndex; // -1 = no internal core effect
     }
 
-    // ECS Lifecycle: scope buffer; sparse side channel for hit effects; added at root setup; cleared with CombatHitElement.
+    // ECS Lifecycle: scope buffer; sparse side channel for generic hit replay data; added at root setup; cleared with CombatHitElement.
     public struct CombatHitPayloadElement : IBufferElementData
     {
         public CombatStackEffectSnapshot StackEffect;
+    }
+
+    // ECS Lifecycle: scope buffer; sparse side channel for internal core hit effects; added at root setup; cleared with CombatHitElement.
+    public struct CombatHitEffectElement : IBufferElementData
+    {
         public ProjectileImpactAoeSnapshot ImpactAoe;
         public ProjectileImpactProjectileSnapshot ImpactProjectile;
         public AoeProjectileBurstSnapshot ProjectileBurst;

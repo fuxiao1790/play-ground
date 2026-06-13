@@ -77,7 +77,8 @@ namespace PlayGround.System.Projectile
             {
                 PendingHits = pendingHits,
                 Hits = SystemAPI.GetBufferLookup<CombatHitElement>(),
-                Payloads = SystemAPI.GetBufferLookup<CombatHitPayloadElement>()
+                Payloads = SystemAPI.GetBufferLookup<CombatHitPayloadElement>(),
+                Effects = SystemAPI.GetBufferLookup<CombatHitEffectElement>()
             }.Schedule(collisionHandle);
             var recycleFlushHandle = new ProjectileRecycleFlushJob
             {
@@ -313,6 +314,7 @@ namespace PlayGround.System.Projectile
             public NativeQueue<CombatPendingHit> PendingHits;
             public BufferLookup<CombatHitElement> Hits;
             public BufferLookup<CombatHitPayloadElement> Payloads;
+            public BufferLookup<CombatHitEffectElement> Effects;
 
             public void Execute()
             {
@@ -324,13 +326,23 @@ namespace PlayGround.System.Projectile
                     }
 
                     int payloadIndex = -1;
-                    if (pending.StackEffect.Enabled || pending.ImpactAoe.Enabled || pending.ImpactProjectile.Enabled)
+                    if (pending.StackEffect.Enabled)
                     {
                         DynamicBuffer<CombatHitPayloadElement> payloadBuf = Payloads[pending.Scope];
                         payloadIndex = payloadBuf.Length;
                         payloadBuf.Add(new CombatHitPayloadElement
                         {
-                            StackEffect = pending.StackEffect,
+                            StackEffect = pending.StackEffect
+                        });
+                    }
+
+                    int effectIndex = -1;
+                    if (pending.ImpactAoe.Enabled || pending.ImpactProjectile.Enabled)
+                    {
+                        DynamicBuffer<CombatHitEffectElement> effectBuf = Effects[pending.Scope];
+                        effectIndex = effectBuf.Length;
+                        effectBuf.Add(new CombatHitEffectElement
+                        {
                             ImpactAoe = pending.ImpactAoe,
                             ImpactProjectile = pending.ImpactProjectile
                         });
@@ -349,7 +361,8 @@ namespace PlayGround.System.Projectile
                         DirectDamageEnabled = pending.DirectDamageEnabled,
                         SourceNodeId = pending.SourceNodeId,
                         Order = pending.Order,
-                        PayloadIndex = payloadIndex
+                        PayloadIndex = payloadIndex,
+                        EffectIndex = effectIndex
                     });
                 }
             }

@@ -37,35 +37,6 @@ namespace PlayGround.System.Projectile
         public DamageSnapshot Damage => new(DamageAmount);
     }
 
-    public readonly struct ProjectileHitContext
-    {
-        public ProjectileHitContext(
-            int projectileId,
-            int projectileTypeId,
-            int targetId,
-            Vector2 position,
-            DamageSnapshot damage,
-            IProjectileTarget target = null,
-            EntityId sourceNodeId = default)
-        {
-            ProjectileId = projectileId;
-            ProjectileTypeId = projectileTypeId;
-            TargetId = targetId;
-            Position = position;
-            Damage = damage;
-            Target = target;
-            SourceNodeId = sourceNodeId;
-        }
-
-        public int ProjectileId { get; }
-        public int ProjectileTypeId { get; }
-        public int TargetId { get; }
-        public Vector2 Position { get; }
-        public DamageSnapshot Damage { get; }
-        public IProjectileTarget Target { get; }
-        public EntityId SourceNodeId { get; }
-    }
-
     public readonly struct ProjectileRuntimeCounters
     {
         public ProjectileRuntimeCounters(

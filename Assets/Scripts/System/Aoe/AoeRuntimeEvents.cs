@@ -18,7 +18,8 @@ namespace PlayGround.System.Aoe
             AoeProjectileBurstSnapshot projectileBurst = default,
             float critChance = 0f,
             float critMultiplier = 1.5f,
-            CombatStackEffectSnapshot stackEffect = default)
+            CombatStackEffectSnapshot stackEffect = default,
+            EntityId sourceNodeId = default)
         {
             TypeId = typeId;
             Position = position;
@@ -32,6 +33,7 @@ namespace PlayGround.System.Aoe
             CritChance = critChance;
             CritMultiplier = critMultiplier;
             StackEffect = stackEffect;
+            SourceNodeId = sourceNodeId;
         }
 
         public int TypeId { get; }
@@ -46,35 +48,7 @@ namespace PlayGround.System.Aoe
         public float CritChance { get; }
         public float CritMultiplier { get; }
         public CombatStackEffectSnapshot StackEffect { get; }
-    }
-
-    public readonly struct AoeHitContext
-    {
-        public AoeHitContext(
-            int aoeId,
-            int typeId,
-            int targetId,
-            Vector2 position,
-            DamageSnapshot damage,
-            AoeProjectileBurstSnapshot projectileBurst = default,
-            IAoeTarget target = null)
-        {
-            AoeId = aoeId;
-            TypeId = typeId;
-            TargetId = targetId;
-            Position = position;
-            Damage = damage;
-            ProjectileBurst = projectileBurst;
-            Target = target;
-        }
-
-        public int AoeId { get; }
-        public int TypeId { get; }
-        public int TargetId { get; }
-        public Vector2 Position { get; }
-        public DamageSnapshot Damage { get; }
-        public AoeProjectileBurstSnapshot ProjectileBurst { get; }
-        public IAoeTarget Target { get; }
+        public EntityId SourceNodeId { get; }
     }
 
     public readonly struct AoeRuntimeCounters

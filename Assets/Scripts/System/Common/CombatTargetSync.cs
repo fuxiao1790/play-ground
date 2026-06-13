@@ -74,7 +74,12 @@ namespace PlayGround.System.Common
         where TTarget : class
     {
         DamageSnapshot RollDamage(in CombatHitElement hit);
-        void Replay(in CombatHitElement hit, in CombatHitPayloadElement payload, TTarget target, in DamageSnapshot damage);
+        void Replay(
+            in CombatHitElement hit,
+            in CombatHitPayloadElement payload,
+            in CombatHitEffectElement effect,
+            TTarget target,
+            in DamageSnapshot damage);
     }
 
     internal static class CombatHitReplay
@@ -87,6 +92,7 @@ namespace PlayGround.System.Common
         public static void ReplayAndClear<TTarget, TAdapter>(
             DynamicBuffer<CombatHitElement> hitBuffer,
             DynamicBuffer<CombatHitPayloadElement> payloadBuffer,
+            DynamicBuffer<CombatHitEffectElement> effectBuffer,
             IReadOnlyDictionary<int, TTarget> targetsById,
             ref TAdapter adapter)
             where TTarget : class
@@ -105,12 +111,16 @@ namespace PlayGround.System.Common
                     CombatHitPayloadElement payload = hit.PayloadIndex >= 0
                         ? payloadBuffer[hit.PayloadIndex]
                         : default;
-                    adapter.Replay(in hit, in payload, target, in damage);
+                    CombatHitEffectElement effect = hit.EffectIndex >= 0
+                        ? effectBuffer[hit.EffectIndex]
+                        : default;
+                    adapter.Replay(in hit, in payload, in effect, target, in damage);
                 }
             }
 
             hitBuffer.Clear();
             payloadBuffer.Clear();
+            effectBuffer.Clear();
         }
 
         public static bool IsTargetUsable<TTarget>(TTarget target)

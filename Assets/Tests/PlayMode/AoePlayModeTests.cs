@@ -118,8 +118,8 @@ namespace PlayGround.Tests.PlayMode
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
             int replayCount = 0;
-            AoeHitContext replayContext = default;
-            root.AoeHit += (in AoeHitContext context) =>
+            CombatHitContext replayContext = default;
+            root.Hit += (in CombatHitContext context) =>
             {
                 replayCount++;
                 replayContext = context;
@@ -489,7 +489,7 @@ namespace PlayGround.Tests.PlayMode
             }
         }
 
-        private sealed class AoeTargetProbe : MonoBehaviour, IAoeTarget
+        private sealed class AoeTargetProbe : MonoBehaviour, ICombatTarget
         {
             private int targetId;
             private int targetMask;

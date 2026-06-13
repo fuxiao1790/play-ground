@@ -91,7 +91,8 @@ namespace PlayGround.System.Aoe
             {
                 PendingHits = pendingHits,
                 Hits = SystemAPI.GetBufferLookup<CombatHitElement>(),
-                Payloads = SystemAPI.GetBufferLookup<CombatHitPayloadElement>()
+                Payloads = SystemAPI.GetBufferLookup<CombatHitPayloadElement>(),
+                Effects = SystemAPI.GetBufferLookup<CombatHitEffectElement>()
             }.Schedule(collisionHandle);
             JobHandle recycleFlushHandle = new AoeRecycleFlushJob
             {
@@ -324,6 +325,7 @@ namespace PlayGround.System.Aoe
             public NativeQueue<CombatPendingHit> PendingHits;
             public BufferLookup<CombatHitElement> Hits;
             public BufferLookup<CombatHitPayloadElement> Payloads;
+            public BufferLookup<CombatHitEffectElement> Effects;
 
             public void Execute()
             {
@@ -335,14 +337,24 @@ namespace PlayGround.System.Aoe
                     }
 
                     int payloadIndex = -1;
-                    if (pending.ProjectileBurst.Enabled || pending.StackEffect.Enabled)
+                    if (pending.StackEffect.Enabled)
                     {
                         DynamicBuffer<CombatHitPayloadElement> payloadBuf = Payloads[pending.Scope];
                         payloadIndex = payloadBuf.Length;
                         payloadBuf.Add(new CombatHitPayloadElement
                         {
-                            ProjectileBurst = pending.ProjectileBurst,
                             StackEffect = pending.StackEffect
+                        });
+                    }
+
+                    int effectIndex = -1;
+                    if (pending.ProjectileBurst.Enabled)
+                    {
+                        DynamicBuffer<CombatHitEffectElement> effectBuf = Effects[pending.Scope];
+                        effectIndex = effectBuf.Length;
+                        effectBuf.Add(new CombatHitEffectElement
+                        {
+                            ProjectileBurst = pending.ProjectileBurst
                         });
                     }
 
@@ -359,7 +371,8 @@ namespace PlayGround.System.Aoe
                         DirectDamageEnabled = pending.DirectDamageEnabled,
                         SourceNodeId = pending.SourceNodeId,
                         Order = pending.Order,
-                        PayloadIndex = payloadIndex
+                        PayloadIndex = payloadIndex,
+                        EffectIndex = effectIndex
                     });
                 }
             }

@@ -289,7 +289,7 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
             int hitCount = 0;
-            projectileRoot.ProjectileHit += (in ProjectileHitContext _, in CombatHitPayloadElement _2) => hitCount++;
+            projectileRoot.Hit += (in CombatHitContext _) => hitCount++;
 
             var command = new ProjectileSpawnCommand(
                 Vector2.zero,
@@ -320,7 +320,7 @@ namespace PlayGround.Tests.PlayMode
             projectileRoot.TargetRegistry.Register(probe);
             int replayCount = 0;
             int missingTargetReplayCount = 0;
-            projectileRoot.ProjectileHit += (in ProjectileHitContext context, in CombatHitPayloadElement _) =>
+            projectileRoot.Hit += (in CombatHitContext context) =>
             {
                 replayCount++;
                 if (context.Target == null)
@@ -403,9 +403,9 @@ namespace PlayGround.Tests.PlayMode
             mob.Register(projectileRoot.TargetRegistry);
             mob.Register(aoeRoot.TargetRegistry);
             bool spawnedProjectileCarriedImpactAoe = true;
-            projectileRoot.ProjectileHit += (in ProjectileHitContext context, in CombatHitPayloadElement payload) =>
+            projectileRoot.HitEffect += (in CombatHitContext context, in CombatHitEffectElement effect) =>
             {
-                spawnedProjectileCarriedImpactAoe = payload.ImpactAoe.Enabled;
+                spawnedProjectileCarriedImpactAoe = effect.ImpactAoe.Enabled;
             };
 
             var burst = new AoeProjectileBurstSnapshot(
@@ -568,7 +568,7 @@ namespace PlayGround.Tests.PlayMode
             GameObject sourceObject = new("ProjectileSource");
             EntityId sourceNodeId = sourceObject.GetEntityId();
             EntityId replayedSourceNodeId = default;
-            projectileRoot.ProjectileHit += (in ProjectileHitContext context, in CombatHitPayloadElement payload) =>
+            projectileRoot.Hit += (in CombatHitContext context) =>
             {
                 replayedSourceNodeId = context.SourceNodeId;
             };
@@ -1310,7 +1310,7 @@ namespace PlayGround.Tests.PlayMode
             return probe;
         }
 
-        private sealed class CritProbe : MonoBehaviour, IAoeTarget
+        private sealed class CritProbe : MonoBehaviour, ICombatTarget
         {
             private int targetId;
             private int targetMask;
@@ -1336,7 +1336,7 @@ namespace PlayGround.Tests.PlayMode
             public void ReceiveHit(in CombatHitData hit) => LastDamage = hit.Damage;
         }
 
-        private sealed class ProjectileReplayProbe : MonoBehaviour, IProjectileTarget
+        private sealed class ProjectileReplayProbe : MonoBehaviour, ICombatTarget
         {
             private int targetId;
             private int targetMask;

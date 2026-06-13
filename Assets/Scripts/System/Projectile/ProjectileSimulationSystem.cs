@@ -33,6 +33,7 @@ namespace PlayGround.System.Projectile
             {
                 state.EntityManager.GetBuffer<CombatHitElement>(scopes[i]).Clear();
                 state.EntityManager.GetBuffer<CombatHitPayloadElement>(scopes[i]).Clear();
+                state.EntityManager.GetBuffer<CombatHitEffectElement>(scopes[i]).Clear();
             }
 
             scopes.Dispose();

@@ -254,10 +254,13 @@ The current implementation uses Entities/DOTS in the shared default world:
   `AoeSpawnRequestElement` → `CombatHitComponent` on the entity; no per-AOE
   dictionary lookup is needed at replay time.
 - `AoeCollisionSystem` runs target-mask filtering and shape collision against
-  `CombatTargetElement` snapshots, reads crit directly from `CombatHitComponent`,
-  emits `CombatPendingHit` (shared with the projectile pipeline), flushes into the
-  scoped `CombatHitElement` buffer, recycles pulse AOEs, and adds per-target hit
-  gates for lingering AOEs.
+  `CombatTargetElement` snapshots, reads crit and source node data directly from
+  `CombatHitComponent`, emits `CombatPendingHit` (shared with the projectile
+  pipeline), flushes into the scoped `CombatHitElement` buffer, recycles pulse
+  AOEs, and adds per-target hit gates for lingering AOEs. Scene replay uses the
+  shared `Hit` event with `CombatHitContext`; generic stack/status replay data
+  stays in `CombatHitPayloadElement`; internal projectile-burst spawn effects
+  stay in `CombatHitEffectElement` and route through `HitEffect`.
 - `AoeContactGateSystem` decrements lingering repeat-hit gates and compacts
   expired entries.
 - `AoeSimulationSystem` clears scoped `CombatHitElement` hit buffers and expires lingering AOEs.
@@ -265,8 +268,9 @@ The current implementation uses Entities/DOTS in the shared default world:
   `AoeRoot` submits GPU-instanced batches.
 - Trigger-link snapshot type `AoeProjectileBurstSnapshot` lives in
   `PlayGround.System.Common` (alongside `ProjectileImpactAoeSnapshot`,
-  `ProjectileImpactProjectileSnapshot`, `ProjectileTrackingConfig`) so both
-  systems share a single `CombatHitElement` buffer element type.
+  `ProjectileImpactProjectileSnapshot`, `ProjectileTrackingConfig`) so the
+  internal core effect buffer can carry projectile-burst spawn data without
+  exposing it through scene hit context.
 
 ## Tests To Port
 

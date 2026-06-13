@@ -21,12 +21,12 @@ namespace PlayGround.System.Aoe
         [Min(0f)]
         private float batchBoundsHalfExtent = 100000f;
 
-        private readonly CombatTargetRegistry<IAoeTarget> targetRegistry = new();
+        private readonly CombatTargetRegistry<ICombatTarget> targetRegistry = new();
         private readonly Dictionary<int, CombatSpriteRenderResources> renderResourcesByType = new();
         private readonly Dictionary<AoeConfig, int> configTypeIds = new();
         private readonly Dictionary<AoeTypeDefinition, int> definitionTypeIds = new();
         private AoeTypeRegistry typeRegistry = new();
-        private CombatTargetSync<IAoeTarget> targetSync;
+        private CombatTargetSync<ICombatTarget> targetSync;
         private World entityWorld;
         private EntityManager entityManager;
         private Entity scopeEntity;
@@ -43,11 +43,10 @@ namespace PlayGround.System.Aoe
         private bool ecsHandlesCreated;
         private bool combatRuntimeManaged;
 
-        public delegate void AoeHitHandler(in AoeHitContext context);
+        public event CombatHitHandler Hit;
+        public event CombatHitEffectHandler HitEffect;
 
-        public event AoeHitHandler AoeHit;
-
-        public CombatTargetRegistry<IAoeTarget> TargetRegistry => targetRegistry;
+        public CombatTargetRegistry<ICombatTarget> TargetRegistry => targetRegistry;
         public int TargetMask => targetMask;
         public AoeRuntimeCounters Counters => new(
             ActiveAoeCount(),
@@ -60,7 +59,7 @@ namespace PlayGround.System.Aoe
         private void Awake()
         {
             runtimeReady = false;
-            targetSync = new CombatTargetSync<IAoeTarget>(targetRegistry);
+            targetSync = new CombatTargetSync<ICombatTarget>(targetRegistry);
             targetSyncCallback = buffer => targetSync.SyncToBuffer(buffer);
             BindWorld();
             runtimeReady = true;
@@ -221,6 +220,7 @@ namespace PlayGround.System.Aoe
                 DamageAmount = command.Damage.Amount,
                 CritChance = command.CritChance,
                 CritMultiplier = command.CritMultiplier,
+                SourceNodeId = command.SourceNodeId,
                 AreaSize = geometry.AreaSize,
                 Radius = geometry.Radius,
                 RotationRadians = geometry.RotationRadians,
@@ -239,25 +239,28 @@ namespace PlayGround.System.Aoe
         {
             DynamicBuffer<CombatHitElement> hitBuffer = entityManager.GetBuffer<CombatHitElement>(scopeEntity);
             DynamicBuffer<CombatHitPayloadElement> payloadBuffer = entityManager.GetBuffer<CombatHitPayloadElement>(scopeEntity);
+            DynamicBuffer<CombatHitEffectElement> effectBuffer = entityManager.GetBuffer<CombatHitEffectElement>(scopeEntity);
             DynamicBuffer<AoeRecycleElement> recycleBuffer = entityManager.GetBuffer<AoeRecycleElement>(scopeEntity);
             hitEvents += hitBuffer.Length;
             despawnedAoes += recycleBuffer.Length;
 
             if (combatRuntimeManaged && runtimeTargetsById != null)
             {
-                var runtimeAdapter = new AoeHitReplayAdapter<ICombatTarget> { HitHandler = AoeHit };
+                var runtimeAdapter = new AoeHitReplayAdapter<ICombatTarget> { HitHandler = Hit, EffectHandler = HitEffect };
                 CombatHitReplay.ReplayAndClear<ICombatTarget, AoeHitReplayAdapter<ICombatTarget>>(
                     hitBuffer,
                     payloadBuffer,
+                    effectBuffer,
                     runtimeTargetsById,
                     ref runtimeAdapter);
                 return;
             }
 
-            var adapter = new AoeHitReplayAdapter<IAoeTarget> { HitHandler = AoeHit };
-            CombatHitReplay.ReplayAndClear<IAoeTarget, AoeHitReplayAdapter<IAoeTarget>>(
+            var adapter = new AoeHitReplayAdapter<ICombatTarget> { HitHandler = Hit, EffectHandler = HitEffect };
+            CombatHitReplay.ReplayAndClear<ICombatTarget, AoeHitReplayAdapter<ICombatTarget>>(
                 hitBuffer,
                 payloadBuffer,
+                effectBuffer,
                 targetSync.TargetsById,
                 ref adapter);
         }
@@ -265,7 +268,8 @@ namespace PlayGround.System.Aoe
         private struct AoeHitReplayAdapter<TTarget> : ICombatHitReplayAdapter<TTarget>
             where TTarget : class, ICombatTarget
         {
-            public AoeHitHandler HitHandler;
+            public CombatHitHandler HitHandler;
+            public CombatHitEffectHandler EffectHandler;
 
             public DamageSnapshot RollDamage(in CombatHitElement hit)
             {
@@ -275,18 +279,29 @@ namespace PlayGround.System.Aoe
                 return new DamageSnapshot(rolledAmount, isCrit);
             }
 
-            public void Replay(in CombatHitElement hit, in CombatHitPayloadElement payload, TTarget target, in DamageSnapshot damage)
+            public void Replay(
+                in CombatHitElement hit,
+                in CombatHitPayloadElement payload,
+                in CombatHitEffectElement effect,
+                TTarget target,
+                in DamageSnapshot damage)
             {
                 var position = new Vector2(hit.Position.x, hit.Position.y);
-                IAoeTarget aoeTarget = target as IAoeTarget;
-                var context = new AoeHitContext(
+                ICombatTarget combatTarget = target as ICombatTarget;
+                var context = new CombatHitContext(
+                    hit.Kind,
                     hit.SourceId,
                     hit.TypeId,
                     hit.TargetId,
                     position,
                     damage,
-                    payload.ProjectileBurst,
-                    aoeTarget);
+                    combatTarget,
+                    hit.SourceNodeId);
+                if (hit.EffectIndex >= 0)
+                {
+                    EffectHandler?.Invoke(in context, in effect);
+                }
+
                 HitHandler?.Invoke(in context);
                 if (CombatHitReplay.IsTargetUsable(target))
                 {
@@ -333,6 +348,7 @@ namespace PlayGround.System.Aoe
             entityManager.AddBuffer<AoeSpawnRequestElement>(scopeEntity);
             entityManager.AddBuffer<CombatHitElement>(scopeEntity);
             entityManager.AddBuffer<CombatHitPayloadElement>(scopeEntity);
+            entityManager.AddBuffer<CombatHitEffectElement>(scopeEntity);
             entityManager.AddBuffer<AoeRecycleElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
             entityManager.AddComponentObject(scopeEntity, new CombatTargetSyncSource { Sync = combatRuntimeManaged ? null : targetSyncCallback });

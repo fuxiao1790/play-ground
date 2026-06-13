@@ -294,7 +294,8 @@ namespace PlayGround.System.Aoe
                 DamageAmount = request.DamageAmount,
                 CritChance = request.CritChance,
                 CritMultiplier = request.CritMultiplier,
-                DirectDamageEnabled = true
+                DirectDamageEnabled = true,
+                SourceNodeId = request.SourceNodeId
             };
         }
 

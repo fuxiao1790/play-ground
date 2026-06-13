@@ -27,8 +27,8 @@ namespace PlayGround.System.Projectile
         [Min(0f)]
         private float batchBoundsHalfExtent = 100000f;
 
-        private readonly CombatTargetRegistry<IProjectileTarget> targetRegistry = new();
-        private CombatTargetSync<IProjectileTarget> targetSync;
+        private readonly CombatTargetRegistry<ICombatTarget> targetRegistry = new();
+        private CombatTargetSync<ICombatTarget> targetSync;
         private readonly Dictionary<BasicAttackPrefab, int> templateTypeIds = new();
         private readonly Dictionary<int, CombatSpriteRenderResources> renderResourcesByType = new();
         private World entityWorld;
@@ -36,7 +36,7 @@ namespace PlayGround.System.Projectile
         private Entity scopeEntity;
         private EntityQuery allProjectileQuery;
         private IReadOnlyDictionary<int, ICombatTarget> runtimeTargetsById;
-        private global::System.Func<IProjectileTarget, bool> canTargetFilter;
+        private global::System.Func<ICombatTarget, bool> canTargetFilter;
         private int nextProjectileId;
         private int nextTemplateTypeId = 1;
         private global::System.Action<DynamicBuffer<CombatTargetElement>> targetSyncCallback;
@@ -45,17 +45,16 @@ namespace PlayGround.System.Projectile
         private bool ecsHandlesCreated;
         private bool combatRuntimeManaged;
 
-        public delegate void ProjectileHitHandler(in ProjectileHitContext context, in CombatHitPayloadElement payload);
+        public event CombatHitHandler Hit;
+        public event CombatHitEffectHandler HitEffect;
 
-        public event ProjectileHitHandler ProjectileHit;
-
-        public CombatTargetRegistry<IProjectileTarget> TargetRegistry => targetRegistry;
+        public CombatTargetRegistry<ICombatTarget> TargetRegistry => targetRegistry;
         public int TargetMask => targetLayers.value != 0 ? targetLayers.value : ~0;
 
         private void Awake()
         {
             runtimeReady = false;
-            targetSync = new CombatTargetSync<IProjectileTarget>(targetRegistry);
+            targetSync = new CombatTargetSync<ICombatTarget>(targetRegistry);
             canTargetFilter = CanTarget;
             targetSyncCallback = buffer => targetSync.SyncToBuffer(buffer, additionalFilter: canTargetFilter);
             ApplyTaggedDefaults();
@@ -145,7 +144,7 @@ namespace PlayGround.System.Projectile
             targetTag = tag;
         }
 
-        public bool CanTarget(IProjectileTarget target)
+        public bool CanTarget(ICombatTarget target)
         {
             if (target == null || (target.CombatTargetMask & TargetMask) == 0)
             {
@@ -288,6 +287,7 @@ namespace PlayGround.System.Projectile
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
             entityManager.AddBuffer<CombatHitElement>(scopeEntity);
             entityManager.AddBuffer<CombatHitPayloadElement>(scopeEntity);
+            entityManager.AddBuffer<CombatHitEffectElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileSpawnRequestElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileRecycleElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
@@ -357,21 +357,25 @@ namespace PlayGround.System.Projectile
                 entityManager.GetBuffer<CombatHitElement>(scopeEntity);
             DynamicBuffer<CombatHitPayloadElement> payloadBuffer =
                 entityManager.GetBuffer<CombatHitPayloadElement>(scopeEntity);
+            DynamicBuffer<CombatHitEffectElement> effectBuffer =
+                entityManager.GetBuffer<CombatHitEffectElement>(scopeEntity);
             if (combatRuntimeManaged && runtimeTargetsById != null)
             {
-                var runtimeAdapter = new ProjectileHitReplayAdapter<ICombatTarget> { HitHandler = ProjectileHit };
+                var runtimeAdapter = new ProjectileHitReplayAdapter<ICombatTarget> { HitHandler = Hit, EffectHandler = HitEffect };
                 CombatHitReplay.ReplayAndClear<ICombatTarget, ProjectileHitReplayAdapter<ICombatTarget>>(
                     hitBuffer,
                     payloadBuffer,
+                    effectBuffer,
                     runtimeTargetsById,
                     ref runtimeAdapter);
                 return;
             }
 
-            var adapter = new ProjectileHitReplayAdapter<IProjectileTarget> { HitHandler = ProjectileHit };
-            CombatHitReplay.ReplayAndClear<IProjectileTarget, ProjectileHitReplayAdapter<IProjectileTarget>>(
+            var adapter = new ProjectileHitReplayAdapter<ICombatTarget> { HitHandler = Hit, EffectHandler = HitEffect };
+            CombatHitReplay.ReplayAndClear<ICombatTarget, ProjectileHitReplayAdapter<ICombatTarget>>(
                 hitBuffer,
                 payloadBuffer,
+                effectBuffer,
                 targetSync.TargetsById,
                 ref adapter);
         }
@@ -379,7 +383,8 @@ namespace PlayGround.System.Projectile
         private struct ProjectileHitReplayAdapter<TTarget> : ICombatHitReplayAdapter<TTarget>
             where TTarget : class, ICombatTarget
         {
-            public ProjectileHitHandler HitHandler;
+            public CombatHitHandler HitHandler;
+            public CombatHitEffectHandler EffectHandler;
 
             public DamageSnapshot RollDamage(in CombatHitElement hit)
             {
@@ -388,22 +393,30 @@ namespace PlayGround.System.Projectile
                 return new DamageSnapshot(Mathf.Max(0f, rolledAmount), isCrit);
             }
 
-            public void Replay(in CombatHitElement hit, in CombatHitPayloadElement payload, TTarget target, in DamageSnapshot damage)
+            public void Replay(
+                in CombatHitElement hit,
+                in CombatHitPayloadElement payload,
+                in CombatHitEffectElement effect,
+                TTarget target,
+                in DamageSnapshot damage)
             {
                 var position = new Vector2(hit.Position.x, hit.Position.y);
-                IProjectileTarget projectileTarget = target as IProjectileTarget;
-                if (HitHandler != null)
+                ICombatTarget combatTarget = target as ICombatTarget;
+                var context = new CombatHitContext(
+                    hit.Kind,
+                    hit.SourceId,
+                    hit.TypeId,
+                    hit.TargetId,
+                    position,
+                    damage,
+                    combatTarget,
+                    hit.SourceNodeId);
+                if (hit.EffectIndex >= 0)
                 {
-                    var context = new ProjectileHitContext(
-                        hit.SourceId,
-                        hit.TypeId,
-                        hit.TargetId,
-                        position,
-                        damage,
-                        projectileTarget,
-                        hit.SourceNodeId);
-                    HitHandler.Invoke(in context, in payload);
+                    EffectHandler?.Invoke(in context, in effect);
                 }
+
+                HitHandler?.Invoke(in context);
                 if (CombatHitReplay.IsTargetUsable(target))
                 {
                     target.ReceiveHit(new CombatHitData(
@@ -411,7 +424,7 @@ namespace PlayGround.System.Projectile
                         damage,
                         position,
                         hit.DirectDamageEnabled,
-                        payload.StackEffect.Enabled ? payload.StackEffect : default));
+                        payload.StackEffect));
                 }
             }
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using PlayGround.Skills;
 using PlayGround.Common;
 using PlayGround.Common.StatusEffects;
@@ -9,7 +10,7 @@ using UnityEngine;
 
 namespace PlayGround.Mob
 {
-    public class MobRoot : MonoBehaviour, IProjectileTarget, IAoeTarget
+    public class MobRoot : MonoBehaviour, ICombatTarget
     {
         public const string DefaultTriggerKey = "on_spawn";
 
@@ -42,8 +43,7 @@ namespace PlayGround.Mob
         private readonly MobDebuffStackState debuffStacks = new();
         public StatusEffects StatusEffects { get; private set; }
         private readonly MobBlackboard blackboard = new();
-        private CombatTargetRegistry<IProjectileTarget> registry;
-        private CombatTargetRegistry<IAoeTarget> aoeRegistry;
+        private readonly List<CombatTargetRegistry<ICombatTarget>> registries = new();
         private CombatTargetSet combatTargetSet;
         private AoeRoot aoeRoot;
         private MobEventQueue eventQueue;
@@ -150,9 +150,7 @@ namespace PlayGround.Mob
 
         protected virtual void OnDisable()
         {
-            registry?.Unregister(this);
-            aoeRegistry?.Unregister(this);
-            combatTargetSet?.Unregister(this);
+            UnregisterTargets();
         }
 
         protected virtual void OnDestroy()
@@ -228,16 +226,15 @@ namespace PlayGround.Mob
             aoeRoot = root;
         }
 
-        public void Register(CombatTargetRegistry<IProjectileTarget> targetRegistry)
+        public void Register(CombatTargetRegistry<ICombatTarget> targetRegistry)
         {
-            registry = targetRegistry;
-            registry.Register(this);
-        }
+            if (targetRegistry == null || registries.Contains(targetRegistry))
+            {
+                return;
+            }
 
-        public void Register(CombatTargetRegistry<IAoeTarget> targetRegistry)
-        {
-            aoeRegistry = targetRegistry;
-            aoeRegistry.Register(this);
+            registries.Add(targetRegistry);
+            targetRegistry.Register(this);
         }
 
         public void Register(CombatTargetSet targetSet)
@@ -360,12 +357,21 @@ namespace PlayGround.Mob
 
             hurtbox.enabled = false;
             spriteRenderer.enabled = false;
-            registry?.Unregister(this);
-            aoeRegistry?.Unregister(this);
-            combatTargetSet?.Unregister(this);
+            UnregisterTargets();
             softDeathNotified = true;
             SoftDied?.Invoke(this);
             Destroy(gameObject);
+        }
+
+        private void UnregisterTargets()
+        {
+            for (int i = 0; i < registries.Count; i++)
+            {
+                registries[i]?.Unregister(this);
+            }
+
+            registries.Clear();
+            combatTargetSet?.Unregister(this);
         }
 
         private void ValidateReferences()

@@ -145,7 +145,7 @@ namespace PlayGround.Tests.PlayMode
             }
         }
 
-        private sealed class CombatTargetProbe : MonoBehaviour, IProjectileTarget, IAoeTarget
+        private sealed class CombatTargetProbe : MonoBehaviour, ICombatTarget
         {
             private int targetId;
             private int targetMask;

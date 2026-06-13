@@ -70,6 +70,41 @@ namespace PlayGround.System.Common
         public CombatStackEffectSnapshot StackEffect { get; }
     }
 
+    public readonly struct CombatHitContext
+    {
+        public CombatHitContext(
+            CombatHitKind kind,
+            int sourceId,
+            int typeId,
+            int targetId,
+            Vector2 position,
+            DamageSnapshot damage,
+            ICombatTarget target = null,
+            EntityId sourceNodeId = default)
+        {
+            Kind = kind;
+            SourceId = sourceId;
+            TypeId = typeId;
+            TargetId = targetId;
+            Position = position;
+            Damage = damage;
+            Target = target;
+            SourceNodeId = sourceNodeId;
+        }
+
+        public CombatHitKind Kind { get; }
+        public int SourceId { get; }
+        public int TypeId { get; }
+        public int TargetId { get; }
+        public Vector2 Position { get; }
+        public DamageSnapshot Damage { get; }
+        public ICombatTarget Target { get; }
+        public EntityId SourceNodeId { get; }
+    }
+
+    public delegate void CombatHitHandler(in CombatHitContext context);
+    public delegate void CombatHitEffectHandler(in CombatHitContext context, in CombatHitEffectElement effect);
+
     public interface ICombatTarget
     {
         int TargetId { get; }

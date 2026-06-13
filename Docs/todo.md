@@ -1,1 +1,1 @@
-spawn/dead slot reuse 
+try to move hp and status into ecs again.

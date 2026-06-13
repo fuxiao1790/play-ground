@@ -73,6 +73,7 @@ namespace PlayGround.System.Aoe
         public float DamageAmount;
         public float CritChance;
         public float CritMultiplier;
+        public EntityId SourceNodeId;
         public float AreaSize;
         public float Radius;
         public float RotationRadians;

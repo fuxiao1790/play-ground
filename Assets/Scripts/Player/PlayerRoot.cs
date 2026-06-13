@@ -1,14 +1,14 @@
 using PlayGround.Common;
 using PlayGround.Common.StatusEffects;
-using PlayGround.System.Aoe;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace PlayGround.Player
 {
-    public sealed class PlayerRoot : MonoBehaviour, IProjectileTarget, IAoeTarget
+    public sealed class PlayerRoot : MonoBehaviour, ICombatTarget
     {
         [SerializeField] private InputActionAsset inputActions;
         [SerializeField] private Rigidbody2D body;
@@ -41,8 +41,7 @@ namespace PlayGround.Player
         private PlayerStateDriver stateDriver;
         private PlayerHealth health;
         private static int nextTargetId;
-        private CombatTargetRegistry<IProjectileTarget> registry;
-        private CombatTargetRegistry<IAoeTarget> aoeRegistry;
+        private readonly List<CombatTargetRegistry<ICombatTarget>> registries = new();
         private CombatTargetSet combatTargetSet;
         private int targetId;
         public StatusEffects StatusEffects { get; private set; }
@@ -122,8 +121,12 @@ namespace PlayGround.Player
         {
             pointAction?.Disable();
             playerMap?.Disable();
-            registry?.Unregister(this);
-            aoeRegistry?.Unregister(this);
+            for (int i = 0; i < registries.Count; i++)
+            {
+                registries[i]?.Unregister(this);
+            }
+
+            registries.Clear();
             combatTargetSet?.Unregister(this);
         }
 
@@ -163,16 +166,15 @@ namespace PlayGround.Player
             worldCamera = camera;
         }
 
-        public void Register(CombatTargetRegistry<IProjectileTarget> targetRegistry)
+        public void Register(CombatTargetRegistry<ICombatTarget> targetRegistry)
         {
-            registry = targetRegistry;
-            registry.Register(this);
-        }
+            if (targetRegistry == null || registries.Contains(targetRegistry))
+            {
+                return;
+            }
 
-        public void Register(CombatTargetRegistry<IAoeTarget> targetRegistry)
-        {
-            aoeRegistry = targetRegistry;
-            aoeRegistry.Register(this);
+            registries.Add(targetRegistry);
+            targetRegistry.Register(this);
         }
 
         public void Register(CombatTargetSet targetSet)

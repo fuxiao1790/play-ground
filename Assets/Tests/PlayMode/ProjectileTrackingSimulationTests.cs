@@ -31,6 +31,7 @@ namespace PlayGround.Tests.PlayMode
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
             entityManager.AddBuffer<CombatHitElement>(scopeEntity);
             entityManager.AddBuffer<CombatHitPayloadElement>(scopeEntity);
+            entityManager.AddBuffer<CombatHitEffectElement>(scopeEntity);
         }
 
         [TearDown]
