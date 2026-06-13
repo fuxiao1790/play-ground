@@ -436,7 +436,8 @@ namespace PlayGround.System.Aoe
                 return;
             }
 
-            entityWorld?.GetExistingSystemManaged<CombatHitDispatchSystem>()?.Unregister(scopeEntity);
+            if (entityWorld != null && entityWorld.IsCreated)
+                entityWorld.GetExistingSystemManaged<CombatHitDispatchSystem>()?.Unregister(scopeEntity);
             DisposeQuery(ref allAoeQuery);
             ecsHandlesCreated = false;
             scopeEntity = Entity.Null;

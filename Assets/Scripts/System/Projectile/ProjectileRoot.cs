@@ -550,7 +550,8 @@ namespace PlayGround.System.Projectile
                 return;
             }
 
-            entityWorld?.GetExistingSystemManaged<CombatHitDispatchSystem>()?.Unregister(scopeEntity);
+            if (entityWorld != null && entityWorld.IsCreated)
+                entityWorld.GetExistingSystemManaged<CombatHitDispatchSystem>()?.Unregister(scopeEntity);
             DisposeQuery(ref allProjectileQuery);
             ecsHandlesCreated = false;
             scopeEntity = Entity.Null;
