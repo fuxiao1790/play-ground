@@ -9,6 +9,8 @@ namespace PlayGround.System.Common
     public partial class CombatHitDispatchSystem : SystemBase
     {
         private static readonly ProfilerMarker Marker = new("CombatHitDispatchSystem");
+        private static readonly ProfilerMarker<int> ReplayMarker =
+            new("CombatHitReplay.Replay", "Hit Events");
 
         private readonly List<ScopeHandler> handlers = new();
 
@@ -34,13 +36,20 @@ namespace PlayGround.System.Common
             CompleteDependency();
             using (Marker.Auto())
             {
+                int totalHits = 0;
                 for (int i = 0; i < handlers.Count; i++)
+                    totalHits += EntityManager.GetBuffer<CombatHitElement>(handlers[i].ScopeEntity).Length;
+
+                using (ReplayMarker.Auto(totalHits))
                 {
-                    ScopeHandler h = handlers[i];
-                    h.Drain(
-                        EntityManager.GetBuffer<CombatHitElement>(h.ScopeEntity),
-                        EntityManager.GetBuffer<CombatHitPayloadElement>(h.ScopeEntity),
-                        EntityManager.GetBuffer<CombatHitEffectElement>(h.ScopeEntity));
+                    for (int i = 0; i < handlers.Count; i++)
+                    {
+                        ScopeHandler h = handlers[i];
+                        h.Drain(
+                            EntityManager.GetBuffer<CombatHitElement>(h.ScopeEntity),
+                            EntityManager.GetBuffer<CombatHitPayloadElement>(h.ScopeEntity),
+                            EntityManager.GetBuffer<CombatHitEffectElement>(h.ScopeEntity));
+                    }
                 }
             }
         }

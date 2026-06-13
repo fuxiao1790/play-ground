@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using PlayGround.Common;
 using Unity.Entities;
 using Unity.Mathematics;
-using Unity.Profiling;
 using UnityEngine;
 
 namespace PlayGround.System.Common
@@ -85,10 +84,6 @@ namespace PlayGround.System.Common
 
     internal static class CombatHitReplay
     {
-        private static readonly ProfilerMarker<int> ReplayMarker =
-            new("CombatHitReplay.Replay", "Hit Events");
-        private static readonly ProfilerCounterValue<int> ReplayEventCounter =
-            new(ProfilerCategory.Scripts, "CombatHitReplay.Events", ProfilerMarkerDataUnit.Count);
         private static readonly List<CombatHitData> hitDataScratch = new();
 
         public static void ReplayAndClear<TTarget, TAdapter>(
@@ -101,39 +96,34 @@ namespace PlayGround.System.Common
             where TAdapter : struct, ICombatHitReplayAdapter<TTarget>
         {
             int hitCount = hitBuffer.Length;
-            ReplayEventCounter.Value = hitCount;
-
-            using (ReplayMarker.Auto(hitCount))
+            int i = 0;
+            while (i < hitCount)
             {
-                int i = 0;
-                while (i < hitCount)
+                int groupTargetId = hitBuffer[i].TargetId;
+                TryGetLiveTarget(targetsById, groupTargetId, out TTarget target);
+                hitDataScratch.Clear();
+
+                while (i < hitCount && hitBuffer[i].TargetId == groupTargetId)
                 {
-                    int groupTargetId = hitBuffer[i].TargetId;
-                    TryGetLiveTarget(targetsById, groupTargetId, out TTarget target);
-                    hitDataScratch.Clear();
+                    CombatHitElement hit = hitBuffer[i++];
+                    DamageSnapshot damage = adapter.RollDamage(in hit);
+                    CombatHitPayloadElement payload = hit.PayloadIndex >= 0
+                        ? payloadBuffer[hit.PayloadIndex] : default;
 
-                    while (i < hitCount && hitBuffer[i].TargetId == groupTargetId)
+                    if (hit.EffectIndex >= 0)
                     {
-                        CombatHitElement hit = hitBuffer[i++];
-                        DamageSnapshot damage = adapter.RollDamage(in hit);
-                        CombatHitPayloadElement payload = hit.PayloadIndex >= 0
-                            ? payloadBuffer[hit.PayloadIndex] : default;
-
-                        if (hit.EffectIndex >= 0)
-                        {
-                            CombatHitEffectElement effect = effectBuffer[hit.EffectIndex];
-                            adapter.ReplayEffect(in hit, in effect, target, in damage);
-                        }
-
-                        hitDataScratch.Add(new CombatHitData(
-                            hit.Kind, damage,
-                            new Vector2(hit.Position.x, hit.Position.y),
-                            hit.DirectDamageEnabled, payload.StackEffect,
-                            hit.SourceNodeId));
+                        CombatHitEffectElement effect = effectBuffer[hit.EffectIndex];
+                        adapter.ReplayEffect(in hit, in effect, target, in damage);
                     }
 
-                    adapter.ReplayBatch(hitDataScratch, target);
+                    hitDataScratch.Add(new CombatHitData(
+                        hit.Kind, damage,
+                        new Vector2(hit.Position.x, hit.Position.y),
+                        hit.DirectDamageEnabled, payload.StackEffect,
+                        hit.SourceNodeId));
                 }
+
+                adapter.ReplayBatch(hitDataScratch, target);
             }
 
             hitBuffer.Clear();
