@@ -45,6 +45,8 @@ namespace PlayGround.System.Projectile
         private bool ecsHandlesCreated;
         private bool combatRuntimeManaged;
 
+        // Hit is scene-facing. HitEffect is internal combat routing data for
+        // spawn-on-hit effects and must not be treated as external gameplay API.
         public event CombatHitHandler Hit;
         public event CombatHitEffectHandler HitEffect;
 

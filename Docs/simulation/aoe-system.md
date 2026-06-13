@@ -260,7 +260,9 @@ The current implementation uses Entities/DOTS in the shared default world:
   AOEs, and adds per-target hit gates for lingering AOEs. Scene replay uses the
   shared `Hit` event with `CombatHitContext`; generic stack/status replay data
   stays in `CombatHitPayloadElement`; internal projectile-burst spawn effects
-  stay in `CombatHitEffectElement` and route through `HitEffect`.
+  stay in `CombatHitEffectElement` and route through `HitEffect`. Do not expose
+  `CombatHitPayloadElement` or `CombatHitEffectElement` to external scene
+  listeners.
 - `AoeContactGateSystem` decrements lingering repeat-hit gates and compacts
   expired entries.
 - `AoeSimulationSystem` clears scoped `CombatHitElement` hit buffers and expires lingering AOEs.

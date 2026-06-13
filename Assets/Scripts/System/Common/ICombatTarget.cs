@@ -70,6 +70,8 @@ namespace PlayGround.System.Common
         public CombatStackEffectSnapshot StackEffect { get; }
     }
 
+    // Scene-facing hit context. Keep this free of internal spawn/effect payloads;
+    // core follow-up spawns belong on CombatHitEffectElement via HitEffect.
     public readonly struct CombatHitContext
     {
         public CombatHitContext(
@@ -102,6 +104,8 @@ namespace PlayGround.System.Common
         public EntityId SourceNodeId { get; }
     }
 
+    // External scene listeners receive only the hit context. Internal combat
+    // routing may subscribe to HitEffect for spawn-on-hit payloads.
     public delegate void CombatHitHandler(in CombatHitContext context);
     public delegate void CombatHitEffectHandler(in CombatHitContext context, in CombatHitEffectElement effect);
 

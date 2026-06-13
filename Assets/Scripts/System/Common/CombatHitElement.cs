@@ -201,12 +201,14 @@ namespace PlayGround.System.Common
     }
 
     // ECS Lifecycle: scope buffer; sparse side channel for generic hit replay data; added at root setup; cleared with CombatHitElement.
+    // External scene hit subscribers must not receive this buffer directly.
     public struct CombatHitPayloadElement : IBufferElementData
     {
         public CombatStackEffectSnapshot StackEffect;
     }
 
     // ECS Lifecycle: scope buffer; sparse side channel for internal core hit effects; added at root setup; cleared with CombatHitElement.
+    // Internal only: do not copy these spawn/effect payloads into CombatHitContext or external Hit events.
     public struct CombatHitEffectElement : IBufferElementData
     {
         public ProjectileImpactAoeSnapshot ImpactAoe;

@@ -149,12 +149,22 @@ Unity object lifetimes, and gameplay callbacks. ECS systems own scalable combat
 state, simulation, pooling, and event buffers. Cross-boundary communication must
 stay narrow: snapshots go into data runtimes, replayable events come back out.
 
+Scene-facing hit replay and internal combat follow-up effects are separate
+contracts. Scene listeners receive `CombatHitContext` through root `Hit` events;
+that context may include source id, target id, rolled damage, position, kind, and
+target reference, but it must not carry internal spawn/effect payloads. Follow-up
+spawns such as impact AOEs, impact projectiles, and AOE projectile bursts travel
+through internal `HitEffect` routing with `CombatHitEffectElement`. Do not expose
+`CombatHitEffectElement`, `CombatHitPayloadElement`, or future core-only ECS
+payloads through scene hit APIs.
+
 The bridge is snapshots and callbacks:
 
 1. actor GameObjects register hurtboxes with target registries
 2. attack roots snapshot target positions and baked hurtbox shapes
 3. data runtimes or ECS systems simulate hits
-4. roots replay hit events back to actor components
+4. roots replay scene hit events back to actor components and route internal
+   hit effects through combat-owned services
 5. actors apply health, status stacks, animation requests, death notification,
    and cleanup scheduling
 
