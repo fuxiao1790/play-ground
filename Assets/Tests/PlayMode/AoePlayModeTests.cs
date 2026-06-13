@@ -118,18 +118,18 @@ namespace PlayGround.Tests.PlayMode
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
             int replayCount = 0;
-            CombatHitContext replayContext = default;
-            root.Hit += (in CombatHitContext context) =>
+            ICombatTarget replayTarget = null;
+            root.Hit += (t, _) =>
             {
                 replayCount++;
-                replayContext = context;
+                replayTarget = t;
             };
 
             root.Spawn(Command(typeId, templateObject, Vector2.zero, DefaultTargetMask, 3f));
             yield return null;
 
             Assert.That(replayCount, Is.EqualTo(1));
-            Assert.That(replayContext.Target, Is.EqualTo(target));
+            Assert.That(replayTarget, Is.EqualTo(target));
             Assert.That(target.HitCount, Is.EqualTo(1));
             Assert.That(target.LastDamage.Amount, Is.EqualTo(3f));
             Cleanup(rootObject, templateObject, target.gameObject);

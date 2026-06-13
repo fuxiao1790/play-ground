@@ -289,7 +289,7 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
             int hitCount = 0;
-            projectileRoot.Hit += (in CombatHitContext _) => hitCount++;
+            projectileRoot.Hit += (_, _) => hitCount++;
 
             var command = new ProjectileSpawnCommand(
                 Vector2.zero,
@@ -319,15 +319,7 @@ namespace PlayGround.Tests.PlayMode
             ProjectileReplayProbe probe = CreateProjectileReplayProbe(Vector2.zero);
             projectileRoot.TargetRegistry.Register(probe);
             int replayCount = 0;
-            int missingTargetReplayCount = 0;
-            projectileRoot.Hit += (in CombatHitContext context) =>
-            {
-                replayCount++;
-                if (context.Target == null)
-                {
-                    missingTargetReplayCount++;
-                }
-            };
+            projectileRoot.Hit += (_, _) => replayCount++;
 
             var command = new ProjectileSpawnCommand(
                 Vector2.zero,
@@ -341,9 +333,10 @@ namespace PlayGround.Tests.PlayMode
             projectileRoot.Spawn(command);
             yield return null;
 
-            Assert.That(replayCount, Is.EqualTo(2));
-            Assert.That(missingTargetReplayCount, Is.EqualTo(1));
-            Assert.That(probe.HitCount, Is.EqualTo(1));
+            // Both hits land on the same target in one frame → one batch per unique target.
+            // The probe receives both hits via ReceiveHits; alive check happens once at batch start.
+            Assert.That(replayCount, Is.EqualTo(1));
+            Assert.That(probe.HitCount, Is.EqualTo(2));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
             Object.Destroy(probe.gameObject);
@@ -568,9 +561,9 @@ namespace PlayGround.Tests.PlayMode
             GameObject sourceObject = new("ProjectileSource");
             EntityId sourceNodeId = sourceObject.GetEntityId();
             EntityId replayedSourceNodeId = default;
-            projectileRoot.Hit += (in CombatHitContext context) =>
+            projectileRoot.Hit += (_, hits) =>
             {
-                replayedSourceNodeId = context.SourceNodeId;
+                if (hits.Count > 0) replayedSourceNodeId = hits[0].SourceNodeId;
             };
 
             var command = new ProjectileSpawnCommand(

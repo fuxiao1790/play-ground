@@ -255,12 +255,15 @@ The current implementation uses Entities/DOTS in the shared default world:
   dictionary lookup is needed at replay time.
 - `AoeCollisionSystem` runs target-mask filtering and shape collision against
   `CombatTargetElement` snapshots, reads crit and source node data directly from
-  `CombatHitComponent`, emits `CombatPendingHit` (shared with the projectile
-  pipeline), flushes into the scoped `CombatHitElement` buffer, recycles pulse
-  AOEs, and adds per-target hit gates for lingering AOEs. Scene replay uses the
-  shared `Hit` event with `CombatHitContext`; generic stack/status replay data
-  stays in `CombatHitPayloadElement`; internal projectile-burst spawn effects
-  stay in `CombatHitEffectElement` and route through `HitEffect`. Do not expose
+  `CombatHitComponent`, emits `CombatPendingHit` via thread-local `NativeQueue`
+  (no cross-thread contention), and adds per-target hit gates for lingering AOEs.
+  `CombatHitFlushJob` groups pending hits by `CombatHitBucketKey(scope, targetId)`
+  single-threaded and writes contiguous groups into the scoped `CombatHitElement`
+  buffer. Scene replay uses the shared `Hit` event (`CombatHitBatchHandler`), which
+  fires once per unique target per frame with all hits for that target batched into
+  one `IReadOnlyList<CombatHitData>`; generic stack/status replay data stays in
+  `CombatHitPayloadElement`; internal projectile-burst spawn effects stay in
+  `CombatHitEffectElement` and route through `HitEffect`. Do not expose
   `CombatHitPayloadElement` or `CombatHitEffectElement` to external scene
   listeners.
 - `AoeContactGateSystem` decrements lingering repeat-hit gates and compacts

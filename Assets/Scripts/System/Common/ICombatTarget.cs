@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using PlayGround.Common;
 using PlayGround.System.Aoe;
 using UnityEngine;
@@ -54,13 +55,15 @@ namespace PlayGround.System.Common
             DamageSnapshot damage,
             Vector2 position,
             bool directDamageEnabled = true,
-            CombatStackEffectSnapshot stackEffect = default)
+            CombatStackEffectSnapshot stackEffect = default,
+            EntityId sourceNodeId = default)
         {
             Kind = kind;
             Damage = damage;
             Position = position;
             DirectDamageEnabled = directDamageEnabled;
             StackEffect = stackEffect;
+            SourceNodeId = sourceNodeId;
         }
 
         public CombatHitKind Kind { get; }
@@ -68,6 +71,7 @@ namespace PlayGround.System.Common
         public Vector2 Position { get; }
         public bool DirectDamageEnabled { get; }
         public CombatStackEffectSnapshot StackEffect { get; }
+        public EntityId SourceNodeId { get; }
     }
 
     // Scene-facing hit context. Keep this free of internal spawn/effect payloads;
@@ -107,6 +111,7 @@ namespace PlayGround.System.Common
     // External scene listeners receive only the hit context. Internal combat
     // routing may subscribe to HitEffect for spawn-on-hit payloads.
     public delegate void CombatHitHandler(in CombatHitContext context);
+    public delegate void CombatHitBatchHandler(ICombatTarget target, IReadOnlyList<CombatHitData> hits);
     public delegate void CombatHitEffectHandler(in CombatHitContext context, in CombatHitEffectElement effect);
 
     public interface ICombatTarget
@@ -120,5 +125,14 @@ namespace PlayGround.System.Common
         int CombatTargetMask { get; }
         bool IsCombatTargetActive { get; }
         void ReceiveHit(in CombatHitData hit);
+
+        void ReceiveHits(IReadOnlyList<CombatHitData> hits)
+        {
+            for (int i = 0; i < hits.Count; i++)
+            {
+                var h = hits[i];
+                ReceiveHit(in h);
+            }
+        }
     }
 }

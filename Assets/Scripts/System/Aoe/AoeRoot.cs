@@ -41,7 +41,7 @@ namespace PlayGround.System.Aoe
 
         // Hit is scene-facing. HitEffect is internal combat routing data for
         // spawn-on-hit effects and must not be treated as external gameplay API.
-        public event CombatHitHandler Hit;
+        public event CombatHitBatchHandler Hit;
         public event CombatHitEffectHandler HitEffect;
 
         public CombatTargetRegistry<ICombatTarget> TargetRegistry => targetRegistry;
@@ -212,7 +212,7 @@ namespace PlayGround.System.Aoe
         private struct AoeHitReplayAdapter<TTarget> : ICombatHitReplayAdapter<TTarget>
             where TTarget : class, ICombatTarget
         {
-            public CombatHitHandler HitHandler;
+            public CombatHitBatchHandler HitHandler;
             public CombatHitEffectHandler EffectHandler;
 
             public DamageSnapshot RollDamage(in CombatHitElement hit)
@@ -223,39 +223,23 @@ namespace PlayGround.System.Aoe
                 return new DamageSnapshot(rolledAmount, isCrit);
             }
 
-            public void Replay(
+            public void ReplayEffect(
                 in CombatHitElement hit,
-                in CombatHitPayloadElement payload,
                 in CombatHitEffectElement effect,
                 TTarget target,
                 in DamageSnapshot damage)
             {
-                var position = new Vector2(hit.Position.x, hit.Position.y);
-                ICombatTarget combatTarget = target as ICombatTarget;
-                var context = new CombatHitContext(
-                    hit.Kind,
-                    hit.SourceId,
-                    hit.TypeId,
-                    hit.TargetId,
-                    position,
-                    damage,
-                    combatTarget,
-                    hit.SourceNodeId);
-                if (hit.EffectIndex >= 0)
-                {
-                    EffectHandler?.Invoke(in context, in effect);
-                }
+                var pos = new Vector2(hit.Position.x, hit.Position.y);
+                var ctx = new CombatHitContext(hit.Kind, hit.SourceId, hit.TypeId, hit.TargetId,
+                    pos, damage, target as ICombatTarget, hit.SourceNodeId);
+                EffectHandler?.Invoke(in ctx, in effect);
+            }
 
-                HitHandler?.Invoke(in context);
+            public void ReplayBatch(IReadOnlyList<CombatHitData> data, TTarget target)
+            {
+                HitHandler?.Invoke(target as ICombatTarget, data);
                 if (CombatHitReplay.IsTargetUsable(target))
-                {
-                    target.ReceiveHit(new CombatHitData(
-                        CombatHitKind.Aoe,
-                        damage,
-                        position,
-                        hit.DirectDamageEnabled,
-                        payload.StackEffect));
-                }
+                    target.ReceiveHits(data);
             }
         }
 

@@ -3,6 +3,7 @@ using PlayGround.System.Aoe;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using System;
 
 namespace PlayGround.System.Common
 {
@@ -214,6 +215,24 @@ namespace PlayGround.System.Common
         public ProjectileImpactAoeSnapshot ImpactAoe;
         public ProjectileImpactProjectileSnapshot ImpactProjectile;
         public AoeProjectileBurstSnapshot ProjectileBurst;
+    }
+
+    public struct CombatHitBucketKey : IEquatable<CombatHitBucketKey>
+    {
+        public Entity Scope;
+        public int TargetId;
+
+        public CombatHitBucketKey(Entity scope, int targetId)
+        {
+            Scope = scope;
+            TargetId = targetId;
+        }
+
+        public bool Equals(CombatHitBucketKey other) =>
+            Scope == other.Scope && TargetId == other.TargetId;
+
+        public override int GetHashCode() =>
+            unchecked((Scope.GetHashCode() * 397) ^ TargetId);
     }
 
     // ECS Lifecycle: transient native payload; not added to entities; queued during collision hit flush.

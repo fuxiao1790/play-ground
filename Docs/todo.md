@@ -1,1 +1,1 @@
-try to move hp and status into ecs again.
+tracking target aquisition range should be a function of the projectile's speed and remaining life time.
