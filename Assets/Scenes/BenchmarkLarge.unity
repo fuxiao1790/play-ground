@@ -1181,7 +1181,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Spawn.MobSpawnerRoot
   fallbackPool: {fileID: 11400000, guid: c94cb476bf2e4f7eb5eac39a27169b76, type: 2}
-  maxMobs: 200
+  maxMobs: 400
   coordinator: {fileID: 0}
   spawnPoints:
   - {fileID: 2000001013}
