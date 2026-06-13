@@ -39,7 +39,7 @@ namespace PlayGround.Skills
             int targetMask = root.TargetMask;
 
             ProjectileImpactAoeSnapshot impactAoe = BuildImpactAoeSnapshot(def, targetMask);
-            CombatStackEffectSnapshot stackEffect = BuildStackEffectSnapshot(def);
+            CombatStatusEffectSnapshot stackEffect = BuildStackEffectSnapshot(def);
             ProjectileImpactProjectileSnapshot impactProjectile = BuildImpactProjectileSnapshot(def, targetMask);
             ProjectileChildSpawnConfig childSpawn = def.BuildChildSpawnConfig();
 
@@ -89,7 +89,7 @@ namespace PlayGround.Skills
             DamageSnapshot damage = new(Mathf.Max(0f, def.Damage));
             int count = Mathf.Max(1, def.Count);
             AoeSpawnGeometry geometry = def.CreateSpawnGeometry();
-            CombatStackEffectSnapshot stackEffect = BuildAoeStackEffectSnapshot(def);
+            CombatStatusEffectSnapshot stackEffect = BuildAoeStackEffectSnapshot(def);
 
             for (int i = 0; i < count; i++)
             {
@@ -107,13 +107,13 @@ namespace PlayGround.Skills
             }
         }
 
-        private static CombatStackEffectSnapshot BuildAoeStackEffectSnapshot(RuntimeAoeDefinition def)
+        private static CombatStatusEffectSnapshot BuildAoeStackEffectSnapshot(RuntimeAoeDefinition def)
         {
             RuntimeStackTriggerSetup stack = def.StackTriggerSetup;
             if (stack == null || stack.AoeDefinition == null || stack.AoeDefinition.TypeId < 0)
                 return default;
 
-            return new CombatStackEffectSnapshot(
+            return new CombatStatusEffectSnapshot(
                 stack.DebuffStatusId,
                 Mathf.Max(1, stack.StacksPerHit),
                 Mathf.Max(1, stack.StackThreshold),
@@ -175,13 +175,13 @@ namespace PlayGround.Skills
                 BuildStackEffectSnapshot(impact));
         }
 
-        private static CombatStackEffectSnapshot BuildStackEffectSnapshot(RuntimeProjectileDefinition def)
+        private static CombatStatusEffectSnapshot BuildStackEffectSnapshot(RuntimeProjectileDefinition def)
         {
             RuntimeStackTriggerSetup stack = def.StackTriggerSetup;
             if (stack == null || stack.AoeDefinition == null || stack.AoeDefinition.TypeId < 0)
                 return default;
 
-            return new CombatStackEffectSnapshot(
+            return new CombatStatusEffectSnapshot(
                 stack.DebuffStatusId,
                 Mathf.Max(1, stack.StacksPerHit),
                 Mathf.Max(1, stack.StackThreshold),

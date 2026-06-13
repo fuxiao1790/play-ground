@@ -36,7 +36,6 @@ namespace PlayGround.System.Projectile
                 in ProjectileIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
                 in ProjectileLifetimeComponent lifetime,
-                in CombatHitComponent hit,
                 in ProjectileChildSpawnerComponent spawner)
             {
                 if (lifetime.RemainingLifetime <= 0f || identity.Scope == Entity.Null)
@@ -51,7 +50,7 @@ namespace PlayGround.System.Projectile
                     tickIndex++;
                     for (int childIndex = 0; childIndex < spawner.ChildCountPerTick; childIndex++)
                     {
-                        EnqueueChildSpawn(chunkIndex, identity, kinematics, hit, in spawner, tickIndex, childIndex);
+                        EnqueueChildSpawn(chunkIndex, identity, kinematics, in spawner, tickIndex, childIndex);
                     }
                     cooldown += NextIntervalSeconds(identity.ProjectileId, in spawner, tickIndex);
                 }
@@ -64,19 +63,20 @@ namespace PlayGround.System.Projectile
                 int chunkIndex,
                 ProjectileIdentityComponent parentIdentity,
                 CombatKinematicsComponent parentKinematics,
-                CombatHitComponent parentHit,
                 in ProjectileChildSpawnerComponent spawner,
                 int tickIndex,
                 int childIndex)
             {
                 float2 velocity = ComputeChildVelocity(parentKinematics, in spawner, childIndex);
-                int targetMask = spawner.TargetMask != 0 ? spawner.TargetMask : parentHit.TargetMask;
                 ProjectileHitPayload hitPayload = new(
-                    parentHit.SourceNodeId,
-                    spawner.DamageAmount,
-                    spawner.DirectDamageEnabled,
+                    new CombatHitPayload
+                    {
+                        DamageAmount = spawner.DamageAmount,
+                        DirectDamageEnabled = spawner.DirectDamageEnabled,
+                        SourceNodeId = spawner.SourceNodeId,
+                        StackEffect = spawner.StackEffect
+                    },
                     spawner.ImpactAoe,
-                    spawner.StackEffect,
                     spawner.ImpactProjectile);
 
                 ProjectileCollisionMath.ComputeWorldBounds(
@@ -93,7 +93,6 @@ namespace PlayGround.System.Projectile
                 {
                     ProjectileId = childProjectileId,
                     TypeId = spawner.TypeId,
-                    TargetMask = targetMask,
                     PierceRemaining = spawner.PierceCount,
                     HasChildSpawner = 0,
                     RepeatHitCooldownSeconds = spawner.RepeatHitCooldownSeconds,

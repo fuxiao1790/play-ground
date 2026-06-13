@@ -77,15 +77,15 @@ namespace PlayGround.System.Common
         public float2 BoundsMax;
     }
 
-    // ECS Lifecycle: common combat component; owned by domain entities; lifecycle is defined by each domain tag/scope.
-    public struct CombatHitComponent : IComponentData
+    // Fire-time hit snapshot shared by all combat domains (projectile, AOE). Carries damage, crit, and stack effect data snapshotted at spawn time.
+    public struct CombatHitPayload
     {
-        public int TargetMask;
         public float DamageAmount;
         public float CritChance;
         public float CritMultiplier;
         public bool DirectDamageEnabled;
         public EntityId SourceNodeId;
+        public CombatStatusEffectSnapshot StackEffect;
     }
 
     // ECS Lifecycle: common scope buffer; owned by domain scope entities; lifecycle and clearing rules are defined by each domain.

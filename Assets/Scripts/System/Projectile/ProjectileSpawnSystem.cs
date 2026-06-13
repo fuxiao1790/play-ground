@@ -212,7 +212,6 @@ namespace PlayGround.System.Projectile
                 Identities = GetComponentLookup<ProjectileIdentityComponent>(),
                 Kinematics = GetComponentLookup<CombatKinematicsComponent>(),
                 Collisions = GetComponentLookup<CombatCollisionComponent>(),
-                Hits = GetComponentLookup<CombatHitComponent>(),
                 Lifetimes = GetComponentLookup<ProjectileLifetimeComponent>(),
                 ProjectileHits = GetComponentLookup<ProjectileHitComponent>(),
                 Tracking = GetComponentLookup<ProjectileTrackingComponent>(),
@@ -257,13 +256,6 @@ namespace PlayGround.System.Projectile
                 BoundsMin = request.BoundsMin,
                 BoundsMax = request.BoundsMax
             });
-            ecb.SetComponent(entity, new CombatHitComponent
-            {
-                TargetMask = request.TargetMask,
-                DamageAmount = request.HitPayload.DamageAmount,
-                DirectDamageEnabled = request.HitPayload.DirectDamageEnabled,
-                SourceNodeId = request.HitPayload.SourceNodeId
-            });
             ecb.SetComponent(entity, new ProjectileLifetimeComponent
             {
                 RemainingLifetime = request.Lifetime
@@ -301,9 +293,7 @@ namespace PlayGround.System.Projectile
 
         private static bool NeedsCollision(in ProjectileHitPayload payload) =>
             payload.DirectDamageEnabled
-            || payload.ImpactAoe.Enabled
-            || payload.StackEffect.Enabled
-            || payload.ImpactProjectile.Enabled;
+            || payload.StackEffect.Enabled;
 
         private static ProjectileIdentityComponent IdentityFor(Entity scope, ProjectileSpawnRequestElement request)
         {
@@ -334,17 +324,6 @@ namespace PlayGround.System.Projectile
                 RotationRadians = request.RotationRadians,
                 BoundsMin = request.BoundsMin,
                 BoundsMax = request.BoundsMax
-            };
-        }
-
-        private static CombatHitComponent HitFor(ProjectileSpawnRequestElement request)
-        {
-            return new CombatHitComponent
-            {
-                TargetMask = request.TargetMask,
-                DamageAmount = request.HitPayload.DamageAmount,
-                DirectDamageEnabled = request.HitPayload.DirectDamageEnabled,
-                SourceNodeId = request.HitPayload.SourceNodeId
             };
         }
 
@@ -380,7 +359,7 @@ namespace PlayGround.System.Projectile
                     typeof(ProjectileIdentityComponent),
                     typeof(CombatKinematicsComponent),
                     typeof(CombatCollisionComponent),
-                    typeof(CombatHitComponent),
+
                     typeof(ProjectileLifetimeComponent),
                     typeof(ProjectileHitComponent),
                     typeof(ProjectileTrackingComponent),
@@ -398,7 +377,7 @@ namespace PlayGround.System.Projectile
                     typeof(ProjectileIdentityComponent),
                     typeof(CombatKinematicsComponent),
                     typeof(CombatCollisionComponent),
-                    typeof(CombatHitComponent),
+
                     typeof(ProjectileLifetimeComponent),
                     typeof(ProjectileHitComponent),
                     typeof(ProjectileTrackingComponent),
@@ -427,7 +406,6 @@ namespace PlayGround.System.Projectile
             [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileIdentityComponent> Identities;
             [NativeDisableParallelForRestriction] public ComponentLookup<CombatKinematicsComponent> Kinematics;
             [NativeDisableParallelForRestriction] public ComponentLookup<CombatCollisionComponent> Collisions;
-            [NativeDisableParallelForRestriction] public ComponentLookup<CombatHitComponent> Hits;
             [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileLifetimeComponent> Lifetimes;
             [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileHitComponent> ProjectileHits;
             [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileTrackingComponent> Tracking;
@@ -449,7 +427,6 @@ namespace PlayGround.System.Projectile
                 Identities[entity] = IdentityFor(reset.Scope, request);
                 Kinematics[entity] = KinematicsFor(request);
                 Collisions[entity] = CollisionFor(request);
-                Hits[entity] = HitFor(request);
                 Lifetimes[entity] = LifetimeFor(request);
                 ProjectileHits[entity] = ProjectileHitFor(request);
                 Tracking[entity] = request.Tracking;

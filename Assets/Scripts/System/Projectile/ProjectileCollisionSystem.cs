@@ -118,7 +118,6 @@ namespace PlayGround.System.Projectile
                 in ProjectileIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
                 in CombatCollisionComponent collision,
-                in CombatHitComponent hit,
                 in CombatRenderComponent render,
                 ref ProjectileLifetimeComponent lifetime,
                 ref ProjectileHitComponent projectileHit,
@@ -170,8 +169,7 @@ namespace PlayGround.System.Projectile
                         {
                             CombatTargetElement target = targets[targetIdx];
 
-                            if ((hit.TargetMask & target.TargetMask) == 0
-                                || IsGated(contactGates, target.TargetId))
+                            if (IsGated(contactGates, target.TargetId))
                             {
                                 continue;
                             }

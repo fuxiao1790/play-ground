@@ -92,8 +92,7 @@ namespace PlayGround.System.Projectile
             private void Execute(
                 ref ProjectileTrackingComponent tracking,
                 in ProjectileIdentityComponent identity,
-                in CombatKinematicsComponent kinematics,
-                in CombatHitComponent hit)
+                in CombatKinematicsComponent kinematics)
             {
                 if (!tracking.TrackingEnabled || identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
                 {
@@ -107,13 +106,13 @@ namespace PlayGround.System.Projectile
                     return;
                 }
 
-                if (TryRefreshTrackedTarget(ref tracking, identity, kinematics, hit, targets))
+                if (TryRefreshTrackedTarget(ref tracking, identity, kinematics, targets))
                 {
                     tracking.TrackingQueryCooldownRemaining = math.max(0f, tracking.TrackingQueryCooldownRemaining - DeltaTime);
                     return;
                 }
 
-                if (TryAcquireTrackedTarget(ref tracking, identity, kinematics, hit, targets, speed))
+                if (TryAcquireTrackedTarget(ref tracking, identity, kinematics, targets, speed))
                 {
                     tracking.TrackingQueryCooldownRemaining = tracking.TrackingQueryIntervalSeconds;
                 }
@@ -123,7 +122,6 @@ namespace PlayGround.System.Projectile
                 ref ProjectileTrackingComponent tracking,
                 ProjectileIdentityComponent identity,
                 CombatKinematicsComponent kinematics,
-                CombatHitComponent hit,
                 DynamicBuffer<CombatTargetElement> targets)
             {
                 if (tracking.TrackedTargetId == 0)
@@ -136,7 +134,7 @@ namespace PlayGround.System.Projectile
                 if (cachedIndex >= 0
                     && cachedIndex < targets.Length
                     && targets[cachedIndex].TargetId == tracking.TrackedTargetId
-                    && IsValidTrackedTarget(kinematics, tracking, hit, targets[cachedIndex]))
+                    && IsValidTrackedTarget(kinematics, tracking, targets[cachedIndex]))
                 {
                     tracking.TrackedTargetPosition = targets[cachedIndex].Position;
                     return true;
@@ -148,7 +146,7 @@ namespace PlayGround.System.Projectile
                     && mappedIndex >= 0
                     && mappedIndex < targets.Length
                     && targets[mappedIndex].TargetId == tracking.TrackedTargetId
-                    && IsValidTrackedTarget(kinematics, tracking, hit, targets[mappedIndex]))
+                    && IsValidTrackedTarget(kinematics, tracking, targets[mappedIndex]))
                 {
                     tracking.TrackedTargetIndex = mappedIndex;
                     tracking.TrackedTargetPosition = targets[mappedIndex].Position;
@@ -165,7 +163,6 @@ namespace PlayGround.System.Projectile
                 ref ProjectileTrackingComponent tracking,
                 ProjectileIdentityComponent identity,
                 CombatKinematicsComponent kinematics,
-                CombatHitComponent hit,
                 DynamicBuffer<CombatTargetElement> targets,
                 float speed)
             {
@@ -200,7 +197,6 @@ namespace PlayGround.System.Projectile
                                 identity,
                                 kinematics,
                                 tracking,
-                                hit,
                                 targets,
                                 forward,
                                 CellKey(identity.Scope, cell.x, cell.y));
@@ -227,7 +223,6 @@ namespace PlayGround.System.Projectile
                 ProjectileIdentityComponent identity,
                 CombatKinematicsComponent kinematics,
                 ProjectileTrackingComponent tracking,
-                CombatHitComponent hit,
                 DynamicBuffer<CombatTargetElement> targets,
                 float2 forward,
                 long cellKey)
@@ -248,7 +243,7 @@ namespace PlayGround.System.Projectile
                     }
 
                     CombatTargetElement target = targets[targetIndex];
-                    if (!IsValidForwardAcquisitionTarget(kinematics, tracking, hit, target, forward))
+                    if (!IsValidForwardAcquisitionTarget(kinematics, tracking, target, forward))
                     {
                         continue;
                     }
@@ -278,14 +273,12 @@ namespace PlayGround.System.Projectile
             private static bool IsValidForwardAcquisitionTarget(
                 CombatKinematicsComponent kinematics,
                 ProjectileTrackingComponent tracking,
-                CombatHitComponent hit,
                 CombatTargetElement target,
                 float2 forward)
             {
                 if (!TryGetTargetDistanceSquared(
                         kinematics,
                         tracking,
-                        hit,
                         target,
                         out float distanceSquared))
                 {
@@ -316,13 +309,11 @@ namespace PlayGround.System.Projectile
             private static bool IsValidTrackedTarget(
                 CombatKinematicsComponent kinematics,
                 ProjectileTrackingComponent tracking,
-                CombatHitComponent hit,
                 CombatTargetElement target)
             {
                 return TryGetTargetDistanceSquared(
                     kinematics,
                     tracking,
-                    hit,
                     target,
                     out _);
             }
@@ -330,16 +321,10 @@ namespace PlayGround.System.Projectile
             private static bool TryGetTargetDistanceSquared(
                 CombatKinematicsComponent kinematics,
                 ProjectileTrackingComponent tracking,
-                CombatHitComponent hit,
                 CombatTargetElement target,
                 out float distanceSquared)
             {
                 distanceSquared = float.MaxValue;
-                if ((hit.TargetMask & target.TargetMask) == 0)
-                {
-                    return false;
-                }
-
                 float2 toTarget = target.Position - kinematics.Position;
                 distanceSquared = math.lengthsq(toTarget);
                 if (distanceSquared > tracking.TrackingRangeSquared)

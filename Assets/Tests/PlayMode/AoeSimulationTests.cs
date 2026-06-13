@@ -51,7 +51,7 @@ namespace PlayGround.Tests.PlayMode
         public void PulseHitsOverlappingTargetOnce()
         {
             AddTarget(float2.zero, 0.25f, 1);
-            SpawnCircle(float2.zero, 1f, 1, 2f);
+            SpawnCircle(float2.zero, 1f, 2f);
 
             Tick(0.01f);
             Assert.That(ReadHitCount(), Is.EqualTo(1));
@@ -64,7 +64,7 @@ namespace PlayGround.Tests.PlayMode
         public void LingeringHitsImmediatelyThenRepeatsAfterCooldown()
         {
             AddTarget(float2.zero, 0.25f, 1);
-            SpawnCircle(float2.zero, 1f, 1, 2f, lifetime: 10f, tickInterval: 0.02f);
+            SpawnCircle(float2.zero, 1f, 2f, lifetime: 10f, tickInterval: 0.02f);
 
             Tick(0.01f);
             int hits = ReadHitCount();
@@ -81,7 +81,7 @@ namespace PlayGround.Tests.PlayMode
         {
             int targetId = ++nextTargetId;
             AddTargetById(float2.zero, 0.25f, 1, targetId);
-            SpawnCircle(float2.zero, 1f, 1, 2f, lifetime: 10f, tickInterval: 100f);
+            SpawnCircle(float2.zero, 1f, 2f, lifetime: 10f, tickInterval: 100f);
 
             Tick(0.01f);
             int hits = ReadHitCount();
@@ -100,7 +100,7 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void LingeringExpiresAndDeactivates()
         {
-            SpawnCircle(float2.zero, 1f, 1, 2f, lifetime: 0.001f, tickInterval: 1f);
+            SpawnCircle(float2.zero, 1f, 2f, lifetime: 0.001f, tickInterval: 1f);
 
             Tick(0.01f);
             Tick(0.01f);
@@ -113,17 +113,7 @@ namespace PlayGround.Tests.PlayMode
         public void PulseDoesNotHitTargetOutsideRadius()
         {
             AddTarget(new float2(3f, 0f), 0.25f, 1);
-            SpawnCircle(float2.zero, 1f, 1, 2f);
-
-            Tick(0.01f);
-            Assert.That(ReadHitCount(), Is.EqualTo(0));
-        }
-
-        [Test]
-        public void TargetMaskFiltersHits()
-        {
-            AddTarget(float2.zero, 0.25f, targetMask: 2);
-            SpawnCircle(float2.zero, 1f, targetMask: 4, damage: 2f);
+            SpawnCircle(float2.zero, 1f, 2f);
 
             Tick(0.01f);
             Assert.That(ReadHitCount(), Is.EqualTo(0));
@@ -133,11 +123,11 @@ namespace PlayGround.Tests.PlayMode
         public void PulseEntityIsReusedOnRespawn()
         {
             AddTarget(float2.zero, 0.25f, 1);
-            SpawnCircle(float2.zero, 1f, 1, 1f);
+            SpawnCircle(float2.zero, 1f, 1f);
             Tick(0.01f);
             Entity first = FirstAoeEntity();
 
-            SpawnCircle(float2.zero, 1f, 1, 1f);
+            SpawnCircle(float2.zero, 1f, 1f);
             Tick(0.01f);
             Entity reused = FirstAoeEntity();
 
@@ -151,7 +141,6 @@ namespace PlayGround.Tests.PlayMode
             Entity alien = entityManager.CreateEntity(
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
-                typeof(CombatHitComponent),
                 typeof(AoeActiveTag));
             entityManager.SetComponentData(alien, new CombatKinematicsComponent
             {
@@ -173,7 +162,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.Update();
         }
 
-        private void SpawnCircle(float2 position, float radius, int targetMask, float damage,
+        private void SpawnCircle(float2 position, float radius, float damage,
             float lifetime = 0f, float tickInterval = 0f)
         {
             float2 min = position - radius;
@@ -182,10 +171,13 @@ namespace PlayGround.Tests.PlayMode
             {
                 AoeId = ++nextAoeId,
                 TypeId = 1,
-                TargetMask = targetMask,
                 Lifetime = lifetime,
                 RepeatHitCooldownSeconds = tickInterval,
-                DamageAmount = damage,
+                HitPayload = new CombatHitPayload
+                {
+                    DamageAmount = damage,
+                    DirectDamageEnabled = damage > 0f
+                },
                 Radius = radius,
                 Position = position,
                 HalfExtents = float2.zero,

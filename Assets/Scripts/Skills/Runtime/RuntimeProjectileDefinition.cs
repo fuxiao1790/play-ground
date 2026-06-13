@@ -84,11 +84,11 @@ namespace PlayGround.Skills.Runtime
                 impact.CritChance, impact.CritMultiplier);
         }
 
-        private static CombatStackEffectSnapshot BuildChildStackEffect(RuntimeStackTriggerSetup stack)
+        private static CombatStatusEffectSnapshot BuildChildStackEffect(RuntimeStackTriggerSetup stack)
         {
             if (stack == null || stack.AoeDefinition == null || stack.AoeDefinition.TypeId < 0)
                 return default;
-            return new CombatStackEffectSnapshot(
+            return new CombatStatusEffectSnapshot(
                 stack.DebuffStatusId,
                 Mathf.Max(1, stack.StacksPerHit),
                 Mathf.Max(1, stack.StackThreshold),

@@ -7,34 +7,26 @@ namespace PlayGround.System.Projectile
     public readonly struct ProjectileHitPayload
     {
         public ProjectileHitPayload(
-            EntityId sourceNodeId,
-            float damageAmount,
-            bool directDamageEnabled,
+            CombatHitPayload hitPayload,
             ProjectileImpactAoeSnapshot impactAoe = default,
-            CombatStackEffectSnapshot stackEffect = default,
-            ProjectileImpactProjectileSnapshot impactProjectile = default,
-            float critChance = 0f,
-            float critMultiplier = 1.5f)
+            ProjectileImpactProjectileSnapshot impactProjectile = default)
         {
-            SourceNodeId = sourceNodeId;
-            DamageAmount = damageAmount;
-            DirectDamageEnabled = directDamageEnabled;
+            HitPayload = hitPayload;
             ImpactAoe = impactAoe;
-            StackEffect = stackEffect;
             ImpactProjectile = impactProjectile;
-            CritChance = critChance;
-            CritMultiplier = critMultiplier;
         }
 
-        public EntityId SourceNodeId { get; }
-        public float DamageAmount { get; }
-        public bool DirectDamageEnabled { get; }
+        public CombatHitPayload HitPayload { get; }
         public ProjectileImpactAoeSnapshot ImpactAoe { get; }
-        public CombatStackEffectSnapshot StackEffect { get; }
         public ProjectileImpactProjectileSnapshot ImpactProjectile { get; }
-        public float CritChance { get; }
-        public float CritMultiplier { get; }
-        public DamageSnapshot Damage => new(DamageAmount);
+
+        public float DamageAmount => HitPayload.DamageAmount;
+        public float CritChance => HitPayload.CritChance;
+        public float CritMultiplier => HitPayload.CritMultiplier;
+        public bool DirectDamageEnabled => HitPayload.DirectDamageEnabled;
+        public EntityId SourceNodeId => HitPayload.SourceNodeId;
+        public CombatStatusEffectSnapshot StackEffect => HitPayload.StackEffect;
+        public DamageSnapshot Damage => new(HitPayload.DamageAmount);
     }
 
     public readonly struct ProjectileRuntimeCounters

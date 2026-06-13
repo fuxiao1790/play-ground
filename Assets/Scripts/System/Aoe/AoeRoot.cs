@@ -188,13 +188,17 @@ namespace PlayGround.System.Aoe
             {
                 AoeId = aoeId,
                 TypeId = command.TypeId,
-                TargetMask = command.TargetMask,
                 Lifetime = command.LifetimeSeconds,
                 RepeatHitCooldownSeconds = command.TickIntervalSeconds,
-                DamageAmount = command.Damage.Amount,
-                CritChance = command.CritChance,
-                CritMultiplier = command.CritMultiplier,
-                SourceNodeId = command.SourceNodeId,
+                HitPayload = new CombatHitPayload
+                {
+                    DamageAmount = command.Damage.Amount,
+                    CritChance = command.CritChance,
+                    CritMultiplier = command.CritMultiplier,
+                    DirectDamageEnabled = true,
+                    SourceNodeId = command.SourceNodeId,
+                    StackEffect = command.StackEffect
+                },
                 AreaSize = geometry.AreaSize,
                 Radius = geometry.Radius,
                 RotationRadians = geometry.RotationRadians,
@@ -204,8 +208,7 @@ namespace PlayGround.System.Aoe
                 BoundsMax = boundsMax,
                 ShapeType = geometry.ShapeType,
                 Render = RenderComponentFor(command.TypeId, geometry),
-                ProjectileBurst = command.ProjectileBurst,
-                StackEffect = command.StackEffect
+                ProjectileBurst = command.ProjectileBurst
             };
         }
 

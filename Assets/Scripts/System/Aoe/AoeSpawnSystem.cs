@@ -45,7 +45,7 @@ namespace PlayGround.System.Aoe
                 typeof(CombatRenderElement),
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
-                typeof(CombatHitComponent),
+
                 typeof(AoeActiveTag),
                 typeof(AoeCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
@@ -219,7 +219,6 @@ namespace PlayGround.System.Aoe
                 Identities = GetComponentLookup<AoeIdentityComponent>(),
                 Kinematics = GetComponentLookup<CombatKinematicsComponent>(),
                 Collisions = GetComponentLookup<CombatCollisionComponent>(),
-                Hits = GetComponentLookup<CombatHitComponent>(),
                 Lifetimes = GetComponentLookup<AoeLifetimeComponent>(),
                 HitGates = GetComponentLookup<AoeHitGateComponent>(),
                 HitSpawns = GetComponentLookup<AoeHitSpawnComponent>(),
@@ -244,7 +243,6 @@ namespace PlayGround.System.Aoe
             ecb.SetComponent(entity, IdentityFor(scope, request));
             ecb.SetComponent(entity, kinematics);
             ecb.SetComponent(entity, CollisionFor(request));
-            ecb.SetComponent(entity, HitFor(request));
             ecb.SetComponent(entity, LifetimeFor(request));
             ecb.SetComponent(entity, HitGateFor(request));
             ecb.SetComponent(entity, HitSpawnFor(request));
@@ -258,9 +256,8 @@ namespace PlayGround.System.Aoe
         }
 
         private static bool NeedsCollision(AoeSpawnRequestElement request) =>
-            request.DamageAmount > 0f
-            || request.StackEffect.Enabled
-            || request.ProjectileBurst.Enabled;
+            request.HitPayload.DirectDamageEnabled
+            || request.HitPayload.StackEffect.Enabled;
 
         private static AoeIdentityComponent IdentityFor(Entity scope, AoeSpawnRequestElement request)
         {
@@ -294,19 +291,6 @@ namespace PlayGround.System.Aoe
             };
         }
 
-        private static CombatHitComponent HitFor(AoeSpawnRequestElement request)
-        {
-            return new CombatHitComponent
-            {
-                TargetMask = request.TargetMask,
-                DamageAmount = request.DamageAmount,
-                CritChance = request.CritChance,
-                CritMultiplier = request.CritMultiplier,
-                DirectDamageEnabled = true,
-                SourceNodeId = request.SourceNodeId
-            };
-        }
-
         private static AoeLifetimeComponent LifetimeFor(AoeSpawnRequestElement request)
         {
             return new AoeLifetimeComponent
@@ -328,8 +312,8 @@ namespace PlayGround.System.Aoe
         {
             return new AoeHitSpawnComponent
             {
-                ProjectileBurst = request.ProjectileBurst,
-                StackEffect = request.StackEffect
+                HitPayload = request.HitPayload,
+                ProjectileBurst = request.ProjectileBurst
             };
         }
 
@@ -365,7 +349,6 @@ namespace PlayGround.System.Aoe
             [NativeDisableParallelForRestriction] public ComponentLookup<AoeIdentityComponent> Identities;
             [NativeDisableParallelForRestriction] public ComponentLookup<CombatKinematicsComponent> Kinematics;
             [NativeDisableParallelForRestriction] public ComponentLookup<CombatCollisionComponent> Collisions;
-            [NativeDisableParallelForRestriction] public ComponentLookup<CombatHitComponent> Hits;
             [NativeDisableParallelForRestriction] public ComponentLookup<AoeLifetimeComponent> Lifetimes;
             [NativeDisableParallelForRestriction] public ComponentLookup<AoeHitGateComponent> HitGates;
             [NativeDisableParallelForRestriction] public ComponentLookup<AoeHitSpawnComponent> HitSpawns;
@@ -389,7 +372,6 @@ namespace PlayGround.System.Aoe
                 Identities[entity] = IdentityFor(reset.Scope, request);
                 Kinematics[entity] = kinematics;
                 Collisions[entity] = CollisionFor(request);
-                Hits[entity] = HitFor(request);
                 Lifetimes[entity] = LifetimeFor(request);
                 HitGates[entity] = HitGateFor(request);
                 HitSpawns[entity] = HitSpawnFor(request);

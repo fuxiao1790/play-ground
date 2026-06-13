@@ -258,7 +258,7 @@ namespace PlayGround.Mob
                 ApplyStackEffect(hit.StackEffect);
         }
 
-        private void ApplyStackEffect(CombatStackEffectSnapshot effect)
+        private void ApplyStackEffect(CombatStatusEffectSnapshot effect)
         {
             var status = (MobDebuffStatus)effect.DebuffStatusId;
             bool triggered = debuffStacks.AddStacks(status, Mathf.Max(1, effect.StacksPerHit), Mathf.Max(1, effect.StackThreshold));

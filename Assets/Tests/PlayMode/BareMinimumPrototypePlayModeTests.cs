@@ -145,7 +145,6 @@ namespace PlayGround.Tests.PlayMode
             Entity entity = entityManager.CreateEntity(
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
-                typeof(CombatHitComponent),
                 typeof(ProjectileActiveTag));
 
             entityManager.SetComponentData(entity, new CombatKinematicsComponent
@@ -160,13 +159,6 @@ namespace PlayGround.Tests.PlayMode
                 BoundsMin = new float2(0.5f, 1.5f),
                 BoundsMax = new float2(1.5f, 2.5f)
             });
-            entityManager.SetComponentData(entity, new CombatHitComponent
-            {
-                TargetMask = ~0,
-                DamageAmount = 1f,
-                DirectDamageEnabled = true
-            });
-
             yield return null;
 
             CombatKinematicsComponent kinematics = entityManager.GetComponentData<CombatKinematicsComponent>(entity);

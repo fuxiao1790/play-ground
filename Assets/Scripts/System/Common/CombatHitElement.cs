@@ -89,7 +89,7 @@ namespace PlayGround.System.Common
             float repeatHitCooldownSeconds = 0f,
             ProjectileTrackingConfig tracking = default,
             ProjectileImpactAoeSnapshot impactAoe = default,
-            CombatStackEffectSnapshot stackEffect = default)
+            CombatStatusEffectSnapshot stackEffect = default)
         {
             Enabled = projectileTypeId >= 0;
             ProjectileTypeId = projectileTypeId;
@@ -128,7 +128,7 @@ namespace PlayGround.System.Common
         public float RepeatHitCooldownSeconds { get; }
         public ProjectileTrackingConfig Tracking { get; }
         public ProjectileImpactAoeSnapshot ImpactAoe { get; }
-        public CombatStackEffectSnapshot StackEffect { get; }
+        public CombatStatusEffectSnapshot StackEffect { get; }
     }
 
     public readonly struct AoeProjectileBurstSnapshot
@@ -205,7 +205,7 @@ namespace PlayGround.System.Common
     // External scene hit subscribers must not receive this buffer directly.
     public struct CombatHitPayloadElement : IBufferElementData
     {
-        public CombatStackEffectSnapshot StackEffect;
+        public CombatStatusEffectSnapshot StackEffect;
     }
 
     // ECS Lifecycle: scope buffer; sparse side channel for internal core hit effects; added at root setup; cleared with CombatHitElement.
@@ -249,7 +249,7 @@ namespace PlayGround.System.Common
         public float CritMultiplier;
         public bool DirectDamageEnabled;
         public EntityId SourceNodeId;
-        public CombatStackEffectSnapshot StackEffect;
+        public CombatStatusEffectSnapshot StackEffect;
         public ProjectileImpactAoeSnapshot ImpactAoe;
         public ProjectileImpactProjectileSnapshot ImpactProjectile;
         public AoeProjectileBurstSnapshot ProjectileBurst;

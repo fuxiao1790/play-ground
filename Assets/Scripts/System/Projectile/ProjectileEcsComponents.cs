@@ -100,7 +100,6 @@ namespace PlayGround.System.Projectile
         public bool DirectDamageEnabled;
         public int PierceCount;
         public float RepeatHitCooldownSeconds;
-        public int TargetMask;
         public float VisualScale;
         public float VisualRotationSin;
         public float VisualRotationCos;
@@ -109,8 +108,9 @@ namespace PlayGround.System.Projectile
         public float TrackingTurnSpeedRadians;
         public float TrackingQueryIntervalSeconds;
         public float TrackingInitialQueryDelaySeconds;
+        public EntityId SourceNodeId;
         public ProjectileImpactAoeSnapshot ImpactAoe;
-        public CombatStackEffectSnapshot StackEffect;
+        public CombatStatusEffectSnapshot StackEffect;
         public ProjectileImpactProjectileSnapshot ImpactProjectile;
     }
 
@@ -119,7 +119,6 @@ namespace PlayGround.System.Projectile
     {
         public int ProjectileId;
         public int TypeId;
-        public int TargetMask;
         public int PierceRemaining;
         public int HasChildSpawner;
         public int SeedContactGateTargetId;

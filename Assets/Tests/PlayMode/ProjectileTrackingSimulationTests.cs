@@ -222,7 +222,6 @@ namespace PlayGround.Tests.PlayMode
                 typeof(ProjectileIdentityComponent),
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
-                typeof(CombatHitComponent),
                 typeof(ProjectileLifetimeComponent),
                 typeof(ProjectileHitComponent),
                 typeof(ProjectileTrackingComponent),
@@ -245,17 +244,18 @@ namespace PlayGround.Tests.PlayMode
                 BoundsMin = position - 0.25f,
                 BoundsMax = position + 0.25f
             });
-            entityManager.SetComponentData(projectileEntity, new CombatHitComponent
-            {
-                TargetMask = 1,
-                DamageAmount = 1f,
-                DirectDamageEnabled = true
-            });
             entityManager.SetComponentData(projectileEntity, new ProjectileLifetimeComponent
             {
                 RemainingLifetime = 10f
             });
-            entityManager.SetComponentData(projectileEntity, new ProjectileHitComponent());
+            entityManager.SetComponentData(projectileEntity, new ProjectileHitComponent
+            {
+                HitPayload = new ProjectileHitPayload(new CombatHitPayload
+                {
+                    DamageAmount = 1f,
+                    DirectDamageEnabled = true
+                })
+            });
             entityManager.SetComponentData(projectileEntity, new ProjectileTrackingComponent
             {
                 TrackingEnabled = true,

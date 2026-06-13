@@ -224,7 +224,6 @@ namespace PlayGround.System.Projectile
             {
                 ProjectileId = projectileId,
                 TypeId = command.ProjectileTypeId,
-                TargetMask = command.TargetMask,
                 PierceRemaining = command.PierceCount,
                 HasChildSpawner = command.ChildSpawn.Enabled ? 1 : 0,
                 SeedContactGateTargetId = seedContactGateTargetId,
@@ -245,7 +244,7 @@ namespace PlayGround.System.Projectile
 
             if (command.ChildSpawn.Enabled)
             {
-                request.ChildSpawner = ChildSpawnerComponentFor(command.ChildSpawn);
+                request.ChildSpawner = ChildSpawnerComponentFor(command.ChildSpawn, command.HitPayload.SourceNodeId);
                 request.ChildSpawnState = new ProjectileChildSpawnStateComponent
                 {
                     ChildSpawnCooldownRemaining = command.ChildSpawn.IntervalSeconds
@@ -377,7 +376,7 @@ namespace PlayGround.System.Projectile
             }
         }
 
-        private ProjectileChildSpawnerComponent ChildSpawnerComponentFor(ProjectileChildSpawnConfig config)
+        private ProjectileChildSpawnerComponent ChildSpawnerComponentFor(ProjectileChildSpawnConfig config, EntityId sourceNodeId)
         {
             math.sincos(math.radians(config.VisualRotationDegrees), out float sin, out float cos);
             return new ProjectileChildSpawnerComponent
@@ -399,7 +398,6 @@ namespace PlayGround.System.Projectile
                 DirectDamageEnabled = config.DirectDamageEnabled,
                 PierceCount = config.PierceCount,
                 RepeatHitCooldownSeconds = config.RepeatHitCooldownSeconds,
-                TargetMask = config.TargetMask != 1 ? config.TargetMask : TargetMask,
                 VisualScale = config.VisualScale > 0f ? config.VisualScale : 1f,
                 VisualRotationSin = sin,
                 VisualRotationCos = cos,
@@ -408,6 +406,7 @@ namespace PlayGround.System.Projectile
                 TrackingTurnSpeedRadians = math.radians(config.Tracking.TurnSpeedDegrees),
                 TrackingQueryIntervalSeconds = config.Tracking.QueryIntervalSeconds,
                 TrackingInitialQueryDelaySeconds = config.Tracking.InitialQueryDelaySeconds,
+                SourceNodeId = sourceNodeId,
                 ImpactAoe = config.ImpactAoe,
                 StackEffect = config.StackEffect,
                 ImpactProjectile = config.ImpactProjectile

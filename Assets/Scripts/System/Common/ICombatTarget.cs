@@ -11,9 +11,9 @@ namespace PlayGround.System.Common
         Aoe = 1
     }
 
-    public readonly struct CombatStackEffectSnapshot
+    public readonly struct CombatStatusEffectSnapshot
     {
-        public CombatStackEffectSnapshot(
+        public CombatStatusEffectSnapshot(
             int debuffStatusId,
             int stacksPerHit,
             int stackThreshold,
@@ -55,7 +55,7 @@ namespace PlayGround.System.Common
             DamageSnapshot damage,
             Vector2 position,
             bool directDamageEnabled = true,
-            CombatStackEffectSnapshot stackEffect = default,
+            CombatStatusEffectSnapshot stackEffect = default,
             EntityId sourceNodeId = default)
         {
             Kind = kind;
@@ -70,7 +70,7 @@ namespace PlayGround.System.Common
         public DamageSnapshot Damage { get; }
         public Vector2 Position { get; }
         public bool DirectDamageEnabled { get; }
-        public CombatStackEffectSnapshot StackEffect { get; }
+        public CombatStatusEffectSnapshot StackEffect { get; }
         public EntityId SourceNodeId { get; }
     }
 

@@ -24,89 +24,143 @@ Required rules and constraints
 - Cross-domain snapshot data may contain type/template ids and parameter primitives (damage, count, spread, lifetime, routing/team id, position, direction, source id, target_mask, effect flags).
 - Projectile/AOE ECS systems never call into authoring objects. They only read snapshot data and emit `SpawnRequest` records to scope buffers.
 - Replay (managed mapping to typed spawn APIs and live GameObject-based prefabs) happens in `LateUpdate()` on the owning root (e.g., `ProjectileRoot.LateUpdate()`, `AoeRoot.LateUpdate()`), which reads the hit buffers and maps snapshot payloads into managed `SpawnCommand` calls.
-- Cross-domain spawn commands must be non-chaining by shape: authored payloads may attach *one* specific cross-domain spawn payload. Do not allow replayed cross-domain spawns to carry additional cross-domain payloads.
+- Cross-domain spawn commands must be non-chaining by shape: a replayed cross-domain spawn may carry at most one cross-domain spawn payload. A `CombatHitPayload` (stack effect, crit, damage) is NOT a cross-domain spawn payload — it is always present. Only `ImpactAoe`, `ImpactProjectile`, and `ProjectileBurst` are spawn payloads and count toward the limit.
 
-Suggested data model (examples)
-Note: these are documentation examples — adapt names to existing types and keep them blittable for ECS/Burst.
+Payload separation rule
+Every combat entity (projectile or AOE) carries exactly two categories of snapshot data:
 
-ProjectileSpawnCommand (authoring side — written once at fire time)
+1. CombatHitPayload — always present, same shape for all domains:
+   - DamageAmount, CritChance, CritMultiplier — damage and crit roll inputs
+   - DirectDamageEnabled — whether to apply direct HP loss
+   - SourceNodeId — authoring skill/node that fired this entity
+   - StackEffect — debuff stack trigger (accumulates on target; explosion spawned by target-side logic when threshold reached, not by the collision system directly)
+
+2. Cross-domain spawn payload — at most one per entity type:
+   - Projectile entity: ImpactAoe OR ImpactProjectile (not both)
+   - AOE entity: ProjectileBurst (only)
+   - Impact-spawned child entities: same rule applies — one cross-domain spawn payload max
+
+CombatHitPayload is snapshotted at fire time and carried unchanged through the ECS lifetime of the entity. It is NOT a cross-domain spawn payload; it does not count toward the one-payload limit.
+
+Actual data model (as implemented)
+
+CombatHitPayload — shared blittable struct, System.Common namespace:
 ```csharp
-public struct ProjectileSpawnCommand
+public struct CombatHitPayload
 {
-  public int TemplateId;      // type/template lookup on managed side
-  public int SourceEntityId;  // authoring/source actor id
-  public int TeamId;          // routing/team
-  public uint TargetMask;     // bitmask for target filtering
-  public float Damage;        // base damage
-  public float Lifetime;      // seconds
-  public float2 Position;
-  public float2 Direction;
-  public byte EffectKind;     // enum: 0=None,1=ImpactAoe,2=BurstProjectiles, ...
-  public int EffectTypeId;    // sub-type id for effect routing
-  public int EffectCount;     // for bursts
-  public float EffectSpread;  // degrees or radians
-  // keep payload compact — prefer ints/floats/enums; avoid nested managed structures
+    public float DamageAmount;
+    public float CritChance;
+    public float CritMultiplier;
+    public bool DirectDamageEnabled;
+    public EntityId SourceNodeId;
+    public CombatStackEffectSnapshot StackEffect;
 }
 ```
 
-Projectile ECS components / hit element (carried through runtime)
+CombatHitComponent — ECS component shared by all domains, targeting filter only:
 ```csharp
 public struct CombatHitComponent : IComponentData
 {
-  public int SourceId;
-  public float Damage;
-  public uint TargetMask;
-  public byte EffectKind;
-  public int EffectTypeId;
-  public int EffectCount;
-  public float EffectSpread;
-}
-
-public struct ProjectileHitElement : IBufferElementData
-{
-  public int HitEntityId;    // id mapped to managed target in LateUpdate
-  public float2 HitPosition;
-  public CombatHitComponent SnapshotPayload; // plain data copied at fire-time
+    public int TargetMask;   // bitmask; no hit data here
 }
 ```
 
+Projectile entity — hit data on ProjectileHitComponent:
+```csharp
+// ProjectileHitComponent.HitPayload is ProjectileHitPayload, which wraps CombatHitPayload:
+public readonly struct ProjectileHitPayload
+{
+    public CombatHitPayload HitPayload;          // fire-time hit snapshot
+    public ProjectileImpactAoeSnapshot ImpactAoe;           // cross-domain spawn (optional)
+    public ProjectileImpactProjectileSnapshot ImpactProjectile; // cross-domain spawn (optional)
+    // passthrough properties (DamageAmount, CritChance, etc.) forward to HitPayload
+}
+```
+Rule: ImpactAoe and ImpactProjectile are mutually exclusive by authoring convention (only one should be enabled per entity).
+
+AOE entity — hit data on AoeHitSpawnComponent:
+```csharp
+public struct AoeHitSpawnComponent : IComponentData
+{
+    public CombatHitPayload HitPayload;               // fire-time hit snapshot
+    public AoeProjectileBurstSnapshot ProjectileBurst; // cross-domain spawn (optional)
+}
+```
+
+Hit element buffers — written by flush jobs after collision:
+- CombatHitElement: core hit record per target; contains DamageAmount, CritChance, CritMultiplier, DirectDamageEnabled, SourceNodeId, plus PayloadIndex/EffectIndex for side-buffer indirection.
+- CombatHitPayloadElement: sparse side-buffer; written only when StackEffect.Enabled. Index stored in CombatHitElement.PayloadIndex (-1 = absent).
+- CombatHitEffectElement: sparse side-buffer; written only when ImpactAoe/ImpactProjectile/ProjectileBurst is enabled. Index stored in CombatHitElement.EffectIndex (-1 = absent).
+
+Data flow — projectile hit:
+```
+ProjectileSpawnCommand
+  └─ CombatHitPayload (damage, crit, stackEffect, sourceNodeId)
+  └─ ImpactAoe / ImpactProjectile (at most one)
+       │
+       ▼ ProjectileRoot.SpawnRequestFor → ProjectileSpawnRequestElement
+       ▼ ProjectileSpawnSystem → ProjectileHitComponent on ECS entity
+       ▼ ProjectileCollisionSystem → CombatPendingHit (copies all payload fields)
+       ▼ CombatHitFlushJob → CombatHitElement + side-buffers
+       ▼ CombatHitDispatchSystem → CombatHitReplay.ReplayAndClear
+       ▼ ProjectileHitReplayAdapter.ReplayEffect → CombatSpawnRouter.HitEffect event
+       ▼ CombatSpawnRouter.SpawnImpactProjectiles / SpawnImpactAoe
+```
+
+Data flow — AOE hit:
+```
+AoeSpawnCommand
+  └─ CombatHitPayload (damage, crit, stackEffect, sourceNodeId) — built in AoeRoot.SpawnRequestFor
+  └─ ProjectileBurst (optional)
+       │
+       ▼ AoeRoot.SpawnRequestFor → AoeSpawnRequestElement
+       ▼ AoeSpawnSystem → AoeHitSpawnComponent on ECS entity
+       ▼ AoeCollisionSystem → CombatPendingHit (reads hitSpawn.HitPayload.*)
+       ▼ CombatHitFlushJob → CombatHitElement + side-buffers
+       ▼ same replay chain as projectile
+```
+
+Stack effect resolution (not a spawn payload):
+- StackEffect is part of CombatHitPayload, written to CombatHitPayloadElement via CombatHitFlushJob.
+- Replay delivers it via CombatHitData.StackEffect to the target's ReceiveHit method.
+- MobRoot.ApplyStackEffect accumulates stacks in MobDebuffStackState. When count >= StackThreshold, MobRoot resets the counter and calls aoeRoot.Spawn — the explosion is spawned by the target, not the collision system.
+- This means StackEffect is a hit payload field, not a cross-domain spawn payload, and does not violate the one-payload limit.
+
 Replay / Managed routing
-- `ProjectileRoot.LateUpdate()` drains `ProjectileHitElement` buffer and for each element:
-  - Map `HitEntityId` back to the managed `IAttackTarget` (via scope target registry).
-  - Read `SnapshotPayload` and construct a typed spawn command for the target scope (e.g., `AoeRoot.Spawn(AoeSpawnCommand)` or `ProjectileRoot.Spawn(...)`).
-  - Enforce cross-domain non-chaining rules (do not attach further cross-domain payloads when re-emitting).
+- `ProjectileRoot.LateUpdate()` drains `CombatHitElement` buffer and for each element:
+  - Map `TargetId` back to the managed `ICombatTarget` (via scope target registry).
+  - Roll crit from `hit.CritChance` / `hit.CritMultiplier`.
+  - If `hit.EffectIndex >= 0`: fetch `CombatHitEffectElement` and call `adapter.ReplayEffect` → `CombatSpawnRouter` dispatches the cross-domain spawn.
+  - If `hit.PayloadIndex >= 0`: fetch `CombatHitPayloadElement` and pass `StackEffect` to `ICombatTarget.ReceiveHits` via `CombatHitData`.
+- Cross-domain non-chaining enforcement: `CombatSpawnRouter.SpawnImpactProjectiles` passes the impact snapshot's own `ImpactAoe` and `StackEffect` into the child `ProjectileSpawnCommand` but does NOT forward `ImpactProjectile` recursively beyond one hop.
 
 Memory and performance guidance
 - Pack payloads tightly: use enums/bitfields and small integer ids where possible.
 - Prefer template/type ids over string names — resolve templates during the managed replay step.
 - Avoid per-hit allocations: hit buffers should be preallocated and recycled per scope entity to avoid GC.
 - Be conservative with large arrays in payloads; prefer parameterized templates (type id + small parameter set).
-- If a payload contains optional sub-parameters, use small discriminator bytes and compact union-like layout.
-
-Compatibility & migration notes
-- Existing direct-damage snapshot behavior (damage + enable flags) should be extended to include any impact-AOE or burst-projectile parameters at fire-time.
-- Update authoring code (`ProjectileAttack` and similar) to write any required effect parameters into `ProjectileSpawnCommand` when firing.
-- Ensure all code that currently expects to query authoring objects at hit-time instead reads snapshot fields instead.
+- CombatHitPayloadElement and CombatHitEffectElement are sparse side-buffers — only written when the corresponding feature is enabled. This keeps CombatHitElement small and cache-friendly for the common (damage-only) case.
 
 API and implementation checklist
-- Authoring: `ProjectileAttack` writes `ProjectileSpawnCommand` with all cross-domain payloads at fire time.
-- Spawn path: scene-facing API `ProjectileRoot.Spawn(ProjectileSpawnCommand)` must copy the command payload into projectile entity components/buffers (blittable data only).
-- Collision: `ProjectileCollisionSystem` reads `CombatCollisionComponent` and when a hit occurs, appends a `ProjectileHitElement` containing snapshot payload to the scope `HitBuffer`.
-- Replay: `ProjectileRoot.LateUpdate()` drains hits and replays managed callbacks (mapping ids to managed targets and calling target APIs). Replay emits typed spawn commands into other roots via their public `Spawn(...)` API.
-- Root routing: implement a managed `CombatSpawnRouter` (wired by `GameRoot`) that maps effect/template ids and team routing to destination roots (player→mob roots, mob→player roots).
+- Authoring: spawn commands (`ProjectileSpawnCommand`, `AoeSpawnCommand`) accept individual damage/crit/stackEffect/sourceNodeId parameters and build `CombatHitPayload` internally at construction time.
+- Spawn path: `ProjectileRoot.SpawnRequestFor` and `AoeRoot.SpawnRequestFor` copy the payload into the request element (blittable data only).
+- Spawn system: `ProjectileSpawnSystem` and `AoeSpawnSystem` write `CombatHitPayload` to domain-specific ECS components (`ProjectileHitComponent.HitPayload`, `AoeHitSpawnComponent.HitPayload`). `CombatHitComponent` carries only `TargetMask`.
+- Collision: `ProjectileCollisionSystem` reads from `ProjectileHitComponent.HitPayload`; `AoeCollisionSystem` reads from `AoeHitSpawnComponent.HitPayload`. Neither reads damage/crit data from `CombatHitComponent`.
+- Flush: `CombatHitFlushJob` writes `CombatHitElement` and optional side-buffers from `CombatPendingHit`.
+- Replay: `CombatHitReplay.ReplayAndClear` (in `System/Common/CombatHitReplay.cs`) drains all three buffers and dispatches to `ICombatHitReplayAdapter`.
+- Root routing: `CombatSpawnRouter` (wired by `GameRoot`) maps effect/template ids and team routing to destination roots (player→mob roots, mob→player roots).
 
 Testing checklist
 - Unit/PlayMode tests:
   - Fire projectile with impact-AOE snapshot; confirm hit produces AOE via replay on next frame.
-  - Mutate the authoring `ProjectileAttack` after firing; verify in-flight projectiles still use original snapshot.
-  - Ensure cross-domain spawned projectiles/AOEs do not carry further cross-domain payloads (non-chaining behavior).
+  - Fire projectile with stackEffect; confirm stacks accumulate on target and explosion fires at threshold.
+  - Mutate the authoring attack after firing; verify in-flight projectiles still use original snapshot.
+  - Ensure cross-domain spawned projectiles/AOEs do not carry further ImpactProjectile payloads (non-chaining behavior).
+  - Confirm CombatHitComponent carries only TargetMask; no damage/crit data on that component.
   - Stress test: high volume projectile hits produce stable memory and reasonable performance counters.
 
-Documentation & authoring guidance
-- Document the exact fields available in spawn commands in `player-attacks.md` and `projectile-system.md` (authoring reference). Keep examples for common effect patterns (impact-AOE, burst, spread).
-- Educate designers/content authors: attaching large effect payloads increases per-projectile memory; prefer reusable templates + parameter slots when possible.
-
-Notes and future work
+Notes
+- StackEffect triggers an explosion via target-side state (MobDebuffStackState), not via the collision system. This is intentional: the collision system stays stateless and allocation-free; all spawn decisions happen in managed LateUpdate.
 - If future features require deep, content-driven chaining, add an explicit authored combo system rather than enabling unrestricted runtime chaining.
 - Consider a compact binary payload encoding for extremely hot paths (e.g., 16-byte payloads) if memory proves limiting.
 

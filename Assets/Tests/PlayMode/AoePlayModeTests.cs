@@ -394,7 +394,7 @@ namespace PlayGround.Tests.PlayMode
             mob.Register(root.TargetRegistry);
 
             AoeSpawnGeometry geometry = Geometry(templateObject, 2f);
-            var stackEffect = new CombatStackEffectSnapshot(
+            var stackEffect = new CombatStatusEffectSnapshot(
                 debuffStatusId: (int)MobDebuffStatus.Volatile,
                 stacksPerHit: 1,
                 stackThreshold: 10,
@@ -444,7 +444,7 @@ namespace PlayGround.Tests.PlayMode
 
             const float ChainDamage = 5f;
             AoeSpawnGeometry geometry = Geometry(templateObject, 2f);
-            var stackEffect = new CombatStackEffectSnapshot(
+            var stackEffect = new CombatStatusEffectSnapshot(
                 debuffStatusId: (int)MobDebuffStatus.Volatile,
                 stacksPerHit: 1,
                 stackThreshold: 3,

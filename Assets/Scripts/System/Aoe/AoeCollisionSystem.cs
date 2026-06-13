@@ -128,7 +128,6 @@ namespace PlayGround.System.Aoe
                 in AoeIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
                 in CombatCollisionComponent collision,
-                in CombatHitComponent hit,
                 in AoeLifetimeComponent lifetime,
                 in AoeHitGateComponent hitGate,
                 in AoeHitSpawnComponent hitSpawn,
@@ -152,11 +151,6 @@ namespace PlayGround.System.Aoe
                     foreach (int i in candidates)
                     {
                         CombatTargetElement target = targets[i];
-                        if ((hit.TargetMask & target.TargetMask) == 0)
-                        {
-                            continue;
-                        }
-
                         if (!CombatCollisionMath.BoundsIntersect(
                             collision.BoundsMin,
                             collision.BoundsMax,
@@ -172,7 +166,7 @@ namespace PlayGround.System.Aoe
                         }
 
                         float cooldown = lifetime.IsPulse == 1 ? 0f : hitGate.RepeatHitCooldownSeconds;
-                        ResolveHit(identity, kinematics, hit, hitSpawn, area, target, contactGates, cooldown);
+                        ResolveHit(identity, kinematics, hitSpawn, area, target, contactGates, cooldown);
                     }
                 }
 
@@ -187,7 +181,6 @@ namespace PlayGround.System.Aoe
             private void ResolveHit(
                 AoeIdentityComponent identity,
                 CombatKinematicsComponent kinematics,
-                CombatHitComponent hit,
                 AoeHitSpawnComponent hitSpawn,
                 AoeAreaComponent area,
                 CombatTargetElement target,
@@ -204,13 +197,12 @@ namespace PlayGround.System.Aoe
                     TargetId = target.TargetId,
                     CooldownRemaining = cooldown
                 });
-                EmitHit(identity, kinematics, hit, hitSpawn, area, target);
+                EmitHit(identity, kinematics, hitSpawn, area, target);
             }
 
             private void EmitHit(
                 AoeIdentityComponent identity,
                 CombatKinematicsComponent kinematics,
-                CombatHitComponent hit,
                 AoeHitSpawnComponent hitSpawn,
                 AoeAreaComponent area,
                 CombatTargetElement target)
@@ -223,13 +215,13 @@ namespace PlayGround.System.Aoe
                     TargetId = target.TargetId,
                     Position = kinematics.Position,
                     Kind = CombatHitKind.Aoe,
-                    DamageAmount = hit.DamageAmount,
-                    CritChance = hit.CritChance,
-                    CritMultiplier = hit.CritMultiplier,
-                    DirectDamageEnabled = hit.DirectDamageEnabled,
-                    SourceNodeId = hit.SourceNodeId,
+                    DamageAmount = hitSpawn.HitPayload.DamageAmount,
+                    CritChance = hitSpawn.HitPayload.CritChance,
+                    CritMultiplier = hitSpawn.HitPayload.CritMultiplier,
+                    DirectDamageEnabled = hitSpawn.HitPayload.DirectDamageEnabled,
+                    SourceNodeId = hitSpawn.HitPayload.SourceNodeId,
                     ProjectileBurst = hitSpawn.ProjectileBurst,
-                    StackEffect = hitSpawn.StackEffect
+                    StackEffect = hitSpawn.HitPayload.StackEffect
                 });
                 VfxPending.Enqueue(new VfxPendingSpawn
                 {
