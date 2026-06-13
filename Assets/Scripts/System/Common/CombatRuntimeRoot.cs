@@ -55,24 +55,6 @@ namespace PlayGround.System.Common
             }
         }
 
-        private void LateUpdate()
-        {
-            for (int i = scopeBindings.Count - 1; i >= 0; i--)
-            {
-                RuntimeScopeBinding binding = scopeBindings[i];
-                if (binding.IsDestroyed)
-                {
-                    scopeBindings.RemoveAt(i);
-                    continue;
-                }
-
-                if (binding.Endpoint.EnsureRuntimeAvailable())
-                {
-                    binding.Endpoint.PresentFromCombatRuntime();
-                }
-            }
-        }
-
         public CombatTargetSet GetOrCreateTargetSet(string targetSetKey)
         {
             string key = NormalizeKey(targetSetKey);

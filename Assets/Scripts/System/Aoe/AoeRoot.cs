@@ -5,7 +5,6 @@ using PlayGround.System.Vfx;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
-using Unity.Profiling;
 using UnityEngine;
 
 namespace PlayGround.System.Aoe
@@ -13,8 +12,6 @@ namespace PlayGround.System.Aoe
     public sealed class AoeRoot : MonoBehaviour, ICombatScopeEndpoint
     {
         private const float AoeRenderZ = 0.5f;
-        private static readonly ProfilerMarker DrainHitsMarker = new("AoeRoot.DrainHits");
-
         [SerializeField] private int targetMask = 1;
         [SerializeField] private bool spawnVisuals = true;
         [SerializeField, Tooltip("Half-extent used for the batch world bounds. Increase to avoid GPU culling; decrease for tighter culling.")]
@@ -33,7 +30,6 @@ namespace PlayGround.System.Aoe
         private EntityQuery allAoeQuery;
         private IReadOnlyDictionary<int, ICombatTarget> runtimeTargetsById;
         private int spawnedAoes;
-        private int despawnedAoes;
         private int hitEvents;
         private int nextAoeId;
         private int nextTypeId = 1;
@@ -50,13 +46,7 @@ namespace PlayGround.System.Aoe
 
         public CombatTargetRegistry<ICombatTarget> TargetRegistry => targetRegistry;
         public int TargetMask => targetMask;
-        public AoeRuntimeCounters Counters => new(
-            ActiveAoeCount(),
-            spawnedAoes,
-            despawnedAoes,
-            hitEvents,
-            0,
-            0);
+        public AoeRuntimeCounters Counters => new(ActiveAoeCount(), spawnedAoes, 0, hitEvents, 0, 0);
 
         private void Awake()
         {
@@ -65,24 +55,6 @@ namespace PlayGround.System.Aoe
             targetSyncCallback = buffer => targetSync.SyncToBuffer(buffer);
             BindWorld();
             runtimeReady = true;
-        }
-
-        private void LateUpdate()
-        {
-            if (combatRuntimeManaged)
-            {
-                return;
-            }
-
-            if (!EnsureRuntimeAvailable())
-            {
-                return;
-            }
-
-            using (DrainHitsMarker.Auto())
-            {
-                DrainHits();
-            }
         }
 
         private void OnDestroy()
@@ -237,36 +209,6 @@ namespace PlayGround.System.Aoe
             };
         }
 
-        private void DrainHits()
-        {
-            DynamicBuffer<CombatHitElement> hitBuffer = entityManager.GetBuffer<CombatHitElement>(scopeEntity);
-            DynamicBuffer<CombatHitPayloadElement> payloadBuffer = entityManager.GetBuffer<CombatHitPayloadElement>(scopeEntity);
-            DynamicBuffer<CombatHitEffectElement> effectBuffer = entityManager.GetBuffer<CombatHitEffectElement>(scopeEntity);
-            DynamicBuffer<AoeRecycleElement> recycleBuffer = entityManager.GetBuffer<AoeRecycleElement>(scopeEntity);
-            hitEvents += hitBuffer.Length;
-            despawnedAoes += recycleBuffer.Length;
-
-            if (combatRuntimeManaged && runtimeTargetsById != null)
-            {
-                var runtimeAdapter = new AoeHitReplayAdapter<ICombatTarget> { HitHandler = Hit, EffectHandler = HitEffect };
-                CombatHitReplay.ReplayAndClear<ICombatTarget, AoeHitReplayAdapter<ICombatTarget>>(
-                    hitBuffer,
-                    payloadBuffer,
-                    effectBuffer,
-                    runtimeTargetsById,
-                    ref runtimeAdapter);
-                return;
-            }
-
-            var adapter = new AoeHitReplayAdapter<ICombatTarget> { HitHandler = Hit, EffectHandler = HitEffect };
-            CombatHitReplay.ReplayAndClear<ICombatTarget, AoeHitReplayAdapter<ICombatTarget>>(
-                hitBuffer,
-                payloadBuffer,
-                effectBuffer,
-                targetSync.TargetsById,
-                ref adapter);
-        }
-
         private struct AoeHitReplayAdapter<TTarget> : ICombatHitReplayAdapter<TTarget>
             where TTarget : class, ICombatTarget
         {
@@ -363,6 +305,18 @@ namespace PlayGround.System.Aoe
                 Layer = gameObject.layer,
                 BoundsHalfExtent = batchBoundsHalfExtent
             });
+            entityWorld.GetExistingSystemManaged<CombatHitDispatchSystem>()?.Register(
+                scopeEntity, (hits, payloads, effects) =>
+                {
+                    hitEvents += hits.Length;
+                    var targets = combatRuntimeManaged && runtimeTargetsById != null
+                        ? runtimeTargetsById
+                        : (IReadOnlyDictionary<int, ICombatTarget>)targetSync.TargetsById;
+                    var adapter = new AoeHitReplayAdapter<ICombatTarget>
+                        { HitHandler = Hit, EffectHandler = HitEffect };
+                    CombatHitReplay.ReplayAndClear<ICombatTarget, AoeHitReplayAdapter<ICombatTarget>>(
+                        hits, payloads, effects, targets, ref adapter);
+                });
             ecsHandlesCreated = true;
         }
 
@@ -482,6 +436,7 @@ namespace PlayGround.System.Aoe
                 return;
             }
 
+            entityWorld?.GetExistingSystemManaged<CombatHitDispatchSystem>()?.Unregister(scopeEntity);
             DisposeQuery(ref allAoeQuery);
             ecsHandlesCreated = false;
             scopeEntity = Entity.Null;
@@ -551,14 +506,6 @@ namespace PlayGround.System.Aoe
             }
 
             runtimeTargetsById = targetsById;
-        }
-
-        void ICombatScopeEndpoint.PresentFromCombatRuntime()
-        {
-            using (DrainHitsMarker.Auto())
-            {
-                DrainHits();
-            }
         }
 
     }

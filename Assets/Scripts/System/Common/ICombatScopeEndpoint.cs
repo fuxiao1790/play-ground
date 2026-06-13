@@ -10,6 +10,5 @@ namespace PlayGround.System.Common
         bool EnsureRuntimeAvailable();
         void SetCombatRuntimeManaged(bool managed);
         void WriteTargets(IReadOnlyList<CombatTargetElement> targets, IReadOnlyDictionary<int, ICombatTarget> targetsById);
-        void PresentFromCombatRuntime();
     }
 }

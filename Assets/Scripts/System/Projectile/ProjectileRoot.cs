@@ -5,7 +5,6 @@ using PlayGround.System.Common;
 using PlayGround.System.Vfx;
 using Unity.Entities;
 using Unity.Mathematics;
-using Unity.Profiling;
 using UnityEngine;
 
 namespace PlayGround.System.Projectile
@@ -15,7 +14,6 @@ namespace PlayGround.System.Projectile
         private const float ProjectileRenderZ = -0.25f;
         private const float ProjectileZStep = 0.000001f;
         private const int ProjectileZSlots = 1_000_000;
-        private static readonly ProfilerMarker DrainHitsMarker = new("ProjectileRoot.DrainHits");
 
         [SerializeField] private Sprite projectileSprite;
         [SerializeField] private float visualScale = 1f;
@@ -68,24 +66,6 @@ namespace PlayGround.System.Projectile
             BindWorld();
             BuildRenderResources();
             runtimeReady = true;
-        }
-
-        private void LateUpdate()
-        {
-            if (combatRuntimeManaged)
-            {
-                return;
-            }
-
-            if (!EnsureRuntimeAvailable())
-            {
-                return;
-            }
-
-            using (DrainHitsMarker.Auto())
-            {
-                DrainHits();
-            }
         }
 
         private void OnDestroy()
@@ -303,6 +283,17 @@ namespace PlayGround.System.Projectile
                 Layer = gameObject.layer,
                 BoundsHalfExtent = batchBoundsHalfExtent
             });
+            entityWorld.GetExistingSystemManaged<CombatHitDispatchSystem>()?.Register(
+                scopeEntity, (hits, payloads, effects) =>
+                {
+                    var targets = combatRuntimeManaged && runtimeTargetsById != null
+                        ? runtimeTargetsById
+                        : (IReadOnlyDictionary<int, ICombatTarget>)targetSync.TargetsById;
+                    var adapter = new ProjectileHitReplayAdapter<ICombatTarget>
+                        { HitHandler = Hit, EffectHandler = HitEffect };
+                    CombatHitReplay.ReplayAndClear<ICombatTarget, ProjectileHitReplayAdapter<ICombatTarget>>(
+                        hits, payloads, effects, targets, ref adapter);
+                });
             ecsHandlesCreated = true;
         }
 
@@ -351,35 +342,6 @@ namespace PlayGround.System.Projectile
             {
                 throw new global::System.InvalidOperationException($"{nameof(ProjectileRoot)} on {name} has not finished ECS setup.");
             }
-        }
-
-        private void DrainHits()
-        {
-            DynamicBuffer<CombatHitElement> hitBuffer =
-                entityManager.GetBuffer<CombatHitElement>(scopeEntity);
-            DynamicBuffer<CombatHitPayloadElement> payloadBuffer =
-                entityManager.GetBuffer<CombatHitPayloadElement>(scopeEntity);
-            DynamicBuffer<CombatHitEffectElement> effectBuffer =
-                entityManager.GetBuffer<CombatHitEffectElement>(scopeEntity);
-            if (combatRuntimeManaged && runtimeTargetsById != null)
-            {
-                var runtimeAdapter = new ProjectileHitReplayAdapter<ICombatTarget> { HitHandler = Hit, EffectHandler = HitEffect };
-                CombatHitReplay.ReplayAndClear<ICombatTarget, ProjectileHitReplayAdapter<ICombatTarget>>(
-                    hitBuffer,
-                    payloadBuffer,
-                    effectBuffer,
-                    runtimeTargetsById,
-                    ref runtimeAdapter);
-                return;
-            }
-
-            var adapter = new ProjectileHitReplayAdapter<ICombatTarget> { HitHandler = Hit, EffectHandler = HitEffect };
-            CombatHitReplay.ReplayAndClear<ICombatTarget, ProjectileHitReplayAdapter<ICombatTarget>>(
-                hitBuffer,
-                payloadBuffer,
-                effectBuffer,
-                targetSync.TargetsById,
-                ref adapter);
         }
 
         private struct ProjectileHitReplayAdapter<TTarget> : ICombatHitReplayAdapter<TTarget>
@@ -588,6 +550,7 @@ namespace PlayGround.System.Projectile
                 return;
             }
 
+            entityWorld?.GetExistingSystemManaged<CombatHitDispatchSystem>()?.Unregister(scopeEntity);
             DisposeQuery(ref allProjectileQuery);
             ecsHandlesCreated = false;
             scopeEntity = Entity.Null;
@@ -700,14 +663,6 @@ namespace PlayGround.System.Projectile
             }
 
             runtimeTargetsById = targetsById;
-        }
-
-        void ICombatScopeEndpoint.PresentFromCombatRuntime()
-        {
-            using (DrainHitsMarker.Auto())
-            {
-                DrainHits();
-            }
         }
 
         [global::System.Serializable]
