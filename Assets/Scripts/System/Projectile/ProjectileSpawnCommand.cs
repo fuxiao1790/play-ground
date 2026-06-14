@@ -69,7 +69,10 @@ namespace PlayGround.System.Projectile
             CombatStatusEffectSnapshot stackEffect = default,
             ProjectileImpactProjectileSnapshot impactProjectile = default,
             float critChance = 0f,
-            float critMultiplier = 1.5f)
+            float critMultiplier = 1.5f,
+            int count = 1,
+            float spreadDegrees = 0f,
+            float jitterDegrees = 0f)
         {
             Position = position;
             Direction = direction.sqrMagnitude > 0f ? direction.normalized : Vector2.right;
@@ -100,6 +103,9 @@ namespace PlayGround.System.Projectile
                 },
                 impactAoe,
                 impactProjectile);
+            Count = Mathf.Max(1, count);
+            SpreadDegrees = Mathf.Max(0f, spreadDegrees);
+            JitterDegrees = Mathf.Max(0f, jitterDegrees);
         }
 
         [global::System.Obsolete("Use the CombatShapeType overload.")]
@@ -162,6 +168,9 @@ namespace PlayGround.System.Projectile
         public bool DirectDamageEnabled { get; }
         public ProjectileImpactAoeSnapshot ImpactAoe { get; }
         public ProjectileHitPayload HitPayload { get; }
+        public int Count { get; }
+        public float SpreadDegrees { get; }
+        public float JitterDegrees { get; }
     }
 
     public enum ProjectileChildSpawnPatternType

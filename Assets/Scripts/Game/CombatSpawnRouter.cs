@@ -136,33 +136,29 @@ namespace PlayGround.Game
                 baseDirection = -toTarget.normalized;
             }
 
-            int count = Mathf.Max(1, burst.Count);
-            float spread = count > 1 ? burst.SpreadDegrees : 0f;
             int targetMask = burst.TargetMask != 0 ? burst.TargetMask : destination.TargetMask;
-            for (int i = 0; i < count; i++)
-            {
-                Vector2 direction = SpreadDirection(baseDirection, i, count, spread);
-                destination.Spawn(new ProjectileSpawnCommand(
-                    context.Position,
-                    direction,
-                    burst.Speed,
-                    burst.LifetimeSeconds,
-                    burst.Radius,
-                    burst.HalfExtents,
-                    burst.RotationRadians,
-                    burst.Damage,
-                    burst.ShapeType,
-                    burst.ProjectileTypeId,
-                    targetMask,
-                    burst.PierceCount,
-                    burst.RepeatHitCooldownSeconds,
-                    burst.Tracking,
-                    ProjectileChildSpawnConfig.Disabled,
-                    burst.DirectDamageEnabled,
-                    default,
-                    burst.ImpactAoe,
-                    burst.StackEffect), context.TargetId);
-            }
+            destination.Spawn(new ProjectileSpawnCommand(
+                context.Position,
+                baseDirection,
+                burst.Speed,
+                burst.LifetimeSeconds,
+                burst.Radius,
+                burst.HalfExtents,
+                burst.RotationRadians,
+                burst.Damage,
+                burst.ShapeType,
+                burst.ProjectileTypeId,
+                targetMask,
+                burst.PierceCount,
+                burst.RepeatHitCooldownSeconds,
+                burst.Tracking,
+                ProjectileChildSpawnConfig.Disabled,
+                burst.DirectDamageEnabled,
+                default,
+                burst.ImpactAoe,
+                burst.StackEffect,
+                count: burst.Count,
+                spreadDegrees: burst.SpreadDegrees), context.TargetId);
         }
 
         private static void SpawnProjectileBurst(in CombatHitContext context, in CombatSpawnElement spawn, ProjectileRoot destination)
@@ -180,41 +176,26 @@ namespace PlayGround.Game
                 baseDirection = toTarget.normalized;
             }
 
-            int count = Mathf.Max(1, burst.Count);
-            float spread = count > 1 ? burst.SpreadDegrees : 0f;
             int targetMask = burst.TargetMask != 1 ? burst.TargetMask : destination.TargetMask;
-            for (int i = 0; i < count; i++)
-            {
-                Vector2 direction = SpreadDirection(baseDirection, i, count, spread);
-                destination.Spawn(new ProjectileSpawnCommand(
-                    context.Position,
-                    direction,
-                    burst.Speed,
-                    burst.LifetimeSeconds,
-                    burst.Radius,
-                    burst.HalfExtents,
-                    burst.RotationRadians,
-                    burst.Damage,
-                    burst.ShapeType,
-                    burst.ProjectileTypeId,
-                    targetMask,
-                    burst.PierceCount,
-                    burst.RepeatHitCooldownSeconds,
-                    ProjectileTrackingConfig.Disabled,
-                    ProjectileChildSpawnConfig.Disabled,
-                    burst.DirectDamageEnabled));
-            }
-        }
-
-        private static Vector2 SpreadDirection(Vector2 baseDirection, int index, int count, float spreadDegrees)
-        {
-            if (count <= 1 || spreadDegrees <= 0f)
-            {
-                return baseDirection.sqrMagnitude > 0f ? baseDirection.normalized : Vector2.right;
-            }
-
-            float angle = -spreadDegrees * 0.5f + spreadDegrees / (count - 1) * index;
-            return Quaternion.Euler(0f, 0f, angle) * baseDirection.normalized;
+            destination.Spawn(new ProjectileSpawnCommand(
+                context.Position,
+                baseDirection,
+                burst.Speed,
+                burst.LifetimeSeconds,
+                burst.Radius,
+                burst.HalfExtents,
+                burst.RotationRadians,
+                burst.Damage,
+                burst.ShapeType,
+                burst.ProjectileTypeId,
+                targetMask,
+                burst.PierceCount,
+                burst.RepeatHitCooldownSeconds,
+                ProjectileTrackingConfig.Disabled,
+                ProjectileChildSpawnConfig.Disabled,
+                burst.DirectDamageEnabled,
+                count: burst.Count,
+                spreadDegrees: burst.SpreadDegrees));
         }
     }
 }

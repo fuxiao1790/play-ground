@@ -33,8 +33,6 @@ namespace PlayGround.Skills
 
             BasicAttackPrefab prefab = def.Prefab;
             DamageSnapshot damage = new(Mathf.Max(0f, def.Damage));
-            int count = Mathf.Max(1, def.Count);
-            float spread = count > 1 ? def.SpreadDegrees : 0f;
             Vector2 baseDir = aimDir.sqrMagnitude > 0f ? aimDir.normalized : Vector2.right;
             int targetMask = root.TargetMask;
 
@@ -43,38 +41,32 @@ namespace PlayGround.Skills
             ProjectileImpactProjectileSnapshot impactProjectile = BuildImpactProjectileSnapshot(def, targetMask);
             ProjectileChildSpawnConfig childSpawn = def.BuildChildSpawnConfig();
 
-            for (int i = 0; i < count; i++)
-            {
-                float angle = count > 1 ? -spread * 0.5f + spread / (count - 1) * i : 0f;
-                if (def.JitterDegrees > 0f)
-                    angle += Random.Range(-def.JitterDegrees, def.JitterDegrees);
-
-                Vector2 dir = angle == 0f ? baseDir : (Vector2)(Quaternion.Euler(0f, 0f, angle) * baseDir);
-
-                root.Spawn(new ProjectileSpawnCommand(
-                    origin,
-                    dir,
-                    def.Speed,
-                    def.Lifetime,
-                    prefab.Radius,
-                    prefab.HalfExtents,
-                    prefab.RotationRadians,
-                    damage,
-                    prefab.ShapeType,
-                    def.TypeId,
-                    targetMask,
-                    def.PierceCount,
-                    def.RepeatHitCooldown,
-                    def.Tracking,
-                    childSpawn,
-                    def.DirectDamageEnabled,
-                    default,
-                    impactAoe,
-                    stackEffect,
-                    impactProjectile,
-                    def.CritChance,
-                    def.CritMultiplier));
-            }
+            root.Spawn(new ProjectileSpawnCommand(
+                origin,
+                baseDir,
+                def.Speed,
+                def.Lifetime,
+                prefab.Radius,
+                prefab.HalfExtents,
+                prefab.RotationRadians,
+                damage,
+                prefab.ShapeType,
+                def.TypeId,
+                targetMask,
+                def.PierceCount,
+                def.RepeatHitCooldown,
+                def.Tracking,
+                childSpawn,
+                def.DirectDamageEnabled,
+                default,
+                impactAoe,
+                stackEffect,
+                impactProjectile,
+                def.CritChance,
+                def.CritMultiplier,
+                def.Count,
+                def.SpreadDegrees,
+                def.JitterDegrees));
         }
 
         private static void SpawnAoe(

@@ -34,7 +34,6 @@ namespace PlayGround.System.Projectile
 
         private EntityArchetype archetypeNoChildSpawner;
         private EntityArchetype archetypeWithChildSpawner;
-        private EntityQuery scopeQuery;
         private EntityQuery deadSlotsNoChildSpawner;
         private EntityQuery deadSlotsWithChildSpawner;
 
@@ -44,10 +43,6 @@ namespace PlayGround.System.Projectile
 
         protected override void OnCreate()
         {
-            scopeQuery = EntityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<ProjectileScope>(),
-                ComponentType.ReadWrite<ProjectileSpawnRequestElement>());
-
             archetypeNoChildSpawner = EntityManager.CreateArchetype(
                 typeof(ProjectileTag),
                 typeof(ProjectileIdentityComponent),
@@ -107,29 +102,33 @@ namespace PlayGround.System.Projectile
             Dependency.Complete();
 
             ReturnLists();
-            using var scopes = scopeQuery.ToEntityArray(Allocator.Temp);
+
+            var expandSys = World.GetExistingSystemManaged<ProjectileMultiExpandSystem>();
             int totalRequests = 0;
-            for (int i = 0; i < scopes.Length; i++)
+            if (expandSys != null && expandSys.PendingStream.IsCreated)
             {
-                Entity scope = scopes[i];
-                DynamicBuffer<ProjectileSpawnRequestElement> requests =
-                    EntityManager.GetBuffer<ProjectileSpawnRequestElement>(scope);
-                int count = requests.Length;
-                if (count == 0) continue;
-                _scopeByIndex[scope.Index] = scope;
-                for (int j = 0; j < count; j++)
+                expandSys.PendingHandle.Complete();
+                NativeStream.Reader reader = expandSys.PendingStream.AsReader();
+                for (int i = 0; i < reader.ForEachCount; i++)
                 {
-                    ProjectileSpawnRequestElement req = requests[j];
-                    var key = new ProjectileSpawnKey(scope.Index, req.TypeId, req.HasChildSpawner != 0);
-                    if (!_byKey.TryGetValue(key, out List<ProjectileSpawnRequestElement> list))
+                    int n = reader.BeginForEachIndex(i);
+                    for (int j = 0; j < n; j++)
                     {
-                        list = GetList();
-                        _byKey[key] = list;
+                        ProjectileSpawnRequestElement req = reader.Read<ProjectileSpawnRequestElement>();
+                        Entity scope = req.Scope;
+                        _scopeByIndex[scope.Index] = scope;
+                        var key = new ProjectileSpawnKey(scope.Index, req.TypeId, req.HasChildSpawner != 0);
+                        if (!_byKey.TryGetValue(key, out List<ProjectileSpawnRequestElement> list))
+                        {
+                            list = GetList();
+                            _byKey[key] = list;
+                        }
+                        list.Add(req);
+                        totalRequests++;
                     }
-                    list.Add(req);
+                    reader.EndForEachIndex();
                 }
-                requests.Clear();
-                totalRequests += count;
+                expandSys.PendingStream.Dispose();
             }
 
             if (totalRequests == 0) return;

@@ -11,9 +11,9 @@ namespace PlayGround.System.Projectile
 {
     public sealed class ProjectileRoot : MonoBehaviour, ICombatScopeEndpoint
     {
-        private const float ProjectileRenderZ = -0.25f;
-        private const float ProjectileZStep = 0.000001f;
-        private const int ProjectileZSlots = 1_000_000;
+        internal const float ProjectileRenderZ = -0.25f;
+        internal const float ProjectileRenderZStep = 0.000001f;
+        internal const int ProjectileRenderZSlots = 1_000_000;
 
         [SerializeField] private Sprite projectileSprite;
         [SerializeField] private float visualScale = 1f;
@@ -208,16 +208,16 @@ namespace PlayGround.System.Projectile
             EnsureRuntimeReady();
             ValidateSpawnCommand(command);
 
-            int projectileId = ++nextProjectileId;
+            int baseProjectileId = nextProjectileId + 1;
+            nextProjectileId += command.Count;
             entityManager.GetBuffer<ProjectileSpawnRequestElement>(scopeEntity)
-                .Add(SpawnRequestFor(command, projectileId, seedContactGateTargetId));
-            return projectileId;
+                .Add(SpawnRequestFor(command, baseProjectileId, seedContactGateTargetId));
+            return baseProjectileId;
         }
 
         private ProjectileSpawnRequestElement SpawnRequestFor(ProjectileSpawnCommand command, int projectileId, int seedContactGateTargetId = 0)
         {
             float2 position = new(command.Position.x, command.Position.y);
-            float2 velocity = new float2(command.Direction.x, command.Direction.y) * command.Speed;
             float2 halfExtents = new(command.HalfExtents.x, command.HalfExtents.y);
             ProjectileCollisionMath.ComputeWorldBounds(
                 position,
@@ -228,27 +228,44 @@ namespace PlayGround.System.Projectile
                 out float2 boundsMin,
                 out float2 boundsMax);
 
+            // Render baked from base projectileId; expand job patches RenderZ per shot for Count > 1.
+            CombatRenderComponent baseRender = RenderComponentFor(command.ProjectileTypeId, projectileId);
+
             var request = new ProjectileSpawnRequestElement
             {
-                ProjectileId = projectileId,
-                TypeId = command.ProjectileTypeId,
-                PierceRemaining = command.PierceCount,
-                HasChildSpawner = command.ChildSpawn.Enabled ? 1 : 0,
+                Scope            = scopeEntity,
+                ProjectileId     = projectileId,
+                TypeId           = command.ProjectileTypeId,
+                PierceRemaining  = command.PierceCount,
+                HasChildSpawner  = command.ChildSpawn.Enabled ? 1 : 0,
                 SeedContactGateTargetId = seedContactGateTargetId,
                 RepeatHitCooldownSeconds = command.RepeatHitCooldownSeconds,
-                Lifetime = command.Lifetime,
-                Radius = command.Radius,
-                RotationRadians = command.RotationRadians,
-                Position = position,
-                Velocity = velocity,
-                HalfExtents = halfExtents,
-                BoundsMin = boundsMin,
-                BoundsMax = boundsMax,
-                ShapeType = command.ShapeType,
-                HitPayload = command.HitPayload,
-                Tracking = TrackingComponentFor(command.Tracking),
-                Render = RenderComponentFor(command.ProjectileTypeId, projectileId)
+                Lifetime         = command.Lifetime,
+                Radius           = command.Radius,
+                RotationRadians  = command.RotationRadians,
+                Position         = position,
+                HalfExtents      = halfExtents,
+                BoundsMin        = boundsMin,
+                BoundsMax        = boundsMax,
+                ShapeType        = command.ShapeType,
+                HitPayload       = command.HitPayload,
+                Tracking         = TrackingComponentFor(command.Tracking),
+                Render           = baseRender,
+                Count            = command.Count,
             };
+
+            if (command.Count == 1)
+            {
+                request.Velocity = new float2(command.Direction.x, command.Direction.y) * command.Speed;
+            }
+            else
+            {
+                request.BaseDirection = new float2(command.Direction.x, command.Direction.y);
+                request.Speed         = command.Speed;
+                request.SpreadDegrees = command.SpreadDegrees;
+                request.JitterDegrees = command.JitterDegrees;
+                request.JitterSeed    = (uint)projectileId * 2654435761u;
+            }
 
             if (command.ChildSpawn.Enabled)
             {
@@ -481,7 +498,7 @@ namespace PlayGround.System.Projectile
                 VisualScale = new float2(resources.VisualScale.x, resources.VisualScale.y),
                 VisualRotationSin = resources.VisualRotationSin,
                 VisualRotationCos = resources.VisualRotationCos,
-                RenderZ = ProjectileRenderZ - (projectileId % ProjectileZSlots) * ProjectileZStep
+                RenderZ = ProjectileRenderZ - (projectileId % ProjectileRenderZSlots) * ProjectileRenderZStep
             };
         }
 
