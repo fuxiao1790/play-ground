@@ -839,8 +839,8 @@ MonoBehaviour:
   baseOrthographicSize: 9
   initialZoom: 1.5
   zoomStep: 0.1
-  zoomMin: 0.25
-  zoomMax: 4
+  zoomMin: 1
+  zoomMax: 2
   zoomSpeed: 0.2
   releaseLimits:
     serializedVersion: 2
@@ -917,12 +917,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1593919878}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 2000001001}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1593919883
 MonoBehaviour:
@@ -1154,7 +1154,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 2, y: 2, z: 1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2000001011}
@@ -1166,6 +1166,7 @@ Transform:
   - {fileID: 2000001021}
   - {fileID: 2000001031}
   - {fileID: 1401655304}
+  - {fileID: 1593919882}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2000001003
@@ -1465,7 +1466,6 @@ SceneRoots:
   - {fileID: 310291309}
   - {fileID: 135829713}
   - {fileID: 2000001001}
-  - {fileID: 1593919882}
   - {fileID: 830174275}
   - {fileID: 998230101}
   - {fileID: 1807457117}

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: BasicAoeSkill
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.AoeSkill
   definition:
-    baseAreaSize: 7.5
+    baseAreaSize: 4.5
     damage: 18
     count: 1
     directDamageEnabled: 1

@@ -6,8 +6,6 @@ namespace PlayGround.CameraSystem
     [RequireComponent(typeof(Camera))]
     public sealed class GameplayCamera : MonoBehaviour
     {
-        private const float DebugLimitExtent = 10000000f;
-
         [SerializeField] private Transform target;
         [SerializeField, Range(0f, 1f)] private float followSpeed = 1f;
         [SerializeField, Range(0f, 1f)] private float mouseBias = 0.3f;
@@ -21,7 +19,6 @@ namespace PlayGround.CameraSystem
         [SerializeField, Range(0f, 1f)] private float zoomSpeed = 0.2f;
         [SerializeField] private Rect releaseLimits = new(-12f, -7f, 24f, 14f);
         [SerializeField] private bool useReleaseLimits = true;
-        [SerializeField] private bool allowBeyondLimitsInDebug = true;
 
         private Camera attachedCamera;
         private float currentZoom;
@@ -149,7 +146,7 @@ namespace PlayGround.CameraSystem
                 return position;
             }
 
-            Rect limits = EffectiveLimits();
+            Rect limits = releaseLimits;
             float halfHeight = attachedCamera.orthographicSize;
             float halfWidth = halfHeight * attachedCamera.aspect;
             float minX = limits.xMin + halfWidth;
@@ -160,16 +157,6 @@ namespace PlayGround.CameraSystem
             float x = minX <= maxX ? Mathf.Clamp(position.x, minX, maxX) : limits.center.x;
             float y = minY <= maxY ? Mathf.Clamp(position.y, minY, maxY) : limits.center.y;
             return new Vector2(x, y);
-        }
-
-        private Rect EffectiveLimits()
-        {
-            if (allowBeyondLimitsInDebug && Debug.isDebugBuild)
-            {
-                return new Rect(-DebugLimitExtent, -DebugLimitExtent, DebugLimitExtent * 2f, DebugLimitExtent * 2f);
-            }
-
-            return releaseLimits;
         }
 
         private static float EllipseDistance(Vector2 offset, Vector2 halfExtents)

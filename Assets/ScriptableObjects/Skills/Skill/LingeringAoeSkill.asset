@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: LingeringAoeSkill
   m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:LingeringAoeSkill
   definition:
-    baseAreaSize: 6
-    damage: 1
+    baseAreaSize: 3.5
+    damage: 4
     count: 1
     directDamageEnabled: 1
     prefab: {fileID: 1037899157007725660, guid: e4b99e89657a29846b967bfd8cb4e1ee, type: 3}
     lifetimeSeconds: 4.5
-    tickIntervalSeconds: 0.15
+    tickIntervalSeconds: 0.2
