@@ -15,7 +15,7 @@ MonoBehaviour:
   definition:
     prefab: {fileID: 1001001001001001004, guid: 7fc20002aafc4694b8063a42dc613059, type: 3}
     speed: 10
-    lifetime: 3
+    lifetime: 1.5
     damage: 10
     count: 1
     spreadDegrees: 0

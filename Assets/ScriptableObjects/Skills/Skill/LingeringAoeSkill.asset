@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: LingeringAoeSkill
   m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:LingeringAoeSkill
   definition:
-    baseAreaSize: 3.5
+    baseAreaSize: 2.5
     damage: 4
     count: 1
     directDamageEnabled: 1
