@@ -10,14 +10,13 @@ namespace PlayGround.System.Common
     {
         private static readonly ProfilerMarker Marker = new("CombatHitDispatchSystem");
         private static readonly ProfilerMarker<int> ReplayMarker =
-            new("CombatHitReplay.Replay", "Hit Events");
+            new("CombatHitReplay.Dispatch", "Combat Events");
 
         private readonly List<ScopeHandler> handlers = new();
 
         internal void Register(Entity scopeEntity,
-            Action<DynamicBuffer<CombatHitElement>,
-                   DynamicBuffer<CombatHitPayloadElement>,
-                   DynamicBuffer<CombatHitEffectElement>> drain)
+            Action<DynamicBuffer<CombatDamageElement>,
+                   DynamicBuffer<CombatSpawnElement>> drain)
         {
             handlers.Add(new ScopeHandler { ScopeEntity = scopeEntity, Drain = drain });
         }
@@ -36,19 +35,22 @@ namespace PlayGround.System.Common
             CompleteDependency();
             using (Marker.Auto())
             {
-                int totalHits = 0;
+                int totalEvents = 0;
                 for (int i = 0; i < handlers.Count; i++)
-                    totalHits += EntityManager.GetBuffer<CombatHitElement>(handlers[i].ScopeEntity).Length;
+                {
+                    ScopeHandler handler = handlers[i];
+                    totalEvents += EntityManager.GetBuffer<CombatDamageElement>(handler.ScopeEntity).Length;
+                    totalEvents += EntityManager.GetBuffer<CombatSpawnElement>(handler.ScopeEntity).Length;
+                }
 
-                using (ReplayMarker.Auto(totalHits))
+                using (ReplayMarker.Auto(totalEvents))
                 {
                     for (int i = 0; i < handlers.Count; i++)
                     {
                         ScopeHandler h = handlers[i];
                         h.Drain(
-                            EntityManager.GetBuffer<CombatHitElement>(h.ScopeEntity),
-                            EntityManager.GetBuffer<CombatHitPayloadElement>(h.ScopeEntity),
-                            EntityManager.GetBuffer<CombatHitEffectElement>(h.ScopeEntity));
+                            EntityManager.GetBuffer<CombatDamageElement>(h.ScopeEntity),
+                            EntityManager.GetBuffer<CombatSpawnElement>(h.ScopeEntity));
                     }
                 }
             }
@@ -57,9 +59,8 @@ namespace PlayGround.System.Common
         private struct ScopeHandler
         {
             public Entity ScopeEntity;
-            public Action<DynamicBuffer<CombatHitElement>,
-                          DynamicBuffer<CombatHitPayloadElement>,
-                          DynamicBuffer<CombatHitEffectElement>> Drain;
+            public Action<DynamicBuffer<CombatDamageElement>,
+                          DynamicBuffer<CombatSpawnElement>> Drain;
         }
     }
 }

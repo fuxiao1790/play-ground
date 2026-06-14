@@ -8,67 +8,32 @@ namespace PlayGround.System.Common
     [BurstCompile]
     public struct CombatHitFlushJob : IJob
     {
-        public NativeQueue<CombatPendingHit> PendingHits;
-        public BufferLookup<CombatHitElement> Hits;
-        public BufferLookup<CombatHitPayloadElement> Payloads;
-        public BufferLookup<CombatHitEffectElement> Effects;
+        public NativeQueue<CombatPendingDamage> PendingDamage;
+        public NativeQueue<CombatPendingSpawn> PendingSpawns;
+        public BufferLookup<CombatDamageElement> Damage;
+        public BufferLookup<CombatSpawnElement> Spawns;
 
         public void Execute()
         {
-            int count = PendingHits.Count;
-            if (count == 0) return;
-
-            // Group into buckets single-threaded — no parallel writer contention here.
-            var grouped = new NativeParallelMultiHashMap<CombatHitBucketKey, CombatPendingHit>(count, Allocator.Temp);
-            while (PendingHits.TryDequeue(out CombatPendingHit pending))
-                grouped.Add(new CombatHitBucketKey(pending.Scope, pending.TargetId), pending);
-
-            NativeArray<CombatHitBucketKey> allKeys = grouped.GetKeyArray(Allocator.Temp);
-            var seen = new NativeHashSet<CombatHitBucketKey>(allKeys.Length, Allocator.Temp);
-
-            for (int k = 0; k < allKeys.Length; k++)
+            while (PendingDamage.TryDequeue(out CombatPendingDamage pendingDamage))
             {
-                CombatHitBucketKey key = allKeys[k];
-                if (!seen.Add(key)) continue;
-                if (key.Scope == Entity.Null || !Hits.HasBuffer(key.Scope)) continue;
-
-                if (!grouped.TryGetFirstValue(key, out CombatPendingHit pending, out var it)) continue;
-                do { WriteHit(key.Scope, pending); }
-                while (grouped.TryGetNextValue(out pending, ref it));
+                WriteDamage(pendingDamage);
             }
 
-            seen.Dispose();
-            allKeys.Dispose();
-            grouped.Dispose();
+            while (PendingSpawns.TryDequeue(out CombatPendingSpawn pendingSpawn))
+            {
+                WriteSpawn(pendingSpawn);
+            }
         }
 
-        private void WriteHit(Entity scope, CombatPendingHit pending)
+        private void WriteDamage(CombatPendingDamage pending)
         {
-            int payloadIndex = -1;
-            if (pending.StackEffect.Enabled)
+            if (pending.Scope == Entity.Null || !Damage.HasBuffer(pending.Scope))
             {
-                DynamicBuffer<CombatHitPayloadElement> payloadBuf = Payloads[scope];
-                payloadIndex = payloadBuf.Length;
-                payloadBuf.Add(new CombatHitPayloadElement
-                {
-                    StackEffect = pending.StackEffect
-                });
+                return;
             }
 
-            int effectIndex = -1;
-            if (pending.ImpactAoe.Enabled || pending.ImpactProjectile.Enabled || pending.ProjectileBurst.Enabled)
-            {
-                DynamicBuffer<CombatHitEffectElement> effectBuf = Effects[scope];
-                effectIndex = effectBuf.Length;
-                effectBuf.Add(new CombatHitEffectElement
-                {
-                    ImpactAoe = pending.ImpactAoe,
-                    ImpactProjectile = pending.ImpactProjectile,
-                    ProjectileBurst = pending.ProjectileBurst
-                });
-            }
-
-            Hits[scope].Add(new CombatHitElement
+            Damage[pending.Scope].Add(new CombatDamageElement
             {
                 SourceId = pending.SourceId,
                 TypeId = pending.TypeId,
@@ -80,9 +45,29 @@ namespace PlayGround.System.Common
                 CritMultiplier = pending.CritMultiplier,
                 DirectDamageEnabled = pending.DirectDamageEnabled,
                 SourceNodeId = pending.SourceNodeId,
-                Order = pending.Order,
-                PayloadIndex = payloadIndex,
-                EffectIndex = effectIndex
+                StackEffect = pending.StackEffect
+            });
+        }
+
+        private void WriteSpawn(CombatPendingSpawn pending)
+        {
+            if (pending.Scope == Entity.Null || !Spawns.HasBuffer(pending.Scope))
+            {
+                return;
+            }
+
+            Spawns[pending.Scope].Add(new CombatSpawnElement
+            {
+                SourceId = pending.SourceId,
+                TypeId = pending.TypeId,
+                TargetId = pending.TargetId,
+                Position = pending.Position,
+                TargetPosition = pending.TargetPosition,
+                Kind = pending.Kind,
+                SourceNodeId = pending.SourceNodeId,
+                ImpactAoe = pending.ImpactAoe,
+                ImpactProjectile = pending.ImpactProjectile,
+                ProjectileBurst = pending.ProjectileBurst
             });
         }
     }

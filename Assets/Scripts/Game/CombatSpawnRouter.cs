@@ -6,8 +6,8 @@ using UnityEngine;
 
 namespace PlayGround.Game
 {
-    // Consumes internal HitEffect streams only. Do not route combat spawns from
-    // scene-facing Hit events or expose CombatHitEffectElement to scene listeners.
+    // Consumes internal HitSpawn streams only. Do not route combat spawns from
+    // scene-facing Hit events or expose CombatSpawnElement to scene listeners.
     public sealed class CombatSpawnRouter
     {
         private ProjectileRoot playerProjectileRoot;
@@ -30,22 +30,22 @@ namespace PlayGround.Game
 
             if (playerProjectileRoot != null)
             {
-                playerProjectileRoot.HitEffect += OnPlayerProjectileHitEffect;
+                playerProjectileRoot.HitSpawn += OnPlayerProjectileHitSpawn;
             }
 
             if (mobProjectileRoot != null)
             {
-                mobProjectileRoot.HitEffect += OnMobProjectileHitEffect;
+                mobProjectileRoot.HitSpawn += OnMobProjectileHitSpawn;
             }
 
             if (playerAoeRoot != null)
             {
-                playerAoeRoot.HitEffect += OnPlayerAoeHitEffect;
+                playerAoeRoot.HitSpawn += OnPlayerAoeHitSpawn;
             }
 
             if (mobAoeRoot != null)
             {
-                mobAoeRoot.HitEffect += OnMobAoeHitEffect;
+                mobAoeRoot.HitSpawn += OnMobAoeHitSpawn;
             }
         }
 
@@ -53,22 +53,22 @@ namespace PlayGround.Game
         {
             if (playerProjectileRoot != null)
             {
-                playerProjectileRoot.HitEffect -= OnPlayerProjectileHitEffect;
+                playerProjectileRoot.HitSpawn -= OnPlayerProjectileHitSpawn;
             }
 
             if (mobProjectileRoot != null)
             {
-                mobProjectileRoot.HitEffect -= OnMobProjectileHitEffect;
+                mobProjectileRoot.HitSpawn -= OnMobProjectileHitSpawn;
             }
 
             if (playerAoeRoot != null)
             {
-                playerAoeRoot.HitEffect -= OnPlayerAoeHitEffect;
+                playerAoeRoot.HitSpawn -= OnPlayerAoeHitSpawn;
             }
 
             if (mobAoeRoot != null)
             {
-                mobAoeRoot.HitEffect -= OnMobAoeHitEffect;
+                mobAoeRoot.HitSpawn -= OnMobAoeHitSpawn;
             }
 
             playerProjectileRoot = null;
@@ -77,31 +77,31 @@ namespace PlayGround.Game
             mobAoeRoot = null;
         }
 
-        private void OnPlayerProjectileHitEffect(in CombatHitContext context, in CombatHitEffectElement effect)
+        private void OnPlayerProjectileHitSpawn(in CombatHitContext context, in CombatSpawnElement spawn)
         {
-            SpawnImpactAoe(context, in effect, playerAoeRoot);
-            SpawnImpactProjectiles(context, in effect, playerProjectileRoot);
+            SpawnImpactAoe(context, in spawn, playerAoeRoot);
+            SpawnImpactProjectiles(context, in spawn, playerProjectileRoot);
         }
 
-        private void OnMobProjectileHitEffect(in CombatHitContext context, in CombatHitEffectElement effect)
+        private void OnMobProjectileHitSpawn(in CombatHitContext context, in CombatSpawnElement spawn)
         {
-            SpawnImpactAoe(context, in effect, mobAoeRoot);
-            SpawnImpactProjectiles(context, in effect, mobProjectileRoot);
+            SpawnImpactAoe(context, in spawn, mobAoeRoot);
+            SpawnImpactProjectiles(context, in spawn, mobProjectileRoot);
         }
 
-        private void OnPlayerAoeHitEffect(in CombatHitContext context, in CombatHitEffectElement effect)
+        private void OnPlayerAoeHitSpawn(in CombatHitContext context, in CombatSpawnElement spawn)
         {
-            SpawnProjectileBurst(context, in effect, playerProjectileRoot);
+            SpawnProjectileBurst(context, in spawn, playerProjectileRoot);
         }
 
-        private void OnMobAoeHitEffect(in CombatHitContext context, in CombatHitEffectElement effect)
+        private void OnMobAoeHitSpawn(in CombatHitContext context, in CombatSpawnElement spawn)
         {
-            SpawnProjectileBurst(context, in effect, mobProjectileRoot);
+            SpawnProjectileBurst(context, in spawn, mobProjectileRoot);
         }
 
-        private static void SpawnImpactAoe(in CombatHitContext context, in CombatHitEffectElement effect, AoeRoot destination)
+        private static void SpawnImpactAoe(in CombatHitContext context, in CombatSpawnElement spawn, AoeRoot destination)
         {
-            ProjectileImpactAoeSnapshot impact = effect.ImpactAoe;
+            ProjectileImpactAoeSnapshot impact = spawn.ImpactAoe;
             if (destination == null || !impact.Enabled)
             {
                 return;
@@ -121,22 +121,19 @@ namespace PlayGround.Game
                 sourceNodeId: context.SourceNodeId));
         }
 
-        private static void SpawnImpactProjectiles(in CombatHitContext context, in CombatHitEffectElement effect, ProjectileRoot destination)
+        private static void SpawnImpactProjectiles(in CombatHitContext context, in CombatSpawnElement spawn, ProjectileRoot destination)
         {
-            ProjectileImpactProjectileSnapshot burst = effect.ImpactProjectile;
+            ProjectileImpactProjectileSnapshot burst = spawn.ImpactProjectile;
             if (destination == null || !burst.Enabled)
             {
                 return;
             }
 
             Vector2 baseDirection = Vector2.right;
-            if (context.Target != null)
+            Vector2 toTarget = new Vector2(spawn.TargetPosition.x, spawn.TargetPosition.y) - context.Position;
+            if (toTarget.sqrMagnitude > 0.0001f)
             {
-                Vector2 toTarget = context.Target.CombatTargetPosition - context.Position;
-                if (toTarget.sqrMagnitude > 0.0001f)
-                {
-                    baseDirection = -toTarget.normalized;
-                }
+                baseDirection = -toTarget.normalized;
             }
 
             int count = Mathf.Max(1, burst.Count);
@@ -168,22 +165,19 @@ namespace PlayGround.Game
             }
         }
 
-        private static void SpawnProjectileBurst(in CombatHitContext context, in CombatHitEffectElement effect, ProjectileRoot destination)
+        private static void SpawnProjectileBurst(in CombatHitContext context, in CombatSpawnElement spawn, ProjectileRoot destination)
         {
-            AoeProjectileBurstSnapshot burst = effect.ProjectileBurst;
+            AoeProjectileBurstSnapshot burst = spawn.ProjectileBurst;
             if (destination == null || !burst.Enabled)
             {
                 return;
             }
 
             Vector2 baseDirection = Vector2.right;
-            if (context.Target != null)
+            Vector2 toTarget = new Vector2(spawn.TargetPosition.x, spawn.TargetPosition.y) - context.Position;
+            if (toTarget.sqrMagnitude > 0.0001f)
             {
-                Vector2 toTarget = context.Target.CombatTargetPosition - context.Position;
-                if (toTarget.sqrMagnitude > 0.0001f)
-                {
-                    baseDirection = toTarget.normalized;
-                }
+                baseDirection = toTarget.normalized;
             }
 
             int count = Mathf.Max(1, burst.Count);

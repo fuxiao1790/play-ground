@@ -254,21 +254,16 @@ The current implementation uses Entities/DOTS in the shared default world:
   `AoeSpawnRequestElement` → `CombatHitComponent` on the entity; no per-AOE
   dictionary lookup is needed at replay time.
 - `AoeCollisionSystem` runs target-mask filtering and shape collision against
-  `CombatTargetElement` snapshots, reads crit and source node data directly from
-  `CombatHitComponent`, emits `CombatPendingHit` via thread-local `NativeQueue`
-  (no cross-thread contention), and adds per-target hit gates for lingering AOEs.
-  `CombatHitFlushJob` groups pending hits by `CombatHitBucketKey(scope, targetId)`
-  single-threaded and writes contiguous groups into the scoped `CombatHitElement`
-  buffer. Scene replay uses the shared `Hit` event (`CombatHitBatchHandler`), which
-  fires once per unique target per frame with all hits for that target batched into
-  one `IReadOnlyList<CombatHitData>`; generic stack/status replay data stays in
-  `CombatHitPayloadElement`; internal projectile-burst spawn effects stay in
-  `CombatHitEffectElement` and route through `HitEffect`. Do not expose
-  `CombatHitPayloadElement` or `CombatHitEffectElement` to external scene
-  listeners.
+  `CombatTargetElement` snapshots, reads crit and source node data from
+  `AoeHitSpawnComponent`, and emits separate `CombatPendingDamage` and
+  `CombatPendingSpawn` queues. `CombatHitFlushJob` drains those queues into scoped
+  `CombatDamageElement` and `CombatSpawnElement` buffers. Scene replay uses the
+  shared `Hit` event (`CombatHitBatchHandler`) for damage/status data; internal
+  projectile-burst spawn effects route through `HitSpawn`. Do not expose
+  `CombatSpawnElement` to external scene listeners.
 - `AoeContactGateSystem` decrements lingering repeat-hit gates and compacts
   expired entries.
-- `AoeSimulationSystem` clears scoped `CombatHitElement` hit buffers and expires lingering AOEs.
+- `AoeSimulationSystem` clears scoped damage/spawn buffers and expires lingering AOEs.
 - `CombatRenderPrepareSystem` writes render matrices for active AOEs, and
   `AoeRoot` submits GPU-instanced batches.
 - Trigger-link snapshot type `AoeProjectileBurstSnapshot` lives in

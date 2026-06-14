@@ -31,9 +31,8 @@ namespace PlayGround.System.Projectile
             NativeArray<Entity> scopes = scopeQuery.ToEntityArray(Allocator.Temp);
             for (int i = 0; i < scopes.Length; i++)
             {
-                state.EntityManager.GetBuffer<CombatHitElement>(scopes[i]).Clear();
-                state.EntityManager.GetBuffer<CombatHitPayloadElement>(scopes[i]).Clear();
-                state.EntityManager.GetBuffer<CombatHitEffectElement>(scopes[i]).Clear();
+                state.EntityManager.GetBuffer<CombatDamageElement>(scopes[i]).Clear();
+                state.EntityManager.GetBuffer<CombatSpawnElement>(scopes[i]).Clear();
             }
 
             scopes.Dispose();

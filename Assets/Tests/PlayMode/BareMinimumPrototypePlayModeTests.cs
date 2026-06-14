@@ -388,9 +388,9 @@ namespace PlayGround.Tests.PlayMode
             mob.Register(projectileRoot.TargetRegistry);
             mob.Register(aoeRoot.TargetRegistry);
             bool spawnedProjectileCarriedImpactAoe = true;
-            projectileRoot.HitEffect += (in CombatHitContext context, in CombatHitEffectElement effect) =>
+            projectileRoot.HitSpawn += (in CombatHitContext context, in CombatSpawnElement spawn) =>
             {
-                spawnedProjectileCarriedImpactAoe = effect.ImpactAoe.Enabled;
+                spawnedProjectileCarriedImpactAoe = spawn.ImpactAoe.Enabled;
             };
 
             var burst = new AoeProjectileBurstSnapshot(

@@ -43,10 +43,10 @@ namespace PlayGround.System.Projectile
         private bool ecsHandlesCreated;
         private bool combatRuntimeManaged;
 
-        // Hit is scene-facing. HitEffect is internal combat routing data for
+        // Hit is scene-facing. HitSpawn is internal combat routing data for
         // spawn-on-hit effects and must not be treated as external gameplay API.
         public event CombatHitBatchHandler Hit;
-        public event CombatHitEffectHandler HitEffect;
+        public event CombatSpawnHandler HitSpawn;
 
         public CombatTargetRegistry<ICombatTarget> TargetRegistry => targetRegistry;
         public int TargetMask => targetLayers.value != 0 ? targetLayers.value : ~0;
@@ -266,9 +266,8 @@ namespace PlayGround.System.Projectile
             entityManager = entityWorld.EntityManager;
             scopeEntity = entityManager.CreateEntity(typeof(ProjectileScope));
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
-            entityManager.AddBuffer<CombatHitElement>(scopeEntity);
-            entityManager.AddBuffer<CombatHitPayloadElement>(scopeEntity);
-            entityManager.AddBuffer<CombatHitEffectElement>(scopeEntity);
+            entityManager.AddBuffer<CombatDamageElement>(scopeEntity);
+            entityManager.AddBuffer<CombatSpawnElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileSpawnRequestElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
             entityManager.AddComponentObject(scopeEntity, new CombatTargetSyncSource { Sync = combatRuntimeManaged ? null : targetSyncCallback });
@@ -282,15 +281,15 @@ namespace PlayGround.System.Projectile
                 BoundsHalfExtent = batchBoundsHalfExtent
             });
             entityWorld.GetExistingSystemManaged<CombatHitDispatchSystem>()?.Register(
-                scopeEntity, (hits, payloads, effects) =>
+                scopeEntity, (damage, spawns) =>
                 {
                     var targets = combatRuntimeManaged && runtimeTargetsById != null
                         ? runtimeTargetsById
                         : (IReadOnlyDictionary<int, ICombatTarget>)targetSync.TargetsById;
                     var adapter = new ProjectileHitReplayAdapter<ICombatTarget>
-                        { HitHandler = Hit, EffectHandler = HitEffect };
+                        { HitHandler = Hit, SpawnHandler = HitSpawn };
                     CombatHitReplay.ReplayAndClear<ICombatTarget, ProjectileHitReplayAdapter<ICombatTarget>>(
-                        hits, payloads, effects, targets, ref adapter);
+                        damage, spawns, targets, ref adapter);
                 });
             ecsHandlesCreated = true;
         }
@@ -346,25 +345,21 @@ namespace PlayGround.System.Projectile
             where TTarget : class, ICombatTarget
         {
             public CombatHitBatchHandler HitHandler;
-            public CombatHitEffectHandler EffectHandler;
+            public CombatSpawnHandler SpawnHandler;
 
-            public DamageSnapshot RollDamage(in CombatHitElement hit)
+            public DamageSnapshot RollDamage(in CombatDamageElement hit)
             {
                 bool isCrit = UnityEngine.Random.value < hit.CritChance;
                 float rolledAmount = isCrit ? hit.DamageAmount * hit.CritMultiplier : hit.DamageAmount;
                 return new DamageSnapshot(Mathf.Max(0f, rolledAmount), isCrit);
             }
 
-            public void ReplayEffect(
-                in CombatHitElement hit,
-                in CombatHitEffectElement effect,
-                TTarget target,
-                in DamageSnapshot damage)
+            public void ReplaySpawn(in CombatSpawnElement spawn, TTarget target)
             {
-                var pos = new Vector2(hit.Position.x, hit.Position.y);
-                var ctx = new CombatHitContext(hit.Kind, hit.SourceId, hit.TypeId, hit.TargetId,
-                    pos, damage, target as ICombatTarget, hit.SourceNodeId);
-                EffectHandler?.Invoke(in ctx, in effect);
+                var pos = new Vector2(spawn.Position.x, spawn.Position.y);
+                var ctx = new CombatHitContext(spawn.Kind, spawn.SourceId, spawn.TypeId, spawn.TargetId,
+                    pos, default, target as ICombatTarget, spawn.SourceNodeId);
+                SpawnHandler?.Invoke(in ctx, in spawn);
             }
 
             public void ReplayBatch(IReadOnlyList<CombatHitData> data, TTarget target)

@@ -83,7 +83,7 @@ General rule:
 - `ProjectileChildSpawnSystem`: owns timed child projectile spawn request events
 - `ProjectileLifetimeSystem`: owns lifetime countdown and disabling expired projectile entities
 - `ProjectileContactGateSystem`: owns repeat-hit gate cooldown expiry
-- `ProjectileCollisionSystem`: owns projectile target mask filtering, baked-shape hit checks, pierce handling, ordered hit event output, and hit-despawn deactivation
+- `ProjectileCollisionSystem`: owns projectile target mask filtering, baked-shape hit checks, pierce handling, damage/spawn event output, and hit-despawn deactivation
 - `ProjectileRoot`: owns scoped projectile bridge cleanup and destroys scoped entities only when the root tears down
 - `CombatCollisionMath`: owns pure circle, rectangle, and capsule bounds and
   narrow-phase math; projectile code reaches it through a projectile
@@ -91,7 +91,7 @@ General rule:
 - `AoeRoot`: owns one scoped AOE target flow, AOE template baking, target sync, optional effect lifetime, hit replay, and spawn requests
 - `AoeSimulationSystem`: clears per-scope AOE hit buffers at the start of the simulation stage
 - `AoeSpawnSystem`: drains scoped AOE spawn request buffers, reuses disabled AOE entities by scope/type, and cold-creates only when no reusable entity exists
-- `AoeCollisionSystem`: owns AOE target mask filtering, baked-shape hit checks, hit event output, and pulse deactivation
+- `AoeCollisionSystem`: owns AOE target mask filtering, baked-shape hit checks, damage/spawn event output, and pulse deactivation
 - `CombatRenderPrepareSystem`: prepares shared batched render matrices for
   active projectile and AOE entities
 - `CombatVfxRoot`: scene-object MonoBehaviour owning one `CombatVfxDispatcher`
@@ -154,8 +154,8 @@ contracts. Scene listeners receive `CombatHitContext` through root `Hit` events;
 that context may include source id, target id, rolled damage, position, kind, and
 target reference, but it must not carry internal spawn/effect payloads. Follow-up
 spawns such as impact AOEs, impact projectiles, and AOE projectile bursts travel
-through internal `HitEffect` routing with `CombatHitEffectElement`. Do not expose
-`CombatHitEffectElement`, `CombatHitPayloadElement`, or future core-only ECS
+through internal `HitSpawn` routing with `CombatSpawnElement`. Do not expose
+`CombatSpawnElement` or future core-only ECS
 payloads through scene hit APIs.
 
 The bridge is snapshots and callbacks:

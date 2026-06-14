@@ -417,7 +417,10 @@ namespace PlayGround.System.Projectile
         }
 
         private static bool NeedsCollision(in ProjectileHitPayload payload) =>
-            payload.DirectDamageEnabled || payload.StackEffect.Enabled;
+            payload.DirectDamageEnabled
+            || payload.StackEffect.Enabled
+            || payload.ImpactAoe.Enabled
+            || payload.ImpactProjectile.Enabled;
 
         [BurstCompile]
         private struct ProjectileSpawnJob : IJobChunk

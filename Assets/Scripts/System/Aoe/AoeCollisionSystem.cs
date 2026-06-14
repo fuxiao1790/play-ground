@@ -73,23 +73,25 @@ namespace PlayGround.System.Aoe
                 }
             }
 
-            var pendingHits = new NativeQueue<CombatPendingHit>(Allocator.TempJob);
+            var pendingDamage = new NativeQueue<CombatPendingDamage>(Allocator.TempJob);
+            var pendingSpawns = new NativeQueue<CombatPendingSpawn>(Allocator.TempJob);
             var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
             var job = new AoeCollisionJob
             {
                 Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
                 OccupiedTargetCells = occupiedTargetCells,
-                PendingHits = pendingHits.AsParallelWriter(),
+                PendingDamage = pendingDamage.AsParallelWriter(),
+                PendingSpawns = pendingSpawns.AsParallelWriter(),
                 VfxPending = vfxPending.AsParallelWriter()
             };
 
             JobHandle collisionHandle = job.ScheduleParallel(state.Dependency);
             JobHandle hitFlushHandle = new CombatHitFlushJob
             {
-                PendingHits = pendingHits,
-                Hits = SystemAPI.GetBufferLookup<CombatHitElement>(),
-                Payloads = SystemAPI.GetBufferLookup<CombatHitPayloadElement>(),
-                Effects = SystemAPI.GetBufferLookup<CombatHitEffectElement>()
+                PendingDamage = pendingDamage,
+                PendingSpawns = pendingSpawns,
+                Damage = SystemAPI.GetBufferLookup<CombatDamageElement>(),
+                Spawns = SystemAPI.GetBufferLookup<CombatSpawnElement>()
             }.Schedule(collisionHandle);
             JobHandle vfxFlushHandle = new VfxFlushJob
             {
@@ -97,10 +99,11 @@ namespace PlayGround.System.Aoe
                 VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
             }.Schedule(collisionHandle);
 
-            JobHandle disposeHitsHandle = pendingHits.Dispose(hitFlushHandle);
+            JobHandle disposeDamageHandle = pendingDamage.Dispose(hitFlushHandle);
+            JobHandle disposeSpawnsHandle = pendingSpawns.Dispose(hitFlushHandle);
             JobHandle disposeVfxHandle = vfxPending.Dispose(vfxFlushHandle);
             state.Dependency = occupiedTargetCells.Dispose(
-                JobHandle.CombineDependencies(disposeHitsHandle, disposeVfxHandle));
+                JobHandle.CombineDependencies(disposeDamageHandle, disposeSpawnsHandle, disposeVfxHandle));
         }
 
         [BurstCompile]
@@ -109,7 +112,8 @@ namespace PlayGround.System.Aoe
         {
             [ReadOnly] public BufferLookup<CombatTargetElement> Targets;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> OccupiedTargetCells;
-            public NativeQueue<CombatPendingHit>.ParallelWriter PendingHits;
+            public NativeQueue<CombatPendingDamage>.ParallelWriter PendingDamage;
+            public NativeQueue<CombatPendingSpawn>.ParallelWriter PendingSpawns;
             public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
 
             private void Execute(
@@ -196,22 +200,41 @@ namespace PlayGround.System.Aoe
                 AoeAreaComponent area,
                 CombatTargetElement target)
             {
-                PendingHits.Enqueue(new CombatPendingHit
+                if (HasDamageEvent(hitSpawn))
                 {
-                    Scope = identity.Scope,
-                    SourceId = identity.AoeId,
-                    TypeId = identity.TypeId,
-                    TargetId = target.TargetId,
-                    Position = kinematics.Position,
-                    Kind = CombatHitKind.Aoe,
-                    DamageAmount = hitSpawn.HitPayload.DamageAmount,
-                    CritChance = hitSpawn.HitPayload.CritChance,
-                    CritMultiplier = hitSpawn.HitPayload.CritMultiplier,
-                    DirectDamageEnabled = hitSpawn.HitPayload.DirectDamageEnabled,
-                    SourceNodeId = hitSpawn.HitPayload.SourceNodeId,
-                    ProjectileBurst = hitSpawn.ProjectileBurst,
-                    StackEffect = hitSpawn.HitPayload.StackEffect
-                });
+                    PendingDamage.Enqueue(new CombatPendingDamage
+                    {
+                        Scope = identity.Scope,
+                        SourceId = identity.AoeId,
+                        TypeId = identity.TypeId,
+                        TargetId = target.TargetId,
+                        Position = kinematics.Position,
+                        Kind = CombatHitKind.Aoe,
+                        DamageAmount = hitSpawn.HitPayload.DamageAmount,
+                        CritChance = hitSpawn.HitPayload.CritChance,
+                        CritMultiplier = hitSpawn.HitPayload.CritMultiplier,
+                        DirectDamageEnabled = hitSpawn.HitPayload.DirectDamageEnabled,
+                        SourceNodeId = hitSpawn.HitPayload.SourceNodeId,
+                        StackEffect = hitSpawn.HitPayload.StackEffect
+                    });
+                }
+
+                if (HasSpawnEvent(hitSpawn))
+                {
+                    PendingSpawns.Enqueue(new CombatPendingSpawn
+                    {
+                        Scope = identity.Scope,
+                        SourceId = identity.AoeId,
+                        TypeId = identity.TypeId,
+                        TargetId = target.TargetId,
+                        Position = kinematics.Position,
+                        TargetPosition = target.Position,
+                        Kind = CombatHitKind.Aoe,
+                        SourceNodeId = hitSpawn.HitPayload.SourceNodeId,
+                        ProjectileBurst = hitSpawn.ProjectileBurst
+                    });
+                }
+
                 VfxPending.Enqueue(new VfxPendingSpawn
                 {
                     Scope = identity.Scope,
@@ -262,6 +285,12 @@ namespace PlayGround.System.Aoe
 
                 return -1;
             }
+
+            private static bool HasDamageEvent(in AoeHitSpawnComponent hitSpawn) =>
+                hitSpawn.HitPayload.DirectDamageEnabled || hitSpawn.HitPayload.StackEffect.Enabled;
+
+            private static bool HasSpawnEvent(in AoeHitSpawnComponent hitSpawn) =>
+                hitSpawn.ProjectileBurst.Enabled;
         }
 
         private static int2 MinCell(float2 min)

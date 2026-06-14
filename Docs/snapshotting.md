@@ -2,6 +2,10 @@
 
 Status: final decision for Phase 3 (permanent doc)
 
+Current implementation note: hit output is split into flattened
+`CombatDamageElement` and `CombatSpawnElement` buffers. Older diagram text in
+this doc may still use the previous `CombatHitElement` side-buffer names.
+
 Summary
 - Cross-domain hit-spawn behavior (projectile -> AOE, AOE -> projectile, domain-to-domain effects) must be safe, deterministic, and compatible with Burst/Jobs-driven ECS simulation. To ensure lifetime/version safety and simple, fast collision-time code, we use fat fire-time snapshot payloads authored at the moment an attack is fired. This document records the decision, rationale, data model, implementation guidance, and test requirements.
 
@@ -88,9 +92,8 @@ public struct AoeHitSpawnComponent : IComponentData
 ```
 
 Hit element buffers — written by flush jobs after collision:
-- CombatHitElement: core hit record per target; contains DamageAmount, CritChance, CritMultiplier, DirectDamageEnabled, SourceNodeId, plus PayloadIndex/EffectIndex for side-buffer indirection.
-- CombatHitPayloadElement: sparse side-buffer; written only when StackEffect.Enabled. Index stored in CombatHitElement.PayloadIndex (-1 = absent).
-- CombatHitEffectElement: sparse side-buffer; written only when ImpactAoe/ImpactProjectile/ProjectileBurst is enabled. Index stored in CombatHitElement.EffectIndex (-1 = absent).
+- CombatDamageElement: flattened damage/status record; contains DamageAmount, CritChance, CritMultiplier, DirectDamageEnabled, SourceNodeId, and StackEffect.
+- CombatSpawnElement: flattened internal spawn record; contains source/target ids, hit position, target snapshot position, and ImpactAoe/ImpactProjectile/ProjectileBurst payloads.
 
 Data flow — projectile hit:
 ```

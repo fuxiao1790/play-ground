@@ -128,8 +128,8 @@ of live trigger objects.
 Scene-facing hit APIs must stay free of internal ECS/core payloads. Use
 `CombatHitContext` for public root `Hit` events. Spawn-on-hit data, chained
 projectile/AOE definitions, VFX request payloads, and other core follow-up data
-must stay on internal buffers/events such as `CombatHitEffectElement` and
-`HitEffect`. If a scene listener needs more data, add a scene-safe field to
+must stay on internal buffers/events such as `CombatSpawnElement` and
+`HitSpawn`. If a scene listener needs more data, add a scene-safe field to
 `CombatHitContext` only after confirming it is not a core routing payload.
 
 ## ECS Lifecycle Comments

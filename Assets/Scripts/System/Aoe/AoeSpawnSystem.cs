@@ -354,7 +354,9 @@ namespace PlayGround.System.Aoe
         }
 
         private static bool NeedsCollision(AoeSpawnRequestElement request) =>
-            request.HitPayload.DirectDamageEnabled || request.HitPayload.StackEffect.Enabled;
+            request.HitPayload.DirectDamageEnabled
+            || request.HitPayload.StackEffect.Enabled
+            || request.ProjectileBurst.Enabled;
 
         private static AoeIdentityComponent IdentityFor(Entity scope, AoeSpawnRequestElement request) =>
             new AoeIdentityComponent { Scope = scope, AoeId = request.AoeId, TypeId = request.TypeId };

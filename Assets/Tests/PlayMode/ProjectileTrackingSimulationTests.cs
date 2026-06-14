@@ -29,9 +29,8 @@ namespace PlayGround.Tests.PlayMode
 
             scopeEntity = entityManager.CreateEntity(typeof(ProjectileScope));
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
-            entityManager.AddBuffer<CombatHitElement>(scopeEntity);
-            entityManager.AddBuffer<CombatHitPayloadElement>(scopeEntity);
-            entityManager.AddBuffer<CombatHitEffectElement>(scopeEntity);
+            entityManager.AddBuffer<CombatDamageElement>(scopeEntity);
+            entityManager.AddBuffer<CombatSpawnElement>(scopeEntity);
         }
 
         [TearDown]

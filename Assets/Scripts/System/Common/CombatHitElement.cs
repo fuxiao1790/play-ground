@@ -3,7 +3,6 @@ using PlayGround.System.Aoe;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
-using System;
 
 namespace PlayGround.System.Common
 {
@@ -183,8 +182,8 @@ namespace PlayGround.System.Common
         public float RepeatHitCooldownSeconds { get; }
     }
 
-    // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; cleared during simulation/replay.
-    public struct CombatHitElement : IBufferElementData
+    // ECS Lifecycle: scope damage buffer; added at root setup; kept until root teardown; cleared during simulation/replay.
+    public struct CombatDamageElement : IBufferElementData
     {
         public int SourceId;
         public int TypeId;
@@ -196,47 +195,27 @@ namespace PlayGround.System.Common
         public float CritMultiplier;
         public bool DirectDamageEnabled;
         public EntityId SourceNodeId;
-        public uint Order;
-        public int PayloadIndex; // -1 = no payload
-        public int EffectIndex; // -1 = no internal core effect
-    }
-
-    // ECS Lifecycle: scope buffer; sparse side channel for generic hit replay data; added at root setup; cleared with CombatHitElement.
-    // External scene hit subscribers must not receive this buffer directly.
-    public struct CombatHitPayloadElement : IBufferElementData
-    {
         public CombatStatusEffectSnapshot StackEffect;
     }
 
-    // ECS Lifecycle: scope buffer; sparse side channel for internal core hit effects; added at root setup; cleared with CombatHitElement.
-    // Internal only: do not copy these spawn/effect payloads into CombatHitContext or external Hit events.
-    public struct CombatHitEffectElement : IBufferElementData
+    // ECS Lifecycle: scope spawn buffer; added at root setup; kept until root teardown; cleared during simulation/replay.
+    // Internal only: do not copy these spawn payloads into CombatHitData or external Hit events.
+    public struct CombatSpawnElement : IBufferElementData
     {
+        public int SourceId;
+        public int TypeId;
+        public int TargetId;
+        public float2 Position;
+        public float2 TargetPosition;
+        public CombatHitKind Kind;
+        public EntityId SourceNodeId;
         public ProjectileImpactAoeSnapshot ImpactAoe;
         public ProjectileImpactProjectileSnapshot ImpactProjectile;
         public AoeProjectileBurstSnapshot ProjectileBurst;
     }
 
-    public struct CombatHitBucketKey : IEquatable<CombatHitBucketKey>
-    {
-        public Entity Scope;
-        public int TargetId;
-
-        public CombatHitBucketKey(Entity scope, int targetId)
-        {
-            Scope = scope;
-            TargetId = targetId;
-        }
-
-        public bool Equals(CombatHitBucketKey other) =>
-            Scope == other.Scope && TargetId == other.TargetId;
-
-        public override int GetHashCode() =>
-            unchecked((Scope.GetHashCode() * 397) ^ TargetId);
-    }
-
-    // ECS Lifecycle: transient native payload; not added to entities; queued during collision hit flush.
-    public struct CombatPendingHit
+    // ECS Lifecycle: transient native damage payload; not added to entities; queued during collision and flushed to scope buffers.
+    public struct CombatPendingDamage
     {
         public Entity Scope;
         public int SourceId;
@@ -250,9 +229,21 @@ namespace PlayGround.System.Common
         public bool DirectDamageEnabled;
         public EntityId SourceNodeId;
         public CombatStatusEffectSnapshot StackEffect;
+    }
+
+    // ECS Lifecycle: transient native spawn payload; not added to entities; queued during collision and flushed to scope buffers.
+    public struct CombatPendingSpawn
+    {
+        public Entity Scope;
+        public int SourceId;
+        public int TypeId;
+        public int TargetId;
+        public float2 Position;
+        public float2 TargetPosition;
+        public CombatHitKind Kind;
+        public EntityId SourceNodeId;
         public ProjectileImpactAoeSnapshot ImpactAoe;
         public ProjectileImpactProjectileSnapshot ImpactProjectile;
         public AoeProjectileBurstSnapshot ProjectileBurst;
-        public uint Order;
     }
 }
