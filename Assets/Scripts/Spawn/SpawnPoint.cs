@@ -49,7 +49,7 @@ namespace PlayGround.Spawn
         private void OnEnable()
         {
             running = useConfigTiming && config != null ? config.Autostart : autostart;
-            timer = EffectiveSpawnInterval;
+            timer = Random.Range(0f, EffectiveSpawnInterval);
         }
 
         private void Update()

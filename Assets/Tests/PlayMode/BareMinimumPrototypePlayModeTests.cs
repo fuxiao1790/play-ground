@@ -833,6 +833,22 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void SpawnPointStartsWithRandomTimerWithinSpawnInterval()
+        {
+            UnityEngine.Random.InitState(12345);
+            float expectedTimer = UnityEngine.Random.Range(0f, 10f);
+            UnityEngine.Random.InitState(12345);
+            CreateSpawnFixture(1, 0, out GameObject spawnerObject, out MobSpawnerRoot spawner, out SpawnPoint point, out GameObject prefabObject, out MobSpawnPool pool);
+
+            float timer = ReadSpawnPointTimer(point);
+
+            Assert.That(timer, Is.EqualTo(expectedTimer));
+            Object.Destroy(spawnerObject);
+            Object.Destroy(prefabObject);
+            Object.Destroy(pool);
+        }
+
+        [Test]
         public void GameRootAcceptsAuthoredSpawnerWhenNoSceneMobsAreAuthored()
         {
             GameObject projectileObject = new("ProjectileRoot");
@@ -1160,6 +1176,13 @@ namespace PlayGround.Tests.PlayMode
             point.Configure(pool, 10f, 0f, localCap);
             spawner.Configure(pool, globalCap, points: new[] { point });
             spawnerObject.SetActive(true);
+        }
+
+        private static float ReadSpawnPointTimer(SpawnPoint point)
+        {
+            const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var timerField = typeof(SpawnPoint).GetField("timer", Flags);
+            return (float)timerField.GetValue(point);
         }
 
         private static GameObject CreateMobPrefab(string name, out MobRoot mob)

@@ -15,8 +15,8 @@ Current scene composition:
   are still being built.
 - `SpawnPoint_East`, `SpawnPoint_West`, `SpawnPoint_North`, `SpawnPoint_South`:
   scene-authored child points that can be moved in the editor.
-- `SpawnPoint`: owns local timer, spawn radius, local cap, spacing checks, and
-  optional point-specific pool/config override.
+- `SpawnPoint`: owns local timer, randomized first-spawn offset, spawn radius,
+  local cap, spacing checks, and optional point-specific pool/config override.
 - `MobSpawnPool`: ScriptableObject weighted prefab selection.
 - `SpawnConfig`: ScriptableObject reusable point timing/radius/local-cap data.
 - `SpawnCoordinator`: optional hook for higher-level spawn rules.
@@ -42,4 +42,3 @@ removed target dummy.
 
 Replace this fallback by assigning real mob prefabs through `MobSpawnPool` assets
 under `Assets/ScriptableObjects/Spawn/`.
-
