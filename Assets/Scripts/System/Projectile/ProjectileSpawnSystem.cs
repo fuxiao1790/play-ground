@@ -83,6 +83,8 @@ namespace PlayGround.System.Projectile
 
             deadSlotsNoChildSpawner = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<ProjectileTag>()
+                // TODO(spawn-refactor): bucket keys should own these render partition filters.
+                // Unity still requires shared component filter types to be declared on the query.
                 .WithAll<CombatRenderScope>()
                 .WithAll<CombatRenderTypeId>()
                 .WithDisabled<ProjectileActiveTag>()
@@ -91,6 +93,8 @@ namespace PlayGround.System.Projectile
 
             deadSlotsWithChildSpawner = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<ProjectileTag>()
+                // TODO(spawn-refactor): bucket keys should own these render partition filters.
+                // Unity still requires shared component filter types to be declared on the query.
                 .WithAll<CombatRenderScope>()
                 .WithAll<CombatRenderTypeId>()
                 .WithDisabled<ProjectileActiveTag>()

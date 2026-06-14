@@ -69,6 +69,8 @@ namespace PlayGround.System.Aoe
 
             deadSlots = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<AoeTag>()
+                // TODO(spawn-refactor): bucket keys should own these render partition filters.
+                // Unity still requires shared component filter types to be declared on the query.
                 .WithAll<CombatRenderScope>()
                 .WithAll<CombatRenderTypeId>()
                 .WithDisabled<AoeActiveTag>()
