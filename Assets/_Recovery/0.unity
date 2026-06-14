@@ -840,7 +840,7 @@ MonoBehaviour:
   initialZoom: 1.5
   zoomStep: 0.1
   zoomMin: 1
-  zoomMax: 6
+  zoomMax: 2
   zoomSpeed: 0.2
   releaseLimits:
     serializedVersion: 2

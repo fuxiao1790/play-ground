@@ -111,7 +111,6 @@ namespace PlayGround.System.Projectile
                     Tracking = new ProjectileTrackingComponent
                     {
                         TrackingEnabled = spawner.TrackingEnabled,
-                        TrackingRangeSquared = spawner.TrackingRangeSquared,
                         TrackingTurnSpeedRadians = spawner.TrackingTurnSpeedRadians,
                         TrackingQueryCooldownRemaining = spawner.TrackingInitialQueryDelaySeconds,
                         TrackingQueryIntervalSeconds = spawner.TrackingQueryIntervalSeconds,

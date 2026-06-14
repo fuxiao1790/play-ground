@@ -27,13 +27,12 @@ namespace PlayGround.Skills
         public float repeatHitCooldown;
         public bool directDamageEnabled = true;
         public bool trackingEnabled;
-        public float trackingRange;
         public float trackingTurnSpeedDegrees;
         public float trackingQueryIntervalSeconds;
         public float trackingInitialDelaySeconds;
 
         public ProjectileTrackingConfig GetTrackingConfig() =>
-            new(trackingEnabled, trackingRange, trackingTurnSpeedDegrees,
+            new(trackingEnabled, trackingTurnSpeedDegrees,
                 trackingQueryIntervalSeconds, trackingInitialDelaySeconds);
 
         public override SkillDefinition DeepCopy() => (ProjectileDefinition)MemberwiseClone();

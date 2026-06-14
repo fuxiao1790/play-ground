@@ -390,7 +390,6 @@ namespace PlayGround.System.Projectile
                 VisualRotationSin = sin,
                 VisualRotationCos = cos,
                 TrackingEnabled = config.Tracking.Enabled,
-                TrackingRangeSquared = config.Tracking.Range * config.Tracking.Range,
                 TrackingTurnSpeedRadians = math.radians(config.Tracking.TurnSpeedDegrees),
                 TrackingQueryIntervalSeconds = config.Tracking.QueryIntervalSeconds,
                 TrackingInitialQueryDelaySeconds = config.Tracking.InitialQueryDelaySeconds,
@@ -406,7 +405,6 @@ namespace PlayGround.System.Projectile
             return new ProjectileTrackingComponent
             {
                 TrackingEnabled = config.Enabled,
-                TrackingRangeSquared = config.Range * config.Range,
                 TrackingTurnSpeedRadians = math.radians(config.TurnSpeedDegrees),
                 TrackingQueryCooldownRemaining = config.InitialQueryDelaySeconds,
                 TrackingQueryIntervalSeconds = config.QueryIntervalSeconds,

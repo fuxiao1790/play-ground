@@ -36,7 +36,6 @@ namespace PlayGround.System.Projectile
     public struct ProjectileTrackingComponent : IComponentData, IEnableableComponent
     {
         public bool TrackingEnabled;
-        public float TrackingRangeSquared;
         public float TrackingTurnSpeedRadians;
         public float TrackingQueryCooldownRemaining;
         public float TrackingQueryIntervalSeconds;
@@ -104,7 +103,6 @@ namespace PlayGround.System.Projectile
         public float VisualRotationSin;
         public float VisualRotationCos;
         public bool TrackingEnabled;
-        public float TrackingRangeSquared;
         public float TrackingTurnSpeedRadians;
         public float TrackingQueryIntervalSeconds;
         public float TrackingInitialQueryDelaySeconds;

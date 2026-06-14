@@ -115,8 +115,7 @@ namespace PlayGround.Tests.PlayMode
             SpawnTrackedProjectile(
                 position: float2.zero,
                 velocity: new float2(0f, 10f),
-                turnSpeedRadians: math.radians(180f),
-                trackingRange: 60f);
+                turnSpeedRadians: math.radians(180f));
 
             Tick(0.1f);
 
@@ -133,7 +132,6 @@ namespace PlayGround.Tests.PlayMode
                 position: float2.zero,
                 velocity: new float2(0f, 10f),
                 turnSpeedRadians: math.radians(180f),
-                trackingRange: 60f,
                 queryCooldownRemaining: 5f,
                 queryIntervalSeconds: 5f);
 
@@ -152,7 +150,6 @@ namespace PlayGround.Tests.PlayMode
                 position: float2.zero,
                 velocity: new float2(0f, 10f),
                 turnSpeedRadians: math.radians(180f),
-                trackingRange: 60f,
                 trackedTargetId: 400,
                 trackedTargetIndex: -1,
                 trackedTargetPosition: new float2(0f, -40f),
@@ -180,7 +177,6 @@ namespace PlayGround.Tests.PlayMode
                     position: float2.zero,
                     velocity: new float2(0f, 10f),
                     turnSpeedRadians: math.radians(180f),
-                    trackingRange: 60f,
                     projectileId: i + 1);
             }
 
@@ -208,7 +204,6 @@ namespace PlayGround.Tests.PlayMode
             float2 position,
             float2 velocity,
             float turnSpeedRadians,
-            float trackingRange = 100f,
             int trackedTargetId = 0,
             int trackedTargetIndex = -1,
             float2 trackedTargetPosition = default,
@@ -258,7 +253,6 @@ namespace PlayGround.Tests.PlayMode
             entityManager.SetComponentData(projectileEntity, new ProjectileTrackingComponent
             {
                 TrackingEnabled = true,
-                TrackingRangeSquared = trackingRange * trackingRange,
                 TrackingTurnSpeedRadians = turnSpeedRadians,
                 TrackingQueryCooldownRemaining = queryCooldownRemaining,
                 TrackingQueryIntervalSeconds = queryIntervalSeconds,
