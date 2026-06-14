@@ -135,7 +135,7 @@ Implemented:
 - scoped projectile runtime with split ECS stages for tracking, movement, child
   spawn requests, lifetime, contact gates, collision, hit replay, counters, and
   batched rendering by projectile type
-- scoped DOTS AOE runtime with ECS scope entities, spawn/recycle buffers, target
+- scoped DOTS AOE runtime with ECS scope entities, spawn buffers, target
   snapshots, pulse and lingering collision, hit replay, counters, and batched rendering by AOE type
 
 Not yet implemented:

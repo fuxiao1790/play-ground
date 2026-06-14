@@ -72,7 +72,7 @@ Input into world:
 Output from world:
 
 - AOE hit events
-- AOE recycle events
+- AOE active-state deactivation
 
 ## Damage Rules
 
@@ -241,7 +241,7 @@ Scene-object bridge:
 
 The current implementation uses Entities/DOTS in the shared default world:
 
-- `AoeRoot` creates an `AoeScope` entity with target, spawn, hit, and recycle buffers.
+- `AoeRoot` creates an `AoeScope` entity with target, spawn, hit, and VFX buffers.
 - AOE entities carry `AoeTag`, `AoeActiveTag`, `AoeIdentityComponent`, common
   combat components (including `CombatHitComponent` with `CritChance` and
   `CritMultiplier` written at spawn time from `AoeSpawnRequestElement`), render
@@ -249,8 +249,8 @@ The current implementation uses Entities/DOTS in the shared default world:
   `AoeProjectileBurstSnapshot`).
 - AOE systems require `AoeTag` or `AoeScope`; common combat components alone do
   not make an entity eligible for AOE simulation.
-- `AoeSpawnSystem` drains scoped spawn/recycle buffers and reuses inactive AOE
-  entities by scope/type. Crit values flow from `AoeSpawnCommand` →
+- `AoeSpawnSystem` drains scoped spawn buffers and reuses disabled AOE
+  entities by scope/type. Crit values flow from `AoeSpawnCommand` ->
   `AoeSpawnRequestElement` → `CombatHitComponent` on the entity; no per-AOE
   dictionary lookup is needed at replay time.
 - `AoeCollisionSystem` runs target-mask filtering and shape collision against

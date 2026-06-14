@@ -139,20 +139,5 @@ namespace PlayGround.System.Projectile
         public ProjectileChildSpawnStateComponent ChildSpawnState;
     }
 
-    // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by ProjectileSpawnSystem into its reuse pool.
-    public struct ProjectileRecycleElement : IBufferElementData
-    {
-        public Entity ProjectileEntity;
-        public int TypeId;
-        public int HasChildSpawner;
-    }
-
-    public struct ProjectilePendingRecycle
-    {
-        public Entity Scope;
-        public Entity ProjectileEntity;
-        public int TypeId;
-        public int HasChildSpawner;
-    }
 
 }

@@ -74,14 +74,12 @@ namespace PlayGround.System.Aoe
             }
 
             var pendingHits = new NativeQueue<CombatPendingHit>(Allocator.TempJob);
-            var recycled = new NativeQueue<AoePendingRecycle>(Allocator.TempJob);
             var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
             var job = new AoeCollisionJob
             {
                 Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
                 OccupiedTargetCells = occupiedTargetCells,
                 PendingHits = pendingHits.AsParallelWriter(),
-                Recycled = recycled.AsParallelWriter(),
                 VfxPending = vfxPending.AsParallelWriter()
             };
 
@@ -93,11 +91,6 @@ namespace PlayGround.System.Aoe
                 Payloads = SystemAPI.GetBufferLookup<CombatHitPayloadElement>(),
                 Effects = SystemAPI.GetBufferLookup<CombatHitEffectElement>()
             }.Schedule(collisionHandle);
-            JobHandle recycleFlushHandle = new AoeRecycleFlushJob
-            {
-                Recycled = recycled,
-                RecycleBuffers = SystemAPI.GetBufferLookup<AoeRecycleElement>()
-            }.Schedule(collisionHandle);
             JobHandle vfxFlushHandle = new VfxFlushJob
             {
                 Pending = vfxPending,
@@ -105,12 +98,9 @@ namespace PlayGround.System.Aoe
             }.Schedule(collisionHandle);
 
             JobHandle disposeHitsHandle = pendingHits.Dispose(hitFlushHandle);
-            JobHandle disposeRecycleHandle = recycled.Dispose(recycleFlushHandle);
             JobHandle disposeVfxHandle = vfxPending.Dispose(vfxFlushHandle);
-            JobHandle flushesHandle = JobHandle.CombineDependencies(
-                JobHandle.CombineDependencies(disposeHitsHandle, disposeRecycleHandle),
-                disposeVfxHandle);
-            state.Dependency = occupiedTargetCells.Dispose(flushesHandle);
+            state.Dependency = occupiedTargetCells.Dispose(
+                JobHandle.CombineDependencies(disposeHitsHandle, disposeVfxHandle));
         }
 
         [BurstCompile]
@@ -120,7 +110,6 @@ namespace PlayGround.System.Aoe
             [ReadOnly] public BufferLookup<CombatTargetElement> Targets;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> OccupiedTargetCells;
             public NativeQueue<CombatPendingHit>.ParallelWriter PendingHits;
-            public NativeQueue<AoePendingRecycle>.ParallelWriter Recycled;
             public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
 
             private void Execute(
@@ -138,7 +127,7 @@ namespace PlayGround.System.Aoe
             {
                 if (identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
                 {
-                    Deactivate(entity, identity, active, renderActive);
+                    Deactivate(active, renderActive);
                     return;
                 }
 
@@ -174,7 +163,7 @@ namespace PlayGround.System.Aoe
 
                 if (lifetime.IsPulse == 1)
                 {
-                    Deactivate(entity, identity, active, renderActive);
+                    Deactivate(active, renderActive);
                 }
             }
 
@@ -233,20 +222,12 @@ namespace PlayGround.System.Aoe
                 });
             }
 
-            private void Deactivate(
-                Entity entity,
-                AoeIdentityComponent identity,
+            private static void Deactivate(
                 EnabledRefRW<AoeActiveTag> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive)
             {
                 active.ValueRW = false;
                 renderActive.ValueRW = false;
-                Recycled.Enqueue(new AoePendingRecycle
-                {
-                    Scope = identity.Scope,
-                    AoeEntity = entity,
-                    TypeId = identity.TypeId
-                });
             }
 
             private void CollectCandidates(AoeIdentityComponent identity, CombatCollisionComponent collision, ref NativeHashSet<int> candidates)
@@ -280,30 +261,6 @@ namespace PlayGround.System.Aoe
                 }
 
                 return -1;
-            }
-        }
-
-        [BurstCompile]
-        private struct AoeRecycleFlushJob : IJob
-        {
-            public NativeQueue<AoePendingRecycle> Recycled;
-            public BufferLookup<AoeRecycleElement> RecycleBuffers;
-
-            public void Execute()
-            {
-                while (Recycled.TryDequeue(out AoePendingRecycle recycle))
-                {
-                    if (recycle.Scope == Entity.Null || !RecycleBuffers.HasBuffer(recycle.Scope))
-                    {
-                        continue;
-                    }
-
-                    RecycleBuffers[recycle.Scope].Add(new AoeRecycleElement
-                    {
-                        AoeEntity = recycle.AoeEntity,
-                        TypeId = recycle.TypeId
-                    });
-                }
             }
         }
 

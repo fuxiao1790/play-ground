@@ -188,10 +188,10 @@ land in the narrow system that owns that behavior:
   interval tick, appends `ChildCountPerTick` spawn requests to the owning scope
   through `EntityCommandBuffer.ParallelWriter`, fully initialized from
   `ProjectileChildSpawnerComponent` (shape, raw hit payload, tracking, spawn pattern)
-- `ProjectileLifetimeSystem`: lifetime countdown, disabling expired active
-  state, and enqueueing recycle records for later spawn reuse
+- `ProjectileLifetimeSystem`: lifetime countdown and disabling expired active
+  state for later spawn reuse
 - `ProjectileContactGateSystem`: repeat-hit gate cooldown expiry
-- `ProjectileCollisionSystem`: spatial-hash broad phase, target AABB filtering, target mask filtering, shape hit checks, pierce count, contact gate creation, ordered hit events, and recycle records for hit-despawned projectiles
+- `ProjectileCollisionSystem`: spatial-hash broad phase, target AABB filtering, target mask filtering, shape hit checks, pierce count, contact gate creation, ordered hit events, and active-state disable for hit-despawned projectiles
 - `ProjectileRoot`: scoped Unity bridge, target/projectile bounds setup, event replay, render submission, and teardown-only destruction
 - `CombatCollisionMath`: shared pure bounds and narrow-phase shape math, reached
   by projectile systems through `ProjectileCollisionMath` compatibility methods
@@ -347,7 +347,7 @@ This section documents how the current Unity implementation aligns with this des
 - **Damage snapshot shape:** The runtime carries a `DamageSnapshot` value recorded on spawn; current buffer fields pass a float `DamageAmount`. If you intended a richer typed snapshot, inspect `PlayGround.Common.DamageSnapshot` and extend the buffer payloads accordingly.
 - **Broad-phase acceleration:** The implementation uses per-scope target buffers plus a fixed-size spatial hash over target AABBs. An AABB tree is not present; add it only if profiling shows the hash plus bounds filter is insufficient.
 - **Impact AOE / hit effects:** AOE and complex hit reactions should be added as explicit payload data, then interpreted by scene actor hit handlers after `ProjectileRoot` drains hit events. The collision and child spawn systems stay free of managed callbacks.
-- **Spawn reuse / slot kind:** Runtime despawn disables `ProjectileActiveTag` and records the entity in the owning scope's recycle buffer. `ProjectileSpawnSystem` drains those recycle records into keyed inactive pools instead of scanning every projectile entity. Reuse only matches `CombatRenderScope.Scope`, render type id, and slot kind. Slot kind is normal or child-spawner archetype; normal slots never gain child-spawner components later, and child-spawner slots are not reused for normal projectiles.
+- **Spawn reuse / slot kind:** Runtime despawn disables `ProjectileActiveTag`. `ProjectileSpawnSystem` groups spawn requests by scope, render type id, and slot kind, queries matching disabled chunks, assigns request slices per chunk, and reuses those entities before cold creation. Slot kind is normal or child-spawner archetype; normal slots never gain child-spawner components later, and child-spawner slots are not reused for normal projectiles.
 - **Child spawn / request materialization:** Child projectiles are requested by `ProjectileChildSpawnSystem` via `EntityCommandBuffer.ParallelWriter.AppendToBuffer` on the owning scope. `ProjectileSpawnSystem` materializes those requests on the next simulation pass, reusing inactive child entities before cold creation. Children copy the parent's source node id and use child-specific damage/direct-damage payload data; no managed child-spawn ownership event is emitted. Current child requests set `HasChildSpawner = 0`, so spawned children use normal slots unless a future feature explicitly supports child-spawners spawning more child-spawners.
 - **Child spawn pattern:** `ProjectileChildSpawnBehavior` (attached to `ProjectileChildSpawnConfig`) holds `Count`, `PatternType` (`ProjectileChildSpawnPatternType`: `SideSpray` or `Forward`), and `SpreadDegrees`. `SideSpray` fans `(count+1)/2` shots left and `count/2` shots right, each side spread evenly across `+/-SpreadDegrees/2` around the perpendicular, matching the behavior of `ProjectileSideSpraySpawnPattern`. These values are copied into `ProjectileChildSpawnerComponent` at spawn time and consumed entirely inside the Burst job; adding a new pattern requires only a new enum case and a velocity branch in `ComputeChildVelocity`.
 - **Attack authoring - `ProjectileConfig`:** `ProjectileAttack` no longer holds inline serialized projectile simulation fields. All projectile data (prefab, speed, lifetime, damage, count, spread, tracking, pierce, impact AOE, etc.) lives in a `ProjectileConfig` ScriptableObject assigned via the Inspector. `ProjectileAttack` retains only behavior fields: `projectileRoot`, `recoverySeconds`, `performSound`, and `audioManager`. `ProjectileConfig` also exposes `GetTrackingConfig()` so the SO is the single authoring source for a projectile type.
@@ -364,7 +364,6 @@ This section documents how the current Unity implementation aligns with this des
 - `Assets/Scripts/System/Common/CombatTargetShapeUtility.cs`
 - `Assets/Scripts/System/Projectile/ProjectileSimulationSystem.cs`
 - `Assets/Scripts/System/Projectile/ProjectileSpawnSystem.cs`
-- `Assets/Scripts/System/Projectile/ProjectileRecycleFlushJob.cs`
 - `Assets/Scripts/System/Projectile/ProjectileTrackingSystem.cs`
 - `Assets/Scripts/System/Projectile/ProjectileMovementSystem.cs`
 - `Assets/Scripts/System/Projectile/ProjectileChildSpawnSystem.cs`

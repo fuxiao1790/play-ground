@@ -87,12 +87,6 @@ namespace PlayGround.System.Aoe
         public AoeProjectileBurstSnapshot ProjectileBurst;
     }
 
-    // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by AoeSpawnSystem into its reuse pool; carries the last prepared render matrix for one-frame pulse visual submission.
-    public struct AoeRecycleElement : IBufferElementData
-    {
-        public Entity AoeEntity;
-        public int TypeId;
-    }
 
     // ECS Lifecycle: base AOE component; added at entity creation; kept until root teardown; reset on reuse; used by AoeLifetimeSystem for pulse VFX ticks on lingering AOEs.
     public struct AoePulseVfxComponent : IComponentData
@@ -101,11 +95,4 @@ namespace PlayGround.System.Aoe
         public float Interval;
     }
 
-    // ECS Lifecycle: transient native payload; not added to entities; queued during lifetime/collision recycle flush.
-    public struct AoePendingRecycle
-    {
-        public Entity Scope;
-        public Entity AoeEntity;
-        public int TypeId;
-    }
 }

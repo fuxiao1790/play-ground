@@ -120,16 +120,13 @@ Create these as systems are ported:
   integration
 - `Assets/Scripts/System/Projectile/ProjectileChildSpawnSystem.cs`: timed child
   projectile spawn request creation
-- `Assets/Scripts/System/Projectile/ProjectileRecycleFlushJob.cs`: native queue
-  flush into scoped projectile recycle buffers
 - `Assets/Scripts/System/Projectile/ProjectileLifetimeSystem.cs`: lifetime
-  countdown, active-state disable, and recycle record enqueue for expired
-  projectiles
+  countdown and active-state disable for expired projectiles
 - `Assets/Scripts/System/Projectile/ProjectileContactGateSystem.cs`: repeat-hit
   contact gate expiry
 - `Assets/Scripts/System/Projectile/ProjectileCollisionSystem.cs`: target mask
-  filtering, shape hit checks, pierce, hit events, and recycle record enqueue
-  for hit-despawned projectiles
+  filtering, shape hit checks, pierce, hit events, and active-state disable for
+  hit-despawned projectiles
 - `Assets/Scripts/System/Projectile/ProjectileCollisionMath.cs`: projectile
   compatibility adapter over shared common collision math
 - projectile render submission lives in `ProjectileRoot`; shared matrix
@@ -148,7 +145,7 @@ Create these as systems are ported:
   draining, spawn request materialization, inactive entity reuse by scope/type,
   and cold entity creation
 - `Assets/Scripts/System/Aoe/AoeCollisionSystem.cs`: target mask filtering,
-  bounds/narrow-phase collision, hit events, and pulse-AOE recycle records
+  bounds/narrow-phase collision, hit events, and pulse-AOE deactivation
 - AOE render submission lives in `AoeRoot`; shared matrix preparation lives in
   `Assets/Scripts/System/Common/CombatRenderComponents.cs`
 - `Assets/Scripts/System/Aoe/AoeLifetimeSystem.cs`: lingering AOE lifetime

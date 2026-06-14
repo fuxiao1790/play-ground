@@ -302,7 +302,7 @@ entirely by `CombatVfxDispatchSystem`.
 ## Scope Buffers
 
 `VfxSpawnRequestElement` is added to scope entities at root setup alongside the
-existing hit and recycle buffers:
+existing hit buffers:
 
 - `ProjectileRoot`: added in `BindWorld`
 - `AoeRoot`: added in `BindWorld`

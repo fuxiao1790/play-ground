@@ -1,12 +1,15 @@
+using System;
 using System.Collections.Generic;
 using PlayGround.System.Common;
 using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Profiling;
+
 namespace PlayGround.System.Projectile
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -14,177 +17,326 @@ namespace PlayGround.System.Projectile
     [UpdateBefore(typeof(ProjectileTrackingSystem))]
     public partial class ProjectileSpawnSystem : SystemBase
     {
-        private static readonly ProfilerMarker SpawnMarker = new("Projectile.Spawn");
+        private static readonly ProfilerMarker SpawnMarker =
+            new("Projectile.Spawn");
+        private static readonly ProfilerMarker SliceAssignMarker =
+            new("Projectile.Spawn.SliceAssign.MainThread");                  // 2A
+        // private static readonly ProfilerMarker CountJobMarker =
+        //     new("Projectile.Spawn.CountJob");                              // 2B
+        // private static readonly ProfilerMarker PrefixSumMarker =
+        //     new("Projectile.Spawn.PrefixSum");                             // 2B
+        private static readonly ProfilerMarker ResetJobMarker =
+            new("Projectile.Spawn.ResetJob");
         private static readonly ProfilerCounterValue<int> SpawnColdCreateCounter =
             new(ProfilerCategory.Scripts, "Projectile.Spawn.Cold", ProfilerMarkerDataUnit.Count);
         private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
             new(ProfilerCategory.Scripts, "Projectile.Spawn.Reuse", ProfilerMarkerDataUnit.Count);
 
-        private readonly Dictionary<ProjectilePoolKey, List<Entity>> inactiveByKey = new();
-        private readonly Dictionary<ProjectileArchetypeKey, EntityArchetype> archetypesByKey = new();
-
+        private EntityArchetype archetypeNoChildSpawner;
+        private EntityArchetype archetypeWithChildSpawner;
         private EntityQuery scopeQuery;
+        private EntityQuery deadSlotsNoChildSpawner;
+        private EntityQuery deadSlotsWithChildSpawner;
+
+        private readonly Dictionary<ProjectileSpawnKey, List<ProjectileSpawnRequestElement>> _byKey = new();
+        private readonly Dictionary<int, Entity> _scopeByIndex = new();
+        private readonly List<List<ProjectileSpawnRequestElement>> _listPool = new();
 
         protected override void OnCreate()
         {
             scopeQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileScope>(),
-                ComponentType.ReadWrite<ProjectileSpawnRequestElement>(),
-                ComponentType.ReadWrite<ProjectileRecycleElement>());
+                ComponentType.ReadWrite<ProjectileSpawnRequestElement>());
+
+            archetypeNoChildSpawner = EntityManager.CreateArchetype(
+                typeof(ProjectileTag),
+                typeof(ProjectileIdentityComponent),
+                typeof(CombatKinematicsComponent),
+                typeof(CombatCollisionComponent),
+                typeof(ProjectileLifetimeComponent),
+                typeof(ProjectileHitComponent),
+                typeof(ProjectileTrackingComponent),
+                typeof(CombatRenderComponent),
+                typeof(CombatRenderElement),
+                typeof(ProjectileActiveTag),
+                typeof(ProjectileCollisionActiveTag),
+                typeof(CombatRenderActiveTag),
+                typeof(ProjectileContactGateElement));
+
+            archetypeWithChildSpawner = EntityManager.CreateArchetype(
+                typeof(ProjectileTag),
+                typeof(ProjectileIdentityComponent),
+                typeof(CombatKinematicsComponent),
+                typeof(CombatCollisionComponent),
+                typeof(ProjectileLifetimeComponent),
+                typeof(ProjectileHitComponent),
+                typeof(ProjectileTrackingComponent),
+                typeof(CombatRenderComponent),
+                typeof(CombatRenderElement),
+                typeof(ProjectileActiveTag),
+                typeof(ProjectileCollisionActiveTag),
+                typeof(CombatRenderActiveTag),
+                typeof(ProjectileContactGateElement),
+                typeof(ProjectileChildSpawnerTag),
+                typeof(ProjectileChildSpawnerComponent),
+                typeof(ProjectileChildSpawnStateComponent));
+
+            deadSlotsNoChildSpawner = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<ProjectileTag>()
+                .WithAll<CombatRenderScope>()
+                .WithAll<CombatRenderTypeId>()
+                .WithDisabled<ProjectileActiveTag>()
+                .WithNone<ProjectileChildSpawnerTag>()
+                .Build(this);
+
+            deadSlotsWithChildSpawner = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<ProjectileTag>()
+                .WithAll<CombatRenderScope>()
+                .WithAll<CombatRenderTypeId>()
+                .WithDisabled<ProjectileActiveTag>()
+                .WithAll<ProjectileChildSpawnerTag>()
+                .Build(this);
         }
 
         protected override void OnUpdate()
         {
             Dependency.Complete();
 
-            using var scopes = scopeQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
-            bool hasSpawnRequests = HasSpawnRequests(scopes);
-            bool hasRecycleEvents = HasRecycleEvents(scopes);
-            if (!hasSpawnRequests && !hasRecycleEvents)
+            ReturnLists();
+            using var scopes = scopeQuery.ToEntityArray(Allocator.Temp);
+            int totalRequests = 0;
+            for (int i = 0; i < scopes.Length; i++)
             {
-                return;
+                Entity scope = scopes[i];
+                DynamicBuffer<ProjectileSpawnRequestElement> requests =
+                    EntityManager.GetBuffer<ProjectileSpawnRequestElement>(scope);
+                int count = requests.Length;
+                if (count == 0) continue;
+                _scopeByIndex[scope.Index] = scope;
+                for (int j = 0; j < count; j++)
+                {
+                    ProjectileSpawnRequestElement req = requests[j];
+                    var key = new ProjectileSpawnKey(scope.Index, req.TypeId, req.HasChildSpawner != 0);
+                    if (!_byKey.TryGetValue(key, out List<ProjectileSpawnRequestElement> list))
+                    {
+                        list = GetList();
+                        _byKey[key] = list;
+                    }
+                    list.Add(req);
+                }
+                requests.Clear();
+                totalRequests += count;
             }
 
-            DrainRecycleBuffers(scopes);
-            if (!hasSpawnRequests)
-            {
-                return;
-            }
+            if (totalRequests == 0) return;
 
             using (SpawnMarker.Auto())
             {
                 using var createEcb = new EntityCommandBuffer(Allocator.Temp);
-                var reuseResets = new NativeList<ProjectileReuseReset>(Allocator.TempJob);
-                int totalSpawnRequests = 0;
-                for (int i = 0; i < scopes.Length; i++)
+                int reuseCount = 0;
+                int coldCreateCount = 0;
+
+                ComponentTypeHandle<ProjectileActiveTag> activeHandle =
+                    GetComponentTypeHandle<ProjectileActiveTag>(false);
+
+                var jobHandles = new NativeList<JobHandle>(_byKey.Count * 4, Allocator.Temp);
+
+                foreach (var (key, requests) in _byKey)
                 {
-                    Entity scope = scopes[i];
-                    DynamicBuffer<ProjectileSpawnRequestElement> requests =
-                        EntityManager.GetBuffer<ProjectileSpawnRequestElement>(scope);
-                    totalSpawnRequests += requests.Length;
-                    for (int requestIndex = 0; requestIndex < requests.Length; requestIndex++)
+                    Entity scope = _scopeByIndex[key.ScopeIndex];
+                    bool hasChildSpawner = key.HasChildSpawner;
+                    EntityQuery query = hasChildSpawner ? deadSlotsWithChildSpawner : deadSlotsNoChildSpawner;
+                    query.SetSharedComponentFilter(
+                        new CombatRenderScope { Scope = scope },
+                        new CombatRenderTypeId { TypeId = key.TypeId });
+
+                    int reqCount = requests.Count;
+                    var configs = new NativeList<ProjectileSpawnRequestElement>(reqCount, Allocator.TempJob);
+                    for (int i = 0; i < reqCount; i++) configs.Add(requests[i]);
+
+                    // ---- Option 2A: main-thread slice assignment (active) ----
+                    NativeList<int2> slices;
+                    int claimed;
+                    using (SliceAssignMarker.Auto())
+                        slices = AssignSlices2A(query, reqCount, ref activeHandle, out claimed);
+
+                    // ---- Option 2B: counting job + prefix sum (swap with 2A to compare) ----
+                    // NativeList<int2> slices;
+                    // int claimed;
+                    // using (CountJobMarker.Auto())
+                    // {
+                    //     JobHandle countHandle = ScheduleCountJob2B(query, ref activeHandle, out NativeList<int> deadCounts);
+                    //     countHandle.Complete();
+                    //     using (PrefixSumMarker.Auto())
+                    //         (slices, claimed) = PrefixSumSlices2B(deadCounts, reqCount);
+                    //     deadCounts.Dispose();
+                    // }
+
+                    reuseCount += claimed;
+                    for (int i = claimed; i < reqCount; i++)
                     {
-                        Materialize(scope, requests[requestIndex], createEcb, ref reuseResets);
+                        CreateProjectileEntity(scope, configs[i], hasChildSpawner, createEcb);
+                        coldCreateCount++;
                     }
 
-                    requests.Clear();
+                    if (claimed > 0)
+                    {
+                        JobHandle spawnHandle;
+                        using (ResetJobMarker.Auto())
+                        {
+                            spawnHandle = new ProjectileSpawnJob
+                            {
+                                Scope                 = scope,
+                                Configs               = configs.AsArray(),
+                                Slices                = slices.AsArray(),
+                                ActiveHandle          = activeHandle,
+                                CollisionActiveHandle  = GetComponentTypeHandle<ProjectileCollisionActiveTag>(false),
+                                RenderActiveHandle    = GetComponentTypeHandle<CombatRenderActiveTag>(false),
+                                IdentityHandle        = GetComponentTypeHandle<ProjectileIdentityComponent>(false),
+                                KinematicsHandle      = GetComponentTypeHandle<CombatKinematicsComponent>(false),
+                                CollisionHandle       = GetComponentTypeHandle<CombatCollisionComponent>(false),
+                                LifetimeHandle        = GetComponentTypeHandle<ProjectileLifetimeComponent>(false),
+                                HitHandle             = GetComponentTypeHandle<ProjectileHitComponent>(false),
+                                TrackingHandle        = GetComponentTypeHandle<ProjectileTrackingComponent>(false),
+                                RenderHandle          = GetComponentTypeHandle<CombatRenderComponent>(false),
+                                RenderElementHandle   = GetComponentTypeHandle<CombatRenderElement>(false),
+                                ContactGateHandle     = GetBufferTypeHandle<ProjectileContactGateElement>(false),
+                                ChildSpawnerHandle    = GetComponentTypeHandle<ProjectileChildSpawnerComponent>(false),
+                                ChildSpawnStateHandle = GetComponentTypeHandle<ProjectileChildSpawnStateComponent>(false),
+                            }.ScheduleParallel(query, default);
+                        }
+                        jobHandles.Add(configs.Dispose(spawnHandle));
+                        jobHandles.Add(slices.Dispose(spawnHandle));
+                    }
+                    else
+                    {
+                        configs.Dispose();
+                        slices.Dispose();
+                    }
                 }
 
-                int reuseCount = reuseResets.Length;
-                createEcb.Playback(EntityManager);
-                ScheduleReuseResetJob(reuseResets);
+                Dependency = JobHandle.CombineDependencies(jobHandles.AsArray());
+                if (coldCreateCount > 0)
+                    createEcb.Playback(EntityManager);
                 SpawnReuseCounter.Value = reuseCount;
-                SpawnColdCreateCounter.Value = totalSpawnRequests - reuseCount;
+                SpawnColdCreateCounter.Value = totalRequests - reuseCount;
+                jobHandles.Dispose();
             }
         }
 
-        private bool HasSpawnRequests(Unity.Collections.NativeArray<Entity> scopes)
+        private void ReturnLists()
         {
-            for (int i = 0; i < scopes.Length; i++)
+            foreach (var list in _byKey.Values)
             {
-                if (EntityManager.GetBuffer<ProjectileSpawnRequestElement>(scopes[i]).Length > 0)
-                {
-                    return true;
-                }
+                list.Clear();
+                _listPool.Add(list);
             }
-
-            return false;
+            _byKey.Clear();
+            _scopeByIndex.Clear();
         }
 
-        private bool HasRecycleEvents(Unity.Collections.NativeArray<Entity> scopes)
+        private List<ProjectileSpawnRequestElement> GetList()
         {
-            for (int i = 0; i < scopes.Length; i++)
+            if (_listPool.Count > 0)
             {
-                if (EntityManager.GetBuffer<ProjectileRecycleElement>(scopes[i]).Length > 0)
-                {
-                    return true;
-                }
+                int last = _listPool.Count - 1;
+                var l = _listPool[last];
+                _listPool.RemoveAt(last);
+                return l;
             }
-
-            return false;
+            return new List<ProjectileSpawnRequestElement>();
         }
 
-        private void DrainRecycleBuffers(Unity.Collections.NativeArray<Entity> scopes)
+        // ---- Option 2A ----
+        private NativeList<int2> AssignSlices2A(
+            EntityQuery query,
+            int configCount,
+            ref ComponentTypeHandle<ProjectileActiveTag> activeHandle,
+            out int claimed)
         {
-            for (int i = 0; i < scopes.Length; i++)
+            using NativeArray<ArchetypeChunk> chunks = query.ToArchetypeChunkArray(Allocator.Temp);
+            using NativeArray<int> filteredChunkIndexes = query.CalculateFilteredChunkIndexArray(Allocator.Temp);
+            var slices = new NativeList<int2>(filteredChunkIndexes.Length, Allocator.TempJob);
+            for (int i = 0; i < filteredChunkIndexes.Length; i++) slices.Add(default);
+
+            int cursor = 0;
+            for (int unfilteredChunkIndex = 0;
+                 unfilteredChunkIndex < filteredChunkIndexes.Length && cursor < configCount;
+                 unfilteredChunkIndex++)
             {
-                Entity scope = scopes[i];
-                DynamicBuffer<ProjectileRecycleElement> recycled =
-                    EntityManager.GetBuffer<ProjectileRecycleElement>(scope);
-                for (int recycleIndex = 0; recycleIndex < recycled.Length; recycleIndex++)
-                {
-                    ProjectileRecycleElement recycle = recycled[recycleIndex];
-                    if (!EntityManager.Exists(recycle.ProjectileEntity)
-                        || EntityManager.IsComponentEnabled<ProjectileActiveTag>(recycle.ProjectileEntity))
-                    {
-                        continue;
-                    }
+                int filteredChunkIndex = filteredChunkIndexes[unfilteredChunkIndex];
+                if (filteredChunkIndex < 0) continue;
 
-                    AddInactive(new ProjectilePoolKey(
-                        scope,
-                        recycle.TypeId,
-                        recycle.HasChildSpawner != 0), recycle.ProjectileEntity);
-                }
-
-                recycled.Clear();
+                int dead = CountDisabled(chunks[filteredChunkIndex], ref activeHandle);
+                int take = math.min(dead, configCount - cursor);
+                slices[unfilteredChunkIndex] = new int2(cursor, take);
+                cursor += take;
             }
+
+            claimed = cursor;
+            return slices;
         }
 
-        private void AddInactive(ProjectilePoolKey key, Entity entity)
+        private static int CountDisabled(ArchetypeChunk chunk, ref ComponentTypeHandle<ProjectileActiveTag> handle)
         {
-            if (!inactiveByKey.TryGetValue(key, out List<Entity> inactive))
-            {
-                inactive = new List<Entity>();
-                inactiveByKey.Add(key, inactive);
-            }
-
-            inactive.Add(entity);
+            EnabledMask mask = chunk.GetEnabledMask(ref handle);
+            int count = 0;
+            for (int i = 0; i < chunk.Count; i++)
+                if (!mask[i]) count++;
+            return count;
         }
 
-        private void Materialize(
-            Entity scope,
-            ProjectileSpawnRequestElement request,
-            EntityCommandBuffer createEcb,
-            ref NativeList<ProjectileReuseReset> reuseResets)
+        /* ---- Option 2B: counting job + prefix sum (commented out — swap with 2A to compare) ----
+
+        private JobHandle ScheduleCountJob2B(
+            EntityQuery query,
+            ref ComponentTypeHandle<ProjectileActiveTag> activeHandle,
+            out NativeList<int> deadCounts)
         {
-            bool hasChildSpawner = request.HasChildSpawner != 0;
-            var poolKey = new ProjectilePoolKey(scope, request.TypeId, hasChildSpawner);
-            Entity entity = TakeInactive(poolKey);
-            if (entity == Entity.Null)
+            int chunkCount = query.CalculateChunkCount();
+            deadCounts = new NativeList<int>(chunkCount, Allocator.TempJob);
+            for (int i = 0; i < chunkCount; i++) deadCounts.Add(0);
+            return new CountDeadJob
             {
-                CreateProjectileEntity(scope, request, hasChildSpawner, createEcb);
-                return;
-            }
-
-            reuseResets.Add(new ProjectileReuseReset
-            {
-                Entity = entity,
-                Scope = scope,
-                Request = request
-            });
+                ActiveHandle = activeHandle,
+                DeadCounts   = deadCounts.AsArray()
+            }.ScheduleParallel(query, default);
         }
 
-        private Entity TakeInactive(ProjectilePoolKey key)
+        private static (NativeList<int2> slices, int claimed) PrefixSumSlices2B(
+            NativeList<int> deadCounts,
+            int configCount)
         {
-            if (!inactiveByKey.TryGetValue(key, out List<Entity> inactive))
+            var slices = new NativeList<int2>(deadCounts.Length, Allocator.TempJob);
+            int cursor = 0;
+            for (int c = 0; c < deadCounts.Length; c++)
             {
-                return Entity.Null;
+                int take = math.min(deadCounts[c], configCount - cursor);
+                slices.Add(new int2(cursor, take));
+                cursor += take;
             }
-
-            while (inactive.Count > 0)
-            {
-                int index = inactive.Count - 1;
-                Entity entity = inactive[index];
-                inactive.RemoveAt(index);
-                if (EntityManager.Exists(entity)
-                    && !EntityManager.IsComponentEnabled<ProjectileActiveTag>(entity))
-                {
-                    return entity;
-                }
-            }
-
-            return Entity.Null;
+            return (slices, cursor);
         }
+
+        [BurstCompile]
+        private struct CountDeadJob : IJobChunk
+        {
+            [ReadOnly] public ComponentTypeHandle<ProjectileActiveTag> ActiveHandle;
+            [NativeDisableContainerSafetyRestriction][WriteOnly]
+            public NativeArray<int> DeadCounts;
+
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex,
+                bool useEnabledMask, in v128 chunkEnabledMask)
+            {
+                EnabledMask mask = chunk.GetEnabledMask(ref ActiveHandle);
+                int dead = 0;
+                for (int i = 0; i < chunk.Count; i++)
+                    if (!mask[i]) dead++;
+                DeadCounts[unfilteredChunkIndex] = dead;
+            }
+        }
+
+        ---- end Option 2B ---- */
 
         private void CreateProjectileEntity(
             Entity scope,
@@ -192,41 +344,10 @@ namespace PlayGround.System.Projectile
             bool hasChildSpawner,
             EntityCommandBuffer ecb)
         {
-            Entity entity = ecb.CreateEntity(ArchetypeFor(hasChildSpawner));
+            Entity entity = ecb.CreateEntity(hasChildSpawner ? archetypeWithChildSpawner : archetypeNoChildSpawner);
             ecb.AddSharedComponent(entity, new CombatRenderScope { Scope = scope });
             ecb.AddSharedComponent(entity, new CombatRenderTypeId { TypeId = request.TypeId });
             RecordProjectileReset(ecb, entity, scope, request, hasChildSpawner);
-        }
-
-        private void ScheduleReuseResetJob(NativeList<ProjectileReuseReset> reuseResets)
-        {
-            if (reuseResets.Length <= 0)
-            {
-                reuseResets.Dispose();
-                return;
-            }
-
-            var job = new ProjectileReuseResetJob
-            {
-                Resets = reuseResets.AsArray(),
-                Identities = GetComponentLookup<ProjectileIdentityComponent>(),
-                Kinematics = GetComponentLookup<CombatKinematicsComponent>(),
-                Collisions = GetComponentLookup<CombatCollisionComponent>(),
-                Lifetimes = GetComponentLookup<ProjectileLifetimeComponent>(),
-                ProjectileHits = GetComponentLookup<ProjectileHitComponent>(),
-                Tracking = GetComponentLookup<ProjectileTrackingComponent>(),
-                Renders = GetComponentLookup<CombatRenderComponent>(),
-                RenderElements = GetComponentLookup<CombatRenderElement>(),
-                ContactGates = GetBufferLookup<ProjectileContactGateElement>(),
-                ChildSpawners = GetComponentLookup<ProjectileChildSpawnerComponent>(),
-                ChildSpawnStates = GetComponentLookup<ProjectileChildSpawnStateComponent>(),
-                ActiveTags = GetComponentLookup<ProjectileActiveTag>(),
-                CollisionActiveTags = GetComponentLookup<ProjectileCollisionActiveTag>(),
-                RenderActiveTags = GetComponentLookup<CombatRenderActiveTag>()
-            };
-
-            JobHandle resetHandle = job.Schedule(reuseResets.Length, 64, Dependency);
-            Dependency = reuseResets.Dispose(resetHandle);
         }
 
         private static void RecordProjectileReset(
@@ -292,218 +413,149 @@ namespace PlayGround.System.Projectile
         }
 
         private static bool NeedsCollision(in ProjectileHitPayload payload) =>
-            payload.DirectDamageEnabled
-            || payload.StackEffect.Enabled;
-
-        private static ProjectileIdentityComponent IdentityFor(Entity scope, ProjectileSpawnRequestElement request)
-        {
-            return new ProjectileIdentityComponent
-            {
-                Scope = scope,
-                ProjectileId = request.ProjectileId,
-                TypeId = request.TypeId
-            };
-        }
-
-        private static CombatKinematicsComponent KinematicsFor(ProjectileSpawnRequestElement request)
-        {
-            return new CombatKinematicsComponent
-            {
-                Position = request.Position,
-                Velocity = request.Velocity
-            };
-        }
-
-        private static CombatCollisionComponent CollisionFor(ProjectileSpawnRequestElement request)
-        {
-            return new CombatCollisionComponent
-            {
-                ShapeType = request.ShapeType,
-                Radius = request.Radius,
-                HalfExtents = request.HalfExtents,
-                RotationRadians = request.RotationRadians,
-                BoundsMin = request.BoundsMin,
-                BoundsMax = request.BoundsMax
-            };
-        }
-
-        private static ProjectileLifetimeComponent LifetimeFor(ProjectileSpawnRequestElement request)
-        {
-            return new ProjectileLifetimeComponent
-            {
-                RemainingLifetime = request.Lifetime
-            };
-        }
-
-        private static ProjectileHitComponent ProjectileHitFor(ProjectileSpawnRequestElement request)
-        {
-            return new ProjectileHitComponent
-            {
-                PierceRemaining = request.PierceRemaining,
-                RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds,
-                HitPayload = request.HitPayload
-            };
-        }
-
-        private EntityArchetype ArchetypeFor(bool hasChildSpawner)
-        {
-            var key = new ProjectileArchetypeKey(hasChildSpawner);
-            if (archetypesByKey.TryGetValue(key, out EntityArchetype archetype))
-            {
-                return archetype;
-            }
-
-            archetype = hasChildSpawner
-                ? EntityManager.CreateArchetype(
-                    typeof(ProjectileTag),
-                    typeof(ProjectileIdentityComponent),
-                    typeof(CombatKinematicsComponent),
-                    typeof(CombatCollisionComponent),
-
-                    typeof(ProjectileLifetimeComponent),
-                    typeof(ProjectileHitComponent),
-                    typeof(ProjectileTrackingComponent),
-                    typeof(CombatRenderComponent),
-                    typeof(CombatRenderElement),
-                    typeof(ProjectileActiveTag),
-                    typeof(ProjectileCollisionActiveTag),
-                    typeof(CombatRenderActiveTag),
-                    typeof(ProjectileContactGateElement),
-                    typeof(ProjectileChildSpawnerTag),
-                    typeof(ProjectileChildSpawnerComponent),
-                    typeof(ProjectileChildSpawnStateComponent))
-                : EntityManager.CreateArchetype(
-                    typeof(ProjectileTag),
-                    typeof(ProjectileIdentityComponent),
-                    typeof(CombatKinematicsComponent),
-                    typeof(CombatCollisionComponent),
-
-                    typeof(ProjectileLifetimeComponent),
-                    typeof(ProjectileHitComponent),
-                    typeof(ProjectileTrackingComponent),
-                    typeof(CombatRenderComponent),
-                    typeof(CombatRenderElement),
-                    typeof(ProjectileActiveTag),
-                    typeof(ProjectileCollisionActiveTag),
-                    typeof(CombatRenderActiveTag),
-                    typeof(ProjectileContactGateElement));
-
-            archetypesByKey.Add(key, archetype);
-            return archetype;
-        }
-
-        private struct ProjectileReuseReset
-        {
-            public Entity Entity;
-            public Entity Scope;
-            public ProjectileSpawnRequestElement Request;
-        }
+            payload.DirectDamageEnabled || payload.StackEffect.Enabled;
 
         [BurstCompile]
-        private struct ProjectileReuseResetJob : IJobParallelFor
+        private struct ProjectileSpawnJob : IJobChunk
         {
-            [ReadOnly] public NativeArray<ProjectileReuseReset> Resets;
-            [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileIdentityComponent> Identities;
-            [NativeDisableParallelForRestriction] public ComponentLookup<CombatKinematicsComponent> Kinematics;
-            [NativeDisableParallelForRestriction] public ComponentLookup<CombatCollisionComponent> Collisions;
-            [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileLifetimeComponent> Lifetimes;
-            [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileHitComponent> ProjectileHits;
-            [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileTrackingComponent> Tracking;
-            [NativeDisableParallelForRestriction] public ComponentLookup<CombatRenderComponent> Renders;
-            [NativeDisableParallelForRestriction] public ComponentLookup<CombatRenderElement> RenderElements;
-            [NativeDisableParallelForRestriction] public BufferLookup<ProjectileContactGateElement> ContactGates;
-            [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileChildSpawnerComponent> ChildSpawners;
-            [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileChildSpawnStateComponent> ChildSpawnStates;
-            [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileActiveTag> ActiveTags;
-            [NativeDisableParallelForRestriction] public ComponentLookup<ProjectileCollisionActiveTag> CollisionActiveTags;
-            [NativeDisableParallelForRestriction] public ComponentLookup<CombatRenderActiveTag> RenderActiveTags;
+            public Entity Scope;
+            [ReadOnly] public NativeArray<ProjectileSpawnRequestElement> Configs;
+            [ReadOnly] public NativeArray<int2> Slices;
 
-            public void Execute(int index)
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileActiveTag>            ActiveHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileCollisionActiveTag>   CollisionActiveHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderActiveTag>          RenderActiveHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileIdentityComponent>    IdentityHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatKinematicsComponent>      KinematicsHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatCollisionComponent>       CollisionHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileLifetimeComponent>    LifetimeHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileHitComponent>         HitHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileTrackingComponent>    TrackingHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderComponent>          RenderHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderElement>            RenderElementHandle;
+            [NativeDisableContainerSafetyRestriction] public BufferTypeHandle<ProjectileContactGateElement>      ContactGateHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileChildSpawnerComponent>    ChildSpawnerHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileChildSpawnStateComponent> ChildSpawnStateHandle;
+
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex,
+                bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                ProjectileReuseReset reset = Resets[index];
-                Entity entity = reset.Entity;
-                ProjectileSpawnRequestElement request = reset.Request;
+                int2 slice = Slices[unfilteredChunkIndex];
+                if (slice.y == 0) return;
 
-                Identities[entity] = IdentityFor(reset.Scope, request);
-                Kinematics[entity] = KinematicsFor(request);
-                Collisions[entity] = CollisionFor(request);
-                Lifetimes[entity] = LifetimeFor(request);
-                ProjectileHits[entity] = ProjectileHitFor(request);
-                Tracking[entity] = request.Tracking;
-                Tracking.SetComponentEnabled(entity, request.Tracking.TrackingEnabled);
-                Renders[entity] = request.Render;
-                RenderElements[entity] = new CombatRenderElement();
-                ContactGates[entity].Clear();
-                if (request.SeedContactGateTargetId > 0)
+                EnabledMask activeMask         = chunk.GetEnabledMask(ref ActiveHandle);
+                EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
+                EnabledMask renderActiveMask   = chunk.GetEnabledMask(ref RenderActiveHandle);
+                EnabledMask trackingMask       = chunk.GetEnabledMask(ref TrackingHandle);
+
+                NativeArray<ProjectileIdentityComponent>  identities  = chunk.GetNativeArray(ref IdentityHandle);
+                NativeArray<CombatKinematicsComponent>    kinematics  = chunk.GetNativeArray(ref KinematicsHandle);
+                NativeArray<CombatCollisionComponent>     collisions  = chunk.GetNativeArray(ref CollisionHandle);
+                NativeArray<ProjectileLifetimeComponent>  lifetimes   = chunk.GetNativeArray(ref LifetimeHandle);
+                NativeArray<ProjectileHitComponent>       hits        = chunk.GetNativeArray(ref HitHandle);
+                NativeArray<ProjectileTrackingComponent>  tracking    = chunk.GetNativeArray(ref TrackingHandle);
+                NativeArray<CombatRenderComponent>        renders     = chunk.GetNativeArray(ref RenderHandle);
+                NativeArray<CombatRenderElement>          renderElems = chunk.GetNativeArray(ref RenderElementHandle);
+                BufferAccessor<ProjectileContactGateElement> gates    = chunk.GetBufferAccessor(ref ContactGateHandle);
+
+                bool hasChildSpawner = chunk.Has(ref ChildSpawnerHandle);
+                NativeArray<ProjectileChildSpawnerComponent>    childSpawners =
+                    hasChildSpawner ? chunk.GetNativeArray(ref ChildSpawnerHandle)   : default;
+                NativeArray<ProjectileChildSpawnStateComponent> childStates   =
+                    hasChildSpawner ? chunk.GetNativeArray(ref ChildSpawnStateHandle) : default;
+
+                int cfgIdx = slice.x;
+                int cfgEnd = slice.x + slice.y;
+
+                for (int i = 0; i < chunk.Count && cfgIdx < cfgEnd; i++)
                 {
-                    ContactGates[entity].Add(new ProjectileContactGateElement
+                    if (activeMask[i]) continue;
+
+                    ProjectileSpawnRequestElement cfg = Configs[cfgIdx++];
+
+                    identities[i]  = new ProjectileIdentityComponent
                     {
-                        TargetId = request.SeedContactGateTargetId,
-                        CooldownRemaining = math.max(0.1f, request.RepeatHitCooldownSeconds)
-                    });
-                }
+                        Scope = Scope, ProjectileId = cfg.ProjectileId, TypeId = cfg.TypeId
+                    };
+                    kinematics[i]  = new CombatKinematicsComponent
+                    {
+                        Position = cfg.Position, Velocity = cfg.Velocity
+                    };
+                    collisions[i]  = new CombatCollisionComponent
+                    {
+                        ShapeType = cfg.ShapeType, Radius = cfg.Radius, HalfExtents = cfg.HalfExtents,
+                        RotationRadians = cfg.RotationRadians, BoundsMin = cfg.BoundsMin, BoundsMax = cfg.BoundsMax
+                    };
+                    lifetimes[i]   = new ProjectileLifetimeComponent { RemainingLifetime = cfg.Lifetime };
+                    hits[i]        = new ProjectileHitComponent
+                    {
+                        PierceRemaining          = cfg.PierceRemaining,
+                        RepeatHitCooldownSeconds = cfg.RepeatHitCooldownSeconds,
+                        HitPayload               = cfg.HitPayload
+                    };
+                    tracking[i]    = cfg.Tracking;
+                    trackingMask[i] = cfg.Tracking.TrackingEnabled;
+                    renders[i]     = cfg.Render;
+                    renderElems[i] = new CombatRenderElement();
 
-                if (request.HasChildSpawner != 0)
-                {
-                    ChildSpawners[entity] = request.ChildSpawner;
-                    ChildSpawnStates[entity] = request.ChildSpawnState;
-                }
+                    DynamicBuffer<ProjectileContactGateElement> gate = gates[i];
+                    gate.Clear();
+                    if (cfg.SeedContactGateTargetId > 0)
+                    {
+                        gate.Add(new ProjectileContactGateElement
+                        {
+                            TargetId          = cfg.SeedContactGateTargetId,
+                            CooldownRemaining = math.max(0.1f, cfg.RepeatHitCooldownSeconds)
+                        });
+                    }
 
-                ActiveTags.SetComponentEnabled(entity, true);
-                CollisionActiveTags.SetComponentEnabled(entity, NeedsCollision(request.HitPayload));
-                RenderActiveTags.SetComponentEnabled(entity, true);
+                    if (hasChildSpawner)
+                    {
+                        childSpawners[i] = cfg.ChildSpawner;
+                        childStates[i]   = cfg.ChildSpawnState;
+                    }
+
+                    activeMask[i]          = true;
+                    collisionActiveMask[i]  = NeedsCollision(cfg.HitPayload);
+                    renderActiveMask[i]    = true;
+                }
             }
         }
 
-        private readonly struct ProjectilePoolKey : global::System.IEquatable<ProjectilePoolKey>
+        private readonly struct ProjectileSpawnKey : IEquatable<ProjectileSpawnKey>
         {
-            private readonly Entity scope;
-            private readonly int typeId;
-            private readonly bool hasChildSpawner;
+            private readonly int  _scopeIndex;
+            private readonly int  _typeId;
+            private readonly byte _hasChildSpawner;
 
-            public ProjectilePoolKey(Entity scope, int typeId, bool hasChildSpawner)
+            public int  ScopeIndex      => _scopeIndex;
+            public int  TypeId          => _typeId;
+            public bool HasChildSpawner => _hasChildSpawner != 0;
+
+            public ProjectileSpawnKey(int scopeIndex, int typeId, bool hasChildSpawner)
             {
-                this.scope = scope;
-                this.typeId = typeId;
-                this.hasChildSpawner = hasChildSpawner;
+                _scopeIndex      = scopeIndex;
+                _typeId          = typeId;
+                _hasChildSpawner = hasChildSpawner ? (byte)1 : (byte)0;
             }
 
-            public bool Equals(ProjectilePoolKey other) =>
-                scope == other.scope
-                && typeId == other.typeId
-                && hasChildSpawner == other.hasChildSpawner;
+            public bool Equals(ProjectileSpawnKey other) =>
+                _scopeIndex      == other._scopeIndex &&
+                _typeId          == other._typeId     &&
+                _hasChildSpawner == other._hasChildSpawner;
 
-            public override bool Equals(object obj) =>
-                obj is ProjectilePoolKey other && Equals(other);
+            public override bool Equals(object obj) => obj is ProjectileSpawnKey k && Equals(k);
 
             public override int GetHashCode()
             {
                 unchecked
                 {
-                    int hash = scope.GetHashCode();
-                    hash = (hash * 397) ^ typeId;
-                    hash = (hash * 397) ^ (hasChildSpawner ? 1 : 0);
-                    return hash;
+                    int h = _scopeIndex;
+                    h = h * 397 ^ _typeId;
+                    h = h * 397 ^ _hasChildSpawner;
+                    return h;
                 }
             }
-        }
-
-        private readonly struct ProjectileArchetypeKey : global::System.IEquatable<ProjectileArchetypeKey>
-        {
-            private readonly bool hasChildSpawner;
-
-            public ProjectileArchetypeKey(bool hasChildSpawner)
-            {
-                this.hasChildSpawner = hasChildSpawner;
-            }
-
-            public bool Equals(ProjectileArchetypeKey other) =>
-                hasChildSpawner == other.hasChildSpawner;
-
-            public override bool Equals(object obj) =>
-                obj is ProjectileArchetypeKey other && Equals(other);
-
-            public override int GetHashCode() => hasChildSpawner ? 1 : 0;
         }
     }
 }

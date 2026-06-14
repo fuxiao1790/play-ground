@@ -58,17 +58,14 @@ namespace PlayGround.System.Projectile
             }
 
             var pendingHits = new NativeQueue<CombatPendingHit>(Allocator.TempJob);
-            var recycled = new NativeQueue<ProjectilePendingRecycle>(Allocator.TempJob);
             var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
             var job = new ProjectileCollisionJob
             {
                 Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
-                ChildSpawnerTags = SystemAPI.GetComponentLookup<ProjectileChildSpawnerTag>(true),
                 TargetCells = targetCells,
                 TotalTargetCount = totalTargetCount,
                 MaxTargetRadius = maxTargetRadius,
                 PendingHits = pendingHits.AsParallelWriter(),
-                Recycled = recycled.AsParallelWriter(),
                 VfxPending = vfxPending.AsParallelWriter()
             };
 
@@ -80,11 +77,6 @@ namespace PlayGround.System.Projectile
                 Payloads = SystemAPI.GetBufferLookup<CombatHitPayloadElement>(),
                 Effects = SystemAPI.GetBufferLookup<CombatHitEffectElement>()
             }.Schedule(collisionHandle);
-            var recycleFlushHandle = new ProjectileRecycleFlushJob
-            {
-                Recycled = recycled,
-                RecycleBuffers = SystemAPI.GetBufferLookup<ProjectileRecycleElement>()
-            }.Schedule(collisionHandle);
             var vfxFlushHandle = new VfxFlushJob
             {
                 Pending = vfxPending,
@@ -92,12 +84,9 @@ namespace PlayGround.System.Projectile
             }.Schedule(collisionHandle);
 
             JobHandle disposeHitsHandle = pendingHits.Dispose(flushHandle);
-            JobHandle disposeRecycleHandle = recycled.Dispose(recycleFlushHandle);
             JobHandle disposeVfxHandle = vfxPending.Dispose(vfxFlushHandle);
-            JobHandle flushesHandle = JobHandle.CombineDependencies(
-                JobHandle.CombineDependencies(disposeHitsHandle, disposeRecycleHandle),
-                disposeVfxHandle);
-            state.Dependency = targetCells.Dispose(flushesHandle);
+            state.Dependency = targetCells.Dispose(
+                JobHandle.CombineDependencies(disposeHitsHandle, disposeVfxHandle));
         }
 
         [BurstCompile]
@@ -105,12 +94,10 @@ namespace PlayGround.System.Projectile
         private partial struct ProjectileCollisionJob : IJobEntity
         {
             [ReadOnly] public BufferLookup<CombatTargetElement> Targets;
-            [ReadOnly] public ComponentLookup<ProjectileChildSpawnerTag> ChildSpawnerTags;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> TargetCells;
             public int TotalTargetCount;
             public float MaxTargetRadius;
             public NativeQueue<CombatPendingHit>.ParallelWriter PendingHits;
-            public NativeQueue<ProjectilePendingRecycle>.ParallelWriter Recycled;
             public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
 
             private void Execute(
@@ -128,13 +115,13 @@ namespace PlayGround.System.Projectile
                 float areaSize = math.max(render.VisualScale.x, render.VisualScale.y);
                 if (identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
                 {
-                    Deactivate(entity, identity, kinematics.Position, areaSize, ref lifetime, active, renderActive);
+                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive);
                     return;
                 }
 
                 if (lifetime.RemainingLifetime <= 0f)
                 {
-                    Deactivate(entity, identity, kinematics.Position, areaSize, ref lifetime, active, renderActive);
+                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive);
                     return;
                 }
 
@@ -222,7 +209,7 @@ namespace PlayGround.System.Projectile
 
                             if (projectileHit.PierceRemaining <= 0)
                             {
-                                Deactivate(entity, identity, kinematics.Position, areaSize, ref lifetime, active, renderActive);
+                                Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive);
                                 return;
                             }
 
@@ -234,7 +221,6 @@ namespace PlayGround.System.Projectile
             }
 
             private void Deactivate(
-                Entity entity,
                 ProjectileIdentityComponent identity,
                 float2 position,
                 float areaSize,
@@ -245,13 +231,6 @@ namespace PlayGround.System.Projectile
                 lifetime.RemainingLifetime = 0f;
                 active.ValueRW = false;
                 renderActive.ValueRW = false;
-                Recycled.Enqueue(new ProjectilePendingRecycle
-                {
-                    Scope = identity.Scope,
-                    ProjectileEntity = entity,
-                    TypeId = identity.TypeId,
-                    HasChildSpawner = ChildSpawnerTags.HasComponent(entity) ? 1 : 0
-                });
                 VfxPending.Enqueue(new VfxPendingSpawn
                 {
                     Scope = identity.Scope,

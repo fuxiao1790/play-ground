@@ -280,7 +280,6 @@ namespace PlayGround.System.Aoe
             entityManager.AddBuffer<CombatHitElement>(scopeEntity);
             entityManager.AddBuffer<CombatHitPayloadElement>(scopeEntity);
             entityManager.AddBuffer<CombatHitEffectElement>(scopeEntity);
-            entityManager.AddBuffer<AoeRecycleElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
             entityManager.AddComponentObject(scopeEntity, new CombatTargetSyncSource { Sync = combatRuntimeManaged ? null : targetSyncCallback });
             allAoeQuery = entityManager.CreateEntityQuery(

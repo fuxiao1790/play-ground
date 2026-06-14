@@ -75,23 +75,23 @@ General rule:
   shape baking, bounds, and shape collision math used by projectile and AOE
   domains
 - `ProjectileSimulationSystem`: clears per-scope projectile event buffers at the start of the simulation stage
-- `ProjectileSpawnSystem`: drains scoped projectile recycle and spawn request
-  buffers, reuses inactive projectile entities by scope/render type/slot kind,
+- `ProjectileSpawnSystem`: drains scoped projectile spawn request buffers,
+  reuses disabled projectile entities by scope/render type/slot kind,
   and creates cold entities through ECB only when no reusable entity exists
 - `ProjectileTrackingSystem`: owns homing target refresh, reacquire cadence, and steering
 - `ProjectileMovementSystem`: owns projectile position integration
 - `ProjectileChildSpawnSystem`: owns timed child projectile spawn request events
-- `ProjectileLifetimeSystem`: owns lifetime countdown, disabling expired projectile entities, and recycle records
+- `ProjectileLifetimeSystem`: owns lifetime countdown and disabling expired projectile entities
 - `ProjectileContactGateSystem`: owns repeat-hit gate cooldown expiry
-- `ProjectileCollisionSystem`: owns projectile target mask filtering, baked-shape hit checks, pierce handling, ordered hit event output, and hit-despawn recycle records
+- `ProjectileCollisionSystem`: owns projectile target mask filtering, baked-shape hit checks, pierce handling, ordered hit event output, and hit-despawn deactivation
 - `ProjectileRoot`: owns scoped projectile bridge cleanup and destroys scoped entities only when the root tears down
 - `CombatCollisionMath`: owns pure circle, rectangle, and capsule bounds and
   narrow-phase math; projectile code reaches it through a projectile
   compatibility adapter where old APIs still exist
 - `AoeRoot`: owns one scoped AOE target flow, AOE template baking, target sync, optional effect lifetime, hit replay, and spawn requests
 - `AoeSimulationSystem`: clears per-scope AOE hit buffers at the start of the simulation stage
-- `AoeSpawnSystem`: drains scoped AOE recycle and spawn request buffers, reuses inactive AOE entities by scope/type, and cold-creates only when no reusable entity exists
-- `AoeCollisionSystem`: owns AOE target mask filtering, baked-shape hit checks, hit event output, and recycle records
+- `AoeSpawnSystem`: drains scoped AOE spawn request buffers, reuses disabled AOE entities by scope/type, and cold-creates only when no reusable entity exists
+- `AoeCollisionSystem`: owns AOE target mask filtering, baked-shape hit checks, hit event output, and pulse deactivation
 - `CombatRenderPrepareSystem`: prepares shared batched render matrices for
   active projectile and AOE entities
 - `CombatVfxRoot`: scene-object MonoBehaviour owning one `CombatVfxDispatcher`

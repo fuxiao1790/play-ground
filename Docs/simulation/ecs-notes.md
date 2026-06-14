@@ -198,11 +198,10 @@ When entities need frequent state changes every frame:
   projectile identity/scope data, never common combat components alone.
 - Runtime despawn disables `ProjectileActiveTag`; it does not destroy projectile
   entities during normal churn.
-- Lifetime and collision systems enqueue recycle records, then
-  `ProjectileRecycleFlushJob` appends them to the owning scope buffer.
-- `ProjectileSpawnSystem` drains recycle buffers into keyed inactive pools before
-  materializing spawn requests. It should not scan all inactive projectile
-  entities every spawn frame.
+- Lifetime and collision systems disable `ProjectileActiveTag` when a projectile
+  leaves play.
+- `ProjectileSpawnSystem` groups spawn requests by scope/render type/slot kind,
+  then queries matching disabled chunks before materializing cold creates.
 - Reuse key is scope, render type id, and slot kind. Slot kind is normal or
   child-spawner archetype.
 - Root/external spawn requests use a child-spawner slot only when the spawn
@@ -219,10 +218,9 @@ When entities need frequent state changes every frame:
 - AOE entities carry `AoeTag` plus common `CombatKinematicsComponent`,
   `CombatCollisionComponent`, and `CombatHitComponent`. AOE systems must query
   `AoeTag` or `AoeScope`, never common combat components alone.
-- Runtime despawn disables `AoeActiveTag` and records the entity in the owning
-  scope recycle buffer.
-- `AoeSpawnSystem` drains recycle buffers into keyed inactive pools before
-  materializing spawn requests. Reuse key is scope and AOE type id.
+- Runtime despawn disables `AoeActiveTag`.
+- `AoeSpawnSystem` groups spawn requests by scope and AOE type id, then queries
+  matching disabled chunks before materializing cold creates.
 - AOE counters track active, spawned, despawned/reused, hit events, active
   visuals, and render batches.
 

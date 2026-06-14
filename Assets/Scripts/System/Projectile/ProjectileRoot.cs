@@ -270,7 +270,6 @@ namespace PlayGround.System.Projectile
             entityManager.AddBuffer<CombatHitPayloadElement>(scopeEntity);
             entityManager.AddBuffer<CombatHitEffectElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileSpawnRequestElement>(scopeEntity);
-            entityManager.AddBuffer<ProjectileRecycleElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
             entityManager.AddComponentObject(scopeEntity, new CombatTargetSyncSource { Sync = combatRuntimeManaged ? null : targetSyncCallback });
             allProjectileQuery = entityManager.CreateEntityQuery(

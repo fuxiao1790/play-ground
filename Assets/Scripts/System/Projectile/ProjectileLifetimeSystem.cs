@@ -18,32 +18,21 @@ namespace PlayGround.System.Projectile
 
         public void OnUpdate(ref SystemState state)
         {
-            var recycled = new NativeQueue<ProjectilePendingRecycle>(Allocator.TempJob);
             var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
             var job = new ProjectileLifetimeJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
-                ChildSpawnerTags = SystemAPI.GetComponentLookup<ProjectileChildSpawnerTag>(true),
-                Recycled = recycled.AsParallelWriter(),
                 VfxPending = vfxPending.AsParallelWriter()
             };
 
             JobHandle lifetimeHandle = job.ScheduleParallel(state.Dependency);
-            JobHandle recycleFlushHandle = new ProjectileRecycleFlushJob
-            {
-                Recycled = recycled,
-                RecycleBuffers = SystemAPI.GetBufferLookup<ProjectileRecycleElement>()
-            }.Schedule(lifetimeHandle);
             JobHandle vfxFlushHandle = new VfxFlushJob
             {
                 Pending = vfxPending,
                 VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
             }.Schedule(lifetimeHandle);
 
-            JobHandle bothFlushes = JobHandle.CombineDependencies(recycleFlushHandle, vfxFlushHandle);
-            state.Dependency = JobHandle.CombineDependencies(
-                recycled.Dispose(bothFlushes),
-                vfxPending.Dispose(bothFlushes));
+            state.Dependency = vfxPending.Dispose(vfxFlushHandle);
         }
 
         [BurstCompile]
@@ -51,8 +40,6 @@ namespace PlayGround.System.Projectile
         private partial struct ProjectileLifetimeJob : IJobEntity
         {
             public float DeltaTime;
-            [ReadOnly] public ComponentLookup<ProjectileChildSpawnerTag> ChildSpawnerTags;
-            public NativeQueue<ProjectilePendingRecycle>.ParallelWriter Recycled;
             public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
 
             private void Execute(
@@ -70,13 +57,6 @@ namespace PlayGround.System.Projectile
                     lifetime.RemainingLifetime = 0f;
                     active.ValueRW = false;
                     renderActive.ValueRW = false;
-                    Recycled.Enqueue(new ProjectilePendingRecycle
-                    {
-                        Scope = identity.Scope,
-                        ProjectileEntity = entity,
-                        TypeId = identity.TypeId,
-                        HasChildSpawner = ChildSpawnerTags.HasComponent(entity) ? 1 : 0
-                    });
                     VfxPending.Enqueue(new VfxPendingSpawn
                     {
                         Scope = identity.Scope,
