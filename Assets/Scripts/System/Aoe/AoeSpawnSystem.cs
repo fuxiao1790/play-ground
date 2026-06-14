@@ -15,9 +15,8 @@ using Unity.Profiling;
 namespace PlayGround.System.Aoe
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(AoeSimulationSystem))]
-    [UpdateBefore(typeof(ProjectileSpawnSystem))]
-    [UpdateBefore(typeof(AoeCollisionSystem))]
+    [UpdateAfter(typeof(AoeCollisionSystem))]
+    [UpdateAfter(typeof(AoeLifetimeSystem))]
     [UpdateBefore(typeof(PlayGround.System.Common.CombatRenderPrepareSystem))]
     public partial class AoeSpawnSystem : SystemBase
     {

@@ -13,8 +13,8 @@ using Unity.Profiling;
 namespace PlayGround.System.Projectile
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(ProjectileSimulationSystem))]
-    [UpdateBefore(typeof(ProjectileTrackingSystem))]
+    [UpdateAfter(typeof(ProjectileCollisionSystem))]
+    [UpdateAfter(typeof(ProjectileLifetimeSystem))]
     public partial class ProjectileSpawnSystem : SystemBase
     {
         private static readonly ProfilerMarker SpawnMarker =

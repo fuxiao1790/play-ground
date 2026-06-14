@@ -5,7 +5,7 @@ namespace PlayGround.System.Aoe
 {
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(AoeSpawnSystem))]
+    [UpdateAfter(typeof(AoeSimulationSystem))]
     [UpdateBefore(typeof(AoeCollisionSystem))]
     public partial struct AoeContactGateSystem : ISystem
     {

@@ -8,7 +8,7 @@ using Unity.Jobs;
 namespace PlayGround.System.Aoe
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(AoeSpawnSystem))]
+    [UpdateAfter(typeof(AoeSimulationSystem))]
     [UpdateBefore(typeof(AoeCollisionSystem))]
     public partial struct AoeLifetimeSystem : ISystem
     {
