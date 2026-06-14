@@ -844,12 +844,11 @@ MonoBehaviour:
   zoomSpeed: 0.2
   releaseLimits:
     serializedVersion: 2
-    x: -12
-    y: -7
-    width: 24
-    height: 14
+    x: -100000
+    y: -100000
+    width: 100000
+    height: 100000
   useReleaseLimits: 1
-  allowBeyondLimitsInDebug: 1
 --- !u!81 &1593919880
 AudioListener:
   m_ObjectHideFlags: 0

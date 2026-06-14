@@ -23,7 +23,7 @@ MonoBehaviour:
     pierceCount: 20
     repeatHitCooldown: 1
     directDamageEnabled: 1
-    trackingEnabled: 0
+    trackingEnabled: 1
     trackingRange: 150
     trackingTurnSpeedDegrees: 360
     trackingQueryIntervalSeconds: 0.25
