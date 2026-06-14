@@ -3,7 +3,7 @@ using Unity.Mathematics;
 
 namespace PlayGround.System.Vfx
 {
-    // ECS Lifecycle: transient native payload; not added to entities; queued by simulation jobs, drained by VfxFlushJob.
+    // ECS Lifecycle: transient native payload; not added to entities; queued or streamed by simulation jobs, drained by VfxFlushJob variants.
     public struct VfxPendingSpawn
     {
         public Entity Scope;

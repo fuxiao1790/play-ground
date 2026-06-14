@@ -5,7 +5,6 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
-using Unity.Profiling;
 
 namespace PlayGround.System.Projectile
 {
@@ -16,9 +15,32 @@ namespace PlayGround.System.Projectile
         // this depends on the arena size and mob count
         // cellSize = sqrt(arenaWidth * arenaHeight / mobCount) * ~1.5
         private const float SpatialHashCellSize = 1f;
+        private EntityQuery activeProjectileQuery;
+
+        public void OnCreate(ref SystemState state)
+        {
+            activeProjectileQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<ProjectileTag>(),
+                ComponentType.ReadOnly<ProjectileActiveTag>(),
+                ComponentType.ReadOnly<ProjectileCollisionActiveTag>(),
+                ComponentType.ReadOnly<ProjectileIdentityComponent>(),
+                ComponentType.ReadOnly<CombatKinematicsComponent>(),
+                ComponentType.ReadOnly<CombatCollisionComponent>(),
+                ComponentType.ReadOnly<CombatRenderComponent>(),
+                ComponentType.ReadWrite<ProjectileLifetimeComponent>(),
+                ComponentType.ReadWrite<ProjectileHitComponent>(),
+                ComponentType.ReadWrite<CombatRenderActiveTag>(),
+                ComponentType.ReadWrite<ProjectileContactGateElement>());
+        }
 
         public void OnUpdate(ref SystemState state)
         {
+            int activeProjectileCount = activeProjectileQuery.CalculateEntityCount();
+            if (activeProjectileCount == 0)
+            {
+                return;
+            }
+
             state.EntityManager.CompleteDependencyBeforeRO<CombatTargetElement>();
 
             // Pass 1: count targets and find the largest bounding radius.
@@ -57,18 +79,18 @@ namespace PlayGround.System.Projectile
                 }
             }
 
-            var pendingDamage = new NativeQueue<CombatPendingDamage>(Allocator.TempJob);
-            var pendingSpawns = new NativeQueue<CombatPendingSpawn>(Allocator.TempJob);
-            var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
+            var pendingDamage = new NativeStream(activeProjectileCount, Allocator.TempJob);
+            var pendingSpawns = new NativeStream(activeProjectileCount, Allocator.TempJob);
+            var vfxPending = new NativeStream(activeProjectileCount, Allocator.TempJob);
             var job = new ProjectileCollisionJob
             {
                 Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
                 TargetCells = targetCells,
                 TotalTargetCount = totalTargetCount,
                 MaxTargetRadius = maxTargetRadius,
-                PendingDamage = pendingDamage.AsParallelWriter(),
-                PendingSpawns = pendingSpawns.AsParallelWriter(),
-                VfxPending = vfxPending.AsParallelWriter()
+                PendingDamage = pendingDamage.AsWriter(),
+                PendingSpawns = pendingSpawns.AsWriter(),
+                VfxPending = vfxPending.AsWriter()
             };
 
             var collisionHandle = job.ScheduleParallel(state.Dependency);
@@ -79,7 +101,7 @@ namespace PlayGround.System.Projectile
                 Damage = SystemAPI.GetBufferLookup<CombatDamageElement>(),
                 Spawns = SystemAPI.GetBufferLookup<CombatSpawnElement>()
             }.Schedule(collisionHandle);
-            var vfxFlushHandle = new VfxFlushJob
+            var vfxFlushHandle = new VfxStreamFlushJob
             {
                 Pending = vfxPending,
                 VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
@@ -100,11 +122,12 @@ namespace PlayGround.System.Projectile
             [ReadOnly] public NativeParallelMultiHashMap<long, int> TargetCells;
             public int TotalTargetCount;
             public float MaxTargetRadius;
-            public NativeQueue<CombatPendingDamage>.ParallelWriter PendingDamage;
-            public NativeQueue<CombatPendingSpawn>.ParallelWriter PendingSpawns;
-            public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
+            public NativeStream.Writer PendingDamage;
+            public NativeStream.Writer PendingSpawns;
+            public NativeStream.Writer VfxPending;
 
             private void Execute(
+                [EntityIndexInQuery] int entityIndexInQuery,
                 Entity entity,
                 in ProjectileIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
@@ -116,21 +139,31 @@ namespace PlayGround.System.Projectile
                 EnabledRefRW<CombatRenderActiveTag> renderActive,
                 DynamicBuffer<ProjectileContactGateElement> contactGates)
             {
+                NativeStream.Writer pendingDamage = PendingDamage;
+                NativeStream.Writer pendingSpawns = PendingSpawns;
+                NativeStream.Writer vfxPending = VfxPending;
+                pendingDamage.BeginForEachIndex(entityIndexInQuery);
+                pendingSpawns.BeginForEachIndex(entityIndexInQuery);
+                vfxPending.BeginForEachIndex(entityIndexInQuery);
+
                 float areaSize = math.max(render.VisualScale.x, render.VisualScale.y);
                 if (identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
                 {
-                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive);
+                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, ref vfxPending);
+                    EndStreams(ref pendingDamage, ref pendingSpawns, ref vfxPending);
                     return;
                 }
 
                 if (lifetime.RemainingLifetime <= 0f)
                 {
-                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive);
+                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, ref vfxPending);
+                    EndStreams(ref pendingDamage, ref pendingSpawns, ref vfxPending);
                     return;
                 }
 
                 if (TotalTargetCount == 0)
                 {
+                    EndStreams(ref pendingDamage, ref pendingSpawns, ref vfxPending);
                     return;
                 }
 
@@ -181,7 +214,7 @@ namespace PlayGround.System.Projectile
 
                             if (HasDamageEvent(projectileHit.HitPayload))
                             {
-                                PendingDamage.Enqueue(new CombatPendingDamage
+                                pendingDamage.Write(new CombatPendingDamage
                                 {
                                     Scope = identity.Scope,
                                     SourceId = identity.ProjectileId,
@@ -200,7 +233,7 @@ namespace PlayGround.System.Projectile
 
                             if (HasSpawnEvent(projectileHit.HitPayload))
                             {
-                                PendingSpawns.Enqueue(new CombatPendingSpawn
+                                pendingSpawns.Write(new CombatPendingSpawn
                                 {
                                     Scope = identity.Scope,
                                     SourceId = identity.ProjectileId,
@@ -215,7 +248,7 @@ namespace PlayGround.System.Projectile
                                 });
                             }
 
-                            VfxPending.Enqueue(new VfxPendingSpawn
+                            vfxPending.Write(new VfxPendingSpawn
                             {
                                 Scope = identity.Scope,
                                 TypeId = identity.TypeId,
@@ -229,7 +262,8 @@ namespace PlayGround.System.Projectile
 
                             if (projectileHit.PierceRemaining <= 0)
                             {
-                                Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive);
+                                Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, ref vfxPending);
+                                EndStreams(ref pendingDamage, ref pendingSpawns, ref vfxPending);
                                 return;
                             }
 
@@ -238,6 +272,8 @@ namespace PlayGround.System.Projectile
                         while (TargetCells.TryGetNextValue(out targetIdx, ref iterator));
                     }
                 }
+
+                EndStreams(ref pendingDamage, ref pendingSpawns, ref vfxPending);
             }
 
             private void Deactivate(
@@ -246,12 +282,13 @@ namespace PlayGround.System.Projectile
                 float areaSize,
                 ref ProjectileLifetimeComponent lifetime,
                 EnabledRefRW<ProjectileActiveTag> active,
-                EnabledRefRW<CombatRenderActiveTag> renderActive)
+                EnabledRefRW<CombatRenderActiveTag> renderActive,
+                ref NativeStream.Writer vfxPending)
             {
                 lifetime.RemainingLifetime = 0f;
                 active.ValueRW = false;
                 renderActive.ValueRW = false;
-                VfxPending.Enqueue(new VfxPendingSpawn
+                vfxPending.Write(new VfxPendingSpawn
                 {
                     Scope = identity.Scope,
                     TypeId = identity.TypeId,
@@ -259,6 +296,16 @@ namespace PlayGround.System.Projectile
                     Position = position,
                     AreaSize = areaSize
                 });
+            }
+
+            private static void EndStreams(
+                ref NativeStream.Writer pendingDamage,
+                ref NativeStream.Writer pendingSpawns,
+                ref NativeStream.Writer vfxPending)
+            {
+                pendingDamage.EndForEachIndex();
+                pendingSpawns.EndForEachIndex();
+                vfxPending.EndForEachIndex();
             }
 
             private static bool IsGated(DynamicBuffer<ProjectileContactGateElement> contactGates, int targetId)

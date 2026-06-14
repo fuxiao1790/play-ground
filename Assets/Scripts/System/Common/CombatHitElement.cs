@@ -214,7 +214,7 @@ namespace PlayGround.System.Common
         public AoeProjectileBurstSnapshot ProjectileBurst;
     }
 
-    // ECS Lifecycle: transient native damage payload; not added to entities; queued during collision and flushed to scope buffers.
+    // ECS Lifecycle: transient native damage payload; not added to entities; streamed during collision and flushed to scope buffers.
     public struct CombatPendingDamage
     {
         public Entity Scope;
@@ -231,7 +231,7 @@ namespace PlayGround.System.Common
         public CombatStatusEffectSnapshot StackEffect;
     }
 
-    // ECS Lifecycle: transient native spawn payload; not added to entities; queued during collision and flushed to scope buffers.
+    // ECS Lifecycle: transient native spawn payload; not added to entities; streamed during collision and flushed to scope buffers.
     public struct CombatPendingSpawn
     {
         public Entity Scope;

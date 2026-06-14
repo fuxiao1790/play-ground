@@ -23,15 +23,27 @@ namespace PlayGround.System.Aoe
         {
             activeAoeQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<AoeTag>(),
-                ComponentType.ReadOnly<AoeActiveTag>());
+                ComponentType.ReadOnly<AoeActiveTag>(),
+                ComponentType.ReadOnly<AoeCollisionActiveTag>(),
+                ComponentType.ReadOnly<AoeIdentityComponent>(),
+                ComponentType.ReadOnly<CombatKinematicsComponent>(),
+                ComponentType.ReadOnly<CombatCollisionComponent>(),
+                ComponentType.ReadOnly<AoeLifetimeComponent>(),
+                ComponentType.ReadOnly<AoeHitGateComponent>(),
+                ComponentType.ReadOnly<AoeHitSpawnComponent>(),
+                ComponentType.ReadOnly<AoeAreaComponent>(),
+                ComponentType.ReadWrite<CombatRenderActiveTag>(),
+                ComponentType.ReadWrite<AoeContactGateElement>());
             scopeQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<AoeScope>(),
                 ComponentType.ReadOnly<CombatTargetElement>());
+
         }
 
         public void OnUpdate(ref SystemState state)
         {
-            if (activeAoeQuery.CalculateEntityCount() == 0)
+            int activeAoeCount = activeAoeQuery.CalculateEntityCount();
+            if (activeAoeCount == 0)
             {
                 return;
             }
@@ -73,16 +85,16 @@ namespace PlayGround.System.Aoe
                 }
             }
 
-            var pendingDamage = new NativeQueue<CombatPendingDamage>(Allocator.TempJob);
-            var pendingSpawns = new NativeQueue<CombatPendingSpawn>(Allocator.TempJob);
-            var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
+            var pendingDamage = new NativeStream(activeAoeCount, Allocator.TempJob);
+            var pendingSpawns = new NativeStream(activeAoeCount, Allocator.TempJob);
+            var vfxPending = new NativeStream(activeAoeCount, Allocator.TempJob);
             var job = new AoeCollisionJob
             {
                 Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
                 OccupiedTargetCells = occupiedTargetCells,
-                PendingDamage = pendingDamage.AsParallelWriter(),
-                PendingSpawns = pendingSpawns.AsParallelWriter(),
-                VfxPending = vfxPending.AsParallelWriter()
+                PendingDamage = pendingDamage.AsWriter(),
+                PendingSpawns = pendingSpawns.AsWriter(),
+                VfxPending = vfxPending.AsWriter()
             };
 
             JobHandle collisionHandle = job.ScheduleParallel(state.Dependency);
@@ -93,7 +105,7 @@ namespace PlayGround.System.Aoe
                 Damage = SystemAPI.GetBufferLookup<CombatDamageElement>(),
                 Spawns = SystemAPI.GetBufferLookup<CombatSpawnElement>()
             }.Schedule(collisionHandle);
-            JobHandle vfxFlushHandle = new VfxFlushJob
+            JobHandle vfxFlushHandle = new VfxStreamFlushJob
             {
                 Pending = vfxPending,
                 VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
@@ -112,11 +124,12 @@ namespace PlayGround.System.Aoe
         {
             [ReadOnly] public BufferLookup<CombatTargetElement> Targets;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> OccupiedTargetCells;
-            public NativeQueue<CombatPendingDamage>.ParallelWriter PendingDamage;
-            public NativeQueue<CombatPendingSpawn>.ParallelWriter PendingSpawns;
-            public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
+            public NativeStream.Writer PendingDamage;
+            public NativeStream.Writer PendingSpawns;
+            public NativeStream.Writer VfxPending;
 
             private void Execute(
+                [EntityIndexInQuery] int entityIndexInQuery,
                 Entity entity,
                 in AoeIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
@@ -129,9 +142,17 @@ namespace PlayGround.System.Aoe
                 EnabledRefRW<CombatRenderActiveTag> renderActive,
                 DynamicBuffer<AoeContactGateElement> contactGates)
             {
+                NativeStream.Writer pendingDamage = PendingDamage;
+                NativeStream.Writer pendingSpawns = PendingSpawns;
+                NativeStream.Writer vfxPending = VfxPending;
+                pendingDamage.BeginForEachIndex(entityIndexInQuery);
+                pendingSpawns.BeginForEachIndex(entityIndexInQuery);
+                vfxPending.BeginForEachIndex(entityIndexInQuery);
+
                 if (identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
                 {
                     Deactivate(active, renderActive);
+                    EndStreams(ref pendingDamage, ref pendingSpawns, ref vfxPending);
                     return;
                 }
 
@@ -159,7 +180,17 @@ namespace PlayGround.System.Aoe
                         }
 
                         float cooldown = lifetime.IsPulse == 1 ? 0f : hitGate.RepeatHitCooldownSeconds;
-                        ResolveHit(identity, kinematics, hitSpawn, area, target, contactGates, cooldown);
+                        ResolveHit(
+                            identity,
+                            kinematics,
+                            hitSpawn,
+                            area,
+                            target,
+                            contactGates,
+                            cooldown,
+                            ref pendingDamage,
+                            ref pendingSpawns,
+                            ref vfxPending);
                     }
                 }
 
@@ -169,6 +200,8 @@ namespace PlayGround.System.Aoe
                 {
                     Deactivate(active, renderActive);
                 }
+
+                EndStreams(ref pendingDamage, ref pendingSpawns, ref vfxPending);
             }
 
             private void ResolveHit(
@@ -178,7 +211,10 @@ namespace PlayGround.System.Aoe
                 AoeAreaComponent area,
                 CombatTargetElement target,
                 DynamicBuffer<AoeContactGateElement> contactGates,
-                float cooldown)
+                float cooldown,
+                ref NativeStream.Writer pendingDamage,
+                ref NativeStream.Writer pendingSpawns,
+                ref NativeStream.Writer vfxPending)
             {
                 if (IndexOfGate(contactGates, target.TargetId) >= 0)
                 {
@@ -190,7 +226,7 @@ namespace PlayGround.System.Aoe
                     TargetId = target.TargetId,
                     CooldownRemaining = cooldown
                 });
-                EmitHit(identity, kinematics, hitSpawn, area, target);
+                EmitHit(identity, kinematics, hitSpawn, area, target, ref pendingDamage, ref pendingSpawns, ref vfxPending);
             }
 
             private void EmitHit(
@@ -198,11 +234,14 @@ namespace PlayGround.System.Aoe
                 CombatKinematicsComponent kinematics,
                 AoeHitSpawnComponent hitSpawn,
                 AoeAreaComponent area,
-                CombatTargetElement target)
+                CombatTargetElement target,
+                ref NativeStream.Writer pendingDamage,
+                ref NativeStream.Writer pendingSpawns,
+                ref NativeStream.Writer vfxPending)
             {
                 if (HasDamageEvent(hitSpawn))
                 {
-                    PendingDamage.Enqueue(new CombatPendingDamage
+                    pendingDamage.Write(new CombatPendingDamage
                     {
                         Scope = identity.Scope,
                         SourceId = identity.AoeId,
@@ -221,7 +260,7 @@ namespace PlayGround.System.Aoe
 
                 if (HasSpawnEvent(hitSpawn))
                 {
-                    PendingSpawns.Enqueue(new CombatPendingSpawn
+                    pendingSpawns.Write(new CombatPendingSpawn
                     {
                         Scope = identity.Scope,
                         SourceId = identity.AoeId,
@@ -235,7 +274,7 @@ namespace PlayGround.System.Aoe
                     });
                 }
 
-                VfxPending.Enqueue(new VfxPendingSpawn
+                vfxPending.Write(new VfxPendingSpawn
                 {
                     Scope = identity.Scope,
                     TypeId = identity.TypeId,
@@ -251,6 +290,16 @@ namespace PlayGround.System.Aoe
             {
                 active.ValueRW = false;
                 renderActive.ValueRW = false;
+            }
+
+            private static void EndStreams(
+                ref NativeStream.Writer pendingDamage,
+                ref NativeStream.Writer pendingSpawns,
+                ref NativeStream.Writer vfxPending)
+            {
+                pendingDamage.EndForEachIndex();
+                pendingSpawns.EndForEachIndex();
+                vfxPending.EndForEachIndex();
             }
 
             private void CollectCandidates(AoeIdentityComponent identity, CombatCollisionComponent collision, ref NativeHashSet<int> candidates)

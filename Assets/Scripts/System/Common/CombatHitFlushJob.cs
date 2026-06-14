@@ -8,21 +8,35 @@ namespace PlayGround.System.Common
     [BurstCompile]
     public struct CombatHitFlushJob : IJob
     {
-        public NativeQueue<CombatPendingDamage> PendingDamage;
-        public NativeQueue<CombatPendingSpawn> PendingSpawns;
+        public NativeStream PendingDamage;
+        public NativeStream PendingSpawns;
         public BufferLookup<CombatDamageElement> Damage;
         public BufferLookup<CombatSpawnElement> Spawns;
 
         public void Execute()
         {
-            while (PendingDamage.TryDequeue(out CombatPendingDamage pendingDamage))
+            NativeStream.Reader damageReader = PendingDamage.AsReader();
+            for (int i = 0; i < damageReader.ForEachCount; i++)
             {
-                WriteDamage(pendingDamage);
+                int count = damageReader.BeginForEachIndex(i);
+                for (int j = 0; j < count; j++)
+                {
+                    WriteDamage(damageReader.Read<CombatPendingDamage>());
+                }
+
+                damageReader.EndForEachIndex();
             }
 
-            while (PendingSpawns.TryDequeue(out CombatPendingSpawn pendingSpawn))
+            NativeStream.Reader spawnReader = PendingSpawns.AsReader();
+            for (int i = 0; i < spawnReader.ForEachCount; i++)
             {
-                WriteSpawn(pendingSpawn);
+                int count = spawnReader.BeginForEachIndex(i);
+                for (int j = 0; j < count; j++)
+                {
+                    WriteSpawn(spawnReader.Read<CombatPendingSpawn>());
+                }
+
+                spawnReader.EndForEachIndex();
             }
         }
 
