@@ -29,6 +29,7 @@ namespace PlayGround.System.Aoe
         private Entity scopeEntity;
         private EntityQuery allAoeQuery;
         private IReadOnlyDictionary<int, ICombatTarget> runtimeTargetsById;
+        private CombatDamageTargetSource damageTargetSource;
         private int spawnedAoes;
         private int hitEvents;
         private int nextAoeId;
@@ -39,9 +40,9 @@ namespace PlayGround.System.Aoe
         private bool ecsHandlesCreated;
         private bool combatRuntimeManaged;
 
-        // Hit is scene-facing. HitSpawn is internal combat routing data for
-        // spawn-on-hit effects and must not be treated as external gameplay API.
-        public event CombatHitBatchHandler Hit;
+        // HitSpawn is internal combat routing data for spawn-on-hit effects and
+        // must not be treated as external gameplay API. Damage is applied by
+        // CombatHitDispatchSystem, not by AOE roots.
         public event CombatSpawnHandler HitSpawn;
 
         public CombatTargetRegistry<ICombatTarget> TargetRegistry => targetRegistry;
@@ -52,7 +53,14 @@ namespace PlayGround.System.Aoe
         {
             runtimeReady = false;
             targetSync = new CombatTargetSync<ICombatTarget>(targetRegistry);
-            targetSyncCallback = buffer => targetSync.SyncToBuffer(buffer);
+            targetSyncCallback = buffer =>
+            {
+                targetSync.SyncToBuffer(buffer);
+                if (damageTargetSource != null)
+                {
+                    damageTargetSource.TargetsById = targetSync.TargetsById;
+                }
+            };
             BindWorld();
             runtimeReady = true;
         }
@@ -212,36 +220,6 @@ namespace PlayGround.System.Aoe
             };
         }
 
-        private struct AoeHitReplayAdapter<TTarget> : ICombatHitReplayAdapter<TTarget>
-            where TTarget : class, ICombatTarget
-        {
-            public CombatHitBatchHandler HitHandler;
-            public CombatSpawnHandler SpawnHandler;
-
-            public DamageSnapshot RollDamage(in CombatDamageElement hit)
-            {
-                float baseAmount = Mathf.Max(0f, hit.DamageAmount);
-                bool isCrit = UnityEngine.Random.value < hit.CritChance;
-                float rolledAmount = isCrit ? baseAmount * hit.CritMultiplier : baseAmount;
-                return new DamageSnapshot(rolledAmount, isCrit);
-            }
-
-            public void ReplaySpawn(in CombatSpawnElement spawn, TTarget target)
-            {
-                var pos = new Vector2(spawn.Position.x, spawn.Position.y);
-                var ctx = new CombatHitContext(spawn.Kind, spawn.SourceId, spawn.TypeId, spawn.TargetId,
-                    pos, default, target as ICombatTarget, spawn.SourceNodeId);
-                SpawnHandler?.Invoke(in ctx, in spawn);
-            }
-
-            public void ReplayBatch(IReadOnlyList<CombatHitData> data, TTarget target)
-            {
-                HitHandler?.Invoke(target as ICombatTarget, data);
-                if (CombatHitReplay.IsTargetUsable(target))
-                    target.ReceiveHits(data);
-            }
-        }
-
         private CombatRenderComponent RenderComponentFor(int typeId, AoeSpawnGeometry geometry)
         {
             if (!spawnVisuals || !renderResourcesByType.TryGetValue(typeId, out CombatSpriteRenderResources resources))
@@ -277,6 +255,11 @@ namespace PlayGround.System.Aoe
             entityManager.AddBuffer<CombatSpawnElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
             entityManager.AddComponentObject(scopeEntity, new CombatTargetSyncSource { Sync = combatRuntimeManaged ? null : targetSyncCallback });
+            damageTargetSource = new CombatDamageTargetSource
+            {
+                TargetsById = combatRuntimeManaged ? runtimeTargetsById : targetSync.TargetsById
+            };
+            entityManager.AddComponentObject(scopeEntity, damageTargetSource);
             allAoeQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AoeTag>(),
                 ComponentType.ReadOnly<AoeIdentityComponent>());
@@ -287,16 +270,10 @@ namespace PlayGround.System.Aoe
                 BoundsHalfExtent = batchBoundsHalfExtent
             });
             entityWorld.GetExistingSystemManaged<CombatHitDispatchSystem>()?.Register(
-                scopeEntity, (damage, spawns) =>
+                scopeEntity, (in CombatHitContext context, in CombatSpawnElement spawn) =>
                 {
-                    hitEvents += damage.Length + spawns.Length;
-                    var targets = combatRuntimeManaged && runtimeTargetsById != null
-                        ? runtimeTargetsById
-                        : (IReadOnlyDictionary<int, ICombatTarget>)targetSync.TargetsById;
-                    var adapter = new AoeHitReplayAdapter<ICombatTarget>
-                        { HitHandler = Hit, SpawnHandler = HitSpawn };
-                    CombatHitReplay.ReplayAndClear<ICombatTarget, AoeHitReplayAdapter<ICombatTarget>>(
-                        damage, spawns, targets, ref adapter);
+                    hitEvents++;
+                    HitSpawn?.Invoke(in context, in spawn);
                 });
             ecsHandlesCreated = true;
         }
@@ -418,9 +395,10 @@ namespace PlayGround.System.Aoe
             }
 
             if (entityWorld != null && entityWorld.IsCreated)
-                entityWorld.GetExistingSystemManaged<CombatHitDispatchSystem>()?.Unregister(scopeEntity);
+            entityWorld.GetExistingSystemManaged<CombatHitDispatchSystem>()?.Unregister(scopeEntity);
             DisposeQuery(ref allAoeQuery);
             ecsHandlesCreated = false;
+            damageTargetSource = null;
             scopeEntity = Entity.Null;
             entityManager = default;
         }
@@ -464,10 +442,16 @@ namespace PlayGround.System.Aoe
             if (!managed)
             {
                 runtimeTargetsById = null;
+                if (damageTargetSource != null)
+                {
+                    damageTargetSource.TargetsById = targetSync.TargetsById;
+                }
             }
             if (HasValidEcsState())
             {
                 entityManager.GetComponentObject<CombatTargetSyncSource>(scopeEntity).Sync = managed ? null : targetSyncCallback;
+                entityManager.GetComponentObject<CombatDamageTargetSource>(scopeEntity).TargetsById =
+                    managed ? runtimeTargetsById : targetSync.TargetsById;
             }
         }
 
@@ -488,6 +472,10 @@ namespace PlayGround.System.Aoe
             }
 
             runtimeTargetsById = targetsById;
+            if (damageTargetSource != null)
+            {
+                damageTargetSource.TargetsById = targetsById;
+            }
         }
 
     }

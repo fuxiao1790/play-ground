@@ -125,12 +125,12 @@ Player and mob movement/collision should use Unity Physics2D. Projectile and AOE
 hit simulation should use target snapshots and baked shapes instead of thousands
 of live trigger objects.
 
-Scene-facing hit APIs must stay free of internal ECS/core payloads. Use
-`CombatHitContext` for public root `Hit` events. Spawn-on-hit data, chained
-projectile/AOE definitions, VFX request payloads, and other core follow-up data
-must stay on internal buffers/events such as `CombatSpawnElement` and
-`HitSpawn`. If a scene listener needs more data, add a scene-safe field to
-`CombatHitContext` only after confirming it is not a core routing payload.
+Damage application must stay separate from internal ECS/core spawn payloads.
+Spawn-on-hit data, chained projectile/AOE definitions, VFX request payloads, and
+other core follow-up data must stay on internal buffers/events such as
+`CombatSpawnElement` and `HitSpawn`. If a spawn listener needs more data, add a
+scene-safe field to `CombatHitContext` only after confirming it is not a core
+routing payload.
 
 ## ECS Lifecycle Comments
 

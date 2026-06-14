@@ -7,7 +7,7 @@ using UnityEngine;
 namespace PlayGround.Game
 {
     // Consumes internal HitSpawn streams only. Do not route combat spawns from
-    // scene-facing Hit events or expose CombatSpawnElement to scene listeners.
+    // damage application or expose CombatSpawnElement to scene listeners.
     public sealed class CombatSpawnRouter
     {
         private ProjectileRoot playerProjectileRoot;

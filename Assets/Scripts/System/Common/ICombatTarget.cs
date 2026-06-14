@@ -108,10 +108,8 @@ namespace PlayGround.System.Common
         public EntityId SourceNodeId { get; }
     }
 
-    // External scene listeners receive only hit data. Internal combat routing may
-    // subscribe to HitSpawn for spawn-on-hit payloads.
+    // Internal combat routing may subscribe to HitSpawn for spawn-on-hit payloads.
     public delegate void CombatHitHandler(in CombatHitContext context);
-    public delegate void CombatHitBatchHandler(ICombatTarget target, IReadOnlyList<CombatHitData> hits);
     public delegate void CombatSpawnHandler(in CombatHitContext context, in CombatSpawnElement spawn);
 
     public interface ICombatTarget

@@ -189,7 +189,7 @@ The intended flow lives in the attack layer:
 2. hit effect adds stacks to mob status slot
 3. threshold clears that slot
 4. effect spawns AOE through player AOE root
-5. AOE damage replays through normal AOE hit callback path
+5. AOE damage is applied by common combat damage dispatch
 
 Default explosion position is mob position, not projectile edge contact.
 
@@ -257,9 +257,9 @@ The current implementation uses Entities/DOTS in the shared default world:
   `CombatTargetElement` snapshots, reads crit and source node data from
   `AoeHitSpawnComponent`, and emits separate `CombatPendingDamage` and
   `CombatPendingSpawn` queues. `CombatHitFlushJob` drains those queues into scoped
-  `CombatDamageElement` and `CombatSpawnElement` buffers. Scene replay uses the
-  shared `Hit` event (`CombatHitBatchHandler`) for damage/status data; internal
-  projectile-burst spawn effects route through `HitSpawn`. Do not expose
+  `CombatDamageElement` and `CombatSpawnElement` buffers. Common presentation
+  applies damage/status data directly to targets; internal projectile-burst spawn
+  effects route through `HitSpawn`. Do not expose
   `CombatSpawnElement` to external scene listeners.
 - `AoeContactGateSystem` decrements lingering repeat-hit gates and compacts
   expired entries.

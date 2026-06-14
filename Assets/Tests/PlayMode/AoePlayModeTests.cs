@@ -112,24 +112,15 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator AoeHitReplayCallsTargetDamageCallback()
+        public IEnumerator AoeDamageDispatchCallsTargetDamageCallback()
         {
             CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
-            int replayCount = 0;
-            ICombatTarget replayTarget = null;
-            root.Hit += (t, _) =>
-            {
-                replayCount++;
-                replayTarget = t;
-            };
 
             root.Spawn(Command(typeId, templateObject, Vector2.zero, DefaultTargetMask, 3f));
             yield return null;
 
-            Assert.That(replayCount, Is.EqualTo(1));
-            Assert.That(replayTarget, Is.EqualTo(target));
             Assert.That(target.HitCount, Is.EqualTo(1));
             Assert.That(target.LastDamage.Amount, Is.EqualTo(3f));
             Cleanup(rootObject, templateObject, target.gameObject);

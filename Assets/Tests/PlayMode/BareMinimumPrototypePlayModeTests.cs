@@ -276,13 +276,10 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileDirectDamageToggleSuppressesTargetDamageButKeepsHitEvent()
+        public IEnumerator ProjectileDirectDamageToggleSuppressesTargetDamage()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
-            int hitCount = 0;
-            projectileRoot.Hit += (_, _) => hitCount++;
-
             var command = new ProjectileSpawnCommand(
                 Vector2.zero,
                 Vector2.right,
@@ -298,7 +295,6 @@ namespace PlayGround.Tests.PlayMode
             projectileRoot.Spawn(command);
             yield return null;
 
-            Assert.That(hitCount, Is.EqualTo(1));
             Assert.That(mob.CurrentHealth, Is.EqualTo(10f));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
@@ -310,9 +306,6 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
             ProjectileReplayProbe probe = CreateProjectileReplayProbe(Vector2.zero);
             projectileRoot.TargetRegistry.Register(probe);
-            int replayCount = 0;
-            projectileRoot.Hit += (_, _) => replayCount++;
-
             var command = new ProjectileSpawnCommand(
                 Vector2.zero,
                 Vector2.right,
@@ -327,7 +320,6 @@ namespace PlayGround.Tests.PlayMode
 
             // Both hits land on the same target in one frame → one batch per unique target.
             // The probe receives both hits via ReceiveHits; alive check happens once at batch start.
-            Assert.That(replayCount, Is.EqualTo(1));
             Assert.That(probe.HitCount, Is.EqualTo(2));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
@@ -546,17 +538,13 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileHitPayloadPreservesSourceIdForHitEventAndDamagesTarget()
+        public IEnumerator ProjectileHitPayloadPreservesSourceIdForTargetDamage()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
-            mob.Register(projectileRoot.TargetRegistry);
+            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            ProjectileReplayProbe probe = CreateProjectileReplayProbe(Vector2.zero);
+            projectileRoot.TargetRegistry.Register(probe);
             GameObject sourceObject = new("ProjectileSource");
             EntityId sourceNodeId = sourceObject.GetEntityId();
-            EntityId replayedSourceNodeId = default;
-            projectileRoot.Hit += (_, hits) =>
-            {
-                if (hits.Count > 0) replayedSourceNodeId = hits[0].SourceNodeId;
-            };
 
             var command = new ProjectileSpawnCommand(
                 Vector2.zero,
@@ -573,10 +561,11 @@ namespace PlayGround.Tests.PlayMode
             projectileRoot.Spawn(command);
             yield return null;
 
-            Assert.That(replayedSourceNodeId, Is.EqualTo(sourceNodeId));
-            Assert.That(mob.CurrentHealth, Is.EqualTo(8f));
+            Assert.That(probe.LastSourceNodeId, Is.EqualTo(sourceNodeId));
+            Assert.That(probe.LastDamage.Amount, Is.EqualTo(2f));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
+            Object.Destroy(probe.gameObject);
             Object.Destroy(sourceObject);
         }
 
@@ -1329,6 +1318,8 @@ namespace PlayGround.Tests.PlayMode
             private bool alive = true;
 
             public int HitCount { get; private set; }
+            public DamageSnapshot LastDamage { get; private set; }
+            public EntityId LastSourceNodeId { get; private set; }
             public int TargetId => targetId;
             public EntityId ProjectileHitNodeId => gameObject.GetEntityId();
             public Vector2 CombatTargetPosition => transform.position;
@@ -1349,6 +1340,8 @@ namespace PlayGround.Tests.PlayMode
             public void ReceiveHit(in CombatHitData hit)
             {
                 HitCount++;
+                LastDamage = hit.Damage;
+                LastSourceNodeId = hit.SourceNodeId;
                 alive = false;
             }
         }

@@ -34,6 +34,7 @@ namespace PlayGround.System.Projectile
         private Entity scopeEntity;
         private EntityQuery allProjectileQuery;
         private IReadOnlyDictionary<int, ICombatTarget> runtimeTargetsById;
+        private CombatDamageTargetSource damageTargetSource;
         private global::System.Func<ICombatTarget, bool> canTargetFilter;
         private int nextProjectileId;
         private int nextTemplateTypeId = 1;
@@ -43,9 +44,9 @@ namespace PlayGround.System.Projectile
         private bool ecsHandlesCreated;
         private bool combatRuntimeManaged;
 
-        // Hit is scene-facing. HitSpawn is internal combat routing data for
-        // spawn-on-hit effects and must not be treated as external gameplay API.
-        public event CombatHitBatchHandler Hit;
+        // HitSpawn is internal combat routing data for spawn-on-hit effects and
+        // must not be treated as external gameplay API. Damage is applied by
+        // CombatHitDispatchSystem, not by projectile roots.
         public event CombatSpawnHandler HitSpawn;
 
         public CombatTargetRegistry<ICombatTarget> TargetRegistry => targetRegistry;
@@ -56,7 +57,14 @@ namespace PlayGround.System.Projectile
             runtimeReady = false;
             targetSync = new CombatTargetSync<ICombatTarget>(targetRegistry);
             canTargetFilter = CanTarget;
-            targetSyncCallback = buffer => targetSync.SyncToBuffer(buffer, additionalFilter: canTargetFilter);
+            targetSyncCallback = buffer =>
+            {
+                targetSync.SyncToBuffer(buffer, additionalFilter: canTargetFilter);
+                if (damageTargetSource != null)
+                {
+                    damageTargetSource.TargetsById = targetSync.TargetsById;
+                }
+            };
             ApplyTaggedDefaults();
             if (projectileSprite == null && !HasAnyRenderSource())
             {
@@ -271,6 +279,11 @@ namespace PlayGround.System.Projectile
             entityManager.AddBuffer<ProjectileSpawnRequestElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
             entityManager.AddComponentObject(scopeEntity, new CombatTargetSyncSource { Sync = combatRuntimeManaged ? null : targetSyncCallback });
+            damageTargetSource = new CombatDamageTargetSource
+            {
+                TargetsById = combatRuntimeManaged ? runtimeTargetsById : targetSync.TargetsById
+            };
+            entityManager.AddComponentObject(scopeEntity, damageTargetSource);
             allProjectileQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<ProjectileIdentityComponent>());
@@ -281,16 +294,9 @@ namespace PlayGround.System.Projectile
                 BoundsHalfExtent = batchBoundsHalfExtent
             });
             entityWorld.GetExistingSystemManaged<CombatHitDispatchSystem>()?.Register(
-                scopeEntity, (damage, spawns) =>
-                {
-                    var targets = combatRuntimeManaged && runtimeTargetsById != null
-                        ? runtimeTargetsById
-                        : (IReadOnlyDictionary<int, ICombatTarget>)targetSync.TargetsById;
-                    var adapter = new ProjectileHitReplayAdapter<ICombatTarget>
-                        { HitHandler = Hit, SpawnHandler = HitSpawn };
-                    CombatHitReplay.ReplayAndClear<ICombatTarget, ProjectileHitReplayAdapter<ICombatTarget>>(
-                        damage, spawns, targets, ref adapter);
-                });
+                scopeEntity,
+                (in CombatHitContext context, in CombatSpawnElement spawn) =>
+                    HitSpawn?.Invoke(in context, in spawn));
             ecsHandlesCreated = true;
         }
 
@@ -338,35 +344,6 @@ namespace PlayGround.System.Projectile
             if (!EnsureRuntimeAvailable())
             {
                 throw new global::System.InvalidOperationException($"{nameof(ProjectileRoot)} on {name} has not finished ECS setup.");
-            }
-        }
-
-        private struct ProjectileHitReplayAdapter<TTarget> : ICombatHitReplayAdapter<TTarget>
-            where TTarget : class, ICombatTarget
-        {
-            public CombatHitBatchHandler HitHandler;
-            public CombatSpawnHandler SpawnHandler;
-
-            public DamageSnapshot RollDamage(in CombatDamageElement hit)
-            {
-                bool isCrit = UnityEngine.Random.value < hit.CritChance;
-                float rolledAmount = isCrit ? hit.DamageAmount * hit.CritMultiplier : hit.DamageAmount;
-                return new DamageSnapshot(Mathf.Max(0f, rolledAmount), isCrit);
-            }
-
-            public void ReplaySpawn(in CombatSpawnElement spawn, TTarget target)
-            {
-                var pos = new Vector2(spawn.Position.x, spawn.Position.y);
-                var ctx = new CombatHitContext(spawn.Kind, spawn.SourceId, spawn.TypeId, spawn.TargetId,
-                    pos, default, target as ICombatTarget, spawn.SourceNodeId);
-                SpawnHandler?.Invoke(in ctx, in spawn);
-            }
-
-            public void ReplayBatch(IReadOnlyList<CombatHitData> data, TTarget target)
-            {
-                HitHandler?.Invoke(target as ICombatTarget, data);
-                if (CombatHitReplay.IsTargetUsable(target))
-                    target.ReceiveHits(data);
             }
         }
 
@@ -531,6 +508,7 @@ namespace PlayGround.System.Projectile
                 entityWorld.GetExistingSystemManaged<CombatHitDispatchSystem>()?.Unregister(scopeEntity);
             DisposeQuery(ref allProjectileQuery);
             ecsHandlesCreated = false;
+            damageTargetSource = null;
             scopeEntity = Entity.Null;
             entityManager = default;
         }
@@ -617,10 +595,16 @@ namespace PlayGround.System.Projectile
             if (!managed)
             {
                 runtimeTargetsById = null;
+                if (damageTargetSource != null)
+                {
+                    damageTargetSource.TargetsById = targetSync.TargetsById;
+                }
             }
             if (HasValidEcsState())
             {
                 entityManager.GetComponentObject<CombatTargetSyncSource>(scopeEntity).Sync = managed ? null : targetSyncCallback;
+                entityManager.GetComponentObject<CombatDamageTargetSource>(scopeEntity).TargetsById =
+                    managed ? runtimeTargetsById : targetSync.TargetsById;
             }
         }
 
@@ -641,6 +625,10 @@ namespace PlayGround.System.Projectile
             }
 
             runtimeTargetsById = targetsById;
+            if (damageTargetSource != null)
+            {
+                damageTargetSource.TargetsById = targetsById;
+            }
         }
 
         [global::System.Serializable]

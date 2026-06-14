@@ -34,11 +34,13 @@ High-level runtime path:
 4. `MobSpawnerRoot` asks spawn points for spawn requests and enforces caps.
 5. `MobRoot` drains local events and updates behavior through a separate behavior FSM.
 6. Projectile roots enqueue spawn requests and sync target snapshots into ECS
-   scope entities, projectile ECS systems materialize/reuse projectile entities
-   and simulate hits, and roots replay hit events.
+   scope entities; projectile ECS systems materialize/reuse projectile entities
+   and emit damage/spawn events. Common presentation applies damage, while roots
+   route spawn events.
 7. AOE roots enqueue spawn requests and sync target snapshots into ECS scope
-   entities, AOE ECS systems materialize/reuse AOE entities and simulate hits,
-   and roots replay hit events.
+   entities; AOE ECS systems materialize/reuse AOE entities and emit
+   damage/spawn events. Common presentation applies damage, while roots route
+   spawn events.
 8. `CombatVfxDispatchSystem` (in `PresentationSystemGroup`) drains
    `VfxSpawnRequestElement` scope buffers and dispatches staged spawn events to
    the GPU through the registered `CombatVfxRoot`.
@@ -149,22 +151,19 @@ Unity object lifetimes, and gameplay callbacks. ECS systems own scalable combat
 state, simulation, pooling, and event buffers. Cross-boundary communication must
 stay narrow: snapshots go into data runtimes, replayable events come back out.
 
-Scene-facing hit replay and internal combat follow-up effects are separate
-contracts. Scene listeners receive `CombatHitContext` through root `Hit` events;
-that context may include source id, target id, rolled damage, position, kind, and
-target reference, but it must not carry internal spawn/effect payloads. Follow-up
-spawns such as impact AOEs, impact projectiles, and AOE projectile bursts travel
+Damage application and internal combat follow-up effects are separate contracts.
+Common presentation applies damage/status events to targets. Follow-up spawns
+such as impact AOEs, impact projectiles, and AOE projectile bursts travel
 through internal `HitSpawn` routing with `CombatSpawnElement`. Do not expose
-`CombatSpawnElement` or future core-only ECS
-payloads through scene hit APIs.
+`CombatSpawnElement` or future core-only ECS payloads through damage APIs.
 
 The bridge is snapshots and callbacks:
 
 1. actor GameObjects register hurtboxes with target registries
 2. attack roots snapshot target positions and baked hurtbox shapes
 3. data runtimes or ECS systems simulate hits
-4. roots replay scene hit events back to actor components and route internal
-   hit effects through combat-owned services
+4. common presentation applies damage back to actor components, while roots
+   route internal hit-spawn effects through combat-owned services
 5. actors apply health, status stacks, animation requests, death notification,
    and cleanup scheduling
 
