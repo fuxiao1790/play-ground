@@ -224,6 +224,40 @@ When entities need frequent state changes every frame:
 - AOE counters track active, spawned, despawned/reused, hit events, active
   visuals, and render batches.
 
+### Current Spawn Reuse Scheduling Status
+
+Projectile and AOE spawn reuse now avoid the old main-thread entity-slot slice
+assignment. Spawn requests are stored in persistent native buckets keyed by the
+same reuse identity already used for pooling: projectile scope/render type/slot
+kind, or AOE scope/type id. Each bucket owns a cached disabled-slot query with
+the matching filters, schedules one direct reuse `IJobChunk`, and writes the
+same reset components that cold creation initializes. The spawn systems schedule
+all bucket reuse jobs first, complete one combined dependency, then cold-create
+the unclaimed requests in the same frame.
+
+Progress:
+
+- The main thread no longer walks matching disabled entity slots just to assign
+  worker slices.
+- Worker time owns the disabled-slot scan and reset work.
+- The current shape performs well when spawn load is spread across many
+  buckets, archetypes, scopes, or type ids.
+- Same-frame cold fallback remains unchanged, so underwarmed pools still work.
+
+Drawback:
+
+- Each bucket is currently one scheduled chunk job, not a parallel chunk job.
+  If one bucket/archetype owns almost all matching chunks and other buckets have
+  little or no work, reuse can still become effectively single-threaded.
+- This is accepted for now because projectile and AOE spawn are not the current
+  bottleneck, and avoiding unsafe atomic claim keeps the implementation simpler.
+
+Revisit if profiling shows `Projectile.Spawn.ReuseJob`, `Aoe.Spawn.ReuseJob`,
+or cold fallback dominates frame time. A likely next test is a hybrid path: keep
+the current direct bucket job for normal many-bucket frames, but for very large
+single-bucket frames count matching chunks on workers, build only a chunk prefix
+on the main thread, and schedule parallel reset slices without unsafe atomics.
+
 ### Known Design Issues: Presentation Bridge
 
 Current projectile and AOE roots use `LateUpdate()` to pull ECS buffers for

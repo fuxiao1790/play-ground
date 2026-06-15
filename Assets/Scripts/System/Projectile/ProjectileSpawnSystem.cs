@@ -19,14 +19,8 @@ namespace PlayGround.System.Projectile
     {
         private static readonly ProfilerMarker SpawnMarker =
             new("Projectile.Spawn");
-        private static readonly ProfilerMarker SliceAssignMarker =
-            new("Projectile.Spawn.SliceAssign.MainThread");                  // 2A
-        // private static readonly ProfilerMarker CountJobMarker =
-        //     new("Projectile.Spawn.CountJob");                              // 2B
-        // private static readonly ProfilerMarker PrefixSumMarker =
-        //     new("Projectile.Spawn.PrefixSum");                             // 2B
-        private static readonly ProfilerMarker ResetJobMarker =
-            new("Projectile.Spawn.ResetJob");
+        private static readonly ProfilerMarker ReuseJobMarker =
+            new("Projectile.Spawn.ReuseJob");
         private static readonly ProfilerCounterValue<int> SpawnColdCreateCounter =
             new(ProfilerCategory.Scripts, "Projectile.Spawn.Cold", ProfilerMarkerDataUnit.Count);
         private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
@@ -34,12 +28,12 @@ namespace PlayGround.System.Projectile
 
         private EntityArchetype archetypeNoChildSpawner;
         private EntityArchetype archetypeWithChildSpawner;
-        private EntityQuery deadSlotsNoChildSpawner;
-        private EntityQuery deadSlotsWithChildSpawner;
 
         private readonly Dictionary<ProjectileSpawnKey, ProjectileSpawnBucket> _byKey = new();
+        private readonly Dictionary<ProjectileSpawnKey, EntityQuery> _deadSlotQueriesByKey = new();
         private readonly Dictionary<int, Entity> _scopeByIndex = new();
         private readonly List<ProjectileSpawnBucket> _bucketPool = new();
+        private readonly List<ProjectileSpawnWork> _spawnWork = new();
 
         protected override void OnCreate()
         {
@@ -76,37 +70,23 @@ namespace PlayGround.System.Projectile
                 typeof(ProjectileChildSpawnerComponent),
                 typeof(ProjectileChildSpawnStateComponent));
 
-            deadSlotsNoChildSpawner = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<ProjectileTag>()
-                // TODO(spawn-refactor): bucket keys should own these render partition filters.
-                // Unity still requires shared component filter types to be declared on the query.
-                .WithAll<CombatRenderScope>()
-                .WithAll<CombatRenderTypeId>()
-                .WithDisabled<ProjectileActiveTag>()
-                .WithNone<ProjectileChildSpawnerTag>()
-                .Build(this);
-
-            deadSlotsWithChildSpawner = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<ProjectileTag>()
-                // TODO(spawn-refactor): bucket keys should own these render partition filters.
-                // Unity still requires shared component filter types to be declared on the query.
-                .WithAll<CombatRenderScope>()
-                .WithAll<CombatRenderTypeId>()
-                .WithDisabled<ProjectileActiveTag>()
-                .WithAll<ProjectileChildSpawnerTag>()
-                .Build(this);
         }
 
         protected override void OnDestroy()
         {
             Dependency.Complete();
+            DisposeSpawnWorkReferences();
             DisposeBuckets(_byKey.Values);
             DisposeBuckets(_bucketPool);
+            foreach (EntityQuery query in _deadSlotQueriesByKey.Values)
+            {
+                query.Dispose();
+            }
             _byKey.Clear();
+            _deadSlotQueriesByKey.Clear();
             _scopeByIndex.Clear();
             _bucketPool.Clear();
-            deadSlotsNoChildSpawner.Dispose();
-            deadSlotsWithChildSpawner.Dispose();
+            _spawnWork.Clear();
         }
 
         protected override void OnUpdate()
@@ -150,89 +130,68 @@ namespace PlayGround.System.Projectile
                 using var createEcb = new EntityCommandBuffer(Allocator.Temp);
                 int reuseCount = 0;
                 int coldCreateCount = 0;
+                _spawnWork.Clear();
 
-                ComponentTypeHandle<ProjectileActiveTag> activeHandle =
-                    GetComponentTypeHandle<ProjectileActiveTag>(false);
-
-                var jobHandles = new NativeList<JobHandle>(_byKey.Count * 4, Allocator.Temp);
-
-                foreach (var (key, bucket) in _byKey)
+                using (ReuseJobMarker.Auto())
                 {
-                    Entity scope = _scopeByIndex[key.ScopeIndex];
-                    bool hasChildSpawner = key.HasChildSpawner;
-                    EntityQuery query = hasChildSpawner ? deadSlotsWithChildSpawner : deadSlotsNoChildSpawner;
-                    query.SetSharedComponentFilter(
-                        new CombatRenderScope { Scope = scope },
-                        new CombatRenderTypeId { TypeId = key.TypeId });
-
-                    NativeArray<ProjectileSpawnRequestElement> configs = bucket.Requests.AsArray();
-                    int reqCount = configs.Length;
-
-                    // ---- Option 2A: main-thread slice assignment (active) ----
-                    NativeList<int2> slices;
-                    int claimed;
-                    using (SliceAssignMarker.Auto())
-                        slices = AssignSlices2A(query, reqCount, ref activeHandle, out claimed);
-
-                    // ---- Option 2B: counting job + prefix sum (swap with 2A to compare) ----
-                    // NativeList<int2> slices;
-                    // int claimed;
-                    // using (CountJobMarker.Auto())
-                    // {
-                    //     JobHandle countHandle = ScheduleCountJob2B(query, ref activeHandle, out NativeList<int> deadCounts);
-                    //     countHandle.Complete();
-                    //     using (PrefixSumMarker.Auto())
-                    //         (slices, claimed) = PrefixSumSlices2B(deadCounts, reqCount);
-                    //     deadCounts.Dispose();
-                    // }
-
-                    reuseCount += claimed;
-                    for (int i = claimed; i < reqCount; i++)
+                    var jobHandles = new NativeList<JobHandle>(_byKey.Count, Allocator.Temp);
+                    foreach (var (key, bucket) in _byKey)
                     {
-                        CreateProjectileEntity(scope, configs[i], hasChildSpawner, createEcb);
-                        coldCreateCount++;
-                    }
+                        Entity scope = _scopeByIndex[key.ScopeIndex];
+                        EntityQuery query = DeadSlotQueryFor(key, scope);
+                        NativeArray<ProjectileSpawnRequestElement> configs = bucket.Requests.AsArray();
+                        var claimedReference = new NativeReference<int>(Allocator.TempJob);
+                        claimedReference.Value = 0;
 
-                    if (claimed > 0)
-                    {
-                        JobHandle spawnHandle;
-                        using (ResetJobMarker.Auto())
+                        JobHandle spawnHandle = new ProjectileSpawnJob
                         {
-                            spawnHandle = new ProjectileSpawnJob
-                            {
-                                Scope                 = scope,
-                                Configs               = configs,
-                                Slices                = slices.AsArray(),
-                                ActiveHandle          = activeHandle,
-                                CollisionActiveHandle  = GetComponentTypeHandle<ProjectileCollisionActiveTag>(false),
-                                RenderActiveHandle    = GetComponentTypeHandle<CombatRenderActiveTag>(false),
-                                IdentityHandle        = GetComponentTypeHandle<ProjectileIdentityComponent>(false),
-                                KinematicsHandle      = GetComponentTypeHandle<CombatKinematicsComponent>(false),
-                                CollisionHandle       = GetComponentTypeHandle<CombatCollisionComponent>(false),
-                                LifetimeHandle        = GetComponentTypeHandle<ProjectileLifetimeComponent>(false),
-                                HitHandle             = GetComponentTypeHandle<ProjectileHitComponent>(false),
-                                TrackingHandle        = GetComponentTypeHandle<ProjectileTrackingComponent>(false),
-                                RenderHandle          = GetComponentTypeHandle<CombatRenderComponent>(false),
-                                RenderElementHandle   = GetComponentTypeHandle<CombatRenderElement>(false),
-                                ContactGateHandle     = GetBufferTypeHandle<ProjectileContactGateElement>(false),
-                                ChildSpawnerHandle    = GetComponentTypeHandle<ProjectileChildSpawnerComponent>(false),
-                                ChildSpawnStateHandle = GetComponentTypeHandle<ProjectileChildSpawnStateComponent>(false),
-                            }.ScheduleParallel(query, default);
-                        }
-                        jobHandles.Add(slices.Dispose(spawnHandle));
+                            Scope                 = scope,
+                            Configs               = configs,
+                            ClaimedCount          = claimedReference,
+                            ActiveHandle          = GetComponentTypeHandle<ProjectileActiveTag>(false),
+                            CollisionActiveHandle  = GetComponentTypeHandle<ProjectileCollisionActiveTag>(false),
+                            RenderActiveHandle    = GetComponentTypeHandle<CombatRenderActiveTag>(false),
+                            IdentityHandle        = GetComponentTypeHandle<ProjectileIdentityComponent>(false),
+                            KinematicsHandle      = GetComponentTypeHandle<CombatKinematicsComponent>(false),
+                            CollisionHandle       = GetComponentTypeHandle<CombatCollisionComponent>(false),
+                            LifetimeHandle        = GetComponentTypeHandle<ProjectileLifetimeComponent>(false),
+                            HitHandle             = GetComponentTypeHandle<ProjectileHitComponent>(false),
+                            TrackingHandle        = GetComponentTypeHandle<ProjectileTrackingComponent>(false),
+                            RenderHandle          = GetComponentTypeHandle<CombatRenderComponent>(false),
+                            RenderElementHandle   = GetComponentTypeHandle<CombatRenderElement>(false),
+                            ContactGateHandle     = GetBufferTypeHandle<ProjectileContactGateElement>(false),
+                            ChildSpawnerHandle    = GetComponentTypeHandle<ProjectileChildSpawnerComponent>(false),
+                            ChildSpawnStateHandle = GetComponentTypeHandle<ProjectileChildSpawnStateComponent>(false),
+                        }.Schedule(query, default);
+                        jobHandles.Add(spawnHandle);
+                        _spawnWork.Add(new ProjectileSpawnWork(
+                            scope,
+                            key.HasChildSpawner,
+                            configs,
+                            claimedReference));
                     }
-                    else
-                    {
-                        slices.Dispose();
-                    }
+
+                    JobHandle.CombineDependencies(jobHandles.AsArray()).Complete();
+                    jobHandles.Dispose();
                 }
 
-                Dependency = JobHandle.CombineDependencies(jobHandles.AsArray());
+                foreach (ProjectileSpawnWork work in _spawnWork)
+                {
+                    int claimed = work.ClaimedCount.Value;
+                    work.ClaimedCount.Dispose();
+                    reuseCount += claimed;
+                    for (int i = claimed; i < work.Configs.Length; i++)
+                    {
+                        CreateProjectileEntity(work.Scope, work.Configs[i], work.HasChildSpawner, createEcb);
+                        coldCreateCount++;
+                    }
+                }
+                _spawnWork.Clear();
+
                 if (coldCreateCount > 0)
                     createEcb.Playback(EntityManager);
                 SpawnReuseCounter.Value = reuseCount;
                 SpawnColdCreateCounter.Value = totalRequests - reuseCount;
-                jobHandles.Dispose();
             }
         }
 
@@ -267,96 +226,39 @@ namespace PlayGround.System.Projectile
             }
         }
 
-        // ---- Option 2A ----
-        private NativeList<int2> AssignSlices2A(
-            EntityQuery query,
-            int configCount,
-            ref ComponentTypeHandle<ProjectileActiveTag> activeHandle,
-            out int claimed)
+        private EntityQuery DeadSlotQueryFor(ProjectileSpawnKey key, Entity scope)
         {
-            using NativeArray<ArchetypeChunk> chunks = query.ToArchetypeChunkArray(Allocator.Temp);
-            using NativeArray<int> filteredChunkIndexes = query.CalculateFilteredChunkIndexArray(Allocator.Temp);
-            var slices = new NativeList<int2>(filteredChunkIndexes.Length, Allocator.TempJob);
-            for (int i = 0; i < filteredChunkIndexes.Length; i++) slices.Add(default);
-
-            int cursor = 0;
-            for (int unfilteredChunkIndex = 0;
-                 unfilteredChunkIndex < filteredChunkIndexes.Length && cursor < configCount;
-                 unfilteredChunkIndex++)
+            if (!_deadSlotQueriesByKey.TryGetValue(key, out EntityQuery query))
             {
-                int filteredChunkIndex = filteredChunkIndexes[unfilteredChunkIndex];
-                if (filteredChunkIndex < 0) continue;
+                EntityQueryBuilder builder = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAll<ProjectileTag>()
+                    .WithAll<CombatRenderScope>()
+                    .WithAll<CombatRenderTypeId>()
+                    .WithDisabled<ProjectileActiveTag>();
 
-                int dead = CountDisabled(chunks[filteredChunkIndex], ref activeHandle);
-                int take = math.min(dead, configCount - cursor);
-                slices[unfilteredChunkIndex] = new int2(cursor, take);
-                cursor += take;
+                query = key.HasChildSpawner
+                    ? builder.WithAll<ProjectileChildSpawnerTag>().Build(this)
+                    : builder.WithNone<ProjectileChildSpawnerTag>().Build(this);
+                _deadSlotQueriesByKey[key] = query;
             }
 
-            claimed = cursor;
-            return slices;
+            query.SetSharedComponentFilter(
+                new CombatRenderScope { Scope = scope },
+                new CombatRenderTypeId { TypeId = key.TypeId });
+            return query;
         }
 
-        private static int CountDisabled(ArchetypeChunk chunk, ref ComponentTypeHandle<ProjectileActiveTag> handle)
+        private void DisposeSpawnWorkReferences()
         {
-            EnabledMask mask = chunk.GetEnabledMask(ref handle);
-            int count = 0;
-            for (int i = 0; i < chunk.Count; i++)
-                if (!mask[i]) count++;
-            return count;
-        }
-
-        /* ---- Option 2B: counting job + prefix sum (commented out — swap with 2A to compare) ----
-
-        private JobHandle ScheduleCountJob2B(
-            EntityQuery query,
-            ref ComponentTypeHandle<ProjectileActiveTag> activeHandle,
-            out NativeList<int> deadCounts)
-        {
-            int chunkCount = query.CalculateChunkCount();
-            deadCounts = new NativeList<int>(chunkCount, Allocator.TempJob);
-            for (int i = 0; i < chunkCount; i++) deadCounts.Add(0);
-            return new CountDeadJob
+            foreach (ProjectileSpawnWork work in _spawnWork)
             {
-                ActiveHandle = activeHandle,
-                DeadCounts   = deadCounts.AsArray()
-            }.ScheduleParallel(query, default);
-        }
-
-        private static (NativeList<int2> slices, int claimed) PrefixSumSlices2B(
-            NativeList<int> deadCounts,
-            int configCount)
-        {
-            var slices = new NativeList<int2>(deadCounts.Length, Allocator.TempJob);
-            int cursor = 0;
-            for (int c = 0; c < deadCounts.Length; c++)
-            {
-                int take = math.min(deadCounts[c], configCount - cursor);
-                slices.Add(new int2(cursor, take));
-                cursor += take;
+                if (work.ClaimedCount.IsCreated)
+                {
+                    work.ClaimedCount.Dispose();
+                }
             }
-            return (slices, cursor);
+            _spawnWork.Clear();
         }
-
-        [BurstCompile]
-        private struct CountDeadJob : IJobChunk
-        {
-            [ReadOnly] public ComponentTypeHandle<ProjectileActiveTag> ActiveHandle;
-            [NativeDisableContainerSafetyRestriction][WriteOnly]
-            public NativeArray<int> DeadCounts;
-
-            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex,
-                bool useEnabledMask, in v128 chunkEnabledMask)
-            {
-                EnabledMask mask = chunk.GetEnabledMask(ref ActiveHandle);
-                int dead = 0;
-                for (int i = 0; i < chunk.Count; i++)
-                    if (!mask[i]) dead++;
-                DeadCounts[unfilteredChunkIndex] = dead;
-            }
-        }
-
-        ---- end Option 2B ---- */
 
         private void CreateProjectileEntity(
             Entity scope,
@@ -443,7 +345,7 @@ namespace PlayGround.System.Projectile
         {
             public Entity Scope;
             [ReadOnly] public NativeArray<ProjectileSpawnRequestElement> Configs;
-            [ReadOnly] public NativeArray<int2> Slices;
+            [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
 
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileActiveTag>            ActiveHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileCollisionActiveTag>   CollisionActiveHandle;
@@ -463,8 +365,8 @@ namespace PlayGround.System.Projectile
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex,
                 bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                int2 slice = Slices[unfilteredChunkIndex];
-                if (slice.y == 0) return;
+                int cfgIdx = ClaimedCount.Value;
+                if (cfgIdx >= Configs.Length) return;
 
                 EnabledMask activeMask         = chunk.GetEnabledMask(ref ActiveHandle);
                 EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
@@ -487,10 +389,7 @@ namespace PlayGround.System.Projectile
                 NativeArray<ProjectileChildSpawnStateComponent> childStates   =
                     hasChildSpawner ? chunk.GetNativeArray(ref ChildSpawnStateHandle) : default;
 
-                int cfgIdx = slice.x;
-                int cfgEnd = slice.x + slice.y;
-
-                for (int i = 0; i < chunk.Count && cfgIdx < cfgEnd; i++)
+                for (int i = 0; i < chunk.Count && cfgIdx < Configs.Length; i++)
                 {
                     if (activeMask[i]) continue;
 
@@ -542,6 +441,8 @@ namespace PlayGround.System.Projectile
                     collisionActiveMask[i]  = NeedsCollision(cfg.HitPayload);
                     renderActiveMask[i]    = true;
                 }
+
+                ClaimedCount.Value = cfgIdx;
             }
         }
 
@@ -592,6 +493,26 @@ namespace PlayGround.System.Projectile
                 {
                     Requests.Dispose();
                 }
+            }
+        }
+
+        private readonly struct ProjectileSpawnWork
+        {
+            public readonly Entity Scope;
+            public readonly bool HasChildSpawner;
+            public readonly NativeArray<ProjectileSpawnRequestElement> Configs;
+            public readonly NativeReference<int> ClaimedCount;
+
+            public ProjectileSpawnWork(
+                Entity scope,
+                bool hasChildSpawner,
+                NativeArray<ProjectileSpawnRequestElement> configs,
+                NativeReference<int> claimedCount)
+            {
+                Scope = scope;
+                HasChildSpawner = hasChildSpawner;
+                Configs = configs;
+                ClaimedCount = claimedCount;
             }
         }
     }

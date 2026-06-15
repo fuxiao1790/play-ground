@@ -22,14 +22,8 @@ namespace PlayGround.System.Aoe
     {
         private static readonly ProfilerMarker SpawnMarker =
             new("Aoe.Spawn");
-        private static readonly ProfilerMarker SliceAssignMarker =
-            new("Aoe.Spawn.SliceAssign.MainThread");                     // 2A
-        // private static readonly ProfilerMarker CountJobMarker =
-        //     new("Aoe.Spawn.CountJob");                                 // 2B
-        // private static readonly ProfilerMarker PrefixSumMarker =
-        //     new("Aoe.Spawn.PrefixSum");                                // 2B
-        private static readonly ProfilerMarker ResetJobMarker =
-            new("Aoe.Spawn.ResetJob");
+        private static readonly ProfilerMarker ReuseJobMarker =
+            new("Aoe.Spawn.ReuseJob");
         private static readonly ProfilerCounterValue<int> SpawnColdCreateCounter =
             new(ProfilerCategory.Scripts, "Aoe.Spawn.Cold", ProfilerMarkerDataUnit.Count);
         private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
@@ -37,11 +31,12 @@ namespace PlayGround.System.Aoe
 
         private EntityArchetype archetype;
         private EntityQuery scopeQuery;
-        private EntityQuery deadSlots;
 
-        private readonly Dictionary<AoeSpawnKey, List<AoeSpawnRequestElement>> _byKey = new();
+        private readonly Dictionary<AoeSpawnKey, AoeSpawnBucket> _byKey = new();
+        private readonly Dictionary<AoeSpawnKey, EntityQuery> _deadSlotQueriesByKey = new();
         private readonly Dictionary<int, Entity> _scopeByIndex = new();
-        private readonly List<List<AoeSpawnRequestElement>> _listPool = new();
+        private readonly List<AoeSpawnBucket> _bucketPool = new();
+        private readonly List<AoeSpawnWork> _spawnWork = new();
 
         protected override void OnCreate()
         {
@@ -66,14 +61,24 @@ namespace PlayGround.System.Aoe
                 typeof(CombatRenderActiveTag),
                 typeof(AoeContactGateElement));
 
-            deadSlots = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<AoeTag>()
-                // TODO(spawn-refactor): bucket keys should own these render partition filters.
-                // Unity still requires shared component filter types to be declared on the query.
-                .WithAll<CombatRenderScope>()
-                .WithAll<CombatRenderTypeId>()
-                .WithDisabled<AoeActiveTag>()
-                .Build(this);
+        }
+
+        protected override void OnDestroy()
+        {
+            Dependency.Complete();
+            DisposeSpawnWorkReferences();
+            DisposeBuckets(_byKey.Values);
+            DisposeBuckets(_bucketPool);
+            foreach (EntityQuery query in _deadSlotQueriesByKey.Values)
+            {
+                query.Dispose();
+            }
+            scopeQuery.Dispose();
+            _byKey.Clear();
+            _deadSlotQueriesByKey.Clear();
+            _scopeByIndex.Clear();
+            _bucketPool.Clear();
+            _spawnWork.Clear();
         }
 
         protected override void OnUpdate()
@@ -100,12 +105,12 @@ namespace PlayGround.System.Aoe
                 {
                     AoeSpawnRequestElement req = requests[j];
                     var key = new AoeSpawnKey(scope.Index, req.TypeId);
-                    if (!_byKey.TryGetValue(key, out List<AoeSpawnRequestElement> list))
+                    if (!_byKey.TryGetValue(key, out AoeSpawnBucket bucket))
                     {
-                        list = GetList();
-                        _byKey[key] = list;
+                        bucket = GetBucket();
+                        _byKey[key] = bucket;
                     }
-                    list.Add(req);
+                    bucket.Requests.Add(req);
                     vfxBuffer.Add(new VfxSpawnRequestElement
                     {
                         TypeId   = req.TypeId,
@@ -126,204 +131,129 @@ namespace PlayGround.System.Aoe
                 using var createEcb = new EntityCommandBuffer(Allocator.Temp);
                 int reuseCount = 0;
                 int coldCreateCount = 0;
+                _spawnWork.Clear();
 
-                ComponentTypeHandle<AoeActiveTag> activeHandle =
-                    GetComponentTypeHandle<AoeActiveTag>(false);
-
-                var jobHandles = new NativeList<JobHandle>(_byKey.Count * 4, Allocator.Temp);
-
-                foreach (var (key, requests) in _byKey)
+                using (ReuseJobMarker.Auto())
                 {
-                    Entity scope = _scopeByIndex[key.ScopeIndex];
-                    deadSlots.SetSharedComponentFilter(
-                        new CombatRenderScope { Scope = scope },
-                        new CombatRenderTypeId { TypeId = key.TypeId });
-
-                    int reqCount = requests.Count;
-                    var configs = new NativeList<AoeSpawnRequestElement>(reqCount, Allocator.TempJob);
-                    for (int i = 0; i < reqCount; i++) configs.Add(requests[i]);
-
-                    // ---- Option 2A: main-thread slice assignment (active) ----
-                    NativeList<int2> slices;
-                    int claimed;
-                    using (SliceAssignMarker.Auto())
-                        slices = AssignSlices2A(reqCount, ref activeHandle, out claimed);
-
-                    // ---- Option 2B: counting job + prefix sum (swap with 2A to compare) ----
-                    // NativeList<int2> slices;
-                    // int claimed;
-                    // using (CountJobMarker.Auto())
-                    // {
-                    //     JobHandle countHandle = ScheduleCountJob2B(ref activeHandle, out NativeList<int> deadCounts);
-                    //     countHandle.Complete();
-                    //     using (PrefixSumMarker.Auto())
-                    //         (slices, claimed) = PrefixSumSlices2B(deadCounts, reqCount);
-                    //     deadCounts.Dispose();
-                    // }
-
-                    reuseCount += claimed;
-                    for (int i = claimed; i < reqCount; i++)
+                    var jobHandles = new NativeList<JobHandle>(_byKey.Count, Allocator.Temp);
+                    foreach (var (key, bucket) in _byKey)
                     {
-                        CreateAoeEntity(scope, configs[i], createEcb);
-                        coldCreateCount++;
-                    }
+                        Entity scope = _scopeByIndex[key.ScopeIndex];
+                        EntityQuery query = DeadSlotQueryFor(key, scope);
+                        NativeArray<AoeSpawnRequestElement> configs = bucket.Requests.AsArray();
+                        var claimedReference = new NativeReference<int>(Allocator.TempJob);
+                        claimedReference.Value = 0;
 
-                    if (claimed > 0)
-                    {
-                        JobHandle spawnHandle;
-                        using (ResetJobMarker.Auto())
+                        JobHandle spawnHandle = new AoeSpawnJob
                         {
-                            spawnHandle = new AoeSpawnJob
-                            {
-                                Scope               = scope,
-                                Configs             = configs.AsArray(),
-                                Slices              = slices.AsArray(),
-                                ActiveHandle        = activeHandle,
-                                CollisionActiveHandle = GetComponentTypeHandle<AoeCollisionActiveTag>(false),
-                                RenderActiveHandle  = GetComponentTypeHandle<CombatRenderActiveTag>(false),
-                                IdentityHandle      = GetComponentTypeHandle<AoeIdentityComponent>(false),
-                                KinematicsHandle    = GetComponentTypeHandle<CombatKinematicsComponent>(false),
-                                CollisionHandle     = GetComponentTypeHandle<CombatCollisionComponent>(false),
-                                LifetimeHandle      = GetComponentTypeHandle<AoeLifetimeComponent>(false),
-                                HitGateHandle       = GetComponentTypeHandle<AoeHitGateComponent>(false),
-                                HitSpawnHandle      = GetComponentTypeHandle<AoeHitSpawnComponent>(false),
-                                AreaHandle          = GetComponentTypeHandle<AoeAreaComponent>(false),
-                                PulseVfxHandle      = GetComponentTypeHandle<AoePulseVfxComponent>(false),
-                                RenderHandle        = GetComponentTypeHandle<CombatRenderComponent>(false),
-                                RenderElementHandle = GetComponentTypeHandle<CombatRenderElement>(false),
-                                ContactGateHandle   = GetBufferTypeHandle<AoeContactGateElement>(false),
-                            }.ScheduleParallel(deadSlots, default);
-                        }
-                        jobHandles.Add(configs.Dispose(spawnHandle));
-                        jobHandles.Add(slices.Dispose(spawnHandle));
+                            Scope                 = scope,
+                            Configs               = configs,
+                            ClaimedCount          = claimedReference,
+                            ActiveHandle          = GetComponentTypeHandle<AoeActiveTag>(false),
+                            CollisionActiveHandle = GetComponentTypeHandle<AoeCollisionActiveTag>(false),
+                            RenderActiveHandle    = GetComponentTypeHandle<CombatRenderActiveTag>(false),
+                            IdentityHandle        = GetComponentTypeHandle<AoeIdentityComponent>(false),
+                            KinematicsHandle      = GetComponentTypeHandle<CombatKinematicsComponent>(false),
+                            CollisionHandle       = GetComponentTypeHandle<CombatCollisionComponent>(false),
+                            LifetimeHandle        = GetComponentTypeHandle<AoeLifetimeComponent>(false),
+                            HitGateHandle         = GetComponentTypeHandle<AoeHitGateComponent>(false),
+                            HitSpawnHandle        = GetComponentTypeHandle<AoeHitSpawnComponent>(false),
+                            AreaHandle            = GetComponentTypeHandle<AoeAreaComponent>(false),
+                            PulseVfxHandle        = GetComponentTypeHandle<AoePulseVfxComponent>(false),
+                            RenderHandle          = GetComponentTypeHandle<CombatRenderComponent>(false),
+                            RenderElementHandle   = GetComponentTypeHandle<CombatRenderElement>(false),
+                            ContactGateHandle     = GetBufferTypeHandle<AoeContactGateElement>(false),
+                        }.Schedule(query, default);
+
+                        jobHandles.Add(spawnHandle);
+                        _spawnWork.Add(new AoeSpawnWork(scope, configs, claimedReference));
                     }
-                    else
-                    {
-                        configs.Dispose();
-                        slices.Dispose();
-                    }
+
+                    JobHandle.CombineDependencies(jobHandles.AsArray()).Complete();
+                    jobHandles.Dispose();
                 }
 
-                Dependency = JobHandle.CombineDependencies(jobHandles.AsArray());
+                foreach (AoeSpawnWork work in _spawnWork)
+                {
+                    int claimed = work.ClaimedCount.Value;
+                    work.ClaimedCount.Dispose();
+                    reuseCount += claimed;
+                    for (int i = claimed; i < work.Configs.Length; i++)
+                    {
+                        CreateAoeEntity(work.Scope, work.Configs[i], createEcb);
+                        coldCreateCount++;
+                    }
+                }
+                _spawnWork.Clear();
+
                 if (coldCreateCount > 0)
                     createEcb.Playback(EntityManager);
                 SpawnReuseCounter.Value = reuseCount;
                 SpawnColdCreateCounter.Value = totalRequests - reuseCount;
-                jobHandles.Dispose();
             }
         }
 
         private void ReturnLists()
         {
-            foreach (var list in _byKey.Values)
+            foreach (var bucket in _byKey.Values)
             {
-                list.Clear();
-                _listPool.Add(list);
+                bucket.Requests.Clear();
+                _bucketPool.Add(bucket);
             }
             _byKey.Clear();
             _scopeByIndex.Clear();
         }
 
-        private List<AoeSpawnRequestElement> GetList()
+        private AoeSpawnBucket GetBucket()
         {
-            if (_listPool.Count > 0)
+            if (_bucketPool.Count > 0)
             {
-                int last = _listPool.Count - 1;
-                var l = _listPool[last];
-                _listPool.RemoveAt(last);
-                return l;
+                int last = _bucketPool.Count - 1;
+                var bucket = _bucketPool[last];
+                _bucketPool.RemoveAt(last);
+                return bucket;
             }
-            return new List<AoeSpawnRequestElement>();
+            return new AoeSpawnBucket();
         }
 
-        // ---- Option 2A ----
-        private NativeList<int2> AssignSlices2A(
-            int configCount,
-            ref ComponentTypeHandle<AoeActiveTag> activeHandle,
-            out int claimed)
+        private static void DisposeBuckets(IEnumerable<AoeSpawnBucket> buckets)
         {
-            using NativeArray<ArchetypeChunk> chunks = deadSlots.ToArchetypeChunkArray(Allocator.Temp);
-            using NativeArray<int> filteredChunkIndexes = deadSlots.CalculateFilteredChunkIndexArray(Allocator.Temp);
-            var slices = new NativeList<int2>(filteredChunkIndexes.Length, Allocator.TempJob);
-            for (int i = 0; i < filteredChunkIndexes.Length; i++) slices.Add(default);
-
-            int cursor = 0;
-            for (int unfilteredChunkIndex = 0;
-                 unfilteredChunkIndex < filteredChunkIndexes.Length && cursor < configCount;
-                 unfilteredChunkIndex++)
+            foreach (AoeSpawnBucket bucket in buckets)
             {
-                int filteredChunkIndex = filteredChunkIndexes[unfilteredChunkIndex];
-                if (filteredChunkIndex < 0) continue;
-
-                int dead = CountDisabled(chunks[filteredChunkIndex], ref activeHandle);
-                int take = math.min(dead, configCount - cursor);
-                slices[unfilteredChunkIndex] = new int2(cursor, take);
-                cursor += take;
-            }
-
-            claimed = cursor;
-            return slices;
-        }
-
-        private static int CountDisabled(ArchetypeChunk chunk, ref ComponentTypeHandle<AoeActiveTag> handle)
-        {
-            EnabledMask mask = chunk.GetEnabledMask(ref handle);
-            int count = 0;
-            for (int i = 0; i < chunk.Count; i++)
-                if (!mask[i]) count++;
-            return count;
-        }
-
-        /* ---- Option 2B: counting job + prefix sum (commented out — swap with 2A to compare) ----
-
-        private JobHandle ScheduleCountJob2B(
-            ref ComponentTypeHandle<AoeActiveTag> activeHandle,
-            out NativeList<int> deadCounts)
-        {
-            int chunkCount = deadSlots.CalculateChunkCount();
-            deadCounts = new NativeList<int>(chunkCount, Allocator.TempJob);
-            for (int i = 0; i < chunkCount; i++) deadCounts.Add(0);
-            return new CountDeadJob
-            {
-                ActiveHandle = activeHandle,
-                DeadCounts   = deadCounts.AsArray()
-            }.ScheduleParallel(deadSlots, default);
-        }
-
-        private static (NativeList<int2> slices, int claimed) PrefixSumSlices2B(
-            NativeList<int> deadCounts,
-            int configCount)
-        {
-            var slices = new NativeList<int2>(deadCounts.Length, Allocator.TempJob);
-            int cursor = 0;
-            for (int c = 0; c < deadCounts.Length; c++)
-            {
-                int take = math.min(deadCounts[c], configCount - cursor);
-                slices.Add(new int2(cursor, take));
-                cursor += take;
-            }
-            return (slices, cursor);
-        }
-
-        [BurstCompile]
-        private struct CountDeadJob : IJobChunk
-        {
-            [ReadOnly] public ComponentTypeHandle<AoeActiveTag> ActiveHandle;
-            [NativeDisableContainerSafetyRestriction][WriteOnly]
-            public NativeArray<int> DeadCounts;
-
-            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex,
-                bool useEnabledMask, in v128 chunkEnabledMask)
-            {
-                EnabledMask mask = chunk.GetEnabledMask(ref ActiveHandle);
-                int dead = 0;
-                for (int i = 0; i < chunk.Count; i++)
-                    if (!mask[i]) dead++;
-                DeadCounts[unfilteredChunkIndex] = dead;
+                bucket.Dispose();
             }
         }
 
-        ---- end Option 2B ---- */
+        private EntityQuery DeadSlotQueryFor(AoeSpawnKey key, Entity scope)
+        {
+            if (!_deadSlotQueriesByKey.TryGetValue(key, out EntityQuery query))
+            {
+                query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAll<AoeTag>()
+                    .WithAll<CombatRenderScope>()
+                    .WithAll<CombatRenderTypeId>()
+                    .WithDisabled<AoeActiveTag>()
+                    .Build(this);
+                _deadSlotQueriesByKey[key] = query;
+            }
+
+            query.SetSharedComponentFilter(
+                new CombatRenderScope { Scope = scope },
+                new CombatRenderTypeId { TypeId = key.TypeId });
+            return query;
+        }
+
+        private void DisposeSpawnWorkReferences()
+        {
+            foreach (AoeSpawnWork work in _spawnWork)
+            {
+                if (work.ClaimedCount.IsCreated)
+                {
+                    work.ClaimedCount.Dispose();
+                }
+            }
+            _spawnWork.Clear();
+        }
 
         private void CreateAoeEntity(Entity scope, AoeSpawnRequestElement request, EntityCommandBuffer ecb)
         {
@@ -401,7 +331,7 @@ namespace PlayGround.System.Aoe
         {
             public Entity Scope;
             [ReadOnly] public NativeArray<AoeSpawnRequestElement> Configs;
-            [ReadOnly] public NativeArray<int2> Slices;
+            [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
 
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeActiveTag>           ActiveHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeCollisionActiveTag>  CollisionActiveHandle;
@@ -421,8 +351,8 @@ namespace PlayGround.System.Aoe
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex,
                 bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                int2 slice = Slices[unfilteredChunkIndex];
-                if (slice.y == 0) return;
+                int cfgIdx = ClaimedCount.Value;
+                if (cfgIdx >= Configs.Length) return;
 
                 EnabledMask activeMask         = chunk.GetEnabledMask(ref ActiveHandle);
                 EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
@@ -440,10 +370,7 @@ namespace PlayGround.System.Aoe
                 NativeArray<CombatRenderElement>    renderElems = chunk.GetNativeArray(ref RenderElementHandle);
                 BufferAccessor<AoeContactGateElement> gates     = chunk.GetBufferAccessor(ref ContactGateHandle);
 
-                int cfgIdx = slice.x;
-                int cfgEnd = slice.x + slice.y;
-
-                for (int i = 0; i < chunk.Count && cfgIdx < cfgEnd; i++)
+                for (int i = 0; i < chunk.Count && cfgIdx < Configs.Length; i++)
                 {
                     if (activeMask[i]) continue;
 
@@ -494,6 +421,8 @@ namespace PlayGround.System.Aoe
                     collisionActiveMask[i]  = NeedsCollision(cfg);
                     renderActiveMask[i]    = true;
                 }
+
+                ClaimedCount.Value = cfgIdx;
             }
         }
 
@@ -522,6 +451,37 @@ namespace PlayGround.System.Aoe
                 {
                     return _scopeIndex * 397 ^ _typeId;
                 }
+            }
+        }
+
+        private sealed class AoeSpawnBucket : IDisposable
+        {
+            public readonly NativeList<AoeSpawnRequestElement> Requests =
+                new(Allocator.Persistent);
+
+            public void Dispose()
+            {
+                if (Requests.IsCreated)
+                {
+                    Requests.Dispose();
+                }
+            }
+        }
+
+        private readonly struct AoeSpawnWork
+        {
+            public readonly Entity Scope;
+            public readonly NativeArray<AoeSpawnRequestElement> Configs;
+            public readonly NativeReference<int> ClaimedCount;
+
+            public AoeSpawnWork(
+                Entity scope,
+                NativeArray<AoeSpawnRequestElement> configs,
+                NativeReference<int> claimedCount)
+            {
+                Scope = scope;
+                Configs = configs;
+                ClaimedCount = claimedCount;
             }
         }
     }
