@@ -1,1 +1,3 @@
-tracking target aquisition range should be a function of the projectile's speed and remaining life time.
+jobs are looping through dead elements.
+
+use NativeParallelMultiHashMap to store hits. 

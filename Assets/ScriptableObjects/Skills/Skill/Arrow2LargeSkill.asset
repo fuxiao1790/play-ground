@@ -23,7 +23,7 @@ MonoBehaviour:
     pierceCount: 0
     repeatHitCooldown: 0
     directDamageEnabled: 1
-    trackingEnabled: 1
+    trackingEnabled: 0
     trackingTurnSpeedDegrees: 180
     trackingQueryIntervalSeconds: 0.25
     trackingInitialDelaySeconds: 0.15

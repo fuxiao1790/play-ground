@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileSkill
   definition:
     prefab: {fileID: 1001001001001001004, guid: 0f2c2291f5925184e8a58537ed17abe6, type: 3}
-    speed: 5
-    lifetime: 3
+    speed: 10
+    lifetime: 5.5
     damage: 10
     count: 1
     spreadDegrees: 10
@@ -23,7 +23,7 @@ MonoBehaviour:
     pierceCount: 20
     repeatHitCooldown: 1
     directDamageEnabled: 1
-    trackingEnabled: 1
+    trackingEnabled: 0
     trackingTurnSpeedDegrees: 180
     trackingQueryIntervalSeconds: 0.25
     trackingInitialDelaySeconds: 0.15
