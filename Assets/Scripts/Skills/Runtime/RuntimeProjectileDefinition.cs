@@ -115,7 +115,9 @@ namespace PlayGround.Skills.Runtime
                 impact.DirectDamageEnabled, impact.PierceCount, impact.RepeatHitCooldown,
                 impact.Tracking,
                 BuildChildImpactAoeSnapshot(impact),
-                BuildChildStackEffect(impact.StackTriggerSetup));
+                BuildChildStackEffect(impact.StackTriggerSetup),
+                prefab.VisualScale,
+                prefab.VisualRotationDegrees);
         }
     }
 }

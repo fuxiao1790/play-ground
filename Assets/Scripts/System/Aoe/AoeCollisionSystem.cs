@@ -101,9 +101,14 @@ namespace PlayGround.System.Aoe
             JobHandle hitFlushHandle = new CombatHitFlushJob
             {
                 PendingDamage = pendingDamage,
+                Damage = SystemAPI.GetBufferLookup<CombatDamageElement>()
+            }.Schedule(collisionHandle);
+            JobHandle convertHandle = new CombatSpawnConvertJob
+            {
                 PendingSpawns = pendingSpawns,
-                Damage = SystemAPI.GetBufferLookup<CombatDamageElement>(),
-                Spawns = SystemAPI.GetBufferLookup<CombatSpawnElement>()
+                Routing = SystemAPI.GetComponentLookup<CombatSpawnRouting>(true),
+                ProjectileRequests = SystemAPI.GetBufferLookup<ProjectileSpawnRequestElement>(),
+                AoeRequests = SystemAPI.GetBufferLookup<AoeSpawnRequestElement>()
             }.Schedule(collisionHandle);
             JobHandle vfxFlushHandle = new VfxStreamFlushJob
             {
@@ -112,7 +117,7 @@ namespace PlayGround.System.Aoe
             }.Schedule(collisionHandle);
 
             JobHandle disposeDamageHandle = pendingDamage.Dispose(hitFlushHandle);
-            JobHandle disposeSpawnsHandle = pendingSpawns.Dispose(hitFlushHandle);
+            JobHandle disposeSpawnsHandle = pendingSpawns.Dispose(convertHandle);
             JobHandle disposeVfxHandle = vfxPending.Dispose(vfxFlushHandle);
             state.Dependency = occupiedTargetCells.Dispose(
                 JobHandle.CombineDependencies(disposeDamageHandle, disposeSpawnsHandle, disposeVfxHandle));

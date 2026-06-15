@@ -25,7 +25,6 @@ namespace PlayGround.System.Aoe
             for (int i = 0; i < scopes.Length; i++)
             {
                 state.EntityManager.GetBuffer<CombatDamageElement>(scopes[i]).Clear();
-                state.EntityManager.GetBuffer<CombatSpawnElement>(scopes[i]).Clear();
             }
 
             scopes.Dispose();

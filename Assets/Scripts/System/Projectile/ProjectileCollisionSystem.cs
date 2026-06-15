@@ -1,3 +1,4 @@
+using PlayGround.System.Aoe;
 using PlayGround.System.Common;
 using PlayGround.System.Vfx;
 using Unity.Burst;
@@ -97,9 +98,14 @@ namespace PlayGround.System.Projectile
             var flushHandle = new CombatHitFlushJob
             {
                 PendingDamage = pendingDamage,
+                Damage = SystemAPI.GetBufferLookup<CombatDamageElement>()
+            }.Schedule(collisionHandle);
+            var convertHandle = new CombatSpawnConvertJob
+            {
                 PendingSpawns = pendingSpawns,
-                Damage = SystemAPI.GetBufferLookup<CombatDamageElement>(),
-                Spawns = SystemAPI.GetBufferLookup<CombatSpawnElement>()
+                Routing = SystemAPI.GetComponentLookup<CombatSpawnRouting>(true),
+                ProjectileRequests = SystemAPI.GetBufferLookup<ProjectileSpawnRequestElement>(),
+                AoeRequests = SystemAPI.GetBufferLookup<AoeSpawnRequestElement>()
             }.Schedule(collisionHandle);
             var vfxFlushHandle = new VfxStreamFlushJob
             {
@@ -108,7 +114,7 @@ namespace PlayGround.System.Projectile
             }.Schedule(collisionHandle);
 
             JobHandle disposeDamageHandle = pendingDamage.Dispose(flushHandle);
-            JobHandle disposeSpawnsHandle = pendingSpawns.Dispose(flushHandle);
+            JobHandle disposeSpawnsHandle = pendingSpawns.Dispose(convertHandle);
             JobHandle disposeVfxHandle = vfxPending.Dispose(vfxFlushHandle);
             state.Dependency = targetCells.Dispose(
                 JobHandle.CombineDependencies(disposeDamageHandle, disposeSpawnsHandle, disposeVfxHandle));

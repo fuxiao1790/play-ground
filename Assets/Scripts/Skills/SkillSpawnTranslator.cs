@@ -164,7 +164,9 @@ namespace PlayGround.Skills
                 impact.RepeatHitCooldown,
                 impact.Tracking,
                 BuildImpactAoeSnapshot(impact, targetMask),
-                BuildStackEffectSnapshot(impact));
+                BuildStackEffectSnapshot(impact),
+                prefab.VisualScale,
+                prefab.VisualRotationDegrees);
         }
 
         private static CombatStatusEffectSnapshot BuildStackEffectSnapshot(RuntimeProjectileDefinition def)

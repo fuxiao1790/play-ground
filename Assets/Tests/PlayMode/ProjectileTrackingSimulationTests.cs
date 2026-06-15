@@ -30,7 +30,6 @@ namespace PlayGround.Tests.PlayMode
             scopeEntity = entityManager.CreateEntity(typeof(ProjectileScope));
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
             entityManager.AddBuffer<CombatDamageElement>(scopeEntity);
-            entityManager.AddBuffer<CombatSpawnElement>(scopeEntity);
         }
 
         [TearDown]

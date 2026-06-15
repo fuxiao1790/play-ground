@@ -17,6 +17,9 @@ namespace PlayGround.System.Aoe
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AoeCollisionSystem))]
     [UpdateAfter(typeof(AoeLifetimeSystem))]
+    // Projectile collisions convert impact AOEs into AoeSpawnRequestElement this
+    // frame; run after so those impact AOEs spawn same-frame.
+    [UpdateAfter(typeof(PlayGround.System.Projectile.ProjectileCollisionSystem))]
     [UpdateBefore(typeof(PlayGround.System.Common.CombatRenderPrepareSystem))]
     public partial class AoeSpawnSystem : SystemBase
     {

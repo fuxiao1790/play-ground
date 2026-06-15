@@ -10,7 +10,11 @@ namespace PlayGround.System.Projectile
     // Expands multi-shot spawn commands (Count > 1) into individual spawn elements (Count == 1).
     // Single-shot commands (Count == 1) pass through unchanged.
     // Output is a NativeStream consumed and disposed by ProjectileSpawnSystem.
+    // Must run after both collision systems so internal hit-spawns converted to
+    // ProjectileSpawnRequestElement this frame are expanded and spawned same-frame.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(ProjectileCollisionSystem))]
+    [UpdateAfter(typeof(PlayGround.System.Aoe.AoeCollisionSystem))]
     [UpdateBefore(typeof(ProjectileSpawnSystem))]
     public partial class ProjectileMultiExpandSystem : SystemBase
     {

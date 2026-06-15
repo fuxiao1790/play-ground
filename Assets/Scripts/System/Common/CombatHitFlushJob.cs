@@ -5,13 +5,14 @@ using Unity.Jobs;
 
 namespace PlayGround.System.Common
 {
+    // Flushes the per-lane damage stream into scope-owned CombatDamageElement
+    // buffers. Internal follow-up spawns no longer pass through here — they are
+    // converted to ECS spawn requests by CombatSpawnConvertJob.
     [BurstCompile]
     public struct CombatHitFlushJob : IJob
     {
         public NativeStream PendingDamage;
-        public NativeStream PendingSpawns;
         public BufferLookup<CombatDamageElement> Damage;
-        public BufferLookup<CombatSpawnElement> Spawns;
 
         public void Execute()
         {
@@ -25,18 +26,6 @@ namespace PlayGround.System.Common
                 }
 
                 damageReader.EndForEachIndex();
-            }
-
-            NativeStream.Reader spawnReader = PendingSpawns.AsReader();
-            for (int i = 0; i < spawnReader.ForEachCount; i++)
-            {
-                int count = spawnReader.BeginForEachIndex(i);
-                for (int j = 0; j < count; j++)
-                {
-                    WriteSpawn(spawnReader.Read<CombatPendingSpawn>());
-                }
-
-                spawnReader.EndForEachIndex();
             }
         }
 
@@ -60,28 +49,6 @@ namespace PlayGround.System.Common
                 DirectDamageEnabled = pending.DirectDamageEnabled,
                 SourceNodeId = pending.SourceNodeId,
                 StackEffect = pending.StackEffect
-            });
-        }
-
-        private void WriteSpawn(CombatPendingSpawn pending)
-        {
-            if (pending.Scope == Entity.Null || !Spawns.HasBuffer(pending.Scope))
-            {
-                return;
-            }
-
-            Spawns[pending.Scope].Add(new CombatSpawnElement
-            {
-                SourceId = pending.SourceId,
-                TypeId = pending.TypeId,
-                TargetId = pending.TargetId,
-                Position = pending.Position,
-                TargetPosition = pending.TargetPosition,
-                Kind = pending.Kind,
-                SourceNodeId = pending.SourceNodeId,
-                ImpactAoe = pending.ImpactAoe,
-                ImpactProjectile = pending.ImpactProjectile,
-                ProjectileBurst = pending.ProjectileBurst
             });
         }
     }

@@ -1,207 +1,143 @@
-# Spawn Data Flow
+# Internal Spawn Rework — Design Discussion
 
-## Entities involved
+## Original Problem
 
-| Entity | Key buffers / components |
-|---|---|
-| Scope (AoeScope / ProjectileScope) | `AoeSpawnRequestElement`, `ProjectileSpawnRequestElement`, `CombatSpawnElement`, `CombatDamageElement`, `CombatTargetElement`, `VfxSpawnRequestElement` |
-| AoE entity | `AoeTag`, `AoeActiveTag` (enableable), `AoeCollisionActiveTag`, `AoeIdentityComponent`, `AoeHitSpawnComponent`, `AoeContactGateElement`, `CombatRenderScope` (shared), `CombatRenderTypeId` (shared) |
-| Projectile entity | `ProjectileTag`, `ProjectileActiveTag` (enableable), `ProjectileCollisionActiveTag`, `ProjectileIdentityComponent`, `ProjectileHitComponent`, `ProjectileContactGateElement`, optionally `ProjectileChildSpawnerTag` + `ProjectileChildSpawnerComponent` + `ProjectileChildSpawnStateComponent` |
-
----
-
-## Path A — Initial spawn (game code → ECS entity)
+ECS-originated follow-up spawns (impact AOEs, impact projectile bursts, AOE
+projectile bursts) are deterministic consequences of ECS collision state, yet
+they left simulation to become spawn requests again:
 
 ```
-Game code
-  │  AoeRoot.Spawn(AoeSpawnCommand)
-  │  ProjectileRoot.Spawn(ProjectileSpawnCommand, seedContactGateTargetId)
-  │
-  │  Root converts command → *SpawnRequestElement (bounds computed, render baked)
-  │  EntityManager.GetBuffer<*SpawnRequestElement>(scopeEntity).Add(...)
-  ▼
-AoeSpawnSystem / ProjectileSpawnSystem  [SimulationSystemGroup]
-  │  Dependency.Complete()
-  │  reads *SpawnRequestElement buffers; groups by key:
-  │    AoeSpawnKey         = (scopeIndex, typeId)
-  │    ProjectileSpawnKey  = (scopeIndex, typeId, hasChildSpawner)
-  │
-  │  per bucket:
-  │    deadSlots query filtered by (CombatRenderScope, CombatRenderTypeId)
-  │    AssignSlices2A — main-thread scan of disabled entities → int2(cfgOffset, take) per chunk
-  │
-  │    claimed slots → *SpawnJob : IJobChunk (parallel)
-  │                    writes all components directly into chunk arrays
-  │                    sets ActiveTag / CollisionActiveTag / RenderActiveTag
-  │
-  │    unclaimed      → ECB.CreateEntity(archetype) cold-create
-  │                     ECB.Playback() after all jobs
-  ▼
-Active AoE / Projectile ECS entities
+collision job → CombatPendingSpawn stream → CombatHitFlushJob (single IJob)
+  → CombatSpawnElement buffer → CombatHitDispatchSystem (PresentationSystemGroup)
+  → CombatSpawnRouter (managed) → root.Spawn() → ProjectileSpawnRequestElement /
+  AoeSpawnRequestElement buffers → spawn systems (next frame)
 ```
 
-**Notes:**
-- Reuse path is zero-allocation: no ECB, chunk arrays written in-place.
-- Cold-create path uses a single shared ECB per system update.
-- `ProjectileSpawnSystem` maintains two dead-slot queries: `deadSlotsNoChildSpawner` / `deadSlotsWithChildSpawner` (different archetypes).
-- Render data (`CombatRenderComponent`) is baked into the request element by the root at spawn time; spawn jobs copy it verbatim.
+Cost: a managed round-trip, a one-frame delay, and ECS depending on managed code
+to spawn more ECS entities.
 
----
+## What the First Rework Changed (implemented)
 
-## Path B — On-hit spawn (collision → secondary AoE / projectile)
+Moved internal follow-up spawns fully into ECS, same frame:
 
-```
-AoeCollisionSystem / ProjectileCollisionSystem  [SimulationSystemGroup]
-  │  *CollisionJob : IJobEntity (parallel, Burst)
-  │    spatial hash: NativeParallelMultiHashMap<long cellKey, int targetIndex>
-  │    per active entity: collect candidate target indices → bounds + shape hit test
-  │    if hit && HasSpawnEvent (ProjectileBurst / ImpactAoe / ImpactProjectile enabled):
-  │      pendingSpawns.Write(CombatPendingSpawn { Scope, ids, Position, TargetPosition, Kind, ... })
-  │    if hit && HasDamageEvent:
-  │      pendingDamage.Write(CombatPendingDamage { ... })
-  ▼
-CombatHitFlushJob : IJob  (chained after collision job, one instance per collision system)
-  │  NativeStream.Reader over pendingSpawns
-  │  BufferLookup<CombatSpawnElement>[scope].Add(CombatSpawnElement { ... })
-  │  BufferLookup<CombatDamageElement>[scope].Add(CombatDamageElement { ... })
-  │  (NativeStreams disposed after flush job completes)
-  ▼
-CombatHitDispatchSystem  [PresentationSystemGroup]  ← different group, runs after Simulation
-  │  CompleteDependency()
-  │  per registered scope handler:
-  │    reads CombatSpawnElement buffer
-  │    ReplaySpawnsAndClear → spawnHandler(CombatHitContext, CombatSpawnElement)
-  │    lambda registered by Root.BindWorld():
-  │      AoeRoot    → HitSpawn?.Invoke(context, spawn)
-  │      ProjectileRoot → HitSpawn?.Invoke(context, spawn)
-  ▼
-CombatSpawnRouter  (game code, event subscriber)
-  │  OnPlayerProjectileHitSpawn → SpawnImpactAoe(playerAoeRoot)
-  │                             → SpawnImpactProjectiles(playerProjectileRoot)
-  │  OnMobProjectileHitSpawn   → SpawnImpactAoe(mobAoeRoot)
-  │                             → SpawnImpactProjectiles(mobProjectileRoot)
-  │  OnPlayerAoeHitSpawn       → SpawnProjectileBurst(playerProjectileRoot)
-  │  OnMobAoeHitSpawn          → SpawnProjectileBurst(mobProjectileRoot)
-  │
-  │  Each handler calls Root.Spawn() → back to Path A (next frame)
-  ▼
-*SpawnRequestElement written to scope buffer → consumed next Simulation frame
-```
+- `CombatSpawnConvertJob` (Burst `IJob`) reads the `CombatPendingSpawn` spawn
+  stream and appends `ProjectileSpawnRequestElement` / `AoeSpawnRequestElement`
+  to the destination scope buffers, using a `CombatSpawnRouting` component for
+  source→destination routing and deterministic hash ids.
+- Visuals (`VisualScale`/`VisualRotationDegrees`) now ride in the spawn
+  snapshots (baked at authoring), not a managed render catalog — so the converter
+  builds `CombatRenderComponent` without managed lookups.
+- Deleted the managed route: `CombatSpawnRouter`, `CombatHitDispatchSystem` spawn
+  replay, `CombatSpawnElement`, `HitSpawn` events, `CombatHitContext`/handlers.
+  `CombatHitFlushJob` is now damage-only.
+- Same-frame ordering: `ProjectileMultiExpandSystem`/`AoeSpawnSystem` run after
+  both collision systems.
 
-**Spawn types by source:**
+### What it did NOT change (the live critique)
 
-| Source | ImpactAoe | ImpactProjectile | ProjectileBurst |
-|---|---|---|---|
-| AoE hit | No | No | Yes (`AoeHitSpawnComponent.ProjectileBurst`) |
-| Projectile hit | Yes | Yes | Yes (`ProjectileHitComponent.HitPayload`) |
+The **threading model is identical**. The old `CombatHitFlushJob` was a single
+`IJob` doing a scope-keyed scatter into buffers; `CombatSpawnConvertJob` is the
+same single `IJob` doing the same scatter. Two of the four original findings are
+still open:
 
-**Frame boundary:** collision writes → flush → scope buffer → dispatch (Presentation) → Root.Spawn() → request buffer → spawn system picks up **next Simulation frame**.
+- Lane ownership still collapses — collision writes parallel `NativeStream`
+  lanes, then one serial job flattens them.
+- Spawn systems still regroup on the main thread (`ProjectileSpawnBucket`
+  dictionaries).
 
----
+So the first rework was a **routing/ownership** win (no managed boundary, no
+one-frame delay, Burst-built requests), not a **throughput** win.
 
-## Path C — Timed child spawn (interval tick → ProjectileSpawnRequestElement)
+## Why the Single-Threaded Collapse Exists
 
-```
-ProjectileChildSpawnSystem  [SimulationSystemGroup, after ProjectileMovementSystem]
-  │  ProjectileChildSpawnEntityJob : IJobEntity (parallel, Burst)
-  │  filter: ProjectileTag + ProjectileActiveTag + ProjectileChildSpawnerTag
-  │
-  │  per entity:
-  │    cooldown -= deltaTime
-  │    while cooldown <= 0:  (catches multi-tick catch-up in one frame)
-  │      tickIndex++
-  │      for childIndex in [0, ChildCountPerTick):
-  │        ComputeChildVelocity:
-  │          Forward    → parent velocity direction
-  │          SideSpray  → alternating left/right, fanned over SideSpreadDegrees
-  │        Ecb.AppendToBuffer(chunkIndex, scope, ProjectileSpawnRequestElement)
-  │          HasChildSpawner = 0  (children never recurse)
-  │          childProjectileId = hash(parentId, spawnerId, tickIndex, childIndex)
-  │          Render computed from ProjectileChildSpawnerComponent fields (baked at parent spawn)
-  │      cooldown += IntervalSeconds + DeterministicJitter(parentId, spawnerId, tickIndex)
-  │    write back cooldown + tickIndex
-  ▼
-EndSimulationEntityCommandBufferSystem  playback
-  │  appends ProjectileSpawnRequestElement to scope's DynamicBuffer
-  ▼
-ProjectileSpawnSystem  [next frame]  → Path A
-```
+Both collision jobs query **globally** — all projectiles (or all AOEs) across all
+factions in one parallel pass. One job mixes player-origin and mob-origin
+entities, so every result record must carry a `Scope` entity to be routed back to
+the correct per-scope buffer afterward. That routing — `Buffer[record.Scope].Add`
+via `BufferLookup` random-access write — cannot run in parallel, so it is forced
+into one serial `IJob`. **Scope-in-a-flat-record ⇒ serial scatter.** The `Scope`
+field is the root cause.
 
-**Notes:**
-- ECB `AppendToBuffer` (parallel writer) → requests land after `EndSimulationECB` plays back → **one frame delay** vs the tick that triggered them.
-- Render data baked into `ProjectileChildSpawnerComponent` at parent spawn time by `ProjectileRoot.ChildSpawnerComponentFor()`; child spawn job never touches `ProjectileRoot`.
-- `childProjectileId` is deterministic: stable across replay, avoids collision between siblings.
-- Children have `HasChildSpawner = 0` — no recursive child spawners.
+Spawn data also currently leaves the `NativeStream` at the convert job (into a
+`DynamicBuffer`), because that buffer is the shared ingestion point for all three
+sources: `root.Spawn` (managed), `ProjectileChildSpawnSystem` (ECB), and the
+convert job. Goal stated: keep collision-originated spawns in a `NativeStream`
+from collision until the spawn system, never touching the buffer.
 
----
+## Options Considered (to remove the scope-keyed scatter)
 
-## Path D — Multi-shot fan-out (expand command → individual elements via NativeStream)
+1. **ECB.ParallelWriter.AppendToBuffer from the collision job** (like
+   `ProjectileChildSpawnSystem` already does). Parallel record, serial playback;
+   drops the stream + serial convert. Scope becomes the append target, not a
+   scatter key.
+2. **Partition by scope** (`SetSharedComponentFilter` on `CombatRenderScope`):
+   per-scope collision passes, output scope-local, no `Scope` field. Only ~4-way
+   parallel.
+3. **Result-on-entity**: damage aggregates onto target entities; spawns become
+   spawn-request entities. Most scalable, most churn.
 
-Added as part of the internal-spawn-rework. Sits between Path A's buffer write and the spawn system.
+## Chosen Direction — World-as-Scope (faction per world)
 
-```
-Root.Spawn(ProjectileSpawnCommand { Count > 1, SpreadDegrees, JitterDegrees })
-  │  SpawnRequestFor() sets:
-  │    Count = N, BaseDirection, Speed, SpreadDegrees, JitterDegrees
-  │    JitterSeed = (uint)baseProjectileId * 2654435761u
-  │    nextProjectileId incremented by N (reserves N IDs)
-  │    Velocity = default (expand job computes per-shot)
-  │  EntityManager.GetBuffer<ProjectileSpawnRequestElement>(scope).Add(command)
-  ▼
-ProjectileMultiExpandSystem  [SimulationSystemGroup, UpdateBefore(ProjectileSpawnSystem)]
-  │  OnUpdate (main thread):
-  │    collect all ProjectileSpawnRequestElement from all scope buffers → NativeArray
-  │    clear scope buffers
-  │    allocate NativeStream(totalCommands)
-  │
-  │  ProjectileMultiExpandJob : IJob  (Burst, worker thread)
-  │    for each command ci:
-  │      Stream.BeginForEachIndex(ci)
-  │      if Count <= 1:
-  │        Stream.Write(cmd)              ← pass-through, Velocity already set
-  │      else:
-  │        rng = Random(JitterSeed)
-  │        for i in [0, Count):
-  │          angle = -Spread*0.5 + Spread/(Count-1)*i   ← evenly spaced fan
-  │          if JitterDegrees > 0: angle += rng.NextFloat(-jitter, jitter)
-  │          elem.Count        = 1
-  │          elem.ProjectileId = baseId + i
-  │          elem.Velocity     = Rotate(BaseDirection, angle) * Speed
-  │          elem.Render.RenderZ = baked from per-shot ProjectileId
-  │          Stream.Write(elem)
-  │      Stream.EndForEachIndex()
-  │
-  │  exposes: internal NativeStream PendingStream
-  ▼
-ProjectileSpawnSystem  (reads PendingStream instead of scope buffers)
-  │  Dependency.Complete() completes expand job via chain
-  │  NativeStream.Reader iterates ForEachCount slots
-  │  per element (all Count == 1 at this point):
-  │    group by ProjectileSpawnKey(scope.Index, typeId, hasChildSpawner)
-  │  expandSys.PendingStream.Dispose() after reading
-  │  → dead slot reuse / ECB cold-create (Path A, unchanged)
-  ▼
-Active Projectile ECS entities
-```
+Move mob→player projectiles/AOEs into a **separate ECS world** from player→mob.
+This dissolves the problem instead of working around it.
 
-**Key design points:**
-- Fan-out math runs on worker thread (Burst IJob), not main thread.
-- `Unity.Mathematics.Random` replaces `UnityEngine.Random` — Burst-safe, deterministic from seed.
-- Callers (SkillSpawnTranslator, CombatSpawnRouter) write one command regardless of Count; no caller-side loops or angle math.
-- `ProjectileSpawnRequestElement` is dual-use: Count > 1 = command consumed by expand job; Count == 1 = individual element consumed by spawn system. Comment in struct documents this.
-- BoundsMin/BoundsMax computed once in Root (position + shape only, no velocity); copied verbatim to all N output elements.
-- RenderZ patched per shot in expand job using the shot's unique ProjectileId.
-- Count == 1 commands pass through expand job unchanged (no allocation overhead for single shots).
+- **2 worlds**: player-origin, mob-origin. Each world is a single faction
+  direction, so a collision job in a world never mixes factions.
+- **1 unified scope singleton per world.** Projectile and AOE do not need
+  separate scopes — they share one scope holding the **single** target list
+  (`CombatTargetElement`, intended identical for projectile and AOE — already
+  wired: `GameRoot.BindCombatScopes` binds proj+aoe roots to the same target-set
+  key), the shared `CombatDamageElement`, and the
+  `ProjectileSpawnRequestElement` / `AoeSpawnRequestElement` /
+  `VfxSpawnRequestElement` buffers.
+- Collision reads the target list via `GetSingleton`; writes damage/spawns to the
+  singleton (or straight to streams). Destination domain is chosen by payload
+  type (`ImpactAoe` → AOE; `ImpactProjectile`/burst → projectile), not a per-record
+  entity.
 
-**Path C interaction (child spawns):**
-Child spawns from `ProjectileChildSpawnSystem` use ECB (`EndSimulationECB`) → play back AFTER `ProjectileMultiExpandSystem` clears scope buffers. Child elements have Count == 1 and pre-computed Velocity, so they're picked up by `ProjectileMultiExpandSystem` next frame and pass through the expand job unchanged. One-frame delay unchanged vs. prior behavior.
+### What this removes
 
----
+- The `Scope` field on records and on `ProjectileIdentityComponent` (vestigial).
+- The `ProjectileScope` vs `AoeScope` distinction (one scope per world).
+- `CombatSpawnRouting` (routing is "this world's singletons").
+- The scope-keyed serial scatter — collision→spawn can flow as direct
+  `NativeStream`s consumed by the spawn systems (the stated goal falls out, since
+  there is nothing to demux).
+- Duplicate target buffers (one shared list instead of per-domain copies).
 
-## Shared infrastructure
+### What it costs (the real work — ownership/setup, not the hot path)
 
-**Pool / reuse:** both `AoeSpawnSystem` and `ProjectileSpawnSystem` pool `List<*SpawnRequestElement>` via `_listPool` (clear + return each frame). No managed allocation on hot path once warmed up.
+1. **Scope ownership moves from per-root to per-world.** Today each
+   `ProjectileRoot`/`AoeRoot` creates its own scope in `BindWorld`. New: one
+   owner per world (natural fit: `CombatRuntimeRoot`) creates the unified scope;
+   proj/aoe roots attach to the world and register types/targets into it.
+2. **`CombatEcsWorld` becomes multi-world**, keyed by faction; roots acquire the
+   right world. Each world added to the player loop, systems instantiated per
+   world.
+3. **Drop `*.Scope` reads** in collision/tracking — they fetch the target buffer;
+   move to the singleton. Wide but mechanical.
+4. **Unified target sync + damage replay per world** instead of per root.
+5. **Test rework** — sim tests build scopes by hand
+   (`CreateEntity(typeof(ProjectileScope))`, per-scope `AddBuffer`); those change.
 
-**Scope entity created by:** `AoeRoot.BindWorld()` / `ProjectileRoot.BindWorld()` — adds all required buffers and registers the `HitSpawn` lambda with `CombatHitDispatchSystem`.
+This steady-state is clearly better and removes the disliked `Scope` routing, but
+it is a structural refactor of scope/world ownership plus test churn — larger than
+everything done so far combined.
 
-**`CombatHitFlushJob`** is instantiated independently by each collision system with its own stream pair. Both can run concurrently; they write to different scope entities so `BufferLookup` writes don't conflict.
+### Open invariants to confirm before planning
+
+1. **Projectile and AOE always target the same set within a faction.** If a future
+   AOE must hit a different layer, the unified target list breaks and they'd need
+   separating again. Treat as a hard invariant?
+2. **Actors that must be targets in both worlds** (e.g. a neutral destructible hit
+   by both factions) must register into both worlds. Acceptable?
+3. **World count**: exactly two faction worlds, or a general world-per-faction-key
+   registry? World-per-faction stops scaling at many factions (fixed per-world
+   overhead); in-world partitioning would be the fallback then.
+
+## Status
+
+First rework (ECS-owned internal spawns, managed route deleted) is implemented but
+**not yet compiled/tested** — the Unity editor held the project lock. The
+world-as-scope direction above is the agreed next step, pending the three open
+invariants and a written plan.

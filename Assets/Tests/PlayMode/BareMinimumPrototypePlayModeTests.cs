@@ -327,12 +327,12 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileImpactAoeRoutesThroughAoeRootOnNextStep()
+        public IEnumerator ProjectileImpactAoeRoutesThroughAoeRootInEcs()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             CreateAoeFixture(out GameObject aoeObject, out AoeRoot aoeRoot, out GameObject aoeTemplateObject, out int aoeTypeId);
-            var router = new CombatSpawnRouter();
-            router.Bind(projectileRoot, null, aoeRoot, null);
+            // ECS routing replaces the old managed CombatSpawnRouter.
+            CombatSpawnRoutingBinder.Bind(projectileRoot, aoeRoot);
             mob.Register(projectileRoot.TargetRegistry);
             mob.Register(aoeRoot.TargetRegistry);
 
@@ -357,13 +357,17 @@ namespace PlayGround.Tests.PlayMode
                     AoeGeometry(aoeTemplateObject)));
 
             projectileRoot.Spawn(command);
-            yield return null;
-            Assert.That(mob.CurrentHealth, Is.EqualTo(10f));
 
-            yield return null;
+            // Internal spawns now stay in ECS and resolve within a few frames.
+            // directDamageEnabled:false means only the impact AOE (3) applies, so
+            // the final health of exactly 7 proves the projectile dealt no direct
+            // damage and the impact AOE routed and hit once.
+            for (int i = 0; i < 8; i++)
+            {
+                yield return null;
+            }
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(7f));
-            router.Unbind();
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
             Object.Destroy(aoeObject);
@@ -371,19 +375,13 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator AoeProjectileBurstRoutesThroughProjectileRootOnNextStepWithoutImpactPayload()
+        public IEnumerator AoeProjectileBurstRoutesThroughProjectileRootInEcsWithoutImpactPayload()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             CreateAoeFixture(out GameObject aoeObject, out AoeRoot aoeRoot, out GameObject aoeTemplateObject, out int aoeTypeId);
-            var router = new CombatSpawnRouter();
-            router.Bind(projectileRoot, null, aoeRoot, null);
+            CombatSpawnRoutingBinder.Bind(projectileRoot, aoeRoot);
             mob.Register(projectileRoot.TargetRegistry);
             mob.Register(aoeRoot.TargetRegistry);
-            bool spawnedProjectileCarriedImpactAoe = true;
-            projectileRoot.HitSpawn += (in CombatHitContext context, in CombatSpawnElement spawn) =>
-            {
-                spawnedProjectileCarriedImpactAoe = spawn.ImpactAoe.Enabled;
-            };
 
             var burst = new AoeProjectileBurstSnapshot(
                 projectileTypeId: 0,
@@ -407,14 +405,17 @@ namespace PlayGround.Tests.PlayMode
                 tickIntervalSeconds: 0f,
                 AoeGeometry(aoeTemplateObject),
                 projectileBurst: burst));
-            yield return null;
-            Assert.That(mob.CurrentHealth, Is.EqualTo(10f));
 
-            yield return null;
+            // The AOE deals 0 direct damage; only the burst projectile (2) applies.
+            // Final health of exactly 8 proves the burst routed to the projectile
+            // scope, hit once, and did NOT chain its own impact AOE (which would
+            // subtract additional health).
+            for (int i = 0; i < 8; i++)
+            {
+                yield return null;
+            }
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(8f));
-            Assert.That(spawnedProjectileCarriedImpactAoe, Is.False);
-            router.Unbind();
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
             Object.Destroy(aoeObject);

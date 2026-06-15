@@ -85,7 +85,9 @@ namespace PlayGround.System.Common
             float repeatHitCooldownSeconds = 0f,
             ProjectileTrackingConfig tracking = default,
             ProjectileImpactAoeSnapshot impactAoe = default,
-            CombatStatusEffectSnapshot stackEffect = default)
+            CombatStatusEffectSnapshot stackEffect = default,
+            float visualScale = 0f,
+            float visualRotationDegrees = 0f)
         {
             Enabled = projectileTypeId >= 0;
             ProjectileTypeId = projectileTypeId;
@@ -105,6 +107,8 @@ namespace PlayGround.System.Common
             Tracking = tracking;
             ImpactAoe = impactAoe;
             StackEffect = stackEffect;
+            VisualScale = Mathf.Max(0f, visualScale);
+            VisualRotationDegrees = visualRotationDegrees;
         }
 
         public bool Enabled { get; }
@@ -125,6 +129,8 @@ namespace PlayGround.System.Common
         public ProjectileTrackingConfig Tracking { get; }
         public ProjectileImpactAoeSnapshot ImpactAoe { get; }
         public CombatStatusEffectSnapshot StackEffect { get; }
+        public float VisualScale { get; }
+        public float VisualRotationDegrees { get; }
     }
 
     public readonly struct AoeProjectileBurstSnapshot
@@ -143,7 +149,9 @@ namespace PlayGround.System.Common
             DamageSnapshot damage,
             bool directDamageEnabled = true,
             int pierceCount = 0,
-            float repeatHitCooldownSeconds = 0f)
+            float repeatHitCooldownSeconds = 0f,
+            float visualScale = 0f,
+            float visualRotationDegrees = 0f)
         {
             Enabled = projectileTypeId >= 0;
             ProjectileTypeId = projectileTypeId;
@@ -160,6 +168,8 @@ namespace PlayGround.System.Common
             DirectDamageEnabled = directDamageEnabled;
             PierceCount = Mathf.Max(0, pierceCount);
             RepeatHitCooldownSeconds = Mathf.Max(0f, repeatHitCooldownSeconds);
+            VisualScale = Mathf.Max(0f, visualScale);
+            VisualRotationDegrees = visualRotationDegrees;
         }
 
         public bool Enabled { get; }
@@ -177,6 +187,8 @@ namespace PlayGround.System.Common
         public bool DirectDamageEnabled { get; }
         public int PierceCount { get; }
         public float RepeatHitCooldownSeconds { get; }
+        public float VisualScale { get; }
+        public float VisualRotationDegrees { get; }
     }
 
     // ECS Lifecycle: scope damage buffer; added at root setup; kept until root teardown; cleared during simulation/replay.
@@ -193,22 +205,6 @@ namespace PlayGround.System.Common
         public bool DirectDamageEnabled;
         public EntityId SourceNodeId;
         public CombatStatusEffectSnapshot StackEffect;
-    }
-
-    // ECS Lifecycle: scope spawn buffer; added at root setup; kept until root teardown; cleared during simulation/replay.
-    // Internal only: do not copy these spawn payloads into CombatHitData or external Hit events.
-    public struct CombatSpawnElement : IBufferElementData
-    {
-        public int SourceId;
-        public int TypeId;
-        public int TargetId;
-        public float2 Position;
-        public float2 TargetPosition;
-        public CombatHitKind Kind;
-        public EntityId SourceNodeId;
-        public ProjectileImpactAoeSnapshot ImpactAoe;
-        public ProjectileImpactProjectileSnapshot ImpactProjectile;
-        public AoeProjectileBurstSnapshot ProjectileBurst;
     }
 
     // ECS Lifecycle: transient native damage payload; not added to entities; streamed during collision and flushed to scope buffers.

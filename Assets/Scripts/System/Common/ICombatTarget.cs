@@ -74,44 +74,6 @@ namespace PlayGround.System.Common
         public EntityId SourceNodeId { get; }
     }
 
-    // Scene-facing hit context. Keep this free of internal spawn payloads;
-    // core follow-up spawns belong on CombatSpawnElement via HitSpawn.
-    public readonly struct CombatHitContext
-    {
-        public CombatHitContext(
-            CombatHitKind kind,
-            int sourceId,
-            int typeId,
-            int targetId,
-            Vector2 position,
-            DamageSnapshot damage,
-            ICombatTarget target = null,
-            EntityId sourceNodeId = default)
-        {
-            Kind = kind;
-            SourceId = sourceId;
-            TypeId = typeId;
-            TargetId = targetId;
-            Position = position;
-            Damage = damage;
-            Target = target;
-            SourceNodeId = sourceNodeId;
-        }
-
-        public CombatHitKind Kind { get; }
-        public int SourceId { get; }
-        public int TypeId { get; }
-        public int TargetId { get; }
-        public Vector2 Position { get; }
-        public DamageSnapshot Damage { get; }
-        public ICombatTarget Target { get; }
-        public EntityId SourceNodeId { get; }
-    }
-
-    // Internal combat routing may subscribe to HitSpawn for spawn-on-hit payloads.
-    public delegate void CombatHitHandler(in CombatHitContext context);
-    public delegate void CombatSpawnHandler(in CombatHitContext context, in CombatSpawnElement spawn);
-
     public interface ICombatTarget
     {
         int TargetId { get; }

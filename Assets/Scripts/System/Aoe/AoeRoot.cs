@@ -11,7 +11,7 @@ namespace PlayGround.System.Aoe
 {
     public sealed class AoeRoot : MonoBehaviour, ICombatScopeEndpoint
     {
-        private const float AoeRenderZ = 0.5f;
+        internal const float AoeRenderZ = 0.5f;
         [SerializeField] private int targetMask = 1;
         [SerializeField] private bool spawnVisuals = true;
         [SerializeField, Tooltip("Half-extent used for the batch world bounds. Increase to avoid GPU culling; decrease for tighter culling.")]
@@ -39,11 +39,6 @@ namespace PlayGround.System.Aoe
         private bool ecsWorldAcquired;
         private bool ecsHandlesCreated;
         private bool combatRuntimeManaged;
-
-        // HitSpawn is internal combat routing data for spawn-on-hit effects and
-        // must not be treated as external gameplay API. Damage is applied by
-        // CombatHitDispatchSystem, not by AOE roots.
-        public event CombatSpawnHandler HitSpawn;
 
         public CombatTargetRegistry<ICombatTarget> TargetRegistry => targetRegistry;
         public int TargetMask => targetMask;
@@ -252,8 +247,8 @@ namespace PlayGround.System.Aoe
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
             entityManager.AddBuffer<AoeSpawnRequestElement>(scopeEntity);
             entityManager.AddBuffer<CombatDamageElement>(scopeEntity);
-            entityManager.AddBuffer<CombatSpawnElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
+            entityManager.AddComponentData(scopeEntity, new CombatSpawnRouting());
             entityManager.AddComponentObject(scopeEntity, new CombatTargetSyncSource { Sync = combatRuntimeManaged ? null : targetSyncCallback });
             damageTargetSource = new CombatDamageTargetSource
             {
@@ -269,12 +264,6 @@ namespace PlayGround.System.Aoe
                 Layer = gameObject.layer,
                 BoundsHalfExtent = batchBoundsHalfExtent
             });
-            entityWorld.GetExistingSystemManaged<CombatHitDispatchSystem>()?.Register(
-                scopeEntity, (in CombatHitContext context, in CombatSpawnElement spawn) =>
-                {
-                    hitEvents++;
-                    HitSpawn?.Invoke(in context, in spawn);
-                });
             ecsHandlesCreated = true;
         }
 
@@ -394,8 +383,6 @@ namespace PlayGround.System.Aoe
                 return;
             }
 
-            if (entityWorld != null && entityWorld.IsCreated)
-            entityWorld.GetExistingSystemManaged<CombatHitDispatchSystem>()?.Unregister(scopeEntity);
             DisposeQuery(ref allAoeQuery);
             ecsHandlesCreated = false;
             damageTargetSource = null;

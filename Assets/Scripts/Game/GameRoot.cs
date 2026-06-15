@@ -23,7 +23,6 @@ namespace PlayGround.Game
         [SerializeField] private GameplayCamera gameplayCamera;
         [SerializeField] private PlayAreaRoot playArea;
 
-        private readonly CombatSpawnRouter combatSpawnRouter = new();
         private const string PrimaryTargetSetKey = "PrimaryTargets";
         private const string SecondaryTargetSetKey = "SecondaryTargets";
 
@@ -129,8 +128,6 @@ namespace PlayGround.Game
                 player.Register(mobAoeRoot.TargetRegistry);
             }
 
-            combatSpawnRouter.Bind(playerProjectileRoot, mobProjectileRoot, playerAoeRoot, mobAoeRoot);
-
             if (gameplayCamera == null)
             {
                 gameplayCamera = FindAnyObjectByType<GameplayCamera>();
@@ -153,6 +150,10 @@ namespace PlayGround.Game
 
         private void Start()
         {
+            // Routing must be written after the roots' Awake has created their ECS
+            // scopes; bound here once so internal hit-spawns route fully in ECS.
+            BindSpawnRouting();
+
             if (player != null && playerAoeRoot != null)
             {
                 PlayGround.Skills.PlayerSkillDriver driver =
@@ -161,9 +162,10 @@ namespace PlayGround.Game
             }
         }
 
-        private void OnDestroy()
+        private void BindSpawnRouting()
         {
-            combatSpawnRouter.Unbind();
+            CombatSpawnRoutingBinder.Bind(playerProjectileRoot, playerAoeRoot);
+            CombatSpawnRoutingBinder.Bind(mobProjectileRoot, mobAoeRoot);
         }
 
         private void EnsureCombatRuntimeRoot()

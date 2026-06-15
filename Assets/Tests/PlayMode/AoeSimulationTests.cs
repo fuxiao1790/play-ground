@@ -36,7 +36,6 @@ namespace PlayGround.Tests.PlayMode
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
             entityManager.AddBuffer<AoeSpawnRequestElement>(scopeEntity);
             entityManager.AddBuffer<CombatDamageElement>(scopeEntity);
-            entityManager.AddBuffer<CombatSpawnElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
         }
 
