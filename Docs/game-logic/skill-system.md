@@ -6,8 +6,9 @@ final decisions, and should be revisited in detail before implementation locks i
 ## Concepts
 
 **Skill** — an active spell or attack. Defines what is spawned: a projectile,
-an AOE, a beam. Owns base visual, collision shape, and behavior data. A Skill
-slotted alone fires with base behavior and no augmentation.
+an AOE, a beam. Owns base visual, collision shape, base recovery time, and
+behavior data. A Skill slotted alone fires with base behavior and no
+augmentation.
 
 **Additive Support** — augments the Skill in the same set. Modifies count,
 pierce, speed, tracking, damage, spread, or other behavior fields. Only ever
@@ -72,7 +73,8 @@ Layer 2.5 (SkillSpawnTranslator) — stateless utility used by Layer 2. Not a ch
 
 Types: `Skill`, `AdditiveSupport`, `SkillSet`, `TriggerLink`, `PlayerLoadout`
 
-- Owns all stat sources: base skill stats, supports, items, buffs, character level
+- Owns all stat sources: base skill stats, base recovery time, supports, items,
+  buffs, character level
 - `PlayerLoadout` is live mutable equipment state — not just an authoring template
 - `Skill` SOs are immutable authored templates; `PlayerLoadout` holds mutable slot references into them
 - Save/load serializes slot references, not compiled runtime trees
@@ -140,7 +142,6 @@ root; returns nothing.
 class SkillSet : ScriptableObject {
     Skill skill;
     AdditiveSupport[] supports;
-    float baseRecoveryTime;          // base cooldown in seconds; scaled by castSpeedMultiplier at compile time
 }
 ```
 
@@ -163,6 +164,7 @@ at runtime.
 
 ```csharp
 abstract class Skill : ScriptableObject {
+    float baseRecoveryTime;          // base cooldown in seconds; scaled by castSpeedMultiplier at compile time
     public abstract SkillDefinitionTags Tags { get; }
     public abstract SkillDefinition Definition { get; }
 }
@@ -449,7 +451,7 @@ compile(SkillSet set, allChains, snapshot) → RuntimeSkillDefinition:
     for each support in set.supports:
         support.Apply(def)
     runtime = BuildRuntime(def, snapshot)       // ProjectileDefinition → RuntimeProjectileDefinition, etc.
-    runtime.RecoveryTime = set.BaseRecoveryTime * snapshot.CastSpeedMultiplier
+    runtime.RecoveryTime = set.skill.BaseRecoveryTime * snapshot.CastSpeedMultiplier
     for each chain in allChains where chain.cause == set:
         if chain.link is ChildSpawnTrigger:
             compile chain.effect recursively → RuntimeProjectileDefinition
@@ -545,14 +547,14 @@ exposed to the player-facing authoring surface.
 
 1. `Assets > Create > PlayGround > Skills > Projectile Skill` or `AOE Skill`.
 2. Assign sprite, material, and collision shape fields.
-3. Set base behavior values (speed, damage, lifetime, etc.).
+3. Set `baseRecoveryTime` (cooldown in seconds before the skill can fire again).
+4. Set base behavior values (speed, damage, lifetime, etc.).
 
 ### Creating a Skill Set
 
 1. `Assets > Create > PlayGround > Skills > Skill Set`.
 2. Assign one Skill to the `skill` field.
-3. Set `baseRecoveryTime` (cooldown in seconds before the set can fire again).
-4. Add Additive Supports to the `supports` array in desired order.
+3. Add Additive Supports to the `supports` array in desired order.
 
 ### Building the Slot List
 

@@ -14,4 +14,3 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillSet
   skill: {fileID: 11400000, guid: f217cdb34c295864a96158022a88d04d, type: 2}
   supports: []
-  baseRecoveryTime: 0.2

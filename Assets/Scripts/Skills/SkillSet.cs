@@ -8,10 +8,8 @@ namespace PlayGround.Skills
     {
         [SerializeField] private Skill skill;
         [SerializeField] private AdditiveSupport[] supports = Array.Empty<AdditiveSupport>();
-        [SerializeField, Min(0.01f)] private float baseRecoveryTime = 0.2f;
 
         public Skill Skill => skill;
         public AdditiveSupport[] Supports => supports;
-        public float BaseRecoveryTime => baseRecoveryTime;
     }
 }

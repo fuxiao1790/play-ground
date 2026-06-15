@@ -22,7 +22,7 @@ namespace PlayGround.Skills
             RuntimeSkillDefinition runtime = BuildRuntime(defCopy, snapshot);
             if (runtime == null) return null;
 
-            runtime.RecoveryTime = Mathf.Max(0.01f, set.BaseRecoveryTime * snapshot.CastSpeedMultiplier);
+            runtime.RecoveryTime = Mathf.Max(0.01f, set.Skill.BaseRecoveryTime * snapshot.CastSpeedMultiplier);
 
             foreach (TriggerChain chain in allChains)
             {

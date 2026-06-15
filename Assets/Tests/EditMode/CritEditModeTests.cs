@@ -78,6 +78,23 @@ namespace PlayGround.Tests.EditMode
             Assert.That(((RuntimeAoeDefinition)result).AreaSize, Is.EqualTo(2.5f).Within(0.0001f));
         }
 
+        [Test]
+        public void Compiler_UsesSkillBaseRecoveryTime()
+        {
+            ProjectileSkill skill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            SetField(skill, "baseRecoveryTime", 0.4f);
+            SkillSet set = CreateSkillSet("Set", skill);
+            var snapshot = new PlayerStatSnapshot(
+                castSpeedMultiplier: 0.5f,
+                damageMultiplier: 1f,
+                critChance: 0f,
+                critMultiplier: 1.5f);
+
+            RuntimeSkillDefinition result = SkillSetCompiler.Compile(set, global::System.Array.Empty<TriggerChain>(), snapshot);
+
+            Assert.That(result.RecoveryTime, Is.EqualTo(0.2f).Within(0.0001f));
+        }
+
         private SkillSet CreateSkillSet(string name, Skill skill)
         {
             SkillSet set = CreateAsset<SkillSet>(name);
@@ -96,7 +113,10 @@ namespace PlayGround.Tests.EditMode
 
         private static void SetField(object target, string fieldName, object value)
         {
-            FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            FieldInfo field = null;
+            for (global::System.Type type = target.GetType(); type != null && field == null; type = type.BaseType)
+                field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+
             Assert.That(field, Is.Not.Null, $"Field '{fieldName}' not found on {target.GetType().Name}");
             field.SetValue(target, value);
         }

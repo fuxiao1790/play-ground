@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000002, type: 3}
   m_Name: BenchmarkChildSkill
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileSkill
+  baseRecoveryTime: 0.5
   definition:
     prefab: {fileID: 1001001001001001004, guid: 071728db48e762a4683ee17177b48aaa, type: 3}
     speed: 20
