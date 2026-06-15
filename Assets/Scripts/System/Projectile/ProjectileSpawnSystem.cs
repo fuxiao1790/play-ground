@@ -37,9 +37,9 @@ namespace PlayGround.System.Projectile
         private EntityQuery deadSlotsNoChildSpawner;
         private EntityQuery deadSlotsWithChildSpawner;
 
-        private readonly Dictionary<ProjectileSpawnKey, List<ProjectileSpawnRequestElement>> _byKey = new();
+        private readonly Dictionary<ProjectileSpawnKey, ProjectileSpawnBucket> _byKey = new();
         private readonly Dictionary<int, Entity> _scopeByIndex = new();
-        private readonly List<List<ProjectileSpawnRequestElement>> _listPool = new();
+        private readonly List<ProjectileSpawnBucket> _bucketPool = new();
 
         protected override void OnCreate()
         {
@@ -97,11 +97,23 @@ namespace PlayGround.System.Projectile
                 .Build(this);
         }
 
+        protected override void OnDestroy()
+        {
+            Dependency.Complete();
+            DisposeBuckets(_byKey.Values);
+            DisposeBuckets(_bucketPool);
+            _byKey.Clear();
+            _scopeByIndex.Clear();
+            _bucketPool.Clear();
+            deadSlotsNoChildSpawner.Dispose();
+            deadSlotsWithChildSpawner.Dispose();
+        }
+
         protected override void OnUpdate()
         {
             Dependency.Complete();
 
-            ReturnLists();
+            ReturnBuckets();
 
             var expandSys = World.GetExistingSystemManaged<ProjectileMultiExpandSystem>();
             int totalRequests = 0;
@@ -118,12 +130,12 @@ namespace PlayGround.System.Projectile
                         Entity scope = req.Scope;
                         _scopeByIndex[scope.Index] = scope;
                         var key = new ProjectileSpawnKey(scope.Index, req.TypeId, req.HasChildSpawner != 0);
-                        if (!_byKey.TryGetValue(key, out List<ProjectileSpawnRequestElement> list))
+                        if (!_byKey.TryGetValue(key, out ProjectileSpawnBucket bucket))
                         {
-                            list = GetList();
-                            _byKey[key] = list;
+                            bucket = GetBucket();
+                            _byKey[key] = bucket;
                         }
-                        list.Add(req);
+                        bucket.Requests.Add(req);
                         totalRequests++;
                     }
                     reader.EndForEachIndex();
@@ -144,7 +156,7 @@ namespace PlayGround.System.Projectile
 
                 var jobHandles = new NativeList<JobHandle>(_byKey.Count * 4, Allocator.Temp);
 
-                foreach (var (key, requests) in _byKey)
+                foreach (var (key, bucket) in _byKey)
                 {
                     Entity scope = _scopeByIndex[key.ScopeIndex];
                     bool hasChildSpawner = key.HasChildSpawner;
@@ -153,9 +165,8 @@ namespace PlayGround.System.Projectile
                         new CombatRenderScope { Scope = scope },
                         new CombatRenderTypeId { TypeId = key.TypeId });
 
-                    int reqCount = requests.Count;
-                    var configs = new NativeList<ProjectileSpawnRequestElement>(reqCount, Allocator.TempJob);
-                    for (int i = 0; i < reqCount; i++) configs.Add(requests[i]);
+                    NativeArray<ProjectileSpawnRequestElement> configs = bucket.Requests.AsArray();
+                    int reqCount = configs.Length;
 
                     // ---- Option 2A: main-thread slice assignment (active) ----
                     NativeList<int2> slices;
@@ -190,7 +201,7 @@ namespace PlayGround.System.Projectile
                             spawnHandle = new ProjectileSpawnJob
                             {
                                 Scope                 = scope,
-                                Configs               = configs.AsArray(),
+                                Configs               = configs,
                                 Slices                = slices.AsArray(),
                                 ActiveHandle          = activeHandle,
                                 CollisionActiveHandle  = GetComponentTypeHandle<ProjectileCollisionActiveTag>(false),
@@ -208,12 +219,10 @@ namespace PlayGround.System.Projectile
                                 ChildSpawnStateHandle = GetComponentTypeHandle<ProjectileChildSpawnStateComponent>(false),
                             }.ScheduleParallel(query, default);
                         }
-                        jobHandles.Add(configs.Dispose(spawnHandle));
                         jobHandles.Add(slices.Dispose(spawnHandle));
                     }
                     else
                     {
-                        configs.Dispose();
                         slices.Dispose();
                     }
                 }
@@ -227,27 +236,35 @@ namespace PlayGround.System.Projectile
             }
         }
 
-        private void ReturnLists()
+        private void ReturnBuckets()
         {
-            foreach (var list in _byKey.Values)
+            foreach (var bucket in _byKey.Values)
             {
-                list.Clear();
-                _listPool.Add(list);
+                bucket.Requests.Clear();
+                _bucketPool.Add(bucket);
             }
             _byKey.Clear();
             _scopeByIndex.Clear();
         }
 
-        private List<ProjectileSpawnRequestElement> GetList()
+        private ProjectileSpawnBucket GetBucket()
         {
-            if (_listPool.Count > 0)
+            if (_bucketPool.Count > 0)
             {
-                int last = _listPool.Count - 1;
-                var l = _listPool[last];
-                _listPool.RemoveAt(last);
-                return l;
+                int last = _bucketPool.Count - 1;
+                var bucket = _bucketPool[last];
+                _bucketPool.RemoveAt(last);
+                return bucket;
             }
-            return new List<ProjectileSpawnRequestElement>();
+            return new ProjectileSpawnBucket();
+        }
+
+        private static void DisposeBuckets(IEnumerable<ProjectileSpawnBucket> buckets)
+        {
+            foreach (ProjectileSpawnBucket bucket in buckets)
+            {
+                bucket.Dispose();
+            }
         }
 
         // ---- Option 2A ----
@@ -560,6 +577,20 @@ namespace PlayGround.System.Projectile
                     h = h * 397 ^ _typeId;
                     h = h * 397 ^ _hasChildSpawner;
                     return h;
+                }
+            }
+        }
+
+        private sealed class ProjectileSpawnBucket : IDisposable
+        {
+            public readonly NativeList<ProjectileSpawnRequestElement> Requests =
+                new(Allocator.Persistent);
+
+            public void Dispose()
+            {
+                if (Requests.IsCreated)
+                {
+                    Requests.Dispose();
                 }
             }
         }
