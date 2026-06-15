@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.AoeSkill
   baseRecoveryTime: 0.45
   definition:
-    baseAreaSize: 2
+    baseAreaSize: 3
     damage: 18
     count: 1
     directDamageEnabled: 1

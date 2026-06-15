@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:LingeringAoeSkill
   baseRecoveryTime: 0.2
   definition:
-    baseAreaSize: 2.5
+    baseAreaSize: 3
     damage: 4
     count: 1
     directDamageEnabled: 1
