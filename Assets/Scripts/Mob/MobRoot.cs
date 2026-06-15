@@ -28,7 +28,7 @@ namespace PlayGround.Mob
         [SerializeField] private MobTrigger[] triggers = Array.Empty<MobTrigger>();
         [SerializeField] private MobTriggerBehaviourMapping[] triggerBehaviourMap = Array.Empty<MobTriggerBehaviourMapping>();
         [SerializeField] private bool projectileAttackEnabled;
-        [SerializeField] private ProjectileRoot projectileRoot;
+        [SerializeField] private CombatRoot combatRoot;
         [SerializeField] private float projectileCooldown = 1.4f;
         [SerializeField] private float projectileRange = 130f;
         [SerializeField] private float projectileSpawnOffset = 12f;
@@ -45,7 +45,9 @@ namespace PlayGround.Mob
         private readonly MobBlackboard blackboard = new();
         private readonly List<CombatTargetRegistry<ICombatTarget>> registries = new();
         private CombatTargetSet combatTargetSet;
-        private AoeRoot aoeRoot;
+        // Player-faction combat root used by stack-triggered AOE (damages mobs),
+        // distinct from combatRoot which fires this mob's own projectiles at the player.
+        private CombatRoot aoeCombatRoot;
         private MobEventQueue eventQueue;
         private MobStateDriver stateDriver;
         private MobBehaviourSelector behaviourSelector;
@@ -192,7 +194,7 @@ namespace PlayGround.Mob
         }
 
         public void ConfigureProjectileAttack(
-            ProjectileRoot root,
+            CombatRoot root,
             float cooldown,
             float range,
             float spawnOffset,
@@ -203,7 +205,7 @@ namespace PlayGround.Mob
             BasicAttackPrefab basicPrefab = null)
         {
             projectileAttackEnabled = true;
-            projectileRoot = root;
+            combatRoot = root;
             projectileCooldown = cooldown;
             projectileRange = range;
             projectileSpawnOffset = spawnOffset;
@@ -215,15 +217,16 @@ namespace PlayGround.Mob
             RebuildProjectileAttack();
         }
 
-        public void BindProjectileRoot(ProjectileRoot root)
+        public void BindCombatRoot(CombatRoot root)
         {
-            projectileRoot = root;
+            combatRoot = root;
             RebuildProjectileAttack();
         }
 
-        public void BindAoeRoot(AoeRoot root)
+        // Player-faction root for stack-triggered AOE (hits mobs).
+        public void BindAoeRoot(CombatRoot root)
         {
-            aoeRoot = root;
+            aoeCombatRoot = root;
         }
 
         public void Register(CombatTargetRegistry<ICombatTarget> targetRegistry)
@@ -262,14 +265,14 @@ namespace PlayGround.Mob
         {
             var status = (MobDebuffStatus)effect.DebuffStatusId;
             bool triggered = debuffStacks.AddStacks(status, Mathf.Max(1, effect.StacksPerHit), Mathf.Max(1, effect.StackThreshold));
-            if (!triggered || aoeRoot == null || effect.AoeTypeId < 0)
+            if (!triggered || aoeCombatRoot == null || effect.AoeTypeId < 0)
                 return;
 
             debuffStacks.ClearStacks(status);
-            aoeRoot.Spawn(new AoeSpawnCommand(
+            aoeCombatRoot.Spawn(new AoeSpawnCommand(
                 effect.AoeTypeId,
                 transform.position,
-                aoeRoot.TargetMask,
+                aoeCombatRoot.TargetMask,
                 new DamageSnapshot(Mathf.Max(0f, effect.AoeDamage)),
                 effect.AoeLifetimeSeconds,
                 effect.AoeTickIntervalSeconds,
@@ -316,20 +319,20 @@ namespace PlayGround.Mob
         {
             if (def is not StackingTriggerDef triggerDef
                 || triggerDef.TriggerAoeConfig == null
-                || aoeRoot == null
+                || aoeCombatRoot == null
                 || !result.Triggered)
             {
                 return;
             }
 
-            int typeId = aoeRoot.RegisterConfig(triggerDef.TriggerAoeConfig);
+            int typeId = aoeCombatRoot.RegisterConfig(triggerDef.TriggerAoeConfig);
             float damagePerFire = result.TriggerCount > 0
                 ? result.TotalTriggerDamage / result.TriggerCount
                 : 0f;
 
             for (int i = 0; i < result.TriggerCount; i++)
             {
-                aoeRoot.Spawn(new ProjectileAoeSpawnRequest(
+                aoeCombatRoot.Spawn(new ProjectileAoeSpawnRequest(
                     typeId,
                     result.OwnerPosition,
                     new DamageSnapshot(Mathf.Max(0f, damagePerFire)),
@@ -435,8 +438,8 @@ namespace PlayGround.Mob
 
         private void RebuildProjectileAttack()
         {
-            projectileRoot ??= FindTaggedProjectileRoot();
-            if (!projectileAttackEnabled || projectileRoot == null)
+            combatRoot ??= FindTaggedCombatRoot();
+            if (!projectileAttackEnabled || combatRoot == null)
             {
                 projectileAttack = null;
                 return;
@@ -444,7 +447,7 @@ namespace PlayGround.Mob
 
             projectileAttack = new MobProjectileAttack(
                 this,
-                projectileRoot,
+                combatRoot,
                 projectileCooldown,
                 projectileRange,
                 projectileSpawnOffset,
@@ -468,12 +471,12 @@ namespace PlayGround.Mob
             return clones;
         }
 
-        private static ProjectileRoot FindTaggedProjectileRoot()
+        private static CombatRoot FindTaggedCombatRoot()
         {
             try
             {
                 GameObject rootObject = GameObject.FindWithTag(GameplayTags.MobProjectileRoot);
-                return rootObject != null ? rootObject.GetComponent<ProjectileRoot>() : null;
+                return rootObject != null ? rootObject.GetComponent<CombatRoot>() : null;
             }
             catch (UnityException)
             {

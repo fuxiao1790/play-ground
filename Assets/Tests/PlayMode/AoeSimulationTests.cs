@@ -32,7 +32,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoeCollisionSystem>());
             simGroup.SortSystems();
 
-            scopeEntity = entityManager.CreateEntity(typeof(AoeScope));
+            scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
             entityManager.AddBuffer<AoeSpawnRequestElement>(scopeEntity);
             entityManager.AddBuffer<CombatDamageElement>(scopeEntity);

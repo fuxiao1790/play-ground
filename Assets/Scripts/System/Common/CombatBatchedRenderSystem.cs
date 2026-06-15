@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using PlayGround.System.Aoe;
+using PlayGround.System.Projectile;
 using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
@@ -11,7 +13,8 @@ namespace PlayGround.System.Common
         private const int MaxInstancesPerDraw = 1023;
 
         private EntityQuery scopeQuery;
-        private EntityQuery renderQuery;
+        private EntityQuery projectileRenderQuery;
+        private EntityQuery aoeRenderQuery;
         private NativeArray<CombatRenderElement> submitBuffer;
 
         protected override void OnCreate()
@@ -19,11 +22,19 @@ namespace PlayGround.System.Common
             scopeQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CombatScopeRenderCatalog>());
 
-            renderQuery = EntityManager.CreateEntityQuery(
+            projectileRenderQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CombatRenderElement>(),
                 ComponentType.ReadOnly<CombatRenderScope>(),
                 ComponentType.ReadOnly<CombatRenderTypeId>(),
-                ComponentType.ReadOnly<CombatRenderActiveTag>());
+                ComponentType.ReadOnly<CombatRenderActiveTag>(),
+                ComponentType.ReadOnly<ProjectileTag>());
+
+            aoeRenderQuery = EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<CombatRenderElement>(),
+                ComponentType.ReadOnly<CombatRenderScope>(),
+                ComponentType.ReadOnly<CombatRenderTypeId>(),
+                ComponentType.ReadOnly<CombatRenderActiveTag>(),
+                ComponentType.ReadOnly<AoeTag>());
 
             submitBuffer = new NativeArray<CombatRenderElement>(MaxInstancesPerDraw, Allocator.Persistent);
         }
@@ -36,7 +47,8 @@ namespace PlayGround.System.Common
             }
 
             scopeQuery.Dispose();
-            renderQuery.Dispose();
+            projectileRenderQuery.Dispose();
+            aoeRenderQuery.Dispose();
         }
 
         protected override void OnUpdate()
@@ -47,24 +59,40 @@ namespace PlayGround.System.Common
             for (int s = 0; s < scopes.Length; s++)
             {
                 Entity scope = scopes[s];
-                CombatScopeRenderCatalog catalog = EntityManager.GetComponentObject<CombatScopeRenderCatalog>(scope);
-                if (catalog.Resources.Count == 0)
+                CombatScopeRenderCatalog catalog = EntityManager.GetComponentData<CombatScopeRenderCatalog>(scope);
+                if (!CombatRoot.TryGetRoot(catalog.RootId, out CombatRoot root))
                 {
                     continue;
                 }
 
-                foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in catalog.Resources)
-                {
-                    renderQuery.SetSharedComponentFilter(
-                        new CombatRenderScope { Scope = scope },
-                        new CombatRenderTypeId { TypeId = pair.Key });
+                SubmitDomain(scope, projectileRenderQuery, root.ProjectileRenderResources, root.RenderLayer, root.BatchBoundsHalfExtent);
+                SubmitDomain(scope, aoeRenderQuery, root.AoeRenderResources, root.RenderLayer, root.BatchBoundsHalfExtent);
+            }
+        }
 
-                    using NativeArray<CombatRenderElement> elements =
-                        renderQuery.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
+        private void SubmitDomain(
+            Entity scope,
+            EntityQuery domainQuery,
+            IReadOnlyDictionary<int, CombatSpriteRenderResources> resourcesByType,
+            int layer,
+            float boundsHalfExtent)
+        {
+            if (resourcesByType.Count == 0)
+            {
+                return;
+            }
 
-                    SubmitBatches(elements, pair.Value, catalog.Layer, catalog.BoundsHalfExtent);
-                    renderQuery.ResetFilter();
-                }
+            foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in resourcesByType)
+            {
+                domainQuery.SetSharedComponentFilter(
+                    new CombatRenderScope { Scope = scope },
+                    new CombatRenderTypeId { TypeId = pair.Key });
+
+                using NativeArray<CombatRenderElement> elements =
+                    domainQuery.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
+
+                SubmitBatches(elements, pair.Value, layer, boundsHalfExtent);
+                domainQuery.ResetFilter();
             }
         }
 

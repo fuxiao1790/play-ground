@@ -1,15 +1,15 @@
-using PlayGround.System.Projectile;
+using PlayGround.System.Common;
 using UnityEngine;
 
 namespace PlayGround.Debugging
 {
     public sealed class DebugOverlay : MonoBehaviour
     {
-        public void Configure(ProjectileRoot root, global::PlayGround.Mob.MobRoot[] mobRoots)
+        public void Configure(CombatRoot root, global::PlayGround.Mob.MobRoot[] mobRoots)
         {
         }
 
-        public void Configure(ProjectileRoot root, global::PlayGround.Spawn.MobSpawnerRoot spawner)
+        public void Configure(CombatRoot root, global::PlayGround.Spawn.MobSpawnerRoot spawner)
         {
         }
     }

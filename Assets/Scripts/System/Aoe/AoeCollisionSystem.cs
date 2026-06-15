@@ -35,7 +35,7 @@ namespace PlayGround.System.Aoe
                 ComponentType.ReadWrite<CombatRenderActiveTag>(),
                 ComponentType.ReadWrite<AoeContactGateElement>());
             scopeQuery = state.GetEntityQuery(
-                ComponentType.ReadOnly<AoeScope>(),
+                ComponentType.ReadOnly<CombatScope>(),
                 ComponentType.ReadOnly<CombatTargetElement>());
 
         }
@@ -106,7 +106,6 @@ namespace PlayGround.System.Aoe
             JobHandle convertHandle = new CombatSpawnConvertJob
             {
                 PendingSpawns = pendingSpawns,
-                Routing = SystemAPI.GetComponentLookup<CombatSpawnRouting>(true),
                 ProjectileRequests = SystemAPI.GetBufferLookup<ProjectileSpawnRequestElement>(),
                 AoeRequests = SystemAPI.GetBufferLookup<AoeSpawnRequestElement>()
             }.Schedule(collisionHandle);

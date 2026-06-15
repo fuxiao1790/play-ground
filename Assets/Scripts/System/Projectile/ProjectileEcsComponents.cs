@@ -59,11 +59,6 @@ namespace PlayGround.System.Projectile
         public float CooldownRemaining;
     }
 
-    // ECS Lifecycle: scope tag; added at root setup; kept until root teardown.
-    public struct ProjectileScope : IComponentData
-    {
-    }
-
     // ECS Lifecycle: enableable projectile tag; added by spawn materialization; kept until root teardown; enabled on spawn, disabled on despawn.
     public struct ProjectileActiveTag : IComponentData, IEnableableComponent
     {

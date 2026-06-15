@@ -27,7 +27,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileTrackingSystem>());
             simGroup.SortSystems();
 
-            scopeEntity = entityManager.CreateEntity(typeof(ProjectileScope));
+            scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
             entityManager.AddBuffer<CombatDamageElement>(scopeEntity);
         }

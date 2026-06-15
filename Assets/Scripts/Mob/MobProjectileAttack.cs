@@ -10,7 +10,7 @@ namespace PlayGround.Mob
     public sealed class MobProjectileAttack
     {
         private readonly MobRoot owner;
-        private readonly ProjectileRoot projectileRoot;
+        private readonly CombatRoot projectileRoot;
         private readonly CombatVfxRoot vfxRoot;
         private readonly float cooldownSeconds;
         private readonly float range;
@@ -25,7 +25,7 @@ namespace PlayGround.Mob
 
         public MobProjectileAttack(
             MobRoot owner,
-            ProjectileRoot projectileRoot,
+            CombatRoot projectileRoot,
             float cooldownSeconds,
             float range,
             float spawnOffset,

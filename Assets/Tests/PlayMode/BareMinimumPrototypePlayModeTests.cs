@@ -82,7 +82,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator ProjectileHitReducesDummyHealth()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
             projectileRoot.Spawn(new ProjectileSpawnCommand(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
@@ -94,9 +94,9 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileRootDoesNotCreateProjectileSceneChildren()
+        public IEnumerator CombatRootDoesNotCreateProjectileSceneChildren()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
             projectileRoot.Spawn(new ProjectileSpawnCommand(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
@@ -108,12 +108,12 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void ProjectileRootRegistersTemplateBeforeAwake()
+        public void CombatRootRegistersTemplateBeforeAwake()
         {
             Sprite sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
-            GameObject rootObject = new("ProjectileRoot");
+            GameObject rootObject = new("CombatRoot");
             rootObject.SetActive(false);
-            ProjectileRoot root = rootObject.AddComponent<ProjectileRoot>();
+            CombatRoot root = rootObject.AddComponent<CombatRoot>();
             root.Configure(sprite);
             GameObject templateObject = CreateBasicProjectileTemplate(sprite, out BasicAttackPrefab template);
 
@@ -128,7 +128,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator ProjectileLifetimeDeactivatesEcsEntity()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
 
             projectileRoot.Spawn(new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
             yield return null;
@@ -140,7 +140,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator ProjectileSystemsIgnoreCommonCombatEntityWithoutProjectileTag()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             Entity entity = entityManager.CreateEntity(
                 typeof(CombatKinematicsComponent),
@@ -173,7 +173,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator ProjectileTargetMaskFiltersHits()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
             var command = new ProjectileSpawnCommand(
@@ -199,7 +199,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator ProjectileTrackingAcquiresTargetInForwardArea()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mobObject.transform.position = new Vector2(10f, 10f);
             mob.Register(projectileRoot.TargetRegistry);
 
@@ -240,12 +240,12 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator GameRootBindsTaggedMobToProjectileRootByTagAndLayer()
+        public IEnumerator GameRootBindsTaggedMobToCombatRootByTagAndLayer()
         {
             int mobHurtboxLayer = LayerMask.NameToLayer(GameplayLayers.MobHurtbox);
             Assume.That(mobHurtboxLayer, Is.GreaterThanOrEqualTo(0));
 
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             projectileObject.tag = GameplayTags.PlayerProjectileRoot;
             projectileRoot.ConfigureTargetBinding(1 << mobHurtboxLayer, GameplayTags.Mob);
             mobObject.tag = GameplayTags.Mob;
@@ -278,7 +278,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator ProjectileDirectDamageToggleSuppressesTargetDamage()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
             var command = new ProjectileSpawnCommand(
                 Vector2.zero,
@@ -303,7 +303,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator ProjectileReplaySkipsTargetThatDiesEarlierInSameHitBuffer()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
             ProjectileReplayProbe probe = CreateProjectileReplayProbe(Vector2.zero);
             projectileRoot.TargetRegistry.Register(probe);
             var command = new ProjectileSpawnCommand(
@@ -327,12 +327,12 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileImpactAoeRoutesThroughAoeRootInEcs()
+        public IEnumerator ProjectileImpactAoeRoutesThroughCombatRootInEcs()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
-            CreateAoeFixture(out GameObject aoeObject, out AoeRoot aoeRoot, out GameObject aoeTemplateObject, out int aoeTypeId);
-            // ECS routing replaces the old managed CombatSpawnRouter.
-            CombatSpawnRoutingBinder.Bind(projectileRoot, aoeRoot);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            CreateAoeFixture(out GameObject aoeObject, out CombatRoot aoeRoot, out GameObject aoeTemplateObject, out int aoeTypeId);
+            // One shared scope per faction: the projectile's impact AOE routes to its
+            // own producing scope, so the mob just needs to be a target there.
             mob.Register(projectileRoot.TargetRegistry);
             mob.Register(aoeRoot.TargetRegistry);
 
@@ -375,11 +375,10 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator AoeProjectileBurstRoutesThroughProjectileRootInEcsWithoutImpactPayload()
+        public IEnumerator AoeProjectileBurstRoutesThroughCombatRootInEcsWithoutImpactPayload()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
-            CreateAoeFixture(out GameObject aoeObject, out AoeRoot aoeRoot, out GameObject aoeTemplateObject, out int aoeTypeId);
-            CombatSpawnRoutingBinder.Bind(projectileRoot, aoeRoot);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            CreateAoeFixture(out GameObject aoeObject, out CombatRoot aoeRoot, out GameObject aoeTemplateObject, out int aoeTypeId);
             mob.Register(projectileRoot.TargetRegistry);
             mob.Register(aoeRoot.TargetRegistry);
 
@@ -425,7 +424,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator PiercingProjectileCanRepeatHitAfterCooldown()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
             var command = new ProjectileSpawnCommand(
@@ -457,7 +456,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator ProjectileChildSpawnedChildAppliesChildPayloadDamage()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mobObject.transform.position = new Vector2(50f, 50f);
             mob.Register(projectileRoot.TargetRegistry);
 
@@ -491,7 +490,7 @@ namespace PlayGround.Tests.PlayMode
         {
             int mobHurtboxLayer = LayerMask.NameToLayer(GameplayLayers.MobHurtbox);
             Assume.That(mobHurtboxLayer, Is.GreaterThanOrEqualTo(0));
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             int mobHurtboxMask = 1 << mobHurtboxLayer;
             projectileRoot.ConfigureTargetBinding(mobHurtboxMask);
             mobObject.layer = mobHurtboxLayer;
@@ -541,7 +540,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator ProjectileHitPayloadPreservesSourceIdForTargetDamage()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
             ProjectileReplayProbe probe = CreateProjectileReplayProbe(Vector2.zero);
             projectileRoot.TargetRegistry.Register(probe);
             GameObject sourceObject = new("ProjectileSource");
@@ -573,7 +572,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator ProjectileChildSpawnedChildrenArePreparedForRenderBatchOnNextStep()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
 
             var command = new ProjectileSpawnCommand(
                 new Vector2(50f, 50f),
@@ -602,7 +601,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator ProjectileChildSpawnerStoresIntervalJitterInEcs()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
             const float IntervalJitterSeconds = 0.25f;
             var command = new ProjectileSpawnCommand(
                 new Vector2(50f, 50f),
@@ -631,7 +630,7 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void ProjectileChildSpawnRejectsUnsupportedRenderType()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
             var command = new ProjectileSpawnCommand(
                 new Vector2(50f, 50f),
                 Vector2.right,
@@ -652,7 +651,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator ProjectileSpawnReusesExpiredEcsEntityAfterPoolWarmup()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
             var command = new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle);
 
             projectileRoot.Spawn(command);
@@ -676,7 +675,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator ProjectileReuseClearsContactGatesAfterHitDespawn()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
             projectileRoot.Spawn(new ProjectileSpawnCommand(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle));
@@ -697,7 +696,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator ProjectileChildSpawnRequestsReuseChildEntitiesAfterPoolWarmup()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
             var command = ChildSpawnerCommand();
 
             yield return SpawnAndDrainChildCycle(projectileRoot, command);
@@ -717,7 +716,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator ProjectileChildSpawnerParentKeepsStableArchetypeDuringReuse()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out _);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
             var command = ChildSpawnerCommand();
 
             yield return SpawnAndDrainChildCycle(projectileRoot, command);
@@ -852,9 +851,9 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void GameRootAcceptsAuthoredSpawnerWhenNoSceneMobsAreAuthored()
         {
-            GameObject projectileObject = new("ProjectileRoot");
+            GameObject projectileObject = new("CombatRoot");
             projectileObject.SetActive(false);
-            ProjectileRoot projectileRoot = projectileObject.AddComponent<ProjectileRoot>();
+            CombatRoot projectileRoot = projectileObject.AddComponent<CombatRoot>();
             projectileRoot.Configure(Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f));
             projectileObject.SetActive(true);
 
@@ -864,7 +863,7 @@ namespace PlayGround.Tests.PlayMode
             GameObject gameRootObject = new("GameRoot");
             gameRootObject.SetActive(false);
             GameRoot gameRoot = gameRootObject.AddComponent<GameRoot>();
-            gameRoot.Configure(projectileRoot, new MobRoot[0]);
+            gameRoot.Configure(projectileRoot, null, null, new MobRoot[0]);
             gameRootObject.SetActive(true);
 
             Assert.That(Object.FindAnyObjectByType<MobSpawnerRoot>(), Is.Not.Null);
@@ -875,14 +874,14 @@ namespace PlayGround.Tests.PlayMode
 
         private static void CreateProjectileHitFixture(
             out GameObject projectileObject,
-            out ProjectileRoot projectileRoot,
+            out CombatRoot projectileRoot,
             out GameObject mobObject,
             out MobRoot mob)
         {
             Sprite sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
-            projectileObject = new GameObject("ProjectileRoot");
+            projectileObject = new GameObject("CombatRoot");
             projectileObject.SetActive(false);
-            projectileRoot = projectileObject.AddComponent<ProjectileRoot>();
+            projectileRoot = projectileObject.AddComponent<CombatRoot>();
             projectileRoot.Configure(sprite);
             projectileObject.SetActive(true);
 
@@ -926,7 +925,7 @@ namespace PlayGround.Tests.PlayMode
 
         private static void CreateAoeFixture(
             out GameObject rootObject,
-            out AoeRoot root,
+            out CombatRoot root,
             out GameObject templateObject,
             out int typeId)
         {
@@ -938,10 +937,9 @@ namespace PlayGround.Tests.PlayMode
             var definition = new AoeTypeDefinition();
             definition.Configure(templateObject, shape);
 
-            rootObject = new GameObject("AoeRoot");
+            rootObject = new GameObject("CombatRoot");
             rootObject.SetActive(false);
-            root = rootObject.AddComponent<AoeRoot>();
-            root.Configure(~0);
+            root = rootObject.AddComponent<CombatRoot>();
             rootObject.SetActive(true);
 
             typeId = root.RegisterType(definition);
@@ -984,7 +982,7 @@ namespace PlayGround.Tests.PlayMode
                 directDamageEnabled: false);
         }
 
-        private static IEnumerator SpawnAndDrainChildCycle(ProjectileRoot projectileRoot, ProjectileSpawnCommand command)
+        private static IEnumerator SpawnAndDrainChildCycle(CombatRoot projectileRoot, ProjectileSpawnCommand command)
         {
             projectileRoot.Spawn(command);
             Time.captureDeltaTime = 0.002f;
@@ -993,30 +991,28 @@ namespace PlayGround.Tests.PlayMode
             Time.captureDeltaTime = 0f;
         }
 
-        private static int RenderInstanceCount(ProjectileRoot projectileRoot, int typeId)
+        private static int RenderInstanceCount(CombatRoot projectileRoot, int typeId)
         {
-            const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            var scopeEntityField   = typeof(ProjectileRoot).GetField("scopeEntity", Flags);
-            var submitQueriesField = typeof(ProjectileRoot).GetField("submitQueriesByType", Flags);
-            var scopeEntity   = (Entity)scopeEntityField.GetValue(projectileRoot);
-            var submitQueries = (EntityQuery[])submitQueriesField.GetValue(projectileRoot);
-
-            if (submitQueries == null || typeId >= submitQueries.Length)
-            {
-                return 0;
-            }
-
-            EntityQuery query = submitQueries[typeId];
-            query.SetSharedComponentFilter(new CombatRenderScope { Scope = scopeEntity });
+            Entity scopeEntity = ProjectileScopeEntity(projectileRoot);
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<ProjectileTag>(),
+                ComponentType.ReadOnly<CombatRenderScope>(),
+                ComponentType.ReadOnly<CombatRenderTypeId>(),
+                ComponentType.ReadOnly<CombatRenderElement>(),
+                ComponentType.ReadOnly<CombatRenderActiveTag>());
+            query.SetSharedComponentFilter(
+                new CombatRenderScope { Scope = scopeEntity },
+                new CombatRenderTypeId { TypeId = typeId });
             int count = query.CalculateEntityCount();
             query.ResetFilter();
             return count;
         }
 
-        private static Vector2 ProjectileVelocity(ProjectileRoot projectileRoot)
+        private static Vector2 ProjectileVelocity(CombatRoot projectileRoot)
         {
             const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            var scopeEntityField = typeof(ProjectileRoot).GetField("scopeEntity", Flags);
+            var scopeEntityField = typeof(CombatRoot).GetField("scopeEntity", Flags);
             var scopeEntity = (Entity)scopeEntityField.GetValue(projectileRoot);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
@@ -1040,10 +1036,10 @@ namespace PlayGround.Tests.PlayMode
             return Vector2.zero;
         }
 
-        private static float MaxProjectileVelocityY(ProjectileRoot projectileRoot)
+        private static float MaxProjectileVelocityY(CombatRoot projectileRoot)
         {
             const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            var scopeEntityField = typeof(ProjectileRoot).GetField("scopeEntity", Flags);
+            var scopeEntityField = typeof(CombatRoot).GetField("scopeEntity", Flags);
             var scopeEntity = (Entity)scopeEntityField.GetValue(projectileRoot);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
@@ -1072,19 +1068,19 @@ namespace PlayGround.Tests.PlayMode
             return maxVelocityY;
         }
 
-        private static int CountScopedProjectileEntities(ProjectileRoot projectileRoot)
+        private static int CountScopedProjectileEntities(CombatRoot projectileRoot)
         {
             return CountScopedProjectiles(projectileRoot, _ => true);
         }
 
-        private static int CountScopedChildSpawnerEntities(ProjectileRoot projectileRoot)
+        private static int CountScopedChildSpawnerEntities(CombatRoot projectileRoot)
         {
             return CountScopedProjectiles(
                 projectileRoot,
                 entity => World.DefaultGameObjectInjectionWorld.EntityManager.HasComponent<ProjectileChildSpawnerTag>(entity));
         }
 
-        private static Entity FirstScopedChildSpawnerEntity(ProjectileRoot projectileRoot)
+        private static Entity FirstScopedChildSpawnerEntity(CombatRoot projectileRoot)
         {
             Entity result = Entity.Null;
             CountScopedProjectiles(
@@ -1104,7 +1100,7 @@ namespace PlayGround.Tests.PlayMode
             return result;
         }
 
-        private static int SumScopedContactGates(ProjectileRoot projectileRoot)
+        private static int SumScopedContactGates(CombatRoot projectileRoot)
         {
             Entity scope = ProjectileScopeEntity(projectileRoot);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
@@ -1128,7 +1124,7 @@ namespace PlayGround.Tests.PlayMode
             return gateCount;
         }
 
-        private static int CountScopedProjectiles(ProjectileRoot projectileRoot, global::System.Func<Entity, bool> predicate)
+        private static int CountScopedProjectiles(CombatRoot projectileRoot, global::System.Func<Entity, bool> predicate)
         {
             Entity scope = ProjectileScopeEntity(projectileRoot);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
@@ -1148,10 +1144,10 @@ namespace PlayGround.Tests.PlayMode
             return count;
         }
 
-        private static Entity ProjectileScopeEntity(ProjectileRoot projectileRoot)
+        private static Entity ProjectileScopeEntity(CombatRoot projectileRoot)
         {
             const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            var scopeEntityField = typeof(ProjectileRoot).GetField("scopeEntity", Flags);
+            var scopeEntityField = typeof(CombatRoot).GetField("scopeEntity", Flags);
             return (Entity)scopeEntityField.GetValue(projectileRoot);
         }
 
@@ -1226,7 +1222,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator Projectile_CritChanceOne_HitDealsMultipliedDamage()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
             projectileRoot.Spawn(new ProjectileSpawnCommand(
@@ -1244,7 +1240,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator Projectile_CritChanceZero_HitDealsBaseDamage()
         {
-            CreateProjectileHitFixture(out GameObject projectileObject, out ProjectileRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
+            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
             projectileRoot.Spawn(new ProjectileSpawnCommand(
@@ -1262,7 +1258,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator Aoe_CritChanceOne_HitDealsMultipliedDamage()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
+            CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out int typeId);
             CritProbe probe = CreateCritProbe(Vector2.zero);
             root.TargetRegistry.Register(probe);
 
@@ -1282,7 +1278,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator Aoe_CritChanceZero_HitDealsBaseDamage()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
+            CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out int typeId);
             CritProbe probe = CreateCritProbe(Vector2.zero);
             root.TargetRegistry.Register(probe);
 

@@ -44,7 +44,7 @@ namespace PlayGround.System.Aoe
         protected override void OnCreate()
         {
             scopeQuery = EntityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<AoeScope>(),
+                ComponentType.ReadOnly<CombatScope>(),
                 ComponentType.ReadWrite<AoeSpawnRequestElement>());
 
             archetype = EntityManager.CreateArchetype(

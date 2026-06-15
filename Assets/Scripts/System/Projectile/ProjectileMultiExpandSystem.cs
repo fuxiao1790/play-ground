@@ -27,7 +27,7 @@ namespace PlayGround.System.Projectile
         protected override void OnCreate()
         {
             scopeQuery = EntityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<ProjectileScope>(),
+                ComponentType.ReadOnly<CombatScope>(),
                 ComponentType.ReadWrite<ProjectileSpawnRequestElement>());
         }
 
@@ -109,9 +109,9 @@ namespace PlayGround.System.Projectile
                             elem.Count        = 1;
                             elem.ProjectileId = cmd.ProjectileId + i;
                             elem.Velocity     = Rotate(cmd.BaseDirection, angle) * cmd.Speed;
-                            elem.Render.RenderZ = ProjectileRoot.ProjectileRenderZ
-                                - (elem.ProjectileId % ProjectileRoot.ProjectileRenderZSlots)
-                                * ProjectileRoot.ProjectileRenderZStep;
+                            elem.Render.RenderZ = CombatRoot.ProjectileRenderZ
+                                - (elem.ProjectileId % CombatRoot.ProjectileRenderZSlots)
+                                * CombatRoot.ProjectileRenderZStep;
                             Stream.Write(elem);
                         }
                     }

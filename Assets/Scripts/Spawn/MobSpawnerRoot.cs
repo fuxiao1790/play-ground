@@ -19,11 +19,8 @@ namespace PlayGround.Spawn
         [SerializeField] private SpawnPoint[] spawnPoints = Array.Empty<SpawnPoint>();
         [SerializeField] private Transform spawnParent;
         [SerializeField] private Transform target;
-        [SerializeField] private ProjectileRoot playerProjectileRoot;
-        [SerializeField] private ProjectileRoot mobProjectileRoot;
-        [SerializeField] private AoeRoot playerAoeRoot;
-        [SerializeField] private CombatRuntimeRoot combatRuntimeRoot;
-        [SerializeField] private string spawnedTargetSetKey = "PrimaryTargets";
+        [SerializeField] private CombatRoot playerCombatRoot;
+        [SerializeField] private CombatRoot mobCombatRoot;
         [SerializeField] private Sprite runtimeMobSprite;
         [SerializeField] private int randomSeed;
 
@@ -40,8 +37,8 @@ namespace PlayGround.Spawn
         private void Awake()
         {
             random = randomSeed == 0 ? new global::System.Random() : new global::System.Random(randomSeed);
-            playerProjectileRoot ??= FindTaggedProjectileRoot(GameplayTags.PlayerProjectileRoot);
-            mobProjectileRoot ??= FindTaggedProjectileRoot(GameplayTags.MobProjectileRoot);
+            playerCombatRoot ??= FindTaggedCombatRoot(GameplayTags.PlayerProjectileRoot);
+            mobCombatRoot ??= FindTaggedCombatRoot(GameplayTags.MobProjectileRoot);
             if (fallbackPool == null)
             {
                 fallbackPool = CreateRuntimePool();
@@ -67,29 +64,16 @@ namespace PlayGround.Spawn
             MobSpawnPool pool,
             int mobCap,
             Transform targetTransform = null,
-            ProjectileRoot projectileRoot = null,
-            ProjectileRoot mobToPlayerProjectileRoot = null,
-            AoeRoot playerToMobAoeRoot = null,
+            CombatRoot playerCombat = null,
+            CombatRoot mobCombat = null,
             SpawnPoint[] points = null)
         {
             fallbackPool = pool;
             maxMobs = Mathf.Max(0, mobCap);
             target = targetTransform;
-            playerProjectileRoot = projectileRoot;
-            mobProjectileRoot = mobToPlayerProjectileRoot;
-            playerAoeRoot = playerToMobAoeRoot;
+            playerCombatRoot = playerCombat;
+            mobCombatRoot = mobCombat;
             spawnPoints = points ?? spawnPoints;
-        }
-
-        public void Configure(
-            MobSpawnPool pool,
-            int mobCap,
-            Transform targetTransform,
-            ProjectileRoot projectileRoot,
-            ProjectileRoot mobToPlayerProjectileRoot,
-            SpawnPoint[] points)
-        {
-            Configure(pool, mobCap, targetTransform, projectileRoot, mobToPlayerProjectileRoot, null, points);
         }
 
         public void ConfigureRuntimeVisual(Sprite mobSprite)
@@ -97,41 +81,27 @@ namespace PlayGround.Spawn
             runtimeMobSprite = mobSprite;
         }
 
-        public void BindAoeRoot(AoeRoot root)
+        public void BindCombatRoots(CombatRoot playerToMobRoot, CombatRoot mobToPlayerRoot)
         {
-            playerAoeRoot = root;
+            playerCombatRoot = playerToMobRoot;
+            mobCombatRoot = mobToPlayerRoot;
             for (int i = 0; i < spawnedMobs.Count; i++)
             {
-                if (spawnedMobs[i] != null)
+                MobRoot mob = spawnedMobs[i];
+                if (mob == null)
                 {
-                    spawnedMobs[i].BindAoeRoot(root);
+                    continue;
                 }
-            }
-        }
 
-        public void BindProjectileRoots(ProjectileRoot playerToMobRoot, ProjectileRoot mobToPlayerRoot)
-        {
-            playerProjectileRoot = playerToMobRoot;
-            mobProjectileRoot = mobToPlayerRoot;
-        }
-
-        public void BindCombatRuntime(CombatRuntimeRoot runtimeRoot, string targetSetKey)
-        {
-            combatRuntimeRoot = runtimeRoot;
-            spawnedTargetSetKey = string.IsNullOrWhiteSpace(targetSetKey) ? spawnedTargetSetKey : targetSetKey;
-            CombatTargetSet targetSet = combatRuntimeRoot != null
-                ? combatRuntimeRoot.GetOrCreateTargetSet(spawnedTargetSetKey)
-                : null;
-            if (targetSet == null)
-            {
-                return;
-            }
-
-            for (int i = 0; i < spawnedMobs.Count; i++)
-            {
-                if (spawnedMobs[i] != null)
+                if (playerCombatRoot != null)
                 {
-                    spawnedMobs[i].Register(targetSet);
+                    mob.Register(playerCombatRoot.TargetRegistry);
+                    mob.BindAoeRoot(playerCombatRoot);
+                }
+
+                if (mobCombatRoot != null)
+                {
+                    mob.BindCombatRoot(mobCombatRoot);
                 }
             }
         }
@@ -232,27 +202,15 @@ namespace PlayGround.Spawn
                 mob.SetTarget(target);
             }
 
-            if (combatRuntimeRoot != null)
+            if (playerCombatRoot != null)
             {
-                mob.Register(combatRuntimeRoot.GetOrCreateTargetSet(spawnedTargetSetKey));
-            }
-            else if (playerProjectileRoot != null)
-            {
-                mob.Register(playerProjectileRoot.TargetRegistry);
+                mob.Register(playerCombatRoot.TargetRegistry);
+                mob.BindAoeRoot(playerCombatRoot);
             }
 
-            if (playerAoeRoot != null)
+            if (mobCombatRoot != null)
             {
-                mob.BindAoeRoot(playerAoeRoot);
-                if (combatRuntimeRoot == null)
-                {
-                    mob.Register(playerAoeRoot.TargetRegistry);
-                }
-            }
-
-            if (mobProjectileRoot != null)
-            {
-                mob.BindProjectileRoot(mobProjectileRoot);
+                mob.BindCombatRoot(mobCombatRoot);
             }
 
             coordinator?.OnSpawned(spawnPoint, mob);
@@ -351,12 +309,12 @@ namespace PlayGround.Spawn
             return layer >= 0 ? layer : 0;
         }
 
-        private static ProjectileRoot FindTaggedProjectileRoot(string tag)
+        private static CombatRoot FindTaggedCombatRoot(string tag)
         {
             try
             {
                 GameObject rootObject = GameObject.FindWithTag(tag);
-                return rootObject != null ? rootObject.GetComponent<ProjectileRoot>() : null;
+                return rootObject != null ? rootObject.GetComponent<CombatRoot>() : null;
             }
             catch (UnityException)
             {

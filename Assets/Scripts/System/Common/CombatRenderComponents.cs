@@ -101,12 +101,13 @@ namespace PlayGround.System.Common
         }
     }
 
-    // ECS Lifecycle: managed component; added to scope entities at root setup; references the root's render resource dictionary by reference so catalog stays in sync without explicit updates.
-    internal sealed class CombatScopeRenderCatalog : IComponentData
+    // ECS Lifecycle: blittable scope component; added at CombatRoot setup; holds
+    // only the owning root's id. Render resources live in a static int-keyed
+    // registry on CombatRoot (mirrors CombatScopeVfxCatalog/CombatVfxRoot), so one
+    // shared scope can serve both projectile and AOE render resources.
+    public struct CombatScopeRenderCatalog : IComponentData
     {
-        public Dictionary<int, CombatSpriteRenderResources> Resources;
-        public int Layer;
-        public float BoundsHalfExtent;
+        public int RootId;
     }
 
     [UpdateInGroup(typeof(SimulationSystemGroup))]

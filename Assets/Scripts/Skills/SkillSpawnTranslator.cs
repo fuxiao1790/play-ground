@@ -14,20 +14,19 @@ namespace PlayGround.Skills
             Vector2 origin,
             Vector2 aimDir,
             Vector2 aimWorldPos,
-            ProjectileRoot projectileRoot,
-            AoeRoot aoeRoot)
+            CombatRoot combatRoot)
         {
             if (def is RuntimeProjectileDefinition proj)
-                SpawnProjectile(proj, origin, aimDir, projectileRoot);
+                SpawnProjectile(proj, origin, aimDir, combatRoot);
             else if (def is RuntimeAoeDefinition aoe)
-                SpawnAoe(aoe, origin, aimWorldPos, aoeRoot);
+                SpawnAoe(aoe, origin, aimWorldPos, combatRoot);
         }
 
         private static void SpawnProjectile(
             RuntimeProjectileDefinition def,
             Vector2 origin,
             Vector2 aimDir,
-            ProjectileRoot root)
+            CombatRoot root)
         {
             if (root == null || def.Prefab == null || def.TypeId < 0) return;
 
@@ -73,7 +72,7 @@ namespace PlayGround.Skills
             RuntimeAoeDefinition def,
             Vector2 origin,
             Vector2 aimWorldPos,
-            AoeRoot root)
+            CombatRoot root)
         {
             if (root == null || def.TypeId < 0) return;
 

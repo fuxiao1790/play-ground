@@ -5,11 +5,6 @@ using UnityEngine;
 
 namespace PlayGround.System.Aoe
 {
-    // ECS Lifecycle: scope tag/component; added at root setup; kept until root teardown.
-    public struct AoeScope : IComponentData
-    {
-    }
-
     // ECS Lifecycle: base AOE tag; added at entity creation; kept until root teardown; gates AOE systems from common combat components.
     public struct AoeTag : IComponentData
     {

@@ -135,6 +135,58 @@ everything done so far combined.
    registry? World-per-faction stops scaling at many factions (fixed per-world
    overhead); in-world partitioning would be the fallback then.
 
+## Parallel Reuse via Per-Archetype Streams (agreed)
+
+The spawn/despawn reuse mechanism (separate from world-as-scope, but composes
+with it). Goal: keep events in `NativeStream` end-to-end and parallelize reuse
+for free, without atomics or prefix work.
+
+Principles:
+
+- **Events never leave the `NativeStream`** — no flatten to buffer, no scope
+  scatter, no main-thread bucketing.
+- **One stream per archetype** (reuse-key — `(typeId, slotKind)`; scope drops out
+  under world-as-scope). Collision writes each spawn event into the stream for its
+  *target archetype*. Partition happens at produce time, in parallel (separate
+  streams = separate write targets; lanes stay parallel-safe).
+- **Reuse = `IJobChunk.ScheduleParallel` per archetype** over
+  `WithDisabled<ActiveTag>`. Chunk `c` reads stream lane `c` and fills its own
+  dead slots. Disjoint by construction (each lane read once, each chunk's entities
+  touched once) → contention-free. **Parallelism is free from chunk iteration** —
+  no free-list, no atomic claim, no prefix-sum.
+
+Rejected (tested before, not worth it):
+
+- Atomic-index claim into a free-slot array.
+- Prefix-sum / chunk-prefix slot assignment.
+- General rule: anything requiring *additional work* to parallelize reuse is not
+  worth it. Chunk iteration already provides the parallelism.
+
+Accepted imbalance (the key tradeoff):
+
+- Lane index (producer: by source entity) and chunk index (consumer: dead-slot
+  chunk) are **different index spaces**, so lane `c`'s event count has no relation
+  to chunk `c`'s free-slot count. Disjointness holds; balance does not.
+- **Overflow** (lane has more events than the chunk has dead slots) → **cold-create
+  the remainder via ECB.** Do **not** reschedule a second pass to place it — the
+  remainder is small vs total spawns/dead-slots, so it is not worth it.
+- **Underflow** (chunk has free slots, lane empty) → leave it; filled a later frame.
+
+Implementation notes:
+
+- `NativeStream.Reader` does not split itself — the job scheduling does. Each
+  worker maps its chunk/iteration index to one foreach-index
+  (`reader.BeginForEachIndex(chunkIndex)`); the stream only guarantees per-lane
+  independence.
+- `foreachCount` is fixed at allocation and must cover the consumer chunk-index
+  range. `IJobChunk` exposes `unfilteredChunkIndex`, which can exceed the matching
+  chunk count — size the stream to archetype chunk capacity or remap to a dense
+  index.
+
+Composes with world-as-scope: faction-as-world removes scope from the reuse key,
+so "stream per archetype" stays small (`typeId` × `slotKind`), and the collision
+job writes straight into the right per-archetype stream with no routing.
+
 ## Status
 
 First rework (ECS-owned internal spawns, managed route deleted) is implemented but

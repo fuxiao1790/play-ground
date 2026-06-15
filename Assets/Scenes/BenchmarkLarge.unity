@@ -221,7 +221,7 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 135
   useConfigTiming: 0
---- !u!1 &135829711
+--- !u!1 &529810934
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -229,99 +229,47 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 135829713}
-  - component: {fileID: 135829712}
-  m_Layer: 14
-  m_Name: ProjectileRoot_MobToPlayer
-  m_TagString: MobProjectileRoot
+  - component: {fileID: 529810936}
+  - component: {fileID: 529810935}
+  m_Layer: 0
+  m_Name: CombatEcsRoot_PlayerToMobs
+  m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &135829712
+--- !u!114 &529810935
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 135829711}
+  m_GameObject: {fileID: 529810934}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eb79317a0f2c3134694347a5323631e1, type: 3}
+  m_Script: {fileID: 11500000, guid: d7e49a35cd98bac49b62c3db1b2f9166, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.System.Projectile.ProjectileRoot
-  projectileSprite: {fileID: 2216962988415778236, guid: 858d004c38b34f049b8a1969f00bc8b7, type: 3}
-  visualScale: 1
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.System.Common.CombatRoot
   targetLayers:
     serializedVersion: 2
-    m_Bits: 0
-  targetTag: 
+    m_Bits: 8192
+  targetTag: Mob
+  projectileSprite: {fileID: 0}
+  visualScale: 1
   projectileTemplates: []
   renderTypes: []
+  spawnVisuals: 1
   batchBoundsHalfExtent: 100000
---- !u!4 &135829713
+--- !u!4 &529810936
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 135829711}
+  m_GameObject: {fileID: 529810934}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &310291307
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 310291309}
-  - component: {fileID: 310291308}
-  m_Layer: 10
-  m_Name: ProjectileRoot_PlayerToMob
-  m_TagString: PlayerProjectileRoot
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &310291308
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 310291307}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eb79317a0f2c3134694347a5323631e1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.System.Projectile.ProjectileRoot
-  projectileSprite: {fileID: 2216962988415778236, guid: 858d004c38b34f049b8a1969f00bc8b7, type: 3}
-  visualScale: 1
-  targetLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  targetTag: 
-  projectileTemplates: []
-  renderTypes: []
-  batchBoundsHalfExtent: 100000
---- !u!4 &310291309
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 310291307}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -37.66828, y: 1.02604, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -405,7 +353,7 @@ PrefabInstance:
     - target: {fileID: 2956451268465802523, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: projectileRoot
       value: 
-      objectReference: {fileID: 310291308}
+      objectReference: {fileID: 0}
     - target: {fileID: 2956451268465802523, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: projectileCount
       value: 25
@@ -465,7 +413,7 @@ PrefabInstance:
     - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: aoeRoot
       value: 
-      objectReference: {fileID: 2100000002}
+      objectReference: {fileID: 0}
     - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: loadout
       value: 
@@ -485,7 +433,7 @@ PrefabInstance:
     - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: projectileRoot
       value: 
-      objectReference: {fileID: 310291308}
+      objectReference: {fileID: 0}
     - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: projectileVfxRoot
       value: 
@@ -493,7 +441,7 @@ PrefabInstance:
     - target: {fileID: 8145524006374604802, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: aoeRoot
       value: 
-      objectReference: {fileID: 2100000002}
+      objectReference: {fileID: 0}
     - target: {fileID: 8145524006374604802, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: m_Enabled
       value: 1
@@ -509,7 +457,7 @@ PrefabInstance:
     - target: {fileID: 8145524006374604802, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: projectileRoot
       value: 
-      objectReference: {fileID: 310291308}
+      objectReference: {fileID: 0}
     - target: {fileID: 8145524006374604802, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: recoverySeconds
       value: 0.03
@@ -533,6 +481,17 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+--- !u!114 &830174276 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1931760800162926548, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+  m_PrefabInstance: {fileID: 830174275}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 12161c832fc51f2478ff5706f8801c4e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Player.PlayerRoot
 --- !u!1 &912359183
 GameObject:
   m_ObjectHideFlags: 0
@@ -562,15 +521,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1efbc012e2b6afe489459361bdd5419e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Game.GameRoot
-  playerProjectileRoot: {fileID: 310291308}
-  mobProjectileRoot: {fileID: 135829712}
-  playerAoeRoot: {fileID: 2100000002}
-  mobAoeRoot: {fileID: 0}
-  combatRuntimeRoot: {fileID: 0}
+  playerCombatRoot: {fileID: 529810935}
+  mobCombatRoot: {fileID: 1086898361}
   mobSpawner: {fileID: 2000001003}
   mobs: []
-  player: {fileID: 0}
-  gameplayCamera: {fileID: 0}
+  player: {fileID: 830174276}
+  gameplayCamera: {fileID: 1593919879}
   playArea: {fileID: 0}
 --- !u!4 &912359185
 Transform:
@@ -682,6 +638,60 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1086898359
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1086898360}
+  - component: {fileID: 1086898361}
+  m_Layer: 0
+  m_Name: CombatEcsRoot_MobToPlayer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1086898360
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1086898359}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -37.66828, y: 1.02604, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1086898361
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1086898359}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7e49a35cd98bac49b62c3db1b2f9166, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.System.Common.CombatRoot
+  targetLayers:
+    serializedVersion: 2
+    m_Bits: 512
+  targetTag: Player
+  projectileSprite: {fileID: 0}
+  visualScale: 1
+  projectileTemplates: []
+  renderTypes: []
+  spawnVisuals: 1
+  batchBoundsHalfExtent: 100000
 --- !u!1 &1388216860
 GameObject:
   m_ObjectHideFlags: 0
@@ -1178,11 +1188,8 @@ MonoBehaviour:
   - {fileID: 2000001033}
   spawnParent: {fileID: 0}
   target: {fileID: 0}
-  playerProjectileRoot: {fileID: 310291308}
-  mobProjectileRoot: {fileID: 135829712}
-  playerAoeRoot: {fileID: 2100000002}
-  combatRuntimeRoot: {fileID: 0}
-  spawnedTargetSetKey: PrimaryTargets
+  playerCombatRoot: {fileID: 529810935}
+  mobCombatRoot: {fileID: 1086898361}
   runtimeMobSprite: {fileID: 0}
   randomSeed: 0
 --- !u!1 &2000001010
@@ -1338,53 +1345,6 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 135
   useConfigTiming: 0
---- !u!1 &2100000000
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2100000001}
-  - component: {fileID: 2100000002}
-  m_Layer: 11
-  m_Name: AoeRoot_PlayerToMob
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2100000001
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2100000000}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2100000002
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2100000000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 748f28003d60e354ba9faffb9bff651d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.System.Aoe.AoeRoot
-  targetMask: 8192
-  spawnVisuals: 1
-  batchBoundsHalfExtent: 100000
 --- !u!1 &2119651884
 GameObject:
   m_ObjectHideFlags: 0
@@ -1443,10 +1403,9 @@ SceneRoots:
   - {fileID: 1593919882}
   - {fileID: 912359185}
   - {fileID: 1019222041}
-  - {fileID: 2100000001}
-  - {fileID: 310291309}
-  - {fileID: 135829713}
   - {fileID: 2000001001}
   - {fileID: 830174275}
   - {fileID: 998230101}
   - {fileID: 1807457117}
+  - {fileID: 529810936}
+  - {fileID: 1086898360}

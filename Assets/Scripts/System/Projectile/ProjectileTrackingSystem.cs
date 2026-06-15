@@ -23,7 +23,7 @@ namespace PlayGround.System.Projectile
 
             int totalTargetCount = 0;
             foreach (DynamicBuffer<CombatTargetElement> targets in
-                SystemAPI.Query<DynamicBuffer<CombatTargetElement>>().WithAll<ProjectileScope>())
+                SystemAPI.Query<DynamicBuffer<CombatTargetElement>>().WithAll<CombatScope>())
             {
                 totalTargetCount += targets.Length;
             }
@@ -40,7 +40,7 @@ namespace PlayGround.System.Projectile
 
                 foreach ((DynamicBuffer<CombatTargetElement> targets, Entity scope) in
                     SystemAPI.Query<DynamicBuffer<CombatTargetElement>>()
-                        .WithAll<ProjectileScope>()
+                        .WithAll<CombatScope>()
                         .WithEntityAccess())
                 {
                     for (int i = 0; i < targets.Length; i++)

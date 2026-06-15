@@ -9,7 +9,7 @@ using PlayGround.Mob.Behaviours;
 using PlayGround.Mob.Triggers;
 using PlayGround.Player;
 using PlayGround.Spawn;
-using PlayGround.System.Projectile;
+using PlayGround.System.Common;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -55,12 +55,12 @@ namespace PlayGround.Editor
             GameObject audioObject = new("AudioManager");
             audioObject.AddComponent<AudioManager>();
 
-            GameObject projectileObject = new("ProjectileRoot_PlayerToMob");
-            ProjectileRoot projectileRoot = projectileObject.AddComponent<ProjectileRoot>();
+            GameObject projectileObject = new("CombatRoot_PlayerToMob");
+            CombatRoot projectileRoot = projectileObject.AddComponent<CombatRoot>();
             projectileRoot.Configure(projectileSprite);
 
-            GameObject mobProjectileObject = new("ProjectileRoot_MobToPlayer");
-            ProjectileRoot mobProjectileRoot = mobProjectileObject.AddComponent<ProjectileRoot>();
+            GameObject mobProjectileObject = new("CombatRoot_MobToPlayer");
+            CombatRoot mobProjectileRoot = mobProjectileObject.AddComponent<CombatRoot>();
             mobProjectileRoot.Configure(projectileSprite);
 
             GameObject player = CreatePlayer(playerSprite, inputActions);
@@ -83,8 +83,8 @@ namespace PlayGround.Editor
             level.GetComponent<PlayAreaRoot>().BuildRuntimeWalls();
 
             PrefabUtility.SaveAsPrefabAsset(player, "Assets/Prefabs/Player/Player.prefab");
-            PrefabUtility.SaveAsPrefabAsset(projectileObject, "Assets/Prefabs/Projectiles/ProjectileRoot_PlayerToMob.prefab");
-            PrefabUtility.SaveAsPrefabAsset(mobProjectileObject, "Assets/Prefabs/Projectiles/ProjectileRoot_MobToPlayer.prefab");
+            PrefabUtility.SaveAsPrefabAsset(projectileObject, "Assets/Prefabs/Projectiles/CombatRoot_PlayerToMob.prefab");
+            PrefabUtility.SaveAsPrefabAsset(mobProjectileObject, "Assets/Prefabs/Projectiles/CombatRoot_MobToPlayer.prefab");
 
             Directory.CreateDirectory("Assets/Scenes");
             EditorSceneManager.SaveScene(scene, MainScenePath);
@@ -167,7 +167,7 @@ namespace PlayGround.Editor
             float speed,
             float health,
             float radius,
-            ProjectileRoot mobProjectileRoot,
+            CombatRoot mobProjectileRoot,
             MobBehaviour wander,
             MobBehaviour swarm,
             MobTrigger sensor,
@@ -219,8 +219,8 @@ namespace PlayGround.Editor
         private static GameObject CreateSpawner(
             MobSpawnPool pool,
             Transform target,
-            ProjectileRoot playerProjectileRoot,
-            ProjectileRoot mobProjectileRoot)
+            CombatRoot playerProjectileRoot,
+            CombatRoot mobProjectileRoot)
         {
             GameObject spawnerObject = new("MobSpawnerRoot");
             MobSpawnerRoot spawner = spawnerObject.AddComponent<MobSpawnerRoot>();

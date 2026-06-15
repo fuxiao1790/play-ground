@@ -10,8 +10,11 @@ namespace PlayGround.System.Common
 {
     // Replaces the spawn half of CombatHitFlushJob AND the managed CombatSpawnRouter
     // + root SpawnRequestFor logic. Reads the internal hit-spawn stream and appends
-    // projectile/AOE spawn requests directly onto the destination scope buffers,
+    // projectile/AOE spawn requests directly onto the producing scope's buffers,
     // fully in ECS so follow-up spawns materialize the same frame.
+    //
+    // With one shared scope per faction (CombatRoot), internal spawns always target
+    // the producing scope (pending.Scope) — no routing component needed.
     //
     // Single IJob (not parallel) so the BufferLookup writes are serial and safe,
     // matching the old CombatHitFlushJob contract.
@@ -24,7 +27,6 @@ namespace PlayGround.System.Common
         private const int ProjectileBurstIdSalt = 0x7AB025;
 
         public NativeStream PendingSpawns;
-        [ReadOnly] public ComponentLookup<CombatSpawnRouting> Routing;
         public BufferLookup<ProjectileSpawnRequestElement> ProjectileRequests;
         public BufferLookup<AoeSpawnRequestElement> AoeRequests;
 
@@ -45,33 +47,31 @@ namespace PlayGround.System.Common
 
         private void Convert(in CombatPendingSpawn pending)
         {
-            if (pending.Scope == Entity.Null || !Routing.HasComponent(pending.Scope))
+            if (pending.Scope == Entity.Null)
             {
                 return;
             }
 
-            CombatSpawnRouting routing = Routing[pending.Scope];
-
             if (pending.ImpactAoe.Enabled)
             {
-                AppendImpactAoe(in pending, in routing);
+                AppendImpactAoe(in pending);
             }
 
             if (pending.ImpactProjectile.Enabled)
             {
-                AppendImpactProjectiles(in pending, in routing);
+                AppendImpactProjectiles(in pending);
             }
 
             if (pending.ProjectileBurst.Enabled)
             {
-                AppendProjectileBurst(in pending, in routing);
+                AppendProjectileBurst(in pending);
             }
         }
 
-        private void AppendImpactAoe(in CombatPendingSpawn pending, in CombatSpawnRouting routing)
+        private void AppendImpactAoe(in CombatPendingSpawn pending)
         {
-            Entity dest = routing.AoeDestinationScope;
-            if (dest == Entity.Null || !AoeRequests.HasBuffer(dest))
+            Entity dest = pending.Scope;
+            if (!AoeRequests.HasBuffer(dest))
             {
                 return;
             }
@@ -94,7 +94,7 @@ namespace PlayGround.System.Common
                     VisualScale = new float2(geo.VisualScale.x, geo.VisualScale.y),
                     VisualRotationSin = geo.VisualRotationSin,
                     VisualRotationCos = geo.VisualRotationCos,
-                    RenderZ = AoeRoot.AoeRenderZ
+                    RenderZ = CombatRoot.AoeRenderZ
                 };
             }
 
@@ -126,10 +126,10 @@ namespace PlayGround.System.Common
             });
         }
 
-        private void AppendImpactProjectiles(in CombatPendingSpawn pending, in CombatSpawnRouting routing)
+        private void AppendImpactProjectiles(in CombatPendingSpawn pending)
         {
-            Entity dest = routing.ProjectileDestinationScope;
-            if (dest == Entity.Null || !ProjectileRequests.HasBuffer(dest))
+            Entity dest = pending.Scope;
+            if (!ProjectileRequests.HasBuffer(dest))
             {
                 return;
             }
@@ -163,10 +163,10 @@ namespace PlayGround.System.Common
             ProjectileRequests[dest].Add(request);
         }
 
-        private void AppendProjectileBurst(in CombatPendingSpawn pending, in CombatSpawnRouting routing)
+        private void AppendProjectileBurst(in CombatPendingSpawn pending)
         {
-            Entity dest = routing.ProjectileDestinationScope;
-            if (dest == Entity.Null || !ProjectileRequests.HasBuffer(dest))
+            Entity dest = pending.Scope;
+            if (!ProjectileRequests.HasBuffer(dest))
             {
                 return;
             }
@@ -280,8 +280,8 @@ namespace PlayGround.System.Common
                 VisualScale = new float2(visualScale, visualScale),
                 VisualRotationSin = sin,
                 VisualRotationCos = cos,
-                RenderZ = ProjectileRoot.ProjectileRenderZ
-                    - (projectileId % ProjectileRoot.ProjectileRenderZSlots) * ProjectileRoot.ProjectileRenderZStep
+                RenderZ = CombatRoot.ProjectileRenderZ
+                    - (projectileId % CombatRoot.ProjectileRenderZSlots) * CombatRoot.ProjectileRenderZStep
             };
         }
 

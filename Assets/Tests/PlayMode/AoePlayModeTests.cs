@@ -27,7 +27,7 @@ namespace PlayGround.Tests.PlayMode
         {
             CreateAoeFixture(
                 out GameObject rootObject,
-                out AoeRoot root,
+                out CombatRoot root,
                 out GameObject templateObject,
                 out int typeId,
                 templateScale: new Vector3(3f, 3f, 1f));
@@ -46,7 +46,7 @@ namespace PlayGround.Tests.PlayMode
         {
             CreateAoeFixture(
                 out GameObject rootObject,
-                out AoeRoot root,
+                out CombatRoot root,
                 out GameObject templateObject,
                 out int typeId,
                 templateScale: new Vector3(2f, 2f, 1f),
@@ -66,7 +66,7 @@ namespace PlayGround.Tests.PlayMode
         {
             CreateAoeFixture(
                 out GameObject rootObject,
-                out AoeRoot root,
+                out CombatRoot root,
                 out GameObject templateObject,
                 out int typeId,
                 visualScale: new Vector3(3f, 4f, 1f));
@@ -96,7 +96,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator AoeRootCreatesNoPerAoeLiveDamageOrColliderObjects()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
+            CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
@@ -114,7 +114,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator AoeDamageDispatchCallsTargetDamageCallback()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
+            CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
@@ -129,7 +129,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator MobStatusTriggerSpawnsAoeThroughBoundAoeRoot()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out _);
+            CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out _);
             MobRoot mob = CreateMobTarget(Vector2.zero);
             mob.BindAoeRoot(root);
             mob.Register(root.TargetRegistry);
@@ -155,7 +155,7 @@ namespace PlayGround.Tests.PlayMode
         [UnityTest]
         public IEnumerator AoeCountersTrackSpawnDespawnHitAndRenderBatchFields()
         {
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out int typeId);
+            CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
@@ -171,19 +171,18 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void ProjectileAndAoeRootsShareDefaultWorldButUseSeparateScopes()
+        public void SeparateCombatRootsShareDefaultWorldButUseDistinctScopes()
         {
-            CreateProjectileRoot(out GameObject projectileObject, out ProjectileRoot projectileRoot);
-            CreateAoeFixture(out GameObject aoeObject, out AoeRoot aoeRoot, out GameObject templateObject, out _);
+            CreateProjectileRoot(out GameObject projectileObject, out CombatRoot projectileRoot);
+            CreateAoeFixture(out GameObject aoeObject, out CombatRoot aoeRoot, out GameObject templateObject, out _);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             Entity projectileScope = ProjectileScopeEntity(projectileRoot);
             Entity aoeScope = AoeScopeEntity(aoeRoot);
 
+            // One CombatScope serves both domains; two separate roots get two scopes.
             Assert.That(projectileScope, Is.Not.EqualTo(aoeScope));
-            Assert.That(entityManager.HasComponent<ProjectileScope>(projectileScope), Is.True);
-            Assert.That(entityManager.HasComponent<AoeScope>(projectileScope), Is.False);
-            Assert.That(entityManager.HasComponent<AoeScope>(aoeScope), Is.True);
-            Assert.That(entityManager.HasComponent<ProjectileScope>(aoeScope), Is.False);
+            Assert.That(entityManager.HasComponent<CombatScope>(projectileScope), Is.True);
+            Assert.That(entityManager.HasComponent<CombatScope>(aoeScope), Is.True);
 
             Cleanup(projectileObject, aoeObject, templateObject);
         }
@@ -216,7 +215,7 @@ namespace PlayGround.Tests.PlayMode
 
         private static void CreateAoeFixture(
             out GameObject rootObject,
-            out AoeRoot root,
+            out CombatRoot root,
             out GameObject templateObject,
             out int typeId,
             Vector3? templateScale = null,
@@ -238,8 +237,7 @@ namespace PlayGround.Tests.PlayMode
 
             rootObject = new GameObject("AoeRoot");
             rootObject.SetActive(false);
-            root = rootObject.AddComponent<AoeRoot>();
-            root.Configure(~0);
+            root = rootObject.AddComponent<CombatRoot>();
             rootObject.SetActive(true);
 
             typeId = root.RegisterType(definition);
@@ -263,7 +261,7 @@ namespace PlayGround.Tests.PlayMode
             return config;
         }
 
-        private static Matrix4x4 FirstScopedAoeRenderMatrix(AoeRoot root)
+        private static Matrix4x4 FirstScopedAoeRenderMatrix(CombatRoot root)
         {
             Entity scope = AoeScopeEntity(root);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
@@ -285,7 +283,7 @@ namespace PlayGround.Tests.PlayMode
             return Matrix4x4.identity;
         }
 
-        private static CombatCollisionComponent FirstScopedAoeCollision(AoeRoot root)
+        private static CombatCollisionComponent FirstScopedAoeCollision(CombatRoot root)
         {
             Entity scope = AoeScopeEntity(root);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
@@ -307,12 +305,12 @@ namespace PlayGround.Tests.PlayMode
             return default;
         }
 
-        private static void CreateProjectileRoot(out GameObject rootObject, out ProjectileRoot root)
+        private static void CreateProjectileRoot(out GameObject rootObject, out CombatRoot root)
         {
             Sprite sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
             rootObject = new GameObject("ProjectileRoot");
             rootObject.SetActive(false);
-            root = rootObject.AddComponent<ProjectileRoot>();
+            root = rootObject.AddComponent<CombatRoot>();
             root.Configure(sprite);
             rootObject.SetActive(true);
         }
@@ -350,17 +348,17 @@ namespace PlayGround.Tests.PlayMode
             return mob;
         }
 
-        private static Entity AoeScopeEntity(AoeRoot root)
+        private static Entity AoeScopeEntity(CombatRoot root)
         {
             const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            FieldInfo scopeEntityField = typeof(AoeRoot).GetField("scopeEntity", Flags);
+            FieldInfo scopeEntityField = typeof(CombatRoot).GetField("scopeEntity", Flags);
             return (Entity)scopeEntityField.GetValue(root);
         }
 
-        private static Entity ProjectileScopeEntity(ProjectileRoot root)
+        private static Entity ProjectileScopeEntity(CombatRoot root)
         {
             const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            FieldInfo scopeEntityField = typeof(ProjectileRoot).GetField("scopeEntity", Flags);
+            FieldInfo scopeEntityField = typeof(CombatRoot).GetField("scopeEntity", Flags);
             return (Entity)scopeEntityField.GetValue(root);
         }
 
@@ -372,7 +370,7 @@ namespace PlayGround.Tests.PlayMode
             // Lingering AOE (damage=0, tickInterval=0) applies Volatile stacks each hit.
             // Threshold=10 ensures the chain never fires within 2 frames; a registered
             // chain type is still required for CombatStackEffectSnapshot.Enabled = true.
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out _);
+            CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out _);
             var lingeringDef = new AoeTypeDefinition();
             lingeringDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
             int lingeringTypeId = root.RegisterType(lingeringDef);
@@ -421,7 +419,7 @@ namespace PlayGround.Tests.PlayMode
         {
             // Lingering AOE (damage=0, tickInterval=0) builds Volatile stacks.
             // After 3 hits the threshold fires a linked pulse AOE that deals 5 damage.
-            CreateAoeFixture(out GameObject rootObject, out AoeRoot root, out GameObject templateObject, out _);
+            CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out _);
             var lingeringDef = new AoeTypeDefinition();
             lingeringDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
             int lingeringTypeId = root.RegisterType(lingeringDef);

@@ -11,7 +11,7 @@ namespace PlayGround.System.Aoe
 
         public void OnCreate(ref SystemState state)
         {
-            scopeQuery = state.GetEntityQuery(ComponentType.ReadOnly<AoeScope>());
+            scopeQuery = state.GetEntityQuery(ComponentType.ReadOnly<CombatScope>());
         }
 
         public void OnUpdate(ref SystemState state)

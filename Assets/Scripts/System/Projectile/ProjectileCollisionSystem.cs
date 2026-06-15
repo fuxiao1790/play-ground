@@ -50,7 +50,7 @@ namespace PlayGround.System.Projectile
             int totalTargetCount = 0;
             float maxTargetRadius = 0f;
             foreach (DynamicBuffer<CombatTargetElement> targets in
-                SystemAPI.Query<DynamicBuffer<CombatTargetElement>>().WithAll<ProjectileScope>())
+                SystemAPI.Query<DynamicBuffer<CombatTargetElement>>().WithAll<CombatScope>())
             {
                 for (int i = 0; i < targets.Length; i++)
                 {
@@ -70,7 +70,7 @@ namespace PlayGround.System.Projectile
                 math.max(1, totalTargetCount), Allocator.TempJob);
             foreach ((DynamicBuffer<CombatTargetElement> targets, Entity scope) in
                 SystemAPI.Query<DynamicBuffer<CombatTargetElement>>()
-                    .WithAll<ProjectileScope>()
+                    .WithAll<CombatScope>()
                     .WithEntityAccess())
             {
                 for (int i = 0; i < targets.Length; i++)
@@ -103,7 +103,6 @@ namespace PlayGround.System.Projectile
             var convertHandle = new CombatSpawnConvertJob
             {
                 PendingSpawns = pendingSpawns,
-                Routing = SystemAPI.GetComponentLookup<CombatSpawnRouting>(true),
                 ProjectileRequests = SystemAPI.GetBufferLookup<ProjectileSpawnRequestElement>(),
                 AoeRequests = SystemAPI.GetBufferLookup<AoeSpawnRequestElement>()
             }.Schedule(collisionHandle);

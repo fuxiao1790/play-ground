@@ -3,44 +3,36 @@ using PlayGround.Common;
 using PlayGround.Level;
 using PlayGround.Mob;
 using PlayGround.Spawn;
-using PlayGround.System.Aoe;
 using PlayGround.System.Common;
-using PlayGround.System.Projectile;
 using UnityEngine;
 
 namespace PlayGround.Game
 {
     public sealed class GameRoot : MonoBehaviour
     {
-        [SerializeField] private ProjectileRoot playerProjectileRoot;
-        [SerializeField] private ProjectileRoot mobProjectileRoot;
-        [SerializeField] private AoeRoot playerAoeRoot;
-        [SerializeField] private AoeRoot mobAoeRoot;
-        [SerializeField] private CombatRuntimeRoot combatRuntimeRoot;
+        [SerializeField] private CombatRoot playerCombatRoot;
+        [SerializeField] private CombatRoot mobCombatRoot;
         [SerializeField] private MobSpawnerRoot mobSpawner;
         [SerializeField] private MobRoot[] mobs;
         [SerializeField] private PlayGround.Player.PlayerRoot player;
         [SerializeField] private GameplayCamera gameplayCamera;
         [SerializeField] private PlayAreaRoot playArea;
 
-        private const string PrimaryTargetSetKey = "PrimaryTargets";
-        private const string SecondaryTargetSetKey = "SecondaryTargets";
-
         private void Awake()
         {
-            if (playerProjectileRoot == null)
+            if (playerCombatRoot == null)
             {
-                playerProjectileRoot = FindTaggedComponent<ProjectileRoot>(GameplayTags.PlayerProjectileRoot);
+                playerCombatRoot = FindTaggedComponent<CombatRoot>(GameplayTags.PlayerProjectileRoot);
             }
 
-            if (playerProjectileRoot == null)
+            if (playerCombatRoot == null)
             {
-                throw new MissingReferenceException($"{nameof(GameRoot)} needs a player projectile root.");
+                throw new MissingReferenceException($"{nameof(GameRoot)} needs a player combat root.");
             }
 
-            if (mobProjectileRoot == null)
+            if (mobCombatRoot == null)
             {
-                mobProjectileRoot = FindTaggedComponent<ProjectileRoot>(GameplayTags.MobProjectileRoot);
+                mobCombatRoot = FindTaggedComponent<CombatRoot>(GameplayTags.MobProjectileRoot);
             }
 
             if (player == null)
@@ -54,18 +46,9 @@ namespace PlayGround.Game
                 mobSpawner = FindAnyObjectByType<MobSpawnerRoot>();
             }
 
-            EnsureCombatRuntimeRoot();
-            BindCombatScopes();
-
-            if (mobSpawner != null && playerAoeRoot != null)
-            {
-                mobSpawner.BindAoeRoot(playerAoeRoot);
-            }
-
             if (mobSpawner != null)
             {
-                mobSpawner.BindProjectileRoots(playerProjectileRoot, mobProjectileRoot);
-                mobSpawner.BindCombatRuntime(combatRuntimeRoot, PrimaryTargetSetKey);
+                mobSpawner.BindCombatRoots(playerCombatRoot, mobCombatRoot);
             }
 
             if ((mobs == null || mobs.Length == 0) && mobSpawner == null)
@@ -86,22 +69,17 @@ namespace PlayGround.Game
                         throw new MissingReferenceException($"{nameof(GameRoot)} mob slot {i} is empty.");
                     }
 
-                    if (combatRuntimeRoot != null)
+                    if (playerCombatRoot.CanTarget(mobs[i]))
                     {
-                        mobs[i].Register(combatRuntimeRoot.GetOrCreateTargetSet(PrimaryTargetSetKey));
-                    }
-                    else if (playerProjectileRoot.CanTarget(mobs[i]))
-                    {
-                        mobs[i].Register(playerProjectileRoot.TargetRegistry);
+                        mobs[i].Register(playerCombatRoot.TargetRegistry);
                     }
 
-                    if (playerAoeRoot != null)
+                    // Player-faction root for the mob's stack-triggered AOE (hits mobs).
+                    mobs[i].BindAoeRoot(playerCombatRoot);
+
+                    if (mobCombatRoot != null)
                     {
-                        mobs[i].BindAoeRoot(playerAoeRoot);
-                        if (combatRuntimeRoot == null)
-                        {
-                            mobs[i].Register(playerAoeRoot.TargetRegistry);
-                        }
+                        mobs[i].BindCombatRoot(mobCombatRoot);
                     }
 
                     if (player != null)
@@ -111,21 +89,9 @@ namespace PlayGround.Game
                 }
             }
 
-            if (combatRuntimeRoot != null && player != null)
+            if (mobCombatRoot != null && player != null && mobCombatRoot.CanTarget(player))
             {
-                player.Register(combatRuntimeRoot.GetOrCreateTargetSet(SecondaryTargetSetKey));
-            }
-            else if (mobProjectileRoot != null && player != null)
-            {
-                if (mobProjectileRoot.CanTarget(player))
-                {
-                    player.Register(mobProjectileRoot.TargetRegistry);
-                }
-            }
-
-            if (mobAoeRoot != null && player != null && combatRuntimeRoot == null)
-            {
-                player.Register(mobAoeRoot.TargetRegistry);
+                player.Register(mobCombatRoot.TargetRegistry);
             }
 
             if (gameplayCamera == null)
@@ -150,122 +116,34 @@ namespace PlayGround.Game
 
         private void Start()
         {
-            // Routing must be written after the roots' Awake has created their ECS
-            // scopes; bound here once so internal hit-spawns route fully in ECS.
-            BindSpawnRouting();
-
-            if (player != null && playerAoeRoot != null)
+            if (player != null && playerCombatRoot != null)
             {
                 PlayGround.Skills.PlayerSkillDriver driver =
                     player.GetComponent<PlayGround.Skills.PlayerSkillDriver>();
-                driver?.BindAoeRoot(playerAoeRoot);
+                driver?.BindCombatRoot(playerCombatRoot);
             }
-        }
-
-        private void BindSpawnRouting()
-        {
-            CombatSpawnRoutingBinder.Bind(playerProjectileRoot, playerAoeRoot);
-            CombatSpawnRoutingBinder.Bind(mobProjectileRoot, mobAoeRoot);
-        }
-
-        private void EnsureCombatRuntimeRoot()
-        {
-            if (combatRuntimeRoot != null)
-            {
-                return;
-            }
-
-            combatRuntimeRoot = GetComponent<CombatRuntimeRoot>();
-            if (combatRuntimeRoot == null)
-            {
-                combatRuntimeRoot = FindAnyObjectByType<CombatRuntimeRoot>();
-            }
-
-            if (combatRuntimeRoot == null)
-            {
-                combatRuntimeRoot = gameObject.AddComponent<CombatRuntimeRoot>();
-            }
-        }
-
-        private void BindCombatScopes()
-        {
-            if (combatRuntimeRoot == null)
-            {
-                return;
-            }
-
-            if (playerProjectileRoot != null)
-            {
-                combatRuntimeRoot.BindScope(playerProjectileRoot, PrimaryTargetSetKey);
-            }
-
-            if (playerAoeRoot != null)
-            {
-                combatRuntimeRoot.BindScope(playerAoeRoot, PrimaryTargetSetKey);
-            }
-
-            if (mobProjectileRoot != null)
-            {
-                combatRuntimeRoot.BindScope(mobProjectileRoot, SecondaryTargetSetKey);
-            }
-
-            if (mobAoeRoot != null)
-            {
-                combatRuntimeRoot.BindScope(mobAoeRoot, SecondaryTargetSetKey);
-            }
-        }
-
-        public void Configure(ProjectileRoot projectileRoot, MobRoot[] mobRoots)
-        {
-            playerProjectileRoot = projectileRoot;
-            mobs = mobRoots;
-        }
-
-        public void Configure(ProjectileRoot projectileRoot, ProjectileRoot mobToPlayerProjectileRoot, PlayGround.Player.PlayerRoot playerRoot, MobRoot[] mobRoots)
-        {
-            playerProjectileRoot = projectileRoot;
-            mobProjectileRoot = mobToPlayerProjectileRoot;
-            player = playerRoot;
-            mobs = mobRoots;
         }
 
         public void Configure(
-            ProjectileRoot projectileRoot,
-            ProjectileRoot mobToPlayerProjectileRoot,
-            AoeRoot playerToMobAoeRoot,
-            AoeRoot mobToPlayerAoeRoot,
+            CombatRoot playerCombat,
+            CombatRoot mobCombat,
             PlayGround.Player.PlayerRoot playerRoot,
             MobRoot[] mobRoots)
         {
-            playerProjectileRoot = projectileRoot;
-            mobProjectileRoot = mobToPlayerProjectileRoot;
-            playerAoeRoot = playerToMobAoeRoot;
-            mobAoeRoot = mobToPlayerAoeRoot;
+            playerCombatRoot = playerCombat;
+            mobCombatRoot = mobCombat;
             player = playerRoot;
             mobs = mobRoots;
         }
 
-        public void Configure(ProjectileRoot projectileRoot, ProjectileRoot mobToPlayerProjectileRoot, PlayGround.Player.PlayerRoot playerRoot, MobSpawnerRoot spawner)
-        {
-            playerProjectileRoot = projectileRoot;
-            mobProjectileRoot = mobToPlayerProjectileRoot;
-            player = playerRoot;
-            mobSpawner = spawner;
-            mobs = null;
-        }
-
         public void Configure(
-            ProjectileRoot projectileRoot,
-            ProjectileRoot mobToPlayerProjectileRoot,
-            AoeRoot playerToMobAoeRoot,
-            AoeRoot mobToPlayerAoeRoot,
+            CombatRoot playerCombat,
+            CombatRoot mobCombat,
             PlayGround.Player.PlayerRoot playerRoot,
             MobSpawnerRoot spawner)
         {
-            playerProjectileRoot = projectileRoot;
-            mobProjectileRoot = mobToPlayerProjectileRoot;
-            playerAoeRoot = playerToMobAoeRoot;
-            mobAoeRoot = mobToPlayerAoeRoot;
+            playerCombatRoot = playerCombat;
+            mobCombatRoot = mobCombat;
             player = playerRoot;
             mobSpawner = spawner;
             mobs = null;

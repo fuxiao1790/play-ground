@@ -14,8 +14,7 @@ namespace PlayGround.Skills
     public sealed class PlayerSkillDriver : MonoBehaviour
     {
         [SerializeField] private PlayerLoadout loadout;
-        [SerializeField] private ProjectileRoot projectileRoot;
-        [SerializeField] private AoeRoot aoeRoot;
+        [SerializeField] private CombatRoot combatRoot;
         [SerializeField] private CombatVfxRoot vfxRoot;
         [SerializeField] private AudioManager audioManager;
 
@@ -30,21 +29,16 @@ namespace PlayGround.Skills
 
         private void Awake()
         {
-            if (projectileRoot == null)
-                projectileRoot = FindRootByTag<ProjectileRoot>(GameplayTags.PlayerProjectileRoot);
+            if (combatRoot == null)
+                combatRoot = FindRootByTag<CombatRoot>(GameplayTags.PlayerProjectileRoot);
 
             audioManager ??= AudioManager.Instance ?? FindAnyObjectByType<AudioManager>();
         }
 
         private void Start()
         {
-            if (vfxRoot != null)
-            {
-                if (projectileRoot != null)
-                    vfxRoot.Bind(((ICombatScopeEndpoint)projectileRoot).ScopeEntity, ((ICombatScopeEndpoint)projectileRoot).EntityManager);
-                if (aoeRoot != null)
-                    vfxRoot.Bind(((ICombatScopeEndpoint)aoeRoot).ScopeEntity, ((ICombatScopeEndpoint)aoeRoot).EntityManager);
-            }
+            if (vfxRoot != null && combatRoot != null)
+                vfxRoot.Bind(combatRoot.ScopeEntity, combatRoot.EntityManager);
             CompileAndRegister();
         }
 
@@ -66,19 +60,19 @@ namespace PlayGround.Skills
                     transform.position,
                     aimDir,
                     aimWorldPos,
-                    projectileRoot,
-                    aoeRoot);
+                    combatRoot);
 
                 slotStates[i].ResetOnFire();
             }
         }
 
-        public void BindAoeRoot(AoeRoot root)
+        public void BindCombatRoot(CombatRoot root)
         {
-            if (aoeRoot == root) return;
-            aoeRoot = root;
-            if (vfxRoot != null && aoeRoot != null)
-                vfxRoot.Bind(((ICombatScopeEndpoint)aoeRoot).ScopeEntity, ((ICombatScopeEndpoint)aoeRoot).EntityManager);
+            if (combatRoot == root) return;
+            combatRoot = root;
+            if (vfxRoot != null && combatRoot != null)
+                vfxRoot.Bind(combatRoot.ScopeEntity, combatRoot.EntityManager);
+            RegisterProjectileTypes();
             RegisterAoeTypes();
         }
 
@@ -154,7 +148,7 @@ namespace PlayGround.Skills
 
         private void RegisterProjectileTypes()
         {
-            if (projectileRoot == null || compiledSlots == null) return;
+            if (combatRoot == null || compiledSlots == null) return;
             for (int i = 0; i < activeSlotCount; i++)
                 RegisterProjectileTypesRecursive(compiledSlots[i]);
         }
@@ -165,7 +159,7 @@ namespace PlayGround.Skills
 
             if (def is RuntimeProjectileDefinition projDef && projDef.Prefab != null && projDef.TypeId < 0)
             {
-                projDef.TypeId = projectileRoot.RegisterTemplate(projDef.Prefab);
+                projDef.TypeId = combatRoot.RegisterTemplate(projDef.Prefab);
                 if (vfxRoot != null)
                 {
                     vfxRoot.Register(projDef.TypeId, 0, projDef.Prefab.SpawnEffect);
@@ -189,7 +183,7 @@ namespace PlayGround.Skills
 
         private void RegisterAoeTypes()
         {
-            if (aoeRoot == null || compiledSlots == null) return;
+            if (combatRoot == null || compiledSlots == null) return;
             for (int i = 0; i < activeSlotCount; i++)
                 RegisterAoeTypesRecursive(compiledSlots[i]);
         }
@@ -220,9 +214,9 @@ namespace PlayGround.Skills
 
         private void RegisterAoeTypeDefinition(RuntimeAoeDefinition aoeDef)
         {
-            if (aoeDef == null || aoeRoot == null || aoeDef.TypeId >= 0) return;
+            if (aoeDef == null || combatRoot == null || aoeDef.TypeId >= 0) return;
             AoeTypeDefinition definition = aoeDef.CreateTypeDefinition();
-            aoeDef.TypeId = aoeRoot.RegisterType(definition);
+            aoeDef.TypeId = combatRoot.RegisterType(definition);
             if (vfxRoot != null)
             {
                 vfxRoot.Register(aoeDef.TypeId, 0, definition.SpawnEffect, requireAreaSizeContract: true);

@@ -126,9 +126,9 @@ namespace PlayGround.System.Projectile
                         VisualScale = new float2(spawner.VisualScale, spawner.VisualScale),
                         VisualRotationSin = spawner.VisualRotationSin,
                         VisualRotationCos = spawner.VisualRotationCos,
-                        RenderZ = ProjectileRoot.ProjectileRenderZ
-                            - (childProjectileId % ProjectileRoot.ProjectileRenderZSlots)
-                            * ProjectileRoot.ProjectileRenderZStep
+                        RenderZ = CombatRoot.ProjectileRenderZ
+                            - (childProjectileId % CombatRoot.ProjectileRenderZSlots)
+                            * CombatRoot.ProjectileRenderZStep
                     }
                 });
             }
