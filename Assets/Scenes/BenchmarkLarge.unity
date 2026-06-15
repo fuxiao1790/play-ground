@@ -839,8 +839,8 @@ MonoBehaviour:
   baseOrthographicSize: 9
   initialZoom: 1.5
   zoomStep: 0.1
-  zoomMin: 1
-  zoomMax: 6
+  minDistance: 1
+  maxDistance: 10
   zoomSpeed: 0.2
   releaseLimits:
     serializedVersion: 2

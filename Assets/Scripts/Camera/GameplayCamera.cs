@@ -14,8 +14,8 @@ namespace PlayGround.CameraSystem
         [SerializeField] private float baseOrthographicSize = 9f;
         [SerializeField] private float initialZoom = 1.5f;
         [SerializeField] private float zoomStep = 0.1f;
-        [SerializeField] private float zoomMin = 0.25f;
-        [SerializeField] private float zoomMax = 4f;
+        [SerializeField] private float minDistance = 0.25f;
+        [SerializeField] private float maxDistance = 4f;
         [SerializeField, Range(0f, 1f)] private float zoomSpeed = 0.2f;
         [SerializeField] private Rect releaseLimits = new(-12f, -7f, 24f, 14f);
         [SerializeField] private bool useReleaseLimits = true;
@@ -28,7 +28,7 @@ namespace PlayGround.CameraSystem
         {
             attachedCamera = GetComponent<Camera>();
             attachedCamera.orthographic = true;
-            currentZoom = Mathf.Clamp(initialZoom, zoomMin, zoomMax);
+            currentZoom = Mathf.Clamp(initialZoom, 1f / maxDistance, 1f / minDistance);
             targetZoom = currentZoom;
             ApplyZoom();
         }
@@ -47,11 +47,11 @@ namespace PlayGround.CameraSystem
             float scroll = mouse != null ? mouse.scroll.ReadValue().y : 0f;
             if (scroll > 0f)
             {
-                targetZoom = Mathf.Clamp(targetZoom * (1f + zoomStep), zoomMin, zoomMax);
+                targetZoom = Mathf.Clamp(targetZoom * (1f + zoomStep), 1f / maxDistance, 1f / minDistance);
             }
             else if (scroll < 0f)
             {
-                targetZoom = Mathf.Clamp(targetZoom / (1f + zoomStep), zoomMin, zoomMax);
+                targetZoom = Mathf.Clamp(targetZoom / (1f + zoomStep), 1f / maxDistance, 1f / minDistance);
             }
         }
 
