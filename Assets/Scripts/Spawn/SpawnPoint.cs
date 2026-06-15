@@ -10,8 +10,6 @@ namespace PlayGround.Spawn
         [SerializeField] private SpawnConfig config;
         [SerializeField, Min(0.05f)] private float spawnInterval = 2f;
         [SerializeField] private bool autostart = true;
-        [SerializeField, Min(0f)] private float spawnRadius = 16f;
-        [SerializeField] private Vector2 spawnOrigin;
         [SerializeField, Min(0f)] private float mobClearanceRadius = 0.5f;
         [SerializeField, Min(0)] private int maxLocalMobs;
         [SerializeField] private bool useConfigTiming = true;
@@ -27,7 +25,7 @@ namespace PlayGround.Spawn
         }
 
         private float EffectiveSpawnInterval => useConfigTiming && config != null ? config.SpawnInterval : spawnInterval;
-        private float EffectiveSpawnRadius => useConfigTiming && config != null ? config.SpawnRadius : spawnRadius;
+        private float EffectiveSpawnRadius => useConfigTiming && config != null ? config.SpawnRadius : transform.localScale.x;
         private float EffectiveMobClearanceRadius => useConfigTiming && config != null ? config.MobClearanceRadius : mobClearanceRadius;
         private int EffectiveMaxLocalMobs => useConfigTiming && config != null ? config.MaxLocalMobs : maxLocalMobs;
 
@@ -57,11 +55,10 @@ namespace PlayGround.Spawn
             Tick(Time.deltaTime);
         }
 
-        public void Configure(MobSpawnPool spawnPool, float interval, float radius, int localCap = 0)
+        public void Configure(MobSpawnPool spawnPool, float interval, int localCap = 0)
         {
             pool = spawnPool;
             spawnInterval = Mathf.Max(0.05f, interval);
-            spawnRadius = Mathf.Max(0f, radius);
             maxLocalMobs = Mathf.Max(0, localCap);
             useConfigTiming = false;
         }
@@ -117,7 +114,7 @@ namespace PlayGround.Spawn
 
         public bool TryFindSpawnPosition(out Vector2 position)
         {
-            Vector2 origin = spawnOrigin == Vector2.zero ? (Vector2)transform.position : spawnOrigin;
+            Vector2 origin = (Vector2)transform.position;
             float searchRadius = Mathf.Max(EffectiveSpawnRadius, EffectiveMobClearanceRadius);
             float minSeparation = EffectiveMobClearanceRadius * 2f;
 
@@ -180,7 +177,7 @@ namespace PlayGround.Spawn
 
         private void OnDrawGizmosSelected()
         {
-            Vector2 origin = spawnOrigin == Vector2.zero ? (Vector2)transform.position : spawnOrigin;
+            Vector2 origin = (Vector2)transform.position;
             Gizmos.color = new Color(1f, 0.75f, 0.1f, 0.9f);
             Gizmos.DrawWireSphere(origin, EffectiveSpawnRadius);
             Gizmos.color = Color.white;

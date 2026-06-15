@@ -1173,7 +1173,7 @@ namespace PlayGround.Tests.PlayMode
             GameObject pointObject = new("SpawnPoint");
             pointObject.transform.SetParent(spawnerObject.transform, false);
             point = pointObject.AddComponent<SpawnPoint>();
-            point.Configure(pool, 10f, 0f, localCap);
+            point.Configure(pool, 10f, localCap);
             spawner.Configure(pool, globalCap, points: new[] { point });
             spawnerObject.SetActive(true);
         }

@@ -240,7 +240,8 @@ namespace PlayGround.Editor
             pointObject.transform.SetParent(parent, false);
             pointObject.transform.position = position;
             SpawnPoint point = pointObject.AddComponent<SpawnPoint>();
-            point.Configure(pool, interval, 1.25f, 4);
+            pointObject.transform.localScale = Vector3.one * 1.25f;
+            point.Configure(pool, interval, 4);
             return point;
         }
 
