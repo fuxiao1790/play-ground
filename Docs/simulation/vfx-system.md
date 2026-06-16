@@ -140,7 +140,7 @@ Managed class; one instance owned by `CombatVfxRoot`.
 | Method | Description |
 |---|---|
 | `Register(typeId, trigger, asset, maxPerFrame)` | Creates one `VisualEffect` GO + `GraphicsBuffer` + `NativeList<float2>` staging. No-op if `asset == null` or already registered. |
-| `StageSpawn(typeId, trigger, position)` | Appends a world position to the staging list for the given key. Called from root LateUpdate after draining the scope buffer. Capped at `maxPerFrame`. |
+| `StageSpawn(typeId, trigger, position)` | Appends a world position to the staging list for the given key. Called from `CombatVfxRoot.DrainAndDispatch` (invoked by `CombatVfxDispatchSystem`). Capped at `maxPerFrame`. |
 | `Dispatch()` | For each registered resource with a non-empty staging list: uploads positions to GPU, sets SpawnCount, fires OnSpawn event, clears staging. |
 | `Dispose()` | Disposes all NativeLists, releases all GraphicsBuffers, destroys all VFX GameObjects. |
 

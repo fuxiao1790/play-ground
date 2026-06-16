@@ -246,17 +246,16 @@ The current implementation uses Entities/DOTS in the shared default world:
 
 - `CombatRoot` creates one shared `CombatScope` entity (serving both the AOE
   and projectile domains) with target, spawn, hit, and VFX buffers.
-- AOE entities carry `AoeTag`, `AoeActiveTag`, `AoeIdentityComponent`, common
-  combat components (including `CombatHitComponent` with `CritChance` and
-  `CritMultiplier` written at spawn time from `AoeSpawnRequestElement`), render
-  data, and hit-spawn snapshot data (`AoeHitSpawnComponent` holding
-  `AoeProjectileBurstSnapshot`).
+ - AOE entities carry `AoeTag`, `AoeActiveTag`, `AoeIdentityComponent`, common
+  combat components, render data, and hit-spawn snapshot data: `AoeHitSpawnComponent`
+  holding the `CombatHitPayload` (crit/damage/stack) and an optional
+  `AoeProjectileBurstSnapshot` for cross-domain follow-ups.
 - AOE systems require `AoeTag`; `CombatScope` is shared across domains, so
   scope membership or common combat components alone do not make an entity
   eligible for AOE simulation.
-- `AoeSpawnSystem` drains scoped spawn buffers and reuses disabled AOE
+ - `AoeSpawnSystem` drains scoped spawn buffers and reuses disabled AOE
   entities by scope/type. Crit values flow from `AoeSpawnCommand` ->
-  `AoeSpawnRequestElement` → `CombatHitComponent` on the entity; no per-AOE
+  `AoeSpawnRequestElement` → `AoeHitSpawnComponent` on the entity; no per-AOE
   dictionary lookup is needed at replay time.
 - `AoeCollisionSystem` runs target-mask filtering and shape collision against
   `CombatTargetElement` snapshots, reads crit and source node data from

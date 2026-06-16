@@ -45,8 +45,8 @@ Current ownership shape:
 - `MobRoot` owns health, status-like local combat reactions, and death cleanup.
 - `ProjectileCollisionSystem` and `AoeCollisionSystem` emit hit events for each
   contact.
-- `ProjectileRoot.DrainHits` and `AoeRoot.DrainHits` replay those hits on the
-  managed side.
+- `CombatHitDispatchSystem`, off the shared `CombatRoot` per faction, replays
+  those hits on the managed side.
 - Plain damage, status effects, and semantic hit effects share the same replay
   stream.
 - GameObjects handle individual hits even when the only required result is a
@@ -214,8 +214,10 @@ that cannot yet be aggregated.
 
 ## Root Drain Refactor
 
-`ProjectileRoot.DrainHits` and `AoeRoot.DrainHits` can be refactored once plain
-damage/status no longer needs individual GameObject callbacks.
+`CombatHitDispatchSystem`'s replay (previously split as separate
+`ProjectileRoot`/`AoeRoot` drains, now unified on the shared `CombatRoot`) can
+be refactored once plain damage/status no longer needs individual GameObject
+callbacks.
 
 Target shape:
 
@@ -268,7 +270,8 @@ Death:
 ## Migration Plan
 
 1. Identify current direct-damage replay responsibilities in
-   `ProjectileRoot.DrainHits` and `AoeRoot.DrainHits`.
+   `CombatHitDispatchSystem` (formerly handled per-domain in separate
+   `ProjectileRoot`/`AoeRoot` drains).
 2. Add ECS combat-state data for registered mobs while keeping existing
    `MobRoot` health path as compatibility.
 3. Add compact health/status sync records and a main-thread presentation bridge.
@@ -277,8 +280,8 @@ Death:
 5. Route direct AOE damage into the same aggregate path.
 6. Split semantic hit events from direct damage/status aggregate data.
 7. Move status stack storage and threshold checks into ECS.
-8. Reduce `ProjectileRoot.DrainHits` and `AoeRoot.DrainHits` to semantic events,
-   VFX requests, and presentation sync.
+8. Reduce `CombatHitDispatchSystem`'s replay to semantic events, VFX requests,
+   and presentation sync.
 9. Remove or narrow managed per-hit damage callbacks after tests prove aggregate
    behavior matches old gameplay.
 
@@ -290,7 +293,7 @@ Death:
   one managed callback per overlap.
 - Main-thread health/status sync cost scales with live target count, not
   projectile count.
-- Projectile and AOE roots no longer need to handle every individual plain hit.
+- `CombatRoot` no longer needs to handle every individual plain hit.
 - Per-hit semantic effects still work for impact AOEs, projectile bursts, and
   authored trigger effects that require hit identity.
 - Debug counters distinguish raw hits, aggregated damage applications,
