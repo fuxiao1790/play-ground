@@ -82,6 +82,87 @@ world, so collision still spans factions and `Scope` is still needed cross-facti
 disappears entirely. Merge first because it puts world+scope ownership in one class,
 making the world split a localized change instead of a 3-class coordination.
 
+## Step 2 alternative: faction-as-component (implemented — Option B)
+
+**Done.** Option B below was implemented in full: `Entity Scope` is gone from
+every component (`ProjectileIdentityComponent`, `AoeIdentityComponent`,
+spawn-request elements, `CombatTargetElement`, `CombatDamageElement`,
+`VfxSpawnRequestElement`, the pending-stream payloads), replaced by a
+`CombatFaction { None, Player, Mob }` enum (`CombatScope.cs`). There is now
+exactly **one** shared `CombatScope` entity for the whole world, ref-counted
+via `CombatScopeOwner.Acquire`/`Release` (mirrors `CombatEcsWorld`); both
+`CombatRoot` instances bind to the same entity. `CombatScopeRenderCatalog`,
+`CombatScopeVfxCatalog`, `CombatTargetSyncSource`, and `CombatDamageTargetSource`
+were deleted — render/VFX/damage-target resolution now goes through
+`CombatRoot.TryGetByFaction`/`CombatVfxRoot.TryGetByFaction` (small static
+2-slot lookups) instead of per-scope managed components. `CombatRenderScope`
+was renamed `CombatRenderFaction`. Collision spatial-hash cell keys, render
+shared-component filters, and spawn reuse-bucket keys all key by `Faction`
+instead of by scope `Entity`.
+
+Key correctness fix found during implementation: `PlayerRoot`/`MobRoot` each
+keep their own independent `nextTargetId` counter, so `TargetId` is **not**
+globally unique (e.g. the player and the first spawned mob can both be
+`TargetId == 1`). `CombatTargetElement`/`CombatDamageElement` carry `Faction`
+specifically so every target lookup and hit-dispatch group key is
+`(TargetId, Faction)`, never `TargetId` alone.
+
+**Runtime bug found and fixed post-merge**: Both `CombatEcsRoot_PlayerToMobs` and
+`CombatEcsRoot_MobToPlayer` GameObjects in `BenchmarkLarge.unity` had
+`m_TagString: Untagged`. Because `ApplyTaggedDefaults` falls back to `Player`
+when no recognised tag is found, both `CombatRoot` instances registered into
+`ByFaction[1]` — whichever `Awake` ran last owned the slot. The render system
+then retrieved the mob root for faction=Player, whose `projectileRenderResourcesByType`
+didn't contain the player TypeId, so no GPU batch was submitted and player
+projectiles were invisible. Fix: set `PlayerProjectileRoot` on
+`CombatEcsRoot_PlayerToMobs` and `MobProjectileRoot` on `CombatEcsRoot_MobToPlayer`
+in the scene YAML. Also added `Debug.LogWarning` in `CombatRoot.Awake` when a
+faction slot is overwritten, to catch this class of misconfiguration earlier.
+
+Also: `CombatRoot.ApplyTaggedDefaults` now always assigns a real `Faction`
+(`Player` by default) even when neither `PlayerProjectileRoot` nor
+`MobProjectileRoot` tag is present — `None` is reserved purely as the
+"never spawned" sentinel on identity components. Without this, untagged
+`CombatRoot`s (the normal pattern in isolated unit tests) would silently have
+every spawn skipped by collision/render/dispatch, since `Faction.None` is
+treated the same way `Entity.Null` used to be.
+
+Original analysis (kept for reference) — step 2 as designed above was
+**faction-per-world**: split into two `World`s, so
+`Scope` disappears because cross-faction collision becomes structurally
+impossible. An alternative raised after the merge landed: keep one `World`,
+replace the `Scope` entity-reference with a `Faction` component instead of
+splitting worlds. Two shapes, increasing in how much each actually removes
+`Scope`:
+
+- **A — `Faction` tag, keep 2 `CombatScope` entities.** Swap the `Entity Scope`
+  field on `ProjectileIdentityComponent`/`AoeIdentityComponent` for a `Faction`
+  enum (Player/Mob). Buffer access resolves the owning scope entity via a small
+  faction→entity lookup (only 2 values, no hashmap) instead of reading the
+  field directly. Win: identity is self-describing instead of an opaque entity
+  ref, and scope rebuild/teardown can't leave a stale `Entity` on an
+  already-spawned identity. Loss: adds one indirection step in collision hot
+  loops where today it's a direct field read — same depth as now, just
+  relabeled. Does **not** remove the `WithAll<CombatScope>` "iterate all
+  scopes" pattern in `ProjectileCollisionSystem.cs:53,73` /
+  `AoeCollisionSystem.cs:37-39`.
+- **B — true single scope.** Drop the second `CombatScope` entity. One shared
+  `CombatTargetElement`/`CombatDamageElement`/spawn-request buffer set for the
+  whole world, each element carries a `Faction` field; collision/spawn code
+  filters by that value instead of by which entity owns the buffer. Removes
+  the `WithAll<CombatScope>` iteration outright. Gets functionally closer to
+  "no `Scope`" than the world split, without the cost of a second `World`
+  (duplicate `EntityManager`, job scheduling, update groups). Cost:
+  cross-faction isolation goes from structural (separate entities — can't
+  leak) to a filter you must get right (miss it once, cross-faction hit leaks
+  through). Matches `docs/simulation/ecs-notes.md`'s "value groups — group
+  entities by component value for cheap filtering" guidance.
+
+Not decided. B reads as the more promising alternative to the world-split if
+step 2 is revisited — smaller blast radius than a second `World`, but trades a
+structural guarantee for a filtering discipline that has to be maintained
+correctly in every collision/spawn job that touches faction-partitioned data.
+
 ## Decisions (resolved)
 
 - **Render resources → static int-keyed registry** (like `CombatVfxRoot`); ECS
@@ -94,8 +175,16 @@ making the world split a localized change instead of a 3-class coordination.
 
 ## Status
 
-Design only. Not started. Prior effort (internal-spawn-rework) is implemented but
-uncompiled; note this merge will delete the `CombatSpawnRouting`/binder it added.
+**Done, including the step-2 alternative.** `CombatRoot.cs`
+(`Assets/Scripts/System/Common/CombatRoot.cs`) merges the three classes;
+`ProjectileRoot`/`AoeRoot`/`CombatRuntimeRoot`/`CombatSpawnRouting` no longer
+exist in `Assets/`. Two `CombatRoot` instances are still wired in `GameRoot.cs`
+(`playerCombatRoot`, `mobCombatRoot`), but they now bind to the **same single
+shared `CombatScope` entity** (ref-counted via `CombatScopeOwner`), and
+`Entity Scope` is gone from every component in favor of a `CombatFaction`
+enum. See "Step 2 alternative: faction-as-component (implemented — Option B)"
+below for the full design and the `TargetId`-uniqueness fix that came out of
+implementing it.
 
 
 # Plan To Merge Combat Roots into `CombatRoot` (world-as-scope, step 1)
