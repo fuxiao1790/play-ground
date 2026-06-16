@@ -123,7 +123,7 @@ auto-incremented int so ECS never holds a managed reference.
 
 Registerers (`PlayerSkillDriver`, `MobProjectileAttack`) hold a serialized
 `vfxRoot` field and call `vfxRoot.Register(...)` directly after registering
-with `ProjectileRoot`/`AoeRoot`. Neither domain root depends on `CombatVfxRoot`.
+with `CombatRoot`. `CombatRoot` does not depend on `CombatVfxRoot`.
 
 ### `CombatVfxDispatchSystem` (`Assets/Scripts/System/Vfx/CombatVfxDispatchSystem.cs`)
 
@@ -292,20 +292,20 @@ no-op. Set from `RepeatHitCooldownSeconds` on the spawn request.
   2. Iterates scope entities; resolves `CombatVfxRoot` from static registry
   3. Calls `root.DrainAndDispatch(buffer)` per scope
 
-`ProjectileRoot` and `AoeRoot` do not own or reference `CombatVfxDispatcher`.
-Their `BindWorld` methods still add the `VfxSpawnRequestElement` buffer to scope
-entities (needed by simulation jobs), but drain and dispatch are handled
+`CombatRoot` does not own or reference `CombatVfxDispatcher`. Its `BindWorld`
+method still adds the `VfxSpawnRequestElement` buffer to the shared scope
+entity (needed by simulation jobs), but drain and dispatch are handled
 entirely by `CombatVfxDispatchSystem`.
 
 ---
 
 ## Scope Buffers
 
-`VfxSpawnRequestElement` is added to scope entities at root setup alongside the
-existing hit buffers:
+`VfxSpawnRequestElement` is added to the scope entity at root setup alongside
+the existing hit buffers:
 
-- `ProjectileRoot`: added in `BindWorld`
-- `AoeRoot`: added in `BindWorld`
+- `CombatRoot`: added once in `BindWorld`, on the single shared `CombatScope`
+  entity serving both the projectile and AOE domains
 
 Systems write to the buffer via `VfxFlushJob` using `BufferLookup<VfxSpawnRequestElement>`.
 `CombatVfxDispatchSystem` drains and clears the buffer each `PresentationSystemGroup`

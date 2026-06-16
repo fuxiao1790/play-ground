@@ -30,23 +30,26 @@ Non-goal:
 
 ## Scoped Roots
 
-One `AoeRoot` class serves both targeting directions. The scene contains two
+AOE-domain Unity interop is served by `CombatRoot`, the same per-faction root
+that serves the projectile domain (see
+[projectile-system.md](./projectile-system.md)). The scene contains two
 instances: one configured for player AOEs targeting mob hurtboxes, one for mob
-AOEs targeting player hurtboxes. The class itself is not split.
+AOEs targeting player hurtboxes. The class itself is not split by domain.
 
 Each root instance owns:
 
-- one DOTS scope entity in `World.DefaultGameObjectInjectionWorld`
+- one shared DOTS `CombatScope` entity in `World.DefaultGameObjectInjectionWorld`,
+  serving both the AOE and projectile domains
 - one Unity adapter boundary
 - AOE effect template cache
 - target hurtbox shape cache
 - listener maps for gameplay callbacks
-- batched AOE render resources
+- a static int-keyed AOE render-resource registry (mirrors `CombatVfxRoot`)
 - profiling counters and visual budget ownership
 
 ## Boundary Rule
 
-`AoeRoot` may:
+`CombatRoot` may:
 
 - read target registries
 - validate live Unity objects
@@ -141,13 +144,13 @@ Basic pulse authoring steps:
    - `tickIntervalSeconds`: unused by current pulse AOEs
    - `count`: number of AOEs spawned per cast
    - `targetMask`: leave as `1` to use the owning root mask
-7. Add or select an `AoeRoot` scene object for the targeting direction.
+7. Add or select a `CombatRoot` scene object for the targeting direction.
 8. Set the root `targetMask` to the intended hurtbox layer mask. Player AOEs
    targeting mobs use `MobHurtbox`; mob AOEs targeting player use
    `PlayerHurtbox`.
 9. Create an attack prefab under `Assets/Prefabs/Attacks/` with `AoeAttack`.
-10. Assign `AoeAttack.aoeRoot`, assign the AOE config, and tune only
-   attack-instance fields such as recovery and sound on the component.
+10. Assign `AoeAttack`'s `CombatRoot` reference, assign the AOE config, and
+   tune only attack-instance fields such as recovery and sound on the component.
 11. Put the attack prefab under `Player/Attacks` and enable the component on the
    scene instance.
 
@@ -188,7 +191,7 @@ The intended flow lives in the attack layer:
 1. projectile hits valid mob
 2. hit effect adds stacks to mob status slot
 3. threshold clears that slot
-4. effect spawns AOE through player AOE root
+4. effect spawns AOE through the player-faction `CombatRoot`
 5. AOE damage is applied by common combat damage dispatch
 
 Default explosion position is mob position, not projectile edge contact.
@@ -232,7 +235,7 @@ Required practices:
 Scene-object bridge:
 
 - actor hurtboxes are registered from player and mob GameObjects
-- `AoeRoot` snapshots target state into its `AoeScope` entity
+- `CombatRoot` snapshots target state into its shared `CombatScope` entity
 - AOE ECS systems emit plain hit events into scoped buffers
 - root replays hits to actor components after simulation
 - Physics2D remains responsible for player/mob/wall body collision
@@ -241,36 +244,42 @@ Scene-object bridge:
 
 The current implementation uses Entities/DOTS in the shared default world:
 
-- `AoeRoot` creates an `AoeScope` entity with target, spawn, hit, and VFX buffers.
+- `CombatRoot` creates one shared `CombatScope` entity (serving both the AOE
+  and projectile domains) with target, spawn, hit, and VFX buffers.
 - AOE entities carry `AoeTag`, `AoeActiveTag`, `AoeIdentityComponent`, common
   combat components (including `CombatHitComponent` with `CritChance` and
   `CritMultiplier` written at spawn time from `AoeSpawnRequestElement`), render
   data, and hit-spawn snapshot data (`AoeHitSpawnComponent` holding
   `AoeProjectileBurstSnapshot`).
-- AOE systems require `AoeTag` or `AoeScope`; common combat components alone do
-  not make an entity eligible for AOE simulation.
+- AOE systems require `AoeTag`; `CombatScope` is shared across domains, so
+  scope membership or common combat components alone do not make an entity
+  eligible for AOE simulation.
 - `AoeSpawnSystem` drains scoped spawn buffers and reuses disabled AOE
   entities by scope/type. Crit values flow from `AoeSpawnCommand` ->
   `AoeSpawnRequestElement` → `CombatHitComponent` on the entity; no per-AOE
   dictionary lookup is needed at replay time.
 - `AoeCollisionSystem` runs target-mask filtering and shape collision against
   `CombatTargetElement` snapshots, reads crit and source node data from
-  `AoeHitSpawnComponent`, and emits separate `CombatPendingDamage` and
-  `CombatPendingSpawn` queues. `CombatHitFlushJob` drains those queues into scoped
-  `CombatDamageElement` and `CombatSpawnElement` buffers. Common presentation
-  applies damage/status data directly to targets; internal projectile-burst spawn
-  effects route through `HitSpawn`. Do not expose
-  `CombatSpawnElement` to external scene listeners.
+  `AoeHitSpawnComponent`, and writes hits into two separate `NativeStream`
+  lanes via `ParallelWriter`: a damage lane (`CombatPendingDamage`) and a
+  spawn lane (`CombatPendingSpawn`). `CombatHitFlushJob` drains the damage
+  lane into scoped `CombatDamageElement` buffers only; common presentation
+  (`CombatHitDispatchSystem`) applies that damage to targets. `CombatSpawnConvertJob`
+  drains the spawn lane and writes AOE projectile-burst follow-ups directly
+  into `ProjectileSpawnRequestElement` on the producing scope, same frame —
+  no managed routing, no `CombatSpawnElement`/`HitSpawn` indirection.
 - `AoeContactGateSystem` decrements lingering repeat-hit gates and compacts
   expired entries.
 - `AoeSimulationSystem` clears scoped damage/spawn buffers and expires lingering AOEs.
 - `CombatRenderPrepareSystem` writes render matrices for active AOEs, and
-  `AoeRoot` submits GPU-instanced batches.
+  `CombatBatchedRenderSystem` submits GPU-instanced batches, resolving each
+  scope's render resources from the owning `CombatRoot`'s static int-keyed
+  registry.
 - Trigger-link snapshot type `AoeProjectileBurstSnapshot` lives in
   `PlayGround.System.Common` (alongside `ProjectileImpactAoeSnapshot`,
   `ProjectileImpactProjectileSnapshot`, `ProjectileTrackingConfig`) so the
-  internal core effect buffer can carry projectile-burst spawn data without
-  exposing it through scene hit context.
+  internal `CombatPendingSpawn` payload can carry projectile-burst spawn data
+  without exposing it through scene hit context.
 
 ## Tests To Port
 

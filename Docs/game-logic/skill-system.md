@@ -31,8 +31,8 @@ Trigger Links between sets, and the input bindings for root sets.
 
 ## Architecture
 
-The skill system drives the combat runtime without knowing about `ProjectileRoot`,
-`AoeRoot`, or any internal config types. A translation layer sits between the two.
+The skill system drives the combat runtime without knowing about `CombatRoot`
+or any internal config types. A translation layer sits between the two.
 The skill system only crosses the boundary through that layer. The player-facing
 authoring surface is limited to skill system types.
 
@@ -61,8 +61,8 @@ authoring surface is limited to skill system types.
                  │ drives
 ┌────────────────▼────────────────┐
 │  Combat runtime (internal)      │
-│  ProjectileRoot, AoeRoot,       │
-│  ECS systems, MonoBehaviours    │
+│  CombatRoot, ECS systems,       │
+│  MonoBehaviours                 │
 └─────────────────────────────────┘
 
 Layer 1.5 (PlayerStatAggregator) — stateless utility used by Layer 1. Not a chain tier.
@@ -105,13 +105,13 @@ Types: `PlayerSkillDriver`, `SkillSlotState`, `SkillSetCompiler`
 
 - Reads the flat `PlayerStatSnapshot` from Layer 1.5 — does not compute stats
 - Compiles `SkillSet` + snapshot into `RuntimeSkillDefinition` trees whenever stats change
-- After compile: registers `BasicAttackPrefab` templates with `ProjectileRoot` and
-  `AoeTypeDefinition` entries with `AoeRoot`; stores resolved type IDs into compiled
-  definitions. Re-registration on equip change is safe — roots deduplicate by reference.
+- After compile: registers `BasicAttackPrefab` templates and `AoeTypeDefinition`
+  entries with the bound `CombatRoot`; stores resolved type IDs into compiled
+  definitions. Re-registration on equip change is safe — `CombatRoot` deduplicates by reference.
 - Owns `SkillSlotState` per root slot: tracks cooldown elapsed time, gates input-driven casts
 - On player input: checks slot cooldown; if ready, calls `SkillSpawnTranslator` and resets timer
 - On Layer 1 change: recompiles affected paths, re-registers types, updates slot `recoveryTime`
-- Holds scene-side references to `ProjectileRoot`, `AoeRoot`, `AudioManager` — internal wiring only
+- Holds scene-side references to `CombatRoot`, `AudioManager` — internal wiring only
 
 `SkillSlotState` per root slot:
 - `elapsedSinceLastFire` — ticked each frame, reset on successful fire
@@ -123,16 +123,17 @@ Types: `PlayerSkillDriver`, `SkillSlotState`, `SkillSetCompiler`
 
 Types: `SkillSpawnTranslator`
 
-Stateless utility — not a chain tier. Both roots require visual types to be pre-registered
-before any spawn; they bake sprite mesh, material, and VFX handlers at registration time
-and return a type ID used in spawn commands. IDs are generated inside the roots; roots
-deduplicate (re-registering same definition returns the existing ID). Type ID resolution
-is state — it belongs in Layer 2, not here.
+Stateless utility — not a chain tier. `CombatRoot` requires visual types to be
+pre-registered before any spawn; it bakes sprite mesh, material, and VFX
+handlers at registration time and returns a type ID used in spawn commands.
+IDs are generated inside `CombatRoot`; it deduplicates (re-registering same
+definition returns the existing ID). Type ID resolution is state — it belongs
+in Layer 2, not here.
 
 `SkillSpawnTranslator` takes a `RuntimeSkillDefinition` with type IDs already resolved
 by Layer 2 + origin + aim; resolves AOE spawn geometry (logical collision size
-and visual sprite scale) before submitting spawn requests to the appropriate
-root; returns nothing.
+and visual sprite scale) before submitting spawn requests to `CombatRoot`;
+returns nothing.
 
 ---
 
@@ -471,8 +472,8 @@ compileLoadout(PlayerLoadout loadout):
     rootSets = [ slot.skillSet for each SkillSetSlot in slots if slot.skillSet not in effects ]
     for each rootSet:
         compiledSlots[i] = compile(rootSet, chains, snapshot)
-    RegisterProjectileTypes()   // walk compiled trees; call projectileRoot.RegisterTemplate per unique prefab
-    RegisterAoeTypes()          // walk compiled trees; call aoeRoot.RegisterType per unique AoeTypeDefinition
+    RegisterProjectileTypes()   // walk compiled trees; call combatRoot.RegisterTemplate per unique prefab
+    RegisterAoeTypes()          // walk compiled trees; call combatRoot.RegisterType per unique AoeTypeDefinition
 ```
 
 The compiled runtime tree feeds directly into the existing spawn request and
@@ -483,14 +484,14 @@ skill system above them.
 
 After compilation, `PlayerSkillDriver` recursively walks all compiled trees:
 - Projectile prefabs: each unique `BasicAttackPrefab` is registered once with
-  `ProjectileRoot.RegisterTemplate`; the returned `TypeId` is stored on the
+  `CombatRoot.RegisterTemplate`; the returned `TypeId` is stored on the
   `RuntimeProjectileDefinition`.
 - AOE definitions: each `RuntimeAoeDefinition` is converted to an
-  `AoeTypeDefinition` and registered with `AoeRoot.RegisterType`; the returned
-  `TypeId` is stored. Both roots deduplicate — re-registering the same reference
+  `AoeTypeDefinition` and registered with `CombatRoot.RegisterType`; the returned
+  `TypeId` is stored. `CombatRoot` deduplicates — re-registering the same reference
   returns the existing ID.
 
-Registration re-runs via `BindAoeRoot` whenever `AoeRoot` is wired after compile.
+Registration re-runs via `BindAoeRoot` whenever `CombatRoot` is wired after compile.
 
 ---
 
@@ -534,8 +535,8 @@ editors, skill slot UIs, or player save data:
 | `TriggerLink` | Trigger condition and parameters; no source/target references |
 | `PlayerLoadout` | Ordered slot list; live equipment state |
 
-Internal runtime types (`ProjectileRoot`, `AoeRoot`, ECS systems) are not
-exposed to the player-facing authoring surface.
+Internal runtime types (`CombatRoot`, ECS systems) are not exposed to the
+player-facing authoring surface.
 
 ### Asset Locations
 

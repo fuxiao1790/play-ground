@@ -212,12 +212,13 @@ When entities need frequent state changes every frame:
 
 ### Current AOE Pool Pattern
 
-- AOE roots and projectile roots share `World.DefaultGameObjectInjectionWorld`.
-- AOE scope entities carry `AoeScope`; projectile scope entities carry
-  `ProjectileScope`.
-- AOE entities carry `AoeTag` plus common `CombatKinematicsComponent`,
+- Each faction's `CombatRoot` shares `World.DefaultGameObjectInjectionWorld`
+  through one `CombatScope` entity that serves both the AOE and projectile
+  domains.
+- `CombatScope` is shared across domains, so it no longer implies domain by
+  itself. AOE entities carry `AoeTag` plus common `CombatKinematicsComponent`,
   `CombatCollisionComponent`, and `CombatHitComponent`. AOE systems must query
-  `AoeTag` or `AoeScope`, never common combat components alone.
+  `AoeTag`, never common combat components or scope membership alone.
 - Runtime despawn disables `AoeActiveTag`.
 - `AoeSpawnSystem` groups spawn requests by scope and AOE type id, then queries
   matching disabled chunks before materializing cold creates.
@@ -258,48 +259,35 @@ the current direct bucket job for normal many-bucket frames, but for very large
 single-bucket frames count matching chunks on workers, build only a chunk prefix
 on the main thread, and schedule parallel reset slices without unsafe atomics.
 
-### Known Design Issues: Presentation Bridge
+### Presentation Bridge (resolved)
 
-Current projectile and AOE roots use `LateUpdate()` to pull ECS buffers for
-batched render submission, VFX buffer upload/dispatch, and hit-event replay.
-This is a temporary bridge, not the desired ownership model.
+`CombatRoot` has no `Update()`/`LateUpdate()` at all. It is a pure
+authoring/registry MonoBehaviour: it owns serialized references, bakes
+templates/types, and exposes a static int-keyed registry for render
+resources (mirrors `CombatVfxRoot`'s registry). All per-frame draining moved
+into explicit ECS systems instead of scene-object callbacks:
 
-Problems:
+- `CombatTargetSyncSystem` (`SimulationSystemGroup`, `OrderFirst = true`):
+  finds scope entities carrying a managed `CombatTargetSyncSource` component
+  and invokes its `Sync` callback to refresh the scope's
+  `CombatTargetElement` buffer from `CombatRoot`'s `CombatTargetRegistry`.
+- `CombatBatchedRenderSystem` (`PresentationSystemGroup`): resolves each
+  scope's owning `CombatRoot` by static int key and submits batched render
+  instances through two tag-scoped queries (`ProjectileTag`/`AoeTag`), pulling
+  render resources from the root's registry, not from per-scope managed state.
+- `CombatHitDispatchSystem` (`PresentationSystemGroup`): replays
+  `CombatDamageElement` buffers into `ICombatTarget.ReceiveHits`.
+- `CombatVfxDispatchSystem` (`PresentationSystemGroup`): resolves each scope's
+  `CombatVfxRoot` by static int key and drains/dispatches VFX requests.
 
-- ECS simulation and MonoBehaviour lifecycle are coupled too tightly.
-- Root scripts need repeated runtime/lifecycle guards because presentation work
-  is driven by Unity object callbacks instead of an explicit combat phase.
-- Projectile and AOE roots duplicate the same bridge pattern for target sync,
-  VFX drain, hit replay, render submission, and teardown checks.
-- Presentation work is ordered by scene-object callback timing, which is harder
-  to reason about than an ECS-owned post-simulation/presentation phase.
-- VFX request buffers are ECS data, but GPU staging and dispatch are owned by
-  root `LateUpdate()` code, so buffer lifetime and root lifetime stay tangled.
+This satisfies the prior target direction: ECS owns simulation state, event
+buffers, and render/VFX request data; MonoBehaviours stay authoring/lifetime
+owners only; presentation timing is explicit system-group ordering instead of
+scene-object callback timing; GPU resource ownership stays with whichever
+root/dispatcher created the `GraphicsBuffer`/`Material`/`Mesh`.
 
-Target direction:
-
-- Keep ECS as the owner of scalable simulation state, event buffers, recycle
-  buffers, and render/VFX request data.
-- Move post-simulation draining into a single explicit combat presentation phase
-  after projectile/AOE simulation and render-matrix preparation.
-- Keep MonoBehaviours as authoring/lifetime owners only: they register
-  resources, target registries, materials, VFX graph assets, and callback sinks.
-- Avoid per-root `LateUpdate()` polling for ECS buffers. Roots may expose narrow
-  presentation endpoints, but they should not decide when ECS data is drained.
-- Centralize lifecycle checks at bind/unbind of the presentation bridge instead
-  of repeating them in every per-frame root callback.
-- Keep GPU resource ownership explicit: whoever creates `GraphicsBuffer`,
-  `Material`, `Mesh`, `EntityQuery`, or persistent native containers must also
-  release them on the matching teardown path.
-
-Open design questions:
-
-- Whether combat presentation should be one managed ECS system, a shared
-  `CombatPresentationRoot`, or a small service owned by `GameRoot`.
-- Whether projectile and AOE render submission should share one grouped submit
-  path keyed by scope/type instead of per-domain root loops.
-- How VFX graph resources should be registered so ECS can batch request data
-  without knowing about Unity scene objects.
+Remaining open question: collision event dispatch (below) still crosses to
+managed code per hit-event run rather than fully aggregating by target.
 
 ### Known Design Issues: Collision Event Dispatch
 

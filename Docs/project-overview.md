@@ -56,10 +56,8 @@ It should contain:
 - `PlayArea`: configurable arena bounds and collision, with 1280x720 only as the current prototype default
 - `Player`: player prefab instance
 - `MobSpawnerRoot`: spawn cap and spawn point coordination
-- `ProjectileRoot_PlayerToMob`: scoped player projectile runtime
-- `ProjectileRoot_MobToPlayer`: scoped mob projectile runtime
-- `AoeRoot_PlayerToMob`: scoped player AOE runtime
-- `AoeRoot_MobToPlayer`: scoped mob AOE runtime
+- `PlayerCombatRoot`: `CombatRoot` instance for player-fired projectiles and AOEs targeting mobs
+- `MobCombatRoot`: `CombatRoot` instance for mob-fired projectiles and AOEs targeting the player
 - `DebugOverlay`: shared top-left runtime debug text
 
 ## Controls

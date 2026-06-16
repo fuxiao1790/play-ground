@@ -210,7 +210,7 @@ MonoBehaviour:
   animator: {fileID: 0}
   target: {fileID: 0}
   speed: 1.875
-  maxHealth: 50000
+  maxHealth: 500000
   hurtFlashSeconds: 0.08
   targetRadius: 0.35
   behaviours:
@@ -225,7 +225,7 @@ MonoBehaviour:
   - triggerKey: on_target_seen
     behaviourKey: swarm_target
   projectileAttackEnabled: 1
-  projectileRoot: {fileID: 0}
+  combatRoot: {fileID: 0}
   projectileCooldown: 1.4
   projectileRange: 4.0625
   projectileSpawnOffset: 0.375

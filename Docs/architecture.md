@@ -33,19 +33,21 @@ High-level runtime path:
 3. `PlayerRoot` samples movement, dash, facing, animation, and attack loadout helpers.
 4. `MobSpawnerRoot` asks spawn points for spawn requests and enforces caps.
 5. `MobRoot` drains local events and updates behavior through a separate behavior FSM.
-6. Projectile roots enqueue spawn requests and sync target snapshots into ECS
-   scope entities; projectile ECS systems materialize/reuse projectile entities
-   and emit damage/spawn events. Common presentation applies damage, while roots
-   route spawn events.
-7. AOE roots enqueue spawn requests and sync target snapshots into ECS scope
-   entities; AOE ECS systems materialize/reuse AOE entities and emit
-   damage/spawn events. Common presentation applies damage, while roots route
-   spawn events.
+6. Each `CombatRoot` (one per faction) owns one shared `CombatScope` entity that
+   serves both the projectile and AOE domains; it enqueues spawn requests and
+   syncs target snapshots into that scope, and projectile/AOE ECS systems
+   materialize/reuse entities from it and emit damage/spawn events.
+7. Collision systems split hit output into a damage stream and a spawn stream.
+   `CombatHitFlushJob` flushes damage into scope `CombatDamageElement` buffers;
+   `CombatHitDispatchSystem` (`PresentationSystemGroup`) replays it into
+   `ICombatTarget.ReceiveHits`. `CombatSpawnConvertJob` converts the spawn
+   stream directly into `ProjectileSpawnRequestElement`/`AoeSpawnRequestElement`
+   on the producing scope, same frame — impact AOEs, impact projectile bursts,
+   and AOE projectile bursts need no managed routing.
 8. `CombatVfxDispatchSystem` (in `PresentationSystemGroup`) drains
    `VfxSpawnRequestElement` scope buffers and dispatches staged spawn events to
    the GPU through the registered `CombatVfxRoot`.
-9. `GameRoot` wires the managed combat spawn router for cross-domain commands.
-10. `DebugOverlay` gathers scene-level counters.
+9. `DebugOverlay` gathers scene-level counters.
 
 ## Scene And Prefab Ownership
 
@@ -59,7 +61,7 @@ General rule:
 
 ## Target Ownership Map
 
-- `Assets/Scenes/Main.unity`: entry composition root with camera, player, play area, spawner, projectile roots, AOE roots, and debug overlay
+- `Assets/Scenes/Main.unity`: entry composition root with camera, player, play area, spawner, combat roots, and debug overlay
 - `GameRoot`: binds shared scene services, target registries, and high-level diagnostics
 - `PlayAreaRoot`: owns configurable arena bounds, wall visuals, and environment colliders
 - `PlayerRoot`: owns Rigidbody2D, body collider, hurtbox, sprite/Animator, attack child components, movement helper, facing helper, animation helper, and attack loadout
@@ -72,7 +74,11 @@ General rule:
 - `MobRoot`: owns Rigidbody2D, body collider, hurtbox, sprite/Animator, health, behavior FSM, local event queue, trigger updates, selected behavior, optional projectile attack, death notification, and cleanup scheduling
 - `MobSpawnerRoot`: owns global spawn cap and final mob instantiation
 - `SpawnPoint`: owns local timer, overlap checks, and optional spawn pool
-- `ProjectileRoot`: owns one scoped projectile flow, target registry reference, template baking, listener maps, event replay, and rendering coordination
+- `CombatRoot`: one instance per faction (player-combat, mob-combat); owns one
+  shared `CombatScope` entity serving both projectile and AOE domains, target
+  registry reference, template/type baking for both domains, static int-keyed
+  render-resource registries (mirrors `CombatVfxRoot`), event replay, and
+  spawn-request submission
 - `System/Common`: owns shared combat ECS components, `CombatShapeType`, collider
   shape baking, bounds, and shape collision math used by projectile and AOE
   domains
@@ -86,11 +92,9 @@ General rule:
 - `ProjectileLifetimeSystem`: owns lifetime countdown and disabling expired projectile entities
 - `ProjectileContactGateSystem`: owns repeat-hit gate cooldown expiry
 - `ProjectileCollisionSystem`: owns projectile target mask filtering, baked-shape hit checks, pierce handling, damage/spawn event output, and hit-despawn deactivation
-- `ProjectileRoot`: owns scoped projectile bridge cleanup and destroys scoped entities only when the root tears down
 - `CombatCollisionMath`: owns pure circle, rectangle, and capsule bounds and
   narrow-phase math; projectile code reaches it through a projectile
   compatibility adapter where old APIs still exist
-- `AoeRoot`: owns one scoped AOE target flow, AOE template baking, target sync, optional effect lifetime, hit replay, and spawn requests
 - `AoeSimulationSystem`: clears per-scope AOE hit buffers at the start of the simulation stage
 - `AoeSpawnSystem`: drains scoped AOE spawn request buffers, reuses disabled AOE entities by scope/type, and cold-creates only when no reusable entity exists
 - `AoeCollisionSystem`: owns AOE target mask filtering, baked-shape hit checks, damage/spawn event output, and pulse deactivation
@@ -138,9 +142,10 @@ Data-runtime side:
 - target snapshots used by attack collision
 
 Projectile and AOE data-runtime entities must carry explicit domain tags
-(`ProjectileTag` or `AoeTag`) or scope components (`ProjectileScope` or
-`AoeScope`). Common combat components alone are not enough to make an entity
-eligible for a domain system.
+(`ProjectileTag` or `AoeTag`). One `CombatScope` entity per faction now serves
+both domains, so scope alone no longer disambiguates domain — the domain tag is
+the only discriminator. Common combat components alone are not enough to make
+an entity eligible for a domain system.
 
 Do not move player and mob body collision into the projectile/AOE runtime. Also
 do not move high-count projectiles and AOEs into one GameObject per gameplay
@@ -152,18 +157,22 @@ state, simulation, pooling, and event buffers. Cross-boundary communication must
 stay narrow: snapshots go into data runtimes, replayable events come back out.
 
 Damage application and internal combat follow-up effects are separate contracts.
-Common presentation applies damage/status events to targets. Follow-up spawns
-such as impact AOEs, impact projectiles, and AOE projectile bursts travel
-through internal `HitSpawn` routing with `CombatSpawnElement`. Do not expose
-`CombatSpawnElement` or future core-only ECS payloads through damage APIs.
+Common presentation applies damage events to targets via `CombatHitDispatchSystem`.
+Follow-up spawns such as impact AOEs, impact projectiles, and AOE projectile
+bursts never cross into managed code: `CombatSpawnConvertJob` converts the
+internal `CombatPendingSpawn` stream directly into
+`ProjectileSpawnRequestElement`/`AoeSpawnRequestElement` on the producing scope,
+same frame. Do not route internal-only spawn payloads through scene-facing
+damage/target APIs.
 
 The bridge is snapshots and callbacks:
 
 1. actor GameObjects register hurtboxes with target registries
 2. attack roots snapshot target positions and baked hurtbox shapes
 3. data runtimes or ECS systems simulate hits
-4. common presentation applies damage back to actor components, while roots
-   route internal hit-spawn effects through combat-owned services
+4. common presentation applies damage back to actor components; internal
+   hit-spawn follow-ups materialize as new ECS entities the same frame and
+   never cross back into managed roots
 5. actors apply health, status stacks, animation requests, death notification,
    and cleanup scheduling
 

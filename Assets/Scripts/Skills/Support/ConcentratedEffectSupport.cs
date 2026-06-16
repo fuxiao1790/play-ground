@@ -7,8 +7,7 @@ namespace PlayGround.Skills
     public sealed class ConcentratedEffectSupport : AdditiveSupport
     {
         [SerializeField, FormerlySerializedAs("sizeMultiplier"), Min(0.01f)]
-        private float areaSizeMultiplier = 1.5f;
-        [SerializeField] private float addedDamage = 5f;
+        private float areaSizeMultiplier = 0.75f;
 
         public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Aoe;
 
@@ -17,7 +16,6 @@ namespace PlayGround.Skills
             if (def is AoeDefinitionBase a)
             {
                 a.baseAreaSize *= areaSizeMultiplier;
-                a.damage += addedDamage;
             }
         }
     }

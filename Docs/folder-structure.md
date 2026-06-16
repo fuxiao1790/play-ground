@@ -105,9 +105,12 @@ Create these as systems are ported:
   narrow-phase collision math
 - `Assets/Scripts/System/Common/CombatRenderComponents.cs`: shared batched
   sprite render ECS data and matrix preparation for projectile and AOE visuals
-- `Assets/Scripts/System/Projectile/ProjectileRoot.cs`: scene-object bridge,
-  spawn request submission, target snapshot sync, hit replay, raw payload
-  dispatch, counters, and batched render submission
+- `Assets/Scripts/System/Common/CombatRoot.cs`: scene-object bridge, one
+  instance per faction; owns one shared `CombatScope` entity serving both
+  projectile and AOE domains, spawn request submission for both domains,
+  target snapshot sync, hit replay, counters, and static int-keyed
+  render-resource registries (mirrors `CombatVfxRoot`); render submission
+  itself lives in `CombatBatchedRenderSystem`, not in `CombatRoot`
 - `Assets/Scripts/System/Projectile/ProjectileSimulationSystem.cs`: per-scope
   projectile event buffer clearing at the start of simulation
 - `Assets/Scripts/System/Projectile/ProjectileSpawnSystem.cs`: per-scope
@@ -129,14 +132,17 @@ Create these as systems are ported:
   hit-despawned projectiles
 - `Assets/Scripts/System/Projectile/ProjectileCollisionMath.cs`: projectile
   compatibility adapter over shared common collision math
-- projectile render submission lives in `ProjectileRoot`; shared matrix
+- projectile render submission lives in `CombatBatchedRenderSystem`, which
+  resolves the owning `CombatRoot` by static int key; shared matrix
   preparation lives in `Assets/Scripts/System/Common/CombatRenderComponents.cs`
 
 ## Current AOE Runtime Map
 
-- `Assets/Scripts/System/Aoe/AoeRoot.cs`: scene-object bridge, AOE type baking,
-  spawn request submission, target snapshot sync, hit replay, counters, and
-  batched render submission
+- scene-object bridge (AOE type baking, spawn request submission, target
+  snapshot sync, hit replay, counters) lives in
+  `Assets/Scripts/System/Common/CombatRoot.cs`, shared with the projectile
+  domain through the same `CombatScope` entity — see Current Projectile
+  Runtime Map above
 - `Assets/Scripts/System/Aoe/AoeEcsComponents.cs`: AOE scope, tag, identity,
   active, spawn, hit, recycle, contact-gate, and render ECS data
 - `Assets/Scripts/System/Aoe/AoeSimulationSystem.cs`: per-scope AOE hit-buffer
@@ -146,8 +152,9 @@ Create these as systems are ported:
   and cold entity creation
 - `Assets/Scripts/System/Aoe/AoeCollisionSystem.cs`: target mask filtering,
   bounds/narrow-phase collision, hit events, and pulse-AOE deactivation
-- AOE render submission lives in `AoeRoot`; shared matrix preparation lives in
-  `Assets/Scripts/System/Common/CombatRenderComponents.cs`
+- AOE render submission lives in `CombatBatchedRenderSystem`, which resolves
+  the owning `CombatRoot` by static int key; shared matrix preparation lives
+  in `Assets/Scripts/System/Common/CombatRenderComponents.cs`
 - `Assets/Scripts/System/Aoe/AoeLifetimeSystem.cs`: lingering AOE lifetime
   countdown with expire deactivation and pulse VFX interval ticks
 
@@ -172,7 +179,7 @@ Create these as systems are ported:
   from the scope buffer and calls `Dispatcher.Dispatch`; registerers
   (`PlayerSkillDriver`, `MobProjectileAttack`) hold a serialized `vfxRoot`
   reference and call both their domain root and `CombatVfxRoot.Register` —
-  `ProjectileRoot` and `AoeRoot` have no dependency on `CombatVfxRoot`
+  `CombatRoot` has no dependency on `CombatVfxRoot`
 - `Assets/Scripts/System/Vfx/CombatVfxDispatchSystem.cs`: ECS `SystemBase` in
   `PresentationSystemGroup`; queries scope entities with `CombatScopeVfxCatalog`;
   resolves each scope's `CombatVfxRoot` via the static registry and calls

@@ -13,4 +13,7 @@ MonoBehaviour:
   m_Name: BasicAoeSkillSet
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillSet
   skill: {fileID: 11400000, guid: a2000000000000000000000000000007, type: 2}
-  supports: []
+  supports:
+  - {fileID: 11400000, guid: 4f45b6f0e6e0705479a291cc0556a898, type: 2}
+  - {fileID: 11400000, guid: 4f45b6f0e6e0705479a291cc0556a898, type: 2}
+  - {fileID: 11400000, guid: 4f45b6f0e6e0705479a291cc0556a898, type: 2}

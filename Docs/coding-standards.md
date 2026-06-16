@@ -117,20 +117,27 @@ Use data-oriented runtime worlds for high-count combat entities:
 - transient chained hit effects
 
 Shared combat ECS components under `Assets/Scripts/System/Common/` must stay
-domain-neutral. Systems that consume them must also require a domain tag or
-scope component such as `ProjectileTag` or `ProjectileScope`; common components
-alone should never opt an entity into projectile or AOE behavior.
+domain-neutral. Systems that consume them must also require a domain tag such
+as `ProjectileTag` or `AoeTag`; the shared `CombatScope` tag alone is not
+domain-specific (one `CombatScope` entity serves both projectile and AOE
+domains per faction), and common components alone should never opt an entity
+into projectile or AOE behavior.
 
 Player and mob movement/collision should use Unity Physics2D. Projectile and AOE
 hit simulation should use target snapshots and baked shapes instead of thousands
 of live trigger objects.
 
 Damage application must stay separate from internal ECS/core spawn payloads.
-Spawn-on-hit data, chained projectile/AOE definitions, VFX request payloads, and
-other core follow-up data must stay on internal buffers/events such as
-`CombatSpawnElement` and `HitSpawn`. If a spawn listener needs more data, add a
-scene-safe field to `CombatHitContext` only after confirming it is not a core
-routing payload.
+Spawn-on-hit data (chained projectile/AOE follow-ups) and VFX request payloads
+stay on internal buffers distinct from damage: `CombatPendingSpawn` carries
+cross-domain spawn snapshots and is converted directly into
+`ProjectileSpawnRequestElement`/`AoeSpawnRequestElement` by
+`CombatSpawnConvertJob`, fully in ECS — it never crosses to managed code.
+`CombatPendingDamage`/`CombatDamageElement` carry only damage/crit/status data
+and are the one buffer that does cross to managed code, via
+`CombatHitDispatchSystem`. See [snapshotting.md](./snapshotting.md) for the
+full data model. Do not widen the damage buffer with spawn-routing fields, and
+do not widen spawn snapshots with target-replay-only data.
 
 ## ECS Lifecycle Comments
 
@@ -188,14 +195,16 @@ Examples:
 
 Bug example:
 
-- `ProjectileRoot` and `AoeRoot` created scope entities, `EntityQuery` handles,
-  persistent submit buffers, and sometimes the shared ECS world in `BindWorld()`.
-  Teardown destroyed scoped entities and buffers, but did not dispose the query
-  handles or the custom world. Unity then reported thousands of persistent leaks
-  from `ProjectileRoot.BindWorld()`, `AoeRoot.BindWorld()`, and
+- Before the projectile and AOE roots were merged into one `CombatRoot`, the
+  separate `ProjectileRoot` and `AoeRoot` each created scope entities,
+  `EntityQuery` handles, persistent submit buffers, and sometimes the shared
+  ECS world in their own `BindWorld()`. Teardown destroyed scoped entities and
+  buffers, but did not dispose the query handles or the custom world. Unity
+  then reported thousands of persistent leaks from `BindWorld()` and
   `SubmitQuery<T>()`. The fix was to centralize combat-world ownership and make
-  root teardown dispose queries, dispose native buffers, destroy scoped entities,
-  and release the world.
+  root teardown dispose queries, dispose native buffers, destroy scoped
+  entities, and release the world — ownership now lives in one `CombatRoot`
+  per faction instead of being split across two classes.
 
 Avoid:
 

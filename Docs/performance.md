@@ -101,7 +101,7 @@ Projectiles:
 - gameplay collision should use baked shapes and target snapshots
 - simulation stages stay split by responsibility: target tracking, movement,
   child projectile creation, lifetime expiry disable, contact gates, and collision
-- `ProjectileRoot` exposes active count, spawn/despawn totals, hit event count,
+- `CombatRoot` exposes active count, spawn/despawn totals, hit event count,
   simulation milliseconds, and render milliseconds
 - performance target: about 50k projectiles on screen with 20 targets at 120 fps
 
