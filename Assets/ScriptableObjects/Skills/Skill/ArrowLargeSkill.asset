@@ -15,7 +15,7 @@ MonoBehaviour:
   baseRecoveryTime: 0.15
   definition:
     prefab: {fileID: 1001001001001001004, guid: 46a702549654c254ebf170131a282f79, type: 3}
-    speed: 10
+    speed: 18
     lifetime: 1.5
     damage: 10
     count: 1

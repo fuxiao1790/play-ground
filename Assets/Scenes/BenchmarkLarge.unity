@@ -233,7 +233,7 @@ GameObject:
   - component: {fileID: 529810935}
   m_Layer: 0
   m_Name: CombatEcsRoot_PlayerToMobs
-  m_TagString: Untagged
+  m_TagString: PlayerProjectileRoot
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -426,6 +426,10 @@ PrefabInstance:
       propertyPath: aoeVfxRoot
       value: 
       objectReference: {fileID: 1019222040}
+    - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+      propertyPath: combatRoot
+      value: 
+      objectReference: {fileID: 529810935}
     - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: audioManager
       value: 
@@ -650,7 +654,7 @@ GameObject:
   - component: {fileID: 1086898361}
   m_Layer: 0
   m_Name: CombatEcsRoot_MobToPlayer
-  m_TagString: Untagged
+  m_TagString: MobProjectileRoot
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
