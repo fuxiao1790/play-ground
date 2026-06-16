@@ -1,34 +1,37 @@
-using Unity.Collections;
 using Unity.Entities;
 
 namespace PlayGround.System.Common
 {
+    // The shared CombatTargetElement buffer holds both factions' targets, so
+    // it is cleared once here, then each registered CombatRoot appends only
+    // its own Faction-tagged entries (CombatRoot.AppendTargetsToBuffer).
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
     internal partial struct CombatTargetSyncSystem : ISystem
     {
-        private EntityQuery syncQuery;
+        private EntityQuery scopeQuery;
 
         void ISystem.OnCreate(ref SystemState state)
         {
-            syncQuery = new EntityQueryBuilder(state.WorldUpdateAllocator)
-                .WithAll<CombatTargetSyncSource>()
+            scopeQuery = new EntityQueryBuilder(state.WorldUpdateAllocator)
                 .WithAllRW<CombatTargetElement>()
                 .Build(ref state);
-            state.RequireForUpdate(syncQuery);
+            state.RequireForUpdate(scopeQuery);
         }
 
         void ISystem.OnUpdate(ref SystemState state)
         {
-            using NativeArray<Entity> entities = syncQuery.ToEntityArray(Allocator.Temp);
-            for (int i = 0; i < entities.Length; i++)
+            Entity scope = scopeQuery.GetSingletonEntity();
+            DynamicBuffer<CombatTargetElement> buffer = state.EntityManager.GetBuffer<CombatTargetElement>(scope);
+            buffer.Clear();
+
+            if (CombatRoot.TryGetByFaction(CombatFaction.Player, out CombatRoot playerRoot))
             {
-                CombatTargetSyncSource source = state.EntityManager.GetComponentObject<CombatTargetSyncSource>(entities[i]);
-                if (source.Sync == null)
-                {
-                    continue;
-                }
-                DynamicBuffer<CombatTargetElement> buffer = state.EntityManager.GetBuffer<CombatTargetElement>(entities[i]);
-                source.Sync(buffer);
+                playerRoot.AppendTargetsToBuffer(buffer);
+            }
+
+            if (CombatRoot.TryGetByFaction(CombatFaction.Mob, out CombatRoot mobRoot))
+            {
+                mobRoot.AppendTargetsToBuffer(buffer);
             }
         }
     }

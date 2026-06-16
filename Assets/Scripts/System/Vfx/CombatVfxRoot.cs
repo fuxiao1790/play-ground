@@ -1,5 +1,5 @@
-using System.Collections.Generic;
-using Unity.Entities;
+using PlayGround.System.Common;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.VFX;
 
@@ -7,22 +7,23 @@ namespace PlayGround.System.Vfx
 {
     public sealed class CombatVfxRoot : MonoBehaviour
     {
-        private static readonly Dictionary<int, CombatVfxRoot> Registry = new();
-        private static int nextId;
+        private static readonly CombatVfxRoot[] ByFaction = new CombatVfxRoot[3];
 
         private CombatVfxDispatcher dispatcher;
-        private int rootId;
+        private CombatFaction faction;
 
         private void Awake()
         {
-            rootId = ++nextId;
-            Registry[rootId] = this;
             dispatcher = new CombatVfxDispatcher(transform);
         }
 
         private void OnDestroy()
         {
-            Registry.Remove(rootId);
+            if (ByFaction[(int)faction] == this)
+            {
+                ByFaction[(int)faction] = null;
+            }
+
             dispatcher?.Dispose();
             dispatcher = null;
         }
@@ -38,30 +39,30 @@ namespace PlayGround.System.Vfx
             dispatcher = new CombatVfxDispatcher(transform);
         }
 
-        public void Bind(Entity scopeEntity, EntityManager entityManager)
+        public void BindFaction(CombatFaction boundFaction)
         {
-            var catalog = new CombatScopeVfxCatalog { VfxRootId = rootId };
-            if (entityManager.HasComponent<CombatScopeVfxCatalog>(scopeEntity))
-                entityManager.SetComponentData(scopeEntity, catalog);
-            else
-                entityManager.AddComponentData(scopeEntity, catalog);
+            faction = boundFaction;
+            ByFaction[(int)faction] = this;
         }
 
-        internal static bool TryGetRoot(int id, out CombatVfxRoot root) => Registry.TryGetValue(id, out root);
+        internal static bool TryGetByFaction(CombatFaction faction, out CombatVfxRoot root)
+        {
+            root = faction != CombatFaction.None ? ByFaction[(int)faction] : null;
+            return root != null;
+        }
 
-        internal void DrainAndDispatch(DynamicBuffer<VfxSpawnRequestElement> buffer)
+        internal void DrainAndDispatch(NativeArray<VfxSpawnRequestElement> requests)
         {
             if (dispatcher == null)
             {
                 return;
             }
 
-            for (int i = 0; i < buffer.Length; i++)
+            for (int i = 0; i < requests.Length; i++)
             {
-                VfxSpawnRequestElement e = buffer[i];
+                VfxSpawnRequestElement e = requests[i];
                 dispatcher.StageSpawn(e.TypeId, e.Trigger, e.Position, e.AreaSize);
             }
-            buffer.Clear();
             dispatcher.Dispatch();
         }
     }

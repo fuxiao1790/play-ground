@@ -13,7 +13,7 @@ namespace PlayGround.System.Aoe
     // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse.
     public struct AoeIdentityComponent : IComponentData
     {
-        public Entity Scope;
+        public CombatFaction Faction;
         public int AoeId;
         public int TypeId;
     }
@@ -64,6 +64,7 @@ namespace PlayGround.System.Aoe
     // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by AoeSpawnSystem.
     public struct AoeSpawnRequestElement : IBufferElementData
     {
+        public CombatFaction Faction;
         public int AoeId;
         public int TypeId;
         // V1 keeps lifetime/tick authoring data on requests for future lingering AOE phases; pulse systems ignore both.

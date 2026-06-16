@@ -17,6 +17,7 @@ namespace PlayGround.System.Projectile
         // cellSize = sqrt(arenaWidth * arenaHeight / mobCount) * ~1.5
         private const float SpatialHashCellSize = 1f;
         private EntityQuery activeProjectileQuery;
+        private EntityQuery scopeQuery;
 
         public void OnCreate(ref SystemState state)
         {
@@ -32,6 +33,7 @@ namespace PlayGround.System.Projectile
                 ComponentType.ReadWrite<ProjectileHitComponent>(),
                 ComponentType.ReadWrite<CombatRenderActiveTag>(),
                 ComponentType.ReadWrite<ProjectileContactGateElement>());
+            scopeQuery = state.GetEntityQuery(ComponentType.ReadOnly<CombatScope>());
         }
 
         public void OnUpdate(ref SystemState state)
@@ -44,40 +46,33 @@ namespace PlayGround.System.Projectile
 
             state.EntityManager.CompleteDependencyBeforeRO<CombatTargetElement>();
 
+            Entity scope = scopeQuery.GetSingletonEntity();
+            DynamicBuffer<CombatTargetElement> targets = state.EntityManager.GetBuffer<CombatTargetElement>(scope);
+
             // Pass 1: count targets and find the largest bounding radius.
             // Used to size the multimap and to expand the per-projectile query range
             // so targets near cell boundaries are never missed.
-            int totalTargetCount = 0;
+            int totalTargetCount = targets.Length;
             float maxTargetRadius = 0f;
-            foreach (DynamicBuffer<CombatTargetElement> targets in
-                SystemAPI.Query<DynamicBuffer<CombatTargetElement>>().WithAll<CombatScope>())
+            for (int i = 0; i < targets.Length; i++)
             {
-                for (int i = 0; i < targets.Length; i++)
+                CombatTargetElement t = targets[i];
+                float r = CombatCollisionMath.BoundingRadius(t.Radius, t.HalfExtents, t.ShapeType);
+                if (r > maxTargetRadius)
                 {
-                    CombatTargetElement t = targets[i];
-                    totalTargetCount++;
-                    float r = CombatCollisionMath.BoundingRadius(t.Radius, t.HalfExtents, t.ShapeType);
-                    if (r > maxTargetRadius)
-                    {
-                        maxTargetRadius = r;
-                    }
+                    maxTargetRadius = r;
                 }
             }
 
             // Pass 2: register each target at its center cell (one entry per target,
-            // no duplicates). The query expansion handles boundary coverage.
+            // no duplicates), keyed by Faction so a projectile's cell lookup only
+            // matches targets belonging to its own faction's target set.
             var targetCells = new NativeParallelMultiHashMap<long, int>(
                 math.max(1, totalTargetCount), Allocator.TempJob);
-            foreach ((DynamicBuffer<CombatTargetElement> targets, Entity scope) in
-                SystemAPI.Query<DynamicBuffer<CombatTargetElement>>()
-                    .WithAll<CombatScope>()
-                    .WithEntityAccess())
+            for (int i = 0; i < targets.Length; i++)
             {
-                for (int i = 0; i < targets.Length; i++)
-                {
-                    int2 cell = FloorCell(targets[i].Position);
-                    targetCells.Add(CellKey(scope, cell.x, cell.y), i);
-                }
+                int2 cell = FloorCell(targets[i].Position);
+                targetCells.Add(CellKey(targets[i].Faction, cell.x, cell.y), i);
             }
 
             var pendingDamage = new NativeStream(activeProjectileCount, Allocator.TempJob);
@@ -85,7 +80,7 @@ namespace PlayGround.System.Projectile
             var vfxPending = new NativeStream(activeProjectileCount, Allocator.TempJob);
             var job = new ProjectileCollisionJob
             {
-                Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
+                Targets = targets,
                 TargetCells = targetCells,
                 TotalTargetCount = totalTargetCount,
                 MaxTargetRadius = maxTargetRadius,
@@ -97,17 +92,20 @@ namespace PlayGround.System.Projectile
             var collisionHandle = job.ScheduleParallel(state.Dependency);
             var flushHandle = new CombatHitFlushJob
             {
+                Scope = scope,
                 PendingDamage = pendingDamage,
                 Damage = SystemAPI.GetBufferLookup<CombatDamageElement>()
             }.Schedule(collisionHandle);
             var convertHandle = new CombatSpawnConvertJob
             {
+                Scope = scope,
                 PendingSpawns = pendingSpawns,
                 ProjectileRequests = SystemAPI.GetBufferLookup<ProjectileSpawnRequestElement>(),
                 AoeRequests = SystemAPI.GetBufferLookup<AoeSpawnRequestElement>()
             }.Schedule(collisionHandle);
             var vfxFlushHandle = new VfxStreamFlushJob
             {
+                Scope = scope,
                 Pending = vfxPending,
                 VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
             }.Schedule(collisionHandle);
@@ -123,7 +121,7 @@ namespace PlayGround.System.Projectile
         [WithAll(typeof(ProjectileTag), typeof(ProjectileActiveTag), typeof(ProjectileCollisionActiveTag))]
         private partial struct ProjectileCollisionJob : IJobEntity
         {
-            [ReadOnly] public BufferLookup<CombatTargetElement> Targets;
+            [ReadOnly] public DynamicBuffer<CombatTargetElement> Targets;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> TargetCells;
             public int TotalTargetCount;
             public float MaxTargetRadius;
@@ -152,7 +150,7 @@ namespace PlayGround.System.Projectile
                 vfxPending.BeginForEachIndex(entityIndexInQuery);
 
                 float areaSize = math.max(render.VisualScale.x, render.VisualScale.y);
-                if (identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
+                if (identity.Faction == CombatFaction.None)
                 {
                     Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, ref vfxPending);
                     EndStreams(ref pendingDamage, ref pendingSpawns, ref vfxPending);
@@ -172,7 +170,7 @@ namespace PlayGround.System.Projectile
                     return;
                 }
 
-                DynamicBuffer<CombatTargetElement> targets = Targets[identity.Scope];
+                DynamicBuffer<CombatTargetElement> targets = Targets;
 
                 // Expand the projectile's AABB by MaxTargetRadius before converting to cell
                 // coordinates. Any target whose center falls within this expanded region is
@@ -187,7 +185,7 @@ namespace PlayGround.System.Projectile
                 {
                     for (int cx = cellMin.x; cx <= cellMax.x; cx++)
                     {
-                        long key = CellKey(identity.Scope, cx, cy);
+                        long key = CellKey(identity.Faction, cx, cy);
                         if (!TargetCells.TryGetFirstValue(key, out int targetIdx,
                             out NativeParallelMultiHashMapIterator<long> iterator))
                         {
@@ -221,7 +219,7 @@ namespace PlayGround.System.Projectile
                             {
                                 pendingDamage.Write(new CombatPendingDamage
                                 {
-                                    Scope = identity.Scope,
+                                    Faction = identity.Faction,
                                     SourceId = identity.ProjectileId,
                                     TypeId = identity.TypeId,
                                     TargetId = target.TargetId,
@@ -240,7 +238,7 @@ namespace PlayGround.System.Projectile
                             {
                                 pendingSpawns.Write(new CombatPendingSpawn
                                 {
-                                    Scope = identity.Scope,
+                                    Faction = identity.Faction,
                                     SourceId = identity.ProjectileId,
                                     TypeId = identity.TypeId,
                                     TargetId = target.TargetId,
@@ -255,7 +253,7 @@ namespace PlayGround.System.Projectile
 
                             vfxPending.Write(new VfxPendingSpawn
                             {
-                                Scope = identity.Scope,
+                                Faction = identity.Faction,
                                 TypeId = identity.TypeId,
                                 Trigger = 1,
                                 Position = kinematics.Position,
@@ -295,7 +293,7 @@ namespace PlayGround.System.Projectile
                 renderActive.ValueRW = false;
                 vfxPending.Write(new VfxPendingSpawn
                 {
-                    Scope = identity.Scope,
+                    Faction = identity.Faction,
                     TypeId = identity.TypeId,
                     Trigger = 2,
                     Position = position,
@@ -370,13 +368,12 @@ namespace PlayGround.System.Projectile
                 (int)math.floor(pos.y / SpatialHashCellSize));
         }
 
-        private static long CellKey(Entity scope, int x, int y)
+        private static long CellKey(CombatFaction faction, int x, int y)
         {
             unchecked
             {
                 ulong hash = 1469598103934665603UL;
-                hash = (hash ^ (uint)scope.Index) * 1099511628211UL;
-                hash = (hash ^ (uint)scope.Version) * 1099511628211UL;
+                hash = (hash ^ (byte)faction) * 1099511628211UL;
                 hash = (hash ^ (uint)x) * 1099511628211UL;
                 hash = (hash ^ (uint)y) * 1099511628211UL;
                 return (long)hash;

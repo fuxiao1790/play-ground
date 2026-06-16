@@ -31,7 +31,6 @@ namespace PlayGround.System.Projectile
 
         private readonly Dictionary<ProjectileSpawnKey, ProjectileSpawnBucket> _byKey = new();
         private readonly Dictionary<ProjectileSpawnKey, EntityQuery> _deadSlotQueriesByKey = new();
-        private readonly Dictionary<int, Entity> _scopeByIndex = new();
         private readonly List<ProjectileSpawnBucket> _bucketPool = new();
         private readonly List<ProjectileSpawnWork> _spawnWork = new();
 
@@ -84,7 +83,6 @@ namespace PlayGround.System.Projectile
             }
             _byKey.Clear();
             _deadSlotQueriesByKey.Clear();
-            _scopeByIndex.Clear();
             _bucketPool.Clear();
             _spawnWork.Clear();
         }
@@ -107,9 +105,7 @@ namespace PlayGround.System.Projectile
                     for (int j = 0; j < n; j++)
                     {
                         ProjectileSpawnRequestElement req = reader.Read<ProjectileSpawnRequestElement>();
-                        Entity scope = req.Scope;
-                        _scopeByIndex[scope.Index] = scope;
-                        var key = new ProjectileSpawnKey(scope.Index, req.TypeId, req.HasChildSpawner != 0);
+                        var key = new ProjectileSpawnKey((int)req.Faction, req.TypeId, req.HasChildSpawner != 0);
                         if (!_byKey.TryGetValue(key, out ProjectileSpawnBucket bucket))
                         {
                             bucket = GetBucket();
@@ -137,15 +133,15 @@ namespace PlayGround.System.Projectile
                     var jobHandles = new NativeList<JobHandle>(_byKey.Count, Allocator.Temp);
                     foreach (var (key, bucket) in _byKey)
                     {
-                        Entity scope = _scopeByIndex[key.ScopeIndex];
-                        EntityQuery query = DeadSlotQueryFor(key, scope);
+                        CombatFaction faction = (CombatFaction)key.FactionValue;
+                        EntityQuery query = DeadSlotQueryFor(key, faction);
                         NativeArray<ProjectileSpawnRequestElement> configs = bucket.Requests.AsArray();
                         var claimedReference = new NativeReference<int>(Allocator.TempJob);
                         claimedReference.Value = 0;
 
                         JobHandle spawnHandle = new ProjectileSpawnJob
                         {
-                            Scope                 = scope,
+                            Faction               = faction,
                             Configs               = configs,
                             ClaimedCount          = claimedReference,
                             ActiveHandle          = GetComponentTypeHandle<ProjectileActiveTag>(false),
@@ -165,7 +161,7 @@ namespace PlayGround.System.Projectile
                         }.Schedule(query, default);
                         jobHandles.Add(spawnHandle);
                         _spawnWork.Add(new ProjectileSpawnWork(
-                            scope,
+                            faction,
                             key.HasChildSpawner,
                             configs,
                             claimedReference));
@@ -182,7 +178,7 @@ namespace PlayGround.System.Projectile
                     reuseCount += claimed;
                     for (int i = claimed; i < work.Configs.Length; i++)
                     {
-                        CreateProjectileEntity(work.Scope, work.Configs[i], work.HasChildSpawner, createEcb);
+                        CreateProjectileEntity(work.Faction, work.Configs[i], work.HasChildSpawner, createEcb);
                         coldCreateCount++;
                     }
                 }
@@ -203,7 +199,6 @@ namespace PlayGround.System.Projectile
                 _bucketPool.Add(bucket);
             }
             _byKey.Clear();
-            _scopeByIndex.Clear();
         }
 
         private ProjectileSpawnBucket GetBucket()
@@ -226,13 +221,13 @@ namespace PlayGround.System.Projectile
             }
         }
 
-        private EntityQuery DeadSlotQueryFor(ProjectileSpawnKey key, Entity scope)
+        private EntityQuery DeadSlotQueryFor(ProjectileSpawnKey key, CombatFaction faction)
         {
             if (!_deadSlotQueriesByKey.TryGetValue(key, out EntityQuery query))
             {
                 EntityQueryBuilder builder = new EntityQueryBuilder(Allocator.Temp)
                     .WithAll<ProjectileTag>()
-                    .WithAll<CombatRenderScope>()
+                    .WithAll<CombatRenderFaction>()
                     .WithAll<CombatRenderTypeId>()
                     .WithDisabled<ProjectileActiveTag>();
 
@@ -243,7 +238,7 @@ namespace PlayGround.System.Projectile
             }
 
             query.SetSharedComponentFilter(
-                new CombatRenderScope { Scope = scope },
+                new CombatRenderFaction { Faction = faction },
                 new CombatRenderTypeId { TypeId = key.TypeId });
             return query;
         }
@@ -261,27 +256,27 @@ namespace PlayGround.System.Projectile
         }
 
         private void CreateProjectileEntity(
-            Entity scope,
+            CombatFaction faction,
             ProjectileSpawnRequestElement request,
             bool hasChildSpawner,
             EntityCommandBuffer ecb)
         {
             Entity entity = ecb.CreateEntity(hasChildSpawner ? archetypeWithChildSpawner : archetypeNoChildSpawner);
-            ecb.AddSharedComponent(entity, new CombatRenderScope { Scope = scope });
+            ecb.AddSharedComponent(entity, new CombatRenderFaction { Faction = faction });
             ecb.AddSharedComponent(entity, new CombatRenderTypeId { TypeId = request.TypeId });
-            RecordProjectileReset(ecb, entity, scope, request, hasChildSpawner);
+            RecordProjectileReset(ecb, entity, faction, request, hasChildSpawner);
         }
 
         private static void RecordProjectileReset(
             EntityCommandBuffer ecb,
             Entity entity,
-            Entity scope,
+            CombatFaction faction,
             ProjectileSpawnRequestElement request,
             bool hasChildSpawner)
         {
             ecb.SetComponent(entity, new ProjectileIdentityComponent
             {
-                Scope = scope,
+                Faction = faction,
                 ProjectileId = request.ProjectileId,
                 TypeId = request.TypeId
             });
@@ -343,7 +338,7 @@ namespace PlayGround.System.Projectile
         [BurstCompile]
         private struct ProjectileSpawnJob : IJobChunk
         {
-            public Entity Scope;
+            public CombatFaction Faction;
             [ReadOnly] public NativeArray<ProjectileSpawnRequestElement> Configs;
             [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
 
@@ -397,7 +392,7 @@ namespace PlayGround.System.Projectile
 
                     identities[i]  = new ProjectileIdentityComponent
                     {
-                        Scope = Scope, ProjectileId = cfg.ProjectileId, TypeId = cfg.TypeId
+                        Faction = Faction, ProjectileId = cfg.ProjectileId, TypeId = cfg.TypeId
                     };
                     kinematics[i]  = new CombatKinematicsComponent
                     {
@@ -448,23 +443,23 @@ namespace PlayGround.System.Projectile
 
         private readonly struct ProjectileSpawnKey : IEquatable<ProjectileSpawnKey>
         {
-            private readonly int  _scopeIndex;
+            private readonly int  _factionValue;
             private readonly int  _typeId;
             private readonly byte _hasChildSpawner;
 
-            public int  ScopeIndex      => _scopeIndex;
+            public int  FactionValue    => _factionValue;
             public int  TypeId          => _typeId;
             public bool HasChildSpawner => _hasChildSpawner != 0;
 
-            public ProjectileSpawnKey(int scopeIndex, int typeId, bool hasChildSpawner)
+            public ProjectileSpawnKey(int factionValue, int typeId, bool hasChildSpawner)
             {
-                _scopeIndex      = scopeIndex;
+                _factionValue    = factionValue;
                 _typeId          = typeId;
                 _hasChildSpawner = hasChildSpawner ? (byte)1 : (byte)0;
             }
 
             public bool Equals(ProjectileSpawnKey other) =>
-                _scopeIndex      == other._scopeIndex &&
+                _factionValue    == other._factionValue &&
                 _typeId          == other._typeId     &&
                 _hasChildSpawner == other._hasChildSpawner;
 
@@ -474,7 +469,7 @@ namespace PlayGround.System.Projectile
             {
                 unchecked
                 {
-                    int h = _scopeIndex;
+                    int h = _factionValue;
                     h = h * 397 ^ _typeId;
                     h = h * 397 ^ _hasChildSpawner;
                     return h;
@@ -498,18 +493,18 @@ namespace PlayGround.System.Projectile
 
         private readonly struct ProjectileSpawnWork
         {
-            public readonly Entity Scope;
+            public readonly CombatFaction Faction;
             public readonly bool HasChildSpawner;
             public readonly NativeArray<ProjectileSpawnRequestElement> Configs;
             public readonly NativeReference<int> ClaimedCount;
 
             public ProjectileSpawnWork(
-                Entity scope,
+                CombatFaction faction,
                 bool hasChildSpawner,
                 NativeArray<ProjectileSpawnRequestElement> configs,
                 NativeReference<int> claimedCount)
             {
-                Scope = scope;
+                Faction = faction;
                 HasChildSpawner = hasChildSpawner;
                 Configs = configs;
                 ClaimedCount = claimedCount;

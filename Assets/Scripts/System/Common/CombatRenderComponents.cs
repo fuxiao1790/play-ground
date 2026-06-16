@@ -30,12 +30,12 @@ namespace PlayGround.System.Common
     {
     }
 
-    // ECS Lifecycle: shared render component; added at entity creation; kept until owning domain root teardown.
-    public struct CombatRenderScope : ISharedComponentData, global::System.IEquatable<CombatRenderScope>
+    // ECS Lifecycle: shared render component; added at entity creation; kept until owning domain root teardown; partitions render chunks by faction without structural archetype cost.
+    public struct CombatRenderFaction : ISharedComponentData, global::System.IEquatable<CombatRenderFaction>
     {
-        public Entity Scope;
-        public readonly bool Equals(CombatRenderScope other) => Scope == other.Scope;
-        public override int GetHashCode() => Scope.GetHashCode();
+        public CombatFaction Faction;
+        public readonly bool Equals(CombatRenderFaction other) => Faction == other.Faction;
+        public override int GetHashCode() => (int)Faction;
     }
 
     // ECS Lifecycle: shared render component; added at entity creation; kept until owning domain root teardown; partitions render chunks by type without structural archetype cost.
@@ -99,15 +99,6 @@ namespace PlayGround.System.Common
                 }
             };
         }
-    }
-
-    // ECS Lifecycle: blittable scope component; added at CombatRoot setup; holds
-    // only the owning root's id. Render resources live in a static int-keyed
-    // registry on CombatRoot (mirrors CombatScopeVfxCatalog/CombatVfxRoot), so one
-    // shared scope can serve both projectile and AOE render resources.
-    public struct CombatScopeRenderCatalog : IComponentData
-    {
-        public int RootId;
     }
 
     [UpdateInGroup(typeof(SimulationSystemGroup))]

@@ -993,16 +993,16 @@ namespace PlayGround.Tests.PlayMode
 
         private static int RenderInstanceCount(CombatRoot projectileRoot, int typeId)
         {
-            Entity scopeEntity = ProjectileScopeEntity(projectileRoot);
+            CombatFaction faction = ProjectileFaction(projectileRoot);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
-                ComponentType.ReadOnly<CombatRenderScope>(),
+                ComponentType.ReadOnly<CombatRenderFaction>(),
                 ComponentType.ReadOnly<CombatRenderTypeId>(),
                 ComponentType.ReadOnly<CombatRenderElement>(),
                 ComponentType.ReadOnly<CombatRenderActiveTag>());
             query.SetSharedComponentFilter(
-                new CombatRenderScope { Scope = scopeEntity },
+                new CombatRenderFaction { Faction = faction },
                 new CombatRenderTypeId { TypeId = typeId });
             int count = query.CalculateEntityCount();
             query.ResetFilter();
@@ -1011,9 +1011,7 @@ namespace PlayGround.Tests.PlayMode
 
         private static Vector2 ProjectileVelocity(CombatRoot projectileRoot)
         {
-            const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            var scopeEntityField = typeof(CombatRoot).GetField("scopeEntity", Flags);
-            var scopeEntity = (Entity)scopeEntityField.GetValue(projectileRoot);
+            CombatFaction faction = ProjectileFaction(projectileRoot);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
@@ -1023,7 +1021,7 @@ namespace PlayGround.Tests.PlayMode
             for (int i = 0; i < entities.Length; i++)
             {
                 ProjectileIdentityComponent identity = entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]);
-                if (identity.Scope != scopeEntity)
+                if (identity.Faction != faction)
                 {
                     continue;
                 }
@@ -1038,9 +1036,7 @@ namespace PlayGround.Tests.PlayMode
 
         private static float MaxProjectileVelocityY(CombatRoot projectileRoot)
         {
-            const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            var scopeEntityField = typeof(CombatRoot).GetField("scopeEntity", Flags);
-            var scopeEntity = (Entity)scopeEntityField.GetValue(projectileRoot);
+            CombatFaction faction = ProjectileFaction(projectileRoot);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
@@ -1051,7 +1047,7 @@ namespace PlayGround.Tests.PlayMode
             for (int i = 0; i < entities.Length; i++)
             {
                 ProjectileIdentityComponent identity = entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]);
-                if (identity.Scope != scopeEntity)
+                if (identity.Faction != faction)
                 {
                     continue;
                 }
@@ -1102,7 +1098,7 @@ namespace PlayGround.Tests.PlayMode
 
         private static int SumScopedContactGates(CombatRoot projectileRoot)
         {
-            Entity scope = ProjectileScopeEntity(projectileRoot);
+            CombatFaction faction = ProjectileFaction(projectileRoot);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
@@ -1113,7 +1109,7 @@ namespace PlayGround.Tests.PlayMode
             for (int i = 0; i < entities.Length; i++)
             {
                 ProjectileIdentityComponent identity = entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]);
-                if (identity.Scope != scope)
+                if (identity.Faction != faction)
                 {
                     continue;
                 }
@@ -1126,7 +1122,7 @@ namespace PlayGround.Tests.PlayMode
 
         private static int CountScopedProjectiles(CombatRoot projectileRoot, global::System.Func<Entity, bool> predicate)
         {
-            Entity scope = ProjectileScopeEntity(projectileRoot);
+            CombatFaction faction = ProjectileFaction(projectileRoot);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileIdentityComponent>());
             using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
@@ -1135,7 +1131,7 @@ namespace PlayGround.Tests.PlayMode
             for (int i = 0; i < entities.Length; i++)
             {
                 ProjectileIdentityComponent identity = entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]);
-                if (identity.Scope == scope && predicate(entities[i]))
+                if (identity.Faction == faction && predicate(entities[i]))
                 {
                     count++;
                 }
@@ -1144,11 +1140,11 @@ namespace PlayGround.Tests.PlayMode
             return count;
         }
 
-        private static Entity ProjectileScopeEntity(CombatRoot projectileRoot)
+        private static CombatFaction ProjectileFaction(CombatRoot projectileRoot)
         {
             const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            var scopeEntityField = typeof(CombatRoot).GetField("scopeEntity", Flags);
-            return (Entity)scopeEntityField.GetValue(projectileRoot);
+            var factionField = typeof(CombatRoot).GetField("faction", Flags);
+            return (CombatFaction)factionField.GetValue(projectileRoot);
         }
 
         private static void CreateSpawnFixture(

@@ -18,11 +18,11 @@ namespace PlayGround.System.Common
         public IReadOnlyDictionary<int, T> TargetsById => targetsById;
 
         public void SyncToBuffer(
+            CombatFaction faction,
             DynamicBuffer<CombatTargetElement> buffer,
             int maxCount = int.MaxValue,
             Func<T, bool> additionalFilter = null)
         {
-            buffer.Clear();
             targetsById.Clear();
             IReadOnlyList<T> targets = registry.Targets;
             int count = 0;
@@ -52,6 +52,7 @@ namespace PlayGround.System.Common
 
                 buffer.Add(new CombatTargetElement
                 {
+                    Faction = faction,
                     TargetId = target.TargetId,
                     TargetMask = target.CombatTargetMask,
                     Position = pos,

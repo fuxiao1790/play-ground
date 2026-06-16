@@ -8,7 +8,7 @@ namespace PlayGround.System.Projectile
     // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; reset on reuse.
     public struct ProjectileIdentityComponent : IComponentData
     {
-        public Entity Scope;
+        public CombatFaction Faction;
         public int ProjectileId;
         public int TypeId;
     }
@@ -114,7 +114,7 @@ namespace PlayGround.System.Projectile
     // ProjectileSpawnSystem only ever sees Count == 1 elements (via NativeStream from the expand system).
     public struct ProjectileSpawnRequestElement : IBufferElementData
     {
-        public Entity Scope;
+        public CombatFaction Faction;
         public int ProjectileId;
         public int TypeId;
         public int PierceRemaining;

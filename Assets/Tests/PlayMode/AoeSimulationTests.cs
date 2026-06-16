@@ -168,6 +168,7 @@ namespace PlayGround.Tests.PlayMode
             float2 max = position + radius;
             entityManager.GetBuffer<AoeSpawnRequestElement>(scopeEntity).Add(new AoeSpawnRequestElement
             {
+                Faction = CombatFaction.Player,
                 AoeId = ++nextAoeId,
                 TypeId = 1,
                 Lifetime = lifetime,
@@ -197,6 +198,7 @@ namespace PlayGround.Tests.PlayMode
             float2 max = position + radius;
             entityManager.GetBuffer<CombatTargetElement>(scopeEntity).Add(new CombatTargetElement
             {
+                Faction = CombatFaction.Player,
                 TargetId = targetId,
                 TargetMask = targetMask,
                 Position = position,

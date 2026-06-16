@@ -38,7 +38,7 @@ namespace PlayGround.Skills
         private void Start()
         {
             if (vfxRoot != null && combatRoot != null)
-                vfxRoot.Bind(combatRoot.ScopeEntity, combatRoot.EntityManager);
+                vfxRoot.BindFaction(combatRoot.Faction);
             CompileAndRegister();
         }
 
@@ -54,7 +54,7 @@ namespace PlayGround.Skills
             for (int i = 0; i < activeSlotCount; i++)
             {
                 if (!slotStates[i].IsReady) continue;
-
+                
                 SkillSpawnTranslator.Spawn(
                     compiledSlots[i],
                     transform.position,
@@ -71,7 +71,7 @@ namespace PlayGround.Skills
             if (combatRoot == root) return;
             combatRoot = root;
             if (vfxRoot != null && combatRoot != null)
-                vfxRoot.Bind(combatRoot.ScopeEntity, combatRoot.EntityManager);
+                vfxRoot.BindFaction(combatRoot.Faction);
             RegisterProjectileTypes();
             RegisterAoeTypes();
         }

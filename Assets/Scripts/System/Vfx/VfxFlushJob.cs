@@ -1,3 +1,4 @@
+using PlayGround.System.Common;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -8,6 +9,7 @@ namespace PlayGround.System.Vfx
     [BurstCompile]
     public struct VfxFlushJob : IJob
     {
+        public Entity Scope;
         public NativeQueue<VfxPendingSpawn> Pending;
         public BufferLookup<VfxSpawnRequestElement> VfxBuffers;
 
@@ -15,13 +17,14 @@ namespace PlayGround.System.Vfx
         {
             while (Pending.TryDequeue(out VfxPendingSpawn p))
             {
-                if (p.Scope == Entity.Null || !VfxBuffers.HasBuffer(p.Scope))
+                if (p.Faction == CombatFaction.None || !VfxBuffers.HasBuffer(Scope))
                 {
                     continue;
                 }
 
-                VfxBuffers[p.Scope].Add(new VfxSpawnRequestElement
+                VfxBuffers[Scope].Add(new VfxSpawnRequestElement
                 {
+                    Faction = p.Faction,
                     TypeId = p.TypeId,
                     Trigger = p.Trigger,
                     Position = p.Position,
@@ -34,6 +37,7 @@ namespace PlayGround.System.Vfx
     [BurstCompile]
     public struct VfxStreamFlushJob : IJob
     {
+        public Entity Scope;
         public NativeStream Pending;
         public BufferLookup<VfxSpawnRequestElement> VfxBuffers;
 
@@ -54,13 +58,14 @@ namespace PlayGround.System.Vfx
 
         private void Write(VfxPendingSpawn p)
         {
-            if (p.Scope == Entity.Null || !VfxBuffers.HasBuffer(p.Scope))
+            if (p.Faction == CombatFaction.None || !VfxBuffers.HasBuffer(Scope))
             {
                 return;
             }
 
-            VfxBuffers[p.Scope].Add(new VfxSpawnRequestElement
+            VfxBuffers[Scope].Add(new VfxSpawnRequestElement
             {
+                Faction = p.Faction,
                 TypeId = p.TypeId,
                 Trigger = p.Trigger,
                 Position = p.Position,

@@ -171,20 +171,24 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void SeparateCombatRootsShareDefaultWorldButUseDistinctScopes()
+        public void SeparateCombatRootsShareDefaultWorldAndSingleSharedScope()
         {
             CreateProjectileRoot(out GameObject projectileObject, out CombatRoot projectileRoot);
             CreateAoeFixture(out GameObject aoeObject, out CombatRoot aoeRoot, out GameObject templateObject, out _);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
-            Entity projectileScope = ProjectileScopeEntity(projectileRoot);
-            Entity aoeScope = AoeScopeEntity(aoeRoot);
+            Entity projectileScope = ScopeEntity(projectileRoot);
+            Entity aoeScope = ScopeEntity(aoeRoot);
 
-            // One CombatScope serves both domains; two separate roots get two scopes.
-            Assert.That(projectileScope, Is.Not.EqualTo(aoeScope));
+            // There is one ref-counted shared CombatScope entity for the whole
+            // world; every CombatRoot binds to the same one.
+            Assert.That(projectileScope, Is.EqualTo(aoeScope));
             Assert.That(entityManager.HasComponent<CombatScope>(projectileScope), Is.True);
-            Assert.That(entityManager.HasComponent<CombatScope>(aoeScope), Is.True);
 
-            Cleanup(projectileObject, aoeObject, templateObject);
+            Object.DestroyImmediate(projectileObject);
+            Assert.That(entityManager.Exists(aoeScope), Is.True,
+                "Scope must stay alive while another CombatRoot still references it.");
+
+            Cleanup(aoeObject, templateObject);
         }
 
         private static AoeSpawnCommand Command(
@@ -263,7 +267,7 @@ namespace PlayGround.Tests.PlayMode
 
         private static Matrix4x4 FirstScopedAoeRenderMatrix(CombatRoot root)
         {
-            Entity scope = AoeScopeEntity(root);
+            CombatFaction faction = Faction(root);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AoeIdentityComponent>(),
@@ -273,7 +277,7 @@ namespace PlayGround.Tests.PlayMode
             for (int i = 0; i < entities.Length; i++)
             {
                 AoeIdentityComponent identity = entityManager.GetComponentData<AoeIdentityComponent>(entities[i]);
-                if (identity.Scope == scope)
+                if (identity.Faction == faction)
                 {
                     return entityManager.GetComponentData<CombatRenderElement>(entities[i]).objectToWorld;
                 }
@@ -285,7 +289,7 @@ namespace PlayGround.Tests.PlayMode
 
         private static CombatCollisionComponent FirstScopedAoeCollision(CombatRoot root)
         {
-            Entity scope = AoeScopeEntity(root);
+            CombatFaction faction = Faction(root);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AoeIdentityComponent>(),
@@ -295,7 +299,7 @@ namespace PlayGround.Tests.PlayMode
             for (int i = 0; i < entities.Length; i++)
             {
                 AoeIdentityComponent identity = entityManager.GetComponentData<AoeIdentityComponent>(entities[i]);
-                if (identity.Scope == scope)
+                if (identity.Faction == faction)
                 {
                     return entityManager.GetComponentData<CombatCollisionComponent>(entities[i]);
                 }
@@ -348,18 +352,18 @@ namespace PlayGround.Tests.PlayMode
             return mob;
         }
 
-        private static Entity AoeScopeEntity(CombatRoot root)
+        private static Entity ScopeEntity(CombatRoot root)
         {
             const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
             FieldInfo scopeEntityField = typeof(CombatRoot).GetField("scopeEntity", Flags);
             return (Entity)scopeEntityField.GetValue(root);
         }
 
-        private static Entity ProjectileScopeEntity(CombatRoot root)
+        private static CombatFaction Faction(CombatRoot root)
         {
             const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            FieldInfo scopeEntityField = typeof(CombatRoot).GetField("scopeEntity", Flags);
-            return (Entity)scopeEntityField.GetValue(root);
+            FieldInfo factionField = typeof(CombatRoot).GetField("faction", Flags);
+            return (CombatFaction)factionField.GetValue(root);
         }
 
         // ── AOE stack trigger chain tests ─────────────────────────────────────────

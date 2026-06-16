@@ -221,7 +221,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(ProjectileActiveTag));
             entityManager.SetComponentData(projectileEntity, new ProjectileIdentityComponent
             {
-                Scope = scopeEntity,
+                Faction = CombatFaction.Player,
                 ProjectileId = projectileId,
                 TypeId = 1
             });
@@ -267,6 +267,7 @@ namespace PlayGround.Tests.PlayMode
         {
             entityManager.GetBuffer<CombatTargetElement>(scopeEntity).Add(new CombatTargetElement
             {
+                Faction = CombatFaction.Player,
                 TargetId = targetId,
                 TargetMask = targetMask,
                 Position = position,

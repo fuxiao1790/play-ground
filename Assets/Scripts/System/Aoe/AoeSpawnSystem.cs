@@ -37,7 +37,6 @@ namespace PlayGround.System.Aoe
 
         private readonly Dictionary<AoeSpawnKey, AoeSpawnBucket> _byKey = new();
         private readonly Dictionary<AoeSpawnKey, EntityQuery> _deadSlotQueriesByKey = new();
-        private readonly Dictionary<int, Entity> _scopeByIndex = new();
         private readonly List<AoeSpawnBucket> _bucketPool = new();
         private readonly List<AoeSpawnWork> _spawnWork = new();
 
@@ -79,7 +78,6 @@ namespace PlayGround.System.Aoe
             scopeQuery.Dispose();
             _byKey.Clear();
             _deadSlotQueriesByKey.Clear();
-            _scopeByIndex.Clear();
             _bucketPool.Clear();
             _spawnWork.Clear();
         }
@@ -99,7 +97,6 @@ namespace PlayGround.System.Aoe
                 int count = requests.Length;
                 if (count == 0) continue;
 
-                _scopeByIndex[scope.Index] = scope;
                 DynamicBuffer<VfxSpawnRequestElement> vfxBuffer =
                     EntityManager.GetBuffer<VfxSpawnRequestElement>(scope);
                 vfxBuffer.EnsureCapacity(vfxBuffer.Length + count);
@@ -107,7 +104,7 @@ namespace PlayGround.System.Aoe
                 for (int j = 0; j < count; j++)
                 {
                     AoeSpawnRequestElement req = requests[j];
-                    var key = new AoeSpawnKey(scope.Index, req.TypeId);
+                    var key = new AoeSpawnKey((int)req.Faction, req.TypeId);
                     if (!_byKey.TryGetValue(key, out AoeSpawnBucket bucket))
                     {
                         bucket = GetBucket();
@@ -116,6 +113,7 @@ namespace PlayGround.System.Aoe
                     bucket.Requests.Add(req);
                     vfxBuffer.Add(new VfxSpawnRequestElement
                     {
+                        Faction  = req.Faction,
                         TypeId   = req.TypeId,
                         Trigger  = 0,
                         Position = req.Position,
@@ -141,15 +139,15 @@ namespace PlayGround.System.Aoe
                     var jobHandles = new NativeList<JobHandle>(_byKey.Count, Allocator.Temp);
                     foreach (var (key, bucket) in _byKey)
                     {
-                        Entity scope = _scopeByIndex[key.ScopeIndex];
-                        EntityQuery query = DeadSlotQueryFor(key, scope);
+                        CombatFaction faction = (CombatFaction)key.FactionValue;
+                        EntityQuery query = DeadSlotQueryFor(key, faction);
                         NativeArray<AoeSpawnRequestElement> configs = bucket.Requests.AsArray();
                         var claimedReference = new NativeReference<int>(Allocator.TempJob);
                         claimedReference.Value = 0;
 
                         JobHandle spawnHandle = new AoeSpawnJob
                         {
-                            Scope                 = scope,
+                            Faction               = faction,
                             Configs               = configs,
                             ClaimedCount          = claimedReference,
                             ActiveHandle          = GetComponentTypeHandle<AoeActiveTag>(false),
@@ -169,7 +167,7 @@ namespace PlayGround.System.Aoe
                         }.Schedule(query, default);
 
                         jobHandles.Add(spawnHandle);
-                        _spawnWork.Add(new AoeSpawnWork(scope, configs, claimedReference));
+                        _spawnWork.Add(new AoeSpawnWork(faction, configs, claimedReference));
                     }
 
                     JobHandle.CombineDependencies(jobHandles.AsArray()).Complete();
@@ -183,7 +181,7 @@ namespace PlayGround.System.Aoe
                     reuseCount += claimed;
                     for (int i = claimed; i < work.Configs.Length; i++)
                     {
-                        CreateAoeEntity(work.Scope, work.Configs[i], createEcb);
+                        CreateAoeEntity(work.Faction, work.Configs[i], createEcb);
                         coldCreateCount++;
                     }
                 }
@@ -204,7 +202,6 @@ namespace PlayGround.System.Aoe
                 _bucketPool.Add(bucket);
             }
             _byKey.Clear();
-            _scopeByIndex.Clear();
         }
 
         private AoeSpawnBucket GetBucket()
@@ -227,13 +224,13 @@ namespace PlayGround.System.Aoe
             }
         }
 
-        private EntityQuery DeadSlotQueryFor(AoeSpawnKey key, Entity scope)
+        private EntityQuery DeadSlotQueryFor(AoeSpawnKey key, CombatFaction faction)
         {
             if (!_deadSlotQueriesByKey.TryGetValue(key, out EntityQuery query))
             {
                 query = new EntityQueryBuilder(Allocator.Temp)
                     .WithAll<AoeTag>()
-                    .WithAll<CombatRenderScope>()
+                    .WithAll<CombatRenderFaction>()
                     .WithAll<CombatRenderTypeId>()
                     .WithDisabled<AoeActiveTag>()
                     .Build(this);
@@ -241,7 +238,7 @@ namespace PlayGround.System.Aoe
             }
 
             query.SetSharedComponentFilter(
-                new CombatRenderScope { Scope = scope },
+                new CombatRenderFaction { Faction = faction },
                 new CombatRenderTypeId { TypeId = key.TypeId });
             return query;
         }
@@ -258,19 +255,19 @@ namespace PlayGround.System.Aoe
             _spawnWork.Clear();
         }
 
-        private void CreateAoeEntity(Entity scope, AoeSpawnRequestElement request, EntityCommandBuffer ecb)
+        private void CreateAoeEntity(CombatFaction faction, AoeSpawnRequestElement request, EntityCommandBuffer ecb)
         {
             Entity entity = ecb.CreateEntity(archetype);
-            ecb.AddSharedComponent(entity, new CombatRenderScope { Scope = scope });
+            ecb.AddSharedComponent(entity, new CombatRenderFaction { Faction = faction });
             ecb.AddSharedComponent(entity, new CombatRenderTypeId { TypeId = request.TypeId });
-            RecordAoeReset(ecb, entity, scope, request);
+            RecordAoeReset(ecb, entity, faction, request);
         }
 
-        private static void RecordAoeReset(EntityCommandBuffer ecb, Entity entity, Entity scope, AoeSpawnRequestElement request)
+        private static void RecordAoeReset(EntityCommandBuffer ecb, Entity entity, CombatFaction faction, AoeSpawnRequestElement request)
         {
             CombatKinematicsComponent kinematics = KinematicsFor(request);
             CombatRenderComponent render = request.Render;
-            ecb.SetComponent(entity, IdentityFor(scope, request));
+            ecb.SetComponent(entity, IdentityFor(faction, request));
             ecb.SetComponent(entity, kinematics);
             ecb.SetComponent(entity, CollisionFor(request));
             ecb.SetComponent(entity, LifetimeFor(request));
@@ -290,8 +287,8 @@ namespace PlayGround.System.Aoe
             || request.HitPayload.StackEffect.Enabled
             || request.ProjectileBurst.Enabled;
 
-        private static AoeIdentityComponent IdentityFor(Entity scope, AoeSpawnRequestElement request) =>
-            new AoeIdentityComponent { Scope = scope, AoeId = request.AoeId, TypeId = request.TypeId };
+        private static AoeIdentityComponent IdentityFor(CombatFaction faction, AoeSpawnRequestElement request) =>
+            new AoeIdentityComponent { Faction = faction, AoeId = request.AoeId, TypeId = request.TypeId };
 
         private static CombatKinematicsComponent KinematicsFor(AoeSpawnRequestElement request) =>
             new CombatKinematicsComponent { Position = request.Position, Velocity = default };
@@ -332,7 +329,7 @@ namespace PlayGround.System.Aoe
         [BurstCompile]
         private struct AoeSpawnJob : IJobChunk
         {
-            public Entity Scope;
+            public CombatFaction Faction;
             [ReadOnly] public NativeArray<AoeSpawnRequestElement> Configs;
             [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
 
@@ -381,7 +378,7 @@ namespace PlayGround.System.Aoe
 
                     identities[i]  = new AoeIdentityComponent
                     {
-                        Scope = Scope, AoeId = cfg.AoeId, TypeId = cfg.TypeId
+                        Faction = Faction, AoeId = cfg.AoeId, TypeId = cfg.TypeId
                     };
                     CombatKinematicsComponent kin = new CombatKinematicsComponent
                     {
@@ -431,20 +428,20 @@ namespace PlayGround.System.Aoe
 
         private readonly struct AoeSpawnKey : IEquatable<AoeSpawnKey>
         {
-            private readonly int _scopeIndex;
+            private readonly int _factionValue;
             private readonly int _typeId;
 
-            public int ScopeIndex => _scopeIndex;
+            public int FactionValue => _factionValue;
             public int TypeId     => _typeId;
 
-            public AoeSpawnKey(int scopeIndex, int typeId)
+            public AoeSpawnKey(int factionValue, int typeId)
             {
-                _scopeIndex = scopeIndex;
+                _factionValue = factionValue;
                 _typeId     = typeId;
             }
 
             public bool Equals(AoeSpawnKey other) =>
-                _scopeIndex == other._scopeIndex && _typeId == other._typeId;
+                _factionValue == other._factionValue && _typeId == other._typeId;
 
             public override bool Equals(object obj) => obj is AoeSpawnKey k && Equals(k);
 
@@ -452,7 +449,7 @@ namespace PlayGround.System.Aoe
             {
                 unchecked
                 {
-                    return _scopeIndex * 397 ^ _typeId;
+                    return _factionValue * 397 ^ _typeId;
                 }
             }
         }
@@ -473,16 +470,16 @@ namespace PlayGround.System.Aoe
 
         private readonly struct AoeSpawnWork
         {
-            public readonly Entity Scope;
+            public readonly CombatFaction Faction;
             public readonly NativeArray<AoeSpawnRequestElement> Configs;
             public readonly NativeReference<int> ClaimedCount;
 
             public AoeSpawnWork(
-                Entity scope,
+                CombatFaction faction,
                 NativeArray<AoeSpawnRequestElement> configs,
                 NativeReference<int> claimedCount)
             {
-                Scope = scope;
+                Faction = faction;
                 Configs = configs;
                 ClaimedCount = claimedCount;
             }

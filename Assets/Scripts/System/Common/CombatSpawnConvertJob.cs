@@ -13,8 +13,9 @@ namespace PlayGround.System.Common
     // projectile/AOE spawn requests directly onto the producing scope's buffers,
     // fully in ECS so follow-up spawns materialize the same frame.
     //
-    // With one shared scope per faction (CombatRoot), internal spawns always target
-    // the producing scope (pending.Scope) — no routing component needed.
+    // There is one shared scope for the whole world; internal spawns always
+    // target that same Scope and stamp the producing pending.Faction onto the
+    // written element — no routing component needed.
     //
     // Single IJob (not parallel) so the BufferLookup writes are serial and safe,
     // matching the old CombatHitFlushJob contract.
@@ -26,6 +27,7 @@ namespace PlayGround.System.Common
         private const int ImpactProjectileIdSalt = 0x2C1297;
         private const int ProjectileBurstIdSalt = 0x7AB025;
 
+        public Entity Scope;
         public NativeStream PendingSpawns;
         public BufferLookup<ProjectileSpawnRequestElement> ProjectileRequests;
         public BufferLookup<AoeSpawnRequestElement> AoeRequests;
@@ -47,7 +49,7 @@ namespace PlayGround.System.Common
 
         private void Convert(in CombatPendingSpawn pending)
         {
-            if (pending.Scope == Entity.Null)
+            if (pending.Faction == CombatFaction.None)
             {
                 return;
             }
@@ -70,7 +72,7 @@ namespace PlayGround.System.Common
 
         private void AppendImpactAoe(in CombatPendingSpawn pending)
         {
-            Entity dest = pending.Scope;
+            Entity dest = Scope;
             if (!AoeRequests.HasBuffer(dest))
             {
                 return;
@@ -100,6 +102,7 @@ namespace PlayGround.System.Common
 
             AoeRequests[dest].Add(new AoeSpawnRequestElement
             {
+                Faction = pending.Faction,
                 AoeId = HashId(pending.SourceId, pending.TypeId, pending.TargetId, ImpactAoeIdSalt),
                 TypeId = impact.TypeId,
                 Lifetime = impact.LifetimeSeconds,
@@ -128,7 +131,7 @@ namespace PlayGround.System.Common
 
         private void AppendImpactProjectiles(in CombatPendingSpawn pending)
         {
-            Entity dest = pending.Scope;
+            Entity dest = Scope;
             if (!ProjectileRequests.HasBuffer(dest))
             {
                 return;
@@ -153,7 +156,7 @@ namespace PlayGround.System.Common
                 default);
 
             ProjectileSpawnRequestElement request = BuildProjectileRequest(
-                dest, baseId, burst.ProjectileTypeId, pending.Position, baseDirection,
+                pending.Faction, baseId, burst.ProjectileTypeId, pending.Position, baseDirection,
                 burst.Speed, burst.LifetimeSeconds, burst.Radius,
                 new float2(burst.HalfExtents.x, burst.HalfExtents.y), burst.RotationRadians, burst.ShapeType,
                 burst.PierceCount, burst.RepeatHitCooldownSeconds, burst.Count, burst.SpreadDegrees,
@@ -165,7 +168,7 @@ namespace PlayGround.System.Common
 
         private void AppendProjectileBurst(in CombatPendingSpawn pending)
         {
-            Entity dest = pending.Scope;
+            Entity dest = Scope;
             if (!ProjectileRequests.HasBuffer(dest))
             {
                 return;
@@ -190,7 +193,7 @@ namespace PlayGround.System.Common
                 default);
 
             ProjectileSpawnRequestElement request = BuildProjectileRequest(
-                dest, baseId, burst.ProjectileTypeId, pending.Position, baseDirection,
+                pending.Faction, baseId, burst.ProjectileTypeId, pending.Position, baseDirection,
                 burst.Speed, burst.LifetimeSeconds, burst.Radius,
                 new float2(burst.HalfExtents.x, burst.HalfExtents.y), burst.RotationRadians, burst.ShapeType,
                 burst.PierceCount, burst.RepeatHitCooldownSeconds, burst.Count, burst.SpreadDegrees,
@@ -201,7 +204,7 @@ namespace PlayGround.System.Common
         }
 
         private static ProjectileSpawnRequestElement BuildProjectileRequest(
-            Entity scope, int baseId, int typeId, float2 position, float2 baseDirection,
+            CombatFaction faction, int baseId, int typeId, float2 position, float2 baseDirection,
             float speed, float lifetime, float radius, float2 halfExtents, float rotationRadians,
             CombatShapeType shapeType, int pierce, float repeatHitCooldownSeconds, int count, float spreadDegrees,
             ProjectileHitPayload hitPayload, ProjectileTrackingComponent tracking,
@@ -213,7 +216,7 @@ namespace PlayGround.System.Common
 
             var request = new ProjectileSpawnRequestElement
             {
-                Scope = scope,
+                Faction = faction,
                 ProjectileId = baseId,
                 TypeId = typeId,
                 PierceRemaining = pierce,

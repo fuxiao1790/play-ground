@@ -11,6 +11,7 @@ namespace PlayGround.System.Common
     [BurstCompile]
     public struct CombatHitFlushJob : IJob
     {
+        public Entity Scope;
         public NativeStream PendingDamage;
         public BufferLookup<CombatDamageElement> Damage;
 
@@ -31,13 +32,14 @@ namespace PlayGround.System.Common
 
         private void WriteDamage(CombatPendingDamage pending)
         {
-            if (pending.Scope == Entity.Null || !Damage.HasBuffer(pending.Scope))
+            if (pending.Faction == CombatFaction.None || !Damage.HasBuffer(Scope))
             {
                 return;
             }
 
-            Damage[pending.Scope].Add(new CombatDamageElement
+            Damage[Scope].Add(new CombatDamageElement
             {
+                Faction = pending.Faction,
                 SourceId = pending.SourceId,
                 TypeId = pending.TypeId,
                 TargetId = pending.TargetId,

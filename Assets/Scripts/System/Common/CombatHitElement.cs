@@ -194,6 +194,7 @@ namespace PlayGround.System.Common
     // ECS Lifecycle: scope damage buffer; added at root setup; kept until root teardown; cleared during simulation/replay.
     public struct CombatDamageElement : IBufferElementData
     {
+        public CombatFaction Faction;
         public int SourceId;
         public int TypeId;
         public int TargetId;
@@ -210,7 +211,7 @@ namespace PlayGround.System.Common
     // ECS Lifecycle: transient native damage payload; not added to entities; streamed during collision and flushed to scope buffers.
     public struct CombatPendingDamage
     {
-        public Entity Scope;
+        public CombatFaction Faction;
         public int SourceId;
         public int TypeId;
         public int TargetId;
@@ -227,7 +228,7 @@ namespace PlayGround.System.Common
     // ECS Lifecycle: transient native spawn payload; not added to entities; streamed during collision and flushed to scope buffers.
     public struct CombatPendingSpawn
     {
-        public Entity Scope;
+        public CombatFaction Faction;
         public int SourceId;
         public int TypeId;
         public int TargetId;

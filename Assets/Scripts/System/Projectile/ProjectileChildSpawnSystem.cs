@@ -11,6 +11,13 @@ namespace PlayGround.System.Projectile
     [UpdateBefore(typeof(ProjectileLifetimeSystem))]
     public partial struct ProjectileChildSpawnSystem : ISystem
     {
+        private EntityQuery scopeQuery;
+
+        public void OnCreate(ref SystemState state)
+        {
+            scopeQuery = state.GetEntityQuery(ComponentType.ReadOnly<CombatScope>());
+        }
+
         public void OnUpdate(ref SystemState state)
         {
             var ecb = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>()
@@ -19,6 +26,7 @@ namespace PlayGround.System.Projectile
             state.Dependency = new ProjectileChildSpawnEntityJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
+                Scope = scopeQuery.GetSingletonEntity(),
                 Ecb = ecb
             }.ScheduleParallel(state.Dependency);
         }
@@ -28,6 +36,7 @@ namespace PlayGround.System.Projectile
         private partial struct ProjectileChildSpawnEntityJob : IJobEntity
         {
             public float DeltaTime;
+            public Entity Scope;
             public EntityCommandBuffer.ParallelWriter Ecb;
 
             private void Execute(
@@ -38,7 +47,7 @@ namespace PlayGround.System.Projectile
                 in ProjectileLifetimeComponent lifetime,
                 in ProjectileChildSpawnerComponent spawner)
             {
-                if (lifetime.RemainingLifetime <= 0f || identity.Scope == Entity.Null)
+                if (lifetime.RemainingLifetime <= 0f || identity.Faction == CombatFaction.None)
                 {
                     return;
                 }
@@ -89,9 +98,9 @@ namespace PlayGround.System.Projectile
                     out float2 boundsMax);
 
                 int childProjectileId = ChildProjectileId(parentIdentity.ProjectileId, spawner.SpawnerId, tickIndex, childIndex);
-                Ecb.AppendToBuffer(chunkIndex, parentIdentity.Scope, new ProjectileSpawnRequestElement
+                Ecb.AppendToBuffer(chunkIndex, Scope, new ProjectileSpawnRequestElement
                 {
-                    Scope = parentIdentity.Scope,
+                    Faction = parentIdentity.Faction,
                     Count = 1,
                     ProjectileId = childProjectileId,
                     TypeId = spawner.TypeId,

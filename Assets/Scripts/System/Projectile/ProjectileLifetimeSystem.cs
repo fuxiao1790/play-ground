@@ -15,6 +15,12 @@ namespace PlayGround.System.Projectile
     [UpdateBefore(typeof(ProjectileCollisionSystem))]
     public partial struct ProjectileLifetimeSystem : ISystem
     {
+        private EntityQuery scopeQuery;
+
+        public void OnCreate(ref SystemState state)
+        {
+            scopeQuery = state.GetEntityQuery(ComponentType.ReadOnly<CombatScope>());
+        }
 
         public void OnUpdate(ref SystemState state)
         {
@@ -28,6 +34,7 @@ namespace PlayGround.System.Projectile
             JobHandle lifetimeHandle = job.ScheduleParallel(state.Dependency);
             JobHandle vfxFlushHandle = new VfxFlushJob
             {
+                Scope = scopeQuery.GetSingletonEntity(),
                 Pending = vfxPending,
                 VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
             }.Schedule(lifetimeHandle);
@@ -59,7 +66,7 @@ namespace PlayGround.System.Projectile
                     renderActive.ValueRW = false;
                     VfxPending.Enqueue(new VfxPendingSpawn
                     {
-                        Scope = identity.Scope,
+                        Faction = identity.Faction,
                         TypeId = identity.TypeId,
                         Trigger = 2,
                         Position = kinematics.Position,

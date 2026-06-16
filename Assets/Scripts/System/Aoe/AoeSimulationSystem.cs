@@ -21,13 +21,8 @@ namespace PlayGround.System.Aoe
                 return;
             }
 
-            NativeArray<Entity> scopes = scopeQuery.ToEntityArray(Allocator.Temp);
-            for (int i = 0; i < scopes.Length; i++)
-            {
-                state.EntityManager.GetBuffer<CombatDamageElement>(scopes[i]).Clear();
-            }
-
-            scopes.Dispose();
+            Entity scope = scopeQuery.GetSingletonEntity();
+            state.EntityManager.GetBuffer<CombatDamageElement>(scope).Clear();
         }
     }
 }

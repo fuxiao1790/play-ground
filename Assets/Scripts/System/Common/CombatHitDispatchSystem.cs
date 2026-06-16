@@ -15,13 +15,11 @@ namespace PlayGround.System.Common
             new("CombatHitDispatch.Damage", "Damage Events");
 
         private static readonly List<CombatHitData> hitDataScratch = new();
-        private EntityQuery damageQuery;
+        private EntityQuery scopeQuery;
 
         protected override void OnCreate()
         {
-            damageQuery = GetEntityQuery(
-                ComponentType.ReadWrite<CombatDamageElement>(),
-                ComponentType.ReadOnly<CombatDamageTargetSource>());
+            scopeQuery = GetEntityQuery(ComponentType.ReadWrite<CombatDamageElement>());
         }
 
         protected override void OnUpdate()
@@ -29,46 +27,36 @@ namespace PlayGround.System.Common
             CompleteDependency();
             using (Marker.Auto())
             {
-                int totalDamageEvents = 0;
-                using NativeArray<Entity> damageScopes = damageQuery.ToEntityArray(Allocator.Temp);
-                for (int i = 0; i < damageScopes.Length; i++)
+                Entity scope = scopeQuery.GetSingletonEntity();
+                DynamicBuffer<CombatDamageElement> damage = EntityManager.GetBuffer<CombatDamageElement>(scope);
+                using (DamageReplayMarker.Auto(damage.Length))
                 {
-                    totalDamageEvents += EntityManager.GetBuffer<CombatDamageElement>(damageScopes[i]).Length;
-                }
-
-                using (DamageReplayMarker.Auto(totalDamageEvents))
-                {
-                    for (int i = 0; i < damageScopes.Length; i++)
-                    {
-                        Entity scope = damageScopes[i];
-                        DynamicBuffer<CombatDamageElement> damage = EntityManager.GetBuffer<CombatDamageElement>(scope);
-                        CombatDamageTargetSource targetSource =
-                            EntityManager.GetComponentObject<CombatDamageTargetSource>(scope);
-                        if (targetSource.TargetsById == null)
-                        {
-                            damage.Clear();
-                            continue;
-                        }
-
-                        ReplayDamageAndClear(damage, targetSource.TargetsById);
-                    }
+                    ReplayDamageAndClear(damage);
                 }
             }
         }
 
-        private static void ReplayDamageAndClear(
-            DynamicBuffer<CombatDamageElement> damageBuffer,
-            IReadOnlyDictionary<int, ICombatTarget> targetsById)
+        // Groups by (TargetId, Faction) — TargetId alone is not globally unique
+        // across factions, so the Faction tag disambiguates which faction's
+        // target dictionary to resolve the live target from.
+        private static void ReplayDamageAndClear(DynamicBuffer<CombatDamageElement> damageBuffer)
         {
             int hitCount = damageBuffer.Length;
             int i = 0;
             while (i < hitCount)
             {
                 int groupTargetId = damageBuffer[i].TargetId;
-                TryGetLiveTarget(targetsById, groupTargetId, out ICombatTarget target);
+                CombatFaction groupFaction = damageBuffer[i].Faction;
+                ICombatTarget target = null;
+                if (CombatRoot.TryGetByFaction(groupFaction, out CombatRoot root) && root.TargetsById != null)
+                {
+                    TryGetLiveTarget(root.TargetsById, groupTargetId, out target);
+                }
                 hitDataScratch.Clear();
 
-                while (i < hitCount && damageBuffer[i].TargetId == groupTargetId)
+                while (i < hitCount
+                    && damageBuffer[i].TargetId == groupTargetId
+                    && damageBuffer[i].Faction == groupFaction)
                 {
                     CombatDamageElement damageEvent = damageBuffer[i++];
                     DamageSnapshot damage = RollDamage(in damageEvent);

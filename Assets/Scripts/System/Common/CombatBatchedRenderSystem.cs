@@ -12,26 +12,22 @@ namespace PlayGround.System.Common
     {
         private const int MaxInstancesPerDraw = 1023;
 
-        private EntityQuery scopeQuery;
         private EntityQuery projectileRenderQuery;
         private EntityQuery aoeRenderQuery;
         private NativeArray<CombatRenderElement> submitBuffer;
 
         protected override void OnCreate()
         {
-            scopeQuery = EntityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<CombatScopeRenderCatalog>());
-
             projectileRenderQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CombatRenderElement>(),
-                ComponentType.ReadOnly<CombatRenderScope>(),
+                ComponentType.ReadOnly<CombatRenderFaction>(),
                 ComponentType.ReadOnly<CombatRenderTypeId>(),
                 ComponentType.ReadOnly<CombatRenderActiveTag>(),
                 ComponentType.ReadOnly<ProjectileTag>());
 
             aoeRenderQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CombatRenderElement>(),
-                ComponentType.ReadOnly<CombatRenderScope>(),
+                ComponentType.ReadOnly<CombatRenderFaction>(),
                 ComponentType.ReadOnly<CombatRenderTypeId>(),
                 ComponentType.ReadOnly<CombatRenderActiveTag>(),
                 ComponentType.ReadOnly<AoeTag>());
@@ -46,7 +42,6 @@ namespace PlayGround.System.Common
                 submitBuffer.Dispose();
             }
 
-            scopeQuery.Dispose();
             projectileRenderQuery.Dispose();
             aoeRenderQuery.Dispose();
         }
@@ -55,23 +50,25 @@ namespace PlayGround.System.Common
         {
             CompleteDependency();
 
-            using NativeArray<Entity> scopes = scopeQuery.ToEntityArray(Allocator.Temp);
-            for (int s = 0; s < scopes.Length; s++)
+            if (CombatRoot.TryGetByFaction(CombatFaction.Player, out CombatRoot playerRoot))
             {
-                Entity scope = scopes[s];
-                CombatScopeRenderCatalog catalog = EntityManager.GetComponentData<CombatScopeRenderCatalog>(scope);
-                if (!CombatRoot.TryGetRoot(catalog.RootId, out CombatRoot root))
-                {
-                    continue;
-                }
+                SubmitFaction(playerRoot);
+            }
 
-                SubmitDomain(scope, projectileRenderQuery, root.ProjectileRenderResources, root.RenderLayer, root.BatchBoundsHalfExtent);
-                SubmitDomain(scope, aoeRenderQuery, root.AoeRenderResources, root.RenderLayer, root.BatchBoundsHalfExtent);
+            if (CombatRoot.TryGetByFaction(CombatFaction.Mob, out CombatRoot mobRoot))
+            {
+                SubmitFaction(mobRoot);
             }
         }
 
+        private void SubmitFaction(CombatRoot root)
+        {
+            SubmitDomain(root.Faction, projectileRenderQuery, root.ProjectileRenderResources, root.RenderLayer, root.BatchBoundsHalfExtent);
+            SubmitDomain(root.Faction, aoeRenderQuery, root.AoeRenderResources, root.RenderLayer, root.BatchBoundsHalfExtent);
+        }
+
         private void SubmitDomain(
-            Entity scope,
+            CombatFaction faction,
             EntityQuery domainQuery,
             IReadOnlyDictionary<int, CombatSpriteRenderResources> resourcesByType,
             int layer,
@@ -85,7 +82,7 @@ namespace PlayGround.System.Common
             foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in resourcesByType)
             {
                 domainQuery.SetSharedComponentFilter(
-                    new CombatRenderScope { Scope = scope },
+                    new CombatRenderFaction { Faction = faction },
                     new CombatRenderTypeId { TypeId = pair.Key });
 
                 using NativeArray<CombatRenderElement> elements =

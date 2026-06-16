@@ -17,16 +17,20 @@ namespace PlayGround.System.Projectile
         private static readonly ProfilerMarker<int> TargetSpatialHashBuildMarker =
             new("Projectile.Tracking.TargetSpatialHashBuild", "Targets");
 
+        private EntityQuery scopeQuery;
+
+        public void OnCreate(ref SystemState state)
+        {
+            scopeQuery = state.GetEntityQuery(ComponentType.ReadOnly<CombatScope>());
+        }
+
         public void OnUpdate(ref SystemState state)
         {
             state.EntityManager.CompleteDependencyBeforeRO<CombatTargetElement>();
 
-            int totalTargetCount = 0;
-            foreach (DynamicBuffer<CombatTargetElement> targets in
-                SystemAPI.Query<DynamicBuffer<CombatTargetElement>>().WithAll<CombatScope>())
-            {
-                totalTargetCount += targets.Length;
-            }
+            Entity scope = scopeQuery.GetSingletonEntity();
+            DynamicBuffer<CombatTargetElement> targets = state.EntityManager.GetBuffer<CombatTargetElement>(scope);
+            int totalTargetCount = targets.Length;
 
             NativeParallelHashMap<long, int> targetIndicesById;
             NativeParallelMultiHashMap<long, int> targetCells;
@@ -38,25 +42,19 @@ namespace PlayGround.System.Projectile
                 targetCells = new NativeParallelMultiHashMap<long, int>(
                     math.max(1, totalTargetCount), Allocator.TempJob);
 
-                foreach ((DynamicBuffer<CombatTargetElement> targets, Entity scope) in
-                    SystemAPI.Query<DynamicBuffer<CombatTargetElement>>()
-                        .WithAll<CombatScope>()
-                        .WithEntityAccess())
+                for (int i = 0; i < targets.Length; i++)
                 {
-                    for (int i = 0; i < targets.Length; i++)
-                    {
-                        CombatTargetElement target = targets[i];
-                        targetIndicesById.TryAdd(TargetIdKey(scope, target.TargetId), i);
-                        int2 cell = FloorCell(target.Position);
-                        targetCells.Add(CellKey(scope, cell.x, cell.y), i);
-                    }
+                    CombatTargetElement target = targets[i];
+                    targetIndicesById.TryAdd(TargetIdKey(target.Faction, target.TargetId), i);
+                    int2 cell = FloorCell(target.Position);
+                    targetCells.Add(CellKey(target.Faction, cell.x, cell.y), i);
                 }
             }
 
             var acquisitionJob = new ProjectileTargetAcquisitionJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
-                Targets = SystemAPI.GetBufferLookup<CombatTargetElement>(true),
+                Targets = targets,
                 TargetIndicesById = targetIndicesById,
                 TargetCells = targetCells
             };
@@ -81,7 +79,7 @@ namespace PlayGround.System.Projectile
         private partial struct ProjectileTargetAcquisitionJob : IJobEntity
         {
             public float DeltaTime;
-            [ReadOnly] public BufferLookup<CombatTargetElement> Targets;
+            [ReadOnly] public DynamicBuffer<CombatTargetElement> Targets;
             [ReadOnly] public NativeParallelHashMap<long, int> TargetIndicesById;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> TargetCells;
 
@@ -91,12 +89,12 @@ namespace PlayGround.System.Projectile
                 in CombatKinematicsComponent kinematics,
                 in ProjectileLifetimeComponent lifetime)
             {
-                if (!tracking.TrackingEnabled || identity.Scope == Entity.Null || !Targets.HasBuffer(identity.Scope))
+                if (!tracking.TrackingEnabled || identity.Faction == CombatFaction.None)
                 {
                     return;
                 }
 
-                DynamicBuffer<CombatTargetElement> targets = Targets[identity.Scope];
+                DynamicBuffer<CombatTargetElement> targets = Targets;
                 float speed = math.length(kinematics.Velocity);
                 if (speed <= 0.0001f)
                 {
@@ -136,7 +134,7 @@ namespace PlayGround.System.Projectile
                 }
 
                 if (TargetIndicesById.TryGetValue(
-                        TargetIdKey(identity.Scope, tracking.TrackedTargetId),
+                        TargetIdKey(identity.Faction, tracking.TrackedTargetId),
                         out int mappedIndex)
                     && mappedIndex >= 0
                     && mappedIndex < targets.Length
@@ -192,7 +190,7 @@ namespace PlayGround.System.Projectile
                                 targets,
                                 forward,
                                 minimumDotSquared,
-                                CellKey(identity.Scope, cell.x, cell.y));
+                                CellKey(identity.Faction, cell.x, cell.y));
                     }
                 }
 
@@ -389,26 +387,24 @@ namespace PlayGround.System.Projectile
                 (int)math.floor(pos.y / TrackingSpatialHashCellSize));
         }
 
-        private static long CellKey(Entity scope, int x, int y)
+        private static long CellKey(CombatFaction faction, int x, int y)
         {
             unchecked
             {
                 ulong hash = 1469598103934665603UL;
-                hash = (hash ^ (uint)scope.Index) * 1099511628211UL;
-                hash = (hash ^ (uint)scope.Version) * 1099511628211UL;
+                hash = (hash ^ (byte)faction) * 1099511628211UL;
                 hash = (hash ^ (uint)x) * 1099511628211UL;
                 hash = (hash ^ (uint)y) * 1099511628211UL;
                 return (long)hash;
             }
         }
 
-        private static long TargetIdKey(Entity scope, int targetId)
+        private static long TargetIdKey(CombatFaction faction, int targetId)
         {
             unchecked
             {
                 ulong hash = 1469598103934665603UL;
-                hash = (hash ^ (uint)scope.Index) * 1099511628211UL;
-                hash = (hash ^ (uint)scope.Version) * 1099511628211UL;
+                hash = (hash ^ (byte)faction) * 1099511628211UL;
                 hash = (hash ^ (uint)targetId) * 1099511628211UL;
                 return (long)hash;
             }
