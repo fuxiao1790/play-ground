@@ -1,33 +1,30 @@
 using PlayGround.System.Common;
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 
 namespace PlayGround.System.Projectile
 {
-    // Timed child spawns enqueue projectile spawn requests through ECB.
+    // Replaces ProjectileChildSpawnSystem: enqueues ProjectileSpawnEvent into the expansion
+    // queue instead of ECB-appending ProjectileSpawnRequestElement to the scope buffer.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileMovementSystem))]
-    [UpdateBefore(typeof(ProjectileCollisionSystem))]
-    public partial struct ProjectileChildSpawnSystem : ISystem
+    [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
+    public partial struct TimedProjectileSpawnSystem : ISystem
     {
-        private EntityQuery scopeQuery;
-
-        public void OnCreate(ref SystemState state)
-        {
-            scopeQuery = state.GetEntityQuery(ComponentType.ReadOnly<CombatScope>());
-        }
-
         public void OnUpdate(ref SystemState state)
         {
-            var ecb = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>()
-                .CreateCommandBuffer(state.WorldUnmanaged).AsParallelWriter();
+            var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
+            if (expansion == null)
+            {
+                return;
+            }
 
             state.Dependency = new ProjectileChildSpawnEntityJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
-                Scope = scopeQuery.GetSingletonEntity(),
-                Ecb = ecb
+                EventQueue = expansion.EventQueue.AsParallelWriter()
             }.ScheduleParallel(state.Dependency);
         }
 
@@ -36,11 +33,9 @@ namespace PlayGround.System.Projectile
         private partial struct ProjectileChildSpawnEntityJob : IJobEntity
         {
             public float DeltaTime;
-            public Entity Scope;
-            public EntityCommandBuffer.ParallelWriter Ecb;
+            public NativeQueue<ProjectileSpawnEvent>.ParallelWriter EventQueue;
 
             private void Execute(
-                [ChunkIndexInQuery] int chunkIndex,
                 ref ProjectileChildSpawnStateComponent childSpawnState,
                 in ProjectileIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
@@ -59,7 +54,7 @@ namespace PlayGround.System.Projectile
                     tickIndex++;
                     for (int childIndex = 0; childIndex < spawner.ChildCountPerTick; childIndex++)
                     {
-                        EnqueueChildSpawn(chunkIndex, identity, kinematics, in spawner, tickIndex, childIndex);
+                        EnqueueChildSpawn(identity, kinematics, in spawner, tickIndex, childIndex);
                     }
                     cooldown += NextIntervalSeconds(identity.ProjectileId, in spawner, tickIndex);
                 }
@@ -69,7 +64,6 @@ namespace PlayGround.System.Projectile
             }
 
             private void EnqueueChildSpawn(
-                int chunkIndex,
                 ProjectileIdentityComponent parentIdentity,
                 CombatKinematicsComponent parentKinematics,
                 in ProjectileChildSpawnerComponent spawner,
@@ -77,7 +71,14 @@ namespace PlayGround.System.Projectile
                 int childIndex)
             {
                 float2 velocity = ComputeChildVelocity(parentKinematics, in spawner, childIndex);
-                ProjectileHitPayload hitPayload = new(
+                float speed = math.length(velocity);
+                float2 baseDirection = speed > 0.0001f
+                    ? velocity / speed
+                    : math.normalizesafe(parentKinematics.Velocity, new float2(1f, 0f));
+
+                int childProjectileId = ChildProjectileId(parentIdentity.ProjectileId, spawner.SpawnerId, tickIndex, childIndex);
+
+                var hitPayload = new ProjectileHitPayload(
                     new CombatHitPayload
                     {
                         DamageAmount = spawner.DamageAmount,
@@ -88,33 +89,26 @@ namespace PlayGround.System.Projectile
                     spawner.ImpactAoe,
                     spawner.ImpactProjectile);
 
-                ProjectileCollisionMath.ComputeWorldBounds(
-                    parentKinematics.Position,
-                    spawner.Radius,
-                    spawner.HalfExtents,
-                    spawner.RotationRadians,
-                    spawner.ShapeType,
-                    out float2 boundsMin,
-                    out float2 boundsMax);
-
-                int childProjectileId = ChildProjectileId(parentIdentity.ProjectileId, spawner.SpawnerId, tickIndex, childIndex);
-                Ecb.AppendToBuffer(chunkIndex, Scope, new ProjectileSpawnRequestElement
+                EventQueue.Enqueue(new ProjectileSpawnEvent
                 {
                     Faction = parentIdentity.Faction,
-                    Count = 1,
-                    ProjectileId = childProjectileId,
+                    BaseProjectileId = childProjectileId,
                     TypeId = spawner.TypeId,
-                    PierceRemaining = spawner.PierceCount,
                     HasChildSpawner = 0,
+                    SeedContactGateTargetId = 0,
+                    Position = parentKinematics.Position,
+                    BaseDirection = baseDirection,
+                    Speed = speed,
+                    Count = 1,
+                    SpreadDegrees = 0f,
+                    JitterDegrees = 0f,
+                    JitterSeed = 0u,
+                    PierceRemaining = spawner.PierceCount,
                     RepeatHitCooldownSeconds = spawner.RepeatHitCooldownSeconds,
                     Lifetime = spawner.Lifetime,
                     Radius = spawner.Radius,
                     RotationRadians = spawner.RotationRadians,
-                    Position = parentKinematics.Position,
-                    Velocity = velocity,
                     HalfExtents = spawner.HalfExtents,
-                    BoundsMin = boundsMin,
-                    BoundsMax = boundsMax,
                     ShapeType = spawner.ShapeType,
                     HitPayload = hitPayload,
                     Tracking = new ProjectileTrackingComponent
@@ -135,9 +129,7 @@ namespace PlayGround.System.Projectile
                         VisualScale = new float2(spawner.VisualScale, spawner.VisualScale),
                         VisualRotationSin = spawner.VisualRotationSin,
                         VisualRotationCos = spawner.VisualRotationCos,
-                        RenderZ = CombatRoot.ProjectileRenderZ
-                            - (childProjectileId % CombatRoot.ProjectileRenderZSlots)
-                            * CombatRoot.ProjectileRenderZStep
+                        RenderZ = 0f // expansion overrides per-id
                     }
                 });
             }
@@ -153,9 +145,6 @@ namespace PlayGround.System.Projectile
                 {
                     case ProjectileChildSpawnPatternType.SideSpray:
                     {
-                        // Mirror of ProjectileSideSpraySpawnPattern:
-                        // even childIndex → left side, odd → right side.
-                        // Each side fans its shots across SideSpreadDegrees.
                         float2 left  = new float2(-forward.y,  forward.x);
                         float2 right = new float2( forward.y, -forward.x);
                         bool isLeft  = (childIndex & 1) == 0;
@@ -169,7 +158,7 @@ namespace PlayGround.System.Projectile
                         dir = Rotate(sideDir, angle);
                         break;
                     }
-                    default: // Forward
+                    default:
                         dir = forward;
                         break;
                 }

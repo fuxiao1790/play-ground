@@ -191,8 +191,8 @@ namespace PlayGround.System.Common
 
             int baseProjectileId = nextProjectileId + 1;
             nextProjectileId += command.Count;
-            entityManager.GetBuffer<ProjectileSpawnRequestElement>(scopeEntity)
-                .Add(ProjectileRequestFor(command, baseProjectileId, seedContactGateTargetId));
+            entityManager.GetBuffer<ProjectileSpawnEvent>(scopeEntity)
+                .Add(ProjectileEventFor(command, baseProjectileId, seedContactGateTargetId));
             return baseProjectileId;
         }
 
@@ -268,18 +268,15 @@ namespace PlayGround.System.Common
 
         // ---- Request builders ----
 
-        private ProjectileSpawnRequestElement ProjectileRequestFor(ProjectileSpawnCommand command, int projectileId, int seedContactGateTargetId)
+        private ProjectileSpawnEvent ProjectileEventFor(ProjectileSpawnCommand command, int baseProjectileId, int seedContactGateTargetId)
         {
             float2 position = new(command.Position.x, command.Position.y);
             float2 halfExtents = new(command.HalfExtents.x, command.HalfExtents.y);
-            ProjectileCollisionMath.ComputeWorldBounds(
-                position, command.Radius, halfExtents, command.RotationRadians, command.ShapeType,
-                out float2 boundsMin, out float2 boundsMax);
 
-            var request = new ProjectileSpawnRequestElement
+            var evt = new ProjectileSpawnEvent
             {
                 Faction = faction,
-                ProjectileId = projectileId,
+                BaseProjectileId = baseProjectileId,
                 TypeId = command.ProjectileTypeId,
                 PierceRemaining = command.PierceCount,
                 HasChildSpawner = command.ChildSpawn.Enabled ? 1 : 0,
@@ -290,40 +287,30 @@ namespace PlayGround.System.Common
                 RotationRadians = command.RotationRadians,
                 Position = position,
                 HalfExtents = halfExtents,
-                BoundsMin = boundsMin,
-                BoundsMax = boundsMax,
                 ShapeType = command.ShapeType,
                 HitPayload = command.HitPayload,
                 Tracking = TrackingComponentFor(command.Tracking),
-                Render = ProjectileRenderComponentFor(command.ProjectileTypeId, projectileId),
+                Render = ProjectileRenderComponentFor(command.ProjectileTypeId, baseProjectileId),
                 Count = command.Count,
+                BaseDirection = new float2(command.Direction.x, command.Direction.y),
+                Speed = command.Speed,
+                SpreadDegrees = command.SpreadDegrees,
+                JitterDegrees = command.JitterDegrees,
+                JitterSeed = (uint)baseProjectileId * 2654435761u,
             };
-
-            if (command.Count == 1)
-            {
-                request.Velocity = new float2(command.Direction.x, command.Direction.y) * command.Speed;
-            }
-            else
-            {
-                request.BaseDirection = new float2(command.Direction.x, command.Direction.y);
-                request.Speed = command.Speed;
-                request.SpreadDegrees = command.SpreadDegrees;
-                request.JitterDegrees = command.JitterDegrees;
-                request.JitterSeed = (uint)projectileId * 2654435761u;
-            }
 
             if (command.ChildSpawn.Enabled)
             {
-                request.ChildSpawner = ChildSpawnerComponentFor(command.ChildSpawn, command.HitPayload.SourceNodeId);
-                request.ChildSpawnState = new ProjectileChildSpawnStateComponent
+                evt.ChildSpawner = ChildSpawnerComponentFor(command.ChildSpawn, command.HitPayload.SourceNodeId);
+                evt.ChildSpawnState = new ProjectileChildSpawnStateComponent
                 {
                     ChildSpawnCooldownRemaining = command.ChildSpawn.IntervalSeconds
-                        + DeterministicJitter(projectileId, command.ChildSpawn.IntervalJitterSeconds),
+                        + DeterministicJitter(baseProjectileId, command.ChildSpawn.IntervalJitterSeconds),
                     ChildSpawnTickIndex = 0
                 };
             }
 
-            return request;
+            return evt;
         }
 
         private AoeSpawnRequestElement AoeRequestFor(AoeSpawnCommand command, int aoeId)

@@ -75,6 +75,7 @@ namespace PlayGround.System.Projectile
                 targetCells.Add(CellKey(targets[i].Faction, cell.x, cell.y), i);
             }
 
+            var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             var pendingDamage = new NativeStream(activeProjectileCount, Allocator.TempJob);
             var pendingSpawns = new NativeStream(activeProjectileCount, Allocator.TempJob);
             var vfxPending = new NativeStream(activeProjectileCount, Allocator.TempJob);
@@ -86,7 +87,10 @@ namespace PlayGround.System.Projectile
                 MaxTargetRadius = maxTargetRadius,
                 PendingDamage = pendingDamage.AsWriter(),
                 PendingSpawns = pendingSpawns.AsWriter(),
-                VfxPending = vfxPending.AsWriter()
+                VfxPending = vfxPending.AsWriter(),
+                ProjectileEventWriter = expansion != null
+                    ? expansion.EventQueue.AsParallelWriter()
+                    : default
             };
 
             var collisionHandle = job.ScheduleParallel(state.Dependency);
@@ -100,7 +104,6 @@ namespace PlayGround.System.Projectile
             {
                 Scope = scope,
                 PendingSpawns = pendingSpawns,
-                ProjectileRequests = SystemAPI.GetBufferLookup<ProjectileSpawnRequestElement>(),
                 AoeRequests = SystemAPI.GetBufferLookup<AoeSpawnRequestElement>()
             }.Schedule(collisionHandle);
             var vfxFlushHandle = new VfxStreamFlushJob
@@ -128,6 +131,7 @@ namespace PlayGround.System.Projectile
             public NativeStream.Writer PendingDamage;
             public NativeStream.Writer PendingSpawns;
             public NativeStream.Writer VfxPending;
+            public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
 
             private void Execute(
                 [EntityIndexInQuery] int entityIndexInQuery,
@@ -234,7 +238,15 @@ namespace PlayGround.System.Projectile
                                 });
                             }
 
-                            if (HasSpawnEvent(projectileHit.HitPayload))
+                            if (projectileHit.HitPayload.ImpactProjectile.Enabled)
+                            {
+                                ProjectileEventWriter.Enqueue(ProjectileSpawnPipeline.BuildImpactProjectileEvent(
+                                    identity.Faction, identity.ProjectileId, identity.TypeId, target.TargetId,
+                                    kinematics.Position, target.Position,
+                                    projectileHit.HitPayload.ImpactProjectile));
+                            }
+
+                            if (projectileHit.HitPayload.ImpactAoe.Enabled)
                             {
                                 pendingSpawns.Write(new CombatPendingSpawn
                                 {
@@ -246,8 +258,7 @@ namespace PlayGround.System.Projectile
                                     TargetPosition = target.Position,
                                     Kind = CombatHitKind.Projectile,
                                     SourceNodeId = projectileHit.HitPayload.SourceNodeId,
-                                    ImpactAoe = projectileHit.HitPayload.ImpactAoe,
-                                    ImpactProjectile = projectileHit.HitPayload.ImpactProjectile
+                                    ImpactAoe = projectileHit.HitPayload.ImpactAoe
                                 });
                             }
 
@@ -356,9 +367,6 @@ namespace PlayGround.System.Projectile
 
             private static bool HasDamageEvent(in ProjectileHitPayload payload) =>
                 payload.DirectDamageEnabled || payload.StackEffect.Enabled;
-
-            private static bool HasSpawnEvent(in ProjectileHitPayload payload) =>
-                payload.ImpactAoe.Enabled || payload.ImpactProjectile.Enabled;
         }
 
         private static int2 FloorCell(float2 pos)

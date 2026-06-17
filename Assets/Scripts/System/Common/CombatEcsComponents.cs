@@ -79,7 +79,6 @@ namespace PlayGround.System.Common
                 ownedScope = entityManager.CreateEntity(typeof(CombatScope));
                 entityManager.AddBuffer<CombatTargetElement>(ownedScope);
                 entityManager.AddBuffer<CombatDamageElement>(ownedScope);
-                entityManager.AddBuffer<ProjectileSpawnRequestElement>(ownedScope);
                 entityManager.AddBuffer<ProjectileSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<AoeSpawnRequestElement>(ownedScope);
                 entityManager.AddBuffer<VfxSpawnRequestElement>(ownedScope);

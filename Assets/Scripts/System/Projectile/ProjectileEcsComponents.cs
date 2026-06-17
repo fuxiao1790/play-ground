@@ -101,44 +101,4 @@ namespace PlayGround.System.Projectile
         public ProjectileImpactProjectileSnapshot ImpactProjectile;
     }
 
-    // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by ProjectileMultiExpandSystem.
-    //
-    // Dual-use: when Count > 1 this element is a spawn command consumed by ProjectileMultiExpandSystem,
-    // which expands it into Count individual elements each with Count == 1.
-    // ProjectileSpawnSystem only ever sees Count == 1 elements (via NativeStream from the expand system).
-    public struct ProjectileSpawnRequestElement : IBufferElementData
-    {
-        public CombatFaction Faction;
-        public int ProjectileId;
-        public int TypeId;
-        public int PierceRemaining;
-        public int HasChildSpawner;
-        public int SeedContactGateTargetId;
-        public float RepeatHitCooldownSeconds;
-        public float Lifetime;
-        public float Radius;
-        public float RotationRadians;
-        public float2 Position;
-        public float2 Velocity;
-        public float2 HalfExtents;
-        public float2 BoundsMin;
-        public float2 BoundsMax;
-        public CombatShapeType ShapeType;
-        public ProjectileHitPayload HitPayload;
-        public ProjectileTrackingComponent Tracking;
-        public CombatRenderComponent Render;
-        public ProjectileChildSpawnerComponent ChildSpawner;
-        public ProjectileChildSpawnStateComponent ChildSpawnState;
-
-        // Fan-out fields — only used when Count > 1 (command mode).
-        // Velocity is left default; the expand job computes per-shot velocity from BaseDirection * Speed.
-        public int    Count;
-        public float2 BaseDirection;
-        public float  Speed;
-        public float  SpreadDegrees;
-        public float  JitterDegrees;
-        public uint   JitterSeed;
-    }
-
-
 }
