@@ -87,7 +87,7 @@ namespace PlayGround.System.Projectile
                 ref ProjectileTrackingComponent tracking,
                 in ProjectileIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
-                in ProjectileLifetimeComponent lifetime)
+                in CombatLifetimeComponent lifetime)
             {
                 if (!tracking.TrackingEnabled || identity.Faction == CombatFaction.None)
                 {
@@ -107,7 +107,7 @@ namespace PlayGround.System.Projectile
                     return;
                 }
 
-                if (TryAcquireTrackedTarget(ref tracking, identity, kinematics, targets, speed, lifetime.RemainingLifetime))
+                if (TryAcquireTrackedTarget(ref tracking, identity, kinematics, targets, speed, lifetime.Remaining))
                 {
                     tracking.TrackingQueryCooldownRemaining = tracking.TrackingQueryIntervalSeconds;
                 }

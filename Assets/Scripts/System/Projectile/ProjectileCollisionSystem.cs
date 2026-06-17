@@ -29,7 +29,7 @@ namespace PlayGround.System.Projectile
                 ComponentType.ReadOnly<CombatKinematicsComponent>(),
                 ComponentType.ReadOnly<CombatCollisionComponent>(),
                 ComponentType.ReadOnly<CombatRenderComponent>(),
-                ComponentType.ReadWrite<ProjectileLifetimeComponent>(),
+                ComponentType.ReadWrite<CombatLifetimeComponent>(),
                 ComponentType.ReadWrite<ProjectileHitComponent>(),
                 ComponentType.ReadWrite<CombatRenderActiveTag>(),
                 ComponentType.ReadWrite<ProjectileContactGateElement>());
@@ -136,7 +136,7 @@ namespace PlayGround.System.Projectile
                 in CombatKinematicsComponent kinematics,
                 in CombatCollisionComponent collision,
                 in CombatRenderComponent render,
-                ref ProjectileLifetimeComponent lifetime,
+                ref CombatLifetimeComponent lifetime,
                 ref ProjectileHitComponent projectileHit,
                 EnabledRefRW<ProjectileActiveTag> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive,
@@ -157,7 +157,7 @@ namespace PlayGround.System.Projectile
                     return;
                 }
 
-                if (lifetime.RemainingLifetime <= 0f)
+                if (lifetime.Remaining <= 0f)
                 {
                     Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, ref vfxPending);
                     EndStreams(ref pendingDamage, ref pendingSpawns, ref vfxPending);
@@ -283,12 +283,12 @@ namespace PlayGround.System.Projectile
                 ProjectileIdentityComponent identity,
                 float2 position,
                 float areaSize,
-                ref ProjectileLifetimeComponent lifetime,
+                ref CombatLifetimeComponent lifetime,
                 EnabledRefRW<ProjectileActiveTag> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive,
                 ref NativeStream.Writer vfxPending)
             {
-                lifetime.RemainingLifetime = 0f;
+                lifetime.Remaining = 0f;
                 active.ValueRW = false;
                 renderActive.ValueRW = false;
                 vfxPending.Write(new VfxPendingSpawn

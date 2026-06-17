@@ -80,6 +80,7 @@ namespace PlayGround.System.Common
                 entityManager.AddBuffer<CombatTargetElement>(ownedScope);
                 entityManager.AddBuffer<CombatDamageElement>(ownedScope);
                 entityManager.AddBuffer<ProjectileSpawnRequestElement>(ownedScope);
+                entityManager.AddBuffer<ProjectileSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<AoeSpawnRequestElement>(ownedScope);
                 entityManager.AddBuffer<VfxSpawnRequestElement>(ownedScope);
                 ownerCount = 0;
@@ -138,6 +139,14 @@ namespace PlayGround.System.Common
         public bool DirectDamageEnabled;
         public EntityId SourceNodeId;
         public CombatStatusEffectSnapshot StackEffect;
+    }
+
+    // ECS Lifecycle: enableable common lifetime component; added at entity creation for finite-lifetime reusable entities;
+    // ENABLED on spawn for finite lifetimes, DISABLED for pulse AOEs (deactivated by collision the same tick);
+    // CombatLifetimeSystem counts it down and disables the entity's active tag on expiry.
+    public struct CombatLifetimeComponent : IComponentData, IEnableableComponent
+    {
+        public float Remaining;
     }
 
     // ECS Lifecycle: common scope buffer; owned by domain scope entities; lifecycle and clearing rules are defined by each domain.

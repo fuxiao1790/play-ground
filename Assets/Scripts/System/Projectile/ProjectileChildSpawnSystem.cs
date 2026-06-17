@@ -8,7 +8,7 @@ namespace PlayGround.System.Projectile
     // Timed child spawns enqueue projectile spawn requests through ECB.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileMovementSystem))]
-    [UpdateBefore(typeof(ProjectileLifetimeSystem))]
+    [UpdateBefore(typeof(ProjectileCollisionSystem))]
     public partial struct ProjectileChildSpawnSystem : ISystem
     {
         private EntityQuery scopeQuery;
@@ -44,10 +44,10 @@ namespace PlayGround.System.Projectile
                 ref ProjectileChildSpawnStateComponent childSpawnState,
                 in ProjectileIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
-                in ProjectileLifetimeComponent lifetime,
+                in CombatLifetimeComponent lifetime,
                 in ProjectileChildSpawnerComponent spawner)
             {
-                if (lifetime.RemainingLifetime <= 0f || identity.Faction == CombatFaction.None)
+                if (lifetime.Remaining <= 0f || identity.Faction == CombatFaction.None)
                 {
                     return;
                 }

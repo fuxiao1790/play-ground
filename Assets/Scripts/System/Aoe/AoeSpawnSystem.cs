@@ -16,7 +16,6 @@ namespace PlayGround.System.Aoe
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AoeCollisionSystem))]
-    [UpdateAfter(typeof(AoeLifetimeSystem))]
     // Projectile collisions convert impact AOEs into AoeSpawnRequestElement this
     // frame; run after so those impact AOEs spawn same-frame.
     [UpdateAfter(typeof(PlayGround.System.Projectile.ProjectileCollisionSystem))]
@@ -49,7 +48,7 @@ namespace PlayGround.System.Aoe
             archetype = EntityManager.CreateArchetype(
                 typeof(AoeTag),
                 typeof(AoeIdentityComponent),
-                typeof(AoeLifetimeComponent),
+                typeof(CombatLifetimeComponent),
                 typeof(AoeHitGateComponent),
                 typeof(AoeHitSpawnComponent),
                 typeof(AoeAreaComponent),
@@ -156,7 +155,7 @@ namespace PlayGround.System.Aoe
                             IdentityHandle        = GetComponentTypeHandle<AoeIdentityComponent>(false),
                             KinematicsHandle      = GetComponentTypeHandle<CombatKinematicsComponent>(false),
                             CollisionHandle       = GetComponentTypeHandle<CombatCollisionComponent>(false),
-                            LifetimeHandle        = GetComponentTypeHandle<AoeLifetimeComponent>(false),
+                            LifetimeHandle        = GetComponentTypeHandle<CombatLifetimeComponent>(false),
                             HitGateHandle         = GetComponentTypeHandle<AoeHitGateComponent>(false),
                             HitSpawnHandle        = GetComponentTypeHandle<AoeHitSpawnComponent>(false),
                             AreaHandle            = GetComponentTypeHandle<AoeAreaComponent>(false),
@@ -270,7 +269,8 @@ namespace PlayGround.System.Aoe
             ecb.SetComponent(entity, IdentityFor(faction, request));
             ecb.SetComponent(entity, kinematics);
             ecb.SetComponent(entity, CollisionFor(request));
-            ecb.SetComponent(entity, LifetimeFor(request));
+            ecb.SetComponent(entity, new CombatLifetimeComponent { Remaining = request.Lifetime });
+            ecb.SetComponentEnabled<CombatLifetimeComponent>(entity, request.Lifetime > 0f);
             ecb.SetComponent(entity, HitGateFor(request));
             ecb.SetComponent(entity, HitSpawnFor(request));
             ecb.SetComponent(entity, AreaFor(request));
@@ -304,13 +304,6 @@ namespace PlayGround.System.Aoe
                 BoundsMax       = request.BoundsMax
             };
 
-        private static AoeLifetimeComponent LifetimeFor(AoeSpawnRequestElement request) =>
-            new AoeLifetimeComponent
-            {
-                RemainingLifetime = request.Lifetime,
-                IsPulse           = request.Lifetime <= 0f ? 1 : 0
-            };
-
         private static AoeHitGateComponent HitGateFor(AoeSpawnRequestElement request) =>
             new AoeHitGateComponent { RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds };
 
@@ -339,7 +332,7 @@ namespace PlayGround.System.Aoe
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeIdentityComponent>   IdentityHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatKinematicsComponent> KinematicsHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatCollisionComponent>  CollisionHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeLifetimeComponent>   LifetimeHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatLifetimeComponent> LifetimeHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeHitGateComponent>    HitGateHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeHitSpawnComponent>   HitSpawnHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeAreaComponent>       AreaHandle;
@@ -361,7 +354,8 @@ namespace PlayGround.System.Aoe
                 NativeArray<AoeIdentityComponent>   identities  = chunk.GetNativeArray(ref IdentityHandle);
                 NativeArray<CombatKinematicsComponent> kinematics = chunk.GetNativeArray(ref KinematicsHandle);
                 NativeArray<CombatCollisionComponent>  collisions = chunk.GetNativeArray(ref CollisionHandle);
-                NativeArray<AoeLifetimeComponent>   lifetimes   = chunk.GetNativeArray(ref LifetimeHandle);
+                EnabledMask lifetimeMask = chunk.GetEnabledMask(ref LifetimeHandle);
+                NativeArray<CombatLifetimeComponent> lifetimes  = chunk.GetNativeArray(ref LifetimeHandle);
                 NativeArray<AoeHitGateComponent>    hitGates    = chunk.GetNativeArray(ref HitGateHandle);
                 NativeArray<AoeHitSpawnComponent>   hitSpawns   = chunk.GetNativeArray(ref HitSpawnHandle);
                 NativeArray<AoeAreaComponent>       areas       = chunk.GetNativeArray(ref AreaHandle);
@@ -390,11 +384,8 @@ namespace PlayGround.System.Aoe
                         ShapeType = cfg.ShapeType, Radius = cfg.Radius, HalfExtents = cfg.HalfExtents,
                         RotationRadians = cfg.RotationRadians, BoundsMin = cfg.BoundsMin, BoundsMax = cfg.BoundsMax
                     };
-                    float isPulse  = cfg.Lifetime <= 0f ? 1f : 0f;
-                    lifetimes[i]   = new AoeLifetimeComponent
-                    {
-                        RemainingLifetime = cfg.Lifetime, IsPulse = (int)isPulse
-                    };
+                    lifetimes[i]   = new CombatLifetimeComponent { Remaining = cfg.Lifetime };
+                    lifetimeMask[i] = cfg.Lifetime > 0f;
                     hitGates[i]    = new AoeHitGateComponent
                     {
                         RepeatHitCooldownSeconds = cfg.RepeatHitCooldownSeconds

@@ -28,13 +28,6 @@ namespace PlayGround.System.Aoe
     {
     }
 
-    // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse; lingering AOEs disable through lifetime expiry.
-    public struct AoeLifetimeComponent : IComponentData
-    {
-        public float RemainingLifetime;
-        public int IsPulse;
-    }
-
     // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse.
     public struct AoeHitGateComponent : IComponentData
     {
@@ -84,7 +77,7 @@ namespace PlayGround.System.Aoe
     }
 
 
-    // ECS Lifecycle: base AOE component; added at entity creation; kept until root teardown; reset on reuse; used by AoeLifetimeSystem for pulse VFX ticks on lingering AOEs.
+    // ECS Lifecycle: base AOE component; added at entity creation; kept until root teardown; reset on reuse; used by AoePulseVfxSystem for pulse VFX ticks on lingering AOEs.
     public struct AoePulseVfxComponent : IComponentData
     {
         public float RemainingInterval;

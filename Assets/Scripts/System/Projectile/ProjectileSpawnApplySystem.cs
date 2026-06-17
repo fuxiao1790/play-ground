@@ -12,18 +12,21 @@ using Unity.Profiling;
 
 namespace PlayGround.System.Projectile
 {
+    // Port of ProjectileSpawnSystem with input changed from ProjectileSpawnRequestElement
+    // to ProjectileSpawnCommandData. Reads PendingCommands from ProjectileSpawnExpansionSystem.
+    // Built beside the old ProjectileSpawnSystem; inert until Task 004 wires producers.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(ProjectileCollisionSystem))]
-    public partial class ProjectileSpawnSystem : SystemBase
+    [UpdateAfter(typeof(ProjectileSpawnExpansionSystem))]
+    public partial class ProjectileSpawnApplySystem : SystemBase
     {
         private static readonly ProfilerMarker SpawnMarker =
-            new("Projectile.Spawn");
+            new("Projectile.SpawnApply");
         private static readonly ProfilerMarker ReuseJobMarker =
-            new("Projectile.Spawn.ReuseJob");
+            new("Projectile.SpawnApply.ReuseJob");
         private static readonly ProfilerCounterValue<int> SpawnColdCreateCounter =
-            new(ProfilerCategory.Scripts, "Projectile.Spawn.Cold", ProfilerMarkerDataUnit.Count);
+            new(ProfilerCategory.Scripts, "Projectile.SpawnApply.Cold", ProfilerMarkerDataUnit.Count);
         private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
-            new(ProfilerCategory.Scripts, "Projectile.Spawn.Reuse", ProfilerMarkerDataUnit.Count);
+            new(ProfilerCategory.Scripts, "Projectile.SpawnApply.Reuse", ProfilerMarkerDataUnit.Count);
 
         private EntityArchetype archetypeNoChildSpawner;
         private EntityArchetype archetypeWithChildSpawner;
@@ -67,7 +70,6 @@ namespace PlayGround.System.Projectile
                 typeof(ProjectileChildSpawnerTag),
                 typeof(ProjectileChildSpawnerComponent),
                 typeof(ProjectileChildSpawnStateComponent));
-
         }
 
         protected override void OnDestroy()
@@ -77,9 +79,7 @@ namespace PlayGround.System.Projectile
             DisposeBuckets(_byKey.Values);
             DisposeBuckets(_bucketPool);
             foreach (EntityQuery query in _deadSlotQueriesByKey.Values)
-            {
                 query.Dispose();
-            }
             _byKey.Clear();
             _deadSlotQueriesByKey.Clear();
             _bucketPool.Clear();
@@ -92,30 +92,30 @@ namespace PlayGround.System.Projectile
 
             ReturnBuckets();
 
-            var expandSys = World.GetExistingSystemManaged<ProjectileMultiExpandSystem>();
+            var expansionSys = World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             int totalRequests = 0;
-            if (expandSys != null && expandSys.PendingStream.IsCreated)
+            if (expansionSys != null && expansionSys.PendingCommands.IsCreated)
             {
-                expandSys.PendingHandle.Complete();
-                NativeStream.Reader reader = expandSys.PendingStream.AsReader();
+                expansionSys.PendingHandle.Complete();
+                NativeStream.Reader reader = expansionSys.PendingCommands.AsReader();
                 for (int i = 0; i < reader.ForEachCount; i++)
                 {
                     int n = reader.BeginForEachIndex(i);
                     for (int j = 0; j < n; j++)
                     {
-                        ProjectileSpawnRequestElement req = reader.Read<ProjectileSpawnRequestElement>();
-                        var key = new ProjectileSpawnKey((int)req.Faction, req.TypeId, req.HasChildSpawner != 0);
+                        ProjectileSpawnCommandData cmd = reader.Read<ProjectileSpawnCommandData>();
+                        var key = new ProjectileSpawnKey((int)cmd.Faction, cmd.TypeId, cmd.HasChildSpawner != 0);
                         if (!_byKey.TryGetValue(key, out ProjectileSpawnBucket bucket))
                         {
                             bucket = GetBucket();
                             _byKey[key] = bucket;
                         }
-                        bucket.Requests.Add(req);
+                        bucket.Requests.Add(cmd);
                         totalRequests++;
                     }
                     reader.EndForEachIndex();
                 }
-                expandSys.PendingStream.Dispose();
+                expansionSys.PendingCommands.Dispose();
             }
 
             if (totalRequests == 0) return;
@@ -134,7 +134,7 @@ namespace PlayGround.System.Projectile
                     {
                         CombatFaction faction = (CombatFaction)key.FactionValue;
                         EntityQuery query = DeadSlotQueryFor(key, faction);
-                        NativeArray<ProjectileSpawnRequestElement> configs = bucket.Requests.AsArray();
+                        NativeArray<ProjectileSpawnCommandData> configs = bucket.Requests.AsArray();
                         var claimedReference = new NativeReference<int>(Allocator.TempJob);
                         claimedReference.Value = 0;
 
@@ -215,9 +215,7 @@ namespace PlayGround.System.Projectile
         private static void DisposeBuckets(IEnumerable<ProjectileSpawnBucket> buckets)
         {
             foreach (ProjectileSpawnBucket bucket in buckets)
-            {
                 bucket.Dispose();
-            }
         }
 
         private EntityQuery DeadSlotQueryFor(ProjectileSpawnKey key, CombatFaction faction)
@@ -247,82 +245,80 @@ namespace PlayGround.System.Projectile
             foreach (ProjectileSpawnWork work in _spawnWork)
             {
                 if (work.ClaimedCount.IsCreated)
-                {
                     work.ClaimedCount.Dispose();
-                }
             }
             _spawnWork.Clear();
         }
 
         private void CreateProjectileEntity(
             CombatFaction faction,
-            ProjectileSpawnRequestElement request,
+            ProjectileSpawnCommandData cmd,
             bool hasChildSpawner,
             EntityCommandBuffer ecb)
         {
             Entity entity = ecb.CreateEntity(hasChildSpawner ? archetypeWithChildSpawner : archetypeNoChildSpawner);
             ecb.AddSharedComponent(entity, new CombatRenderFaction { Faction = faction });
-            ecb.AddSharedComponent(entity, new CombatRenderTypeId { TypeId = request.TypeId });
-            RecordProjectileReset(ecb, entity, faction, request, hasChildSpawner);
+            ecb.AddSharedComponent(entity, new CombatRenderTypeId { TypeId = cmd.TypeId });
+            RecordProjectileReset(ecb, entity, faction, cmd, hasChildSpawner);
         }
 
         private static void RecordProjectileReset(
             EntityCommandBuffer ecb,
             Entity entity,
             CombatFaction faction,
-            ProjectileSpawnRequestElement request,
+            ProjectileSpawnCommandData cmd,
             bool hasChildSpawner)
         {
             ecb.SetComponent(entity, new ProjectileIdentityComponent
             {
                 Faction = faction,
-                ProjectileId = request.ProjectileId,
-                TypeId = request.TypeId
+                ProjectileId = cmd.ProjectileId,
+                TypeId = cmd.TypeId
             });
             ecb.SetComponent(entity, new CombatKinematicsComponent
             {
-                Position = request.Position,
-                Velocity = request.Velocity
+                Position = cmd.Position,
+                Velocity = cmd.Velocity
             });
             ecb.SetComponent(entity, new CombatCollisionComponent
             {
-                ShapeType = request.ShapeType,
-                Radius = request.Radius,
-                HalfExtents = request.HalfExtents,
-                RotationRadians = request.RotationRadians,
-                BoundsMin = request.BoundsMin,
-                BoundsMax = request.BoundsMax
+                ShapeType = cmd.ShapeType,
+                Radius = cmd.Radius,
+                HalfExtents = cmd.HalfExtents,
+                RotationRadians = cmd.RotationRadians,
+                BoundsMin = cmd.BoundsMin,
+                BoundsMax = cmd.BoundsMax
             });
-            ecb.SetComponent(entity, new CombatLifetimeComponent { Remaining = request.Lifetime });
+            ecb.SetComponent(entity, new CombatLifetimeComponent { Remaining = cmd.Lifetime });
             ecb.SetComponentEnabled<CombatLifetimeComponent>(entity, true);
             ecb.SetComponent(entity, new ProjectileHitComponent
             {
-                PierceRemaining = request.PierceRemaining,
-                RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds,
-                HitPayload = request.HitPayload
+                PierceRemaining = cmd.PierceRemaining,
+                RepeatHitCooldownSeconds = cmd.RepeatHitCooldownSeconds,
+                HitPayload = cmd.HitPayload
             });
-            ecb.SetComponent(entity, request.Tracking);
-            ecb.SetComponentEnabled<ProjectileTrackingComponent>(entity, request.Tracking.TrackingEnabled);
-            ecb.SetComponent(entity, request.Render);
+            ecb.SetComponent(entity, cmd.Tracking);
+            ecb.SetComponentEnabled<ProjectileTrackingComponent>(entity, cmd.Tracking.TrackingEnabled);
+            ecb.SetComponent(entity, cmd.Render);
             ecb.SetComponent(entity, new CombatRenderElement());
 
             if (hasChildSpawner)
             {
-                ecb.SetComponent(entity, request.ChildSpawner);
-                ecb.SetComponent(entity, request.ChildSpawnState);
+                ecb.SetComponent(entity, cmd.ChildSpawner);
+                ecb.SetComponent(entity, cmd.ChildSpawnState);
             }
 
-            if (request.SeedContactGateTargetId > 0)
+            if (cmd.SeedContactGateTargetId > 0)
             {
                 ecb.AppendToBuffer(entity, new ProjectileContactGateElement
                 {
-                    TargetId = request.SeedContactGateTargetId,
-                    CooldownRemaining = math.max(0.1f, request.RepeatHitCooldownSeconds)
+                    TargetId = cmd.SeedContactGateTargetId,
+                    CooldownRemaining = math.max(0.1f, cmd.RepeatHitCooldownSeconds)
                 });
             }
 
             ecb.SetComponentEnabled<ProjectileActiveTag>(entity, true);
-            ecb.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, NeedsCollision(request.HitPayload));
+            ecb.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, NeedsCollision(cmd.HitPayload));
             ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
         }
 
@@ -336,7 +332,7 @@ namespace PlayGround.System.Projectile
         private struct ProjectileSpawnJob : IJobChunk
         {
             public CombatFaction Faction;
-            [ReadOnly] public NativeArray<ProjectileSpawnRequestElement> Configs;
+            [ReadOnly] public NativeArray<ProjectileSpawnCommandData> Configs;
             [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
 
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileActiveTag>            ActiveHandle;
@@ -386,7 +382,7 @@ namespace PlayGround.System.Projectile
                 {
                     if (activeMask[i]) continue;
 
-                    ProjectileSpawnRequestElement cfg = Configs[cfgIdx++];
+                    ProjectileSpawnCommandData cfg = Configs[cfgIdx++];
 
                     identities[i]  = new ProjectileIdentityComponent
                     {
@@ -478,15 +474,13 @@ namespace PlayGround.System.Projectile
 
         private sealed class ProjectileSpawnBucket : IDisposable
         {
-            public readonly NativeList<ProjectileSpawnRequestElement> Requests =
+            public readonly NativeList<ProjectileSpawnCommandData> Requests =
                 new(Allocator.Persistent);
 
             public void Dispose()
             {
                 if (Requests.IsCreated)
-                {
                     Requests.Dispose();
-                }
             }
         }
 
@@ -494,13 +488,13 @@ namespace PlayGround.System.Projectile
         {
             public readonly CombatFaction Faction;
             public readonly bool HasChildSpawner;
-            public readonly NativeArray<ProjectileSpawnRequestElement> Configs;
+            public readonly NativeArray<ProjectileSpawnCommandData> Configs;
             public readonly NativeReference<int> ClaimedCount;
 
             public ProjectileSpawnWork(
                 CombatFaction faction,
                 bool hasChildSpawner,
-                NativeArray<ProjectileSpawnRequestElement> configs,
+                NativeArray<ProjectileSpawnCommandData> configs,
                 NativeReference<int> claimedCount)
             {
                 Faction = faction;

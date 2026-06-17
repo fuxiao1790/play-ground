@@ -28,7 +28,7 @@ namespace PlayGround.System.Aoe
                 ComponentType.ReadOnly<AoeIdentityComponent>(),
                 ComponentType.ReadOnly<CombatKinematicsComponent>(),
                 ComponentType.ReadOnly<CombatCollisionComponent>(),
-                ComponentType.ReadOnly<AoeLifetimeComponent>(),
+                ComponentType.ReadOnly<CombatLifetimeComponent>(),
                 ComponentType.ReadOnly<AoeHitGateComponent>(),
                 ComponentType.ReadOnly<AoeHitSpawnComponent>(),
                 ComponentType.ReadOnly<AoeAreaComponent>(),
@@ -130,7 +130,7 @@ namespace PlayGround.System.Aoe
                 in AoeIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
                 in CombatCollisionComponent collision,
-                in AoeLifetimeComponent lifetime,
+                EnabledRefRO<CombatLifetimeComponent> lifetimeEnabled,
                 in AoeHitGateComponent hitGate,
                 in AoeHitSpawnComponent hitSpawn,
                 in AoeAreaComponent area,
@@ -176,7 +176,7 @@ namespace PlayGround.System.Aoe
                             continue;
                         }
 
-                        float cooldown = lifetime.IsPulse == 1 ? 0f : hitGate.RepeatHitCooldownSeconds;
+                        float cooldown = !lifetimeEnabled.ValueRO ? 0f : hitGate.RepeatHitCooldownSeconds;
                         ResolveHit(
                             identity,
                             kinematics,
@@ -194,7 +194,7 @@ namespace PlayGround.System.Aoe
 
                 candidates.Dispose();
 
-                if (lifetime.IsPulse == 1)
+                if (!lifetimeEnabled.ValueRO)
                 {
                     Deactivate(active, renderActive);
                 }

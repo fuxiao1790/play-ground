@@ -13,12 +13,6 @@ namespace PlayGround.System.Projectile
         public int TypeId;
     }
 
-    // ECS Lifecycle: base projectile component; added by spawn materialization; kept until root teardown; active tag disabled on expiry.
-    public struct ProjectileLifetimeComponent : IComponentData
-    {
-        public float RemainingLifetime;
-    }
-
     // ECS Lifecycle: base projectile tag; added at entity creation; kept until root teardown; gates projectile systems from common combat components.
     public struct ProjectileTag : IComponentData
     {
