@@ -209,7 +209,7 @@ namespace PlayGround.System.Common
     }
 
     // ECS Lifecycle: transient native damage payload; not added to entities; streamed during collision and flushed to scope buffers.
-    public struct CombatPendingDamage
+    public struct DamageReplayEvent
     {
         public CombatFaction Faction;
         public int SourceId;

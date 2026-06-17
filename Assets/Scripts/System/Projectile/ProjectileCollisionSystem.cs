@@ -214,7 +214,7 @@ namespace PlayGround.System.Projectile
 
                             if (HasDamageEvent(projectileHit.HitPayload))
                             {
-                                pendingDamage.Write(new CombatPendingDamage
+                                pendingDamage.Write(new DamageReplayEvent
                                 {
                                     Faction = identity.Faction,
                                     SourceId = identity.ProjectileId,

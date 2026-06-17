@@ -25,7 +25,6 @@ namespace PlayGround.Tests.PlayMode
             testWorld = new World("AoeSimulationTest");
             entityManager = testWorld.EntityManager;
             simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoeSimulationSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<AoeSpawnExpansionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<AoeSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoeContactGateSystem>());
@@ -158,6 +157,7 @@ namespace PlayGround.Tests.PlayMode
 
         private void Tick(float dt)
         {
+            entityManager.GetBuffer<CombatDamageElement>(scopeEntity).Clear();
             elapsedTime += dt;
             testWorld.SetTime(new TimeData(elapsedTime, dt));
             simGroup.Update();

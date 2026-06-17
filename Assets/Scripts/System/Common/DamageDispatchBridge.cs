@@ -7,12 +7,15 @@ using UnityEngine;
 
 namespace PlayGround.System.Common
 {
+    // The only approved reader that crosses to managed ICombatTarget callbacks (design §8.4).
+    // Groups CombatDamageElement hits by (TargetId, Faction), rolls crit on the main thread,
+    // calls ReceiveHits on each live target, then clears the buffer.
     [UpdateInGroup(typeof(PresentationSystemGroup))]
-    public partial class CombatHitDispatchSystem : SystemBase
+    public partial class DamageDispatchBridge : SystemBase
     {
-        private static readonly ProfilerMarker Marker = new("CombatHitDispatchSystem");
+        private static readonly ProfilerMarker Marker = new("DamageDispatchBridge");
         private static readonly ProfilerMarker<int> DamageReplayMarker =
-            new("CombatHitDispatch.Damage", "Damage Events");
+            new("DamageDispatchBridge.Damage", "Damage Events");
 
         private static readonly List<CombatHitData> hitDataScratch = new();
         private EntityQuery scopeQuery;

@@ -229,7 +229,7 @@ namespace PlayGround.System.Aoe
             {
                 if (HasDamageEvent(hitSpawn))
                 {
-                    pendingDamage.Write(new CombatPendingDamage
+                    pendingDamage.Write(new DamageReplayEvent
                     {
                         Faction = identity.Faction,
                         SourceId = identity.AoeId,

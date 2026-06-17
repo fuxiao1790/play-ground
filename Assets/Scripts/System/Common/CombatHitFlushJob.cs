@@ -21,14 +21,14 @@ namespace PlayGround.System.Common
                 int count = damageReader.BeginForEachIndex(i);
                 for (int j = 0; j < count; j++)
                 {
-                    WriteDamage(damageReader.Read<CombatPendingDamage>());
+                    WriteDamage(damageReader.Read<DamageReplayEvent>());
                 }
 
                 damageReader.EndForEachIndex();
             }
         }
 
-        private void WriteDamage(CombatPendingDamage pending)
+        private void WriteDamage(DamageReplayEvent pending)
         {
             if (pending.Faction == CombatFaction.None || !Damage.HasBuffer(Scope))
             {
