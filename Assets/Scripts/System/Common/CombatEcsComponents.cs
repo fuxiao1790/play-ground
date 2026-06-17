@@ -80,7 +80,6 @@ namespace PlayGround.System.Common
                 entityManager.AddBuffer<CombatTargetElement>(ownedScope);
                 entityManager.AddBuffer<CombatDamageElement>(ownedScope);
                 entityManager.AddBuffer<ProjectileSpawnEvent>(ownedScope);
-                entityManager.AddBuffer<AoeSpawnRequestElement>(ownedScope);
                 entityManager.AddBuffer<AoeSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<VfxSpawnRequestElement>(ownedScope);
                 ownerCount = 0;

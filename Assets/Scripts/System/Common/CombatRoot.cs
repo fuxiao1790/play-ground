@@ -261,7 +261,7 @@ namespace PlayGround.System.Common
             }
 
             int aoeId = ++nextAoeId;
-            entityManager.GetBuffer<AoeSpawnRequestElement>(scopeEntity).Add(AoeRequestFor(command, aoeId));
+            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Add(AoeEventFor(command, aoeId));
             spawnedAoes++;
             return aoeId;
         }
@@ -313,16 +313,13 @@ namespace PlayGround.System.Common
             return evt;
         }
 
-        private AoeSpawnRequestElement AoeRequestFor(AoeSpawnCommand command, int aoeId)
+        private AoeSpawnEvent AoeEventFor(AoeSpawnCommand command, int aoeId)
         {
             AoeSpawnGeometry geometry = command.Geometry;
             float2 position = new(command.Position.x, command.Position.y);
             float2 halfExtents = new(geometry.HalfExtents.x, geometry.HalfExtents.y);
-            CombatCollisionMath.ComputeWorldBounds(
-                position, geometry.Radius, halfExtents, geometry.RotationRadians, geometry.ShapeType,
-                out float2 boundsMin, out float2 boundsMax);
 
-            return new AoeSpawnRequestElement
+            return new AoeSpawnEvent
             {
                 Faction = faction,
                 AoeId = aoeId,
@@ -343,8 +340,6 @@ namespace PlayGround.System.Common
                 RotationRadians = geometry.RotationRadians,
                 Position = position,
                 HalfExtents = halfExtents,
-                BoundsMin = boundsMin,
-                BoundsMax = boundsMax,
                 ShapeType = geometry.ShapeType,
                 Render = AoeRenderComponentFor(command.TypeId, geometry),
                 ProjectileBurst = command.ProjectileBurst
@@ -550,7 +545,7 @@ namespace PlayGround.System.Common
             }
 
             int count = 0;
-            DynamicBuffer<AoeSpawnRequestElement> pending = entityManager.GetBuffer<AoeSpawnRequestElement>(scopeEntity);
+            DynamicBuffer<AoeSpawnEvent> pending = entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity);
             for (int i = 0; i < pending.Length; i++)
             {
                 if (pending[i].Faction == faction)

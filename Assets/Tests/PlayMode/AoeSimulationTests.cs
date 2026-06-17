@@ -26,7 +26,8 @@ namespace PlayGround.Tests.PlayMode
             entityManager = testWorld.EntityManager;
             simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoeSimulationSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<AoeSpawnSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<AoeSpawnExpansionSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<AoeSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoeContactGateSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<CombatLifetimeSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoePulseVfxSystem>());
@@ -35,7 +36,7 @@ namespace PlayGround.Tests.PlayMode
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
-            entityManager.AddBuffer<AoeSpawnRequestElement>(scopeEntity);
+            entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<CombatDamageElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
         }
@@ -165,9 +166,7 @@ namespace PlayGround.Tests.PlayMode
         private void SpawnCircle(float2 position, float radius, float damage,
             float lifetime = 0f, float tickInterval = 0f)
         {
-            float2 min = position - radius;
-            float2 max = position + radius;
-            entityManager.GetBuffer<AoeSpawnRequestElement>(scopeEntity).Add(new AoeSpawnRequestElement
+            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Add(new AoeSpawnEvent
             {
                 Faction = CombatFaction.Player,
                 AoeId = ++nextAoeId,
@@ -182,8 +181,6 @@ namespace PlayGround.Tests.PlayMode
                 Radius = radius,
                 Position = position,
                 HalfExtents = float2.zero,
-                BoundsMin = min,
-                BoundsMax = max,
                 ShapeType = CombatShapeType.Circle
             });
         }

@@ -54,28 +54,6 @@ namespace PlayGround.System.Aoe
         public float CooldownRemaining;
     }
 
-    // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by AoeSpawnSystem.
-    public struct AoeSpawnRequestElement : IBufferElementData
-    {
-        public CombatFaction Faction;
-        public int AoeId;
-        public int TypeId;
-        // V1 keeps lifetime/tick authoring data on requests for future lingering AOE phases; pulse systems ignore both.
-        public float Lifetime;
-        public float RepeatHitCooldownSeconds;
-        public CombatHitPayload HitPayload;
-        public float AreaSize;
-        public float Radius;
-        public float RotationRadians;
-        public float2 Position;
-        public float2 HalfExtents;
-        public float2 BoundsMin;
-        public float2 BoundsMax;
-        public CombatShapeType ShapeType;
-        public CombatRenderComponent Render;
-        public AoeProjectileBurstSnapshot ProjectileBurst;
-    }
-
 
     // ECS Lifecycle: base AOE component; added at entity creation; kept until root teardown; reset on reuse; used by AoePulseVfxSystem for pulse VFX ticks on lingering AOEs.
     public struct AoePulseVfxComponent : IComponentData
