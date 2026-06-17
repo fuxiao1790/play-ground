@@ -1,6 +1,7 @@
 using PlayGround.System.Common;
 using Unity.Entities;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace PlayGround.System.Aoe
 {
@@ -50,11 +51,12 @@ namespace PlayGround.System.Aoe
     {
         private const int ImpactAoeIdSalt = 0x5F1A0E;
 
-        public static AoeSpawnEvent BuildImpactAoeEvent(in CombatPendingSpawn pending)
+        public static AoeSpawnEvent BuildImpactAoeEvent(
+            CombatFaction faction, int sourceId, int typeId, int targetId,
+            float2 position, EntityId sourceNodeId,
+            in ProjectileImpactAoeSnapshot snapshot)
         {
-            ProjectileImpactAoeSnapshot impact = pending.ImpactAoe;
-            AoeSpawnGeometry geo = impact.Geometry;
-            float2 position = pending.Position;
+            AoeSpawnGeometry geo = snapshot.Geometry;
             float2 halfExtents = new float2(geo.HalfExtents.x, geo.HalfExtents.y);
             CombatCollisionMath.ComputeWorldBounds(
                 position, geo.Radius, halfExtents, geo.RotationRadians, geo.ShapeType,
@@ -76,18 +78,18 @@ namespace PlayGround.System.Aoe
 
             return new AoeSpawnEvent
             {
-                Faction = pending.Faction,
-                AoeId = HashId(pending.SourceId, pending.TypeId, pending.TargetId, ImpactAoeIdSalt),
-                TypeId = impact.TypeId,
-                Lifetime = impact.LifetimeSeconds,
-                RepeatHitCooldownSeconds = impact.TickIntervalSeconds,
+                Faction = faction,
+                AoeId = HashId(sourceId, typeId, targetId, ImpactAoeIdSalt),
+                TypeId = snapshot.TypeId,
+                Lifetime = snapshot.LifetimeSeconds,
+                RepeatHitCooldownSeconds = snapshot.TickIntervalSeconds,
                 HitPayload = new CombatHitPayload
                 {
-                    DamageAmount = impact.DamageAmount,
-                    CritChance = impact.CritChance,
-                    CritMultiplier = impact.CritMultiplier,
+                    DamageAmount = snapshot.DamageAmount,
+                    CritChance = snapshot.CritChance,
+                    CritMultiplier = snapshot.CritMultiplier,
                     DirectDamageEnabled = true,
-                    SourceNodeId = pending.SourceNodeId,
+                    SourceNodeId = sourceNodeId,
                     StackEffect = default
                 },
                 AreaSize = geo.AreaSize,

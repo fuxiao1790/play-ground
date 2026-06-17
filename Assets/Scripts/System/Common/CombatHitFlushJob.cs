@@ -5,9 +5,7 @@ using Unity.Jobs;
 
 namespace PlayGround.System.Common
 {
-    // Flushes the per-lane damage stream into scope-owned CombatDamageElement
-    // buffers. Internal follow-up spawns no longer pass through here — they are
-    // converted to ECS spawn requests by CombatSpawnConvertJob.
+    // Flushes the per-lane damage stream into scope-owned CombatDamageElement buffers.
     [BurstCompile]
     public struct CombatHitFlushJob : IJob
     {

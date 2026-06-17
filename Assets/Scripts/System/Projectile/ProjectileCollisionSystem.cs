@@ -241,18 +241,10 @@ namespace PlayGround.System.Projectile
 
                             if (projectileHit.HitPayload.ImpactAoe.Enabled)
                             {
-                                AoeEventWriter.Enqueue(AoeSpawnPipeline.BuildImpactAoeEvent(new CombatPendingSpawn
-                                {
-                                    Faction = identity.Faction,
-                                    SourceId = identity.ProjectileId,
-                                    TypeId = identity.TypeId,
-                                    TargetId = target.TargetId,
-                                    Position = kinematics.Position,
-                                    TargetPosition = target.Position,
-                                    Kind = CombatHitKind.Projectile,
-                                    SourceNodeId = projectileHit.HitPayload.SourceNodeId,
-                                    ImpactAoe = projectileHit.HitPayload.ImpactAoe
-                                }));
+                                AoeEventWriter.Enqueue(AoeSpawnPipeline.BuildImpactAoeEvent(
+                                    identity.Faction, identity.ProjectileId, identity.TypeId, target.TargetId,
+                                    kinematics.Position, projectileHit.HitPayload.SourceNodeId,
+                                    projectileHit.HitPayload.ImpactAoe));
                             }
 
                             vfxPending.Write(new VfxPendingSpawn

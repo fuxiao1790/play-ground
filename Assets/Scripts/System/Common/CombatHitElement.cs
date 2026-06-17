@@ -224,20 +224,4 @@ namespace PlayGround.System.Common
         public EntityId SourceNodeId;
         public CombatStatusEffectSnapshot StackEffect;
     }
-
-    // ECS Lifecycle: transient native spawn payload; not added to entities; streamed during collision and flushed to scope buffers.
-    public struct CombatPendingSpawn
-    {
-        public CombatFaction Faction;
-        public int SourceId;
-        public int TypeId;
-        public int TargetId;
-        public float2 Position;
-        public float2 TargetPosition;
-        public CombatHitKind Kind;
-        public EntityId SourceNodeId;
-        public ProjectileImpactAoeSnapshot ImpactAoe;
-        public ProjectileImpactProjectileSnapshot ImpactProjectile;
-        public AoeProjectileBurstSnapshot ProjectileBurst;
-    }
 }
