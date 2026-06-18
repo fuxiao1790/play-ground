@@ -53,11 +53,6 @@ namespace PlayGround.System.Projectile
         public float CooldownRemaining;
     }
 
-    // ECS Lifecycle: enableable projectile tag; added by spawn materialization; kept until root teardown; enabled on spawn, disabled on despawn.
-    public struct ProjectileActiveTag : IComponentData, IEnableableComponent
-    {
-    }
-
     // ECS Lifecycle: enableable projectile tag; added at entity creation; kept until root teardown; enabled when the projectile produces collision effects (damage, stack, impact AOE/projectile); disabled for visual-only projectiles so the collision job skips them entirely.
     public struct ProjectileCollisionActiveTag : IComponentData, IEnableableComponent
     {

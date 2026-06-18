@@ -50,7 +50,7 @@ namespace PlayGround.System.Aoe
                 typeof(CombatRenderElement),
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
-                typeof(AoeActiveTag),
+                typeof(Active),
                 typeof(AoeCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
                 typeof(AoeContactGateElement));
@@ -127,7 +127,7 @@ namespace PlayGround.System.Aoe
                             Faction               = faction,
                             Configs               = configs,
                             ClaimedCount          = claimedReference,
-                            ActiveHandle          = GetComponentTypeHandle<AoeActiveTag>(false),
+                            ActiveHandle          = GetComponentTypeHandle<Active>(false),
                             CollisionActiveHandle = GetComponentTypeHandle<AoeCollisionActiveTag>(false),
                             RenderActiveHandle    = GetComponentTypeHandle<CombatRenderActiveTag>(false),
                             IdentityHandle        = GetComponentTypeHandle<AoeIdentityComponent>(false),
@@ -207,7 +207,7 @@ namespace PlayGround.System.Aoe
                     .WithAll<AoeTag>()
                     .WithAll<CombatRenderFaction>()
                     .WithAll<CombatRenderTypeId>()
-                    .WithDisabled<AoeActiveTag>()
+                    .WithDisabled<Active>()
                     .Build(this);
                 _deadSlotQueriesByKey[key] = query;
             }
@@ -251,7 +251,7 @@ namespace PlayGround.System.Aoe
             ecb.SetComponent(entity, PulseVfxFor(cmd));
             ecb.SetComponent(entity, render);
             ecb.SetComponent(entity, CombatRenderMatrixUtility.ElementFor(kinematics, render));
-            ecb.SetComponentEnabled<AoeActiveTag>(entity, true);
+            ecb.SetComponentEnabled<Active>(entity, true);
             ecb.SetComponentEnabled<AoeCollisionActiveTag>(entity, NeedsCollision(cmd));
             ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
         }
@@ -300,7 +300,7 @@ namespace PlayGround.System.Aoe
             [ReadOnly] public NativeArray<AoeSpawnCommandData> Configs;
             [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
 
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeActiveTag>             ActiveHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<Active>                   ActiveHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeCollisionActiveTag>    CollisionActiveHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderActiveTag>    RenderActiveHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeIdentityComponent>     IdentityHandle;

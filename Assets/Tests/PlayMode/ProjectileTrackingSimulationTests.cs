@@ -218,7 +218,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatLifetimeComponent),
                 typeof(ProjectileHitComponent),
                 typeof(ProjectileTrackingComponent),
-                typeof(ProjectileActiveTag));
+                typeof(Active));
             entityManager.SetComponentData(projectileEntity, new ProjectileIdentityComponent
             {
                 Faction = CombatFaction.Player,

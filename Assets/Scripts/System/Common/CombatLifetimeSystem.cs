@@ -56,7 +56,7 @@ namespace PlayGround.System.Common
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileTag), typeof(ProjectileActiveTag), typeof(CombatLifetimeComponent))]
+        [WithAll(typeof(ProjectileTag), typeof(Active), typeof(CombatLifetimeComponent))]
         private partial struct ProjectileLifetimeJob : IJobEntity
         {
             public float DeltaTime;
@@ -67,7 +67,7 @@ namespace PlayGround.System.Common
                 in CombatKinematicsComponent kinematics,
                 in CombatRenderComponent render,
                 ref CombatLifetimeComponent lifetime,
-                EnabledRefRW<ProjectileActiveTag> active,
+                EnabledRefRW<Active> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive)
             {
                 lifetime.Remaining -= DeltaTime;
@@ -89,7 +89,7 @@ namespace PlayGround.System.Common
         }
 
         [BurstCompile]
-        [WithAll(typeof(AoeTag), typeof(AoeActiveTag), typeof(CombatLifetimeComponent))]
+        [WithAll(typeof(AoeTag), typeof(Active), typeof(CombatLifetimeComponent))]
         private partial struct AoeLifetimeJob : IJobEntity
         {
             public float DeltaTime;
@@ -100,7 +100,7 @@ namespace PlayGround.System.Common
                 in CombatKinematicsComponent kinematics,
                 in CombatRenderComponent render,
                 ref CombatLifetimeComponent lifetime,
-                EnabledRefRW<AoeActiveTag> active,
+                EnabledRefRW<Active> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive)
             {
                 lifetime.Remaining -= DeltaTime;

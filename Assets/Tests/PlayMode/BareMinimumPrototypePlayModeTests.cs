@@ -145,7 +145,7 @@ namespace PlayGround.Tests.PlayMode
             Entity entity = entityManager.CreateEntity(
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
-                typeof(ProjectileActiveTag));
+                typeof(Active));
 
             entityManager.SetComponentData(entity, new CombatKinematicsComponent
             {

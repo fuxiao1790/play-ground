@@ -18,11 +18,6 @@ namespace PlayGround.System.Aoe
         public int TypeId;
     }
 
-    // ECS Lifecycle: enableable AOE tag; added by spawn materialization; kept until root teardown; enabled on spawn, disabled on despawn.
-    public struct AoeActiveTag : IComponentData, IEnableableComponent
-    {
-    }
-
     // ECS Lifecycle: enableable AOE tag; added at entity creation; kept until root teardown; enabled when the AOE produces collision effects (damage, stack, projectile burst); disabled for visual-only AOEs so the collision job skips them entirely.
     public struct AoeCollisionActiveTag : IComponentData, IEnableableComponent
     {

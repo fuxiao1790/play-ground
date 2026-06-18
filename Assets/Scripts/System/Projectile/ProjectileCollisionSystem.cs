@@ -23,7 +23,7 @@ namespace PlayGround.System.Projectile
         {
             activeProjectileQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
-                ComponentType.ReadOnly<ProjectileActiveTag>(),
+                ComponentType.ReadOnly<Active>(),
                 ComponentType.ReadOnly<ProjectileCollisionActiveTag>(),
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
                 ComponentType.ReadOnly<CombatKinematicsComponent>(),
@@ -127,7 +127,7 @@ namespace PlayGround.System.Projectile
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileTag), typeof(ProjectileActiveTag), typeof(ProjectileCollisionActiveTag))]
+        [WithAll(typeof(ProjectileTag), typeof(Active), typeof(ProjectileCollisionActiveTag))]
         private partial struct ProjectileCollisionJob : IJobEntity
         {
             [ReadOnly] public DynamicBuffer<CombatTargetElement> Targets;
@@ -148,7 +148,7 @@ namespace PlayGround.System.Projectile
                 in CombatRenderComponent render,
                 ref CombatLifetimeComponent lifetime,
                 ref ProjectileHitComponent projectileHit,
-                EnabledRefRW<ProjectileActiveTag> active,
+                EnabledRefRW<Active> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive,
                 DynamicBuffer<ProjectileContactGateElement> contactGates)
             {
@@ -291,7 +291,7 @@ namespace PlayGround.System.Projectile
                 float2 position,
                 float areaSize,
                 ref CombatLifetimeComponent lifetime,
-                EnabledRefRW<ProjectileActiveTag> active,
+                EnabledRefRW<Active> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive,
                 ref NativeStream.Writer vfxPending)
             {

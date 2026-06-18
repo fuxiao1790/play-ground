@@ -1,3 +1,4 @@
+using PlayGround.System.Common;
 using Unity.Burst;
 using Unity.Entities;
 
@@ -20,7 +21,7 @@ namespace PlayGround.System.Aoe
         }
 
         [BurstCompile]
-        [WithAll(typeof(AoeTag), typeof(AoeActiveTag))]
+        [WithAll(typeof(AoeTag), typeof(Active))]
         private partial struct AoeContactGateJob : IJobEntity
         {
             public float DeltaTime;

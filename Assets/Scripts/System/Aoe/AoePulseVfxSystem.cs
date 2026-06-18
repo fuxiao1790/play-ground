@@ -41,7 +41,7 @@ namespace PlayGround.System.Aoe
         }
 
         [BurstCompile]
-        [WithAll(typeof(AoeTag), typeof(AoeActiveTag))]
+        [WithAll(typeof(AoeTag), typeof(Active))]
         private partial struct AoePulseVfxJob : IJobEntity
         {
             public float DeltaTime;

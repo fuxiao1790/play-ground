@@ -49,7 +49,7 @@ namespace PlayGround.System.Projectile
                 typeof(ProjectileTrackingComponent),
                 typeof(CombatRenderComponent),
                 typeof(CombatRenderElement),
-                typeof(ProjectileActiveTag),
+                typeof(Active),
                 typeof(ProjectileCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
                 typeof(ProjectileContactGateElement));
@@ -64,7 +64,7 @@ namespace PlayGround.System.Projectile
                 typeof(ProjectileTrackingComponent),
                 typeof(CombatRenderComponent),
                 typeof(CombatRenderElement),
-                typeof(ProjectileActiveTag),
+                typeof(Active),
                 typeof(ProjectileCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
                 typeof(ProjectileContactGateElement),
@@ -144,7 +144,7 @@ namespace PlayGround.System.Projectile
                             Faction               = faction,
                             Configs               = configs,
                             ClaimedCount          = claimedReference,
-                            ActiveHandle          = GetComponentTypeHandle<ProjectileActiveTag>(false),
+                            ActiveHandle          = GetComponentTypeHandle<Active>(false),
                             CollisionActiveHandle  = GetComponentTypeHandle<ProjectileCollisionActiveTag>(false),
                             RenderActiveHandle    = GetComponentTypeHandle<CombatRenderActiveTag>(false),
                             IdentityHandle        = GetComponentTypeHandle<ProjectileIdentityComponent>(false),
@@ -227,7 +227,7 @@ namespace PlayGround.System.Projectile
                     .WithAll<ProjectileTag>()
                     .WithAll<CombatRenderFaction>()
                     .WithAll<CombatRenderTypeId>()
-                    .WithDisabled<ProjectileActiveTag>();
+                    .WithDisabled<Active>();
 
                 query = key.HasChildSpawner
                     ? builder.WithAll<ProjectileChildSpawnerTag>().Build(this)
@@ -318,7 +318,7 @@ namespace PlayGround.System.Projectile
                 });
             }
 
-            ecb.SetComponentEnabled<ProjectileActiveTag>(entity, true);
+            ecb.SetComponentEnabled<Active>(entity, true);
             ecb.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, NeedsCollision(cmd.HitPayload));
             ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
         }
@@ -336,7 +336,7 @@ namespace PlayGround.System.Projectile
             [ReadOnly] public NativeArray<ProjectileSpawnCommandData> Configs;
             [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
 
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileActiveTag>            ActiveHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<Active>                         ActiveHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileCollisionActiveTag>   CollisionActiveHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderActiveTag>          RenderActiveHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileIdentityComponent>    IdentityHandle;

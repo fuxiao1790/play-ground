@@ -36,7 +36,7 @@ namespace PlayGround.System.Projectile
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileTag), typeof(ProjectileActiveTag), typeof(ProjectileChildSpawnerTag))]
+        [WithAll(typeof(ProjectileTag), typeof(Active), typeof(ProjectileChildSpawnerTag))]
         private partial struct ProjectileChildSpawnEntityJob : IJobEntity
         {
             public float DeltaTime;

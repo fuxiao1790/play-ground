@@ -1,3 +1,4 @@
+using PlayGround.System.Common;
 using Unity.Burst;
 using Unity.Entities;
 
@@ -21,7 +22,7 @@ namespace PlayGround.System.Projectile
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileTag), typeof(ProjectileActiveTag))]
+        [WithAll(typeof(ProjectileTag), typeof(Active))]
         private partial struct ProjectileContactGateJob : IJobEntity
         {
             public float DeltaTime;

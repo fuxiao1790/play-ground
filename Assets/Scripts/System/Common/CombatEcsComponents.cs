@@ -140,9 +140,14 @@ namespace PlayGround.System.Common
         public CombatStatusEffectSnapshot StackEffect;
     }
 
+    // ECS Lifecycle: enableable common occupancy flag; added to reusable combat entities at creation; enabled on spawn, disabled on despawn.
+    public struct Active : IComponentData, IEnableableComponent
+    {
+    }
+
     // ECS Lifecycle: enableable common lifetime component; added at entity creation for finite-lifetime reusable entities;
     // ENABLED on spawn for finite lifetimes, DISABLED for pulse AOEs (deactivated by collision the same tick);
-    // CombatLifetimeSystem counts it down and disables the entity's active tag on expiry.
+    // CombatLifetimeSystem counts it down and disables Active on expiry.
     public struct CombatLifetimeComponent : IComponentData, IEnableableComponent
     {
         public float Remaining;

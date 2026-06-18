@@ -16,7 +16,7 @@ namespace PlayGround.System.Projectile
             projectileQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
-                ComponentType.ReadOnly<ProjectileActiveTag>());
+                ComponentType.ReadOnly<Active>());
             scopeQuery = state.GetEntityQuery(ComponentType.ReadOnly<CombatScope>());
         }
 

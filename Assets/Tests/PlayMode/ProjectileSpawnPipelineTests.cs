@@ -57,7 +57,7 @@ namespace PlayGround.Tests.PlayMode
 
             using EntityQuery q = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
-                ComponentType.ReadOnly<ProjectileActiveTag>());
+                ComponentType.ReadOnly<Active>());
             using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
 
             var ids = new int[3];
@@ -96,7 +96,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(ActiveProjectileCount(), Is.EqualTo(1));
             using EntityQuery q = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
-                ComponentType.ReadOnly<ProjectileActiveTag>());
+                ComponentType.ReadOnly<Active>());
             using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
             CombatKinematicsComponent kinematics = entityManager.GetComponentData<CombatKinematicsComponent>(entities[0]);
 
@@ -117,7 +117,7 @@ namespace PlayGround.Tests.PlayMode
             // child has no child-spawner tag (HasChildSpawner=0 archetype)
             using EntityQuery childQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
-                ComponentType.ReadOnly<ProjectileActiveTag>(),
+                ComponentType.ReadOnly<Active>(),
                 ComponentType.Exclude<ProjectileChildSpawnerTag>());
             Assert.That(childQuery.CalculateEntityCount(), Is.GreaterThanOrEqualTo(1));
         }
@@ -220,7 +220,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(ProjectileTrackingComponent),
                 typeof(CombatRenderComponent),
                 typeof(CombatRenderElement),
-                typeof(ProjectileActiveTag),
+                typeof(Active),
                 typeof(ProjectileCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
                 typeof(ProjectileContactGateElement),
@@ -266,7 +266,7 @@ namespace PlayGround.Tests.PlayMode
                 ChildSpawnCooldownRemaining = 0f,
                 ChildSpawnTickIndex = 0
             });
-            entityManager.SetComponentEnabled<ProjectileActiveTag>(entity, true);
+            entityManager.SetComponentEnabled<Active>(entity, true);
             entityManager.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, true);
             entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
             entityManager.SetComponentEnabled<ProjectileTrackingComponent>(entity, false);
@@ -276,7 +276,7 @@ namespace PlayGround.Tests.PlayMode
         {
             using EntityQuery q = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
-                ComponentType.ReadOnly<ProjectileActiveTag>());
+                ComponentType.ReadOnly<Active>());
             return q.CalculateEntityCount();
         }
 
@@ -298,7 +298,7 @@ namespace PlayGround.Tests.PlayMode
         {
             using EntityQuery q = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
-                ComponentType.ReadOnly<ProjectileActiveTag>());
+                ComponentType.ReadOnly<Active>());
             using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
             Assert.That(entities.Length, Is.GreaterThan(0), "No active projectile found.");
             return entityManager.GetComponentData<CombatKinematicsComponent>(entities[0]).Position;

@@ -22,7 +22,7 @@ namespace PlayGround.System.Aoe
         {
             activeAoeQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<AoeTag>(),
-                ComponentType.ReadOnly<AoeActiveTag>(),
+                ComponentType.ReadOnly<Active>(),
                 ComponentType.ReadOnly<AoeCollisionActiveTag>(),
                 ComponentType.ReadOnly<AoeIdentityComponent>(),
                 ComponentType.ReadOnly<CombatKinematicsComponent>(),
@@ -116,7 +116,7 @@ namespace PlayGround.System.Aoe
         }
 
         [BurstCompile]
-        [WithAll(typeof(AoeTag), typeof(AoeActiveTag), typeof(AoeCollisionActiveTag))]
+        [WithAll(typeof(AoeTag), typeof(Active), typeof(AoeCollisionActiveTag))]
         private partial struct AoeCollisionJob : IJobEntity
         {
             [ReadOnly] public DynamicBuffer<CombatTargetElement> Targets;
@@ -135,7 +135,7 @@ namespace PlayGround.System.Aoe
                 in AoeHitGateComponent hitGate,
                 in AoeHitSpawnComponent hitSpawn,
                 in AoeAreaComponent area,
-                EnabledRefRW<AoeActiveTag> active,
+                EnabledRefRW<Active> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive,
                 DynamicBuffer<AoeContactGateElement> contactGates)
             {
@@ -277,7 +277,7 @@ namespace PlayGround.System.Aoe
             }
 
             private static void Deactivate(
-                EnabledRefRW<AoeActiveTag> active,
+                EnabledRefRW<Active> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive)
             {
                 active.ValueRW = false;

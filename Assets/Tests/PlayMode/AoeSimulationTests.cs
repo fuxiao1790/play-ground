@@ -141,7 +141,7 @@ namespace PlayGround.Tests.PlayMode
             Entity alien = entityManager.CreateEntity(
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
-                typeof(AoeActiveTag));
+                typeof(Active));
             entityManager.SetComponentData(alien, new CombatKinematicsComponent
             {
                 Position = new float2(1f, 2f)
@@ -220,7 +220,7 @@ namespace PlayGround.Tests.PlayMode
         {
             using EntityQuery q = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AoeTag>(),
-                ComponentType.ReadOnly<AoeActiveTag>());
+                ComponentType.ReadOnly<Active>());
             return q.CalculateEntityCount();
         }
 

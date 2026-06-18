@@ -559,7 +559,7 @@ namespace PlayGround.System.Common
             {
                 Entity entity = entities[i];
                 AoeIdentityComponent identity = entityManager.GetComponentData<AoeIdentityComponent>(entity);
-                if (identity.Faction == faction && entityManager.IsComponentEnabled<AoeActiveTag>(entity))
+                if (identity.Faction == faction && entityManager.IsComponentEnabled<Active>(entity))
                 {
                     count++;
                 }

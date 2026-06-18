@@ -75,7 +75,7 @@ namespace PlayGround.System.Projectile
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileTag), typeof(ProjectileActiveTag))]
+        [WithAll(typeof(ProjectileTag), typeof(Active))]
         private partial struct ProjectileTargetAcquisitionJob : IJobEntity
         {
             public float DeltaTime;
@@ -316,7 +316,7 @@ namespace PlayGround.System.Projectile
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileTag), typeof(ProjectileActiveTag))]
+        [WithAll(typeof(ProjectileTag), typeof(Active))]
         private partial struct ProjectileSteeringJob : IJobEntity
         {
             public float DeltaTime;
