@@ -77,7 +77,6 @@ namespace PlayGround.System.Common
             if (ownedScope == Entity.Null || !entityManager.Exists(ownedScope))
             {
                 ownedScope = entityManager.CreateEntity(typeof(CombatScope));
-                entityManager.AddBuffer<CombatTargetElement>(ownedScope);
                 entityManager.AddBuffer<CombatDamageElement>(ownedScope);
                 entityManager.AddBuffer<ProjectileSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<AoeSpawnEvent>(ownedScope);

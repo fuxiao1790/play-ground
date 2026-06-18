@@ -3,6 +3,7 @@ using PlayGround.Common.StatusEffects;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using System.Collections.Generic;
+using Unity.Entities;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -43,11 +44,18 @@ namespace PlayGround.Player
         private static int nextTargetId;
         private readonly List<CombatTargetRegistry<ICombatTarget>> registries = new();
         private CombatTargetSet combatTargetSet;
+        private Entity combatTargetProxy;
+        private bool deleteProxyInLateUpdate;
         private int targetId;
         public StatusEffects StatusEffects { get; private set; }
 
         public Vector2 AimDirection => facing?.AimDirection ?? Vector2.right;
         public int TargetId => targetId;
+        public Entity CombatTargetProxy
+        {
+            get => combatTargetProxy;
+            set => combatTargetProxy = value;
+        }
         public EntityId ProjectileHitNodeId => gameObject.GetEntityId();
         public Vector2 CombatTargetPosition => ProjectileTargetShapeUtility.Position(hurtbox, transform);
         public float CombatTargetRadius => ProjectileTargetShapeUtility.Radius(hurtbox, targetRadius);
@@ -119,6 +127,7 @@ namespace PlayGround.Player
 
         private void OnDisable()
         {
+            DeleteCombatTargetProxy();
             pointAction?.Disable();
             playerMap?.Disable();
             for (int i = 0; i < registries.Count; i++)
@@ -133,7 +142,12 @@ namespace PlayGround.Player
         private void Update()
         {
             if (!health.IsAlive)
+            {
+                QueueCombatTargetProxyDelete();
                 return;
+            }
+
+            PushCombatTargetProxy();
 
             Vector2 move = ReadMoveInput();
             Vector2 aimWorldPosition = ReadAimWorldPosition();
@@ -145,6 +159,14 @@ namespace PlayGround.Player
             skillDriver.Tick(ReadAttackHeld(), facing.AimDirection, aimWorldPosition);
             animatorDriver.Tick(Time.deltaTime);
             stateDriver.Tick();
+        }
+
+        private void LateUpdate()
+        {
+            if (deleteProxyInLateUpdate)
+            {
+                DeleteCombatTargetProxy();
+            }
         }
 
         private void FixedUpdate()
@@ -186,7 +208,35 @@ namespace PlayGround.Player
         public void ReceiveHit(in CombatHitData hit)
         {
             if (hit.DirectDamageEnabled)
+            {
                 health.TakeDamage(hit.Damage);
+                if (!health.IsAlive)
+                {
+                    QueueCombatTargetProxyDelete();
+                }
+            }
+        }
+
+        private void PushCombatTargetProxy()
+        {
+            if (combatTargetProxy != Entity.Null)
+            {
+                PlayGround.System.Common.CombatTargetProxy.Push(this);
+            }
+        }
+
+        private void QueueCombatTargetProxyDelete()
+        {
+            if (combatTargetProxy != Entity.Null)
+            {
+                deleteProxyInLateUpdate = true;
+            }
+        }
+
+        private void DeleteCombatTargetProxy()
+        {
+            PlayGround.System.Common.CombatTargetProxy.Delete(this);
+            deleteProxyInLateUpdate = false;
         }
 
         private Vector2 ReadMoveInput() =>

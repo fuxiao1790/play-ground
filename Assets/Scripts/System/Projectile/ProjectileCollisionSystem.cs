@@ -17,7 +17,7 @@ namespace PlayGround.System.Projectile
         // cellSize = sqrt(arenaWidth * arenaHeight / mobCount) * ~1.5
         private const float SpatialHashCellSize = 1f;
         private EntityQuery activeProjectileQuery;
-        private EntityQuery scopeQuery;
+        private EntityQuery targetQuery;
 
         public void OnCreate(ref SystemState state)
         {
@@ -33,7 +33,11 @@ namespace PlayGround.System.Projectile
                 ComponentType.ReadWrite<ProjectileHitComponent>(),
                 ComponentType.ReadWrite<CombatRenderActiveTag>(),
                 ComponentType.ReadWrite<ProjectileContactGateElement>());
-            scopeQuery = state.GetEntityQuery(ComponentType.ReadOnly<CombatScope>());
+            targetQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<TargetProxyTag>(),
+                ComponentType.ReadOnly<TargetPosition>(),
+                ComponentType.ReadOnly<TargetCollisionShape>(),
+                ComponentType.ReadOnly<TargetFaction>());
         }
 
         public void OnUpdate(ref SystemState state)
@@ -44,19 +48,23 @@ namespace PlayGround.System.Projectile
                 return;
             }
 
-            state.EntityManager.CompleteDependencyBeforeRO<CombatTargetElement>();
+            state.EntityManager.CompleteDependencyBeforeRO<TargetPosition>();
+            state.EntityManager.CompleteDependencyBeforeRO<TargetCollisionShape>();
+            state.EntityManager.CompleteDependencyBeforeRO<TargetFaction>();
 
-            Entity scope = scopeQuery.GetSingletonEntity();
-            DynamicBuffer<CombatTargetElement> targets = state.EntityManager.GetBuffer<CombatTargetElement>(scope);
+            NativeArray<Entity> targetEntities = targetQuery.ToEntityArray(Allocator.TempJob);
+            NativeArray<TargetPosition> targetPositions = targetQuery.ToComponentDataArray<TargetPosition>(Allocator.TempJob);
+            NativeArray<TargetCollisionShape> targetShapes = targetQuery.ToComponentDataArray<TargetCollisionShape>(Allocator.TempJob);
+            NativeArray<TargetFaction> targetFactions = targetQuery.ToComponentDataArray<TargetFaction>(Allocator.TempJob);
 
             // Pass 1: count targets and find the largest bounding radius.
             // Used to size the multimap and to expand the per-projectile query range
             // so targets near cell boundaries are never missed.
-            int totalTargetCount = targets.Length;
+            int totalTargetCount = targetEntities.Length;
             float maxTargetRadius = 0f;
-            for (int i = 0; i < targets.Length; i++)
+            for (int i = 0; i < targetShapes.Length; i++)
             {
-                CombatTargetElement t = targets[i];
+                TargetCollisionShape t = targetShapes[i];
                 float r = CombatCollisionMath.BoundingRadius(t.Radius, t.HalfExtents, t.ShapeType);
                 if (r > maxTargetRadius)
                 {
@@ -69,10 +77,10 @@ namespace PlayGround.System.Projectile
             // matches targets belonging to its own faction's target set.
             var targetCells = new NativeParallelMultiHashMap<long, int>(
                 math.max(1, totalTargetCount), Allocator.TempJob);
-            for (int i = 0; i < targets.Length; i++)
+            for (int i = 0; i < targetPositions.Length; i++)
             {
-                int2 cell = FloorCell(targets[i].Position);
-                targetCells.Add(CellKey(targets[i].Faction, cell.x, cell.y), i);
+                int2 cell = FloorCell(targetPositions[i].Value);
+                targetCells.Add(CellKey(targetFactions[i].Value, cell.x, cell.y), i);
             }
 
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
@@ -81,7 +89,9 @@ namespace PlayGround.System.Projectile
             var vfxPending = new NativeStream(activeProjectileCount, Allocator.TempJob);
             var job = new ProjectileCollisionJob
             {
-                Targets = targets,
+                TargetEntities = targetEntities,
+                TargetPositions = targetPositions,
+                TargetShapes = targetShapes,
                 TargetCells = targetCells,
                 TotalTargetCount = totalTargetCount,
                 MaxTargetRadius = maxTargetRadius,
@@ -109,28 +119,39 @@ namespace PlayGround.System.Projectile
 
             var flushHandle = new CombatHitFlushJob
             {
-                Scope = scope,
+                Scope = SystemAPI.GetSingletonEntity<CombatScope>(),
                 PendingDamage = pendingDamage,
                 Damage = SystemAPI.GetBufferLookup<CombatDamageElement>()
             }.Schedule(collisionHandle);
             var vfxFlushHandle = new VfxStreamFlushJob
             {
-                Scope = scope,
+                Scope = SystemAPI.GetSingletonEntity<CombatScope>(),
                 Pending = vfxPending,
                 VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
             }.Schedule(collisionHandle);
 
             JobHandle disposeDamageHandle = pendingDamage.Dispose(flushHandle);
             JobHandle disposeVfxHandle = vfxPending.Dispose(vfxFlushHandle);
+            JobHandle targetDisposeHandle = JobHandle.CombineDependencies(
+                targetEntities.Dispose(collisionHandle),
+                JobHandle.CombineDependencies(
+                    targetPositions.Dispose(collisionHandle),
+                    JobHandle.CombineDependencies(
+                        targetShapes.Dispose(collisionHandle),
+                        targetFactions.Dispose(collisionHandle))));
             state.Dependency = targetCells.Dispose(
-                JobHandle.CombineDependencies(disposeDamageHandle, disposeVfxHandle));
+                JobHandle.CombineDependencies(
+                    targetDisposeHandle,
+                    JobHandle.CombineDependencies(disposeDamageHandle, disposeVfxHandle)));
         }
 
         [BurstCompile]
         [WithAll(typeof(ProjectileTag), typeof(Active), typeof(ProjectileCollisionActiveTag))]
         private partial struct ProjectileCollisionJob : IJobEntity
         {
-            [ReadOnly] public DynamicBuffer<CombatTargetElement> Targets;
+            [ReadOnly] public NativeArray<Entity> TargetEntities;
+            [ReadOnly] public NativeArray<TargetPosition> TargetPositions;
+            [ReadOnly] public NativeArray<TargetCollisionShape> TargetShapes;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> TargetCells;
             public int TotalTargetCount;
             public float MaxTargetRadius;
@@ -178,8 +199,6 @@ namespace PlayGround.System.Projectile
                     return;
                 }
 
-                DynamicBuffer<CombatTargetElement> targets = Targets;
-
                 // Expand the projectile's AABB by MaxTargetRadius before converting to cell
                 // coordinates. Any target whose center falls within this expanded region is
                 // guaranteed to have its center cell included in the query, so no miss is
@@ -202,9 +221,12 @@ namespace PlayGround.System.Projectile
 
                         do
                         {
-                            CombatTargetElement target = targets[targetIdx];
+                            Entity targetEntity = TargetEntities[targetIdx];
+                            TargetPosition targetPosition = TargetPositions[targetIdx];
+                            TargetCollisionShape target = TargetShapes[targetIdx];
+                            int targetKey = TargetKey(targetEntity);
 
-                            if (IsGated(contactGates, target.TargetId))
+                            if (IsGated(contactGates, targetKey))
                             {
                                 continue;
                             }
@@ -218,7 +240,17 @@ namespace PlayGround.System.Projectile
                                 continue;
                             }
 
-                            if (!ProjectileCollisionMath.Hit(kinematics, collision, target))
+                            if (!CombatCollisionMath.Hit(
+                                    kinematics.Position,
+                                    collision.Radius,
+                                    collision.HalfExtents,
+                                    collision.RotationRadians,
+                                    collision.ShapeType,
+                                    targetPosition.Value,
+                                    target.Radius,
+                                    target.HalfExtents,
+                                    target.RotationRadians,
+                                    target.ShapeType))
                             {
                                 continue;
                             }
@@ -230,7 +262,8 @@ namespace PlayGround.System.Projectile
                                     Faction = identity.Faction,
                                     SourceId = identity.ProjectileId,
                                     TypeId = identity.TypeId,
-                                    TargetId = target.TargetId,
+                                    TargetProxy = targetEntity,
+                                    TargetId = targetKey,
                                     Position = kinematics.Position,
                                     Kind = CombatHitKind.Projectile,
                                     DamageAmount = projectileHit.HitPayload.DamageAmount,
@@ -245,15 +278,15 @@ namespace PlayGround.System.Projectile
                             if (projectileHit.HitPayload.ImpactProjectile.Enabled)
                             {
                                 ProjectileEventWriter.Enqueue(ProjectileSpawnPipeline.BuildImpactProjectileEvent(
-                                    identity.Faction, identity.ProjectileId, identity.TypeId, target.TargetId,
-                                    kinematics.Position, target.Position,
+                                    identity.Faction, identity.ProjectileId, identity.TypeId, targetKey,
+                                    kinematics.Position, targetPosition.Value,
                                     projectileHit.HitPayload.ImpactProjectile));
                             }
 
                             if (projectileHit.HitPayload.ImpactAoe.Enabled)
                             {
                                 AoeEventWriter.Enqueue(AoeSpawnPipeline.BuildImpactAoeEvent(
-                                    identity.Faction, identity.ProjectileId, identity.TypeId, target.TargetId,
+                                    identity.Faction, identity.ProjectileId, identity.TypeId, targetKey,
                                     kinematics.Position, projectileHit.HitPayload.SourceNodeId,
                                     projectileHit.HitPayload.ImpactAoe));
                             }
@@ -267,7 +300,7 @@ namespace PlayGround.System.Projectile
                                 AreaSize = areaSize
                             });
 
-                            AddOrRefreshGate(contactGates, target.TargetId,
+                            AddOrRefreshGate(contactGates, targetKey,
                                 projectileHit.RepeatHitCooldownSeconds);
 
                             if (projectileHit.PierceRemaining <= 0)
@@ -361,6 +394,16 @@ namespace PlayGround.System.Projectile
 
             private static bool HasDamageEvent(in ProjectileHitPayload payload) =>
                 payload.DirectDamageEnabled || payload.StackEffect.Enabled;
+
+            private static int TargetKey(Entity entity)
+            {
+                unchecked
+                {
+                    int key = ((entity.Index + 1) * 397) ^ entity.Version;
+                    key &= 0x7fffffff;
+                    return key == 0 ? 1 : key;
+                }
+            }
         }
 
         private static int2 FloorCell(float2 pos)

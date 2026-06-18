@@ -6,6 +6,7 @@ using PlayGround.Common.StatusEffects;
 using PlayGround.System.Aoe;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
+using Unity.Entities;
 using UnityEngine;
 
 namespace PlayGround.Mob
@@ -53,6 +54,8 @@ namespace PlayGround.Mob
         private MobBehaviourSelector behaviourSelector;
         private MobAnimatorDriver animatorDriver;
         private MobProjectileAttack projectileAttack;
+        private Entity combatTargetProxy;
+        private bool deleteProxyInLateUpdate;
         private int targetId;
         private bool isAlive = true;
         private bool softDeathNotified;
@@ -66,6 +69,11 @@ namespace PlayGround.Mob
         public Transform Target => target;
         public MobBlackboard Blackboard => blackboard;
         public int TargetId => targetId;
+        public Entity CombatTargetProxy
+        {
+            get => combatTargetProxy;
+            set => combatTargetProxy = value;
+        }
         public EntityId ProjectileHitNodeId => gameObject.GetEntityId();
         public Vector2 CombatTargetPosition => ProjectileTargetShapeUtility.Position(hurtbox, transform);
         public float CombatTargetRadius => ProjectileTargetShapeUtility.Radius(hurtbox, targetRadius);
@@ -105,10 +113,20 @@ namespace PlayGround.Mob
         {
             if (!isAlive)
             {
+                QueueCombatTargetProxyDelete();
                 return;
             }
 
+            PushCombatTargetProxy();
             animatorDriver.Tick(Time.deltaTime);
+        }
+
+        protected virtual void LateUpdate()
+        {
+            if (deleteProxyInLateUpdate)
+            {
+                DeleteCombatTargetProxy();
+            }
         }
 
         protected virtual void FixedUpdate()
@@ -152,6 +170,7 @@ namespace PlayGround.Mob
 
         protected virtual void OnDisable()
         {
+            DeleteCombatTargetProxy();
             UnregisterTargets();
         }
 
@@ -360,10 +379,10 @@ namespace PlayGround.Mob
 
             hurtbox.enabled = false;
             spriteRenderer.enabled = false;
+            QueueCombatTargetProxyDelete();
             UnregisterTargets();
             softDeathNotified = true;
             SoftDied?.Invoke(this);
-            Destroy(gameObject);
         }
 
         private void UnregisterTargets()
@@ -375,6 +394,32 @@ namespace PlayGround.Mob
 
             registries.Clear();
             combatTargetSet?.Unregister(this);
+        }
+
+        private void PushCombatTargetProxy()
+        {
+            if (combatTargetProxy != Entity.Null)
+            {
+                PlayGround.System.Common.CombatTargetProxy.Push(this);
+            }
+        }
+
+        private void QueueCombatTargetProxyDelete()
+        {
+            if (combatTargetProxy != Entity.Null)
+            {
+                deleteProxyInLateUpdate = true;
+            }
+        }
+
+        private void DeleteCombatTargetProxy()
+        {
+            PlayGround.System.Common.CombatTargetProxy.Delete(this);
+            deleteProxyInLateUpdate = false;
+            if (softDeathNotified && this != null)
+            {
+                Destroy(gameObject);
+            }
         }
 
         private void ValidateReferences()

@@ -46,7 +46,6 @@ namespace PlayGround.System.Common
         private float batchBoundsHalfExtent = 100000f;
 
         private readonly CombatTargetRegistry<ICombatTarget> targetRegistry = new();
-        private CombatTargetSync<ICombatTarget> targetSync;
         private global::System.Func<ICombatTarget, bool> canTargetFilter;
         private CombatFaction faction;
 
@@ -81,7 +80,7 @@ namespace PlayGround.System.Common
         internal Entity ScopeEntity => scopeEntity;
         internal EntityManager EntityManager => entityManager;
         internal CombatFaction Faction => faction;
-        internal IReadOnlyDictionary<int, ICombatTarget> TargetsById => targetSync.TargetsById;
+        internal IReadOnlyDictionary<int, ICombatTarget> TargetsById => targetRegistry.TargetsById;
         internal IReadOnlyDictionary<int, CombatSpriteRenderResources> ProjectileRenderResources => projectileRenderResourcesByType;
         internal IReadOnlyDictionary<int, CombatSpriteRenderResources> AoeRenderResources => aoeRenderResourcesByType;
         internal int RenderLayer => gameObject.layer;
@@ -93,13 +92,9 @@ namespace PlayGround.System.Common
             return root != null;
         }
 
-        internal void AppendTargetsToBuffer(DynamicBuffer<CombatTargetElement> buffer) =>
-            targetSync.SyncToBuffer(faction, buffer, additionalFilter: canTargetFilter);
-
         private void Awake()
         {
             runtimeReady = false;
-            targetSync = new CombatTargetSync<ICombatTarget>(targetRegistry);
             canTargetFilter = CanTarget;
             ApplyTaggedDefaults();
             CombatRoot existing = ByFaction[(int)faction];
@@ -132,6 +127,7 @@ namespace PlayGround.System.Common
             }
 
             runtimeReady = false;
+            targetRegistry.ClearProxyBinding();
             DisposeEcsHandles();
             ReleaseWorld();
             DestroyRenderResources();
@@ -534,6 +530,7 @@ namespace PlayGround.System.Common
             allAoeQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AoeTag>(),
                 ComponentType.ReadOnly<AoeIdentityComponent>());
+            targetRegistry.ConfigureProxyBinding(entityManager, faction, canTargetFilter);
             ecsHandlesCreated = true;
         }
 

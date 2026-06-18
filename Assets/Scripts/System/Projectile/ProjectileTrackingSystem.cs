@@ -17,20 +17,25 @@ namespace PlayGround.System.Projectile
         private static readonly ProfilerMarker<int> TargetSpatialHashBuildMarker =
             new("Projectile.Tracking.TargetSpatialHashBuild", "Targets");
 
-        private EntityQuery scopeQuery;
+        private EntityQuery targetQuery;
 
         public void OnCreate(ref SystemState state)
         {
-            scopeQuery = state.GetEntityQuery(ComponentType.ReadOnly<CombatScope>());
+            targetQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<TargetProxyTag>(),
+                ComponentType.ReadOnly<TargetPosition>(),
+                ComponentType.ReadOnly<TargetFaction>());
         }
 
         public void OnUpdate(ref SystemState state)
         {
-            state.EntityManager.CompleteDependencyBeforeRO<CombatTargetElement>();
+            state.EntityManager.CompleteDependencyBeforeRO<TargetPosition>();
+            state.EntityManager.CompleteDependencyBeforeRO<TargetFaction>();
 
-            Entity scope = scopeQuery.GetSingletonEntity();
-            DynamicBuffer<CombatTargetElement> targets = state.EntityManager.GetBuffer<CombatTargetElement>(scope);
-            int totalTargetCount = targets.Length;
+            NativeArray<Entity> targetEntities = targetQuery.ToEntityArray(Allocator.TempJob);
+            NativeArray<TargetPosition> targetPositions = targetQuery.ToComponentDataArray<TargetPosition>(Allocator.TempJob);
+            NativeArray<TargetFaction> targetFactions = targetQuery.ToComponentDataArray<TargetFaction>(Allocator.TempJob);
+            int totalTargetCount = targetEntities.Length;
 
             NativeParallelHashMap<long, int> targetIndicesById;
             NativeParallelMultiHashMap<long, int> targetCells;
@@ -42,19 +47,22 @@ namespace PlayGround.System.Projectile
                 targetCells = new NativeParallelMultiHashMap<long, int>(
                     math.max(1, totalTargetCount), Allocator.TempJob);
 
-                for (int i = 0; i < targets.Length; i++)
+                for (int i = 0; i < targetEntities.Length; i++)
                 {
-                    CombatTargetElement target = targets[i];
-                    targetIndicesById.TryAdd(TargetIdKey(target.Faction, target.TargetId), i);
-                    int2 cell = FloorCell(target.Position);
-                    targetCells.Add(CellKey(target.Faction, cell.x, cell.y), i);
+                    Entity target = targetEntities[i];
+                    TargetPosition position = targetPositions[i];
+                    CombatFaction faction = targetFactions[i].Value;
+                    targetIndicesById.TryAdd(TargetIdKey(faction, TargetKey(target)), i);
+                    int2 cell = FloorCell(position.Value);
+                    targetCells.Add(CellKey(faction, cell.x, cell.y), i);
                 }
             }
 
             var acquisitionJob = new ProjectileTargetAcquisitionJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
-                Targets = targets,
+                TargetEntities = targetEntities,
+                TargetPositions = targetPositions,
                 TargetIndicesById = targetIndicesById,
                 TargetCells = targetCells
             };
@@ -69,9 +77,16 @@ namespace PlayGround.System.Projectile
             JobHandle steeringHandle = steeringJob.ScheduleParallel(acquisitionHandle);
             JobHandle disposeIdHandle = targetIndicesById.Dispose(acquisitionHandle);
             JobHandle disposeCellsHandle = targetCells.Dispose(acquisitionHandle);
+            JobHandle disposeTargetsHandle = JobHandle.CombineDependencies(
+                targetEntities.Dispose(acquisitionHandle),
+                JobHandle.CombineDependencies(
+                    targetPositions.Dispose(acquisitionHandle),
+                    targetFactions.Dispose(acquisitionHandle)));
             state.Dependency = JobHandle.CombineDependencies(
                 steeringHandle,
-                JobHandle.CombineDependencies(disposeIdHandle, disposeCellsHandle));
+                JobHandle.CombineDependencies(
+                    disposeTargetsHandle,
+                    JobHandle.CombineDependencies(disposeIdHandle, disposeCellsHandle)));
         }
 
         [BurstCompile]
@@ -79,7 +94,8 @@ namespace PlayGround.System.Projectile
         private partial struct ProjectileTargetAcquisitionJob : IJobEntity
         {
             public float DeltaTime;
-            [ReadOnly] public DynamicBuffer<CombatTargetElement> Targets;
+            [ReadOnly] public NativeArray<Entity> TargetEntities;
+            [ReadOnly] public NativeArray<TargetPosition> TargetPositions;
             [ReadOnly] public NativeParallelHashMap<long, int> TargetIndicesById;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> TargetCells;
 
@@ -94,20 +110,19 @@ namespace PlayGround.System.Projectile
                     return;
                 }
 
-                DynamicBuffer<CombatTargetElement> targets = Targets;
                 float speed = math.length(kinematics.Velocity);
                 if (speed <= 0.0001f)
                 {
                     return;
                 }
 
-                if (TryRefreshTrackedTarget(ref tracking, identity, targets))
+                if (TryRefreshTrackedTarget(ref tracking, identity))
                 {
                     tracking.TrackingQueryCooldownRemaining = math.max(0f, tracking.TrackingQueryCooldownRemaining - DeltaTime);
                     return;
                 }
 
-                if (TryAcquireTrackedTarget(ref tracking, identity, kinematics, targets, speed, lifetime.Remaining))
+                if (TryAcquireTrackedTarget(ref tracking, identity, kinematics, speed, lifetime.Remaining))
                 {
                     tracking.TrackingQueryCooldownRemaining = tracking.TrackingQueryIntervalSeconds;
                 }
@@ -115,8 +130,7 @@ namespace PlayGround.System.Projectile
 
             private bool TryRefreshTrackedTarget(
                 ref ProjectileTrackingComponent tracking,
-                ProjectileIdentityComponent identity,
-                DynamicBuffer<CombatTargetElement> targets)
+                ProjectileIdentityComponent identity)
             {
                 if (tracking.TrackedTargetId == 0)
                 {
@@ -126,10 +140,10 @@ namespace PlayGround.System.Projectile
 
                 int cachedIndex = tracking.TrackedTargetIndex;
                 if (cachedIndex >= 0
-                    && cachedIndex < targets.Length
-                    && targets[cachedIndex].TargetId == tracking.TrackedTargetId)
+                    && cachedIndex < TargetEntities.Length
+                    && TargetKey(TargetEntities[cachedIndex]) == tracking.TrackedTargetId)
                 {
-                    tracking.TrackedTargetPosition = targets[cachedIndex].Position;
+                    tracking.TrackedTargetPosition = TargetPositions[cachedIndex].Value;
                     return true;
                 }
 
@@ -137,11 +151,11 @@ namespace PlayGround.System.Projectile
                         TargetIdKey(identity.Faction, tracking.TrackedTargetId),
                         out int mappedIndex)
                     && mappedIndex >= 0
-                    && mappedIndex < targets.Length
-                    && targets[mappedIndex].TargetId == tracking.TrackedTargetId)
+                    && mappedIndex < TargetEntities.Length
+                    && TargetKey(TargetEntities[mappedIndex]) == tracking.TrackedTargetId)
                 {
                     tracking.TrackedTargetIndex = mappedIndex;
-                    tracking.TrackedTargetPosition = targets[mappedIndex].Position;
+                    tracking.TrackedTargetPosition = TargetPositions[mappedIndex].Value;
                     return true;
                 }
 
@@ -155,7 +169,6 @@ namespace PlayGround.System.Projectile
                 ref ProjectileTrackingComponent tracking,
                 ProjectileIdentityComponent identity,
                 CombatKinematicsComponent kinematics,
-                DynamicBuffer<CombatTargetElement> targets,
                 float speed,
                 float remainingLifetime)
             {
@@ -187,7 +200,6 @@ namespace PlayGround.System.Projectile
                                 ref validTargetCount,
                                 ref selectedTargetIndex,
                                 kinematics,
-                                targets,
                                 forward,
                                 minimumDotSquared,
                                 CellKey(identity.Faction, cell.x, cell.y));
@@ -200,10 +212,10 @@ namespace PlayGround.System.Projectile
                     return false;
                 }
 
-                CombatTargetElement target = targets[selectedTargetIndex];
-                tracking.TrackedTargetId = target.TargetId;
+                Entity target = TargetEntities[selectedTargetIndex];
+                tracking.TrackedTargetId = TargetKey(target);
                 tracking.TrackedTargetIndex = selectedTargetIndex;
-                tracking.TrackedTargetPosition = target.Position;
+                tracking.TrackedTargetPosition = TargetPositions[selectedTargetIndex].Value;
                 return true;
             }
 
@@ -212,7 +224,6 @@ namespace PlayGround.System.Projectile
                 ref int validTargetCount,
                 ref int selectedTargetIndex,
                 CombatKinematicsComponent kinematics,
-                DynamicBuffer<CombatTargetElement> targets,
                 float2 forward,
                 float minimumDotSquared,
                 long cellKey)
@@ -227,12 +238,12 @@ namespace PlayGround.System.Projectile
 
                 do
                 {
-                    if (targetIndex < 0 || targetIndex >= targets.Length)
+                    if (targetIndex < 0 || targetIndex >= TargetPositions.Length)
                     {
                         continue;
                     }
 
-                    CombatTargetElement target = targets[targetIndex];
+                    TargetPosition target = TargetPositions[targetIndex];
                     if (!IsValidForwardAcquisitionTarget(kinematics, target, forward, minimumDotSquared))
                     {
                         continue;
@@ -262,11 +273,11 @@ namespace PlayGround.System.Projectile
 
             private static bool IsValidForwardAcquisitionTarget(
                 CombatKinematicsComponent kinematics,
-                CombatTargetElement target,
+                TargetPosition target,
                 float2 forward,
                 float minimumDotSquared)
             {
-                float2 toTarget = target.Position - kinematics.Position;
+                float2 toTarget = target.Value - kinematics.Position;
                 float distanceSquared = math.lengthsq(toTarget);
                 if (distanceSquared <= ProjectileSimulationConstants.MinimumDirectionLengthSquared)
                 {
@@ -396,6 +407,16 @@ namespace PlayGround.System.Projectile
                 hash = (hash ^ (uint)x) * 1099511628211UL;
                 hash = (hash ^ (uint)y) * 1099511628211UL;
                 return (long)hash;
+            }
+        }
+
+        private static int TargetKey(Entity entity)
+        {
+            unchecked
+            {
+                int key = ((entity.Index + 1) * 397) ^ entity.Version;
+                key &= 0x7fffffff;
+                return key == 0 ? 1 : key;
             }
         }
 

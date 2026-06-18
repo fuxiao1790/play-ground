@@ -214,6 +214,7 @@ namespace PlayGround.System.Common
         public CombatFaction Faction;
         public int SourceId;
         public int TypeId;
+        public Entity TargetProxy;
         public int TargetId;
         public float2 Position;
         public CombatHitKind Kind;

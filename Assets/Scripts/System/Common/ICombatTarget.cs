@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using PlayGround.Common;
 using PlayGround.System.Aoe;
+using Unity.Entities;
 using UnityEngine;
 
 namespace PlayGround.System.Common
@@ -77,6 +78,11 @@ namespace PlayGround.System.Common
     public interface ICombatTarget
     {
         int TargetId { get; }
+        Entity CombatTargetProxy
+        {
+            get => Entity.Null;
+            set { }
+        }
         Vector2 CombatTargetPosition { get; }
         float CombatTargetRadius { get; }
         Vector2 CombatTargetHalfExtents { get; }
