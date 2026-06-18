@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using PlayGround.System.Aoe;
 using PlayGround.System.Common;
@@ -33,7 +34,6 @@ namespace PlayGround.Tests.PlayMode
             simGroup.SortSystems();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
-            entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
@@ -105,6 +105,21 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void SpawnCommandTypesDoNotCarryEventMultiplicityOrOldCommandDataNames()
+        {
+            Assert.That(typeof(ProjectileSpawnCommand).GetField(nameof(ProjectileSpawnEvent.Count)), Is.Null);
+            Assert.That(typeof(ProjectileSpawnCommand).GetField(nameof(ProjectileSpawnEvent.SpreadDegrees)), Is.Null);
+            Assert.That(typeof(ProjectileSpawnCommand).GetField(nameof(ProjectileSpawnEvent.JitterDegrees)), Is.Null);
+            Assert.That(typeof(ProjectileSpawnCommand).GetField(nameof(ProjectileSpawnEvent.JitterSeed)), Is.Null);
+            Assert.That(typeof(ProjectileSpawnCommand).GetField(nameof(ProjectileSpawnEvent.BaseDirection)), Is.Null);
+            Assert.That(typeof(ProjectileSpawnCommand).GetField(nameof(ProjectileSpawnEvent.Speed)), Is.Null);
+            Assert.That(typeof(AoeSpawnCommand).GetField("Count"), Is.Null);
+
+            Assert.That(Type.GetType("PlayGround.System.Projectile.ProjectileSpawnCommandData, PlayGround.Runtime"), Is.Null);
+            Assert.That(Type.GetType("PlayGround.System.Aoe.AoeSpawnCommandData, PlayGround.Runtime"), Is.Null);
+        }
+
+        [Test]
         public void ChildSpawn_ChildSpawnerProjectile_ProducesChildWithHasChildSpawnerZero()
         {
             CreateChildSpawnerEntity();
@@ -163,6 +178,32 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(TotalProjectileCount(), Is.EqualTo(1));
         }
 
+        [Test]
+        public void BasicApplyDoesNotReuseDisabledChildSpawnerSlot()
+        {
+            Entity disabledChildSpawner = CreateDisabledProjectileSlot(childSpawner: true);
+
+            EnqueueEvent(MakeEvent(count: 1, hasChildSpawner: false));
+            Tick(0.01f);
+
+            Assert.That(entityManager.IsComponentEnabled<Active>(disabledChildSpawner), Is.False);
+            Assert.That(ActiveBasicProjectileCount(), Is.EqualTo(1));
+            Assert.That(TotalProjectileCount(), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void ChildSpawnerApplyDoesNotReuseDisabledBasicSlot()
+        {
+            Entity disabledBasic = CreateDisabledProjectileSlot(childSpawner: false);
+
+            EnqueueEvent(MakeEvent(count: 1, hasChildSpawner: true));
+            Tick(0.01f);
+
+            Assert.That(entityManager.IsComponentEnabled<Active>(disabledBasic), Is.False);
+            Assert.That(ActiveChildSpawnerProjectileCount(), Is.EqualTo(1));
+            Assert.That(TotalProjectileCount(), Is.EqualTo(2));
+        }
+
         private void Tick(float dt)
         {
             elapsedTime += dt;
@@ -181,7 +222,8 @@ namespace PlayGround.Tests.PlayMode
             float2 position = default,
             float2 baseDirection = default,
             float speed = 5f,
-            float lifetime = 10f)
+            float lifetime = 10f,
+            bool hasChildSpawner = false)
         {
             if (math.lengthsq(baseDirection) < 0.0001f)
                 baseDirection = new float2(1f, 0f);
@@ -190,7 +232,7 @@ namespace PlayGround.Tests.PlayMode
                 Faction = CombatFaction.Player,
                 TypeId = 1,
                 BaseProjectileId = 1,
-                HasChildSpawner = 0,
+                HasChildSpawner = hasChildSpawner ? 1 : 0,
                 Position = position,
                 BaseDirection = baseDirection,
                 Speed = speed,
@@ -204,8 +246,75 @@ namespace PlayGround.Tests.PlayMode
                 {
                     DamageAmount = 1f,
                     DirectDamageEnabled = true
-                })
+                }),
+                ChildSpawner = hasChildSpawner
+                    ? new ProjectileChildSpawnerComponent
+                    {
+                        SpawnerId = 1,
+                        TypeId = 1,
+                        ChildCountPerTick = 1,
+                        SpawnPatternType = ProjectileChildSpawnPatternType.Forward,
+                        IntervalSeconds = 1f,
+                        Lifetime = 1f,
+                        Radius = 0.1f,
+                        ShapeType = CombatShapeType.Circle,
+                        DamageAmount = 1f,
+                        DirectDamageEnabled = true
+                    }
+                    : default,
+                ChildSpawnState = hasChildSpawner
+                    ? new ProjectileChildSpawnStateComponent
+                    {
+                        ChildSpawnCooldownRemaining = 1f,
+                        ChildSpawnTickIndex = 0
+                    }
+                    : default
             };
+        }
+
+        private Entity CreateDisabledProjectileSlot(bool childSpawner)
+        {
+            Entity entity = childSpawner
+                ? entityManager.CreateEntity(
+                    typeof(ProjectileTag),
+                    typeof(ProjectileIdentityComponent),
+                    typeof(CombatKinematicsComponent),
+                    typeof(CombatCollisionComponent),
+                    typeof(CombatLifetimeComponent),
+                    typeof(ProjectileHitComponent),
+                    typeof(ProjectileTrackingComponent),
+                    typeof(CombatRenderComponent),
+                    typeof(CombatRenderElement),
+                    typeof(Active),
+                    typeof(ProjectileCollisionActiveTag),
+                    typeof(CombatRenderActiveTag),
+                    typeof(ProjectileContactGateElement),
+                    typeof(ProjectileChildSpawnerTag),
+                    typeof(ProjectileChildSpawnerComponent),
+                    typeof(ProjectileChildSpawnStateComponent))
+                : entityManager.CreateEntity(
+                    typeof(ProjectileTag),
+                    typeof(ProjectileIdentityComponent),
+                    typeof(CombatKinematicsComponent),
+                    typeof(CombatCollisionComponent),
+                    typeof(CombatLifetimeComponent),
+                    typeof(ProjectileHitComponent),
+                    typeof(ProjectileTrackingComponent),
+                    typeof(CombatRenderComponent),
+                    typeof(CombatRenderElement),
+                    typeof(Active),
+                    typeof(ProjectileCollisionActiveTag),
+                    typeof(CombatRenderActiveTag),
+                    typeof(ProjectileContactGateElement));
+
+            entityManager.AddSharedComponent(entity, new CombatRenderFaction { Faction = CombatFaction.Player });
+            entityManager.AddSharedComponent(entity, new CombatRenderTypeId { TypeId = 1 });
+            entityManager.SetComponentEnabled<Active>(entity, false);
+            entityManager.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, false);
+            entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, false);
+            entityManager.SetComponentEnabled<CombatLifetimeComponent>(entity, true);
+            entityManager.SetComponentEnabled<ProjectileTrackingComponent>(entity, false);
+            return entity;
         }
 
         private void CreateChildSpawnerEntity()
@@ -283,6 +392,24 @@ namespace PlayGround.Tests.PlayMode
         private int TotalProjectileCount()
         {
             using EntityQuery q = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileTag>());
+            return q.CalculateEntityCount();
+        }
+
+        private int ActiveBasicProjectileCount()
+        {
+            using EntityQuery q = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<ProjectileTag>(),
+                ComponentType.ReadOnly<Active>(),
+                ComponentType.Exclude<ProjectileChildSpawnerTag>());
+            return q.CalculateEntityCount();
+        }
+
+        private int ActiveChildSpawnerProjectileCount()
+        {
+            using EntityQuery q = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<ProjectileTag>(),
+                ComponentType.ReadOnly<Active>(),
+                ComponentType.ReadOnly<ProjectileChildSpawnerTag>());
             return q.CalculateEntityCount();
         }
 

@@ -29,7 +29,6 @@ namespace PlayGround.Tests.PlayMode
             simGroup.SortSystems();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
-            entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
         }
 
         [TearDown]

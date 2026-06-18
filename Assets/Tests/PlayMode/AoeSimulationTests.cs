@@ -36,6 +36,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<CombatLifetimeSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoePulseVfxSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoeCollisionSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<DamageFinalizeSystem>());
             simGroup.SortSystems();
 
             presentationGroup = testWorld.GetOrCreateSystemManaged<PresentationSystemGroup>();
@@ -43,7 +44,6 @@ namespace PlayGround.Tests.PlayMode
             presentationGroup.SortSystems();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
-            entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
             entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
         }
@@ -144,6 +144,72 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void TargetProxyLifecycle_CreatePushDeleteControlsCollisionVisibility()
+        {
+            int targetId = ++nextTargetId;
+            AddTargetById(new float2(5f, 0f), 0.25f, 1, targetId);
+            TestCombatTarget target = targetsById[targetId];
+
+            Assert.That(entityManager.Exists(target.Proxy), Is.True);
+            Assert.That(entityManager.HasComponent<TargetCompanion>(target.Proxy), Is.True);
+
+            target.Position = float2.zero;
+            Assert.That(CombatTargetProxy.Push(entityManager, target.Proxy, target), Is.True);
+            TargetPosition pushed = entityManager.GetComponentData<TargetPosition>(target.Proxy);
+            Assert.That(pushed.Value.x, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(pushed.Value.y, Is.EqualTo(0f).Within(0.001f));
+
+            SpawnCircle(float2.zero, 1f, 2f);
+            Tick(0.01f);
+            Assert.That(ReadHitCount(), Is.EqualTo(1));
+
+            CombatTargetProxy.Delete(entityManager, target.Proxy);
+            target.Proxy = Entity.Null;
+            SpawnCircle(float2.zero, 1f, 2f);
+            Tick(0.01f);
+            Assert.That(ReadHitCount(), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void EntityKeyedDamage_FinalizedEventUsesHitProxyAndDispatchResolvesCompanion()
+        {
+            AddTarget(float2.zero, 0.25f, 1);
+            Entity proxy = FirstTargetProxy();
+            SpawnCircle(float2.zero, 1f, 2f);
+
+            TickSimulationOnly(0.01f);
+
+            DamageReplayEvent[] finalized = ReadFinalizedDamageEvents();
+            Assert.That(finalized, Has.Length.EqualTo(1));
+            Assert.That(finalized[0].TargetProxy, Is.EqualTo(proxy));
+
+            presentationGroup.Update();
+            Assert.That(TotalHitCount(), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ProxyDeletionSafety_TargetCanDieDuringDispatchBeforeProxyDelete()
+        {
+            int targetId = ++nextTargetId;
+            AddTargetById(float2.zero, 0.25f, 1, targetId);
+            TestCombatTarget target = targetsById[targetId];
+            target.DeactivateOnHit = true;
+
+            SpawnCircle(float2.zero, 1f, 2f);
+            Tick(0.01f);
+
+            Assert.That(target.IsCombatTargetActive, Is.False);
+            Assert.That(entityManager.Exists(target.Proxy), Is.True,
+                "Target-side death should not delete the proxy during dispatch.");
+
+            CombatTargetProxy.Delete(entityManager, target.Proxy);
+            target.Proxy = Entity.Null;
+            SpawnCircle(float2.zero, 1f, 2f);
+            Tick(0.01f);
+            Assert.That(ReadHitCount(), Is.EqualTo(0));
+        }
+
+        [Test]
         public void CommonCombatEntityWithoutAoeTagIsIgnored()
         {
             Entity alien = entityManager.CreateEntity(
@@ -166,11 +232,16 @@ namespace PlayGround.Tests.PlayMode
         private void Tick(float dt)
         {
             int hitsBefore = TotalHitCount();
+            TickSimulationOnly(dt);
+            presentationGroup.Update();
+            lastHitCount = TotalHitCount() - hitsBefore;
+        }
+
+        private void TickSimulationOnly(float dt)
+        {
             elapsedTime += dt;
             testWorld.SetTime(new TimeData(elapsedTime, dt));
             simGroup.Update();
-            presentationGroup.Update();
-            lastHitCount = TotalHitCount() - hitsBefore;
         }
 
         private void SpawnCircle(float2 position, float radius, float damage,
@@ -205,21 +276,13 @@ namespace PlayGround.Tests.PlayMode
             if (!targetsById.TryGetValue(targetId, out TestCombatTarget target))
             {
                 target = new TestCombatTarget(targetId);
-                target.Proxy = entityManager.CreateEntity(
-                    typeof(TargetProxyTag),
-                    typeof(TargetPosition),
-                    typeof(TargetCollisionShape),
-                    typeof(TargetFaction),
-                    typeof(TargetCompanion));
-                entityManager.SetComponentData(target.Proxy, new TargetFaction { Value = CombatFaction.Player });
-                entityManager.SetComponentData(target.Proxy, new TargetCompanion { Target = target });
                 targetsById.Add(targetId, target);
             }
 
             target.Position = position;
             target.Radius = radius;
             target.Mask = targetMask;
-            WriteTargetProxy(target);
+            target.Proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
         }
 
         private void ReplaceTarget(int targetId, float2 position, float radius, int targetMask)
@@ -278,6 +341,36 @@ namespace PlayGround.Tests.PlayMode
             return entities[0];
         }
 
+        private Entity FirstTargetProxy()
+        {
+            foreach (TestCombatTarget target in targetsById.Values)
+            {
+                return target.Proxy;
+            }
+
+            Assert.Fail("No target proxy found.");
+            return Entity.Null;
+        }
+
+        private DamageReplayEvent[] ReadFinalizedDamageEvents()
+        {
+            DamageDispatchBridge bridge = testWorld.GetExistingSystemManaged<DamageDispatchBridge>();
+            const global::System.Reflection.BindingFlags Flags =
+                global::System.Reflection.BindingFlags.Instance |
+                global::System.Reflection.BindingFlags.NonPublic;
+            var countField = typeof(DamageDispatchBridge).GetField("FinalizedDamageCount", Flags);
+            var eventsField = typeof(DamageDispatchBridge).GetField("FinalizedDamageEvents", Flags);
+            int count = (int)countField.GetValue(bridge);
+            var events = (NativeArray<DamageReplayEvent>)eventsField.GetValue(bridge);
+            var result = new DamageReplayEvent[count];
+            for (int i = 0; i < count; i++)
+            {
+                result[i] = events[i];
+            }
+
+            return result;
+        }
+
         private sealed class TestCombatTarget : ICombatTarget
         {
             public TestCombatTarget(int targetId)
@@ -290,6 +383,8 @@ namespace PlayGround.Tests.PlayMode
             public float Radius { get; set; }
             public int Mask { get; set; }
             public int HitCount { get; private set; }
+            public bool Active { get; private set; } = true;
+            public bool DeactivateOnHit { get; set; }
             public int TargetId { get; }
             public Entity CombatTargetProxy
             {
@@ -302,10 +397,14 @@ namespace PlayGround.Tests.PlayMode
             public float CombatTargetRotationRadians => 0f;
             public CombatShapeType CombatTargetShapeType => CombatShapeType.Circle;
             public int CombatTargetMask => Mask;
-            public bool IsCombatTargetActive => true;
+            public bool IsCombatTargetActive => Active;
             public void ReceiveHit(in CombatHitData hit)
             {
                 HitCount++;
+                if (DeactivateOnHit)
+                {
+                    Active = false;
+                }
             }
         }
     }
