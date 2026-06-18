@@ -13,6 +13,7 @@ namespace PlayGround.System.Projectile
     // ProjectileSpawnApplySystem to consume.
     // Built beside the old ProjectileMultiExpandSystem; inert until Task 004 wires producers.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(TimedProjectileSpawnSystem))]
     [UpdateAfter(typeof(ProjectileCollisionSystem))]
     [UpdateAfter(typeof(PlayGround.System.Aoe.AoeCollisionSystem))]
     [UpdateBefore(typeof(ProjectileSpawnApplySystem))]

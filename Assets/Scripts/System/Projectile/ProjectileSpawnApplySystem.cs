@@ -17,6 +17,7 @@ namespace PlayGround.System.Projectile
     // Built beside the old ProjectileSpawnSystem; inert until Task 004 wires producers.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileSpawnExpansionSystem))]
+    [UpdateBefore(typeof(CombatRenderPrepareSystem))]
     public partial class ProjectileSpawnApplySystem : SystemBase
     {
         private static readonly ProfilerMarker SpawnMarker =
