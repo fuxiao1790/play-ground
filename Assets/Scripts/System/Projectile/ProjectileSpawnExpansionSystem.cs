@@ -9,7 +9,7 @@ namespace PlayGround.System.Projectile
 {
     // Drains ProjectileSpawnEvent from EventQueue (internal producers) and the scope
     // DynamicBuffer<ProjectileSpawnEvent> (managed submission), fans them out by Count/Spread/Jitter,
-    // and writes fully-resolved ProjectileSpawnCommandData into PendingCommands for
+    // and writes fully-resolved ProjectileSpawnCommand into PendingCommands for
     // ProjectileSpawnApplySystem to consume.
     // Built beside the old ProjectileMultiExpandSystem; inert until Task 004 wires producers.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -145,7 +145,7 @@ namespace PlayGround.System.Projectile
                 render.RenderZ = CombatRoot.ProjectileRenderZ
                     - (projectileId % CombatRoot.ProjectileRenderZSlots) * CombatRoot.ProjectileRenderZStep;
 
-                Stream.Write(new ProjectileSpawnCommandData
+                Stream.Write(new ProjectileSpawnCommand
                 {
                     Faction = evt.Faction,
                     ProjectileId = projectileId,

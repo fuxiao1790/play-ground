@@ -12,7 +12,7 @@ using Unity.Profiling;
 
 namespace PlayGround.System.Aoe
 {
-    // Port of AoeSpawnSystem with input changed from AoeSpawnRequestElement to AoeSpawnCommandData.
+    // Port of AoeSpawnSystem with input changed from AoeSpawnRequestElement to AoeSpawnCommand.
     // Reads PendingCommands from AoeSpawnExpansionSystem. VFX emission moved to expansion.
     // Built beside the old AoeSpawnSystem; inert until Task 006 wires producers.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -87,7 +87,7 @@ namespace PlayGround.System.Aoe
                     int n = reader.BeginForEachIndex(i);
                     for (int j = 0; j < n; j++)
                     {
-                        AoeSpawnCommandData cmd = reader.Read<AoeSpawnCommandData>();
+                        AoeSpawnCommand cmd = reader.Read<AoeSpawnCommand>();
                         var key = new AoeSpawnKey((int)cmd.Faction, cmd.TypeId);
                         if (!_byKey.TryGetValue(key, out AoeSpawnBucket bucket))
                         {
@@ -118,7 +118,7 @@ namespace PlayGround.System.Aoe
                     {
                         CombatFaction faction = (CombatFaction)key.FactionValue;
                         EntityQuery query = DeadSlotQueryFor(key, faction);
-                        NativeArray<AoeSpawnCommandData> configs = bucket.Requests.AsArray();
+                        NativeArray<AoeSpawnCommand> configs = bucket.Requests.AsArray();
                         var claimedReference = new NativeReference<int>(Allocator.TempJob);
                         claimedReference.Value = 0;
 
@@ -228,7 +228,7 @@ namespace PlayGround.System.Aoe
             _spawnWork.Clear();
         }
 
-        private void CreateAoeEntity(CombatFaction faction, AoeSpawnCommandData cmd, EntityCommandBuffer ecb)
+        private void CreateAoeEntity(CombatFaction faction, AoeSpawnCommand cmd, EntityCommandBuffer ecb)
         {
             Entity entity = ecb.CreateEntity(archetype);
             ecb.AddSharedComponent(entity, new CombatRenderFaction { Faction = faction });
@@ -236,7 +236,7 @@ namespace PlayGround.System.Aoe
             RecordAoeReset(ecb, entity, faction, cmd);
         }
 
-        private static void RecordAoeReset(EntityCommandBuffer ecb, Entity entity, CombatFaction faction, AoeSpawnCommandData cmd)
+        private static void RecordAoeReset(EntityCommandBuffer ecb, Entity entity, CombatFaction faction, AoeSpawnCommand cmd)
         {
             CombatKinematicsComponent kinematics = KinematicsFor(cmd);
             CombatRenderComponent render = cmd.Render;
@@ -256,18 +256,18 @@ namespace PlayGround.System.Aoe
             ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
         }
 
-        private static bool NeedsCollision(in AoeSpawnCommandData cmd) =>
+        private static bool NeedsCollision(in AoeSpawnCommand cmd) =>
             cmd.HitPayload.DirectDamageEnabled
             || cmd.HitPayload.StackEffect.Enabled
             || cmd.ProjectileBurst.Enabled;
 
-        private static AoeIdentityComponent IdentityFor(CombatFaction faction, in AoeSpawnCommandData cmd) =>
+        private static AoeIdentityComponent IdentityFor(CombatFaction faction, in AoeSpawnCommand cmd) =>
             new AoeIdentityComponent { Faction = faction, AoeId = cmd.AoeId, TypeId = cmd.TypeId };
 
-        private static CombatKinematicsComponent KinematicsFor(in AoeSpawnCommandData cmd) =>
+        private static CombatKinematicsComponent KinematicsFor(in AoeSpawnCommand cmd) =>
             new CombatKinematicsComponent { Position = cmd.Position, Velocity = default };
 
-        private static CombatCollisionComponent CollisionFor(in AoeSpawnCommandData cmd) =>
+        private static CombatCollisionComponent CollisionFor(in AoeSpawnCommand cmd) =>
             new CombatCollisionComponent
             {
                 ShapeType       = cmd.ShapeType,
@@ -278,16 +278,16 @@ namespace PlayGround.System.Aoe
                 BoundsMax       = cmd.BoundsMax
             };
 
-        private static AoeHitGateComponent HitGateFor(in AoeSpawnCommandData cmd) =>
+        private static AoeHitGateComponent HitGateFor(in AoeSpawnCommand cmd) =>
             new AoeHitGateComponent { RepeatHitCooldownSeconds = cmd.RepeatHitCooldownSeconds };
 
-        private static AoeHitSpawnComponent HitSpawnFor(in AoeSpawnCommandData cmd) =>
+        private static AoeHitSpawnComponent HitSpawnFor(in AoeSpawnCommand cmd) =>
             new AoeHitSpawnComponent { HitPayload = cmd.HitPayload, ProjectileBurst = cmd.ProjectileBurst };
 
-        private static AoeAreaComponent AreaFor(in AoeSpawnCommandData cmd) =>
+        private static AoeAreaComponent AreaFor(in AoeSpawnCommand cmd) =>
             new AoeAreaComponent { Size = cmd.AreaSize > 0f ? cmd.AreaSize : 1f };
 
-        private static AoePulseVfxComponent PulseVfxFor(in AoeSpawnCommandData cmd)
+        private static AoePulseVfxComponent PulseVfxFor(in AoeSpawnCommand cmd)
         {
             float interval = cmd.RepeatHitCooldownSeconds > 0f ? cmd.RepeatHitCooldownSeconds : 0f;
             return new AoePulseVfxComponent { Interval = interval, RemainingInterval = interval };
@@ -297,7 +297,7 @@ namespace PlayGround.System.Aoe
         private struct AoeSpawnJob : IJobChunk
         {
             public CombatFaction Faction;
-            [ReadOnly] public NativeArray<AoeSpawnCommandData> Configs;
+            [ReadOnly] public NativeArray<AoeSpawnCommand> Configs;
             [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
 
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<Active>                   ActiveHandle;
@@ -342,7 +342,7 @@ namespace PlayGround.System.Aoe
                 {
                     if (activeMask[i]) continue;
 
-                    AoeSpawnCommandData cfg = Configs[cfgIdx++];
+                    AoeSpawnCommand cfg = Configs[cfgIdx++];
 
                     identities[i] = new AoeIdentityComponent
                     {
@@ -421,7 +421,7 @@ namespace PlayGround.System.Aoe
 
         private sealed class AoeSpawnBucket : IDisposable
         {
-            public readonly NativeList<AoeSpawnCommandData> Requests =
+            public readonly NativeList<AoeSpawnCommand> Requests =
                 new(Allocator.Persistent);
 
             public void Dispose()
@@ -434,12 +434,12 @@ namespace PlayGround.System.Aoe
         private readonly struct AoeSpawnWork
         {
             public readonly CombatFaction Faction;
-            public readonly NativeArray<AoeSpawnCommandData> Configs;
+            public readonly NativeArray<AoeSpawnCommand> Configs;
             public readonly NativeReference<int> ClaimedCount;
 
             public AoeSpawnWork(
                 CombatFaction faction,
-                NativeArray<AoeSpawnCommandData> configs,
+                NativeArray<AoeSpawnCommand> configs,
                 NativeReference<int> claimedCount)
             {
                 Faction = faction;

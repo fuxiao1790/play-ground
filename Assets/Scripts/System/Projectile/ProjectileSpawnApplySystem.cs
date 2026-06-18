@@ -13,7 +13,7 @@ using Unity.Profiling;
 namespace PlayGround.System.Projectile
 {
     // Port of ProjectileSpawnSystem with input changed from ProjectileSpawnRequestElement
-    // to ProjectileSpawnCommandData. Reads PendingCommands from ProjectileSpawnExpansionSystem.
+    // to ProjectileSpawnCommand. Reads PendingCommands from ProjectileSpawnExpansionSystem.
     // Built beside the old ProjectileSpawnSystem; inert until Task 004 wires producers.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileSpawnExpansionSystem))]
@@ -104,7 +104,7 @@ namespace PlayGround.System.Projectile
                     int n = reader.BeginForEachIndex(i);
                     for (int j = 0; j < n; j++)
                     {
-                        ProjectileSpawnCommandData cmd = reader.Read<ProjectileSpawnCommandData>();
+                        ProjectileSpawnCommand cmd = reader.Read<ProjectileSpawnCommand>();
                         var key = new ProjectileSpawnKey((int)cmd.Faction, cmd.TypeId, cmd.HasChildSpawner != 0);
                         if (!_byKey.TryGetValue(key, out ProjectileSpawnBucket bucket))
                         {
@@ -135,7 +135,7 @@ namespace PlayGround.System.Projectile
                     {
                         CombatFaction faction = (CombatFaction)key.FactionValue;
                         EntityQuery query = DeadSlotQueryFor(key, faction);
-                        NativeArray<ProjectileSpawnCommandData> configs = bucket.Requests.AsArray();
+                        NativeArray<ProjectileSpawnCommand> configs = bucket.Requests.AsArray();
                         var claimedReference = new NativeReference<int>(Allocator.TempJob);
                         claimedReference.Value = 0;
 
@@ -253,7 +253,7 @@ namespace PlayGround.System.Projectile
 
         private void CreateProjectileEntity(
             CombatFaction faction,
-            ProjectileSpawnCommandData cmd,
+            ProjectileSpawnCommand cmd,
             bool hasChildSpawner,
             EntityCommandBuffer ecb)
         {
@@ -267,7 +267,7 @@ namespace PlayGround.System.Projectile
             EntityCommandBuffer ecb,
             Entity entity,
             CombatFaction faction,
-            ProjectileSpawnCommandData cmd,
+            ProjectileSpawnCommand cmd,
             bool hasChildSpawner)
         {
             ecb.SetComponent(entity, new ProjectileIdentityComponent
@@ -333,7 +333,7 @@ namespace PlayGround.System.Projectile
         private struct ProjectileSpawnJob : IJobChunk
         {
             public CombatFaction Faction;
-            [ReadOnly] public NativeArray<ProjectileSpawnCommandData> Configs;
+            [ReadOnly] public NativeArray<ProjectileSpawnCommand> Configs;
             [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
 
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<Active>                         ActiveHandle;
@@ -383,7 +383,7 @@ namespace PlayGround.System.Projectile
                 {
                     if (activeMask[i]) continue;
 
-                    ProjectileSpawnCommandData cfg = Configs[cfgIdx++];
+                    ProjectileSpawnCommand cfg = Configs[cfgIdx++];
 
                     identities[i]  = new ProjectileIdentityComponent
                     {
@@ -475,7 +475,7 @@ namespace PlayGround.System.Projectile
 
         private sealed class ProjectileSpawnBucket : IDisposable
         {
-            public readonly NativeList<ProjectileSpawnCommandData> Requests =
+            public readonly NativeList<ProjectileSpawnCommand> Requests =
                 new(Allocator.Persistent);
 
             public void Dispose()
@@ -489,13 +489,13 @@ namespace PlayGround.System.Projectile
         {
             public readonly CombatFaction Faction;
             public readonly bool HasChildSpawner;
-            public readonly NativeArray<ProjectileSpawnCommandData> Configs;
+            public readonly NativeArray<ProjectileSpawnCommand> Configs;
             public readonly NativeReference<int> ClaimedCount;
 
             public ProjectileSpawnWork(
                 CombatFaction faction,
                 bool hasChildSpawner,
-                NativeArray<ProjectileSpawnCommandData> configs,
+                NativeArray<ProjectileSpawnCommand> configs,
                 NativeReference<int> claimedCount)
             {
                 Faction = faction;

@@ -73,7 +73,7 @@ namespace PlayGround.Tests.PlayMode
             AoeTargetProbe target = CreateTarget(new Vector2(1.5f, 0f), DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(new AoeSpawnCommand(
+            root.Spawn(new AoeSpawnRequest(
                 typeId,
                 Vector2.zero,
                 DefaultTargetMask,
@@ -191,14 +191,14 @@ namespace PlayGround.Tests.PlayMode
             Cleanup(aoeObject, templateObject);
         }
 
-        private static AoeSpawnCommand Command(
+        private static AoeSpawnRequest Command(
             int typeId,
             GameObject templateObject,
             Vector2 position,
             int targetMask,
             float damage)
         {
-            return new AoeSpawnCommand(
+            return new AoeSpawnRequest(
                 typeId,
                 position,
                 targetMask,
@@ -397,7 +397,7 @@ namespace PlayGround.Tests.PlayMode
                 aoeTickIntervalSeconds: 0f,
                 aoeGeometry: geometry);
 
-            root.Spawn(new AoeSpawnCommand(
+            root.Spawn(new AoeSpawnRequest(
                 lingeringTypeId,
                 Vector2.zero,
                 DefaultTargetMask,
@@ -447,7 +447,7 @@ namespace PlayGround.Tests.PlayMode
                 aoeTickIntervalSeconds: 0f,
                 aoeGeometry: geometry);
 
-            root.Spawn(new AoeSpawnCommand(
+            root.Spawn(new AoeSpawnRequest(
                 lingeringTypeId,
                 Vector2.zero,
                 DefaultTargetMask,

@@ -85,7 +85,7 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
-            projectileRoot.Spawn(new ProjectileSpawnCommand(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
+            projectileRoot.Spawn(new ProjectileSpawnRequest(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
             yield return null;
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(6f));
@@ -99,7 +99,7 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
-            projectileRoot.Spawn(new ProjectileSpawnCommand(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
+            projectileRoot.Spawn(new ProjectileSpawnRequest(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
             yield return null;
 
             Assert.That(projectileObject.transform.childCount, Is.EqualTo(0));
@@ -130,7 +130,7 @@ namespace PlayGround.Tests.PlayMode
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
 
-            projectileRoot.Spawn(new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
+            projectileRoot.Spawn(new ProjectileSpawnRequest(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
             yield return null;
 
             Object.Destroy(projectileObject);
@@ -176,7 +176,7 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
-            var command = new ProjectileSpawnCommand(
+            var command = new ProjectileSpawnRequest(
                 Vector2.zero,
                 Vector2.right,
                 0f,
@@ -203,7 +203,7 @@ namespace PlayGround.Tests.PlayMode
             mobObject.transform.position = new Vector2(10f, 10f);
             mob.Register(projectileRoot.TargetRegistry);
 
-            var command = new ProjectileSpawnCommand(
+            var command = new ProjectileSpawnRequest(
                 Vector2.zero,
                 Vector2.right,
                 10f,
@@ -254,7 +254,7 @@ namespace PlayGround.Tests.PlayMode
             GameObject gameRootObject = new("GameRoot");
             gameRootObject.AddComponent<GameRoot>();
 
-            var command = new ProjectileSpawnCommand(
+            var command = new ProjectileSpawnRequest(
                 Vector2.zero,
                 Vector2.right,
                 0f,
@@ -280,7 +280,7 @@ namespace PlayGround.Tests.PlayMode
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
-            var command = new ProjectileSpawnCommand(
+            var command = new ProjectileSpawnRequest(
                 Vector2.zero,
                 Vector2.right,
                 0f,
@@ -306,7 +306,7 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
             ProjectileReplayProbe probe = CreateProjectileReplayProbe(Vector2.zero);
             projectileRoot.TargetRegistry.Register(probe);
-            var command = new ProjectileSpawnCommand(
+            var command = new ProjectileSpawnRequest(
                 Vector2.zero,
                 Vector2.right,
                 0f,
@@ -336,7 +336,7 @@ namespace PlayGround.Tests.PlayMode
             mob.Register(projectileRoot.TargetRegistry);
             mob.Register(aoeRoot.TargetRegistry);
 
-            var command = new ProjectileSpawnCommand(
+            var command = new ProjectileSpawnRequest(
                 Vector2.zero,
                 Vector2.right,
                 0f,
@@ -395,7 +395,7 @@ namespace PlayGround.Tests.PlayMode
                 shapeType: CombatShapeType.Circle,
                 damage: new DamageSnapshot(2f));
 
-            aoeRoot.Spawn(new AoeSpawnCommand(
+            aoeRoot.Spawn(new AoeSpawnRequest(
                 typeId: aoeTypeId,
                 position: Vector2.zero,
                 targetMask: ~0,
@@ -427,7 +427,7 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
-            var command = new ProjectileSpawnCommand(
+            var command = new ProjectileSpawnRequest(
                 Vector2.zero,
                 Vector2.right,
                 0f,
@@ -460,7 +460,7 @@ namespace PlayGround.Tests.PlayMode
             mobObject.transform.position = new Vector2(50f, 50f);
             mob.Register(projectileRoot.TargetRegistry);
 
-            var command = new ProjectileSpawnCommand(
+            var command = new ProjectileSpawnRequest(
                 new Vector2(50f, 50f),
                 Vector2.right,
                 0f,
@@ -512,7 +512,7 @@ namespace PlayGround.Tests.PlayMode
                 targetMask: 1,
                 tracking: new ProjectileTrackingConfig(true, 50f, 360f, 0f),
                 behavior: new ProjectileChildSpawnBehavior(1, ProjectileChildSpawnPatternType.Forward));
-            var command = new ProjectileSpawnCommand(
+            var command = new ProjectileSpawnRequest(
                 Vector2.zero,
                 Vector2.right,
                 0f,
@@ -546,7 +546,7 @@ namespace PlayGround.Tests.PlayMode
             GameObject sourceObject = new("ProjectileSource");
             EntityId sourceNodeId = sourceObject.GetEntityId();
 
-            var command = new ProjectileSpawnCommand(
+            var command = new ProjectileSpawnRequest(
                 Vector2.zero,
                 Vector2.right,
                 0f,
@@ -574,7 +574,7 @@ namespace PlayGround.Tests.PlayMode
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
 
-            var command = new ProjectileSpawnCommand(
+            var command = new ProjectileSpawnRequest(
                 new Vector2(50f, 50f),
                 Vector2.right,
                 0f,
@@ -603,7 +603,7 @@ namespace PlayGround.Tests.PlayMode
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
             const float IntervalJitterSeconds = 0.25f;
-            var command = new ProjectileSpawnCommand(
+            var command = new ProjectileSpawnRequest(
                 new Vector2(50f, 50f),
                 Vector2.right,
                 0f,
@@ -631,7 +631,7 @@ namespace PlayGround.Tests.PlayMode
         public void ProjectileChildSpawnRejectsUnsupportedRenderType()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
-            var command = new ProjectileSpawnCommand(
+            var command = new ProjectileSpawnRequest(
                 new Vector2(50f, 50f),
                 Vector2.right,
                 0f,
@@ -652,7 +652,7 @@ namespace PlayGround.Tests.PlayMode
         public IEnumerator ProjectileSpawnReusesExpiredEcsEntityAfterPoolWarmup()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
-            var command = new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle);
+            var command = new ProjectileSpawnRequest(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle);
 
             projectileRoot.Spawn(command);
             Time.captureDeltaTime = 0.01f;
@@ -678,12 +678,12 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
-            projectileRoot.Spawn(new ProjectileSpawnCommand(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle));
+            projectileRoot.Spawn(new ProjectileSpawnRequest(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle));
             Time.captureDeltaTime = 0.01f;
             yield return null;
             Assert.That(SumScopedContactGates(projectileRoot), Is.GreaterThan(0));
 
-            projectileRoot.Spawn(new ProjectileSpawnCommand(new Vector2(50f, 50f), Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle));
+            projectileRoot.Spawn(new ProjectileSpawnRequest(new Vector2(50f, 50f), Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle));
             yield return null;
             Time.captureDeltaTime = 0f;
 
@@ -697,7 +697,7 @@ namespace PlayGround.Tests.PlayMode
         public IEnumerator ProjectileChildSpawnRequestsReuseChildEntitiesAfterPoolWarmup()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
-            var command = ChildSpawnerCommand();
+            var command = ChildSpawnerRequest();
 
             yield return SpawnAndDrainChildCycle(projectileRoot, command);
             int warmedCount = CountScopedProjectileEntities(projectileRoot);
@@ -717,7 +717,7 @@ namespace PlayGround.Tests.PlayMode
         public IEnumerator ProjectileChildSpawnerParentKeepsStableArchetypeDuringReuse()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
-            var command = ChildSpawnerCommand();
+            var command = ChildSpawnerRequest();
 
             yield return SpawnAndDrainChildCycle(projectileRoot, command);
             Entity firstParent = FirstScopedChildSpawnerEntity(projectileRoot);
@@ -954,9 +954,9 @@ namespace PlayGround.Tests.PlayMode
                 0f);
         }
 
-        private static ProjectileSpawnCommand ChildSpawnerCommand()
+        private static ProjectileSpawnRequest ChildSpawnerRequest()
         {
-            return new ProjectileSpawnCommand(
+            return new ProjectileSpawnRequest(
                 new Vector2(50f, 50f),
                 Vector2.right,
                 0f,
@@ -982,7 +982,7 @@ namespace PlayGround.Tests.PlayMode
                 directDamageEnabled: false);
         }
 
-        private static IEnumerator SpawnAndDrainChildCycle(CombatRoot projectileRoot, ProjectileSpawnCommand command)
+        private static IEnumerator SpawnAndDrainChildCycle(CombatRoot projectileRoot, ProjectileSpawnRequest command)
         {
             projectileRoot.Spawn(command);
             Time.captureDeltaTime = 0.002f;
@@ -1221,7 +1221,7 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
-            projectileRoot.Spawn(new ProjectileSpawnCommand(
+            projectileRoot.Spawn(new ProjectileSpawnRequest(
                 Vector2.zero, Vector2.right, 0f, 1f, 1f,
                 new Vector2(1f, 1f), 0f,
                 new DamageSnapshot(3f), CombatShapeType.Circle,
@@ -1239,7 +1239,7 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
-            projectileRoot.Spawn(new ProjectileSpawnCommand(
+            projectileRoot.Spawn(new ProjectileSpawnRequest(
                 Vector2.zero, Vector2.right, 0f, 1f, 1f,
                 new Vector2(1f, 1f), 0f,
                 new DamageSnapshot(3f), CombatShapeType.Circle,
@@ -1258,7 +1258,7 @@ namespace PlayGround.Tests.PlayMode
             CritProbe probe = CreateCritProbe(Vector2.zero);
             root.TargetRegistry.Register(probe);
 
-            root.Spawn(new AoeSpawnCommand(typeId, Vector2.zero, ~0,
+            root.Spawn(new AoeSpawnRequest(typeId, Vector2.zero, ~0,
                 new DamageSnapshot(3f), 0f, 0f,
                 AoeGeometry(templateObject),
                 critChance: 1f, critMultiplier: 2f));
@@ -1278,7 +1278,7 @@ namespace PlayGround.Tests.PlayMode
             CritProbe probe = CreateCritProbe(Vector2.zero);
             root.TargetRegistry.Register(probe);
 
-            root.Spawn(new AoeSpawnCommand(typeId, Vector2.zero, ~0,
+            root.Spawn(new AoeSpawnRequest(typeId, Vector2.zero, ~0,
                 new DamageSnapshot(3f), 0f, 0f,
                 AoeGeometry(templateObject),
                 critChance: 0f, critMultiplier: 2f));

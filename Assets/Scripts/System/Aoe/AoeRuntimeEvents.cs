@@ -4,9 +4,9 @@ using UnityEngine;
 
 namespace PlayGround.System.Aoe
 {
-    public readonly struct AoeSpawnCommand
+    public readonly struct AoeSpawnRequest
     {
-        public AoeSpawnCommand(
+        public AoeSpawnRequest(
             int typeId,
             Vector2 position,
             int targetMask,

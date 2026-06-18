@@ -269,7 +269,7 @@ namespace PlayGround.Mob
                 return;
 
             debuffStacks.ClearStacks(status);
-            aoeCombatRoot.Spawn(new AoeSpawnCommand(
+            aoeCombatRoot.Spawn(new AoeSpawnRequest(
                 effect.AoeTypeId,
                 transform.position,
                 aoeCombatRoot.TargetMask,

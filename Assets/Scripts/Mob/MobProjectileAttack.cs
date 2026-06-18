@@ -78,7 +78,7 @@ namespace PlayGround.Mob
 
             Vector2 direction = aim / distance;
             Vector2 spawnPosition = (Vector2)owner.transform.position + direction * spawnOffset;
-            projectileRoot.Spawn(new ProjectileSpawnCommand(
+            projectileRoot.Spawn(new ProjectileSpawnRequest(
                 spawnPosition,
                 direction,
                 speed,

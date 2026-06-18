@@ -184,15 +184,15 @@ namespace PlayGround.System.Common
             return true;
         }
 
-        public int Spawn(ProjectileSpawnCommand command, int seedContactGateTargetId = 0)
+        public int Spawn(ProjectileSpawnRequest request, int seedContactGateTargetId = 0)
         {
             EnsureRuntimeReady();
-            ValidateSpawnCommand(command);
+            ValidateSpawnRequest(request);
 
             int baseProjectileId = nextProjectileId + 1;
-            nextProjectileId += command.Count;
+            nextProjectileId += request.Count;
             entityManager.GetBuffer<ProjectileSpawnEvent>(scopeEntity)
-                .Add(ProjectileEventFor(command, baseProjectileId, seedContactGateTargetId));
+                .Add(ProjectileEventFor(request, baseProjectileId, seedContactGateTargetId));
             return baseProjectileId;
         }
 
@@ -238,7 +238,7 @@ namespace PlayGround.System.Common
 
         public int Spawn(ProjectileAoeSpawnRequest request)
         {
-            return Spawn(new AoeSpawnCommand(
+            return Spawn(new AoeSpawnRequest(
                 request.EffectTypeId,
                 request.Position,
                 TargetMask,
@@ -248,64 +248,64 @@ namespace PlayGround.System.Common
                 request.Geometry));
         }
 
-        public int Spawn(AoeSpawnCommand command)
+        public int Spawn(AoeSpawnRequest request)
         {
             EnsureRuntimeReady();
-            if (!typeRegistry.TryGetDefinition(command.TypeId, out _))
+            if (!typeRegistry.TryGetDefinition(request.TypeId, out _))
             {
-                throw new global::System.InvalidOperationException($"Missing AOE definition for type id {command.TypeId}.");
+                throw new global::System.InvalidOperationException($"Missing AOE definition for type id {request.TypeId}.");
             }
-            if (!command.Geometry.IsValid)
+            if (!request.Geometry.IsValid)
             {
-                throw new global::System.InvalidOperationException($"AOE spawn command for type id {command.TypeId} has unresolved geometry.");
+                throw new global::System.InvalidOperationException($"AOE spawn request for type id {request.TypeId} has unresolved geometry.");
             }
 
             int aoeId = ++nextAoeId;
-            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Add(AoeEventFor(command, aoeId));
+            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Add(AoeEventFor(request, aoeId));
             spawnedAoes++;
             return aoeId;
         }
 
         // ---- Request builders ----
 
-        private ProjectileSpawnEvent ProjectileEventFor(ProjectileSpawnCommand command, int baseProjectileId, int seedContactGateTargetId)
+        private ProjectileSpawnEvent ProjectileEventFor(ProjectileSpawnRequest request, int baseProjectileId, int seedContactGateTargetId)
         {
-            float2 position = new(command.Position.x, command.Position.y);
-            float2 halfExtents = new(command.HalfExtents.x, command.HalfExtents.y);
+            float2 position = new(request.Position.x, request.Position.y);
+            float2 halfExtents = new(request.HalfExtents.x, request.HalfExtents.y);
 
             var evt = new ProjectileSpawnEvent
             {
                 Faction = faction,
                 BaseProjectileId = baseProjectileId,
-                TypeId = command.ProjectileTypeId,
-                PierceRemaining = command.PierceCount,
-                HasChildSpawner = command.ChildSpawn.Enabled ? 1 : 0,
+                TypeId = request.ProjectileTypeId,
+                PierceRemaining = request.PierceCount,
+                HasChildSpawner = request.ChildSpawn.Enabled ? 1 : 0,
                 SeedContactGateTargetId = seedContactGateTargetId,
-                RepeatHitCooldownSeconds = command.RepeatHitCooldownSeconds,
-                Lifetime = command.Lifetime,
-                Radius = command.Radius,
-                RotationRadians = command.RotationRadians,
+                RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds,
+                Lifetime = request.Lifetime,
+                Radius = request.Radius,
+                RotationRadians = request.RotationRadians,
                 Position = position,
                 HalfExtents = halfExtents,
-                ShapeType = command.ShapeType,
-                HitPayload = command.HitPayload,
-                Tracking = TrackingComponentFor(command.Tracking),
-                Render = ProjectileRenderComponentFor(command.ProjectileTypeId, baseProjectileId),
-                Count = command.Count,
-                BaseDirection = new float2(command.Direction.x, command.Direction.y),
-                Speed = command.Speed,
-                SpreadDegrees = command.SpreadDegrees,
-                JitterDegrees = command.JitterDegrees,
+                ShapeType = request.ShapeType,
+                HitPayload = request.HitPayload,
+                Tracking = TrackingComponentFor(request.Tracking),
+                Render = ProjectileRenderComponentFor(request.ProjectileTypeId, baseProjectileId),
+                Count = request.Count,
+                BaseDirection = new float2(request.Direction.x, request.Direction.y),
+                Speed = request.Speed,
+                SpreadDegrees = request.SpreadDegrees,
+                JitterDegrees = request.JitterDegrees,
                 JitterSeed = (uint)baseProjectileId * 2654435761u,
             };
 
-            if (command.ChildSpawn.Enabled)
+            if (request.ChildSpawn.Enabled)
             {
-                evt.ChildSpawner = ChildSpawnerComponentFor(command.ChildSpawn, command.HitPayload.SourceNodeId);
+                evt.ChildSpawner = ChildSpawnerComponentFor(request.ChildSpawn, request.HitPayload.SourceNodeId);
                 evt.ChildSpawnState = new ProjectileChildSpawnStateComponent
                 {
-                    ChildSpawnCooldownRemaining = command.ChildSpawn.IntervalSeconds
-                        + DeterministicJitter(baseProjectileId, command.ChildSpawn.IntervalJitterSeconds),
+                    ChildSpawnCooldownRemaining = request.ChildSpawn.IntervalSeconds
+                        + DeterministicJitter(baseProjectileId, request.ChildSpawn.IntervalJitterSeconds),
                     ChildSpawnTickIndex = 0
                 };
             }
@@ -313,27 +313,27 @@ namespace PlayGround.System.Common
             return evt;
         }
 
-        private AoeSpawnEvent AoeEventFor(AoeSpawnCommand command, int aoeId)
+        private AoeSpawnEvent AoeEventFor(AoeSpawnRequest request, int aoeId)
         {
-            AoeSpawnGeometry geometry = command.Geometry;
-            float2 position = new(command.Position.x, command.Position.y);
+            AoeSpawnGeometry geometry = request.Geometry;
+            float2 position = new(request.Position.x, request.Position.y);
             float2 halfExtents = new(geometry.HalfExtents.x, geometry.HalfExtents.y);
 
             return new AoeSpawnEvent
             {
                 Faction = faction,
                 AoeId = aoeId,
-                TypeId = command.TypeId,
-                Lifetime = command.LifetimeSeconds,
-                RepeatHitCooldownSeconds = command.TickIntervalSeconds,
+                TypeId = request.TypeId,
+                Lifetime = request.LifetimeSeconds,
+                RepeatHitCooldownSeconds = request.TickIntervalSeconds,
                 HitPayload = new CombatHitPayload
                 {
-                    DamageAmount = command.Damage.Amount,
-                    CritChance = command.CritChance,
-                    CritMultiplier = command.CritMultiplier,
+                    DamageAmount = request.Damage.Amount,
+                    CritChance = request.CritChance,
+                    CritMultiplier = request.CritMultiplier,
                     DirectDamageEnabled = true,
-                    SourceNodeId = command.SourceNodeId,
-                    StackEffect = command.StackEffect
+                    SourceNodeId = request.SourceNodeId,
+                    StackEffect = request.StackEffect
                 },
                 AreaSize = geometry.AreaSize,
                 Radius = geometry.Radius,
@@ -341,8 +341,8 @@ namespace PlayGround.System.Common
                 Position = position,
                 HalfExtents = halfExtents,
                 ShapeType = geometry.ShapeType,
-                Render = AoeRenderComponentFor(command.TypeId, geometry),
-                ProjectileBurst = command.ProjectileBurst
+                Render = AoeRenderComponentFor(request.TypeId, geometry),
+                ProjectileBurst = request.ProjectileBurst
             };
         }
 
@@ -629,12 +629,12 @@ namespace PlayGround.System.Common
             }
         }
 
-        private void ValidateSpawnCommand(ProjectileSpawnCommand command)
+        private void ValidateSpawnRequest(ProjectileSpawnRequest request)
         {
-            ValidateRenderableType(command.ProjectileTypeId, nameof(command.ProjectileTypeId));
-            if (command.ChildSpawn.Enabled)
+            ValidateRenderableType(request.ProjectileTypeId, nameof(request.ProjectileTypeId));
+            if (request.ChildSpawn.Enabled)
             {
-                ValidateRenderableType(command.ChildSpawn.TypeId, nameof(command.ChildSpawn));
+                ValidateRenderableType(request.ChildSpawn.TypeId, nameof(request.ChildSpawn));
             }
         }
 

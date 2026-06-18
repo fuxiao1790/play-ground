@@ -36,7 +36,7 @@ namespace PlayGround.System.Projectile
     }
 
     // resolved single-entity allocation intent; produced by expansion, consumed by apply; never carries multiplicity.
-    public struct ProjectileSpawnCommandData
+    public struct ProjectileSpawnCommand
     {
         public CombatFaction Faction;
         public int ProjectileId;

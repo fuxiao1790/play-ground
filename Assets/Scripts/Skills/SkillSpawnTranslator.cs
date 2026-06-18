@@ -40,7 +40,7 @@ namespace PlayGround.Skills
             ProjectileImpactProjectileSnapshot impactProjectile = BuildImpactProjectileSnapshot(def, targetMask);
             ProjectileChildSpawnConfig childSpawn = def.BuildChildSpawnConfig();
 
-            root.Spawn(new ProjectileSpawnCommand(
+            root.Spawn(new ProjectileSpawnRequest(
                 origin,
                 baseDir,
                 def.Speed,
@@ -84,7 +84,7 @@ namespace PlayGround.Skills
 
             for (int i = 0; i < count; i++)
             {
-                root.Spawn(new AoeSpawnCommand(
+                root.Spawn(new AoeSpawnRequest(
                     def.TypeId,
                     center,
                     root.TargetMask,

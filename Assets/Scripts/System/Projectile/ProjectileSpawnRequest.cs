@@ -4,9 +4,9 @@ using UnityEngine;
 
 namespace PlayGround.System.Projectile
 {
-    public readonly struct ProjectileSpawnCommand
+    public readonly struct ProjectileSpawnRequest
     {
-        public ProjectileSpawnCommand(
+        public ProjectileSpawnRequest(
             Vector2 position,
             Vector2 direction,
             float speed,
@@ -35,7 +35,7 @@ namespace PlayGround.System.Projectile
         }
 
         [global::System.Obsolete("Use the CombatShapeType overload.")]
-        public ProjectileSpawnCommand(
+        public ProjectileSpawnRequest(
             Vector2 position,
             Vector2 direction,
             float speed,
@@ -47,7 +47,7 @@ namespace PlayGround.System.Projectile
         {
         }
 
-        public ProjectileSpawnCommand(
+        public ProjectileSpawnRequest(
             Vector2 position,
             Vector2 direction,
             float speed,
@@ -109,7 +109,7 @@ namespace PlayGround.System.Projectile
         }
 
         [global::System.Obsolete("Use the CombatShapeType overload.")]
-        public ProjectileSpawnCommand(
+        public ProjectileSpawnRequest(
             Vector2 position,
             Vector2 direction,
             float speed,

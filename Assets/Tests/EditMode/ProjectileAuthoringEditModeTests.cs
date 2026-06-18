@@ -11,9 +11,9 @@ namespace PlayGround.Tests.EditMode
     public sealed class ProjectileAuthoringEditModeTests
     {
         [Test]
-        public void SpawnCommandNormalizesDirectionAndPreservesDamage()
+        public void SpawnRequestNormalizesDirectionAndPreservesDamage()
         {
-            var command = new ProjectileSpawnCommand(
+            var command = new ProjectileSpawnRequest(
                 Vector2.zero,
                 new Vector2(10f, 0f),
                 3f,
@@ -27,9 +27,9 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void SpawnCommandPreservesDirectDamageToggle()
+        public void SpawnRequestPreservesDirectDamageToggle()
         {
-            var command = new ProjectileSpawnCommand(
+            var command = new ProjectileSpawnRequest(
                 Vector2.zero,
                 Vector2.right,
                 3f,
@@ -45,7 +45,7 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void SpawnCommandPreservesImpactAoeSnapshot()
+        public void SpawnRequestPreservesImpactAoeSnapshot()
         {
             var impact = new ProjectileImpactAoeSnapshot(
                 typeId: 2,
@@ -53,7 +53,7 @@ namespace PlayGround.Tests.EditMode
                 damageAmount: 9f,
                 lifetimeSeconds: 0.5f,
                 tickIntervalSeconds: 0.25f);
-            var command = new ProjectileSpawnCommand(
+            var command = new ProjectileSpawnRequest(
                 Vector2.zero,
                 Vector2.right,
                 3f,

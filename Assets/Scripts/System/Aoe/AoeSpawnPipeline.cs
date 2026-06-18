@@ -27,7 +27,7 @@ namespace PlayGround.System.Aoe
     }
 
     // ECS Lifecycle: resolved single-entity allocation intent; produced by expansion, consumed by apply; never carries multiplicity.
-    public struct AoeSpawnCommandData
+    public struct AoeSpawnCommand
     {
         public CombatFaction Faction;
         public int AoeId;

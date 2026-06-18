@@ -10,7 +10,7 @@ namespace PlayGround.System.Aoe
 {
     // Drains AoeSpawnEvent from EventQueue (internal producers) and the scope
     // DynamicBuffer<AoeSpawnEvent> (managed submission), resolves world bounds,
-    // and writes AoeSpawnCommandData into PendingCommands for AoeSpawnApplySystem.
+    // and writes AoeSpawnCommand into PendingCommands for AoeSpawnApplySystem.
     // Also emits spawn-time VFX (Trigger=0) per AoE on the main thread.
     // Built beside the old AoeSpawnSystem; inert until Task 006 wires producers.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -135,7 +135,7 @@ namespace PlayGround.System.Aoe
                         evt.Position, evt.Radius, evt.HalfExtents, evt.RotationRadians, evt.ShapeType,
                         out float2 boundsMin, out float2 boundsMax);
 
-                    Stream.Write(new AoeSpawnCommandData
+                    Stream.Write(new AoeSpawnCommand
                     {
                         Faction                  = evt.Faction,
                         AoeId                    = evt.AoeId,
