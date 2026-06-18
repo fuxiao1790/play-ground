@@ -25,6 +25,12 @@ namespace PlayGround.System.Aoe
         internal NativeStream PendingCommands;
         internal JobHandle PendingHandle;
 
+        // Combined handle of every producer job that wrote EventQueue this frame
+        // (ProjectileCollisionSystem). Producers run before this system in the order graph
+        // but their write jobs are async; ECS does not track the queue, so this system must
+        // complete them itself before reading the queue on the main thread. Reset each frame.
+        internal JobHandle ProducerHandle;
+
         protected override void OnCreate()
         {
             EventQueue = new NativeQueue<AoeSpawnEvent>(Allocator.Persistent);
@@ -47,6 +53,11 @@ namespace PlayGround.System.Aoe
                 PendingCommands.Dispose();
 
             Dependency.Complete();
+
+            // Producers write EventQueue via ParallelWriter; their handles are not part of
+            // this system's component-derived Dependency. Complete them before any read.
+            ProducerHandle.Complete();
+            ProducerHandle = default;
 
             int queueCount = EventQueue.Count;
 

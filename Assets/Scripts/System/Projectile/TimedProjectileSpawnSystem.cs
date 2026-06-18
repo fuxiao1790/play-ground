@@ -2,6 +2,7 @@ using PlayGround.System.Common;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 namespace PlayGround.System.Projectile
@@ -21,11 +22,17 @@ namespace PlayGround.System.Projectile
                 return;
             }
 
-            state.Dependency = new ProjectileChildSpawnEntityJob
+            JobHandle handle = new ProjectileChildSpawnEntityJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
                 EventQueue = expansion.EventQueue.AsParallelWriter()
             }.ScheduleParallel(state.Dependency);
+
+            state.Dependency = handle;
+
+            // Expansion reads EventQueue on the main thread and only completes its own
+            // component-derived dependency; forward this write job so it waits on us.
+            expansion.ProducerHandle = JobHandle.CombineDependencies(expansion.ProducerHandle, handle);
         }
 
         [BurstCompile]

@@ -88,6 +88,14 @@ namespace PlayGround.System.Aoe
             };
 
             JobHandle collisionHandle = job.ScheduleParallel(state.Dependency);
+
+            // The collision job writes the projectile expansion EventQueue via ParallelWriter.
+            // That queue is read on the main thread by ProjectileSpawnExpansionSystem, which only
+            // completes its own component-derived dependency. Forward this write job to it.
+            if (expansion != null)
+                expansion.ProducerHandle =
+                    JobHandle.CombineDependencies(expansion.ProducerHandle, collisionHandle);
+
             JobHandle hitFlushHandle = new CombatHitFlushJob
             {
                 Scope = scope,
