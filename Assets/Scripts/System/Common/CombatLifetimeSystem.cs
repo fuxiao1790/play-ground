@@ -11,7 +11,13 @@ namespace PlayGround.System.Common
 {
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(ProjectileSimulationSystem))]
+    [UpdateBefore(typeof(TimedProjectileSpawnSystem))]
+    [UpdateBefore(typeof(ProjectileTrackingSystem))]
+    [UpdateBefore(typeof(ProjectileMovementSystem))]
+    [UpdateBefore(typeof(ProjectileContactGateSystem))]
     [UpdateBefore(typeof(ProjectileCollisionSystem))]
+    [UpdateBefore(typeof(AoeContactGateSystem))]
     [UpdateBefore(typeof(AoeCollisionSystem))]
     public partial struct CombatLifetimeSystem : ISystem
     {

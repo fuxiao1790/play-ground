@@ -191,7 +191,7 @@ namespace PlayGround.System.Common
         public float VisualRotationDegrees { get; }
     }
 
-    // ECS Lifecycle: transient native damage payload; not added to entities; enqueued during collision and drained by DamageDispatchBridge.
+    // ECS Lifecycle: transient native damage payload; not added to entities; enqueued during collision, frozen by DamageFinalizeSystem, and replayed by DamageDispatchBridge.
     public struct DamageReplayEvent
     {
         public Entity TargetProxy;

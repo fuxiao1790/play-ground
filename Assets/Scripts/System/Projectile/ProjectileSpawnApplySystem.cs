@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using PlayGround.System.Aoe;
 using PlayGround.System.Common;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
@@ -327,6 +328,7 @@ namespace PlayGround.System.Projectile
 
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileSpawnExpansionSystem))]
+    [UpdateAfter(typeof(AoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(CombatRenderPrepareSystem))]
     public sealed partial class BasicProjectileSpawnApplySystem : ProjectileSpawnApplySystemBase
     {
@@ -511,6 +513,7 @@ namespace PlayGround.System.Projectile
 
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileSpawnExpansionSystem))]
+    [UpdateAfter(typeof(AoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(CombatRenderPrepareSystem))]
     public sealed partial class ChildSpawnerProjectileSpawnApplySystem : ProjectileSpawnApplySystemBase
     {

@@ -10,6 +10,8 @@ namespace PlayGround.System.Projectile
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileSimulationSystem))]
+    [UpdateAfter(typeof(TimedProjectileSpawnSystem))]
+    [UpdateBefore(typeof(ProjectileMovementSystem))]
     public partial struct ProjectileTrackingSystem : ISystem
     {
         private const float TrackingSpatialHashCellSize = 64f;

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using PlayGround.System.Common;
+using PlayGround.System.Projectile;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
@@ -17,6 +18,7 @@ namespace PlayGround.System.Aoe
     // Built beside the old AoeSpawnSystem; inert until Task 006 wires producers.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AoeSpawnExpansionSystem))]
+    [UpdateAfter(typeof(ProjectileSpawnExpansionSystem))]
     [UpdateBefore(typeof(CombatRenderPrepareSystem))]
     public partial class AoeSpawnApplySystem : SystemBase
     {

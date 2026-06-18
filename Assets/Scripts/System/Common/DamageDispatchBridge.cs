@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using PlayGround.Common;
+using PlayGround.System.Aoe;
+using PlayGround.System.Projectile;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -8,9 +10,22 @@ using UnityEngine;
 
 namespace PlayGround.System.Common
 {
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(ProjectileCollisionSystem))]
+    [UpdateAfter(typeof(AoeCollisionSystem))]
+    [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
+    [UpdateBefore(typeof(AoeSpawnExpansionSystem))]
+    public partial class DamageFinalizeSystem : SystemBase
+    {
+        protected override void OnUpdate()
+        {
+            World.GetExistingSystemManaged<DamageDispatchBridge>()?.FinalizeDamageQueue();
+        }
+    }
+
     // The only approved reader that crosses to managed ICombatTarget callbacks (design section 8.4).
     // Groups DamageReplayEvent hits by target proxy Entity, rolls crit on the main thread,
-    // calls ReceiveHits on each live target, then clears the queue.
+    // and calls ReceiveHits on each live target after DamageFinalizeSystem freezes the queue.
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     public partial class DamageDispatchBridge : SystemBase
     {
@@ -24,6 +39,8 @@ namespace PlayGround.System.Common
 
         internal NativeQueue<DamageReplayEvent> DamageQueue;
         internal JobHandle ProducerHandle;
+        internal NativeArray<DamageReplayEvent> FinalizedDamageEvents;
+        internal int FinalizedDamageCount;
 
         protected override void OnCreate()
         {
@@ -33,45 +50,68 @@ namespace PlayGround.System.Common
         protected override void OnDestroy()
         {
             ProducerHandle.Complete();
+            DisposeFinalizedDamageEvents();
             if (DamageQueue.IsCreated)
             {
                 DamageQueue.Dispose();
             }
         }
 
-        protected override void OnUpdate()
+        internal void FinalizeDamageQueue()
         {
-            CompleteDependency();
             ProducerHandle.Complete();
             ProducerHandle = default;
+            DisposeFinalizedDamageEvents();
 
             int damageCount = DamageQueue.Count;
             if (damageCount == 0)
             {
+                DamageQueue.Clear();
                 return;
             }
 
-            var damageEvents = new NativeArray<DamageReplayEvent>(damageCount, Allocator.Temp);
+            FinalizedDamageEvents = new NativeArray<DamageReplayEvent>(damageCount, Allocator.Persistent);
+            int offset = 0;
+            while (DamageQueue.TryDequeue(out DamageReplayEvent damageEvent) && offset < FinalizedDamageEvents.Length)
+            {
+                FinalizedDamageEvents[offset++] = damageEvent;
+            }
+
+            FinalizedDamageCount = offset;
+            DamageQueue.Clear();
+        }
+
+        protected override void OnUpdate()
+        {
+            CompleteDependency();
+            if (!FinalizedDamageEvents.IsCreated || FinalizedDamageCount == 0)
+            {
+                DisposeFinalizedDamageEvents();
+                return;
+            }
+
             try
             {
-                int offset = 0;
-                while (DamageQueue.TryDequeue(out DamageReplayEvent damageEvent) && offset < damageEvents.Length)
-                {
-                    damageEvents[offset++] = damageEvent;
-                }
-
-                DamageQueue.Clear();
-
                 using (Marker.Auto())
-                using (DamageReplayMarker.Auto(offset))
+                using (DamageReplayMarker.Auto(FinalizedDamageCount))
                 {
-                    ReplayDamage(damageEvents, offset, EntityManager);
+                    ReplayDamage(FinalizedDamageEvents, FinalizedDamageCount, EntityManager);
                 }
             }
             finally
             {
-                damageEvents.Dispose();
+                DisposeFinalizedDamageEvents();
             }
+        }
+
+        private void DisposeFinalizedDamageEvents()
+        {
+            if (FinalizedDamageEvents.IsCreated)
+            {
+                FinalizedDamageEvents.Dispose();
+            }
+
+            FinalizedDamageCount = 0;
         }
 
         private static void ReplayDamage(

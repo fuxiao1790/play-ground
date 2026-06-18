@@ -10,7 +10,8 @@ namespace PlayGround.System.Projectile
     // Replaces ProjectileChildSpawnSystem: enqueues ProjectileSpawnEvent into the expansion
     // queue instead of ECB-appending ProjectileSpawnRequestElement to the scope buffer.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(ProjectileMovementSystem))]
+    [UpdateAfter(typeof(CombatLifetimeSystem))]
+    [UpdateBefore(typeof(ProjectileTrackingSystem))]
     [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
     public partial struct TimedProjectileSpawnSystem : ISystem
     {

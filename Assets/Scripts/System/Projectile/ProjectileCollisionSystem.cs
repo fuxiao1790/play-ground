@@ -11,6 +11,8 @@ namespace PlayGround.System.Projectile
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileContactGateSystem))]
+    [UpdateBefore(typeof(PlayGround.System.Aoe.AoeContactGateSystem))]
+    [UpdateBefore(typeof(DamageFinalizeSystem))]
     public partial struct ProjectileCollisionSystem : ISystem
     {
         // this depends on the arena size and mob count

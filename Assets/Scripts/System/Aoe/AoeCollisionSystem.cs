@@ -10,6 +10,7 @@ namespace PlayGround.System.Aoe
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AoeContactGateSystem))]
+    [UpdateBefore(typeof(DamageFinalizeSystem))]
     [UpdateBefore(typeof(CombatRenderPrepareSystem))]
     public partial struct AoeCollisionSystem : ISystem
     {

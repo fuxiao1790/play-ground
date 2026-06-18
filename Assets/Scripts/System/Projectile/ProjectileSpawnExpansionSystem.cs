@@ -16,8 +16,10 @@ namespace PlayGround.System.Projectile
     [UpdateAfter(typeof(TimedProjectileSpawnSystem))]
     [UpdateAfter(typeof(ProjectileCollisionSystem))]
     [UpdateAfter(typeof(PlayGround.System.Aoe.AoeCollisionSystem))]
+    [UpdateAfter(typeof(DamageFinalizeSystem))]
     [UpdateBefore(typeof(BasicProjectileSpawnApplySystem))]
     [UpdateBefore(typeof(ChildSpawnerProjectileSpawnApplySystem))]
+    [UpdateBefore(typeof(PlayGround.System.Aoe.AoeSpawnApplySystem))]
     public partial class ProjectileSpawnExpansionSystem : SystemBase
     {
         private EntityQuery _scopeQuery;
