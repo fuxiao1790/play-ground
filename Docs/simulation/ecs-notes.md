@@ -193,18 +193,23 @@ When entities need frequent state changes every frame:
 ### Current Projectile Pool Pattern
 
 - Projectile entities carry `ProjectileTag` plus common
-  `CombatKinematicsComponent`, `CombatCollisionComponent`, and
-  `CombatHitComponent`. Projectile-only systems must query `ProjectileTag` or
-  projectile identity/scope data, never common combat components alone.
-- Runtime despawn disables `ProjectileActiveTag`; it does not destroy projectile
-  entities during normal churn.
-- Lifetime and collision systems disable `ProjectileActiveTag` when a projectile
-  leaves play.
-- `ProjectileSpawnSystem` groups spawn requests by scope/render type/slot kind,
-  then queries matching disabled chunks before materializing cold creates.
-- Reuse key is scope, render type id, and slot kind. Slot kind is normal or
+  `CombatKinematicsComponent`, `CombatCollisionComponent`,
+  `CombatLifetimeComponent`, and generic `Active`. Projectile-only systems must
+  query `ProjectileTag` or projectile identity data, never common combat
+  components alone.
+- Runtime despawn disables `Active`; it does not destroy projectile entities
+  during normal churn.
+- `CombatLifetimeSystem` and `ProjectileCollisionSystem` disable `Active` when a
+  projectile leaves play.
+- `ProjectileSpawnExpansionSystem` expands `ProjectileSpawnEvent` into
+  one-entity `ProjectileSpawnCommand` values.
+- `BasicProjectileSpawnApplySystem` and
+  `ChildSpawnerProjectileSpawnApplySystem` group commands by faction/render
+  type/slot kind, then query matching disabled chunks with
+  `WithDisabled<Active>()` before materializing cold creates.
+- Reuse key is faction, render type id, and slot kind. Slot kind is normal or
   child-spawner archetype.
-- Root/external spawn requests use a child-spawner slot only when the spawn
+- Root/external spawn events use a child-spawner slot only when the expanded
   command has child spawning enabled. Child-spawned children currently request
   normal slots with `HasChildSpawner = 0`.
 - Child-spawner components are part of the entity archetype at creation time.
@@ -212,29 +217,33 @@ When entities need frequent state changes every frame:
 
 ### Current AOE Pool Pattern
 
-- Each faction's `CombatRoot` shares `World.DefaultGameObjectInjectionWorld`
-  through one `CombatScope` entity that serves both the AOE and projectile
-  domains.
-- `CombatScope` is shared across domains, so it no longer implies domain by
-  itself. AOE entities carry `AoeTag` plus common `CombatKinematicsComponent`,
-  `CombatCollisionComponent`, and `CombatHitComponent`. AOE systems must query
+- Combat roots share `World.DefaultGameObjectInjectionWorld` and one
+  ref-counted `CombatScope` entity. Faction is explicit through
+  `CombatFaction`.
+- `CombatScope` is shared across domains and factions, so it does not imply
+  domain by itself. AOE entities carry `AoeTag` plus common
+  `CombatKinematicsComponent`, `CombatCollisionComponent`,
+  `CombatLifetimeComponent`, and generic `Active`. AOE systems must query
   `AoeTag`, never common combat components or scope membership alone.
-- Runtime despawn disables `AoeActiveTag`.
-- `AoeSpawnSystem` groups spawn requests by scope and AOE type id, then queries
-  matching disabled chunks before materializing cold creates.
+- Runtime despawn disables `Active`.
+- `AoeSpawnExpansionSystem` expands `AoeSpawnEvent` into one-entity
+  `AoeSpawnCommand` values.
+- `AoeSpawnApplySystem` groups commands by faction and AOE type id, then queries
+  matching disabled chunks with `WithDisabled<Active>()` before materializing
+  cold creates.
 - AOE counters track active, spawned, despawned/reused, hit events, active
   visuals, and render batches.
 
 ### Current Spawn Reuse Scheduling Status
 
 Projectile and AOE spawn reuse now avoid the old main-thread entity-slot slice
-assignment. Spawn requests are stored in persistent native buckets keyed by the
-same reuse identity already used for pooling: projectile scope/render type/slot
-kind, or AOE scope/type id. Each bucket owns a cached disabled-slot query with
-the matching filters, schedules one direct reuse `IJobChunk`, and writes the
-same reset components that cold creation initializes. The spawn systems schedule
-all bucket reuse jobs first, complete one combined dependency, then cold-create
-the unclaimed requests in the same frame.
+assignment. Spawn commands are stored in persistent native buckets keyed by the
+same reuse identity already used for pooling: projectile faction/render
+type/slot kind, or AOE faction/type id. Each bucket owns a cached disabled-slot
+query with the matching filters, schedules one direct reuse `IJobChunk`, and
+writes the same reset components that cold creation initializes. The apply
+systems schedule all bucket reuse jobs first, complete one combined dependency,
+then cold-create the unclaimed commands in the same frame.
 
 Progress:
 
@@ -261,23 +270,23 @@ on the main thread, and schedule parallel reset slices without unsafe atomics.
 
 ### Presentation Bridge (resolved)
 
-`CombatRoot` has no `Update()`/`LateUpdate()` at all. It is a pure
-authoring/registry MonoBehaviour: it owns serialized references, bakes
-templates/types, and exposes a static int-keyed registry for render
-resources (mirrors `CombatVfxRoot`'s registry). All per-frame draining moved
-into explicit ECS systems instead of scene-object callbacks:
+`CombatRoot` has no per-frame simulation loop. It is an authoring/registry
+MonoBehaviour: it owns serialized references, registers templates/types, owns
+render resources, owns the target registry, and submits managed spawn events.
+Per-frame combat work is explicit in ECS systems and actor roots:
 
-- `CombatTargetSyncSystem` (`SimulationSystemGroup`, `OrderFirst = true`):
-  finds scope entities carrying a managed `CombatTargetSyncSource` component
-  and invokes its `Sync` callback to refresh the scope's
-  `CombatTargetElement` buffer from `CombatRoot`'s `CombatTargetRegistry`.
-- `CombatBatchedRenderSystem` (`PresentationSystemGroup`): resolves each
-  scope's owning `CombatRoot` by static int key and submits batched render
-  instances through two tag-scoped queries (`ProjectileTag`/`AoeTag`), pulling
-  render resources from the root's registry, not from per-scope managed state.
-- `CombatHitDispatchSystem` (`PresentationSystemGroup`): replays
-  `CombatDamageElement` buffers into `ICombatTarget.ReceiveHits`.
-- `CombatVfxDispatchSystem` (`PresentationSystemGroup`): resolves each scope's
+- `PlayerRoot.Update` and `MobRoot.Update` push target proxy position and shape
+  into ECS before simulation; their `LateUpdate` deletes queued dead proxies.
+- `CombatBatchedRenderSystem` (`PresentationSystemGroup`) resolves the owning
+  `CombatRoot` by `CombatFaction` and submits batched render instances through
+  tag-scoped queries (`ProjectileTag`/`AoeTag`), pulling render resources from
+  the root's registry.
+- `DamageFinalizeSystem` (`SimulationSystemGroup`) freezes
+  `DamageReplayEvent` values after collision and before spawn expansion.
+- `DamageDispatchBridge` (`PresentationSystemGroup`) is the only reader of
+  managed `TargetCompanion` references and replays grouped hits into
+  `ICombatTarget.ReceiveHits`.
+- `CombatVfxDispatchSystem` (`PresentationSystemGroup`) resolves each scope's
   `CombatVfxRoot` by static int key and drains/dispatches VFX requests.
 
 This satisfies the prior target direction: ECS owns simulation state, event
@@ -286,8 +295,9 @@ owners only; presentation timing is explicit system-group ordering instead of
 scene-object callback timing; GPU resource ownership stays with whichever
 root/dispatcher created the `GraphicsBuffer`/`Material`/`Mesh`.
 
-Remaining open question: collision event dispatch (below) still crosses to
-managed code per hit-event run rather than fully aggregating by target.
+Remaining open question: damage is grouped by target at dispatch, but the data
+crossing into `DamageDispatchBridge` is still one `DamageReplayEvent` per
+qualifying hit rather than a pre-aggregated per-target damage result.
 
 ### Known Design Issues: Collision Event Dispatch
 

@@ -3,8 +3,8 @@
 All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
-Status: proposed redesign of the current mob damage, projectile hit replay, and
-AOE hit replay systems
+Status: proposed redesign of the current mob damage, projectile damage replay,
+and AOE damage replay systems
 
 ## Summary
 
@@ -45,8 +45,8 @@ Current ownership shape:
 - `MobRoot` owns health, status-like local combat reactions, and death cleanup.
 - `ProjectileCollisionSystem` and `AoeCollisionSystem` emit hit events for each
   contact.
-- `CombatHitDispatchSystem`, off the shared `CombatRoot` per faction, replays
-  those hits on the managed side.
+- `DamageFinalizeSystem` freezes native damage events, and
+  `DamageDispatchBridge` replays those hits on the managed side.
 - Plain damage, status effects, and semantic hit effects share the same replay
   stream.
 - GameObjects handle individual hits even when the only required result is a
@@ -55,9 +55,9 @@ Current ownership shape:
 This is acceptable while hit counts are low. It becomes the wrong scale boundary
 once projectile and AOE counts become much larger than mob count.
 
-The redesigned system keeps the existing ECS collision work, target snapshots,
-scoped roots, and GameObject presentation model. It changes where combat state
-lives and what crosses the ECS/GameObject boundary.
+The redesigned system keeps the existing ECS collision work, target proxy
+bridge, combat roots, and GameObject presentation model. It changes where combat
+state lives and what crosses the ECS/GameObject boundary.
 
 ## Redesign Goals
 
@@ -148,7 +148,7 @@ Target registration:
 
 1. Mob root registers its hurtbox and stable target id with target registries.
 2. A matching ECS combat-state entity or buffer record exists for that target.
-3. Projectile and AOE roots snapshot target position and shape data as they do
+3. Player and mob roots push target proxy position and shape data as they do
    today.
 
 Simulation:
@@ -214,10 +214,8 @@ that cannot yet be aggregated.
 
 ## Root Drain Refactor
 
-`CombatHitDispatchSystem`'s replay (previously split as separate
-`ProjectileRoot`/`AoeRoot` drains, now unified on the shared `CombatRoot`) can
-be refactored once plain damage/status no longer needs individual GameObject
-callbacks.
+`DamageDispatchBridge` replay can be refactored once plain damage/status no
+longer needs individual GameObject callbacks.
 
 Target shape:
 
@@ -270,8 +268,7 @@ Death:
 ## Migration Plan
 
 1. Identify current direct-damage replay responsibilities in
-   `CombatHitDispatchSystem` (formerly handled per-domain in separate
-   `ProjectileRoot`/`AoeRoot` drains).
+   `DamageDispatchBridge`.
 2. Add ECS combat-state data for registered mobs while keeping existing
    `MobRoot` health path as compatibility.
 3. Add compact health/status sync records and a main-thread presentation bridge.
@@ -280,8 +277,8 @@ Death:
 5. Route direct AOE damage into the same aggregate path.
 6. Split semantic hit events from direct damage/status aggregate data.
 7. Move status stack storage and threshold checks into ECS.
-8. Reduce `CombatHitDispatchSystem`'s replay to semantic events, VFX requests,
-   and presentation sync.
+8. Reduce `DamageDispatchBridge` replay to the bridge work still needed after
+   aggregation, or replace it with compact presentation sync.
 9. Remove or narrow managed per-hit damage callbacks after tests prove aggregate
    behavior matches old gameplay.
 

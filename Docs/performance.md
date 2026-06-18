@@ -98,7 +98,7 @@ Projectiles:
 
 - state and simulation are ECS/DOTS
 - high-count path needs batched rendering by projectile type
-- gameplay collision should use baked shapes and target snapshots
+- gameplay collision should use baked shapes and target proxy data
 - simulation stages stay split by responsibility: target tracking, movement,
   child projectile creation, lifetime expiry disable, contact gates, and collision
 - `CombatRoot` exposes active count, spawn/despawn totals, hit event count,

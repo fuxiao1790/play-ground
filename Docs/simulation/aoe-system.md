@@ -1,295 +1,322 @@
 # AOE System
 
-All docs in `Docs/` are design references. They describe current intent, not
-final decisions, and should be revisited in detail before implementation locks in.
+All docs in `Docs/` are design references. They describe current implementation
+intent and should be checked against code before large changes.
 
 ## Summary
 
-The AOE runtime mirrors the projectile runtime shape:
+AOEs are high-count combat entities simulated with Unity Entities/DOTS. They
+share the same combat bridge, target proxy model, damage transport, render path,
+VFX path, and generic lifetime model as projectiles.
 
-- scoped roots own Unity interop
-- DOTS AOE systems own spawn materialization, collision, recycling, and batched rendering
-- gameplay callbacks replay after simulation
+Current implementation is built around these rules:
 
-AOEs are part of the data-runtime half of the hybrid architecture. They query
-snapshots of player and mob hurtboxes instead of depending on one live trigger
-GameObject per gameplay AOE.
+- `CombatRoot` is the scene-object bridge and authoring owner for both
+  projectiles and AOEs.
+- One player-faction root and one mob-faction root share a single ref-counted
+  ECS world and a single shared `CombatScope` entity.
+- `CombatFaction` separates player-faction and mob-faction data.
+- `AoeSpawnEvent` is spawn intent.
+- `AoeSpawnCommand` is one resolved AOE entity.
+- Runtime reuse is based on the generic enableable `Active` component.
+- AOE collision reads ECS target proxy entities.
+- Damage returns to MonoBehaviours only through `DamageDispatchBridge`.
 
 Primary uses:
 
 - player AOEs hitting mobs
-- mob AOEs hitting player
+- mob AOEs hitting the player
 - projectile impact explosions
-- stack-triggered mob-centered explosions
-- authored pulse and lingering AOE attack prefabs
-- large overlapping AOE fields from scaled spell builds
+- stack-triggered explosions
+- lingering fields with per-target repeat gates
+- AOE projectile bursts
+- batched AOE rendering and VFX
 
-Non-goal:
+Non-goals:
 
-- one global damage authority that discovers every target and effect in the scene
+- live trigger callbacks as the authoritative damage path
+- one global damage authority that discovers all scene objects
+- managed target access from AOE simulation jobs
 
-## Scoped Roots
+## Main Files
 
-AOE-domain Unity interop is served by `CombatRoot`, the same per-faction root
-that serves the projectile domain (see
-[projectile-system.md](./projectile-system.md)). The scene contains two
-instances: one configured for player AOEs targeting mob hurtboxes, one for mob
-AOEs targeting player hurtboxes. The class itself is not split by domain.
+- `Assets/Scripts/System/Aoe/AoeSpawnPipeline.cs`: `AoeSpawnEvent`,
+  `AoeSpawnCommand`, and impact AOE event helpers.
+- `Assets/Scripts/System/Aoe/AoeSpawnExpansionSystem.cs`: drains AOE events and
+  writes resolved commands.
+- `Assets/Scripts/System/Aoe/AoeSpawnApplySystem.cs`: reuses disabled AOE
+  entities or cold-creates overflow.
+- `Assets/Scripts/System/Aoe/AoeCollisionSystem.cs`: target proxy broad phase,
+  narrow-phase collision, contact gates, damage events, projectile burst events,
+  VFX events, and pulse deactivation.
+- `Assets/Scripts/System/Aoe/AoeContactGateSystem.cs`: per-target repeat-hit
+  gate expiry.
+- `Assets/Scripts/System/Aoe/AoePulseVfxSystem.cs`: periodic pulse VFX for
+  lingering AOEs.
+- `Assets/Scripts/System/Aoe/AoeEcsComponents.cs`: AOE identity, collision
+  active tag, hit gate, hit-spawn snapshot, area, contact gate, and pulse VFX
+  data.
+- `Assets/Scripts/System/Aoe/AoeConfig.cs`: ScriptableObject authoring for AOE
+  type definitions.
+- `Assets/Scripts/System/Aoe/AoeRuntimeEvents.cs`: managed AOE spawn request and
+  counters.
+- `Assets/Scripts/System/Common/CombatLifetimeSystem.cs`: shared projectile and
+  AOE lifetime expiry.
+- `Assets/Scripts/System/Common/DamageDispatchBridge.cs`: native damage queue
+  finalize plus managed replay into `ICombatTarget.ReceiveHits`.
 
-Each root instance owns:
+## Runtime Ownership
 
-- one shared DOTS `CombatScope` entity in `World.DefaultGameObjectInjectionWorld`,
-  serving both the AOE and projectile domains
-- one Unity adapter boundary
-- AOE effect template cache
-- target hurtbox shape cache
-- listener maps for gameplay callbacks
-- a static int-keyed AOE render-resource registry (mirrors `CombatVfxRoot`)
-- profiling counters and visual budget ownership
+`CombatRoot` owns AOE authoring and bridge work:
 
-## Boundary Rule
+- register `AoeConfig` and `AoeTypeDefinition`
+- validate AOE type ids and spawn geometry
+- build AOE render resources
+- append `AoeSpawnEvent` values to the shared scope buffer for managed
+  submissions
+- expose the target registry for its faction
 
-`CombatRoot` may:
+AOE ECS systems own:
 
-- read target registries
-- validate live Unity objects
-- bake AOE effect collider shapes
-- register hit listeners
-- replay hits into gameplay callbacks
-- submit batched AOE visuals
+- spawn event expansion
+- slot reuse and cold creation
+- lifetime expiry
+- contact gate maintenance
+- collision and consequence event emission
+- batched render matrix preparation
 
-AOE ECS systems must not:
+The current scope model is one shared `CombatScope` entity for all combat roots.
+AOE systems must use `AoeTag` and `CombatFaction`; scope membership alone does
+not identify an AOE domain or faction.
 
-- touch GameObjects, Transforms, Components, or Colliders
-- instantiate effects
-- apply gameplay damage
-- call Physics2D
+## Target Proxy Bridge
 
-Input into world:
+AOE collision uses the same target proxy bridge as projectile collision.
 
-- AOE spawn command
-- target snapshots
-- baked AOE and target shape definitions
-- immutable damage snapshot
+Target proxies carry:
 
-Output from world:
+- `TargetProxyTag`
+- `TargetPosition`
+- `TargetCollisionShape`
+- `TargetFaction`
+- managed `TargetCompanion`
 
-- AOE hit events
-- AOE active-state deactivation
+Simulation reads only the unmanaged proxy components. The managed companion is
+only read by `DamageDispatchBridge` during presentation replay.
 
-## Damage Rules
+Player and mob roots push their proxy position and collision shape in `Update`
+and delete dead proxies in `LateUpdate`. This keeps proxy state available during
+the simulation frame while avoiding unresolved damage events against already
+destroyed proxy entities.
+
+## Spawn Pipeline
+
+`AoeSpawnEvent` is intent. It can come from:
+
+- `CombatRoot.Spawn(AoeSpawnRequest)`
+- projectile impact AOE snapshots
+- stack-triggered managed spawns through mob/player hit handling
+
+`AoeSpawnCommand` is one resolved entity allocation request. It contains the
+position, bounds, type id, lifetime, repeat cooldown, hit payload, render data,
+and optional projectile burst snapshot for one AOE.
+
+Current flow:
+
+1. Managed code appends `AoeSpawnEvent` to the shared scope buffer, or ECS
+   producers enqueue events into `AoeSpawnExpansionSystem.EventQueue`.
+2. `AoeSpawnExpansionSystem` drains the native event queue and the shared scope
+   `DynamicBuffer<AoeSpawnEvent>`.
+3. Expansion resolves bounds and writes `AoeSpawnCommand` values to a
+   `NativeStream`.
+4. `AoeSpawnApplySystem` reads commands, buckets them by faction and type, and
+   queries reusable AOE slots with `WithDisabled<Active>()`.
+5. Reused slots are reset in an `IJobChunk`.
+6. Remaining commands cold-create entities through an `EntityCommandBuffer`.
+
+AOE expansion is currently simple because AOE multiplicity is mostly resolved
+before the event reaches ECS. Keep expansion as the place for any future scatter
+or pattern math.
+
+## Entity Data And Reuse
+
+AOE entities carry:
+
+- `AoeTag`
+- `AoeIdentityComponent`
+- generic `Active`
+- `CombatLifetimeComponent`
+- `CombatKinematicsComponent`
+- `CombatCollisionComponent`
+- `AoeCollisionActiveTag`
+- `AoeHitGateComponent`
+- `AoeHitSpawnComponent`
+- `AoeAreaComponent`
+- `AoeContactGateElement`
+- `AoePulseVfxComponent`
+- common render components
+
+Runtime despawn disables `Active` and `CombatRenderActiveTag`. Entities remain
+available for reuse until the owning `CombatRoot` tears down its faction data.
+
+`AoeCollisionActiveTag` is separate from `Active`. It lets visual-only AOEs stay
+active/renderable while collision skips them.
+
+## Damage Timing
 
 Pulse AOE:
 
-- lifetime is `0` or less
-- hits every overlapping valid target once in first simulation step
-- despawns after that step
+- `CombatLifetimeComponent` is disabled for the entity.
+- Collision runs once.
+- The AOE deactivates after that collision pass.
 
 Lingering AOE:
 
-- lifetime is greater than `0`
-- hits target immediately on first overlap
-- repeats against same target after tick interval
-- keeps each target gate ticking after exit
-- re-entry before cooldown expiry does not hit; re-entry after cooldown expiry hits
-- despawns when lifetime reaches zero
+- `CombatLifetimeComponent` is enabled with remaining lifetime.
+- `CombatLifetimeSystem` expires it when remaining time reaches zero.
+- Collision can hit immediately.
+- Per-target repeat gates prevent repeated hits until their cooldown expires.
 
-There is no global AOE tick. Repeat timing belongs to each AOE and target contact pair.
+There is no global AOE tick. Repeat timing belongs to each AOE-target contact
+gate.
 
-## Authoring
+## Collision And Consequences
 
-Current basic AOE content uses three authored pieces:
+`AoeCollisionSystem` owns hit qualification and pulse source state. It may:
 
-- an AOE template prefab, such as
-  `Assets/Prefabs/Effects/BasicAoePulse.prefab`
-- an `AoeConfig` ScriptableObject, such as
-  `Assets/ScriptableObjects/Attacks/BasicAoeConfig.asset`, that maps a numeric
-  type id to that template prefab and owns AOE gameplay values
-- an equipped `AoeAttack` prefab or scene child under `Player/Attacks`
+- query target proxy data
+- build occupied target cells keyed by `TargetFaction`
+- perform bounds and narrow-phase checks
+- create per-target contact gates
+- disable pulse AOEs after their one collision pass
+- emit plain data events for damage, projectile bursts, and VFX
 
-AOE template prefab requirements:
+It may not:
 
-- root GameObject has `BasicAoePrefab`
-- child GameObject named `Visual` has the `SpriteRenderer`
-- child GameObject named `Hurtbox` has one supported `Collider2D` that defines
-  hit shape
-- collision logic uses the resolved spawn geometry supplied by the translation
-  layer
-- batched rendering uses the resolved visual sprite scale supplied by the same
-  spawn geometry
-- prefab Transform scale is an authoring control; `baseAreaSize` and player
-  `areaSizeMultiplier` resolve to logical collision size and visual sprite size
-  before ECS receives the spawn request
-- no required live trigger damage behavior
+- call managed target callbacks
+- spawn projectiles directly
+- instantiate visual effects
+- read `TargetCompanion`
 
-Circle AOEs are enough for the first implementation, but the baking boundary
-should allow box and capsule support later without rewriting the runtime shape.
+Accepted hits can produce:
 
-Basic pulse authoring steps:
+- `DamageReplayEvent` into `DamageDispatchBridge.DamageQueue`
+- `ProjectileSpawnEvent` into projectile expansion for AOE projectile bursts
+- `VfxPendingSpawn` into the shared VFX scope buffer through a flush job
 
-1. Create an AOE template prefab under `Assets/Prefabs/Effects/`.
-2. Add `BasicAoePrefab` to the root GameObject.
-3. Add a child named `Visual` with a `SpriteRenderer`.
-4. Add a child named `Hurtbox` with one supported `Collider2D`. A circle
-   collider is the default path for simple pulses.
-5. Create an AOE config asset with `Assets > Create > PlayGround > Attack >
-   AOE Config`.
-6. Assign these config fields:
-   - `typeId`: the id used by attacks, for example `0`
-   - `basicPrefab`: the AOE template prefab's `BasicAoePrefab`
-   - `areaSize`: uniform fallback scale that translation uses to resolve both
-     logical collision size and visual sprite scale before spawning
-   - `damage`: damage payload for each hit
-   - `lifetimeSeconds`: `0` for current pulse AOEs
-   - `tickIntervalSeconds`: unused by current pulse AOEs
-   - `count`: number of AOEs spawned per cast
-   - `targetMask`: leave as `1` to use the owning root mask
-7. Add or select a `CombatRoot` scene object for the targeting direction.
-8. Set the root `targetMask` to the intended hurtbox layer mask. Player AOEs
-   targeting mobs use `MobHurtbox`; mob AOEs targeting player use
-   `PlayerHurtbox`.
-9. Create an attack prefab under `Assets/Prefabs/Attacks/` with `AoeAttack`.
-10. Assign `AoeAttack`'s `CombatRoot` reference, assign the AOE config, and
-   tune only attack-instance fields such as recovery and sound on the component.
-11. Put the attack prefab under `Player/Attacks` and enable the component on the
-   scene instance.
+Damage is finalized by `DamageFinalizeSystem` before spawn expansion. Managed
+replay runs later in `DamageDispatchBridge` during `PresentationSystemGroup`.
 
-`AoeAttack` registers its config's AOE type definition with the assigned root
-during setup. Scene roots can still carry hand-authored `aoeTypes` entries for
-shared content, but equipped attacks should prefer config-driven registration so
-AOE authoring stays symmetrical with projectile authoring.
+## Projectile Burst From AOE
 
-Pulse content uses `lifetimeSeconds = 0`. Lingering content uses
-`lifetimeSeconds > 0` and `tickIntervalSeconds` for per-target repeat gates.
-Per-target gate entries live on the AOE, tick independently, and remain active
-through target exit until their cooldown expires.
+AOEs can carry an `AoeProjectileBurstSnapshot` in `AoeHitSpawnComponent`.
+On an accepted AOE hit, `AoeCollisionSystem` converts that snapshot into a
+`ProjectileSpawnEvent` by calling `ProjectileSpawnPipeline.BuildBurstEvent`.
+The projectile expansion and apply systems then handle volley expansion, reuse,
+and cold creation.
 
-## Projectile Impact AOE
+This keeps AOE collision as an event producer, not an entity allocator.
 
-`ProjectileAttack` can spawn AOE on hit.
+## Lifetime And Pulse VFX
 
-Required fields:
+`CombatLifetimeSystem` handles lingering AOE expiry with the same common
+`CombatLifetimeComponent` used by projectiles. When lifetime expires, it
+disables `Active`, disables `CombatRenderActiveTag`, and emits expire VFX.
 
-- impact AOE effect prefab
-- impact AOE damage
-- impact AOE lifetime seconds
-- impact AOE tick interval seconds
-- direct projectile damage enabled
+`AoePulseVfxSystem` handles interval-based pulse VFX for active lingering AOEs.
+It is separate from hit qualification and from lifetime expiry.
 
-When direct damage is disabled, projectile collision only creates explosion damage.
+## Rendering And VFX
 
-Piercing projectiles spawn impact AOE on each allowed pierce hit.
+AOE visuals use the same batched rendering path as projectiles:
+
+- `CombatRoot` builds render resources from `AoeConfig` or
+  `AoeTypeDefinition`.
+- AOE entities carry common render components and faction/type shared
+  components.
+- `CombatRenderPrepareSystem` writes object matrices.
+- `CombatBatchedRenderSystem` submits instances in `PresentationSystemGroup`.
+
+AOE gameplay does not depend on live visual GameObjects.
+
+VFX requests flow as data:
+
+- collision and lifetime produce `VfxPendingSpawn`
+- flush jobs append `VfxSpawnRequestElement` to the shared scope
+- `CombatVfxDispatchSystem` drains the scope buffer and dispatches through
+  `CombatVfxRoot`
+
+## Current Frame Order
+
+Important simulation ordering:
+
+1. `CombatLifetimeSystem` expires projectile and AOE lifetime.
+2. `AoePulseVfxSystem` emits periodic pulse VFX for lingering AOEs.
+3. Projectile tracking, movement, contact gates, and collision run.
+4. `AoeContactGateSystem` expires AOE contact gates.
+5. `AoeCollisionSystem` emits damage, projectile spawn, and VFX events.
+6. `DamageFinalizeSystem` freezes the native damage queue.
+7. `ProjectileSpawnExpansionSystem` and `AoeSpawnExpansionSystem` drain events
+   and produce commands.
+8. `AoeSpawnApplySystem` and projectile apply systems reuse slots and
+   cold-create overflow.
+9. `CombatRenderPrepareSystem` prepares render matrices.
+10. Presentation systems dispatch damage, VFX, and render batches.
+
+AOEs spawned/reused by apply systems do not collide until the next simulation
+update because apply runs after collision.
+
+## Authoring Notes
+
+Current AOE authoring uses:
+
+- `AoeConfig` assets
+- `AoeTypeDefinition`
+- `BasicAoePrefab`, `LingeringAoePrefab`, or other validator prefabs
+- `AoeSpawnGeometry` resolved before ECS receives the spawn event
+- `AoeSpawnRequest` for managed spawn submission
+
+AOE template prefabs provide visual and collider authoring data, but runtime
+AOE gameplay uses ECS components. Do not add live trigger damage behavior to AOE
+prefabs as the authoritative path.
+
+`CombatRoot.RegisterConfig` and `CombatRoot.RegisterType` assign runtime type
+ids and build render resources. `CombatRoot.Spawn(AoeSpawnRequest)` validates
+the type id and resolved geometry before appending an `AoeSpawnEvent`.
 
 ## Stack-Triggered AOE
 
-Stack-triggered AOE is an attack-layer concern, not part of the AOE system
-itself. The AOE system only spawns and resolves hits. What triggers a spawn is
-decided above it.
+Stack-triggered AOE remains above the AOE runtime. For example, `MobRoot`
+receives hit data, applies stack state, and when a threshold triggers it submits
+an `AoeSpawnRequest` through the player-faction `CombatRoot`.
 
-The intended flow lives in the attack layer:
+The AOE runtime only materializes and resolves the spawned area. It does not own
+the gameplay decision that a stack threshold should create an explosion.
 
-1. projectile hits valid mob
-2. hit effect adds stacks to mob status slot
-3. threshold clears that slot
-4. effect spawns AOE through the player-faction `CombatRoot`
-5. AOE damage is applied by common combat damage dispatch
+## Performance Notes
 
-Default explosion position is mob position, not projectile edge contact.
+Current performance-sensitive choices:
 
-This flow is a proof that projectile hit effects, generic status stacks, and AOE
-spawn callbacks compose cleanly. It should not be hard-coded as the only
-status-stack behavior.
+- no one GameObject per AOE
+- no live trigger callback hit path
+- proxy targets instead of collider reads in simulation
+- `Active` enable/disable reuse
+- target spatial hashing in collision
+- native queues/streams for damage, spawn, and VFX events
+- batched render submission
 
-Status stacks should be generic so later effects such as poison, burning, shock,
-or volatile explosions can share the same runtime concept.
+Revisit only with profiling:
 
-## Visuals
+- AOE spatial hash cell size
+- single-bucket spawn reuse parallelism
+- per-hit damage replay volume
+- pulse VFX density and budgets
 
-AOE visuals use batched GPU-instanced render submission by AOE type. Live visual
-objects do not own gameplay state.
+## Known Gaps
 
-Because scaled builds may create many overlapping AOEs, do not let this become
-the only rendering path. Plan for:
-
-- pooled effect prefabs for low and medium counts
-- batched ring/sprite/mesh visuals for high counts
-- particle emission caps by effect priority
-- gameplay AOE count independent from visual particle count
-
-Do not make live visual objects responsible for damage logic.
-
-## Performance Baseline
-
-AOE runtime must support many active areas at once.
-
-Required practices:
-
-- bake AOE shapes once per effect prefab
-- use spatial hash or equivalent broad phase for target queries
-- keep per-target tick gates allocation-light
-- avoid one coroutine per AOE
-- avoid live trigger callbacks as the authoritative damage path
-- track active AOEs, spawned AOEs, despawned/reused AOEs, hit events, render
-  batches, simulation time, visual count, and allocations
-
-Scene-object bridge:
-
-- actor hurtboxes are registered from player and mob GameObjects
-- `CombatRoot` snapshots target state into its shared `CombatScope` entity
-- AOE ECS systems emit plain hit events into scoped buffers
-- root replays hits to actor components after simulation
-- Physics2D remains responsible for player/mob/wall body collision
-
-## DOTS Runtime Status
-
-The current implementation uses Entities/DOTS in the shared default world:
-
-- `CombatRoot` creates one shared `CombatScope` entity (serving both the AOE
-  and projectile domains) with target, spawn, hit, and VFX buffers.
- - AOE entities carry `AoeTag`, `AoeActiveTag`, `AoeIdentityComponent`, common
-  combat components, render data, and hit-spawn snapshot data: `AoeHitSpawnComponent`
-  holding the `CombatHitPayload` (crit/damage/stack) and an optional
-  `AoeProjectileBurstSnapshot` for cross-domain follow-ups.
-- AOE systems require `AoeTag`; `CombatScope` is shared across domains, so
-  scope membership or common combat components alone do not make an entity
-  eligible for AOE simulation.
- - `AoeSpawnSystem` drains scoped spawn buffers and reuses disabled AOE
-  entities by scope/type. Crit values flow from `AoeSpawnCommand` ->
-  `AoeSpawnRequestElement` → `AoeHitSpawnComponent` on the entity; no per-AOE
-  dictionary lookup is needed at replay time.
-- `AoeCollisionSystem` runs target-mask filtering and shape collision against
-  `CombatTargetElement` snapshots, reads crit and source node data from
-  `AoeHitSpawnComponent`, and writes hits into two separate `NativeStream`
-  lanes via `ParallelWriter`: a damage lane (`CombatPendingDamage`) and a
-  spawn lane (`CombatPendingSpawn`). `CombatHitFlushJob` drains the damage
-  lane into scoped `CombatDamageElement` buffers only; common presentation
-  (`CombatHitDispatchSystem`) applies that damage to targets. `CombatSpawnConvertJob`
-  drains the spawn lane and writes AOE projectile-burst follow-ups directly
-  into `ProjectileSpawnRequestElement` on the producing scope, same frame —
-  no managed routing, no `CombatSpawnElement`/`HitSpawn` indirection.
-- `AoeContactGateSystem` decrements lingering repeat-hit gates and compacts
-  expired entries.
-- `AoeSimulationSystem` clears scoped damage/spawn buffers and expires lingering AOEs.
-- `CombatRenderPrepareSystem` writes render matrices for active AOEs, and
-  `CombatBatchedRenderSystem` submits GPU-instanced batches, resolving each
-  scope's render resources from the owning `CombatRoot`'s static int-keyed
-  registry.
-- Trigger-link snapshot type `AoeProjectileBurstSnapshot` lives in
-  `PlayGround.System.Common` (alongside `ProjectileImpactAoeSnapshot`,
-  `ProjectileImpactProjectileSnapshot`, `ProjectileTrackingConfig`) so the
-  internal `CombatPendingSpawn` payload can carry projectile-burst spawn data
-  without exposing it through scene hit context.
-
-## Tests To Port
-
-PlayMode tests should cover:
-
-- pulse hits each overlapping target once
-- lingering hits immediately
-- lingering repeats after per-target tick interval
-- exit and re-entry before cooldown expiry does not hit
-- player AOE root ignores player targets
-- mob AOE root ignores mob targets
-- projectile impact AOE works
-- pierce-triggered impact AOE works
-- stack threshold explosion clears stack and damages valid targets
+- Damage replay is still one event per qualifying hit before
+  `DamageDispatchBridge` groups by target for callback dispatch.
+- Crit rolling currently happens in the managed bridge.
+- Dedicated AOE stress scenes and hard pass/fail thresholds are still limited.
+- AOE expansion is intentionally minimal today; future scatter/pattern work
+  should live in `AoeSpawnExpansionSystem`.

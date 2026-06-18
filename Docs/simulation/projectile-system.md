@@ -1,386 +1,348 @@
 # Projectile System
 
-All docs in `Docs/` are design references. They describe current intent, not
-final decisions, and should be revisited in detail before implementation locks in.
+All docs in `Docs/` are design references. They describe current implementation
+intent and should be checked against code before large changes.
 
 ## Summary
 
-Projectiles are the data-runtime half of the hybrid architecture. Player, mobs,
-and walls remain scene objects; projectile gameplay state does not. The Unity
-runtime uses Entities/DOTS for projectile state and simulation, with `CombatRoot`
-remaining as the scene-object bridge for target snapshots, hit replay, and
-render-resource registration (render submission itself runs in
-`CombatBatchedRenderSystem`).
+Projectiles are high-count combat entities simulated with Unity Entities/DOTS.
+Player, mobs, walls, camera, and authoring remain normal Unity scene objects.
+Projectile gameplay state does not live on one GameObject per projectile.
+
+Current implementation is built around these rules:
+
+- `CombatRoot` is the scene-object bridge and authoring owner.
+- One `CombatRoot` exists per firing faction: player combat and mob combat.
+- All combat roots share one ref-counted ECS world and one ref-counted
+  `CombatScope` entity.
+- `CombatFaction` on events, entities, target proxies, VFX requests, and render
+  shared components separates player-faction and mob-faction data.
+- Spawn intent is separate from entity allocation intent:
+  `ProjectileSpawnEvent` may describe a volley, while
+  `ProjectileSpawnCommand` describes exactly one projectile entity.
+- Runtime reuse is based on the generic enableable `Active` component.
+- Damage crosses back to MonoBehaviours only through `DamageDispatchBridge`.
+- Target data is read from ECS proxy entities, not from live colliders or
+  target-snapshot buffers.
 
 Primary uses:
 
 - player projectiles hitting mobs
-- mob projectiles hitting player
-- authored projectile prefabs with baked collision and render data
-- impact AOE spawn on projectile hit
-- stack-triggered hit effects
-- very high projectile counts from scaled spells and attacks
+- mob projectiles hitting the player
+- timed child projectiles
+- impact projectile bursts
+- impact AOEs
+- projectile hit VFX
+- batched projectile rendering
+
+Non-goals:
+
+- a global projectile manager that owns every target and callback
+- live trigger callbacks as the authoritative high-count hit path
+- managed target access from simulation jobs
+
+## Main Files
+
+- `Assets/Scripts/System/Common/CombatRoot.cs`: per-faction scene bridge,
+  template registration, spawn submission, render resources, target registry,
+  ECS world/scope acquire and release.
+- `Assets/Scripts/System/Common/CombatScope.cs`: shared scope tag and
+  `CombatFaction`.
+- `Assets/Scripts/System/Common/CombatEcsComponents.cs`: common kinematics,
+  collision, hit payload, generic `Active`, common lifetime, and legacy target
+  element type.
+- `Assets/Scripts/System/Common/CombatTargetProxy.cs`: ECS target proxy entity
+  lifecycle and target shape push.
+- `Assets/Scripts/System/Common/DamageDispatchBridge.cs`: native damage queue
+  finalize plus managed replay into `ICombatTarget.ReceiveHits`.
+- `Assets/Scripts/System/Projectile/ProjectileSpawnPipeline.cs`:
+  `ProjectileSpawnEvent`, `ProjectileSpawnCommand`, and helpers for impact and
+  burst events.
+- `Assets/Scripts/System/Projectile/ProjectileSpawnExpansionSystem.cs`: drains
+  spawn events and expands volley data into per-shape command queues.
+- `Assets/Scripts/System/Projectile/ProjectileSpawnApplySystem.cs`: applies
+  basic and child-spawner projectile commands by reusing disabled entities or
+  cold-creating overflow entities.
+- `Assets/Scripts/System/Projectile/TimedProjectileSpawnSystem.cs`: emits child
+  projectile spawn events from active child-spawner projectiles.
+- `Assets/Scripts/System/Projectile/ProjectileTrackingSystem.cs`: homing target
+  refresh, acquisition, and steering.
+- `Assets/Scripts/System/Projectile/ProjectileMovementSystem.cs`: position
+  integration and bounds refresh.
+- `Assets/Scripts/System/Projectile/ProjectileContactGateSystem.cs`: repeat-hit
+  cooldown expiry.
+- `Assets/Scripts/System/Projectile/ProjectileCollisionSystem.cs`: spatial hash
+  target broad phase, narrow-phase collision, pierce/contact state, damage
+  event emission, impact spawn event emission, VFX event emission, and source
+  deactivation.
+- `Assets/Scripts/System/Common/CombatLifetimeSystem.cs`: shared projectile and
+  AOE lifetime expiry using `CombatLifetimeComponent` and `Active`.
+- `Assets/Scripts/System/Common/CombatRenderComponents.cs`: shared render data
+  and render matrix preparation.
+- `Assets/Scripts/System/Common/CombatBatchedRenderSystem.cs`: presentation
+  submission through `Graphics.RenderMeshInstanced`.
+
+## Runtime Ownership
+
+`CombatRoot` may touch Unity objects. It reads serialized fields, validates
+setup, registers projectile templates, builds render resources, owns the target
+registry for its faction, and appends managed spawn submissions to the shared
+scope buffer.
+
+Projectile ECS systems must not touch GameObjects, Transforms, Colliders, or
+Physics2D. They operate on:
+
+- projectile entities
+- target proxy entities
+- native event queues/streams
+- common ECS components
+- render and VFX request buffers
+
+The current scope model is important: there is one shared `CombatScope` entity,
+not one scope entity per faction. Faction is carried explicitly on:
+
+- `ProjectileSpawnEvent`
+- `ProjectileSpawnCommand`
+- `ProjectileIdentityComponent`
+- `TargetFaction`
+- `DamageReplayEvent` source metadata through identity values
+- `VfxPendingSpawn`
+- render shared components
+
+Projectile systems must query `ProjectileTag` plus the generic components they
+need. `Active` alone never makes an entity a projectile.
+
+## Target Proxy Bridge
+
+Targets implement `ICombatTarget`. Player and mob roots store their current
+proxy `Entity` on the interface property.
+
+Registration path:
+
+1. A target registers with a root's `CombatTargetRegistry<ICombatTarget>`.
+2. The registry creates or reuses a target proxy entity through
+   `CombatTargetProxy.Create`.
+3. The proxy receives `TargetProxyTag`, `TargetPosition`,
+   `TargetCollisionShape`, `TargetFaction`, and managed `TargetCompanion`.
+4. `PlayerRoot.Update` and `MobRoot.Update` push proxy position and shape before
+   simulation.
+5. Dead or disabled targets queue proxy deletion and delete in `LateUpdate`.
+
+Simulation jobs read only unmanaged proxy data. The managed `TargetCompanion` is
+only read by `DamageDispatchBridge` after damage events have been finalized.
+
+`CombatTargetElement` still exists in common ECS components for compatibility,
+but current projectile collision, tracking, and damage use target proxy queries.
+Do not build new projectile logic on `CombatTargetElement`.
+
+## Spawn Pipeline
+
+Projectile spawning has two explicit data levels.
+
+`ProjectileSpawnEvent` is intent. It can include count, spread, jitter, base
+direction, speed, child-spawner data, hit payload, tracking config, and render
+data. Managed submissions from `CombatRoot.Spawn` append events to the shared
+scope buffer. Internal producers write events to
+`ProjectileSpawnExpansionSystem.EventQueue`.
+
+`ProjectileSpawnCommand` is allocation intent. It describes one projectile:
+one id, one position, one velocity, one collision shape, one hit payload, one
+tracking state, and one render state. It contains no count, spread, jitter, or
+base direction.
+
+Current flow:
+
+1. Managed code or ECS producers emit `ProjectileSpawnEvent`.
+2. `ProjectileSpawnExpansionSystem` drains both the native event queue and the
+   shared scope `DynamicBuffer<ProjectileSpawnEvent>`.
+3. Expansion resolves volley math, spread, jitter, velocity, ids, bounds, and
+   per-shot render Z.
+4. Expansion writes commands into separate command queues:
+   basic projectile commands and child-spawner projectile commands.
+5. `BasicProjectileSpawnApplySystem` and
+   `ChildSpawnerProjectileSpawnApplySystem` consume their command queues.
+6. Apply systems bucket commands by faction, render type, and shape/archetype.
+7. Apply systems query matching disabled entities with `WithDisabled<Active>()`
+   and reset them through `IJobChunk`.
+8. Any commands not satisfied by reuse are cold-created through an
+   `EntityCommandBuffer`.
+
+The apply systems do not interpret volley patterns. Expansion owns spawn math.
 
-Non-goal:
+## Entity Archetypes And Reuse
+
+Projectiles carry:
+
+- `ProjectileTag`
+- `ProjectileIdentityComponent`
+- generic `Active`
+- `CombatLifetimeComponent`
+- `CombatKinematicsComponent`
+- `CombatCollisionComponent`
+- `ProjectileHitComponent`
+- `ProjectileTrackingComponent`
+- `ProjectileCollisionActiveTag`
+- `ProjectileContactGateElement`
+- common render components
 
-- one global projectile manager that owns every projectile, target, and callback in the scene
-- using one GameObject and live trigger collider per projectile as the long-term
-  high-scale path
-
-## Scoped Roots
-
-Each `CombatRoot` owns one faction's attack flow and target set, shared by
-both the projectile and AOE domains through one `CombatScope` entity.
-
-Examples:
-
-- player-combat `CombatRoot`: player-fired projectiles and AOEs targeting mob hurtboxes
-- mob-combat `CombatRoot`: mob-fired projectiles and AOEs targeting player hurtboxes
-
-Each root owns:
-
-- one shared ECS scope entity for target snapshots and hit replay, serving
-  both domains
-- one Unity adapter boundary
-- projectile and AOE template/type caches
-- target hurtbox shape cache
-- listener maps for hit callbacks
-- target registry or target query for its configured target set
-- static int-keyed render-resource registries per domain (mirrors `CombatVfxRoot`)
-- profiling counters and stress-test visibility
-
-## Boundary Rule
-
-`CombatRoot` may:
-
-- read Unity scene references
-- validate live Unity objects
-- bake prefab collider and render data
-- register projectile templates and targets
-- replay hit events into gameplay callbacks
-- update pooled visuals or instanced rendering
-
-Projectile ECS systems must not:
-
-- touch GameObjects, Transforms, Components, or Colliders
-- instantiate prefabs
-- call Physics2D
-- apply gameplay damage directly
-- read live player, weapon, buff, or mob state
-
-It may read only snapshot data produced by the scene-object side.
-
-Input into world:
-
-- projectile spawn command
-- target snapshot
-- projectile and target type definitions
-- immutable damage snapshot
-
-Output from world:
-
-- projectile spawned event
-- projectile despawned event
-- target despawned event
-- hit event
-- raw hit payload data carried through projectile hit events
-
-## Frame Flow
-
-During fixed simulation:
-
-1. root syncs live targets from explicit registry
-2. root converts target objects into plain target snapshots
-3. root submits target snapshots to world
-4. lifetime/collision recycle events from the previous simulation pass are
-   drained into the scoped inactive pool
-5. root-submitted and ECS-submitted spawn requests are materialized by
-   `ProjectileSpawnSystem`, reusing inactive entities before cold creation
-6. world rebuilds broad-phase target data
-7. ECS systems run focused stages in order:
-   spawn materialization, tracking/reacquire, movement, child projectile request
-   creation, lifetime expiry disable, contact-gate expiry, and
-   collision/pierce hit output
-8. root drains world events
-9. root handles adapter side effects such as visual slots and registry cleanup
-
-During normal update:
-
-1. root replays hit events through a hit context
-2. gameplay listeners apply damage or secondary effects
-3. root updates visuals
-
-Hit reactions stay outside the pure simulation step.
-
-## Performance Baseline
-
-Projectile runtime is a core scaling system.
-
-The first projectile proof of concept should include the high-scale path:
-Entities/DOTS projectile state, batched rendering by projectile type, and
-Jobs/Burst for high-volume simulation work. Avoid designing around Unity trigger
-callbacks or one scene node per projectile.
-
-Required practices:
-
-- register projectile prefab types once
-- bake collider shape and visual data once
-- use batched rendering for the projectile POC; pooled visual objects are only a
-  low-count fallback
-- keep spawn commands compact
-- reuse inactive projectile entities by scope, render type, and slot kind instead
-  of scanning every inactive projectile during spawn
-- avoid per-projectile allocations
-- avoid Transform access inside collision loops
-- track active count, spawn count, deactivate/despawn count, simulation time,
-  render time, and allocation spikes
-
-Scene-object bridge:
-
-- player and mobs expose hurtboxes through registries
-- roots snapshot those hurtboxes once per simulation step
-- projectile hits replay back into actor components after world step
-- built-in Physics2D still handles player/mob/wall body collision separately
-
-Stress tests should target about 50k projectiles on screen with 20 targets at
-120 fps. They do not need fixed pass/fail thresholds before a baseline exists.
-
-## Data Layout
-
-Keep projectile runtime data plain and compact.
-
-Projectile state should include:
-
-- ECS entity
-- `ProjectileTag` domain marker
-- projectile type id
-- target mask or target set id
-- immutable damage snapshot reference
-- `CombatKinematicsComponent` position and velocity
-- `CombatCollisionComponent` shape, radius, half extents, rotation, and cached bounds
-- `ProjectileHitComponent` (domain-specific): pierce/repeat-hit state plus a `ProjectileHitPayload` wrapper that contains the `CombatHitPayload` (damage, crit, source node, stackEffect) and any optional cross-domain spawn snapshots (`ImpactAoe`, `ImpactProjectile`).
-- lifetime
-- tracking config and tracked target handle/index
-- render slot or pooled visual id
-- projectile-only pierce/contact gate state
-- enableable active state
-
-Target state should include:
-
-- `CombatTargetElement` on the owning projectile scope entity
-- target id and mask
-- position
-- cached bounds
-- baked `CombatShapeType`, radius, half extents, and rotation
-
-## ECS Stage Ownership
-
-Keep projectile simulation split by responsibility. `ProjectileSimulationSystem`
-is only the start-of-frame scope/event-buffer coordinator. Feature work should
-land in the narrow system that owns that behavior:
-
-- `ProjectileTrackingSystem`: optional homing, target refresh, reacquire interval, and steering while preserving speed.
-  Profiling splits this system into `ProjectileTargetAcquisitionJob` for target
-  refresh/reacquire work and `ProjectileSteeringJob` for per-frame velocity
-  steering, so captures can show acquisition cost separately from steering cost.
-- `ProjectileSpawnSystem`: scoped recycle-buffer draining, spawn request
-  materialization, inactive projectile reuse by scope/render type/layout, and
-  cold entity creation through ECB when the matching pool is empty
-- `ProjectileMovementSystem`: position integration from velocity and delta time
-- `ProjectileChildSpawnSystem`: timed child spawn request creation; on each
-  interval tick, appends `ChildCountPerTick` spawn requests to the owning scope
-  through `EntityCommandBuffer.ParallelWriter`, fully initialized from
-  `ProjectileChildSpawnerComponent` (shape, raw hit payload, tracking, spawn pattern)
-- `ProjectileLifetimeSystem`: lifetime countdown and disabling expired active
-  state for later spawn reuse
-- `ProjectileContactGateSystem`: repeat-hit gate cooldown expiry
-- `ProjectileCollisionSystem`: spatial-hash broad phase, target AABB filtering, target mask filtering, shape hit checks, pierce count, contact gate creation, ordered hit events, and active-state disable for hit-despawned projectiles
-- `CombatRoot`: scoped Unity bridge shared with the AOE domain, target/projectile bounds setup, event replay, render-resource registration, and teardown-only destruction; actual render submission runs in `CombatBatchedRenderSystem`
-- `CombatCollisionMath`: shared pure bounds and narrow-phase shape math, reached
-  by projectile systems through `ProjectileCollisionMath` compatibility methods
-
-Do not merge these stages back into one large projectile system. Domain-neutral
-combat data and math belong under `Assets/Scripts/System/Common/`, including the
-unified `CombatHitElement` scope buffer and `CombatPendingHit` transient hit
-type used by both projectile and AOE collision pipelines. Projectile identity,
-active state, render tags, contact gates, child spawning, and spawn/recycle
-buffers stay in `ProjectileEcsComponents`.
-
-## Collision
-
-Bake supported 2D shapes from prefab data from the first projectile POC:
-
-- circle
-- rectangle/box
-- capsule
-
-Current Unity target snapshots bake collider-derived shape data through shared
-`CombatTargetShapeUtility` (with projectile compatibility wrappers where needed).
-Circle, box, and capsule hurtboxes are converted to `CombatTargetElement`
-entries before simulation. Projectile spawn commands carry `CombatShapeType`,
-radius, half extents, and rotation while retaining obsolete `ProjectileShapeType`
-overloads for compatibility.
-
-Broad phase target options:
-
-- simple list for low counts
-- spatial hash for many targets
-- AABB tree only if later profiling justifies it
-
-Narrow phase should cover:
-
-- circle-circle
-- circle-rectangle
-- circle-capsule
-- rectangle-rectangle
-- rectangle-capsule
-- capsule-capsule
-
-`ProjectileCollisionSystem` builds a per-scope spatial hash from target bounds,
-rejects projectiles that overlap no occupied target cells, applies target AABB
-checks, then delegates narrow-phase checks to shared `CombatCollisionMath`
-through the projectile adapter. It does not read Unity colliders or call
-Physics2D.
-
-## Damage
-
-Damage is snapshotted before spawn.
-
-Rules:
-
-- stat, weapon, buff, and attack scaling happen before spawn
-- active projectiles only carry damage snapshot data
-- target-specific resist/weakness interpretation happens during hit replay
-- projectile world forwards damage data but does not understand it
-- crit and secondary damage payloads are resolved into the snapshot before spawn
-
-Damage should stay typed. Do not collapse to integer-only damage just because the
-first content is simple.
-
-## Tracking
-
-Tracking is optional per spawn.
-
-When enabled:
-
-- maintain stable speed while steering
-- reacquire targets at configured interval
-- filter by range and target set
-- allow spawn-query jitter to avoid all projectiles retargeting in same frame
-
-## Pierce And Contact Gates
-
-Piercing projectiles should be able to hit the same target again after an
-authored repeat-hit cooldown. This differs from a strict one-hit-per-projectile
-model and should be represented in the contact gate state.
-
-Current implementation stores contact gates as per-projectile ECS buffers.
-`ProjectileCollisionSystem` creates or refreshes gates when a hit happens, and
-`ProjectileContactGateSystem` expires them before the next collision stage.
-
-## Environment
-
-Projectiles currently do not interact with walls. Keep environment collision out
-of the first projectile path, but leave the design configurable enough to add
-wall behavior later.
-
-## Rendering
-
-Start with a batched renderer by projectile type. Pooled prefab visuals may
-exist as a low-count fallback or debug path, but they are not enough for the
-projectile proof of concept and must not be the default path.
-
-Current rendering keeps Unity object access outside ECS simulation. Projectile
-prefabs remain the authoring source for `SpriteRenderer`, material, and collider
-setup, and `CombatRoot` bakes those prefab values into runtime render
-resources held in its static int-keyed registry and ECS metadata. Each
-projectile entity carries a structural render-type tag component and common
-`CombatRenderComponent` / `CombatRenderElement` data. A common
-`CombatRenderScope` shared component (holding the owning scope entity)
-partitions render chunks by scope at the ECS chunk level, and `ProjectileTag`/
-`AoeTag` further split each scope's chunks by domain.
-
-The shared `CombatRenderPrepareSystem` writes the `objectToWorld` matrix
-directly into `CombatRenderElement` on each active renderable projectile and
-AOE entity. Render queries include the common enableable render-active tag so
-disabled pooled entities are skipped. The job is Burst-compiled and scheduled
-in parallel as one shared render-prep pass.
-
-`CombatBatchedRenderSystem` resolves each scope's owning `CombatRoot` by
-static int key, then for each domain (`ProjectileTag`/`AoeTag`) iterates each
-registered render type, applies a `CombatRenderScope` plus render-type-id
-shared-component filter so only that scope's matching chunks are visible, then
-calls `query.ToComponentDataArray<CombatRenderElement>` to collect
-active-entity matrices. The result is copied into a pre-allocated 1023-element
-submit buffer and submitted via `Graphics.RenderMeshInstanced`, split into
-chunks of at most 1023 instances. No separate batch entities, dynamic buffers,
-or trim jobs are required.
-
-Keep rendering outside projectile simulation systems.
-
-Do not move Unity object access to worker threads. Jobs/Burst workers operate on
-plain data, then merge before callbacks or rendering.
-
-## Future Work
-
-Port in this order:
-
-1. Add impact AOE and stack hit effect data on top of raw projectile hit payloads
-2. Add projectile authoring fields for tracking, pierce, lifetime, speed, child spawns, and type ids, including separate child-specific overrides for lifetime, speed, pierce count, and tracking parameters
-3. Add player-to-mob and mob-to-player smoke tests for the expanded runtime
-4. Add projectile stress scene and counters to measure high-scale batches
-5. Tune broad-phase cell sizing and add an AABB tree only if profiling shows the current spatial-hash path is the bottleneck
-6. Keep adding Burst-compatible jobs for hot projectile stages where managed merge steps are not required
-7. Add pooled/debug visual adapter only if useful for authoring or low-count cases
-
-## Implementation status (as of 2026-06-15)
-
-This section documents how the current Unity implementation aligns with this design doc and notes small, actionable differences found in the codebase.
-
-- **Core match:** The overall scoped, data-oriented design is implemented. `CombatRoot` owns the shared scope entity, target registry, template/type maps, and runtime counters for one faction (see `Assets/Scripts/System/Common/CombatRoot.cs`).
-- **Boundary rule:** The implementation follows the bridge pattern: the root reads scene objects and snapshots targets, ECS systems run on plain data and do not touch GameObjects or call `Physics2D` (see `CombatRoot.cs` and the simulation systems under `Assets/Scripts/System/Projectile/`).
-- **Frame flow & systems:** Systems implement the staged pipeline described in this doc: `ProjectileSimulationSystem`, `ProjectileSpawnSystem`, `ProjectileTrackingSystem`, `ProjectileMovementSystem`, `ProjectileChildSpawnSystem`, `ProjectileLifetimeSystem`, `ProjectileContactGateSystem`, `ProjectileCollisionSystem`, and the shared `CombatRenderPrepareSystem`/`CombatBatchedRenderSystem` (see the corresponding source files in `Assets/Scripts/System/Projectile/` and `Assets/Scripts/System/Common/`).
-- **Data layout & events:** Projectile entities carry `ProjectileTag` plus common `CombatKinematicsComponent` and `CombatCollisionComponent`; projectile hit data lives in `ProjectileHitComponent`. Projectile-only identity, lifetime, pierce/repeat-hit state, tracking, render, child-spawner, and recycle/spawn buffers stay in projectile components. Collision emits separate damage and spawn streams. Damage data is written into scoped `CombatDamageElement` buffers and applied by `CombatHitDispatchSystem`, not by `CombatRoot`. `CombatHitData` carries `Kind`, `Damage`, `Position`, `DirectDamageEnabled`, `StackEffect`, and `SourceNodeId`. Internal follow-up spawns such as impact AOE/projectile bursts never cross into managed code: they travel as `CombatPendingSpawn` snapshot payloads (`ImpactAoe`, `ImpactProjectile`, `ProjectileBurst` fields) and are converted directly into ECS `ProjectileSpawnRequestElement`/`AoeSpawnRequestElement` buffers, same frame. Snapshot types (`ProjectileTrackingConfig`, `ProjectileImpactAoeSnapshot`, `ProjectileImpactProjectileSnapshot`, `AoeProjectileBurstSnapshot`) live in `PlayGround.System.Common` so core effect data can reference them without a circular dependency (`Assets/Scripts/System/Common/CombatHitElement.cs`, `Assets/Scripts/System/Common/CombatEcsComponents.cs`, `Assets/Scripts/System/Projectile/ProjectileEcsComponents.cs`).
-- **Hit flush / spawn-convert pipeline:** Collision workers write to separate `NativeStream` damage and spawn lanes via `ParallelWriter`. `CombatHitFlushJob` (Burst `IJob`) drains the damage stream into scoped `CombatDamageElement` buffers only. `CombatSpawnConvertJob` (Burst `IJob`, scheduled inline inside the collision systems) drains the spawn stream and writes directly into `ProjectileSpawnRequestElement`/`AoeSpawnRequestElement` on `pending.Scope` — the producing scope, with no managed routing step. Both jobs are scheduled the same frame as collision, and `[UpdateAfter]`/`[UpdateBefore]` ordering on `ProjectileSpawnSystem`/`AoeSpawnSystem` guarantees the resulting spawn requests materialize that same simulation pass.
-- **Collision shapes & math:** Circle, rectangle (box), and capsule shapes are supported through `CombatShapeType`. Projectile and target AABB bounds are cached in common ECS data, spatial-hash broad phase runs in `ProjectileCollisionSystem.cs`, and bounds/narrow-phase math is implemented in `CombatCollisionMath.cs`.
-- **Pierce & contact gates:** Contact gates are per-projectile buffer elements and are added/refreshed by the collision system and expired by `ProjectileContactGateSystem`.
-- **Tracking & steering:** Full tracking support exists with query intervals, reacquire logic, and steering that preserves projectile speed (`ProjectileTrackingSystem.cs`). Child projectiles inherit tracking config stored in `ProjectileChildSpawnerComponent`.
-- **Rendering:** Batched instanced rendering is implemented: `CombatRenderPrepareSystem` writes matrices into common render elements and `CombatBatchedRenderSystem` submits via `Graphics.RenderMeshInstanced`, resolving each scope's render resources from the owning `CombatRoot`'s static int-keyed registry.
-
-### Minor differences / implementation notes
-
-- **Prefab "baking":** The doc describes baking prefab collider and render data. The implementation performs template registration and builds render resources at runtime via `RegisterTemplate` / `BuildRenderResources` inside `CombatRoot` rather than a separate offline/bake pipeline. This achieves the intent but is runtime-driven.
-- **Damage snapshot shape:** The runtime carries a `DamageSnapshot` value recorded on spawn; current buffer fields pass a float `DamageAmount`. If you intended a richer typed snapshot, inspect `PlayGround.Common.DamageSnapshot` and extend the buffer payloads accordingly.
-- **Broad-phase acceleration:** The implementation uses per-scope target buffers plus a fixed-size spatial hash over target AABBs. An AABB tree is not present; add it only if profiling shows the hash plus bounds filter is insufficient.
-- **Impact AOE / hit spawns:** AOE and complex hit reactions are explicit spawn payload data on `CombatPendingSpawn`, converted by `CombatSpawnConvertJob` into ECS spawn requests the same frame the hit happens. The collision and child spawn systems stay free of managed callbacks.
-- **Spawn reuse / slot kind:** Runtime despawn disables `ProjectileActiveTag`. `ProjectileSpawnSystem` groups spawn requests by scope, render type id, and slot kind, queries matching disabled chunks, assigns request slices per chunk, and reuses those entities before cold creation. Slot kind is normal or child-spawner archetype; normal slots never gain child-spawner components later, and child-spawner slots are not reused for normal projectiles.
-- **Child spawn / request materialization:** Child projectiles are requested by `ProjectileChildSpawnSystem` via `EntityCommandBuffer.ParallelWriter.AppendToBuffer` on the owning scope. `ProjectileSpawnSystem` materializes those requests on the next simulation pass, reusing inactive child entities before cold creation. Children copy the parent's source node id and use child-specific damage/direct-damage payload data; no managed child-spawn ownership event is emitted. Current child requests set `HasChildSpawner = 0`, so spawned children use normal slots unless a future feature explicitly supports child-spawners spawning more child-spawners.
-- **Child spawn pattern:** `ProjectileChildSpawnBehavior` (attached to `ProjectileChildSpawnConfig`) holds `Count`, `PatternType` (`ProjectileChildSpawnPatternType`: `SideSpray` or `Forward`), and `SpreadDegrees`. `SideSpray` fans `(count+1)/2` shots left and `count/2` shots right, each side spread evenly across `+/-SpreadDegrees/2` around the perpendicular, matching the behavior of `ProjectileSideSpraySpawnPattern`. These values are copied into `ProjectileChildSpawnerComponent` at spawn time and consumed entirely inside the Burst job; adding a new pattern requires only a new enum case and a velocity branch in `ComputeChildVelocity`.
-- **Attack authoring - `ProjectileConfig`:** `ProjectileAttack` no longer holds inline serialized projectile simulation fields. All projectile data (prefab, speed, lifetime, damage, count, spread, tracking, pierce, impact AOE, etc.) lives in a `ProjectileConfig` ScriptableObject assigned via the Inspector. `ProjectileAttack` retains only behavior fields: `combatRoot`, `recoverySeconds`, `performSound`, and `audioManager`. `ProjectileConfig` also exposes `GetTrackingConfig()` so the SO is the single authoring source for a projectile type.
-- **Child-specific authoring:** `ProjectileChildSpawnConfig` carries full child projectile definition (shape, damage, speed, lifetime, pierce, visual) plus `ProjectileTrackingConfig` and `ProjectileChildSpawnBehavior`. `ChildSpawningProjectileAttack` holds both the parent `ProjectileConfig` (`parentConfig`) and child `ProjectileConfig` (`childConfig`) directly, so parent and child projectile definitions are both ScriptableObject-authored. The attack cooldown is still owned by `ChildSpawningProjectileAttack.recoverySeconds`; `childSpawnIntervalSeconds` only controls in-flight child emission cadence. The built `ProjectileChildSpawnConfig` is owned by `ChildSpawningProjectileAttack` and passed into the parent projectile spawn command when it fires. Prefab structure: root GameObject carries `ChildSpawningProjectileAttack`; no nested parent `ProjectileAttack` child is required.
-- **Stress tests:** Runtime counters are present on `CombatRoot` but no dedicated stress-test scene was found in this directory; adding a stress scene and counters visualization remains a future task.
-
-### Files referenced while verifying
-
-- `Assets/Scripts/System/Common/CombatRoot.cs`
-- `Assets/Scripts/System/Common/CombatHitFlushJob.cs`
-- `Assets/Scripts/System/Common/CombatSpawnConvertJob.cs`
-- `Assets/Scripts/System/Common/CombatHitDispatchSystem.cs`
-- `Assets/Scripts/System/Common/CombatHitElement.cs`
-- `Assets/Scripts/System/Common/CombatBatchedRenderSystem.cs`
-- `Assets/Scripts/System/Projectile/ProjectileEcsComponents.cs`
-- `Assets/Scripts/System/Common/CombatEcsComponents.cs`
-- `Assets/Scripts/System/Common/CombatShapeType.cs`
-- `Assets/Scripts/System/Common/CombatCollisionMath.cs`
-- `Assets/Scripts/System/Common/CombatTargetShapeUtility.cs`
-- `Assets/Scripts/System/Projectile/ProjectileSimulationSystem.cs`
-- `Assets/Scripts/System/Projectile/ProjectileSpawnSystem.cs`
-- `Assets/Scripts/System/Projectile/ProjectileTrackingSystem.cs`
-- `Assets/Scripts/System/Projectile/ProjectileMovementSystem.cs`
-- `Assets/Scripts/System/Projectile/ProjectileChildSpawnSystem.cs`
-- `Assets/Scripts/System/Projectile/ProjectileLifetimeSystem.cs`
-- `Assets/Scripts/System/Projectile/ProjectileContactGateSystem.cs`
-- `Assets/Scripts/System/Projectile/ProjectileCollisionSystem.cs`
-- `Assets/Scripts/System/Projectile/ProjectileCollisionMath.cs`
-- `Assets/Scripts/System/Common/CombatRenderComponents.cs`
-- `Assets/Scripts/System/Projectile/ProjectileTargetShapeUtility.cs`
+Child-spawner projectiles additionally carry:
+
+- `ProjectileChildSpawnerTag`
+- `ProjectileChildSpawnerComponent`
+- `ProjectileChildSpawnStateComponent`
+
+The child-spawner shape is a separate archetype. Normal projectile slots do not
+gain child-spawner components later, and child-spawner slots are reused only by
+the child-spawner apply path.
+
+Runtime despawn disables `Active` and `CombatRenderActiveTag`. It does not
+destroy the entity during normal churn. Cold-created entities are kept until
+their owning `CombatRoot` is destroyed.
+
+## Timed Child Spawns
+
+`TimedProjectileSpawnSystem` replaces the old child request buffer path. It
+queries active projectiles with `ProjectileChildSpawnerTag`, ticks their child
+spawn cooldown using variable `deltaTime`, catches up missed intervals, and
+enqueues `ProjectileSpawnEvent` values directly into the projectile expansion
+queue.
+
+Child projectiles currently spawn as normal projectile slots. They may carry
+damage, stack effect, impact AOE, and impact projectile snapshots, but they do
+not recursively carry another child-spawner component.
+
+## Tracking And Movement
+
+Tracking uses target proxy entities. `ProjectileTrackingSystem` builds target
+lookup data from `TargetProxyTag`, `TargetPosition`, and `TargetFaction`, then
+runs acquisition and steering jobs. It filters by projectile faction so a
+player-faction projectile sees only targets registered to the player-faction
+combat root.
+
+Movement is simple data math. `ProjectileMovementSystem` integrates position by
+velocity and recomputes world bounds through `ProjectileCollisionMath`.
+
+## Collision And Consequences
+
+`ProjectileCollisionSystem` owns hit qualification and source projectile state.
+It may:
+
+- query target proxy data
+- build a spatial hash keyed by `TargetFaction`
+- perform target bounds and narrow-phase checks
+- check and refresh per-projectile contact gates
+- decrement pierce count
+- disable `Active` and render active state when the source projectile is
+  consumed
+- emit plain data events for damage, impact projectiles, impact AOEs, and VFX
+
+It may not:
+
+- call managed target callbacks
+- spawn entities directly
+- instantiate GameObjects
+- read `TargetCompanion`
+
+Accepted hits can produce:
+
+- `DamageReplayEvent` into `DamageDispatchBridge.DamageQueue`
+- `ProjectileSpawnEvent` into projectile expansion for impact projectile bursts
+- `AoeSpawnEvent` into AOE expansion for impact AOEs
+- `VfxPendingSpawn` into the shared VFX scope buffer through a flush job
+
+Damage is finalized by `DamageFinalizeSystem` before spawn expansion. Managed
+replay runs later in `DamageDispatchBridge` during `PresentationSystemGroup`.
+
+## Lifetime
+
+Projectile lifetime uses the shared `CombatLifetimeSystem`. The projectile job
+ticks `CombatLifetimeComponent.Remaining`, disables `Active`, disables
+`CombatRenderActiveTag`, and emits expire VFX when time reaches zero.
+
+Projectile collision can also deactivate a projectile immediately when a valid
+hit consumes the source.
+
+## Rendering And VFX
+
+Projectile visuals are batched. `CombatRoot` builds sprite render resources and
+stores them in dictionaries keyed by type id. Runtime entities carry common
+render components plus render shared components for faction and type.
+
+`CombatRenderPrepareSystem` writes matrices for active projectile and AOE
+entities. `CombatBatchedRenderSystem` runs in `PresentationSystemGroup`, looks
+up the owning `CombatRoot` by faction, filters by domain tag and render type,
+and submits `Graphics.RenderMeshInstanced` batches.
+
+Gameplay VFX requests are plain ECS/native data until presentation. Projectile
+collision and lifetime produce `VfxPendingSpawn`; flush jobs append
+`VfxSpawnRequestElement` to the shared scope buffer; `CombatVfxDispatchSystem`
+dispatches through `CombatVfxRoot`.
+
+## Current Frame Order
+
+Important simulation ordering:
+
+1. `ProjectileSimulationSystem` starts the projectile phase and exposes active
+   counts.
+2. `CombatLifetimeSystem` expires projectile and AOE lifetime.
+3. `TimedProjectileSpawnSystem` emits child spawn events.
+4. `ProjectileTrackingSystem` updates homing data.
+5. `ProjectileMovementSystem` moves projectiles and refreshes bounds.
+6. `ProjectileContactGateSystem` expires projectile contact gates.
+7. `ProjectileCollisionSystem` emits damage, spawn, and VFX events.
+8. `AoeContactGateSystem` and `AoeCollisionSystem` run after projectile
+   collision.
+9. `DamageFinalizeSystem` freezes the native damage queue.
+10. `ProjectileSpawnExpansionSystem` and `AoeSpawnExpansionSystem` drain events
+    and produce commands.
+11. Projectile and AOE apply systems reuse disabled slots and cold-create
+    overflow.
+12. `CombatRenderPrepareSystem` prepares render matrices.
+13. Presentation systems dispatch damage, VFX, and render batches.
+
+Spawned/reused projectiles do not move, collide, or emit their own timed spawns
+until the next simulation update because apply runs after movement/collision.
+
+## Authoring Notes
+
+Projectile authoring flows through skills and spawn requests:
+
+- `ProjectileSpawnRequest` is the managed request passed to `CombatRoot.Spawn`.
+- `ProjectileConfig` and runtime skill definitions provide shape, speed,
+  lifetime, damage, count, spread, pierce, tracking, impact AOE/projectile, and
+  child-spawn data.
+- `CombatRoot.RegisterTemplate` registers projectile visual/collision templates
+  and builds render resources.
+- Spawn data is snapshotted into events before ECS simulation sees it.
+
+Do not add runtime simulation dependencies back to ScriptableObjects or prefab
+instances. Spawn requests should carry the values the runtime needs.
+
+## Performance Notes
+
+Current performance-sensitive choices:
+
+- no one GameObject per projectile
+- no live Physics2D trigger hit path for projectiles
+- proxy targets instead of live collider reads in simulation
+- native queues/streams for hit, spawn, and VFX events
+- `Active` enable/disable for reuse
+- per-shape apply systems to avoid shape switches in allocation paths
+- batched render submission
+
+Revisit only with profiling:
+
+- spatial hash cell sizing
+- single-bucket spawn reuse parallelism
+- damage aggregation across many hits on few targets
+- render batch collection cost
+
+## Known Gaps
+
+- Damage replay is grouped by target in `DamageDispatchBridge`, but damage is
+  still represented as one replay event per qualifying hit before dispatch.
+- Crit rolling currently happens on the managed bridge main thread.
+- `CombatTargetElement` remains in common data but should be considered legacy
+  for new projectile work.
+- Dedicated projectile stress scenes and hard pass/fail thresholds are still
+  limited.

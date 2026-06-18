@@ -1,29 +1,32 @@
 # Profiling CSV Guide
 
-Use the `.csv` export (converted from Unity's `.data` capture) to analyse performance without loading it into context.
-**Never read the entire file into context** — it can be tens of thousands of lines.
+Use the `.csv` export converted from Unity profiler captures to analyze
+performance without loading huge files into context.
+
+Never read an entire profiler CSV into context. It can be tens of thousands of
+lines.
 
 ## CSV Schema
 
 | Column | Example | Meaning |
 |---|---|---|
-| `Frame` | `0` | Frame index (0-based) |
-| `FunctionPath` | `Main Thread/PlayerLoop/UpdateScene/…` | Full call-stack path, `/`-separated |
-| `Function` | `AoeSpawnSystem` | Leaf function name |
-| `Total%` | `16.5%` | % of frame time including children |
-| `Self%` | `2.2%` | % of frame time for this node only |
+| `Frame` | `0` | Frame index, zero based |
+| `FunctionPath` | `Main Thread/PlayerLoop/UpdateScene/...` | Full call-stack path, `/` separated |
+| `Function` | `AoeSpawnApplySystem` | Leaf function name |
+| `Total%` | `16.5%` | Percent of frame time including children |
+| `Self%` | `2.2%` | Percent of frame time for this node only |
 | `Calls` | `1` | Call count that frame |
 | `GCAlloc` | `104.3 KB` | Managed GC allocations |
-| `TimeMs` | `4.97` | Total time in ms (inclusive) |
-| `SelfMs` | `0.67` | Self time in ms (exclusive) |
+| `TimeMs` | `4.97` | Total time in ms, inclusive |
+| `SelfMs` | `0.67` | Self time in ms, exclusive |
 
-`FunctionPath` encodes the full hierarchy — split on `/` to reconstruct the call tree.
+`FunctionPath` encodes the full hierarchy. Split on `/` to reconstruct the call
+tree.
 
----
+## Querying With PowerShell
 
-## Querying with PowerShell
+Find the most expensive systems in a single frame:
 
-### Find the most expensive systems in a single frame
 ```powershell
 Import-Csv ProfilerCaptures\play-ground_2026-06-10_10-09-36.csv |
   Where-Object { $_.Frame -eq '0' } |
@@ -31,7 +34,8 @@ Import-Csv ProfilerCaptures\play-ground_2026-06-10_10-09-36.csv |
   Select-Object -First 20 Function, TimeMs, SelfMs, 'Total%'
 ```
 
-### Find GC-allocating functions across all frames
+Find GC-allocating functions across all frames:
+
 ```powershell
 Import-Csv ProfilerCaptures\play-ground_2026-06-10_10-09-36.csv |
   Where-Object { $_.GCAlloc -ne '0 B' } |
@@ -39,15 +43,17 @@ Import-Csv ProfilerCaptures\play-ground_2026-06-10_10-09-36.csv |
   Select-Object -First 30 Frame, Function, GCAlloc, TimeMs
 ```
 
-### Summarise a system's cost across all frames
+Summarize a system's cost across all frames:
+
 ```powershell
 Import-Csv ProfilerCaptures\play-ground_2026-06-10_10-09-36.csv |
-  Where-Object { $_.Function -like '*AoeSpawnSystem*' } |
+  Where-Object { $_.Function -like '*AoeSpawnApplySystem*' } |
   Measure-Object -Property TimeMs -Average -Maximum -Sum |
   Format-List
 ```
 
-### Per-frame total main-thread time (top-level PlayerLoop)
+Per-frame total main-thread time:
+
 ```powershell
 Import-Csv ProfilerCaptures\play-ground_2026-06-10_10-09-36.csv |
   Where-Object { $_.Function -eq 'PlayerLoop' } |
@@ -55,24 +61,26 @@ Import-Csv ProfilerCaptures\play-ground_2026-06-10_10-09-36.csv |
   Sort-Object { [int]$_.Frame }
 ```
 
-### Find hottest Burst jobs (Self time only)
+Find hottest Burst jobs by self time:
+
 ```powershell
 Import-Csv ProfilerCaptures\play-ground_2026-06-10_10-09-36.csv |
   Where-Object { $_.Function -like '*(Burst)*' } |
   Group-Object Function |
   ForEach-Object {
     [PSCustomObject]@{
-      Function   = $_.Name
-      AvgSelfMs  = ($_.Group | Measure-Object SelfMs -Average).Average
-      MaxSelfMs  = ($_.Group | Measure-Object SelfMs -Maximum).Maximum
-      Frames     = $_.Count
+      Function = $_.Name
+      AvgSelfMs = ($_.Group | Measure-Object SelfMs -Average).Average
+      MaxSelfMs = ($_.Group | Measure-Object SelfMs -Maximum).Maximum
+      Frames = $_.Count
     }
   } |
   Sort-Object AvgSelfMs -Descending |
   Select-Object -First 20
 ```
 
-### Isolate a subtree by path prefix
+Isolate a subtree by path prefix:
+
 ```powershell
 $prefix = 'Main Thread/PlayerLoop/UpdateScene/SimulationSystemGroup'
 Import-Csv ProfilerCaptures\play-ground_2026-06-10_10-09-36.csv |
@@ -81,26 +89,27 @@ Import-Csv ProfilerCaptures\play-ground_2026-06-10_10-09-36.csv |
   Select-Object -First 20 Function, SelfMs, TimeMs, 'Total%'
 ```
 
----
+## Grep Approach
 
-## Grep Approach (for Claude Code)
+Prefer searching over reading full captures.
 
-Prefer the **Grep tool** over reading the file. Example queries:
+Examples:
 
-- Find all rows mentioning a system: pattern `AoeSpawnSystem`, file `ProfilerCaptures/*.csv`
-- Find GC allocations: pattern `[0-9]+ [KMG]B`, output_mode `content`
-- Find Burst jobs: pattern `\(Burst\)`
+- find rows mentioning a system: `AoeSpawnApplySystem`
+- find GC allocations: `[0-9]+ [KMG]B`
+- find Burst jobs: `\(Burst\)`
 
-Always set `head_limit` to avoid flooding context (e.g. 50–100 lines).
-
----
+Always set a result limit to avoid flooding context, for example 50 to 100
+lines.
 
 ## Reading Tips
 
-- `Total%` is relative to the **frame**, so 100% = full frame budget.
-- `Self%` / `SelfMs` is what to optimise — children are their own rows.
+- `Total%` is relative to the frame, so 100% means full frame budget.
+- `Self%` and `SelfMs` are what to optimize; children have their own rows.
 - `FunctionPath` depth indicates nesting; count `/` separators for call depth.
-- Burst jobs show as `SystemName:JobName (Burst)` — `SelfMs` is pure compute.
+- Burst jobs show as `SystemName:JobName (Burst)`; `SelfMs` is pure compute.
 - `JobHandle.Complete` rows signal main-thread stalls waiting on worker jobs.
-- GC pressure: filter `GCAlloc != "0 B"` then look at `FunctionPath` to find the managed callsite.
-- Frame 0 is often a warm-up spike; focus analysis on frames 5+ for steady-state.
+- For GC pressure, filter `GCAlloc != "0 B"` and inspect `FunctionPath` to find
+  the managed callsite.
+- Frame 0 is often a warm-up spike; focus on frames 5 and later for steady
+  state.

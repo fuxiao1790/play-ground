@@ -1,23 +1,25 @@
 # Coding Standards
 
 All docs in `Docs/` are design references. They describe current intent, not
-final decisions, and should be revisited in detail before implementation locks in.
+final decisions, and should be checked against code before implementation work.
 
 ## Root Component Rule
 
-Each gameplay object prefab should have one root MonoBehaviour that coordinates that object.
+Each gameplay object prefab should have one root MonoBehaviour that coordinates
+that object.
 
 Examples:
 
 - player
 - mob
-- attack
-- projectile root
-- AOE root
+- attack or skill driver
+- combat root
 - spawner
 - play area
+- VFX root
 
-The root component owns Unity references, setup validation, event wiring, update order, and the public API. It should not own all gameplay decisions directly.
+The root component owns Unity references, setup validation, event wiring, update
+order, and the public API. It should not own all gameplay decisions directly.
 
 ## Root Component Should Do
 
@@ -30,29 +32,29 @@ The root component owns Unity references, setup validation, event wiring, update
 
 ## Root Component Should Not Do
 
-- contain movement math directly
-- contain combat rules directly
+- contain all movement math directly
+- contain all combat rules directly
 - choose animation state directly from raw gameplay data
 - perform high-volume collision loops mixed with scene-object code
 - search the scene repeatedly during gameplay
 
-Gameplay logic belongs in focused classes, ScriptableObjects, child components, or data-oriented runtime cores.
+Gameplay logic belongs in focused classes, ScriptableObjects, child components,
+or data-oriented runtime cores.
 
 ## Awake vs OnEnable Boundary
 
 `Awake()` may only set up state that belongs to the component itself: resolve
-self-owned references, validate fields, construct helper objects, configure
-children. It must not call methods on other MonoBehaviours, because Unity does
-not guarantee that other `Awake()` calls have completed first.
+self-owned references, validate fields, construct helper objects, and configure
+children.
 
-Cross-MonoBehaviour work — registering types with a root, subscribing to events,
-wiring up systems — belongs in `OnEnable()` or `Start()`. Unity guarantees all
-`Awake()` calls in a scene complete before any `OnEnable()` fires for those
-scene-loaded objects, so by `OnEnable()` every dependency is safe to touch.
+Cross-MonoBehaviour work belongs in `OnEnable()` or `Start()` unless the
+dependency is explicitly constructed and owned by the current component. This
+includes registering with roots, subscribing to events, and calling into other
+scene components.
 
-Violating this rule produces NullReferenceExceptions that look like logic errors
-but are actually execution-order problems. The symptom is a null field that is
-clearly initialized in the dependency's own `Awake()`.
+Unity guarantees all `Awake()` calls for scene-loaded objects complete before
+any `OnEnable()` fires, so `OnEnable()` is the safer boundary for touching other
+MonoBehaviours.
 
 ## Fail Fast Validation
 
@@ -60,45 +62,56 @@ Serialized fields that are required must be validated once at setup.
 
 Preferred:
 
-- required field is assigned in inspector
+- required field is assigned in the inspector
 - `Awake()` validates and throws a clear setup error if missing
 - gameplay methods assume dependencies are valid
 
 Avoid:
 
-- repeated null checks in `Update()`, `FixedUpdate()`, attack fire, spawn, or hit loops
+- repeated null checks in hot paths
 - allowing half-configured prefabs to keep running
-- disabling required gameplay components as a way to hide bad setup
+- disabling required gameplay components to hide bad setup
 - hiding bad setup with no-op behavior
 
-Use `OnValidate()` for editor feedback, but keep real runtime validation in setup too.
+Use `OnValidate()` for editor feedback, but keep real runtime validation in
+setup too.
 
 ## Unity Object Access
 
-Avoid repeated `FindObjectOfType`, `GameObject.Find`, tag scans, or broad scene searches on hot paths.
+Avoid repeated `FindObjectOfType`, `GameObject.Find`, tag scans, or broad scene
+searches on hot paths.
 
 Preferred:
 
 - serialized references
-- scene root binds services once
-- explicit registries for target groups
-- layer masks for broad Unity filtering
+- scene root binding
+- explicit registries
+- target proxy entities for combat collision
 - cached component references
+- layer masks for broad Unity filtering
 
-Reflection is only for editor tooling, tests, or diagnostics. Do not use reflection or string-built method lookup for gameplay decisions.
+Reflection is only for editor tooling, tests, or diagnostics. Do not use
+reflection or string-built method lookup for gameplay decisions.
 
 ## Update Timing
 
-Use `FixedUpdate()` for Rigidbody2D movement and physics-backed simulation.
+Use `FixedUpdate()` for Rigidbody2D movement and physics-backed actor behavior.
 
 Use `Update()` for:
 
 - input sampling
 - cooldowns that do not need fixed-step precision
 - camera follow smoothing unless physics coupling demands otherwise
+- target proxy push from player and mob roots
 - debug text updates
 
-Do not hide expensive setup inside repeated runtime calls. Scene/prefab baking, collider shape extraction, material setup, and pool creation should happen during setup, registration, or preload.
+Use `LateUpdate()` for queued target proxy deletion on actors. This keeps proxy
+entities valid through the simulation and presentation work that may still
+reference them in the current frame.
+
+Do not hide expensive setup inside repeated runtime calls. Scene/prefab baking,
+collider shape extraction, material setup, and pool creation should happen
+during setup, registration, or preload.
 
 ## Hybrid ECS/Scene Rule
 
@@ -115,29 +128,39 @@ Use data-oriented runtime worlds for high-count combat entities:
 - AOEs
 - beams/lasers
 - transient chained hit effects
+- combat VFX request streams
 
 Shared combat ECS components under `Assets/Scripts/System/Common/` must stay
-domain-neutral. Systems that consume them must also require a domain tag such
-as `ProjectileTag` or `AoeTag`; the shared `CombatScope` tag alone is not
-domain-specific (one `CombatScope` entity serves both projectile and AOE
-domains per faction), and common components alone should never opt an entity
-into projectile or AOE behavior.
+domain-neutral. Systems that consume them must also require a domain tag such as
+`ProjectileTag` or `AoeTag`. There is one shared `CombatScope` entity for
+combat, so scope membership and common components alone never imply domain or
+faction. Domain comes from domain tags. Faction comes from `CombatFaction`.
 
 Player and mob movement/collision should use Unity Physics2D. Projectile and AOE
-hit simulation should use target snapshots and baked shapes instead of thousands
-of live trigger objects.
+hit simulation should use target proxy entities and baked shapes instead of
+thousands of live trigger objects.
 
-Damage application must stay separate from internal ECS/core spawn payloads.
-Spawn-on-hit data (chained projectile/AOE follow-ups) and VFX request payloads
-stay on internal buffers distinct from damage: `CombatPendingSpawn` carries
-cross-domain spawn snapshots and is converted directly into
-`ProjectileSpawnRequestElement`/`AoeSpawnRequestElement` by
-`CombatSpawnConvertJob`, fully in ECS — it never crosses to managed code.
-`CombatPendingDamage`/`CombatDamageElement` carry only damage/crit/status data
-and are the one buffer that does cross to managed code, via
-`CombatHitDispatchSystem`. See [snapshotting.md](./snapshotting.md) for the
-full data model. Do not widen the damage buffer with spawn-routing fields, and
-do not widen spawn snapshots with target-replay-only data.
+Managed target references are restricted. `TargetCompanion` may exist on proxy
+entities, but only `DamageDispatchBridge` may read it to call
+`ICombatTarget.ReceiveHits`.
+
+## Combat Event Separation
+
+Damage application must stay separate from internal ECS spawn and VFX payloads.
+Keep these as distinct typed paths:
+
+- `ProjectileSpawnEvent` and `AoeSpawnEvent` carry spawn follow-up intent into
+  expansion systems.
+- `ProjectileSpawnCommand` and `AoeSpawnCommand` carry one-entity allocation
+  intent into apply systems.
+- `DamageReplayEvent` carries damage/crit/status replay data through
+  `DamageDispatchBridge.DamageQueue`.
+- `VfxPendingSpawn` and `VfxSpawnRequestElement` carry visual-only requests into
+  VFX dispatch.
+
+Do not widen damage events with spawn-routing fields. Do not widen spawn events
+with target-replay-only data. Do not route internal spawn follow-ups through
+managed target callbacks.
 
 ## ECS Lifecycle Comments
 
@@ -161,58 +184,47 @@ Combat paths should be allocation-light.
 
 Hot paths include:
 
-- projectile spawn
+- projectile spawn expansion and apply
 - projectile simulation
+- AOE spawn expansion and apply
 - AOE simulation
 - mob spawn
 - mob AI update
 - attack perform
+- damage dispatch
 - render batch update
+- VFX dispatch
 
-Use reusable lists, arrays, pools, Native containers, or Entities/DOTS where the
-system needs them. For high-volume projectile work, use Unity Entities plus
-Jobs/Burst.
+Use reusable lists, arrays, pools, native containers, or Entities/DOTS where the
+system needs them. For high-volume projectile and AOE work, use Unity Entities
+plus Jobs/Burst.
 
-The intended game has extreme spell scaling. Treat repeated allocations,
-Instantiate/Destroy churn, per-frame LINQ, closure captures, broad component
-lookups, and implicit array copies in combat code as bugs unless there is a
-measured reason they are harmless.
+Treat repeated allocations, Instantiate/Destroy churn, per-frame LINQ, closure
+captures, broad component lookups, and implicit array copies in combat code as
+bugs unless measurement proves they are harmless.
 
 ## Native And ECS Handle Ownership
 
-Any code that creates a native or ECS handle owns its cleanup unless it transfers
-ownership explicitly.
+Any code that creates a native, ECS, or GPU handle owns cleanup unless it
+transfers ownership explicitly.
 
 Examples:
 
 - `EntityQuery` created by `EntityManager.CreateEntityQuery(...)` must be
-  disposed by the owner, usually in `OnDestroy()` for MonoBehaviour-owned
-  queries.
-- `NativeArray`, `NativeList`, `NativeQueue`, `GraphicsBuffer`, and similar
-  native/GPU resources must be disposed or released on every teardown path.
+  disposed by the owner.
+- `NativeArray`, `NativeList`, `NativeQueue`, `NativeStream`,
+  `GraphicsBuffer`, and similar native/GPU resources must be disposed or
+  released on every teardown path.
 - A custom `World` added to the player loop must be removed from the player loop
   and disposed by the same ownership layer that created it.
 
-Bug example:
-
-- Before the projectile and AOE roots were merged into one `CombatRoot`, the
-  separate `ProjectileRoot` and `AoeRoot` each created scope entities,
-  `EntityQuery` handles, persistent submit buffers, and sometimes the shared
-  ECS world in their own `BindWorld()`. Teardown destroyed scoped entities and
-  buffers, but did not dispose the query handles or the custom world. Unity
-  then reported thousands of persistent leaks from `BindWorld()` and
-  `SubmitQuery<T>()`. The fix was to centralize combat-world ownership and make
-  root teardown dispose queries, dispose native buffers, destroy scoped
-  entities, and release the world — ownership now lives in one `CombatRoot`
-  per faction instead of being split across two classes.
-
 Avoid:
 
-- creating ECS queries repeatedly without a matching `Dispose()`
+- creating ECS queries repeatedly without matching `Dispose()`
 - creating a world from a root component without reference-counted ownership
 - relying on Unity playmode teardown to clean persistent native allocations
-- hiding cleanup behind `if (runtimeReady)` when a partial setup path may still
-  have allocated native handles
+- hiding cleanup behind a flag when a partial setup path may already have
+  allocated native handles
 
 ## Performance Budget Rule
 
@@ -220,8 +232,8 @@ Every scalable combat system should have an obvious budget and fallback path.
 
 Examples:
 
-- projectile visuals can degrade from individual pooled prefabs to batched sprites
-- particles can cap emissions or skip low-priority effects
+- projectile and AOE visuals use batched sprites for high counts
+- particles and VFX can cap emissions or skip low-priority effects
 - impact sounds can be culled by same-clip and priority rules
 - damage numbers and decals can be pooled and capped
 - beams can tick damage at authored intervals rather than every rendered frame
@@ -232,25 +244,32 @@ Debug counters should exist before content stress tests become hard to explain.
 
 Use ScriptableObjects for reusable authored data:
 
+- skill definitions
+- support definitions
 - mob behavior config
 - mob trigger config
 - spawn pools
-- attack definitions when reused across prefabs
-- damage type references
+- AOE and projectile definitions
+- damage/status references
 
-ScriptableObjects should not store per-instance mutable combat state unless they are intentionally runtime-created clones. Per-mob health, cooldowns, selected behavior, and target references belong on runtime state objects.
+ScriptableObjects should not store per-instance mutable combat state unless
+they are intentionally runtime-created clones. Per-mob health, cooldowns,
+selected behavior, target references, and runtime skill slot state belong on
+runtime objects.
 
 ## Debug UI Ownership
 
 Shared top-left debug text belongs to `DebugOverlay`.
 
-Gameplay objects may expose diagnostic data, but they should not write directly to the shared label.
+Gameplay objects may expose diagnostic data, but they should not write directly
+to the shared label.
 
 Per-object debug widgets can live under the object that owns the data.
 
 ## Test Hooks
 
-Do not add production-only metadata, flags, counters, or debug breadcrumbs just for tests.
+Do not add production-only metadata, flags, counters, or breadcrumbs just for
+tests.
 
 Tests should observe through:
 
