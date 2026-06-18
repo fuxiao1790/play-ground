@@ -9,20 +9,22 @@ namespace PlayGround.System.Projectile
 {
     // Drains ProjectileSpawnEvent from EventQueue (internal producers) and the scope
     // DynamicBuffer<ProjectileSpawnEvent> (managed submission), fans them out by Count/Spread/Jitter,
-    // and writes fully-resolved ProjectileSpawnCommand into PendingCommands for
-    // ProjectileSpawnApplySystem to consume.
+    // and writes fully-resolved ProjectileSpawnCommand into per-shape command
+    // containers for the matching apply systems to consume.
     // Built beside the old ProjectileMultiExpandSystem; inert until Task 004 wires producers.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(TimedProjectileSpawnSystem))]
     [UpdateAfter(typeof(ProjectileCollisionSystem))]
     [UpdateAfter(typeof(PlayGround.System.Aoe.AoeCollisionSystem))]
-    [UpdateBefore(typeof(ProjectileSpawnApplySystem))]
+    [UpdateBefore(typeof(BasicProjectileSpawnApplySystem))]
+    [UpdateBefore(typeof(ChildSpawnerProjectileSpawnApplySystem))]
     public partial class ProjectileSpawnExpansionSystem : SystemBase
     {
         private EntityQuery _scopeQuery;
 
         internal NativeQueue<ProjectileSpawnEvent> EventQueue;
-        internal NativeStream PendingCommands;
+        internal NativeQueue<ProjectileSpawnCommand> BasicProjectileCommandContainer;
+        internal NativeQueue<ProjectileSpawnCommand> ChildSpawnerProjectileCommandContainer;
         internal JobHandle PendingHandle;
 
         // Combined handle of every producer job that wrote EventQueue this frame
@@ -35,6 +37,8 @@ namespace PlayGround.System.Projectile
         protected override void OnCreate()
         {
             EventQueue = new NativeQueue<ProjectileSpawnEvent>(Allocator.Persistent);
+            BasicProjectileCommandContainer = new NativeQueue<ProjectileSpawnCommand>(Allocator.Persistent);
+            ChildSpawnerProjectileCommandContainer = new NativeQueue<ProjectileSpawnCommand>(Allocator.Persistent);
             _scopeQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CombatScope>(),
                 ComponentType.ReadWrite<ProjectileSpawnEvent>());
@@ -42,16 +46,16 @@ namespace PlayGround.System.Projectile
 
         protected override void OnDestroy()
         {
-            if (PendingCommands.IsCreated)
-                PendingCommands.Dispose();
+            PendingHandle.Complete();
+            if (BasicProjectileCommandContainer.IsCreated)
+                BasicProjectileCommandContainer.Dispose();
+            if (ChildSpawnerProjectileCommandContainer.IsCreated)
+                ChildSpawnerProjectileCommandContainer.Dispose();
             EventQueue.Dispose();
         }
 
         protected override void OnUpdate()
         {
-            if (PendingCommands.IsCreated)
-                PendingCommands.Dispose();
-
             Dependency.Complete();
 
             // Producers write EventQueue via ParallelWriter; their handles are not part of
@@ -69,7 +73,7 @@ namespace PlayGround.System.Projectile
             int totalEvents = queueCount + bufferCount;
             if (totalEvents == 0)
             {
-                PendingCommands = default;
+                PendingHandle = default;
                 return;
             }
 
@@ -87,12 +91,11 @@ namespace PlayGround.System.Projectile
                 buf.Clear();
             }
 
-            PendingCommands = new NativeStream(totalEvents, Allocator.TempJob);
-
             Dependency = new ProjectileExpansionJob
             {
                 Events = events,
-                Stream = PendingCommands.AsWriter()
+                BasicCommands = BasicProjectileCommandContainer.AsParallelWriter(),
+                ChildSpawnerCommands = ChildSpawnerProjectileCommandContainer.AsParallelWriter()
             }.Schedule(Dependency);
 
             Dependency = events.Dispose(Dependency);
@@ -103,14 +106,14 @@ namespace PlayGround.System.Projectile
         private struct ProjectileExpansionJob : IJob
         {
             [ReadOnly] public NativeArray<ProjectileSpawnEvent> Events;
-            public NativeStream.Writer Stream;
+            public NativeQueue<ProjectileSpawnCommand>.ParallelWriter BasicCommands;
+            public NativeQueue<ProjectileSpawnCommand>.ParallelWriter ChildSpawnerCommands;
 
             public void Execute()
             {
                 for (int ci = 0; ci < Events.Length; ci++)
                 {
                     ProjectileSpawnEvent evt = Events[ci];
-                    Stream.BeginForEachIndex(ci);
 
                     if (evt.Count <= 1)
                     {
@@ -130,8 +133,6 @@ namespace PlayGround.System.Projectile
                             WriteCommand(in evt, id, velocity);
                         }
                     }
-
-                    Stream.EndForEachIndex();
                 }
             }
 
@@ -145,7 +146,7 @@ namespace PlayGround.System.Projectile
                 render.RenderZ = CombatRoot.ProjectileRenderZ
                     - (projectileId % CombatRoot.ProjectileRenderZSlots) * CombatRoot.ProjectileRenderZStep;
 
-                Stream.Write(new ProjectileSpawnCommand
+                var command = new ProjectileSpawnCommand
                 {
                     Faction = evt.Faction,
                     ProjectileId = projectileId,
@@ -168,7 +169,12 @@ namespace PlayGround.System.Projectile
                     Render = render,
                     ChildSpawner = evt.ChildSpawner,
                     ChildSpawnState = evt.ChildSpawnState
-                });
+                };
+
+                if (evt.HasChildSpawner != 0)
+                    ChildSpawnerCommands.Enqueue(command);
+                else
+                    BasicCommands.Enqueue(command);
             }
 
             private static float SpreadAngle(float spread, int i, int count) =>
