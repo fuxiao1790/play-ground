@@ -5,6 +5,7 @@ using PlayGround.System.Projectile;
 using Unity.Core;
 using Unity.Entities;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace PlayGround.Tests.PlayMode
 {
@@ -29,7 +30,6 @@ namespace PlayGround.Tests.PlayMode
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
-            entityManager.AddBuffer<CombatDamageElement>(scopeEntity);
         }
 
         [TearDown]
@@ -44,13 +44,13 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void KeepsSameReachableTargetWhenAnotherTargetIsCloser()
         {
-            AddTarget(targetId: 100, position: new float2(0f, 50f), radius: 0.25f, targetMask: 1);
-            AddTarget(targetId: 101, position: new float2(10f, 0f), radius: 0.25f, targetMask: 1);
+            int reachableTargetId = AddTarget(position: new float2(0f, 50f), radius: 0.25f, targetMask: 1);
+            AddTarget(position: new float2(10f, 0f), radius: 0.25f, targetMask: 1);
             SpawnTrackedProjectile(
                 position: float2.zero,
                 velocity: new float2(0f, 10f),
                 turnSpeedRadians: math.radians(90f),
-                trackedTargetId: 100,
+                trackedTargetId: reachableTargetId,
                 trackedTargetIndex: 0,
                 trackedTargetPosition: new float2(0f, 50f));
 
@@ -58,19 +58,19 @@ namespace PlayGround.Tests.PlayMode
 
             ProjectileTrackingComponent tracking =
                 entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
-            Assert.That(tracking.TrackedTargetId, Is.EqualTo(100));
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(reachableTargetId));
         }
 
         [Test]
         public void KeepsCurrentTargetWhileStillInRange()
         {
-            AddTarget(targetId: 100, position: new float2(-5f, 0f), radius: 0.25f, targetMask: 1);
-            AddTarget(targetId: 101, position: new float2(20f, 0f), radius: 0.25f, targetMask: 1);
+            int currentTargetId = AddTarget(position: new float2(-5f, 0f), radius: 0.25f, targetMask: 1);
+            AddTarget(position: new float2(20f, 0f), radius: 0.25f, targetMask: 1);
             SpawnTrackedProjectile(
                 position: float2.zero,
                 velocity: new float2(10f, 0f),
                 turnSpeedRadians: math.radians(90f),
-                trackedTargetId: 100,
+                trackedTargetId: currentTargetId,
                 trackedTargetIndex: 0,
                 trackedTargetPosition: new float2(-5f, 0f));
 
@@ -78,14 +78,14 @@ namespace PlayGround.Tests.PlayMode
 
             ProjectileTrackingComponent tracking =
                 entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
-            Assert.That(tracking.TrackedTargetId, Is.EqualTo(100));
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(currentTargetId));
         }
 
         [Test]
         public void AcquiresForwardTargetInsteadOfNearestSideTarget()
         {
-            AddTarget(targetId: 100, position: new float2(0f, 10f), radius: 0.25f, targetMask: 1);
-            AddTarget(targetId: 101, position: new float2(40f, 0f), radius: 0.25f, targetMask: 1);
+            AddTarget(position: new float2(0f, 10f), radius: 0.25f, targetMask: 1);
+            int forwardTargetId = AddTarget(position: new float2(40f, 0f), radius: 0.25f, targetMask: 1);
             SpawnTrackedProjectile(
                 position: float2.zero,
                 velocity: new float2(10f, 0f),
@@ -95,7 +95,7 @@ namespace PlayGround.Tests.PlayMode
 
             ProjectileTrackingComponent tracking =
                 entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
-            Assert.That(tracking.TrackedTargetId, Is.EqualTo(101));
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(forwardTargetId));
         }
 
         [Test]
@@ -104,13 +104,12 @@ namespace PlayGround.Tests.PlayMode
             for (int i = 0; i < 500; i++)
             {
                 AddTarget(
-                    targetId: 1000 + i,
                     position: new float2(1000f + i * 2f, 1000f),
                     radius: 0.25f,
                     targetMask: 1);
             }
 
-            AddTarget(targetId: 200, position: new float2(0f, 40f), radius: 0.25f, targetMask: 1);
+            int nearbyTargetId = AddTarget(position: new float2(0f, 40f), radius: 0.25f, targetMask: 1);
             SpawnTrackedProjectile(
                 position: float2.zero,
                 velocity: new float2(0f, 10f),
@@ -120,13 +119,13 @@ namespace PlayGround.Tests.PlayMode
 
             ProjectileTrackingComponent tracking =
                 entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
-            Assert.That(tracking.TrackedTargetId, Is.EqualTo(200));
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(nearbyTargetId));
         }
 
         [Test]
         public void AcquiresImmediatelyWhenNoTargetDespiteCooldown()
         {
-            AddTarget(targetId: 300, position: new float2(0f, 40f), radius: 0.25f, targetMask: 1);
+            int targetId = AddTarget(position: new float2(0f, 40f), radius: 0.25f, targetMask: 1);
             SpawnTrackedProjectile(
                 position: float2.zero,
                 velocity: new float2(0f, 10f),
@@ -138,13 +137,13 @@ namespace PlayGround.Tests.PlayMode
 
             ProjectileTrackingComponent tracking =
                 entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
-            Assert.That(tracking.TrackedTargetId, Is.EqualTo(300));
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(targetId));
         }
 
         [Test]
         public void ReacquiresImmediatelyWhenTrackedTargetIsMissingDespiteCooldown()
         {
-            AddTarget(targetId: 401, position: new float2(0f, 40f), radius: 0.25f, targetMask: 1);
+            int targetId = AddTarget(position: new float2(0f, 40f), radius: 0.25f, targetMask: 1);
             SpawnTrackedProjectile(
                 position: float2.zero,
                 velocity: new float2(0f, 10f),
@@ -159,14 +158,14 @@ namespace PlayGround.Tests.PlayMode
 
             ProjectileTrackingComponent tracking =
                 entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
-            Assert.That(tracking.TrackedTargetId, Is.EqualTo(401));
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(targetId));
         }
 
         [Test]
         public void AcquisitionSpreadsIdenticalProjectilesAcrossEqualTargets()
         {
-            AddTarget(targetId: 500, position: new float2(-5f, 40f), radius: 0.25f, targetMask: 1);
-            AddTarget(targetId: 501, position: new float2(5f, 40f), radius: 0.25f, targetMask: 1);
+            AddTarget(position: new float2(-5f, 40f), radius: 0.25f, targetMask: 1);
+            AddTarget(position: new float2(5f, 40f), radius: 0.25f, targetMask: 1);
             var acquiredTargets = new HashSet<int>();
             var projectiles = new Entity[12];
 
@@ -261,19 +260,45 @@ namespace PlayGround.Tests.PlayMode
             return projectileEntity;
         }
 
-        private void AddTarget(int targetId, float2 position, float radius, int targetMask)
+        private int AddTarget(float2 position, float radius, int targetMask)
         {
-            entityManager.GetBuffer<CombatTargetElement>(scopeEntity).Add(new CombatTargetElement
+            Entity target = entityManager.CreateEntity(
+                typeof(TargetProxyTag),
+                typeof(TargetPosition),
+                typeof(TargetCollisionShape),
+                typeof(TargetFaction),
+                typeof(TargetCompanion));
+            entityManager.SetComponentData(target, new TargetPosition { Value = position });
+            entityManager.SetComponentData(target, new TargetCollisionShape
             {
-                Faction = CombatFaction.Player,
-                TargetId = targetId,
-                TargetMask = targetMask,
-                Position = position,
                 ShapeType = CombatShapeType.Circle,
                 Radius = radius,
+                HalfExtents = float2.zero,
                 BoundsMin = position - radius,
-                BoundsMax = position + radius
+                BoundsMax = position + radius,
+                Mask = targetMask
             });
+            entityManager.SetComponentData(target, new TargetFaction { Value = CombatFaction.Player });
+            entityManager.SetComponentData(target, new TargetCompanion { Target = new TestTarget(targetMask) });
+            return CombatTargetProxy.TargetKey(target);
+        }
+
+        private sealed class TestTarget : ICombatTarget
+        {
+            public TestTarget(int mask)
+            {
+                CombatTargetMask = mask;
+            }
+
+            public int TargetId => 0;
+            public Vector2 CombatTargetPosition => Vector2.zero;
+            public float CombatTargetRadius => 0.25f;
+            public Vector2 CombatTargetHalfExtents => Vector2.zero;
+            public float CombatTargetRotationRadians => 0f;
+            public CombatShapeType CombatTargetShapeType => CombatShapeType.Circle;
+            public int CombatTargetMask { get; }
+            public bool IsCombatTargetActive => true;
+            public void ReceiveHit(in CombatHitData hit) { }
         }
     }
 }

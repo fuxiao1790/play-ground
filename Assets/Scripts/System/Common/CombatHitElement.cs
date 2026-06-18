@@ -191,32 +191,12 @@ namespace PlayGround.System.Common
         public float VisualRotationDegrees { get; }
     }
 
-    // ECS Lifecycle: scope damage buffer; added at root setup; kept until root teardown; cleared during simulation/replay.
-    public struct CombatDamageElement : IBufferElementData
-    {
-        public CombatFaction Faction;
-        public int SourceId;
-        public int TypeId;
-        public int TargetId;
-        public float2 Position;
-        public CombatHitKind Kind;
-        public float DamageAmount;
-        public float CritChance;
-        public float CritMultiplier;
-        public bool DirectDamageEnabled;
-        public EntityId SourceNodeId;
-        public CombatStatusEffectSnapshot StackEffect;
-    }
-
-    // ECS Lifecycle: transient native damage payload; not added to entities; streamed during collision and flushed to scope buffers.
+    // ECS Lifecycle: transient native damage payload; not added to entities; enqueued during collision and drained by DamageDispatchBridge.
     public struct DamageReplayEvent
     {
-        public CombatFaction Faction;
-        public int SourceId;
-        public int TypeId;
         public Entity TargetProxy;
-        public int TargetId;
-        public float2 Position;
+        public float2 HitPosition;
+        public float2 HitDirection;
         public CombatHitKind Kind;
         public float DamageAmount;
         public float CritChance;
@@ -224,5 +204,7 @@ namespace PlayGround.System.Common
         public bool DirectDamageEnabled;
         public EntityId SourceNodeId;
         public CombatStatusEffectSnapshot StackEffect;
+        public int SourceId;
+        public int TypeId;
     }
 }

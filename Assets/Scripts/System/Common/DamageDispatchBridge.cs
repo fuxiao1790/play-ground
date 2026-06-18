@@ -2,14 +2,15 @@ using System.Collections.Generic;
 using PlayGround.Common;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Profiling;
 using UnityEngine;
 
 namespace PlayGround.System.Common
 {
-    // The only approved reader that crosses to managed ICombatTarget callbacks (design §8.4).
-    // Groups CombatDamageElement hits by (TargetId, Faction), rolls crit on the main thread,
-    // calls ReceiveHits on each live target, then clears the buffer.
+    // The only approved reader that crosses to managed ICombatTarget callbacks (design section 8.4).
+    // Groups DamageReplayEvent hits by target proxy Entity, rolls crit on the main thread,
+    // calls ReceiveHits on each live target, then clears the queue.
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     public partial class DamageDispatchBridge : SystemBase
     {
@@ -18,54 +19,98 @@ namespace PlayGround.System.Common
             new("DamageDispatchBridge.Damage", "Damage Events");
 
         private static readonly List<CombatHitData> hitDataScratch = new();
-        private EntityQuery scopeQuery;
+        private static readonly List<DamageReplayEvent> damageEventScratch = new();
+        private static readonly DamageReplayEventTargetComparer comparer = new();
+
+        internal NativeQueue<DamageReplayEvent> DamageQueue;
+        internal JobHandle ProducerHandle;
 
         protected override void OnCreate()
         {
-            scopeQuery = GetEntityQuery(ComponentType.ReadWrite<CombatDamageElement>());
+            DamageQueue = new NativeQueue<DamageReplayEvent>(Allocator.Persistent);
+        }
+
+        protected override void OnDestroy()
+        {
+            ProducerHandle.Complete();
+            if (DamageQueue.IsCreated)
+            {
+                DamageQueue.Dispose();
+            }
         }
 
         protected override void OnUpdate()
         {
             CompleteDependency();
-            using (Marker.Auto())
+            ProducerHandle.Complete();
+            ProducerHandle = default;
+
+            int damageCount = DamageQueue.Count;
+            if (damageCount == 0)
             {
-                Entity scope = scopeQuery.GetSingletonEntity();
-                DynamicBuffer<CombatDamageElement> damage = EntityManager.GetBuffer<CombatDamageElement>(scope);
-                using (DamageReplayMarker.Auto(damage.Length))
+                return;
+            }
+
+            var damageEvents = new NativeArray<DamageReplayEvent>(damageCount, Allocator.Temp);
+            try
+            {
+                int offset = 0;
+                while (DamageQueue.TryDequeue(out DamageReplayEvent damageEvent) && offset < damageEvents.Length)
                 {
-                    ReplayDamageAndClear(damage);
+                    damageEvents[offset++] = damageEvent;
                 }
+
+                DamageQueue.Clear();
+
+                using (Marker.Auto())
+                using (DamageReplayMarker.Auto(offset))
+                {
+                    ReplayDamage(damageEvents, offset, EntityManager);
+                }
+            }
+            finally
+            {
+                damageEvents.Dispose();
             }
         }
 
-        // Groups by (TargetId, Faction) — TargetId alone is not globally unique
-        // across factions, so the Faction tag disambiguates which faction's
-        // target dictionary to resolve the live target from.
-        private static void ReplayDamageAndClear(DynamicBuffer<CombatDamageElement> damageBuffer)
+        private static void ReplayDamage(
+            NativeArray<DamageReplayEvent> damageEvents,
+            int damageCount,
+            EntityManager entityManager)
         {
-            int hitCount = damageBuffer.Length;
-            int i = 0;
-            while (i < hitCount)
+            damageEventScratch.Clear();
+            if (damageEventScratch.Capacity < damageCount)
             {
-                int groupTargetId = damageBuffer[i].TargetId;
-                CombatFaction groupFaction = damageBuffer[i].Faction;
-                ICombatTarget target = null;
-                if (CombatRoot.TryGetByFaction(groupFaction, out CombatRoot root) && root.TargetsById != null)
+                damageEventScratch.Capacity = damageCount;
+            }
+
+            for (int i = 0; i < damageCount; i++)
+            {
+                DamageReplayEvent damageEvent = damageEvents[i];
+                if (damageEvent.TargetProxy != Entity.Null)
                 {
-                    TryGetLiveTarget(root.TargetsById, groupTargetId, out target);
+                    damageEventScratch.Add(damageEvent);
                 }
+            }
+
+            damageEventScratch.Sort(comparer);
+
+            int hitCount = damageEventScratch.Count;
+            int groupIndex = 0;
+            while (groupIndex < hitCount)
+            {
+                Entity targetProxy = damageEventScratch[groupIndex].TargetProxy;
+                ICombatTarget target = ResolveTarget(entityManager, targetProxy);
                 hitDataScratch.Clear();
 
-                while (i < hitCount
-                    && damageBuffer[i].TargetId == groupTargetId
-                    && damageBuffer[i].Faction == groupFaction)
+                while (groupIndex < hitCount && damageEventScratch[groupIndex].TargetProxy == targetProxy)
                 {
-                    CombatDamageElement damageEvent = damageBuffer[i++];
-                    DamageSnapshot damage = RollDamage(in damageEvent);
+                    DamageReplayEvent damageEvent = damageEventScratch[groupIndex++];
+                    DamageSnapshot damage = RollDamage(damageEvent);
                     hitDataScratch.Add(new CombatHitData(
                         damageEvent.Kind, damage,
-                        new Vector2(damageEvent.Position.x, damageEvent.Position.y),
+                        new Vector2(damageEvent.HitPosition.x, damageEvent.HitPosition.y),
                         damageEvent.DirectDamageEnabled, damageEvent.StackEffect,
                         damageEvent.SourceNodeId));
                 }
@@ -76,10 +121,11 @@ namespace PlayGround.System.Common
                 }
             }
 
-            damageBuffer.Clear();
+            damageEventScratch.Clear();
+            hitDataScratch.Clear();
         }
 
-        private static DamageSnapshot RollDamage(in CombatDamageElement hit)
+        private static DamageSnapshot RollDamage(in DamageReplayEvent hit)
         {
             float baseAmount = Mathf.Max(0f, hit.DamageAmount);
             bool isCrit = UnityEngine.Random.value < hit.CritChance;
@@ -87,23 +133,33 @@ namespace PlayGround.System.Common
             return new DamageSnapshot(Mathf.Max(0f, rolledAmount), isCrit);
         }
 
-        private static bool TryGetLiveTarget(
-            IReadOnlyDictionary<int, ICombatTarget> targetsById,
-            int targetId,
-            out ICombatTarget target)
+        private static ICombatTarget ResolveTarget(EntityManager entityManager, Entity targetProxy)
         {
-            if (targetsById.TryGetValue(targetId, out target) && IsTargetUsable(target))
+            if (targetProxy == Entity.Null
+                || !entityManager.Exists(targetProxy)
+                || !entityManager.HasComponent<TargetCompanion>(targetProxy))
             {
-                return true;
+                return null;
             }
 
-            target = null;
-            return false;
+            TargetCompanion companion = entityManager.GetComponentObject<TargetCompanion>(targetProxy);
+            return companion?.Target;
         }
 
         private static bool IsTargetUsable(ICombatTarget target) =>
             target != null
             && (target is not UnityEngine.Object unityObject || unityObject != null)
             && target.IsCombatTargetActive;
+
+        private sealed class DamageReplayEventTargetComparer : IComparer<DamageReplayEvent>
+        {
+            public int Compare(DamageReplayEvent x, DamageReplayEvent y)
+            {
+                int indexCompare = x.TargetProxy.Index.CompareTo(y.TargetProxy.Index);
+                return indexCompare != 0
+                    ? indexCompare
+                    : x.TargetProxy.Version.CompareTo(y.TargetProxy.Version);
+            }
+        }
     }
 }

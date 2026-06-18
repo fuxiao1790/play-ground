@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using PlayGround.System.Aoe;
 using PlayGround.System.Common;
@@ -6,6 +7,7 @@ using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace PlayGround.Tests.PlayMode
 {
@@ -14,10 +16,13 @@ namespace PlayGround.Tests.PlayMode
         private World testWorld;
         private EntityManager entityManager;
         private SimulationSystemGroup simGroup;
+        private PresentationSystemGroup presentationGroup;
         private Entity scopeEntity;
         private double elapsedTime;
         private int nextAoeId;
         private int nextTargetId = 5000;
+        private readonly Dictionary<int, TestCombatTarget> targetsById = new();
+        private int lastHitCount;
 
         [SetUp]
         public void SetUp()
@@ -33,10 +38,13 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoeCollisionSystem>());
             simGroup.SortSystems();
 
+            presentationGroup = testWorld.GetOrCreateSystemManaged<PresentationSystemGroup>();
+            presentationGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<DamageDispatchBridge>());
+            presentationGroup.SortSystems();
+
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             entityManager.AddBuffer<CombatTargetElement>(scopeEntity);
             entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
-            entityManager.AddBuffer<CombatDamageElement>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
         }
 
@@ -157,10 +165,12 @@ namespace PlayGround.Tests.PlayMode
 
         private void Tick(float dt)
         {
-            entityManager.GetBuffer<CombatDamageElement>(scopeEntity).Clear();
+            int hitsBefore = TotalHitCount();
             elapsedTime += dt;
             testWorld.SetTime(new TimeData(elapsedTime, dt));
             simGroup.Update();
+            presentationGroup.Update();
+            lastHitCount = TotalHitCount() - hitsBefore;
         }
 
         private void SpawnCircle(float2 position, float radius, float damage,
@@ -192,29 +202,59 @@ namespace PlayGround.Tests.PlayMode
 
         private void AddTargetById(float2 position, float radius, int targetMask, int targetId)
         {
-            float2 min = position - radius;
-            float2 max = position + radius;
-            entityManager.GetBuffer<CombatTargetElement>(scopeEntity).Add(new CombatTargetElement
+            if (!targetsById.TryGetValue(targetId, out TestCombatTarget target))
             {
-                Faction = CombatFaction.Player,
-                TargetId = targetId,
-                TargetMask = targetMask,
-                Position = position,
-                ShapeType = CombatShapeType.Circle,
-                Radius = radius,
-                HalfExtents = float2.zero,
-                BoundsMin = min,
-                BoundsMax = max
-            });
+                target = new TestCombatTarget(targetId);
+                target.Proxy = entityManager.CreateEntity(
+                    typeof(TargetProxyTag),
+                    typeof(TargetPosition),
+                    typeof(TargetCollisionShape),
+                    typeof(TargetFaction),
+                    typeof(TargetCompanion));
+                entityManager.SetComponentData(target.Proxy, new TargetFaction { Value = CombatFaction.Player });
+                entityManager.SetComponentData(target.Proxy, new TargetCompanion { Target = target });
+                targetsById.Add(targetId, target);
+            }
+
+            target.Position = position;
+            target.Radius = radius;
+            target.Mask = targetMask;
+            WriteTargetProxy(target);
         }
 
         private void ReplaceTarget(int targetId, float2 position, float radius, int targetMask)
         {
-            entityManager.GetBuffer<CombatTargetElement>(scopeEntity).Clear();
             AddTargetById(position, radius, targetMask, targetId);
         }
 
-        private int ReadHitCount() => entityManager.GetBuffer<CombatDamageElement>(scopeEntity).Length;
+        private int ReadHitCount() => lastHitCount;
+
+        private int TotalHitCount()
+        {
+            int count = 0;
+            foreach (TestCombatTarget target in targetsById.Values)
+            {
+                count += target.HitCount;
+            }
+
+            return count;
+        }
+
+        private void WriteTargetProxy(TestCombatTarget target)
+        {
+            float2 min = target.Position - target.Radius;
+            float2 max = target.Position + target.Radius;
+            entityManager.SetComponentData(target.Proxy, new TargetPosition { Value = target.Position });
+            entityManager.SetComponentData(target.Proxy, new TargetCollisionShape
+            {
+                ShapeType = CombatShapeType.Circle,
+                Radius = target.Radius,
+                HalfExtents = float2.zero,
+                BoundsMin = min,
+                BoundsMax = max,
+                Mask = target.Mask
+            });
+        }
 
         private int ActiveAoeCount()
         {
@@ -236,6 +276,37 @@ namespace PlayGround.Tests.PlayMode
             using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
             Assert.That(entities.Length, Is.GreaterThan(0), "No AOE entities found.");
             return entities[0];
+        }
+
+        private sealed class TestCombatTarget : ICombatTarget
+        {
+            public TestCombatTarget(int targetId)
+            {
+                TargetId = targetId;
+            }
+
+            public Entity Proxy { get; set; }
+            public float2 Position { get; set; }
+            public float Radius { get; set; }
+            public int Mask { get; set; }
+            public int HitCount { get; private set; }
+            public int TargetId { get; }
+            public Entity CombatTargetProxy
+            {
+                get => Proxy;
+                set => Proxy = value;
+            }
+            public Vector2 CombatTargetPosition => new(Position.x, Position.y);
+            public float CombatTargetRadius => Radius;
+            public Vector2 CombatTargetHalfExtents => Vector2.zero;
+            public float CombatTargetRotationRadians => 0f;
+            public CombatShapeType CombatTargetShapeType => CombatShapeType.Circle;
+            public int CombatTargetMask => Mask;
+            public bool IsCombatTargetActive => true;
+            public void ReceiveHit(in CombatHitData hit)
+            {
+                HitCount++;
+            }
         }
     }
 }

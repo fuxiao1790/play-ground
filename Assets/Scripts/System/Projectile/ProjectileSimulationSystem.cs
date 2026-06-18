@@ -9,7 +9,6 @@ namespace PlayGround.System.Projectile
     public partial struct ProjectileSimulationSystem : ISystem
     {
         private EntityQuery projectileQuery;
-        private EntityQuery scopeQuery;
 
         public void OnCreate(ref SystemState state)
         {
@@ -17,19 +16,11 @@ namespace PlayGround.System.Projectile
                 ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
                 ComponentType.ReadOnly<Active>());
-            scopeQuery = state.GetEntityQuery(ComponentType.ReadOnly<CombatScope>());
         }
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            if (scopeQuery.IsEmptyIgnoreFilter)
-            {
-                return;
-            }
-
-            Entity scope = scopeQuery.GetSingletonEntity();
-            state.EntityManager.GetBuffer<CombatDamageElement>(scope).Clear();
         }
 
         public int ActiveCount(ref SystemState state)
