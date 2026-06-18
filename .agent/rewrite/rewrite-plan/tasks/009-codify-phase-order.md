@@ -1,3 +1,5 @@
+> **LANDED (Increment 1) — superseded by [tasks/016](016-codify-phase-order.md).** Implemented in code, but it codifies a single `CombatDamageElement` clear owner and no proxy lifecycle. Increment 2's order removes the damage-buffer clear (the buffer is gone), adds proxy push (`Update`)/delete (`LateUpdate`) and the damage-queue finalize. Authoritative: `../context/004`.
+
 # Task 009: Codify the §9 phase order and audit native-container phase rules
 
 ## Execution Role

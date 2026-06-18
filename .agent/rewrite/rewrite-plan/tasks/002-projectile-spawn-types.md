@@ -1,3 +1,5 @@
+> **LANDED (Increment 1) — superseded names.** Implemented in code, but it introduced `ProjectileSpawnCommandData` (and kept managed `ProjectileSpawnCommand`). Increment 2 renames: managed → `ProjectileSpawnRequest`, ECS one-entity → `ProjectileSpawnCommand` ([tasks/012](012-event-command-rename.md)). Authoritative shapes: `../context/002` §1.1–1.2.
+
 # Task 002: Add projectile spawn event/command types + transport scaffolding (additive)
 
 ## Execution Role

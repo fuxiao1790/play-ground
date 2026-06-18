@@ -1,6 +1,18 @@
 # Context 001 — Current Architecture
 
-Snapshot of the combat spawn / event / damage / lifetime cluster **as it exists today**, grounded in real files. Read this before any task so you understand what you are changing away from.
+> **Status banner (read first).** This file documents the **pre-Increment-1** cluster — the original "mess" the rewrite started from. Increment 1 (tasks 001–010) is now **landed in code**, so the literal symbols below (`ProjectileSpawnRequestElement`, `ProjectileMultiExpandSystem`, `CombatSpawnConvertJob`, the split lifetime systems, etc.) **no longer exist**. Keep this file as the historical "from" picture and for the relocated-logic references it still names accurately.
+>
+> **What Increment 2 actually changes from (the Increment-1 end-state):**
+> - typed spawn pipeline exists: `ProjectileSpawnEvent` + `ProjectileSpawnCommandData` (awkward suffix), `TimedProjectileSpawnSystem`, `ProjectileSpawnExpansionSystem`, a **single bucketed** `ProjectileSpawnApplySystem`; AoE mirror; `CombatSpawnConvertJob`/`CombatPendingSpawn` already deleted;
+> - occupancy is still **per-domain** `ProjectileActiveTag` / `AoeActiveTag` (Increment 2 → generic `Active`, Task 011);
+> - spawn types use the **`...CommandData`** name and the managed authoring types are still called **`...SpawnCommand`** (Increment 2 → Event/Command rename, Task 012);
+> - damage still flows `NativeStream → CombatHitFlushJob → CombatDamageElement` buffer, keyed by **`(TargetId, Faction)`**, dispatched by `DamageDispatchBridge` via the `targetsById` dictionary (Increment 2 → `Entity`-keyed `NativeQueue` transport + proxy/companion, Tasks 014/015);
+> - targets are still synced into the **`CombatTargetElement`** buffer by `CombatTargetSyncSystem` (Increment 2 → proxy entities, Task 014);
+> - lifetime is already unified (`CombatLifetimeSystem` + `AoePulseVfxSystem`).
+>
+> The "Disposition" notes further down reflect the **Increment-1** plan; the authoritative end-state is now `context/002` + `context/005`.
+
+Snapshot of the combat spawn / event / damage / lifetime cluster **as it existed before Increment 1**, grounded in real files. Read this for the "from" picture and the relocated-logic references.
 
 All paths are under `Assets/Scripts/`. Namespaces: `PlayGround.System.Common`, `PlayGround.System.Projectile`, `PlayGround.System.Aoe`, `PlayGround.System.Vfx`.
 

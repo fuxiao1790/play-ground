@@ -1,3 +1,5 @@
+> **LANDED (Increment 1) — superseded structure.** Implemented in code as a single bucketed `ProjectileSpawnApplySystem` over per-domain active tags + `...CommandData`. Increment 2 changes all three: generic `Active` ([tasks/011](011-generic-active.md)), Event/Command rename ([tasks/012](012-event-command-rename.md)), and **one apply system per shape** ([tasks/013](013-per-shape-apply.md)). Authoritative: `../context/002` §2 + `../context/005` D-SHAPE-EXPLICIT.
+
 # Task 003: Add ProjectileSpawnExpansionSystem + ProjectileSpawnApplySystem (built beside the old pipeline)
 
 ## Execution Role

@@ -1,3 +1,5 @@
+> **LANDED (Increment 1) — partly superseded.** Implemented in code. The lifetime unification stands, but it still uses per-domain active tags; Increment 2 replaces those with the generic `Active` ([tasks/011](011-generic-active.md)). Authoritative end-state: `../context/002` + `../context/005`.
+
 # Task 001: Unify projectile & AoE lifetime into one generic system
 
 ## Execution Role

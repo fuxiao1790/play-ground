@@ -1,3 +1,5 @@
+> **SUPERSEDED (Increment 2).** This task's churn-avoiding decisions — keep `(TargetId, Faction)` identity, **preserve** `CombatHitFlushJob` + the `CombatDamageElement` buffer, rename-only — are reversed by the direction-fidelity revision. The authoritative damage end-state is now **`Entity`-keyed `DamageReplayEvent` + `NativeQueue → NativeArray` transport + proxy/companion**, with `CombatHitFlushJob` and `CombatDamageElement` **deleted**. See [tasks/015](015-damage-transport.md) and [tasks/014](014-proxy-target-bridge.md), and `../context/005-decision-log.md` → D-DAMAGE-TRANSPORT / D-PROXY-ENTITY (which supersede D1 and D-DAMAGE-CLEAR). The text below is retained for history of the landed Increment-1 rename only.
+
 # Task 008: Reshape damage replay to the contract (DamageReplayEvent + DamageDispatchBridge); single damage-clear owner
 
 ## Execution Role

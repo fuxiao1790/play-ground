@@ -1,3 +1,5 @@
+> **LANDED (Increment 1) — superseded by [tasks/017](017-tests-and-validation.md).** Implemented against the Increment-1 architecture (per-domain tags, `...CommandData`, `CombatDamageElement` damage, `CombatTargetElement` targets). Increment 2 migrates these to `Active`, Event/Command names, proxy entities, and `Entity`-keyed damage. Authoritative: `../context/006`.
+
 # Task 010: Test migration + new coverage for the rewritten pipeline
 
 ## Execution Role

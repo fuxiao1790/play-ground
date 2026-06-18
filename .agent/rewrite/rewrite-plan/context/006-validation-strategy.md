@@ -2,43 +2,49 @@
 
 How to validate each task and the whole rewrite. The project is a Unity Entities (DOTS) project; "compile" means the Unity Editor recompiles the `PlayGround.Runtime` assembly with no errors, and Burst compiles the jobs.
 
+Scope note: this is **Increment 2** (direction-fidelity). The spawn/event/lifetime spine already compiles and is tested (Increment 1). Each Increment-2 task changes a working baseline, so the bar is **keep the suite green after every task** while the architecture moves to the design.
+
 ---
 
 ## Compile validation
-- After every task, the Unity Editor must recompile with **zero errors**. There is no headless build step in the task instructions; the implementer (or the reviewing agent) confirms via the Editor console or by ensuring the changed `.cs` files reference only existing symbols.
-- Burst: jobs marked `[BurstCompile]` must use only unmanaged types. `ProjectileSpawnEvent`/`ProjectileSpawnCommandData`/`AoeSpawnEvent`/`AoeSpawnCommandData`/`DamageReplayEvent` are plain structs of blittable fields + existing blittable snapshot structs — keep them Burst-safe (no managed refs).
-- Watch for: a struct used in both `NativeQueue<T>` and `DynamicBuffer<T>` must implement `IBufferElementData` and contain no managed fields.
+- After every task, the Unity Editor must recompile with **zero errors**.
+- Burst: `ProjectileSpawnEvent`/`ProjectileSpawnCommand`/`AoeSpawnEvent`/`AoeSpawnCommand`/`DamageReplayEvent` are plain blittable structs (no managed refs). `DamageReplayEvent` now carries `Entity TargetProxy` (blittable) — still Burst-safe.
+- The `TargetCompanion` managed companion is a **class `IComponentData`** (managed component) — it is NOT touched by any `[BurstCompile]` job; only `DamageDispatchBridge` (main thread) reads it.
+- A struct used in both `NativeQueue<T>` and `DynamicBuffer<T>` (the `...SpawnEvent` types) must implement `IBufferElementData` and contain no managed fields.
 
 ## Unit / integration tests (Unity Test Runner)
-Canonical pattern: `Assets/Tests/PlayMode/AoeSimulationTests.cs` — construct a bare `World`, add the relevant systems to a `SimulationSystemGroup`, manually create a scope entity with the needed buffers, drive `Tick(dt)`, assert on buffer contents / entity counts.
+Canonical pattern: `AoeSimulationTests.cs` — bare `World`, systems added to a `SimulationSystemGroup`, manual scope entity, `Tick(dt)`, assert.
 
-Existing tests that MUST keep passing (update their system lists / buffer names as types change):
-- `AoeSimulationTests.cs` — AoE spawn/lifetime/collision; adds `AoeSimulationSystem`, `AoeSpawnSystem`, `AoeContactGateSystem`, `AoeLifetimeSystem`, `AoeCollisionSystem`; creates scope buffers `CombatTargetElement`, `AoeSpawnRequestElement`, `CombatDamageElement`, `VfxSpawnRequestElement`. After the rewrite these become `AoeSpawnExpansionSystem` + `AoeSpawnApplySystem`, `CombatLifetimeSystem`, and the scope buffer `AoeSpawnRequestElement` → `AoeSpawnEvent`.
-- `ProjectileTrackingSimulationTests.cs` — projectile movement/tracking (largely unchanged, but if it spawns via the buffer it must use `ProjectileSpawnEvent`).
+Existing tests that MUST keep passing (update system lists / type names / occupancy flag as each task lands):
+- `AoeSimulationTests.cs` — switch occupancy assertions from `AoeActiveTag` → `Active` (Task 011); `AoeSpawnCommandData` → `AoeSpawnCommand` (Task 012); damage assertions move from the `CombatDamageElement` buffer to the finalized `NativeArray<DamageReplayEvent>` / a test bridge hook (Task 015); targets become **proxy entities** rather than `CombatTargetElement` rows (Task 014) — `AddTarget` creates a proxy.
+- `ProjectileTrackingSimulationTests.cs`, `ProjectileSpawnPipelineTests.cs` — occupancy flag + command-name updates; spawn via `ProjectileSpawnEvent`.
 - `AoePlayModeTests.cs`, `BareMinimumPrototypePlayModeTests.cs`.
-- EditMode: `CritEditModeTests.cs` (crit roll lives in the dispatch bridge — unchanged), `ProjectileAuthoringEditModeTests.cs`, `SkillValidationEditModeTests.cs`.
+- EditMode: `CritEditModeTests.cs` (crit roll stays in the bridge), `ProjectileAuthoringEditModeTests.cs`, `SkillValidationEditModeTests.cs` — update to the renamed authoring Event types (Task 012).
 
-New tests to add (Task 010):
-1. **Expansion fan-out:** enqueue one `ProjectileSpawnEvent` with `Count=3, SpreadDegrees>0` → after expansion+apply, exactly 3 active projectiles with distinct ids and spread velocities; assert no command carries `Count` (structural — the type has no such field).
-2. **Event/command split:** a `Count==1` event yields exactly one entity; a timed-child event yields `HasChildSpawner==0` children.
-3. **Next-tick spawn (R5):** a projectile that spawns an impact projectile on hit — the impact projectile does NOT collide/move on the same tick (assert it exists but its position/hit-count is unchanged until the next `Tick`).
-4. **Unified lifetime — pulse:** a pulse AoE (`Lifetime<=0`, `CombatLifetimeComponent` disabled) is hit once then deactivated the same tick (port `PulseHitsOverlappingTargetOnce`); a lingering AoE counts down and expires (port `LingeringExpiresAndDeactivates`).
-5. **Reuse:** spawn → expire → spawn reuses the same entity (port `PulseEntityIsReusedOnRespawn`).
-6. **Convert-elimination parity:** an impact-AoE-on-projectile-hit produces the same AoE (type, position, lifetime, damage) it produced before the refactor (golden-value assertion).
+New tests to add (Task 017):
+1. **Generic `Active` reuse:** spawn → expire (disable `Active`) → spawn reuses the same entity via `WithDisabled<Active>`; both domains.
+2. **Event/Command naming + split:** a `Count==1` event yields one entity; the command type has no `Count` field (structural); per-shape container routing puts child-spawner projectiles through the child-spawner apply system only.
+3. **Per-shape apply:** a basic projectile never lands in the child-spawner archetype and vice-versa; each apply system reuses only its own shape's disabled slots.
+4. **Proxy lifecycle:** creating a target makes a proxy entity; pushing position updates `TargetPosition`; deleting the target removes the proxy before the next collision; collision reads the proxy.
+5. **Entity-keyed damage:** a hit produces a `DamageReplayEvent` whose `TargetProxy` equals the hit proxy entity; dispatch resolves it via `TargetCompanion` to the right `ICombatTarget`; atomic per-hit and group-by-proxy preserved; crit roll unchanged (`CritEditModeTests` still green).
+6. **Proxy deletion safety (R5/§8.3):** a target that dies during dispatch does not delete its proxy until after dispatch; no event references a missing proxy.
+7. **Convert-elimination parity** (carried from Increment 1): impact-AoE-on-hit golden values unchanged.
 
 ## Manual gameplay / editor scenarios
-- Open `Assets/Scenes/Main.unity`, enter Play mode. Fire the player's projectile attacks (held fire performs all ready attacks). Confirm: projectiles appear, move, hit mobs, deal damage; multi-shot/fan attacks produce the right shot count; child-spawning projectiles still spawn children over time; impact AOEs and impact-projectile bursts still appear on hit; mob projectiles damage the player.
-- Watch the `DebugOverlay` counters: active projectiles, projectile sim ms, active AOEs, spawned/despawned per second, managed allocations per frame.
+- `Main.unity`, Play mode: fire player attacks; confirm projectiles move/hit/damage; multi-shot counts; child spawns; impact AOEs and impact-projectile bursts; mob projectiles damage the player; **targets take damage resolved through their proxy/companion** (no NRE on death, death animation still plays after proxy deletion).
+- `DebugOverlay` counters: active projectiles, sim ms, active AOEs, spawn/despawn rate, managed allocations per frame (must stay flat — companion is read only at dispatch).
 
 ## Profiling checks (Unity Profiler)
-- Markers to watch (existing): `Projectile.Spawn`, `Projectile.Spawn.ReuseJob`, `Aoe.Spawn`, `Aoe.Spawn.ReuseJob`, and counters `Projectile.Spawn.Cold` / `Projectile.Spawn.Reuse`. Keep equivalents on the new apply systems so regressions are visible.
-- **Entities → Structural Changes** module: cold-create should remain the exceptional path (one ECB playback per apply system per frame). No new per-entity add/remove during reuse.
-- Allocation: no new per-frame managed allocations in the spawn path (no LINQ, no closures in `OnUpdate`); reuse the bucket/list pools as the current systems do.
-- Performance target context (Docs/architecture.md): ~50k projectiles, 20 targets, 120 fps. The rewrite must not regress spawn/sim ms at scale; profile a stress scene before and after Phase 2/3.
+- Existing markers: `Projectile.Spawn`, `.ReuseJob`, `Aoe.Spawn`, Cold/Reuse counters — keep equivalents on the per-shape apply systems.
+- **Structural Changes** module: cold-create stays the exceptional path (one ECB playback per apply system per frame); proxy create/delete is one structural change per target enable/disable, not per frame.
+- Allocation: no new per-frame managed allocations. The `TargetCompanion` is read once per damaged-target group at presentation — no per-hit managed allocation.
+- Performance target (Docs/architecture.md): ~50k projectiles, 20 targets, 120 fps. Don't regress spawn/sim ms; the proxy spatial query must match or beat the old `CombatTargetElement` hash. Profile a stress scene before/after Phases C–E.
 
 ## Expected failure modes & debugging hints
-- **Same-frame recursion / spawn explosion:** if a newly spawned entity moves/collides the same tick, ordering invariant 1 (next-tick) is broken — check that apply runs after all collision/lifetime/movement.
-- **Lost spawns:** if attacks fire but nothing appears, the expansion finalize is probably not draining BOTH the queue and the scope buffer, or the producers are writing a different queue instance than the one expansion drains (confirm `World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>()` returns the same instance).
-- **Double damage / no damage:** confirm exactly one system clears `CombatDamageElement`, and the bridge clears after replay.
-- **Pulse AoE never hits or hits forever:** confirm pulse AOEs spawn with `CombatLifetimeComponent` disabled and are deactivated by collision; confirm the unified lifetime query excludes disabled-lifetime entities.
-- **Container leaks (Unity logs "N persistent allocations"):** every `NativeQueue`/`NativeArray`/`NativeStream` created by a system must be disposed in `OnDestroy` (and per-frame temporaries disposed each frame), matching the current `ProjectileMultiExpandSystem`/`ProjectileSpawnSystem` disposal discipline. Cross-check `Docs/coding-standards.md` "Native And ECS Handle Ownership".
+- **Same-frame recursion:** newly spawned entity acts the same tick → ordering invariant 1 broken.
+- **Lost spawns:** expansion finalize not draining BOTH the queue and the scope buffer, or producers write a different queue instance than expansion drains.
+- **No damage / NRE on dispatch:** `TargetProxy` resolves to a deleted proxy (proxy deleted before dispatch — violates §8.3 ordering), or the `TargetCompanion` lookup misses; confirm proxies are deleted in `LateUpdate`, after dispatch.
+- **Double / missing damage:** the damage `NativeQueue` not cleared after the bridge reads it, or read while collisions still write (missing finalize sync).
+- **Wrong target hit:** proxy spatial query stale because the GameObject didn't push position before simulation (Task 016 ordering).
+- **Container leaks:** every `NativeQueue`/`NativeArray`/`NativeStream` (spawn queues, per-shape command containers, damage queue) disposed in `OnDestroy`; per-frame temporaries disposed each frame. Cross-check `Docs/coding-standards.md` "Native And ECS Handle Ownership".
+- **Burst error on companion:** a job tried to touch `TargetCompanion` — only the main-thread bridge may (§8.4).

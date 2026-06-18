@@ -1,3 +1,5 @@
+> **LANDED (Increment 1) — partly superseded.** Implemented in code. The cutover stands, but collision still uses per-domain active tags and writes `(TargetId,Faction)` damage. Increment 2 moves collision to generic `Active` ([tasks/011](011-generic-active.md)) and `Entity`-keyed damage over proxies ([tasks/014](014-proxy-target-bridge.md), [tasks/015](015-damage-transport.md)). Authoritative: `../context/002`/`../context/003`.
+
 # Task 004: Cut projectile producers over to events; delete the old projectile spawn pipeline
 
 ## Execution Role

@@ -1,3 +1,5 @@
+> **LANDED (Increment 1) — partly superseded.** Implemented in code. The cutover stands, but it uses per-domain active tags + `...CommandData`. Increment 2 applies generic `Active` ([tasks/011](011-generic-active.md)) and the Event/Command rename ([tasks/012](012-event-command-rename.md)). Authoritative: `../context/002`/`../context/003`.
+
 # Task 006: Cut AoE producers over to events; delete the old AoE spawn path
 
 ## Execution Role

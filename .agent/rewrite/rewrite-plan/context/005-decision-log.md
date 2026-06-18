@@ -1,167 +1,230 @@
 # Context 005 — Decision Log
 
-Settled decisions made during planning. **Do not reopen these during implementation.** Each task that touches the area must follow the decision.
+Settled decisions. **Do not reopen these during implementation.** Each task that touches the area must follow the decision.
+
+## Governing principle (overrides the prior revision of this plan)
+
+The rewrite's single highest priority is a **sound future architecture** that faithfully realizes the direction (`.agent/rewrite/design.md` / `design-points.md`). The old systems mostly *work*; what is unacceptable is the *architecture*. Therefore:
+
+> **Preserve old logic, not old architecture.** Churn is acceptable. Temporary breakage of working behavior during the rewrite is acceptable, provided the end-state architecture matches the direction. "It already works / merging is wide churn / it's out-of-scope to rename" is **not** a valid reason to diverge from the direction.
+
+The previous revision of this plan made several decisions that traded architectural fidelity for reduced churn. Those are **reversed** here and superseded:
+
+| Old decision | Status | Superseded by |
+|---|---|---|
+| D-NAMING (keep managed `...SpawnCommand`; ECS uses `...CommandData`) | **reversed** | D-NAMING-EVENTCMD |
+| D1 (keep `TargetId`+`Faction`; no proxy entities) | **reversed** | D-PROXY-ENTITY |
+| D2 (keep per-domain active tags; defer generic `Active`) | **reversed** | D-ACTIVE-GENERIC |
+| D-SHAPE-BUCKETING (one bucketed apply system) | **reversed** | D-SHAPE-EXPLICIT |
+| D-DAMAGE-CLEAR (single `CombatDamageElement` clear owner) | **obsolete** | D-DAMAGE-TRANSPORT (the buffer is removed) |
+
+Unchanged and still in force: D-EXPANSION-OWNS-MATH, D-TRANSPORT, D-CONVERT-RELOCATE, D-LIFETIME-PULSE, D-LIFETIME-VFX, D-AOE-EXPANSION-MINIMAL.
 
 ---
 
 ```
-Decision D-NAMING: ECS spawn types are named ProjectileSpawnEvent / ProjectileSpawnCommandData
-                   (and AoeSpawnEvent / AoeSpawnCommandData). The managed authoring types
-                   ProjectileSpawnCommand and AoeSpawnCommand keep their names.
-Rationale: The managed ProjectileSpawnCommand / AoeSpawnCommand are public API referenced by
-           Mob/MobProjectileAttack.cs, Skills/SkillSpawnTranslator.cs, and CombatRoot.cs.
-           Renaming them is broad churn outside this rewrite's scope. The ECS command type
-           therefore cannot reuse the name "ProjectileSpawnCommand" (same namespace). The
-           "Data" suffix keeps the design's "Command" vocabulary while staying unambiguous.
-Alternatives considered: (a) rename managed types; (b) put ECS types in a sub-namespace.
-Rejected because: (a) out-of-scope churn across attack/skill code; (b) two same-named types
-                  imported together is a readability trap for the lower-cost agent.
-Consequences: search-and-replace safety — "ProjectileSpawnCommand" without "Data" always
-              means the managed authoring struct.
-Affected tasks: 002, 003, 004, 005, 006.
+Decision D-NAMING-EVENTCMD: The Event/Command vocabulary is load-bearing (design R3) and the
+             names must match meaning. A type that carries multiplicity (Count / SpreadDegrees /
+             JitterDegrees / JitterSeed) is gameplay INTENT and is named ...SpawnEvent. A type
+             that describes exactly one concrete entity is allocation intent and is named
+             ...SpawnCommand (NO "Data" suffix).
+Finding: the managed authoring type ProjectileSpawnCommand
+         (System/Projectile/ProjectileSpawnCommand.cs) carries Count, SpreadDegrees, JitterDegrees
+         — it is therefore semantically an EVENT, not a command. Naming it "Command" is the exact
+         vocabulary inversion R3 forbids.
+Decision:
+  - The single multiplicity-bearing intent type is ProjectileSpawnEvent / AoeSpawnEvent
+    (blittable, IBufferElementData + NativeQueue element). This is what authoring builds, what
+    CombatRoot submits, and what flows through the producer queue/scope buffer.
+  - The post-expansion one-entity type is ProjectileSpawnCommand / AoeSpawnCommand (blittable,
+    native-container only). The "...CommandData" name is retired.
+  - The managed authoring DTOs (today named ProjectileSpawnCommand / AoeSpawnCommand) are renamed
+    to ProjectileSpawnRequest / AoeSpawnRequest — the authoring-layer request a caller fills in
+    (keeps UnityEngine.Vector2 / managed snapshot fields + constructors). CombatRoot.Spawn converts
+    a ...SpawnRequest into the blittable ECS ...SpawnEvent at the managed↔ECS boundary.
+    NOTE: "Request" is the managed authoring layer only; the deleted dual-use
+    ProjectileSpawnRequestElement is unrelated and gone — do not resurrect it.
+Three distinct names, no overlap: ProjectileSpawnRequest (managed authoring intent) →
+              ProjectileSpawnEvent (blittable ECS intent + multiplicity) → ProjectileSpawnCommand
+              (blittable ECS, one entity). Same triple for AoE.
+Churn accepted: Mob/MobProjectileAttack.cs, Skills/SkillSpawnTranslator.cs, Mob/MobRoot.cs,
+                CombatRoot.cs, and all tests that construct these types are updated. This is
+                exactly the churn the prior D-NAMING avoided; per the governing principle it is
+                now in scope.
+Consequences: searching "...SpawnCommand" now unambiguously means the single-entity allocation
+              type; "...SpawnEvent" always means multiplicity-bearing intent.
+Affected tasks: 002, 003, 004, 005, 006, plus the authoring-rename task.
 ```
 
 ```
-Decision D1: Damage replay keeps the (TargetId + CombatFaction) identity model. Per-target
-             ECS proxy entities and DamageReplayEvent.TargetProxy:Entity (design §8.2/8.3) are
-             OUT OF SCOPE.
-Rationale: Design §1 out-of-scope and §11 both say the target bridge is "refine the boundary,
-           do not rebuild"; §12 lists the hybrid/ECS-owned-target model as a later direction.
-           No per-target proxy entities exist today; targets are synced into CombatTargetElement
-           and damage is replayed via TargetId→dictionary, which already satisfies §8.1's
-           atomic-per-hit, group-by-target contract.
-Alternatives considered: implement proxy entities + Entity-keyed DamageReplayEvent now.
-Rejected because: it is a full target-bridge rebuild the design explicitly defers.
-Consequences: DamageReplayEvent carries TargetId + Faction (rename of CombatPendingDamage);
-              CombatHitDispatchSystem becomes DamageDispatchBridge with unchanged behavior.
-Affected tasks: 008.
+Decision D-PROXY-ENTITY: Adopt per-target ECS proxy entities with a managed companion
+             (design §8.2 / §8.3 / §8.4). Damage is keyed by Entity, not (TargetId + Faction).
+Context: design §8 specifies proxy entities and DamageReplayEvent.TargetProxy:Entity, while §1/§11
+         say "refine the target bridge, do not rebuild." The direction is internally contradictory
+         here. RESOLUTION (explicit user direction): §8 wins — the direction wants GameObjects
+         represented in ECS as entities with a companion back to the GameObject. The "do not
+         rebuild" reading was the churn-avoidance interpretation and is overridden.
+Decision:
+  - Each ICombatTarget GameObject owns an ECS proxy Entity. The proxy carries the unmanaged target
+    state used by simulation (TargetPosition, TargetCollisionShape, TargetFaction) AND a managed
+    companion: `class TargetCompanion : IComponentData { public ICombatTarget Target; }`.
+  - There is NO separate alive/enableable flag on the proxy: proxy existence == targetable. Leaving
+    simulation means deleting the proxy (§8.3), not disabling it.
+  - The proxy is created via a cached-archetype helper `CombatTargetProxy` (System/Common) so the
+    archetype is built once, not per target.
+  - Lifecycle is fixed: the GameObject creates the proxy on enable; pushes TargetPosition +
+    TargetCollisionShape into the proxy in Update() (before ECS simulation); and DELETES the proxy
+    in LateUpdate() (after damage dispatch) when it stops simulating — not disabled, not pooled
+    (§8.3). Death animation may continue on the GameObject after proxy deletion.
+  - DamageReplayEvent carries Entity TargetProxy (replaces TargetId + Faction as identity).
+    Collision writes the proxy entity it hit.
+  - Only DamageDispatchBridge reads the managed companion (§8.4); no Burst/simulation system may.
+  - The CombatTargetElement-buffer sync (CombatTargetSync / CombatTargetSyncSystem) is replaced by
+    proxy creation + per-frame position push. Spatial queries in collision read proxy entities
+    (via a query/spatial hash over proxy components) instead of the synced buffer.
+Logic preserved: crit roll on the main thread, atomic-per-hit replay, group-by-target dispatch,
+                 ReceiveHits call shape, the spatial-hash collision math. Only the IDENTITY model
+                 and the sync mechanism change.
+Churn accepted: target registry/sync, collision target source, DamageReplayEvent shape, dispatch
+                resolution, ICombatTarget surface (gains proxy-lifecycle hooks), and tests.
+Affected tasks: the new target-proxy task(s), 008 (damage), 004/006 (collision emits Entity).
 ```
 
 ```
-Decision D2: Keep per-domain enableable active tags (ProjectileActiveTag, AoeActiveTag). The
-             generic single Active flag (design §3) is DEFERRED to a follow-up refactor.
-Rationale: The existing per-domain tags already realize §3's functional intent — occupancy is an
-           enableable flag, slot kind is component presence, reuse is a WithDisabled<...> query.
-           Merging into one Active is wide, mechanical churn (collision, lifetime, spawn,
-           tracking, child-spawn, render, CombatRoot, every test) with no behavioral or
-           capability gain, and the rewrite's primary goal is clarity of the spawn/event/damage
-           cluster, not tag consolidation.
-Alternatives considered: introduce generic Active now as a mechanical rename task.
-Rejected because: risk/blast-radius outweighs benefit for the stated goal.
-Consequences: CombatLifetimeComponent is the only newly-shared occupancy-adjacent component;
-              lifetime unification operates per-domain over each domain's active tag.
-Affected tasks: 001 (lifetime), and a documented future follow-up (not in this plan).
+Decision D-ACTIVE-GENERIC: Adopt the generic occupancy flag
+             `public struct Active : IComponentData, IEnableableComponent {}` (design §3) shared by
+             all reusable runtime entities. Replace the per-domain ProjectileActiveTag /
+             AoeActiveTag.
+Rationale: §3 is explicit: occupancy is ONE generic enableable flag; slot KIND is component
+           presence; reuse is WithDisabled<Active>() + the archetype's marker components. Two
+           differently-named flags that mean the same thing is the incidental duplication the
+           rewrite removes. The prior D2 kept them solely to avoid churn — overridden.
+Decision:
+  - Introduce Active. Projectile and AoE occupancy both use it. Reuse queries become
+    WithDisabled<Active>() + ProjectileTag / AoeTag (+ shape markers).
+  - Domain gating still uses the domain marker components (ProjectileTag / AoeTag), so common
+    components alone never opt an entity into a domain system (Global Invariant: domain gating).
+  - CombatRenderActiveTag (render-pipeline opt-in) and the collision opt-in tags are a DIFFERENT
+    concept (per-feature participation, not slot occupancy) and stay as their own enableable
+    components. Only the occupancy flag is unified.
+Churn accepted: collision, lifetime, spawn apply, tracking, child-spawn, render, CombatRoot, and
+                every test that references ProjectileActiveTag / AoeActiveTag (~30 files).
+Affected tasks: the new generic-Active task (runs early, before the apply rebuild), and every task
+                whose archetype/query references an active tag.
 ```
 
 ```
-Decision D-EXPANSION-OWNS-MATH: ProjectileSpawnExpansionSystem is the single owner of ALL spawn
-             math (count, spread, jitter, direction, position, rotation, velocity, world bounds,
-             render-Z, per-shot id). ProjectileSpawnCommandData has NO Count/Spread/Jitter/
-             BaseDirection/Speed fields.
-Rationale: design R4 / §5.4. Apply must be a pure copy of resolved fields into components.
-Alternatives considered: keep multiplicity on the command and let apply branch on Count.
-Rejected because: that is exactly today's dual-use smell the rewrite removes.
-Consequences: the impact-projectile/burst build helper sets BaseDirection/Speed/Count/Spread on
-              the EVENT; expansion consumes them. Apply never sees them.
+Decision D-DAMAGE-TRANSPORT: Damage replay uses the native-container path of design §8.1:
+             collision writes DamageReplayEvent into a NativeQueue<DamageReplayEvent>.ParallelWriter
+             (decisive — NOT NativeStream; §8.1 names NativeQueue and the spawn pipeline already
+             uses queue→array); after both collisions it is finalized to a frozen
+             NativeArray<DamageReplayEvent> that DamageDispatchBridge consumes, then the queue is
+             Clear()'d by its owner (design §6). The scope DynamicBuffer<CombatDamageElement> AND
+             CombatHitFlushJob are REMOVED (design §11 lists CombatHitFlushJob as replaced).
+Rationale: §8.1 explicitly prescribes NativeQueue → NativeArray → dispatch "consistent with the
+           spawn/consequence transport rules (§6)." The prior plan kept the DynamicBuffer + flush
+           job purely to avoid reshaping a working path. The flush stage and the buffer are exactly
+           the indirection §11 removes.
+Decision:
+  - DamageReplayEvent { Entity TargetProxy; DamageSnapshot Damage; float2 HitPosition;
+    float2 HitDirection; + the carried fields needed for crit roll / stack effect / source }.
+    Keyed by Entity (see D-PROXY-ENTITY), blittable.
+  - Collision enqueues into the damage queue. A finalize step freezes it to a NativeArray.
+    DamageDispatchBridge reads the array, resolves Entity → companion → GameObject, replays, and the
+    queue is Clear()'d by its owner that frame.
+  - CombatHitFlushJob, CombatDamageElement, and the double-clear (D-DAMAGE-CLEAR) all go away. No
+    per-frame buffer to clear; the queue's empty-before-write / clear-after-read contract (§6)
+    replaces the OrderFirst clears.
+Logic preserved: crit roll on main thread, atomic per-hit, group-by-target, one ReceiveHits per
+                 target group.
+Affected tasks: 008 (now a transport reshape, not a rename), 004/006 (collision write type),
+                ordering task (queue phase discipline replaces the clear).
+```
+
+```
+Decision D-SHAPE-EXPLICIT: Start explicit (design §5.3): each REAL spawn shape gets its own command
+             container and its own apply system. Do NOT route all shapes through one bucketed apply
+             system keyed by a runtime shape field.
+Rationale: §5.3 — "command queue == required component set == dead-slot query shape == overflow
+           creation shape", and "shape is selected during expansion, never re-derived from a mask in
+           apply." A single apply system that branches on HasChildSpawner re-derives shape in apply,
+           which is the boundary leak §5.3/§5.4 forbid. The prior D-SHAPE-BUCKETING merged them to
+           avoid writing more systems — overridden.
+Decision:
+  - Expansion classifies each resolved entity into the exact-shape command container for the shape
+    that actually exists in the codebase today (projectile: with / without child-spawner; AoE: the
+    single AoE shape). Each container has a dedicated apply system whose reuse query, init, and
+    overflow AddComponent set are fixed for that one shape.
+  - Still DO NOT build apply systems for shapes that have no producer (the §5.3 "generalize only
+    after real duplication / don't build on speculation" rule is kept — it cuts speculative shapes,
+    NOT real ones).
+Consequences: apply systems contain no shape-key branch; adding a new real shape adds a container +
+              apply system rather than a new switch case.
+Affected tasks: 003 (projectile apply), 005 (aoe apply).
+```
+
+---
+
+## Decisions carried over unchanged
+
+```
+Decision D-EXPANSION-OWNS-MATH: ProjectileSpawnExpansionSystem owns ALL spawn math (count, spread,
+             jitter, direction, position, rotation, velocity, world bounds, render-Z, per-shot id).
+             ProjectileSpawnCommand has NO Count/Spread/Jitter/BaseDirection/Speed.
+Rationale: design R4 / §5.4. Apply is a pure copy of resolved fields into components.
 Affected tasks: 002, 003, 004, 005, 006.
 ```
 
 ```
 Decision D-TRANSPORT: High-volume internal producers write a system-owned
              NativeQueue<...SpawnEvent>.ParallelWriter; the low-volume managed submission
-             (CombatRoot.Spawn) appends to a scope DynamicBuffer<...SpawnEvent>. The expansion
-             system finalizes BOTH into one frozen NativeArray each frame.
-Rationale: design §6 wants the high-volume path native; it explicitly allows singleton/scope
-           entities as low-volume submission markers. CombatRoot already submits via a scope
-           buffer on the main thread — preserving that path is the lowest-risk integration.
-Alternatives considered: route managed submission through the NativeQueue too.
-Rejected because: MonoBehaviour→system enqueue timing is more fragile than the proven buffer
-                  append, for no throughput gain at attack-fire volume.
+             (CombatRoot.Spawn) appends to a scope DynamicBuffer<...SpawnEvent>. Expansion finalizes
+             BOTH into one frozen NativeArray each frame and clears both.
+Rationale: design §6 wants the high-volume path native and explicitly allows scope entities as
+           low-volume submission markers.
 Consequences: ...SpawnEvent implements IBufferElementData AND is used as a NativeQueue element.
-              Expansion drains queue + buffer and clears both.
 Affected tasks: 002, 003, 004, 005, 006.
-```
-
-```
-Decision D-SHAPE-BUCKETING: Keep shape-keyed bucketing for apply instead of building a distinct
-             command queue + apply system per theoretical shape (literal §5.3).
-Rationale: only two real projectile shapes exist (with / without child-spawner, selected by
-           HasChildSpawner) and one AoE shape. Design §5.3 says "Start explicit. Generalize only
-           after real duplication appears — not on speculation." The existing bucket key
-           (faction, typeId, hasChildSpawner) already gives "command queue == required component
-           set == dead-slot query shape == overflow creation shape" per bucket.
-Alternatives considered: BasicProjectileCommandQueue / TimedChildProjectileCommandQueue / ... as
-             separate systems.
-Rejected because: speculative system proliferation the design warns against.
-Consequences: shape is selected at expansion (HasChildSpawner carried on the command) and never
-              re-derived in apply; apply keeps the proven bucket/reuse/cold-create machinery.
-Affected tasks: 003, 005.
 ```
 
 ```
 Decision D-CONVERT-RELOCATE: Delete CombatSpawnConvertJob and CombatPendingSpawn. Relocate its
              request-building logic into shared helpers (ProjectileSpawnPipeline.BuildImpact*,
-             AoeSpawnPipeline.BuildImpactAoe) called by the collision jobs, which now emit the
-             final typed events directly.
-Rationale: design §7.2 — collision is the final producer of typed consequence events; the generic
+             AoeSpawnPipeline.BuildImpactAoe) called by the collision jobs, which emit the final
+             typed events directly (design §7.2).
+Rationale: collision is the final producer of typed consequence events; the generic
            CombatPendingSpawn + re-interpretation pass is the indirection the rewrite removes.
-Alternatives considered: keep CombatPendingSpawn but make it typed.
-Rejected because: it keeps an extra stream + job stage for no benefit once events are typed.
 Consequences: the convert logic (HashId salts, DirectionFromTo invert rules, seed-contact-gate,
-              tracking/render builders) must be relocated VERBATIM to preserve behavior.
+              tracking/render builders) is relocated VERBATIM to preserve behavior.
 Affected tasks: 004 (projectile), 006 (aoe), 007 (delete dead code).
 ```
 
 ```
-Decision D-LIFETIME-PULSE: Unify lifetime via an enableable CombatLifetimeComponent. Pulse AOEs
-             are spawned with it DISABLED; the unified CombatLifetimeSystem skips them; AoE
-             collision deactivates pulse AOEs the same tick (unchanged).
-Rationale: design §4 + R2 (component/enable-state = behavior). Replaces the AoeLifetimeComponent
-           IsPulse branch with an enable-state, so the generic system needs no AoE knowledge.
-Alternatives considered: keep an IsPulse int on a shared component and branch in the unified job.
-Rejected because: that re-introduces a flag-branch the design (R2) rejects.
-Consequences: Aoe apply must enable/disable CombatLifetimeComponent based on Lifetime<=0; the
-              old AoeLifetimeComponent.IsPulse is removed (its only other reader was the pulse-skip
-              and the pulse VFX job, which moves to AoePulseVfxSystem keyed on AoePulseVfxComponent).
+Decision D-LIFETIME-PULSE: Unify lifetime via an enableable CombatLifetimeComponent. Pulse AOEs are
+             spawned with it DISABLED; the unified CombatLifetimeSystem skips them; AoE collision
+             deactivates pulse AOEs the same tick (unchanged). The unified system operates over the
+             generic Active flag (D-ACTIVE-GENERIC), not per-domain tags.
+Rationale: design §4 + R2 (component/enable-state = behavior).
 Affected tasks: 001.
 ```
 
 ```
 Decision D-LIFETIME-VFX: The unified CombatLifetimeSystem emits despawn VFX (Trigger=2) using
              area = max(render.VisualScale.x, render.VisualScale.y) for BOTH domains. Pulse VFX
-             (Trigger=3) moves to a separate AoE-only AoePulseVfxSystem.
-Rationale: keeps the unified system domain-neutral (§4). Projectile already uses render scale.
-Alternatives considered: have the unified system read AoeAreaComponent when present.
-Rejected because: that couples the generic system to an AoE component.
-Consequences: AoE despawn-VFX area source changes from AoeAreaComponent.Size to render scale.
-              This is an INTENTIONAL minor visual change (the two usually track each other);
-              flagged for the validation pass to confirm it looks acceptable. If unacceptable,
-              fallback: Aoe apply copies AreaSize into render.VisualScale so the values match.
+             (Trigger=3) lives in a separate AoE-only AoePulseVfxSystem (a legitimate separate
+             concern, consistent with R2).
+Rationale: keeps the unified system domain-neutral (§4).
+Consequences: AoE despawn-VFX area source changes from AoeAreaComponent.Size to render scale — an
+              intentional minor visual change; fallback: Aoe apply copies AreaSize into
+              render.VisualScale so the values match.
 Affected tasks: 001.
-```
-
-```
-Decision D-DAMAGE-CLEAR: Exactly one OrderFirst system clears the scope CombatDamageElement
-             buffer (ProjectileSimulationSystem). AoeSimulationSystem stops clearing it.
-Rationale: both currently clear the same buffer (CombatDamageElement) at OrderFirst — redundant,
-           and order among OrderFirst systems is not guaranteed, so the dependency is implicit.
-Alternatives considered: a dedicated CombatDamageClearSystem.
-Rejected because: an extra system for one Clear() is unnecessary; ProjectileSimulationSystem
-                  already owns this responsibility.
-Consequences: AoeSimulationSystem either keeps another responsibility or becomes empty; if empty,
-              fold its remaining work and remove it (verify no other clear/setup is lost first).
-Affected tasks: 008.
 ```
 
 ```
 Decision D-AOE-EXPANSION-MINIMAL: AoeSpawnExpansionSystem exists for structural parity with the
              projectile pipeline (design §5.7) but performs a 1:1 transform (resolve world bounds,
-             carry spawn VFX). No scatter/fan-out is implemented now.
-Rationale: design §5.7 requires AoE to use the identical pipeline structure, but no current AoE
-           behavior fans out; building scatter now would be speculative.
-Alternatives considered: skip AoE expansion and apply AoE events directly.
-Rejected because: it would diverge AoE from the projectile pipeline shape the design mandates,
-                  making future AoE scatter a special case again.
-Consequences: a thin but real expansion stage; future AoE scatter slots in without restructuring.
+             carry spawn VFX). No scatter/fan-out is implemented now; the stage shape supports adding
+             it without restructuring.
+Rationale: §5.7 requires AoE to use the identical pipeline structure; no current AoE behavior fans
+           out, so building scatter now would be speculative.
 Affected tasks: 005, 006.
 ```

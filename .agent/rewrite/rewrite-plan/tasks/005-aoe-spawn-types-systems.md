@@ -1,3 +1,5 @@
+> **LANDED (Increment 1) — superseded names.** Implemented in code with `AoeSpawnCommandData` (and kept managed `AoeSpawnCommand`). Increment 2 renames: managed → `AoeSpawnRequest`, ECS one-entity → `AoeSpawnCommand` ([tasks/012](012-event-command-rename.md)); occupancy → generic `Active` ([tasks/011](011-generic-active.md)). Authoritative shapes: `../context/002` §1.3.
+
 # Task 005: Add AoE spawn event/command types + AoeSpawnExpansionSystem + AoeSpawnApplySystem (beside old)
 
 ## Execution Role
