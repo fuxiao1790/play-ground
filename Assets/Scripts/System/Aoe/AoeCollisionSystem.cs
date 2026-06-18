@@ -158,6 +158,7 @@ namespace PlayGround.System.Aoe
                 in AoeHitSpawnComponent hitSpawn,
                 in AoeAreaComponent area,
                 EnabledRefRW<Active> active,
+                EnabledRefRW<AoeCollisionActiveTag> collisionActive,
                 EnabledRefRW<CombatRenderActiveTag> renderActive,
                 DynamicBuffer<AoeContactGateElement> contactGates)
             {
@@ -166,7 +167,7 @@ namespace PlayGround.System.Aoe
 
                 if (identity.Faction == CombatFaction.None)
                 {
-                    Deactivate(active, renderActive);
+                    Deactivate(active, collisionActive, renderActive);
                     EndVfxStream(ref vfxPending);
                     return;
                 }
@@ -226,7 +227,7 @@ namespace PlayGround.System.Aoe
 
                 if (!lifetimeEnabled.ValueRO)
                 {
-                    Deactivate(active, renderActive);
+                    Deactivate(active, collisionActive, renderActive);
                 }
 
                 EndVfxStream(ref vfxPending);
@@ -313,9 +314,11 @@ namespace PlayGround.System.Aoe
 
             private static void Deactivate(
                 EnabledRefRW<Active> active,
+                EnabledRefRW<AoeCollisionActiveTag> collisionActive,
                 EnabledRefRW<CombatRenderActiveTag> renderActive)
             {
                 active.ValueRW = false;
+                collisionActive.ValueRW = false;
                 renderActive.ValueRW = false;
             }
 

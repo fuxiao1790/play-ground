@@ -229,6 +229,28 @@ namespace PlayGround.Tests.PlayMode
             entityManager.DestroyEntity(alien);
         }
 
+        [Test]
+        public void ContactGateSystemSkipsCollisionInactiveAoeSlots()
+        {
+            Entity disabledAoe = entityManager.CreateEntity(
+                typeof(AoeTag),
+                typeof(AoeCollisionActiveTag),
+                typeof(AoeContactGateElement));
+            DynamicBuffer<AoeContactGateElement> gates = entityManager.GetBuffer<AoeContactGateElement>(disabledAoe);
+            gates.Add(new AoeContactGateElement
+            {
+                TargetId = 1,
+                CooldownRemaining = 1f
+            });
+            entityManager.SetComponentEnabled<AoeCollisionActiveTag>(disabledAoe, false);
+
+            TickSimulationOnly(0.25f);
+
+            gates = entityManager.GetBuffer<AoeContactGateElement>(disabledAoe);
+            Assert.That(gates.Length, Is.EqualTo(1));
+            Assert.That(gates[0].CooldownRemaining, Is.EqualTo(1f).Within(0.0001f));
+        }
+
         private void Tick(float dt)
         {
             int hitsBefore = TotalHitCount();

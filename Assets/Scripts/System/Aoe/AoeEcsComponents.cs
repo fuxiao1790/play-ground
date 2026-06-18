@@ -18,7 +18,7 @@ namespace PlayGround.System.Aoe
         public int TypeId;
     }
 
-    // ECS Lifecycle: enableable AOE tag; added at entity creation; kept until root teardown; enabled when the AOE produces collision effects (damage, stack, projectile burst); disabled for visual-only AOEs so the collision job skips them entirely.
+    // ECS Lifecycle: enableable AOE tag; added at entity creation; kept until root teardown; enabled when the AOE produces collision effects (damage, stack, projectile burst); disabled for visual-only or despawned AOEs so collision and contact-gate jobs skip them entirely.
     public struct AoeCollisionActiveTag : IComponentData, IEnableableComponent
     {
     }
@@ -42,7 +42,7 @@ namespace PlayGround.System.Aoe
         public float Size;
     }
 
-    // ECS Lifecycle: AOE buffer; added by spawn materialization; kept until root teardown; cooldown entries tick down while active and are cleared on reuse.
+    // ECS Lifecycle: AOE buffer; added by spawn materialization; kept until root teardown; cooldown entries tick down while AoeCollisionActiveTag is enabled and are cleared on reuse.
     public struct AoeContactGateElement : IBufferElementData
     {
         public int TargetId;

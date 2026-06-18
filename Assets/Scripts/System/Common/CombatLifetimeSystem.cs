@@ -74,6 +74,7 @@ namespace PlayGround.System.Common
                 in CombatRenderComponent render,
                 ref CombatLifetimeComponent lifetime,
                 EnabledRefRW<Active> active,
+                EnabledRefRW<AoeCollisionActiveTag> collisionActive,
                 EnabledRefRW<CombatRenderActiveTag> renderActive)
             {
                 lifetime.Remaining -= DeltaTime;
@@ -81,6 +82,7 @@ namespace PlayGround.System.Common
                 {
                     lifetime.Remaining = 0f;
                     active.ValueRW = false;
+                    collisionActive.ValueRW = false;
                     renderActive.ValueRW = false;
                     VfxPending.Enqueue(new VfxPendingSpawn
                     {

@@ -18,19 +18,21 @@ namespace PlayGround.System.Common
 
         protected override void OnCreate()
         {
-            projectileRenderQuery = EntityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<CombatRenderElement>(),
-                ComponentType.ReadOnly<CombatRenderFaction>(),
-                ComponentType.ReadOnly<CombatRenderTypeId>(),
-                ComponentType.ReadOnly<CombatRenderActiveTag>(),
-                ComponentType.ReadOnly<ProjectileTag>());
+            projectileRenderQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<CombatRenderElement>()
+                .WithAll<CombatRenderFaction>()
+                .WithAll<CombatRenderTypeId>()
+                .WithAll<CombatRenderActiveTag>()
+                .WithAll<ProjectileTag>()
+                .Build(this);
 
-            aoeRenderQuery = EntityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<CombatRenderElement>(),
-                ComponentType.ReadOnly<CombatRenderFaction>(),
-                ComponentType.ReadOnly<CombatRenderTypeId>(),
-                ComponentType.ReadOnly<CombatRenderActiveTag>(),
-                ComponentType.ReadOnly<AoeTag>());
+            aoeRenderQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<CombatRenderElement>()
+                .WithAll<CombatRenderFaction>()
+                .WithAll<CombatRenderTypeId>()
+                .WithAll<CombatRenderActiveTag>()
+                .WithAll<AoeTag>()
+                .Build(this);
 
             submitBuffer = new NativeArray<CombatRenderElement>(MaxInstancesPerDraw, Allocator.Persistent);
         }
