@@ -204,6 +204,75 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void ImpactArchetypeOmitsLingeringOnlyComponentsAndHasLargerChunkCapacity()
+        {
+            SpawnCircle(float2.zero, 1f, 1f);
+            Tick(0.01f);
+            Entity impact = FirstImpactAoeEntity();
+
+            SpawnCircle(float2.zero, 1f, 1f, lifetime: 10f, tickInterval: 0.05f);
+            Tick(0.01f);
+            Entity lingering = FirstLingeringAoeEntity();
+
+            Assert.That(entityManager.HasComponent<CombatLifetimeComponent>(impact), Is.False);
+            Assert.That(entityManager.HasComponent<AoeContactGateElement>(impact), Is.False);
+            Assert.That(entityManager.HasComponent<AoePulseVfxComponent>(impact), Is.False);
+            Assert.That(entityManager.HasComponent<CombatLifetimeComponent>(lingering), Is.True);
+            Assert.That(entityManager.HasComponent<AoeContactGateElement>(lingering), Is.True);
+            Assert.That(entityManager.HasComponent<AoePulseVfxComponent>(lingering), Is.True);
+
+            int impactCapacity = entityManager.GetChunk(impact).Capacity;
+            int lingeringCapacity = entityManager.GetChunk(lingering).Capacity;
+            Assert.That(impactCapacity, Is.GreaterThan(lingeringCapacity));
+        }
+
+        [Test]
+        public void ImpactWithoutCollisionPayloadDoesNotLeakActiveSlot()
+        {
+            SpawnCircle(float2.zero, 1f, 0f);
+
+            Tick(0.01f);
+
+            Entity impact = FirstImpactAoeEntity();
+            Assert.That(entityManager.IsComponentEnabled<Active>(impact), Is.False);
+            Assert.That(entityManager.IsComponentEnabled<AoeCollisionActiveTag>(impact), Is.False);
+            Assert.That(entityManager.IsComponentEnabled<CombatRenderActiveTag>(impact), Is.False);
+            Assert.That(ActiveAoeCount(), Is.EqualTo(0));
+            Assert.That(TotalAoeCount(), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ImpactAndLingeringSlotsReuseOnlyWithinMatchingPools()
+        {
+            SpawnCircle(float2.zero, 1f, 1f);
+            Tick(0.01f);
+            Tick(0.01f);
+            Entity firstImpact = FirstImpactAoeEntity();
+
+            SpawnCircle(float2.zero, 1f, 1f, lifetime: 0.001f, tickInterval: 0.05f);
+            Tick(0.01f);
+            Tick(0.01f);
+            Entity firstLingering = FirstLingeringAoeEntity();
+
+            Assert.That(firstLingering, Is.Not.EqualTo(firstImpact));
+            Assert.That(TotalAoeCount(), Is.EqualTo(2));
+
+            SpawnCircle(float2.zero, 1f, 1f);
+            Tick(0.01f);
+            Tick(0.01f);
+            Entity reusedImpact = FirstImpactAoeEntity();
+
+            SpawnCircle(float2.zero, 1f, 1f, lifetime: 0.001f, tickInterval: 0.05f);
+            Tick(0.01f);
+            Tick(0.01f);
+            Entity reusedLingering = FirstLingeringAoeEntity();
+
+            Assert.That(reusedImpact, Is.EqualTo(firstImpact));
+            Assert.That(reusedLingering, Is.EqualTo(firstLingering));
+            Assert.That(TotalAoeCount(), Is.EqualTo(2));
+        }
+
+        [Test]
         public void TargetProxyLifecycle_CreatePushDeleteControlsCollisionVisibility()
         {
             int targetId = ++nextTargetId;
@@ -420,6 +489,28 @@ namespace PlayGround.Tests.PlayMode
             using EntityQuery q = entityManager.CreateEntityQuery(ComponentType.ReadOnly<AoeTag>());
             using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
             Assert.That(entities.Length, Is.GreaterThan(0), "No AOE entities found.");
+            return entities[0];
+        }
+
+        private Entity FirstImpactAoeEntity()
+        {
+            using EntityQuery q = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AoeTag>()
+                .WithNone<CombatLifetimeComponent>()
+                .Build(entityManager);
+            using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
+            Assert.That(entities.Length, Is.GreaterThan(0), "No impact AOE entities found.");
+            return entities[0];
+        }
+
+        private Entity FirstLingeringAoeEntity()
+        {
+            using EntityQuery q = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AoeTag>()
+                .WithAll<CombatLifetimeComponent>()
+                .Build(entityManager);
+            using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
+            Assert.That(entities.Length, Is.GreaterThan(0), "No lingering AOE entities found.");
             return entities[0];
         }
 

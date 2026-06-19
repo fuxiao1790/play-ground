@@ -52,8 +52,6 @@ namespace PlayGround.System.Projectile
             DisposeSpawnWorkReferences();
             DisposeBuckets(_byKey.Values);
             DisposeBuckets(_bucketPool);
-            foreach (EntityQuery query in _deadSlotQueriesByKey.Values)
-                query.Dispose();
             _byKey.Clear();
             _deadSlotQueriesByKey.Clear();
             _bucketPool.Clear();

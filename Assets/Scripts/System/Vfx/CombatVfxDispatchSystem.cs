@@ -15,11 +15,6 @@ namespace PlayGround.System.Vfx
                 ComponentType.ReadOnly<VfxSpawnRequestElement>());
         }
 
-        protected override void OnDestroy()
-        {
-            scopeQuery.Dispose();
-        }
-
         protected override void OnUpdate()
         {
             CompleteDependency();

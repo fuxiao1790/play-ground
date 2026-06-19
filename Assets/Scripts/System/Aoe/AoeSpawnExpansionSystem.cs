@@ -47,7 +47,6 @@ namespace PlayGround.System.Aoe
             if (PendingCommands.IsCreated)
                 PendingCommands.Dispose();
             EventQueue.Dispose();
-            _scopeQuery.Dispose();
         }
 
         protected override void OnUpdate()

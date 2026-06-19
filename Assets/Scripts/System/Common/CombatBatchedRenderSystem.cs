@@ -43,9 +43,6 @@ namespace PlayGround.System.Common
             {
                 submitBuffer.Dispose();
             }
-
-            projectileRenderQuery.Dispose();
-            aoeRenderQuery.Dispose();
         }
 
         protected override void OnUpdate()

@@ -155,10 +155,10 @@ namespace PlayGround.System.Aoe
             };
 
             JobHandle lingeringCollisionHandle = lingeringJob.ScheduleParallel(state.Dependency);
-            JobHandle impactCollisionHandle = impactJob.ScheduleParallel(state.Dependency);
-            JobHandle collisionHandle = JobHandle.CombineDependencies(
-                lingeringCollisionHandle,
-                impactCollisionHandle);
+            // NativeQueue<T>.ParallelWriter safety does not allow two independent producer jobs
+            // against the same queue, so the archetype variants run as chained parallel jobs.
+            JobHandle impactCollisionHandle = impactJob.ScheduleParallel(lingeringCollisionHandle);
+            JobHandle collisionHandle = impactCollisionHandle;
 
             // The collision jobs write the projectile expansion EventQueue via ParallelWriter.
             // That queue is read on the main thread by ProjectileSpawnExpansionSystem, which only

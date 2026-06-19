@@ -78,8 +78,6 @@ namespace PlayGround.System.Aoe
             DisposeSpawnWorkReferences();
             DisposeBuckets(_byKey.Values);
             DisposeBuckets(_bucketPool);
-            foreach (EntityQuery query in _deadSlotQueriesByKey.Values)
-                query.Dispose();
             _byKey.Clear();
             _deadSlotQueriesByKey.Clear();
             _bucketPool.Clear();
@@ -286,9 +284,11 @@ namespace PlayGround.System.Aoe
             }
             ecb.SetComponent(entity, render);
             ecb.SetComponent(entity, CombatRenderMatrixUtility.ElementFor(kinematics, render));
-            ecb.SetComponentEnabled<Active>(entity, true);
-            ecb.SetComponentEnabled<AoeCollisionActiveTag>(entity, NeedsCollision(cmd));
-            ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
+            bool collisionEnabled = NeedsCollision(cmd);
+            bool active = lingering || collisionEnabled;
+            ecb.SetComponentEnabled<Active>(entity, active);
+            ecb.SetComponentEnabled<AoeCollisionActiveTag>(entity, collisionEnabled);
+            ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, active);
         }
 
         private static bool NeedsCollision(in AoeSpawnCommand cmd) =>
@@ -428,9 +428,11 @@ namespace PlayGround.System.Aoe
                     renders[i]     = render;
                     renderElems[i] = CombatRenderMatrixUtility.ElementFor(kin, render);
 
-                    activeMask[i]          = true;
-                    collisionActiveMask[i] = NeedsCollision(cfg);
-                    renderActiveMask[i]    = true;
+                    bool collisionEnabled = NeedsCollision(cfg);
+                    bool active = HasLingeringComponents || collisionEnabled;
+                    activeMask[i]          = active;
+                    collisionActiveMask[i] = collisionEnabled;
+                    renderActiveMask[i]    = active;
                 }
 
                 ClaimedCount.Value = cfgIdx;
