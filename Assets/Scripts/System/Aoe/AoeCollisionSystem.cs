@@ -17,6 +17,8 @@ namespace PlayGround.System.Aoe
         private const float SpatialHashCellSize = 64f;
 
         private EntityQuery activeAoeQuery;
+        private EntityQuery lingeringAoeQuery;
+        private EntityQuery impactAoeQuery;
         private EntityQuery targetQuery;
 
         public void OnCreate(ref SystemState state)
@@ -34,8 +36,34 @@ namespace PlayGround.System.Aoe
                 ComponentType.ReadOnly<AoeHitGateComponent>(),
                 ComponentType.ReadOnly<AoeHitSpawnComponent>(),
                 ComponentType.ReadOnly<AoeAreaComponent>(),
-                ComponentType.ReadWrite<CombatRenderActiveTag>(),
-                ComponentType.ReadWrite<AoeContactGateElement>());
+                ComponentType.ReadWrite<CombatRenderActiveTag>());
+            lingeringAoeQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AoeTag>()
+                .WithAll<Active>()
+                .WithAll<AoeCollisionActiveTag>()
+                .WithAll<AoeIdentityComponent>()
+                .WithAll<CombatKinematicsComponent>()
+                .WithAll<CombatCollisionComponent>()
+                .WithAll<AoeHitGateComponent>()
+                .WithAll<AoeHitSpawnComponent>()
+                .WithAll<AoeAreaComponent>()
+                .WithAllRW<CombatRenderActiveTag>()
+                .WithAllRW<AoeContactGateElement>()
+                .WithPresent<CombatLifetimeComponent>()
+                .Build(ref state);
+            impactAoeQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AoeTag>()
+                .WithAll<Active>()
+                .WithAll<AoeCollisionActiveTag>()
+                .WithAll<AoeIdentityComponent>()
+                .WithAll<CombatKinematicsComponent>()
+                .WithAll<CombatCollisionComponent>()
+                .WithAll<AoeHitGateComponent>()
+                .WithAll<AoeHitSpawnComponent>()
+                .WithAll<AoeAreaComponent>()
+                .WithAllRW<CombatRenderActiveTag>()
+                .WithNone<CombatLifetimeComponent>()
+                .Build(ref state);
             targetQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<TargetProxyTag>(),
                 ComponentType.ReadOnly<TargetPosition>(),
@@ -50,8 +78,13 @@ namespace PlayGround.System.Aoe
                 return;
             }
 
-            int activeAoeCount = activeAoeQuery.CalculateEntityCount();
-            
+            int lingeringAoeCount = lingeringAoeQuery.CalculateEntityCount();
+            int impactAoeCount = impactAoeQuery.CalculateEntityCount();
+            if (lingeringAoeCount == 0 && impactAoeCount == 0)
+            {
+                return;
+            }
+
             state.EntityManager.CompleteDependencyBeforeRO<TargetPosition>();
             state.EntityManager.CompleteDependencyBeforeRO<TargetCollisionShape>();
             state.EntityManager.CompleteDependencyBeforeRO<TargetFaction>();
@@ -87,8 +120,10 @@ namespace PlayGround.System.Aoe
 
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             var damageBridge = state.World.GetExistingSystemManaged<DamageDispatchBridge>();
-            var vfxPending = new NativeStream(activeAoeCount, Allocator.TempJob);
-            var job = new AoeCollisionJob
+            var lingeringVfxPending = new NativeStream(lingeringAoeCount, Allocator.TempJob);
+            var impactVfxPending = new NativeStream(impactAoeCount, Allocator.TempJob);
+
+            var lingeringJob = new LingeringAoeCollisionJob
             {
                 TargetEntities = targetEntities,
                 TargetPositions = targetPositions,
@@ -98,17 +133,36 @@ namespace PlayGround.System.Aoe
                     ? damageBridge.DamageQueue.AsParallelWriter()
                     : default,
                 HasDamageWriter = damageBridge != null && damageBridge.DamageQueue.IsCreated,
-                VfxPending = vfxPending.AsWriter(),
+                VfxPending = lingeringVfxPending.AsWriter(),
+                ProjectileEventWriter = expansion != null
+                    ? expansion.EventQueue.AsParallelWriter()
+                    : default
+            };
+            var impactJob = new ImpactAoeCollisionJob
+            {
+                TargetEntities = targetEntities,
+                TargetPositions = targetPositions,
+                TargetShapes = targetShapes,
+                OccupiedTargetCells = occupiedTargetCells,
+                DamageWriter = damageBridge != null
+                    ? damageBridge.DamageQueue.AsParallelWriter()
+                    : default,
+                HasDamageWriter = damageBridge != null && damageBridge.DamageQueue.IsCreated,
+                VfxPending = impactVfxPending.AsWriter(),
                 ProjectileEventWriter = expansion != null
                     ? expansion.EventQueue.AsParallelWriter()
                     : default
             };
 
-            JobHandle collisionHandle = job.ScheduleParallel(state.Dependency);
+            JobHandle lingeringCollisionHandle = lingeringJob.ScheduleParallel(state.Dependency);
+            JobHandle impactCollisionHandle = impactJob.ScheduleParallel(state.Dependency);
+            JobHandle collisionHandle = JobHandle.CombineDependencies(
+                lingeringCollisionHandle,
+                impactCollisionHandle);
 
-            // The collision job writes the projectile expansion EventQueue via ParallelWriter.
+            // The collision jobs write the projectile expansion EventQueue via ParallelWriter.
             // That queue is read on the main thread by ProjectileSpawnExpansionSystem, which only
-            // completes its own component-derived dependency. Forward this write job to it.
+            // completes its own component-derived dependency. Forward these write jobs to it.
             if (expansion != null)
                 expansion.ProducerHandle =
                     JobHandle.CombineDependencies(expansion.ProducerHandle, collisionHandle);
@@ -116,14 +170,22 @@ namespace PlayGround.System.Aoe
                 damageBridge.ProducerHandle =
                     JobHandle.CombineDependencies(damageBridge.ProducerHandle, collisionHandle);
 
-            JobHandle vfxFlushHandle = new VfxStreamFlushJob
+            JobHandle lingeringVfxFlushHandle = new VfxStreamFlushJob
             {
                 Scope = SystemAPI.GetSingletonEntity<CombatScope>(),
-                Pending = vfxPending,
+                Pending = lingeringVfxPending,
                 VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
             }.Schedule(collisionHandle);
+            JobHandle impactVfxFlushHandle = new VfxStreamFlushJob
+            {
+                Scope = SystemAPI.GetSingletonEntity<CombatScope>(),
+                Pending = impactVfxPending,
+                VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
+            }.Schedule(lingeringVfxFlushHandle);
 
-            JobHandle disposeVfxHandle = vfxPending.Dispose(vfxFlushHandle);
+            JobHandle disposeVfxHandle = JobHandle.CombineDependencies(
+                lingeringVfxPending.Dispose(lingeringVfxFlushHandle),
+                impactVfxPending.Dispose(impactVfxFlushHandle));
             JobHandle targetDisposeHandle = JobHandle.CombineDependencies(
                 targetEntities.Dispose(collisionHandle),
                 JobHandle.CombineDependencies(
@@ -137,13 +199,68 @@ namespace PlayGround.System.Aoe
                     disposeVfxHandle));
         }
 
+        private interface IContactGate
+        {
+            int IndexOf(int targetKey);
+            void Add(int targetKey, float cooldown);
+        }
+
+        private struct BufferGate : IContactGate
+        {
+            public DynamicBuffer<AoeContactGateElement> ContactGates;
+
+            public int IndexOf(int targetKey)
+            {
+                for (int i = 0; i < ContactGates.Length; i++)
+                {
+                    if (ContactGates[i].TargetId == targetKey)
+                    {
+                        return i;
+                    }
+                }
+
+                return -1;
+            }
+
+            public void Add(int targetKey, float cooldown)
+            {
+                ContactGates.Add(new AoeContactGateElement
+                {
+                    TargetId = targetKey,
+                    CooldownRemaining = cooldown
+                });
+            }
+        }
+
+        private struct ScratchGate : IContactGate
+        {
+            public FixedList512Bytes<int> Seen;
+
+            public int IndexOf(int targetKey)
+            {
+                for (int i = 0; i < Seen.Length; i++)
+                {
+                    if (Seen[i] == targetKey)
+                    {
+                        return i;
+                    }
+                }
+
+                return -1;
+            }
+
+            public void Add(int targetKey, float cooldown)
+            {
+                Seen.Add(targetKey);
+            }
+        }
+
         [BurstCompile]
         [WithAll(typeof(AoeTag), typeof(Active), typeof(AoeCollisionActiveTag))]
-        // Pulse AOEs have CombatLifetimeComponent DISABLED. Without WithPresent the
-        // EnabledRefRO param would require it enabled, excluding pulse AOEs from
-        // collision entirely (they would never hit, never deactivate -> leak).
+        // Pulse AOEs have CombatLifetimeComponent DISABLED before the archetype split lands.
+        // WithPresent keeps Task 001 non-breaking by letting this wrapper deactivate them.
         [WithPresent(typeof(CombatLifetimeComponent))]
-        private partial struct AoeCollisionJob : IJobEntity
+        private partial struct LingeringAoeCollisionJob : IJobEntity
         {
             [ReadOnly] public NativeArray<Entity> TargetEntities;
             [ReadOnly] public NativeArray<TargetPosition> TargetPositions;
@@ -169,207 +286,294 @@ namespace PlayGround.System.Aoe
                 EnabledRefRW<CombatRenderActiveTag> renderActive,
                 DynamicBuffer<AoeContactGateElement> contactGates)
             {
-                NativeStream.Writer vfxPending = VfxPending;
-                vfxPending.BeginForEachIndex(entityIndexInQuery);
-
-                if (identity.Faction == CombatFaction.None)
-                {
-                    Deactivate(active, collisionActive, renderActive);
-                    EndVfxStream(ref vfxPending);
-                    return;
-                }
-
-                // Bounded, allocation-free broadphase: walk cells inline, narrow-phase
-                // each candidate, de-dup via the contact gate, stop at the hard cap.
-                // Overflow keeps first-N in cell-scan order, not nearest-N.
-                int remaining = CollisionConstants.MaxAoeTargetsPerTick;
-
-                bool hitVfxEmitted = false;
-                float cooldown = !lifetimeEnabled.ValueRO ? 0f : hitGate.RepeatHitCooldownSeconds;
-
-                int2 min = MinCell(collision.BoundsMin);
-                int2 max = MaxCell(collision.BoundsMax);
-                for (int cy = min.y; cy <= max.y && remaining > 0; cy++)
-                {
-                    for (int cx = min.x; cx <= max.x && remaining > 0; cx++)
-                    {
-                        long key = CellKey(identity.Faction, cx, cy);
-                        if (!OccupiedTargetCells.TryGetFirstValue(
-                                key,
-                                out int i,
-                                out NativeParallelMultiHashMapIterator<long> it))
-                        {
-                            continue;
-                        }
-
-                        do
-                        {
-                            Entity targetEntity = TargetEntities[i];
-                            int targetKey = TargetKey(targetEntity);
-
-                            if (IndexOfGate(contactGates, targetKey) >= 0)
-                            {
-                                continue;
-                            }
-
-                            TargetPosition targetPosition = TargetPositions[i];
-                            TargetCollisionShape target = TargetShapes[i];
-
-                            if (!CombatCollisionMath.BoundsIntersect(
-                                    collision.BoundsMin,
-                                    collision.BoundsMax,
-                                    target.BoundsMin,
-                                    target.BoundsMax))
-                            {
-                                continue;
-                            }
-
-                            if (!CombatCollisionMath.Hit(
-                                    kinematics.Position,
-                                    collision.Radius,
-                                    collision.HalfExtents,
-                                    collision.RotationRadians,
-                                    collision.ShapeType,
-                                    targetPosition.Value,
-                                    target.Radius,
-                                    target.HalfExtents,
-                                    target.RotationRadians,
-                                    target.ShapeType))
-                            {
-                                continue;
-                            }
-
-                            contactGates.Add(new AoeContactGateElement
-                            {
-                                TargetId = targetKey,
-                                CooldownRemaining = cooldown
-                            });
-                            EmitHit(
-                                identity,
-                                kinematics,
-                                hitSpawn,
-                                area,
-                                targetEntity,
-                                targetPosition,
-                                targetKey,
-                                ref vfxPending,
-                                ref hitVfxEmitted);
-
-                            if (--remaining == 0)
-                            {
-                                break;
-                            }
-                        }
-                        while (OccupiedTargetCells.TryGetNextValue(out i, ref it));
-                    }
-                }
-
-                if (!lifetimeEnabled.ValueRO)
-                {
-                    Deactivate(active, collisionActive, renderActive);
-                }
-
-                EndVfxStream(ref vfxPending);
+                var gate = new BufferGate { ContactGates = contactGates };
+                bool enabledLifetime = lifetimeEnabled.ValueRO;
+                RunCollision(
+                    entityIndexInQuery,
+                    identity,
+                    kinematics,
+                    collision,
+                    hitSpawn,
+                    area,
+                    enabledLifetime ? hitGate.RepeatHitCooldownSeconds : 0f,
+                    !enabledLifetime,
+                    active,
+                    collisionActive,
+                    renderActive,
+                    ref gate,
+                    TargetEntities,
+                    TargetPositions,
+                    TargetShapes,
+                    OccupiedTargetCells,
+                    DamageWriter,
+                    HasDamageWriter,
+                    VfxPending,
+                    ProjectileEventWriter);
             }
+        }
 
-            private void EmitHit(
-                AoeIdentityComponent identity,
-                CombatKinematicsComponent kinematics,
-                AoeHitSpawnComponent hitSpawn,
-                AoeAreaComponent area,
-                Entity targetEntity,
-                TargetPosition targetPosition,
-                int targetKey,
-                ref NativeStream.Writer vfxPending,
-                ref bool hitVfxEmitted)
-            {
-                if (HasDamageWriter && HasDamageEvent(hitSpawn))
-                {
-                    DamageWriter.Enqueue(new DamageReplayEvent
-                    {
-                        TargetProxy = targetEntity,
-                        HitPosition = kinematics.Position,
-                        HitDirection = HitDirection(targetPosition.Value - kinematics.Position),
-                        Kind = CombatHitKind.Aoe,
-                        DamageAmount = hitSpawn.HitPayload.DamageAmount,
-                        CritChance = hitSpawn.HitPayload.CritChance,
-                        CritMultiplier = hitSpawn.HitPayload.CritMultiplier,
-                        DirectDamageEnabled = hitSpawn.HitPayload.DirectDamageEnabled,
-                        SourceNodeId = hitSpawn.HitPayload.SourceNodeId,
-                        StackEffect = hitSpawn.HitPayload.StackEffect,
-                        SourceId = identity.AoeId,
-                        TypeId = identity.TypeId
-                    });
-                }
+        [BurstCompile]
+        [WithAll(typeof(AoeTag), typeof(Active), typeof(AoeCollisionActiveTag))]
+        [WithNone(typeof(CombatLifetimeComponent))]
+        private partial struct ImpactAoeCollisionJob : IJobEntity
+        {
+            [ReadOnly] public NativeArray<Entity> TargetEntities;
+            [ReadOnly] public NativeArray<TargetPosition> TargetPositions;
+            [ReadOnly] public NativeArray<TargetCollisionShape> TargetShapes;
+            [ReadOnly] public NativeParallelMultiHashMap<long, int> OccupiedTargetCells;
+            public NativeQueue<DamageReplayEvent>.ParallelWriter DamageWriter;
+            public bool HasDamageWriter;
+            public NativeStream.Writer VfxPending;
+            public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
 
-                if (hitSpawn.ProjectileBurst.Enabled)
-                {
-                    ProjectileEventWriter.Enqueue(ProjectileSpawnPipeline.BuildBurstEvent(
-                        identity.Faction, identity.AoeId, identity.TypeId, targetKey,
-                        kinematics.Position, targetPosition.Value,
-                        hitSpawn.ProjectileBurst));
-                }
-
-                if (!hitVfxEmitted)
-                {
-                    vfxPending.Write(new VfxPendingSpawn
-                    {
-                        Faction = identity.Faction,
-                        TypeId = identity.TypeId,
-                        Trigger = 1,
-                        Position = kinematics.Position,
-                        AreaSize = area.Size
-                    });
-                    hitVfxEmitted = true;
-                }
-            }
-
-            private static void Deactivate(
+            private void Execute(
+                [EntityIndexInQuery] int entityIndexInQuery,
+                Entity entity,
+                in AoeIdentityComponent identity,
+                in CombatKinematicsComponent kinematics,
+                in CombatCollisionComponent collision,
+                in AoeHitGateComponent hitGate,
+                in AoeHitSpawnComponent hitSpawn,
+                in AoeAreaComponent area,
                 EnabledRefRW<Active> active,
                 EnabledRefRW<AoeCollisionActiveTag> collisionActive,
                 EnabledRefRW<CombatRenderActiveTag> renderActive)
             {
-                active.ValueRW = false;
-                collisionActive.ValueRW = false;
-                renderActive.ValueRW = false;
+                var gate = new ScratchGate { Seen = default };
+                RunCollision(
+                    entityIndexInQuery,
+                    identity,
+                    kinematics,
+                    collision,
+                    hitSpawn,
+                    area,
+                    0f,
+                    true,
+                    active,
+                    collisionActive,
+                    renderActive,
+                    ref gate,
+                    TargetEntities,
+                    TargetPositions,
+                    TargetShapes,
+                    OccupiedTargetCells,
+                    DamageWriter,
+                    HasDamageWriter,
+                    VfxPending,
+                    ProjectileEventWriter);
+            }
+        }
+
+        private static void RunCollision<TGate>(
+            int entityIndexInQuery,
+            in AoeIdentityComponent identity,
+            in CombatKinematicsComponent kinematics,
+            in CombatCollisionComponent collision,
+            in AoeHitSpawnComponent hitSpawn,
+            in AoeAreaComponent area,
+            float cooldown,
+            bool deactivateAfterPass,
+            EnabledRefRW<Active> active,
+            EnabledRefRW<AoeCollisionActiveTag> collisionActive,
+            EnabledRefRW<CombatRenderActiveTag> renderActive,
+            ref TGate gate,
+            NativeArray<Entity> targetEntities,
+            NativeArray<TargetPosition> targetPositions,
+            NativeArray<TargetCollisionShape> targetShapes,
+            NativeParallelMultiHashMap<long, int> occupiedTargetCells,
+            NativeQueue<DamageReplayEvent>.ParallelWriter damageWriter,
+            bool hasDamageWriter,
+            NativeStream.Writer vfxPendingWriter,
+            NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter)
+            where TGate : struct, IContactGate
+        {
+            NativeStream.Writer vfxPending = vfxPendingWriter;
+            vfxPending.BeginForEachIndex(entityIndexInQuery);
+
+            if (identity.Faction == CombatFaction.None)
+            {
+                Deactivate(active, collisionActive, renderActive);
+                EndVfxStream(ref vfxPending);
+                return;
             }
 
-            private static void EndVfxStream(ref NativeStream.Writer vfxPending)
-            {
-                vfxPending.EndForEachIndex();
-            }
+            // Bounded, allocation-free broadphase: walk cells inline, narrow-phase
+            // each candidate, de-dup via the contact gate, stop at the hard cap.
+            // Overflow keeps first-N in cell-scan order, not nearest-N.
+            int remaining = CollisionConstants.MaxAoeTargetsPerTick;
+            bool hitVfxEmitted = false;
 
-            private static int IndexOfGate(DynamicBuffer<AoeContactGateElement> contactGates, int targetId)
+            int2 min = MinCell(collision.BoundsMin);
+            int2 max = MaxCell(collision.BoundsMax);
+            for (int cy = min.y; cy <= max.y && remaining > 0; cy++)
             {
-                for (int i = 0; i < contactGates.Length; i++)
+                for (int cx = min.x; cx <= max.x && remaining > 0; cx++)
                 {
-                    if (contactGates[i].TargetId == targetId)
+                    long key = CellKey(identity.Faction, cx, cy);
+                    if (!occupiedTargetCells.TryGetFirstValue(
+                            key,
+                            out int i,
+                            out NativeParallelMultiHashMapIterator<long> it))
                     {
-                        return i;
+                        continue;
                     }
+
+                    do
+                    {
+                        Entity targetEntity = targetEntities[i];
+                        int targetKey = TargetKey(targetEntity);
+
+                        if (gate.IndexOf(targetKey) >= 0)
+                        {
+                            continue;
+                        }
+
+                        TargetPosition targetPosition = targetPositions[i];
+                        TargetCollisionShape target = targetShapes[i];
+
+                        if (!CombatCollisionMath.BoundsIntersect(
+                                collision.BoundsMin,
+                                collision.BoundsMax,
+                                target.BoundsMin,
+                                target.BoundsMax))
+                        {
+                            continue;
+                        }
+
+                        if (!CombatCollisionMath.Hit(
+                                kinematics.Position,
+                                collision.Radius,
+                                collision.HalfExtents,
+                                collision.RotationRadians,
+                                collision.ShapeType,
+                                targetPosition.Value,
+                                target.Radius,
+                                target.HalfExtents,
+                                target.RotationRadians,
+                                target.ShapeType))
+                        {
+                            continue;
+                        }
+
+                        gate.Add(targetKey, cooldown);
+                        EmitHit(
+                            identity,
+                            kinematics,
+                            hitSpawn,
+                            area,
+                            targetEntity,
+                            targetPosition,
+                            targetKey,
+                            ref vfxPending,
+                            ref hitVfxEmitted,
+                            damageWriter,
+                            hasDamageWriter,
+                            projectileEventWriter);
+
+                        if (--remaining == 0)
+                        {
+                            break;
+                        }
+                    }
+                    while (occupiedTargetCells.TryGetNextValue(out i, ref it));
                 }
-
-                return -1;
             }
 
-            private static bool HasDamageEvent(in AoeHitSpawnComponent hitSpawn) =>
-                hitSpawn.HitPayload.DirectDamageEnabled || hitSpawn.HitPayload.StackEffect.Enabled;
-
-            private static float2 HitDirection(float2 fallback)
+            if (deactivateAfterPass)
             {
-                return math.lengthsq(fallback) > ProjectileSimulationConstants.MinimumDirectionLengthSquared
-                    ? math.normalize(fallback)
-                    : float2.zero;
+                Deactivate(active, collisionActive, renderActive);
             }
 
-            private static int TargetKey(Entity entity)
+            EndVfxStream(ref vfxPending);
+        }
+
+        private static void EmitHit(
+            AoeIdentityComponent identity,
+            CombatKinematicsComponent kinematics,
+            AoeHitSpawnComponent hitSpawn,
+            AoeAreaComponent area,
+            Entity targetEntity,
+            TargetPosition targetPosition,
+            int targetKey,
+            ref NativeStream.Writer vfxPending,
+            ref bool hitVfxEmitted,
+            NativeQueue<DamageReplayEvent>.ParallelWriter damageWriter,
+            bool hasDamageWriter,
+            NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter)
+        {
+            if (hasDamageWriter && HasDamageEvent(hitSpawn))
             {
-                unchecked
+                damageWriter.Enqueue(new DamageReplayEvent
                 {
-                    int key = ((entity.Index + 1) * 397) ^ entity.Version;
-                    key &= 0x7fffffff;
-                    return key == 0 ? 1 : key;
-                }
+                    TargetProxy = targetEntity,
+                    HitPosition = kinematics.Position,
+                    HitDirection = HitDirection(targetPosition.Value - kinematics.Position),
+                    Kind = CombatHitKind.Aoe,
+                    DamageAmount = hitSpawn.HitPayload.DamageAmount,
+                    CritChance = hitSpawn.HitPayload.CritChance,
+                    CritMultiplier = hitSpawn.HitPayload.CritMultiplier,
+                    DirectDamageEnabled = hitSpawn.HitPayload.DirectDamageEnabled,
+                    SourceNodeId = hitSpawn.HitPayload.SourceNodeId,
+                    StackEffect = hitSpawn.HitPayload.StackEffect,
+                    SourceId = identity.AoeId,
+                    TypeId = identity.TypeId
+                });
+            }
+
+            if (hitSpawn.ProjectileBurst.Enabled)
+            {
+                projectileEventWriter.Enqueue(ProjectileSpawnPipeline.BuildBurstEvent(
+                    identity.Faction, identity.AoeId, identity.TypeId, targetKey,
+                    kinematics.Position, targetPosition.Value,
+                    hitSpawn.ProjectileBurst));
+            }
+
+            if (!hitVfxEmitted)
+            {
+                vfxPending.Write(new VfxPendingSpawn
+                {
+                    Faction = identity.Faction,
+                    TypeId = identity.TypeId,
+                    Trigger = 1,
+                    Position = kinematics.Position,
+                    AreaSize = area.Size
+                });
+                hitVfxEmitted = true;
+            }
+        }
+
+        private static void Deactivate(
+            EnabledRefRW<Active> active,
+            EnabledRefRW<AoeCollisionActiveTag> collisionActive,
+            EnabledRefRW<CombatRenderActiveTag> renderActive)
+        {
+            active.ValueRW = false;
+            collisionActive.ValueRW = false;
+            renderActive.ValueRW = false;
+        }
+
+        private static void EndVfxStream(ref NativeStream.Writer vfxPending)
+        {
+            vfxPending.EndForEachIndex();
+        }
+
+        private static bool HasDamageEvent(in AoeHitSpawnComponent hitSpawn) =>
+            hitSpawn.HitPayload.DirectDamageEnabled || hitSpawn.HitPayload.StackEffect.Enabled;
+
+        private static float2 HitDirection(float2 fallback)
+        {
+            return math.lengthsq(fallback) > ProjectileSimulationConstants.MinimumDirectionLengthSquared
+                ? math.normalize(fallback)
+                : float2.zero;
+        }
+
+        private static int TargetKey(Entity entity)
+        {
+            unchecked
+            {
+                int key = ((entity.Index + 1) * 397) ^ entity.Version;
+                key &= 0x7fffffff;
+                return key == 0 ? 1 : key;
             }
         }
 
