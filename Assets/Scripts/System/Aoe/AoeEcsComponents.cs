@@ -42,7 +42,7 @@ namespace PlayGround.System.Aoe
         public float Size;
     }
 
-    // ECS Lifecycle: AOE buffer; added by spawn materialization; kept until root teardown; cooldown entries tick down while AoeCollisionActiveTag is enabled and are cleared on reuse.
+    // ECS Lifecycle: lingering-only AOE buffer; added by lingering spawn materialization; kept until root teardown; cooldown entries tick down while AoeCollisionActiveTag is enabled and are cleared on reuse.
     [InternalBufferCapacity(CollisionConstants.MaxAoeTargetsPerTick)] // = 32
     public struct AoeContactGateElement : IBufferElementData
     {
@@ -51,7 +51,7 @@ namespace PlayGround.System.Aoe
     }
 
 
-    // ECS Lifecycle: base AOE component; added at entity creation; kept until root teardown; reset on reuse; used by AoePulseVfxSystem for pulse VFX ticks on lingering AOEs.
+    // ECS Lifecycle: lingering-only AOE component; added at entity creation; kept until root teardown; reset on reuse; used by AoePulseVfxSystem for pulse VFX ticks on lingering AOEs.
     public struct AoePulseVfxComponent : IComponentData
     {
         public float RemainingInterval;

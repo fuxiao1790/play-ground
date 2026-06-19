@@ -31,7 +31,8 @@ namespace PlayGround.System.Aoe
         private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
             new(ProfilerCategory.Scripts, "AoeSpawnApplySystem.Reuse", ProfilerMarkerDataUnit.Count);
 
-        private EntityArchetype archetype;
+        private EntityArchetype lingeringArchetype;
+        private EntityArchetype impactArchetype;
 
         private readonly Dictionary<AoeSpawnKey, AoeSpawnBucket> _byKey = new();
         private readonly Dictionary<AoeSpawnKey, EntityQuery> _deadSlotQueriesByKey = new();
@@ -40,7 +41,7 @@ namespace PlayGround.System.Aoe
 
         protected override void OnCreate()
         {
-            archetype = EntityManager.CreateArchetype(
+            lingeringArchetype = EntityManager.CreateArchetype(
                 typeof(AoeTag),
                 typeof(AoeIdentityComponent),
                 typeof(CombatLifetimeComponent),
@@ -56,6 +57,19 @@ namespace PlayGround.System.Aoe
                 typeof(AoeCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
                 typeof(AoeContactGateElement));
+            impactArchetype = EntityManager.CreateArchetype(
+                typeof(AoeTag),
+                typeof(AoeIdentityComponent),
+                typeof(AoeHitGateComponent),
+                typeof(AoeHitSpawnComponent),
+                typeof(AoeAreaComponent),
+                typeof(CombatRenderComponent),
+                typeof(CombatRenderElement),
+                typeof(CombatKinematicsComponent),
+                typeof(CombatCollisionComponent),
+                typeof(Active),
+                typeof(AoeCollisionActiveTag),
+                typeof(CombatRenderActiveTag));
         }
 
         protected override void OnDestroy()
@@ -90,7 +104,7 @@ namespace PlayGround.System.Aoe
                     for (int j = 0; j < n; j++)
                     {
                         AoeSpawnCommand cmd = reader.Read<AoeSpawnCommand>();
-                        var key = new AoeSpawnKey((int)cmd.Faction, cmd.TypeId);
+                        var key = new AoeSpawnKey((int)cmd.Faction, cmd.TypeId, cmd.Lifetime > 0f);
                         if (!_byKey.TryGetValue(key, out AoeSpawnBucket bucket))
                         {
                             bucket = GetBucket();
@@ -143,6 +157,7 @@ namespace PlayGround.System.Aoe
                             RenderHandle          = GetComponentTypeHandle<CombatRenderComponent>(false),
                             RenderElementHandle   = GetComponentTypeHandle<CombatRenderElement>(false),
                             ContactGateHandle     = GetBufferTypeHandle<AoeContactGateElement>(false),
+                            HasLingeringComponents = key.Lingering,
                         }.Schedule(query, default);
 
                         jobHandles.Add(spawnHandle);
@@ -205,12 +220,26 @@ namespace PlayGround.System.Aoe
         {
             if (!_deadSlotQueriesByKey.TryGetValue(key, out EntityQuery query))
             {
-                query = new EntityQueryBuilder(Allocator.Temp)
-                    .WithAll<AoeTag>()
-                    .WithAll<CombatRenderFaction>()
-                    .WithAll<CombatRenderTypeId>()
-                    .WithDisabled<Active>()
-                    .Build(this);
+                if (key.Lingering)
+                {
+                    query = new EntityQueryBuilder(Allocator.Temp)
+                        .WithAll<AoeTag>()
+                        .WithAll<CombatRenderFaction>()
+                        .WithAll<CombatRenderTypeId>()
+                        .WithAll<CombatLifetimeComponent>()
+                        .WithDisabled<Active>()
+                        .Build(this);
+                }
+                else
+                {
+                    query = new EntityQueryBuilder(Allocator.Temp)
+                        .WithAll<AoeTag>()
+                        .WithAll<CombatRenderFaction>()
+                        .WithAll<CombatRenderTypeId>()
+                        .WithDisabled<Active>()
+                        .WithNone<CombatLifetimeComponent>()
+                        .Build(this);
+                }
                 _deadSlotQueriesByKey[key] = query;
             }
 
@@ -232,25 +261,29 @@ namespace PlayGround.System.Aoe
 
         private void CreateAoeEntity(CombatFaction faction, AoeSpawnCommand cmd, EntityCommandBuffer ecb)
         {
-            Entity entity = ecb.CreateEntity(archetype);
+            bool lingering = cmd.Lifetime > 0f;
+            Entity entity = ecb.CreateEntity(lingering ? lingeringArchetype : impactArchetype);
             ecb.AddSharedComponent(entity, new CombatRenderFaction { Faction = faction });
             ecb.AddSharedComponent(entity, new CombatRenderTypeId { TypeId = cmd.TypeId });
-            RecordAoeReset(ecb, entity, faction, cmd);
+            RecordAoeReset(ecb, entity, faction, cmd, lingering);
         }
 
-        private static void RecordAoeReset(EntityCommandBuffer ecb, Entity entity, CombatFaction faction, AoeSpawnCommand cmd)
+        private static void RecordAoeReset(EntityCommandBuffer ecb, Entity entity, CombatFaction faction, AoeSpawnCommand cmd, bool lingering)
         {
             CombatKinematicsComponent kinematics = KinematicsFor(cmd);
             CombatRenderComponent render = cmd.Render;
             ecb.SetComponent(entity, IdentityFor(faction, cmd));
             ecb.SetComponent(entity, kinematics);
             ecb.SetComponent(entity, CollisionFor(cmd));
-            ecb.SetComponent(entity, new CombatLifetimeComponent { Remaining = cmd.Lifetime });
-            ecb.SetComponentEnabled<CombatLifetimeComponent>(entity, cmd.Lifetime > 0f);
             ecb.SetComponent(entity, HitGateFor(cmd));
             ecb.SetComponent(entity, HitSpawnFor(cmd));
             ecb.SetComponent(entity, AreaFor(cmd));
-            ecb.SetComponent(entity, PulseVfxFor(cmd));
+            if (lingering)
+            {
+                ecb.SetComponent(entity, new CombatLifetimeComponent { Remaining = cmd.Lifetime });
+                ecb.SetComponentEnabled<CombatLifetimeComponent>(entity, true);
+                ecb.SetComponent(entity, PulseVfxFor(cmd));
+            }
             ecb.SetComponent(entity, render);
             ecb.SetComponent(entity, CombatRenderMatrixUtility.ElementFor(kinematics, render));
             ecb.SetComponentEnabled<Active>(entity, true);
@@ -316,6 +349,7 @@ namespace PlayGround.System.Aoe
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderComponent>    RenderHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderElement>      RenderElementHandle;
             [NativeDisableContainerSafetyRestriction] public BufferTypeHandle<AoeContactGateElement>       ContactGateHandle;
+            public bool HasLingeringComponents;
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex,
                 bool useEnabledMask, in v128 chunkEnabledMask)
@@ -330,15 +364,22 @@ namespace PlayGround.System.Aoe
                 NativeArray<AoeIdentityComponent>     identities  = chunk.GetNativeArray(ref IdentityHandle);
                 NativeArray<CombatKinematicsComponent> kinematics  = chunk.GetNativeArray(ref KinematicsHandle);
                 NativeArray<CombatCollisionComponent>  collisions  = chunk.GetNativeArray(ref CollisionHandle);
-                EnabledMask lifetimeMask = chunk.GetEnabledMask(ref LifetimeHandle);
-                NativeArray<CombatLifetimeComponent>  lifetimes   = chunk.GetNativeArray(ref LifetimeHandle);
                 NativeArray<AoeHitGateComponent>      hitGates    = chunk.GetNativeArray(ref HitGateHandle);
                 NativeArray<AoeHitSpawnComponent>     hitSpawns   = chunk.GetNativeArray(ref HitSpawnHandle);
                 NativeArray<AoeAreaComponent>         areas       = chunk.GetNativeArray(ref AreaHandle);
-                NativeArray<AoePulseVfxComponent>     pulseVfxs   = chunk.GetNativeArray(ref PulseVfxHandle);
                 NativeArray<CombatRenderComponent>    renders     = chunk.GetNativeArray(ref RenderHandle);
                 NativeArray<CombatRenderElement>      renderElems = chunk.GetNativeArray(ref RenderElementHandle);
-                BufferAccessor<AoeContactGateElement> gates       = chunk.GetBufferAccessor(ref ContactGateHandle);
+                EnabledMask lifetimeMask = default;
+                NativeArray<CombatLifetimeComponent> lifetimes = default;
+                NativeArray<AoePulseVfxComponent> pulseVfxs = default;
+                BufferAccessor<AoeContactGateElement> gates = default;
+                if (HasLingeringComponents)
+                {
+                    lifetimeMask = chunk.GetEnabledMask(ref LifetimeHandle);
+                    lifetimes = chunk.GetNativeArray(ref LifetimeHandle);
+                    pulseVfxs = chunk.GetNativeArray(ref PulseVfxHandle);
+                    gates = chunk.GetBufferAccessor(ref ContactGateHandle);
+                }
 
                 for (int i = 0; i < chunk.Count && cfgIdx < Configs.Length; i++)
                 {
@@ -360,8 +401,6 @@ namespace PlayGround.System.Aoe
                         ShapeType = cfg.ShapeType, Radius = cfg.Radius, HalfExtents = cfg.HalfExtents,
                         RotationRadians = cfg.RotationRadians, BoundsMin = cfg.BoundsMin, BoundsMax = cfg.BoundsMax
                     };
-                    lifetimes[i]   = new CombatLifetimeComponent { Remaining = cfg.Lifetime };
-                    lifetimeMask[i] = cfg.Lifetime > 0f;
                     hitGates[i]    = new AoeHitGateComponent
                     {
                         RepeatHitCooldownSeconds = cfg.RepeatHitCooldownSeconds
@@ -374,15 +413,20 @@ namespace PlayGround.System.Aoe
                     {
                         Size = cfg.AreaSize > 0f ? cfg.AreaSize : 1f
                     };
-                    float interval = cfg.RepeatHitCooldownSeconds > 0f ? cfg.RepeatHitCooldownSeconds : 0f;
-                    pulseVfxs[i]   = new AoePulseVfxComponent
+                    if (HasLingeringComponents)
                     {
-                        Interval = interval, RemainingInterval = interval
-                    };
+                        lifetimes[i] = new CombatLifetimeComponent { Remaining = cfg.Lifetime };
+                        lifetimeMask[i] = true;
+                        float interval = cfg.RepeatHitCooldownSeconds > 0f ? cfg.RepeatHitCooldownSeconds : 0f;
+                        pulseVfxs[i] = new AoePulseVfxComponent
+                        {
+                            Interval = interval, RemainingInterval = interval
+                        };
+                        gates[i].Clear();
+                    }
                     CombatRenderComponent render = cfg.Render;
                     renders[i]     = render;
                     renderElems[i] = CombatRenderMatrixUtility.ElementFor(kin, render);
-                    gates[i].Clear();
 
                     activeMask[i]          = true;
                     collisionActiveMask[i] = NeedsCollision(cfg);
@@ -397,18 +441,23 @@ namespace PlayGround.System.Aoe
         {
             private readonly int _factionValue;
             private readonly int _typeId;
+            private readonly bool _lingering;
 
             public int FactionValue => _factionValue;
             public int TypeId       => _typeId;
+            public bool Lingering   => _lingering;
 
-            public AoeSpawnKey(int factionValue, int typeId)
+            public AoeSpawnKey(int factionValue, int typeId, bool lingering)
             {
                 _factionValue = factionValue;
                 _typeId       = typeId;
+                _lingering    = lingering;
             }
 
             public bool Equals(AoeSpawnKey other) =>
-                _factionValue == other._factionValue && _typeId == other._typeId;
+                _factionValue == other._factionValue
+                && _typeId == other._typeId
+                && _lingering == other._lingering;
 
             public override bool Equals(object obj) => obj is AoeSpawnKey k && Equals(k);
 
@@ -416,7 +465,10 @@ namespace PlayGround.System.Aoe
             {
                 unchecked
                 {
-                    return _factionValue * 397 ^ _typeId;
+                    int hash = _factionValue;
+                    hash = hash * 397 ^ _typeId;
+                    hash = hash * 397 ^ (_lingering ? 1 : 0);
+                    return hash;
                 }
             }
         }
