@@ -45,12 +45,13 @@ namespace PlayGround.System.Aoe
 
         public void OnUpdate(ref SystemState state)
         {
-            int activeAoeCount = activeAoeQuery.CalculateEntityCount();
-            if (activeAoeCount == 0)
+            if (activeAoeQuery.IsEmpty)
             {
                 return;
             }
 
+            int activeAoeCount = activeAoeQuery.CalculateEntityCount();
+            
             state.EntityManager.CompleteDependencyBeforeRO<TargetPosition>();
             state.EntityManager.CompleteDependencyBeforeRO<TargetCollisionShape>();
             state.EntityManager.CompleteDependencyBeforeRO<TargetFaction>();

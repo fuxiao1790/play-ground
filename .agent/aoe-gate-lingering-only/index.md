@@ -1,104 +1,100 @@
-# Plan: Restrict AoeContactGateElement to Lingering AOEs
+# Plan: Split Impact vs Lingering AOE by Archetype
 
-## Motivation
+> **Scope: in-chunk footprint / packing only — NOT an allocation fix.** Splitting
+> impact (single-hit / pulse) and lingering AOEs by archetype removes the 256-byte
+> gate buffer (and two other lingering-only components) from impact AOEs, shrinking
+> their chunk footprint and structural-move copy cost. It does **not** touch the
+> per-frame `UnsafeUtility.Malloc` seen under `AoeCollisionJob` — that is `NativeQueue`
+> block churn, a separate, independent task:
+> [collision-writer-container-churn/index.md](../collision-writer-container-churn/index.md).
 
-`AoeContactGateElement` is in the single AOE archetype built in
-[AoeSpawnApplySystem.OnCreate](../../Assets/Scripts/System/Aoe/AoeSpawnApplySystem.cs#L43),
-so **every** AOE entity carries it. With
-`[InternalBufferCapacity(CollisionConstants.MaxAoeTargetsPerTick)]` (= 32) added in
-the `collision-allocation-fix` work, that is **256 bytes inlined per entity**
-(32 × 8-byte `{int TargetId, float CooldownRemaining}`), whether or not the AOE
-ever needs a cross-frame gate.
+## Summary
 
-The retained, ticked contact gate is only meaningful for **lingering** AOEs —
-the per-target repeat-hit cooldown in
-[AoeContactGateSystem](../../Assets/Scripts/System/Aoe/AoeContactGateSystem.cs).
-Pulse AOEs collide exactly once and deactivate
-([AoeCollisionSystem.cs:260-263](../../Assets/Scripts/System/Aoe/AoeCollisionSystem.cs#L260-L263));
-visual-only AOEs never collide. For them the 256-byte buffer is dead weight that
-is still allocated in-chunk, copied on every structural move (two
-`AddSharedComponent` per cold-create), and shrinks chunk packing.
+Today a single AOE archetype ([AoeSpawnApplySystem.OnCreate](../../Assets/Scripts/System/Aoe/AoeSpawnApplySystem.cs#L43))
+carries `AoeContactGateElement` on **every** AOE entity. With
+`[InternalBufferCapacity(32)]`, that is **256 bytes inlined per entity** plus
+`CombatLifetimeComponent` and `AoePulseVfxComponent` — all three meaningful only to
+lingering AOEs. We split AOEs into two archetypes at spawn, discriminated by the
+**presence** of `CombatLifetimeComponent`:
 
-Goal: pulse / visual-only AOEs should not carry the across-frames gate buffer;
-only lingering AOEs should.
+- **Lingering archetype** (`cmd.Lifetime > 0f`): has `CombatLifetimeComponent`
+  (always enabled), `AoeContactGateElement` (cap 32), `AoePulseVfxComponent`.
+- **Impact archetype** (`cmd.Lifetime <= 0f`): omits all three. Intra-tick multi-cell
+  de-dup is done with a `stackalloc` scratch instead of a retained buffer.
 
-## Why this is NOT a one-liner (constraints to honor)
+## Rationale (locked decisions)
 
-1. **The collision job's signature requires the buffer.** `AoeCollisionJob` is an
-   `IJobEntity` taking `DynamicBuffer<AoeContactGateElement> contactGates`
-   ([AoeCollisionSystem.cs:163](../../Assets/Scripts/System/Aoe/AoeCollisionSystem.cs#L163)).
-   Removing the buffer from an archetype removes those entities from the query —
-   they would stop colliding.
+- **Discriminator = component *presence*, not the enabled bit.** Enableable components
+  stay allocated in-chunk regardless of enabled state, so toggling `CombatLifetimeComponent`
+  cannot drop the buffer; only a structural archetype difference does. Lifetime presence
+  is the natural axis — cross-frame repeat-hit gating is only meaningful for an entity
+  that exists across frames.
+- **Three components ride the split, not just the buffer (Q2 resolved).**
+  `CombatLifetimeComponent`, `AoeContactGateElement`, `AoePulseVfxComponent` are all
+  lingering-only. `AoePulseVfxComponent` (periodic lingering visual, interval driven by
+  `RepeatHitCooldownSeconds`) is lingering-only despite its name.
+- **Impact de-dup = `stackalloc int[MaxAoeTargetsPerTick]` (Q1 settled).** Hit-once is
+  preserved by *any* de-dup mechanism, so the choice is purely performance (avoid
+  per-entity heap malloc). Stack scratch is heap-free, Burst-friendly, dies with the
+  `Execute` call, and the cap already bounds registrations to 32. Not a blocker.
+- **Routing uses the discriminator itself — no new tag.** Dead-slot pools split on
+  `WithAll<CombatLifetimeComponent>` (lingering) vs `WithNone<CombatLifetimeComponent>`
+  (impact).
+- **Accepted edge (Q2).** A *visual-only lingering* AOE (lifetime > 0,
+  `AoeCollisionActiveTag` disabled) still carries the unused gate buffer. The precise
+  buffer axis would be lifetime ∧ collision ∧ repeat-cooldown, but that means more
+  archetypes; visual-only lingering AOEs are rare and long-lived, so they don't stress
+  cold-create. Take the lifetime proxy over a three-way split.
 
-2. **Pulse AOEs use the gate *within* a single tick** for multi-cell de-dup
-   ([AoeCollisionSystem.cs:203-239](../../Assets/Scripts/System/Aoe/AoeCollisionSystem.cs#L203-L239)),
-   asserted by `OverlappingTargetRegisteredInMultipleCellsHitsOnce` in
-   `AoeSimulationTests`. So a pulse AOE still needs a working de-dup mechanism for
-   its pass; it just does not need the buffer **retained across frames**.
+## Constraints to honor
 
-3. **Do not shrink `InternalBufferCapacity` as the "fix".** The 32 is sized to the
-   per-tick hit cap precisely so a pulse hitting up to 32 targets never
-   heap-allocates mid-tick. That is the malloc the `collision-allocation-fix` work
-   removed; shrinking it reintroduces it. See
-   [collision-allocation-fix/index.md](../collision-allocation-fix/index.md) item 4.
+1. **The collision job's signature requires the buffer.** `AoeCollisionJob` takes
+   `DynamicBuffer<AoeContactGateElement>` ([AoeCollisionSystem.cs:169](../../Assets/Scripts/System/Aoe/AoeCollisionSystem.cs#L169));
+   an archetype without the buffer drops out of that query and would stop colliding.
+   The collision step must handle both archetypes — and must land **before** the impact
+   archetype is introduced (see execution order).
+2. **Impact AOEs have no lifetime system to deactivate them.** With `CombatLifetimeComponent`
+   absent, `CombatLifetimeSystem` never touches impact AOEs, so the impact collision
+   variant **must unconditionally deactivate** after its pass. (Assumes every impact
+   AOE has collision enabled — verified in Task 003.)
+3. **Do not shrink `InternalBufferCapacity` as a shortcut.** The 32 is sized to the
+   per-tick hit cap so a pass never heap-allocates; shrinking it reintroduces the malloc
+   removed in `collision-allocation-fix` (item 4).
+4. **Reuse pooling is keyed per archetype.** Two archetypes ⇒ two dead-slot pools; impact
+   and lingering slots are not interchangeable, so spawn routing must send each command
+   to the matching pool.
 
-4. **Reuse pooling is keyed per archetype.** `AoeSpawnApplySystem` reuses disabled
-   slots via a `WithDisabled<Active>` dead-slot query filtered by
-   `(CombatRenderFaction, CombatRenderTypeId)`. A second archetype means a second
-   dead-slot pool; pulse and lingering slots are not interchangeable, so the apply
-   path must route each command to the right archetype/pool.
+## Tasks
 
-## Proposed approach (two archetypes)
+| # | File | Scope | Depends on |
+|---|---|---|---|
+| 01 | [001-collision-handles-both-archetypes.md](001-collision-handles-both-archetypes.md) | `AoeCollisionSystem`: gate-strategy split (buffer vs `stackalloc`), drop buffer from required query | — |
+| 02 | [002-two-archetypes-and-spawn-routing.md](002-two-archetypes-and-spawn-routing.md) | `AoeSpawnApplySystem`: two archetypes, keyed buckets, two dead-slot queries, reset routing | 01 |
+| 03 | [003-sibling-systems-and-verification.md](003-sibling-systems-and-verification.md) | Verify lifetime/pulse-vfx systems, tests, footprint check | 01, 02 |
 
-Split AOEs into two archetypes at spawn time, decided by lifetime
-(`cmd.Lifetime > 0f`, the same predicate already used to enable
-`CombatLifetimeComponent` at
-[AoeSpawnApplySystem.cs:249](../../Assets/Scripts/System/Aoe/AoeSpawnApplySystem.cs#L249)):
+## Execution order
 
-- **Lingering archetype:** includes `AoeContactGateElement` (capacity 32), as today.
-- **Pulse archetype:** omits `AoeContactGateElement`. Intra-tick de-dup for pulse
-  is handled without a retained buffer (see open question Q1).
+`01 → 02 → 03`. Task 01 first is **non-breaking**: until the impact archetype exists,
+`WithNone<CombatLifetimeComponent>` matches nothing and `WithAll` matches every AOE, so
+behavior is unchanged. Task 02 then introduces the impact archetype and routing, at which
+point impact AOEs flow to the bufferless collision variant. Task 03 validates.
 
-Touched systems:
+## Sequencing note (project-level)
 
-- `AoeSpawnApplySystem` — two archetypes, two dead-slot queries, two reuse jobs;
-  bucket key gains a pulse/lingering bit so commands route to the matching pool.
-- `AoeCollisionSystem` — must process both archetypes. Either two job variants
-  (one with the buffer, one without) or make the buffer optional and branch on
-  presence.
-- `AoeContactGateSystem` — already `WithAllRW<AoeContactGateElement>`, so it
-  naturally only matches the lingering archetype; verify the query needs no change.
+Per the prior investigation, the dominant AOE spawn cost is `EntityCommandBuffer.Playback`
+from cold-create running every frame; this footprint change only matters because
+cold-create is hot. **Prefer fixing the reuse-pool mismatch first** — splitting archetypes
+adds a second reuse pool and would otherwise complicate diagnosing that failure.
 
-## Open questions (resolve before implementing)
+## Acceptance (whole plan)
 
-- **Q1 — pulse intra-tick de-dup without a retained buffer.** Options: a
-  `Temp`/stack-local dedup set inside `Execute` (re-creates a per-entity alloc —
-  rejected by the malloc-fix goals), a small fixed inline scratch (e.g. stackalloc
-  / fixed buffer capped at `MaxAoeTargetsPerTick`), or keep a buffer on pulse too
-  but with a tiny inline capacity. Decide deliberately — this is the crux that
-  determines whether the split is worth it.
-- **Q2 — is the cross-frame gate the *only* per-entity difference?** If yes, two
-  archetypes differing by one buffer is clean. Confirm no other lingering-only
-  state should move with it.
-
-## Relationship to the spawn-reuse investigation (do this FIRST)
-
-This is a **cost-reduction / hygiene** change, not the fix for the 22–32 ms AOE
-spawn cost. The dominant cost is `EntityCommandBuffer.Playback` because cold-create
-runs every frame while reuse contributes ~0 (see profiling
-`ProfilerCaptures/play-ground_2026-06-19_08-43-53.csv`). The 256-byte buffer only
-matters because cold-create is hot; once reuse absorbs spawns (like the projectile
-path, which shows zero playback), the per-entity weight stops mattering.
-
-**Fix the reuse-pool mismatch before doing this split.** Splitting archetypes adds
-a second reuse pool and would otherwise complicate diagnosing the reuse failure.
-
-## Acceptance
-
-- Pulse / visual-only AOE entities no longer carry `AoeContactGateElement`.
-- Lingering AOE repeat-hit gating unchanged; all `AoeSimulationTests` pass,
-  including `OverlappingTargetRegisteredInMultipleCellsHitsOnce` and the
-  lingering repeat-hit tests.
-- No new per-tick `UnsafeUtility.Malloc` in `AoeCollisionJob` (malloc-fix
-  invariant preserved).
-- Spawn reuse still works for both pools (cold-create not regressed).
+- Impact (lifetime ≤ 0) AOE entities no longer carry `AoeContactGateElement`,
+  `CombatLifetimeComponent`, or `AoePulseVfxComponent`; impact-archetype chunk capacity
+  increases versus the old single archetype.
+- Lingering repeat-hit gating unchanged; `OverlappingTargetRegisteredInMultipleCellsHitsOnce`
+  and the lingering repeat-hit tests pass; all `AoeSimulationTests` pass.
+- No per-tick `UnsafeUtility.Malloc` introduced by the impact de-dup (the `stackalloc`
+  scratch is heap-free). This plan does not address the `NativeQueue` writer-block malloc
+  — see [collision-writer-container-churn](../collision-writer-container-churn/index.md).
+- Spawn reuse works for both pools; no impact AOE leaks (every impact AOE deactivates via
+  the collision variant).
