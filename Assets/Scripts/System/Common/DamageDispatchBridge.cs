@@ -31,7 +31,7 @@ namespace PlayGround.System.Common
     {
         private static readonly ProfilerMarker Marker = new("DamageDispatchBridge");
         private static readonly ProfilerMarker<int> DamageReplayMarker =
-            new("DamageDispatchBridge.Damage", "Damage Events");
+            new("DamageDispatchBridge.DamageReplay", "Damage Events");
 
         private static readonly List<CombatHitData> hitDataScratch = new();
         private static readonly List<DamageReplayEvent> damageEventScratch = new();

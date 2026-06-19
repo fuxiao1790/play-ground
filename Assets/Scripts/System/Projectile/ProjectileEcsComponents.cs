@@ -47,6 +47,7 @@ namespace PlayGround.System.Projectile
     }
 
     // ECS Lifecycle: projectile buffer; added by spawn materialization; kept until root teardown; cleared on reuse.
+    [InternalBufferCapacity(CollisionConstants.MaxProjectileGateCapacity)] // = 16
     public struct ProjectileContactGateElement : IBufferElementData
     {
         public int TargetId;

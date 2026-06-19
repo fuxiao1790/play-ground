@@ -172,58 +172,90 @@ namespace PlayGround.System.Aoe
                     return;
                 }
 
-                var candidates = new NativeHashSet<int>(4, Allocator.Temp);
-                CollectCandidates(identity, collision, ref candidates);
+                // Bounded, allocation-free broadphase: walk cells inline, narrow-phase
+                // each candidate, de-dup via the contact gate, stop at the hard cap.
+                // Overflow keeps first-N in cell-scan order, not nearest-N.
+                int remaining = CollisionConstants.MaxAoeTargetsPerTick;
 
-                if (!candidates.IsEmpty)
+                bool hitVfxEmitted = false;
+                float cooldown = !lifetimeEnabled.ValueRO ? 0f : hitGate.RepeatHitCooldownSeconds;
+
+                int2 min = MinCell(collision.BoundsMin);
+                int2 max = MaxCell(collision.BoundsMax);
+                for (int cy = min.y; cy <= max.y && remaining > 0; cy++)
                 {
-                    bool hitVfxEmitted = false;
-                    foreach (int i in candidates)
+                    for (int cx = min.x; cx <= max.x && remaining > 0; cx++)
                     {
-                        Entity targetEntity = TargetEntities[i];
-                        TargetPosition targetPosition = TargetPositions[i];
-                        TargetCollisionShape target = TargetShapes[i];
-                        if (!CombatCollisionMath.BoundsIntersect(
-                            collision.BoundsMin,
-                            collision.BoundsMax,
-                            target.BoundsMin,
-                            target.BoundsMax))
+                        long key = CellKey(identity.Faction, cx, cy);
+                        if (!OccupiedTargetCells.TryGetFirstValue(
+                                key,
+                                out int i,
+                                out NativeParallelMultiHashMapIterator<long> it))
                         {
                             continue;
                         }
 
-                        if (!CombatCollisionMath.Hit(
-                                kinematics.Position,
-                                collision.Radius,
-                                collision.HalfExtents,
-                                collision.RotationRadians,
-                                collision.ShapeType,
-                                targetPosition.Value,
-                                target.Radius,
-                                target.HalfExtents,
-                                target.RotationRadians,
-                                target.ShapeType))
+                        do
                         {
-                            continue;
-                        }
+                            Entity targetEntity = TargetEntities[i];
+                            int targetKey = TargetKey(targetEntity);
 
-                        float cooldown = !lifetimeEnabled.ValueRO ? 0f : hitGate.RepeatHitCooldownSeconds;
-                        ResolveHit(
-                            identity,
-                            kinematics,
-                            hitSpawn,
-                            area,
-                            targetEntity,
-                            targetPosition,
-                            target,
-                            contactGates,
-                            cooldown,
-                            ref vfxPending,
-                            ref hitVfxEmitted);
+                            if (IndexOfGate(contactGates, targetKey) >= 0)
+                            {
+                                continue;
+                            }
+
+                            TargetPosition targetPosition = TargetPositions[i];
+                            TargetCollisionShape target = TargetShapes[i];
+
+                            if (!CombatCollisionMath.BoundsIntersect(
+                                    collision.BoundsMin,
+                                    collision.BoundsMax,
+                                    target.BoundsMin,
+                                    target.BoundsMax))
+                            {
+                                continue;
+                            }
+
+                            if (!CombatCollisionMath.Hit(
+                                    kinematics.Position,
+                                    collision.Radius,
+                                    collision.HalfExtents,
+                                    collision.RotationRadians,
+                                    collision.ShapeType,
+                                    targetPosition.Value,
+                                    target.Radius,
+                                    target.HalfExtents,
+                                    target.RotationRadians,
+                                    target.ShapeType))
+                            {
+                                continue;
+                            }
+
+                            contactGates.Add(new AoeContactGateElement
+                            {
+                                TargetId = targetKey,
+                                CooldownRemaining = cooldown
+                            });
+                            EmitHit(
+                                identity,
+                                kinematics,
+                                hitSpawn,
+                                area,
+                                targetEntity,
+                                targetPosition,
+                                targetKey,
+                                ref vfxPending,
+                                ref hitVfxEmitted);
+
+                            if (--remaining == 0)
+                            {
+                                break;
+                            }
+                        }
+                        while (OccupiedTargetCells.TryGetNextValue(out i, ref it));
                     }
                 }
-
-                candidates.Dispose();
 
                 if (!lifetimeEnabled.ValueRO)
                 {
@@ -231,33 +263,6 @@ namespace PlayGround.System.Aoe
                 }
 
                 EndVfxStream(ref vfxPending);
-            }
-
-            private void ResolveHit(
-                AoeIdentityComponent identity,
-                CombatKinematicsComponent kinematics,
-                AoeHitSpawnComponent hitSpawn,
-                AoeAreaComponent area,
-                Entity targetEntity,
-                TargetPosition targetPosition,
-                TargetCollisionShape target,
-                DynamicBuffer<AoeContactGateElement> contactGates,
-                float cooldown,
-                ref NativeStream.Writer vfxPending,
-                ref bool hitVfxEmitted)
-            {
-                int targetKey = TargetKey(targetEntity);
-                if (IndexOfGate(contactGates, targetKey) >= 0)
-                {
-                    return;
-                }
-
-                contactGates.Add(new AoeContactGateElement
-                {
-                    TargetId = targetKey,
-                    CooldownRemaining = cooldown
-                });
-                EmitHit(identity, kinematics, hitSpawn, area, targetEntity, targetPosition, targetKey, ref vfxPending, ref hitVfxEmitted);
             }
 
             private void EmitHit(
@@ -325,26 +330,6 @@ namespace PlayGround.System.Aoe
             private static void EndVfxStream(ref NativeStream.Writer vfxPending)
             {
                 vfxPending.EndForEachIndex();
-            }
-
-            private void CollectCandidates(AoeIdentityComponent identity, CombatCollisionComponent collision, ref NativeHashSet<int> candidates)
-            {
-                int2 min = MinCell(collision.BoundsMin);
-                int2 max = MaxCell(collision.BoundsMax);
-                for (int cy = min.y; cy <= max.y; cy++)
-                {
-                    for (int cx = min.x; cx <= max.x; cx++)
-                    {
-                        long key = CellKey(identity.Faction, cx, cy);
-                        if (OccupiedTargetCells.TryGetFirstValue(key, out int targetIdx, out NativeParallelMultiHashMapIterator<long> it))
-                        {
-                            do
-                            {
-                                candidates.Add(targetIdx);
-                            } while (OccupiedTargetCells.TryGetNextValue(out targetIdx, ref it));
-                        }
-                    }
-                }
             }
 
             private static int IndexOfGate(DynamicBuffer<AoeContactGateElement> contactGates, int targetId)

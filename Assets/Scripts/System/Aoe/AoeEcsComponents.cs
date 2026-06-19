@@ -43,6 +43,7 @@ namespace PlayGround.System.Aoe
     }
 
     // ECS Lifecycle: AOE buffer; added by spawn materialization; kept until root teardown; cooldown entries tick down while AoeCollisionActiveTag is enabled and are cleared on reuse.
+    [InternalBufferCapacity(CollisionConstants.MaxAoeTargetsPerTick)] // = 32
     public struct AoeContactGateElement : IBufferElementData
     {
         public int TargetId;

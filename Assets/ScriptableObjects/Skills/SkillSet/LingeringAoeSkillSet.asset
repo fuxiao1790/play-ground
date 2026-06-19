@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillSet
   skill: {fileID: 11400000, guid: f217cdb34c295864a96158022a88d04d, type: 2}
   supports:
-  - {fileID: 11400000, guid: 4f45b6f0e6e0705479a291cc0556a898, type: 2}
-  - {fileID: 11400000, guid: 4f45b6f0e6e0705479a291cc0556a898, type: 2}
+  - {fileID: 0}
+  - {fileID: 0}
   - {fileID: 11400000, guid: 4f45b6f0e6e0705479a291cc0556a898, type: 2}

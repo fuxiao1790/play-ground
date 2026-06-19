@@ -69,6 +69,66 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void OverlappingTargetRegisteredInMultipleCellsHitsOnce()
+        {
+            AddTarget(new float2(64f, 0f), 1f, 1);
+            SpawnCircle(new float2(64f, 0f), 2f, 2f);
+
+            Tick(0.01f);
+
+            Assert.That(ReadHitCount(), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void PulseHitsAtMostMaxAoeTargetsPerTick()
+        {
+            const int ExtraTargets = 5;
+            int targetCount = CollisionConstants.MaxAoeTargetsPerTick + ExtraTargets;
+            for (int i = 0; i < targetCount; i++)
+            {
+                AddTarget(float2.zero, 0.25f, 1);
+            }
+
+            SpawnCircle(float2.zero, 1f, 2f);
+
+            Tick(0.01f);
+
+            Assert.That(ReadHitCount(), Is.EqualTo(CollisionConstants.MaxAoeTargetsPerTick));
+        }
+
+        [Test]
+        public void PulseHitsEveryOverlappingTargetBelowCap()
+        {
+            const int TargetCount = 7;
+            for (int i = 0; i < TargetCount; i++)
+            {
+                AddTarget(float2.zero, 0.25f, 1);
+            }
+
+            SpawnCircle(float2.zero, 1f, 2f);
+
+            Tick(0.01f);
+
+            Assert.That(ReadHitCount(), Is.EqualTo(TargetCount));
+        }
+
+        [Test]
+        public void LingeringTargetIsNotRehitUntilGateCooldownExpires()
+        {
+            AddTarget(float2.zero, 0.25f, 1);
+            SpawnCircle(float2.zero, 1f, 2f, lifetime: 10f, tickInterval: 0.05f);
+
+            Tick(0.01f);
+            Assert.That(ReadHitCount(), Is.EqualTo(1));
+
+            Tick(0.01f);
+            Assert.That(ReadHitCount(), Is.EqualTo(0));
+
+            Tick(0.041f);
+            Assert.That(ReadHitCount(), Is.EqualTo(1));
+        }
+
+        [Test]
         public void LingeringHitsImmediatelyThenRepeatsAfterCooldown()
         {
             AddTarget(float2.zero, 0.25f, 1);

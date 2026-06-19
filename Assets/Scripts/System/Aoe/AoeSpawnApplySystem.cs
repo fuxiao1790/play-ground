@@ -23,13 +23,13 @@ namespace PlayGround.System.Aoe
     public partial class AoeSpawnApplySystem : SystemBase
     {
         private static readonly ProfilerMarker SpawnMarker =
-            new("Aoe.Spawn");
+            new("AoeSpawnApplySystem");
         private static readonly ProfilerMarker ReuseJobMarker =
-            new("Aoe.Spawn.ReuseJob");
+            new("AoeSpawnApplySystem.ReuseJob");
         private static readonly ProfilerCounterValue<int> SpawnColdCreateCounter =
-            new(ProfilerCategory.Scripts, "Aoe.Spawn.Cold", ProfilerMarkerDataUnit.Count);
+            new(ProfilerCategory.Scripts, "AoeSpawnApplySystem.Cold", ProfilerMarkerDataUnit.Count);
         private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
-            new(ProfilerCategory.Scripts, "Aoe.Spawn.Reuse", ProfilerMarkerDataUnit.Count);
+            new(ProfilerCategory.Scripts, "AoeSpawnApplySystem.Reuse", ProfilerMarkerDataUnit.Count);
 
         private EntityArchetype archetype;
 

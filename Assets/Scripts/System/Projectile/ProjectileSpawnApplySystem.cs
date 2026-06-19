@@ -334,10 +334,10 @@ namespace PlayGround.System.Projectile
     {
         public BasicProjectileSpawnApplySystem()
             : base(
-                "Projectile.BasicSpawnApply",
-                "Projectile.BasicSpawnApply.ReuseJob",
-                "Projectile.BasicSpawnApply.Cold",
-                "Projectile.BasicSpawnApply.Reuse")
+                "BasicProjectileSpawnApplySystem",
+                "BasicProjectileSpawnApplySystem.ReuseJob",
+                "BasicProjectileSpawnApplySystem.Cold",
+                "BasicProjectileSpawnApplySystem.Reuse")
         {
         }
 
@@ -519,10 +519,10 @@ namespace PlayGround.System.Projectile
     {
         public ChildSpawnerProjectileSpawnApplySystem()
             : base(
-                "Projectile.ChildSpawnerSpawnApply",
-                "Projectile.ChildSpawnerSpawnApply.ReuseJob",
-                "Projectile.ChildSpawnerSpawnApply.Cold",
-                "Projectile.ChildSpawnerSpawnApply.Reuse")
+                "ChildSpawnerProjectileSpawnApplySystem",
+                "ChildSpawnerProjectileSpawnApplySystem.ReuseJob",
+                "ChildSpawnerProjectileSpawnApplySystem.Cold",
+                "ChildSpawnerProjectileSpawnApplySystem.Reuse")
         {
         }
 

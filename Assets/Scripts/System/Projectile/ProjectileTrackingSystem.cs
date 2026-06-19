@@ -17,7 +17,7 @@ namespace PlayGround.System.Projectile
         private const float TrackingSpatialHashCellSize = 64f;
         private const int ForwardAcquisitionLateralCellRadius = 1;
         private static readonly ProfilerMarker<int> TargetSpatialHashBuildMarker =
-            new("Projectile.Tracking.TargetSpatialHashBuild", "Targets");
+            new("ProjectileTrackingSystem.TargetSpatialHashBuild", "Targets");
 
         private EntityQuery targetQuery;
 

@@ -193,6 +193,14 @@ namespace PlayGround.System.Projectile
                     return;
                 }
 
+                // Pierce is the projectile's hit cap. It may still hit at 0; below zero is exhausted.
+                if (projectileHit.PierceRemaining < 0)
+                {
+                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, ref vfxPending);
+                    EndVfxStream(ref vfxPending);
+                    return;
+                }
+
                 if (TotalTargetCount == 0)
                 {
                     EndVfxStream(ref vfxPending);
@@ -302,14 +310,13 @@ namespace PlayGround.System.Projectile
                             AddOrRefreshGate(contactGates, targetKey,
                                 projectileHit.RepeatHitCooldownSeconds);
 
-                            if (projectileHit.PierceRemaining <= 0)
+                            projectileHit.PierceRemaining--;
+                            if (projectileHit.PierceRemaining < 0)
                             {
                                 Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, ref vfxPending);
                                 EndVfxStream(ref vfxPending);
                                 return;
                             }
-
-                            projectileHit.PierceRemaining--;
                         }
                         while (TargetCells.TryGetNextValue(out targetIdx, ref iterator));
                     }
