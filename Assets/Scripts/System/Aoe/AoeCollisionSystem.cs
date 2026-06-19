@@ -28,7 +28,9 @@ namespace PlayGround.System.Aoe
                 ComponentType.ReadOnly<AoeIdentityComponent>(),
                 ComponentType.ReadOnly<CombatKinematicsComponent>(),
                 ComponentType.ReadOnly<CombatCollisionComponent>(),
-                ComponentType.ReadOnly<CombatLifetimeComponent>(),
+                // CombatLifetimeComponent is enableable; listing it here would require it
+                // ENABLED, excluding pulse AOEs (lifetime disabled) from the count and the
+                // per-entity vfx stream sizing. The job reads its state via EnabledRefRO.
                 ComponentType.ReadOnly<AoeHitGateComponent>(),
                 ComponentType.ReadOnly<AoeHitSpawnComponent>(),
                 ComponentType.ReadOnly<AoeAreaComponent>(),
@@ -136,6 +138,10 @@ namespace PlayGround.System.Aoe
 
         [BurstCompile]
         [WithAll(typeof(AoeTag), typeof(Active), typeof(AoeCollisionActiveTag))]
+        // Pulse AOEs have CombatLifetimeComponent DISABLED. Without WithPresent the
+        // EnabledRefRO param would require it enabled, excluding pulse AOEs from
+        // collision entirely (they would never hit, never deactivate -> leak).
+        [WithPresent(typeof(CombatLifetimeComponent))]
         private partial struct AoeCollisionJob : IJobEntity
         {
             [ReadOnly] public NativeArray<Entity> TargetEntities;
