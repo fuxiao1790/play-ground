@@ -68,13 +68,19 @@ namespace PlayGround.Tests.EditMode
             {
                 new TriggerChain
                 {
-                    cause = sourceSet,
+                    causeIndex = 0,
                     link = trigger,
-                    effect = targetSet,
+                    effectIndex = 2,
                 },
             };
+            var slots = new LoadoutSlot[]
+            {
+                new SkillSetSlot { skillSet = sourceSet },
+                new TriggerLinkSlot { link = trigger },
+                new SkillSetSlot { skillSet = targetSet },
+            };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(sourceSet, chains, PlayerStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             Assert.That(((RuntimeProjectileDefinition)runtime).ChildSpawnSetup, Is.Null);
@@ -94,13 +100,19 @@ namespace PlayGround.Tests.EditMode
             {
                 new TriggerChain
                 {
-                    cause = sourceSet,
+                    causeIndex = 0,
                     link = trigger,
-                    effect = targetSet,
+                    effectIndex = 2,
                 },
             };
+            var slots = new LoadoutSlot[]
+            {
+                new SkillSetSlot { skillSet = sourceSet },
+                new TriggerLinkSlot { link = trigger },
+                new SkillSetSlot { skillSet = targetSet },
+            };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(sourceSet, chains, PlayerStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             RuntimeChildSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).ChildSpawnSetup;
@@ -116,7 +128,8 @@ namespace PlayGround.Tests.EditMode
             SkillSet set = CreateSkillSet("Regular AOE Set", skill);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
-                set,
+                new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
+                0,
                 global::System.Array.Empty<TriggerChain>(),
                 PlayerStatSnapshot.Identity);
 
@@ -136,7 +149,8 @@ namespace PlayGround.Tests.EditMode
             SkillSet set = CreateSkillSet("Lingering AOE Set", skill);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
-                set,
+                new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
+                0,
                 global::System.Array.Empty<TriggerChain>(),
                 PlayerStatSnapshot.Identity);
 

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using PlayGround.Skills.Runtime;
 using PlayGround.System.Projectile;
 using UnityEngine;
@@ -9,10 +10,12 @@ namespace PlayGround.Skills
         private static int nextChildSpawnerId;
 
         public static RuntimeSkillDefinition Compile(
-            SkillSet set,
+            IReadOnlyList<LoadoutSlot> slots,
+            int slotIndex,
             TriggerChain[] allChains,
             PlayerStatSnapshot snapshot)
         {
+            SkillSet set = GetSkillSet(slots, slotIndex);
             if (set == null || set.Skill == null) return null;
 
             SkillDefinition defCopy = set.Skill.Definition.DeepCopy();
@@ -24,19 +27,18 @@ namespace PlayGround.Skills
 
             runtime.RecoveryTime = Mathf.Max(0.01f, set.Skill.BaseRecoveryTime * snapshot.CastSpeedMultiplier);
 
+            // Adjacency is forward-only (i -> i+2); recursion terminates by strictly
+            // increasing slot index. No cycle is possible, so no recursion guard is needed.
             foreach (TriggerChain chain in allChains)
             {
-                if (chain == null || chain.cause != set || chain.link == null || chain.effect == null) continue;
+                if (chain == null || chain.causeIndex != slotIndex || chain.link == null) continue;
 
                 if (chain.link is OnStackTrigger stackTrigger)
                 {
-                    // Self-referential chain (cause == effect): compile the effect without any
-                    // chains so it is a bare definition — avoids infinite recursion while still
-                    // producing a valid chained AOE type for the snapshot.
-                    bool selfRef = chain.effect == set;
                     RuntimeSkillDefinition compiledTarget = Compile(
-                        chain.effect,
-                        selfRef ? new TriggerChain[0] : allChains,
+                        slots,
+                        chain.effectIndex,
+                        allChains,
                         snapshot);
                     if (compiledTarget is RuntimeAoeDefinition chainedAoe)
                     {
@@ -55,12 +57,10 @@ namespace PlayGround.Skills
                     continue;
                 }
 
-                if (chain.effect == set) continue;
-
                 if (chain.link is ChildSpawnTrigger childTrigger)
                 {
                     if (runtime is RuntimeProjectileDefinition projDef)
-                        ApplyChildSpawn(projDef, childTrigger, chain.effect, allChains, snapshot);
+                        ApplyChildSpawn(projDef, childTrigger, slots, chain.effectIndex, allChains, snapshot);
                     continue;
                 }
 
@@ -68,7 +68,7 @@ namespace PlayGround.Skills
                 {
                     if (runtime is RuntimeProjectileDefinition projDef)
                     {
-                        RuntimeSkillDefinition compiledTarget = Compile(chain.effect, allChains, snapshot);
+                        RuntimeSkillDefinition compiledTarget = Compile(slots, chain.effectIndex, allChains, snapshot);
                         if (compiledTarget is RuntimeAoeDefinition aoeDef)
                             projDef.ImpactAoeDefinition = aoeDef;
                     }
@@ -79,16 +79,18 @@ namespace PlayGround.Skills
                 {
                     if (runtime is RuntimeProjectileDefinition projDef)
                     {
-                        RuntimeSkillDefinition compiledTarget = Compile(chain.effect, allChains, snapshot);
+                        RuntimeSkillDefinition compiledTarget = Compile(slots, chain.effectIndex, allChains, snapshot);
                         if (compiledTarget is RuntimeProjectileDefinition impactProjDef)
                         {
                             projDef.ImpactProjectileDefinition = impactProjDef;
                             impactProjDef.SpreadDegrees = impactProjTrigger.spreadDegrees;
                             if (impactProjDef.ImpactProjectileDefinition != null)
-                                Debug.LogWarning($"[SkillSetCompiler] '{chain.effect?.Skill?.name}' has OnImpactProjectileTrigger but is itself used as an impact-projectile target. The nested OnImpactProjectile chain will not fire — C# value-type structs cannot be recursive. Restructure the loadout to avoid proj→proj→proj nesting.");
+                            {
+                                SkillSet effectSet = GetSkillSet(slots, chain.effectIndex);
+                                Debug.LogWarning($"[SkillSetCompiler] '{effectSet?.Skill?.name}' has OnImpactProjectileTrigger but is itself used as an impact-projectile target. The nested OnImpactProjectile chain will not fire - C# value-type structs cannot be recursive. Restructure the loadout to avoid proj->proj->proj nesting.");
+                            }
                         }
                     }
-                    continue;
                 }
             }
 
@@ -153,11 +155,12 @@ namespace PlayGround.Skills
         private static void ApplyChildSpawn(
             RuntimeProjectileDefinition parent,
             ChildSpawnTrigger trigger,
-            SkillSet effectSet,
+            IReadOnlyList<LoadoutSlot> slots,
+            int effectIndex,
             TriggerChain[] allChains,
             PlayerStatSnapshot snapshot)
         {
-            RuntimeSkillDefinition compiledChild = Compile(effectSet, allChains, snapshot);
+            RuntimeSkillDefinition compiledChild = Compile(slots, effectIndex, allChains, snapshot);
             if (compiledChild is not RuntimeProjectileDefinition childDef) return;
 
             float intervalSeconds = Mathf.Max(0.01f, trigger.intervalSeconds);
@@ -172,6 +175,14 @@ namespace PlayGround.Skills
                     ProjectileChildSpawnPatternType.SideSpray,
                     trigger.sideSpreadDegrees),
             };
+        }
+
+        private static SkillSet GetSkillSet(IReadOnlyList<LoadoutSlot> slots, int slotIndex)
+        {
+            if (slots == null || slotIndex < 0 || slotIndex >= slots.Count)
+                return null;
+
+            return slots[slotIndex] is SkillSetSlot slot ? slot.skillSet : null;
         }
     }
 }

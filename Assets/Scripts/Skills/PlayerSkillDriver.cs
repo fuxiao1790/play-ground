@@ -89,30 +89,26 @@ namespace PlayGround.Skills
 
             TriggerChain[] chains = ParseChains(slots);
 
-            var effectSets = new HashSet<SkillSet>();
+            var effectIndices = new HashSet<int>();
             foreach (TriggerChain chain in chains)
-                if (chain.effect != chain.cause)
-                    effectSets.Add(chain.effect);
+                effectIndices.Add(chain.effectIndex);
 
-            var rootSets = new List<SkillSet>();
-            foreach (LoadoutSlot slot in slots)
+            var rootSlotIndices = new List<int>();
+            for (int i = 0; i < slots.Count; i++)
             {
-                if (slot is not SkillSetSlot skillSlot || skillSlot.skillSet == null) continue;
-                if (!effectSets.Contains(skillSlot.skillSet) && !rootSets.Contains(skillSlot.skillSet))
-                    rootSets.Add(skillSlot.skillSet);
+                if (slots[i] is not SkillSetSlot skillSlot || skillSlot.skillSet == null) continue;
+                if (!effectIndices.Contains(i))
+                    rootSlotIndices.Add(i);
             }
 
-            int maxSlots = Mathf.Min(rootSets.Count, loadout.MaxRootSets);
+            int maxSlots = Mathf.Min(rootSlotIndices.Count, loadout.MaxRootSets);
             compiledSlots = new RuntimeSkillDefinition[maxSlots];
             slotStates = new SkillSlotState[maxSlots];
             activeSlotCount = 0;
 
             for (int i = 0; i < maxSlots; i++)
             {
-                SkillSet set = rootSets[i];
-                if (set == null) continue;
-
-                RuntimeSkillDefinition def = SkillSetCompiler.Compile(set, chains, snapshot);
+                RuntimeSkillDefinition def = SkillSetCompiler.Compile(slots, rootSlotIndices[i], chains, snapshot);
                 if (def == null) continue;
 
                 compiledSlots[activeSlotCount] = def;
@@ -137,9 +133,9 @@ namespace PlayGround.Skills
                 {
                     chains.Add(new TriggerChain
                     {
-                        cause = causeSlot.skillSet,
+                        causeIndex = i,
                         link = triggerSlot.link,
-                        effect = effectSlot.skillSet,
+                        effectIndex = i + 2,
                     });
                 }
             }

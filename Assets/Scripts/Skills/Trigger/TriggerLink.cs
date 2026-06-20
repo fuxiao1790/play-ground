@@ -6,9 +6,9 @@ namespace PlayGround.Skills
     // Runtime-only: parsed from LoadoutSlot list during compilation; not serialized
     public sealed class TriggerChain
     {
-        public SkillSet cause;
+        public int causeIndex;
         public TriggerLink link;
-        public SkillSet effect;
+        public int effectIndex;
     }
 
     [Serializable]
