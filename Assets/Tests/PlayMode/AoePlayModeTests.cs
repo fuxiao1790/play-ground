@@ -470,8 +470,8 @@ namespace PlayGround.Tests.PlayMode
             yield return null; // frame 2: 2 stacks
             yield return null; // frame 3: 3 stacks → threshold → chain spawned
 
-            Assert.That(root.Counters.SpawnedAoes, Is.EqualTo(2),
-                "Stack threshold should have spawned the linked pulse AOE (total spawns = lingering + chain).");
+            Assert.That(ScopedAoeCount(root, pulseTypeId), Is.EqualTo(1),
+                "Stack threshold should have spawned the linked pulse AOE.");
             Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Volatile), Is.EqualTo(0),
                 "Stacks should be cleared after the threshold fires.");
 
@@ -479,6 +479,120 @@ namespace PlayGround.Tests.PlayMode
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(mob.MaxHealth - ChainDamage).Within(0.001f),
                 "Chain pulse AOE should deal its damage on the frame it materialises.");
+
+            Cleanup(rootObject, templateObject, mob.gameObject);
+        }
+
+        [UnityTest]
+        public IEnumerator AoeStackThresholdChainFiresEveryStageInOrder()
+        {
+            CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out _);
+            var typeDef = new AoeTypeDefinition();
+            typeDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
+            int firstLingeringTypeId = root.RegisterType(typeDef);
+            var secondTypeDef = new AoeTypeDefinition();
+            secondTypeDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
+            int secondLingeringTypeId = root.RegisterType(secondTypeDef);
+            var impactTypeDef = new AoeTypeDefinition();
+            impactTypeDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
+            int impactTypeId = root.RegisterType(impactTypeDef);
+
+            MobRoot mob = CreateMobTarget(Vector2.zero);
+            mob.Register(root.TargetRegistry);
+
+            const float ImpactDamage = 4f;
+            AoeSpawnGeometry geometry = Geometry(templateObject, 2f);
+            StackChainSnapshot chain = TwoStageStackChain(
+                root,
+                geometry,
+                secondLingeringTypeId,
+                impactTypeId,
+                ImpactDamage);
+
+            root.Spawn(new AoeSpawnRequest(
+                firstLingeringTypeId,
+                Vector2.zero,
+                DefaultTargetMask,
+                new DamageSnapshot(0f),
+                lifetimeSeconds: 10f,
+                tickIntervalSeconds: 0f,
+                geometry: geometry,
+                stackEffect: chain));
+
+            yield return null;
+            Assert.That(ScopedAoeCount(root, secondLingeringTypeId), Is.EqualTo(0));
+            Assert.That(ScopedAoeCount(root, impactTypeId), Is.EqualTo(0));
+            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Poison), Is.EqualTo(1));
+
+            yield return null;
+            Assert.That(ScopedAoeCount(root, secondLingeringTypeId), Is.EqualTo(1));
+            Assert.That(ScopedAoeCount(root, impactTypeId), Is.EqualTo(0));
+            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Poison), Is.EqualTo(0));
+
+            yield return null;
+            Assert.That(ScopedAoeCount(root, impactTypeId), Is.EqualTo(1));
+            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Burning), Is.EqualTo(0));
+
+            yield return null;
+            Assert.That(mob.CurrentHealth, Is.EqualTo(mob.MaxHealth - ImpactDamage).Within(0.001f));
+            Assert.That(FirstScopedAoeHitPayload(root, impactTypeId).StackEffect.Enabled, Is.False);
+            Assert.That(root.Counters.SpawnedAoes, Is.EqualTo(1),
+                "ECS stack follow-ups should not call the managed CombatRoot.Spawn path.");
+
+            Cleanup(rootObject, templateObject, mob.gameObject);
+        }
+
+        [UnityTest]
+        public IEnumerator StackAccrualKeepsDifferentStatusesIndependent()
+        {
+            CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out _);
+            var poisonTypeDef = new AoeTypeDefinition();
+            poisonTypeDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
+            int poisonTypeId = root.RegisterType(poisonTypeDef);
+            var burningTypeDef = new AoeTypeDefinition();
+            burningTypeDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
+            int burningTypeId = root.RegisterType(burningTypeDef);
+
+            MobRoot mob = CreateMobTarget(Vector2.zero);
+            mob.Register(root.TargetRegistry);
+
+            AoeSpawnGeometry geometry = Geometry(templateObject, 2f);
+            root.Spawn(new AoeSpawnRequest(
+                poisonTypeId,
+                Vector2.zero,
+                DefaultTargetMask,
+                new DamageSnapshot(0f),
+                lifetimeSeconds: 10f,
+                tickIntervalSeconds: 0f,
+                geometry: geometry,
+                stackEffect: SingleStageStackChain(root, geometry, MobDebuffStatus.Poison, poisonTypeId, 2)));
+            root.Spawn(new AoeSpawnRequest(
+                burningTypeId,
+                Vector2.zero,
+                DefaultTargetMask,
+                new DamageSnapshot(0f),
+                lifetimeSeconds: 10f,
+                tickIntervalSeconds: 0f,
+                geometry: geometry,
+                stackEffect: SingleStageStackChain(root, geometry, MobDebuffStatus.Burning, burningTypeId, 3)));
+
+            yield return null;
+            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Poison), Is.EqualTo(1));
+            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Burning), Is.EqualTo(1));
+            Assert.That(ScopedAoeCount(root, poisonTypeId), Is.EqualTo(1));
+            Assert.That(ScopedAoeCount(root, burningTypeId), Is.EqualTo(1));
+
+            yield return null;
+            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Poison), Is.EqualTo(0));
+            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Burning), Is.EqualTo(2));
+            Assert.That(ScopedAoeCount(root, poisonTypeId), Is.EqualTo(2));
+            Assert.That(ScopedAoeCount(root, burningTypeId), Is.EqualTo(1));
+
+            yield return null;
+            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Poison), Is.EqualTo(1));
+            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Burning), Is.EqualTo(0));
+            Assert.That(ScopedAoeCount(root, poisonTypeId), Is.EqualTo(2));
+            Assert.That(ScopedAoeCount(root, burningTypeId), Is.EqualTo(2));
 
             Cleanup(rootObject, templateObject, mob.gameObject);
         }
@@ -501,6 +615,102 @@ namespace PlayGround.Tests.PlayMode
                 entityManager.GetComponentData<TargetStackStateComponent>(target.CombatTargetProxy);
             int index = (int)status;
             return index < state.Counts.Length ? state.Counts[index] : 0;
+        }
+
+        private static StackChainSnapshot SingleStageStackChain(
+            CombatRoot root,
+            AoeSpawnGeometry geometry,
+            MobDebuffStatus status,
+            int aoeTypeId,
+            int threshold)
+        {
+            var chain = new StackChainSnapshot
+            {
+                Faction = Faction(root),
+                TargetMask = DefaultTargetMask,
+                Stages = default
+            };
+            chain.Stages.Add(new StackStage(
+                (int)status,
+                1,
+                threshold,
+                aoeTypeId,
+                0f,
+                0f,
+                0f,
+                geometry));
+            return chain;
+        }
+
+        private static StackChainSnapshot TwoStageStackChain(
+            CombatRoot root,
+            AoeSpawnGeometry geometry,
+            int secondLingeringTypeId,
+            int impactTypeId,
+            float impactDamage)
+        {
+            var chain = new StackChainSnapshot
+            {
+                Faction = Faction(root),
+                TargetMask = DefaultTargetMask,
+                Stages = default
+            };
+            chain.Stages.Add(new StackStage(
+                (int)MobDebuffStatus.Poison,
+                1,
+                2,
+                secondLingeringTypeId,
+                0f,
+                10f,
+                0f,
+                geometry));
+            chain.Stages.Add(new StackStage(
+                (int)MobDebuffStatus.Burning,
+                1,
+                1,
+                impactTypeId,
+                impactDamage,
+                0f,
+                0f,
+                geometry));
+            return chain;
+        }
+
+        private static int ScopedAoeCount(CombatRoot root, int typeId)
+        {
+            int count = 0;
+            CombatFaction faction = Faction(root);
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<AoeIdentityComponent>());
+            using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
+            for (int i = 0; i < entities.Length; i++)
+            {
+                AoeIdentityComponent identity = entityManager.GetComponentData<AoeIdentityComponent>(entities[i]);
+                if (identity.Faction == faction && identity.TypeId == typeId)
+                    count++;
+            }
+
+            return count;
+        }
+
+        private static CombatHitPayload FirstScopedAoeHitPayload(CombatRoot root, int typeId)
+        {
+            CombatFaction faction = Faction(root);
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<AoeIdentityComponent>(),
+                ComponentType.ReadOnly<AoeHitSpawnComponent>());
+            using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
+            for (int i = 0; i < entities.Length; i++)
+            {
+                AoeIdentityComponent identity = entityManager.GetComponentData<AoeIdentityComponent>(entities[i]);
+                if (identity.Faction == faction && identity.TypeId == typeId)
+                    return entityManager.GetComponentData<AoeHitSpawnComponent>(entities[i]).HitPayload;
+            }
+
+            Assert.Fail("No matching AOE hit payload found.");
+            return default;
         }
 
         private sealed class AoeTargetProbe : MonoBehaviour, ICombatTarget

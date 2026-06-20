@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
+using PlayGround.Mob;
 using PlayGround.Skills;
 using PlayGround.Skills.Runtime;
 using PlayGround.System.Common;
@@ -243,6 +244,70 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void CompilerKeepsSameAssetStackSlotsIndependent()
+        {
+            LingeringAoeSkill repeatedSkill = CreateAsset<LingeringAoeSkill>("Repeated Lingering AOE Skill");
+            AoeSkill impactSkill = CreateAsset<AoeSkill>("Impact AOE Skill");
+            SkillSet repeatedSet = CreateSkillSet("Repeated AOE Set", repeatedSkill);
+            SkillSet impactSet = CreateSkillSet("Impact AOE Set", impactSkill);
+            OnStackTrigger firstStack = CreateAsset<OnStackTrigger>("First Stack");
+            firstStack.debuffStatus = MobDebuffStatus.Poison;
+            firstStack.stacksPerHit = 1;
+            firstStack.stackThreshold = 2;
+            OnStackTrigger secondStack = CreateAsset<OnStackTrigger>("Second Stack");
+            secondStack.debuffStatus = MobDebuffStatus.Burning;
+            secondStack.stacksPerHit = 3;
+            secondStack.stackThreshold = 4;
+            var slots = new LoadoutSlot[]
+            {
+                new SkillSetSlot { skillSet = repeatedSet },
+                new TriggerLinkSlot { link = firstStack },
+                new SkillSetSlot { skillSet = repeatedSet },
+                new TriggerLinkSlot { link = secondStack },
+                new SkillSetSlot { skillSet = impactSet },
+            };
+            var chains = new[]
+            {
+                new TriggerChain { causeIndex = 0, link = firstStack, effectIndex = 2 },
+                new TriggerChain { causeIndex = 2, link = secondStack, effectIndex = 4 },
+            };
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
+            var root = (RuntimeAoeDefinition)runtime;
+            Assert.That(root.StackTriggerSetup, Is.Not.Null);
+            Assert.That(root.StackTriggerSetup.DebuffStatusId, Is.EqualTo((int)MobDebuffStatus.Poison));
+            Assert.That(root.StackTriggerSetup.AoeDefinition, Is.Not.Null);
+            Assert.That(root.StackTriggerSetup.AoeDefinition, Is.Not.SameAs(root));
+
+            RuntimeAoeDefinition second = root.StackTriggerSetup.AoeDefinition;
+            Assert.That(second.StackTriggerSetup, Is.Not.Null);
+            Assert.That(second.StackTriggerSetup.DebuffStatusId, Is.EqualTo((int)MobDebuffStatus.Burning));
+            Assert.That(second.StackTriggerSetup.StacksPerHit, Is.EqualTo(3));
+            Assert.That(second.StackTriggerSetup.StackThreshold, Is.EqualTo(4));
+            Assert.That(second.StackTriggerSetup.AoeDefinition, Is.Not.Null);
+            Assert.That(second.StackTriggerSetup.AoeDefinition.StackTriggerSetup, Is.Null);
+        }
+
+        [Test]
+        public void BuildStackChainTruncatesPastMaxDepth()
+        {
+            RuntimeAoeDefinition root = ChainRoot(CollisionConstants.MaxStackDepth + 1);
+
+            StackChainSnapshot chain = SkillSpawnTranslator.BuildStackChain(
+                root,
+                CombatFaction.Player,
+                0x22);
+
+            Assert.That(chain.Length, Is.EqualTo(CollisionConstants.MaxStackDepth));
+            Assert.That(chain.Stages[0].AoeTypeId, Is.EqualTo(1));
+            Assert.That(
+                chain.Stages[CollisionConstants.MaxStackDepth - 1].AoeTypeId,
+                Is.EqualTo(CollisionConstants.MaxStackDepth));
+        }
+
+        [Test]
         public void ValidatorWarnsWhenStackChainExceedsMaxDepth()
         {
             int depth = CollisionConstants.MaxStackDepth + 1;
@@ -288,6 +353,30 @@ namespace PlayGround.Tests.EditMode
             asset.name = name;
             createdObjects.Add(asset);
             return asset;
+        }
+
+        private static RuntimeAoeDefinition ChainRoot(int depth)
+        {
+            var root = new RuntimeAoeDefinition { TypeId = 0 };
+            RuntimeAoeDefinition current = root;
+            for (int i = 0; i < depth; i++)
+            {
+                var spawned = new RuntimeAoeDefinition
+                {
+                    TypeId = i + 1,
+                    Damage = i + 1,
+                };
+                current.StackTriggerSetup = new RuntimeStackTriggerSetup
+                {
+                    DebuffStatusId = (int)MobDebuffStatus.Volatile,
+                    StacksPerHit = 1,
+                    StackThreshold = 2,
+                    AoeDefinition = spawned,
+                };
+                current = spawned;
+            }
+
+            return root;
         }
 
         private static void SetField(object target, string fieldName, object value)
