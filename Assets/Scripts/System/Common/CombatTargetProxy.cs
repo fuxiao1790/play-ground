@@ -1,3 +1,5 @@
+using PlayGround.Mob;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -28,6 +30,58 @@ namespace PlayGround.System.Common
         public CombatFaction Value;
     }
 
+    // ECS Lifecycle: target-proxy stack state; added when the proxy is created, reset at proxy creation, destroyed with the proxy. Only StackAccrualSystem writes this component.
+    public struct TargetStackStateComponent : IComponentData
+    {
+        public const int StatusCount = (int)MobDebuffStatus.Volatile + 1;
+
+        public FixedList128Bytes<int> Counts;
+
+        public static TargetStackStateComponent CreateEmpty()
+        {
+            var state = new TargetStackStateComponent();
+            state.Reset();
+            return state;
+        }
+
+        public void Reset()
+        {
+            Counts.Clear();
+            for (int i = 0; i < StatusCount; i++)
+                Counts.Add(0);
+        }
+
+        public bool TryAddStacks(int debuffStatusId, int amount, out int count)
+        {
+            EnsureLength();
+            if (!IsValidStatus(debuffStatusId) || amount <= 0)
+            {
+                count = 0;
+                return false;
+            }
+
+            count = Counts[debuffStatusId] + amount;
+            Counts[debuffStatusId] = count;
+            return true;
+        }
+
+        public void SetCount(int debuffStatusId, int count)
+        {
+            EnsureLength();
+            if (IsValidStatus(debuffStatusId))
+                Counts[debuffStatusId] = count;
+        }
+
+        public static bool IsValidStatus(int debuffStatusId) =>
+            debuffStatusId >= 0 && debuffStatusId < StatusCount;
+
+        private void EnsureLength()
+        {
+            while (Counts.Length < StatusCount)
+                Counts.Add(0);
+        }
+    }
+
     public sealed class TargetCompanion : IComponentData
     {
         public ICombatTarget Target;
@@ -55,6 +109,7 @@ namespace PlayGround.System.Common
             Entity entity = entityManager.CreateEntity(Archetype(entityManager));
             target.CombatTargetProxy = entity;
             entityManager.SetComponentData(entity, new TargetFaction { Value = faction });
+            entityManager.SetComponentData(entity, TargetStackStateComponent.CreateEmpty());
             entityManager.SetComponentData(entity, new TargetCompanion { Target = target });
             Push(entityManager, entity, target);
             return entity;
@@ -184,6 +239,7 @@ namespace PlayGround.System.Common
                 typeof(TargetPosition),
                 typeof(TargetCollisionShape),
                 typeof(TargetFaction),
+                typeof(TargetStackStateComponent),
                 typeof(TargetCompanion));
             return cachedArchetype;
         }

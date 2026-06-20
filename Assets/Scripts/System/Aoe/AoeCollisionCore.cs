@@ -81,7 +81,9 @@ namespace PlayGround.System.Aoe
             NativeQueue<DamageReplayEvent>.ParallelWriter damageWriter,
             bool hasDamageWriter,
             NativeStream.Writer vfxPendingWriter,
-            NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter)
+            NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
+            NativeQueue<StackApplyEvent>.ParallelWriter stackApplyWriter,
+            bool hasStackApplyWriter)
             where TGate : struct, IContactGate
         {
             NativeStream.Writer vfxPending = vfxPendingWriter;
@@ -157,7 +159,9 @@ namespace PlayGround.System.Aoe
                             ref hitVfxEmitted,
                             damageWriter,
                             hasDamageWriter,
-                            projectileEventWriter);
+                            projectileEventWriter,
+                            stackApplyWriter,
+                            hasStackApplyWriter);
 
                         if (--remaining == 0)
                             break;
@@ -184,7 +188,9 @@ namespace PlayGround.System.Aoe
             ref bool hitVfxEmitted,
             NativeQueue<DamageReplayEvent>.ParallelWriter damageWriter,
             bool hasDamageWriter,
-            NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter)
+            NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
+            NativeQueue<StackApplyEvent>.ParallelWriter stackApplyWriter,
+            bool hasStackApplyWriter)
         {
             if (hasDamageWriter && HasDamageEvent(hitSpawn))
             {
@@ -201,6 +207,18 @@ namespace PlayGround.System.Aoe
                     SourceNodeId = hitSpawn.HitPayload.SourceNodeId,
                     SourceId = identity.AoeId,
                     TypeId = identity.TypeId
+                });
+            }
+
+            if (hasStackApplyWriter && hitSpawn.HitPayload.StackEffect.Enabled)
+            {
+                StackChainSnapshot stackEffect = hitSpawn.HitPayload.StackEffect;
+                stackApplyWriter.Enqueue(new StackApplyEvent
+                {
+                    TargetProxy = targetEntity,
+                    Faction = identity.Faction,
+                    TargetMask = stackEffect.TargetMask,
+                    Chain = stackEffect.Stages
                 });
             }
 

@@ -82,6 +82,7 @@ namespace PlayGround.System.Aoe
 
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             var damageBridge = state.World.GetExistingSystemManaged<DamageDispatchBridge>();
+            var stackAccrual = state.World.GetExistingSystemManaged<StackAccrualSystem>();
             var vfxPending = new NativeStream(impactAoeCount, Allocator.TempJob);
 
             var job = new ImpactAoeCollisionJob
@@ -97,7 +98,11 @@ namespace PlayGround.System.Aoe
                 VfxPending = vfxPending.AsWriter(),
                 ProjectileEventWriter = expansion != null
                     ? expansion.EventQueue.AsParallelWriter()
-                    : default
+                    : default,
+                StackApplyWriter = stackAccrual != null
+                    ? stackAccrual.EventQueue.AsParallelWriter()
+                    : default,
+                HasStackApplyWriter = stackAccrual != null && stackAccrual.EventQueue.IsCreated
             };
 
             // Pass impactAoeQuery explicitly so [EntityIndexInQuery] stays in [0, impactAoeCount)
@@ -110,6 +115,9 @@ namespace PlayGround.System.Aoe
             if (damageBridge != null)
                 damageBridge.ProducerHandle =
                     JobHandle.CombineDependencies(damageBridge.ProducerHandle, collisionHandle);
+            if (stackAccrual != null)
+                stackAccrual.ProducerHandle =
+                    JobHandle.CombineDependencies(stackAccrual.ProducerHandle, collisionHandle);
 
             var vfxFlushHandle = new VfxStreamFlushJob
             {
@@ -143,6 +151,8 @@ namespace PlayGround.System.Aoe
             public bool HasDamageWriter;
             public NativeStream.Writer VfxPending;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
+            public NativeQueue<StackApplyEvent>.ParallelWriter StackApplyWriter;
+            public bool HasStackApplyWriter;
 
             private void Execute(
                 [EntityIndexInQuery] int entityIndexInQuery,
@@ -178,7 +188,9 @@ namespace PlayGround.System.Aoe
                     DamageWriter,
                     HasDamageWriter,
                     VfxPending,
-                    ProjectileEventWriter);
+                    ProjectileEventWriter,
+                    StackApplyWriter,
+                    HasStackApplyWriter);
             }
         }
     }
