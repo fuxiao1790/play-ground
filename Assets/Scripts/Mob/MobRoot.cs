@@ -41,12 +41,11 @@ namespace PlayGround.Mob
         [SerializeField] private BasicAttackPrefab projectileBasicPrefab;
 
         private static int nextTargetId;
-        private readonly MobDebuffStackState debuffStacks = new();
         public StatusEffects StatusEffects { get; private set; }
         private readonly MobBlackboard blackboard = new();
         private readonly List<CombatTargetRegistry<ICombatTarget>> registries = new();
         private CombatTargetSet combatTargetSet;
-        // Player-faction combat root used by stack-triggered AOE (damages mobs),
+        // Player-faction combat root used by status-triggered AOE (damages mobs),
         // distinct from combatRoot which fires this mob's own projectiles at the player.
         private CombatRoot aoeCombatRoot;
         private MobEventQueue eventQueue;
@@ -242,7 +241,7 @@ namespace PlayGround.Mob
             RebuildProjectileAttack();
         }
 
-        // Player-faction root for stack-triggered AOE (hits mobs).
+        // Player-faction root for status-triggered AOE (hits mobs).
         public void BindAoeRoot(CombatRoot root)
         {
             aoeCombatRoot = root;
@@ -275,29 +274,6 @@ namespace PlayGround.Mob
         {
             if (hit.DirectDamageEnabled)
                 TakeDamage(hit.Damage);
-
-            if (hit.StackEffect.Enabled)
-                ApplyStackEffect(hit.StackEffect);
-        }
-
-        private void ApplyStackEffect(StackChainSnapshot effect)
-        {
-            StackStage stage = effect.Stages[0];
-            var status = (MobDebuffStatus)stage.DebuffStatusId;
-            bool triggered = debuffStacks.AddStacks(status, Mathf.Max(1, stage.StacksPerHit), Mathf.Max(1, stage.StackThreshold));
-            if (!triggered || aoeCombatRoot == null || stage.AoeTypeId < 0)
-                return;
-
-            debuffStacks.ClearStacks(status);
-            aoeCombatRoot.Spawn(new AoeSpawnRequest(
-                stage.AoeTypeId,
-                transform.position,
-                aoeCombatRoot.TargetMask,
-                new DamageSnapshot(Mathf.Max(0f, stage.AoeDamage)),
-                stage.AoeLifetimeSeconds,
-                stage.AoeTickIntervalSeconds,
-                stage.AoeGeometry,
-                stackEffect: effect.Tail()));
         }
 
         public bool TakeDamage(DamageSnapshot damage)
@@ -319,21 +295,6 @@ namespace PlayGround.Mob
             animatorDriver.RequestHurt(hurtFlashSeconds);
             eventQueue.PushType(damage.IsCrit ? MobEventType.CritDamaged : MobEventType.Damaged, this, damage.Amount);
             return true;
-        }
-
-        public bool AddDebuffStacks(MobDebuffStatus status, int amount, int threshold)
-        {
-            return debuffStacks.AddStacks(status, amount, threshold);
-        }
-
-        public int GetDebuffStackCount(MobDebuffStatus status)
-        {
-            return debuffStacks.GetStackCount(status);
-        }
-
-        public void ClearDebuffStacks(MobDebuffStatus status)
-        {
-            debuffStacks.ClearStacks(status);
         }
 
         private void OnStatusEffectTriggered(StatusEffectDef def, StatusEffectTriggerResult result)

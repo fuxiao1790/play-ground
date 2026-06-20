@@ -74,7 +74,7 @@ namespace PlayGround.Game
                         mobs[i].Register(playerCombatRoot.TargetRegistry);
                     }
 
-                    // Player-faction root for the mob's stack-triggered AOE (hits mobs).
+                    // Player-faction root for the mob's status-triggered AOE (hits mobs).
                     mobs[i].BindAoeRoot(playerCombatRoot);
 
                     if (mobCombatRoot != null)

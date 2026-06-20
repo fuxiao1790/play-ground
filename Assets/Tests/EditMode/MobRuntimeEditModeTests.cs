@@ -55,18 +55,5 @@ namespace PlayGround.Tests.EditMode
             Assert.That(driver.CurrentState, Is.EqualTo(MobBehaviourState.Dead));
         }
 
-        [Test]
-        public void DebuffStacksReturnThresholdHitAndCanClear()
-        {
-            var stacks = new MobDebuffStackState();
-
-            Assert.That(stacks.AddStacks(MobDebuffStatus.Volatile, 2, 3), Is.False);
-            Assert.That(stacks.AddStacks(MobDebuffStatus.Volatile, 1, 3), Is.True);
-            Assert.That(stacks.GetStackCount(MobDebuffStatus.Volatile), Is.EqualTo(3));
-
-            stacks.ClearStacks(MobDebuffStatus.Volatile);
-
-            Assert.That(stacks.GetStackCount(MobDebuffStatus.Volatile), Is.EqualTo(0));
-        }
     }
 }

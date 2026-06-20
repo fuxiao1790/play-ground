@@ -425,11 +425,11 @@ namespace PlayGround.Tests.PlayMode
                 stackEffect: stackEffect));
 
             yield return null; // frame 1: initial hit → 1 stack
-            Assert.That(mob.GetDebuffStackCount(MobDebuffStatus.Volatile), Is.EqualTo(1),
+            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Volatile), Is.EqualTo(1),
                 "Initial AOE hit should apply 1 Volatile stack.");
 
             yield return null; // frame 2: pulse hit (gate expired at dt=0) → 2 stacks
-            Assert.That(mob.GetDebuffStackCount(MobDebuffStatus.Volatile), Is.EqualTo(2),
+            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Volatile), Is.EqualTo(2),
                 "AOE pulse hit should increment stack to 2.");
 
             Cleanup(rootObject, templateObject, mob.gameObject);
@@ -472,7 +472,7 @@ namespace PlayGround.Tests.PlayMode
 
             Assert.That(root.Counters.SpawnedAoes, Is.EqualTo(2),
                 "Stack threshold should have spawned the linked pulse AOE (total spawns = lingering + chain).");
-            Assert.That(mob.GetDebuffStackCount(MobDebuffStatus.Volatile), Is.EqualTo(0),
+            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Volatile), Is.EqualTo(0),
                 "Stacks should be cleared after the threshold fires.");
 
             yield return null; // frame 4: chain pulse materialises and hits
@@ -489,6 +489,18 @@ namespace PlayGround.Tests.PlayMode
             {
                 Object.Destroy(objects[i]);
             }
+        }
+
+        private static int EcsDebuffStackCount(ICombatTarget target, MobDebuffStatus status)
+        {
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            Assert.That(target.CombatTargetProxy, Is.Not.EqualTo(Entity.Null));
+            Assert.That(entityManager.HasComponent<TargetStackStateComponent>(target.CombatTargetProxy), Is.True);
+
+            TargetStackStateComponent state =
+                entityManager.GetComponentData<TargetStackStateComponent>(target.CombatTargetProxy);
+            int index = (int)status;
+            return index < state.Counts.Length ? state.Counts[index] : 0;
         }
 
         private sealed class AoeTargetProbe : MonoBehaviour, ICombatTarget
