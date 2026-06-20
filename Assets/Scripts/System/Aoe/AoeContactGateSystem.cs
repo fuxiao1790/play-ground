@@ -8,7 +8,7 @@ namespace PlayGround.System.Aoe
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(PlayGround.System.Projectile.ProjectileCollisionSystem))]
-    [UpdateBefore(typeof(AoeCollisionSystem))]
+    [UpdateBefore(typeof(LingeringAoeCollisionSystem))]
     public partial struct AoeContactGateSystem : ISystem
     {
         private EntityQuery activeGateQuery;

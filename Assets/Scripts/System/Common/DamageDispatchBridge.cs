@@ -12,7 +12,7 @@ namespace PlayGround.System.Common
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileCollisionSystem))]
-    [UpdateAfter(typeof(AoeCollisionSystem))]
+    [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
     [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
     [UpdateBefore(typeof(AoeSpawnExpansionSystem))]
     public partial class DamageFinalizeSystem : SystemBase

@@ -14,7 +14,7 @@ namespace PlayGround.System.Aoe
     // Also emits spawn-time VFX (Trigger=0) per AoE on the main thread.
     // Built beside the old AoeSpawnSystem; inert until Task 006 wires producers.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(AoeCollisionSystem))]
+    [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
     [UpdateAfter(typeof(PlayGround.System.Projectile.ProjectileCollisionSystem))]
     [UpdateAfter(typeof(DamageFinalizeSystem))]
     [UpdateBefore(typeof(AoeSpawnApplySystem))]

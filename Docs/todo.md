@@ -1,0 +1,2 @@
+occasionally, there will be a huge amount of aoe vfx stacked on top of each other playing around somewhere in the middle.
+disable vfs and use sprites to check if this is a vf issue or some kind of bug in ecs.
