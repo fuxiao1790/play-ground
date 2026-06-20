@@ -3,6 +3,7 @@ using System.Reflection;
 using NUnit.Framework;
 using PlayGround.Skills;
 using PlayGround.Skills.Runtime;
+using PlayGround.System.Common;
 using UnityEngine;
 
 namespace PlayGround.Tests.EditMode
@@ -186,6 +187,83 @@ namespace PlayGround.Tests.EditMode
                 new SkillSetSlot { skillSet = targetSet });
 
             Assert.That(warnings, Is.Empty);
+        }
+
+        [Test]
+        public void BuildStackChainFlattensAoeStackTreeInOrder()
+        {
+            var impact = new RuntimeAoeDefinition
+            {
+                TypeId = 30,
+                Damage = 7f,
+                LifetimeSeconds = 0f,
+                TickIntervalSeconds = 0f,
+            };
+            var lingerB = new RuntimeAoeDefinition
+            {
+                TypeId = 20,
+                Damage = 5f,
+                LifetimeSeconds = 2f,
+                TickIntervalSeconds = 0.25f,
+                StackTriggerSetup = new RuntimeStackTriggerSetup
+                {
+                    DebuffStatusId = 202,
+                    StacksPerHit = 3,
+                    StackThreshold = 4,
+                    AoeDefinition = impact,
+                },
+            };
+            var lingerA = new RuntimeAoeDefinition
+            {
+                TypeId = 10,
+                StackTriggerSetup = new RuntimeStackTriggerSetup
+                {
+                    DebuffStatusId = 101,
+                    StacksPerHit = 1,
+                    StackThreshold = 2,
+                    AoeDefinition = lingerB,
+                },
+            };
+
+            StackChainSnapshot chain = SkillSpawnTranslator.BuildStackChain(
+                lingerA,
+                CombatFaction.Player,
+                0x44);
+
+            Assert.That(chain.Enabled, Is.True);
+            Assert.That(chain.Length, Is.EqualTo(2));
+            Assert.That(chain.Faction, Is.EqualTo(CombatFaction.Player));
+            Assert.That(chain.TargetMask, Is.EqualTo(0x44));
+            Assert.That(chain.Stages[0].DebuffStatusId, Is.EqualTo(101));
+            Assert.That(chain.Stages[0].AoeTypeId, Is.EqualTo(20));
+            Assert.That(chain.Stages[0].AoeDamage, Is.EqualTo(5f).Within(0.0001f));
+            Assert.That(chain.Stages[1].DebuffStatusId, Is.EqualTo(202));
+            Assert.That(chain.Stages[1].AoeTypeId, Is.EqualTo(30));
+            Assert.That(chain.Stages[1].AoeDamage, Is.EqualTo(7f).Within(0.0001f));
+        }
+
+        [Test]
+        public void ValidatorWarnsWhenStackChainExceedsMaxDepth()
+        {
+            int depth = CollisionConstants.MaxStackDepth + 1;
+            var slots = new LoadoutSlot[depth * 2 + 1];
+            for (int i = 0; i < slots.Length; i += 2)
+            {
+                AoeSkill skill = CreateAsset<AoeSkill>($"Aoe Skill {i}");
+                slots[i] = new SkillSetSlot { skillSet = CreateSkillSet($"Aoe Set {i}", skill) };
+            }
+
+            for (int i = 1; i < slots.Length; i += 2)
+            {
+                OnStackTrigger trigger = CreateAsset<OnStackTrigger>($"Stack Trigger {i}");
+                slots[i] = new TriggerLinkSlot { link = trigger };
+            }
+
+            SkillValidationWarning[] warnings = Validate(slots);
+
+            Assert.That(warnings, Has.Length.EqualTo(1));
+            Assert.That(warnings[0].Code, Is.EqualTo(SkillValidationWarningCode.StackChainTooDeep));
+            Assert.That(warnings[0].Message, Does.Contain($"max supported depth is {CollisionConstants.MaxStackDepth}"));
         }
 
         private SkillValidationWarning[] Validate(params LoadoutSlot[] slots)

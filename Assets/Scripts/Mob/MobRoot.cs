@@ -280,22 +280,24 @@ namespace PlayGround.Mob
                 ApplyStackEffect(hit.StackEffect);
         }
 
-        private void ApplyStackEffect(CombatStatusEffectSnapshot effect)
+        private void ApplyStackEffect(StackChainSnapshot effect)
         {
-            var status = (MobDebuffStatus)effect.DebuffStatusId;
-            bool triggered = debuffStacks.AddStacks(status, Mathf.Max(1, effect.StacksPerHit), Mathf.Max(1, effect.StackThreshold));
-            if (!triggered || aoeCombatRoot == null || effect.AoeTypeId < 0)
+            StackStage stage = effect.Stages[0];
+            var status = (MobDebuffStatus)stage.DebuffStatusId;
+            bool triggered = debuffStacks.AddStacks(status, Mathf.Max(1, stage.StacksPerHit), Mathf.Max(1, stage.StackThreshold));
+            if (!triggered || aoeCombatRoot == null || stage.AoeTypeId < 0)
                 return;
 
             debuffStacks.ClearStacks(status);
             aoeCombatRoot.Spawn(new AoeSpawnRequest(
-                effect.AoeTypeId,
+                stage.AoeTypeId,
                 transform.position,
                 aoeCombatRoot.TargetMask,
-                new DamageSnapshot(Mathf.Max(0f, effect.AoeDamage)),
-                effect.AoeLifetimeSeconds,
-                effect.AoeTickIntervalSeconds,
-                effect.AoeGeometry));
+                new DamageSnapshot(Mathf.Max(0f, stage.AoeDamage)),
+                stage.AoeLifetimeSeconds,
+                stage.AoeTickIntervalSeconds,
+                stage.AoeGeometry,
+                stackEffect: effect.Tail()));
         }
 
         public bool TakeDamage(DamageSnapshot damage)

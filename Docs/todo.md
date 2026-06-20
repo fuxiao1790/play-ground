@@ -10,4 +10,8 @@ check if the size of the graphics buffer sent to gpu is always the same as spawn
 -----------------
 
 bug is likely somewhere else. 
-in an isolated tests with just projectile -> child spawn -> projectile -> stack trigger -> aoe, this never shows up.
+in an isolated tests with just projectile -> child spawn -> 
+
+-----------------
+
+spawner spawns increasingly tankier mobs with a defined curve

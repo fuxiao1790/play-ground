@@ -85,7 +85,7 @@ namespace PlayGround.System.Common
             float repeatHitCooldownSeconds = 0f,
             ProjectileTrackingConfig tracking = default,
             ProjectileImpactAoeSnapshot impactAoe = default,
-            CombatStatusEffectSnapshot stackEffect = default,
+            StackChainSnapshot stackEffect = default,
             float visualScale = 0f,
             float visualRotationDegrees = 0f)
         {
@@ -128,7 +128,7 @@ namespace PlayGround.System.Common
         public float RepeatHitCooldownSeconds { get; }
         public ProjectileTrackingConfig Tracking { get; }
         public ProjectileImpactAoeSnapshot ImpactAoe { get; }
-        public CombatStatusEffectSnapshot StackEffect { get; }
+        public StackChainSnapshot StackEffect { get; }
         public float VisualScale { get; }
         public float VisualRotationDegrees { get; }
     }
@@ -203,7 +203,6 @@ namespace PlayGround.System.Common
         public float CritMultiplier;
         public bool DirectDamageEnabled;
         public EntityId SourceNodeId;
-        public CombatStatusEffectSnapshot StackEffect;
         public int SourceId;
         public int TypeId;
     }

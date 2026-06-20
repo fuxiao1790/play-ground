@@ -366,6 +366,31 @@ namespace PlayGround.Tests.PlayMode
             return (CombatFaction)factionField.GetValue(root);
         }
 
+        private static StackChainSnapshot StackChain(
+            CombatRoot root,
+            AoeSpawnGeometry geometry,
+            int aoeTypeId,
+            float damage,
+            int threshold)
+        {
+            var chain = new StackChainSnapshot
+            {
+                Faction = Faction(root),
+                TargetMask = DefaultTargetMask,
+                Stages = default
+            };
+            chain.Stages.Add(new StackStage(
+                (int)MobDebuffStatus.Volatile,
+                1,
+                threshold,
+                aoeTypeId,
+                damage,
+                0f,
+                0f,
+                geometry));
+            return chain;
+        }
+
         // ── AOE stack trigger chain tests ─────────────────────────────────────────
 
         [UnityTest]
@@ -387,15 +412,7 @@ namespace PlayGround.Tests.PlayMode
             mob.Register(root.TargetRegistry);
 
             AoeSpawnGeometry geometry = Geometry(templateObject, 2f);
-            var stackEffect = new CombatStatusEffectSnapshot(
-                debuffStatusId: (int)MobDebuffStatus.Volatile,
-                stacksPerHit: 1,
-                stackThreshold: 10,
-                aoeTypeId: chainTypeId,
-                aoeDamage: 0f,
-                aoeLifetimeSeconds: 0f,
-                aoeTickIntervalSeconds: 0f,
-                aoeGeometry: geometry);
+            var stackEffect = StackChain(root, geometry, chainTypeId, 0f, 10);
 
             root.Spawn(new AoeSpawnRequest(
                 lingeringTypeId,
@@ -437,15 +454,7 @@ namespace PlayGround.Tests.PlayMode
 
             const float ChainDamage = 5f;
             AoeSpawnGeometry geometry = Geometry(templateObject, 2f);
-            var stackEffect = new CombatStatusEffectSnapshot(
-                debuffStatusId: (int)MobDebuffStatus.Volatile,
-                stacksPerHit: 1,
-                stackThreshold: 3,
-                aoeTypeId: pulseTypeId,
-                aoeDamage: ChainDamage,
-                aoeLifetimeSeconds: 0f,
-                aoeTickIntervalSeconds: 0f,
-                aoeGeometry: geometry);
+            var stackEffect = StackChain(root, geometry, pulseTypeId, ChainDamage, 3);
 
             root.Spawn(new AoeSpawnRequest(
                 lingeringTypeId,

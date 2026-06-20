@@ -199,7 +199,6 @@ namespace PlayGround.System.Aoe
                     CritMultiplier = hitSpawn.HitPayload.CritMultiplier,
                     DirectDamageEnabled = hitSpawn.HitPayload.DirectDamageEnabled,
                     SourceNodeId = hitSpawn.HitPayload.SourceNodeId,
-                    StackEffect = hitSpawn.HitPayload.StackEffect,
                     SourceId = identity.AoeId,
                     TypeId = identity.TypeId
                 });
@@ -243,7 +242,7 @@ namespace PlayGround.System.Aoe
         }
 
         internal static bool HasDamageEvent(in AoeHitSpawnComponent hitSpawn) =>
-            hitSpawn.HitPayload.DirectDamageEnabled || hitSpawn.HitPayload.StackEffect.Enabled;
+            hitSpawn.HitPayload.DirectDamageEnabled;
 
         internal static float2 HitDirection(float2 fallback)
         {

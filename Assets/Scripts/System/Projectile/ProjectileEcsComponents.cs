@@ -93,7 +93,7 @@ namespace PlayGround.System.Projectile
         public float TrackingInitialQueryDelaySeconds;
         public EntityId SourceNodeId;
         public ProjectileImpactAoeSnapshot ImpactAoe;
-        public CombatStatusEffectSnapshot StackEffect;
+        public StackChainSnapshot StackEffect;
         public ProjectileImpactProjectileSnapshot ImpactProjectile;
     }
 

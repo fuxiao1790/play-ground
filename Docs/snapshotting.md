@@ -89,13 +89,13 @@ public struct CombatHitPayload
     public float CritMultiplier;
     public bool DirectDamageEnabled;
     public EntityId SourceNodeId;
-    public CombatStatusEffectSnapshot StackEffect;
+    public StackChainSnapshot StackEffect;
 }
 ```
 
-It carries direct damage, crit inputs, source-node identity, and optional stack
-effect data. It is snapshotted before spawn and copied into ECS runtime
-components.
+It carries direct damage, crit inputs, source-node identity, and the optional
+stack chain carrier. The stack chain is plain data resolved before root spawn;
+in-flight entities never read authoring assets or registries.
 
 ## Projectile Runtime Snapshot
 
@@ -218,20 +218,24 @@ AoeSpawnRequest
 
 ## Stack Effect Resolution
 
-`CombatStatusEffectSnapshot` is part of `CombatHitPayload`. It is damage replay
-data, not a cross-domain spawn payload.
+`StackChainSnapshot` is part of `CombatHitPayload`. It is a bounded
+cross-domain spawn carrier, not damage replay data. It flows through:
 
-Current stack-triggered AOE flow:
+- `AoeSpawnRequest`
+- `AoeSpawnEvent`
+- `AoeSpawnCommand`
+- `AoeHitSpawnComponent.HitPayload`
 
-1. Collision emits `DamageReplayEvent` with `StackEffect`.
-2. `DamageDispatchBridge` converts it to `CombatHitData`.
-3. `MobRoot.ReceiveHit` or `ReceiveHits` applies stack state.
-4. When the threshold triggers, `MobRoot` submits an `AoeSpawnRequest` through
-   the player-faction `CombatRoot`.
-5. The AOE then follows the normal AOE spawn pipeline.
+Current stack-triggered AOE direction:
 
-This is still a managed target-side decision. It is intentionally separate from
-collision. Future work may move high-volume stack aggregation into ECS.
+1. A root AOE spawn receives the fully flattened stack chain.
+2. Spawn expansion and apply copy the chain without transformation.
+3. Collision keeps damage replay and stack accrual on separate typed paths.
+4. Stack accrual consumes the chain from the AOE entity and emits the next
+   `AoeSpawnEvent` with the forwarded tail.
+
+Damage replay does not carry stacks. Managed target callbacks receive direct
+damage data only; stack accrual is owned by ECS.
 
 ## Damage Replay
 
@@ -245,7 +249,6 @@ Collision jobs enqueue `DamageReplayEvent` into
 - crit chance and multiplier
 - direct-damage flag
 - source node id
-- stack effect
 - source id and type id
 
 `DamageFinalizeSystem` runs after collision and before spawn expansion. It
@@ -293,8 +296,8 @@ or managed callbacks to collision-time payloads.
   reaches projectile expansion and materializes through projectile apply.
 - Fire AOE with projectile burst snapshot; confirm projectile burst follows the
   projectile spawn pipeline.
-- Fire projectile with stack effect; confirm stacks accumulate on target and
-  threshold AOE uses managed target-side spawn.
+- Fire AOE with stack chain; confirm the applied AOE entity carries the full
+  chain in `AoeHitSpawnComponent.HitPayload`.
 - Mutate authoring data after firing; verify in-flight entities still use the
   original snapshot.
 - Confirm simulation jobs do not read managed companions.

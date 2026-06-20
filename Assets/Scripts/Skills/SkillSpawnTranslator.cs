@@ -36,8 +36,8 @@ namespace PlayGround.Skills
             int targetMask = root.TargetMask;
 
             ProjectileImpactAoeSnapshot impactAoe = BuildImpactAoeSnapshot(def, targetMask);
-            CombatStatusEffectSnapshot stackEffect = BuildStackEffectSnapshot(def);
-            ProjectileImpactProjectileSnapshot impactProjectile = BuildImpactProjectileSnapshot(def, targetMask);
+            StackChainSnapshot stackEffect = BuildStackEffectSnapshot(def, root.Faction, targetMask);
+            ProjectileImpactProjectileSnapshot impactProjectile = BuildImpactProjectileSnapshot(def, targetMask, root.Faction);
             ProjectileChildSpawnConfig childSpawn = def.BuildChildSpawnConfig();
 
             root.Spawn(new ProjectileSpawnRequest(
@@ -80,7 +80,7 @@ namespace PlayGround.Skills
             DamageSnapshot damage = new(Mathf.Max(0f, def.Damage));
             int count = Mathf.Max(1, def.Count);
             AoeSpawnGeometry geometry = def.CreateSpawnGeometry();
-            CombatStatusEffectSnapshot stackEffect = BuildAoeStackEffectSnapshot(def);
+            StackChainSnapshot stackChain = BuildStackChain(def, root.Faction, root.TargetMask);
 
             for (int i = 0; i < count; i++)
             {
@@ -94,25 +94,44 @@ namespace PlayGround.Skills
                     geometry,
                     critChance: def.CritChance,
                     critMultiplier: def.CritMultiplier,
-                    stackEffect: stackEffect));
+                    stackEffect: stackChain));
             }
         }
 
-        private static CombatStatusEffectSnapshot BuildAoeStackEffectSnapshot(RuntimeAoeDefinition def)
+        public static StackChainSnapshot BuildStackChain(
+            RuntimeAoeDefinition root,
+            CombatFaction faction,
+            int targetMask)
         {
-            RuntimeStackTriggerSetup stack = def.StackTriggerSetup;
-            if (stack == null || stack.AoeDefinition == null || stack.AoeDefinition.TypeId < 0)
-                return default;
+            var chain = new StackChainSnapshot
+            {
+                Faction = faction,
+                TargetMask = targetMask,
+                Stages = default
+            };
 
-            return new CombatStatusEffectSnapshot(
-                stack.DebuffStatusId,
-                Mathf.Max(1, stack.StacksPerHit),
-                Mathf.Max(1, stack.StackThreshold),
-                stack.AoeDefinition.TypeId,
-                Mathf.Max(0f, stack.AoeDefinition.Damage),
-                stack.AoeDefinition.LifetimeSeconds,
-                stack.AoeDefinition.TickIntervalSeconds,
-                stack.AoeDefinition.CreateSpawnGeometry());
+            RuntimeAoeDefinition current = root;
+            for (int depth = 0; depth < CollisionConstants.MaxStackDepth; depth++)
+            {
+                RuntimeStackTriggerSetup stack = current?.StackTriggerSetup;
+                RuntimeAoeDefinition spawned = stack?.AoeDefinition;
+                if (stack == null || spawned == null || spawned.TypeId < 0)
+                    break;
+
+                chain.Stages.Add(new StackStage(
+                    stack.DebuffStatusId,
+                    Mathf.Max(1, stack.StacksPerHit),
+                    Mathf.Max(1, stack.StackThreshold),
+                    spawned.TypeId,
+                    Mathf.Max(0f, spawned.Damage),
+                    spawned.LifetimeSeconds,
+                    spawned.TickIntervalSeconds,
+                    spawned.CreateSpawnGeometry()));
+
+                current = spawned;
+            }
+
+            return chain;
         }
 
         private static ProjectileImpactAoeSnapshot BuildImpactAoeSnapshot(
@@ -136,7 +155,8 @@ namespace PlayGround.Skills
 
         private static ProjectileImpactProjectileSnapshot BuildImpactProjectileSnapshot(
             RuntimeProjectileDefinition def,
-            int targetMask)
+            int targetMask,
+            CombatFaction faction)
         {
             RuntimeProjectileDefinition impact = def.ImpactProjectileDefinition;
             if (impact == null || impact.TypeId < 0)
@@ -163,18 +183,35 @@ namespace PlayGround.Skills
                 impact.RepeatHitCooldown,
                 impact.Tracking,
                 BuildImpactAoeSnapshot(impact, targetMask),
-                BuildStackEffectSnapshot(impact),
+                BuildStackEffectSnapshot(impact, faction, targetMask),
                 prefab.VisualScale,
                 prefab.VisualRotationDegrees);
         }
 
-        private static CombatStatusEffectSnapshot BuildStackEffectSnapshot(RuntimeProjectileDefinition def)
+        private static StackChainSnapshot BuildStackEffectSnapshot(
+            RuntimeProjectileDefinition def,
+            CombatFaction faction,
+            int targetMask)
         {
-            RuntimeStackTriggerSetup stack = def.StackTriggerSetup;
-            if (stack == null || stack.AoeDefinition == null || stack.AoeDefinition.TypeId < 0)
-                return default;
+            return BuildStackChain(def.StackTriggerSetup, faction, targetMask);
+        }
 
-            return new CombatStatusEffectSnapshot(
+        private static StackChainSnapshot BuildStackChain(
+            RuntimeStackTriggerSetup stack,
+            CombatFaction faction,
+            int targetMask)
+        {
+            var chain = new StackChainSnapshot
+            {
+                Faction = faction,
+                TargetMask = targetMask,
+                Stages = default
+            };
+
+            if (stack == null || stack.AoeDefinition == null || stack.AoeDefinition.TypeId < 0)
+                return chain;
+
+            chain.Stages.Add(new StackStage(
                 stack.DebuffStatusId,
                 Mathf.Max(1, stack.StacksPerHit),
                 Mathf.Max(1, stack.StackThreshold),
@@ -182,7 +219,9 @@ namespace PlayGround.Skills
                 Mathf.Max(0f, stack.AoeDefinition.Damage),
                 stack.AoeDefinition.LifetimeSeconds,
                 stack.AoeDefinition.TickIntervalSeconds,
-                stack.AoeDefinition.CreateSpawnGeometry());
+                stack.AoeDefinition.CreateSpawnGeometry()));
+
+            return chain;
         }
     }
 }

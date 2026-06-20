@@ -276,7 +276,6 @@ namespace PlayGround.System.Projectile
                                     CritMultiplier = projectileHit.HitPayload.CritMultiplier,
                                     DirectDamageEnabled = projectileHit.HitPayload.DirectDamageEnabled,
                                     SourceNodeId = projectileHit.HitPayload.SourceNodeId,
-                                    StackEffect = projectileHit.HitPayload.StackEffect,
                                     SourceId = identity.ProjectileId,
                                     TypeId = identity.TypeId
                                 });
@@ -396,7 +395,7 @@ namespace PlayGround.System.Projectile
             }
 
             private static bool HasDamageEvent(in ProjectileHitPayload payload) =>
-                payload.DirectDamageEnabled || payload.StackEffect.Enabled;
+                payload.DirectDamageEnabled;
 
             private static float2 HitDirection(float2 velocity, float2 fallback)
             {

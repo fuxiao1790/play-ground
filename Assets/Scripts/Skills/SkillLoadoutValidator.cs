@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using PlayGround.System.Common;
 
 namespace PlayGround.Skills
 {
@@ -30,6 +31,8 @@ namespace PlayGround.Skills
                 if (slots[i] is TriggerLinkSlot triggerSlot)
                     ValidateTriggerLinkSlot(slots, triggerSlot, i, warnings);
             }
+
+            ValidateStackChainDepth(slots, warnings);
         }
 
         private static void ValidateSkillSetSlot(
@@ -114,6 +117,38 @@ namespace PlayGround.Skills
                 AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerTarget, slotIndex,
                     $"Trigger '{slot.link.name}' expects {SkillDefinitionTagUtility.Format(slot.link.TargetSkillTags)} target, but target skill '{effectSkill.name}' is {SkillDefinitionTagUtility.Format(effectSkill.Tags)}. Link will do nothing.");
             }
+        }
+
+        private static void ValidateStackChainDepth(
+            IReadOnlyList<LoadoutSlot> slots,
+            List<SkillValidationWarning> warnings)
+        {
+            for (int i = 1; i < slots.Count; i += 2)
+            {
+                if (!IsStackTriggerAt(slots, i) || IsStackTriggerAt(slots, i - 2))
+                    continue;
+
+                int depth = 0;
+                int triggerIndex = i;
+                while (IsStackTriggerAt(slots, triggerIndex))
+                {
+                    depth++;
+                    triggerIndex += 2;
+                }
+
+                if (depth <= CollisionConstants.MaxStackDepth)
+                    continue;
+
+                AddWarning(warnings, SkillValidationWarningCode.StackChainTooDeep, i,
+                    $"Stack chain starting at trigger slot {i} has depth {depth}, but max supported depth is {CollisionConstants.MaxStackDepth}. Extra stages will be ignored.");
+            }
+        }
+
+        private static bool IsStackTriggerAt(IReadOnlyList<LoadoutSlot> slots, int slotIndex)
+        {
+            return slotIndex >= 0
+                && slotIndex < slots.Count
+                && slots[slotIndex] is TriggerLinkSlot { link: OnStackTrigger };
         }
 
         private static void AddWarning(

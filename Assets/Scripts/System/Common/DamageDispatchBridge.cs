@@ -151,8 +151,8 @@ namespace PlayGround.System.Common
                     hitDataScratch.Add(new CombatHitData(
                         damageEvent.Kind, damage,
                         new Vector2(damageEvent.HitPosition.x, damageEvent.HitPosition.y),
-                        damageEvent.DirectDamageEnabled, damageEvent.StackEffect,
-                        damageEvent.SourceNodeId));
+                        damageEvent.DirectDamageEnabled,
+                        sourceNodeId: damageEvent.SourceNodeId));
                 }
 
                 if (IsTargetUsable(target))

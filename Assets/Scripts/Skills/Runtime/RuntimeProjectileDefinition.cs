@@ -84,11 +84,19 @@ namespace PlayGround.Skills.Runtime
                 impact.CritChance, impact.CritMultiplier);
         }
 
-        private static CombatStatusEffectSnapshot BuildChildStackEffect(RuntimeStackTriggerSetup stack)
+        private static StackChainSnapshot BuildChildStackEffect(RuntimeStackTriggerSetup stack)
         {
+            var chain = new StackChainSnapshot
+            {
+                Faction = default,
+                TargetMask = 0,
+                Stages = default
+            };
+
             if (stack == null || stack.AoeDefinition == null || stack.AoeDefinition.TypeId < 0)
-                return default;
-            return new CombatStatusEffectSnapshot(
+                return chain;
+
+            chain.Stages.Add(new StackStage(
                 stack.DebuffStatusId,
                 Mathf.Max(1, stack.StacksPerHit),
                 Mathf.Max(1, stack.StackThreshold),
@@ -96,7 +104,9 @@ namespace PlayGround.Skills.Runtime
                 Mathf.Max(0f, stack.AoeDefinition.Damage),
                 stack.AoeDefinition.LifetimeSeconds,
                 stack.AoeDefinition.TickIntervalSeconds,
-                stack.AoeDefinition.CreateSpawnGeometry());
+                stack.AoeDefinition.CreateSpawnGeometry()));
+
+            return chain;
         }
 
         private static ProjectileImpactProjectileSnapshot BuildChildImpactProjectileSnapshot(RuntimeProjectileDefinition child)

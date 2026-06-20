@@ -9,6 +9,7 @@ namespace PlayGround.Skills
         UnsupportedTriggerLink,
         UnsupportedTriggerSource,
         UnsupportedTriggerTarget,
+        StackChainTooDeep,
     }
 
     public readonly struct SkillValidationWarning
