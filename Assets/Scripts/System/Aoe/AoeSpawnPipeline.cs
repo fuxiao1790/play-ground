@@ -24,6 +24,7 @@ namespace PlayGround.System.Aoe
         public CombatShapeType ShapeType;
         public CombatRenderComponent Render;
         public AoeProjectileBurstSnapshot ProjectileBurst;
+        public AoeOnHitSpawnSnapshot AoeSpawn;
     }
 
     // ECS Lifecycle: resolved single-entity allocation intent; produced by expansion, consumed by apply; never carries multiplicity.
@@ -45,6 +46,7 @@ namespace PlayGround.System.Aoe
         public CombatShapeType ShapeType;
         public CombatRenderComponent Render;
         public AoeProjectileBurstSnapshot ProjectileBurst;
+        public AoeOnHitSpawnSnapshot AoeSpawn;
     }
 
     internal static class AoeSpawnPipeline
@@ -102,6 +104,64 @@ namespace PlayGround.System.Aoe
                 ShapeType = geo.ShapeType,
                 Render = render,
                 ProjectileBurst = default
+            };
+        }
+
+        public static AoeSpawnEvent BuildOnHitAoeSpawnEvent(
+            CombatFaction faction,
+            int sourceId,
+            int sourceTypeId,
+            int targetId,
+            float2 position,
+            in AoeOnHitSpawnSnapshot snapshot)
+        {
+            AoeSpawnGeometry geo = snapshot.Geometry;
+            float2 halfExtents = new float2(geo.HalfExtents.x, geo.HalfExtents.y);
+            CombatCollisionMath.ComputeWorldBounds(
+                position, geo.Radius, halfExtents, geo.RotationRadians, geo.ShapeType,
+                out float2 boundsMin, out float2 boundsMax);
+
+            CombatRenderComponent render = default;
+            if (geo.VisualScale.x > 0f || geo.VisualScale.y > 0f)
+            {
+                render = new CombatRenderComponent
+                {
+                    IsRenderable = 1,
+                    AlignToVelocity = 0,
+                    VisualScale = new float2(geo.VisualScale.x, geo.VisualScale.y),
+                    VisualRotationSin = geo.VisualRotationSin,
+                    VisualRotationCos = geo.VisualRotationCos,
+                    RenderZ = CombatRoot.AoeRenderZ
+                };
+            }
+
+            return new AoeSpawnEvent
+            {
+                Faction = faction,
+                AoeId = HashId(sourceId, sourceTypeId, targetId, ImpactAoeIdSalt ^ 0x13579B),
+                TypeId = snapshot.TypeId,
+                Lifetime = snapshot.LifetimeSeconds,
+                RepeatHitCooldownSeconds = snapshot.TickIntervalSeconds,
+                HitPayload = new CombatHitPayload
+                {
+                    DamageAmount = snapshot.DamageAmount,
+                    CritChance = snapshot.CritChance,
+                    CritMultiplier = snapshot.CritMultiplier,
+                    DirectDamageEnabled = snapshot.DirectDamageEnabled,
+                    SourceNodeId = default,
+                    StackEffect = snapshot.BuildStackEffect(faction)
+                },
+                AreaSize = geo.AreaSize,
+                Radius = geo.Radius,
+                RotationRadians = geo.RotationRadians,
+                Position = position,
+                HalfExtents = halfExtents,
+                BoundsMin = boundsMin,
+                BoundsMax = boundsMax,
+                ShapeType = geo.ShapeType,
+                Render = render,
+                ProjectileBurst = default,
+                AoeSpawn = default
             };
         }
 

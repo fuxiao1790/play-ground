@@ -338,7 +338,8 @@ namespace PlayGround.System.Common
                 HalfExtents = halfExtents,
                 ShapeType = geometry.ShapeType,
                 Render = AoeRenderComponentFor(request.TypeId, geometry),
-                ProjectileBurst = request.ProjectileBurst
+                ProjectileBurst = request.ProjectileBurst,
+                AoeSpawn = request.AoeSpawn
             };
         }
 

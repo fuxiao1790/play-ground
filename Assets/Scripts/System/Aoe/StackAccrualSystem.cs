@@ -295,7 +295,8 @@ namespace PlayGround.System.Aoe
                 BoundsMax = boundsMax,
                 ShapeType = geometry.ShapeType,
                 Render = RenderFor(geometry, areaScale),
-                ProjectileBurst = default
+                ProjectileBurst = default,
+                AoeSpawn = detonation.AoeOnHitSpawn
             };
         }
 

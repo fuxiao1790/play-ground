@@ -25,6 +25,9 @@ namespace PlayGround.System.Common
         public PlayGround.System.Aoe.AoeSpawnGeometry AoeGeometry;
         public float CritChance;
         public float CritMultiplier;
+        // Bounded AOE hit-spawn tail. This caps stacking-skill composition at
+        // three skills for now without recursive value-type snapshots.
+        public AoeOnHitSpawnSnapshot AoeOnHitSpawn;
 
         public readonly bool Enabled => Kind != StackDetonationKind.None && TypeId >= 0;
     }

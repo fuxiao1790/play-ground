@@ -16,6 +16,7 @@ namespace PlayGround.System.Aoe
             AoeSpawnGeometry geometry = default,
             float areaSize = 0f,
             AoeProjectileBurstSnapshot projectileBurst = default,
+            AoeOnHitSpawnSnapshot aoeSpawn = default,
             float critChance = 0f,
             float critMultiplier = 1.5f,
             StackEffectSnapshot stackEffect = default,
@@ -30,6 +31,7 @@ namespace PlayGround.System.Aoe
             Geometry = geometry;
             AreaSize = geometry.IsValid ? geometry.AreaSize : Mathf.Max(0f, areaSize);
             ProjectileBurst = projectileBurst;
+            AoeSpawn = aoeSpawn;
             CritChance = critChance;
             CritMultiplier = critMultiplier;
             StackEffect = stackEffect;
@@ -45,6 +47,7 @@ namespace PlayGround.System.Aoe
         public AoeSpawnGeometry Geometry { get; }
         public float AreaSize { get; }
         public AoeProjectileBurstSnapshot ProjectileBurst { get; }
+        public AoeOnHitSpawnSnapshot AoeSpawn { get; }
         public float CritChance { get; }
         public float CritMultiplier { get; }
         public StackEffectSnapshot StackEffect { get; }

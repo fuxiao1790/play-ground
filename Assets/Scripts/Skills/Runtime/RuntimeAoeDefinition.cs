@@ -20,6 +20,10 @@ namespace PlayGround.Skills.Runtime
         public int Count { get; set; } = 1;
         public bool DirectDamageEnabled { get; set; } = true;
 
+        // Compiled from OnAoeHitSpawnTrigger; null if none. The concrete ECS
+        // snapshot is bounded by AoeOnHitSpawnSnapshot.MaxStackingSkillChainLinks.
+        public RuntimeSkillDefinition OnHitAoeSpawnDefinition { get; set; }
+
         public AoeSpawnGeometry CreateSpawnGeometry()
         {
             return AoeSpawnGeometry.FromTemplate(

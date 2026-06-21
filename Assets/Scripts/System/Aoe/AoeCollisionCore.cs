@@ -82,6 +82,8 @@ namespace PlayGround.System.Aoe
             bool hasDamageWriter,
             NativeStream.Writer vfxPendingWriter,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
+            NativeQueue<AoeSpawnEvent>.ParallelWriter aoeEventWriter,
+            bool hasAoeEventWriter,
             NativeQueue<StackApplyEvent>.ParallelWriter stackApplyWriter,
             bool hasStackApplyWriter)
             where TGate : struct, IContactGate
@@ -160,6 +162,8 @@ namespace PlayGround.System.Aoe
                             damageWriter,
                             hasDamageWriter,
                             projectileEventWriter,
+                            aoeEventWriter,
+                            hasAoeEventWriter,
                             stackApplyWriter,
                             hasStackApplyWriter);
 
@@ -189,6 +193,8 @@ namespace PlayGround.System.Aoe
             NativeQueue<DamageReplayEvent>.ParallelWriter damageWriter,
             bool hasDamageWriter,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
+            NativeQueue<AoeSpawnEvent>.ParallelWriter aoeEventWriter,
+            bool hasAoeEventWriter,
             NativeQueue<StackApplyEvent>.ParallelWriter stackApplyWriter,
             bool hasStackApplyWriter)
         {
@@ -230,6 +236,19 @@ namespace PlayGround.System.Aoe
                     identity.Faction, identity.AoeId, identity.TypeId, targetKey,
                     kinematics.Position, targetPosition.Value,
                     hitSpawn.ProjectileBurst));
+            }
+
+            if (hasAoeEventWriter && hitSpawn.AoeSpawn.Enabled)
+            {
+                // The link is bounded by AoeOnHitSpawnSnapshot.MaxStackingSkillChainLinks.
+                // Each spawned AOE is a fresh snapshot; there is no runtime retarget.
+                aoeEventWriter.Enqueue(AoeSpawnPipeline.BuildOnHitAoeSpawnEvent(
+                    identity.Faction,
+                    identity.AoeId,
+                    identity.TypeId,
+                    targetKey,
+                    targetPosition.Value,
+                    hitSpawn.AoeSpawn));
             }
 
             if (!hitVfxEmitted)

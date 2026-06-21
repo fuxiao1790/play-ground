@@ -206,6 +206,8 @@ namespace PlayGround.Skills
             if (def is RuntimeAoeDefinition aoeDef)
             {
                 RegisterAoeTypeDefinition(aoeDef);
+                if (aoeDef.OnHitAoeSpawnDefinition != null)
+                    RegisterAoeTypesRecursive(aoeDef.OnHitAoeSpawnDefinition);
             }
 
             if (def is RuntimeProjectileDefinition projDef)
@@ -213,7 +215,7 @@ namespace PlayGround.Skills
                 if (projDef.ChildSpawnSetup?.ChildDefinition != null)
                     RegisterAoeTypesRecursive(projDef.ChildSpawnSetup.ChildDefinition);
                 if (projDef.ImpactAoeDefinition != null)
-                    RegisterAoeTypeDefinition(projDef.ImpactAoeDefinition);
+                    RegisterAoeTypesRecursive(projDef.ImpactAoeDefinition);
                 if (projDef.ImpactProjectileDefinition != null)
                     RegisterAoeTypesRecursive(projDef.ImpactProjectileDefinition);
             }

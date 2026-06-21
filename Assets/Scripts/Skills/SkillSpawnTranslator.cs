@@ -9,6 +9,8 @@ namespace PlayGround.Skills
 {
     public static class SkillSpawnTranslator
     {
+        private const int MaxAoeOnHitSpawnDepth = AoeOnHitSpawnSnapshot.MaxStackingSkillChainLinks;
+
         public static void Spawn(
             RuntimeSkillDefinition def,
             Vector2 origin,
@@ -111,6 +113,7 @@ namespace PlayGround.Skills
                     def.LifetimeSeconds,
                     def.TickIntervalSeconds,
                     geometry,
+                    aoeSpawn: BuildAoeOnHitSpawnSnapshot(def.OnHitAoeSpawnDefinition, root, MaxAoeOnHitSpawnDepth),
                     critChance: def.CritChance,
                     critMultiplier: def.CritMultiplier,
                     stackEffect: stackEffect));
@@ -182,6 +185,10 @@ namespace PlayGround.Skills
 
             int threshold = Mathf.Max(1, stacking.StackThreshold);
             AoeSpawnGeometry geometry = aoe.CreateSpawnGeometry();
+            AoeOnHitSpawnSnapshot onHitSpawn = BuildAoeOnHitSpawnSnapshot(
+                aoe.OnHitAoeSpawnDefinition,
+                root,
+                MaxAoeOnHitSpawnDepth);
             return new StackEffectSnapshot
             {
                 DebuffKey = stacking.DebuffKey,
@@ -203,9 +210,193 @@ namespace PlayGround.Skills
                     TickIntervalSeconds = aoe.TickIntervalSeconds,
                     AoeGeometry = geometry,
                     CritChance = aoe.CritChance,
-                    CritMultiplier = aoe.CritMultiplier
+                    CritMultiplier = aoe.CritMultiplier,
+                    AoeOnHitSpawn = onHitSpawn
                 }
             };
+        }
+
+        private static AoeOnHitSpawnSnapshot BuildAoeOnHitSpawnSnapshot(
+            RuntimeSkillDefinition def,
+            CombatRoot root,
+            int remainingLinks)
+        {
+            if (def == null || root == null || remainingLinks <= 0)
+                return default;
+
+            if (def is RuntimeStackingSkillDefinition stacking)
+                return BuildStackingAoeOnHitSpawnSnapshot(stacking, root, remainingLinks);
+
+            if (def is RuntimeAoeDefinition aoe)
+                return BuildPlainAoeOnHitSpawnSnapshot(aoe, root, default);
+
+            return default;
+        }
+
+        private static AoeOnHitSpawnTailSnapshot BuildAoeOnHitSpawnTailSnapshot(
+            RuntimeSkillDefinition def,
+            CombatRoot root)
+        {
+            if (def == null || root == null)
+                return default;
+
+            if (def is RuntimeStackingSkillDefinition stacking)
+                return BuildStackingAoeOnHitSpawnTailSnapshot(stacking, root);
+
+            if (def is RuntimeAoeDefinition aoe)
+                return BuildPlainAoeOnHitSpawnTailSnapshot(aoe, root, default);
+
+            return default;
+        }
+
+        private static AoeOnHitSpawnSnapshot BuildStackingAoeOnHitSpawnSnapshot(
+            RuntimeStackingSkillDefinition stacking,
+            CombatRoot root,
+            int remainingLinks)
+        {
+            if (stacking.ApplicatorDefinition is not RuntimeAoeDefinition applicator
+                || stacking.DetonationDefinition is not RuntimeAoeDefinition detonation
+                || stacking.DebuffKey < 0
+                || applicator.TypeId < 0
+                || detonation.TypeId < 0)
+            {
+                return default;
+            }
+
+            int threshold = Mathf.Max(1, stacking.StackThreshold);
+            AoeOnHitSpawnTailSnapshot tail = remainingLinks > 1
+                ? BuildAoeOnHitSpawnTailSnapshot(detonation.OnHitAoeSpawnDefinition, root)
+                : default;
+            return BuildPlainAoeOnHitSpawnSnapshot(
+                applicator,
+                root,
+                StackPayloadFor(stacking, detonation, threshold),
+                tail);
+        }
+
+        private static AoeOnHitSpawnTailSnapshot BuildStackingAoeOnHitSpawnTailSnapshot(
+            RuntimeStackingSkillDefinition stacking,
+            CombatRoot root)
+        {
+            if (stacking.ApplicatorDefinition is not RuntimeAoeDefinition applicator
+                || stacking.DetonationDefinition is not RuntimeAoeDefinition detonation
+                || stacking.DebuffKey < 0
+                || applicator.TypeId < 0
+                || detonation.TypeId < 0)
+            {
+                return default;
+            }
+
+            int threshold = Mathf.Max(1, stacking.StackThreshold);
+            return BuildPlainAoeOnHitSpawnTailSnapshot(
+                applicator,
+                root,
+                StackPayloadFor(stacking, detonation, threshold));
+        }
+
+        private static AoeOnHitSpawnSnapshot BuildPlainAoeOnHitSpawnSnapshot(
+            RuntimeAoeDefinition aoe,
+            CombatRoot root,
+            StackPayload stackPayload,
+            AoeOnHitSpawnTailSnapshot tail = default)
+        {
+            if (aoe == null || root == null || aoe.TypeId < 0)
+                return default;
+
+            return new AoeOnHitSpawnSnapshot(
+                aoe.TypeId,
+                root.TargetMask,
+                Mathf.Max(0f, aoe.Damage),
+                aoe.DirectDamageEnabled,
+                aoe.LifetimeSeconds,
+                aoe.TickIntervalSeconds,
+                aoe.CreateSpawnGeometry(),
+                aoe.CritChance,
+                aoe.CritMultiplier,
+                stackPayload.DebuffKey,
+                stackPayload.Threshold,
+                stackPayload.Lifetime,
+                stackPayload.Contribution,
+                stackPayload.DetonationKind,
+                stackPayload.DetonationTypeId,
+                stackPayload.DetonationLifetimeSeconds,
+                stackPayload.DetonationTickIntervalSeconds,
+                stackPayload.DetonationAoeGeometry,
+                stackPayload.DetonationCritChance,
+                stackPayload.DetonationCritMultiplier,
+                tail);
+        }
+
+        private static AoeOnHitSpawnTailSnapshot BuildPlainAoeOnHitSpawnTailSnapshot(
+            RuntimeAoeDefinition aoe,
+            CombatRoot root,
+            StackPayload stackPayload)
+        {
+            if (aoe == null || root == null || aoe.TypeId < 0)
+                return default;
+
+            return new AoeOnHitSpawnTailSnapshot(
+                aoe.TypeId,
+                root.TargetMask,
+                Mathf.Max(0f, aoe.Damage),
+                aoe.DirectDamageEnabled,
+                aoe.LifetimeSeconds,
+                aoe.TickIntervalSeconds,
+                aoe.CreateSpawnGeometry(),
+                aoe.CritChance,
+                aoe.CritMultiplier,
+                stackPayload.DebuffKey,
+                stackPayload.Threshold,
+                stackPayload.Lifetime,
+                stackPayload.Contribution,
+                stackPayload.DetonationKind,
+                stackPayload.DetonationTypeId,
+                stackPayload.DetonationLifetimeSeconds,
+                stackPayload.DetonationTickIntervalSeconds,
+                stackPayload.DetonationAoeGeometry,
+                stackPayload.DetonationCritChance,
+                stackPayload.DetonationCritMultiplier);
+        }
+
+        private static StackPayload StackPayloadFor(
+            RuntimeStackingSkillDefinition stacking,
+            RuntimeAoeDefinition detonation,
+            int threshold)
+        {
+            return new StackPayload
+            {
+                DebuffKey = stacking.DebuffKey,
+                Threshold = threshold,
+                Lifetime = Mathf.Max(0f, stacking.DebuffLifetimeSeconds),
+                Contribution = new StackContribution
+                {
+                    Damage = Mathf.Max(0f, detonation.Damage) / threshold,
+                    ProjectileCount = 0,
+                    AreaSize = Mathf.Max(0.01f, detonation.AreaSize) / threshold
+                },
+                DetonationKind = StackDetonationKind.Aoe,
+                DetonationTypeId = detonation.TypeId,
+                DetonationLifetimeSeconds = detonation.LifetimeSeconds,
+                DetonationTickIntervalSeconds = detonation.TickIntervalSeconds,
+                DetonationAoeGeometry = detonation.CreateSpawnGeometry(),
+                DetonationCritChance = detonation.CritChance,
+                DetonationCritMultiplier = detonation.CritMultiplier
+            };
+        }
+
+        private struct StackPayload
+        {
+            public int DebuffKey;
+            public int Threshold;
+            public float Lifetime;
+            public StackContribution Contribution;
+            public StackDetonationKind DetonationKind;
+            public int DetonationTypeId;
+            public float DetonationLifetimeSeconds;
+            public float DetonationTickIntervalSeconds;
+            public AoeSpawnGeometry DetonationAoeGeometry;
+            public float DetonationCritChance;
+            public float DetonationCritMultiplier;
         }
     }
 }

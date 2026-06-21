@@ -111,6 +111,12 @@ namespace PlayGround.Skills
                 return;
             }
 
+            if (slot.link is OnAoeHitSpawnTrigger)
+            {
+                ValidateAoeHitSpawnLink(slot, slotIndex, causeSkill, effectSkill, warnings);
+                return;
+            }
+
             if (!SkillDefinitionTagUtility.HasAny(causeSkill.Tags, slot.link.SourceSkillTags))
             {
                 AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerSource, slotIndex,
@@ -123,6 +129,37 @@ namespace PlayGround.Skills
                     $"Trigger '{slot.link.name}' expects {SkillDefinitionTagUtility.Format(slot.link.TargetSkillTags)} target, but target skill '{effectSkill.name}' is {SkillDefinitionTagUtility.Format(effectSkill.Tags)}. Link will do nothing.");
             }
         }
+
+        private static void ValidateAoeHitSpawnLink(
+            TriggerLinkSlot slot,
+            int slotIndex,
+            Skill causeSkill,
+            Skill effectSkill,
+            List<SkillValidationWarning> warnings)
+        {
+            if (!CanSourceAoeHitSpawn(causeSkill.Definition))
+            {
+                AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerSource, slotIndex,
+                    $"Trigger '{slot.link.name}' expects an AOE source or AOE stack detonation source, but source skill '{causeSkill.name}' is {SkillDefinitionTagUtility.Format(causeSkill.Tags)}. Link will do nothing.");
+            }
+
+            if (!CanTargetAoeHitSpawn(effectSkill.Definition))
+            {
+                AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerTarget, slotIndex,
+                    $"Trigger '{slot.link.name}' expects an AOE target or stacking skill with an AOE applicator, but target skill '{effectSkill.name}' is {SkillDefinitionTagUtility.Format(effectSkill.Tags)}. Link will do nothing.");
+            }
+        }
+
+        private static bool CanSourceAoeHitSpawn(SkillDefinition definition) =>
+            definition is AoeDefinitionBase
+            || definition is StackingSkillDefinition { detonationKind: StackingSkillDetonationKind.Aoe };
+
+        private static bool CanTargetAoeHitSpawn(SkillDefinition definition) =>
+            definition is AoeDefinitionBase
+            || definition is StackingSkillDefinition
+            {
+                applicatorKind: StackingSkillApplicatorKind.Aoe or StackingSkillApplicatorKind.LingeringAoe
+            };
 
         private static void AddWarning(
             List<SkillValidationWarning> warnings,

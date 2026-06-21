@@ -191,6 +191,201 @@ namespace PlayGround.System.Common
         public float VisualRotationDegrees { get; }
     }
 
+    public readonly struct AoeOnHitSpawnTailSnapshot
+    {
+        public AoeOnHitSpawnTailSnapshot(
+            int typeId,
+            int targetMask,
+            float damageAmount,
+            bool directDamageEnabled,
+            float lifetimeSeconds,
+            float tickIntervalSeconds,
+            AoeSpawnGeometry geometry,
+            float critChance,
+            float critMultiplier,
+            int stackDebuffKey = -1,
+            int stackThreshold = 0,
+            float stackLifetime = 0f,
+            StackContribution stackContribution = default,
+            StackDetonationKind stackDetonationKind = StackDetonationKind.None,
+            int stackDetonationTypeId = -1,
+            float stackDetonationLifetimeSeconds = 0f,
+            float stackDetonationTickIntervalSeconds = 0f,
+            AoeSpawnGeometry stackDetonationAoeGeometry = default,
+            float stackDetonationCritChance = 0f,
+            float stackDetonationCritMultiplier = 1.5f)
+        {
+            Enabled = typeId >= 0 && geometry.IsValid;
+            TypeId = typeId;
+            TargetMask = targetMask;
+            DamageAmount = Mathf.Max(0f, damageAmount);
+            DirectDamageEnabled = directDamageEnabled;
+            LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds);
+            TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds);
+            Geometry = geometry;
+            CritChance = critChance;
+            CritMultiplier = critMultiplier;
+            StackDebuffKey = stackDebuffKey;
+            StackThreshold = Mathf.Max(0, stackThreshold);
+            StackLifetime = Mathf.Max(0f, stackLifetime);
+            StackContribution = stackContribution;
+            StackDetonationKind = stackDetonationKind;
+            StackDetonationTypeId = stackDetonationTypeId;
+            StackDetonationLifetimeSeconds = Mathf.Max(0f, stackDetonationLifetimeSeconds);
+            StackDetonationTickIntervalSeconds = Mathf.Max(0f, stackDetonationTickIntervalSeconds);
+            StackDetonationAoeGeometry = stackDetonationAoeGeometry;
+            StackDetonationCritChance = stackDetonationCritChance;
+            StackDetonationCritMultiplier = stackDetonationCritMultiplier;
+        }
+
+        public bool Enabled { get; }
+        public int TypeId { get; }
+        public int TargetMask { get; }
+        public float DamageAmount { get; }
+        public bool DirectDamageEnabled { get; }
+        public float LifetimeSeconds { get; }
+        public float TickIntervalSeconds { get; }
+        public AoeSpawnGeometry Geometry { get; }
+        public float CritChance { get; }
+        public float CritMultiplier { get; }
+        public int StackDebuffKey { get; }
+        public int StackThreshold { get; }
+        public float StackLifetime { get; }
+        public StackContribution StackContribution { get; }
+        public StackDetonationKind StackDetonationKind { get; }
+        public int StackDetonationTypeId { get; }
+        public float StackDetonationLifetimeSeconds { get; }
+        public float StackDetonationTickIntervalSeconds { get; }
+        public AoeSpawnGeometry StackDetonationAoeGeometry { get; }
+        public float StackDetonationCritChance { get; }
+        public float StackDetonationCritMultiplier { get; }
+
+        public AoeOnHitSpawnSnapshot ToSnapshot() => Enabled
+            ? new AoeOnHitSpawnSnapshot(
+                TypeId,
+                TargetMask,
+                DamageAmount,
+                DirectDamageEnabled,
+                LifetimeSeconds,
+                TickIntervalSeconds,
+                Geometry,
+                CritChance,
+                CritMultiplier,
+                StackDebuffKey,
+                StackThreshold,
+                StackLifetime,
+                StackContribution,
+                StackDetonationKind,
+                StackDetonationTypeId,
+                StackDetonationLifetimeSeconds,
+                StackDetonationTickIntervalSeconds,
+                StackDetonationAoeGeometry,
+                StackDetonationCritChance,
+                StackDetonationCritMultiplier)
+            : default;
+    }
+
+    public readonly struct AoeOnHitSpawnSnapshot
+    {
+        public const int MaxStackingSkillChainLinks = 2;
+
+        public AoeOnHitSpawnSnapshot(
+            int typeId,
+            int targetMask,
+            float damageAmount,
+            bool directDamageEnabled,
+            float lifetimeSeconds,
+            float tickIntervalSeconds,
+            AoeSpawnGeometry geometry,
+            float critChance,
+            float critMultiplier,
+            int stackDebuffKey = -1,
+            int stackThreshold = 0,
+            float stackLifetime = 0f,
+            StackContribution stackContribution = default,
+            StackDetonationKind stackDetonationKind = StackDetonationKind.None,
+            int stackDetonationTypeId = -1,
+            float stackDetonationLifetimeSeconds = 0f,
+            float stackDetonationTickIntervalSeconds = 0f,
+            AoeSpawnGeometry stackDetonationAoeGeometry = default,
+            float stackDetonationCritChance = 0f,
+            float stackDetonationCritMultiplier = 1.5f,
+            AoeOnHitSpawnTailSnapshot nextAoeOnHitSpawn = default)
+        {
+            Enabled = typeId >= 0 && geometry.IsValid;
+            TypeId = typeId;
+            TargetMask = targetMask;
+            DamageAmount = Mathf.Max(0f, damageAmount);
+            DirectDamageEnabled = directDamageEnabled;
+            LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds);
+            TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds);
+            Geometry = geometry;
+            CritChance = critChance;
+            CritMultiplier = critMultiplier;
+            StackDebuffKey = stackDebuffKey;
+            StackThreshold = Mathf.Max(0, stackThreshold);
+            StackLifetime = Mathf.Max(0f, stackLifetime);
+            StackContribution = stackContribution;
+            StackDetonationKind = stackDetonationKind;
+            StackDetonationTypeId = stackDetonationTypeId;
+            StackDetonationLifetimeSeconds = Mathf.Max(0f, stackDetonationLifetimeSeconds);
+            StackDetonationTickIntervalSeconds = Mathf.Max(0f, stackDetonationTickIntervalSeconds);
+            StackDetonationAoeGeometry = stackDetonationAoeGeometry;
+            StackDetonationCritChance = stackDetonationCritChance;
+            StackDetonationCritMultiplier = stackDetonationCritMultiplier;
+            NextAoeOnHitSpawn = nextAoeOnHitSpawn;
+        }
+
+        public bool Enabled { get; }
+        public int TypeId { get; }
+        public int TargetMask { get; }
+        public float DamageAmount { get; }
+        public bool DirectDamageEnabled { get; }
+        public float LifetimeSeconds { get; }
+        public float TickIntervalSeconds { get; }
+        public AoeSpawnGeometry Geometry { get; }
+        public float CritChance { get; }
+        public float CritMultiplier { get; }
+        public int StackDebuffKey { get; }
+        public int StackThreshold { get; }
+        public float StackLifetime { get; }
+        public StackContribution StackContribution { get; }
+        public StackDetonationKind StackDetonationKind { get; }
+        public int StackDetonationTypeId { get; }
+        public float StackDetonationLifetimeSeconds { get; }
+        public float StackDetonationTickIntervalSeconds { get; }
+        public AoeSpawnGeometry StackDetonationAoeGeometry { get; }
+        public float StackDetonationCritChance { get; }
+        public float StackDetonationCritMultiplier { get; }
+        public AoeOnHitSpawnTailSnapshot NextAoeOnHitSpawn { get; }
+
+        public StackEffectSnapshot BuildStackEffect(CombatFaction faction)
+        {
+            var detonation = new DetonationSnapshot
+            {
+                Kind = StackDetonationKind,
+                Faction = faction,
+                TargetMask = TargetMask,
+                TypeId = StackDetonationTypeId,
+                LifetimeSeconds = StackDetonationLifetimeSeconds,
+                TickIntervalSeconds = StackDetonationTickIntervalSeconds,
+                AoeGeometry = StackDetonationAoeGeometry,
+                CritChance = StackDetonationCritChance,
+                CritMultiplier = StackDetonationCritMultiplier,
+                AoeOnHitSpawn = NextAoeOnHitSpawn.ToSnapshot()
+            };
+
+            return new StackEffectSnapshot
+            {
+                DebuffKey = StackDebuffKey,
+                Threshold = StackThreshold,
+                Lifetime = StackLifetime,
+                Contribution = StackContribution,
+                Detonation = detonation
+            };
+        }
+    }
+
     // ECS Lifecycle: transient native damage payload; not added to entities; enqueued during collision, frozen by DamageFinalizeSystem, and replayed by DamageDispatchBridge.
     public struct DamageReplayEvent
     {

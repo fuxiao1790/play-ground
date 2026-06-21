@@ -154,7 +154,8 @@ namespace PlayGround.System.Aoe
                         BoundsMax                = boundsMax,
                         ShapeType                = evt.ShapeType,
                         Render                   = evt.Render,
-                        ProjectileBurst          = evt.ProjectileBurst
+                        ProjectileBurst          = evt.ProjectileBurst,
+                        AoeSpawn                 = evt.AoeSpawn
                     });
 
                     Stream.EndForEachIndex();

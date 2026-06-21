@@ -294,7 +294,8 @@ namespace PlayGround.System.Aoe
         private static bool NeedsCollision(in AoeSpawnCommand cmd) =>
             cmd.HitPayload.DirectDamageEnabled
             || cmd.HitPayload.StackEffect.Enabled
-            || cmd.ProjectileBurst.Enabled;
+            || cmd.ProjectileBurst.Enabled
+            || cmd.AoeSpawn.Enabled;
 
         private static AoeIdentityComponent IdentityFor(CombatFaction faction, in AoeSpawnCommand cmd) =>
             new AoeIdentityComponent { Faction = faction, AoeId = cmd.AoeId, TypeId = cmd.TypeId };
@@ -317,7 +318,12 @@ namespace PlayGround.System.Aoe
             new AoeHitGateComponent { RepeatHitCooldownSeconds = cmd.RepeatHitCooldownSeconds };
 
         private static AoeHitSpawnComponent HitSpawnFor(in AoeSpawnCommand cmd) =>
-            new AoeHitSpawnComponent { HitPayload = cmd.HitPayload, ProjectileBurst = cmd.ProjectileBurst };
+            new AoeHitSpawnComponent
+            {
+                HitPayload = cmd.HitPayload,
+                ProjectileBurst = cmd.ProjectileBurst,
+                AoeSpawn = cmd.AoeSpawn
+            };
 
         private static AoeAreaComponent AreaFor(in AoeSpawnCommand cmd) =>
             new AoeAreaComponent { Size = cmd.AreaSize > 0f ? cmd.AreaSize : 1f };
@@ -407,7 +413,9 @@ namespace PlayGround.System.Aoe
                     };
                     hitSpawns[i]   = new AoeHitSpawnComponent
                     {
-                        HitPayload = cfg.HitPayload, ProjectileBurst = cfg.ProjectileBurst
+                        HitPayload = cfg.HitPayload,
+                        ProjectileBurst = cfg.ProjectileBurst,
+                        AoeSpawn = cfg.AoeSpawn
                     };
                     areas[i]       = new AoeAreaComponent
                     {

@@ -299,6 +299,86 @@ namespace PlayGround.Tests.EditMode
             Assert.That(warnings, Is.Empty);
         }
 
+        [Test]
+        public void ValidatorDoesNotWarnForAoeHitSpawnToAoeApplicatorStackingSkill()
+        {
+            AoeSkill sourceSkill = CreateAsset<AoeSkill>("AOE Skill");
+            StackingSkill targetSkill = CreateAsset<StackingSkill>("Stacking Skill");
+            var targetDefinition = (StackingSkillDefinition)targetSkill.Definition;
+            targetDefinition.applicatorKind = StackingSkillApplicatorKind.Aoe;
+            targetDefinition.detonationKind = StackingSkillDetonationKind.Aoe;
+            SkillSet sourceSet = CreateSkillSet("AOE Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("Stacking Set", targetSkill);
+            OnAoeHitSpawnTrigger trigger = CreateAsset<OnAoeHitSpawnTrigger>("AOE Hit Spawn");
+
+            SkillValidationWarning[] warnings = Validate(
+                new SkillSetSlot { skillSet = sourceSet },
+                new TriggerLinkSlot { link = trigger },
+                new SkillSetSlot { skillSet = targetSet });
+
+            Assert.That(warnings, Is.Empty);
+        }
+
+        [Test]
+        public void ValidatorWarnsWhenAoeHitSpawnTargetsProjectileApplicatorStackingSkill()
+        {
+            AoeSkill sourceSkill = CreateAsset<AoeSkill>("AOE Skill");
+            StackingSkill targetSkill = CreateAsset<StackingSkill>("Stacking Skill");
+            var targetDefinition = (StackingSkillDefinition)targetSkill.Definition;
+            targetDefinition.applicatorKind = StackingSkillApplicatorKind.Projectile;
+            targetDefinition.detonationKind = StackingSkillDetonationKind.Aoe;
+            SkillSet sourceSet = CreateSkillSet("AOE Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("Stacking Set", targetSkill);
+            OnAoeHitSpawnTrigger trigger = CreateAsset<OnAoeHitSpawnTrigger>("AOE Hit Spawn");
+
+            SkillValidationWarning[] warnings = Validate(
+                new SkillSetSlot { skillSet = sourceSet },
+                new TriggerLinkSlot { link = trigger },
+                new SkillSetSlot { skillSet = targetSet });
+
+            Assert.That(warnings, Has.Length.EqualTo(1));
+            Assert.That(warnings[0].Code, Is.EqualTo(SkillValidationWarningCode.UnsupportedTriggerTarget));
+            Assert.That(warnings[0].Message, Does.Contain("will do nothing"));
+        }
+
+        [Test]
+        public void CompilerAttachesAoeHitSpawnLinkToStackingDetonationAoe()
+        {
+            StackingSkill sourceSkill = CreateAsset<StackingSkill>("Source Stacking Skill");
+            var sourceDefinition = (StackingSkillDefinition)sourceSkill.Definition;
+            sourceDefinition.applicatorKind = StackingSkillApplicatorKind.Aoe;
+            sourceDefinition.detonationKind = StackingSkillDetonationKind.Aoe;
+            StackingSkill targetSkill = CreateAsset<StackingSkill>("Target Stacking Skill");
+            var targetDefinition = (StackingSkillDefinition)targetSkill.Definition;
+            targetDefinition.applicatorKind = StackingSkillApplicatorKind.Aoe;
+            targetDefinition.detonationKind = StackingSkillDetonationKind.Aoe;
+            SkillSet sourceSet = CreateSkillSet("Source Stacking Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("Target Stacking Set", targetSkill);
+            OnAoeHitSpawnTrigger trigger = CreateAsset<OnAoeHitSpawnTrigger>("AOE Hit Spawn");
+            var chains = new[]
+            {
+                new TriggerChain
+                {
+                    causeIndex = 0,
+                    link = trigger,
+                    effectIndex = 2,
+                },
+            };
+            var slots = new LoadoutSlot[]
+            {
+                new SkillSetSlot { skillSet = sourceSet },
+                new TriggerLinkSlot { link = trigger },
+                new SkillSetSlot { skillSet = targetSet },
+            };
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeStackingSkillDefinition>());
+            var stacking = (RuntimeStackingSkillDefinition)runtime;
+            var detonation = (RuntimeAoeDefinition)stacking.DetonationDefinition;
+            Assert.That(detonation.OnHitAoeSpawnDefinition, Is.TypeOf<RuntimeStackingSkillDefinition>());
+        }
+
         private SkillValidationWarning[] Validate(params LoadoutSlot[] slots)
         {
             var list = new List<LoadoutSlot>(slots);

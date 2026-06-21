@@ -381,6 +381,37 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(gates[0].CooldownRemaining, Is.EqualTo(1f).Within(0.0001f));
         }
 
+        [Test]
+        public void AoeOnHitSpawnQueuesNextAoeAtHitTarget()
+        {
+            AddTarget(float2.zero, 0.25f, 1);
+            var linkedAoe = new AoeOnHitSpawnSnapshot(
+                typeId: 2,
+                targetMask: ~0,
+                damageAmount: 3f,
+                directDamageEnabled: true,
+                lifetimeSeconds: 0f,
+                tickIntervalSeconds: 0f,
+                geometry: new AoeSpawnGeometry(
+                    1f,
+                    CombatShapeType.Circle,
+                    1f,
+                    Vector2.zero,
+                    0f,
+                    Vector2.zero,
+                    0f),
+                critChance: 0f,
+                critMultiplier: 1.5f);
+            SpawnCircle(float2.zero, 1f, 0f, aoeSpawn: linkedAoe);
+
+            Tick(0.01f);
+            Assert.That(ReadHitCount(), Is.EqualTo(0));
+
+            Tick(0.01f);
+            Assert.That(ReadHitCount(), Is.EqualTo(1));
+            Assert.That(TotalAoeCount(), Is.EqualTo(2));
+        }
+
         private void Tick(float dt)
         {
             int hitsBefore = TotalHitCount();
@@ -397,7 +428,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         private void SpawnCircle(float2 position, float radius, float damage,
-            float lifetime = 0f, float tickInterval = 0f)
+            float lifetime = 0f, float tickInterval = 0f, AoeOnHitSpawnSnapshot aoeSpawn = default)
         {
             entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Add(new AoeSpawnEvent
             {
@@ -414,7 +445,8 @@ namespace PlayGround.Tests.PlayMode
                 Radius = radius,
                 Position = position,
                 HalfExtents = float2.zero,
-                ShapeType = CombatShapeType.Circle
+                ShapeType = CombatShapeType.Circle,
+                AoeSpawn = aoeSpawn
             });
         }
 

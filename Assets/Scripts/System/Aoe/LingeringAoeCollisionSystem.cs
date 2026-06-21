@@ -81,6 +81,7 @@ namespace PlayGround.System.Aoe
             }
 
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
+            var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
             var damageBridge = state.World.GetExistingSystemManaged<DamageDispatchBridge>();
             var stackAccrual = state.World.GetExistingSystemManaged<StackAccrualSystem>();
             var vfxPending = new NativeStream(lingeringAoeCount, Allocator.TempJob);
@@ -99,6 +100,10 @@ namespace PlayGround.System.Aoe
                 ProjectileEventWriter = expansion != null
                     ? expansion.EventQueue.AsParallelWriter()
                     : default,
+                AoeEventWriter = aoeExpansion != null
+                    ? aoeExpansion.EventQueue.AsParallelWriter()
+                    : default,
+                HasAoeEventWriter = aoeExpansion != null && aoeExpansion.EventQueue.IsCreated,
                 StackApplyWriter = stackAccrual != null
                     ? stackAccrual.EventQueue.AsParallelWriter()
                     : default,
@@ -112,6 +117,9 @@ namespace PlayGround.System.Aoe
             if (expansion != null)
                 expansion.ProducerHandle =
                     JobHandle.CombineDependencies(expansion.ProducerHandle, collisionHandle);
+            if (aoeExpansion != null)
+                aoeExpansion.ProducerHandle =
+                    JobHandle.CombineDependencies(aoeExpansion.ProducerHandle, collisionHandle);
             if (damageBridge != null)
                 damageBridge.ProducerHandle =
                     JobHandle.CombineDependencies(damageBridge.ProducerHandle, collisionHandle);
@@ -153,6 +161,8 @@ namespace PlayGround.System.Aoe
             public bool HasDamageWriter;
             public NativeStream.Writer VfxPending;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
+            public NativeQueue<AoeSpawnEvent>.ParallelWriter AoeEventWriter;
+            public bool HasAoeEventWriter;
             public NativeQueue<StackApplyEvent>.ParallelWriter StackApplyWriter;
             public bool HasStackApplyWriter;
 
@@ -194,6 +204,8 @@ namespace PlayGround.System.Aoe
                     HasDamageWriter,
                     VfxPending,
                     ProjectileEventWriter,
+                    AoeEventWriter,
+                    HasAoeEventWriter,
                     StackApplyWriter,
                     HasStackApplyWriter);
             }

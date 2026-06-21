@@ -63,6 +63,21 @@ namespace PlayGround.Skills
                             }
                         }
                     }
+                    continue;
+                }
+
+                if (chain.link is OnAoeHitSpawnTrigger)
+                {
+                    RuntimeSkillDefinition compiledTarget = Compile(slots, chain.effectIndex, allChains, snapshot);
+                    if (runtime is RuntimeAoeDefinition aoeDef)
+                    {
+                        aoeDef.OnHitAoeSpawnDefinition = compiledTarget;
+                    }
+                    else if (runtime is RuntimeStackingSkillDefinition stacking
+                             && stacking.DetonationDefinition is RuntimeAoeDefinition detonationAoe)
+                    {
+                        detonationAoe.OnHitAoeSpawnDefinition = compiledTarget;
+                    }
                 }
             }
 

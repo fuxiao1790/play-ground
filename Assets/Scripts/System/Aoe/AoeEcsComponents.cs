@@ -34,6 +34,7 @@ namespace PlayGround.System.Aoe
     {
         public CombatHitPayload HitPayload;
         public AoeProjectileBurstSnapshot ProjectileBurst;
+        public AoeOnHitSpawnSnapshot AoeSpawn;
     }
 
     // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse; carries fire-time gameplay area size for VFX dispatch.
