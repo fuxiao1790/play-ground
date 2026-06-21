@@ -227,7 +227,7 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void CompilerRejectsProjectileStackDetonation()
+        public void CompilerBuildsProjectileStackDetonationRuntime()
         {
             StackingSkill skill = CreateAsset<StackingSkill>("Stacking Skill");
             var definition = (StackingSkillDefinition)skill.Definition;
@@ -240,7 +240,10 @@ namespace PlayGround.Tests.EditMode
                 global::System.Array.Empty<TriggerChain>(),
                 PlayerStatSnapshot.Identity);
 
-            Assert.That(runtime, Is.Null);
+            Assert.That(runtime, Is.TypeOf<RuntimeStackingSkillDefinition>());
+            var stacking = (RuntimeStackingSkillDefinition)runtime;
+            Assert.That(stacking.DetonationDefinition, Is.TypeOf<RuntimeProjectileDefinition>());
+            Assert.That(stacking.DetonationKind, Is.EqualTo(RuntimeStackingSkillEffectKind.Projectile));
         }
 
         [Test]

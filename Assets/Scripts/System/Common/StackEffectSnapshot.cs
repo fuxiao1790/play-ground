@@ -23,6 +23,7 @@ namespace PlayGround.System.Common
         public float LifetimeSeconds;
         public float TickIntervalSeconds;
         public PlayGround.System.Aoe.AoeSpawnGeometry AoeGeometry;
+        public AoeProjectileBurstSnapshot ProjectileBurst;
         public float CritChance;
         public float CritMultiplier;
         // Bounded AOE hit-spawn tail. This caps stacking-skill composition at
