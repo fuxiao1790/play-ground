@@ -9,6 +9,7 @@ namespace PlayGround.Skills
         UnsupportedTriggerLink,
         UnsupportedTriggerSource,
         UnsupportedTriggerTarget,
+        UnsupportedStackingDetonation,
     }
 
     public readonly struct SkillValidationWarning

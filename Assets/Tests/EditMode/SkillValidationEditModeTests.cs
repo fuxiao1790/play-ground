@@ -212,6 +212,38 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void ValidatorWarnsForProjectileStackDetonation()
+        {
+            StackingSkill skill = CreateAsset<StackingSkill>("Stacking Skill");
+            var definition = (StackingSkillDefinition)skill.Definition;
+            definition.detonationKind = StackingSkillDetonationKind.Projectile;
+            SkillSet set = CreateSkillSet("Stacking Set", skill);
+
+            SkillValidationWarning[] warnings = Validate(new SkillSetSlot { skillSet = set });
+
+            Assert.That(warnings, Has.Length.EqualTo(1));
+            Assert.That(warnings[0].Code, Is.EqualTo(SkillValidationWarningCode.UnsupportedStackingDetonation));
+            Assert.That(warnings[0].Message, Does.Contain("will be ignored"));
+        }
+
+        [Test]
+        public void CompilerRejectsProjectileStackDetonation()
+        {
+            StackingSkill skill = CreateAsset<StackingSkill>("Stacking Skill");
+            var definition = (StackingSkillDefinition)skill.Definition;
+            definition.detonationKind = StackingSkillDetonationKind.Projectile;
+            SkillSet set = CreateSkillSet("Stacking Set", skill);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
+                0,
+                global::System.Array.Empty<TriggerChain>(),
+                PlayerStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.Null);
+        }
+
+        [Test]
         public void CompilerAppliesStackingSkillSupportsToApplicatorAndDetonation()
         {
             StackingSkill skill = CreateAsset<StackingSkill>("Stacking Skill");

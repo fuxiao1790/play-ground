@@ -178,11 +178,7 @@ namespace PlayGround.Skills
                 return default;
 
             if (stacking.DetonationDefinition is not RuntimeAoeDefinition aoe || aoe.TypeId < 0)
-            {
-                if (stacking.DetonationKind == RuntimeStackingSkillEffectKind.Projectile)
-                    Debug.LogWarning("[SkillSpawnTranslator] Projectile stack detonations are not implemented yet.");
                 return default;
-            }
 
             int threshold = Mathf.Max(1, stacking.StackThreshold);
             AoeSpawnGeometry geometry = aoe.CreateSpawnGeometry();

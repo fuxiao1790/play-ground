@@ -101,6 +101,9 @@ namespace PlayGround.Skills
             IReadOnlyList<AdditiveSupport> supports,
             PlayerStatSnapshot snapshot)
         {
+            if (stacking.detonationKind != StackingSkillDetonationKind.Aoe)
+                return null;
+
             SkillDefinition applicatorCopy = stacking.CreateApplicatorCopy();
             ApplySupports(applicatorCopy, supports);
             RuntimeSkillDefinition applicator = BuildRuntime(applicatorCopy, snapshot);

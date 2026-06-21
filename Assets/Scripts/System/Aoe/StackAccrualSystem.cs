@@ -8,7 +8,7 @@ using Unity.Profiling;
 
 namespace PlayGround.System.Aoe
 {
-    // ECS Lifecycle: transient stack intent; enqueued by AOE collision jobs, drained by StackAccrualSystem in the same simulation frame.
+    // ECS Lifecycle: transient stack intent; enqueued by applicator collision jobs, drained by StackAccrualSystem in the same simulation frame.
     public struct StackApplyEvent
     {
         public Entity TargetProxy;
@@ -20,6 +20,7 @@ namespace PlayGround.System.Aoe
     }
 
     [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(PlayGround.System.Projectile.ProjectileCollisionSystem))]
     [UpdateAfter(typeof(LingeringAoeCollisionSystem))]
     [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
     [UpdateBefore(typeof(AoeSpawnExpansionSystem))]
@@ -31,6 +32,7 @@ namespace PlayGround.System.Aoe
             new(ProfilerCategory.Scripts, "StackAccrualSystem.EntryEvictions", ProfilerMarkerDataUnit.Count);
 
         private readonly List<StackApplyEvent> events = new();
+        private EntityQuery targetStackQuery;
         private int nextAoeId;
         private int entryEvictions;
 
@@ -40,11 +42,13 @@ namespace PlayGround.System.Aoe
         protected override void OnCreate()
         {
             EventQueue = new NativeQueue<StackApplyEvent>(Allocator.Persistent);
+            targetStackQuery = EntityManager.CreateEntityQuery(ComponentType.ReadWrite<TargetStackEntry>());
         }
 
         protected override void OnDestroy()
         {
             ProducerHandle.Complete();
+            targetStackQuery.Dispose();
             if (EventQueue.IsCreated)
                 EventQueue.Dispose();
         }
@@ -54,6 +58,8 @@ namespace PlayGround.System.Aoe
             Dependency.Complete();
             ProducerHandle.Complete();
             ProducerHandle = default;
+
+            TickAndFizzle(math.max(0f, SystemAPI.Time.DeltaTime));
 
             int eventCount = EventQueue.Count;
             if (eventCount == 0)
@@ -103,6 +109,31 @@ namespace PlayGround.System.Aoe
             events.Clear();
         }
 
+        private void TickAndFizzle(float deltaTime)
+        {
+            if (deltaTime <= 0f || targetStackQuery.IsEmptyIgnoreFilter)
+                return;
+
+            using NativeArray<Entity> targets = targetStackQuery.ToEntityArray(Allocator.Temp);
+            for (int t = 0; t < targets.Length; t++)
+            {
+                DynamicBuffer<TargetStackEntry> stackEntries = EntityManager.GetBuffer<TargetStackEntry>(targets[t]);
+                for (int i = stackEntries.Length - 1; i >= 0; i--)
+                {
+                    TargetStackEntry entry = stackEntries[i];
+                    entry.LifetimeRemaining = math.max(0f, entry.LifetimeRemaining - deltaTime);
+                    if (entry.LifetimeRemaining <= 0f)
+                    {
+                        // Entries still in the buffer are below threshold; threshold hits detonate and clear immediately.
+                        stackEntries.RemoveAt(i);
+                        continue;
+                    }
+
+                    stackEntries[i] = entry;
+                }
+            }
+        }
+
         private bool TryReadTarget(
             Entity targetProxy,
             out TargetPosition targetPosition,
@@ -146,9 +177,7 @@ namespace PlayGround.System.Aoe
 
             if (entry.Count >= threshold)
             {
-                if (expansion != null)
-                    expansion.EventQueue.Enqueue(BuildSpawnEvent(entry, targetPosition));
-
+                BuildDetonationSpawn(entry.Detonation, entry, targetPosition, expansion);
                 stackEntries.RemoveAt(entryIndex);
                 return;
             }
@@ -207,7 +236,21 @@ namespace PlayGround.System.Aoe
             return index;
         }
 
-        private AoeSpawnEvent BuildSpawnEvent(
+        private void BuildDetonationSpawn(
+            in DetonationSnapshot snapshot,
+            in TargetStackEntry entry,
+            float2 position,
+            AoeSpawnExpansionSystem expansion)
+        {
+            switch (snapshot.Kind)
+            {
+                case StackDetonationKind.Aoe:
+                    expansion.EventQueue.Enqueue(BuildAoeSpawnEvent(entry, position));
+                    return;
+            }
+        }
+
+        private AoeSpawnEvent BuildAoeSpawnEvent(
             in TargetStackEntry entry,
             float2 position)
         {
