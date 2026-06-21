@@ -89,13 +89,13 @@ public struct CombatHitPayload
     public float CritMultiplier;
     public bool DirectDamageEnabled;
     public EntityId SourceNodeId;
-    public StackChainSnapshot StackEffect;
+    public StackEffectSnapshot StackEffect;
 }
 ```
 
 It carries direct damage, crit inputs, source-node identity, and the optional
-stack chain carrier. The stack chain is plain data resolved before root spawn;
-in-flight entities never read authoring assets or registries.
+single-level applied-stack payload. The stack payload is plain data resolved
+before root spawn; in-flight entities never read authoring assets or registries.
 
 ## Projectile Runtime Snapshot
 
@@ -218,21 +218,36 @@ AoeSpawnRequest
 
 ## Stack Effect Resolution
 
-`StackChainSnapshot` is part of `CombatHitPayload`. It is a bounded
-cross-domain spawn carrier, not damage replay data. It flows through:
+`StackEffectSnapshot` is part of `CombatHitPayload`. It is a single-level
+applied-stack payload, not damage replay data. It flows through:
 
 - `AoeSpawnRequest`
 - `AoeSpawnEvent`
 - `AoeSpawnCommand`
 - `AoeHitSpawnComponent.HitPayload`
 
-Current stack-triggered AOE direction:
+Current stacking-skill direction:
 
-1. A root AOE spawn receives the fully flattened stack chain.
-2. Spawn expansion and apply copy the chain without transformation.
-3. Collision keeps damage replay and stack accrual on separate typed paths.
-4. Stack accrual consumes the chain from the AOE entity and emits the next
-   `AoeSpawnEvent` with the forwarded tail.
+1. A stacking skill compiles to an applicator snapshot plus a detonation
+   snapshot. The debuff key is minted during runtime registration for that
+   compiled stacking-skill instance; it is not authored and is not the
+   detonation type id.
+2. A root or hit-spawned applicator receives one `StackEffectSnapshot`.
+   Spawn expansion and apply copy that payload without transformation.
+3. Applicator collision keeps damage replay and stack accrual on separate typed
+   paths. On hit it emits `StackApplyEvent` with target proxy, debuff key,
+   threshold, lifetime refresh, one-stack contribution, and detonation snapshot.
+4. `StackAccrualSystem` is the sole writer of each target proxy's
+   `TargetStackEntry` buffer. Entries are keyed by debuff id and store count,
+   summed damage/projectile/area contribution, lifetime remaining, and the
+   detonation snapshot.
+5. Each matching stack refreshes lifetime and adds its fire-time contribution.
+   At threshold, accrual emits one `AoeSpawnEvent` using the summed
+   contribution and clears the entry. If lifetime lapses below threshold, the
+   entry fizzles and is removed with no detonation.
+6. Composition uses ordinary AOE hit-spawn snapshots carried on the detonation,
+   so the next stacking skill's applicator is a new spawn with its own debuff
+   key and payload.
 
 Damage replay does not carry stacks. Managed target callbacks receive direct
 damage data only; stack accrual is owned by ECS.
@@ -296,8 +311,12 @@ or managed callbacks to collision-time payloads.
   reaches projectile expansion and materializes through projectile apply.
 - Fire AOE with projectile burst snapshot; confirm projectile burst follows the
   projectile spawn pipeline.
-- Fire AOE with stack chain; confirm the applied AOE entity carries the full
-  chain in `AoeHitSpawnComponent.HitPayload`.
+- Fire a stacking applicator; confirm the applied AOE/projectile entity carries
+  one `StackEffectSnapshot` in its hit payload.
+- Apply stacks below threshold and stop refreshing; confirm the target
+  `TargetStackEntry` fizzles with no detonation.
+- Apply mixed fire-time contributions to one debuff key; confirm threshold
+  detonation uses the summed contribution and clears the entry.
 - Mutate authoring data after firing; verify in-flight entities still use the
   original snapshot.
 - Confirm simulation jobs do not read managed companions.
