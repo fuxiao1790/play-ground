@@ -604,6 +604,65 @@ player-facing authoring surface.
 3. Set `baseRecoveryTime` (cooldown in seconds before the skill can fire again).
 4. Set base behavior values (speed, damage, lifetime, etc.).
 
+### Creating a Stacking Skill
+
+A Stacking Skill is one self-contained asset: an **applicator** that applies a
+private debuff on hit, and a **detonation** that fires when the debuff reaches its
+threshold. It is not wired with a generic stack trigger link — the applicator,
+debuff, and detonation all live on the one skill.
+
+1. `Assets > Create > PlayGround > Skills > Stacking Skill`.
+2. **Applicator** — set `applicatorKind` (`Projectile`, `Aoe`, or `LingeringAoe`)
+   and fill the matching definition (`projectileApplicator`, `aoeApplicator`, or
+   `lingeringAoeApplicator`). This is what the player casts and what hits targets;
+   the other applicator fields are ignored.
+3. **Detonation** — set `detonationKind` (`Aoe` or `Projectile`) and fill the
+   matching definition (`aoeDetonation` or `projectileDetonation`). This is the
+   effect fired at threshold; the other detonation field is ignored.
+4. **Stack rules**:
+   - `stackThreshold` (X) — applicator hits on a target needed to detonate.
+   - `debuffLifetimeSeconds` — refreshed on every applicator hit; if it lapses
+     while still below the threshold, the partial stacks **fizzle** (no detonation).
+   - `debuffName`, `cosmeticDebuffStatus` — presentation/flavor only. They are
+     **not** the accrual key: the debuff key is minted at registration, so two
+     stacking skills can never collide and you never author the key. Reusing the
+     same asset in two slots still produces two independent debuffs.
+5. Set `baseRecoveryTime` on the skill (applicator cast cooldown).
+
+**Contribution model.** With `stackThreshold = 5`, each applicator hit banks
+`1/5` of the detonation's damage (and area, for an AOE detonation), snapshotted at
+that hit. At 5 stacks the detonation fires the summed total — so stat changes mid
+build apply per stack and stay correct across support/set swaps.
+
+**Supports apply to both halves.** Additive Supports on the set are applied to the
+applicator *and* the detonation copy. A damage support raises both the applicator's
+hit damage and each stack's banked detonation contribution.
+
+**Slotting.** Wrap the Stacking Skill in a `SkillSet` (its `skill` field) and place
+that as a `SkillSetSlot`, exactly like any other skill — as a root (player-cast)
+set or as a triggered effect.
+
+**Composing stacking skills** uses the ordinary `OnAoeHitSpawnTrigger` link, never
+the stack mechanic. The source skill's **detonation AOE**, on hit, spawns the next
+set; each stacking skill still builds and detonates independently with its own
+debuff key:
+
+```
+[SkillSetSlot: VolatileStackingAoe]
+[TriggerLinkSlot: OnAoeHitSpawn]
+[SkillSetSlot: BurningStackingAoe]
+[TriggerLinkSlot: OnAoeHitSpawn]
+[SkillSetSlot: ShockStackingAoe]
+```
+
+Composition requires the source's **detonation to be an AOE** (the link's source
+tag is `Aoe`); a projectile detonation has no on-hit-spawn surface.
+
+> **Implementation status.** Applicator `Projectile`/`Aoe`/`LingeringAoe` and **AOE
+> detonation** are wired end to end. **Projectile detonation** is authorable but is
+> not yet spawned at threshold (tracked in `.agent/projectile-detonation/`); use an
+> AOE detonation until that work lands.
+
 ### Creating a Skill Set
 
 1. `Assets > Create > PlayGround > Skills > Skill Set`.
