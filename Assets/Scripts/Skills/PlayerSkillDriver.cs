@@ -21,6 +21,7 @@ namespace PlayGround.Skills
         private RuntimeSkillDefinition[] compiledSlots;
         private SkillSlotState[] slotStates;
         private SkillValidationWarning[] validationWarnings = Array.Empty<SkillValidationWarning>();
+        private static int nextStackingDebuffKey;
         private int activeSlotCount;
 
         public int SlotCount => activeSlotCount;
@@ -153,6 +154,14 @@ namespace PlayGround.Skills
         {
             if (def == null) return;
 
+            if (def is RuntimeStackingSkillDefinition stackingDef)
+            {
+                EnsureStackingDebuffKey(stackingDef);
+                RegisterProjectileTypesRecursive(stackingDef.ApplicatorDefinition);
+                RegisterProjectileTypesRecursive(stackingDef.DetonationDefinition);
+                return;
+            }
+
             if (def is RuntimeProjectileDefinition projDef && projDef.Prefab != null && projDef.TypeId < 0)
             {
                 projDef.TypeId = combatRoot.RegisterTemplate(projDef.Prefab);
@@ -188,6 +197,14 @@ namespace PlayGround.Skills
         {
             if (def == null) return;
 
+            if (def is RuntimeStackingSkillDefinition stackingDef)
+            {
+                EnsureStackingDebuffKey(stackingDef);
+                RegisterAoeTypesRecursive(stackingDef.ApplicatorDefinition);
+                RegisterAoeTypesRecursive(stackingDef.DetonationDefinition);
+                return;
+            }
+
             if (def is RuntimeAoeDefinition aoeDef)
             {
                 RegisterAoeTypeDefinition(aoeDef);
@@ -206,6 +223,14 @@ namespace PlayGround.Skills
                 if (projDef.ImpactProjectileDefinition != null)
                     RegisterAoeTypesRecursive(projDef.ImpactProjectileDefinition);
             }
+        }
+
+        private static void EnsureStackingDebuffKey(RuntimeStackingSkillDefinition stackingDef)
+        {
+            if (stackingDef == null || stackingDef.DebuffKey >= 0)
+                return;
+
+            stackingDef.DebuffKey = ++nextStackingDebuffKey;
         }
 
         private void RegisterAoeTypeDefinition(RuntimeAoeDefinition aoeDef)

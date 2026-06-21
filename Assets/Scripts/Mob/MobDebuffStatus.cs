@@ -1,10 +1,11 @@
 namespace PlayGround.Mob
 {
-    public enum MobDebuffStatus
+    public enum DebuffStatus
     {
         Poison,
         Burning,
         Shock,
-        Volatile
+        Volatile,
+        Explosive,
     }
 }

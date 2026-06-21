@@ -380,7 +380,7 @@ namespace PlayGround.Tests.PlayMode
                 Stages = default
             };
             chain.Stages.Add(new StackStage(
-                (int)MobDebuffStatus.Volatile,
+                (int)DebuffStatus.Volatile,
                 1,
                 threshold,
                 aoeTypeId,
@@ -425,11 +425,11 @@ namespace PlayGround.Tests.PlayMode
                 stackEffect: stackEffect));
 
             yield return null; // frame 1: initial hit → 1 stack
-            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Volatile), Is.EqualTo(1),
+            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Volatile), Is.EqualTo(1),
                 "Initial AOE hit should apply 1 Volatile stack.");
 
             yield return null; // frame 2: pulse hit (gate expired at dt=0) → 2 stacks
-            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Volatile), Is.EqualTo(2),
+            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Volatile), Is.EqualTo(2),
                 "AOE pulse hit should increment stack to 2.");
 
             Cleanup(rootObject, templateObject, mob.gameObject);
@@ -472,7 +472,7 @@ namespace PlayGround.Tests.PlayMode
 
             Assert.That(ScopedAoeCount(root, pulseTypeId), Is.EqualTo(1),
                 "Stack threshold should have spawned the linked pulse AOE.");
-            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Volatile), Is.EqualTo(0),
+            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Volatile), Is.EqualTo(0),
                 "Stacks should be cleared after the threshold fires.");
 
             yield return null; // frame 4: chain pulse materialises and hits
@@ -522,16 +522,16 @@ namespace PlayGround.Tests.PlayMode
             yield return null;
             Assert.That(ScopedAoeCount(root, secondLingeringTypeId), Is.EqualTo(0));
             Assert.That(ScopedAoeCount(root, impactTypeId), Is.EqualTo(0));
-            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Poison), Is.EqualTo(1));
+            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Poison), Is.EqualTo(1));
 
             yield return null;
             Assert.That(ScopedAoeCount(root, secondLingeringTypeId), Is.EqualTo(1));
             Assert.That(ScopedAoeCount(root, impactTypeId), Is.EqualTo(0));
-            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Poison), Is.EqualTo(0));
+            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Poison), Is.EqualTo(0));
 
             yield return null;
             Assert.That(ScopedAoeCount(root, impactTypeId), Is.EqualTo(1));
-            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Burning), Is.EqualTo(0));
+            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Burning), Is.EqualTo(0));
 
             yield return null;
             Assert.That(mob.CurrentHealth, Is.EqualTo(mob.MaxHealth - ImpactDamage).Within(0.001f));
@@ -565,7 +565,7 @@ namespace PlayGround.Tests.PlayMode
                 lifetimeSeconds: 10f,
                 tickIntervalSeconds: 0f,
                 geometry: geometry,
-                stackEffect: SingleStageStackChain(root, geometry, MobDebuffStatus.Poison, poisonTypeId, 2)));
+                stackEffect: SingleStageStackChain(root, geometry, DebuffStatus.Poison, poisonTypeId, 2)));
             root.Spawn(new AoeSpawnRequest(
                 burningTypeId,
                 Vector2.zero,
@@ -574,23 +574,23 @@ namespace PlayGround.Tests.PlayMode
                 lifetimeSeconds: 10f,
                 tickIntervalSeconds: 0f,
                 geometry: geometry,
-                stackEffect: SingleStageStackChain(root, geometry, MobDebuffStatus.Burning, burningTypeId, 3)));
+                stackEffect: SingleStageStackChain(root, geometry, DebuffStatus.Burning, burningTypeId, 3)));
 
             yield return null;
-            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Poison), Is.EqualTo(1));
-            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Burning), Is.EqualTo(1));
+            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Poison), Is.EqualTo(1));
+            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Burning), Is.EqualTo(1));
             Assert.That(ScopedAoeCount(root, poisonTypeId), Is.EqualTo(1));
             Assert.That(ScopedAoeCount(root, burningTypeId), Is.EqualTo(1));
 
             yield return null;
-            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Poison), Is.EqualTo(0));
-            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Burning), Is.EqualTo(2));
+            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Poison), Is.EqualTo(0));
+            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Burning), Is.EqualTo(2));
             Assert.That(ScopedAoeCount(root, poisonTypeId), Is.EqualTo(2));
             Assert.That(ScopedAoeCount(root, burningTypeId), Is.EqualTo(1));
 
             yield return null;
-            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Poison), Is.EqualTo(1));
-            Assert.That(EcsDebuffStackCount(mob, MobDebuffStatus.Burning), Is.EqualTo(0));
+            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Poison), Is.EqualTo(1));
+            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Burning), Is.EqualTo(0));
             Assert.That(ScopedAoeCount(root, poisonTypeId), Is.EqualTo(2));
             Assert.That(ScopedAoeCount(root, burningTypeId), Is.EqualTo(2));
 
@@ -605,7 +605,7 @@ namespace PlayGround.Tests.PlayMode
             }
         }
 
-        private static int EcsDebuffStackCount(ICombatTarget target, MobDebuffStatus status)
+        private static int EcsDebuffStackCount(ICombatTarget target, DebuffStatus status)
         {
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             Assert.That(target.CombatTargetProxy, Is.Not.EqualTo(Entity.Null));
@@ -620,7 +620,7 @@ namespace PlayGround.Tests.PlayMode
         private static StackChainSnapshot SingleStageStackChain(
             CombatRoot root,
             AoeSpawnGeometry geometry,
-            MobDebuffStatus status,
+            DebuffStatus status,
             int aoeTypeId,
             int threshold)
         {
@@ -656,7 +656,7 @@ namespace PlayGround.Tests.PlayMode
                 Stages = default
             };
             chain.Stages.Add(new StackStage(
-                (int)MobDebuffStatus.Poison,
+                (int)DebuffStatus.Poison,
                 1,
                 2,
                 secondLingeringTypeId,
@@ -665,7 +665,7 @@ namespace PlayGround.Tests.PlayMode
                 0f,
                 geometry));
             chain.Stages.Add(new StackStage(
-                (int)MobDebuffStatus.Burning,
+                (int)DebuffStatus.Burning,
                 1,
                 1,
                 impactTypeId,

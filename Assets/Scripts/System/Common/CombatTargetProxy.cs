@@ -33,7 +33,7 @@ namespace PlayGround.System.Common
     // ECS Lifecycle: target-proxy stack state; added when the proxy is created, reset at proxy creation, destroyed with the proxy. Only StackAccrualSystem writes this component.
     public struct TargetStackStateComponent : IComponentData
     {
-        public const int StatusCount = (int)MobDebuffStatus.Volatile + 1;
+        public const int StatusCount = (int)DebuffStatus.Volatile + 1;
 
         public FixedList128Bytes<int> Counts;
 

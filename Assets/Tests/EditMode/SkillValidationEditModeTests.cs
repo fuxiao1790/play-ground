@@ -174,6 +174,83 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void CompilerBuildsStackingSkillRuntime()
+        {
+            StackingSkill skill = CreateAsset<StackingSkill>("Stacking Skill");
+            var definition = (StackingSkillDefinition)skill.Definition;
+            definition.applicatorKind = StackingSkillApplicatorKind.LingeringAoe;
+            definition.detonationKind = StackingSkillDetonationKind.Aoe;
+            definition.stackThreshold = 4;
+            definition.debuffLifetimeSeconds = 6f;
+            definition.debuffName = "Volatile Charge";
+            definition.cosmeticDebuffStatus = DebuffStatus.Shock;
+            definition.lingeringAoeApplicator.lifetimeSeconds = 2.5f;
+            definition.lingeringAoeApplicator.tickIntervalSeconds = 0.5f;
+            SkillSet set = CreateSkillSet("Stacking Set", skill);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
+                0,
+                global::System.Array.Empty<TriggerChain>(),
+                PlayerStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeStackingSkillDefinition>());
+            var stacking = (RuntimeStackingSkillDefinition)runtime;
+            Assert.That(stacking.ApplicatorDefinition, Is.TypeOf<RuntimeAoeDefinition>());
+            Assert.That(stacking.DetonationDefinition, Is.TypeOf<RuntimeAoeDefinition>());
+            Assert.That(stacking.ApplicatorKind, Is.EqualTo(RuntimeStackingSkillEffectKind.Aoe));
+            Assert.That(stacking.DetonationKind, Is.EqualTo(RuntimeStackingSkillEffectKind.Aoe));
+            Assert.That(stacking.StackThreshold, Is.EqualTo(4));
+            Assert.That(stacking.DebuffLifetimeSeconds, Is.EqualTo(6f).Within(0.0001f));
+            Assert.That(stacking.DebuffName, Is.EqualTo("Volatile Charge"));
+            Assert.That(stacking.CosmeticDebuffStatus, Is.EqualTo(DebuffStatus.Shock));
+            Assert.That(stacking.DebuffKey, Is.EqualTo(-1));
+
+            var applicator = (RuntimeAoeDefinition)stacking.ApplicatorDefinition;
+            Assert.That(applicator.LifetimeSeconds, Is.EqualTo(2.5f).Within(0.0001f));
+            Assert.That(applicator.TickIntervalSeconds, Is.EqualTo(0.5f).Within(0.0001f));
+        }
+
+        [Test]
+        public void CompilerAppliesStackingSkillSupportsToApplicatorAndDetonation()
+        {
+            StackingSkill skill = CreateAsset<StackingSkill>("Stacking Skill");
+            var definition = (StackingSkillDefinition)skill.Definition;
+            definition.applicatorKind = StackingSkillApplicatorKind.Aoe;
+            definition.detonationKind = StackingSkillDetonationKind.Aoe;
+            AddedDamageSupport support = CreateAsset<AddedDamageSupport>("Added Damage");
+            SkillSet set = CreateSkillSet("Stacking Set", skill, support);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
+                0,
+                global::System.Array.Empty<TriggerChain>(),
+                PlayerStatSnapshot.Identity);
+
+            var stacking = (RuntimeStackingSkillDefinition)runtime;
+            Assert.That(((RuntimeAoeDefinition)stacking.ApplicatorDefinition).Damage, Is.EqualTo(15f).Within(0.0001f));
+            Assert.That(((RuntimeAoeDefinition)stacking.DetonationDefinition).Damage, Is.EqualTo(15f).Within(0.0001f));
+        }
+
+        [Test]
+        public void RegistrationAssignsDistinctStackingDebuffKeys()
+        {
+            var first = new RuntimeStackingSkillDefinition();
+            var second = new RuntimeStackingSkillDefinition();
+
+            AssignStackingDebuffKey(first);
+            AssignStackingDebuffKey(second);
+            int firstKey = first.DebuffKey;
+
+            AssignStackingDebuffKey(first);
+
+            Assert.That(firstKey, Is.GreaterThan(0));
+            Assert.That(second.DebuffKey, Is.GreaterThan(0));
+            Assert.That(second.DebuffKey, Is.Not.EqualTo(firstKey));
+            Assert.That(first.DebuffKey, Is.EqualTo(firstKey));
+        }
+
+        [Test]
         public void ValidatorDoesNotWarnForProjectileToAoeImpactLink()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
@@ -251,11 +328,11 @@ namespace PlayGround.Tests.EditMode
             SkillSet repeatedSet = CreateSkillSet("Repeated AOE Set", repeatedSkill);
             SkillSet impactSet = CreateSkillSet("Impact AOE Set", impactSkill);
             OnStackTrigger firstStack = CreateAsset<OnStackTrigger>("First Stack");
-            firstStack.debuffStatus = MobDebuffStatus.Poison;
+            firstStack.debuffStatus = DebuffStatus.Poison;
             firstStack.stacksPerHit = 1;
             firstStack.stackThreshold = 2;
             OnStackTrigger secondStack = CreateAsset<OnStackTrigger>("Second Stack");
-            secondStack.debuffStatus = MobDebuffStatus.Burning;
+            secondStack.debuffStatus = DebuffStatus.Burning;
             secondStack.stacksPerHit = 3;
             secondStack.stackThreshold = 4;
             var slots = new LoadoutSlot[]
@@ -277,13 +354,13 @@ namespace PlayGround.Tests.EditMode
             Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
             var root = (RuntimeAoeDefinition)runtime;
             Assert.That(root.StackTriggerSetup, Is.Not.Null);
-            Assert.That(root.StackTriggerSetup.DebuffStatusId, Is.EqualTo((int)MobDebuffStatus.Poison));
+            Assert.That(root.StackTriggerSetup.DebuffStatusId, Is.EqualTo((int)DebuffStatus.Poison));
             Assert.That(root.StackTriggerSetup.AoeDefinition, Is.Not.Null);
             Assert.That(root.StackTriggerSetup.AoeDefinition, Is.Not.SameAs(root));
 
             RuntimeAoeDefinition second = root.StackTriggerSetup.AoeDefinition;
             Assert.That(second.StackTriggerSetup, Is.Not.Null);
-            Assert.That(second.StackTriggerSetup.DebuffStatusId, Is.EqualTo((int)MobDebuffStatus.Burning));
+            Assert.That(second.StackTriggerSetup.DebuffStatusId, Is.EqualTo((int)DebuffStatus.Burning));
             Assert.That(second.StackTriggerSetup.StacksPerHit, Is.EqualTo(3));
             Assert.That(second.StackTriggerSetup.StackThreshold, Is.EqualTo(4));
             Assert.That(second.StackTriggerSetup.AoeDefinition, Is.Not.Null);
@@ -368,7 +445,7 @@ namespace PlayGround.Tests.EditMode
                 };
                 current.StackTriggerSetup = new RuntimeStackTriggerSetup
                 {
-                    DebuffStatusId = (int)MobDebuffStatus.Volatile,
+                    DebuffStatusId = (int)DebuffStatus.Volatile,
                     StacksPerHit = 1,
                     StackThreshold = 2,
                     AoeDefinition = spawned,
@@ -384,6 +461,15 @@ namespace PlayGround.Tests.EditMode
             FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null);
             field.SetValue(target, value);
+        }
+
+        private static void AssignStackingDebuffKey(RuntimeStackingSkillDefinition definition)
+        {
+            MethodInfo method = typeof(PlayerSkillDriver).GetMethod(
+                "EnsureStackingDebuffKey",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(null, new object[] { definition });
         }
     }
 }

@@ -20,6 +20,8 @@ namespace PlayGround.Skills
                 SpawnProjectile(proj, origin, aimDir, combatRoot);
             else if (def is RuntimeAoeDefinition aoe)
                 SpawnAoe(aoe, origin, aimWorldPos, combatRoot);
+            else if (def is RuntimeStackingSkillDefinition stacking)
+                Spawn(stacking.ApplicatorDefinition, origin, aimDir, aimWorldPos, combatRoot);
         }
 
         private static void SpawnProjectile(

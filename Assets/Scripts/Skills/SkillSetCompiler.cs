@@ -18,11 +18,7 @@ namespace PlayGround.Skills
             SkillSet set = GetSkillSet(slots, slotIndex);
             if (set == null || set.Skill == null) return null;
 
-            SkillDefinition defCopy = set.Skill.Definition.DeepCopy();
-            foreach (AdditiveSupport support in set.Supports)
-                support?.Apply(defCopy);
-
-            RuntimeSkillDefinition runtime = BuildRuntime(defCopy, snapshot);
+            RuntimeSkillDefinition runtime = CompileDefinition(set.Skill.Definition, set.Supports, snapshot);
             if (runtime == null) return null;
 
             runtime.RecoveryTime = Mathf.Max(0.01f, set.Skill.BaseRecoveryTime * snapshot.CastSpeedMultiplier);
@@ -95,6 +91,71 @@ namespace PlayGround.Skills
             }
 
             return runtime;
+        }
+
+        private static RuntimeSkillDefinition CompileDefinition(
+            SkillDefinition definition,
+            IReadOnlyList<AdditiveSupport> supports,
+            PlayerStatSnapshot snapshot)
+        {
+            if (definition == null)
+                return null;
+
+            if (definition is StackingSkillDefinition stacking)
+                return BuildStackingRuntime(stacking, supports, snapshot);
+
+            SkillDefinition defCopy = definition.DeepCopy();
+            ApplySupports(defCopy, supports);
+            return BuildRuntime(defCopy, snapshot);
+        }
+
+        private static void ApplySupports(
+            SkillDefinition definition,
+            IReadOnlyList<AdditiveSupport> supports)
+        {
+            if (definition == null || supports == null)
+                return;
+
+            for (int i = 0; i < supports.Count; i++)
+                supports[i]?.Apply(definition);
+        }
+
+        private static RuntimeSkillDefinition BuildStackingRuntime(
+            StackingSkillDefinition stacking,
+            IReadOnlyList<AdditiveSupport> supports,
+            PlayerStatSnapshot snapshot)
+        {
+            SkillDefinition applicatorCopy = stacking.CreateApplicatorCopy();
+            ApplySupports(applicatorCopy, supports);
+            RuntimeSkillDefinition applicator = BuildRuntime(applicatorCopy, snapshot);
+
+            SkillDefinition detonationCopy = stacking.CreateDetonationCopy();
+            ApplySupports(detonationCopy, supports);
+            RuntimeSkillDefinition detonation = BuildRuntime(detonationCopy, snapshot);
+
+            if (applicator == null || detonation == null)
+                return null;
+
+            return new RuntimeStackingSkillDefinition
+            {
+                ApplicatorDefinition = applicator,
+                DetonationDefinition = detonation,
+                ApplicatorKind = RuntimeKind(applicator),
+                DetonationKind = RuntimeKind(detonation),
+                StackThreshold = Mathf.Max(1, stacking.stackThreshold),
+                DebuffLifetimeSeconds = Mathf.Max(0f, stacking.debuffLifetimeSeconds),
+                DebuffName = stacking.debuffName,
+                CosmeticDebuffStatus = stacking.cosmeticDebuffStatus,
+            };
+        }
+
+        private static RuntimeStackingSkillEffectKind RuntimeKind(RuntimeSkillDefinition definition)
+        {
+            if (definition is RuntimeProjectileDefinition)
+                return RuntimeStackingSkillEffectKind.Projectile;
+            if (definition is RuntimeAoeDefinition)
+                return RuntimeStackingSkillEffectKind.Aoe;
+            return RuntimeStackingSkillEffectKind.None;
         }
 
         private static RuntimeSkillDefinition BuildRuntime(SkillDefinition def, PlayerStatSnapshot snapshot)
