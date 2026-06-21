@@ -142,6 +142,25 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void CompilerInvokesConversionSupportCompileHook()
+        {
+            ProjectileSkill skill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            TrackingConversionSupport support = CreateAsset<TrackingConversionSupport>("Conversion Support");
+            SkillSet set = CreateSkillSet("Projectile Set", skill, support);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
+                0,
+                global::System.Array.Empty<TriggerChain>(),
+                PlayerStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
+            Assert.That(support.WasCompiled, Is.True);
+            Assert.That(support.DefinitionSeen, Is.SameAs(skill.Definition));
+            Assert.That(support.RuntimeSeen, Is.SameAs(runtime));
+        }
+
+        [Test]
         public void CompilerCopiesLingeringAoeTiming()
         {
             LingeringAoeSkill skill = CreateAsset<LingeringAoeSkill>("Lingering AOE Skill");
@@ -388,7 +407,7 @@ namespace PlayGround.Tests.EditMode
             return warnings.ToArray();
         }
 
-        private SkillSet CreateSkillSet(string name, Skill skill, params AdditiveSupport[] supports)
+        private SkillSet CreateSkillSet(string name, Skill skill, params SkillSupport[] supports)
         {
             SkillSet set = CreateAsset<SkillSet>(name);
             SetField(set, "skill", skill);
@@ -418,6 +437,26 @@ namespace PlayGround.Tests.EditMode
                 BindingFlags.Static | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null);
             method.Invoke(null, new object[] { definition });
+        }
+
+        private sealed class TrackingConversionSupport : ConversionSupport
+        {
+            public bool WasCompiled { get; private set; }
+            public SkillDefinition DefinitionSeen { get; private set; }
+            public RuntimeSkillDefinition RuntimeSeen { get; private set; }
+
+            public override bool ConvertsToTriggeredOnly => true;
+
+            public override RuntimeSkillDefinition Compile(
+                SkillDefinition definition,
+                RuntimeSkillDefinition runtime,
+                PlayerStatSnapshot snapshot)
+            {
+                WasCompiled = true;
+                DefinitionSeen = definition;
+                RuntimeSeen = runtime;
+                return runtime;
+            }
         }
     }
 }

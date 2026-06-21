@@ -7,9 +7,9 @@ namespace PlayGround.Skills
     public sealed class SkillSet : ScriptableObject
     {
         [SerializeField] private Skill skill;
-        [SerializeField] private AdditiveSupport[] supports = Array.Empty<AdditiveSupport>();
+        [SerializeField] private SkillSupport[] supports = Array.Empty<SkillSupport>();
 
         public Skill Skill => skill;
-        public AdditiveSupport[] Supports => supports;
+        public SkillSupport[] Supports => supports;
     }
 }

@@ -86,34 +86,66 @@ namespace PlayGround.Skills
 
         private static RuntimeSkillDefinition CompileDefinition(
             SkillDefinition definition,
-            IReadOnlyList<AdditiveSupport> supports,
+            IReadOnlyList<SkillSupport> supports,
             PlayerStatSnapshot snapshot)
         {
             if (definition == null)
                 return null;
 
             if (definition is StackingSkillDefinition stacking)
-                return BuildStackingRuntime(stacking, supports, snapshot);
+                return ApplyConversionSupports(
+                    definition,
+                    BuildStackingRuntime(stacking, supports, snapshot),
+                    supports,
+                    snapshot);
 
             SkillDefinition defCopy = definition.DeepCopy();
             ApplySupports(defCopy, supports);
-            return BuildRuntime(defCopy, snapshot);
+            return ApplyConversionSupports(
+                definition,
+                BuildRuntime(defCopy, snapshot),
+                supports,
+                snapshot);
         }
 
         private static void ApplySupports(
             SkillDefinition definition,
-            IReadOnlyList<AdditiveSupport> supports)
+            IReadOnlyList<SkillSupport> supports)
         {
             if (definition == null || supports == null)
                 return;
 
             for (int i = 0; i < supports.Count; i++)
-                supports[i]?.Apply(definition);
+            {
+                if (supports[i] is AdditiveSupport additive)
+                    additive.Apply(definition);
+            }
+        }
+
+        private static RuntimeSkillDefinition ApplyConversionSupports(
+            SkillDefinition definition,
+            RuntimeSkillDefinition runtime,
+            IReadOnlyList<SkillSupport> supports,
+            PlayerStatSnapshot snapshot)
+        {
+            if (runtime == null || supports == null)
+                return runtime;
+
+            for (int i = 0; i < supports.Count; i++)
+            {
+                if (supports[i] is ConversionSupport conversion)
+                    runtime = conversion.Compile(definition, runtime, snapshot);
+
+                if (runtime == null)
+                    return null;
+            }
+
+            return runtime;
         }
 
         private static RuntimeSkillDefinition BuildStackingRuntime(
             StackingSkillDefinition stacking,
-            IReadOnlyList<AdditiveSupport> supports,
+            IReadOnlyList<SkillSupport> supports,
             PlayerStatSnapshot snapshot)
         {
             SkillDefinition applicatorCopy = stacking.CreateApplicatorCopy();

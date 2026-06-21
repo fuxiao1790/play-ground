@@ -55,11 +55,12 @@ namespace PlayGround.Skills
             }
 
             SkillDefinitionTags skillTags = skill.Tags;
-            AdditiveSupport[] supports = slot.skillSet.Supports;
+            SkillSupport[] supports = slot.skillSet.Supports;
             for (int i = 0; i < supports.Length; i++)
             {
-                AdditiveSupport support = supports[i];
-                if (support == null) continue;
+                if (supports[i] is not AdditiveSupport support)
+                    continue;
+
                 if (SkillDefinitionTagUtility.HasAny(skillTags, support.SupportedSkillTags))
                     continue;
 

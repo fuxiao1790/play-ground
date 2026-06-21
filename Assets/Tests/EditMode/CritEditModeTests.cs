@@ -115,7 +115,7 @@ namespace PlayGround.Tests.EditMode
         {
             SkillSet set = CreateAsset<SkillSet>(name);
             SetField(set, "skill", skill);
-            SetField(set, "supports", global::System.Array.Empty<AdditiveSupport>());
+            SetField(set, "supports", global::System.Array.Empty<SkillSupport>());
             return set;
         }
 
