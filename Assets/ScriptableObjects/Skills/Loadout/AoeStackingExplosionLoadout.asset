@@ -13,32 +13,22 @@ MonoBehaviour:
   m_Name: AoeStackingExplosionLoadout
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.PlayerLoadout
   slots:
-  - rid: 3401311993557680206
-  - rid: 3401311993557680207
-  - rid: 3401311993557680208
-  - rid: 3401312199990575176
-  - rid: 3401312199990575177
+  - rid: 3401312228092149838
+  - rid: 3401312228092149839
+  - rid: 3401312228092149841
   maxRootSets: 8
   references:
     version: 2
     RefIds:
-    - rid: 3401311993557680206
+    - rid: 3401312228092149838
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
-        skillSet: {fileID: 11400000, guid: d26fe040d8efd6040949fd479fd64011, type: 2}
-    - rid: 3401311993557680207
+        skillSet: {fileID: 11400000, guid: b2000000000000000000000000000009, type: 2}
+    - rid: 3401312228092149839
       type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
-        link: {fileID: 0}
-    - rid: 3401311993557680208
-      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
-      data:
-        skillSet: {fileID: 11400000, guid: a2000000000000000000000000000022, type: 2}
-    - rid: 3401312199990575176
-      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
-      data:
-        link: {fileID: 0}
-    - rid: 3401312199990575177
+        link: {fileID: 11400000, guid: 8a0e8f4655664c4ca5fd11198d90f001, type: 2}
+    - rid: 3401312228092149841
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
         skillSet: {fileID: 11400000, guid: a2000000000000000000000000000008, type: 2}

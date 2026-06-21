@@ -1,0 +1,72 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1000000000000000000000000000021, type: 3}
+  m_Name: BenchmarkProjectileSpamStackingAoeSkill
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.StackingSkill
+  baseRecoveryTime: 0.05
+  definition:
+    applicatorKind: 0
+    projectileApplicator:
+      prefab: {fileID: 1001001001001001004, guid: 7fc20002aafc4694b8063a42dc613059, type: 3}
+      speed: 20
+      lifetime: 3
+      damage: 10
+      count: 1
+      spreadDegrees: 0
+      jitterDegrees: 0
+      pierceCount: 0
+      repeatHitCooldown: 0
+      directDamageEnabled: 1
+      trackingEnabled: 0
+      trackingTurnSpeedDegrees: 180
+      trackingQueryIntervalSeconds: 0.25
+      trackingInitialDelaySeconds: 0.15
+    aoeApplicator:
+      baseAreaSize: 1
+      damage: 10
+      count: 1
+      directDamageEnabled: 1
+      prefab: {fileID: 0}
+    lingeringAoeApplicator:
+      baseAreaSize: 1
+      damage: 10
+      count: 1
+      directDamageEnabled: 1
+      prefab: {fileID: 0}
+      lifetimeSeconds: 1
+      tickIntervalSeconds: 0.25
+    detonationKind: 0
+    aoeDetonation:
+      baseAreaSize: 3
+      damage: 120
+      count: 1
+      directDamageEnabled: 1
+      prefab: {fileID: 1003000000000000002, guid: b30d55f9f7c24d568ec80663b19f8c55, type: 3}
+    projectileDetonation:
+      prefab: {fileID: 0}
+      speed: 16
+      lifetime: 1.5
+      damage: 10
+      count: 1
+      spreadDegrees: 0
+      jitterDegrees: 0
+      pierceCount: 0
+      repeatHitCooldown: 0
+      directDamageEnabled: 1
+      trackingEnabled: 0
+      trackingTurnSpeedDegrees: 0
+      trackingQueryIntervalSeconds: 0
+      trackingInitialDelaySeconds: 0
+    stackThreshold: 3
+    debuffLifetimeSeconds: 4
+    debuffName: Benchmark Projectile Volatile
+    cosmeticDebuffStatus: 3

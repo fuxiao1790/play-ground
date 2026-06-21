@@ -10,13 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000005, type: 3}
-  m_Name: BulletLargeSkillSet
+  m_Name: BenchmarkArrowChildStackingAoeSkillSet
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillSet
-  skill: {fileID: 11400000, guid: a2000000000000000000000000000017, type: 2}
+  skill: {fileID: 11400000, guid: b1000000000000000000000000000004, type: 2}
   supports:
   - {fileID: 11400000, guid: 7d0cc39fd2349e849a97c91eb66cf04f, type: 2}
   - {fileID: 11400000, guid: e79cf38ef9f7b3f41bb7856217f5d3db, type: 2}
   - {fileID: 11400000, guid: d07c2ec4b643bfd4e953fc934c2ea674, type: 2}
-  - {fileID: 11400000, guid: 7d0cc39fd2349e849a97c91eb66cf04f, type: 2}
-  - {fileID: 11400000, guid: 7d0cc39fd2349e849a97c91eb66cf04f, type: 2}
-  - {fileID: 11400000, guid: 7d0cc39fd2349e849a97c91eb66cf04f, type: 2}
+  - {fileID: 11400000, guid: 4f45b6f0e6e0705479a291cc0556a898, type: 2}
+  - {fileID: 11400000, guid: 4f45b6f0e6e0705479a291cc0556a898, type: 2}

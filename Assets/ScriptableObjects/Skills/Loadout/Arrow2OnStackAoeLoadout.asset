@@ -14,8 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.PlayerLoadout
   slots:
   - rid: 1
-  - rid: 2
-  - rid: 3
   maxRootSets: 8
   references:
     version: 2
@@ -23,12 +21,4 @@ MonoBehaviour:
     - rid: 1
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
-        skillSet: {fileID: 11400000, guid: a2000000000000000000000000000024, type: 2}
-    - rid: 2
-      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
-      data:
-        link: {fileID: 0}
-    - rid: 3
-      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
-      data:
-        skillSet: {fileID: 11400000, guid: a2000000000000000000000000000008, type: 2}
+        skillSet: {fileID: 11400000, guid: b2000000000000000000000000000001, type: 2}
