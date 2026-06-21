@@ -99,7 +99,12 @@ namespace PlayGround.Skills
             {
                 if (slots[i] is not SkillSetSlot skillSlot || skillSlot.skillSet == null) continue;
                 if (!effectIndices.Contains(i))
+                {
+                    if (HasTriggeredOnlyConversionSupport(skillSlot.skillSet))
+                        continue;
+
                     rootSlotIndices.Add(i);
+                }
             }
 
             int maxSlots = Mathf.Min(rootSlotIndices.Count, loadout.MaxRootSets);
@@ -141,6 +146,24 @@ namespace PlayGround.Skills
                 }
             }
             return chains.ToArray();
+        }
+
+        private static bool HasTriggeredOnlyConversionSupport(SkillSet set)
+        {
+            if (set == null)
+                return false;
+
+            SkillSupport[] supports = set.Supports;
+            if (supports == null)
+                return false;
+
+            for (int i = 0; i < supports.Length; i++)
+            {
+                if (supports[i] is ConversionSupport { ConvertsToTriggeredOnly: true })
+                    return true;
+            }
+
+            return false;
         }
 
         private void RegisterProjectileTypes()

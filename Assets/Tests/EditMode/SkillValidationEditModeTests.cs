@@ -541,12 +541,106 @@ namespace PlayGround.Tests.EditMode
             Assert.That(rootProjectile.ChildSpawnSetup.ChildDefinition.StackingDetonation, Is.Not.Null);
         }
 
+        [Test]
+        public void DriverDoesNotBindStackingSupportSetAsRoot()
+        {
+            AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
+            StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
+            SkillSet set = CreateSkillSet("Stacking Set", skill, stackingSupport);
+            PlayerLoadout loadout = CreateLoadout("Loadout", new SkillSetSlot { skillSet = set });
+            var gameObject = new GameObject("Player Skill Driver Test");
+            createdObjects.Add(gameObject);
+            PlayerSkillDriver driver = gameObject.AddComponent<PlayerSkillDriver>();
+            SetField(driver, "loadout", loadout);
+
+            CompileAndRegister(driver);
+
+            Assert.That(driver.SlotCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void ValidatorWarnsWhenStackingSupportSetIsNotStackTriggerEffect()
+        {
+            AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
+            StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
+            SkillSet set = CreateSkillSet("Stacking Set", skill, stackingSupport);
+
+            SkillValidationWarning[] warnings = Validate(new SkillSetSlot { skillSet = set });
+
+            Assert.That(warnings, Has.Length.EqualTo(1));
+            Assert.That(warnings[0].Code, Is.EqualTo(SkillValidationWarningCode.UnsupportedStackingDetonation));
+            Assert.That(warnings[0].Message, Does.Contain("not the effect of a StackTrigger"));
+        }
+
+        [Test]
+        public void ValidatorWarnsWhenStackTriggerTargetHasNoStackingSupport()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            AoeSkill targetSkill = CreateAsset<AoeSkill>("AOE Skill");
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
+            StackTrigger trigger = CreateAsset<StackTrigger>("Stack Trigger");
+
+            SkillValidationWarning[] warnings = Validate(
+                new SkillSetSlot { skillSet = sourceSet },
+                new TriggerLinkSlot { link = trigger },
+                new SkillSetSlot { skillSet = targetSet });
+
+            Assert.That(warnings, Has.Length.EqualTo(1));
+            Assert.That(warnings[0].Code, Is.EqualTo(SkillValidationWarningCode.UnsupportedStackingDetonation));
+            Assert.That(warnings[0].Message, Does.Contain("with no StackingSupport"));
+        }
+
+        [Test]
+        public void ValidatorWarnsWhenStackingSupportSetIsTargetedByNonStackTrigger()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            AoeSkill targetSkill = CreateAsset<AoeSkill>("Stack Detonation Skill");
+            StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("Stacking Set", targetSkill, stackingSupport);
+            OnImpactAoeTrigger trigger = CreateAsset<OnImpactAoeTrigger>("Impact AOE");
+
+            SkillValidationWarning[] warnings = Validate(
+                new SkillSetSlot { skillSet = sourceSet },
+                new TriggerLinkSlot { link = trigger },
+                new SkillSetSlot { skillSet = targetSet });
+
+            Assert.That(HasWarning(warnings, SkillValidationWarningCode.UnsupportedStackingDetonation, 1, "is not a StackTrigger"), Is.True);
+        }
+
         private SkillValidationWarning[] Validate(params LoadoutSlot[] slots)
         {
             var list = new List<LoadoutSlot>(slots);
             var warnings = new List<SkillValidationWarning>();
             SkillLoadoutValidator.Validate(list, warnings);
             return warnings.ToArray();
+        }
+
+        private PlayerLoadout CreateLoadout(string name, params LoadoutSlot[] slots)
+        {
+            PlayerLoadout loadout = CreateAsset<PlayerLoadout>(name);
+            SetField(loadout, "slots", new List<LoadoutSlot>(slots));
+            return loadout;
+        }
+
+        private static bool HasWarning(
+            SkillValidationWarning[] warnings,
+            SkillValidationWarningCode code,
+            int slotIndex,
+            string messageFragment)
+        {
+            for (int i = 0; i < warnings.Length; i++)
+            {
+                if (warnings[i].Code == code
+                    && warnings[i].SlotIndex == slotIndex
+                    && warnings[i].Message.Contains(messageFragment))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private SkillSet CreateSkillSet(string name, Skill skill, params SkillSupport[] supports)
@@ -588,6 +682,15 @@ namespace PlayGround.Tests.EditMode
                 BindingFlags.Static | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null);
             method.Invoke(null, new object[] { definition });
+        }
+
+        private static void CompileAndRegister(PlayerSkillDriver driver)
+        {
+            MethodInfo method = typeof(PlayerSkillDriver).GetMethod(
+                "CompileAndRegister",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(driver, null);
         }
 
         private sealed class TrackingConversionSupport : ConversionSupport
