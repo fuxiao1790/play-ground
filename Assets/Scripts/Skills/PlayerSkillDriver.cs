@@ -162,6 +162,13 @@ namespace PlayGround.Skills
                 return;
             }
 
+            if (def is RuntimeStackingDetonation stackingDetonation)
+            {
+                EnsureStackingDetonationDebuffKey(stackingDetonation);
+                RegisterProjectileTypesRecursive(stackingDetonation.Detonation);
+                return;
+            }
+
             if (def is RuntimeProjectileDefinition projDef && projDef.Prefab != null && projDef.TypeId < 0)
             {
                 projDef.TypeId = combatRoot.RegisterTemplate(projDef.Prefab);
@@ -203,6 +210,13 @@ namespace PlayGround.Skills
                 return;
             }
 
+            if (def is RuntimeStackingDetonation stackingDetonation)
+            {
+                EnsureStackingDetonationDebuffKey(stackingDetonation);
+                RegisterAoeTypesRecursive(stackingDetonation.Detonation);
+                return;
+            }
+
             if (def is RuntimeAoeDefinition aoeDef)
             {
                 RegisterAoeTypeDefinition(aoeDef);
@@ -222,6 +236,14 @@ namespace PlayGround.Skills
         }
 
         private static void EnsureStackingDebuffKey(RuntimeStackingSkillDefinition stackingDef)
+        {
+            if (stackingDef == null || stackingDef.DebuffKey >= 0)
+                return;
+
+            stackingDef.DebuffKey = ++nextStackingDebuffKey;
+        }
+
+        private static void EnsureStackingDetonationDebuffKey(RuntimeStackingDetonation stackingDef)
         {
             if (stackingDef == null || stackingDef.DebuffKey >= 0)
                 return;

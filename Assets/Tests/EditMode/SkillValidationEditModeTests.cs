@@ -161,6 +161,53 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void CompilerBuildsStackingSupportRuntimeDetonation()
+        {
+            AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
+            StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
+            SetField(stackingSupport, "stackThreshold", 4);
+            SetField(stackingSupport, "debuffLifetimeSeconds", 6f);
+            SetField(stackingSupport, "stacksPerHit", 2);
+            SetField(stackingSupport, "debuffName", "Volatile Charge");
+            SetField(stackingSupport, "cosmeticDebuffStatus", DebuffStatus.Shock);
+            SkillSet set = CreateSkillSet("Stacking Support Set", skill, stackingSupport);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
+                0,
+                global::System.Array.Empty<TriggerChain>(),
+                PlayerStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeStackingDetonation>());
+            var stacking = (RuntimeStackingDetonation)runtime;
+            Assert.That(stacking.Detonation, Is.TypeOf<RuntimeAoeDefinition>());
+            Assert.That(stacking.StackThreshold, Is.EqualTo(4));
+            Assert.That(stacking.DebuffLifetimeSeconds, Is.EqualTo(6f).Within(0.0001f));
+            Assert.That(stacking.StacksPerHit, Is.EqualTo(2));
+            Assert.That(stacking.DebuffName, Is.EqualTo("Volatile Charge"));
+            Assert.That(stacking.CosmeticDebuffStatus, Is.EqualTo(DebuffStatus.Shock));
+            Assert.That(stacking.DebuffKey, Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void CompilerAppliesAdditiveSupportsToStackingSupportDetonation()
+        {
+            AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
+            AddedDamageSupport damageSupport = CreateAsset<AddedDamageSupport>("Added Damage");
+            StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
+            SkillSet set = CreateSkillSet("Stacking Support Set", skill, damageSupport, stackingSupport);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
+                0,
+                global::System.Array.Empty<TriggerChain>(),
+                PlayerStatSnapshot.Identity);
+
+            var stacking = (RuntimeStackingDetonation)runtime;
+            Assert.That(((RuntimeAoeDefinition)stacking.Detonation).Damage, Is.EqualTo(15f).Within(0.0001f));
+        }
+
+        [Test]
         public void CompilerCopiesLingeringAoeTiming()
         {
             LingeringAoeSkill skill = CreateAsset<LingeringAoeSkill>("Lingering AOE Skill");
@@ -303,6 +350,24 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void RegistrationAssignsDistinctStackingDetonationDebuffKeys()
+        {
+            var first = new RuntimeStackingDetonation();
+            var second = new RuntimeStackingDetonation();
+
+            AssignStackingDetonationDebuffKey(first);
+            AssignStackingDetonationDebuffKey(second);
+            int firstKey = first.DebuffKey;
+
+            AssignStackingDetonationDebuffKey(first);
+
+            Assert.That(firstKey, Is.GreaterThan(0));
+            Assert.That(second.DebuffKey, Is.GreaterThan(0));
+            Assert.That(second.DebuffKey, Is.Not.EqualTo(firstKey));
+            Assert.That(first.DebuffKey, Is.EqualTo(firstKey));
+        }
+
+        [Test]
         public void ValidatorDoesNotWarnForProjectileToAoeImpactLink()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
@@ -434,6 +499,15 @@ namespace PlayGround.Tests.EditMode
         {
             MethodInfo method = typeof(PlayerSkillDriver).GetMethod(
                 "EnsureStackingDebuffKey",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(null, new object[] { definition });
+        }
+
+        private static void AssignStackingDetonationDebuffKey(RuntimeStackingDetonation definition)
+        {
+            MethodInfo method = typeof(PlayerSkillDriver).GetMethod(
+                "EnsureStackingDetonationDebuffKey",
                 BindingFlags.Static | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null);
             method.Invoke(null, new object[] { definition });
