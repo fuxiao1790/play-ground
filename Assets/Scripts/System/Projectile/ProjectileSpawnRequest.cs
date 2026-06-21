@@ -66,7 +66,7 @@ namespace PlayGround.System.Projectile
             bool directDamageEnabled = true,
             EntityId sourceNodeId = default,
             ProjectileImpactAoeSnapshot impactAoe = default,
-            StackChainSnapshot stackEffect = default,
+            StackEffectSnapshot stackEffect = default,
             ProjectileImpactProjectileSnapshot impactProjectile = default,
             float critChance = 0f,
             float critMultiplier = 1.5f,
@@ -223,7 +223,7 @@ namespace PlayGround.System.Projectile
             ProjectileTrackingConfig tracking = default,
             ProjectileChildSpawnBehavior behavior = default,
             ProjectileImpactAoeSnapshot impactAoe = default,
-            StackChainSnapshot stackEffect = default,
+            StackEffectSnapshot stackEffect = default,
             ProjectileImpactProjectileSnapshot impactProjectile = default)
         {
             SpawnerId = spawnerId;
@@ -314,7 +314,7 @@ namespace PlayGround.System.Projectile
         public ProjectileTrackingConfig Tracking { get; }
         public ProjectileChildSpawnBehavior Behavior { get; }
         public ProjectileImpactAoeSnapshot ImpactAoe { get; }
-        public StackChainSnapshot StackEffect { get; }
+        public StackEffectSnapshot StackEffect { get; }
         public ProjectileImpactProjectileSnapshot ImpactProjectile { get; }
         public bool Enabled => SpawnerId > 0 && IntervalSeconds > 0f;
     }

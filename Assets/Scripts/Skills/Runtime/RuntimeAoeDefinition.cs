@@ -29,8 +29,6 @@ namespace PlayGround.Skills.Runtime
                 VisualRotationDegrees);
         }
 
-        public RuntimeStackTriggerSetup StackTriggerSetup { get; set; }
-
         public AoeTypeDefinition CreateTypeDefinition()
         {
             var def = new AoeTypeDefinition();

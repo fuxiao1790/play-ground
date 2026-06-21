@@ -14,9 +14,5 @@ namespace PlayGround.System.Common
         // this over its lifetime pays a one-time heap growth (accepted).
         public const int MaxProjectileGateCapacity = 16;
 
-        // Fixed stack-trigger nesting cap. Stack chains are flattened into a
-        // FixedList512Bytes<StackStage>, so over-depth authoring is warned and
-        // truncated instead of growing runtime payloads.
-        public const int MaxStackDepth = 6;
     }
 }

@@ -29,30 +29,6 @@ namespace PlayGround.Skills
             {
                 if (chain == null || chain.causeIndex != slotIndex || chain.link == null) continue;
 
-                if (chain.link is OnStackTrigger stackTrigger)
-                {
-                    RuntimeSkillDefinition compiledTarget = Compile(
-                        slots,
-                        chain.effectIndex,
-                        allChains,
-                        snapshot);
-                    if (compiledTarget is RuntimeAoeDefinition chainedAoe)
-                    {
-                        var setup = new RuntimeStackTriggerSetup
-                        {
-                            DebuffStatusId = (int)stackTrigger.debuffStatus,
-                            StacksPerHit = Mathf.Max(1, stackTrigger.stacksPerHit),
-                            StackThreshold = Mathf.Max(1, stackTrigger.stackThreshold),
-                            AoeDefinition = chainedAoe,
-                        };
-                        if (runtime is RuntimeProjectileDefinition projDef)
-                            projDef.StackTriggerSetup = setup;
-                        else if (runtime is RuntimeAoeDefinition sourceAoe)
-                            sourceAoe.StackTriggerSetup = setup;
-                    }
-                    continue;
-                }
-
                 if (chain.link is ChildSpawnTrigger childTrigger)
                 {
                     if (runtime is RuntimeProjectileDefinition projDef)

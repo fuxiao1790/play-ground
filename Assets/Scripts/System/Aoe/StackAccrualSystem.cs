@@ -11,9 +11,11 @@ namespace PlayGround.System.Aoe
     public struct StackApplyEvent
     {
         public Entity TargetProxy;
-        public CombatFaction Faction;
-        public int TargetMask;
-        public FixedList512Bytes<StackStage> Chain;
+        public int DebuffKey;
+        public int Threshold;
+        public float Lifetime;
+        public StackContribution Contribution;
+        public DetonationSnapshot Detonation;
     }
 
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -60,7 +62,7 @@ namespace PlayGround.System.Aoe
 
             while (EventQueue.TryDequeue(out StackApplyEvent evt))
             {
-                if (evt.TargetProxy != Entity.Null && evt.Chain.Length > 0)
+                if (evt.TargetProxy != Entity.Null && evt.DebuffKey >= 0 && evt.Detonation.Enabled)
                     events.Add(evt);
             }
 
@@ -74,11 +76,11 @@ namespace PlayGround.System.Aoe
             while (index < events.Count)
             {
                 StackApplyEvent first = events[index];
-                int statusId = StatusId(first);
+                int debuffKey = first.DebuffKey;
                 int groupEnd = index + 1;
                 while (groupEnd < events.Count
                        && events[groupEnd].TargetProxy == first.TargetProxy
-                       && StatusId(events[groupEnd]) == statusId)
+                       && events[groupEnd].DebuffKey == debuffKey)
                 {
                     groupEnd++;
                 }
@@ -123,30 +125,27 @@ namespace PlayGround.System.Aoe
             ref TargetStackStateComponent stackState,
             AoeSpawnExpansionSystem expansion)
         {
-            StackStage stage = evt.Chain[0];
-            int amount = math.max(1, stage.StacksPerHit);
-            int threshold = math.max(1, stage.StackThreshold);
-            if (!stackState.TryAddStacks(stage.DebuffStatusId, amount, out int count))
+            int threshold = math.max(1, evt.Threshold);
+            if (!stackState.TryAddStacks(evt.DebuffKey, 1, out int count))
                 return;
 
-            // TODO: keep the carry-over rule explicit; this currently subtracts thresholds and preserves the remainder.
-            while (count >= threshold)
+            if (count >= threshold)
             {
-                if (expansion != null && stage.AoeTypeId >= 0)
-                    expansion.EventQueue.Enqueue(BuildSpawnEvent(evt, stage, targetPosition));
+                if (expansion != null)
+                    expansion.EventQueue.Enqueue(BuildSpawnEvent(evt, targetPosition));
 
-                count -= threshold;
+                count = 0;
             }
 
-            stackState.SetCount(stage.DebuffStatusId, count);
+            stackState.SetCount(evt.DebuffKey, count);
         }
 
         private AoeSpawnEvent BuildSpawnEvent(
             in StackApplyEvent evt,
-            in StackStage stage,
             float2 position)
         {
-            AoeSpawnGeometry geometry = stage.AoeGeometry;
+            DetonationSnapshot detonation = evt.Detonation;
+            AoeSpawnGeometry geometry = detonation.AoeGeometry;
             float2 halfExtents = new(geometry.HalfExtents.x, geometry.HalfExtents.y);
             CombatCollisionMath.ComputeWorldBounds(
                 position,
@@ -159,19 +158,19 @@ namespace PlayGround.System.Aoe
 
             return new AoeSpawnEvent
             {
-                Faction = evt.Faction,
+                Faction = detonation.Faction,
                 AoeId = NextAoeId(),
-                TypeId = stage.AoeTypeId,
-                Lifetime = math.max(0f, stage.AoeLifetimeSeconds),
-                RepeatHitCooldownSeconds = math.max(0f, stage.AoeTickIntervalSeconds),
+                TypeId = detonation.TypeId,
+                Lifetime = math.max(0f, detonation.LifetimeSeconds),
+                RepeatHitCooldownSeconds = math.max(0f, detonation.TickIntervalSeconds),
                 HitPayload = new CombatHitPayload
                 {
-                    DamageAmount = math.max(0f, stage.AoeDamage),
-                    CritChance = 0f,
-                    CritMultiplier = 1.5f,
+                    DamageAmount = math.max(0f, evt.Contribution.Damage * math.max(1, evt.Threshold)),
+                    CritChance = detonation.CritChance,
+                    CritMultiplier = detonation.CritMultiplier,
                     DirectDamageEnabled = true,
                     SourceNodeId = default,
-                    StackEffect = Tail(evt)
+                    StackEffect = default
                 },
                 AreaSize = geometry.AreaSize,
                 Radius = geometry.Radius,
@@ -194,21 +193,6 @@ namespace PlayGround.System.Aoe
             return nextAoeId;
         }
 
-        private static StackChainSnapshot Tail(in StackApplyEvent evt)
-        {
-            var tail = new StackChainSnapshot
-            {
-                Faction = evt.Faction,
-                TargetMask = evt.TargetMask,
-                Stages = default
-            };
-
-            for (int i = 1; i < evt.Chain.Length; i++)
-                tail.Stages.Add(evt.Chain[i]);
-
-            return tail;
-        }
-
         private static CombatRenderComponent RenderFor(in AoeSpawnGeometry geometry)
         {
             if (geometry.VisualScale.x <= 0f && geometry.VisualScale.y <= 0f)
@@ -225,9 +209,6 @@ namespace PlayGround.System.Aoe
             };
         }
 
-        private static int StatusId(in StackApplyEvent evt) =>
-            evt.Chain.Length > 0 ? evt.Chain[0].DebuffStatusId : int.MaxValue;
-
         private sealed class StackApplyEventComparer : IComparer<StackApplyEvent>
         {
             public int Compare(StackApplyEvent x, StackApplyEvent y)
@@ -239,7 +220,7 @@ namespace PlayGround.System.Aoe
                 int versionCompare = x.TargetProxy.Version.CompareTo(y.TargetProxy.Version);
                 return versionCompare != 0
                     ? versionCompare
-                    : StatusId(x).CompareTo(StatusId(y));
+                    : x.DebuffKey.CompareTo(y.DebuffKey);
             }
         }
     }

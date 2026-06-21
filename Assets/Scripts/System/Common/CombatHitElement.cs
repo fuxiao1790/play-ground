@@ -85,7 +85,7 @@ namespace PlayGround.System.Common
             float repeatHitCooldownSeconds = 0f,
             ProjectileTrackingConfig tracking = default,
             ProjectileImpactAoeSnapshot impactAoe = default,
-            StackChainSnapshot stackEffect = default,
+            StackEffectSnapshot stackEffect = default,
             float visualScale = 0f,
             float visualRotationDegrees = 0f)
         {
@@ -128,7 +128,7 @@ namespace PlayGround.System.Common
         public float RepeatHitCooldownSeconds { get; }
         public ProjectileTrackingConfig Tracking { get; }
         public ProjectileImpactAoeSnapshot ImpactAoe { get; }
-        public StackChainSnapshot StackEffect { get; }
+        public StackEffectSnapshot StackEffect { get; }
         public float VisualScale { get; }
         public float VisualRotationDegrees { get; }
     }

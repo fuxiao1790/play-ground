@@ -179,8 +179,6 @@ namespace PlayGround.Skills
                     RegisterProjectileTypesRecursive(p.ChildSpawnSetup.ChildDefinition);
                 if (p.ImpactAoeDefinition != null)
                     RegisterAoeTypeDefinition(p.ImpactAoeDefinition);
-                if (p.StackTriggerSetup?.AoeDefinition != null)
-                    RegisterAoeTypeDefinition(p.StackTriggerSetup.AoeDefinition);
                 if (p.ImpactProjectileDefinition != null)
                     RegisterProjectileTypesRecursive(p.ImpactProjectileDefinition);
             }
@@ -208,8 +206,6 @@ namespace PlayGround.Skills
             if (def is RuntimeAoeDefinition aoeDef)
             {
                 RegisterAoeTypeDefinition(aoeDef);
-                if (aoeDef.StackTriggerSetup?.AoeDefinition != null)
-                    RegisterAoeTypeDefinition(aoeDef.StackTriggerSetup.AoeDefinition);
             }
 
             if (def is RuntimeProjectileDefinition projDef)
@@ -218,8 +214,6 @@ namespace PlayGround.Skills
                     RegisterAoeTypesRecursive(projDef.ChildSpawnSetup.ChildDefinition);
                 if (projDef.ImpactAoeDefinition != null)
                     RegisterAoeTypeDefinition(projDef.ImpactAoeDefinition);
-                if (projDef.StackTriggerSetup?.AoeDefinition != null)
-                    RegisterAoeTypeDefinition(projDef.StackTriggerSetup.AoeDefinition);
                 if (projDef.ImpactProjectileDefinition != null)
                     RegisterAoeTypesRecursive(projDef.ImpactProjectileDefinition);
             }

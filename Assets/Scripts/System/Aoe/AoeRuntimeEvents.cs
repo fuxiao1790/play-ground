@@ -18,7 +18,7 @@ namespace PlayGround.System.Aoe
             AoeProjectileBurstSnapshot projectileBurst = default,
             float critChance = 0f,
             float critMultiplier = 1.5f,
-            StackChainSnapshot stackEffect = default,
+            StackEffectSnapshot stackEffect = default,
             EntityId sourceNodeId = default)
         {
             TypeId = typeId;
@@ -47,7 +47,7 @@ namespace PlayGround.System.Aoe
         public AoeProjectileBurstSnapshot ProjectileBurst { get; }
         public float CritChance { get; }
         public float CritMultiplier { get; }
-        public StackChainSnapshot StackEffect { get; }
+        public StackEffectSnapshot StackEffect { get; }
         public EntityId SourceNodeId { get; }
     }
 

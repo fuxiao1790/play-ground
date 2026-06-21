@@ -25,7 +25,7 @@ namespace PlayGround.System.Projectile
         public float CritMultiplier => HitPayload.CritMultiplier;
         public bool DirectDamageEnabled => HitPayload.DirectDamageEnabled;
         public EntityId SourceNodeId => HitPayload.SourceNodeId;
-        public StackChainSnapshot StackEffect => HitPayload.StackEffect;
+        public StackEffectSnapshot StackEffect => HitPayload.StackEffect;
         public DamageSnapshot Damage => new(HitPayload.DamageAmount);
     }
 

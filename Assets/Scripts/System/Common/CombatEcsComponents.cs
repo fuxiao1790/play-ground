@@ -127,7 +127,7 @@ namespace PlayGround.System.Common
         public float2 BoundsMax;
     }
 
-    // Fire-time hit snapshot shared by all combat domains (projectile, AOE). Carries damage, crit, and stack-chain data snapshotted at spawn time.
+    // Fire-time hit snapshot shared by all combat domains (projectile, AOE). Carries damage, crit, and stack data snapshotted at spawn time.
     public struct CombatHitPayload
     {
         public float DamageAmount;
@@ -135,7 +135,7 @@ namespace PlayGround.System.Common
         public float CritMultiplier;
         public bool DirectDamageEnabled;
         public EntityId SourceNodeId;
-        public StackChainSnapshot StackEffect;
+        public StackEffectSnapshot StackEffect;
     }
 
     // ECS Lifecycle: enableable common occupancy flag; added to reusable combat entities at creation; enabled on spawn, disabled on despawn.

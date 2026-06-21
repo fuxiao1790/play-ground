@@ -18,7 +18,7 @@ namespace PlayGround.System.Common
             DamageSnapshot damage,
             Vector2 position,
             bool directDamageEnabled = true,
-            StackChainSnapshot stackEffect = default,
+            StackEffectSnapshot stackEffect = default,
             EntityId sourceNodeId = default)
         {
             Kind = kind;
@@ -33,7 +33,7 @@ namespace PlayGround.System.Common
         public DamageSnapshot Damage { get; }
         public Vector2 Position { get; }
         public bool DirectDamageEnabled { get; }
-        public StackChainSnapshot StackEffect { get; }
+        public StackEffectSnapshot StackEffect { get; }
         public EntityId SourceNodeId { get; }
     }
 

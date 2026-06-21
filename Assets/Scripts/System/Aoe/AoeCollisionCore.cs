@@ -212,13 +212,15 @@ namespace PlayGround.System.Aoe
 
             if (hasStackApplyWriter && hitSpawn.HitPayload.StackEffect.Enabled)
             {
-                StackChainSnapshot stackEffect = hitSpawn.HitPayload.StackEffect;
+                StackEffectSnapshot stackEffect = hitSpawn.HitPayload.StackEffect;
                 stackApplyWriter.Enqueue(new StackApplyEvent
                 {
                     TargetProxy = targetEntity,
-                    Faction = identity.Faction,
-                    TargetMask = stackEffect.TargetMask,
-                    Chain = stackEffect.Stages
+                    DebuffKey = stackEffect.DebuffKey,
+                    Threshold = stackEffect.Threshold,
+                    Lifetime = stackEffect.Lifetime,
+                    Contribution = stackEffect.Contribution,
+                    Detonation = stackEffect.Detonation
                 });
             }
 

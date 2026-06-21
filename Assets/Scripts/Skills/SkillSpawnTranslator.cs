@@ -16,19 +16,37 @@ namespace PlayGround.Skills
             Vector2 aimWorldPos,
             CombatRoot combatRoot)
         {
+            Spawn(def, origin, aimDir, aimWorldPos, combatRoot, default);
+        }
+
+        private static void Spawn(
+            RuntimeSkillDefinition def,
+            Vector2 origin,
+            Vector2 aimDir,
+            Vector2 aimWorldPos,
+            CombatRoot combatRoot,
+            StackEffectSnapshot stackEffect)
+        {
             if (def is RuntimeProjectileDefinition proj)
-                SpawnProjectile(proj, origin, aimDir, combatRoot);
+                SpawnProjectile(proj, origin, aimDir, combatRoot, stackEffect);
             else if (def is RuntimeAoeDefinition aoe)
-                SpawnAoe(aoe, origin, aimWorldPos, combatRoot);
+                SpawnAoe(aoe, origin, aimWorldPos, combatRoot, stackEffect);
             else if (def is RuntimeStackingSkillDefinition stacking)
-                Spawn(stacking.ApplicatorDefinition, origin, aimDir, aimWorldPos, combatRoot);
+                Spawn(
+                    stacking.ApplicatorDefinition,
+                    origin,
+                    aimDir,
+                    aimWorldPos,
+                    combatRoot,
+                    BuildStackEffectSnapshot(stacking, combatRoot));
         }
 
         private static void SpawnProjectile(
             RuntimeProjectileDefinition def,
             Vector2 origin,
             Vector2 aimDir,
-            CombatRoot root)
+            CombatRoot root,
+            StackEffectSnapshot stackEffect)
         {
             if (root == null || def.Prefab == null || def.TypeId < 0) return;
 
@@ -38,7 +56,6 @@ namespace PlayGround.Skills
             int targetMask = root.TargetMask;
 
             ProjectileImpactAoeSnapshot impactAoe = BuildImpactAoeSnapshot(def, targetMask);
-            StackChainSnapshot stackEffect = BuildStackEffectSnapshot(def, root.Faction, targetMask);
             ProjectileImpactProjectileSnapshot impactProjectile = BuildImpactProjectileSnapshot(def, targetMask, root.Faction);
             ProjectileChildSpawnConfig childSpawn = def.BuildChildSpawnConfig();
 
@@ -74,7 +91,8 @@ namespace PlayGround.Skills
             RuntimeAoeDefinition def,
             Vector2 origin,
             Vector2 aimWorldPos,
-            CombatRoot root)
+            CombatRoot root,
+            StackEffectSnapshot stackEffect)
         {
             if (root == null || def.TypeId < 0) return;
 
@@ -82,7 +100,6 @@ namespace PlayGround.Skills
             DamageSnapshot damage = new(Mathf.Max(0f, def.Damage));
             int count = Mathf.Max(1, def.Count);
             AoeSpawnGeometry geometry = def.CreateSpawnGeometry();
-            StackChainSnapshot stackChain = BuildStackChain(def, root.Faction, root.TargetMask);
 
             for (int i = 0; i < count; i++)
             {
@@ -96,44 +113,8 @@ namespace PlayGround.Skills
                     geometry,
                     critChance: def.CritChance,
                     critMultiplier: def.CritMultiplier,
-                    stackEffect: stackChain));
+                    stackEffect: stackEffect));
             }
-        }
-
-        public static StackChainSnapshot BuildStackChain(
-            RuntimeAoeDefinition root,
-            CombatFaction faction,
-            int targetMask)
-        {
-            var chain = new StackChainSnapshot
-            {
-                Faction = faction,
-                TargetMask = targetMask,
-                Stages = default
-            };
-
-            RuntimeAoeDefinition current = root;
-            for (int depth = 0; depth < CollisionConstants.MaxStackDepth; depth++)
-            {
-                RuntimeStackTriggerSetup stack = current?.StackTriggerSetup;
-                RuntimeAoeDefinition spawned = stack?.AoeDefinition;
-                if (stack == null || spawned == null || spawned.TypeId < 0)
-                    break;
-
-                chain.Stages.Add(new StackStage(
-                    stack.DebuffStatusId,
-                    Mathf.Max(1, stack.StacksPerHit),
-                    Mathf.Max(1, stack.StackThreshold),
-                    spawned.TypeId,
-                    Mathf.Max(0f, spawned.Damage),
-                    spawned.LifetimeSeconds,
-                    spawned.TickIntervalSeconds,
-                    spawned.CreateSpawnGeometry()));
-
-                current = spawned;
-            }
-
-            return chain;
         }
 
         private static ProjectileImpactAoeSnapshot BuildImpactAoeSnapshot(
@@ -185,45 +166,50 @@ namespace PlayGround.Skills
                 impact.RepeatHitCooldown,
                 impact.Tracking,
                 BuildImpactAoeSnapshot(impact, targetMask),
-                BuildStackEffectSnapshot(impact, faction, targetMask),
-                prefab.VisualScale,
-                prefab.VisualRotationDegrees);
+                visualScale: prefab.VisualScale,
+                visualRotationDegrees: prefab.VisualRotationDegrees);
         }
 
-        private static StackChainSnapshot BuildStackEffectSnapshot(
-            RuntimeProjectileDefinition def,
-            CombatFaction faction,
-            int targetMask)
+        private static StackEffectSnapshot BuildStackEffectSnapshot(
+            RuntimeStackingSkillDefinition stacking,
+            CombatRoot root)
         {
-            return BuildStackChain(def.StackTriggerSetup, faction, targetMask);
-        }
+            if (stacking == null || root == null || stacking.DebuffKey < 0)
+                return default;
 
-        private static StackChainSnapshot BuildStackChain(
-            RuntimeStackTriggerSetup stack,
-            CombatFaction faction,
-            int targetMask)
-        {
-            var chain = new StackChainSnapshot
+            if (stacking.DetonationDefinition is not RuntimeAoeDefinition aoe || aoe.TypeId < 0)
             {
-                Faction = faction,
-                TargetMask = targetMask,
-                Stages = default
+                if (stacking.DetonationKind == RuntimeStackingSkillEffectKind.Projectile)
+                    Debug.LogWarning("[SkillSpawnTranslator] Projectile stack detonations are not implemented yet.");
+                return default;
+            }
+
+            int threshold = Mathf.Max(1, stacking.StackThreshold);
+            AoeSpawnGeometry geometry = aoe.CreateSpawnGeometry();
+            return new StackEffectSnapshot
+            {
+                DebuffKey = stacking.DebuffKey,
+                Threshold = threshold,
+                Lifetime = Mathf.Max(0f, stacking.DebuffLifetimeSeconds),
+                Contribution = new StackContribution
+                {
+                    Damage = Mathf.Max(0f, aoe.Damage) / threshold,
+                    ProjectileCount = 0,
+                    AreaSize = Mathf.Max(0.01f, aoe.AreaSize) / threshold
+                },
+                Detonation = new DetonationSnapshot
+                {
+                    Kind = StackDetonationKind.Aoe,
+                    Faction = root.Faction,
+                    TargetMask = root.TargetMask,
+                    TypeId = aoe.TypeId,
+                    LifetimeSeconds = aoe.LifetimeSeconds,
+                    TickIntervalSeconds = aoe.TickIntervalSeconds,
+                    AoeGeometry = geometry,
+                    CritChance = aoe.CritChance,
+                    CritMultiplier = aoe.CritMultiplier
+                }
             };
-
-            if (stack == null || stack.AoeDefinition == null || stack.AoeDefinition.TypeId < 0)
-                return chain;
-
-            chain.Stages.Add(new StackStage(
-                stack.DebuffStatusId,
-                Mathf.Max(1, stack.StacksPerHit),
-                Mathf.Max(1, stack.StackThreshold),
-                stack.AoeDefinition.TypeId,
-                Mathf.Max(0f, stack.AoeDefinition.Damage),
-                stack.AoeDefinition.LifetimeSeconds,
-                stack.AoeDefinition.TickIntervalSeconds,
-                stack.AoeDefinition.CreateSpawnGeometry()));
-
-            return chain;
         }
     }
 }

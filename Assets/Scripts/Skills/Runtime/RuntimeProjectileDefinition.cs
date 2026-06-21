@@ -33,9 +33,6 @@ namespace PlayGround.Skills.Runtime
         // Compiled from OnImpactAoeTrigger; null if none.
         public RuntimeAoeDefinition ImpactAoeDefinition { get; set; }
 
-        // Compiled from OnStackTrigger; null if none.
-        public RuntimeStackTriggerSetup StackTriggerSetup { get; set; }
-
         // Compiled from OnImpactProjectileTrigger; null if none.
         public RuntimeProjectileDefinition ImpactProjectileDefinition { get; set; }
 
@@ -68,7 +65,6 @@ namespace PlayGround.Skills.Runtime
                 child.Tracking,
                 setup.Behavior,
                 impactAoe: BuildChildImpactAoeSnapshot(child),
-                stackEffect: BuildChildStackEffect(child.StackTriggerSetup),
                 impactProjectile: BuildChildImpactProjectileSnapshot(child));
         }
 
@@ -82,31 +78,6 @@ namespace PlayGround.Skills.Runtime
                 impact.LifetimeSeconds, impact.TickIntervalSeconds,
                 impact.CreateSpawnGeometry(),
                 impact.CritChance, impact.CritMultiplier);
-        }
-
-        private static StackChainSnapshot BuildChildStackEffect(RuntimeStackTriggerSetup stack)
-        {
-            var chain = new StackChainSnapshot
-            {
-                Faction = default,
-                TargetMask = 0,
-                Stages = default
-            };
-
-            if (stack == null || stack.AoeDefinition == null || stack.AoeDefinition.TypeId < 0)
-                return chain;
-
-            chain.Stages.Add(new StackStage(
-                stack.DebuffStatusId,
-                Mathf.Max(1, stack.StacksPerHit),
-                Mathf.Max(1, stack.StackThreshold),
-                stack.AoeDefinition.TypeId,
-                Mathf.Max(0f, stack.AoeDefinition.Damage),
-                stack.AoeDefinition.LifetimeSeconds,
-                stack.AoeDefinition.TickIntervalSeconds,
-                stack.AoeDefinition.CreateSpawnGeometry()));
-
-            return chain;
         }
 
         private static ProjectileImpactProjectileSnapshot BuildChildImpactProjectileSnapshot(RuntimeProjectileDefinition child)
@@ -125,9 +96,8 @@ namespace PlayGround.Skills.Runtime
                 impact.DirectDamageEnabled, impact.PierceCount, impact.RepeatHitCooldown,
                 impact.Tracking,
                 BuildChildImpactAoeSnapshot(impact),
-                BuildChildStackEffect(impact.StackTriggerSetup),
-                prefab.VisualScale,
-                prefab.VisualRotationDegrees);
+                visualScale: prefab.VisualScale,
+                visualRotationDegrees: prefab.VisualRotationDegrees);
         }
     }
 }

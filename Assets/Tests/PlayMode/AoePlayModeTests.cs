@@ -366,53 +366,62 @@ namespace PlayGround.Tests.PlayMode
             return (CombatFaction)factionField.GetValue(root);
         }
 
-        private static StackChainSnapshot StackChain(
+        private static StackEffectSnapshot StackEffect(
             CombatRoot root,
             AoeSpawnGeometry geometry,
+            int debuffKey,
             int aoeTypeId,
             float damage,
             int threshold)
         {
-            var chain = new StackChainSnapshot
+            return new StackEffectSnapshot
             {
-                Faction = Faction(root),
-                TargetMask = DefaultTargetMask,
-                Stages = default
+                DebuffKey = debuffKey,
+                Threshold = threshold,
+                Lifetime = 10f,
+                Contribution = new StackContribution
+                {
+                    Damage = damage / threshold,
+                    ProjectileCount = 0,
+                    AreaSize = geometry.AreaSize / threshold
+                },
+                Detonation = new DetonationSnapshot
+                {
+                    Kind = StackDetonationKind.Aoe,
+                    Faction = Faction(root),
+                    TargetMask = DefaultTargetMask,
+                    TypeId = aoeTypeId,
+                    LifetimeSeconds = 0f,
+                    TickIntervalSeconds = 0f,
+                    AoeGeometry = geometry,
+                    CritChance = 0f,
+                    CritMultiplier = 1.5f
+                }
             };
-            chain.Stages.Add(new StackStage(
-                (int)DebuffStatus.Volatile,
-                1,
-                threshold,
-                aoeTypeId,
-                damage,
-                0f,
-                0f,
-                geometry));
-            return chain;
         }
 
-        // ── AOE stack trigger chain tests ─────────────────────────────────────────
+        // ── AOE stack trigger tests ───────────────────────────────────────────────
 
         [UnityTest]
         public IEnumerator LingeringAoeInitialHitAndPulseApplyDebuffStacks()
         {
             // Lingering AOE (damage=0, tickInterval=0) applies Volatile stacks each hit.
-            // Threshold=10 ensures the chain never fires within 2 frames; a registered
-            // chain type is still required for CombatStackEffectSnapshot.Enabled = true.
+            // Threshold=10 ensures detonation never fires within 2 frames; a registered
+            // detonation type is still required for StackEffectSnapshot.Enabled = true.
             CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out _);
             var lingeringDef = new AoeTypeDefinition();
             lingeringDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
             int lingeringTypeId = root.RegisterType(lingeringDef);
-            var chainDef = new AoeTypeDefinition();
-            chainDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
-            int chainTypeId = root.RegisterType(chainDef);
+            var detonationDef = new AoeTypeDefinition();
+            detonationDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
+            int detonationTypeId = root.RegisterType(detonationDef);
 
             MobRoot mob = CreateMobTarget(Vector2.zero);
             mob.BindAoeRoot(root);
             mob.Register(root.TargetRegistry);
 
             AoeSpawnGeometry geometry = Geometry(templateObject, 2f);
-            var stackEffect = StackChain(root, geometry, chainTypeId, 0f, 10);
+            var stackEffect = StackEffect(root, geometry, (int)DebuffStatus.Volatile, detonationTypeId, 0f, 10);
 
             root.Spawn(new AoeSpawnRequest(
                 lingeringTypeId,
@@ -454,7 +463,7 @@ namespace PlayGround.Tests.PlayMode
 
             const float ChainDamage = 5f;
             AoeSpawnGeometry geometry = Geometry(templateObject, 2f);
-            var stackEffect = StackChain(root, geometry, pulseTypeId, ChainDamage, 3);
+            var stackEffect = StackEffect(root, geometry, (int)DebuffStatus.Volatile, pulseTypeId, ChainDamage, 3);
 
             root.Spawn(new AoeSpawnRequest(
                 lingeringTypeId,
@@ -468,76 +477,17 @@ namespace PlayGround.Tests.PlayMode
 
             yield return null; // frame 1: 1 stack
             yield return null; // frame 2: 2 stacks
-            yield return null; // frame 3: 3 stacks → threshold → chain spawned
+            yield return null; // frame 3: 3 stacks -> threshold -> detonation spawned
 
             Assert.That(ScopedAoeCount(root, pulseTypeId), Is.EqualTo(1),
                 "Stack threshold should have spawned the linked pulse AOE.");
             Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Volatile), Is.EqualTo(0),
                 "Stacks should be cleared after the threshold fires.");
 
-            yield return null; // frame 4: chain pulse materialises and hits
+            yield return null; // frame 4: detonation pulse materialises and hits
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(mob.MaxHealth - ChainDamage).Within(0.001f),
                 "Chain pulse AOE should deal its damage on the frame it materialises.");
-
-            Cleanup(rootObject, templateObject, mob.gameObject);
-        }
-
-        [UnityTest]
-        public IEnumerator AoeStackThresholdChainFiresEveryStageInOrder()
-        {
-            CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out _);
-            var typeDef = new AoeTypeDefinition();
-            typeDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
-            int firstLingeringTypeId = root.RegisterType(typeDef);
-            var secondTypeDef = new AoeTypeDefinition();
-            secondTypeDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
-            int secondLingeringTypeId = root.RegisterType(secondTypeDef);
-            var impactTypeDef = new AoeTypeDefinition();
-            impactTypeDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
-            int impactTypeId = root.RegisterType(impactTypeDef);
-
-            MobRoot mob = CreateMobTarget(Vector2.zero);
-            mob.Register(root.TargetRegistry);
-
-            const float ImpactDamage = 4f;
-            AoeSpawnGeometry geometry = Geometry(templateObject, 2f);
-            StackChainSnapshot chain = TwoStageStackChain(
-                root,
-                geometry,
-                secondLingeringTypeId,
-                impactTypeId,
-                ImpactDamage);
-
-            root.Spawn(new AoeSpawnRequest(
-                firstLingeringTypeId,
-                Vector2.zero,
-                DefaultTargetMask,
-                new DamageSnapshot(0f),
-                lifetimeSeconds: 10f,
-                tickIntervalSeconds: 0f,
-                geometry: geometry,
-                stackEffect: chain));
-
-            yield return null;
-            Assert.That(ScopedAoeCount(root, secondLingeringTypeId), Is.EqualTo(0));
-            Assert.That(ScopedAoeCount(root, impactTypeId), Is.EqualTo(0));
-            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Poison), Is.EqualTo(1));
-
-            yield return null;
-            Assert.That(ScopedAoeCount(root, secondLingeringTypeId), Is.EqualTo(1));
-            Assert.That(ScopedAoeCount(root, impactTypeId), Is.EqualTo(0));
-            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Poison), Is.EqualTo(0));
-
-            yield return null;
-            Assert.That(ScopedAoeCount(root, impactTypeId), Is.EqualTo(1));
-            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Burning), Is.EqualTo(0));
-
-            yield return null;
-            Assert.That(mob.CurrentHealth, Is.EqualTo(mob.MaxHealth - ImpactDamage).Within(0.001f));
-            Assert.That(FirstScopedAoeHitPayload(root, impactTypeId).StackEffect.Enabled, Is.False);
-            Assert.That(root.Counters.SpawnedAoes, Is.EqualTo(1),
-                "ECS stack follow-ups should not call the managed CombatRoot.Spawn path.");
 
             Cleanup(rootObject, templateObject, mob.gameObject);
         }
@@ -565,7 +515,7 @@ namespace PlayGround.Tests.PlayMode
                 lifetimeSeconds: 10f,
                 tickIntervalSeconds: 0f,
                 geometry: geometry,
-                stackEffect: SingleStageStackChain(root, geometry, DebuffStatus.Poison, poisonTypeId, 2)));
+                stackEffect: SingleStageStackEffect(root, geometry, DebuffStatus.Poison, poisonTypeId, 2)));
             root.Spawn(new AoeSpawnRequest(
                 burningTypeId,
                 Vector2.zero,
@@ -574,7 +524,7 @@ namespace PlayGround.Tests.PlayMode
                 lifetimeSeconds: 10f,
                 tickIntervalSeconds: 0f,
                 geometry: geometry,
-                stackEffect: SingleStageStackChain(root, geometry, DebuffStatus.Burning, burningTypeId, 3)));
+                stackEffect: SingleStageStackEffect(root, geometry, DebuffStatus.Burning, burningTypeId, 3)));
 
             yield return null;
             Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Poison), Is.EqualTo(1));
@@ -617,63 +567,14 @@ namespace PlayGround.Tests.PlayMode
             return index < state.Counts.Length ? state.Counts[index] : 0;
         }
 
-        private static StackChainSnapshot SingleStageStackChain(
+        private static StackEffectSnapshot SingleStageStackEffect(
             CombatRoot root,
             AoeSpawnGeometry geometry,
             DebuffStatus status,
             int aoeTypeId,
             int threshold)
         {
-            var chain = new StackChainSnapshot
-            {
-                Faction = Faction(root),
-                TargetMask = DefaultTargetMask,
-                Stages = default
-            };
-            chain.Stages.Add(new StackStage(
-                (int)status,
-                1,
-                threshold,
-                aoeTypeId,
-                0f,
-                0f,
-                0f,
-                geometry));
-            return chain;
-        }
-
-        private static StackChainSnapshot TwoStageStackChain(
-            CombatRoot root,
-            AoeSpawnGeometry geometry,
-            int secondLingeringTypeId,
-            int impactTypeId,
-            float impactDamage)
-        {
-            var chain = new StackChainSnapshot
-            {
-                Faction = Faction(root),
-                TargetMask = DefaultTargetMask,
-                Stages = default
-            };
-            chain.Stages.Add(new StackStage(
-                (int)DebuffStatus.Poison,
-                1,
-                2,
-                secondLingeringTypeId,
-                0f,
-                10f,
-                0f,
-                geometry));
-            chain.Stages.Add(new StackStage(
-                (int)DebuffStatus.Burning,
-                1,
-                1,
-                impactTypeId,
-                impactDamage,
-                0f,
-                0f,
-                geometry));
-            return chain;
+            return StackEffect(root, geometry, (int)status, aoeTypeId, 0f, threshold);
         }
 
         private static int ScopedAoeCount(CombatRoot root, int typeId)
