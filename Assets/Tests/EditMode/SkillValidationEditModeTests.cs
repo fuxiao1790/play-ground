@@ -464,6 +464,83 @@ namespace PlayGround.Tests.EditMode
             Assert.That(detonation.OnHitAoeSpawnDefinition, Is.TypeOf<RuntimeStackingSkillDefinition>());
         }
 
+        [Test]
+        public void CompilerAttachesStackTriggerToProjectileApplicator()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            AoeSkill targetSkill = CreateAsset<AoeSkill>("Stack Detonation Skill");
+            StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("Stack Detonation Set", targetSkill, stackingSupport);
+            StackTrigger trigger = CreateAsset<StackTrigger>("Stack Trigger");
+            var chains = new[]
+            {
+                new TriggerChain
+                {
+                    causeIndex = 0,
+                    link = trigger,
+                    effectIndex = 2,
+                },
+            };
+            var slots = new LoadoutSlot[]
+            {
+                new SkillSetSlot { skillSet = sourceSet },
+                new TriggerLinkSlot { link = trigger },
+                new SkillSetSlot { skillSet = targetSet },
+            };
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
+            var projectile = (RuntimeProjectileDefinition)runtime;
+            Assert.That(projectile.StackingDetonation, Is.Not.Null);
+            Assert.That(projectile.StackingDetonation.Detonation, Is.TypeOf<RuntimeAoeDefinition>());
+        }
+
+        [Test]
+        public void CompilerAttachesStackTriggerAfterNormalChildSpawnLink()
+        {
+            ProjectileSkill rootSkill = CreateAsset<ProjectileSkill>("Root Projectile Skill");
+            ProjectileSkill applicatorSkill = CreateAsset<ProjectileSkill>("Applicator Projectile Skill");
+            AoeSkill detonationSkill = CreateAsset<AoeSkill>("Stack Detonation Skill");
+            StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
+            SkillSet rootSet = CreateSkillSet("Root Projectile Set", rootSkill);
+            SkillSet applicatorSet = CreateSkillSet("Applicator Projectile Set", applicatorSkill);
+            SkillSet detonationSet = CreateSkillSet("Stack Detonation Set", detonationSkill, stackingSupport);
+            ChildSpawnTrigger childTrigger = CreateAsset<ChildSpawnTrigger>("Child Spawn");
+            StackTrigger stackTrigger = CreateAsset<StackTrigger>("Stack Trigger");
+            var chains = new[]
+            {
+                new TriggerChain
+                {
+                    causeIndex = 0,
+                    link = childTrigger,
+                    effectIndex = 2,
+                },
+                new TriggerChain
+                {
+                    causeIndex = 2,
+                    link = stackTrigger,
+                    effectIndex = 4,
+                },
+            };
+            var slots = new LoadoutSlot[]
+            {
+                new SkillSetSlot { skillSet = rootSet },
+                new TriggerLinkSlot { link = childTrigger },
+                new SkillSetSlot { skillSet = applicatorSet },
+                new TriggerLinkSlot { link = stackTrigger },
+                new SkillSetSlot { skillSet = detonationSet },
+            };
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
+            var rootProjectile = (RuntimeProjectileDefinition)runtime;
+            Assert.That(rootProjectile.ChildSpawnSetup, Is.Not.Null);
+            Assert.That(rootProjectile.ChildSpawnSetup.ChildDefinition.StackingDetonation, Is.Not.Null);
+        }
+
         private SkillValidationWarning[] Validate(params LoadoutSlot[] slots)
         {
             var list = new List<LoadoutSlot>(slots);

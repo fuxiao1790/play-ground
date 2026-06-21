@@ -79,6 +79,18 @@ namespace PlayGround.Skills
                         detonationAoe.OnHitAoeSpawnDefinition = compiledTarget;
                     }
                 }
+
+                if (chain.link is StackTrigger)
+                {
+                    RuntimeSkillDefinition compiledTarget = Compile(slots, chain.effectIndex, allChains, snapshot);
+                    if (compiledTarget is not RuntimeStackingDetonation stackingDetonation)
+                        continue;
+
+                    if (runtime is RuntimeProjectileDefinition projDef)
+                        projDef.StackingDetonation = stackingDetonation;
+                    else if (runtime is RuntimeAoeDefinition aoeDef)
+                        aoeDef.StackingDetonation = stackingDetonation;
+                }
             }
 
             return runtime;

@@ -24,6 +24,9 @@ namespace PlayGround.Skills.Runtime
         // snapshot is bounded by AoeOnHitSpawnSnapshot.MaxStackingSkillChainLinks.
         public RuntimeSkillDefinition OnHitAoeSpawnDefinition { get; set; }
 
+        // Compiled from StackTrigger; null if none.
+        public RuntimeStackingDetonation StackingDetonation { get; set; }
+
         public AoeSpawnGeometry CreateSpawnGeometry()
         {
             return AoeSpawnGeometry.FromTemplate(

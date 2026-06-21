@@ -36,7 +36,10 @@ namespace PlayGround.Skills.Runtime
         // Compiled from OnImpactProjectileTrigger; null if none.
         public RuntimeProjectileDefinition ImpactProjectileDefinition { get; set; }
 
-        public ProjectileChildSpawnConfig BuildChildSpawnConfig()
+        // Compiled from StackTrigger; null if none.
+        public RuntimeStackingDetonation StackingDetonation { get; set; }
+
+        public ProjectileChildSpawnConfig BuildChildSpawnConfig(StackEffectSnapshot stackEffect = default)
         {
             RuntimeChildSpawnSetup setup = ChildSpawnSetup;
             if (setup == null || setup.ChildDefinition == null || setup.ChildDefinition.TypeId < 0)
@@ -65,6 +68,7 @@ namespace PlayGround.Skills.Runtime
                 child.Tracking,
                 setup.Behavior,
                 impactAoe: BuildChildImpactAoeSnapshot(child),
+                stackEffect: stackEffect,
                 impactProjectile: BuildChildImpactProjectileSnapshot(child));
         }
 

@@ -39,7 +39,9 @@ namespace PlayGround.System.Common
             AoeSpawnGeometry geometry = default,
             float critChance = 0f,
             float critMultiplier = 1.5f,
-            float areaSize = 1f)
+            float areaSize = 1f,
+            StackEffectSnapshot stackEffect = default,
+            AoeOnHitSpawnSnapshot aoeSpawn = default)
         {
             Enabled = typeId >= 0;
             TypeId = typeId;
@@ -51,6 +53,8 @@ namespace PlayGround.System.Common
             AreaSize = geometry.IsValid ? geometry.AreaSize : Mathf.Max(0.01f, areaSize);
             CritChance = critChance;
             CritMultiplier = critMultiplier;
+            StackEffect = stackEffect;
+            AoeSpawn = aoeSpawn;
         }
 
         public int TypeId { get; }
@@ -63,6 +67,8 @@ namespace PlayGround.System.Common
         public bool Enabled { get; }
         public float CritChance { get; }
         public float CritMultiplier { get; }
+        public StackEffectSnapshot StackEffect { get; }
+        public AoeOnHitSpawnSnapshot AoeSpawn { get; }
         public DamageSnapshot Damage => new(Mathf.Max(0f, DamageAmount));
     }
 

@@ -92,7 +92,7 @@ namespace PlayGround.System.Aoe
                     CritMultiplier = snapshot.CritMultiplier,
                     DirectDamageEnabled = true,
                     SourceNodeId = sourceNodeId,
-                    StackEffect = default
+                    StackEffect = snapshot.StackEffect
                 },
                 AreaSize = geo.AreaSize,
                 Radius = geo.Radius,
@@ -103,7 +103,8 @@ namespace PlayGround.System.Aoe
                 BoundsMax = boundsMax,
                 ShapeType = geo.ShapeType,
                 Render = render,
-                ProjectileBurst = default
+                ProjectileBurst = default,
+                AoeSpawn = snapshot.AoeSpawn
             };
         }
 

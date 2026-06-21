@@ -169,6 +169,14 @@ namespace PlayGround.Skills
                 return;
             }
 
+            if (def is RuntimeAoeDefinition aoeDef)
+            {
+                if (aoeDef.OnHitAoeSpawnDefinition != null)
+                    RegisterProjectileTypesRecursive(aoeDef.OnHitAoeSpawnDefinition);
+                if (aoeDef.StackingDetonation != null)
+                    RegisterProjectileTypesRecursive(aoeDef.StackingDetonation);
+            }
+
             if (def is RuntimeProjectileDefinition projDef && projDef.Prefab != null && projDef.TypeId < 0)
             {
                 projDef.TypeId = combatRoot.RegisterTemplate(projDef.Prefab);
@@ -185,9 +193,14 @@ namespace PlayGround.Skills
                 if (p.ChildSpawnSetup?.ChildDefinition != null)
                     RegisterProjectileTypesRecursive(p.ChildSpawnSetup.ChildDefinition);
                 if (p.ImpactAoeDefinition != null)
+                {
                     RegisterAoeTypeDefinition(p.ImpactAoeDefinition);
+                    RegisterProjectileTypesRecursive(p.ImpactAoeDefinition);
+                }
                 if (p.ImpactProjectileDefinition != null)
                     RegisterProjectileTypesRecursive(p.ImpactProjectileDefinition);
+                if (p.StackingDetonation != null)
+                    RegisterProjectileTypesRecursive(p.StackingDetonation);
             }
         }
 
@@ -222,6 +235,8 @@ namespace PlayGround.Skills
                 RegisterAoeTypeDefinition(aoeDef);
                 if (aoeDef.OnHitAoeSpawnDefinition != null)
                     RegisterAoeTypesRecursive(aoeDef.OnHitAoeSpawnDefinition);
+                if (aoeDef.StackingDetonation != null)
+                    RegisterAoeTypesRecursive(aoeDef.StackingDetonation);
             }
 
             if (def is RuntimeProjectileDefinition projDef)
@@ -232,6 +247,8 @@ namespace PlayGround.Skills
                     RegisterAoeTypesRecursive(projDef.ImpactAoeDefinition);
                 if (projDef.ImpactProjectileDefinition != null)
                     RegisterAoeTypesRecursive(projDef.ImpactProjectileDefinition);
+                if (projDef.StackingDetonation != null)
+                    RegisterAoeTypesRecursive(projDef.StackingDetonation);
             }
         }
 

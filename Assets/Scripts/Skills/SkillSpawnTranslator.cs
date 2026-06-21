@@ -57,9 +57,11 @@ namespace PlayGround.Skills
             Vector2 baseDir = aimDir.sqrMagnitude > 0f ? aimDir.normalized : Vector2.right;
             int targetMask = root.TargetMask;
 
-            ProjectileImpactAoeSnapshot impactAoe = BuildImpactAoeSnapshot(def, targetMask);
-            ProjectileImpactProjectileSnapshot impactProjectile = BuildImpactProjectileSnapshot(def, targetMask, root.Faction);
-            ProjectileChildSpawnConfig childSpawn = def.BuildChildSpawnConfig();
+            StackEffectSnapshot effectiveStackEffect = BuildApplicatorStackEffectSnapshot(def, root, stackEffect);
+            ProjectileImpactAoeSnapshot impactAoe = BuildImpactAoeSnapshot(def, root);
+            ProjectileImpactProjectileSnapshot impactProjectile = BuildImpactProjectileSnapshot(def, root);
+            ProjectileChildSpawnConfig childSpawn = def.BuildChildSpawnConfig(
+                BuildApplicatorStackEffectSnapshot(def.ChildSpawnSetup?.ChildDefinition, root));
 
             root.Spawn(new ProjectileSpawnRequest(
                 origin,
@@ -80,7 +82,7 @@ namespace PlayGround.Skills
                 def.DirectDamageEnabled,
                 default,
                 impactAoe,
-                stackEffect,
+                effectiveStackEffect,
                 impactProjectile,
                 def.CritChance,
                 def.CritMultiplier,
@@ -102,6 +104,7 @@ namespace PlayGround.Skills
             DamageSnapshot damage = new(Mathf.Max(0f, def.Damage));
             int count = Mathf.Max(1, def.Count);
             AoeSpawnGeometry geometry = def.CreateSpawnGeometry();
+            StackEffectSnapshot effectiveStackEffect = BuildApplicatorStackEffectSnapshot(def, root, stackEffect);
 
             for (int i = 0; i < count; i++)
             {
@@ -116,18 +119,19 @@ namespace PlayGround.Skills
                     aoeSpawn: BuildAoeOnHitSpawnSnapshot(def.OnHitAoeSpawnDefinition, root, MaxAoeOnHitSpawnDepth),
                     critChance: def.CritChance,
                     critMultiplier: def.CritMultiplier,
-                    stackEffect: stackEffect));
+                    stackEffect: effectiveStackEffect));
             }
         }
 
         private static ProjectileImpactAoeSnapshot BuildImpactAoeSnapshot(
             RuntimeProjectileDefinition def,
-            int targetMask)
+            CombatRoot root)
         {
             RuntimeAoeDefinition impact = def.ImpactAoeDefinition;
             if (impact == null || impact.TypeId < 0)
                 return default;
 
+            int targetMask = root != null ? root.TargetMask : 0;
             return new ProjectileImpactAoeSnapshot(
                 impact.TypeId,
                 targetMask,
@@ -136,13 +140,14 @@ namespace PlayGround.Skills
                 impact.TickIntervalSeconds,
                 impact.CreateSpawnGeometry(),
                 impact.CritChance,
-                impact.CritMultiplier);
+                impact.CritMultiplier,
+                stackEffect: BuildApplicatorStackEffectSnapshot(impact, root),
+                aoeSpawn: BuildAoeOnHitSpawnSnapshot(impact.OnHitAoeSpawnDefinition, root, MaxAoeOnHitSpawnDepth));
         }
 
         private static ProjectileImpactProjectileSnapshot BuildImpactProjectileSnapshot(
             RuntimeProjectileDefinition def,
-            int targetMask,
-            CombatFaction faction)
+            CombatRoot root)
         {
             RuntimeProjectileDefinition impact = def.ImpactProjectileDefinition;
             if (impact == null || impact.TypeId < 0)
@@ -152,6 +157,7 @@ namespace PlayGround.Skills
             if (prefab == null)
                 return default;
 
+            int targetMask = root != null ? root.TargetMask : 0;
             return new ProjectileImpactProjectileSnapshot(
                 impact.TypeId,
                 targetMask,
@@ -168,9 +174,24 @@ namespace PlayGround.Skills
                 impact.PierceCount,
                 impact.RepeatHitCooldown,
                 impact.Tracking,
-                BuildImpactAoeSnapshot(impact, targetMask),
+                BuildImpactAoeSnapshot(impact, root),
+                BuildApplicatorStackEffectSnapshot(impact, root),
                 visualScale: prefab.VisualScale,
                 visualRotationDegrees: prefab.VisualRotationDegrees);
+        }
+
+        private static StackEffectSnapshot BuildApplicatorStackEffectSnapshot(
+            RuntimeSkillDefinition def,
+            CombatRoot root,
+            StackEffectSnapshot fallback = default)
+        {
+            StackEffectSnapshot stackEffect = default;
+            if (def is RuntimeProjectileDefinition projectile)
+                stackEffect = BuildStackEffectSnapshot(projectile.StackingDetonation, root);
+            else if (def is RuntimeAoeDefinition aoe)
+                stackEffect = BuildStackEffectSnapshot(aoe.StackingDetonation, root);
+
+            return stackEffect.Enabled ? stackEffect : fallback;
         }
 
         private static StackEffectSnapshot BuildStackEffectSnapshot(
@@ -185,6 +206,27 @@ namespace PlayGround.Skills
                 return BuildAoeStackEffectSnapshot(stacking, root, aoe, threshold);
 
             if (stacking.DetonationDefinition is RuntimeProjectileDefinition projectile
+                && projectile.TypeId >= 0
+                && projectile.Prefab != null)
+            {
+                return BuildProjectileStackEffectSnapshot(stacking, root, projectile, threshold);
+            }
+
+            return default;
+        }
+
+        private static StackEffectSnapshot BuildStackEffectSnapshot(
+            RuntimeStackingDetonation stacking,
+            CombatRoot root)
+        {
+            if (stacking == null || root == null || stacking.DebuffKey < 0)
+                return default;
+
+            int threshold = Mathf.Max(1, stacking.StackThreshold);
+            if (stacking.Detonation is RuntimeAoeDefinition aoe && aoe.TypeId >= 0)
+                return BuildAoeStackEffectSnapshot(stacking, root, aoe, threshold);
+
+            if (stacking.Detonation is RuntimeProjectileDefinition projectile
                 && projectile.TypeId >= 0
                 && projectile.Prefab != null)
             {
@@ -232,6 +274,45 @@ namespace PlayGround.Skills
             };
         }
 
+        private static StackEffectSnapshot BuildAoeStackEffectSnapshot(
+            RuntimeStackingDetonation stacking,
+            CombatRoot root,
+            RuntimeAoeDefinition aoe,
+            int threshold)
+        {
+            AoeSpawnGeometry geometry = aoe.CreateSpawnGeometry();
+            AoeOnHitSpawnSnapshot onHitSpawn = BuildAoeOnHitSpawnSnapshot(
+                aoe.OnHitAoeSpawnDefinition,
+                root,
+                MaxAoeOnHitSpawnDepth);
+            float stacksPerHit = Mathf.Max(1, stacking.StacksPerHit);
+            return new StackEffectSnapshot
+            {
+                DebuffKey = stacking.DebuffKey,
+                Threshold = threshold,
+                Lifetime = Mathf.Max(0f, stacking.DebuffLifetimeSeconds),
+                Contribution = new StackContribution
+                {
+                    Damage = Mathf.Max(0f, aoe.Damage) * stacksPerHit / threshold,
+                    ProjectileCount = 0,
+                    AreaSize = Mathf.Max(0.01f, aoe.AreaSize) * stacksPerHit / threshold
+                },
+                Detonation = new DetonationSnapshot
+                {
+                    Kind = StackDetonationKind.Aoe,
+                    Faction = root.Faction,
+                    TargetMask = root.TargetMask,
+                    TypeId = aoe.TypeId,
+                    LifetimeSeconds = aoe.LifetimeSeconds,
+                    TickIntervalSeconds = aoe.TickIntervalSeconds,
+                    AoeGeometry = geometry,
+                    CritChance = aoe.CritChance,
+                    CritMultiplier = aoe.CritMultiplier,
+                    AoeOnHitSpawn = onHitSpawn
+                }
+            };
+        }
+
         private static StackEffectSnapshot BuildProjectileStackEffectSnapshot(
             RuntimeStackingSkillDefinition stacking,
             CombatRoot root,
@@ -247,6 +328,41 @@ namespace PlayGround.Skills
                 {
                     Damage = Mathf.Max(0f, projectile.Damage) / threshold,
                     ProjectileCount = Mathf.Max(1, projectile.Count),
+                    AreaSize = 0f
+                },
+                Detonation = new DetonationSnapshot
+                {
+                    Kind = StackDetonationKind.Projectile,
+                    Faction = root.Faction,
+                    TargetMask = root.TargetMask,
+                    TypeId = projectile.TypeId,
+                    LifetimeSeconds = projectile.Lifetime,
+                    TickIntervalSeconds = 0f,
+                    AoeGeometry = default,
+                    ProjectileBurst = BuildProjectileDetonationBurstSnapshot(projectile, root.TargetMask),
+                    CritChance = 0f,
+                    CritMultiplier = 1.5f,
+                    AoeOnHitSpawn = default
+                }
+            };
+        }
+
+        private static StackEffectSnapshot BuildProjectileStackEffectSnapshot(
+            RuntimeStackingDetonation stacking,
+            CombatRoot root,
+            RuntimeProjectileDefinition projectile,
+            int threshold)
+        {
+            float stacksPerHit = Mathf.Max(1, stacking.StacksPerHit);
+            return new StackEffectSnapshot
+            {
+                DebuffKey = stacking.DebuffKey,
+                Threshold = threshold,
+                Lifetime = Mathf.Max(0f, stacking.DebuffLifetimeSeconds),
+                Contribution = new StackContribution
+                {
+                    Damage = Mathf.Max(0f, projectile.Damage) * stacksPerHit / threshold,
+                    ProjectileCount = Mathf.Max(1, Mathf.RoundToInt(projectile.Count * stacksPerHit)),
                     AreaSize = 0f
                 },
                 Detonation = new DetonationSnapshot
@@ -305,7 +421,10 @@ namespace PlayGround.Skills
                 return BuildStackingAoeOnHitSpawnSnapshot(stacking, root, remainingLinks);
 
             if (def is RuntimeAoeDefinition aoe)
-                return BuildPlainAoeOnHitSpawnSnapshot(aoe, root, default);
+                return BuildPlainAoeOnHitSpawnSnapshot(
+                    aoe,
+                    root,
+                    BuildStackPayloadFor(aoe.StackingDetonation, root));
 
             return default;
         }
@@ -321,7 +440,10 @@ namespace PlayGround.Skills
                 return BuildStackingAoeOnHitSpawnTailSnapshot(stacking, root);
 
             if (def is RuntimeAoeDefinition aoe)
-                return BuildPlainAoeOnHitSpawnTailSnapshot(aoe, root, default);
+                return BuildPlainAoeOnHitSpawnTailSnapshot(
+                    aoe,
+                    root,
+                    BuildStackPayloadFor(aoe.StackingDetonation, root));
 
             return default;
         }
@@ -450,6 +572,42 @@ namespace PlayGround.Skills
                     Damage = Mathf.Max(0f, detonation.Damage) / threshold,
                     ProjectileCount = 0,
                     AreaSize = Mathf.Max(0.01f, detonation.AreaSize) / threshold
+                },
+                DetonationKind = StackDetonationKind.Aoe,
+                DetonationTypeId = detonation.TypeId,
+                DetonationLifetimeSeconds = detonation.LifetimeSeconds,
+                DetonationTickIntervalSeconds = detonation.TickIntervalSeconds,
+                DetonationAoeGeometry = detonation.CreateSpawnGeometry(),
+                DetonationCritChance = detonation.CritChance,
+                DetonationCritMultiplier = detonation.CritMultiplier
+            };
+        }
+
+        private static StackPayload BuildStackPayloadFor(
+            RuntimeStackingDetonation stacking,
+            CombatRoot root)
+        {
+            if (stacking == null
+                || root == null
+                || stacking.DebuffKey < 0
+                || stacking.Detonation is not RuntimeAoeDefinition detonation
+                || detonation.TypeId < 0)
+            {
+                return default;
+            }
+
+            int threshold = Mathf.Max(1, stacking.StackThreshold);
+            float stacksPerHit = Mathf.Max(1, stacking.StacksPerHit);
+            return new StackPayload
+            {
+                DebuffKey = stacking.DebuffKey,
+                Threshold = threshold,
+                Lifetime = Mathf.Max(0f, stacking.DebuffLifetimeSeconds),
+                Contribution = new StackContribution
+                {
+                    Damage = Mathf.Max(0f, detonation.Damage) * stacksPerHit / threshold,
+                    ProjectileCount = 0,
+                    AreaSize = Mathf.Max(0.01f, detonation.AreaSize) * stacksPerHit / threshold
                 },
                 DetonationKind = StackDetonationKind.Aoe,
                 DetonationTypeId = detonation.TypeId,
