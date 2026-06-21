@@ -20,6 +20,9 @@ namespace PlayGround.Tests.PlayMode
     public sealed class AoePlayModeTests
     {
         private const int DefaultTargetMask = 1;
+        private const int VolatileStackKey = 101;
+        private const int PoisonStackKey = 201;
+        private const int BurningStackKey = 202;
         private static int nextTargetId = 1000;
 
         [UnityTest]
@@ -421,7 +424,7 @@ namespace PlayGround.Tests.PlayMode
             mob.Register(root.TargetRegistry);
 
             AoeSpawnGeometry geometry = Geometry(templateObject, 2f);
-            var stackEffect = StackEffect(root, geometry, (int)DebuffStatus.Volatile, detonationTypeId, 0f, 10);
+            var stackEffect = StackEffect(root, geometry, VolatileStackKey, detonationTypeId, 0f, 10);
 
             root.Spawn(new AoeSpawnRequest(
                 lingeringTypeId,
@@ -434,11 +437,11 @@ namespace PlayGround.Tests.PlayMode
                 stackEffect: stackEffect));
 
             yield return null; // frame 1: initial hit → 1 stack
-            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Volatile), Is.EqualTo(1),
+            Assert.That(EcsDebuffStackCount(mob, VolatileStackKey), Is.EqualTo(1),
                 "Initial AOE hit should apply 1 Volatile stack.");
 
             yield return null; // frame 2: pulse hit (gate expired at dt=0) → 2 stacks
-            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Volatile), Is.EqualTo(2),
+            Assert.That(EcsDebuffStackCount(mob, VolatileStackKey), Is.EqualTo(2),
                 "AOE pulse hit should increment stack to 2.");
 
             Cleanup(rootObject, templateObject, mob.gameObject);
@@ -463,7 +466,7 @@ namespace PlayGround.Tests.PlayMode
 
             const float ChainDamage = 5f;
             AoeSpawnGeometry geometry = Geometry(templateObject, 2f);
-            var stackEffect = StackEffect(root, geometry, (int)DebuffStatus.Volatile, pulseTypeId, ChainDamage, 3);
+            var stackEffect = StackEffect(root, geometry, VolatileStackKey, pulseTypeId, ChainDamage, 3);
 
             root.Spawn(new AoeSpawnRequest(
                 lingeringTypeId,
@@ -481,7 +484,7 @@ namespace PlayGround.Tests.PlayMode
 
             Assert.That(ScopedAoeCount(root, pulseTypeId), Is.EqualTo(1),
                 "Stack threshold should have spawned the linked pulse AOE.");
-            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Volatile), Is.EqualTo(0),
+            Assert.That(EcsDebuffStackCount(mob, VolatileStackKey), Is.EqualTo(0),
                 "Stacks should be cleared after the threshold fires.");
 
             yield return null; // frame 4: detonation pulse materialises and hits
@@ -493,7 +496,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator StackAccrualKeepsDifferentStatusesIndependent()
+        public IEnumerator StackAccrualKeepsDifferentDebuffKeysIndependent()
         {
             CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out _);
             var poisonTypeDef = new AoeTypeDefinition();
@@ -515,7 +518,7 @@ namespace PlayGround.Tests.PlayMode
                 lifetimeSeconds: 10f,
                 tickIntervalSeconds: 0f,
                 geometry: geometry,
-                stackEffect: SingleStageStackEffect(root, geometry, DebuffStatus.Poison, poisonTypeId, 2)));
+                stackEffect: SingleStageStackEffect(root, geometry, PoisonStackKey, poisonTypeId, 2)));
             root.Spawn(new AoeSpawnRequest(
                 burningTypeId,
                 Vector2.zero,
@@ -524,23 +527,23 @@ namespace PlayGround.Tests.PlayMode
                 lifetimeSeconds: 10f,
                 tickIntervalSeconds: 0f,
                 geometry: geometry,
-                stackEffect: SingleStageStackEffect(root, geometry, DebuffStatus.Burning, burningTypeId, 3)));
+                stackEffect: SingleStageStackEffect(root, geometry, BurningStackKey, burningTypeId, 3)));
 
             yield return null;
-            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Poison), Is.EqualTo(1));
-            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Burning), Is.EqualTo(1));
+            Assert.That(EcsDebuffStackCount(mob, PoisonStackKey), Is.EqualTo(1));
+            Assert.That(EcsDebuffStackCount(mob, BurningStackKey), Is.EqualTo(1));
             Assert.That(ScopedAoeCount(root, poisonTypeId), Is.EqualTo(1));
             Assert.That(ScopedAoeCount(root, burningTypeId), Is.EqualTo(1));
 
             yield return null;
-            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Poison), Is.EqualTo(0));
-            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Burning), Is.EqualTo(2));
+            Assert.That(EcsDebuffStackCount(mob, PoisonStackKey), Is.EqualTo(0));
+            Assert.That(EcsDebuffStackCount(mob, BurningStackKey), Is.EqualTo(2));
             Assert.That(ScopedAoeCount(root, poisonTypeId), Is.EqualTo(2));
             Assert.That(ScopedAoeCount(root, burningTypeId), Is.EqualTo(1));
 
             yield return null;
-            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Poison), Is.EqualTo(1));
-            Assert.That(EcsDebuffStackCount(mob, DebuffStatus.Burning), Is.EqualTo(0));
+            Assert.That(EcsDebuffStackCount(mob, PoisonStackKey), Is.EqualTo(1));
+            Assert.That(EcsDebuffStackCount(mob, BurningStackKey), Is.EqualTo(0));
             Assert.That(ScopedAoeCount(root, poisonTypeId), Is.EqualTo(2));
             Assert.That(ScopedAoeCount(root, burningTypeId), Is.EqualTo(2));
 
@@ -555,26 +558,31 @@ namespace PlayGround.Tests.PlayMode
             }
         }
 
-        private static int EcsDebuffStackCount(ICombatTarget target, DebuffStatus status)
+        private static int EcsDebuffStackCount(ICombatTarget target, int debuffKey)
         {
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             Assert.That(target.CombatTargetProxy, Is.Not.EqualTo(Entity.Null));
-            Assert.That(entityManager.HasComponent<TargetStackStateComponent>(target.CombatTargetProxy), Is.True);
+            Assert.That(entityManager.HasBuffer<TargetStackEntry>(target.CombatTargetProxy), Is.True);
 
-            TargetStackStateComponent state =
-                entityManager.GetComponentData<TargetStackStateComponent>(target.CombatTargetProxy);
-            int index = (int)status;
-            return index < state.Counts.Length ? state.Counts[index] : 0;
+            DynamicBuffer<TargetStackEntry> entries =
+                entityManager.GetBuffer<TargetStackEntry>(target.CombatTargetProxy);
+            for (int i = 0; i < entries.Length; i++)
+            {
+                if (entries[i].DebuffKey == debuffKey)
+                    return entries[i].Count;
+            }
+
+            return 0;
         }
 
         private static StackEffectSnapshot SingleStageStackEffect(
             CombatRoot root,
             AoeSpawnGeometry geometry,
-            DebuffStatus status,
+            int debuffKey,
             int aoeTypeId,
             int threshold)
         {
-            return StackEffect(root, geometry, (int)status, aoeTypeId, 0f, threshold);
+            return StackEffect(root, geometry, debuffKey, aoeTypeId, 0f, threshold);
         }
 
         private static int ScopedAoeCount(CombatRoot root, int typeId)

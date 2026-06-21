@@ -1,5 +1,3 @@
-using PlayGround.Mob;
-using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -30,56 +28,17 @@ namespace PlayGround.System.Common
         public CombatFaction Value;
     }
 
-    // ECS Lifecycle: target-proxy stack state; added when the proxy is created, reset at proxy creation, destroyed with the proxy. Only StackAccrualSystem writes this component.
-    public struct TargetStackStateComponent : IComponentData
+    // ECS Lifecycle: target-proxy stack buffer; added empty when the proxy is created, destroyed with the proxy. Only StackAccrualSystem writes entries.
+    [InternalBufferCapacity(8)]
+    public struct TargetStackEntry : IBufferElementData
     {
-        public const int StatusCount = (int)DebuffStatus.Volatile + 1;
-
-        public FixedList128Bytes<int> Counts;
-
-        public static TargetStackStateComponent CreateEmpty()
-        {
-            var state = new TargetStackStateComponent();
-            state.Reset();
-            return state;
-        }
-
-        public void Reset()
-        {
-            Counts.Clear();
-            for (int i = 0; i < StatusCount; i++)
-                Counts.Add(0);
-        }
-
-        public bool TryAddStacks(int debuffStatusId, int amount, out int count)
-        {
-            EnsureLength();
-            if (!IsValidStatus(debuffStatusId) || amount <= 0)
-            {
-                count = 0;
-                return false;
-            }
-
-            count = Counts[debuffStatusId] + amount;
-            Counts[debuffStatusId] = count;
-            return true;
-        }
-
-        public void SetCount(int debuffStatusId, int count)
-        {
-            EnsureLength();
-            if (IsValidStatus(debuffStatusId))
-                Counts[debuffStatusId] = count;
-        }
-
-        public static bool IsValidStatus(int debuffStatusId) =>
-            debuffStatusId >= 0 && debuffStatusId < StatusCount;
-
-        private void EnsureLength()
-        {
-            while (Counts.Length < StatusCount)
-                Counts.Add(0);
-        }
+        public int DebuffKey;
+        public int Count;
+        public float SummedDamage;
+        public int SummedProjectileCount;
+        public float SummedArea;
+        public float LifetimeRemaining;
+        public DetonationSnapshot Detonation;
     }
 
     public sealed class TargetCompanion : IComponentData
@@ -109,7 +68,6 @@ namespace PlayGround.System.Common
             Entity entity = entityManager.CreateEntity(Archetype(entityManager));
             target.CombatTargetProxy = entity;
             entityManager.SetComponentData(entity, new TargetFaction { Value = faction });
-            entityManager.SetComponentData(entity, TargetStackStateComponent.CreateEmpty());
             entityManager.SetComponentData(entity, new TargetCompanion { Target = target });
             Push(entityManager, entity, target);
             return entity;
@@ -239,7 +197,7 @@ namespace PlayGround.System.Common
                 typeof(TargetPosition),
                 typeof(TargetCollisionShape),
                 typeof(TargetFaction),
-                typeof(TargetStackStateComponent),
+                typeof(TargetStackEntry),
                 typeof(TargetCompanion));
             return cachedArchetype;
         }
