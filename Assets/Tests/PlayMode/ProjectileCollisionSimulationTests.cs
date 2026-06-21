@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using PlayGround.Common;
 using PlayGround.System.Aoe;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
@@ -16,6 +17,8 @@ namespace PlayGround.Tests.PlayMode
         private World testWorld;
         private EntityManager entityManager;
         private SimulationSystemGroup simGroup;
+        private StackAccrualSystem stackAccrual;
+        private ProjectileSpawnExpansionSystem projectileExpansion;
         private Entity scopeEntity;
         private double elapsedTime;
         private int nextProjectileId;
@@ -27,13 +30,17 @@ namespace PlayGround.Tests.PlayMode
             testWorld = new World("ProjectileCollisionSimulationTest");
             entityManager = testWorld.EntityManager;
             simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
+            stackAccrual = testWorld.GetOrCreateSystemManaged<StackAccrualSystem>();
+            projectileExpansion = testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContactGateSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileCollisionSystem>());
+            simGroup.AddSystemToUpdateList(stackAccrual);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<DamageFinalizeSystem>());
             simGroup.SortSystems();
             testWorld.GetOrCreateSystemManaged<DamageDispatchBridge>();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
+            entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
         }
@@ -87,6 +94,29 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(entityManager.IsComponentEnabled<Active>(projectile), Is.False);
         }
 
+        [Test]
+        public void ProjectileApplicatorProjectileDetonationQueuesNovaWithSummedContribution()
+        {
+            const float TotalDamage = 15f;
+            const int ProjectileCount = 6;
+            AddTarget(float2.zero, 0.25f);
+            CreateProjectile(
+                pierceRemaining: 0,
+                stackEffect: ProjectileStackEffect(
+                    debuffKey: 801,
+                    threshold: 1,
+                    lifetime: 10f,
+                    damage: TotalDamage,
+                    projectileCount: ProjectileCount));
+
+            TickSimulationOnly(0.01f);
+
+            ProjectileSpawnEvent detonation = DequeueSingleProjectileEvent();
+            Assert.That(detonation.Count, Is.EqualTo(ProjectileCount));
+            Assert.That(detonation.TypeId, Is.EqualTo(88));
+            Assert.That(detonation.HitPayload.DamageAmount * detonation.Count, Is.EqualTo(TotalDamage).Within(0.0001f));
+        }
+
         private void TickSimulationOnly(float dt)
         {
             elapsedTime += dt;
@@ -94,7 +124,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.Update();
         }
 
-        private Entity CreateProjectile(int pierceRemaining)
+        private Entity CreateProjectile(int pierceRemaining, StackEffectSnapshot stackEffect = default)
         {
             Entity entity = entityManager.CreateEntity(
                 typeof(ProjectileTag),
@@ -142,7 +172,8 @@ namespace PlayGround.Tests.PlayMode
                 {
                     DamageAmount = 1f,
                     CritMultiplier = 1f,
-                    DirectDamageEnabled = true
+                    DirectDamageEnabled = true,
+                    StackEffect = stackEffect
                 })
             });
 
@@ -153,6 +184,67 @@ namespace PlayGround.Tests.PlayMode
         {
             var target = new TestCombatTarget(++nextTargetId, position, radius);
             CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
+        }
+
+        private static StackEffectSnapshot ProjectileStackEffect(
+            int debuffKey,
+            int threshold,
+            float lifetime,
+            float damage,
+            int projectileCount)
+        {
+            return new StackEffectSnapshot
+            {
+                DebuffKey = debuffKey,
+                Threshold = threshold,
+                Lifetime = lifetime,
+                Contribution = new StackContribution
+                {
+                    Damage = damage,
+                    ProjectileCount = projectileCount,
+                    AreaSize = 0f
+                },
+                Detonation = new DetonationSnapshot
+                {
+                    Kind = StackDetonationKind.Projectile,
+                    Faction = CombatFaction.Player,
+                    TargetMask = ~0,
+                    TypeId = 88,
+                    ProjectileBurst = new AoeProjectileBurstSnapshot(
+                        88,
+                        ~0,
+                        1,
+                        60f,
+                        7f,
+                        3f,
+                        0.25f,
+                        Vector2.zero,
+                        0f,
+                        CombatShapeType.Circle,
+                        new DamageSnapshot(1f),
+                        true,
+                        pierceCount: 1,
+                        repeatHitCooldownSeconds: 0.1f)
+                }
+            };
+        }
+
+        private ProjectileSpawnEvent DequeueSingleProjectileEvent()
+        {
+            NativeQueue<ProjectileSpawnEvent> queue = ProjectileEventQueue();
+            Assert.That(queue.Count, Is.EqualTo(1));
+            Assert.That(queue.TryDequeue(out ProjectileSpawnEvent evt), Is.True);
+            return evt;
+        }
+
+        private NativeQueue<ProjectileSpawnEvent> ProjectileEventQueue()
+        {
+            const global::System.Reflection.BindingFlags Flags =
+                global::System.Reflection.BindingFlags.Instance |
+                global::System.Reflection.BindingFlags.NonPublic;
+            var field = typeof(ProjectileSpawnExpansionSystem).GetField("EventQueue", Flags);
+            Assert.That(field, Is.Not.Null);
+            return (NativeQueue<ProjectileSpawnEvent>)field.GetValue(projectileExpansion);
         }
 
         private DamageReplayEvent[] ReadFinalizedDamageEvents()

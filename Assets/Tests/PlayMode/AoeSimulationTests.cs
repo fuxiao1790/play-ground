@@ -1,14 +1,17 @@
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
+using PlayGround.Common;
 using PlayGround.System.Aoe;
 using PlayGround.System.Common;
+using PlayGround.System.Projectile;
 using PlayGround.System.Vfx;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace PlayGround.Tests.PlayMode
 {
@@ -19,6 +22,7 @@ namespace PlayGround.Tests.PlayMode
         private SimulationSystemGroup simGroup;
         private PresentationSystemGroup presentationGroup;
         private AoeSpawnExpansionSystem aoeExpansion;
+        private ProjectileSpawnExpansionSystem projectileExpansion;
         private StackAccrualSystem stackAccrual;
         private Entity scopeEntity;
         private double elapsedTime;
@@ -34,6 +38,7 @@ namespace PlayGround.Tests.PlayMode
             entityManager = testWorld.EntityManager;
             simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
             aoeExpansion = testWorld.GetOrCreateSystemManaged<AoeSpawnExpansionSystem>();
+            projectileExpansion = testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
             stackAccrual = testWorld.GetOrCreateSystemManaged<StackAccrualSystem>();
             simGroup.AddSystemToUpdateList(aoeExpansion);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<AoeSpawnApplySystem>());
@@ -52,6 +57,7 @@ namespace PlayGround.Tests.PlayMode
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
+            entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
         }
 
@@ -436,6 +442,29 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void StackAccrualProjectileDetonationFizzleQueuesNoNova()
+        {
+            AddTarget(float2.zero, 0.25f, 1);
+            TestCombatTarget target = targetsById[nextTargetId];
+
+            QueueStackApply(ProjectileStackApply(
+                target.Proxy,
+                debuffKey: 301,
+                threshold: 2,
+                lifetime: 0.05f,
+                damage: 7f,
+                projectileCount: 3));
+
+            TickStackAccrualOnly(0f);
+            Assert.That(ReadStackEntry(target.Proxy, 301).Count, Is.EqualTo(1));
+
+            TickStackAccrualOnly(0.06f);
+
+            Assert.That(TryReadStackEntry(target.Proxy, 301, out _), Is.False);
+            Assert.That(ProjectileEventQueue().Count, Is.EqualTo(0));
+        }
+
+        [Test]
         public void StackAccrualSumsFireTimeContributionsUntilThreshold()
         {
             AddTarget(float2.zero, 0.25f, 1);
@@ -457,6 +486,66 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(TryReadStackEntry(target.Proxy, 102, out _), Is.False);
             Assert.That(detonation.HitPayload.DamageAmount, Is.EqualTo(18f).Within(0.0001f));
             Assert.That(detonation.AreaSize, Is.EqualTo(6f).Within(0.0001f));
+        }
+
+        [Test]
+        public void AoeApplicatorProjectileDetonationQueuesNovaWithSummedContribution()
+        {
+            AddTarget(float2.zero, 0.25f, 1);
+            const float TotalDamage = 12f;
+            const int ProjectileCount = 5;
+
+            SpawnCircle(
+                float2.zero,
+                1f,
+                0f,
+                stackEffect: ProjectileStackEffect(
+                    debuffKey: 302,
+                    threshold: 1,
+                    lifetime: 10f,
+                    damage: TotalDamage,
+                    projectileCount: ProjectileCount));
+
+            TickSimulationOnly(0.01f);
+
+            ProjectileSpawnEvent detonation = DequeueSingleProjectileEvent();
+            Assert.That(detonation.Count, Is.EqualTo(ProjectileCount));
+            Assert.That(detonation.TypeId, Is.EqualTo(70));
+            Assert.That(detonation.HitPayload.DamageAmount * detonation.Count, Is.EqualTo(TotalDamage).Within(0.0001f));
+        }
+
+        [Test]
+        public void StackAccrualUnhandledDetonationKindLogsAndQueuesNoSpawn()
+        {
+            AddTarget(float2.zero, 0.25f, 1);
+            TestCombatTarget target = targetsById[nextTargetId];
+            LogAssert.Expect(LogType.Error, "Unhandled stack detonation kind 999.");
+
+            QueueStackApply(new StackApplyEvent
+            {
+                TargetProxy = target.Proxy,
+                DebuffKey = 303,
+                Threshold = 1,
+                Lifetime = 10f,
+                Contribution = new StackContribution
+                {
+                    Damage = 5f,
+                    ProjectileCount = 2,
+                    AreaSize = 1f
+                },
+                Detonation = new DetonationSnapshot
+                {
+                    Kind = (StackDetonationKind)999,
+                    Faction = CombatFaction.Player,
+                    TargetMask = ~0,
+                    TypeId = 71
+                }
+            });
+
+            TickStackAccrualOnly(0f);
+
+            Assert.That(AoeEventQueue().Count, Is.EqualTo(0));
+            Assert.That(ProjectileEventQueue().Count, Is.EqualTo(0));
         }
 
         [Test]
@@ -712,6 +801,31 @@ namespace PlayGround.Tests.PlayMode
             };
         }
 
+        private StackApplyEvent ProjectileStackApply(
+            Entity target,
+            int debuffKey,
+            int threshold,
+            float lifetime,
+            float damage,
+            int projectileCount,
+            int projectileTypeId = 70)
+        {
+            return new StackApplyEvent
+            {
+                TargetProxy = target,
+                DebuffKey = debuffKey,
+                Threshold = threshold,
+                Lifetime = lifetime,
+                Contribution = new StackContribution
+                {
+                    Damage = damage,
+                    ProjectileCount = projectileCount,
+                    AreaSize = 0f
+                },
+                Detonation = ProjectileDetonationSnapshot(projectileTypeId)
+            };
+        }
+
         private StackEffectSnapshot StackEffect(
             int debuffKey,
             int threshold,
@@ -741,6 +855,55 @@ namespace PlayGround.Tests.PlayMode
                     CritMultiplier = 1.5f,
                     AoeOnHitSpawn = next
                 }
+            };
+        }
+
+        private StackEffectSnapshot ProjectileStackEffect(
+            int debuffKey,
+            int threshold,
+            float lifetime,
+            float damage,
+            int projectileCount,
+            int projectileTypeId = 70)
+        {
+            return new StackEffectSnapshot
+            {
+                DebuffKey = debuffKey,
+                Threshold = threshold,
+                Lifetime = lifetime,
+                Contribution = new StackContribution
+                {
+                    Damage = damage,
+                    ProjectileCount = projectileCount,
+                    AreaSize = 0f
+                },
+                Detonation = ProjectileDetonationSnapshot(projectileTypeId)
+            };
+        }
+
+        private static DetonationSnapshot ProjectileDetonationSnapshot(int projectileTypeId)
+        {
+            return new DetonationSnapshot
+            {
+                Kind = StackDetonationKind.Projectile,
+                Faction = CombatFaction.Player,
+                TargetMask = ~0,
+                TypeId = projectileTypeId,
+                ProjectileBurst = new AoeProjectileBurstSnapshot(
+                    projectileTypeId,
+                    ~0,
+                    1,
+                    45f,
+                    6f,
+                    4f,
+                    0.25f,
+                    Vector2.zero,
+                    0f,
+                    CombatShapeType.Circle,
+                    new DamageSnapshot(1f),
+                    true,
+                    pierceCount: 1,
+                    repeatHitCooldownSeconds: 0.1f)
             };
         }
 
@@ -849,6 +1012,14 @@ namespace PlayGround.Tests.PlayMode
             return evt;
         }
 
+        private ProjectileSpawnEvent DequeueSingleProjectileEvent()
+        {
+            NativeQueue<ProjectileSpawnEvent> queue = ProjectileEventQueue();
+            Assert.That(queue.Count, Is.EqualTo(1));
+            Assert.That(queue.TryDequeue(out ProjectileSpawnEvent evt), Is.True);
+            return evt;
+        }
+
         private int AoeCountByType(int typeId)
         {
             int count = 0;
@@ -879,6 +1050,15 @@ namespace PlayGround.Tests.PlayMode
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null);
             return (NativeQueue<AoeSpawnEvent>)field.GetValue(aoeExpansion);
+        }
+
+        private NativeQueue<ProjectileSpawnEvent> ProjectileEventQueue()
+        {
+            FieldInfo field = typeof(ProjectileSpawnExpansionSystem).GetField(
+                "EventQueue",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            return (NativeQueue<ProjectileSpawnEvent>)field.GetValue(projectileExpansion);
         }
 
         private sealed class TestCombatTarget : ICombatTarget

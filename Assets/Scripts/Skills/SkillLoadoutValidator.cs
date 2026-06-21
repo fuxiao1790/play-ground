@@ -55,12 +55,6 @@ namespace PlayGround.Skills
             }
 
             SkillDefinitionTags skillTags = skill.Tags;
-            if (skill.Definition is StackingSkillDefinition { detonationKind: StackingSkillDetonationKind.Projectile })
-            {
-                AddWarning(warnings, SkillValidationWarningCode.UnsupportedStackingDetonation, slotIndex,
-                    $"Stacking skill '{skill.name}' uses projectile detonation, but only AOE stack detonation is currently implemented. Skill set will be ignored.");
-            }
-
             AdditiveSupport[] supports = slot.skillSet.Supports;
             for (int i = 0; i < supports.Length; i++)
             {

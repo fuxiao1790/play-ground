@@ -212,7 +212,7 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void ValidatorWarnsForProjectileStackDetonation()
+        public void ValidatorDoesNotWarnForProjectileStackDetonation()
         {
             StackingSkill skill = CreateAsset<StackingSkill>("Stacking Skill");
             var definition = (StackingSkillDefinition)skill.Definition;
@@ -221,9 +221,7 @@ namespace PlayGround.Tests.EditMode
 
             SkillValidationWarning[] warnings = Validate(new SkillSetSlot { skillSet = set });
 
-            Assert.That(warnings, Has.Length.EqualTo(1));
-            Assert.That(warnings[0].Code, Is.EqualTo(SkillValidationWarningCode.UnsupportedStackingDetonation));
-            Assert.That(warnings[0].Message, Does.Contain("will be ignored"));
+            Assert.That(warnings, Is.Empty);
         }
 
         [Test]

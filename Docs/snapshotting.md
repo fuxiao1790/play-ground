@@ -242,9 +242,13 @@ Current stacking-skill direction:
    summed damage/projectile/area contribution, lifetime remaining, and the
    detonation snapshot.
 5. Each matching stack refreshes lifetime and adds its fire-time contribution.
-   At threshold, accrual emits one `AoeSpawnEvent` using the summed
-   contribution and clears the entry. If lifetime lapses below threshold, the
-   entry fizzles and is removed with no detonation.
+   At threshold, accrual dispatches by detonation kind and clears the entry.
+   AOE detonation emits one `AoeSpawnEvent` using summed damage and area.
+   Projectile detonation emits one `ProjectileSpawnEvent` through the existing
+   AOE projectile-burst path: `SummedProjectileCount` becomes event `Count`,
+   and `SummedDamage` is total nova damage split across those projectiles. If
+   lifetime lapses below threshold, the entry fizzles and is removed with no
+   detonation.
 6. Composition uses ordinary AOE hit-spawn snapshots carried on the detonation,
    so the next stacking skill's applicator is a new spawn with its own debuff
    key and payload.
@@ -285,6 +289,7 @@ Cross-domain spawn data is plain data carried by snapshots:
 - projectile impact AOE uses `ProjectileImpactAoeSnapshot`
 - projectile impact projectile uses `ProjectileImpactProjectileSnapshot`
 - AOE projectile burst uses `AoeProjectileBurstSnapshot`
+- stack projectile detonation also uses `AoeProjectileBurstSnapshot`
 
 Collision systems do not allocate those entities. They emit spawn events. The
 normal expansion/apply path decides commands, reuse, and cold creation.
@@ -311,6 +316,9 @@ or managed callbacks to collision-time payloads.
   reaches projectile expansion and materializes through projectile apply.
 - Fire AOE with projectile burst snapshot; confirm projectile burst follows the
   projectile spawn pipeline.
+- Fire stacking applicators with AOE and projectile sources whose detonation is
+  projectile; confirm both queue a projectile nova with summed count and total
+  damage.
 - Fire a stacking applicator; confirm the applied AOE/projectile entity carries
   one `StackEffectSnapshot` in its hit payload.
 - Apply stacks below threshold and stop refreshing; confirm the target

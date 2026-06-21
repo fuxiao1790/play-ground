@@ -262,8 +262,8 @@ LingeringAoeDefinition
 StackingSkillDefinition
   applicatorKind: projectile, AOE, or lingering AOE
   applicator:     the projectile/AOE spawned by input or a hit link
-  detonationKind: AOE today; projectile is reserved in the data model
-  detonation:    the AOE fired when the target reaches threshold
+  detonationKind: AOE or projectile
+  detonation:    the AOE or projectile nova fired when the target reaches threshold
   stack rules:   stackThreshold, debuffLifetimeSeconds,
                  debuffName, cosmeticDebuffStatus
 ```
@@ -274,6 +274,14 @@ lifetime refresh, and the detonation snapshot. `StackAccrualSystem` is the only
 writer of target stack state. It sums contributions per target and debuff key,
 refreshes lifetime on each stack, detonates at threshold, and removes expired
 below-threshold entries with no detonation.
+
+Detonation supports AOE and projectile outputs. A projectile detonation is a
+nova from the target point and reuses the existing AOE projectile-burst spawn
+path: the compiled detonation carries an `AoeProjectileBurstSnapshot`, and
+`StackAccrualSystem` emits a `ProjectileSpawnEvent` for
+`ProjectileSpawnExpansionSystem`. `SummedProjectileCount` becomes the nova
+count. `SummedDamage` is treated as total nova damage and is split across the
+spawned projectiles.
 
 The debuff key is minted during runtime registration for each compiled
 `RuntimeStackingSkillDefinition`. It is not authored and is not the detonation
