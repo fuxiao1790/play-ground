@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using PlayGround.Common;
 using PlayGround.System.Common;
+using PlayGround.System.Projectile;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -24,6 +26,7 @@ namespace PlayGround.System.Aoe
     [UpdateAfter(typeof(LingeringAoeCollisionSystem))]
     [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
     [UpdateBefore(typeof(AoeSpawnExpansionSystem))]
+    [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
     public partial class StackAccrualSystem : SystemBase
     {
         private const int MaxTargetStackEntries = 32;
@@ -34,6 +37,7 @@ namespace PlayGround.System.Aoe
         private readonly List<StackApplyEvent> events = new();
         private EntityQuery targetStackQuery;
         private int nextAoeId;
+        private int nextProjectileDetonationSourceId;
         private int entryEvictions;
 
         internal NativeQueue<StackApplyEvent> EventQueue;
@@ -82,7 +86,9 @@ namespace PlayGround.System.Aoe
                 return;
 
             events.Sort(Comparer);
-            AoeSpawnExpansionSystem expansion = World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
+            AoeSpawnExpansionSystem aoeExpansion = World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
+            ProjectileSpawnExpansionSystem projectileExpansion =
+                World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
 
             int index = 0;
             while (index < events.Count)
@@ -100,7 +106,7 @@ namespace PlayGround.System.Aoe
                 if (TryReadTarget(first.TargetProxy, out TargetPosition targetPosition, out DynamicBuffer<TargetStackEntry> stackEntries))
                 {
                     for (int i = index; i < groupEnd; i++)
-                        Apply(events[i], targetPosition.Value, stackEntries, expansion);
+                        Apply(events[i], targetPosition.Value, stackEntries, aoeExpansion, projectileExpansion);
                 }
 
                 index = groupEnd;
@@ -158,7 +164,8 @@ namespace PlayGround.System.Aoe
             in StackApplyEvent evt,
             float2 targetPosition,
             DynamicBuffer<TargetStackEntry> stackEntries,
-            AoeSpawnExpansionSystem expansion)
+            AoeSpawnExpansionSystem aoeExpansion,
+            ProjectileSpawnExpansionSystem projectileExpansion)
         {
             int threshold = math.max(1, evt.Threshold);
             if (evt.DebuffKey < 0)
@@ -177,7 +184,7 @@ namespace PlayGround.System.Aoe
 
             if (entry.Count >= threshold)
             {
-                BuildDetonationSpawn(entry.Detonation, entry, targetPosition, expansion);
+                BuildDetonationSpawn(entry.Detonation, entry, targetPosition, aoeExpansion, projectileExpansion);
                 stackEntries.RemoveAt(entryIndex);
                 return;
             }
@@ -240,12 +247,30 @@ namespace PlayGround.System.Aoe
             in DetonationSnapshot snapshot,
             in TargetStackEntry entry,
             float2 position,
-            AoeSpawnExpansionSystem expansion)
+            AoeSpawnExpansionSystem aoeExpansion,
+            ProjectileSpawnExpansionSystem projectileExpansion)
         {
             switch (snapshot.Kind)
             {
                 case StackDetonationKind.Aoe:
-                    expansion.EventQueue.Enqueue(BuildAoeSpawnEvent(entry, position));
+                    aoeExpansion.EventQueue.Enqueue(BuildAoeSpawnEvent(entry, position));
+                    aoeExpansion.ProducerHandle =
+                        JobHandle.CombineDependencies(aoeExpansion.ProducerHandle, Dependency);
+                    return;
+                case StackDetonationKind.Projectile:
+                    if (!snapshot.ProjectileBurst.Enabled)
+                    {
+                        UnityEngine.Debug.LogError(
+                            $"Stack detonation kind {snapshot.Kind} has no enabled projectile burst payload.");
+                        return;
+                    }
+
+                    projectileExpansion.EventQueue.Enqueue(BuildProjectileDetonation(entry, position));
+                    projectileExpansion.ProducerHandle =
+                        JobHandle.CombineDependencies(projectileExpansion.ProducerHandle, Dependency);
+                    return;
+                default:
+                    UnityEngine.Debug.LogError($"Unhandled stack detonation kind {snapshot.Kind}.");
                     return;
             }
         }
@@ -300,12 +325,58 @@ namespace PlayGround.System.Aoe
             };
         }
 
+        private ProjectileSpawnEvent BuildProjectileDetonation(
+            in TargetStackEntry entry,
+            float2 position)
+        {
+            DetonationSnapshot detonation = entry.Detonation;
+            AoeProjectileBurstSnapshot burst = detonation.ProjectileBurst;
+            int count = math.max(1, entry.SummedProjectileCount);
+            float totalDamage = math.max(0f, entry.SummedDamage);
+
+            // Stack contributions store nova total damage; the projectile payload is per projectile.
+            var resolvedBurst = new AoeProjectileBurstSnapshot(
+                burst.ProjectileTypeId,
+                burst.TargetMask,
+                count,
+                burst.SpreadDegrees,
+                burst.Speed,
+                burst.LifetimeSeconds,
+                burst.Radius,
+                burst.HalfExtents,
+                burst.RotationRadians,
+                burst.ShapeType,
+                new DamageSnapshot(totalDamage / count),
+                burst.DirectDamageEnabled,
+                burst.PierceCount,
+                burst.RepeatHitCooldownSeconds,
+                burst.VisualScale,
+                burst.VisualRotationDegrees);
+
+            return ProjectileSpawnPipeline.BuildBurstEvent(
+                detonation.Faction,
+                NextProjectileDetonationSourceId(),
+                detonation.TypeId,
+                0,
+                position,
+                position,
+                resolvedBurst);
+        }
+
         private int NextAoeId()
         {
             nextAoeId++;
             if (nextAoeId <= 0)
                 nextAoeId = 1;
             return nextAoeId;
+        }
+
+        private int NextProjectileDetonationSourceId()
+        {
+            nextProjectileDetonationSourceId++;
+            if (nextProjectileDetonationSourceId <= 0)
+                nextProjectileDetonationSourceId = 1;
+            return nextProjectileDetonationSourceId;
         }
 
         private static CombatRenderComponent RenderFor(in AoeSpawnGeometry geometry, float areaScale)
