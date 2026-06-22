@@ -4,16 +4,17 @@
 
 ## Goal
 
-Activate the HP path: collision jobs write `CombatHitEvent` (damage half) into
-the bucketed map instead of emitting `DamageReplayEvent`. Remove the old
+Activate the HP path: collision jobs enqueue `CombatHitEvent` (damage half) into
+the unbounded `HitQueue` instead of emitting `DamageReplayEvent`. Remove the old
 single-threaded damage systems in the same change so there is no double emission
 and no behavior overlap. Crit now rolls in ECS.
 
 ## Changes
 
 1. **Collision jobs** — in each producer, replace the `DamageReplayEvent`
-   enqueue with `StackApplyWriter`-style `HitMap.AsParallelWriter().Add(target,
-   new CombatHitEvent { ...damage fields... })`:
+   enqueue with `HitQueue.AsParallelWriter().Enqueue(new CombatHitEvent {
+   TargetProxy = target, ...damage fields... })` (same unbounded-queue pattern the
+   `DamageReplayEvent` emit already uses today — no capacity to overflow):
    - [ProjectileCollisionSystem.cs](../../Assets/Scripts/System/Projectile/ProjectileCollisionSystem.cs)
      (the damage emission paired with the existing stack emit at
      [:310-322](../../Assets/Scripts/System/Projectile/ProjectileCollisionSystem.cs#L310)).
@@ -26,7 +27,7 @@ and no behavior overlap. Crit now rolls in ECS.
 2. **Producer handle wiring** — where each collision system forwards its
    `collisionHandle` into `damageBridge.ProducerHandle`
    ([ProjectileCollisionSystem.cs:132-134](../../Assets/Scripts/System/Projectile/ProjectileCollisionSystem.cs#L132)),
-   forward it into `HitApplyFinalizeSystem.ProducerHandle` instead.
+   forward it into `CombatApplyFinalizeSystem.ProducerHandle` instead.
 
 3. **Remove** `DamageFinalizeSystem` and `DamageDispatchBridge`
    ([DamageDispatchBridge.cs](../../Assets/Scripts/System/Common/DamageDispatchBridge.cs))
@@ -41,6 +42,7 @@ and no behavior overlap. Crit now rolls in ECS.
 - Damage applies to mobs/player through the new pipeline; HP, hurt flash, death
   all behave as before (death still decided by the GameObject).
 - ECS never reads HP — confirm no new `TargetHealth`/HP component was introduced.
+- Production stays unbounded — no per-frame hit cap; high load enqueues freely.
 - Crit is rolled in the finalize job; `UnityEngine.Random` no longer appears in
   the damage path. Crit visuals/behavior still occur (now deterministic).
 - No `DamageReplayEvent` / `DamageFinalizeSystem` / `DamageDispatchBridge`

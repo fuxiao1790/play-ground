@@ -17,7 +17,7 @@ inconsistent intermediate.
    [ProjectileCollisionSystem.cs:312-321](../../Assets/Scripts/System/Projectile/ProjectileCollisionSystem.cs#L312)).
    Remove the separate `StackApplyEvent` enqueue.
 
-2. **Accrue in the finalize job** (`HitApplyFinalizeSystem`, 001) — for each hit
+2. **Accrue in the finalize job** (`CombatApplyFinalizeSystem`, 001) — for each hit
    with `StackEffect.Enabled`, fold into that target's
    `DynamicBuffer<TargetStackEntry>` accumulator
    ([CombatTargetProxy.cs:31-42](../../Assets/Scripts/System/Common/CombatTargetProxy.cs#L31)):
@@ -28,9 +28,15 @@ inconsistent intermediate.
    `BufferLookup<TargetStackEntry>` + `[NativeDisableParallelForRestriction]`;
    each target is owned by one job index, so no aliasing. Keep the
    `MaxTargetStackEntries`/eviction guard.
+   Then **fill the status half of the combined result**: after accrual, write the
+   target's current accumulator entries as `StatusStackSnapshot`s into the frozen
+   status arrays referenced by `TargetResultRange` (001), but only for targets
+   whose stacks changed this frame. This is what `CombatApplyBridge` delivers via
+   `ReceiveCombat` — the snapshot is captured **pre-reduction** (before step 3
+   consumes on detonation); document that timing.
 
 3. **`StatusProcessSystem`** (new, `SimulationSystemGroup`, after
-   `HitApplyFinalizeSystem`, `[UpdateBefore]` the spawn-expansion systems). A
+   `CombatApplyFinalizeSystem`, `[UpdateBefore]` the spawn-expansion systems). A
    parallel job over entities with `TargetStackEntry`:
    - **tick/fizzle** — decay `LifetimeRemaining`, drop expired entries (today's
      `TickAndFizzle`, [StackAccrualSystem.cs:119-142](../../Assets/Scripts/System/Status/StackAccrualSystem.cs#L119)).
@@ -59,6 +65,8 @@ inconsistent intermediate.
 - No `StackAccrualSystem` / `StackApplyEvent` references remain.
 - Accrual and detonation never run in the same frame phase on the same entity
   (finalize job accrues before `StatusProcessSystem` reduces).
+- The status half of `ReceiveCombat` now carries the per-target snapshot; the HP
+  half is unchanged from 002. Both still cross in one call.
 - The `events.Sort` from the old accrual path is gone.
 
 ## Notes / risks

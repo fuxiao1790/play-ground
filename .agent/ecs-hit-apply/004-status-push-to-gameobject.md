@@ -1,51 +1,40 @@
-# 004 — Push status state to the GameObject
+# 004 — GameObject consumes the status half of ReceiveCombat
 
 **Change:** add · **Depends:** 003 · **Scope:** small
 
 ## Goal
 
-Surface the ECS status accumulator to the GameObject at the end of the frame,
-through the same managed push the HP path uses — so the GameObject can reflect
-stacks (UI/VFX/status icons) without owning accumulation.
+The combined push (`ReceiveCombat`) and the status snapshot it carries already
+exist after 001 + 003. This task is the **managed side only**: have the
+GameObjects actually reflect the status snapshot. No ECS changes.
 
 ## Changes
 
-1. **`ICombatTarget` status callback** — add a compact, per-target status push
-   parallel to `ReceiveHits`
-   ([ICombatTarget.cs:55-64](../../Assets/Scripts/System/Common/ICombatTarget.cs#L55)):
-   ```csharp
-   void ReceiveStatus(IReadOnlyList<StatusStackSnapshot> stacks) { } // default no-op
-   ```
-   with `StatusStackSnapshot { int DebuffKey; int Count; float LifetimeRemaining; }`.
-   Default-implemented so only targets that care (e.g. `MobRoot`) override it.
+1. **`MobRoot.ReceiveCombat`** (and player if relevant) — override the default
+   ([ICombatTarget.cs](../../Assets/Scripts/System/Common/ICombatTarget.cs),
+   `ReceiveCombat` added in 001) so the `stacks` argument updates whatever the
+   GameObject shows (status icons / `StatusEffects` / blackboard / UI). The HP
+   half continues through the existing `ReceiveHit` → `TakeDamage` path
+   ([MobRoot.cs:273-288](../../Assets/Scripts/Mob/MobRoot.cs#L273)).
 
-2. **Freeze the snapshot** — in `HitApplyFinalizeSystem`, after accrual, capture
-   each touched target's current `TargetStackEntry` summary into a frozen
-   per-target array (reuse the `TargetHitRange` grouping). Only push for targets
-   whose stacks changed this frame (avoid pushing every target every frame).
-
-3. **Push in the bridge** — in `HitApplyBridge`, after `ReceiveHits`, call
-   `target.ReceiveStatus(...)` for targets with a status snapshot. Same resolve /
-   `IsTargetUsable` guards as the HP push.
-
-4. **Consume on `MobRoot`** (and player if relevant) — implement `ReceiveStatus`
-   to update whatever the GameObject shows. Keep it read-only mirror; the
-   GameObject must not write back into the ECS accumulator.
+2. **Read-only mirror** — the GameObject must not write back into the ECS
+   accumulator; it only reflects the snapshot. Accrual authority stays in the
+   finalize job.
 
 ## Acceptance criteria
 
-- Targets receive status snapshots at presentation time, same frame as the HP
-  push, via the managed boundary (no ECS read of GameObject status).
-- Targets with no status change in a frame receive no `ReceiveStatus` call.
+- Targets reflect stacks at presentation time, same frame and **same call** as the
+  HP application (one `ReceiveCombat`, not a second pass).
+- Targets with no status change in a frame receive an empty `stacks` list (no
+  separate call, no per-frame spam).
 - Snapshot count/lifetime matches the ECS accumulator post-accrual,
-  pre-`StatusProcess` reduction (decide and document whether the GameObject sees
-  pre- or post-detonation state for the frame).
+  pre-`StatusProcess` reduction (the documented timing from 003).
 
 ## Notes / risks
 
-- Decide the snapshot timing relative to `StatusProcessSystem`: simplest is
-  pre-reduction (what was accrued this frame). If the GameObject needs to see a
-  detonation having consumed a stack, push post-`StatusProcess` — but that
-  reorders the freeze. Default: pre-reduction snapshot, documented.
-- Keep `StatusStackSnapshot` blittable/small; this is the only new managed
-  boundary added by the whole plan.
+- If a GameObject needs to see a detonation having consumed a stack within the
+  frame, that requires a post-`StatusProcess` snapshot, which reorders the freeze.
+  Default stays pre-reduction (what was accrued this frame); revisit only if a
+  consumer needs it.
+- `StatusStackSnapshot` stays blittable/small; `ReceiveCombat` is the only managed
+  boundary the whole plan adds.

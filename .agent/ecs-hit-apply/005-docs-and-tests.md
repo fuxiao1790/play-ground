@@ -24,14 +24,19 @@ Document the new pipeline and lock its invariants with tests.
    - **ECS never decides death** — push lethal + overkill damage; assert ECS still
      emits the hit and the GameObject (not ECS) zeroes/handles HP, including
      negative pre-clamp values handed across the boundary.
+   - **High load / no dropped hits** — enqueue a hit count far above any prior
+     high-water mark in one frame; assert every hit is delivered (the bucket map is
+     sized to the produced count, so nothing is dropped).
+   - **Combined push** — HP and status arrive in a single `ReceiveCombat` call per
+     target (not two passes).
    - **Detonation parity** — stack threshold detonation spawns the same
      AOE/projectile geometry/damage as the pre-refactor `StackAccrualSystem`
      (port/adapt existing stack tests).
-   - **Status push** — `ReceiveStatus` fires with correct count/lifetime only on
-     change.
+   - **Status snapshot** — `ReceiveCombat`'s `stacks` carries correct
+     count/lifetime, empty when unchanged.
 
 3. **Memory** — update `project_stacking_skill.md` / add a pointer noting
-   `StackAccrualSystem` was superseded by `HitApplyFinalizeSystem` (accrual) +
+   `StackAccrualSystem` was superseded by `CombatApplyFinalizeSystem` (accrual) +
    `StatusProcessSystem` (tick/detonate), so the stacking-support plan's "ECS
    accrual reused" assumption now points at the new owners.
 
