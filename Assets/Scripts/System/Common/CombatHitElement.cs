@@ -393,7 +393,7 @@ namespace PlayGround.System.Common
     }
 
     // ECS Lifecycle: transient native hit payload; not added to entities; enqueued during collision,
-    // bucketed by CombatApplyFinalizeSystem, and replayed by CombatApplyBridge.
+    // bucketed and aggregated by CombatApplyFinalizeSystem, then handed to CombatApplyBridge.
     public struct CombatHitEvent
     {
         public Entity TargetProxy;

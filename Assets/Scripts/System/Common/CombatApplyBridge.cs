@@ -81,36 +81,7 @@ namespace PlayGround.System.Common
 
                 int frameCount = UnityEngine.Time.frameCount;
                 var (keys, keyCount) = hitIndexMap.GetUniqueKeyArray(Allocator.TempJob);
-                var directHitCounts = new NativeArray<int>(keyCount, Allocator.TempJob);
-
-                JobHandle countHandle = new CountHitsJob
-                {
-                    Hits = flatHits,
-                    HitIndexMap = hitIndexMap,
-                    Keys = keys,
-                    DirectHitCounts = directHitCounts
-                }.Schedule(keyCount, 32);
-
-                countHandle.Complete();
-
-                NativeArray<TargetResultRange> ranges = new(keyCount, Allocator.Persistent);
-                int totalDirectHitCount = 0;
-                for (int i = 0; i < keyCount; i++)
-                {
-                    int directHitCount = directHitCounts[i];
-                    ranges[i] = new TargetResultRange
-                    {
-                        TargetProxy = keys[i],
-                        HitStart = totalDirectHitCount,
-                        HitCount = directHitCount,
-                        StatusStart = 0,
-                        StatusCount = 0
-                    };
-                    totalDirectHitCount += directHitCount;
-                }
-
-                NativeList<RolledHit> rolledHits = new(totalDirectHitCount, Allocator.Persistent);
-                rolledHits.ResizeUninitialized(totalDirectHitCount);
+                NativeArray<CombatTickResult> results = new(keyCount, Allocator.Persistent);
                 NativeArray<StatusStackSnapshot> statusSnapshots =
                     new(keyCount * MaxTargetStackEntries, Allocator.Persistent);
                 var evictionCounts = new NativeArray<int>(keyCount, Allocator.TempJob);
@@ -120,8 +91,8 @@ namespace PlayGround.System.Common
                     Hits = flatHits,
                     HitIndexMap = hitIndexMap,
                     Keys = keys,
-                    Ranges = ranges,
-                    RolledHits = rolledHits.AsArray(),
+                    Results = results,
+                    HealthLookup = GetComponentLookup<TargetHealth>(),
                     StackBuffers = GetBufferLookup<TargetStackEntry>(),
                     StatusSnapshots = statusSnapshots,
                     EvictionCounts = evictionCounts,
@@ -143,19 +114,17 @@ namespace PlayGround.System.Common
                 }
 
                 evictionCounts.Dispose();
-                directHitCounts.Dispose();
                 keys.Dispose();
                 hitIndexMap.Dispose();
                 flatHits.Dispose();
 
                 if (bridge != null)
                 {
-                    bridge.SetFinalizedCombat(rolledHits, ranges, statusSnapshots);
+                    bridge.SetFinalizedCombat(results, statusSnapshots);
                 }
                 else
                 {
-                    rolledHits.Dispose();
-                    ranges.Dispose();
+                    results.Dispose();
                     statusSnapshots.Dispose();
                 }
             }
@@ -178,37 +147,13 @@ namespace PlayGround.System.Common
         }
 
         [BurstCompile]
-        private struct CountHitsJob : IJobParallelFor
-        {
-            [ReadOnly] public NativeArray<CombatHitEvent> Hits;
-            [ReadOnly] public NativeParallelMultiHashMap<Entity, int> HitIndexMap;
-            [ReadOnly] public NativeArray<Entity> Keys;
-            [WriteOnly] public NativeArray<int> DirectHitCounts;
-
-            public void Execute(int index)
-            {
-                Entity target = Keys[index];
-                int count = 0;
-                foreach (int hitIndex in HitIndexMap.GetValuesForKey(target))
-                {
-                    if (Hits[hitIndex].DirectDamageEnabled)
-                    {
-                        count++;
-                    }
-                }
-
-                DirectHitCounts[index] = count;
-            }
-        }
-
-        [BurstCompile]
         private struct FinalizeCombatJob : IJobParallelFor
         {
             [ReadOnly] public NativeArray<CombatHitEvent> Hits;
             [ReadOnly] public NativeParallelMultiHashMap<Entity, int> HitIndexMap;
             [ReadOnly] public NativeArray<Entity> Keys;
-            public NativeArray<TargetResultRange> Ranges;
-            [NativeDisableParallelForRestriction] public NativeArray<RolledHit> RolledHits;
+            public NativeArray<CombatTickResult> Results;
+            [NativeDisableParallelForRestriction] public ComponentLookup<TargetHealth> HealthLookup;
             [NativeDisableParallelForRestriction] public BufferLookup<TargetStackEntry> StackBuffers;
             [NativeDisableParallelForRestriction] public NativeArray<StatusStackSnapshot> StatusSnapshots;
             [WriteOnly] public NativeArray<int> EvictionCounts;
@@ -218,10 +163,19 @@ namespace PlayGround.System.Common
             public void Execute(int index)
             {
                 Entity target = Keys[index];
-                TargetResultRange range = Ranges[index];
+                CombatTickResult result = new()
+                {
+                    TargetProxy = target
+                };
                 int hitIndexInTarget = 0;
-                int rolledHitIndex = 0;
                 int evictionCount = 0;
+                float damageTaken = 0f;
+                int hitCount = 0;
+                int critCount = 0;
+                bool hasHealth = HealthLookup.HasComponent(target);
+                TargetHealth health = hasHealth
+                    ? HealthLookup[target]
+                    : default;
                 bool hasStackBuffer = StackBuffers.HasBuffer(target);
                 DynamicBuffer<TargetStackEntry> stackEntries = hasStackBuffer
                     ? StackBuffers[target]
@@ -250,20 +204,12 @@ namespace PlayGround.System.Common
                         bool isCrit = random.NextFloat() < hit.CritChance;
                         float rolledAmount = math.max(0f, isCrit ? baseAmount * hit.CritMultiplier : baseAmount);
 
-                        RolledHits[range.HitStart + rolledHitIndex] = new RolledHit
+                        damageTaken += rolledAmount;
+                        hitCount++;
+                        if (isCrit)
                         {
-                            Kind = hit.Kind,
-                            DamageAmount = rolledAmount,
-                            IsCrit = isCrit,
-                            HitPosition = hit.HitPosition,
-                            DirectDamageEnabled = hit.DirectDamageEnabled,
-                            SourceNodeId = hit.SourceNodeId,
-                            SourceId = hit.SourceId,
-                            TypeId = hit.TypeId,
-                            StackEffect = hit.StackEffect
-                        };
-
-                        rolledHitIndex++;
+                            critCount++;
+                        }
                     }
 
                     hitIndexInTarget++;
@@ -284,11 +230,21 @@ namespace PlayGround.System.Common
                             entry.LifetimeRemaining);
                     }
 
-                    range.StatusStart = statusStart;
-                    range.StatusCount = statusCount;
+                    result.StatusStart = statusStart;
+                    result.StatusCount = statusCount;
                 }
 
-                Ranges[index] = range;
+                if (hasHealth)
+                {
+                    health.Current -= damageTaken;
+                    HealthLookup[target] = health;
+                    result.Health = health.Current;
+                }
+
+                result.DamageTaken = damageTaken;
+                result.HitCount = hitCount;
+                result.CritCount = critCount;
+                Results[index] = result;
                 EvictionCounts[index] = evictionCount;
             }
 
@@ -381,14 +337,12 @@ namespace PlayGround.System.Common
     public partial class CombatApplyBridge : SystemBase
     {
         private static readonly ProfilerMarker Marker = new("CombatApplyBridge");
-        private static readonly ProfilerMarker<int> HitReplayMarker =
-            new("CombatApplyBridge.HitReplay", "Rolled Hits");
+        private static readonly ProfilerMarker<int> TickReplayMarker =
+            new("CombatApplyBridge.TickReplay", "Combat Tick Results");
 
-        private static readonly List<CombatHitData> hitDataScratch = new();
         private static readonly List<StatusStackSnapshot> statusScratch = new();
 
-        private NativeList<RolledHit> finalizedHits;
-        private NativeArray<TargetResultRange> finalizedRanges;
+        private NativeArray<CombatTickResult> finalizedResults;
         private NativeArray<StatusStackSnapshot> finalizedStatusSnapshots;
 
         protected override void OnDestroy()
@@ -397,26 +351,19 @@ namespace PlayGround.System.Common
         }
 
         internal void SetFinalizedCombat(
-            NativeList<RolledHit> hits,
-            NativeArray<TargetResultRange> ranges,
+            NativeArray<CombatTickResult> results,
             NativeArray<StatusStackSnapshot> statusSnapshots)
         {
             DisposeFinalizedCombat();
-            finalizedHits = hits;
-            finalizedRanges = ranges;
+            finalizedResults = results;
             finalizedStatusSnapshots = statusSnapshots;
         }
 
         internal void DisposeFinalizedCombat()
         {
-            if (finalizedHits.IsCreated)
+            if (finalizedResults.IsCreated)
             {
-                finalizedHits.Dispose();
-            }
-
-            if (finalizedRanges.IsCreated)
-            {
-                finalizedRanges.Dispose();
+                finalizedResults.Dispose();
             }
 
             if (finalizedStatusSnapshots.IsCreated)
@@ -428,14 +375,14 @@ namespace PlayGround.System.Common
         protected override void OnUpdate()
         {
             CompleteDependency();
-            if (!finalizedHits.IsCreated || !finalizedRanges.IsCreated)
+            if (!finalizedResults.IsCreated)
             {
                 DisposeFinalizedCombat();
                 return;
             }
 
-            bool hasStatusSnapshots = HasAnyStatusRange(finalizedRanges);
-            if (finalizedHits.Length == 0 && !hasStatusSnapshots)
+            bool hasStatusSnapshots = HasAnyStatusRange(finalizedResults);
+            if (finalizedResults.Length == 0 && !hasStatusSnapshots)
             {
                 DisposeFinalizedCombat();
                 return;
@@ -444,11 +391,10 @@ namespace PlayGround.System.Common
             try
             {
                 using (Marker.Auto())
-                using (HitReplayMarker.Auto(finalizedHits.Length))
+                using (TickReplayMarker.Auto(finalizedResults.Length))
                 {
                     ReplayCombat(
-                        finalizedHits.AsArray(),
-                        finalizedRanges,
+                        finalizedResults,
                         finalizedStatusSnapshots,
                         EntityManager);
                 }
@@ -460,61 +406,46 @@ namespace PlayGround.System.Common
         }
 
         private static void ReplayCombat(
-            NativeArray<RolledHit> hits,
-            NativeArray<TargetResultRange> ranges,
+            NativeArray<CombatTickResult> results,
             NativeArray<StatusStackSnapshot> statusSnapshots,
             EntityManager entityManager)
         {
-            for (int rangeIndex = 0; rangeIndex < ranges.Length; rangeIndex++)
+            for (int resultIndex = 0; resultIndex < results.Length; resultIndex++)
             {
-                TargetResultRange range = ranges[rangeIndex];
-                if (range.HitCount <= 0 && range.StatusCount <= 0)
+                CombatTickResult result = results[resultIndex];
+                if (result.HitCount <= 0 && result.StatusCount <= 0)
                 {
                     continue;
                 }
 
-                ICombatTarget target = ResolveTarget(entityManager, range.TargetProxy);
+                ICombatTarget target = ResolveTarget(entityManager, result.TargetProxy);
                 if (!IsTargetUsable(target))
                 {
                     continue;
                 }
 
-                hitDataScratch.Clear();
-                for (int i = 0; i < range.HitCount; i++)
-                {
-                    RolledHit hit = hits[range.HitStart + i];
-                    hitDataScratch.Add(new CombatHitData(
-                        hit.Kind,
-                        new DamageSnapshot(hit.DamageAmount, hit.IsCrit),
-                        new Vector2(hit.HitPosition.x, hit.HitPosition.y),
-                        hit.DirectDamageEnabled,
-                        hit.StackEffect,
-                        hit.SourceNodeId));
-                }
-
                 statusScratch.Clear();
-                for (int i = 0; i < range.StatusCount; i++)
+                for (int i = 0; i < result.StatusCount; i++)
                 {
-                    statusScratch.Add(statusSnapshots[range.StatusStart + i]);
+                    statusScratch.Add(statusSnapshots[result.StatusStart + i]);
                 }
 
-                target.ReceiveCombat(hitDataScratch, statusScratch);
+                target.ReceiveCombatTick(in result, statusScratch);
             }
 
-            hitDataScratch.Clear();
             statusScratch.Clear();
         }
 
-        private static bool HasAnyStatusRange(NativeArray<TargetResultRange> ranges)
+        private static bool HasAnyStatusRange(NativeArray<CombatTickResult> results)
         {
-            if (!ranges.IsCreated)
+            if (!results.IsCreated)
             {
                 return false;
             }
 
-            for (int i = 0; i < ranges.Length; i++)
+            for (int i = 0; i < results.Length; i++)
             {
-                if (ranges[i].StatusCount > 0)
+                if (results[i].StatusCount > 0)
                 {
                     return true;
                 }
@@ -542,24 +473,13 @@ namespace PlayGround.System.Common
             && target.IsCombatTargetActive;
     }
 
-    public struct RolledHit
-    {
-        public CombatHitKind Kind;
-        public float DamageAmount;
-        public bool IsCrit;
-        public float2 HitPosition;
-        public bool DirectDamageEnabled;
-        public EntityId SourceNodeId;
-        public int SourceId;
-        public int TypeId;
-        public StackEffectSnapshot StackEffect;
-    }
-
-    public struct TargetResultRange
+    public struct CombatTickResult
     {
         public Entity TargetProxy;
-        public int HitStart;
+        public float Health;
+        public float DamageTaken;
         public int HitCount;
+        public int CritCount;
         public int StatusStart;
         public int StatusCount;
     }

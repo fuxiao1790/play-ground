@@ -64,6 +64,7 @@ namespace PlayGround.Player
         public float CombatTargetRotationRadians => ProjectileTargetShapeUtility.RotationRadians(hurtbox);
         public CombatShapeType CombatTargetShapeType => ProjectileTargetShapeUtility.ShapeType(hurtbox);
         public int CombatTargetMask => 1 << hurtbox.gameObject.layer;
+        public float CombatMaxHealth => health?.MaxHealth ?? maxHealth;
         public bool IsCombatTargetActive => isActiveAndEnabled && health != null && health.IsAlive;
         public float CurrentHealth => health?.CurrentHealth ?? 0f;
         public int EquippedAttackCount => skillDriver?.SlotCount ?? 0;
@@ -216,6 +217,25 @@ namespace PlayGround.Player
                 {
                     QueueCombatTargetProxyDelete();
                 }
+            }
+        }
+
+        public void ReceiveCombatTick(
+            in CombatTickResult result,
+            IReadOnlyList<StatusStackSnapshot> stacks)
+        {
+            if (result.HitCount > 0)
+            {
+                health.MirrorCombatHealth(result.Health, result.DamageTaken > 0f);
+                if (!health.IsAlive)
+                {
+                    QueueCombatTargetProxyDelete();
+                }
+            }
+
+            if (result.StatusCount > 0)
+            {
+                ReceiveStatus(stacks);
             }
         }
 

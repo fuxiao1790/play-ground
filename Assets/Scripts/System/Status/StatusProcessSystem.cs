@@ -49,6 +49,17 @@ namespace PlayGround.System.Common
             int aoeIdBase = ReserveIdBlock(ref nextAoeId, entityCount);
             int projectileIdBase = ReserveIdBlock(ref nextProjectileDetonationSourceId, entityCount);
 
+            // This job writes the expansion EventQueues via ParallelWriter, the same queues
+            // other producers (TimedProjectileSpawnSystem, collision systems) already wrote
+            // this frame. Those writes are tracked in each expansion system's ProducerHandle,
+            // not in this SystemBase's component-derived Dependency, so we must depend on them
+            // explicitly or the job-safety system rejects the schedule.
+            JobHandle producerDeps = Dependency;
+            if (aoeExpansion != null)
+                producerDeps = JobHandle.CombineDependencies(producerDeps, aoeExpansion.ProducerHandle);
+            if (projectileExpansion != null)
+                producerDeps = JobHandle.CombineDependencies(producerDeps, projectileExpansion.ProducerHandle);
+
             JobHandle statusHandle = new StatusProcessJob
             {
                 DeltaTime = math.max(0f, SystemAPI.Time.DeltaTime),
@@ -63,7 +74,7 @@ namespace PlayGround.System.Common
                     ? projectileExpansion.EventQueue.AsParallelWriter()
                     : default,
                 HasProjectileEventWriter = projectileExpansion != null && projectileExpansion.EventQueue.IsCreated
-            }.ScheduleParallel(targetStackQuery, Dependency);
+            }.ScheduleParallel(targetStackQuery, producerDeps);
 
             if (aoeExpansion != null)
             {

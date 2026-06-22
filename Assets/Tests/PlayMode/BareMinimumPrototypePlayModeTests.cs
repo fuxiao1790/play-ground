@@ -319,8 +319,8 @@ namespace PlayGround.Tests.PlayMode
             yield return null;
 
             // Both hits land on the same target in one frame → one batch per unique target.
-            // The probe receives both hits via ReceiveHits; alive check happens once at batch start.
-            Assert.That(probe.HitCount, Is.EqualTo(2));
+            // The probe receives one aggregate managed push for the target.
+            Assert.That(probe.HitCount, Is.EqualTo(1));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
             Object.Destroy(probe.gameObject);
@@ -538,7 +538,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileHitPayloadPreservesSourceIdForTargetDamage()
+        public IEnumerator ProjectileHitPayloadAggregatesDamageForTarget()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
             ProjectileReplayProbe probe = CreateProjectileReplayProbe(Vector2.zero);
@@ -561,7 +561,6 @@ namespace PlayGround.Tests.PlayMode
             projectileRoot.Spawn(command);
             yield return null;
 
-            Assert.That(probe.LastSourceNodeId, Is.EqualTo(sourceNodeId));
             Assert.That(probe.LastDamage.Amount, Is.EqualTo(2f));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);

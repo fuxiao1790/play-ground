@@ -322,19 +322,23 @@ namespace PlayGround.Tests.PlayMode
 
             TickSimulationOnly(0.01f);
 
-            TargetResultRange[] finalized = ReadFinalizedHitRanges();
+            CombatTickResult[] finalized = ReadFinalizedCombatResults();
             Assert.That(finalized, Has.Length.EqualTo(1));
             Assert.That(finalized[0].TargetProxy, Is.EqualTo(proxy));
             Assert.That(finalized[0].HitCount, Is.EqualTo(1));
+            Assert.That(finalized[0].DamageTaken, Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(entityManager.GetComponentData<TargetHealth>(proxy).Current, Is.EqualTo(finalized[0].Health).Within(0.0001f));
 
             presentationGroup.Update();
             Assert.That(TotalHitCount(), Is.EqualTo(1));
         }
 
         [Test]
-        public void CombatApplyPreservesEveryHitForOneTarget()
+        public void CombatApplyAggregatesEveryHitForOneTarget()
         {
-            AddTarget(float2.zero, 0.25f, 1);
+            const float SeedHealth = 10f;
+            const float TotalDamage = 6f;
+            AddTarget(float2.zero, 0.25f, 1, SeedHealth);
             TestCombatTarget target = targetsById[nextTargetId];
 
             QueueDirectHit(target.Proxy, 1f);
@@ -342,10 +346,17 @@ namespace PlayGround.Tests.PlayMode
             QueueDirectHit(target.Proxy, 3f);
 
             TickStatusPipelineOnly(0f);
+            CombatTickResult[] finalized = ReadFinalizedCombatResults();
+
             presentationGroup.Update();
 
-            Assert.That(target.Hits, Has.Count.EqualTo(3));
-            Assert.That(SummedHitDamage(target.Hits), Is.EqualTo(6f).Within(0.0001f));
+            Assert.That(finalized, Has.Length.EqualTo(1));
+            Assert.That(finalized[0].HitCount, Is.EqualTo(3));
+            Assert.That(finalized[0].DamageTaken, Is.EqualTo(TotalDamage).Within(0.0001f));
+            Assert.That(finalized[0].Health, Is.EqualTo(SeedHealth - TotalDamage).Within(0.0001f));
+            Assert.That(entityManager.GetComponentData<TargetHealth>(target.Proxy).Current, Is.EqualTo(SeedHealth - TotalDamage).Within(0.0001f));
+            Assert.That(target.Hits, Has.Count.EqualTo(1));
+            Assert.That(SummedHitDamage(target.Hits), Is.EqualTo(TotalDamage).Within(0.0001f));
         }
 
         [Test]
@@ -372,19 +383,27 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void EcsPushesLethalOverkillAndTargetOwnsHealthClamp()
         {
-            AddTarget(float2.zero, 0.25f, 1);
+            const float SeedHealth = 5f;
+            const float TotalDamage = 16f;
+            AddTarget(float2.zero, 0.25f, 1, SeedHealth);
             TestCombatTarget target = targetsById[nextTargetId];
-            target.Health = 5f;
             target.ClampHealthOnHit = true;
 
             QueueDirectHit(target.Proxy, 7f);
             QueueDirectHit(target.Proxy, 9f);
 
             TickStatusPipelineOnly(0f);
+            CombatTickResult[] finalized = ReadFinalizedCombatResults();
+
             presentationGroup.Update();
 
-            Assert.That(target.Hits, Has.Count.EqualTo(2));
-            Assert.That(target.LastPreClampHealth, Is.LessThan(0f));
+            Assert.That(finalized, Has.Length.EqualTo(1));
+            Assert.That(finalized[0].HitCount, Is.EqualTo(2));
+            Assert.That(finalized[0].DamageTaken, Is.EqualTo(TotalDamage).Within(0.0001f));
+            Assert.That(finalized[0].Health, Is.EqualTo(SeedHealth - TotalDamage).Within(0.0001f));
+            Assert.That(entityManager.GetComponentData<TargetHealth>(target.Proxy).Current, Is.EqualTo(SeedHealth - TotalDamage).Within(0.0001f));
+            Assert.That(target.Hits, Has.Count.EqualTo(1));
+            Assert.That(target.LastPreClampHealth, Is.EqualTo(SeedHealth - TotalDamage).Within(0.0001f));
             Assert.That(target.Health, Is.EqualTo(0f).Within(0.0001f));
             Assert.That(target.IsCombatTargetActive, Is.False);
             Assert.That(entityManager.Exists(target.Proxy), Is.True);
@@ -779,12 +798,12 @@ namespace PlayGround.Tests.PlayMode
             });
         }
 
-        private void AddTarget(float2 position, float radius, int targetMask)
+        private void AddTarget(float2 position, float radius, int targetMask, float health = 100f)
         {
-            AddTargetById(position, radius, targetMask, ++nextTargetId);
+            AddTargetById(position, radius, targetMask, ++nextTargetId, health);
         }
 
-        private void AddTargetById(float2 position, float radius, int targetMask, int targetId)
+        private void AddTargetById(float2 position, float radius, int targetMask, int targetId, float health = 100f)
         {
             if (!targetsById.TryGetValue(targetId, out TestCombatTarget target))
             {
@@ -795,6 +814,7 @@ namespace PlayGround.Tests.PlayMode
             target.Position = position;
             target.Radius = radius;
             target.Mask = targetMask;
+            target.Health = health;
             target.Proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
         }
 
@@ -898,27 +918,27 @@ namespace PlayGround.Tests.PlayMode
             return Entity.Null;
         }
 
-        private TargetResultRange[] ReadFinalizedHitRanges()
+        private CombatTickResult[] ReadFinalizedCombatResults()
         {
             CombatApplyBridge bridge = testWorld.GetExistingSystemManaged<CombatApplyBridge>();
             const global::System.Reflection.BindingFlags Flags =
                 global::System.Reflection.BindingFlags.Instance |
                 global::System.Reflection.BindingFlags.NonPublic;
-            var rangesField = typeof(CombatApplyBridge).GetField("finalizedRanges", Flags);
-            Assert.That(rangesField, Is.Not.Null);
-            var ranges = (NativeArray<TargetResultRange>)rangesField.GetValue(bridge);
-            if (!ranges.IsCreated)
+            var resultsField = typeof(CombatApplyBridge).GetField("finalizedResults", Flags);
+            Assert.That(resultsField, Is.Not.Null);
+            var results = (NativeArray<CombatTickResult>)resultsField.GetValue(bridge);
+            if (!results.IsCreated)
             {
-                return global::System.Array.Empty<TargetResultRange>();
+                return global::System.Array.Empty<CombatTickResult>();
             }
 
-            var result = new TargetResultRange[ranges.Length];
-            for (int i = 0; i < ranges.Length; i++)
+            var copy = new CombatTickResult[results.Length];
+            for (int i = 0; i < results.Length; i++)
             {
-                result[i] = ranges[i];
+                copy[i] = results[i];
             }
 
-            return result;
+            return copy;
         }
 
         private void QueueStackHit(Entity target, StackEffectSnapshot stackEffect)
@@ -1229,6 +1249,7 @@ namespace PlayGround.Tests.PlayMode
             public float CombatTargetRotationRadians => 0f;
             public CombatShapeType CombatTargetShapeType => CombatShapeType.Circle;
             public int CombatTargetMask => Mask;
+            public float CombatMaxHealth => Health;
             public bool IsCombatTargetActive => Active;
             public void ReceiveHit(in CombatHitData hit)
             {

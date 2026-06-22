@@ -22,6 +22,7 @@ namespace PlayGround.Tests.PlayMode
         private double elapsedTime;
         private int nextProjectileId;
         private int nextTargetId = 7000;
+        private const float TestTargetHealth = 10f;
 
         [SetUp]
         public void SetUp()
@@ -55,12 +56,13 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void PierceRemainingZeroStillHitsOnceThenDespawns()
         {
-            AddTarget(float2.zero, 0.25f);
+            Entity target = AddTarget(float2.zero, 0.25f);
             Entity projectile = CreateProjectile(pierceRemaining: 0);
 
             TickSimulationOnly(0.01f);
 
             Assert.That(ReadFinalizedHitCount(), Is.EqualTo(1));
+            Assert.That(entityManager.GetComponentData<TargetHealth>(target).Current, Is.EqualTo(TestTargetHealth - 1f).Within(0.0001f));
             Assert.That(entityManager.IsComponentEnabled<Active>(projectile), Is.False);
             Assert.That(entityManager.GetComponentData<ProjectileHitComponent>(projectile).PierceRemaining, Is.EqualTo(-1));
         }
@@ -178,10 +180,10 @@ namespace PlayGround.Tests.PlayMode
             return entity;
         }
 
-        private void AddTarget(float2 position, float radius)
+        private Entity AddTarget(float2 position, float radius)
         {
             var target = new TestCombatTarget(++nextTargetId, position, radius);
-            CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
+            return CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
         }
 
         private static StackEffectSnapshot ProjectileStackEffect(
@@ -247,37 +249,37 @@ namespace PlayGround.Tests.PlayMode
 
         private int ReadFinalizedHitCount()
         {
-            TargetResultRange[] ranges = ReadFinalizedHitRanges();
+            CombatTickResult[] results = ReadFinalizedCombatResults();
             int count = 0;
-            for (int i = 0; i < ranges.Length; i++)
+            for (int i = 0; i < results.Length; i++)
             {
-                count += ranges[i].HitCount;
+                count += results[i].HitCount;
             }
 
             return count;
         }
 
-        private TargetResultRange[] ReadFinalizedHitRanges()
+        private CombatTickResult[] ReadFinalizedCombatResults()
         {
             CombatApplyBridge bridge = testWorld.GetExistingSystemManaged<CombatApplyBridge>();
             const global::System.Reflection.BindingFlags Flags =
                 global::System.Reflection.BindingFlags.Instance |
                 global::System.Reflection.BindingFlags.NonPublic;
-            var rangesField = typeof(CombatApplyBridge).GetField("finalizedRanges", Flags);
-            Assert.That(rangesField, Is.Not.Null);
-            var ranges = (NativeArray<TargetResultRange>)rangesField.GetValue(bridge);
-            if (!ranges.IsCreated)
+            var resultsField = typeof(CombatApplyBridge).GetField("finalizedResults", Flags);
+            Assert.That(resultsField, Is.Not.Null);
+            var results = (NativeArray<CombatTickResult>)resultsField.GetValue(bridge);
+            if (!results.IsCreated)
             {
-                return global::System.Array.Empty<TargetResultRange>();
+                return global::System.Array.Empty<CombatTickResult>();
             }
 
-            var result = new TargetResultRange[ranges.Length];
-            for (int i = 0; i < ranges.Length; i++)
+            var copy = new CombatTickResult[results.Length];
+            for (int i = 0; i < results.Length; i++)
             {
-                result[i] = ranges[i];
+                copy[i] = results[i];
             }
 
-            return result;
+            return copy;
         }
 
         private sealed class TestCombatTarget : ICombatTarget
@@ -300,6 +302,7 @@ namespace PlayGround.Tests.PlayMode
             public float CombatTargetRotationRadians => 0f;
             public CombatShapeType CombatTargetShapeType => CombatShapeType.Circle;
             public int CombatTargetMask => ~0;
+            public float CombatMaxHealth => TestTargetHealth;
             public bool IsCombatTargetActive => true;
             public void ReceiveHit(in CombatHitData hit)
             {

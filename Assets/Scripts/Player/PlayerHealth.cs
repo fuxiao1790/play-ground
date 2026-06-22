@@ -42,15 +42,28 @@ namespace PlayGround.Player
                 return false;
             }
 
-            CurrentHealth = Mathf.Max(0f, CurrentHealth - damage.Amount);
+            animatorDriver.RequestHurt(hurtFlashSeconds);
+            return true;
+        }
+
+        public void MirrorCombatHealth(float currentHealth, bool requestHurt)
+        {
+            if (!IsAlive)
+            {
+                return;
+            }
+
+            CurrentHealth = currentHealth;
             if (CurrentHealth <= 0f)
             {
                 SoftDie();
-                return true;
+                return;
             }
 
-            animatorDriver.RequestHurt(hurtFlashSeconds);
-            return true;
+            if (requestHurt)
+            {
+                animatorDriver.RequestHurt(hurtFlashSeconds);
+            }
         }
 
         private void SoftDie()

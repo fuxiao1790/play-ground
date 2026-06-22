@@ -281,12 +281,14 @@ Per-frame combat work is explicit in ECS systems and actor roots:
   `CombatRoot` by `CombatFaction` and submits batched render instances through
   tag-scoped queries (`ProjectileTag`/`AoeTag`), pulling render resources from
   the root's registry.
-- `HitApplyFinalizeSystem` (`SimulationSystemGroup`) freezes target-bucketed
-  `CombatHitEvent` values after collision and before spawn expansion.
-- `HitApplyBridge` (`PresentationSystemGroup`) is the only reader of managed
-  `TargetCompanion` references and replays grouped hits into
-  `ICombatTarget.ReceiveHits`, followed by status snapshots when stack state
-  changed.
+- `CombatApplyFinalizeSystem` (`SimulationSystemGroup`) applies target-bucketed
+  `CombatHitEvent` values to ECS-owned `TargetHealth`, accrues status stacks,
+  and freezes one `CombatTickResult` per hit target after collision and before
+  spawn expansion.
+- `CombatApplyBridge` (`PresentationSystemGroup`) is the only reader of managed
+  `TargetCompanion` references and pushes one
+  `ICombatTarget.ReceiveCombatTick` per target with the aggregate damage result
+  and changed status snapshots.
 - `CombatVfxDispatchSystem` (`PresentationSystemGroup`) resolves each scope's
   `CombatVfxRoot` by static int key and drains/dispatches VFX requests.
 
@@ -296,9 +298,8 @@ owners only; presentation timing is explicit system-group ordering instead of
 scene-object callback timing; GPU resource ownership stays with whichever
 root/dispatcher created the `GraphicsBuffer`/`Material`/`Mesh`.
 
-Remaining open question: hits are grouped by target before dispatch, but the
-data crossing into the managed bridge is still one `CombatHitData` per
-qualifying hit rather than a condensed per-target damage result.
+Plain damage now crosses the managed bridge as one condensed per-target result.
+Per-hit count and crit count are preserved on `CombatTickResult` for feedback.
 
 ### Known Design Issues: Collision Event Dispatch
 
@@ -310,41 +311,47 @@ multiple hits into one damage aggregate yet.
 
 Implemented shape:
 
-- Collision jobs write hits through a parallel map writer.
-- `HitApplyFinalizeSystem` completes producers, iterates unique target keys in a
-  parallel job, rolls crits with deterministic `Unity.Mathematics.Random`, and
-  freezes rolled hit slices for the presentation bridge.
+- Collision jobs enqueue hits through the unbounded `CombatApplyFinalizeSystem`
+  hit queue. Finalize buckets those hits by target proxy with
+  `NativeParallelMultiHashMap` and `GetUniqueKeyArray`; it does not sort before
+  applying damage.
+- `CombatApplyFinalizeSystem` completes producers, iterates unique target keys
+  in a parallel job, rolls crits with deterministic `Unity.Mathematics.Random`,
+  sums damage per target, subtracts from `TargetHealth.Current`, and freezes one
+  `CombatTickResult` for the presentation bridge.
 - Stack accrual happens in the same finalize job against each target proxy's
   `TargetStackEntry` buffer. Each target key is owned by one job index, so buffer
   writes do not alias.
 - `StatusProcessSystem` runs after finalize and before spawn expansion. It
   processes target stack buffers in parallel, decays/fizzles entries, and queues
   threshold AOE or projectile detonations for same-frame expansion.
-- `HitApplyBridge` keeps the managed push on the main thread. It resolves
-  `TargetCompanion`, calls `ICombatTarget.ReceiveHits`, and only calls
-  `ReceiveStatus` for targets whose stack state changed during finalize.
-- ECS still never reads target HP, clamps damage, or decides death. Actor roots
-  remain the final authority for health, death, and GameObject lifetime.
+- `CombatApplyBridge` keeps the managed push on the main thread. It resolves
+  `TargetCompanion` and calls `ICombatTarget.ReceiveCombatTick` once per target
+  that received direct damage or changed status.
+- ECS owns target HP in `TargetHealth`, seeded once at proxy creation from
+  `ICombatTarget.CombatMaxHealth`. ECS subtracts damage and may push negative HP;
+  actor roots mirror that pushed value, clamp for local health display, decide
+  death, and own GameObject lifetime.
 
 Still intentionally not done:
 
-- Direct damage is not aggregated or condensed. A frame with N qualifying hits
-  on one target still produces N `CombatHitData` entries.
-- Per-hit semantics are preserved for crit results, source metadata, status
-  accrual inputs, and authored follow-up behavior.
-- The managed boundary cost is reduced by deleting sorts and pushing grouped
-  target slices, not by reducing hit count.
+- Managed direct-damage replay no longer preserves one `CombatHitData` per hit.
+  A frame with N qualifying hits on one target produces one `CombatTickResult`
+  with `HitCount == N`, `CritCount`, `DamageTaken`, and `Health`.
+- Per-hit authored side effects that need hit identity must stay in ECS producer
+  or status/spawn paths rather than relying on managed damage replay.
+- The managed boundary cost is reduced to one `ReceiveCombatTick` per hit target
+  per tick.
 - Debug counters still need clearer separation between raw collision hits,
-  rolled hit replay, status changes, detonation spawns, and VFX requests.
+  aggregate combat ticks, status changes, detonation spawns, and VFX requests.
 
 Future target direction:
 
-- Add a separate condensed damage path only when gameplay can prove that the
-  per-hit data is unnecessary for that target/scope.
 - Keep side-effect and VFX paths split from direct health aggregation.
-- Preserve the hybrid boundary: final health/status mutation can still be
-  applied to low-count actor roots, but plain damage should eventually cross as
-  compact per-target results when no per-hit behavior is authored.
+- Route future DoT damage through `CombatHitEvent` so the same ECS-owned HP,
+  status, and per-tick dispatch pipeline handles it.
+- Preserve the hybrid boundary: ECS owns scalable HP/status simulation, while
+  actor roots own authored feedback, death decisions, and GameObject lifetime.
 
 ---
 

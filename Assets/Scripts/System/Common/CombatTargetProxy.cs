@@ -28,6 +28,13 @@ namespace PlayGround.System.Common
         public CombatFaction Value;
     }
 
+    // ECS Lifecycle: target-proxy health; seeded once when the proxy is created, then owned by ECS until the proxy is destroyed.
+    public struct TargetHealth : IComponentData
+    {
+        public float Current;
+        public float Max;
+    }
+
     // ECS Lifecycle: target-proxy stack buffer; added empty when the proxy is created, destroyed with the proxy. CombatApplyFinalizeSystem accrues entries, then StatusProcessSystem fizzles or detonates them.
     [InternalBufferCapacity(8)]
     public struct TargetStackEntry : IBufferElementData
@@ -71,6 +78,8 @@ namespace PlayGround.System.Common
             target.CombatTargetProxy = entity;
             entityManager.SetComponentData(entity, new TargetFaction { Value = faction });
             entityManager.SetComponentData(entity, new TargetCompanion { Target = target });
+            float maxHealth = target.CombatMaxHealth;
+            entityManager.SetComponentData(entity, new TargetHealth { Current = maxHealth, Max = maxHealth });
             Push(entityManager, entity, target);
             return entity;
         }
@@ -199,6 +208,7 @@ namespace PlayGround.System.Common
                 typeof(TargetPosition),
                 typeof(TargetCollisionShape),
                 typeof(TargetFaction),
+                typeof(TargetHealth),
                 typeof(TargetStackEntry),
                 typeof(TargetCompanion));
             return cachedArchetype;

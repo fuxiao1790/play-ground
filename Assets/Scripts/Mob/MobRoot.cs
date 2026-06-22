@@ -82,6 +82,7 @@ namespace PlayGround.Mob
         public float CombatTargetRotationRadians => ProjectileTargetShapeUtility.RotationRadians(hurtbox);
         public CombatShapeType CombatTargetShapeType => ProjectileTargetShapeUtility.ShapeType(hurtbox);
         public int CombatTargetMask => 1 << hurtbox.gameObject.layer;
+        public float CombatMaxHealth => MaxHealth;
         public bool IsCombatTargetActive => isActiveAndEnabled && isAlive && CurrentHealth > 0f;
 
         protected virtual void Awake()
@@ -278,6 +279,21 @@ namespace PlayGround.Mob
                 TakeDamage(hit.Damage);
         }
 
+        public void ReceiveCombatTick(
+            in CombatTickResult result,
+            IReadOnlyList<StatusStackSnapshot> stacks)
+        {
+            if (result.HitCount > 0)
+            {
+                ApplyCombatHealth(result.Health, result.DamageTaken, result.CritCount > 0);
+            }
+
+            if (result.StatusCount > 0)
+            {
+                ReceiveStatus(stacks);
+            }
+        }
+
         public void ReceiveStatus(IReadOnlyList<StatusStackSnapshot> stacks)
         {
             statusSnapshots.Clear();
@@ -294,18 +310,36 @@ namespace PlayGround.Mob
                 return false;
             }
 
-            CurrentHealth = Mathf.Max(0f, CurrentHealth - damage.Amount);
+            RequestDamageFeedback(damage.Amount, damage.IsCrit);
+            return true;
+        }
+
+        private void ApplyCombatHealth(float health, float damageTaken, bool anyCrit)
+        {
+            if (!isAlive)
+            {
+                return;
+            }
+
+            CurrentHealth = health;
             blackboard.Health = CurrentHealth;
             if (CurrentHealth <= 0f)
             {
                 eventQueue.PushType(MobEventType.Died, this);
                 SoftDie();
-                return true;
+                return;
             }
 
+            if (damageTaken > 0f)
+            {
+                RequestDamageFeedback(damageTaken, anyCrit);
+            }
+        }
+
+        private void RequestDamageFeedback(float damageAmount, bool isCrit)
+        {
             animatorDriver.RequestHurt(hurtFlashSeconds);
-            eventQueue.PushType(damage.IsCrit ? MobEventType.CritDamaged : MobEventType.Damaged, this, damage.Amount);
-            return true;
+            eventQueue.PushType(isCrit ? MobEventType.CritDamaged : MobEventType.Damaged, this, damageAmount);
         }
 
         private void OnStatusEffectTriggered(StatusEffectDef def, StatusEffectTriggerResult result)

@@ -65,8 +65,28 @@ namespace PlayGround.System.Common
         float CombatTargetRotationRadians { get; }
         CombatShapeType CombatTargetShapeType { get; }
         int CombatTargetMask { get; }
+        float CombatMaxHealth => 1f;
         bool IsCombatTargetActive { get; }
         void ReceiveHit(in CombatHitData hit);
+
+        void ReceiveCombatTick(
+            in CombatTickResult result,
+            IReadOnlyList<StatusStackSnapshot> stacks)
+        {
+            if (result.DamageTaken > 0f)
+            {
+                var aggregateHit = new CombatHitData(
+                    CombatHitKind.Projectile,
+                    new DamageSnapshot(result.DamageTaken, result.CritCount > 0),
+                    Vector2.zero);
+                ReceiveHit(in aggregateHit);
+            }
+
+            if (stacks.Count > 0)
+            {
+                ReceiveStatus(stacks);
+            }
+        }
 
         void ReceiveHits(IReadOnlyList<CombatHitData> hits)
         {
