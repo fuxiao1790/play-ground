@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000023, type: 3}
   m_Name: StackingSupport
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.StackingSupport
-  stackThreshold: 3
-  debuffLifetimeSeconds: 4
+  stackThreshold: 15
+  debuffLifetimeSeconds: 5
   stacksPerHit: 1
