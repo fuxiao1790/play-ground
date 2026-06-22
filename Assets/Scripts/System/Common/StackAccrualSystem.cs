@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using PlayGround.Common;
-using PlayGround.System.Common;
+using PlayGround.System.Aoe;
 using PlayGround.System.Projectile;
 using Unity.Collections;
 using Unity.Entities;
@@ -8,9 +8,8 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Profiling;
 
-//todo: this type is no longer specific to aoe, move this out
 //todo: implementation needs to be investigated and reconsidered.
-namespace PlayGround.System.Aoe
+namespace PlayGround.System.Common
 {
     // ECS Lifecycle: transient stack intent; enqueued by applicator collision jobs, drained by StackAccrualSystem in the same simulation frame.
     public struct StackApplyEvent
@@ -24,7 +23,7 @@ namespace PlayGround.System.Aoe
     }
 
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(PlayGround.System.Projectile.ProjectileCollisionSystem))]
+    [UpdateAfter(typeof(ProjectileCollisionSystem))]
     [UpdateAfter(typeof(LingeringAoeCollisionSystem))]
     [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
     [UpdateBefore(typeof(AoeSpawnExpansionSystem))]
