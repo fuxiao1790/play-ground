@@ -1,132 +1,128 @@
-# Multithreaded Hit Apply — bucket-by-target, ECS crit, parallel status
+# Multithreaded Hit Apply — ECS-owned HP, per-tick dispatch, parallel debuff
 
 ## Problem
 
-Profiling shows the two post-collision stages are the frame bottleneck, both
-single-threaded:
+Two post-collision stages were the frame bottleneck:
 
-- **Damage application** — `DamageFinalizeSystem` drains a `NativeQueue`
-  single-threaded, then `DamageDispatchBridge` does `List.Sort` by target, rolls
-  crit with `UnityEngine.Random`, and calls managed `ReceiveHits`
-  ([DamageDispatchBridge.cs](../../Assets/Scripts/System/Common/DamageDispatchBridge.cs)).
-- **Stack accumulation** (worse) — `StackAccrualSystem` drains its own queue,
-  **sorts** (`events.Sort(Comparer)`), groups by `(target, key)`, accrues into a
-  per-target buffer, then ticks/fizzles/detonates — all on the main thread
-  ([StackAccrualSystem.cs](../../Assets/Scripts/System/Status/StackAccrualSystem.cs)).
+- **Single-instance damage dispatch** — damage crossed to the managed
+  `ICombatTarget` **once per hit**. With dense frames this is O(hits) on the main
+  thread (measured: `CombatApplyBridge.HitReplay` = 3.34ms for 3415 hits).
+- **Single-threaded debuff application** — `StackAccrualSystem` drained a queue,
+  **sorted**, grouped, and accrued stacks on the main thread.
 
-The sorts exist **only** to achieve per-target grouping. Bucketing by target
-gives that grouping for free and deletes both sorts.
+Phase 1 (already implemented) fixed the debuff side and the grouping, but it kept
+the **per-hit** managed dispatch, so the single-instance dispatch cost remained.
+Phase 2 removes it.
 
-## Design
+## Solution
 
-One unified hit event, produced into an **unbounded** queue, bucketed by target
-proxy, then everything that can be parallel is parallel. HP **and** status cross
-to the GameObject together in a **single combined push** per target — via the
-same sim-freeze → presentation-push mechanism used today.
+**ECS owns HP and status.** Damage is applied in the parallel finalize job to an
+HP component on the target proxy, aggregated per target, and the GameObject
+receives **one hit event per target per tick** (O(targets)) — the per-hit replay
+is deleted. Status is already ECS-owned and accrued in parallel.
 
 ```
 ── Frame N: SimulationSystemGroup ──────────────────────────────────
-Collision            → hitQueue.Enqueue(CombatHitEvent)        [PARALLEL writer, UNBOUNDED]
-                       (damage + stack payload, one event per hit, NO condensing)
+Collision            → hitQueue.Enqueue(CombatHitEvent)        [PARALLEL, UNBOUNDED]
 
-CombatApplyFinalize  [after collision, before spawn]
- (1) flat = hitQueue.ToArray()                                 ← serial memcpy, no sort
- (2) map = MultiHashMap(flat.Length)  [sized to ACTUAL count]  ← cannot overflow
- (3) [PARALLEL] insert flat → map  (target → hit index)
- (4) keys = map.GetUniqueKeyArray()                            ← grouping, no sort
- (5) [PARALLEL job over keys] per target:
-        • roll crit (Unity.Mathematics.Random)  ┐ as applied
-        • accrue stacks → ECS accumulator        ┘
-        • freeze ONE combined result: rolled hits[] + status snapshot[]
+CombatApplyFinalize  flat = hitQueue.ToArray() → bucket map sized to count (no overflow)
+ (before spawn)      [PARALLEL job over unique target keys]:
+                       • roll crit (Unity.Mathematics.Random)
+                       • accrue stacks → ECS accumulator
+                       • SUM damage, count hits/crits
+                       • TargetHealth.Current -= summed   (no clamp, may go negative)
+                       • freeze ONE CombatTickResult per target
 
-StatusProcess        [PARALLEL job over status entities]
- (before spawn)        threshold → enqueue detonation spawn (same frame) + reduce/decay
-
+StatusProcess        [PARALLEL job over status entities] detonate (same frame) + reduce/decay
 Spawn-expansion      materialize detonations (same frame)
 
 ── Frame N: PresentationSystemGroup ────────────────────────────────
-CombatApplyBridge    [main thread] ONE call per target: ReceiveCombat(hits, status)
+CombatApplyBridge    [main thread] ONE ReceiveCombatTick(result, stacks) per target  ← O(targets)
 Render
-
-── Frame N+1 ───────────────────────────────────────────────────────
-Collision            spawned detonation products collide → hit
 ```
 
-## Key decisions (settled in discussion)
+## Hard requirements (must hold)
 
-- **ECS is pure transport for HP.** Never reads HP, never clamps, never decides
-  death — pushes damage numbers to the GameObject even into the negatives.
-  `MobRoot.CurrentHealth`/death stay the GameObject's authority
-  ([MobRoot.cs:279-288](../../Assets/Scripts/Mob/MobRoot.cs#L279)).
-- **HP and status are pushed together** in one managed call per target
-  (`ReceiveCombat`), not split across two callbacks/passes. Both halves come from
-  the same frozen per-target record produced by the finalize job.
-- **Status accumulation stays in ECS** (`TargetStackEntry` buffer on the proxy) so
-  `StatusProcess` has entities to loop; the current snapshot rides the combined
-  push to the GameObject.
-- **No condensing** — each hit stays a discrete event; grouped by target, not
-  merged. Hit count is naturally preserved.
-- **Crit rolled inside ECS, as applied** — in the finalize job with deterministic
-  `Unity.Mathematics.Random` (seed `math.hash(uint3(target.Index, frameCount,
-  hitIndex))`), replacing main-thread `UnityEngine.Random`. Deterministic/replayable.
-- **Production is unbounded; the bucket map is sized after the fact.** Collision
-  writes an unbounded `NativeQueue<CombatHitEvent>.ParallelWriter` (same primitive
-  as today's `DamageQueue` — no cap). The bucket `NativeParallelMultiHashMap` is
-  allocated with capacity == the actual produced count, so high load can never
-  exceed it. **No fixed cap, no dropped hits.**
-- **Push mirrors today's mechanism** — sim-side freeze into a stable array
-  (today's `FinalizeDamageQueue`), consumed by a presentation-side managed push
-  (today's `ReplayDamage`). Only the *freeze* changes from single-thread
-  drain+sort to a parallel bucket+finalize.
-- **New systems slot at the tail of simulation**, right before the spawn-expansion
-  systems (and thus before the presentation render).
+These are non-negotiable and every task must preserve them:
+
+1. **Hit events are bucketed; never sorted before applying damage.** Grouping is
+   `NativeParallelMultiHashMap` + `GetUniqueKeyArray`. No `Sort` in the damage
+   path. *(Status: met — `BucketHitsJob` + `GetUniqueKeyArray`,
+   [CombatApplyBridge.cs:74-83](../../Assets/Scripts/System/Common/CombatApplyBridge.cs#L74).)*
+2. **Multi-threaded end to end: production → bucketing → damage application.**
+   Collision enqueues in parallel; `BucketHitsJob` is `IJobParallelFor`; damage
+   application is the parallel `FinalizeCombatJob` (Phase 2). The single
+   `HitQueue.ToArray` bulk copy **is allowed to be single-threaded** — it is a
+   bulk memcpy that makes the queue indexable for the parallel bucket job, and is
+   an accepted seam, not something to parallelize away (no `NativeStream` rework).
+   Complete jobs **once**, not per stage. *(Status: production + bucketing met;
+   application parallelized in 007.)*
+3. **Results pushed to GameObjects at the end through a separate sync system, for
+   both HP and status.** Apply/freeze (`CombatApplyFinalizeSystem`, sim) is
+   distinct from the push (`CombatApplyBridge`, presentation), which delivers HP
+   **and** status in one `ReceiveCombatTick` per target. *(Status: separate system
+   exists; HP routed through it in 008.)*
+
+## Key decisions (settled)
+
+- **ECS owns HP and status.** The GameObject never writes them into ECS — it is a
+  mirror. HP is seeded once at proxy creation from the target's max health; ECS
+  owns it thereafter.
+- **ECS does not clamp or decide death.** It subtracts into the negatives and
+  pushes the value; the GameObject clamps, decides death, and drives feedback.
+- **One hit event per target per tick** is acceptable. The per-hit `RolledHit[]`
+  replay path is removed. `HitCount`/`CritCount`/`DamageTaken` are carried so the
+  GameObject keeps accurate hurt/crit feedback ("preserve # of hits").
+- **No condensing of distinct targets** — aggregation is per target, which is the
+  natural grain once HP lives in ECS.
+- **No DoT system exists** (skeleton at most). If one is added, its damage must
+  enqueue a `CombatHitEvent` into the same pipeline rather than mutating the
+  GameObject mirror — documented, not built.
+- Debuff/status application stays the parallel per-target finalize job (Phase 1).
 
 ## Parallel-write safety
 
-Each target / status entity is owned by **exactly one job index** (iteration over
-`GetUniqueKeyArray` / per-entity), so writes through `BufferLookup` /
-`ComponentLookup` with `[NativeDisableParallelForRestriction]` never alias. This
-is why bucket-by-target beats sort-then-group: independence falls out for free.
-(See `docs/simulation/ecs-notes.md` Part 3 + "Target direction".)
+Each target / status entity is owned by exactly one job index (iteration over
+`GetUniqueKeyArray` / per-entity), so HP, stack-buffer, and result writes via
+`ComponentLookup`/`BufferLookup` with `[NativeDisableParallelForRestriction]`
+never alias.
 
-## What gets retired
+## Status
 
-`DamageFinalizeSystem`, `DamageDispatchBridge`, `StackAccrualSystem`,
-`DamageReplayEvent`, and `StackApplyEvent` all collapse into the new pipeline.
+### Phase 1 — implemented
 
-## Tasks
+- `CombatHitEvent` (damage + stack payload); unbounded `NativeQueue` production;
+  count-sized bucket `NativeParallelMultiHashMap` (no overflow under load).
+- `CombatApplyFinalizeSystem` — parallel bucket + crit roll + stack accrual.
+- `StatusProcessSystem` — parallel detonate + reduce/decay.
+- `ReceiveStatus` / status snapshot push; `StackAccrualSystem`,
+  `DamageDispatchBridge`, `DamageFinalizeSystem`, `DamageReplayEvent`,
+  `StackApplyEvent` retired.
+
+### Phase 2 — remaining (this update)
+
+Converts the apply/dispatch half from per-hit transport to ECS-owned HP +
+per-tick aggregate dispatch.
 
 | # | File | Change | Summary | Depends |
 |---|---|---|---|---|
-| 001 | [001-combat-hit-event-and-systems.md](001-combat-hit-event-and-systems.md) | add | `CombatHitEvent` + unbounded queue + count-sized bucket map; `CombatApplyFinalizeSystem` (parallel crit-roll/freeze) + `CombatApplyBridge` (one combined `ReceiveCombat` push). Green-but-inert. | — |
-| 002 | [002-switch-damage-producers.md](002-switch-damage-producers.md) | adapt | Collision systems enqueue `CombatHitEvent` (damage half); remove `DamageReplayEvent`; retire `DamageFinalizeSystem` + `DamageDispatchBridge`. Activates HP path + ECS crit. | 001 |
-| 003 | [003-parallel-status-pipeline.md](003-parallel-status-pipeline.md) | adapt | Carry stack payload in `CombatHitEvent`; accrue into ECS accumulator in the finalize job; freeze the status half of the combined result; add `StatusProcessSystem` (parallel detonate + reduce/decay); retire `StackAccrualSystem` + `StackApplyEvent`. | 002 |
-| 004 | [004-status-push-to-gameobject.md](004-status-push-to-gameobject.md) | add | GameObject consumes the status half of `ReceiveCombat` (`MobRoot`/player reflect stacks). Managed side only. | 003 |
-| 005 | [005-docs-and-tests.md](005-docs-and-tests.md) | add | Update `ecs-notes.md`; tests for hit-count preservation, crit determinism, ECS-never-decides-death, detonation parity, **high-load (no dropped hits)**. | 004 |
+| 006 | [006-target-health-component.md](006-target-health-component.md) | add | `TargetHealth` on the proxy archetype; `ICombatTarget.CombatMaxHealth`; seed once at `Create`. | — |
+| 007 | [007-apply-and-aggregate-in-finalize.md](007-apply-and-aggregate-in-finalize.md) | adapt | Finalize job sums damage per target, subtracts from `TargetHealth` (no clamp), freezes `CombatTickResult`; remove the `RolledHit[]` per-hit path. | 006 |
+| 008 | [008-per-tick-dispatch.md](008-per-tick-dispatch.md) | adapt | `ReceiveCombatTick(result, stacks)`; bridge pushes once per target; `MobRoot`/`PlayerRoot` mirror HP, decide death, drive feedback from counts; delete per-hit replay. | 007 |
+| 009 | [009-docs-and-tests-update.md](009-docs-and-tests-update.md) | adapt | Correct `ecs-notes`/plan/memory (ECS owns HP); rework lethal-overkill test; add per-tick single-push test. | 008 |
 
-## Sequencing & reviewability
-
-- **001 is green-but-inert** — the new systems own an empty queue; nothing
-  produces into it, behavior unchanged. The combined `ReceiveCombat` callback is
-  defined here (status half empty until 003).
-- **002 activates the HP path** and removes the old damage systems in the same
-  change (no double emission). Crit moves to ECS here.
-- **003 is the largest task** — the status accrual/detonate swap is landed as one
-  coherent change (splitting accrual from detonation leaves the accumulator with
-  two writers in an inconsistent intermediate). It fills the status half of the
-  already-combined push.
-- **004** is the managed-side consumption of the status half.
-- **005** last.
+> Tasks 001–005 are implemented and describe the Phase 1 per-hit model. The
+> **push** parts of 001/004/005 are superseded by 007–009; their event/queue/
+> bucket/finalize/status parts remain accurate.
 
 ## Constraints (document in code)
 
-- ECS must never branch on HP value (no clamp, no death decision). Verified by a
-  test that pushes lethal+overkill and asserts ECS still emits.
-- **No fixed cap on hits.** Production is an unbounded queue; the bucket map is
-  sized to the produced count each frame. A high-load test must assert zero
-  dropped hits.
-- Single writer of the ECS status accumulator is the finalize job (accrue) +
-  `StatusProcessSystem` (reduce) — never both at the same frame phase.
-- HP and status reach the GameObject in one `ReceiveCombat` call per target.
-- Hit count per target is preserved end-to-end (no condensing); assert in tests.
-- Crit RNG seed must be frame-deterministic and entity-stable.
+- ECS owns HP; the GameObject never writes HP/status into ECS.
+- ECS never clamps HP or decides death — it may push negative HP.
+- Production stays unbounded; bucket map sized to produced count (no dropped hits).
+- The managed boundary is one `ReceiveCombatTick` per target per tick — never
+  per hit. Assert O(targets) dispatch in tests.
+- `HitCount`/`CritCount` preserved in the per-tick result.
+- No `Sort` in the damage/debuff path; grouping is bucket + `GetUniqueKeyArray`.
+- Production, bucketing, and damage application are all jobified; the apply system
+  and the push (sync) system are distinct, and the push carries HP + status.
