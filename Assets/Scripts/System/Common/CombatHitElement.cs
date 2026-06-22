@@ -293,7 +293,7 @@ namespace PlayGround.System.Common
 
     public readonly struct AoeOnHitSpawnSnapshot
     {
-        public const int MaxStackingSkillChainLinks = 2;
+        public const int MaxStackChainLinks = 2;
 
         public AoeOnHitSpawnSnapshot(
             int typeId,

@@ -177,14 +177,6 @@ namespace PlayGround.Skills
         {
             if (def == null) return;
 
-            if (def is RuntimeStackingSkillDefinition stackingDef)
-            {
-                EnsureStackingDebuffKey(stackingDef);
-                RegisterProjectileTypesRecursive(stackingDef.ApplicatorDefinition);
-                RegisterProjectileTypesRecursive(stackingDef.DetonationDefinition);
-                return;
-            }
-
             if (def is RuntimeStackingDetonation stackingDetonation)
             {
                 EnsureStackingDetonationDebuffKey(stackingDetonation);
@@ -238,14 +230,6 @@ namespace PlayGround.Skills
         {
             if (def == null) return;
 
-            if (def is RuntimeStackingSkillDefinition stackingDef)
-            {
-                EnsureStackingDebuffKey(stackingDef);
-                RegisterAoeTypesRecursive(stackingDef.ApplicatorDefinition);
-                RegisterAoeTypesRecursive(stackingDef.DetonationDefinition);
-                return;
-            }
-
             if (def is RuntimeStackingDetonation stackingDetonation)
             {
                 EnsureStackingDetonationDebuffKey(stackingDetonation);
@@ -273,14 +257,6 @@ namespace PlayGround.Skills
                 if (projDef.StackingDetonation != null)
                     RegisterAoeTypesRecursive(projDef.StackingDetonation);
             }
-        }
-
-        private static void EnsureStackingDebuffKey(RuntimeStackingSkillDefinition stackingDef)
-        {
-            if (stackingDef == null || stackingDef.DebuffKey >= 0)
-                return;
-
-            stackingDef.DebuffKey = ++nextStackingDebuffKey;
         }
 
         private static void EnsureStackingDetonationDebuffKey(RuntimeStackingDetonation stackingDef)

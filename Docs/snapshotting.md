@@ -226,14 +226,15 @@ applied-stack payload, not damage replay data. It flows through:
 - `AoeSpawnCommand`
 - `AoeHitSpawnComponent.HitPayload`
 
-Current stacking-skill direction:
+Current stacking direction:
 
-1. A stacking skill compiles to an applicator snapshot plus a detonation
-   snapshot. The debuff key is minted during runtime registration for that
-   compiled stacking-skill instance; it is not authored and is not the
-   detonation type id.
-2. A root or hit-spawned applicator receives one `StackEffectSnapshot`.
-   Spawn expansion and apply copy that payload without transformation.
+1. A normal skill set with `StackingSupport` compiles to
+   `RuntimeStackingDetonation`. The debuff key is minted during runtime
+   registration for that compiled detonation instance; it is not authored and is
+   not the detonation type id.
+2. A normal projectile or AOE applicator reaches that detonation through
+   `StackTrigger` and receives one `StackEffectSnapshot`. Spawn expansion and
+   apply copy that payload without transformation.
 3. Applicator collision keeps damage replay and stack accrual on separate typed
    paths. On hit it emits `StackApplyEvent` with target proxy, debuff key,
    threshold, lifetime refresh, one-stack contribution, and detonation snapshot.
@@ -249,10 +250,9 @@ Current stacking-skill direction:
    and `SummedDamage` is total nova damage split across those projectiles. If
    lifetime lapses below threshold, the entry fizzles and is removed with no
    detonation.
-6. Composition uses ordinary AOE hit-spawn snapshots carried on the detonation,
-   so the next stacking skill's applicator is a new spawn with its own debuff
-   key and payload.
-
+6. Composition uses ordinary hit-spawn snapshots carried by normal runtime
+   definitions. The next applicator is a new spawn with its own `StackTrigger`
+   payload and detonation debuff key.
 Damage replay does not carry stacks. Managed target callbacks receive direct
 damage data only; stack accrual is owned by ECS.
 

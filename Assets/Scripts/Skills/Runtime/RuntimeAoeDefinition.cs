@@ -21,7 +21,7 @@ namespace PlayGround.Skills.Runtime
         public bool DirectDamageEnabled { get; set; } = true;
 
         // Compiled from OnAoeHitSpawnTrigger; null if none. The concrete ECS
-        // snapshot is bounded by AoeOnHitSpawnSnapshot.MaxStackingSkillChainLinks.
+        // snapshot is bounded by AoeOnHitSpawnSnapshot.MaxStackChainLinks.
         public RuntimeSkillDefinition OnHitAoeSpawnDefinition { get; set; }
 
         // Compiled from StackTrigger; null if none.

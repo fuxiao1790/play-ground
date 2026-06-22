@@ -70,14 +70,7 @@ namespace PlayGround.Skills
                 {
                     RuntimeSkillDefinition compiledTarget = Compile(slots, chain.effectIndex, allChains, snapshot);
                     if (runtime is RuntimeAoeDefinition aoeDef)
-                    {
                         aoeDef.OnHitAoeSpawnDefinition = compiledTarget;
-                    }
-                    else if (runtime is RuntimeStackingSkillDefinition stacking
-                             && stacking.DetonationDefinition is RuntimeAoeDefinition detonationAoe)
-                    {
-                        detonationAoe.OnHitAoeSpawnDefinition = compiledTarget;
-                    }
                 }
 
                 if (chain.link is StackTrigger)
@@ -103,13 +96,6 @@ namespace PlayGround.Skills
         {
             if (definition == null)
                 return null;
-
-            if (definition is StackingSkillDefinition stacking)
-                return ApplyConversionSupports(
-                    definition,
-                    BuildStackingRuntime(stacking, supports, snapshot),
-                    supports,
-                    snapshot);
 
             SkillDefinition defCopy = definition.DeepCopy();
             ApplySupports(defCopy, supports);
@@ -153,44 +139,6 @@ namespace PlayGround.Skills
             }
 
             return runtime;
-        }
-
-        private static RuntimeSkillDefinition BuildStackingRuntime(
-            StackingSkillDefinition stacking,
-            IReadOnlyList<SkillSupport> supports,
-            PlayerStatSnapshot snapshot)
-        {
-            SkillDefinition applicatorCopy = stacking.CreateApplicatorCopy();
-            ApplySupports(applicatorCopy, supports);
-            RuntimeSkillDefinition applicator = BuildRuntime(applicatorCopy, snapshot);
-
-            SkillDefinition detonationCopy = stacking.CreateDetonationCopy();
-            ApplySupports(detonationCopy, supports);
-            RuntimeSkillDefinition detonation = BuildRuntime(detonationCopy, snapshot);
-
-            if (applicator == null || detonation == null)
-                return null;
-
-            return new RuntimeStackingSkillDefinition
-            {
-                ApplicatorDefinition = applicator,
-                DetonationDefinition = detonation,
-                ApplicatorKind = RuntimeKind(applicator),
-                DetonationKind = RuntimeKind(detonation),
-                StackThreshold = Mathf.Max(1, stacking.stackThreshold),
-                DebuffLifetimeSeconds = Mathf.Max(0f, stacking.debuffLifetimeSeconds),
-                DebuffName = stacking.debuffName,
-                CosmeticDebuffStatus = stacking.cosmeticDebuffStatus,
-            };
-        }
-
-        private static RuntimeStackingSkillEffectKind RuntimeKind(RuntimeSkillDefinition definition)
-        {
-            if (definition is RuntimeProjectileDefinition)
-                return RuntimeStackingSkillEffectKind.Projectile;
-            if (definition is RuntimeAoeDefinition)
-                return RuntimeStackingSkillEffectKind.Aoe;
-            return RuntimeStackingSkillEffectKind.None;
         }
 
         private static RuntimeSkillDefinition BuildRuntime(SkillDefinition def, PlayerStatSnapshot snapshot)

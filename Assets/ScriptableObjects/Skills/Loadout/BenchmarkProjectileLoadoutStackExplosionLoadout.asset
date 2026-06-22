@@ -17,6 +17,8 @@ MonoBehaviour:
   - rid: 3401312142338556129
   - rid: 3401312142338556130
   - rid: 3401312188117811273
+  - rid: 3401312188117811274
+  - rid: 3401312188117811275
   maxRootSets: 8
   references:
     version: 2
@@ -37,3 +39,11 @@ MonoBehaviour:
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
         skillSet: {fileID: 11400000, guid: b2000000000000000000000000000008, type: 2}
+    - rid: 3401312188117811274
+      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        link: {fileID: 11400000, guid: c4000000000000000000000000000001, type: 2}
+    - rid: 3401312188117811275
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        skillSet: {fileID: 11400000, guid: c2000000000000000000000000000008, type: 2}

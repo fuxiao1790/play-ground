@@ -240,7 +240,7 @@ namespace PlayGround.System.Aoe
 
             if (hasAoeEventWriter && hitSpawn.AoeSpawn.Enabled)
             {
-                // The link is bounded by AoeOnHitSpawnSnapshot.MaxStackingSkillChainLinks.
+                // The link is bounded by AoeOnHitSpawnSnapshot.MaxStackChainLinks.
                 // Each spawned AOE is a fresh snapshot; there is no runtime retarget.
                 aoeEventWriter.Enqueue(AoeSpawnPipeline.BuildOnHitAoeSpawnEvent(
                     identity.Faction,

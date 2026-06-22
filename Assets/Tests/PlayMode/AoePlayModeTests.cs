@@ -7,6 +7,7 @@ using PlayGround.Common.StatusEffects;
 using PlayGround.Mob;
 using PlayGround.Mob.Behaviours;
 using PlayGround.Mob.Triggers;
+using PlayGround.Skills.Runtime;
 using PlayGround.System.Aoe;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
@@ -194,6 +195,93 @@ namespace PlayGround.Tests.PlayMode
             Cleanup(aoeObject, templateObject);
         }
 
+        [UnityTest]
+        public IEnumerator ProjectileImpactAoeApplicatorStackTriggerDetonatesStackSet()
+        {
+            CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject rootTemplateObject, out _);
+            BasicAttackPrefab projectilePrefab = CreateProjectilePrefab("RootProjectileTemplate");
+            BasicAoePrefab applicatorPrefab = CreateAoePrefab("ApplicatorAoeTemplate");
+            BasicAoePrefab detonationPrefab = CreateAoePrefab("DetonationAoeTemplate");
+            ProjectileSkill rootSkill = ScriptableObject.CreateInstance<ProjectileSkill>();
+            AoeSkill applicatorSkill = ScriptableObject.CreateInstance<AoeSkill>();
+            AoeSkill detonationSkill = ScriptableObject.CreateInstance<AoeSkill>();
+            StackingSupport stackingSupport = ScriptableObject.CreateInstance<StackingSupport>();
+            SkillSet rootSet = ScriptableObject.CreateInstance<SkillSet>();
+            SkillSet applicatorSet = ScriptableObject.CreateInstance<SkillSet>();
+            SkillSet detonationSet = ScriptableObject.CreateInstance<SkillSet>();
+            OnImpactAoeTrigger impactTrigger = ScriptableObject.CreateInstance<OnImpactAoeTrigger>();
+            StackTrigger stackTrigger = ScriptableObject.CreateInstance<StackTrigger>();
+            PlayerLoadout loadout = ScriptableObject.CreateInstance<PlayerLoadout>();
+            GameObject driverObject = new("PlayerSkillDriverHarness");
+            driverObject.SetActive(false);
+            PlayerSkillDriver driver = driverObject.AddComponent<PlayerSkillDriver>();
+
+            ConfigureProjectile(rootSkill, projectilePrefab, damage: 0f);
+            ConfigureAoe(applicatorSkill, applicatorPrefab, damage: 0f);
+            ConfigureAoe(detonationSkill, detonationPrefab, damage: 6f);
+            SetField(stackingSupport, "stackThreshold", 2);
+            SetField(stackingSupport, "debuffLifetimeSeconds", 10f);
+            SetField(rootSet, "skill", rootSkill);
+            SetField(rootSet, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(applicatorSet, "skill", applicatorSkill);
+            SetField(applicatorSet, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(detonationSet, "skill", detonationSkill);
+            SetField(detonationSet, "supports", new SkillSupport[] { stackingSupport });
+            SetField(loadout, "slots", new global::System.Collections.Generic.List<LoadoutSlot>
+            {
+                new SkillSetSlot { skillSet = rootSet },
+                new TriggerLinkSlot { link = impactTrigger },
+                new SkillSetSlot { skillSet = applicatorSet },
+                new TriggerLinkSlot { link = stackTrigger },
+                new SkillSetSlot { skillSet = detonationSet },
+            });
+            SetField(driver, "loadout", loadout);
+            SetField(driver, "combatRoot", root);
+            CompileAndRegister(driver);
+            RuntimeSkillDefinition runtime = FirstCompiledRuntime(driver);
+            Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
+            var projectileRuntime = (RuntimeProjectileDefinition)runtime;
+            Assert.That(projectileRuntime.ImpactAoeDefinition, Is.Not.Null);
+            Assert.That(projectileRuntime.ImpactAoeDefinition.StackingDetonation, Is.Not.Null);
+
+            MobRoot mob = CreateMobTarget(new Vector2(1f, 0f));
+            mob.BindAoeRoot(root);
+            mob.Register(root.TargetRegistry);
+            SkillSpawnTranslator.Spawn(runtime, Vector2.zero, Vector2.right, Vector2.zero, root);
+            for (int i = 0; i < 4; i++)
+                yield return null;
+
+            int debuffKey = projectileRuntime.ImpactAoeDefinition.StackingDetonation.DebuffKey;
+            Assert.That(EcsDebuffStackCount(mob, debuffKey), Is.EqualTo(1));
+
+            SkillSpawnTranslator.Spawn(runtime, Vector2.zero, Vector2.right, Vector2.zero, root);
+            for (int i = 0; i < 8; i++)
+                yield return null;
+
+            Assert.That(EcsDebuffStackCount(mob, debuffKey), Is.EqualTo(0));
+            Assert.That(mob.CurrentHealth, Is.EqualTo(mob.MaxHealth - 6f).Within(0.001f));
+
+            Cleanup(
+                rootObject,
+                rootTemplateObject,
+                projectilePrefab.gameObject,
+                applicatorPrefab.gameObject,
+                detonationPrefab.gameObject,
+                driverObject,
+                mob.gameObject);
+            CleanupObjects(
+                rootSkill,
+                applicatorSkill,
+                detonationSkill,
+                stackingSupport,
+                rootSet,
+                applicatorSet,
+                detonationSet,
+                impactTrigger,
+                stackTrigger,
+                loadout);
+        }
+
         private static AoeSpawnRequest Command(
             int typeId,
             GameObject templateObject,
@@ -266,6 +354,59 @@ namespace PlayGround.Tests.PlayMode
             AoeConfig config = ScriptableObject.CreateInstance<AoeConfig>();
             config.Configure(basicPrefab);
             return config;
+        }
+
+        private static BasicAttackPrefab CreateProjectilePrefab(string name)
+        {
+            GameObject prefabObject = new(name);
+            prefabObject.SetActive(false);
+            GameObject visualObject = new("Visual");
+            visualObject.transform.SetParent(prefabObject.transform, false);
+            SpriteRenderer renderer = visualObject.AddComponent<SpriteRenderer>();
+            renderer.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
+            GameObject hurtboxObject = new("Hurtbox");
+            hurtboxObject.transform.SetParent(prefabObject.transform, false);
+            CircleCollider2D hurtbox = hurtboxObject.AddComponent<CircleCollider2D>();
+            hurtbox.radius = 0.35f;
+            BasicAttackPrefab prefab = prefabObject.AddComponent<BasicAttackPrefab>();
+            prefab.Configure(renderer, hurtbox);
+            return prefab;
+        }
+
+        private static BasicAoePrefab CreateAoePrefab(string name)
+        {
+            GameObject prefabObject = new(name);
+            prefabObject.SetActive(false);
+            GameObject visualObject = new("Visual");
+            visualObject.transform.SetParent(prefabObject.transform, false);
+            SpriteRenderer renderer = visualObject.AddComponent<SpriteRenderer>();
+            renderer.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
+            GameObject hurtboxObject = new("Hurtbox");
+            hurtboxObject.transform.SetParent(prefabObject.transform, false);
+            CircleCollider2D hurtbox = hurtboxObject.AddComponent<CircleCollider2D>();
+            hurtbox.radius = 1f;
+            BasicAoePrefab prefab = prefabObject.AddComponent<BasicAoePrefab>();
+            prefab.Configure(renderer, hurtbox);
+            return prefab;
+        }
+
+        private static void ConfigureProjectile(ProjectileSkill skill, BasicAttackPrefab prefab, float damage)
+        {
+            var definition = (ProjectileDefinition)skill.Definition;
+            definition.prefab = prefab;
+            definition.speed = 16f;
+            definition.lifetime = 1f;
+            definition.damage = damage;
+            definition.directDamageEnabled = damage > 0f;
+        }
+
+        private static void ConfigureAoe(AoeSkill skill, BasicAoePrefab prefab, float damage)
+        {
+            var definition = (AoeDefinition)skill.Definition;
+            definition.prefab = prefab;
+            definition.baseAreaSize = 1f;
+            definition.damage = damage;
+            definition.directDamageEnabled = damage > 0f;
         }
 
         private static Matrix4x4 FirstScopedAoeRenderMatrix(CombatRoot root)
@@ -367,6 +508,44 @@ namespace PlayGround.Tests.PlayMode
             const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
             FieldInfo factionField = typeof(CombatRoot).GetField("faction", Flags);
             return (CombatFaction)factionField.GetValue(root);
+        }
+
+        private static void CompileAndRegister(PlayerSkillDriver driver)
+        {
+            MethodInfo method = typeof(PlayerSkillDriver).GetMethod(
+                "CompileAndRegister",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(driver, null);
+        }
+
+        private static RuntimeSkillDefinition FirstCompiledRuntime(PlayerSkillDriver driver)
+        {
+            FieldInfo field = typeof(PlayerSkillDriver).GetField(
+                "compiledSlots",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            var compiledSlots = (RuntimeSkillDefinition[])field.GetValue(driver);
+            Assert.That(compiledSlots, Is.Not.Null);
+            Assert.That(compiledSlots.Length, Is.GreaterThan(0));
+            Assert.That(compiledSlots[0], Is.Not.Null);
+            return compiledSlots[0];
+        }
+
+        private static void SetField(object target, string fieldName, object value)
+        {
+            FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            field.SetValue(target, value);
+        }
+
+        private static void CleanupObjects(params Object[] objects)
+        {
+            for (int i = 0; i < objects.Length; i++)
+            {
+                if (objects[i] != null)
+                    Object.Destroy(objects[i]);
+            }
         }
 
         private static StackEffectSnapshot StackEffect(

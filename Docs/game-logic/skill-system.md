@@ -10,18 +10,19 @@ an AOE, a beam. Owns base visual, collision shape, base recovery time, and
 behavior data. A Skill slotted alone fires with base behavior and no
 augmentation.
 
-**StackingSkill** - a self-contained skill that owns both an applicator and a
-detonation. The applicator applies one stack on hit. At threshold, the target's
-summed stack contribution detonates and the stack entry is cleared.
+**Stacking Support** - a conversion support placed on a normal skill set to make
+that set a stack detonation. It owns threshold, lifetime, stacks-per-hit, and
+presentation config. A stacking set is triggered-only and fires only when reached
+through a `StackTrigger`.
 
 **Additive Support** — augments the Skill in the same set. Modifies count,
 pierce, speed, tracking, damage, spread, or other behavior fields. Only ever
 affects the one Skill it shares a set with. No cross-set influence.
 
 **Skill Set** — the unit of authoring. Contains one or more Skills and zero or
-more Additive Supports. Self-contained: its Skills are only modified by its own
+more Skill Supports. Self-contained: its Skills are only modified by its own
 Supports. Skill Sets have no knowledge of what triggers them or what they
-trigger.
+trigger, except that a conversion support can mark the set triggered-only.
 
 **Trigger Link** — external wiring between two Skill Sets. Owned by the
 loadout, not by either set. Defines the source set whose events fire the
@@ -146,7 +147,7 @@ returns nothing.
 ```csharp
 class SkillSet : ScriptableObject {
     Skill skill;
-    AdditiveSupport[] supports;
+    SkillSupport[] supports;
 }
 ```
 
@@ -163,9 +164,9 @@ containing visual, collision, and behavior data. Skills do not own augmentation
 — that belongs to Supports.
 
 `Skill` is abstract. Concrete types are `ProjectileSkill`, regular `AoeSkill`,
-`LingeringAoeSkill`, and `StackingSkill`, each holding their typed definition
-inline. Regular and lingering AOE skills derive from the same AOE skill base.
-The SO is never mutated at runtime.
+and `LingeringAoeSkill`, each holding their typed definition inline. Regular
+and lingering AOE skills derive from the same AOE skill base. The SO is never
+mutated at runtime.
 
 ```csharp
 abstract class Skill : ScriptableObject {
@@ -189,10 +190,6 @@ sealed class LingeringAoeSkill : AoeSkillBase {
     LingeringAoeDefinition definition;
 }
 
-[CreateAssetMenu(menuName = "PlayGround/Skills/Stacking Skill")]
-sealed class StackingSkill : Skill {
-    StackingSkillDefinition definition;
-}
 ```
 
 Skill tags are runtime-authoring metadata used for validation, not hard gates.
@@ -217,7 +214,6 @@ Current Skill types and their definition roots:
 | Projectile skill | `ProjectileSkill` | `ProjectileDefinition` |
 | AOE skill | `AoeSkill` | `AoeDefinition` |
 | Lingering AOE skill | `LingeringAoeSkill` | `LingeringAoeDefinition` |
-| Stacking skill | `StackingSkill` | `StackingSkillDefinition` |
 
 ### ProjectileDefinition
 
@@ -256,23 +252,26 @@ LingeringAoeDefinition
                count, directDamageEnabled
 ```
 
-### StackingSkillDefinition
+### StackingSupport
 
 ```
-StackingSkillDefinition
-  applicatorKind: projectile, AOE, or lingering AOE
-  applicator:     the projectile/AOE spawned by input or a hit link
-  detonationKind: AOE or projectile
-  detonation:    the AOE or projectile nova fired when the target reaches threshold
-  stack rules:   stackThreshold, debuffLifetimeSeconds,
-                 debuffName, cosmeticDebuffStatus
+StackingSupport
+  stack rules: stackThreshold, debuffLifetimeSeconds, stacksPerHit,
+               debuffName, cosmeticDebuffStatus
 ```
+
+A stacking detonation is authored as a normal skill set whose skill is the
+detonation effect and whose supports include `StackingSupport`. The support
+converts that set to `RuntimeStackingDetonation`, marks it triggered-only, and
+keeps the set out of player-cast roots. The applicator is not bundled into this
+set; it is any normal projectile or AOE set wired to the stacking set by a
+`StackTrigger` link.
 
 On each applicator hit, ECS enqueues one applied-stack payload containing the
-registration-derived debuff key, one stack's contribution, the threshold, the
-lifetime refresh, and the detonation snapshot. `StackAccrualSystem` is the only
-writer of target stack state. It sums contributions per target and debuff key,
-refreshes lifetime on each stack, detonates at threshold, and removes expired
+registration-derived debuff key, the stack contribution, threshold, lifetime
+refresh, and detonation snapshot. `StackAccrualSystem` is the only writer of
+target stack state. It sums contributions per target and debuff key, refreshes
+lifetime on each stack, detonates at threshold, and removes expired
 below-threshold entries with no detonation.
 
 Detonation supports AOE and projectile outputs. A projectile detonation is a
@@ -284,24 +283,36 @@ count. `SummedDamage` is treated as total nova damage and is split across the
 spawned projectiles.
 
 The debuff key is minted during runtime registration for each compiled
-`RuntimeStackingSkillDefinition`. It is not authored and is not the detonation
-type id. Two slots using the same `StackingSkill` asset still compile to
-separate runtime instances with separate keys, so their stacks cannot collide.
-`debuffName` and `cosmeticDebuffStatus` are presentation flavor only.
+`RuntimeStackingDetonation`. It is not authored and is not the detonation type
+id. Two slots using the same stacking set still compile to separate runtime
+instances with separate keys, so their stacks cannot collide. `debuffName` and
+`cosmeticDebuffStatus` are presentation flavor only.
 
 ---
 
-## Additive Supports
+## Supports
 
-Each Additive Support is a ScriptableObject with an `Apply` method that
-mutates a runtime definition copy. Supports are composable and order-independent
-unless two supports modify the same field, in which case application order
-follows slot order left to right.
+Each support derives from `SkillSupport`. `AdditiveSupport` has an `Apply`
+method that mutates a runtime definition copy. Additive supports are composable
+and order-independent unless two supports modify the same field, in which case
+application order follows slot order left to right. `ConversionSupport` can
+replace the compiled runtime shape; `StackingSupport` is the current conversion
+support and marks its set triggered-only.
 
 ```csharp
-abstract class AdditiveSupport : ScriptableObject {
+abstract class SkillSupport : ScriptableObject { }
+
+abstract class AdditiveSupport : SkillSupport {
     public abstract SkillDefinitionTags SupportedSkillTags { get; }
     public abstract void Apply(SkillDefinition def);
+}
+
+abstract class ConversionSupport : SkillSupport {
+    public abstract bool ConvertsToTriggeredOnly { get; }
+    public abstract RuntimeSkillDefinition Compile(
+        SkillDefinition definition,
+        RuntimeSkillDefinition runtime,
+        PlayerStatSnapshot snapshot);
 }
 ```
 
@@ -426,18 +437,28 @@ Compatible tags: source `Projectile`, target `Aoe`.
 
 **OnAoeHitSpawnTrigger**
 
-Fires the effect set as an AOE when the source AOE hits a target. This is the
-ordinary composition link for chaining stacking skills: the source stacking
-skill detonates, the detonation AOE hits, and that hit can spawn the next
-stacking skill's applicator.
+Fires the effect set as an AOE when the source AOE hits a target.
 
 ```csharp
 class OnAoeHitSpawnTrigger : TriggerLink { }
 ```
 
-Compatible tags: source `Aoe`, target `Aoe` or a `StackingSkill` whose
-applicator compiles to AOE.
+Compatible tags: source `Aoe`, target `Aoe`.
 
+**StackTrigger**
+
+Wires a normal applicator set to a stacking detonation set. The source is a
+plain projectile or AOE runtime definition. The effect must be a normal skill
+set with `StackingSupport`, which compiles to `RuntimeStackingDetonation`.
+At compile time the trigger stores the detonation on the applicator; at spawn
+time the applicator bakes a `StackEffectSnapshot` into its hit payload.
+
+```csharp
+class StackTrigger : TriggerLink { }
+```
+
+Compatible tags: source `Projectile` or `Aoe`, target set must have
+`StackingSupport`.
 Trigger links are also tag-validated but not blocked. A ChildSpawn trigger from
 a projectile set to an AOE set is allowed in the loadout, but no child spawn
 setup is compiled and validation returns a warning.
@@ -457,6 +478,9 @@ Current warning cases:
 - trigger link is not between two valid skill sets
 - trigger has no runtime-compatible tags
 - trigger source or target tags do not match the neighboring skill sets
+- stacking set is not the effect of a `StackTrigger`
+- `StackTrigger` targets a set without `StackingSupport`
+- stacking set is targeted by a normal trigger link
 
 ---
 
@@ -484,44 +508,48 @@ into a `RuntimeSkillDefinition` tree via `SkillSetCompiler`. Compilation
 traverses the chain graph to build the full tree. It does not run per frame.
 
 ```
-parseChains(slots) → TriggerChain[]:
+parseChains(slots) -> TriggerChain[]:
     for each SkillSetSlot at index i:
         if slots[i+1] is TriggerLinkSlot and slots[i+2] is SkillSetSlot:
             emit TriggerChain { cause=slots[i], link=slots[i+1], effect=slots[i+2] }
 
-compile(SkillSet set, allChains, snapshot) → RuntimeSkillDefinition:
+compile(SkillSet set, allChains, snapshot) -> RuntimeSkillDefinition:
     def = set.skill.Definition.DeepCopy()
     for each support in set.supports:
-        support.Apply(def)
-    runtime = BuildRuntime(def, snapshot)       // ProjectileDefinition → RuntimeProjectileDefinition, etc.
+        if support is AdditiveSupport:
+            support.Apply(def)
+    runtime = BuildRuntime(def, snapshot)       // ProjectileDefinition -> RuntimeProjectileDefinition, etc.
+    for each support in set.supports:
+        if support is ConversionSupport:
+            runtime = support.Compile(def, runtime, snapshot)
     runtime.RecoveryTime = set.skill.BaseRecoveryTime * snapshot.CastSpeedMultiplier
     for each chain in allChains where chain.cause == set:
         if chain.link is ChildSpawnTrigger:
-            compile chain.effect recursively → RuntimeProjectileDefinition
+            compile chain.effect recursively -> RuntimeProjectileDefinition
             bake RuntimeChildSpawnSetup onto runtime.ChildSpawnSetup
         if chain.link is OnImpactAoeTrigger:
-            compile chain.effect recursively → RuntimeAoeDefinition
+            compile chain.effect recursively -> RuntimeAoeDefinition
             set runtime.ImpactAoeDefinition
         if chain.link is OnAoeHitSpawnTrigger:
-            target may compile to RuntimeAoeDefinition or RuntimeStackingSkillDefinition
-            compile chain.effect recursively to its actual runtime type
-            keep RuntimeStackingSkillDefinition when that is the compiled target
-            if runtime is RuntimeAoeDefinition:
-                set runtime.OnHitAoeSpawnDefinition
-            if runtime is RuntimeStackingSkillDefinition with AOE detonation:
-                set runtime.DetonationDefinition.OnHitAoeSpawnDefinition
+            compile chain.effect recursively to RuntimeAoeDefinition
+            set runtime.OnHitAoeSpawnDefinition
+        if chain.link is StackTrigger:
+            compile chain.effect recursively to RuntimeStackingDetonation
+            set runtime.StackingDetonation
     return runtime
 
 compileLoadout(PlayerLoadout loadout):
     snapshot = PlayerStatAggregator.Aggregate(loadout)
     chains = parseChains(loadout.slots)
     effects = { chain.effect for each chain }
-    rootSets = [ slot.skillSet for each SkillSetSlot in slots if slot.skillSet not in effects ]
+    rootSets = [ slot.skillSet for each SkillSetSlot in slots
+                 if slot.skillSet not in effects
+                 and no support ConvertsToTriggeredOnly ]
     for each rootSet:
         compiledSlots[i] = compile(rootSet, chains, snapshot)
     RegisterProjectileTypes()   // walk compiled trees; call combatRoot.RegisterTemplate per unique prefab
     RegisterAoeTypes()          // walk compiled trees; call combatRoot.RegisterType per unique AoeTypeDefinition
-    AssignStackingDebuffKeys()  // mint one dedicated key per compiled stacking-skill instance
+    AssignStackingDebuffKeys()  // mint one dedicated key per compiled RuntimeStackingDetonation
 ```
 
 The compiled runtime tree feeds directly into the existing spawn request and
@@ -539,7 +567,7 @@ After compilation, `PlayerSkillDriver` recursively walks all compiled trees:
   `TypeId` is stored. `CombatRoot` deduplicates — re-registering the same reference
   returns the existing ID.
 
-- Stacking skill instances: each compiled `RuntimeStackingSkillDefinition`
+- Stacking detonations: each compiled `RuntimeStackingDetonation`
   receives a dedicated debuff key during the same registration walk if it does
   not already have one. The key is per compiled instance and separate from AOE
   type registration.
@@ -575,13 +603,15 @@ the changed set — typically two or three levels deep.
 
 ## Authoring
 
-Player-facing types only — these are the only types that appear in loadout
+Player-facing types only - these are the only types that appear in loadout
 editors, skill slot UIs, or player save data:
 
 | Type | Role |
 |---|---|
 | `Skill` | Authored baseline for one spell or attack; carries base stat fields |
+| `SkillSupport` | Base type for additive and conversion supports |
 | `AdditiveSupport` | Augments the skill in its set |
+| `StackingSupport` | Converts a normal skill set into a stack detonation |
 | `SkillSet` | One skill plus its supports |
 | `SkillSetSlot` | Slot entry wrapping a `SkillSet` in the loadout list |
 | `TriggerLinkSlot` | Slot entry wrapping a `TriggerLink` in the loadout list |
@@ -594,7 +624,7 @@ player-facing authoring surface.
 ### Asset Locations
 
 - `Assets/ScriptableObjects/Skills/`: Skill assets
-- `Assets/ScriptableObjects/Skills/Supports/`: Additive Support assets
+- `Assets/ScriptableObjects/Skills/Supports/`: Support assets
 - `Assets/ScriptableObjects/Skills/Sets/`: Skill Set assets
 
 ### Creating a Skill
@@ -604,70 +634,60 @@ player-facing authoring surface.
 3. Set `baseRecoveryTime` (cooldown in seconds before the skill can fire again).
 4. Set base behavior values (speed, damage, lifetime, etc.).
 
-### Creating a Stacking Skill
+### Creating a Stacking Detonation
 
-A Stacking Skill is one self-contained asset: an **applicator** that applies a
-private debuff on hit, and a **detonation** that fires when the debuff reaches its
-threshold. It is not wired with a generic stack trigger link — the applicator,
-debuff, and detonation all live on the one skill.
+A stacking detonation is a normal skill set plus `StackingSupport`. The skill in
+that set is the detonation effect. The support owns stack config and makes the
+set triggered-only.
 
-1. `Assets > Create > PlayGround > Skills > Stacking Skill`.
-2. **Applicator** — set `applicatorKind` (`Projectile`, `Aoe`, or `LingeringAoe`)
-   and fill the matching definition (`projectileApplicator`, `aoeApplicator`, or
-   `lingeringAoeApplicator`). This is what the player casts and what hits targets;
-   the other applicator fields are ignored.
-3. **Detonation** — set `detonationKind` (`Aoe` or `Projectile`) and fill the
-   matching definition (`aoeDetonation` or `projectileDetonation`). This is the
-   effect fired at threshold; the other detonation field is ignored.
-4. **Stack rules**:
-   - `stackThreshold` (X) — applicator hits on a target needed to detonate.
-   - `debuffLifetimeSeconds` — refreshed on every applicator hit; if it lapses
-     while still below the threshold, the partial stacks **fizzle** (no detonation).
-   - `debuffName`, `cosmeticDebuffStatus` — presentation/flavor only. They are
-     **not** the accrual key: the debuff key is minted at registration, so two
-     stacking skills can never collide and you never author the key. Reusing the
-     same asset in two slots still produces two independent debuffs.
-5. Set `baseRecoveryTime` on the skill (applicator cast cooldown).
+1. Create the detonation skill as a normal `Projectile Skill`, `AOE Skill`, or
+   `Lingering AOE Skill`.
+2. Create a `StackingSupport` and set `stackThreshold`,
+   `debuffLifetimeSeconds`, `stacksPerHit`, `debuffName`, and
+   `cosmeticDebuffStatus`.
+3. Create a `SkillSet` for the detonation skill and add the `StackingSupport`.
+4. Create a separate applicator `SkillSet`. The applicator can be any normal
+   projectile or AOE set and can be reached through any normal trigger link.
+5. Wire the applicator set to the stacking set with `StackTrigger`.
 
-**Contribution model.** With `stackThreshold = 5`, each applicator hit banks
-`1/5` of the detonation's damage (and area, for an AOE detonation), snapshotted at
-that hit. At 5 stacks the detonation fires the summed total — so stat changes mid
-build apply per stack and stay correct across support/set swaps.
+Example:
 
-**Supports apply to both halves.** Additive Supports on the set are applied to the
-applicator *and* the detonation copy. A damage support raises both the applicator's
-hit damage and each stack's banked detonation contribution.
-
-**Slotting.** Wrap the Stacking Skill in a `SkillSet` (its `skill` field) and place
-that as a `SkillSetSlot`, exactly like any other skill — as a root (player-cast)
-set or as a triggered effect.
-
-**Composing stacking skills** uses the ordinary `OnAoeHitSpawnTrigger` link, never
-the stack mechanic. The source skill's **detonation AOE**, on hit, spawns the next
-set; each stacking skill still builds and detonates independently with its own
-debuff key:
-
-```
-[SkillSetSlot: VolatileStackingAoe]
-[TriggerLinkSlot: OnAoeHitSpawn]
-[SkillSetSlot: BurningStackingAoe]
-[TriggerLinkSlot: OnAoeHitSpawn]
-[SkillSetSlot: ShockStackingAoe]
+```text
+[SkillSetSlot: SetA]
+[TriggerLinkSlot: OnImpactAoe]
+[SkillSetSlot: SetB_Applicator]
+[TriggerLinkSlot: StackTrigger]
+[SkillSetSlot: StackSet_Detonation + StackingSupport]
 ```
 
-Composition requires the source's **detonation to be an AOE** (the link's source
-tag is `Aoe`); a projectile detonation has no on-hit-spawn surface.
+The applicator remains a plain `RuntimeProjectileDefinition` or
+`RuntimeAoeDefinition`, so it still composes with `ChildSpawn`, `OnImpactAoe`,
+`OnImpactProjectile`, and `OnAoeHitSpawn`. Only `StackTrigger` consumes the
+stacking detonation runtime.
 
-> **Implementation status.** Applicator `Projectile`/`Aoe`/`LingeringAoe` and **AOE
-> detonation** are wired end to end. **Projectile detonation** is authorable but is
-> not yet spawned at threshold (tracked in `.agent/projectile-detonation/`); use an
-> AOE detonation until that work lands.
+**Contribution model.** With `stackThreshold = 5` and `stacksPerHit = 1`, each
+applicator hit banks `1/5` of the detonation's damage and area. With
+`stacksPerHit = 2`, each hit banks `2/5`. At threshold the detonation fires the
+summed total, so stat changes mid-build apply per stack and stay correct across
+support or set swaps.
 
+**Composition.** To chain after a detonation AOE, put a normal AOE trigger after
+the detonation set and then wire the next applicator to its own stacking set:
+
+```text
+[SkillSetSlot: FirstApplicator]
+[TriggerLinkSlot: StackTrigger]
+[SkillSetSlot: FirstDetonation + StackingSupport]
+[TriggerLinkSlot: OnAoeHitSpawn]
+[SkillSetSlot: SecondApplicator]
+[TriggerLinkSlot: StackTrigger]
+[SkillSetSlot: SecondDetonation + StackingSupport]
+```
 ### Creating a Skill Set
 
 1. `Assets > Create > PlayGround > Skills > Skill Set`.
 2. Assign one Skill to the `skill` field.
-3. Add Additive Supports to the `supports` array in desired order.
+3. Add Skill Supports to the `supports` array in desired order.
 
 ### Building the Slot List
 
@@ -781,20 +801,17 @@ SetC's burst radius is its own authored value, unaffected by SetA or SetB.
 ### Stacking chain
 
 ```
-Slots: [SetA: VolatileStackingAoe]
-       [OnAoeHitSpawn]
-       [SetB: BurningStackingAoe]
-       [OnAoeHitSpawn]
-       [SetC: ShockStackingAoe]
+Slots: [SetA: MagicBullet]
+       [OnImpactAoe]
+       [SetB: VolatileApplicatorAoe]
+       [StackTrigger]
+       [SetC: VolatileDetonationAoe + StackingSupport]
 ```
 
-SetA's applicator applies SetA's private stack key. At SetA's threshold,
-`StackAccrualSystem` spawns SetA's detonation using the summed contribution.
-That detonation can hit a target and spawn SetB's applicator through
-`OnAoeHitSpawn`. SetB and SetC repeat the same self-contained process with
-their own debuff keys. No generic stack trigger link or shared authored debuff
-key is involved.
-
+SetA releases SetB through a normal impact-AOE link. SetB remains a plain AOE
+applicator, but `StackTrigger` bakes SetC's stack payload into SetB at compile
+time. When SetB hits a target, `StackAccrualSystem` adds stacks under SetC's
+minted debuff key. At threshold, SetC detonates using the summed contribution.
 ---
 
 ## Set Isolation Rules
@@ -850,7 +867,7 @@ compiling (cause and effect share the same SO reference), it passes an empty cha
 for that pass to prevent an infinite loop. The effect instance produced is still fully
 independent — it just carries no outgoing trigger setup.
 
-Practical use: a stacking skill whose detonation hit spawns another compiled
-instance of the same stacking skill. The second slot has its own debuff key and
-its own compiled snapshots, so it does not share accumulator state with the
-first slot.
+Practical use: one applicator can spawn another compiled instance of the same
+applicator set through a normal trigger. If each instance points through
+`StackTrigger` to a stacking set, each compiled detonation receives its own
+debuff key and snapshots, so accumulator state stays independent.
