@@ -21,6 +21,9 @@ namespace PlayGround.Skills
             RuntimeSkillDefinition runtime = CompileDefinition(set.Skill.Definition, set.Supports, snapshot);
             if (runtime == null) return null;
 
+            if (runtime is RuntimeStackingDetonation rootStackingDetonation)
+                rootStackingDetonation.DebuffName = set.Skill.name;
+
             runtime.RecoveryTime = Mathf.Max(0.01f, set.Skill.BaseRecoveryTime * snapshot.CastSpeedMultiplier);
 
             // Adjacency is forward-only (i -> i+2); recursion terminates by strictly

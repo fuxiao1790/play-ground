@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
-using PlayGround.Mob;
 using PlayGround.Skills;
 using PlayGround.Skills.Runtime;
 using PlayGround.System.Common;
@@ -168,8 +167,6 @@ namespace PlayGround.Tests.EditMode
             SetField(stackingSupport, "stackThreshold", 4);
             SetField(stackingSupport, "debuffLifetimeSeconds", 6f);
             SetField(stackingSupport, "stacksPerHit", 2);
-            SetField(stackingSupport, "debuffName", "Volatile Charge");
-            SetField(stackingSupport, "cosmeticDebuffStatus", DebuffStatus.Shock);
             SkillSet set = CreateSkillSet("Stacking Support Set", skill, stackingSupport);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
@@ -184,9 +181,10 @@ namespace PlayGround.Tests.EditMode
             Assert.That(stacking.StackThreshold, Is.EqualTo(4));
             Assert.That(stacking.DebuffLifetimeSeconds, Is.EqualTo(6f).Within(0.0001f));
             Assert.That(stacking.StacksPerHit, Is.EqualTo(2));
-            Assert.That(stacking.DebuffName, Is.EqualTo("Volatile Charge"));
-            Assert.That(stacking.CosmeticDebuffStatus, Is.EqualTo(DebuffStatus.Shock));
+            Assert.That(stacking.DebuffName, Is.EqualTo("AOE Skill"));
             Assert.That(stacking.DebuffKey, Is.EqualTo(-1));
+            Assert.That(typeof(StackingSupport).GetField("debuffName", BindingFlags.Instance | BindingFlags.NonPublic), Is.Null);
+            Assert.That(typeof(StackingSupport).GetField("cosmeticDebuffStatus", BindingFlags.Instance | BindingFlags.NonPublic), Is.Null);
         }
 
         [Test]

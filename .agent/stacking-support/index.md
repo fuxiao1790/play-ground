@@ -57,6 +57,11 @@ reopen the original mid-game objection.
 - Triggered-only via a `ConversionSupport.ConvertsToTriggeredOnly` flag read by
   root detection — not a new `SkillDefinitionTags` value (equivalent, simpler).
 - Debuff key minted per `RuntimeStackingDetonation` instance (per stacking-set slot).
+- **No authored name/cosmetics on the support.** It is pure accumulation config
+  (threshold/lifetime/stacks-per-hit) + the triggered-only flag, so one asset is reusable on
+  every stacking skill — never cloned to vary a label. The cosmetic name is **derived by the
+  compiler from the linked skill's SO name**; visual flavor comes from the detonation skill's
+  own VFX. Accrual identity is the minted key, independent of any name.
 
 ## Ownership / phases
 

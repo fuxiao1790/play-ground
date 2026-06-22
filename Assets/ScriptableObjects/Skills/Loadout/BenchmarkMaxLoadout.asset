@@ -86,7 +86,7 @@ MonoBehaviour:
     - rid: 3401311983142961232
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
-        skillSet: {fileID: 11400000, guid: c2000000000000000000000000000004, type: 2}
+        skillSet: {fileID: 11400000, guid: c2000000000000000000000000000001, type: 2}
     - rid: 9
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
@@ -118,7 +118,7 @@ MonoBehaviour:
     - rid: 3401311983142961234
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
-        skillSet: {fileID: 11400000, guid: c2000000000000000000000000000005, type: 2}
+        skillSet: {fileID: 11400000, guid: c2000000000000000000000000000001, type: 2}
     - rid: 17
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
@@ -150,7 +150,7 @@ MonoBehaviour:
     - rid: 3401311983142961236
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
-        skillSet: {fileID: 11400000, guid: c2000000000000000000000000000006, type: 2}
+        skillSet: {fileID: 11400000, guid: c2000000000000000000000000000001, type: 2}
     - rid: 25
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
@@ -182,7 +182,7 @@ MonoBehaviour:
     - rid: 3401311983142961238
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
-        skillSet: {fileID: 11400000, guid: c2000000000000000000000000000007, type: 2}
+        skillSet: {fileID: 11400000, guid: c2000000000000000000000000000001, type: 2}
     - rid: 33
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
@@ -206,4 +206,4 @@ MonoBehaviour:
     - rid: 3401311983142961240
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
-        skillSet: {fileID: 11400000, guid: c2000000000000000000000000000003, type: 2}
+        skillSet: {fileID: 11400000, guid: c2000000000000000000000000000002, type: 2}

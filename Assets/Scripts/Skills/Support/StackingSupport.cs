@@ -1,4 +1,3 @@
-using PlayGround.Mob;
 using PlayGround.Skills.Runtime;
 using UnityEngine;
 
@@ -10,14 +9,10 @@ namespace PlayGround.Skills
         [SerializeField, Min(1)] private int stackThreshold = 3;
         [SerializeField, Min(0f)] private float debuffLifetimeSeconds = 4f;
         [SerializeField, Min(1)] private int stacksPerHit = 1;
-        [SerializeField] private string debuffName;
-        [SerializeField] private DebuffStatus cosmeticDebuffStatus = DebuffStatus.Volatile;
 
         public int StackThreshold => stackThreshold;
         public float DebuffLifetimeSeconds => debuffLifetimeSeconds;
         public int StacksPerHit => stacksPerHit;
-        public string DebuffName => debuffName;
-        public DebuffStatus CosmeticDebuffStatus => cosmeticDebuffStatus;
 
         public override bool ConvertsToTriggeredOnly => true;
 
@@ -35,8 +30,6 @@ namespace PlayGround.Skills
                 StackThreshold = Mathf.Max(1, stackThreshold),
                 DebuffLifetimeSeconds = Mathf.Max(0f, debuffLifetimeSeconds),
                 StacksPerHit = Mathf.Max(1, stacksPerHit),
-                DebuffName = debuffName,
-                CosmeticDebuffStatus = cosmeticDebuffStatus,
             };
         }
     }

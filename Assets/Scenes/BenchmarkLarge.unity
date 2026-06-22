@@ -417,7 +417,7 @@ PrefabInstance:
     - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: loadout
       value: 
-      objectReference: {fileID: 11400000, guid: a3000000000000000000000000000008, type: 2}
+      objectReference: {fileID: 11400000, guid: 80c15e5222e6d3142a4b53bc95dd7576, type: 2}
     - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: vfxRoot
       value: 

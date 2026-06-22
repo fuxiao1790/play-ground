@@ -8,8 +8,9 @@ set that carries it. The set's own skill is the detonation; the support is the d
 
 ## Ownership / data flow
 - `StackingSupport : ConversionSupport`:
-  - config: `stackThreshold`, `debuffLifetimeSeconds`, `stacksPerHit`,
-    `debuffName`, `cosmeticDebuffStatus`.
+  - config: `stackThreshold`, `debuffLifetimeSeconds`, `stacksPerHit` only —
+    **no authored name**. One support asset is reusable across every stacking skill;
+    you never clone it just to vary a label.
   - `ConvertsToTriggeredOnly => true`.
 - `RuntimeStackingDetonation : RuntimeSkillDefinition`:
   `{ RuntimeSkillDefinition Detonation; int StackThreshold; float DebuffLifetimeSeconds;
@@ -18,6 +19,10 @@ set that carries it. The set's own skill is the detonation; the support is the d
   into the detonation runtime (`RuntimeAoe`/`RuntimeProjectile`), then wrap it in a
   `RuntimeStackingDetonation` carrying the support's config. Additive supports in the
   same set still apply to the detonation skill.
+- **Cosmetic name is derived, not authored.** The compiler sets the detonation's display
+  name from the linked stacking set's skill (its SO name) — so a shared support never
+  forces per-skill copies. Accrual identity remains the minted `DebuffKey`, independent of
+  any name; the derived name is for UI/VFX/debug only.
 - Registration walk ([PlayerSkillDriver](Assets/Scripts/Skills/PlayerSkillDriver.cs#L184)):
   register the detonation effect's type, and **mint a dedicated `DebuffKey`** per
   `RuntimeStackingDetonation` instance (monotonic, never reset — separate from the
