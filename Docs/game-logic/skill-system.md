@@ -267,17 +267,16 @@ keeps the set out of player-cast roots. The applicator is not bundled into this
 set; it is any normal projectile or AOE set wired to the stacking set by a
 `StackTrigger` link.
 
-On each applicator hit, ECS enqueues one applied-stack payload containing the
-registration-derived debuff key, the stack contribution, threshold, lifetime
-refresh, and detonation snapshot. `StackAccrualSystem` is the only writer of
-target stack state. It sums contributions per target and debuff key, refreshes
-lifetime on each stack, detonates at threshold, and removes expired
-below-threshold entries with no detonation.
+On each applicator hit, ECS writes one target-bucketed hit payload containing
+the registration-derived debuff key, the stack contribution, threshold,
+lifetime refresh, and detonation snapshot. `HitApplyFinalizeSystem` owns stack
+accrual into each target proxy's `TargetStackEntry` buffer. `StatusProcessSystem`
+then owns tick, fizzle, and threshold detonation processing.
 
 Detonation supports AOE and projectile outputs. A projectile detonation is a
 nova from the target point and reuses the existing AOE projectile-burst spawn
 path: the compiled detonation carries an `AoeProjectileBurstSnapshot`, and
-`StackAccrualSystem` emits a `ProjectileSpawnEvent` for
+`StatusProcessSystem` emits a `ProjectileSpawnEvent` for
 `ProjectileSpawnExpansionSystem`. `SummedProjectileCount` becomes the nova
 count. `SummedDamage` is treated as total nova damage and is split across the
 spawned projectiles.
@@ -810,8 +809,9 @@ Slots: [SetA: MagicBullet]
 
 SetA releases SetB through a normal impact-AOE link. SetB remains a plain AOE
 applicator, but `StackTrigger` bakes SetC's stack payload into SetB at compile
-time. When SetB hits a target, `StackAccrualSystem` adds stacks under SetC's
-minted debuff key. At threshold, SetC detonates using the summed contribution.
+time. When SetB hits a target, `HitApplyFinalizeSystem` adds stacks under SetC's
+minted debuff key. `StatusProcessSystem` handles the threshold detonation using
+the summed contribution.
 ---
 
 ## Set Isolation Rules

@@ -281,11 +281,12 @@ Per-frame combat work is explicit in ECS systems and actor roots:
   `CombatRoot` by `CombatFaction` and submits batched render instances through
   tag-scoped queries (`ProjectileTag`/`AoeTag`), pulling render resources from
   the root's registry.
-- `DamageFinalizeSystem` (`SimulationSystemGroup`) freezes
-  `DamageReplayEvent` values after collision and before spawn expansion.
-- `DamageDispatchBridge` (`PresentationSystemGroup`) is the only reader of
-  managed `TargetCompanion` references and replays grouped hits into
-  `ICombatTarget.ReceiveHits`.
+- `HitApplyFinalizeSystem` (`SimulationSystemGroup`) freezes target-bucketed
+  `CombatHitEvent` values after collision and before spawn expansion.
+- `HitApplyBridge` (`PresentationSystemGroup`) is the only reader of managed
+  `TargetCompanion` references and replays grouped hits into
+  `ICombatTarget.ReceiveHits`, followed by status snapshots when stack state
+  changed.
 - `CombatVfxDispatchSystem` (`PresentationSystemGroup`) resolves each scope's
   `CombatVfxRoot` by static int key and drains/dispatches VFX requests.
 
@@ -295,62 +296,55 @@ owners only; presentation timing is explicit system-group ordering instead of
 scene-object callback timing; GPU resource ownership stays with whichever
 root/dispatcher created the `GraphicsBuffer`/`Material`/`Mesh`.
 
-Remaining open question: damage is grouped by target at dispatch, but the data
-crossing into `DamageDispatchBridge` is still one `DamageReplayEvent` per
-qualifying hit rather than a pre-aggregated per-target damage result.
+Remaining open question: hits are grouped by target before dispatch, but the
+data crossing into the managed bridge is still one `CombatHitData` per
+qualifying hit rather than a condensed per-target damage result.
 
 ### Known Design Issues: Collision Event Dispatch
 
-Current projectile and AOE collision systems emit one replayable hit event for
-each hit. That means the MonoBehaviour-side replay cost grows with projectile
-and AOE collision count. This is the wrong scale boundary for plain damage:
-projectile and AOE counts can be huge, while player/mob target count is expected
-to stay comparatively small.
+Current projectile and AOE collision systems write one `CombatHitEvent` per hit
+into a target-bucketed native map. The bucket key is the target proxy entity, so
+per-target grouping is available without sorting. This removed the old
+single-threaded drain/sort bottleneck, but it intentionally does not condense
+multiple hits into one damage aggregate yet.
 
-Problems:
+Implemented shape:
 
-- Plain damage application is dispatched as `O(hit events)`, which can approach
-  `O(projectiles + AOEs)` in dense frames.
-- The low-count target side should receive compact per-target results, not one
-  callback per projectile/AOE contact when no per-hit gameplay side effect is
-  needed.
-- Direct damage, crit rolling, and some stack/gate bookkeeping are still replay
-  responsibilities on the MonoBehaviour side.
-- The same event stream carries two different meanings: high-volume damage
-  accumulation and lower-volume semantic side effects such as impact AOE,
-  projectile burst, or stack-triggered follow-up gameplay.
+- Collision jobs write hits through a parallel map writer.
+- `HitApplyFinalizeSystem` completes producers, iterates unique target keys in a
+  parallel job, rolls crits with deterministic `Unity.Mathematics.Random`, and
+  freezes rolled hit slices for the presentation bridge.
+- Stack accrual happens in the same finalize job against each target proxy's
+  `TargetStackEntry` buffer. Each target key is owned by one job index, so buffer
+  writes do not alias.
+- `StatusProcessSystem` runs after finalize and before spawn expansion. It
+  processes target stack buffers in parallel, decays/fizzles entries, and queues
+  threshold AOE or projectile detonations for same-frame expansion.
+- `HitApplyBridge` keeps the managed push on the main thread. It resolves
+  `TargetCompanion`, calls `ICombatTarget.ReceiveHits`, and only calls
+  `ReceiveStatus` for targets whose stack state changed during finalize.
+- ECS still never reads target HP, clamps damage, or decides death. Actor roots
+  remain the final authority for health, death, and GameObject lifetime.
 
-Target direction:
+Still intentionally not done:
 
-- Move damage accumulation into ECS before crossing back to scene objects.
-- Aggregate direct damage by target id and scope, so the boundary cost is closer
-  to `O(hit targets)` for plain damage.
-- Keep per-hit replay events only for effects that truly require per-hit
-  semantics, such as impact AOEs, impact projectile bursts, unique source-node
-  callbacks, or stack-trigger behavior that cannot yet be aggregated.
-- Split buffers by meaning:
-  - damage aggregates for direct health changes
-  - side-effect hit events for follow-up gameplay
-  - VFX spawn requests for visual-only work
-- Prefer ECS-side deterministic random state for crit rolls if crit results are
-  aggregated before replay. Do not depend on `UnityEngine.Random` inside a large
-  Mono replay loop.
-- If stack effects become high-volume, mirror enough target status state into
-  ECS to aggregate stack increments and threshold triggers by target instead of
-  replaying every stack application through MonoBehaviours.
+- Direct damage is not aggregated or condensed. A frame with N qualifying hits
+  on one target still produces N `CombatHitData` entries.
+- Per-hit semantics are preserved for crit results, source metadata, status
+  accrual inputs, and authored follow-up behavior.
+- The managed boundary cost is reduced by deleting sorts and pushing grouped
+  target slices, not by reducing hit count.
+- Debug counters still need clearer separation between raw collision hits,
+  rolled hit replay, status changes, detonation spawns, and VFX requests.
+
+Future target direction:
+
+- Add a separate condensed damage path only when gameplay can prove that the
+  per-hit data is unnecessary for that target/scope.
+- Keep side-effect and VFX paths split from direct health aggregation.
 - Preserve the hybrid boundary: final health/status mutation can still be
-  applied to low-count actor roots, but the data crossing that boundary should
-  already be compact.
-
-Acceptance shape:
-
-- A frame with many plain projectile/AOE hits against a small mob set should
-  produce at most one direct-damage application per target per combat scope,
-  plus only the side-effect events that are actually authored.
-- Projectile and AOE collision systems should not require MonoBehaviour replay
-  to know whether plain damage occurred.
-- Debug counters should distinguish raw collision hits, aggregated damage
-  applications, side-effect replay events, and VFX requests.
+  applied to low-count actor roots, but plain damage should eventually cross as
+  compact per-target results when no per-hit behavior is authored.
 
 ---
 

@@ -332,6 +332,65 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void HitApplyPreservesEveryHitForOneTarget()
+        {
+            AddTarget(float2.zero, 0.25f, 1);
+            TestCombatTarget target = targetsById[nextTargetId];
+
+            QueueDirectHit(target.Proxy, 1f);
+            QueueDirectHit(target.Proxy, 2f);
+            QueueDirectHit(target.Proxy, 3f);
+
+            TickStatusPipelineOnly(0f);
+            presentationGroup.Update();
+
+            Assert.That(target.Hits, Has.Count.EqualTo(3));
+            Assert.That(SummedHitDamage(target.Hits), Is.EqualTo(6f).Within(0.0001f));
+        }
+
+        [Test]
+        public void EcsCritRollsAreDeterministicForSameSeedInputs()
+        {
+            AddTarget(float2.zero, 0.25f, 1);
+            TestCombatTarget target = targetsById[nextTargetId];
+
+            QueueDirectHit(target.Proxy, 10f, critChance: 0.5f, critMultiplier: 2f);
+            TickStatusPipelineOnly(0f);
+            presentationGroup.Update();
+
+            DamageSnapshot first = target.Hits[0].Damage;
+
+            QueueDirectHit(target.Proxy, 10f, critChance: 0.5f, critMultiplier: 2f);
+            TickStatusPipelineOnly(0f);
+            presentationGroup.Update();
+
+            DamageSnapshot second = target.Hits[1].Damage;
+            Assert.That(second.IsCrit, Is.EqualTo(first.IsCrit));
+            Assert.That(second.Amount, Is.EqualTo(first.Amount).Within(0.0001f));
+        }
+
+        [Test]
+        public void EcsPushesLethalOverkillAndTargetOwnsHealthClamp()
+        {
+            AddTarget(float2.zero, 0.25f, 1);
+            TestCombatTarget target = targetsById[nextTargetId];
+            target.Health = 5f;
+            target.ClampHealthOnHit = true;
+
+            QueueDirectHit(target.Proxy, 7f);
+            QueueDirectHit(target.Proxy, 9f);
+
+            TickStatusPipelineOnly(0f);
+            presentationGroup.Update();
+
+            Assert.That(target.Hits, Has.Count.EqualTo(2));
+            Assert.That(target.LastPreClampHealth, Is.LessThan(0f));
+            Assert.That(target.Health, Is.EqualTo(0f).Within(0.0001f));
+            Assert.That(target.IsCombatTargetActive, Is.False);
+            Assert.That(entityManager.Exists(target.Proxy), Is.True);
+        }
+
+        [Test]
         public void ProxyDeletionSafety_TargetCanDieDuringDispatchBeforeProxyDelete()
         {
             int targetId = ++nextTargetId;
@@ -489,6 +548,88 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(TryReadStackEntry(target.Proxy, 102, out _), Is.False);
             Assert.That(detonation.HitPayload.DamageAmount, Is.EqualTo(18f).Within(0.0001f));
             Assert.That(detonation.AreaSize, Is.EqualTo(6f).Within(0.0001f));
+        }
+
+        [Test]
+        public void StatusProcessAoeDetonationPreservesGeometryAndDamage()
+        {
+            AddTarget(new float2(3f, -2f), 0.25f, 1);
+            TestCombatTarget target = targetsById[nextTargetId];
+            AoeSpawnGeometry geometry = new(
+                2f,
+                CombatShapeType.Rectangle,
+                2f,
+                new Vector2(1f, 0.5f),
+                0.25f,
+                new Vector2(0.5f, 0.25f),
+                15f);
+
+            QueueStackHit(target.Proxy, StackEffect(
+                debuffKey: 104,
+                threshold: 2,
+                lifetime: 10f,
+                damage: 4f,
+                area: 2f,
+                detonationTypeId: 77,
+                next: default,
+                geometry: geometry,
+                lifetimeSeconds: 0.5f,
+                tickIntervalSeconds: 0.125f));
+            QueueStackHit(target.Proxy, StackEffect(
+                debuffKey: 104,
+                threshold: 2,
+                lifetime: 10f,
+                damage: 6f,
+                area: 4f,
+                detonationTypeId: 77,
+                next: default,
+                geometry: geometry,
+                lifetimeSeconds: 0.5f,
+                tickIntervalSeconds: 0.125f));
+
+            TickStatusPipelineOnly(0f);
+
+            AoeSpawnEvent detonation = DequeueSingleAoeEvent();
+            Assert.That(detonation.TypeId, Is.EqualTo(77));
+            Assert.That(detonation.Position.x, Is.EqualTo(3f).Within(0.0001f));
+            Assert.That(detonation.Position.y, Is.EqualTo(-2f).Within(0.0001f));
+            Assert.That(detonation.HitPayload.DamageAmount, Is.EqualTo(10f).Within(0.0001f));
+            Assert.That(detonation.AreaSize, Is.EqualTo(6f).Within(0.0001f));
+            Assert.That(detonation.Radius, Is.EqualTo(6f).Within(0.0001f));
+            Assert.That(detonation.HalfExtents.x, Is.EqualTo(3f).Within(0.0001f));
+            Assert.That(detonation.HalfExtents.y, Is.EqualTo(1.5f).Within(0.0001f));
+            Assert.That(detonation.Lifetime, Is.EqualTo(0.5f).Within(0.0001f));
+            Assert.That(detonation.RepeatHitCooldownSeconds, Is.EqualTo(0.125f).Within(0.0001f));
+        }
+
+        [Test]
+        public void StatusPushFiresOnlyWhenStackChanges()
+        {
+            AddTarget(float2.zero, 0.25f, 1);
+            TestCombatTarget target = targetsById[nextTargetId];
+
+            QueueStackHit(target.Proxy, StackEffect(
+                debuffKey: 105,
+                threshold: 3,
+                lifetime: 5f,
+                damage: 2f,
+                area: 1f,
+                detonationTypeId: 7,
+                next: default));
+
+            TickStatusPipelineOnly(0f);
+            presentationGroup.Update();
+
+            Assert.That(target.StatusPushCount, Is.EqualTo(1));
+            Assert.That(target.StatusSnapshots, Has.Count.EqualTo(1));
+            Assert.That(target.StatusSnapshots[0].DebuffKey, Is.EqualTo(105));
+            Assert.That(target.StatusSnapshots[0].Count, Is.EqualTo(1));
+            Assert.That(target.StatusSnapshots[0].LifetimeRemaining, Is.EqualTo(5f).Within(0.0001f));
+
+            TickStatusPipelineOnly(0.25f);
+            presentationGroup.Update();
+
+            Assert.That(target.StatusPushCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -675,6 +816,17 @@ namespace PlayGround.Tests.PlayMode
             return count;
         }
 
+        private static float SummedHitDamage(IReadOnlyList<CombatHitData> hits)
+        {
+            float total = 0f;
+            for (int i = 0; i < hits.Count; i++)
+            {
+                total += hits[i].Damage.Amount;
+            }
+
+            return total;
+        }
+
         private void WriteTargetProxy(TestCombatTarget target)
         {
             float2 min = target.Position - target.Radius;
@@ -780,6 +932,24 @@ namespace PlayGround.Tests.PlayMode
             });
         }
 
+        private void QueueDirectHit(
+            Entity target,
+            float damage,
+            float critChance = 0f,
+            float critMultiplier = 1f)
+        {
+            NativeParallelMultiHashMap<Entity, CombatHitEvent> hitMap = HitMap();
+            hitMap.Add(target, new CombatHitEvent
+            {
+                Kind = CombatHitKind.Aoe,
+                DamageAmount = damage,
+                CritChance = critChance,
+                CritMultiplier = critMultiplier,
+                DirectDamageEnabled = true,
+                HitPosition = float2.zero
+            });
+        }
+
         private StackEffectSnapshot StackEffect(
             int debuffKey,
             int threshold,
@@ -787,8 +957,16 @@ namespace PlayGround.Tests.PlayMode
             float damage,
             float area,
             int detonationTypeId,
-            AoeOnHitSpawnSnapshot next)
+            AoeOnHitSpawnSnapshot next,
+            AoeSpawnGeometry geometry = default,
+            float lifetimeSeconds = 0f,
+            float tickIntervalSeconds = 0f)
         {
+            if (geometry.AreaSize <= 0f)
+            {
+                geometry = UnitAoeGeometry();
+            }
+
             return new StackEffectSnapshot
             {
                 DebuffKey = debuffKey,
@@ -805,7 +983,9 @@ namespace PlayGround.Tests.PlayMode
                     Faction = CombatFaction.Player,
                     TargetMask = ~0,
                     TypeId = detonationTypeId,
-                    AoeGeometry = UnitAoeGeometry(),
+                    LifetimeSeconds = lifetimeSeconds,
+                    TickIntervalSeconds = tickIntervalSeconds,
+                    AoeGeometry = geometry,
                     CritMultiplier = 1.5f,
                     AoeOnHitSpawn = next
                 }
@@ -1027,6 +1207,12 @@ namespace PlayGround.Tests.PlayMode
             public float Radius { get; set; }
             public int Mask { get; set; }
             public int HitCount { get; private set; }
+            public List<CombatHitData> Hits { get; } = new();
+            public List<StatusStackSnapshot> StatusSnapshots { get; } = new();
+            public int StatusPushCount { get; private set; }
+            public bool ClampHealthOnHit { get; set; }
+            public float Health { get; set; } = 100f;
+            public float LastPreClampHealth { get; private set; }
             public bool Active { get; private set; } = true;
             public bool DeactivateOnHit { get; set; }
             public int TargetId { get; }
@@ -1045,9 +1231,30 @@ namespace PlayGround.Tests.PlayMode
             public void ReceiveHit(in CombatHitData hit)
             {
                 HitCount++;
+                Hits.Add(hit);
+                if (ClampHealthOnHit && hit.DirectDamageEnabled)
+                {
+                    LastPreClampHealth = Health - hit.Damage.Amount;
+                    Health = Mathf.Max(0f, LastPreClampHealth);
+                    if (Health <= 0f)
+                    {
+                        Active = false;
+                    }
+                }
+
                 if (DeactivateOnHit)
                 {
                     Active = false;
+                }
+            }
+
+            public void ReceiveStatus(IReadOnlyList<StatusStackSnapshot> stacks)
+            {
+                StatusPushCount++;
+                StatusSnapshots.Clear();
+                for (int i = 0; i < stacks.Count; i++)
+                {
+                    StatusSnapshots.Add(stacks[i]);
                 }
             }
         }
