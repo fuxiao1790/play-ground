@@ -407,4 +407,20 @@ namespace PlayGround.System.Common
         public int SourceId;
         public int TypeId;
     }
+
+    // ECS Lifecycle: transient native hit payload; not added to entities; bucketed by target proxy during collision,
+    // frozen by HitApplyFinalizeSystem, and replayed by HitApplyBridge.
+    public struct CombatHitEvent
+    {
+        public CombatHitKind Kind;
+        public float DamageAmount;
+        public float CritChance;
+        public float CritMultiplier;
+        public bool DirectDamageEnabled;
+        public float2 HitPosition;
+        public EntityId SourceNodeId;
+        public int SourceId;
+        public int TypeId;
+        public StackEffectSnapshot StackEffect;
+    }
 }
