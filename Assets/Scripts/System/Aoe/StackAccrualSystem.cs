@@ -8,6 +8,8 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Profiling;
 
+//todo: this type is no longer specific to aoe, move this out
+//todo: implementation needs to be investigated and reconsidered.
 namespace PlayGround.System.Aoe
 {
     // ECS Lifecycle: transient stack intent; enqueued by applicator collision jobs, drained by StackAccrualSystem in the same simulation frame.

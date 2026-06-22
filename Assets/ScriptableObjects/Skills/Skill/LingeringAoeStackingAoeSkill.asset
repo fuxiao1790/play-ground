@@ -19,5 +19,5 @@ MonoBehaviour:
     count: 1
     directDamageEnabled: 1
     prefab: {fileID: 1037899157007725660, guid: e4b99e89657a29846b967bfd8cb4e1ee, type: 3}
-    lifetimeSeconds: 4.5
+    lifetimeSeconds: 2.4
     tickIntervalSeconds: 0.2

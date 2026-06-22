@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000005, type: 3}
-  m_Name: LingeringAoeStackingAoeSkillSet
+  m_Name: StackingLingeringAoeSkillSet
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillSet
   skill: {fileID: 11400000, guid: b1000000000000000000000000000009, type: 2}
   supports:
