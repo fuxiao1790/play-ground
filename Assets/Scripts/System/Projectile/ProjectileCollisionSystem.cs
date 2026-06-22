@@ -87,7 +87,6 @@ namespace PlayGround.System.Projectile
 
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
-            var stackAccrual = state.World.GetExistingSystemManaged<StackAccrualSystem>();
             var hitApply = state.World.GetExistingSystemManaged<HitApplyFinalizeSystem>();
             var vfxPending = new NativeStream(activeProjectileCount, Allocator.TempJob);
             var job = new ProjectileCollisionJob
@@ -108,11 +107,7 @@ namespace PlayGround.System.Projectile
                     : default,
                 AoeEventWriter = aoeExpansion != null
                     ? aoeExpansion.EventQueue.AsParallelWriter()
-                    : default,
-                StackApplyWriter = stackAccrual != null
-                    ? stackAccrual.EventQueue.AsParallelWriter()
-                    : default,
-                HasStackApplyWriter = stackAccrual != null && stackAccrual.EventQueue.IsCreated
+                    : default
             };
 
             var collisionHandle = job.ScheduleParallel(state.Dependency);
@@ -126,9 +121,6 @@ namespace PlayGround.System.Projectile
             if (aoeExpansion != null)
                 aoeExpansion.ProducerHandle =
                     JobHandle.CombineDependencies(aoeExpansion.ProducerHandle, collisionHandle);
-            if (stackAccrual != null)
-                stackAccrual.ProducerHandle =
-                    JobHandle.CombineDependencies(stackAccrual.ProducerHandle, collisionHandle);
             if (hitApply != null)
                 hitApply.ProducerHandle =
                     JobHandle.CombineDependencies(hitApply.ProducerHandle, collisionHandle);
@@ -169,8 +161,6 @@ namespace PlayGround.System.Projectile
             public NativeStream.Writer VfxPending;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public NativeQueue<AoeSpawnEvent>.ParallelWriter AoeEventWriter;
-            public NativeQueue<StackApplyEvent>.ParallelWriter StackApplyWriter;
-            public bool HasStackApplyWriter;
 
             private void Execute(
                 [EntityIndexInQuery] int entityIndexInQuery,
@@ -273,7 +263,7 @@ namespace PlayGround.System.Projectile
                                 continue;
                             }
 
-                            if (HasHitWriter && HasDamageEvent(projectileHit.HitPayload))
+                            if (HasHitWriter && HasHitEvent(projectileHit.HitPayload))
                             {
                                 HitWriter.Add(targetEntity, new CombatHitEvent
                                 {
@@ -285,7 +275,8 @@ namespace PlayGround.System.Projectile
                                     DirectDamageEnabled = projectileHit.HitPayload.DirectDamageEnabled,
                                     SourceNodeId = projectileHit.HitPayload.SourceNodeId,
                                     SourceId = identity.ProjectileId,
-                                    TypeId = identity.TypeId
+                                    TypeId = identity.TypeId,
+                                    StackEffect = projectileHit.HitPayload.StackEffect
                                 });
                             }
 
@@ -303,20 +294,6 @@ namespace PlayGround.System.Projectile
                                     identity.Faction, identity.ProjectileId, identity.TypeId, targetKey,
                                     kinematics.Position, projectileHit.HitPayload.SourceNodeId,
                                     projectileHit.HitPayload.ImpactAoe));
-                            }
-
-                            if (HasStackApplyWriter && projectileHit.HitPayload.StackEffect.Enabled)
-                            {
-                                StackEffectSnapshot stackEffect = projectileHit.HitPayload.StackEffect;
-                                StackApplyWriter.Enqueue(new StackApplyEvent
-                                {
-                                    TargetProxy = targetEntity,
-                                    DebuffKey = stackEffect.DebuffKey,
-                                    Threshold = stackEffect.Threshold,
-                                    Lifetime = stackEffect.Lifetime,
-                                    Contribution = stackEffect.Contribution,
-                                    Detonation = stackEffect.Detonation
-                                });
                             }
 
                             vfxPending.Write(new VfxPendingSpawn
@@ -416,8 +393,8 @@ namespace PlayGround.System.Projectile
                 });
             }
 
-            private static bool HasDamageEvent(in ProjectileHitPayload payload) =>
-                payload.DirectDamageEnabled;
+            private static bool HasHitEvent(in ProjectileHitPayload payload) =>
+                payload.DirectDamageEnabled || payload.StackEffect.Enabled;
 
             private static int TargetKey(Entity entity)
             {

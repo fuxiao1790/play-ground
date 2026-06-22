@@ -16,7 +16,7 @@ namespace PlayGround.System.Aoe
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
     [UpdateAfter(typeof(PlayGround.System.Projectile.ProjectileCollisionSystem))]
-    [UpdateAfter(typeof(HitApplyFinalizeSystem))]
+    [UpdateAfter(typeof(StatusProcessSystem))]
     [UpdateBefore(typeof(AoeSpawnApplySystem))]
     [UpdateBefore(typeof(PlayGround.System.Projectile.BasicProjectileSpawnApplySystem))]
     [UpdateBefore(typeof(PlayGround.System.Projectile.ChildSpawnerProjectileSpawnApplySystem))]
@@ -29,7 +29,7 @@ namespace PlayGround.System.Aoe
         internal JobHandle PendingHandle;
 
         // Combined handle of every producer job that wrote EventQueue this frame
-        // (ProjectileCollisionSystem, StackAccrualSystem). Producers run before this system in the order graph
+        // (ProjectileCollisionSystem, StatusProcessSystem). Producers run before this system in the order graph
         // but their write jobs are async; ECS does not track the queue, so this system must
         // complete them itself before reading the queue on the main thread. Reset each frame.
         internal JobHandle ProducerHandle;

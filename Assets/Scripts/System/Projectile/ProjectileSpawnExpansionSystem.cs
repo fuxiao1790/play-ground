@@ -16,7 +16,7 @@ namespace PlayGround.System.Projectile
     [UpdateAfter(typeof(TimedProjectileSpawnSystem))]
     [UpdateAfter(typeof(ProjectileCollisionSystem))]
     [UpdateAfter(typeof(PlayGround.System.Aoe.ImpactAoeCollisionSystem))]
-    [UpdateAfter(typeof(HitApplyFinalizeSystem))]
+    [UpdateAfter(typeof(StatusProcessSystem))]
     [UpdateBefore(typeof(BasicProjectileSpawnApplySystem))]
     [UpdateBefore(typeof(ChildSpawnerProjectileSpawnApplySystem))]
     [UpdateBefore(typeof(PlayGround.System.Aoe.AoeSpawnApplySystem))]

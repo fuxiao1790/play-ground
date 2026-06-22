@@ -83,7 +83,6 @@ namespace PlayGround.System.Aoe
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
             var hitApply = state.World.GetExistingSystemManaged<HitApplyFinalizeSystem>();
-            var stackAccrual = state.World.GetExistingSystemManaged<StackAccrualSystem>();
             var vfxPending = new NativeStream(impactAoeCount, Allocator.TempJob);
 
             var job = new ImpactAoeCollisionJob
@@ -103,11 +102,7 @@ namespace PlayGround.System.Aoe
                 AoeEventWriter = aoeExpansion != null
                     ? aoeExpansion.EventQueue.AsParallelWriter()
                     : default,
-                HasAoeEventWriter = aoeExpansion != null && aoeExpansion.EventQueue.IsCreated,
-                StackApplyWriter = stackAccrual != null
-                    ? stackAccrual.EventQueue.AsParallelWriter()
-                    : default,
-                HasStackApplyWriter = stackAccrual != null && stackAccrual.EventQueue.IsCreated
+                HasAoeEventWriter = aoeExpansion != null && aoeExpansion.EventQueue.IsCreated
             };
 
             // Pass impactAoeQuery explicitly so [EntityIndexInQuery] stays in [0, impactAoeCount)
@@ -123,9 +118,6 @@ namespace PlayGround.System.Aoe
             if (hitApply != null)
                 hitApply.ProducerHandle =
                     JobHandle.CombineDependencies(hitApply.ProducerHandle, collisionHandle);
-            if (stackAccrual != null)
-                stackAccrual.ProducerHandle =
-                    JobHandle.CombineDependencies(stackAccrual.ProducerHandle, collisionHandle);
 
             var vfxFlushHandle = new VfxStreamFlushJob
             {
@@ -161,8 +153,6 @@ namespace PlayGround.System.Aoe
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public NativeQueue<AoeSpawnEvent>.ParallelWriter AoeEventWriter;
             public bool HasAoeEventWriter;
-            public NativeQueue<StackApplyEvent>.ParallelWriter StackApplyWriter;
-            public bool HasStackApplyWriter;
 
             private void Execute(
                 [EntityIndexInQuery] int entityIndexInQuery,
@@ -200,9 +190,7 @@ namespace PlayGround.System.Aoe
                     VfxPending,
                     ProjectileEventWriter,
                     AoeEventWriter,
-                    HasAoeEventWriter,
-                    StackApplyWriter,
-                    HasStackApplyWriter);
+                    HasAoeEventWriter);
             }
         }
     }

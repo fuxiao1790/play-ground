@@ -11,7 +11,6 @@ using Unity.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.TestTools;
 
 namespace PlayGround.Tests.PlayMode
 {
@@ -23,7 +22,8 @@ namespace PlayGround.Tests.PlayMode
         private PresentationSystemGroup presentationGroup;
         private AoeSpawnExpansionSystem aoeExpansion;
         private ProjectileSpawnExpansionSystem projectileExpansion;
-        private StackAccrualSystem stackAccrual;
+        private HitApplyFinalizeSystem hitApply;
+        private StatusProcessSystem statusProcess;
         private Entity scopeEntity;
         private double elapsedTime;
         private int nextAoeId;
@@ -39,7 +39,8 @@ namespace PlayGround.Tests.PlayMode
             simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
             aoeExpansion = testWorld.GetOrCreateSystemManaged<AoeSpawnExpansionSystem>();
             projectileExpansion = testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
-            stackAccrual = testWorld.GetOrCreateSystemManaged<StackAccrualSystem>();
+            hitApply = testWorld.GetOrCreateSystemManaged<HitApplyFinalizeSystem>();
+            statusProcess = testWorld.GetOrCreateSystemManaged<StatusProcessSystem>();
             simGroup.AddSystemToUpdateList(aoeExpansion);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<AoeSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoeContactGateSystem>());
@@ -47,8 +48,8 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoePulseVfxSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ImpactAoeCollisionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<LingeringAoeCollisionSystem>());
-            simGroup.AddSystemToUpdateList(stackAccrual);
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<HitApplyFinalizeSystem>());
+            simGroup.AddSystemToUpdateList(hitApply);
+            simGroup.AddSystemToUpdateList(statusProcess);
             simGroup.SortSystems();
 
             presentationGroup = testWorld.GetOrCreateSystemManaged<PresentationSystemGroup>();
@@ -426,62 +427,63 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void StackAccrualFizzleRemovesPartialStackWithoutDetonation()
+        public void StatusProcessFizzleRemovesPartialStackWithoutDetonation()
         {
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
 
-            QueueStackApply(StackApply(target.Proxy, debuffKey: 101, threshold: 2, lifetime: 0.05f, damage: 3f, area: 1f));
+            QueueStackHit(target.Proxy, StackEffect(debuffKey: 101, threshold: 2, lifetime: 0.05f, damage: 3f, area: 1f, detonationTypeId: 7, next: default));
 
-            TickStackAccrualOnly(0f);
+            TickStatusPipelineOnly(0f);
             Assert.That(ReadStackEntry(target.Proxy, 101).Count, Is.EqualTo(1));
 
-            TickStackAccrualOnly(0.06f);
+            TickStatusPipelineOnly(0.06f);
 
             Assert.That(TryReadStackEntry(target.Proxy, 101, out _), Is.False);
             Assert.That(AoeEventQueue().Count, Is.EqualTo(0));
         }
 
         [Test]
-        public void StackAccrualProjectileDetonationFizzleQueuesNoNova()
+        public void StatusProcessProjectileDetonationFizzleQueuesNoNova()
         {
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
 
-            QueueStackApply(ProjectileStackApply(
+            QueueStackHit(
                 target.Proxy,
+                ProjectileStackEffect(
                 debuffKey: 301,
                 threshold: 2,
                 lifetime: 0.05f,
                 damage: 7f,
                 projectileCount: 3));
 
-            TickStackAccrualOnly(0f);
+            TickStatusPipelineOnly(0f);
             Assert.That(ReadStackEntry(target.Proxy, 301).Count, Is.EqualTo(1));
 
-            TickStackAccrualOnly(0.06f);
+            TickStatusPipelineOnly(0.06f);
 
             Assert.That(TryReadStackEntry(target.Proxy, 301, out _), Is.False);
             Assert.That(ProjectileEventQueue().Count, Is.EqualTo(0));
         }
 
         [Test]
-        public void StackAccrualSumsFireTimeContributionsUntilThreshold()
+        public void StatusProcessSumsFireTimeContributionsUntilThreshold()
         {
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
 
-            QueueStackApply(StackApply(target.Proxy, debuffKey: 102, threshold: 3, lifetime: 10f, damage: 2f, area: 1f));
-            QueueStackApply(StackApply(target.Proxy, debuffKey: 102, threshold: 3, lifetime: 10f, damage: 5f, area: 2f));
-            TickStackAccrualOnly(0f);
+            QueueStackHit(target.Proxy, StackEffect(debuffKey: 102, threshold: 3, lifetime: 10f, damage: 2f, area: 1f, detonationTypeId: 7, next: default));
+            QueueStackHit(target.Proxy, StackEffect(debuffKey: 102, threshold: 3, lifetime: 10f, damage: 5f, area: 2f, detonationTypeId: 7, next: default));
+            TickStatusPipelineOnly(0f);
 
             TargetStackEntry partial = ReadStackEntry(target.Proxy, 102);
             Assert.That(partial.Count, Is.EqualTo(2));
             Assert.That(partial.SummedDamage, Is.EqualTo(7f).Within(0.0001f));
             Assert.That(partial.SummedArea, Is.EqualTo(3f).Within(0.0001f));
 
-            QueueStackApply(StackApply(target.Proxy, debuffKey: 102, threshold: 3, lifetime: 10f, damage: 11f, area: 3f));
-            TickStackAccrualOnly(0f);
+            QueueStackHit(target.Proxy, StackEffect(debuffKey: 102, threshold: 3, lifetime: 10f, damage: 11f, area: 3f, detonationTypeId: 7, next: default));
+            TickStatusPipelineOnly(0f);
 
             AoeSpawnEvent detonation = DequeueSingleAoeEvent();
             Assert.That(TryReadStackEntry(target.Proxy, 102, out _), Is.False);
@@ -516,15 +518,13 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void StackAccrualUnhandledDetonationKindLogsAndQueuesNoSpawn()
+        public void StatusProcessUnhandledDetonationKindQueuesNoSpawn()
         {
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
-            LogAssert.Expect(LogType.Error, "Unhandled stack detonation kind 999.");
 
-            QueueStackApply(new StackApplyEvent
+            QueueStackHit(target.Proxy, new StackEffectSnapshot
             {
-                TargetProxy = target.Proxy,
                 DebuffKey = 303,
                 Threshold = 1,
                 Lifetime = 10f,
@@ -543,7 +543,7 @@ namespace PlayGround.Tests.PlayMode
                 }
             });
 
-            TickStackAccrualOnly(0f);
+            TickStatusPipelineOnly(0f);
 
             Assert.That(AoeEventQueue().Count, Is.EqualTo(0));
             Assert.That(ProjectileEventQueue().Count, Is.EqualTo(0));
@@ -593,11 +593,12 @@ namespace PlayGround.Tests.PlayMode
             lastHitCount = TotalHitCount() - hitsBefore;
         }
 
-        private void TickStackAccrualOnly(float dt)
+        private void TickStatusPipelineOnly(float dt)
         {
             elapsedTime += dt;
             testWorld.SetTime(new TimeData(elapsedTime, dt));
-            stackAccrual.Update();
+            hitApply.Update();
+            statusProcess.Update();
         }
 
         private void TickSimulationOnly(float dt)
@@ -768,67 +769,15 @@ namespace PlayGround.Tests.PlayMode
             return result;
         }
 
-        private void QueueStackApply(StackApplyEvent evt)
+        private void QueueStackHit(Entity target, StackEffectSnapshot stackEffect)
         {
-            NativeQueue<StackApplyEvent> queue = StackEventQueue();
-            queue.Enqueue(evt);
-        }
-
-        private StackApplyEvent StackApply(
-            Entity target,
-            int debuffKey,
-            int threshold,
-            float lifetime,
-            float damage,
-            float area,
-            int detonationTypeId = 7)
-        {
-            return new StackApplyEvent
+            NativeParallelMultiHashMap<Entity, CombatHitEvent> hitMap = HitMap();
+            hitMap.Add(target, new CombatHitEvent
             {
-                TargetProxy = target,
-                DebuffKey = debuffKey,
-                Threshold = threshold,
-                Lifetime = lifetime,
-                Contribution = new StackContribution
-                {
-                    Damage = damage,
-                    AreaSize = area
-                },
-                Detonation = new DetonationSnapshot
-                {
-                    Kind = StackDetonationKind.Aoe,
-                    Faction = CombatFaction.Player,
-                    TargetMask = ~0,
-                    TypeId = detonationTypeId,
-                    AoeGeometry = UnitAoeGeometry(),
-                    CritMultiplier = 1.5f
-                }
-            };
-        }
-
-        private StackApplyEvent ProjectileStackApply(
-            Entity target,
-            int debuffKey,
-            int threshold,
-            float lifetime,
-            float damage,
-            int projectileCount,
-            int projectileTypeId = 70)
-        {
-            return new StackApplyEvent
-            {
-                TargetProxy = target,
-                DebuffKey = debuffKey,
-                Threshold = threshold,
-                Lifetime = lifetime,
-                Contribution = new StackContribution
-                {
-                    Damage = damage,
-                    ProjectileCount = projectileCount,
-                    AreaSize = 0f
-                },
-                Detonation = ProjectileDetonationSnapshot(projectileTypeId)
-            };
+                Kind = CombatHitKind.Aoe,
+                DirectDamageEnabled = false,
+                StackEffect = stackEffect
+            });
         }
 
         private StackEffectSnapshot StackEffect(
@@ -1039,13 +988,13 @@ namespace PlayGround.Tests.PlayMode
             return count;
         }
 
-        private NativeQueue<StackApplyEvent> StackEventQueue()
+        private NativeParallelMultiHashMap<Entity, CombatHitEvent> HitMap()
         {
-            FieldInfo field = typeof(StackAccrualSystem).GetField(
-                "EventQueue",
+            FieldInfo field = typeof(HitApplyFinalizeSystem).GetField(
+                "HitMap",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null);
-            return (NativeQueue<StackApplyEvent>)field.GetValue(stackAccrual);
+            return (NativeParallelMultiHashMap<Entity, CombatHitEvent>)field.GetValue(hitApply);
         }
 
         private NativeQueue<AoeSpawnEvent> AoeEventQueue()

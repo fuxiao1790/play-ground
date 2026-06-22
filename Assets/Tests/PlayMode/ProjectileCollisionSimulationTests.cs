@@ -17,7 +17,6 @@ namespace PlayGround.Tests.PlayMode
         private World testWorld;
         private EntityManager entityManager;
         private SimulationSystemGroup simGroup;
-        private StackAccrualSystem stackAccrual;
         private ProjectileSpawnExpansionSystem projectileExpansion;
         private Entity scopeEntity;
         private double elapsedTime;
@@ -30,12 +29,11 @@ namespace PlayGround.Tests.PlayMode
             testWorld = new World("ProjectileCollisionSimulationTest");
             entityManager = testWorld.EntityManager;
             simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
-            stackAccrual = testWorld.GetOrCreateSystemManaged<StackAccrualSystem>();
             projectileExpansion = testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContactGateSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileCollisionSystem>());
-            simGroup.AddSystemToUpdateList(stackAccrual);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<HitApplyFinalizeSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<StatusProcessSystem>());
             simGroup.SortSystems();
             testWorld.GetOrCreateSystemManaged<HitApplyBridge>();
 

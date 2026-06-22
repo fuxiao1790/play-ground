@@ -83,9 +83,7 @@ namespace PlayGround.System.Aoe
             NativeStream.Writer vfxPendingWriter,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
             NativeQueue<AoeSpawnEvent>.ParallelWriter aoeEventWriter,
-            bool hasAoeEventWriter,
-            NativeQueue<StackApplyEvent>.ParallelWriter stackApplyWriter,
-            bool hasStackApplyWriter)
+            bool hasAoeEventWriter)
             where TGate : struct, IContactGate
         {
             NativeStream.Writer vfxPending = vfxPendingWriter;
@@ -163,9 +161,7 @@ namespace PlayGround.System.Aoe
                             hasHitWriter,
                             projectileEventWriter,
                             aoeEventWriter,
-                            hasAoeEventWriter,
-                            stackApplyWriter,
-                            hasStackApplyWriter);
+                            hasAoeEventWriter);
 
                         if (--remaining == 0)
                             break;
@@ -194,11 +190,9 @@ namespace PlayGround.System.Aoe
             bool hasHitWriter,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
             NativeQueue<AoeSpawnEvent>.ParallelWriter aoeEventWriter,
-            bool hasAoeEventWriter,
-            NativeQueue<StackApplyEvent>.ParallelWriter stackApplyWriter,
-            bool hasStackApplyWriter)
+            bool hasAoeEventWriter)
         {
-            if (hasHitWriter && HasDamageEvent(hitSpawn))
+            if (hasHitWriter && HasHitEvent(hitSpawn))
             {
                 hitWriter.Add(targetEntity, new CombatHitEvent
                 {
@@ -210,21 +204,8 @@ namespace PlayGround.System.Aoe
                     DirectDamageEnabled = hitSpawn.HitPayload.DirectDamageEnabled,
                     SourceNodeId = hitSpawn.HitPayload.SourceNodeId,
                     SourceId = identity.AoeId,
-                    TypeId = identity.TypeId
-                });
-            }
-
-            if (hasStackApplyWriter && hitSpawn.HitPayload.StackEffect.Enabled)
-            {
-                StackEffectSnapshot stackEffect = hitSpawn.HitPayload.StackEffect;
-                stackApplyWriter.Enqueue(new StackApplyEvent
-                {
-                    TargetProxy = targetEntity,
-                    DebuffKey = stackEffect.DebuffKey,
-                    Threshold = stackEffect.Threshold,
-                    Lifetime = stackEffect.Lifetime,
-                    Contribution = stackEffect.Contribution,
-                    Detonation = stackEffect.Detonation
+                    TypeId = identity.TypeId,
+                    StackEffect = hitSpawn.HitPayload.StackEffect
                 });
             }
 
@@ -278,8 +259,8 @@ namespace PlayGround.System.Aoe
             vfxPending.EndForEachIndex();
         }
 
-        internal static bool HasDamageEvent(in AoeHitSpawnComponent hitSpawn) =>
-            hitSpawn.HitPayload.DirectDamageEnabled;
+        internal static bool HasHitEvent(in AoeHitSpawnComponent hitSpawn) =>
+            hitSpawn.HitPayload.DirectDamageEnabled || hitSpawn.HitPayload.StackEffect.Enabled;
 
         internal static int TargetKey(Entity entity)
         {

@@ -28,12 +28,14 @@ namespace PlayGround.System.Common
         public CombatFaction Value;
     }
 
-    // ECS Lifecycle: target-proxy stack buffer; added empty when the proxy is created, destroyed with the proxy. Only StackAccrualSystem writes entries.
+    // ECS Lifecycle: target-proxy stack buffer; added empty when the proxy is created, destroyed with the proxy. HitApplyFinalizeSystem accrues entries, then StatusProcessSystem fizzles or detonates them.
     [InternalBufferCapacity(8)]
     public struct TargetStackEntry : IBufferElementData
     {
         public int DebuffKey;
+        public int Threshold;
         public int Count;
+        public int LastAccruedFrame;
         public float SummedDamage;
         public int SummedProjectileCount;
         public float SummedArea;

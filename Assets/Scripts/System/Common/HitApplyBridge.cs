@@ -4,6 +4,7 @@ using PlayGround.System.Aoe;
 using PlayGround.System.Projectile;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -21,14 +22,19 @@ namespace PlayGround.System.Common
     public partial class HitApplyFinalizeSystem : SystemBase
     {
         private const int MinimumHitCapacity = 256;
+        private const int MaxTargetStackEntries = 32;
         private const float CapacityWarningRatio = 0.9f;
 
         private static readonly ProfilerMarker Marker = new("HitApplyFinalizeSystem");
+        private static readonly ProfilerCounterValue<int> EntryEvictionCounter =
+            new(ProfilerCategory.Scripts, "HitApplyFinalizeSystem.StackEntryEvictions", ProfilerMarkerDataUnit.Count);
 
         internal NativeParallelMultiHashMap<Entity, CombatHitEvent> HitMap;
         internal JobHandle ProducerHandle;
+        internal int AccrualFrame;
 
         private int hitHighWater;
+        private int entryEvictions;
         private bool capacityWarningLogged;
 
         protected override void OnCreate()
@@ -54,6 +60,7 @@ namespace PlayGround.System.Common
             {
                 ProducerHandle.Complete();
                 ProducerHandle = default;
+                AccrualFrame++;
 
                 HitApplyBridge bridge = World.GetExistingSystemManaged<HitApplyBridge>();
                 bridge?.DisposeFinalizedHits();
@@ -94,6 +101,7 @@ namespace PlayGround.System.Common
 
                 NativeList<RolledHit> rolledHits = new(totalHitCount, Allocator.Persistent);
                 rolledHits.ResizeUninitialized(totalHitCount);
+                var evictionCounts = new NativeArray<int>(keyCount, Allocator.TempJob);
 
                 JobHandle rollHandle = new RollHitsJob
                 {
@@ -101,10 +109,26 @@ namespace PlayGround.System.Common
                     Keys = keys,
                     Ranges = ranges,
                     RolledHits = rolledHits.AsArray(),
+                    StackBuffers = GetBufferLookup<TargetStackEntry>(),
+                    EvictionCounts = evictionCounts,
+                    AccrualFrame = AccrualFrame,
                     FrameCount = (uint)frameCount
                 }.Schedule(keyCount, 32);
 
                 rollHandle.Complete();
+                int frameEvictions = 0;
+                for (int i = 0; i < evictionCounts.Length; i++)
+                {
+                    frameEvictions += evictionCounts[i];
+                }
+
+                if (frameEvictions > 0)
+                {
+                    entryEvictions += frameEvictions;
+                    EntryEvictionCounter.Value = entryEvictions;
+                }
+
+                evictionCounts.Dispose();
                 keys.Dispose();
                 counts.Dispose();
                 HitMap.Clear();
@@ -151,9 +175,12 @@ namespace PlayGround.System.Common
             {
                 Entity target = Keys[index];
                 int count = 0;
-                foreach (CombatHitEvent ignored in HitMap.GetValuesForKey(target))
+                foreach (CombatHitEvent hit in HitMap.GetValuesForKey(target))
                 {
-                    count++;
+                    if (hit.DirectDamageEnabled)
+                    {
+                        count++;
+                    }
                 }
 
                 Counts[index] = count;
@@ -167,6 +194,9 @@ namespace PlayGround.System.Common
             [ReadOnly] public NativeArray<Entity> Keys;
             [ReadOnly] public NativeArray<TargetHitRange> Ranges;
             [NativeDisableParallelForRestriction] public NativeArray<RolledHit> RolledHits;
+            [NativeDisableParallelForRestriction] public BufferLookup<TargetStackEntry> StackBuffers;
+            [WriteOnly] public NativeArray<int> EvictionCounts;
+            public int AccrualFrame;
             public uint FrameCount;
 
             public void Execute(int index)
@@ -174,34 +204,135 @@ namespace PlayGround.System.Common
                 Entity target = Keys[index];
                 TargetHitRange range = Ranges[index];
                 int hitIndex = 0;
+                int rolledHitIndex = 0;
+                int evictionCount = 0;
+                bool hasStackBuffer = StackBuffers.HasBuffer(target);
+                DynamicBuffer<TargetStackEntry> stackEntries = hasStackBuffer
+                    ? StackBuffers[target]
+                    : default;
+
                 foreach (CombatHitEvent hit in HitMap.GetValuesForKey(target))
                 {
-                    uint seed = math.hash(new uint3((uint)target.Index, FrameCount, (uint)hitIndex));
-                    if (seed == 0)
+                    if (hit.StackEffect.Enabled && hasStackBuffer)
                     {
-                        seed = 1;
+                        AccrueStack(stackEntries, hit.StackEffect, AccrualFrame, ref evictionCount);
                     }
 
-                    var random = new Unity.Mathematics.Random(seed);
-                    float baseAmount = math.max(0f, hit.DamageAmount);
-                    bool isCrit = random.NextFloat() < hit.CritChance;
-                    float rolledAmount = math.max(0f, isCrit ? baseAmount * hit.CritMultiplier : baseAmount);
-
-                    RolledHits[range.Start + hitIndex] = new RolledHit
+                    if (hit.DirectDamageEnabled)
                     {
-                        Kind = hit.Kind,
-                        DamageAmount = rolledAmount,
-                        IsCrit = isCrit,
-                        HitPosition = hit.HitPosition,
-                        DirectDamageEnabled = hit.DirectDamageEnabled,
-                        SourceNodeId = hit.SourceNodeId,
-                        SourceId = hit.SourceId,
-                        TypeId = hit.TypeId,
-                        StackEffect = hit.StackEffect
-                    };
+                        uint seed = math.hash(new uint3((uint)target.Index, FrameCount, (uint)hitIndex));
+                        if (seed == 0)
+                        {
+                            seed = 1;
+                        }
+
+                        var random = new Unity.Mathematics.Random(seed);
+                        float baseAmount = math.max(0f, hit.DamageAmount);
+                        bool isCrit = random.NextFloat() < hit.CritChance;
+                        float rolledAmount = math.max(0f, isCrit ? baseAmount * hit.CritMultiplier : baseAmount);
+
+                        RolledHits[range.Start + rolledHitIndex] = new RolledHit
+                        {
+                            Kind = hit.Kind,
+                            DamageAmount = rolledAmount,
+                            IsCrit = isCrit,
+                            HitPosition = hit.HitPosition,
+                            DirectDamageEnabled = hit.DirectDamageEnabled,
+                            SourceNodeId = hit.SourceNodeId,
+                            SourceId = hit.SourceId,
+                            TypeId = hit.TypeId,
+                            StackEffect = hit.StackEffect
+                        };
+
+                        rolledHitIndex++;
+                    }
 
                     hitIndex++;
                 }
+
+                EvictionCounts[index] = evictionCount;
+            }
+
+            private static void AccrueStack(
+                DynamicBuffer<TargetStackEntry> stackEntries,
+                in StackEffectSnapshot stack,
+                int accrualFrame,
+                ref int evictionCount)
+            {
+                int entryIndex = FindEntryIndex(stackEntries, stack.DebuffKey);
+                if (entryIndex < 0)
+                {
+                    entryIndex = AddEntry(stackEntries, stack, accrualFrame, ref evictionCount);
+                }
+
+                TargetStackEntry entry = stackEntries[entryIndex];
+                entry.Threshold = math.max(1, stack.Threshold);
+                entry.Count++;
+                entry.LastAccruedFrame = accrualFrame;
+                entry.SummedDamage += stack.Contribution.Damage;
+                entry.SummedProjectileCount += stack.Contribution.ProjectileCount;
+                entry.SummedArea += stack.Contribution.AreaSize;
+                entry.LifetimeRemaining = math.max(0f, stack.Lifetime);
+                entry.Detonation = stack.Detonation;
+                stackEntries[entryIndex] = entry;
+            }
+
+            private static int AddEntry(
+                DynamicBuffer<TargetStackEntry> stackEntries,
+                in StackEffectSnapshot stack,
+                int accrualFrame,
+                ref int evictionCount)
+            {
+                if (stackEntries.Length >= MaxTargetStackEntries)
+                {
+                    stackEntries.RemoveAt(LeastLifetimeRemainingIndex(stackEntries));
+                    evictionCount++;
+                }
+
+                stackEntries.Add(new TargetStackEntry
+                {
+                    DebuffKey = stack.DebuffKey,
+                    Threshold = math.max(1, stack.Threshold),
+                    Count = 0,
+                    LastAccruedFrame = accrualFrame,
+                    SummedDamage = 0f,
+                    SummedProjectileCount = 0,
+                    SummedArea = 0f,
+                    LifetimeRemaining = math.max(0f, stack.Lifetime),
+                    Detonation = stack.Detonation
+                });
+
+                return stackEntries.Length - 1;
+            }
+
+            private static int FindEntryIndex(DynamicBuffer<TargetStackEntry> stackEntries, int debuffKey)
+            {
+                for (int i = 0; i < stackEntries.Length; i++)
+                {
+                    if (stackEntries[i].DebuffKey == debuffKey)
+                    {
+                        return i;
+                    }
+                }
+
+                return -1;
+            }
+
+            private static int LeastLifetimeRemainingIndex(DynamicBuffer<TargetStackEntry> stackEntries)
+            {
+                int index = 0;
+                float leastLifetime = stackEntries[0].LifetimeRemaining;
+                for (int i = 1; i < stackEntries.Length; i++)
+                {
+                    float lifetime = stackEntries[i].LifetimeRemaining;
+                    if (lifetime < leastLifetime)
+                    {
+                        leastLifetime = lifetime;
+                        index = i;
+                    }
+                }
+
+                return index;
             }
         }
     }
