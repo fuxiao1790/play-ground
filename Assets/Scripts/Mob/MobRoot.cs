@@ -43,6 +43,7 @@ namespace PlayGround.Mob
         private static int nextTargetId;
         public StatusEffects StatusEffects { get; private set; }
         private readonly MobBlackboard blackboard = new();
+        private readonly List<StatusStackSnapshot> statusSnapshots = new();
         private readonly List<CombatTargetRegistry<ICombatTarget>> registries = new();
         private CombatTargetSet combatTargetSet;
         // Player-faction combat root used by status-triggered AOE (damages mobs),
@@ -64,6 +65,7 @@ namespace PlayGround.Mob
         public float Speed => speed;
         public float CurrentHealth { get; private set; }
         public float MaxHealth => maxHealth;
+        public IReadOnlyList<StatusStackSnapshot> StatusSnapshots => statusSnapshots;
         public MobBehaviourState BehaviourState => stateDriver?.CurrentState ?? MobBehaviourState.Idle;
         public Transform Target => target;
         public MobBlackboard Blackboard => blackboard;
@@ -274,6 +276,15 @@ namespace PlayGround.Mob
         {
             if (hit.DirectDamageEnabled)
                 TakeDamage(hit.Damage);
+        }
+
+        public void ReceiveStatus(IReadOnlyList<StatusStackSnapshot> stacks)
+        {
+            statusSnapshots.Clear();
+            for (int i = 0; i < stacks.Count; i++)
+            {
+                statusSnapshots.Add(stacks[i]);
+            }
         }
 
         public bool TakeDamage(DamageSnapshot damage)

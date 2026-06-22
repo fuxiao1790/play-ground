@@ -42,6 +42,7 @@ namespace PlayGround.Player
         private PlayerStateDriver stateDriver;
         private PlayerHealth health;
         private static int nextTargetId;
+        private readonly List<StatusStackSnapshot> statusSnapshots = new();
         private readonly List<CombatTargetRegistry<ICombatTarget>> registries = new();
         private CombatTargetSet combatTargetSet;
         private Entity combatTargetProxy;
@@ -66,6 +67,7 @@ namespace PlayGround.Player
         public bool IsCombatTargetActive => isActiveAndEnabled && health != null && health.IsAlive;
         public float CurrentHealth => health?.CurrentHealth ?? 0f;
         public int EquippedAttackCount => skillDriver?.SlotCount ?? 0;
+        public IReadOnlyList<StatusStackSnapshot> StatusSnapshots => statusSnapshots;
 
         private void Awake()
         {
@@ -214,6 +216,15 @@ namespace PlayGround.Player
                 {
                     QueueCombatTargetProxyDelete();
                 }
+            }
+        }
+
+        public void ReceiveStatus(IReadOnlyList<StatusStackSnapshot> stacks)
+        {
+            statusSnapshots.Clear();
+            for (int i = 0; i < stacks.Count; i++)
+            {
+                statusSnapshots.Add(stacks[i]);
             }
         }
 

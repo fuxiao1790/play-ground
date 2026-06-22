@@ -37,6 +37,20 @@ namespace PlayGround.System.Common
         public EntityId SourceNodeId { get; }
     }
 
+    public readonly struct StatusStackSnapshot
+    {
+        public StatusStackSnapshot(int debuffKey, int count, float lifetimeRemaining)
+        {
+            DebuffKey = debuffKey;
+            Count = count;
+            LifetimeRemaining = lifetimeRemaining;
+        }
+
+        public int DebuffKey { get; }
+        public int Count { get; }
+        public float LifetimeRemaining { get; }
+    }
+
     public interface ICombatTarget
     {
         int TargetId { get; }
@@ -61,6 +75,10 @@ namespace PlayGround.System.Common
                 var h = hits[i];
                 ReceiveHit(in h);
             }
+        }
+
+        void ReceiveStatus(IReadOnlyList<StatusStackSnapshot> stacks)
+        {
         }
     }
 }
