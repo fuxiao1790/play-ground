@@ -48,11 +48,11 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ImpactAoeCollisionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<LingeringAoeCollisionSystem>());
             simGroup.AddSystemToUpdateList(stackAccrual);
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<DamageFinalizeSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<HitApplyFinalizeSystem>());
             simGroup.SortSystems();
 
             presentationGroup = testWorld.GetOrCreateSystemManaged<PresentationSystemGroup>();
-            presentationGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<DamageDispatchBridge>());
+            presentationGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<HitApplyBridge>());
             presentationGroup.SortSystems();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
@@ -321,9 +321,10 @@ namespace PlayGround.Tests.PlayMode
 
             TickSimulationOnly(0.01f);
 
-            DamageReplayEvent[] finalized = ReadFinalizedDamageEvents();
+            TargetHitRange[] finalized = ReadFinalizedHitRanges();
             Assert.That(finalized, Has.Length.EqualTo(1));
             Assert.That(finalized[0].TargetProxy, Is.EqualTo(proxy));
+            Assert.That(finalized[0].Count, Is.EqualTo(1));
 
             presentationGroup.Update();
             Assert.That(TotalHitCount(), Is.EqualTo(1));
@@ -744,20 +745,24 @@ namespace PlayGround.Tests.PlayMode
             return Entity.Null;
         }
 
-        private DamageReplayEvent[] ReadFinalizedDamageEvents()
+        private TargetHitRange[] ReadFinalizedHitRanges()
         {
-            DamageDispatchBridge bridge = testWorld.GetExistingSystemManaged<DamageDispatchBridge>();
+            HitApplyBridge bridge = testWorld.GetExistingSystemManaged<HitApplyBridge>();
             const global::System.Reflection.BindingFlags Flags =
                 global::System.Reflection.BindingFlags.Instance |
                 global::System.Reflection.BindingFlags.NonPublic;
-            var countField = typeof(DamageDispatchBridge).GetField("FinalizedDamageCount", Flags);
-            var eventsField = typeof(DamageDispatchBridge).GetField("FinalizedDamageEvents", Flags);
-            int count = (int)countField.GetValue(bridge);
-            var events = (NativeArray<DamageReplayEvent>)eventsField.GetValue(bridge);
-            var result = new DamageReplayEvent[count];
-            for (int i = 0; i < count; i++)
+            var rangesField = typeof(HitApplyBridge).GetField("finalizedRanges", Flags);
+            Assert.That(rangesField, Is.Not.Null);
+            var ranges = (NativeArray<TargetHitRange>)rangesField.GetValue(bridge);
+            if (!ranges.IsCreated)
             {
-                result[i] = events[i];
+                return global::System.Array.Empty<TargetHitRange>();
+            }
+
+            var result = new TargetHitRange[ranges.Length];
+            for (int i = 0; i < ranges.Length; i++)
+            {
+                result[i] = ranges[i];
             }
 
             return result;

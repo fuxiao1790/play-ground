@@ -65,7 +65,7 @@ namespace PlayGround.System.Common
                     return;
                 }
 
-                int frameCount = Time.frameCount;
+                int frameCount = UnityEngine.Time.frameCount;
                 var (keys, keyCount) = HitMap.GetUniqueKeyArray(Allocator.TempJob);
                 var counts = new NativeArray<int>(keyCount, Allocator.TempJob);
 

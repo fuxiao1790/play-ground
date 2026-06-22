@@ -12,7 +12,7 @@ namespace PlayGround.System.Aoe
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AoeContactGateSystem))]
     [UpdateAfter(typeof(LingeringAoeCollisionSystem))]
-    [UpdateBefore(typeof(DamageFinalizeSystem))]
+    [UpdateBefore(typeof(HitApplyFinalizeSystem))]
     [UpdateBefore(typeof(CombatRenderPrepareSystem))]
     public partial struct ImpactAoeCollisionSystem : ISystem
     {
@@ -82,7 +82,7 @@ namespace PlayGround.System.Aoe
 
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
-            var damageBridge = state.World.GetExistingSystemManaged<DamageDispatchBridge>();
+            var hitApply = state.World.GetExistingSystemManaged<HitApplyFinalizeSystem>();
             var stackAccrual = state.World.GetExistingSystemManaged<StackAccrualSystem>();
             var vfxPending = new NativeStream(impactAoeCount, Allocator.TempJob);
 
@@ -92,10 +92,10 @@ namespace PlayGround.System.Aoe
                 TargetPositions = targetPositions,
                 TargetShapes = targetShapes,
                 OccupiedTargetCells = occupiedTargetCells,
-                DamageWriter = damageBridge != null
-                    ? damageBridge.DamageQueue.AsParallelWriter()
+                HitWriter = hitApply != null
+                    ? hitApply.AsParallelWriter()
                     : default,
-                HasDamageWriter = damageBridge != null && damageBridge.DamageQueue.IsCreated,
+                HasHitWriter = hitApply != null && hitApply.HitMap.IsCreated,
                 VfxPending = vfxPending.AsWriter(),
                 ProjectileEventWriter = expansion != null
                     ? expansion.EventQueue.AsParallelWriter()
@@ -120,9 +120,9 @@ namespace PlayGround.System.Aoe
             if (aoeExpansion != null)
                 aoeExpansion.ProducerHandle =
                     JobHandle.CombineDependencies(aoeExpansion.ProducerHandle, collisionHandle);
-            if (damageBridge != null)
-                damageBridge.ProducerHandle =
-                    JobHandle.CombineDependencies(damageBridge.ProducerHandle, collisionHandle);
+            if (hitApply != null)
+                hitApply.ProducerHandle =
+                    JobHandle.CombineDependencies(hitApply.ProducerHandle, collisionHandle);
             if (stackAccrual != null)
                 stackAccrual.ProducerHandle =
                     JobHandle.CombineDependencies(stackAccrual.ProducerHandle, collisionHandle);
@@ -155,8 +155,8 @@ namespace PlayGround.System.Aoe
             [ReadOnly] public NativeArray<TargetPosition> TargetPositions;
             [ReadOnly] public NativeArray<TargetCollisionShape> TargetShapes;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> OccupiedTargetCells;
-            public NativeQueue<DamageReplayEvent>.ParallelWriter DamageWriter;
-            public bool HasDamageWriter;
+            public NativeParallelMultiHashMap<Entity, CombatHitEvent>.ParallelWriter HitWriter;
+            public bool HasHitWriter;
             public NativeStream.Writer VfxPending;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public NativeQueue<AoeSpawnEvent>.ParallelWriter AoeEventWriter;
@@ -195,8 +195,8 @@ namespace PlayGround.System.Aoe
                     TargetPositions,
                     TargetShapes,
                     OccupiedTargetCells,
-                    DamageWriter,
-                    HasDamageWriter,
+                    HitWriter,
+                    HasHitWriter,
                     VfxPending,
                     ProjectileEventWriter,
                     AoeEventWriter,

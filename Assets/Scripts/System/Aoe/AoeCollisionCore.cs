@@ -78,8 +78,8 @@ namespace PlayGround.System.Aoe
             NativeArray<TargetPosition> targetPositions,
             NativeArray<TargetCollisionShape> targetShapes,
             NativeParallelMultiHashMap<long, int> occupiedTargetCells,
-            NativeQueue<DamageReplayEvent>.ParallelWriter damageWriter,
-            bool hasDamageWriter,
+            NativeParallelMultiHashMap<Entity, CombatHitEvent>.ParallelWriter hitWriter,
+            bool hasHitWriter,
             NativeStream.Writer vfxPendingWriter,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
             NativeQueue<AoeSpawnEvent>.ParallelWriter aoeEventWriter,
@@ -159,8 +159,8 @@ namespace PlayGround.System.Aoe
                             targetKey,
                             ref vfxPending,
                             ref hitVfxEmitted,
-                            damageWriter,
-                            hasDamageWriter,
+                            hitWriter,
+                            hasHitWriter,
                             projectileEventWriter,
                             aoeEventWriter,
                             hasAoeEventWriter,
@@ -190,21 +190,19 @@ namespace PlayGround.System.Aoe
             int targetKey,
             ref NativeStream.Writer vfxPending,
             ref bool hitVfxEmitted,
-            NativeQueue<DamageReplayEvent>.ParallelWriter damageWriter,
-            bool hasDamageWriter,
+            NativeParallelMultiHashMap<Entity, CombatHitEvent>.ParallelWriter hitWriter,
+            bool hasHitWriter,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
             NativeQueue<AoeSpawnEvent>.ParallelWriter aoeEventWriter,
             bool hasAoeEventWriter,
             NativeQueue<StackApplyEvent>.ParallelWriter stackApplyWriter,
             bool hasStackApplyWriter)
         {
-            if (hasDamageWriter && HasDamageEvent(hitSpawn))
+            if (hasHitWriter && HasDamageEvent(hitSpawn))
             {
-                damageWriter.Enqueue(new DamageReplayEvent
+                hitWriter.Add(targetEntity, new CombatHitEvent
                 {
-                    TargetProxy = targetEntity,
                     HitPosition = kinematics.Position,
-                    HitDirection = HitDirection(targetPosition.Value - kinematics.Position),
                     Kind = CombatHitKind.Aoe,
                     DamageAmount = hitSpawn.HitPayload.DamageAmount,
                     CritChance = hitSpawn.HitPayload.CritChance,
@@ -282,13 +280,6 @@ namespace PlayGround.System.Aoe
 
         internal static bool HasDamageEvent(in AoeHitSpawnComponent hitSpawn) =>
             hitSpawn.HitPayload.DirectDamageEnabled;
-
-        internal static float2 HitDirection(float2 fallback)
-        {
-            return math.lengthsq(fallback) > ProjectileSimulationConstants.MinimumDirectionLengthSquared
-                ? math.normalize(fallback)
-                : float2.zero;
-        }
 
         internal static int TargetKey(Entity entity)
         {

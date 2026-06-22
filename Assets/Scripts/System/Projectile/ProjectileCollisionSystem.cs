@@ -12,7 +12,7 @@ namespace PlayGround.System.Projectile
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileContactGateSystem))]
     [UpdateBefore(typeof(PlayGround.System.Aoe.AoeContactGateSystem))]
-    [UpdateBefore(typeof(DamageFinalizeSystem))]
+    [UpdateBefore(typeof(HitApplyFinalizeSystem))]
     public partial struct ProjectileCollisionSystem : ISystem
     {
         // this depends on the arena size and mob count
@@ -88,7 +88,7 @@ namespace PlayGround.System.Projectile
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
             var stackAccrual = state.World.GetExistingSystemManaged<StackAccrualSystem>();
-            var damageBridge = state.World.GetExistingSystemManaged<DamageDispatchBridge>();
+            var hitApply = state.World.GetExistingSystemManaged<HitApplyFinalizeSystem>();
             var vfxPending = new NativeStream(activeProjectileCount, Allocator.TempJob);
             var job = new ProjectileCollisionJob
             {
@@ -98,10 +98,10 @@ namespace PlayGround.System.Projectile
                 TargetCells = targetCells,
                 TotalTargetCount = totalTargetCount,
                 MaxTargetRadius = maxTargetRadius,
-                DamageWriter = damageBridge != null
-                    ? damageBridge.DamageQueue.AsParallelWriter()
+                HitWriter = hitApply != null
+                    ? hitApply.AsParallelWriter()
                     : default,
-                HasDamageWriter = damageBridge != null && damageBridge.DamageQueue.IsCreated,
+                HasHitWriter = hitApply != null && hitApply.HitMap.IsCreated,
                 VfxPending = vfxPending.AsWriter(),
                 ProjectileEventWriter = expansion != null
                     ? expansion.EventQueue.AsParallelWriter()
@@ -129,9 +129,9 @@ namespace PlayGround.System.Projectile
             if (stackAccrual != null)
                 stackAccrual.ProducerHandle =
                     JobHandle.CombineDependencies(stackAccrual.ProducerHandle, collisionHandle);
-            if (damageBridge != null)
-                damageBridge.ProducerHandle =
-                    JobHandle.CombineDependencies(damageBridge.ProducerHandle, collisionHandle);
+            if (hitApply != null)
+                hitApply.ProducerHandle =
+                    JobHandle.CombineDependencies(hitApply.ProducerHandle, collisionHandle);
 
             var vfxFlushHandle = new VfxStreamFlushJob
             {
@@ -164,8 +164,8 @@ namespace PlayGround.System.Projectile
             [ReadOnly] public NativeParallelMultiHashMap<long, int> TargetCells;
             public int TotalTargetCount;
             public float MaxTargetRadius;
-            public NativeQueue<DamageReplayEvent>.ParallelWriter DamageWriter;
-            public bool HasDamageWriter;
+            public NativeParallelMultiHashMap<Entity, CombatHitEvent>.ParallelWriter HitWriter;
+            public bool HasHitWriter;
             public NativeStream.Writer VfxPending;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public NativeQueue<AoeSpawnEvent>.ParallelWriter AoeEventWriter;
@@ -273,13 +273,11 @@ namespace PlayGround.System.Projectile
                                 continue;
                             }
 
-                            if (HasDamageWriter && HasDamageEvent(projectileHit.HitPayload))
+                            if (HasHitWriter && HasDamageEvent(projectileHit.HitPayload))
                             {
-                                DamageWriter.Enqueue(new DamageReplayEvent
+                                HitWriter.Add(targetEntity, new CombatHitEvent
                                 {
-                                    TargetProxy = targetEntity,
                                     HitPosition = kinematics.Position,
-                                    HitDirection = HitDirection(kinematics.Velocity, targetPosition.Value - kinematics.Position),
                                     Kind = CombatHitKind.Projectile,
                                     DamageAmount = projectileHit.HitPayload.DamageAmount,
                                     CritChance = projectileHit.HitPayload.CritChance,
@@ -420,16 +418,6 @@ namespace PlayGround.System.Projectile
 
             private static bool HasDamageEvent(in ProjectileHitPayload payload) =>
                 payload.DirectDamageEnabled;
-
-            private static float2 HitDirection(float2 velocity, float2 fallback)
-            {
-                float2 direction = math.lengthsq(velocity) > ProjectileSimulationConstants.MinimumDirectionLengthSquared
-                    ? velocity
-                    : fallback;
-                return math.lengthsq(direction) > ProjectileSimulationConstants.MinimumDirectionLengthSquared
-                    ? math.normalize(direction)
-                    : float2.zero;
-            }
 
             private static int TargetKey(Entity entity)
             {

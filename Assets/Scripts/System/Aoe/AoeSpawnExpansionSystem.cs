@@ -16,7 +16,7 @@ namespace PlayGround.System.Aoe
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
     [UpdateAfter(typeof(PlayGround.System.Projectile.ProjectileCollisionSystem))]
-    [UpdateAfter(typeof(DamageFinalizeSystem))]
+    [UpdateAfter(typeof(HitApplyFinalizeSystem))]
     [UpdateBefore(typeof(AoeSpawnApplySystem))]
     [UpdateBefore(typeof(PlayGround.System.Projectile.BasicProjectileSpawnApplySystem))]
     [UpdateBefore(typeof(PlayGround.System.Projectile.ChildSpawnerProjectileSpawnApplySystem))]

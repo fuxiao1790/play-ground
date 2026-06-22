@@ -35,9 +35,9 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContactGateSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileCollisionSystem>());
             simGroup.AddSystemToUpdateList(stackAccrual);
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<DamageFinalizeSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<HitApplyFinalizeSystem>());
             simGroup.SortSystems();
-            testWorld.GetOrCreateSystemManaged<DamageDispatchBridge>();
+            testWorld.GetOrCreateSystemManaged<HitApplyBridge>();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
@@ -62,7 +62,7 @@ namespace PlayGround.Tests.PlayMode
 
             TickSimulationOnly(0.01f);
 
-            Assert.That(ReadFinalizedDamageEvents(), Has.Length.EqualTo(1));
+            Assert.That(ReadFinalizedHitCount(), Is.EqualTo(1));
             Assert.That(entityManager.IsComponentEnabled<Active>(projectile), Is.False);
             Assert.That(entityManager.GetComponentData<ProjectileHitComponent>(projectile).PierceRemaining, Is.EqualTo(-1));
         }
@@ -77,7 +77,7 @@ namespace PlayGround.Tests.PlayMode
 
             TickSimulationOnly(0.01f);
 
-            Assert.That(ReadFinalizedDamageEvents(), Has.Length.EqualTo(3));
+            Assert.That(ReadFinalizedHitCount(), Is.EqualTo(3));
             Assert.That(entityManager.IsComponentEnabled<Active>(projectile), Is.False);
             Assert.That(entityManager.GetComponentData<ProjectileHitComponent>(projectile).PierceRemaining, Is.EqualTo(-1));
         }
@@ -90,7 +90,7 @@ namespace PlayGround.Tests.PlayMode
 
             TickSimulationOnly(0.01f);
 
-            Assert.That(ReadFinalizedDamageEvents(), Is.Empty);
+            Assert.That(ReadFinalizedHitCount(), Is.EqualTo(0));
             Assert.That(entityManager.IsComponentEnabled<Active>(projectile), Is.False);
         }
 
@@ -247,20 +247,36 @@ namespace PlayGround.Tests.PlayMode
             return (NativeQueue<ProjectileSpawnEvent>)field.GetValue(projectileExpansion);
         }
 
-        private DamageReplayEvent[] ReadFinalizedDamageEvents()
+        private int ReadFinalizedHitCount()
         {
-            DamageDispatchBridge bridge = testWorld.GetExistingSystemManaged<DamageDispatchBridge>();
+            TargetHitRange[] ranges = ReadFinalizedHitRanges();
+            int count = 0;
+            for (int i = 0; i < ranges.Length; i++)
+            {
+                count += ranges[i].Count;
+            }
+
+            return count;
+        }
+
+        private TargetHitRange[] ReadFinalizedHitRanges()
+        {
+            HitApplyBridge bridge = testWorld.GetExistingSystemManaged<HitApplyBridge>();
             const global::System.Reflection.BindingFlags Flags =
                 global::System.Reflection.BindingFlags.Instance |
                 global::System.Reflection.BindingFlags.NonPublic;
-            var countField = typeof(DamageDispatchBridge).GetField("FinalizedDamageCount", Flags);
-            var eventsField = typeof(DamageDispatchBridge).GetField("FinalizedDamageEvents", Flags);
-            int count = (int)countField.GetValue(bridge);
-            var events = (NativeArray<DamageReplayEvent>)eventsField.GetValue(bridge);
-            var result = new DamageReplayEvent[count];
-            for (int i = 0; i < count; i++)
+            var rangesField = typeof(HitApplyBridge).GetField("finalizedRanges", Flags);
+            Assert.That(rangesField, Is.Not.Null);
+            var ranges = (NativeArray<TargetHitRange>)rangesField.GetValue(bridge);
+            if (!ranges.IsCreated)
             {
-                result[i] = events[i];
+                return global::System.Array.Empty<TargetHitRange>();
+            }
+
+            var result = new TargetHitRange[ranges.Length];
+            for (int i = 0; i < ranges.Length; i++)
+            {
+                result[i] = ranges[i];
             }
 
             return result;
