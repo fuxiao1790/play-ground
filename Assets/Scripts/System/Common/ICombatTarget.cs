@@ -80,5 +80,16 @@ namespace PlayGround.System.Common
         void ReceiveStatus(IReadOnlyList<StatusStackSnapshot> stacks)
         {
         }
+
+        void ReceiveCombat(
+            IReadOnlyList<CombatHitData> hits,
+            IReadOnlyList<StatusStackSnapshot> stacks)
+        {
+            ReceiveHits(hits);
+            if (stacks.Count > 0)
+            {
+                ReceiveStatus(stacks);
+            }
+        }
     }
 }

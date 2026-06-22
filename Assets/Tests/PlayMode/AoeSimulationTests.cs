@@ -22,7 +22,7 @@ namespace PlayGround.Tests.PlayMode
         private PresentationSystemGroup presentationGroup;
         private AoeSpawnExpansionSystem aoeExpansion;
         private ProjectileSpawnExpansionSystem projectileExpansion;
-        private HitApplyFinalizeSystem hitApply;
+        private CombatApplyFinalizeSystem hitApply;
         private StatusProcessSystem statusProcess;
         private Entity scopeEntity;
         private double elapsedTime;
@@ -39,7 +39,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
             aoeExpansion = testWorld.GetOrCreateSystemManaged<AoeSpawnExpansionSystem>();
             projectileExpansion = testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
-            hitApply = testWorld.GetOrCreateSystemManaged<HitApplyFinalizeSystem>();
+            hitApply = testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSystem>();
             statusProcess = testWorld.GetOrCreateSystemManaged<StatusProcessSystem>();
             simGroup.AddSystemToUpdateList(aoeExpansion);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<AoeSpawnApplySystem>());
@@ -53,7 +53,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.SortSystems();
 
             presentationGroup = testWorld.GetOrCreateSystemManaged<PresentationSystemGroup>();
-            presentationGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<HitApplyBridge>());
+            presentationGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatApplyBridge>());
             presentationGroup.SortSystems();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
@@ -322,17 +322,17 @@ namespace PlayGround.Tests.PlayMode
 
             TickSimulationOnly(0.01f);
 
-            TargetHitRange[] finalized = ReadFinalizedHitRanges();
+            TargetResultRange[] finalized = ReadFinalizedHitRanges();
             Assert.That(finalized, Has.Length.EqualTo(1));
             Assert.That(finalized[0].TargetProxy, Is.EqualTo(proxy));
-            Assert.That(finalized[0].Count, Is.EqualTo(1));
+            Assert.That(finalized[0].HitCount, Is.EqualTo(1));
 
             presentationGroup.Update();
             Assert.That(TotalHitCount(), Is.EqualTo(1));
         }
 
         [Test]
-        public void HitApplyPreservesEveryHitForOneTarget()
+        public void CombatApplyPreservesEveryHitForOneTarget()
         {
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
@@ -898,21 +898,21 @@ namespace PlayGround.Tests.PlayMode
             return Entity.Null;
         }
 
-        private TargetHitRange[] ReadFinalizedHitRanges()
+        private TargetResultRange[] ReadFinalizedHitRanges()
         {
-            HitApplyBridge bridge = testWorld.GetExistingSystemManaged<HitApplyBridge>();
+            CombatApplyBridge bridge = testWorld.GetExistingSystemManaged<CombatApplyBridge>();
             const global::System.Reflection.BindingFlags Flags =
                 global::System.Reflection.BindingFlags.Instance |
                 global::System.Reflection.BindingFlags.NonPublic;
-            var rangesField = typeof(HitApplyBridge).GetField("finalizedRanges", Flags);
+            var rangesField = typeof(CombatApplyBridge).GetField("finalizedRanges", Flags);
             Assert.That(rangesField, Is.Not.Null);
-            var ranges = (NativeArray<TargetHitRange>)rangesField.GetValue(bridge);
+            var ranges = (NativeArray<TargetResultRange>)rangesField.GetValue(bridge);
             if (!ranges.IsCreated)
             {
-                return global::System.Array.Empty<TargetHitRange>();
+                return global::System.Array.Empty<TargetResultRange>();
             }
 
-            var result = new TargetHitRange[ranges.Length];
+            var result = new TargetResultRange[ranges.Length];
             for (int i = 0; i < ranges.Length; i++)
             {
                 result[i] = ranges[i];
@@ -923,9 +923,10 @@ namespace PlayGround.Tests.PlayMode
 
         private void QueueStackHit(Entity target, StackEffectSnapshot stackEffect)
         {
-            NativeParallelMultiHashMap<Entity, CombatHitEvent> hitMap = HitMap();
-            hitMap.Add(target, new CombatHitEvent
+            NativeQueue<CombatHitEvent> hitQueue = HitQueue();
+            hitQueue.Enqueue(new CombatHitEvent
             {
+                TargetProxy = target,
                 Kind = CombatHitKind.Aoe,
                 DirectDamageEnabled = false,
                 StackEffect = stackEffect
@@ -938,9 +939,10 @@ namespace PlayGround.Tests.PlayMode
             float critChance = 0f,
             float critMultiplier = 1f)
         {
-            NativeParallelMultiHashMap<Entity, CombatHitEvent> hitMap = HitMap();
-            hitMap.Add(target, new CombatHitEvent
+            NativeQueue<CombatHitEvent> hitQueue = HitQueue();
+            hitQueue.Enqueue(new CombatHitEvent
             {
+                TargetProxy = target,
                 Kind = CombatHitKind.Aoe,
                 DamageAmount = damage,
                 CritChance = critChance,
@@ -1168,13 +1170,13 @@ namespace PlayGround.Tests.PlayMode
             return count;
         }
 
-        private NativeParallelMultiHashMap<Entity, CombatHitEvent> HitMap()
+        private NativeQueue<CombatHitEvent> HitQueue()
         {
-            FieldInfo field = typeof(HitApplyFinalizeSystem).GetField(
-                "HitMap",
+            FieldInfo field = typeof(CombatApplyFinalizeSystem).GetField(
+                "HitQueue",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null);
-            return (NativeParallelMultiHashMap<Entity, CombatHitEvent>)field.GetValue(hitApply);
+            return (NativeQueue<CombatHitEvent>)field.GetValue(hitApply);
         }
 
         private NativeQueue<AoeSpawnEvent> AoeEventQueue()

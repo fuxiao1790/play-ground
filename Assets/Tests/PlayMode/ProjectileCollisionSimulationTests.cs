@@ -32,10 +32,10 @@ namespace PlayGround.Tests.PlayMode
             projectileExpansion = testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContactGateSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileCollisionSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<HitApplyFinalizeSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<StatusProcessSystem>());
             simGroup.SortSystems();
-            testWorld.GetOrCreateSystemManaged<HitApplyBridge>();
+            testWorld.GetOrCreateSystemManaged<CombatApplyBridge>();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
@@ -247,31 +247,31 @@ namespace PlayGround.Tests.PlayMode
 
         private int ReadFinalizedHitCount()
         {
-            TargetHitRange[] ranges = ReadFinalizedHitRanges();
+            TargetResultRange[] ranges = ReadFinalizedHitRanges();
             int count = 0;
             for (int i = 0; i < ranges.Length; i++)
             {
-                count += ranges[i].Count;
+                count += ranges[i].HitCount;
             }
 
             return count;
         }
 
-        private TargetHitRange[] ReadFinalizedHitRanges()
+        private TargetResultRange[] ReadFinalizedHitRanges()
         {
-            HitApplyBridge bridge = testWorld.GetExistingSystemManaged<HitApplyBridge>();
+            CombatApplyBridge bridge = testWorld.GetExistingSystemManaged<CombatApplyBridge>();
             const global::System.Reflection.BindingFlags Flags =
                 global::System.Reflection.BindingFlags.Instance |
                 global::System.Reflection.BindingFlags.NonPublic;
-            var rangesField = typeof(HitApplyBridge).GetField("finalizedRanges", Flags);
+            var rangesField = typeof(CombatApplyBridge).GetField("finalizedRanges", Flags);
             Assert.That(rangesField, Is.Not.Null);
-            var ranges = (NativeArray<TargetHitRange>)rangesField.GetValue(bridge);
+            var ranges = (NativeArray<TargetResultRange>)rangesField.GetValue(bridge);
             if (!ranges.IsCreated)
             {
-                return global::System.Array.Empty<TargetHitRange>();
+                return global::System.Array.Empty<TargetResultRange>();
             }
 
-            var result = new TargetHitRange[ranges.Length];
+            var result = new TargetResultRange[ranges.Length];
             for (int i = 0; i < ranges.Length; i++)
             {
                 result[i] = ranges[i];

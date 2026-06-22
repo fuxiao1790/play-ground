@@ -78,7 +78,7 @@ namespace PlayGround.System.Aoe
             NativeArray<TargetPosition> targetPositions,
             NativeArray<TargetCollisionShape> targetShapes,
             NativeParallelMultiHashMap<long, int> occupiedTargetCells,
-            NativeParallelMultiHashMap<Entity, CombatHitEvent>.ParallelWriter hitWriter,
+            NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
             bool hasHitWriter,
             NativeStream.Writer vfxPendingWriter,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
@@ -186,7 +186,7 @@ namespace PlayGround.System.Aoe
             int targetKey,
             ref NativeStream.Writer vfxPending,
             ref bool hitVfxEmitted,
-            NativeParallelMultiHashMap<Entity, CombatHitEvent>.ParallelWriter hitWriter,
+            NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
             bool hasHitWriter,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
             NativeQueue<AoeSpawnEvent>.ParallelWriter aoeEventWriter,
@@ -194,8 +194,9 @@ namespace PlayGround.System.Aoe
         {
             if (hasHitWriter && HasHitEvent(hitSpawn))
             {
-                hitWriter.Add(targetEntity, new CombatHitEvent
+                hitWriter.Enqueue(new CombatHitEvent
                 {
+                    TargetProxy = targetEntity,
                     HitPosition = kinematics.Position,
                     Kind = CombatHitKind.Aoe,
                     DamageAmount = hitSpawn.HitPayload.DamageAmount,

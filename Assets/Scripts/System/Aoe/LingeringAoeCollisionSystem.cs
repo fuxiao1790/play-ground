@@ -11,7 +11,7 @@ namespace PlayGround.System.Aoe
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AoeContactGateSystem))]
-    [UpdateBefore(typeof(HitApplyFinalizeSystem))]
+    [UpdateBefore(typeof(CombatApplyFinalizeSystem))]
     [UpdateBefore(typeof(CombatRenderPrepareSystem))]
     public partial struct LingeringAoeCollisionSystem : ISystem
     {
@@ -82,7 +82,7 @@ namespace PlayGround.System.Aoe
 
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
-            var hitApply = state.World.GetExistingSystemManaged<HitApplyFinalizeSystem>();
+            var hitApply = state.World.GetExistingSystemManaged<CombatApplyFinalizeSystem>();
             var vfxPending = new NativeStream(lingeringAoeCount, Allocator.TempJob);
 
             var job = new LingeringAoeCollisionJob
@@ -94,7 +94,7 @@ namespace PlayGround.System.Aoe
                 HitWriter = hitApply != null
                     ? hitApply.AsParallelWriter()
                     : default,
-                HasHitWriter = hitApply != null && hitApply.HitMap.IsCreated,
+                HasHitWriter = hitApply != null && hitApply.HitQueue.IsCreated,
                 VfxPending = vfxPending.AsWriter(),
                 ProjectileEventWriter = expansion != null
                     ? expansion.EventQueue.AsParallelWriter()
@@ -149,7 +149,7 @@ namespace PlayGround.System.Aoe
             [ReadOnly] public NativeArray<TargetPosition> TargetPositions;
             [ReadOnly] public NativeArray<TargetCollisionShape> TargetShapes;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> OccupiedTargetCells;
-            public NativeParallelMultiHashMap<Entity, CombatHitEvent>.ParallelWriter HitWriter;
+            public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
             public bool HasHitWriter;
             public NativeStream.Writer VfxPending;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;

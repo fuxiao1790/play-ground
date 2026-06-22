@@ -12,7 +12,7 @@ namespace PlayGround.System.Projectile
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileContactGateSystem))]
     [UpdateBefore(typeof(PlayGround.System.Aoe.AoeContactGateSystem))]
-    [UpdateBefore(typeof(HitApplyFinalizeSystem))]
+    [UpdateBefore(typeof(CombatApplyFinalizeSystem))]
     public partial struct ProjectileCollisionSystem : ISystem
     {
         // this depends on the arena size and mob count
@@ -87,7 +87,7 @@ namespace PlayGround.System.Projectile
 
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
-            var hitApply = state.World.GetExistingSystemManaged<HitApplyFinalizeSystem>();
+            var hitApply = state.World.GetExistingSystemManaged<CombatApplyFinalizeSystem>();
             var vfxPending = new NativeStream(activeProjectileCount, Allocator.TempJob);
             var job = new ProjectileCollisionJob
             {
@@ -100,7 +100,7 @@ namespace PlayGround.System.Projectile
                 HitWriter = hitApply != null
                     ? hitApply.AsParallelWriter()
                     : default,
-                HasHitWriter = hitApply != null && hitApply.HitMap.IsCreated,
+                HasHitWriter = hitApply != null && hitApply.HitQueue.IsCreated,
                 VfxPending = vfxPending.AsWriter(),
                 ProjectileEventWriter = expansion != null
                     ? expansion.EventQueue.AsParallelWriter()
@@ -156,7 +156,7 @@ namespace PlayGround.System.Projectile
             [ReadOnly] public NativeParallelMultiHashMap<long, int> TargetCells;
             public int TotalTargetCount;
             public float MaxTargetRadius;
-            public NativeParallelMultiHashMap<Entity, CombatHitEvent>.ParallelWriter HitWriter;
+            public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
             public bool HasHitWriter;
             public NativeStream.Writer VfxPending;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
@@ -265,8 +265,9 @@ namespace PlayGround.System.Projectile
 
                             if (HasHitWriter && HasHitEvent(projectileHit.HitPayload))
                             {
-                                HitWriter.Add(targetEntity, new CombatHitEvent
+                                HitWriter.Enqueue(new CombatHitEvent
                                 {
+                                    TargetProxy = targetEntity,
                                     HitPosition = kinematics.Position,
                                     Kind = CombatHitKind.Projectile,
                                     DamageAmount = projectileHit.HitPayload.DamageAmount,
