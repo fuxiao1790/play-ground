@@ -70,10 +70,18 @@ namespace PlayGround.System.Projectile
             {
                 expansionSys.PendingHandle.Complete();
                 NativeQueue<ProjectileSpawnCommand> commandContainer = CommandContainer(expansionSys);
-                if (commandContainer.IsCreated)
+                if (commandContainer.IsCreated && commandContainer.Count > 0)
                 {
-                    while (commandContainer.TryDequeue(out ProjectileSpawnCommand cmd))
+                    // Bulk-drain in one memcpy instead of per-element TryDequeue: the managed
+                    // NativeQueue.TryDequeue path crosses the safety boundary per command and
+                    // copies the (large) command struct out individually, which dominated the
+                    // main-thread cost of this system. ToArray copies the whole queue once.
+                    NativeArray<ProjectileSpawnCommand> commands = commandContainer.ToArray(Allocator.Temp);
+                    commandContainer.Clear();
+
+                    for (int i = 0; i < commands.Length; i++)
                     {
+                        ProjectileSpawnCommand cmd = commands[i];
                         var key = new ProjectileSpawnKey((int)cmd.Faction, cmd.TypeId);
                         if (!_byKey.TryGetValue(key, out ProjectileSpawnBucket bucket))
                         {
@@ -83,6 +91,8 @@ namespace PlayGround.System.Projectile
                         bucket.Requests.Add(cmd);
                         totalRequests++;
                     }
+
+                    commands.Dispose();
                 }
             }
 

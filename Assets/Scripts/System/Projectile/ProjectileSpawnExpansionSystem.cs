@@ -82,15 +82,28 @@ namespace PlayGround.System.Projectile
             var events = new NativeArray<ProjectileSpawnEvent>(totalEvents, Allocator.TempJob);
             int offset = 0;
 
-            while (EventQueue.TryDequeue(out ProjectileSpawnEvent evt))
-                events[offset++] = evt;
+            // Bulk copy queued events in one memcpy instead of per-element TryDequeue: the
+            // managed NativeQueue.TryDequeue path crosses the safety boundary and copies the
+            // (large) event struct individually per element, which dominated this system's
+            // main-thread cost. Producers are already completed above, so Count is stable.
+            if (queueCount > 0)
+            {
+                NativeArray<ProjectileSpawnEvent> queued = EventQueue.ToArray(Allocator.Temp);
+                NativeArray<ProjectileSpawnEvent>.Copy(queued, 0, events, offset, queued.Length);
+                offset += queued.Length;
+                queued.Dispose();
+                EventQueue.Clear();
+            }
 
             for (int s = 0; s < scopes.Length; s++)
             {
                 DynamicBuffer<ProjectileSpawnEvent> buf = EntityManager.GetBuffer<ProjectileSpawnEvent>(scopes[s]);
-                for (int i = 0; i < buf.Length; i++)
-                    events[offset++] = buf[i];
-                buf.Clear();
+                if (buf.Length > 0)
+                {
+                    NativeArray<ProjectileSpawnEvent>.Copy(buf.AsNativeArray(), 0, events, offset, buf.Length);
+                    offset += buf.Length;
+                    buf.Clear();
+                }
             }
 
             Dependency = new ProjectileExpansionJob

@@ -210,7 +210,7 @@ MonoBehaviour:
   animator: {fileID: 0}
   target: {fileID: 0}
   speed: 1.40625
-  maxHealth: 55000
+  maxHealth: 550000
   hurtFlashSeconds: 0.08
   targetRadius: 0.45
   behaviours:
