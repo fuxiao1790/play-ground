@@ -32,7 +32,7 @@ namespace PlayGround.Skills
             {
                 if (chain == null || chain.causeIndex != slotIndex || chain.link == null) continue;
 
-                if (chain.link is ChildSpawnTrigger childTrigger)
+                if (chain.link is ProjectileIntervalSpawnTrigger childTrigger)
                 {
                     if (runtime is RuntimeProjectileDefinition projDef)
                         ApplyChildSpawn(projDef, childTrigger, slots, chain.effectIndex, allChains, snapshot);
@@ -202,7 +202,7 @@ namespace PlayGround.Skills
 
         private static void ApplyChildSpawn(
             RuntimeProjectileDefinition parent,
-            ChildSpawnTrigger trigger,
+            ProjectileIntervalSpawnTrigger trigger,
             IReadOnlyList<LoadoutSlot> slots,
             int effectIndex,
             TriggerChain[] allChains,

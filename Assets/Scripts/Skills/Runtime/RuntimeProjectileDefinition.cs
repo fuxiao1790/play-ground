@@ -27,7 +27,7 @@ namespace PlayGround.Skills.Runtime
         public bool DirectDamageEnabled { get; set; } = true;
         public ProjectileTrackingConfig Tracking { get; set; }
 
-        // Compiled from ChildSpawnTrigger; null if none.
+        // Compiled from ProjectileIntervalSpawnTrigger; null if none.
         public RuntimeChildSpawnSetup ChildSpawnSetup { get; set; }
 
         // Compiled from OnImpactAoeTrigger; null if none.

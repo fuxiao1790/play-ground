@@ -45,7 +45,7 @@ namespace PlayGround.Tests.EditMode
             AoeSkill targetSkill = CreateAsset<AoeSkill>("Aoe Skill");
             SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("Aoe Set", targetSkill);
-            ChildSpawnTrigger trigger = CreateAsset<ChildSpawnTrigger>("Child Spawn");
+            ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Child Spawn");
 
             SkillValidationWarning[] warnings = Validate(
                 new SkillSetSlot { skillSet = sourceSet },
@@ -64,7 +64,7 @@ namespace PlayGround.Tests.EditMode
             AoeSkill targetSkill = CreateAsset<AoeSkill>("Aoe Skill");
             SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("Aoe Set", targetSkill);
-            ChildSpawnTrigger trigger = CreateAsset<ChildSpawnTrigger>("Child Spawn");
+            ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Child Spawn");
             var chains = new[]
             {
                 new TriggerChain
@@ -94,7 +94,7 @@ namespace PlayGround.Tests.EditMode
             ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Child Projectile Skill");
             SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
-            ChildSpawnTrigger trigger = CreateAsset<ChildSpawnTrigger>("Child Spawn");
+            ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Child Spawn");
             trigger.intervalSeconds = 2f;
             trigger.intervalJitterPercent = 25f;
             var chains = new[]
@@ -315,7 +315,7 @@ namespace PlayGround.Tests.EditMode
             SkillSet rootSet = CreateSkillSet("Root Projectile Set", rootSkill);
             SkillSet applicatorSet = CreateSkillSet("Applicator Projectile Set", applicatorSkill);
             SkillSet detonationSet = CreateSkillSet("Stack Detonation Set", detonationSkill, stackingSupport);
-            ChildSpawnTrigger childTrigger = CreateAsset<ChildSpawnTrigger>("Child Spawn");
+            ProjectileIntervalSpawnTrigger childTrigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Child Spawn");
             StackTrigger stackTrigger = CreateAsset<StackTrigger>("Stack Trigger");
             var chains = new[]
             {
