@@ -72,6 +72,13 @@ namespace PlayGround.System.Aoe
             public bool HasProjectileTemplates;
             public bool HasAoeTemplates;
 
+            // Safety guards: the catch-up loop below advances cooldown by the per-tick
+            // interval. If that interval ever resolves to <= 0 (bad/zero config reaching the
+            // baked component), the loop would never terminate and hard-freeze the editor in
+            // Burst. Clamp the advance to a positive minimum and hard-cap iterations per update.
+            private const float MinIntervalSeconds = 1e-3f;
+            private const int MaxTicksPerUpdate = 256;
+
             private void Execute(
                 ref AoeIntervalSpawnStateComponent state,
                 in AoeIdentityComponent identity,
@@ -86,8 +93,10 @@ namespace PlayGround.System.Aoe
 
                 float cooldown = state.CooldownRemaining - DeltaTime;
                 int tickIndex = state.TickIndex;
-                while (cooldown <= 0f)
+                int ticksThisUpdate = 0;
+                while (cooldown <= 0f && ticksThisUpdate < MaxTicksPerUpdate)
                 {
+                    ticksThisUpdate++;
                     tickIndex++;
                     if (spawner.ChildKind == IntervalChildKind.Aoe)
                     {
@@ -108,12 +117,12 @@ namespace PlayGround.System.Aoe
                         }
                     }
 
-                    cooldown += NextIntervalSeconds(
+                    cooldown += math.max(MinIntervalSeconds, NextIntervalSeconds(
                         identity.AoeId,
                         spawner.JitterSeed,
                         tickIndex,
                         spawner.IntervalSeconds,
-                        spawner.IntervalJitterSeconds);
+                        spawner.IntervalJitterSeconds));
                 }
 
                 state.CooldownRemaining = cooldown;

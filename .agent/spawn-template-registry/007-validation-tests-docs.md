@@ -2,34 +2,34 @@
 
 ## Scope
 
-Verify the crash fix and the registry semantics; update docs.
+Verify the crash fix, the events-as-templates registry semantics, and the unified tick system;
+update docs.
 
 ## Changes
 
 1. **Tests**:
-   - Regression: `Assets/Tests/PlayMode/BareMinimumPrototypePlayModeTests.cs`,
-     `AoePlayModeTests.cs`, `ProjectileSpawnPipelineTests.cs` pass unchanged (proj→proj cadence
-     and deterministic ids preserved).
-   - New EditMode/PlayMode coverage:
-     - **Dedup**: two compiled setups with identical child behavior resolve to the same
-       `TemplateKey` and a single registry entry; differing behavior → distinct keys.
-     - **Dynamic count**: changing `spawnCount` yields a new `TemplateKey`/entry; re-selecting a
-       prior count reuses its entry.
-     - **Crash repro**: enter Play with the lingering-AOE-source → AOE/projectile child loadout
-       that previously threw; assert children spawn over the source lifetime, stop at expiry,
-       and no Burst exception is raised.
+   - Regression: `BareMinimumPrototypePlayModeTests`, `AoePlayModeTests`,
+     `ProjectileSpawnPipelineTests` pass unchanged (proj→proj cadence + deterministic ids).
+   - EditMode: keep `sizeof(AoeSpawnCommand) < 4096`; update the dedup test to register
+     `ProjectileSpawnEvent`/`AoeSpawnEvent` (not `…TemplateData`) and assert identical-behavior
+     events share one key.
+   - PlayMode: the lingering-AOE-source → projectile/AOE child test
+     (`LingeringAoeIntervalChildren…UntilSourceExpires`) — children spawn over the source
+     lifetime, stop at expiry, no Burst exception/freeze. Add a zero-interval guard test (a
+     spawner configured with interval 0 must not hang and must not spawn unboundedly).
+   - Dynamic count: changing `spawnCount` → new key; revert → prior key reused.
 
-2. **Docs**: update `Docs/game-logic/skill-system.md` to describe the spawn-template registry —
-   the single template kind per domain, the three data tiers (registry / slim timer config /
-   hot timer state), content-hash dedup, and the never-recycle policy (with the refcount +
-   grace-period sweep noted as the future enhancement).
+2. **Docs** (`Docs/game-logic/skill-system.md`): update the registry section to "spawn events are
+   stored as templates" — one template kind per domain holding `NativeHashMap<Hash128, …SpawnEvent>`,
+   the unified `TimedSpawnComponent` + single `TimedSpawnSystem`, the canonical
+   event→expansion→command→apply path (no conversion), content-hash dedup, never-recycle, and the
+   loop guard. Remove references to `…TemplateData` and the two old tick systems.
 
 ## Acceptance criteria
 
-- All listed PlayMode/EditMode tests green.
-- `sizeof(AoeSpawnCommand)` reduced below the `NativeStream` ~4 KB block; the
-  `Allocation size is too large` exception is gone.
-- Docs reflect the registry design.
+- Listed PlayMode/EditMode tests green; no editor freeze on fire.
+- `Allocation size is too large` exception gone.
+- Docs reflect the events-as-templates + unified-system design.
 
 ## Dependencies
 

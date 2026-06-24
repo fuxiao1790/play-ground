@@ -1,48 +1,40 @@
-# 001 — Template data structs + registry storage
+# 001 — Events-as-templates registry storage
 
 ## Scope
 
-Introduce the cold spawn-template data structs, the per-domain singleton registry components,
-the content-hash helper, and the scope-entity ownership of the maps.
+Store spawn events themselves in per-domain singleton registries on the shared scope entity,
+with content-hash keys. No separate template-data struct.
 
 ## Changes
 
-1. **Template data structs** (in `Assets/Scripts/System/Common/`, e.g. new
-   `SpawnTemplateData.cs`, or repurpose `IntervalChildTemplates.cs`):
-   - `ProjectileSpawnTemplateData` ≈ today's `IntervalProjectileChild` (TypeId,
-     count/pattern/`SideSpreadDegrees`, Speed, Lifetime, geometry, `DamageAmount`,
-     `DirectDamageEnabled`, PierceCount, RepeatHitCooldown, visual, tracking, `ImpactAoe`,
-     `StackEffect`, `ImpactProjectile`) **minus per-instance fields** (`SourceNodeId` and any
-     position/direction — those are set at spawn). Keep fan-out and damage/crit.
-   - `AoeSpawnTemplateData` ≈ today's `IntervalAoeChild` (TypeId, Count, Lifetime,
-     RepeatHitCooldown, geometry, AreaSize, `HitPayload`, `ProjectileBurst`, `AoeSpawn`,
-     `Render`) minus per-instance `SourceNodeId`.
-   - Both must be blittable (no managed refs) so they hash and live in a `NativeHashMap`.
-
-2. **Singleton registry components** (`Assets/Scripts/System/Common/SpawnTemplateComponents.cs`):
+1. **Singleton registry components** (`Assets/Scripts/System/Common/SpawnTemplateComponents.cs`):
    ```
-   struct ProjectileSpawnTemplate : IComponentData { public NativeHashMap<Hash128, ProjectileSpawnTemplateData> Map; }
-   struct AoeSpawnTemplate        : IComponentData { public NativeHashMap<Hash128, AoeSpawnTemplateData>        Map; }
+   struct ProjectileSpawnTemplate : IComponentData { public NativeHashMap<Hash128, ProjectileSpawnEvent> Map; }
+   struct AoeSpawnTemplate        : IComponentData { public NativeHashMap<Hash128, AoeSpawnEvent>        Map; }
    ```
+   The value type is the existing spawn event — there is no `ProjectileSpawnTemplateData` /
+   `AoeSpawnTemplateData`.
 
-3. **Content hashing helper**: `Hash128 SpawnTemplateHash.Of(in T template)` using
-   `xxHash3.Hash128` over the struct bytes (`UnsafeUtility.AddressOf` + `sizeof`). 128-bit key
-   → collisions negligible, no `MemCmp` confirmation needed.
+2. **Content hashing helper**: `Hash128 SpawnTemplateHash.Of(in T evt)` over the blittable event
+   bytes (`xxHash3.Hash128` on `UnsafeUtility.AddressOf` + `sizeof`). 128-bit key → no `MemCmp`
+   confirmation needed. Callers must pass the event with **per-instance fields default**
+   (`Position`, `Faction`, `BaseProjectileId`/`AoeId`, `JitterSeed`, `DeterministicIdTickIndex`)
+   so the hash reflects behavior only.
 
-4. **Scope-entity ownership** in `Assets/Scripts/System/Common/CombatEcsComponents.cs`
+3. **Scope-entity ownership** in `Assets/Scripts/System/Common/CombatEcsComponents.cs`
    (`CombatScopeOwner`):
-   - In `Acquire`, when the scope entity is first created, `AddComponentData` both registry
-     components with freshly allocated `NativeHashMap<Hash128,…>(capacity, Allocator.Persistent)`.
-   - In `Release`, before `DestroyEntity`, read the components and `Dispose()` both maps.
+   - In `Acquire` (first creation of the scope entity), `AddComponentData` both registry
+     components with `new NativeHashMap<Hash128,…>(capacity, Allocator.Persistent)`.
+   - In `Release` (before `DestroyEntity`), read both components and `Dispose()` the maps.
 
 ## Acceptance criteria
 
-- Project compiles; both registry components exist on the shared scope entity after a
-  `CombatRoot` binds; maps are disposed exactly once on last release (no leak warning).
-- `SpawnTemplateHash.Of` returns identical keys for byte-identical templates and distinct keys
-  for differing ones.
-- Template data structs are blittable (compile-time `UnsafeUtility.IsBlittable`/Burst check).
+- Compiles; both registry components exist on the shared scope entity after a `CombatRoot`
+  binds; maps disposed exactly once on last release (no leak).
+- `SpawnTemplateHash.Of` returns equal keys for byte-identical events (per-instance fields
+  default) and distinct keys otherwise.
+- `ProjectileSpawnEvent`/`AoeSpawnEvent` remain blittable (EditMode `IsBlittable` guard).
 
 ## Dependencies
 
-None (foundation task).
+None (foundation).

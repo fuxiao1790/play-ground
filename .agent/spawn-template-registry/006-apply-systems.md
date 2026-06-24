@@ -1,30 +1,33 @@
-# 006 — Apply systems bake the slim spawner component
+# 006 — Apply systems bake the unified TimedSpawnComponent
 
 ## Scope
 
-Update the spawn-apply systems to bake the slim spawner component (with `TemplateKey`) and the
-zeroed hot timer state from the command. Archetypes are otherwise unchanged.
+Bake the unified `TimedSpawnComponent` + zeroed `TimedSpawnStateComponent` + `TimedSpawnTag`
+onto source entities (projectile and lingering AOE) when the spawn command carries a timed
+spawner. Replace the per-domain spawner-component baking.
 
 ## Changes
 
-- `Assets/Scripts/System/Aoe/AoeSpawnApplySystem.cs`: where it currently sets
-  `cmd.IntervalSpawner` (`RecordAoeReset` / `AoeSpawnJob`), bake the slim
-  `AoeIntervalSpawnerComponent` (now `{ ChildKind, IntervalSeconds, IntervalJitterSeconds,
-  TemplateKey }`) and the zeroed `AoeIntervalSpawnStateComponent` (initial cooldown from
-  `IntervalSeconds` + jitter via `JitterSeed`). The `intervalSpawnerLingeringArchetype` and the
-  `hasIntervalSpawner` key flag are unchanged (the spawner component just got smaller).
 - `Assets/Scripts/System/Projectile/ProjectileSpawnApplySystem.cs`
-  (`ChildSpawnerProjectileSpawnApplySystem`): same — bake the slim
-  `ProjectileChildSpawnerComponent`/`AoeIntervalSpawnerComponent` + zeroed
-  `ProjectileChildSpawnStateComponent` from the command.
+  (`ChildSpawnerProjectileSpawnApplySystem`): archetype includes
+  `TimedSpawnComponent, TimedSpawnStateComponent, TimedSpawnTag`. On cold-create and on reuse,
+  bake `cmd.TimedSpawn` and a zeroed state whose `CooldownRemaining = IntervalSeconds +
+  DeterministicJitter(SourceId, JitterSeed, IntervalJitterSeconds)`. Remove
+  `InitialChildSpawnStateFor`/`ChildSpawner`/`AoeSpawner` baking.
+- `Assets/Scripts/System/Aoe/AoeSpawnApplySystem.cs`: the interval-spawner lingering archetype
+  includes the same three unified components; bake `cmd.TimedSpawn` + zeroed state (reuse the
+  existing `InitialIntervalStateFor` logic, now reading `TimedSpawnComponent`). The
+  `hasIntervalSpawner` reuse-key flag and dedicated archetype/dead-slot query remain (keyed on
+  `TimedSpawnTag`).
+- Both apply systems: select the spawner archetype when the command has a timed spawner
+  (`TemplateKey != default`), else the plain archetype.
 
 ## Acceptance criteria
 
-- Spawner entities are created/reused with the slim component carrying a valid `TemplateKey`
-  and zeroed timer state; pooled reuse still works (profiler `*.Cold/Reuse` counters behave as
-  before).
-- No baking of removed embedded-template fields.
+- Source entities are created/reused with the unified component carrying a valid `TemplateKey`
+  and zeroed timer state; pooled reuse still works (profiler `*.Cold/Reuse` unchanged in shape).
+- No baking of the deleted per-domain spawner components remains.
 
 ## Dependencies
 
-004 (slim carriers). Can proceed in parallel with 005.
+004 (unified component). Parallel with 005.

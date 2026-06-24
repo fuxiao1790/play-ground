@@ -222,11 +222,13 @@ namespace PlayGround.Tests.PlayMode
             Hash128 projectileKeyA = root.RegisterTimedSpawnTemplate(in projectileA);
             Hash128 projectileKeyB = root.RegisterTimedSpawnTemplate(in projectileA);
             Hash128 projectileKeyC = root.RegisterTimedSpawnTemplate(in projectileC);
+            Hash128 projectileKeyD = root.RegisterTimedSpawnTemplate(in projectileA);
             ProjectileSpawnTemplate projectileRegistry =
                 entityManager.GetComponentData<ProjectileSpawnTemplate>(scope);
 
             Assert.That(projectileKeyB, Is.EqualTo(projectileKeyA));
             Assert.That(projectileKeyC, Is.Not.EqualTo(projectileKeyA));
+            Assert.That(projectileKeyD, Is.EqualTo(projectileKeyA));
             Assert.That(projectileRegistry.Map.Count, Is.EqualTo(projectileStartCount + 2));
             Assert.That(projectileRegistry.Map.ContainsKey(projectileKeyA), Is.True);
             Assert.That(projectileRegistry.Map.ContainsKey(projectileKeyC), Is.True);
@@ -253,10 +255,12 @@ namespace PlayGround.Tests.PlayMode
             Hash128 aoeKeyA = root.RegisterTimedSpawnTemplate(in aoeA);
             Hash128 aoeKeyB = root.RegisterTimedSpawnTemplate(in aoeA);
             Hash128 aoeKeyC = root.RegisterTimedSpawnTemplate(in aoeC);
+            Hash128 aoeKeyD = root.RegisterTimedSpawnTemplate(in aoeA);
             AoeSpawnTemplate aoeRegistry = entityManager.GetComponentData<AoeSpawnTemplate>(scope);
 
             Assert.That(aoeKeyB, Is.EqualTo(aoeKeyA));
             Assert.That(aoeKeyC, Is.Not.EqualTo(aoeKeyA));
+            Assert.That(aoeKeyD, Is.EqualTo(aoeKeyA));
             Assert.That(aoeRegistry.Map.Count, Is.EqualTo(aoeStartCount + 2));
             Assert.That(aoeRegistry.Map.ContainsKey(aoeKeyA), Is.True);
             Assert.That(aoeRegistry.Map.ContainsKey(aoeKeyC), Is.True);
@@ -326,6 +330,25 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(registry.Map.ContainsKey(firstSetup.TemplateKey), Is.True);
             Assert.That(registry.Map.Count, Is.LessThanOrEqualTo(projectileStartCount + 1));
 
+            triggerB.spawnCount = 2;
+            CompileAndRegister(driver);
+            first = (RuntimeProjectileDefinition)CompiledRuntime(driver, 0);
+            second = (RuntimeProjectileDefinition)CompiledRuntime(driver, 1);
+            Hash128 originalKey = first.ChildSpawnSetup.TemplateKey;
+            Hash128 changedCountKey = second.ChildSpawnSetup.TemplateKey;
+            registry = entityManager.GetComponentData<ProjectileSpawnTemplate>(scope);
+
+            Assert.That(originalKey, Is.EqualTo(firstSetup.TemplateKey));
+            Assert.That(changedCountKey, Is.Not.EqualTo(originalKey));
+            Assert.That(registry.Map.ContainsKey(changedCountKey), Is.True);
+            Assert.That(registry.Map.Count, Is.LessThanOrEqualTo(projectileStartCount + 2));
+
+            triggerB.spawnCount = 1;
+            CompileAndRegister(driver);
+            second = (RuntimeProjectileDefinition)CompiledRuntime(driver, 1);
+
+            Assert.That(second.ChildSpawnSetup.TemplateKey, Is.EqualTo(originalKey));
+
             Cleanup(rootObject, rootPrefab.gameObject, childPrefab.gameObject, driverObject);
             CleanupObjects(
                 rootSkillA,
@@ -336,6 +359,102 @@ namespace PlayGround.Tests.PlayMode
                 childSet,
                 triggerA,
                 triggerB,
+                loadout);
+        }
+
+        [UnityTest]
+        public IEnumerator LingeringAoeIntervalChildrenUseRegistryTemplatesUntilSourceExpires()
+        {
+            CreateProjectileRoot(out GameObject rootObject, out CombatRoot root);
+            LingeringAoePrefab projectileSourcePrefab = CreateLingeringAoePrefab("ProjectileChildSourceTemplate");
+            LingeringAoePrefab aoeSourcePrefab = CreateLingeringAoePrefab("AoeChildSourceTemplate");
+            BasicAttackPrefab projectileChildPrefab = CreateProjectilePrefab("IntervalProjectileChildTemplate");
+            BasicAoePrefab aoeChildPrefab = CreateAoePrefab("IntervalAoeChildTemplate");
+            LingeringAoeSkill projectileSourceSkill = ScriptableObject.CreateInstance<LingeringAoeSkill>();
+            LingeringAoeSkill aoeSourceSkill = ScriptableObject.CreateInstance<LingeringAoeSkill>();
+            ProjectileSkill projectileChildSkill = ScriptableObject.CreateInstance<ProjectileSkill>();
+            AoeSkill aoeChildSkill = ScriptableObject.CreateInstance<AoeSkill>();
+            SkillSet projectileSourceSet = ScriptableObject.CreateInstance<SkillSet>();
+            SkillSet aoeSourceSet = ScriptableObject.CreateInstance<SkillSet>();
+            SkillSet projectileChildSet = ScriptableObject.CreateInstance<SkillSet>();
+            SkillSet aoeChildSet = ScriptableObject.CreateInstance<SkillSet>();
+            ProjectileIntervalSpawnTrigger projectileTrigger = ScriptableObject.CreateInstance<ProjectileIntervalSpawnTrigger>();
+            AoeIntervalSpawnTrigger aoeTrigger = ScriptableObject.CreateInstance<AoeIntervalSpawnTrigger>();
+            PlayerLoadout loadout = ScriptableObject.CreateInstance<PlayerLoadout>();
+            GameObject driverObject = new("PlayerSkillDriverHarness");
+            driverObject.SetActive(false);
+            PlayerSkillDriver driver = driverObject.AddComponent<PlayerSkillDriver>();
+
+            ConfigureLingeringAoe(projectileSourceSkill, projectileSourcePrefab, damage: 0f, lifetime: 0.07f);
+            ConfigureLingeringAoe(aoeSourceSkill, aoeSourcePrefab, damage: 0f, lifetime: 0.07f);
+            ConfigureProjectile(projectileChildSkill, projectileChildPrefab, damage: 1f);
+            ConfigureAoe(aoeChildSkill, aoeChildPrefab, damage: 1f);
+            projectileTrigger.intervalSeconds = 0.02f;
+            projectileTrigger.spawnCount = 1;
+            aoeTrigger.intervalSeconds = 0.02f;
+            aoeTrigger.spawnCount = 1;
+            SetField(projectileSourceSet, "skill", projectileSourceSkill);
+            SetField(projectileSourceSet, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(aoeSourceSet, "skill", aoeSourceSkill);
+            SetField(aoeSourceSet, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(projectileChildSet, "skill", projectileChildSkill);
+            SetField(projectileChildSet, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(aoeChildSet, "skill", aoeChildSkill);
+            SetField(aoeChildSet, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(loadout, "slots", new global::System.Collections.Generic.List<LoadoutSlot>
+            {
+                new SkillSetSlot { skillSet = projectileSourceSet },
+                new TriggerLinkSlot { link = projectileTrigger },
+                new SkillSetSlot { skillSet = projectileChildSet },
+                new SkillSetSlot { skillSet = aoeSourceSet },
+                new TriggerLinkSlot { link = aoeTrigger },
+                new SkillSetSlot { skillSet = aoeChildSet },
+            });
+            SetField(driver, "loadout", loadout);
+            SetField(driver, "combatRoot", root);
+
+            CompileAndRegister(driver);
+            var projectileSource = (RuntimeAoeDefinition)CompiledRuntime(driver, 0);
+            var aoeSource = (RuntimeAoeDefinition)CompiledRuntime(driver, 1);
+            int projectileChildTypeId = projectileSource.ChildSpawnSetup.ChildDefinition.TypeId;
+            int aoeChildTypeId = aoeSource.AoeIntervalSpawnSetup.ChildDefinition.TypeId;
+
+            SkillSpawnTranslator.Spawn(projectileSource, Vector2.zero, Vector2.right, Vector2.zero, root);
+            SkillSpawnTranslator.Spawn(aoeSource, Vector2.zero, Vector2.right, Vector2.zero, root);
+
+            for (int i = 0; i < 10; i++)
+                yield return new WaitForSeconds(0.02f);
+
+            int projectileCountAfterLifetime = ScopedProjectileCount(root, projectileChildTypeId);
+            int aoeCountAfterLifetime = ScopedAoeCount(root, aoeChildTypeId);
+            Assert.That(projectileCountAfterLifetime, Is.GreaterThanOrEqualTo(2));
+            Assert.That(aoeCountAfterLifetime, Is.GreaterThanOrEqualTo(2));
+
+            for (int i = 0; i < 8; i++)
+                yield return new WaitForSeconds(0.02f);
+
+            Assert.That(ScopedProjectileCount(root, projectileChildTypeId), Is.EqualTo(projectileCountAfterLifetime));
+            Assert.That(ScopedAoeCount(root, aoeChildTypeId), Is.EqualTo(aoeCountAfterLifetime));
+            LogAssert.NoUnexpectedReceived();
+
+            Cleanup(
+                rootObject,
+                projectileSourcePrefab.gameObject,
+                aoeSourcePrefab.gameObject,
+                projectileChildPrefab.gameObject,
+                aoeChildPrefab.gameObject,
+                driverObject);
+            CleanupObjects(
+                projectileSourceSkill,
+                aoeSourceSkill,
+                projectileChildSkill,
+                aoeChildSkill,
+                projectileSourceSet,
+                aoeSourceSet,
+                projectileChildSet,
+                aoeChildSet,
+                projectileTrigger,
+                aoeTrigger,
                 loadout);
         }
 
@@ -534,6 +653,23 @@ namespace PlayGround.Tests.PlayMode
             return prefab;
         }
 
+        private static LingeringAoePrefab CreateLingeringAoePrefab(string name)
+        {
+            GameObject prefabObject = new(name);
+            prefabObject.SetActive(false);
+            GameObject visualObject = new("Visual");
+            visualObject.transform.SetParent(prefabObject.transform, false);
+            SpriteRenderer renderer = visualObject.AddComponent<SpriteRenderer>();
+            renderer.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
+            GameObject hurtboxObject = new("Hurtbox");
+            hurtboxObject.transform.SetParent(prefabObject.transform, false);
+            CircleCollider2D hurtbox = hurtboxObject.AddComponent<CircleCollider2D>();
+            hurtbox.radius = 1f;
+            LingeringAoePrefab prefab = prefabObject.AddComponent<LingeringAoePrefab>();
+            prefab.Configure(renderer, hurtbox);
+            return prefab;
+        }
+
         private static void ConfigureProjectile(ProjectileSkill skill, BasicAttackPrefab prefab, float damage)
         {
             var definition = (ProjectileDefinition)skill.Definition;
@@ -551,6 +687,22 @@ namespace PlayGround.Tests.PlayMode
             definition.baseAreaSize = 1f;
             definition.damage = damage;
             definition.directDamageEnabled = damage > 0f;
+        }
+
+        private static void ConfigureLingeringAoe(
+            LingeringAoeSkill skill,
+            LingeringAoePrefab prefab,
+            float damage,
+            float lifetime,
+            float tickInterval = 0f)
+        {
+            var definition = (LingeringAoeDefinition)skill.Definition;
+            definition.prefab = prefab;
+            definition.baseAreaSize = 1f;
+            definition.damage = damage;
+            definition.directDamageEnabled = damage > 0f;
+            definition.lifetimeSeconds = lifetime;
+            definition.tickIntervalSeconds = tickInterval;
         }
 
         private static Matrix4x4 FirstScopedAoeRenderMatrix(CombatRoot root)
@@ -924,6 +1076,25 @@ namespace PlayGround.Tests.PlayMode
             for (int i = 0; i < entities.Length; i++)
             {
                 AoeIdentityComponent identity = entityManager.GetComponentData<AoeIdentityComponent>(entities[i]);
+                if (identity.Faction == faction && identity.TypeId == typeId)
+                    count++;
+            }
+
+            return count;
+        }
+
+        private static int ScopedProjectileCount(CombatRoot root, int typeId)
+        {
+            int count = 0;
+            CombatFaction faction = Faction(root);
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<ProjectileIdentityComponent>());
+            using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
+            for (int i = 0; i < entities.Length; i++)
+            {
+                ProjectileIdentityComponent identity =
+                    entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]);
                 if (identity.Faction == faction && identity.TypeId == typeId)
                     count++;
             }

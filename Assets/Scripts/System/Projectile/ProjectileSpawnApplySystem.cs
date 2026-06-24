@@ -606,7 +606,56 @@ namespace PlayGround.System.Projectile
             RecordCommonProjectileReset(ecb, entity, faction, cmd);
             ecb.SetComponent(entity, cmd.ChildSpawner);
             ecb.SetComponent(entity, cmd.AoeSpawner);
-            ecb.SetComponent(entity, cmd.ChildSpawnState);
+            ecb.SetComponent(entity, InitialChildSpawnStateFor(cmd));
+        }
+
+        private static ProjectileChildSpawnStateComponent InitialChildSpawnStateFor(in ProjectileSpawnCommand cmd)
+        {
+            IntervalChildKind childKind = cmd.ChildSpawnState.ChildKind;
+            float intervalSeconds;
+            float intervalJitterSeconds;
+            int jitterSeed;
+            if (childKind == IntervalChildKind.Aoe)
+            {
+                intervalSeconds = cmd.AoeSpawner.IntervalSeconds;
+                intervalJitterSeconds = cmd.AoeSpawner.IntervalJitterSeconds;
+                jitterSeed = cmd.AoeSpawner.JitterSeed;
+            }
+            else
+            {
+                intervalSeconds = cmd.ChildSpawner.IntervalSeconds;
+                intervalJitterSeconds = cmd.ChildSpawner.IntervalJitterSeconds;
+                jitterSeed = cmd.ChildSpawner.JitterSeed;
+            }
+
+            return new ProjectileChildSpawnStateComponent
+            {
+                ChildSpawnCooldownRemaining = intervalSeconds
+                    + DeterministicJitter(cmd.ProjectileId, jitterSeed, intervalJitterSeconds),
+                ChildSpawnTickIndex = 0,
+                ChildKind = childKind
+            };
+        }
+
+        private static float DeterministicJitter(int projectileId, int jitterSeed, float maxOffsetSeconds)
+        {
+            if (maxOffsetSeconds <= 0f)
+            {
+                return 0f;
+            }
+
+            unchecked
+            {
+                uint hash = (uint)projectileId;
+                hash = (hash * 397u) ^ (uint)jitterSeed;
+                hash *= 0x9E3779B9u;
+                hash ^= hash >> 16;
+                hash *= 0x7FEB352Du;
+                hash ^= hash >> 15;
+                hash *= 0x846CA68Bu;
+                hash ^= hash >> 16;
+                return ((hash & 0x00FFFFFFu) + 1u) / 16777217f * maxOffsetSeconds;
+            }
         }
 
         [BurstCompile]
@@ -715,7 +764,7 @@ namespace PlayGround.System.Projectile
 
                     childSpawners[i] = cfg.ChildSpawner;
                     aoeSpawners[i] = cfg.AoeSpawner;
-                    childStates[i] = cfg.ChildSpawnState;
+                    childStates[i] = InitialChildSpawnStateFor(cfg);
 
                     activeMask[i] = true;
                     collisionActiveMask[i] = NeedsCollision(cfg.HitPayload);

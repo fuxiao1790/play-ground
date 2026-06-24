@@ -1,113 +1,108 @@
-# Spawn-Template Registry (ECS, content-hashed)
+# Spawn-Template Registry (events-as-templates, unified timed spawn)
 
 ## Summary
 
-Stop embedding heavy, recursive value-type spawn templates by value in spawn
-components/commands. Store each template **once** in an ECS registry keyed by its content
-hash, and have carriers reference it by a small `Hash128 TemplateKey`. This fixes a Burst
-crash, removes per-spawn/per-chunk bloat, and unifies "timed" (interval) spawns with ordinary
-spawns under a single template kind per domain.
+Fix the Burst crash and the recursive struct bloat from interval-spawn templates by storing
+**spawn events themselves** in an ECS registry keyed by content hash, and collapsing the two
+per-domain interval tick systems into **one thin system** that only ticks a cooldown and emits
+a stored event into the existing spawn pipeline. No template→event conversion, no second spawn
+path.
 
 ## Problem
 
-Interval-spawn-trigger templates recurse through the snapshot tree
-(`IntervalProjectileChild` → `ProjectileImpactProjectileSnapshot` → `ProjectileImpactAoeSnapshot`
-→ `StackEffectSnapshot`/`AoeOnHitSpawnSnapshot`), so each behavior tier roughly *doubles* the
-struct. Measured: `IntervalProjectileChild` ≈ 2.9 KB, `IntervalAoeChild` ≈ 1 KB,
-`AoeIntervalSpawnerComponent` ≈ 4.0 KB, `AoeSpawnCommand` ≈ 4.9 KB. `AoeSpawnExpansionSystem`
-writes commands through a `NativeStream` whose per-element block is ~4 KB, so the oversized
-command throws `ArgumentException: Allocation size is too large` in `AoeExpansionJob.Execute`.
-The projectile pipeline (uses `NativeQueue`) doesn't crash but carries the same bloat through
-every event/command and ECS chunk.
+Interval-spawn templates embed recursive value-type snapshots
+(`IntervalProjectileChild` → `ProjectileImpactProjectileSnapshot` → … → `StackEffectSnapshot`),
+so each behavior tier roughly doubles the struct: `AoeIntervalSpawnerComponent` ≈ 4.0 KB,
+`AoeSpawnCommand` ≈ 4.9 KB. `AoeSpawnExpansionSystem` writes commands through a `NativeStream`
+(~4 KB block limit) → `ArgumentException: Allocation size is too large` in
+`AoeExpansionJob.Execute`. The same payload bloats every event/command and ECS chunk.
+
+A secondary structural problem: two tick systems (`TimedProjectileSpawnSystem`,
+`TimedAoeSpawnSystem`) each duplicate the cooldown loop, the `ChildKind` branch, and a
+~30-field hand-built spawn event. That builder logic belongs in expansion, not in a tick
+system.
 
 ## Architectural decisions
 
-1. **One template kind per domain, not "timed" vs "ordinary".** A timed/interval spawn is just
-   a spawn template plus a timer. So there is a single `ProjectileSpawnTemplate` and a single
-   `AoeSpawnTemplate`, shared by interval children and (as a follow-on) ordinary spawns.
+1. **The spawn event is the template.** The registry stores `ProjectileSpawnEvent` /
+   `AoeSpawnEvent` directly (`NativeHashMap<Hash128, …SpawnEvent>`). There is **no** separate
+   `…TemplateData` struct and **no** template→event conversion. Fetch the stored event, stamp a
+   few per-instance fields, enqueue.
 
-2. **Three data tiers** — the crux of the fix:
-   - **Registry (cold, shared, content-hashed):** the full spawn-event behavior **including
-     fan-out** (`Count`/spread/pattern/jitter) and **damage/crit** (inside `CombatHitPayload`).
-     ≈ today's `IntervalProjectileChild` / `IntervalAoeChild` minus only per-instance fields
-     (position/direction/source). Referenced by `Hash128 TemplateKey`.
-   - **Per-entity cold timer config** (set once at spawn, read each tick, not mutated): on the
-     slim spawner component — `{ ChildKind, IntervalSeconds, IntervalJitterSeconds, TemplateKey }`.
-   - **Per-entity HOT timer state** (mutated every tick): the existing
-     `ProjectileChildSpawnStateComponent` / `AoeIntervalSpawnStateComponent`
-     (`{ CooldownRemaining, TickIndex }`) — stays on the entity, never in the registry.
+2. **Canonical path only.** Everything flows through the existing
+   **spawn event → spawn expansion → spawn command → spawn apply**. The unified tick system
+   writes the existing event type into the existing `EventQueue`. No new event type, queue,
+   resolve step, or parallel path.
 
-3. **Singletons are created GameObject-side, matching this project.** Entities here are created
-   by ref-counted owner helpers from `CombatRoot.BindWorld()` (`CombatEcsWorld.Acquire`,
-   `CombatScopeOwner.Acquire`), and `RegisterType`/`RegisterTemplate` are managed dictionaries
-   on `CombatRoot`. The registry singleton therefore lives **on the existing shared scope
-   entity** (created once, ref-counted, torn down by the last owner) — not in a system
-   `OnCreate`. Registration flows through a new `CombatRoot.RegisterTimedSpawnTemplate`.
+3. **One unified, thin tick system.** A single `TimedSpawnSystem` queries any active entity
+   with a lifetime and a timed-spawn component — source domain (projectile vs lingering AOE) is
+   irrelevant because both share `Active`, `CombatLifetimeComponent`, `CombatKinematicsComponent`.
+   Its whole body: tick cooldown → when due, fetch the stored event by key, stamp
+   per-instance fields, enqueue. The `ChildKind` switch (which `EventQueue`) lives in exactly
+   one place.
 
-4. **Dedup is inherent.** The map key is the template's `Hash128` content hash, so identical
-   templates collapse to one slot. The deterministic jitter seed is excluded from the hashed
-   template (it stays inline on the slim component), so identical *behavior* shares one entry.
+4. **Self-describing timed-spawn component.** One `TimedSpawnComponent` replaces the per-domain
+   spawner components; it carries `{ Faction, SourceId, ChildKind, Hash128 TemplateKey,
+   IntervalSeconds, IntervalJitterSeconds, JitterSeed }`. Hot timer state stays in a separate
+   `TimedSpawnStateComponent { CooldownRemaining, TickIndex }`.
 
-5. **Never-recycle for v1.** Insert-if-absent only; entries are never removed. Bounded by the
-   number of *distinct* compiled behaviors over a session (dozens), so memory is small and the
-   logic is trivial — no refcount, no sweep, no dedicated system. Refcount + grace-period
-   removal is a documented future enhancement.
+5. **Singletons created GameObject-side.** The registry maps live on the existing shared scope
+   entity, created/disposed by the ref-counted `CombatScopeOwner` (mirroring how the scope and
+   its buffers are created from `CombatRoot.BindWorld`), not in a system `OnCreate`.
+   Registration flows through `CombatRoot.RegisterTimedSpawnTemplate`, like `RegisterType`.
 
-## Scope
+6. **Content-hash dedup; never-recycle (v1).** The key is the `Hash128` of the stored event
+   with per-instance fields left default at registration, so identical behavior collapses to
+   one entry. Entries are never removed in v1 (bounded by distinct compiled behaviors); a
+   refcount + grace-period sweep is a documented future enhancement.
 
-Define the two unified kinds and **wire the interval spawners through them now** — this fixes
-the crash and the interval-spawn bloat. Because the kind is shared, ordinary projectile/AOE
-spawns (and the interval children's own spawn commands, which today re-inline the same
-`ImpactAoe`/`ImpactProjectile`/`StackEffect`) can later adopt the identical template +
-`TemplateKey` — same registry, no new kind. That broader migration touches the collision/impact
-systems and is **out of scope** for the crash fix.
+7. **Loop guard retained.** The single tick loop hard-caps iterations per update and clamps the
+   per-tick advance to a positive minimum so a bad/zero interval can never hard-freeze the
+   editor in Burst.
 
 ## Task list
 
 - [001-template-data-and-registry-storage.md](001-template-data-and-registry-storage.md) —
-  template data structs, singleton components, content hashing, scope-entity ownership.
+  events-as-templates registry: singleton components, scope-entity ownership, content hashing.
 - [002-combatroot-registration-api.md](002-combatroot-registration-api.md) —
-  `CombatRoot.RegisterTimedSpawnTemplate` insert-if-absent with job-completion guard.
-- [003-compile-time-registration-walk.md](003-compile-time-registration-walk.md) —
-  `TemplateKey` on setup objects; `PlayerSkillDriver.RegisterIntervalTemplates`; move builders
-  out of the translator.
-- [004-slim-carriers.md](004-slim-carriers.md) — slim the spawner components/events/commands to
-  carry `TemplateKey`; rename `SpawnerId` → `JitterSeed`.
-- [005-tick-systems-and-fanout.md](005-tick-systems-and-fanout.md) — tick systems look up the
-  template by key and emit a spawn event carrying fan-out; expansion fans out (incl. radial).
-- [006-apply-systems.md](006-apply-systems.md) — apply systems bake the slim spawner component.
+  `CombatRoot.RegisterTimedSpawnTemplate(in ProjectileSpawnEvent / in AoeSpawnEvent)`.
+- [003-compile-time-registration-walk.md](003-compile-time-registration-walk.md) — build child
+  spawn events at compile, register, store `TemplateKey`; delete `…TemplateData` + conversion.
+- [004-slim-carriers.md](004-slim-carriers.md) — unified `TimedSpawnComponent`/state/tag;
+  source events/commands carry it; delete per-domain spawner components.
+- [005-tick-systems-and-fanout.md](005-tick-systems-and-fanout.md) — one thin `TimedSpawnSystem`
+  (fetch/stamp/enqueue + loop guard); delete the two old tick systems; expansion unchanged.
+- [006-apply-systems.md](006-apply-systems.md) — apply bakes the unified component + zeroed
+  state + tag on both projectile and lingering-AOE source archetypes.
 - [007-validation-tests-docs.md](007-validation-tests-docs.md) — regression + dedup/never-recycle
   coverage; docs.
 
 ## Recommended order
 
-001 → 002 → 003 → 004 → (005 ∥ 006) → 007. 005 and 006 both depend on the slim carrier shapes
-from 004; 003 depends on the registry/API from 001–002; 007 depends on everything.
+001 → 002 → 003 → 004 → 005 → 006 → 007. 003 needs the registry + API (001–002); 005/006 need
+the unified component (004); 007 last.
 
 ## Constraints / dependencies
 
-- Burst/ECS: template data must stay blittable (no managed refs); `NativeHashMap<Hash128,T>`
-  is Burst-readable via singleton lookup.
-- Registration writes the map from `CombatRoot` on the main thread at compile time only
-  (Start / loadout change); it completes outstanding combat-world jobs before mutating, since
-  the map is read by Burst tick jobs.
-- The shared world is ref-counted across faction roots; the registry maps are created/disposed
-  exactly once with the scope entity (`CombatScopeOwner`).
-- Interval spawners attach only to root/managed-submitted projectiles/AOEs, not to
-  on-hit/impact-spawned ones (those builder paths pass `default`/no key).
+- Burst/ECS: stored events must stay blittable; `NativeHashMap<Hash128, …SpawnEvent>` is read
+  `[ReadOnly]` in the tick job and the registry map is mutated only on the main thread at
+  compile time (`RegisterTimedSpawnTemplate` completes tracked jobs before mutating).
+- The shared world/scope is ref-counted across faction roots; the maps are created/disposed once
+  with the scope entity (`CombatScopeOwner`).
+- Interval spawners attach only to root/managed-submitted sources, not to on-hit/impact-spawned
+  entities.
+- Per-instance fields (`Position`, `Faction`, `BaseProjectileId`/`AoeId`, `JitterSeed`,
+  `DeterministicIdTickIndex`) must be default in stored events so dedup is behavior-only.
 
 ## Verification (end-to-end)
 
-1. **Compile**: Unity builds clean; `sizeof(AoeSpawnCommand)` drops to ~1 KB — the original
-   `Allocation size is too large` crash no longer fires.
-2. **Crash repro**: the lingering-AOE-source → AOE/projectile child loadout that previously
-   threw now spawns children at the configured interval over the source lifetime, stops at
-   expiry, and applies damage; no Burst exception.
-3. **Dedup**: two slots with identical child behavior share one map entry; differing behavior →
-   distinct keys.
-4. **Dynamic count**: changing `spawnCount` recompiles to a new `TemplateKey`/entry (count is in
-   the template); re-selecting a prior count reuses its entry.
-5. **Never-recycle**: recompiling to different behavior while old spawner entities are alive —
-   old entities keep firing (their key still resolves); map grows only by distinct behaviors.
-6. **Regression**: `BareMinimumPrototypePlayModeTests` + `AoePlayModeTests` +
+1. Unity compiles; `sizeof(AoeSpawnCommand) < 4096` (existing EditMode guard) — the
+   `Allocation size is too large` crash is gone.
+2. The lingering-AOE-source → projectile/AOE child loadout that previously froze the editor now
+   spawns children at the configured interval over the source lifetime, stops at expiry, applies
+   damage; no freeze, no Burst exception.
+3. Dedup: identical child behavior → one map entry; differing behavior → distinct keys.
+4. Dynamic count: changing `spawnCount` recompiles to a new key; re-selecting a prior count
+   reuses its entry.
+5. Regression: `BareMinimumPrototypePlayModeTests` + `AoePlayModeTests` +
    `ProjectileSpawnPipelineTests` pass (proj→proj cadence and deterministic ids unchanged).

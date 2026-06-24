@@ -1,38 +1,38 @@
-# 003 — Compile-time registration walk
+# 003 — Compile-time registration walk (build events, delete conversion)
 
 ## Scope
 
-Build each interval template once at compile time, register it, and store its `TemplateKey` on
-the setup object. Move the template builders out of the per-cast translator path.
+At compile time, build each interval child's **spawn event** (behavior filled, per-instance
+fields default), register it, and store the returned `TemplateKey` on the setup object. Delete
+the template-data structs and all template→event conversion.
 
 ## Changes
 
 1. **Setup objects** (`Assets/Scripts/Skills/Runtime/RuntimeProjectileDefinition.cs`,
-   `RuntimeAoeDefinition.cs`): add `Hash128 TemplateKey` to `RuntimeChildSpawnSetup` and
-   `RuntimeAoeIntervalSpawnSetup`.
+   `RuntimeAoeDefinition.cs`): keep `Hash128 TemplateKey` on `RuntimeChildSpawnSetup` /
+   `RuntimeAoeIntervalSpawnSetup`; remove `SpawnConfig`/`HasRegisteredTemplate`-style fields that
+   exist only to cache converted template data.
 
-2. **Registration walk** (`Assets/Scripts/Skills/PlayerSkillDriver.cs`): add
-   `RegisterIntervalTemplates()` invoked from `CompileAndRegister()` **after**
-   `RegisterProjectileTypes()`/`RegisterAoeTypes()` (template build reads child `TypeId`s).
-   Walk the compiled slot tree (mirror `RegisterProjectileTypesRecursive`); for each
-   `ChildSpawnSetup`/`AoeIntervalSpawnSetup`, build the corresponding
-   `ProjectileSpawnTemplateData`/`AoeSpawnTemplateData` (using `combatRoot` for
-   faction/target-mask), call `combatRoot.RegisterTimedSpawnTemplate(...)`, and store the
-   returned `Hash128` in `setup.TemplateKey`.
+2. **Registration walk** (`Assets/Scripts/Skills/PlayerSkillDriver.cs` `RegisterIntervalTemplates()`,
+   after `RegisterProjectileTypes`/`RegisterAoeTypes`): for each `ChildSpawnSetup` /
+   `AoeIntervalSpawnSetup`, build the child **`ProjectileSpawnEvent`/`AoeSpawnEvent`** with all
+   behavior fields (type, count/spread/pattern, geometry, damage, lifetime, tracking, render,
+   impact snapshots, stack effect) and per-instance fields left default; call
+   `combatRoot.RegisterTimedSpawnTemplate(evt)`; store the returned `Hash128` in
+   `setup.TemplateKey`.
 
-3. **Move builders** from `Assets/Scripts/Skills/SkillSpawnTranslator.cs`
-   (`BuildIntervalProjectileChild`/`BuildIntervalAoeChild` and the `Build*IntervalSpawner`
-   helpers) into the driver walk (or a shared helper it calls). The translator's
-   `SpawnProjectile`/`SpawnAoe` now read `setup.TemplateKey` (+ the cold timer config) instead
-   of rebuilding the heavy template every cast.
+3. **Delete** `ProjectileSpawnTemplateData`/`AoeSpawnTemplateData` and the conversion helpers
+   (`BuildProjectileChildSpawnConfig`, `ToIntervalProjectileChild`, the per-field
+   `Build*IntervalSpawner`/`BuildIntervalProjectileChild`/`BuildIntervalAoeChild` in
+   `SkillSpawnTranslator`). The translator no longer constructs child templates; it only reads
+   `setup.TemplateKey` (+ timer config) to populate the source's `TimedSpawnComponent`.
 
 ## Acceptance criteria
 
-- After `CompileAndRegister`, every interval setup has a non-default `TemplateKey` whose entry
-  exists in the matching registry map.
-- The translator no longer constructs `IntervalProjectileChild`/`IntervalAoeChild` per cast
-  (verified by inspection / no per-cast allocation of those structs).
-- Two slots compiling identical child behavior end up with the same `TemplateKey`.
+- After `CompileAndRegister`, every interval setup has a non-default `TemplateKey` whose stored
+  event exists in the matching registry map.
+- No `…TemplateData` type or template→event conversion remains in the codebase.
+- Identical child behavior across two setups yields the same `TemplateKey`.
 
 ## Dependencies
 

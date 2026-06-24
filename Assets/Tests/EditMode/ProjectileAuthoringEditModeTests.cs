@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using PlayGround.Skills;
 using PlayGround.Common;
+using PlayGround.System.Aoe;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using Unity.Collections.LowLevel.Unsafe;
@@ -103,6 +104,7 @@ namespace PlayGround.Tests.EditMode
         {
             Assert.That(UnsafeUtility.IsBlittable<ProjectileSpawnTemplateData>(), Is.True);
             Assert.That(UnsafeUtility.IsBlittable<AoeSpawnTemplateData>(), Is.True);
+            Assert.That(UnsafeUtility.SizeOf<AoeSpawnCommand>(), Is.LessThan(4096));
 
             var projectileA = new ProjectileSpawnTemplateData
             {

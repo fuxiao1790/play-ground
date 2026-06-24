@@ -113,6 +113,9 @@ Types: `PlayerSkillDriver`, `SkillSlotState`, `SkillSetCompiler`
 - After compile: registers `BasicAttackPrefab` templates and `AoeTypeDefinition`
   entries with the bound `CombatRoot`; stores resolved type IDs into compiled
   definitions. Re-registration on equip change is safe — `CombatRoot` deduplicates by reference.
+- Registers interval child spawn templates with the bound `CombatRoot`; compiled
+  interval setup stores only the returned content-hash `TemplateKey` plus timer
+  configuration.
 - Owns `SkillSlotState` per root slot: tracks cooldown elapsed time, gates input-driven casts
 - On player input: checks slot cooldown; if ready, calls `SkillSpawnTranslator` and resets timer
 - On Layer 1 change: recompiles affected paths, re-registers types, updates slot `recoveryTime`
@@ -625,6 +628,7 @@ compileLoadout(PlayerLoadout loadout):
     RegisterProjectileTypes()   // walk compiled trees; call combatRoot.RegisterTemplate per unique prefab
     RegisterAoeTypes()          // walk compiled trees; call combatRoot.RegisterType per unique AoeTypeDefinition
     AssignStackingDebuffKeys()  // mint one dedicated key per compiled RuntimeStackingDetonation
+    RegisterIntervalTemplates() // content-hash child spawn templates; store TemplateKey on interval setup
 ```
 
 The compiled runtime tree feeds directly into the existing spawn request and
@@ -646,8 +650,44 @@ After compilation, `PlayerSkillDriver` recursively walks all compiled trees:
   receives a dedicated debuff key during the same registration walk if it does
   not already have one. The key is per compiled instance and separate from AOE
   type registration.
+- Interval child spawn templates: each compiled `RuntimeChildSpawnSetup` or
+  `RuntimeAoeIntervalSpawnSetup` builds one unified spawn template for its
+  child domain and registers it with `CombatRoot.RegisterTimedSpawnTemplate`.
+  The returned `TemplateKey` is copied onto the setup; ECS spawner components
+  carry that key instead of embedding the full recursive child template.
 
 Registration re-runs via `BindAoeRoot` whenever `CombatRoot` is wired after compile.
+
+### Spawn-Template Registry
+
+Interval spawns use one template kind per child domain:
+`ProjectileSpawnTemplateData` for projectile children and `AoeSpawnTemplateData`
+for AOE children. A timed spawn is treated as a normal child spawn template plus
+a timer, so there is no separate "timed projectile" or "timed AOE" template
+shape.
+
+The runtime data is split into three tiers:
+- Registry data: cold shared template data on the shared `CombatScope` entity,
+  keyed by `Hash128 TemplateKey`. It contains full child spawn behavior such as
+  count/fan-out, damage, crit inputs, render data, and nested hit payload
+  snapshots.
+- Slim timer config: per-source ECS spawner components keep
+  `ChildKind`, `IntervalSeconds`, `IntervalJitterSeconds`, `JitterSeed`, and
+  `TemplateKey`.
+- Hot timer state: `ProjectileChildSpawnStateComponent` and
+  `AoeIntervalSpawnStateComponent` keep mutable cooldown and tick index. This
+  state is reset when an entity is cold-created or reused from the pool.
+
+`CombatRoot.RegisterTimedSpawnTemplate` hashes the template content and inserts
+only if the key is absent. Identical child behavior shares one registry entry;
+changing behavior such as `spawnCount` creates a different key, and selecting a
+previous behavior reuses the previous key. Jitter seed is not part of the
+template hash because it belongs to the individual timer config.
+
+Registry entries are never recycled in the current implementation. This keeps
+old pooled or still-active spawners valid after loadout recompiles. A future
+enhancement may add reference counts plus a grace-period sweep, but v1 relies on
+the small number of distinct compiled behaviors per session.
 
 ---
 
