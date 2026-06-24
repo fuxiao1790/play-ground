@@ -20,7 +20,9 @@ namespace PlayGround.System.Aoe
             float critChance = 0f,
             float critMultiplier = 1.5f,
             StackEffectSnapshot stackEffect = default,
-            EntityId sourceNodeId = default)
+            EntityId sourceNodeId = default,
+            bool hasIntervalSpawner = false,
+            AoeIntervalSpawnerComponent intervalSpawner = default)
         {
             TypeId = typeId;
             Position = position;
@@ -36,6 +38,8 @@ namespace PlayGround.System.Aoe
             CritMultiplier = critMultiplier;
             StackEffect = stackEffect;
             SourceNodeId = sourceNodeId;
+            HasIntervalSpawner = hasIntervalSpawner;
+            IntervalSpawner = intervalSpawner;
         }
 
         public int TypeId { get; }
@@ -52,6 +56,8 @@ namespace PlayGround.System.Aoe
         public float CritMultiplier { get; }
         public StackEffectSnapshot StackEffect { get; }
         public EntityId SourceNodeId { get; }
+        public bool HasIntervalSpawner { get; }
+        public AoeIntervalSpawnerComponent IntervalSpawner { get; }
     }
 
     public readonly struct AoeRuntimeCounters

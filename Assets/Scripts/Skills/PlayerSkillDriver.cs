@@ -186,6 +186,10 @@ namespace PlayGround.Skills
 
             if (def is RuntimeAoeDefinition aoeDef)
             {
+                if (aoeDef.ChildSpawnSetup?.ChildDefinition != null)
+                    RegisterProjectileTypesRecursive(aoeDef.ChildSpawnSetup.ChildDefinition);
+                if (aoeDef.AoeIntervalSpawnSetup?.ChildDefinition != null)
+                    RegisterProjectileTypesRecursive(aoeDef.AoeIntervalSpawnSetup.ChildDefinition);
                 if (aoeDef.OnHitAoeSpawnDefinition != null)
                     RegisterProjectileTypesRecursive(aoeDef.OnHitAoeSpawnDefinition);
                 if (aoeDef.StackingDetonation != null)
@@ -207,6 +211,8 @@ namespace PlayGround.Skills
             {
                 if (p.ChildSpawnSetup?.ChildDefinition != null)
                     RegisterProjectileTypesRecursive(p.ChildSpawnSetup.ChildDefinition);
+                if (p.AoeIntervalSpawnSetup?.ChildDefinition != null)
+                    RegisterProjectileTypesRecursive(p.AoeIntervalSpawnSetup.ChildDefinition);
                 if (p.ImpactAoeDefinition != null)
                 {
                     RegisterAoeTypeDefinition(p.ImpactAoeDefinition);
@@ -240,6 +246,10 @@ namespace PlayGround.Skills
             if (def is RuntimeAoeDefinition aoeDef)
             {
                 RegisterAoeTypeDefinition(aoeDef);
+                if (aoeDef.ChildSpawnSetup?.ChildDefinition != null)
+                    RegisterAoeTypesRecursive(aoeDef.ChildSpawnSetup.ChildDefinition);
+                if (aoeDef.AoeIntervalSpawnSetup?.ChildDefinition != null)
+                    RegisterAoeTypesRecursive(aoeDef.AoeIntervalSpawnSetup.ChildDefinition);
                 if (aoeDef.OnHitAoeSpawnDefinition != null)
                     RegisterAoeTypesRecursive(aoeDef.OnHitAoeSpawnDefinition);
                 if (aoeDef.StackingDetonation != null)
@@ -250,6 +260,8 @@ namespace PlayGround.Skills
             {
                 if (projDef.ChildSpawnSetup?.ChildDefinition != null)
                     RegisterAoeTypesRecursive(projDef.ChildSpawnSetup.ChildDefinition);
+                if (projDef.AoeIntervalSpawnSetup?.ChildDefinition != null)
+                    RegisterAoeTypesRecursive(projDef.AoeIntervalSpawnSetup.ChildDefinition);
                 if (projDef.ImpactAoeDefinition != null)
                     RegisterAoeTypesRecursive(projDef.ImpactAoeDefinition);
                 if (projDef.ImpactProjectileDefinition != null)

@@ -383,9 +383,9 @@ A `SkillSetSlot` is a **root** (fired by player input) if its skill set does not
 appear as an `effect` in any parsed chain. All other skill sets are triggered.
 
 ```
-slots: [SetA | ChildSpawn | SetB | OnImpactAoe | SetC]
+slots: [SetA | ProjectileIntervalSpawn | SetB | OnImpactAoe | SetC]
 
-chains:  SetA → ChildSpawn → SetB
+chains:  SetA → ProjectileIntervalSpawn → SetB
          SetB → OnImpactAoe → SetC
 
 effects: {SetB, SetC}
@@ -401,14 +401,15 @@ implicit from slot position, not stored on the link.
 abstract class TriggerLink { }
 ```
 
-**ChildSpawnTrigger**
+**ProjectileIntervalSpawnTrigger**
 
-The cause projectile periodically spawns child projectiles from the effect set
-while in flight. Compiles a `RuntimeChildSpawnSetup` onto the cause
-`RuntimeProjectileDefinition`. Effect must compile to a `RuntimeProjectileDefinition`.
+The cause duration skill periodically spawns child projectiles from the effect
+set. Sources may be projectiles or lingering AOEs. Pulse AOEs have no lifetime
+to tick on, so they validate with a warning and compile to no interval setup.
+Effect must compile to a `RuntimeProjectileDefinition`.
 
 ```csharp
-class ChildSpawnTrigger : TriggerLink {
+class ProjectileIntervalSpawnTrigger : TriggerLink {
     float intervalSeconds;
     float intervalJitterPercent;
     int spawnCount;
@@ -416,18 +417,57 @@ class ChildSpawnTrigger : TriggerLink {
 }
 ```
 
-Compatible tags: source `Projectile`, target `Projectile`.
+Compatible tags: source `Projectile` or `Aoe`, target `Projectile`.
+Projectile sources compile a `RuntimeChildSpawnSetup` onto
+`RuntimeProjectileDefinition.ChildSpawnSetup`. Lingering AOE sources compile the
+same setup onto `RuntimeAoeDefinition.ChildSpawnSetup`.
+
+**AoeIntervalSpawnTrigger**
+
+The cause duration skill periodically spawns child AOEs from the effect set.
+Sources may be projectiles or lingering AOEs. Pulse AOEs have no lifetime to
+tick on, so they validate with a warning and compile to no interval setup.
+Effect must compile to a `RuntimeAoeDefinition`.
+
+```csharp
+class AoeIntervalSpawnTrigger : TriggerLink {
+    float intervalSeconds;
+    float intervalJitterPercent;
+    int spawnCount;
+    float sideSpreadDegrees;
+}
+```
+
+Compatible tags: source `Projectile` or `Aoe`, target `Aoe`.
+Projectile sources compile a `RuntimeAoeIntervalSpawnSetup` onto
+`RuntimeProjectileDefinition.AoeIntervalSpawnSetup`. Lingering AOE sources
+compile the same setup onto `RuntimeAoeDefinition.AoeIntervalSpawnSetup`.
+
+Interval source/child support:
+
+| Source / Child | Projectile child | AOE child |
+|---|---|---|
+| Projectile source | `ProjectileIntervalSpawnTrigger` | `AoeIntervalSpawnTrigger` |
+| Lingering AOE source | `ProjectileIntervalSpawnTrigger` | `AoeIntervalSpawnTrigger` |
+| Pulse AOE source | warning, no-op | warning, no-op |
+
 `intervalJitterPercent` is clamped from `0` to `100` and converted at compile
 time to jitter seconds using `intervalSeconds * intervalJitterPercent / 100`.
-The compiled jitter seconds are passed into the projectile ECS child-spawner and
-applied when scheduling child-spawn intervals.
+The compiled jitter seconds are passed into the ECS interval spawner and applied
+when scheduling interval ticks.
 
-`spawnCount` is **additive** with the effect (child) set's own projectile count:
-the per-tick child count is `childDefinition.Count + spawnCount`, floored to `1`.
-The child set's count is its base skill `count` after its own additive supports
-(e.g. Multiple Projectiles). A `spawnCount` of `0` means the child set's own
-count alone determines the per-tick burst. The combined per-tick children are
-fanned across `sideSpreadDegrees` using the `SideSpray` pattern.
+`spawnCount` is **additive** with the effect set's own count: the per-tick count
+is `childDefinition.Count + spawnCount`, floored to `1`. A `spawnCount` of `0`
+means the effect set's own count alone determines the per-tick burst.
+
+Directionality defaults:
+
+- projectile child from projectile source: velocity-relative `SideSpray` across
+  `sideSpreadDegrees`
+- projectile child from AOE source: radial 360-degree fan from the AOE center;
+  `sideSpreadDegrees` is ignored
+- AOE child from any source: spawned at the source center; `Count > 1` emits
+  multiple AOE spawn events at that center.
 
 **OnImpactAoeTrigger**
 
@@ -488,9 +528,10 @@ class StackTrigger : TriggerLink { }
 
 Compatible tags: source `Projectile` or `Aoe`, target set must have
 `StackingSupport`.
-Trigger links are also tag-validated but not blocked. A ChildSpawn trigger from
-a projectile set to an AOE set is allowed in the loadout, but no child spawn
-setup is compiled and validation returns a warning.
+Trigger links are also tag-validated but not blocked. A
+`ProjectileIntervalSpawnTrigger` from a projectile set to an AOE set is allowed
+in the loadout, but no interval setup is compiled and validation returns a
+warning.
 
 ### Validation Warnings
 
@@ -507,6 +548,8 @@ Current warning cases:
 - trigger link is not between two valid skill sets
 - trigger has no runtime-compatible tags
 - trigger source or target tags do not match the neighboring skill sets
+- interval trigger source is a pulse AOE instead of a projectile or lingering
+  AOE
 - stacking set is not the effect of a `StackTrigger`
 - `StackTrigger` targets a set without `StackingSupport`
 - stacking set is targeted by a normal trigger link
@@ -553,9 +596,12 @@ compile(SkillSet set, allChains, snapshot) -> RuntimeSkillDefinition:
             runtime = support.Compile(def, runtime, snapshot)
     runtime.RecoveryTime = set.skill.BaseRecoveryTime * snapshot.CastSpeedMultiplier
     for each chain in allChains where chain.cause == set:
-        if chain.link is ChildSpawnTrigger:
+        if chain.link is ProjectileIntervalSpawnTrigger:
             compile chain.effect recursively -> RuntimeProjectileDefinition
             bake RuntimeChildSpawnSetup onto runtime.ChildSpawnSetup
+        if chain.link is AoeIntervalSpawnTrigger:
+            compile chain.effect recursively -> RuntimeAoeDefinition
+            bake RuntimeAoeIntervalSpawnSetup onto runtime.AoeIntervalSpawnSetup
         if chain.link is OnImpactAoeTrigger:
             compile chain.effect recursively -> RuntimeAoeDefinition
             set runtime.ImpactAoeDefinition
@@ -690,7 +736,8 @@ Example:
 ```
 
 The applicator remains a plain `RuntimeProjectileDefinition` or
-`RuntimeAoeDefinition`, so it still composes with `ChildSpawn`, `OnImpactAoe`,
+`RuntimeAoeDefinition`, so it still composes with `ProjectileIntervalSpawn`,
+`AoeIntervalSpawn`, `OnImpactAoe`,
 `OnImpactProjectile`, and `OnAoeHitSpawn`. Only `StackTrigger` consumes the
 stacking detonation runtime.
 
@@ -740,7 +787,7 @@ chain. The left skill is always the cause; the right skill is always the effect.
 
 **Deep chain:**
 ```
-[SkillSetSlot: SetA] [TriggerLinkSlot: ChildSpawn] [SkillSetSlot: SetB]
+[SkillSetSlot: SetA] [TriggerLinkSlot: ProjectileIntervalSpawn] [SkillSetSlot: SetB]
 [SkillSetSlot: SetB] [TriggerLinkSlot: OnImpactAoe] [SkillSetSlot: SetC]
 ```
 SetB appears as both effect (of SetA) and cause (for SetC). It is compiled as
@@ -805,19 +852,20 @@ SetA.
 
 ```
 Slots: [SetA: [MultipleProjectiles, Piercing] + MagicBullet]
-       [ChildSpawn(interval=0.2s, count=2, spread=45°)]
+       [ProjectileIntervalSpawn(interval=0.2s, count=2, spread=45°)]
        [SetB: MagicBullet]
        [OnImpactAoe]
        [SetC: ArcaneBurst]
 
-Parsed chains: SetA → ChildSpawn → SetB
+Parsed chains: SetA → ProjectileIntervalSpawn → SetB
                SetB → OnImpactAoe → SetC
 Effects: {SetB, SetC}
 Root: SetA
 ```
 
-SetA fires many piercing bullets. Each spawns child bullets (SetB) while in
-flight. Each child bullet releases an arcane burst (SetC) on impact.
+SetA fires many piercing bullets. Each projectile periodically spawns child
+bullets (SetB) while in flight. Each child bullet releases an arcane burst
+(SetC) on impact.
 
 SetB appears at index 2 (effect of SetA) and index 3 (cause for SetC). It is
 triggered only — never fired by player input.

@@ -8,6 +8,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using ProjectileAoeIntervalSpawnerComponent = PlayGround.System.Projectile.AoeIntervalSpawnerComponent;
 
 namespace PlayGround.System.Common
 {
@@ -268,6 +269,10 @@ namespace PlayGround.System.Common
         {
             float2 position = new(request.Position.x, request.Position.y);
             float2 halfExtents = new(request.HalfExtents.x, request.HalfExtents.y);
+            bool hasProjectileChildSpawner =
+                request.ChildKind == IntervalChildKind.Projectile && request.ChildSpawn.Enabled;
+            bool hasAoeChildSpawner =
+                request.ChildKind == IntervalChildKind.Aoe && IsAoeIntervalSpawnerEnabled(request.AoeIntervalSpawner);
 
             var evt = new ProjectileSpawnEvent
             {
@@ -275,7 +280,7 @@ namespace PlayGround.System.Common
                 BaseProjectileId = baseProjectileId,
                 TypeId = request.ProjectileTypeId,
                 PierceRemaining = request.PierceCount,
-                HasChildSpawner = request.ChildSpawn.Enabled ? 1 : 0,
+                HasChildSpawner = hasProjectileChildSpawner || hasAoeChildSpawner ? 1 : 0,
                 SeedContactGateTargetId = seedContactGateTargetId,
                 RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds,
                 Lifetime = request.Lifetime,
@@ -295,7 +300,7 @@ namespace PlayGround.System.Common
                 JitterSeed = (uint)baseProjectileId * 2654435761u,
             };
 
-            if (request.ChildSpawn.Enabled)
+            if (hasProjectileChildSpawner)
             {
                 evt.ChildSpawner = ChildSpawnerComponentFor(request.ChildSpawn, request.HitPayload.SourceNodeId);
                 evt.ChildSpawnState = new ProjectileChildSpawnStateComponent
@@ -304,6 +309,17 @@ namespace PlayGround.System.Common
                         + DeterministicJitter(baseProjectileId, request.ChildSpawn.IntervalJitterSeconds),
                     ChildSpawnTickIndex = 0,
                     ChildKind = IntervalChildKind.Projectile
+                };
+            }
+            else if (hasAoeChildSpawner)
+            {
+                evt.AoeSpawner = request.AoeIntervalSpawner;
+                evt.ChildSpawnState = new ProjectileChildSpawnStateComponent
+                {
+                    ChildSpawnCooldownRemaining = request.AoeIntervalSpawner.IntervalSeconds
+                        + DeterministicJitter(baseProjectileId, request.AoeIntervalSpawner.IntervalJitterSeconds),
+                    ChildSpawnTickIndex = 0,
+                    ChildKind = IntervalChildKind.Aoe
                 };
             }
 
@@ -340,7 +356,9 @@ namespace PlayGround.System.Common
                 ShapeType = geometry.ShapeType,
                 Render = AoeRenderComponentFor(request.TypeId, geometry),
                 ProjectileBurst = request.ProjectileBurst,
-                AoeSpawn = request.AoeSpawn
+                AoeSpawn = request.AoeSpawn,
+                HasIntervalSpawner = request.HasIntervalSpawner ? 1 : 0,
+                IntervalSpawner = request.IntervalSpawner
             };
         }
 
@@ -773,6 +791,9 @@ namespace PlayGround.System.Common
             hash ^= hash >> 16;
             return ((hash & 0x00FFFFFFu) + 1u) / 16777217f * maxOffsetSeconds;
         }
+
+        private static bool IsAoeIntervalSpawnerEnabled(ProjectileAoeIntervalSpawnerComponent spawner) =>
+            spawner.SpawnerId > 0 && spawner.IntervalSeconds > 0f;
 
         [global::System.Serializable]
         private sealed class ProjectileRenderDefinition

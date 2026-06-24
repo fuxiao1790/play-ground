@@ -72,7 +72,9 @@ namespace PlayGround.System.Projectile
             float critMultiplier = 1.5f,
             int count = 1,
             float spreadDegrees = 0f,
-            float jitterDegrees = 0f)
+            float jitterDegrees = 0f,
+            AoeIntervalSpawnerComponent aoeIntervalSpawner = default,
+            IntervalChildKind childKind = IntervalChildKind.Projectile)
         {
             Position = position;
             Direction = direction.sqrMagnitude > 0f ? direction.normalized : Vector2.right;
@@ -106,6 +108,8 @@ namespace PlayGround.System.Projectile
             Count = Mathf.Max(1, count);
             SpreadDegrees = Mathf.Max(0f, spreadDegrees);
             JitterDegrees = Mathf.Max(0f, jitterDegrees);
+            AoeIntervalSpawner = aoeIntervalSpawner;
+            ChildKind = childKind;
         }
 
         [global::System.Obsolete("Use the CombatShapeType overload.")]
@@ -165,6 +169,8 @@ namespace PlayGround.System.Projectile
         public float RepeatHitCooldownSeconds { get; }
         public ProjectileTrackingConfig Tracking { get; }
         public ProjectileChildSpawnConfig ChildSpawn { get; }
+        public AoeIntervalSpawnerComponent AoeIntervalSpawner { get; }
+        public IntervalChildKind ChildKind { get; }
         public bool DirectDamageEnabled { get; }
         public ProjectileImpactAoeSnapshot ImpactAoe { get; }
         public ProjectileHitPayload HitPayload { get; }

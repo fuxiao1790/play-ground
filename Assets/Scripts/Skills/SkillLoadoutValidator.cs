@@ -136,6 +136,9 @@ namespace PlayGround.Skills
                 return;
             }
 
+            if (IsIntervalSpawnTrigger(slot.link))
+                ValidateIntervalSpawnSource(slot, slotIndex, causeSkill, warnings);
+
             if (!SkillDefinitionTagUtility.HasAny(causeSkill.Tags, slot.link.SourceSkillTags))
             {
                 AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerSource, slotIndex,
@@ -174,6 +177,22 @@ namespace PlayGround.Skills
 
         private static bool CanTargetAoeHitSpawn(SkillDefinition definition) =>
             definition is AoeDefinitionBase;
+
+        private static void ValidateIntervalSpawnSource(
+            TriggerLinkSlot slot,
+            int slotIndex,
+            Skill causeSkill,
+            List<SkillValidationWarning> warnings)
+        {
+            if (causeSkill.Definition is AoeDefinitionBase and not LingeringAoeDefinition)
+            {
+                AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerSource, slotIndex,
+                    $"Trigger '{slot.link.name}' uses AOE source skill '{causeSkill.name}', but interval spawn sources must be projectiles or lingering AOEs. Pulse AOEs have no duration to tick, so this link will do nothing.");
+            }
+        }
+
+        private static bool IsIntervalSpawnTrigger(TriggerLink link) =>
+            link is ProjectileIntervalSpawnTrigger or AoeIntervalSpawnTrigger;
 
         private static void ValidateStackingSupportReachability(
             SkillSetSlot slot,

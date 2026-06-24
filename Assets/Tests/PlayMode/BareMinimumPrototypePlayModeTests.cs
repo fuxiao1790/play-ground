@@ -454,7 +454,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileChildSpawnedChildAppliesChildPayloadDamage()
+        public IEnumerator ProjectileIntervalSpawnedChildAppliesChildPayloadDamage()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mobObject.transform.position = new Vector2(50f, 50f);
@@ -486,7 +486,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileChildSpawnedChildUsesRootTargetMaskForTracking()
+        public IEnumerator ProjectileIntervalSpawnedChildUsesRootTargetMaskForTracking()
         {
             int mobHurtboxLayer = LayerMask.NameToLayer(GameplayLayers.MobHurtbox);
             Assume.That(mobHurtboxLayer, Is.GreaterThanOrEqualTo(0));
@@ -497,7 +497,7 @@ namespace PlayGround.Tests.PlayMode
             mobObject.transform.position = new Vector2(10f, 10f);
             mob.Register(projectileRoot.TargetRegistry);
 
-            var childSpawn = new ProjectileChildSpawnConfig(
+            var intervalSpawn = new ProjectileChildSpawnConfig(
                 1,
                 0,
                 0.01f,
@@ -522,7 +522,7 @@ namespace PlayGround.Tests.PlayMode
                 0f,
                 new DamageSnapshot(1f),
                 CombatShapeType.Circle,
-                childSpawn: childSpawn,
+                childSpawn: intervalSpawn,
                 directDamageEnabled: false);
 
             projectileRoot.Spawn(command);
@@ -569,7 +569,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileChildSpawnedChildrenArePreparedForRenderBatchOnNextStep()
+        public IEnumerator ProjectileIntervalSpawnedChildrenArePreparedForRenderBatchOnNextStep()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
 
@@ -598,7 +598,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileChildSpawnerStoresIntervalJitterInEcs()
+        public IEnumerator ProjectileIntervalSpawnerStoresIntervalJitterInEcs()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
             const float IntervalJitterSeconds = 0.25f;
@@ -627,7 +627,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void ProjectileChildSpawnRejectsUnsupportedRenderType()
+        public void ProjectileIntervalSpawnRejectsUnsupportedRenderType()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
             var command = new ProjectileSpawnRequest(
@@ -693,10 +693,10 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileChildSpawnRequestsReuseChildEntitiesAfterPoolWarmup()
+        public IEnumerator ProjectileIntervalSpawnRequestsReuseChildEntitiesAfterPoolWarmup()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
-            var command = ChildSpawnerRequest();
+            var command = ProjectileIntervalSpawnerRequest();
 
             yield return SpawnAndDrainChildCycle(projectileRoot, command);
             int warmedCount = CountScopedProjectileEntities(projectileRoot);
@@ -713,10 +713,10 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileChildSpawnerParentKeepsStableArchetypeDuringReuse()
+        public IEnumerator ProjectileIntervalSpawnerParentKeepsStableArchetypeDuringReuse()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
-            var command = ChildSpawnerRequest();
+            var command = ProjectileIntervalSpawnerRequest();
 
             yield return SpawnAndDrainChildCycle(projectileRoot, command);
             Entity firstParent = FirstScopedChildSpawnerEntity(projectileRoot);
@@ -953,7 +953,7 @@ namespace PlayGround.Tests.PlayMode
                 0f);
         }
 
-        private static ProjectileSpawnRequest ChildSpawnerRequest()
+        private static ProjectileSpawnRequest ProjectileIntervalSpawnerRequest()
         {
             return new ProjectileSpawnRequest(
                 new Vector2(50f, 50f),

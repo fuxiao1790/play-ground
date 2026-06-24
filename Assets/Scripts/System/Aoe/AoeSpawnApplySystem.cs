@@ -335,7 +335,7 @@ namespace PlayGround.System.Aoe
             if (hasIntervalSpawner)
             {
                 ecb.SetComponent(entity, cmd.IntervalSpawner);
-                ecb.SetComponent(entity, new AoeIntervalSpawnStateComponent());
+                ecb.SetComponent(entity, InitialIntervalStateFor(cmd));
             }
             ecb.SetComponent(entity, render);
             ecb.SetComponent(entity, CombatRenderMatrixUtility.ElementFor(kinematics, render));
@@ -354,6 +354,17 @@ namespace PlayGround.System.Aoe
 
         private static bool HasIntervalSpawner(in AoeSpawnCommand cmd) =>
             cmd.Lifetime > 0f && cmd.HasIntervalSpawner != 0;
+
+        private static AoeIntervalSpawnStateComponent InitialIntervalStateFor(in AoeSpawnCommand cmd) =>
+            new AoeIntervalSpawnStateComponent
+            {
+                CooldownRemaining = cmd.IntervalSpawner.IntervalSeconds
+                    + DeterministicJitter(
+                        cmd.AoeId,
+                        cmd.IntervalSpawner.SpawnerId,
+                        cmd.IntervalSpawner.IntervalJitterSeconds),
+                TickIndex = 0
+            };
 
         private static AoeIdentityComponent IdentityFor(CombatFaction faction, in AoeSpawnCommand cmd) =>
             new AoeIdentityComponent { Faction = faction, AoeId = cmd.AoeId, TypeId = cmd.TypeId };
@@ -503,7 +514,7 @@ namespace PlayGround.System.Aoe
                     if (HasIntervalSpawner)
                     {
                         intervalSpawners[i] = cfg.IntervalSpawner;
-                        intervalStates[i] = default;
+                        intervalStates[i] = InitialIntervalStateFor(cfg);
                     }
                     CombatRenderComponent render = cfg.Render;
                     renders[i]     = render;
@@ -570,6 +581,27 @@ namespace PlayGround.System.Aoe
             {
                 if (Requests.IsCreated)
                     Requests.Dispose();
+            }
+        }
+
+        private static float DeterministicJitter(int aoeId, int spawnerId, float maxOffsetSeconds)
+        {
+            if (maxOffsetSeconds <= 0f)
+            {
+                return 0f;
+            }
+
+            unchecked
+            {
+                uint hash = (uint)aoeId;
+                hash = (hash * 397u) ^ (uint)spawnerId;
+                hash *= 0x9E3779B9u;
+                hash ^= hash >> 16;
+                hash *= 0x7FEB352Du;
+                hash ^= hash >> 15;
+                hash *= 0x846CA68Bu;
+                hash ^= hash >> 16;
+                return ((hash & 0x00FFFFFFu) + 1u) / 16777217f * maxOffsetSeconds;
             }
         }
 
