@@ -34,8 +34,13 @@ namespace PlayGround.Skills
 
                 if (chain.link is ProjectileIntervalSpawnTrigger childTrigger)
                 {
-                    if (runtime is RuntimeProjectileDefinition projDef)
-                        ApplyChildSpawn(projDef, childTrigger, slots, chain.effectIndex, allChains, snapshot);
+                    ApplyChildSpawn(runtime, childTrigger, slots, chain.effectIndex, allChains, snapshot);
+                    continue;
+                }
+
+                if (chain.link is AoeIntervalSpawnTrigger aoeIntervalTrigger)
+                {
+                    ApplyAoeIntervalSpawn(runtime, aoeIntervalTrigger, slots, chain.effectIndex, allChains, snapshot);
                     continue;
                 }
 
@@ -201,18 +206,24 @@ namespace PlayGround.Skills
         }
 
         private static void ApplyChildSpawn(
-            RuntimeProjectileDefinition parent,
+            RuntimeSkillDefinition parent,
             ProjectileIntervalSpawnTrigger trigger,
             IReadOnlyList<LoadoutSlot> slots,
             int effectIndex,
             TriggerChain[] allChains,
             PlayerStatSnapshot snapshot)
         {
+            if (parent is not RuntimeProjectileDefinition and not RuntimeAoeDefinition)
+                return;
+
+            if (parent is RuntimeAoeDefinition { LifetimeSeconds: <= 0f })
+                return;
+
             RuntimeSkillDefinition compiledChild = Compile(slots, effectIndex, allChains, snapshot);
             if (compiledChild is not RuntimeProjectileDefinition childDef) return;
 
             float intervalSeconds = Mathf.Max(0.01f, trigger.intervalSeconds);
-            parent.ChildSpawnSetup = new RuntimeChildSpawnSetup
+            var setup = new RuntimeChildSpawnSetup
             {
                 SpawnerId = ++nextChildSpawnerId,
                 ChildDefinition = childDef,
@@ -223,6 +234,45 @@ namespace PlayGround.Skills
                     ProjectileChildSpawnPatternType.SideSpray,
                     trigger.sideSpreadDegrees),
             };
+
+            if (parent is RuntimeProjectileDefinition projectileParent)
+                projectileParent.ChildSpawnSetup = setup;
+            else if (parent is RuntimeAoeDefinition aoeParent)
+                aoeParent.ChildSpawnSetup = setup;
+        }
+
+        private static void ApplyAoeIntervalSpawn(
+            RuntimeSkillDefinition parent,
+            AoeIntervalSpawnTrigger trigger,
+            IReadOnlyList<LoadoutSlot> slots,
+            int effectIndex,
+            TriggerChain[] allChains,
+            PlayerStatSnapshot snapshot)
+        {
+            if (parent is not RuntimeProjectileDefinition and not RuntimeAoeDefinition)
+                return;
+
+            if (parent is RuntimeAoeDefinition { LifetimeSeconds: <= 0f })
+                return;
+
+            RuntimeSkillDefinition compiledChild = Compile(slots, effectIndex, allChains, snapshot);
+            if (compiledChild is not RuntimeAoeDefinition childDef) return;
+
+            float intervalSeconds = Mathf.Max(0.01f, trigger.intervalSeconds);
+            var setup = new RuntimeAoeIntervalSpawnSetup
+            {
+                SpawnerId = ++nextChildSpawnerId,
+                ChildDefinition = childDef,
+                IntervalSeconds = intervalSeconds,
+                IntervalJitterSeconds = intervalSeconds * Mathf.Clamp(trigger.intervalJitterPercent, 0f, 100f) * 0.01f,
+                Count = Mathf.Max(1, childDef.Count + trigger.spawnCount),
+                SideSpreadDegrees = trigger.sideSpreadDegrees,
+            };
+
+            if (parent is RuntimeProjectileDefinition projectileParent)
+                projectileParent.AoeIntervalSpawnSetup = setup;
+            else if (parent is RuntimeAoeDefinition aoeParent)
+                aoeParent.AoeIntervalSpawnSetup = setup;
         }
 
         private static SkillSet GetSkillSet(IReadOnlyList<LoadoutSlot> slots, int slotIndex)

@@ -14,6 +14,16 @@ namespace PlayGround.Skills.Runtime
         public ProjectileChildSpawnBehavior Behavior { get; set; }
     }
 
+    public sealed class RuntimeAoeIntervalSpawnSetup
+    {
+        public int SpawnerId { get; set; }
+        public RuntimeAoeDefinition ChildDefinition { get; set; }
+        public float IntervalSeconds { get; set; }
+        public float IntervalJitterSeconds { get; set; }
+        public int Count { get; set; }
+        public float SideSpreadDegrees { get; set; }
+    }
+
     public sealed class RuntimeProjectileDefinition : RuntimeSkillDefinition
     {
         public BasicAttackPrefab Prefab { get; set; }
@@ -29,6 +39,9 @@ namespace PlayGround.Skills.Runtime
 
         // Compiled from ProjectileIntervalSpawnTrigger; null if none.
         public RuntimeChildSpawnSetup ChildSpawnSetup { get; set; }
+
+        // Compiled from AoeIntervalSpawnTrigger; null if none.
+        public RuntimeAoeIntervalSpawnSetup AoeIntervalSpawnSetup { get; set; }
 
         // Compiled from OnImpactAoeTrigger; null if none.
         public RuntimeAoeDefinition ImpactAoeDefinition { get; set; }
