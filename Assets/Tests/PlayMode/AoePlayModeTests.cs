@@ -264,6 +264,81 @@ namespace PlayGround.Tests.PlayMode
             Object.DestroyImmediate(rootObject);
         }
 
+        [Test]
+        public void CompileAndRegisterAssignsDedupedIntervalTemplateKeys()
+        {
+            CreateProjectileRoot(out GameObject rootObject, out CombatRoot root);
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            Entity scope = ScopeEntity(root);
+            int projectileStartCount = entityManager.GetComponentData<ProjectileSpawnTemplate>(scope).Map.Count;
+
+            BasicAttackPrefab rootPrefab = CreateProjectilePrefab("RootProjectileTemplate");
+            BasicAttackPrefab childPrefab = CreateProjectilePrefab("ChildProjectileTemplate");
+            ProjectileSkill rootSkillA = ScriptableObject.CreateInstance<ProjectileSkill>();
+            ProjectileSkill rootSkillB = ScriptableObject.CreateInstance<ProjectileSkill>();
+            ProjectileSkill childSkill = ScriptableObject.CreateInstance<ProjectileSkill>();
+            SkillSet rootSetA = ScriptableObject.CreateInstance<SkillSet>();
+            SkillSet rootSetB = ScriptableObject.CreateInstance<SkillSet>();
+            SkillSet childSet = ScriptableObject.CreateInstance<SkillSet>();
+            ProjectileIntervalSpawnTrigger triggerA = ScriptableObject.CreateInstance<ProjectileIntervalSpawnTrigger>();
+            ProjectileIntervalSpawnTrigger triggerB = ScriptableObject.CreateInstance<ProjectileIntervalSpawnTrigger>();
+            PlayerLoadout loadout = ScriptableObject.CreateInstance<PlayerLoadout>();
+            GameObject driverObject = new("PlayerSkillDriverHarness");
+            driverObject.SetActive(false);
+            PlayerSkillDriver driver = driverObject.AddComponent<PlayerSkillDriver>();
+
+            ConfigureProjectile(rootSkillA, rootPrefab, damage: 0f);
+            ConfigureProjectile(rootSkillB, rootPrefab, damage: 0f);
+            ConfigureProjectile(childSkill, childPrefab, damage: 3f);
+            triggerA.intervalSeconds = 0.25f;
+            triggerB.intervalSeconds = 0.25f;
+            triggerA.spawnCount = 1;
+            triggerB.spawnCount = 1;
+            SetField(rootSetA, "skill", rootSkillA);
+            SetField(rootSetA, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(rootSetB, "skill", rootSkillB);
+            SetField(rootSetB, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(childSet, "skill", childSkill);
+            SetField(childSet, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(loadout, "slots", new global::System.Collections.Generic.List<LoadoutSlot>
+            {
+                new SkillSetSlot { skillSet = rootSetA },
+                new TriggerLinkSlot { link = triggerA },
+                new SkillSetSlot { skillSet = childSet },
+                new SkillSetSlot { skillSet = rootSetB },
+                new TriggerLinkSlot { link = triggerB },
+                new SkillSetSlot { skillSet = childSet },
+            });
+            SetField(driver, "loadout", loadout);
+            SetField(driver, "combatRoot", root);
+
+            CompileAndRegister(driver);
+            var first = (RuntimeProjectileDefinition)CompiledRuntime(driver, 0);
+            var second = (RuntimeProjectileDefinition)CompiledRuntime(driver, 1);
+            RuntimeChildSpawnSetup firstSetup = first.ChildSpawnSetup;
+            RuntimeChildSpawnSetup secondSetup = second.ChildSpawnSetup;
+            ProjectileSpawnTemplate registry = entityManager.GetComponentData<ProjectileSpawnTemplate>(scope);
+
+            Assert.That(firstSetup, Is.Not.Null);
+            Assert.That(secondSetup, Is.Not.Null);
+            Assert.That(firstSetup.TemplateKey, Is.Not.EqualTo(default(Hash128)));
+            Assert.That(secondSetup.TemplateKey, Is.EqualTo(firstSetup.TemplateKey));
+            Assert.That(registry.Map.ContainsKey(firstSetup.TemplateKey), Is.True);
+            Assert.That(registry.Map.Count, Is.LessThanOrEqualTo(projectileStartCount + 1));
+
+            Cleanup(rootObject, rootPrefab.gameObject, childPrefab.gameObject, driverObject);
+            CleanupObjects(
+                rootSkillA,
+                rootSkillB,
+                childSkill,
+                rootSetA,
+                rootSetB,
+                childSet,
+                triggerA,
+                triggerB,
+                loadout);
+        }
+
         [UnityTest]
         public IEnumerator ProjectileImpactAoeApplicatorStackTriggerDetonatesStackSet()
         {
@@ -590,15 +665,20 @@ namespace PlayGround.Tests.PlayMode
 
         private static RuntimeSkillDefinition FirstCompiledRuntime(PlayerSkillDriver driver)
         {
+            return CompiledRuntime(driver, 0);
+        }
+
+        private static RuntimeSkillDefinition CompiledRuntime(PlayerSkillDriver driver, int index)
+        {
             FieldInfo field = typeof(PlayerSkillDriver).GetField(
                 "compiledSlots",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null);
             var compiledSlots = (RuntimeSkillDefinition[])field.GetValue(driver);
             Assert.That(compiledSlots, Is.Not.Null);
-            Assert.That(compiledSlots.Length, Is.GreaterThan(0));
-            Assert.That(compiledSlots[0], Is.Not.Null);
-            return compiledSlots[0];
+            Assert.That(compiledSlots.Length, Is.GreaterThan(index));
+            Assert.That(compiledSlots[index], Is.Not.Null);
+            return compiledSlots[index];
         }
 
         private static void SetField(object target, string fieldName, object value)

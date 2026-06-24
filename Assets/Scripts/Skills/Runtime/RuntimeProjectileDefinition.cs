@@ -2,6 +2,7 @@ using PlayGround.Skills;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using UnityEngine;
+using Hash128 = Unity.Entities.Hash128;
 
 namespace PlayGround.Skills.Runtime
 {
@@ -12,6 +13,11 @@ namespace PlayGround.Skills.Runtime
         public float IntervalSeconds { get; set; }
         public float IntervalJitterSeconds { get; set; }
         public ProjectileChildSpawnBehavior Behavior { get; set; }
+        public Hash128 TemplateKey { get; set; }
+        public ProjectileSpawnTemplateData TemplateData { get; set; }
+        public IntervalProjectileChild IntervalChild { get; set; }
+        public ProjectileChildSpawnConfig SpawnConfig { get; set; }
+        public bool HasRegisteredTemplate => !TemplateKey.Equals(default(Hash128));
     }
 
     public sealed class RuntimeAoeIntervalSpawnSetup
@@ -22,6 +28,10 @@ namespace PlayGround.Skills.Runtime
         public float IntervalJitterSeconds { get; set; }
         public int Count { get; set; }
         public float SideSpreadDegrees { get; set; }
+        public Hash128 TemplateKey { get; set; }
+        public AoeSpawnTemplateData TemplateData { get; set; }
+        public IntervalAoeChild IntervalChild { get; set; }
+        public bool HasRegisteredTemplate => !TemplateKey.Equals(default(Hash128));
     }
 
     public sealed class RuntimeProjectileDefinition : RuntimeSkillDefinition
@@ -57,6 +67,9 @@ namespace PlayGround.Skills.Runtime
             RuntimeChildSpawnSetup setup = ChildSpawnSetup;
             if (setup == null || setup.ChildDefinition == null || setup.ChildDefinition.TypeId < 0)
                 return ProjectileChildSpawnConfig.Disabled;
+
+            if (setup.HasRegisteredTemplate)
+                return setup.SpawnConfig;
 
             RuntimeProjectileDefinition child = setup.ChildDefinition;
             BasicAttackPrefab prefab = child.Prefab;

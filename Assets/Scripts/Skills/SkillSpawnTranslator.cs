@@ -57,7 +57,7 @@ namespace PlayGround.Skills
             ProjectileChildSpawnConfig childSpawn = def.BuildChildSpawnConfig(
                 BuildApplicatorStackEffectSnapshot(def.ChildSpawnSetup?.ChildDefinition, root));
             ProjectileAoeIntervalSpawnerComponent aoeIntervalSpawner =
-                BuildProjectileSourceAoeIntervalSpawner(def, root);
+                ProjectileAoeIntervalSpawnerFromSetup(def.AoeIntervalSpawnSetup);
             IntervalChildKind childKind = IsProjectileAoeIntervalSpawnerEnabled(aoeIntervalSpawner)
                 ? IntervalChildKind.Aoe
                 : IntervalChildKind.Projectile;
@@ -106,7 +106,7 @@ namespace PlayGround.Skills
             int count = Mathf.Max(1, def.Count);
             AoeSpawnGeometry geometry = def.CreateSpawnGeometry();
             StackEffectSnapshot effectiveStackEffect = BuildApplicatorStackEffectSnapshot(def, root, stackEffect);
-            AoeSourceIntervalSpawnerComponent intervalSpawner = BuildAoeSourceIntervalSpawner(def, root);
+            AoeSourceIntervalSpawnerComponent intervalSpawner = AoeSourceIntervalSpawnerFromSetup(def);
             bool hasIntervalSpawner = IsAoeSourceIntervalSpawnerEnabled(intervalSpawner);
 
             for (int i = 0; i < count; i++)
@@ -128,13 +128,11 @@ namespace PlayGround.Skills
             }
         }
 
-        private static ProjectileAoeIntervalSpawnerComponent BuildProjectileSourceAoeIntervalSpawner(
-            RuntimeProjectileDefinition def,
-            CombatRoot root)
+        private static ProjectileAoeIntervalSpawnerComponent ProjectileAoeIntervalSpawnerFromSetup(
+            RuntimeAoeIntervalSpawnSetup setup)
         {
-            RuntimeAoeIntervalSpawnSetup setup = def.AoeIntervalSpawnSetup;
             RuntimeAoeDefinition child = setup?.ChildDefinition;
-            if (setup == null || child == null || child.TypeId < 0)
+            if (setup == null || child == null || child.TypeId < 0 || !setup.HasRegisteredTemplate)
             {
                 return default;
             }
@@ -144,24 +142,20 @@ namespace PlayGround.Skills
                 SpawnerId = setup.SpawnerId,
                 IntervalSeconds = Mathf.Max(0.01f, setup.IntervalSeconds),
                 IntervalJitterSeconds = Mathf.Max(0f, setup.IntervalJitterSeconds),
-                Child = BuildIntervalAoeChild(
-                    child,
-                    Mathf.Max(1, setup.Count),
-                    root,
-                    BuildApplicatorStackEffectSnapshot(child, root))
+                Child = setup.IntervalChild
             };
         }
 
-        private static AoeSourceIntervalSpawnerComponent BuildAoeSourceIntervalSpawner(
-            RuntimeAoeDefinition def,
-            CombatRoot root)
+        private static AoeSourceIntervalSpawnerComponent AoeSourceIntervalSpawnerFromSetup(
+            RuntimeAoeDefinition def)
         {
             RuntimeChildSpawnSetup projectileSetup = def.ChildSpawnSetup;
             RuntimeProjectileDefinition projectileChild = projectileSetup?.ChildDefinition;
             if (projectileSetup != null
                 && projectileChild != null
                 && projectileChild.TypeId >= 0
-                && projectileChild.Prefab != null)
+                && projectileChild.Prefab != null
+                && projectileSetup.HasRegisteredTemplate)
             {
                 return new AoeSourceIntervalSpawnerComponent
                 {
@@ -169,17 +163,13 @@ namespace PlayGround.Skills
                     ChildKind = IntervalChildKind.Projectile,
                     IntervalSeconds = Mathf.Max(0.01f, projectileSetup.IntervalSeconds),
                     IntervalJitterSeconds = Mathf.Max(0f, projectileSetup.IntervalJitterSeconds),
-                    ProjectileChild = BuildIntervalProjectileChild(
-                        projectileChild,
-                        projectileSetup.Behavior,
-                        root,
-                        BuildApplicatorStackEffectSnapshot(projectileChild, root))
+                    ProjectileChild = projectileSetup.IntervalChild
                 };
             }
 
             RuntimeAoeIntervalSpawnSetup aoeSetup = def.AoeIntervalSpawnSetup;
             RuntimeAoeDefinition aoeChild = aoeSetup?.ChildDefinition;
-            if (aoeSetup == null || aoeChild == null || aoeChild.TypeId < 0)
+            if (aoeSetup == null || aoeChild == null || aoeChild.TypeId < 0 || !aoeSetup.HasRegisteredTemplate)
             {
                 return default;
             }
@@ -190,102 +180,7 @@ namespace PlayGround.Skills
                 ChildKind = IntervalChildKind.Aoe,
                 IntervalSeconds = Mathf.Max(0.01f, aoeSetup.IntervalSeconds),
                 IntervalJitterSeconds = Mathf.Max(0f, aoeSetup.IntervalJitterSeconds),
-                AoeChild = BuildIntervalAoeChild(
-                    aoeChild,
-                    Mathf.Max(1, aoeSetup.Count),
-                    root,
-                    BuildApplicatorStackEffectSnapshot(aoeChild, root))
-            };
-        }
-
-        private static IntervalProjectileChild BuildIntervalProjectileChild(
-            RuntimeProjectileDefinition child,
-            ProjectileChildSpawnBehavior behavior,
-            CombatRoot root,
-            StackEffectSnapshot stackEffect)
-        {
-            BasicAttackPrefab prefab = child.Prefab;
-            float radians = prefab.VisualRotationDegrees * Mathf.Deg2Rad;
-            float sin = Mathf.Sin(radians);
-            float cos = Mathf.Cos(radians);
-            return new IntervalProjectileChild
-            {
-                TypeId = child.TypeId,
-                ChildCountPerTick = Mathf.Max(1, behavior.Count),
-                SpawnPatternType = behavior.PatternType,
-                SideSpreadDegrees = behavior.SpreadDegrees,
-                Speed = child.Speed,
-                Lifetime = child.Lifetime,
-                Radius = prefab.Radius,
-                HalfExtents = new Unity.Mathematics.float2(prefab.HalfExtents.x, prefab.HalfExtents.y),
-                RotationRadians = prefab.RotationRadians,
-                ShapeType = prefab.ShapeType,
-                DamageAmount = Mathf.Max(0f, child.Damage),
-                DirectDamageEnabled = child.DirectDamageEnabled,
-                PierceCount = child.PierceCount,
-                RepeatHitCooldownSeconds = child.RepeatHitCooldown,
-                VisualScale = prefab.VisualScale > 0f ? prefab.VisualScale : 1f,
-                VisualRotationSin = sin,
-                VisualRotationCos = cos,
-                TrackingEnabled = child.Tracking.Enabled,
-                TrackingTurnSpeedRadians = child.Tracking.TurnSpeedDegrees * Mathf.Deg2Rad,
-                TrackingQueryIntervalSeconds = child.Tracking.QueryIntervalSeconds,
-                TrackingInitialQueryDelaySeconds = child.Tracking.InitialQueryDelaySeconds,
-                SourceNodeId = default,
-                ImpactAoe = BuildImpactAoeSnapshot(child, root),
-                StackEffect = stackEffect,
-                ImpactProjectile = BuildImpactProjectileSnapshot(child, root)
-            };
-        }
-
-        private static IntervalAoeChild BuildIntervalAoeChild(
-            RuntimeAoeDefinition child,
-            int count,
-            CombatRoot root,
-            StackEffectSnapshot stackEffect)
-        {
-            AoeSpawnGeometry geometry = child.CreateSpawnGeometry();
-            return new IntervalAoeChild
-            {
-                TypeId = child.TypeId,
-                Lifetime = child.LifetimeSeconds,
-                RepeatHitCooldownSeconds = child.TickIntervalSeconds,
-                Radius = geometry.Radius,
-                HalfExtents = new Unity.Mathematics.float2(geometry.HalfExtents.x, geometry.HalfExtents.y),
-                RotationRadians = geometry.RotationRadians,
-                ShapeType = geometry.ShapeType,
-                AreaSize = geometry.AreaSize,
-                HitPayload = new CombatHitPayload
-                {
-                    DamageAmount = Mathf.Max(0f, child.Damage),
-                    CritChance = child.CritChance,
-                    CritMultiplier = child.CritMultiplier,
-                    DirectDamageEnabled = child.DirectDamageEnabled,
-                    SourceNodeId = default,
-                    StackEffect = stackEffect
-                },
-                ProjectileBurst = default,
-                AoeSpawn = BuildAoeOnHitSpawnSnapshot(child.OnHitAoeSpawnDefinition, root, MaxAoeOnHitSpawnDepth),
-                Render = AoeRenderComponentFor(geometry),
-                Count = Mathf.Max(1, count)
-            };
-        }
-
-        private static CombatRenderComponent AoeRenderComponentFor(AoeSpawnGeometry geometry)
-        {
-            if (geometry.VisualScale.x <= 0f && geometry.VisualScale.y <= 0f)
-            {
-                return default;
-            }
-
-            return new CombatRenderComponent
-            {
-                IsRenderable = 1,
-                AlignToVelocity = 0,
-                VisualScale = new Unity.Mathematics.float2(geometry.VisualScale.x, geometry.VisualScale.y),
-                VisualRotationSin = geometry.VisualRotationSin,
-                VisualRotationCos = geometry.VisualRotationCos,
-                RenderZ = CombatRoot.AoeRenderZ
+                AoeChild = aoeSetup.IntervalChild
             };
         }
 
