@@ -1,6 +1,7 @@
 using PlayGround.System.Aoe;
 using PlayGround.System.Projectile;
 using PlayGround.System.Vfx;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
@@ -69,6 +70,8 @@ namespace PlayGround.System.Common
     // when the last owner releases it.
     internal static class CombatScopeOwner
     {
+        private const int InitialTemplateRegistryCapacity = 64;
+
         private static Entity ownedScope;
         private static int ownerCount;
 
@@ -80,6 +83,18 @@ namespace PlayGround.System.Common
                 entityManager.AddBuffer<ProjectileSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<AoeSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<VfxSpawnRequestElement>(ownedScope);
+                entityManager.AddComponentData(ownedScope, new ProjectileSpawnTemplate
+                {
+                    Map = new NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnTemplateData>(
+                        InitialTemplateRegistryCapacity,
+                        Allocator.Persistent)
+                });
+                entityManager.AddComponentData(ownedScope, new AoeSpawnTemplate
+                {
+                    Map = new NativeHashMap<Unity.Entities.Hash128, AoeSpawnTemplateData>(
+                        InitialTemplateRegistryCapacity,
+                        Allocator.Persistent)
+                });
                 ownerCount = 0;
             }
 
@@ -102,10 +117,33 @@ namespace PlayGround.System.Common
 
             if (entityManager.Exists(ownedScope))
             {
+                DisposeTemplateRegistries(entityManager, ownedScope);
                 entityManager.DestroyEntity(ownedScope);
             }
 
             ownedScope = Entity.Null;
+        }
+
+        private static void DisposeTemplateRegistries(EntityManager entityManager, Entity scope)
+        {
+            if (entityManager.HasComponent<ProjectileSpawnTemplate>(scope))
+            {
+                ProjectileSpawnTemplate projectileTemplates =
+                    entityManager.GetComponentData<ProjectileSpawnTemplate>(scope);
+                if (projectileTemplates.Map.IsCreated)
+                {
+                    projectileTemplates.Map.Dispose();
+                }
+            }
+
+            if (entityManager.HasComponent<AoeSpawnTemplate>(scope))
+            {
+                AoeSpawnTemplate aoeTemplates = entityManager.GetComponentData<AoeSpawnTemplate>(scope);
+                if (aoeTemplates.Map.IsCreated)
+                {
+                    aoeTemplates.Map.Dispose();
+                }
+            }
         }
     }
 

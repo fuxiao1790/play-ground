@@ -8,6 +8,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using Hash128 = Unity.Entities.Hash128;
 using ProjectileAoeIntervalSpawnerComponent = PlayGround.System.Projectile.AoeIntervalSpawnerComponent;
 
 namespace PlayGround.System.Common
@@ -193,7 +194,37 @@ namespace PlayGround.System.Common
             return baseProjectileId;
         }
 
+        public Hash128 RegisterTimedSpawnTemplate(in ProjectileSpawnTemplateData data)
+        {
+            EnsureRuntimeReady();
+
+            Hash128 key = SpawnTemplateHash.Of(in data);
+            ProjectileSpawnTemplate registry = entityManager.GetComponentData<ProjectileSpawnTemplate>(scopeEntity);
+            if (!registry.Map.ContainsKey(key))
+            {
+                entityManager.CompleteAllTrackedJobs();
+                registry.Map.Add(key, data);
+            }
+
+            return key;
+        }
+
         // ---- AOE API ----
+
+        public Hash128 RegisterTimedSpawnTemplate(in AoeSpawnTemplateData data)
+        {
+            EnsureRuntimeReady();
+
+            Hash128 key = SpawnTemplateHash.Of(in data);
+            AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(scopeEntity);
+            if (!registry.Map.ContainsKey(key))
+            {
+                entityManager.CompleteAllTrackedJobs();
+                registry.Map.Add(key, data);
+            }
+
+            return key;
+        }
 
         public int RegisterConfig(AoeConfig config)
         {

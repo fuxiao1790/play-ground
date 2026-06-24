@@ -15,6 +15,7 @@ using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
 using UnityEngine.TestTools;
+using Hash128 = Unity.Entities.Hash128;
 
 namespace PlayGround.Tests.PlayMode
 {
@@ -193,6 +194,74 @@ namespace PlayGround.Tests.PlayMode
                 "Scope must stay alive while another CombatRoot still references it.");
 
             Cleanup(aoeObject, templateObject);
+        }
+
+        [Test]
+        public void CombatRootRegisterTimedSpawnTemplateDeduplicatesOnScope()
+        {
+            CreateProjectileRoot(out GameObject rootObject, out CombatRoot root);
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            Entity scope = ScopeEntity(root);
+            int projectileStartCount = entityManager.GetComponentData<ProjectileSpawnTemplate>(scope).Map.Count;
+            int aoeStartCount = entityManager.GetComponentData<AoeSpawnTemplate>(scope).Map.Count;
+
+            var projectileA = new ProjectileSpawnTemplateData
+            {
+                TypeId = ++nextTargetId,
+                ChildCountPerTick = 2,
+                Speed = 10f,
+                Lifetime = 1f,
+                Radius = 0.25f,
+                ShapeType = CombatShapeType.Circle,
+                DamageAmount = 4f,
+                DirectDamageEnabled = true
+            };
+            ProjectileSpawnTemplateData projectileC = projectileA;
+            projectileC.ChildCountPerTick = 3;
+
+            Hash128 projectileKeyA = root.RegisterTimedSpawnTemplate(in projectileA);
+            Hash128 projectileKeyB = root.RegisterTimedSpawnTemplate(in projectileA);
+            Hash128 projectileKeyC = root.RegisterTimedSpawnTemplate(in projectileC);
+            ProjectileSpawnTemplate projectileRegistry =
+                entityManager.GetComponentData<ProjectileSpawnTemplate>(scope);
+
+            Assert.That(projectileKeyB, Is.EqualTo(projectileKeyA));
+            Assert.That(projectileKeyC, Is.Not.EqualTo(projectileKeyA));
+            Assert.That(projectileRegistry.Map.Count, Is.EqualTo(projectileStartCount + 2));
+            Assert.That(projectileRegistry.Map.ContainsKey(projectileKeyA), Is.True);
+            Assert.That(projectileRegistry.Map.ContainsKey(projectileKeyC), Is.True);
+
+            var aoeA = new AoeSpawnTemplateData
+            {
+                TypeId = ++nextTargetId,
+                Lifetime = 1.5f,
+                RepeatHitCooldownSeconds = 0.2f,
+                Radius = 1f,
+                ShapeType = CombatShapeType.Circle,
+                Count = 1,
+                HitPayload = new CombatHitPayload
+                {
+                    DamageAmount = 5f,
+                    CritChance = 0.1f,
+                    CritMultiplier = 2f,
+                    DirectDamageEnabled = true
+                }
+            };
+            AoeSpawnTemplateData aoeC = aoeA;
+            aoeC.Count = 2;
+
+            Hash128 aoeKeyA = root.RegisterTimedSpawnTemplate(in aoeA);
+            Hash128 aoeKeyB = root.RegisterTimedSpawnTemplate(in aoeA);
+            Hash128 aoeKeyC = root.RegisterTimedSpawnTemplate(in aoeC);
+            AoeSpawnTemplate aoeRegistry = entityManager.GetComponentData<AoeSpawnTemplate>(scope);
+
+            Assert.That(aoeKeyB, Is.EqualTo(aoeKeyA));
+            Assert.That(aoeKeyC, Is.Not.EqualTo(aoeKeyA));
+            Assert.That(aoeRegistry.Map.Count, Is.EqualTo(aoeStartCount + 2));
+            Assert.That(aoeRegistry.Map.ContainsKey(aoeKeyA), Is.True);
+            Assert.That(aoeRegistry.Map.ContainsKey(aoeKeyC), Is.True);
+
+            Object.DestroyImmediate(rootObject);
         }
 
         [UnityTest]

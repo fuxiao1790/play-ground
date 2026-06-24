@@ -4,6 +4,7 @@ using PlayGround.Skills;
 using PlayGround.Common;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
+using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 
 namespace PlayGround.Tests.EditMode
@@ -95,6 +96,52 @@ namespace PlayGround.Tests.EditMode
             Assert.That(basicPrefab.ShapeType, Is.EqualTo(CombatShapeType.Rectangle));
             Assert.That(basicPrefab.HalfExtents, Is.EqualTo(new Vector2(1f, 2f)).Using(Vector2Comparer.Instance));
             Object.DestroyImmediate(attackObject);
+        }
+
+        [Test]
+        public void SpawnTemplateData_IsBlittableAndContentHashed()
+        {
+            Assert.That(UnsafeUtility.IsBlittable<ProjectileSpawnTemplateData>(), Is.True);
+            Assert.That(UnsafeUtility.IsBlittable<AoeSpawnTemplateData>(), Is.True);
+
+            var projectileA = new ProjectileSpawnTemplateData
+            {
+                TypeId = 7,
+                ChildCountPerTick = 2,
+                Speed = 12f,
+                Lifetime = 0.75f,
+                ShapeType = CombatShapeType.Circle,
+                DamageAmount = 4f,
+                DirectDamageEnabled = true
+            };
+            ProjectileSpawnTemplateData projectileB = projectileA;
+            ProjectileSpawnTemplateData projectileC = projectileA;
+            projectileC.ChildCountPerTick = 3;
+
+            Assert.That(SpawnTemplateHash.Of(in projectileB), Is.EqualTo(SpawnTemplateHash.Of(in projectileA)));
+            Assert.That(SpawnTemplateHash.Of(in projectileC), Is.Not.EqualTo(SpawnTemplateHash.Of(in projectileA)));
+
+            var aoeA = new AoeSpawnTemplateData
+            {
+                TypeId = 9,
+                Lifetime = 1.5f,
+                RepeatHitCooldownSeconds = 0.2f,
+                ShapeType = CombatShapeType.Circle,
+                Count = 1,
+                HitPayload = new CombatHitPayload
+                {
+                    DamageAmount = 5f,
+                    CritChance = 0.1f,
+                    CritMultiplier = 2f,
+                    DirectDamageEnabled = true
+                }
+            };
+            AoeSpawnTemplateData aoeB = aoeA;
+            AoeSpawnTemplateData aoeC = aoeA;
+            aoeC.Count = 2;
+
+            Assert.That(SpawnTemplateHash.Of(in aoeB), Is.EqualTo(SpawnTemplateHash.Of(in aoeA)));
+            Assert.That(SpawnTemplateHash.Of(in aoeC), Is.Not.EqualTo(SpawnTemplateHash.Of(in aoeA)));
         }
 
         private sealed class Vector2Comparer : IEqualityComparer<Vector2>
