@@ -59,4 +59,27 @@ namespace PlayGround.System.Aoe
         public float Interval;
     }
 
+    // ECS Lifecycle: optional interval-spawner tag; added to lingering AOE spawner archetypes; kept until root teardown.
+    public struct AoeIntervalSpawnerTag : IComponentData
+    {
+    }
+
+    // ECS Lifecycle: optional interval-spawner component; added to lingering AOE spawner archetypes; kept until root teardown; reset on reuse.
+    public struct AoeIntervalSpawnerComponent : IComponentData
+    {
+        public int SpawnerId;
+        public IntervalChildKind ChildKind;
+        public float IntervalSeconds;
+        public float IntervalJitterSeconds;
+        public IntervalProjectileChild ProjectileChild;
+        public IntervalAoeChild AoeChild;
+    }
+
+    // ECS Lifecycle: optional interval-spawner state; added to lingering AOE spawner archetypes; kept until root teardown; reset on reuse.
+    public struct AoeIntervalSpawnStateComponent : IComponentData
+    {
+        public float CooldownRemaining;
+        public int TickIndex;
+    }
+
 }

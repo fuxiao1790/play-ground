@@ -295,7 +295,7 @@ namespace PlayGround.Tests.PlayMode
                     typeof(ProjectileContactGateElement),
                     typeof(ProjectileChildSpawnerTag),
                     typeof(ProjectileChildSpawnerComponent),
-                    typeof(AoeIntervalSpawnerComponent),
+                    typeof(PlayGround.System.Projectile.AoeIntervalSpawnerComponent),
                     typeof(ProjectileChildSpawnStateComponent))
                 : entityManager.CreateEntity(
                     typeof(ProjectileTag),
@@ -340,7 +340,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(ProjectileContactGateElement),
                 typeof(ProjectileChildSpawnerTag),
                 typeof(ProjectileChildSpawnerComponent),
-                typeof(AoeIntervalSpawnerComponent),
+                typeof(PlayGround.System.Projectile.AoeIntervalSpawnerComponent),
                 typeof(ProjectileChildSpawnStateComponent));
 
             entityManager.SetComponentData(entity, new ProjectileIdentityComponent

@@ -155,7 +155,9 @@ namespace PlayGround.System.Aoe
                         ShapeType                = evt.ShapeType,
                         Render                   = evt.Render,
                         ProjectileBurst          = evt.ProjectileBurst,
-                        AoeSpawn                 = evt.AoeSpawn
+                        AoeSpawn                 = evt.AoeSpawn,
+                        HasIntervalSpawner       = evt.HasIntervalSpawner,
+                        IntervalSpawner          = evt.IntervalSpawner
                     });
 
                     Stream.EndForEachIndex();
