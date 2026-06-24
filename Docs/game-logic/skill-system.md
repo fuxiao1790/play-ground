@@ -422,6 +422,13 @@ time to jitter seconds using `intervalSeconds * intervalJitterPercent / 100`.
 The compiled jitter seconds are passed into the projectile ECS child-spawner and
 applied when scheduling child-spawn intervals.
 
+`spawnCount` is **additive** with the effect (child) set's own projectile count:
+the per-tick child count is `childDefinition.Count + spawnCount`, floored to `1`.
+The child set's count is its base skill `count` after its own additive supports
+(e.g. Multiple Projectiles). A `spawnCount` of `0` means the child set's own
+count alone determines the per-tick burst. The combined per-tick children are
+fanned across `sideSpreadDegrees` using the `SideSpray` pattern.
+
 **OnImpactAoeTrigger**
 
 Fires the effect set as an AOE centered at the cause projectile's impact point.
@@ -433,6 +440,29 @@ class OnImpactAoeTrigger : TriggerLink { }
 ```
 
 Compatible tags: source `Projectile`, target `Aoe`.
+
+**OnImpactProjectileTrigger**
+
+Fires the effect set as a burst of projectiles from the cause projectile's
+impact point, aimed back from the impact. Compiles into
+`RuntimeProjectileDefinition.ImpactProjectileDefinition`. Effect must compile to
+a `RuntimeProjectileDefinition`.
+
+```csharp
+class OnImpactProjectileTrigger : TriggerLink {
+    int spawnCount;
+    float spreadDegrees;
+}
+```
+
+Compatible tags: source `Projectile`, target `Projectile`.
+`spawnCount` is **additive** with the effect set's own projectile count: the
+impact burst size is `effectDefinition.Count + spawnCount`, floored to `1`. A
+`spawnCount` of `0` means the effect set's own count alone determines the burst.
+`spreadDegrees` overrides the effect set's spread and fans the burst around the
+back-aimed impact direction. Proj→proj→proj nesting is not supported (a value-type
+struct cannot be recursive); a nested impact-projectile chain on the effect is
+dropped with a compile warning.
 
 **OnAoeHitSpawnTrigger**
 

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000011, type: 3}
   m_Name: ChildSpawnTrigger
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ChildSpawnTrigger
-  intervalSeconds: 0.25
-  intervalJitterPercent: 50
-  spawnCount: 6
-  sideSpreadDegrees: 111
+  intervalSeconds: 0.15
+  intervalJitterPercent: 51.2
+  spawnCount: 0
+  sideSpreadDegrees: 143

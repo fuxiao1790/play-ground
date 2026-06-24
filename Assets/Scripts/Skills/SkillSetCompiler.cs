@@ -58,6 +58,7 @@ namespace PlayGround.Skills
                         if (compiledTarget is RuntimeProjectileDefinition impactProjDef)
                         {
                             projDef.ImpactProjectileDefinition = impactProjDef;
+                            impactProjDef.Count = Mathf.Max(1, impactProjDef.Count + impactProjTrigger.spawnCount);
                             impactProjDef.SpreadDegrees = impactProjTrigger.spreadDegrees;
                             if (impactProjDef.ImpactProjectileDefinition != null)
                             {
@@ -218,7 +219,7 @@ namespace PlayGround.Skills
                 IntervalSeconds = intervalSeconds,
                 IntervalJitterSeconds = intervalSeconds * Mathf.Clamp(trigger.intervalJitterPercent, 0f, 100f) * 0.01f,
                 Behavior = new ProjectileChildSpawnBehavior(
-                    Mathf.Max(1, trigger.spawnCount),
+                    Mathf.Max(1, childDef.Count + trigger.spawnCount),
                     ProjectileChildSpawnPatternType.SideSpray,
                     trigger.sideSpreadDegrees),
             };

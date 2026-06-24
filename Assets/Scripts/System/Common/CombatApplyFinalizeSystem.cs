@@ -24,6 +24,26 @@ namespace PlayGround.System.Common
         private const int MaxTargetStackEntries = 32;
 
         private static readonly ProfilerMarker Marker = new("CombatApplyFinalizeSystem");
+        private static readonly ProfilerMarker CompleteProducersMarker =
+            new("CombatApplyFinalizeSystem.CompleteProducers");
+        private static readonly ProfilerMarker DisposePreviousMarker =
+            new("CombatApplyFinalizeSystem.DisposePrevious");
+        private static readonly ProfilerMarker CountHitsMarker =
+            new("CombatApplyFinalizeSystem.CountHits");
+        private static readonly ProfilerMarker FlattenHitsMarker =
+            new("CombatApplyFinalizeSystem.FlattenHits");
+        private static readonly ProfilerMarker BucketHitsMarker =
+            new("CombatApplyFinalizeSystem.BucketHits");
+        private static readonly ProfilerMarker PrepareFinalizeMarker =
+            new("CombatApplyFinalizeSystem.PrepareFinalize");
+        private static readonly ProfilerMarker FinalizeCombatMarker =
+            new("CombatApplyFinalizeSystem.FinalizeCombat");
+        private static readonly ProfilerMarker CountEvictionsMarker =
+            new("CombatApplyFinalizeSystem.CountEvictions");
+        private static readonly ProfilerMarker DisposeScratchMarker =
+            new("CombatApplyFinalizeSystem.DisposeScratch");
+        private static readonly ProfilerMarker PublishResultsMarker =
+            new("CombatApplyFinalizeSystem.PublishResults");
         private static readonly ProfilerCounterValue<int> EntryEvictionCounter =
             new(ProfilerCategory.Scripts, "CombatApplyFinalizeSystem.StackEntryEvictions", ProfilerMarkerDataUnit.Count);
 
@@ -54,78 +74,120 @@ namespace PlayGround.System.Common
         {
             using (Marker.Auto())
             {
-                ProducerHandle.Complete();
-                ProducerHandle = default;
+                using (CompleteProducersMarker.Auto())
+                {
+                    ProducerHandle.Complete();
+                    ProducerHandle = default;
+                }
+
                 AccrualFrame++;
 
                 CombatApplyBridge bridge = World.GetExistingSystemManaged<CombatApplyBridge>();
-                bridge?.DisposeFinalizedCombat();
+                using (DisposePreviousMarker.Auto())
+                {
+                    bridge?.DisposeFinalizedCombat();
+                }
 
-                int hitCount = HitQueue.Count;
+                int hitCount;
+                using (CountHitsMarker.Auto())
+                {
+                    hitCount = HitQueue.Count;
+                }
+
                 if (hitCount == 0)
                 {
                     HitQueue.Clear();
                     return;
                 }
 
-                NativeArray<CombatHitEvent> flatHits = HitQueue.ToArray(Allocator.TempJob);
-                HitQueue.Clear();
-
-                var hitIndexMap = new NativeParallelMultiHashMap<Entity, int>(flatHits.Length, Allocator.TempJob);
-                JobHandle bucketHandle = new BucketHitsJob
+                NativeArray<CombatHitEvent> flatHits;
+                using (FlattenHitsMarker.Auto())
                 {
-                    Hits = flatHits,
-                    HitIndexWriter = hitIndexMap.AsParallelWriter()
-                }.Schedule(flatHits.Length, 64);
-                bucketHandle.Complete();
+                    flatHits = HitQueue.ToArray(Allocator.TempJob);
+                    HitQueue.Clear();
+                }
+
+                NativeParallelMultiHashMap<Entity, int> hitIndexMap;
+                using (BucketHitsMarker.Auto())
+                {
+                    hitIndexMap = new NativeParallelMultiHashMap<Entity, int>(flatHits.Length, Allocator.TempJob);
+                    JobHandle bucketHandle = new BucketHitsJob
+                    {
+                        Hits = flatHits,
+                        HitIndexWriter = hitIndexMap.AsParallelWriter()
+                    }.Schedule(flatHits.Length, 64);
+                    bucketHandle.Complete();
+                }
 
                 int frameCount = UnityEngine.Time.frameCount;
-                var (keys, keyCount) = hitIndexMap.GetUniqueKeyArray(Allocator.TempJob);
-                NativeArray<CombatTickResult> results = new(keyCount, Allocator.Persistent);
-                NativeArray<StatusStackSnapshot> statusSnapshots =
-                    new(keyCount * MaxTargetStackEntries, Allocator.Persistent);
-                var evictionCounts = new NativeArray<int>(keyCount, Allocator.TempJob);
-
-                JobHandle rollHandle = new FinalizeCombatJob
+                NativeArray<Entity> keys;
+                int keyCount;
+                NativeArray<CombatTickResult> results;
+                NativeArray<StatusStackSnapshot> statusSnapshots;
+                NativeArray<int> evictionCounts;
+                using (PrepareFinalizeMarker.Auto())
                 {
-                    Hits = flatHits,
-                    HitIndexMap = hitIndexMap,
-                    Keys = keys,
-                    Results = results,
-                    HealthLookup = GetComponentLookup<TargetHealth>(),
-                    StackBuffers = GetBufferLookup<TargetStackEntry>(),
-                    StatusSnapshots = statusSnapshots,
-                    EvictionCounts = evictionCounts,
-                    AccrualFrame = AccrualFrame,
-                    FrameCount = (uint)frameCount
-                }.Schedule(keyCount, 32);
+                    (keys, keyCount) = hitIndexMap.GetUniqueKeyArray(Allocator.TempJob);
+                    results = new NativeArray<CombatTickResult>(keyCount, Allocator.Persistent);
+                    statusSnapshots = new NativeArray<StatusStackSnapshot>(
+                        keyCount * MaxTargetStackEntries,
+                        Allocator.Persistent);
+                    evictionCounts = new NativeArray<int>(keyCount, Allocator.TempJob);
+                }
 
-                rollHandle.Complete();
+                using (FinalizeCombatMarker.Auto())
+                {
+                    JobHandle rollHandle = new FinalizeCombatJob
+                    {
+                        Hits = flatHits,
+                        HitIndexMap = hitIndexMap,
+                        Keys = keys,
+                        Results = results,
+                        HealthLookup = GetComponentLookup<TargetHealth>(),
+                        StackBuffers = GetBufferLookup<TargetStackEntry>(),
+                        StatusSnapshots = statusSnapshots,
+                        EvictionCounts = evictionCounts,
+                        AccrualFrame = AccrualFrame,
+                        FrameCount = (uint)frameCount
+                    }.Schedule(keyCount, 32);
+
+                    rollHandle.Complete();
+                }
+
                 int frameEvictions = 0;
-                for (int i = 0; i < evictionCounts.Length; i++)
+                using (CountEvictionsMarker.Auto())
                 {
-                    frameEvictions += evictionCounts[i];
+                    for (int i = 0; i < evictionCounts.Length; i++)
+                    {
+                        frameEvictions += evictionCounts[i];
+                    }
+
+                    if (frameEvictions > 0)
+                    {
+                        entryEvictions += frameEvictions;
+                        EntryEvictionCounter.Value = entryEvictions;
+                    }
                 }
 
-                if (frameEvictions > 0)
+                using (DisposeScratchMarker.Auto())
                 {
-                    entryEvictions += frameEvictions;
-                    EntryEvictionCounter.Value = entryEvictions;
+                    evictionCounts.Dispose();
+                    keys.Dispose();
+                    hitIndexMap.Dispose();
+                    flatHits.Dispose();
                 }
 
-                evictionCounts.Dispose();
-                keys.Dispose();
-                hitIndexMap.Dispose();
-                flatHits.Dispose();
-
-                if (bridge != null)
+                using (PublishResultsMarker.Auto())
                 {
-                    bridge.SetFinalizedCombat(results, statusSnapshots);
-                }
-                else
-                {
-                    results.Dispose();
-                    statusSnapshots.Dispose();
+                    if (bridge != null)
+                    {
+                        bridge.SetFinalizedCombat(results, statusSnapshots);
+                    }
+                    else
+                    {
+                        results.Dispose();
+                        statusSnapshots.Dispose();
+                    }
                 }
             }
         }
