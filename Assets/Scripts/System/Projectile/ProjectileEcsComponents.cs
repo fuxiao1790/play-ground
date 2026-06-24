@@ -44,6 +44,7 @@ namespace PlayGround.System.Projectile
     {
         public float ChildSpawnCooldownRemaining;
         public int ChildSpawnTickIndex;
+        public IntervalChildKind ChildKind;
     }
 
     // ECS Lifecycle: projectile buffer; added by spawn materialization; kept until root teardown; cleared on reuse.
@@ -68,33 +69,18 @@ namespace PlayGround.System.Projectile
     public struct ProjectileChildSpawnerComponent : IComponentData
     {
         public int SpawnerId;
-        public int TypeId;
-        public int ChildCountPerTick;
-        public ProjectileChildSpawnPatternType SpawnPatternType;
-        public float SideSpreadDegrees;
         public float IntervalSeconds;
         public float IntervalJitterSeconds;
-        public float Speed;
-        public float Lifetime;
-        public float Radius;
-        public float2 HalfExtents;
-        public float RotationRadians;
-        public CombatShapeType ShapeType;
-        public float DamageAmount;
-        public bool DirectDamageEnabled;
-        public int PierceCount;
-        public float RepeatHitCooldownSeconds;
-        public float VisualScale;
-        public float VisualRotationSin;
-        public float VisualRotationCos;
-        public bool TrackingEnabled;
-        public float TrackingTurnSpeedRadians;
-        public float TrackingQueryIntervalSeconds;
-        public float TrackingInitialQueryDelaySeconds;
-        public EntityId SourceNodeId;
-        public ProjectileImpactAoeSnapshot ImpactAoe;
-        public StackEffectSnapshot StackEffect;
-        public ProjectileImpactProjectileSnapshot ImpactProjectile;
+        public IntervalProjectileChild Child;
+    }
+
+    // ECS Lifecycle: optional interval AOE spawner component; added to child-spawning projectile archetypes; kept until root teardown; reset on reuse.
+    public struct AoeIntervalSpawnerComponent : IComponentData
+    {
+        public int SpawnerId;
+        public float IntervalSeconds;
+        public float IntervalJitterSeconds;
+        public IntervalAoeChild Child;
     }
 
 }

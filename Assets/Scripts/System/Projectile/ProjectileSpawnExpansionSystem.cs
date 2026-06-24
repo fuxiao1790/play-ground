@@ -183,6 +183,7 @@ namespace PlayGround.System.Projectile
                     Tracking = evt.Tracking,
                     Render = render,
                     ChildSpawner = evt.ChildSpawner,
+                    AoeSpawner = evt.AoeSpawner,
                     ChildSpawnState = evt.ChildSpawnState
                 };
 

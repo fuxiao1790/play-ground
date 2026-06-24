@@ -1,4 +1,5 @@
 using PlayGround.System.Common;
+using PlayGround.System.Aoe;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -22,11 +23,14 @@ namespace PlayGround.System.Projectile
             {
                 return;
             }
+            var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
 
             JobHandle handle = new ProjectileChildSpawnEntityJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
-                EventQueue = expansion.EventQueue.AsParallelWriter()
+                ProjectileEventQueue = expansion.EventQueue.AsParallelWriter(),
+                AoeEventQueue = aoeExpansion != null ? aoeExpansion.EventQueue.AsParallelWriter() : default,
+                HasAoeEventQueue = aoeExpansion != null
             }.ScheduleParallel(state.Dependency);
 
             state.Dependency = handle;
@@ -34,6 +38,10 @@ namespace PlayGround.System.Projectile
             // Expansion reads EventQueue on the main thread and only completes its own
             // component-derived dependency; forward this write job so it waits on us.
             expansion.ProducerHandle = JobHandle.CombineDependencies(expansion.ProducerHandle, handle);
+            if (aoeExpansion != null)
+            {
+                aoeExpansion.ProducerHandle = JobHandle.CombineDependencies(aoeExpansion.ProducerHandle, handle);
+            }
         }
 
         [BurstCompile]
@@ -41,14 +49,17 @@ namespace PlayGround.System.Projectile
         private partial struct ProjectileChildSpawnEntityJob : IJobEntity
         {
             public float DeltaTime;
-            public NativeQueue<ProjectileSpawnEvent>.ParallelWriter EventQueue;
+            public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventQueue;
+            public NativeQueue<AoeSpawnEvent>.ParallelWriter AoeEventQueue;
+            public bool HasAoeEventQueue;
 
             private void Execute(
                 ref ProjectileChildSpawnStateComponent childSpawnState,
                 in ProjectileIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
                 in CombatLifetimeComponent lifetime,
-                in ProjectileChildSpawnerComponent spawner)
+                in ProjectileChildSpawnerComponent spawner,
+                in AoeIntervalSpawnerComponent aoeSpawner)
             {
                 if (lifetime.Remaining <= 0f || identity.Faction == CombatFaction.None)
                 {
@@ -60,24 +71,48 @@ namespace PlayGround.System.Projectile
                 while (cooldown <= 0f)
                 {
                     tickIndex++;
-                    for (int childIndex = 0; childIndex < spawner.ChildCountPerTick; childIndex++)
+                    if (childSpawnState.ChildKind == IntervalChildKind.Aoe)
                     {
-                        EnqueueChildSpawn(identity, kinematics, in spawner, tickIndex, childIndex);
+                        int childCount = math.max(1, aoeSpawner.Child.Count);
+                        for (int childIndex = 0; childIndex < childCount; childIndex++)
+                        {
+                            EnqueueAoeChildSpawn(identity, kinematics, in aoeSpawner, tickIndex, childIndex);
+                        }
+                        cooldown += NextIntervalSeconds(
+                            identity.ProjectileId,
+                            aoeSpawner.SpawnerId,
+                            tickIndex,
+                            aoeSpawner.IntervalSeconds,
+                            aoeSpawner.IntervalJitterSeconds);
                     }
-                    cooldown += NextIntervalSeconds(identity.ProjectileId, in spawner, tickIndex);
+                    else
+                    {
+                        int childCount = math.max(1, spawner.Child.ChildCountPerTick);
+                        for (int childIndex = 0; childIndex < childCount; childIndex++)
+                        {
+                            EnqueueProjectileChildSpawn(identity, kinematics, in spawner, tickIndex, childIndex);
+                        }
+                        cooldown += NextIntervalSeconds(
+                            identity.ProjectileId,
+                            spawner.SpawnerId,
+                            tickIndex,
+                            spawner.IntervalSeconds,
+                            spawner.IntervalJitterSeconds);
+                    }
                 }
 
                 childSpawnState.ChildSpawnCooldownRemaining = cooldown;
                 childSpawnState.ChildSpawnTickIndex = tickIndex;
             }
 
-            private void EnqueueChildSpawn(
+            private void EnqueueProjectileChildSpawn(
                 ProjectileIdentityComponent parentIdentity,
                 CombatKinematicsComponent parentKinematics,
                 in ProjectileChildSpawnerComponent spawner,
                 int tickIndex,
                 int childIndex)
             {
+                IntervalProjectileChild child = spawner.Child;
                 float2 velocity = ComputeChildVelocity(parentKinematics, in spawner, childIndex);
                 float speed = math.length(velocity);
                 float2 baseDirection = speed > 0.0001f
@@ -89,19 +124,19 @@ namespace PlayGround.System.Projectile
                 var hitPayload = new ProjectileHitPayload(
                     new CombatHitPayload
                     {
-                        DamageAmount = spawner.DamageAmount,
-                        DirectDamageEnabled = spawner.DirectDamageEnabled,
-                        SourceNodeId = spawner.SourceNodeId,
-                        StackEffect = spawner.StackEffect
+                        DamageAmount = child.DamageAmount,
+                        DirectDamageEnabled = child.DirectDamageEnabled,
+                        SourceNodeId = child.SourceNodeId,
+                        StackEffect = child.StackEffect
                     },
-                    spawner.ImpactAoe,
-                    spawner.ImpactProjectile);
+                    child.ImpactAoe,
+                    child.ImpactProjectile);
 
-                EventQueue.Enqueue(new ProjectileSpawnEvent
+                ProjectileEventQueue.Enqueue(new ProjectileSpawnEvent
                 {
                     Faction = parentIdentity.Faction,
                     BaseProjectileId = childProjectileId,
-                    TypeId = spawner.TypeId,
+                    TypeId = child.TypeId,
                     HasChildSpawner = 0,
                     SeedContactGateTargetId = 0,
                     Position = parentKinematics.Position,
@@ -111,20 +146,20 @@ namespace PlayGround.System.Projectile
                     SpreadDegrees = 0f,
                     JitterDegrees = 0f,
                     JitterSeed = 0u,
-                    PierceRemaining = spawner.PierceCount,
-                    RepeatHitCooldownSeconds = spawner.RepeatHitCooldownSeconds,
-                    Lifetime = spawner.Lifetime,
-                    Radius = spawner.Radius,
-                    RotationRadians = spawner.RotationRadians,
-                    HalfExtents = spawner.HalfExtents,
-                    ShapeType = spawner.ShapeType,
+                    PierceRemaining = child.PierceCount,
+                    RepeatHitCooldownSeconds = child.RepeatHitCooldownSeconds,
+                    Lifetime = child.Lifetime,
+                    Radius = child.Radius,
+                    RotationRadians = child.RotationRadians,
+                    HalfExtents = child.HalfExtents,
+                    ShapeType = child.ShapeType,
                     HitPayload = hitPayload,
                     Tracking = new ProjectileTrackingComponent
                     {
-                        TrackingEnabled = spawner.TrackingEnabled,
-                        TrackingTurnSpeedRadians = spawner.TrackingTurnSpeedRadians,
-                        TrackingQueryCooldownRemaining = spawner.TrackingInitialQueryDelaySeconds,
-                        TrackingQueryIntervalSeconds = spawner.TrackingQueryIntervalSeconds,
+                        TrackingEnabled = child.TrackingEnabled,
+                        TrackingTurnSpeedRadians = child.TrackingTurnSpeedRadians,
+                        TrackingQueryCooldownRemaining = child.TrackingInitialQueryDelaySeconds,
+                        TrackingQueryIntervalSeconds = child.TrackingQueryIntervalSeconds,
                         TrackedTargetId = 0,
                         TrackedTargetIndex = -1,
                         TrackedTargetPosition = default,
@@ -134,11 +169,46 @@ namespace PlayGround.System.Projectile
                     {
                         IsRenderable = 1,
                         AlignToVelocity = 1,
-                        VisualScale = new float2(spawner.VisualScale, spawner.VisualScale),
-                        VisualRotationSin = spawner.VisualRotationSin,
-                        VisualRotationCos = spawner.VisualRotationCos,
+                        VisualScale = new float2(child.VisualScale, child.VisualScale),
+                        VisualRotationSin = child.VisualRotationSin,
+                        VisualRotationCos = child.VisualRotationCos,
                         RenderZ = 0f // expansion overrides per-id
                     }
+                });
+            }
+
+            private void EnqueueAoeChildSpawn(
+                ProjectileIdentityComponent parentIdentity,
+                CombatKinematicsComponent parentKinematics,
+                in AoeIntervalSpawnerComponent spawner,
+                int tickIndex,
+                int childIndex)
+            {
+                if (!HasAoeEventQueue)
+                {
+                    return;
+                }
+
+                IntervalAoeChild child = spawner.Child;
+                AoeEventQueue.Enqueue(new AoeSpawnEvent
+                {
+                    Faction = parentIdentity.Faction,
+                    AoeId = ChildProjectileId(parentIdentity.ProjectileId, spawner.SpawnerId, tickIndex, childIndex),
+                    TypeId = child.TypeId,
+                    Lifetime = child.Lifetime,
+                    RepeatHitCooldownSeconds = child.RepeatHitCooldownSeconds,
+                    HitPayload = child.HitPayload,
+                    AreaSize = child.AreaSize,
+                    Radius = child.Radius,
+                    RotationRadians = child.RotationRadians,
+                    Position = parentKinematics.Position,
+                    HalfExtents = child.HalfExtents,
+                    BoundsMin = default,
+                    BoundsMax = default,
+                    ShapeType = child.ShapeType,
+                    Render = child.Render,
+                    ProjectileBurst = child.ProjectileBurst,
+                    AoeSpawn = child.AoeSpawn
                 });
             }
 
@@ -147,21 +217,22 @@ namespace PlayGround.System.Projectile
                 in ProjectileChildSpawnerComponent spawner,
                 int childIndex)
             {
+                IntervalProjectileChild child = spawner.Child;
                 float2 forward = math.normalizesafe(parentKinematics.Velocity, new float2(1f, 0f));
                 float2 dir;
-                switch (spawner.SpawnPatternType)
+                switch (child.SpawnPatternType)
                 {
                     case ProjectileChildSpawnPatternType.SideSpray:
                     {
                         float2 left  = new float2(-forward.y,  forward.x);
                         float2 right = new float2( forward.y, -forward.x);
                         bool isLeft  = (childIndex & 1) == 0;
-                        int leftCount  = (spawner.ChildCountPerTick + 1) / 2;
-                        int rightCount =  spawner.ChildCountPerTick / 2;
+                        int leftCount  = (child.ChildCountPerTick + 1) / 2;
+                        int rightCount =  child.ChildCountPerTick / 2;
                         int sideIndex  = childIndex / 2;
                         int sideCount  = isLeft ? leftCount : rightCount;
                         float2 sideDir = isLeft ? left : right;
-                        float spreadRad = math.radians(spawner.SideSpreadDegrees);
+                        float spreadRad = math.radians(child.SideSpreadDegrees);
                         float angle = SideSpreadAngle(spreadRad, sideIndex, sideCount);
                         dir = Rotate(sideDir, angle);
                         break;
@@ -170,7 +241,7 @@ namespace PlayGround.System.Projectile
                         dir = forward;
                         break;
                 }
-                return spawner.Speed > 0f ? dir * spawner.Speed : dir * math.length(parentKinematics.Velocity);
+                return child.Speed > 0f ? dir * child.Speed : dir * math.length(parentKinematics.Velocity);
             }
 
             private static float SideSpreadAngle(float totalRad, int shotIndex, int shotCount)
@@ -200,11 +271,13 @@ namespace PlayGround.System.Projectile
 
             private static float NextIntervalSeconds(
                 int parentProjectileId,
-                in ProjectileChildSpawnerComponent spawner,
-                int tickIndex)
+                int spawnerId,
+                int tickIndex,
+                float intervalSeconds,
+                float intervalJitterSeconds)
             {
-                return spawner.IntervalSeconds
-                    + DeterministicJitter(parentProjectileId, spawner.SpawnerId, tickIndex, spawner.IntervalJitterSeconds);
+                return intervalSeconds
+                    + DeterministicJitter(parentProjectileId, spawnerId, tickIndex, intervalJitterSeconds);
             }
 
             private static float DeterministicJitter(

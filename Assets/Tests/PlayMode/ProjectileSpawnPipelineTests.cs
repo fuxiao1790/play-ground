@@ -251,22 +251,26 @@ namespace PlayGround.Tests.PlayMode
                     ? new ProjectileChildSpawnerComponent
                     {
                         SpawnerId = 1,
-                        TypeId = 1,
-                        ChildCountPerTick = 1,
-                        SpawnPatternType = ProjectileChildSpawnPatternType.Forward,
                         IntervalSeconds = 1f,
-                        Lifetime = 1f,
-                        Radius = 0.1f,
-                        ShapeType = CombatShapeType.Circle,
-                        DamageAmount = 1f,
-                        DirectDamageEnabled = true
+                        Child = new IntervalProjectileChild
+                        {
+                            TypeId = 1,
+                            ChildCountPerTick = 1,
+                            SpawnPatternType = ProjectileChildSpawnPatternType.Forward,
+                            Lifetime = 1f,
+                            Radius = 0.1f,
+                            ShapeType = CombatShapeType.Circle,
+                            DamageAmount = 1f,
+                            DirectDamageEnabled = true
+                        }
                     }
                     : default,
                 ChildSpawnState = hasChildSpawner
                     ? new ProjectileChildSpawnStateComponent
                     {
                         ChildSpawnCooldownRemaining = 1f,
-                        ChildSpawnTickIndex = 0
+                        ChildSpawnTickIndex = 0,
+                        ChildKind = IntervalChildKind.Projectile
                     }
                     : default
             };
@@ -291,6 +295,7 @@ namespace PlayGround.Tests.PlayMode
                     typeof(ProjectileContactGateElement),
                     typeof(ProjectileChildSpawnerTag),
                     typeof(ProjectileChildSpawnerComponent),
+                    typeof(AoeIntervalSpawnerComponent),
                     typeof(ProjectileChildSpawnStateComponent))
                 : entityManager.CreateEntity(
                     typeof(ProjectileTag),
@@ -335,6 +340,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(ProjectileContactGateElement),
                 typeof(ProjectileChildSpawnerTag),
                 typeof(ProjectileChildSpawnerComponent),
+                typeof(AoeIntervalSpawnerComponent),
                 typeof(ProjectileChildSpawnStateComponent));
 
             entityManager.SetComponentData(entity, new ProjectileIdentityComponent
@@ -358,22 +364,26 @@ namespace PlayGround.Tests.PlayMode
             entityManager.SetComponentData(entity, new ProjectileChildSpawnerComponent
             {
                 SpawnerId = 9999,
-                TypeId = 1,
-                ChildCountPerTick = 1,
-                SpawnPatternType = ProjectileChildSpawnPatternType.Forward,
                 IntervalSeconds = 1f,
-                Speed = 5f,
-                Lifetime = 5f,
-                Radius = 0.2f,
-                HalfExtents = float2.zero,
-                ShapeType = CombatShapeType.Circle,
-                DamageAmount = 1f,
-                DirectDamageEnabled = true
+                Child = new IntervalProjectileChild
+                {
+                    TypeId = 1,
+                    ChildCountPerTick = 1,
+                    SpawnPatternType = ProjectileChildSpawnPatternType.Forward,
+                    Speed = 5f,
+                    Lifetime = 5f,
+                    Radius = 0.2f,
+                    HalfExtents = float2.zero,
+                    ShapeType = CombatShapeType.Circle,
+                    DamageAmount = 1f,
+                    DirectDamageEnabled = true
+                }
             });
             entityManager.SetComponentData(entity, new ProjectileChildSpawnStateComponent
             {
                 ChildSpawnCooldownRemaining = 0f,
-                ChildSpawnTickIndex = 0
+                ChildSpawnTickIndex = 0,
+                ChildKind = IntervalChildKind.Projectile
             });
             entityManager.SetComponentEnabled<Active>(entity, true);
             entityManager.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, true);

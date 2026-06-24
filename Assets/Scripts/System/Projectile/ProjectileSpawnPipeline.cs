@@ -32,6 +32,7 @@ namespace PlayGround.System.Projectile
         public ProjectileTrackingComponent Tracking;
         public CombatRenderComponent Render;
         public ProjectileChildSpawnerComponent ChildSpawner;
+        public AoeIntervalSpawnerComponent AoeSpawner;
         public ProjectileChildSpawnStateComponent ChildSpawnState;
     }
 
@@ -58,6 +59,7 @@ namespace PlayGround.System.Projectile
         public ProjectileTrackingComponent Tracking;
         public CombatRenderComponent Render;
         public ProjectileChildSpawnerComponent ChildSpawner;
+        public AoeIntervalSpawnerComponent AoeSpawner;
         public ProjectileChildSpawnStateComponent ChildSpawnState;
     }
 

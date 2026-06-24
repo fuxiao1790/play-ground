@@ -302,7 +302,8 @@ namespace PlayGround.System.Common
                 {
                     ChildSpawnCooldownRemaining = request.ChildSpawn.IntervalSeconds
                         + DeterministicJitter(baseProjectileId, request.ChildSpawn.IntervalJitterSeconds),
-                    ChildSpawnTickIndex = 0
+                    ChildSpawnTickIndex = 0,
+                    ChildKind = IntervalChildKind.Projectile
                 };
             }
 
@@ -349,33 +350,36 @@ namespace PlayGround.System.Common
             return new ProjectileChildSpawnerComponent
             {
                 SpawnerId = config.SpawnerId,
-                TypeId = config.TypeId,
-                ChildCountPerTick = Mathf.Max(1, config.Behavior.Count),
-                SpawnPatternType = config.Behavior.PatternType,
-                SideSpreadDegrees = config.Behavior.SpreadDegrees,
                 IntervalSeconds = config.IntervalSeconds,
                 IntervalJitterSeconds = config.IntervalJitterSeconds,
-                Speed = config.Speed,
-                Lifetime = config.Lifetime,
-                Radius = config.Radius,
-                HalfExtents = new float2(config.HalfExtents.x, config.HalfExtents.y),
-                RotationRadians = config.RotationRadians,
-                ShapeType = config.ShapeType,
-                DamageAmount = config.Damage.Amount,
-                DirectDamageEnabled = config.DirectDamageEnabled,
-                PierceCount = config.PierceCount,
-                RepeatHitCooldownSeconds = config.RepeatHitCooldownSeconds,
-                VisualScale = config.VisualScale > 0f ? config.VisualScale : 1f,
-                VisualRotationSin = sin,
-                VisualRotationCos = cos,
-                TrackingEnabled = config.Tracking.Enabled,
-                TrackingTurnSpeedRadians = math.radians(config.Tracking.TurnSpeedDegrees),
-                TrackingQueryIntervalSeconds = config.Tracking.QueryIntervalSeconds,
-                TrackingInitialQueryDelaySeconds = config.Tracking.InitialQueryDelaySeconds,
-                SourceNodeId = sourceNodeId,
-                ImpactAoe = config.ImpactAoe,
-                StackEffect = config.StackEffect,
-                ImpactProjectile = config.ImpactProjectile
+                Child = new IntervalProjectileChild
+                {
+                    TypeId = config.TypeId,
+                    ChildCountPerTick = Mathf.Max(1, config.Behavior.Count),
+                    SpawnPatternType = config.Behavior.PatternType,
+                    SideSpreadDegrees = config.Behavior.SpreadDegrees,
+                    Speed = config.Speed,
+                    Lifetime = config.Lifetime,
+                    Radius = config.Radius,
+                    HalfExtents = new float2(config.HalfExtents.x, config.HalfExtents.y),
+                    RotationRadians = config.RotationRadians,
+                    ShapeType = config.ShapeType,
+                    DamageAmount = config.Damage.Amount,
+                    DirectDamageEnabled = config.DirectDamageEnabled,
+                    PierceCount = config.PierceCount,
+                    RepeatHitCooldownSeconds = config.RepeatHitCooldownSeconds,
+                    VisualScale = config.VisualScale > 0f ? config.VisualScale : 1f,
+                    VisualRotationSin = sin,
+                    VisualRotationCos = cos,
+                    TrackingEnabled = config.Tracking.Enabled,
+                    TrackingTurnSpeedRadians = math.radians(config.Tracking.TurnSpeedDegrees),
+                    TrackingQueryIntervalSeconds = config.Tracking.QueryIntervalSeconds,
+                    TrackingInitialQueryDelaySeconds = config.Tracking.InitialQueryDelaySeconds,
+                    SourceNodeId = sourceNodeId,
+                    ImpactAoe = config.ImpactAoe,
+                    StackEffect = config.StackEffect,
+                    ImpactProjectile = config.ImpactProjectile
+                }
             };
         }
 

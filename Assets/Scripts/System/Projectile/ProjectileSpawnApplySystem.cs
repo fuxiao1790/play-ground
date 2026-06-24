@@ -551,6 +551,7 @@ namespace PlayGround.System.Projectile
                 typeof(ProjectileContactGateElement),
                 typeof(ProjectileChildSpawnerTag),
                 typeof(ProjectileChildSpawnerComponent),
+                typeof(AoeIntervalSpawnerComponent),
                 typeof(ProjectileChildSpawnStateComponent));
 
         protected override NativeQueue<ProjectileSpawnCommand> CommandContainer(
@@ -589,6 +590,7 @@ namespace PlayGround.System.Projectile
                 RenderElementHandle = GetComponentTypeHandle<CombatRenderElement>(false),
                 ContactGateHandle = GetBufferTypeHandle<ProjectileContactGateElement>(false),
                 ChildSpawnerHandle = GetComponentTypeHandle<ProjectileChildSpawnerComponent>(false),
+                AoeSpawnerHandle = GetComponentTypeHandle<AoeIntervalSpawnerComponent>(false),
                 ChildSpawnStateHandle = GetComponentTypeHandle<ProjectileChildSpawnStateComponent>(false),
             }.Schedule(query, default);
 
@@ -603,6 +605,7 @@ namespace PlayGround.System.Projectile
             ecb.AddSharedComponent(entity, new CombatRenderTypeId { TypeId = cmd.TypeId });
             RecordCommonProjectileReset(ecb, entity, faction, cmd);
             ecb.SetComponent(entity, cmd.ChildSpawner);
+            ecb.SetComponent(entity, cmd.AoeSpawner);
             ecb.SetComponent(entity, cmd.ChildSpawnState);
         }
 
@@ -626,6 +629,7 @@ namespace PlayGround.System.Projectile
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderElement> RenderElementHandle;
             [NativeDisableContainerSafetyRestriction] public BufferTypeHandle<ProjectileContactGateElement> ContactGateHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileChildSpawnerComponent> ChildSpawnerHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeIntervalSpawnerComponent> AoeSpawnerHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileChildSpawnStateComponent> ChildSpawnStateHandle;
 
             public void Execute(
@@ -654,6 +658,8 @@ namespace PlayGround.System.Projectile
                 BufferAccessor<ProjectileContactGateElement> gates = chunk.GetBufferAccessor(ref ContactGateHandle);
                 NativeArray<ProjectileChildSpawnerComponent> childSpawners =
                     chunk.GetNativeArray(ref ChildSpawnerHandle);
+                NativeArray<AoeIntervalSpawnerComponent> aoeSpawners =
+                    chunk.GetNativeArray(ref AoeSpawnerHandle);
                 NativeArray<ProjectileChildSpawnStateComponent> childStates =
                     chunk.GetNativeArray(ref ChildSpawnStateHandle);
 
@@ -708,6 +714,7 @@ namespace PlayGround.System.Projectile
                     }
 
                     childSpawners[i] = cfg.ChildSpawner;
+                    aoeSpawners[i] = cfg.AoeSpawner;
                     childStates[i] = cfg.ChildSpawnState;
 
                     activeMask[i] = true;
