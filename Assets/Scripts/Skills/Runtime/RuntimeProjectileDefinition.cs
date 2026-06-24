@@ -8,21 +8,20 @@ namespace PlayGround.Skills.Runtime
 {
     public sealed class RuntimeChildSpawnSetup
     {
-        public int SpawnerId { get; set; }
+        public int JitterSeed { get; set; }
         public RuntimeProjectileDefinition ChildDefinition { get; set; }
         public float IntervalSeconds { get; set; }
         public float IntervalJitterSeconds { get; set; }
         public ProjectileChildSpawnBehavior Behavior { get; set; }
         public Hash128 TemplateKey { get; set; }
         public ProjectileSpawnTemplateData TemplateData { get; set; }
-        public IntervalProjectileChild IntervalChild { get; set; }
         public ProjectileChildSpawnConfig SpawnConfig { get; set; }
         public bool HasRegisteredTemplate => !TemplateKey.Equals(default(Hash128));
     }
 
     public sealed class RuntimeAoeIntervalSpawnSetup
     {
-        public int SpawnerId { get; set; }
+        public int JitterSeed { get; set; }
         public RuntimeAoeDefinition ChildDefinition { get; set; }
         public float IntervalSeconds { get; set; }
         public float IntervalJitterSeconds { get; set; }
@@ -30,7 +29,6 @@ namespace PlayGround.Skills.Runtime
         public float SideSpreadDegrees { get; set; }
         public Hash128 TemplateKey { get; set; }
         public AoeSpawnTemplateData TemplateData { get; set; }
-        public IntervalAoeChild IntervalChild { get; set; }
         public bool HasRegisteredTemplate => !TemplateKey.Equals(default(Hash128));
     }
 
@@ -74,7 +72,7 @@ namespace PlayGround.Skills.Runtime
             RuntimeProjectileDefinition child = setup.ChildDefinition;
             BasicAttackPrefab prefab = child.Prefab;
             return new ProjectileChildSpawnConfig(
-                setup.SpawnerId,
+                setup.JitterSeed,
                 child.TypeId,
                 Mathf.Max(0.01f, setup.IntervalSeconds),
                 setup.IntervalJitterSeconds,
@@ -95,7 +93,8 @@ namespace PlayGround.Skills.Runtime
                 setup.Behavior,
                 impactAoe: BuildChildImpactAoeSnapshot(child),
                 stackEffect: stackEffect,
-                impactProjectile: BuildChildImpactProjectileSnapshot(child));
+                impactProjectile: BuildChildImpactProjectileSnapshot(child),
+                templateKey: setup.TemplateKey);
         }
 
         private static ProjectileImpactAoeSnapshot BuildChildImpactAoeSnapshot(RuntimeProjectileDefinition child)

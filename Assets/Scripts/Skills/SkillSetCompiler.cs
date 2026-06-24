@@ -7,7 +7,7 @@ namespace PlayGround.Skills
 {
     public static class SkillSetCompiler
     {
-        private static int nextChildSpawnerId;
+        private static int nextChildJitterSeed;
 
         public static RuntimeSkillDefinition Compile(
             IReadOnlyList<LoadoutSlot> slots,
@@ -225,7 +225,7 @@ namespace PlayGround.Skills
             float intervalSeconds = Mathf.Max(0.01f, trigger.intervalSeconds);
             var setup = new RuntimeChildSpawnSetup
             {
-                SpawnerId = ++nextChildSpawnerId,
+                JitterSeed = ++nextChildJitterSeed,
                 ChildDefinition = childDef,
                 IntervalSeconds = intervalSeconds,
                 IntervalJitterSeconds = intervalSeconds * Mathf.Clamp(trigger.intervalJitterPercent, 0f, 100f) * 0.01f,
@@ -261,7 +261,7 @@ namespace PlayGround.Skills
             float intervalSeconds = Mathf.Max(0.01f, trigger.intervalSeconds);
             var setup = new RuntimeAoeIntervalSpawnSetup
             {
-                SpawnerId = ++nextChildSpawnerId,
+                JitterSeed = ++nextChildJitterSeed,
                 ChildDefinition = childDef,
                 IntervalSeconds = intervalSeconds,
                 IntervalJitterSeconds = intervalSeconds * Mathf.Clamp(trigger.intervalJitterPercent, 0f, 100f) * 0.01f,

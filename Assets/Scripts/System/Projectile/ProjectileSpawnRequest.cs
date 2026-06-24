@@ -1,6 +1,7 @@
 using PlayGround.Common;
 using PlayGround.System.Common;
 using UnityEngine;
+using Hash128 = Unity.Entities.Hash128;
 
 namespace PlayGround.System.Projectile
 {
@@ -183,6 +184,7 @@ namespace PlayGround.System.Projectile
     {
         SideSpray = 0,
         Forward = 1,
+        Radial = 2,
     }
 
     public readonly struct ProjectileChildSpawnBehavior
@@ -209,7 +211,7 @@ namespace PlayGround.System.Projectile
         public static readonly ProjectileChildSpawnConfig Disabled = default;
 
         public ProjectileChildSpawnConfig(
-            int spawnerId,
+            int jitterSeed,
             int typeId,
             float intervalSeconds,
             float intervalJitterSeconds,
@@ -230,9 +232,10 @@ namespace PlayGround.System.Projectile
             ProjectileChildSpawnBehavior behavior = default,
             ProjectileImpactAoeSnapshot impactAoe = default,
             StackEffectSnapshot stackEffect = default,
-            ProjectileImpactProjectileSnapshot impactProjectile = default)
+            ProjectileImpactProjectileSnapshot impactProjectile = default,
+            Hash128 templateKey = default)
         {
-            SpawnerId = spawnerId;
+            JitterSeed = jitterSeed;
             TypeId = typeId;
             IntervalSeconds = Mathf.Max(0f, intervalSeconds);
             IntervalJitterSeconds = Mathf.Max(0f, intervalJitterSeconds);
@@ -254,11 +257,12 @@ namespace PlayGround.System.Projectile
             ImpactAoe = impactAoe;
             StackEffect = stackEffect;
             ImpactProjectile = impactProjectile;
+            TemplateKey = templateKey;
         }
 
         [global::System.Obsolete("Use the CombatShapeType overload.")]
         public ProjectileChildSpawnConfig(
-            int spawnerId,
+            int jitterSeed,
             int typeId,
             float intervalSeconds,
             float intervalJitterSeconds,
@@ -278,7 +282,7 @@ namespace PlayGround.System.Projectile
             ProjectileTrackingConfig tracking = default,
             ProjectileChildSpawnBehavior behavior = default)
             : this(
-                spawnerId,
+                jitterSeed,
                 typeId,
                 intervalSeconds,
                 intervalJitterSeconds,
@@ -300,7 +304,7 @@ namespace PlayGround.System.Projectile
         {
         }
 
-        public int SpawnerId { get; }
+        public int JitterSeed { get; }
         public int TypeId { get; }
         public float IntervalSeconds { get; }
         public float IntervalJitterSeconds { get; }
@@ -322,6 +326,7 @@ namespace PlayGround.System.Projectile
         public ProjectileImpactAoeSnapshot ImpactAoe { get; }
         public StackEffectSnapshot StackEffect { get; }
         public ProjectileImpactProjectileSnapshot ImpactProjectile { get; }
-        public bool Enabled => SpawnerId > 0 && IntervalSeconds > 0f;
+        public Hash128 TemplateKey { get; }
+        public bool Enabled => JitterSeed > 0 && IntervalSeconds > 0f;
     }
 }

@@ -308,9 +308,8 @@ namespace PlayGround.Skills
                 SkillIntervalTemplateBuilder.BuildProjectileTemplateData(child, setup.Behavior, combatRoot, stackEffect);
 
             setup.TemplateData = data;
-            setup.IntervalChild = SkillIntervalTemplateBuilder.ToIntervalProjectileChild(data);
-            setup.SpawnConfig = SkillIntervalTemplateBuilder.BuildProjectileChildSpawnConfig(setup, data);
             setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in data);
+            setup.SpawnConfig = SkillIntervalTemplateBuilder.BuildProjectileChildSpawnConfig(setup, data);
         }
 
         private void RegisterAoeIntervalTemplate(RuntimeAoeIntervalSpawnSetup setup)
@@ -329,7 +328,6 @@ namespace PlayGround.Skills
                     stackEffect);
 
             setup.TemplateData = data;
-            setup.IntervalChild = SkillIntervalTemplateBuilder.ToIntervalAoeChild(data);
             setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in data);
         }
 
@@ -493,7 +491,7 @@ namespace PlayGround.Skills
             RuntimeProjectileDefinition child = setup.ChildDefinition;
             BasicAttackPrefab prefab = child.Prefab;
             return new ProjectileChildSpawnConfig(
-                setup.SpawnerId,
+                setup.JitterSeed,
                 data.TypeId,
                 Mathf.Max(0.01f, setup.IntervalSeconds),
                 setup.IntervalJitterSeconds,
@@ -514,7 +512,8 @@ namespace PlayGround.Skills
                 setup.Behavior,
                 data.ImpactAoe,
                 data.StackEffect,
-                data.ImpactProjectile);
+                data.ImpactProjectile,
+                setup.TemplateKey);
         }
 
         public static IntervalProjectileChild ToIntervalProjectileChild(

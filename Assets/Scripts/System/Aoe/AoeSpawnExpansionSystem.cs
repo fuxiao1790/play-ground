@@ -93,18 +93,26 @@ namespace PlayGround.System.Aoe
             {
                 DynamicBuffer<VfxSpawnRequestElement> vfxBuffer =
                     EntityManager.GetBuffer<VfxSpawnRequestElement>(scopes[0]);
-                vfxBuffer.EnsureCapacity(vfxBuffer.Length + totalEvents);
+                int vfxCount = 0;
+                for (int i = 0; i < totalEvents; i++)
+                    vfxCount += math.max(1, events[i].Count);
+
+                vfxBuffer.EnsureCapacity(vfxBuffer.Length + vfxCount);
                 for (int i = 0; i < totalEvents; i++)
                 {
                     AoeSpawnEvent e = events[i];
-                    vfxBuffer.Add(new VfxSpawnRequestElement
+                    int count = math.max(1, e.Count);
+                    for (int j = 0; j < count; j++)
                     {
-                        Faction  = e.Faction,
-                        TypeId   = e.TypeId,
-                        Trigger  = 0,
-                        Position = e.Position,
-                        AreaSize = e.AreaSize
-                    });
+                        vfxBuffer.Add(new VfxSpawnRequestElement
+                        {
+                            Faction = e.Faction,
+                            TypeId = e.TypeId,
+                            Trigger = 0,
+                            Position = e.Position,
+                            AreaSize = e.AreaSize
+                        });
+                    }
                 }
             }
 
@@ -137,30 +145,52 @@ namespace PlayGround.System.Aoe
                         evt.Position, evt.Radius, evt.HalfExtents, evt.RotationRadians, evt.ShapeType,
                         out float2 boundsMin, out float2 boundsMax);
 
-                    Stream.Write(new AoeSpawnCommand
+                    int count = math.max(1, evt.Count);
+                    for (int i = 0; i < count; i++)
                     {
-                        Faction                  = evt.Faction,
-                        AoeId                    = evt.AoeId,
-                        TypeId                   = evt.TypeId,
-                        Lifetime                 = evt.Lifetime,
-                        RepeatHitCooldownSeconds = evt.RepeatHitCooldownSeconds,
-                        HitPayload               = evt.HitPayload,
-                        AreaSize                 = evt.AreaSize,
-                        Radius                   = evt.Radius,
-                        RotationRadians          = evt.RotationRadians,
-                        Position                 = evt.Position,
-                        HalfExtents              = evt.HalfExtents,
-                        BoundsMin                = boundsMin,
-                        BoundsMax                = boundsMax,
-                        ShapeType                = evt.ShapeType,
-                        Render                   = evt.Render,
-                        ProjectileBurst          = evt.ProjectileBurst,
-                        AoeSpawn                 = evt.AoeSpawn,
-                        HasIntervalSpawner       = evt.HasIntervalSpawner,
-                        IntervalSpawner          = evt.IntervalSpawner
-                    });
+                        Stream.Write(new AoeSpawnCommand
+                        {
+                            Faction                  = evt.Faction,
+                            AoeId                    = AoeIdFor(in evt, i),
+                            TypeId                   = evt.TypeId,
+                            Lifetime                 = evt.Lifetime,
+                            RepeatHitCooldownSeconds = evt.RepeatHitCooldownSeconds,
+                            HitPayload               = evt.HitPayload,
+                            AreaSize                 = evt.AreaSize,
+                            Radius                   = evt.Radius,
+                            RotationRadians          = evt.RotationRadians,
+                            Position                 = evt.Position,
+                            HalfExtents              = evt.HalfExtents,
+                            BoundsMin                = boundsMin,
+                            BoundsMax                = boundsMax,
+                            ShapeType                = evt.ShapeType,
+                            Render                   = evt.Render,
+                            ProjectileBurst          = evt.ProjectileBurst,
+                            AoeSpawn                 = evt.AoeSpawn,
+                            HasIntervalSpawner       = evt.HasIntervalSpawner,
+                            IntervalSpawner          = evt.IntervalSpawner
+                        });
+                    }
 
                     Stream.EndForEachIndex();
+                }
+            }
+
+            private static int AoeIdFor(in AoeSpawnEvent evt, int index)
+            {
+                if (evt.DeterministicIdTickIndex <= 0)
+                {
+                    return evt.AoeId + index;
+                }
+
+                unchecked
+                {
+                    int hash = evt.AoeId;
+                    hash = (hash * 397) ^ (int)evt.JitterSeed;
+                    hash = (hash * 397) ^ evt.DeterministicIdTickIndex;
+                    hash = (hash * 397) ^ index;
+                    hash &= int.MaxValue;
+                    return hash == 0 ? 1 : hash;
                 }
             }
         }

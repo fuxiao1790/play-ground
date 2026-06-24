@@ -20,6 +20,8 @@ namespace PlayGround.System.Projectile
         public float SpreadDegrees;
         public float JitterDegrees;
         public uint JitterSeed;
+        public ProjectileChildSpawnPatternType SpawnPatternType;
+        public int DeterministicIdTickIndex;
         // resolved per-entity template (everything apply needs except per-shot velocity/id/render-Z):
         public int PierceRemaining;
         public float RepeatHitCooldownSeconds;

@@ -139,10 +139,10 @@ namespace PlayGround.Skills
 
             return new ProjectileAoeIntervalSpawnerComponent
             {
-                SpawnerId = setup.SpawnerId,
+                JitterSeed = setup.JitterSeed,
                 IntervalSeconds = Mathf.Max(0.01f, setup.IntervalSeconds),
                 IntervalJitterSeconds = Mathf.Max(0f, setup.IntervalJitterSeconds),
-                Child = setup.IntervalChild
+                TemplateKey = setup.TemplateKey
             };
         }
 
@@ -159,11 +159,11 @@ namespace PlayGround.Skills
             {
                 return new AoeSourceIntervalSpawnerComponent
                 {
-                    SpawnerId = projectileSetup.SpawnerId,
+                    JitterSeed = projectileSetup.JitterSeed,
                     ChildKind = IntervalChildKind.Projectile,
                     IntervalSeconds = Mathf.Max(0.01f, projectileSetup.IntervalSeconds),
                     IntervalJitterSeconds = Mathf.Max(0f, projectileSetup.IntervalJitterSeconds),
-                    ProjectileChild = projectileSetup.IntervalChild
+                    TemplateKey = projectileSetup.TemplateKey
                 };
             }
 
@@ -176,19 +176,19 @@ namespace PlayGround.Skills
 
             return new AoeSourceIntervalSpawnerComponent
             {
-                SpawnerId = aoeSetup.SpawnerId,
+                JitterSeed = aoeSetup.JitterSeed,
                 ChildKind = IntervalChildKind.Aoe,
                 IntervalSeconds = Mathf.Max(0.01f, aoeSetup.IntervalSeconds),
                 IntervalJitterSeconds = Mathf.Max(0f, aoeSetup.IntervalJitterSeconds),
-                AoeChild = aoeSetup.IntervalChild
+                TemplateKey = aoeSetup.TemplateKey
             };
         }
 
         private static bool IsProjectileAoeIntervalSpawnerEnabled(ProjectileAoeIntervalSpawnerComponent spawner) =>
-            spawner.SpawnerId > 0 && spawner.IntervalSeconds > 0f;
+            spawner.JitterSeed > 0 && spawner.IntervalSeconds > 0f;
 
         private static bool IsAoeSourceIntervalSpawnerEnabled(AoeSourceIntervalSpawnerComponent spawner) =>
-            spawner.SpawnerId > 0 && spawner.IntervalSeconds > 0f;
+            spawner.JitterSeed > 0 && spawner.IntervalSeconds > 0f;
 
         private static ProjectileImpactAoeSnapshot BuildImpactAoeSnapshot(
             RuntimeProjectileDefinition def,

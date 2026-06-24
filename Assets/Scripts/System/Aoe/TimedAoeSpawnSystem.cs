@@ -23,6 +23,9 @@ namespace PlayGround.System.Aoe
                 return;
             }
 
+            bool hasProjectileTemplates = SystemAPI.TryGetSingleton(out ProjectileSpawnTemplate projectileTemplates);
+            bool hasAoeTemplates = SystemAPI.TryGetSingleton(out AoeSpawnTemplate aoeTemplates);
+
             JobHandle handle = new AoeIntervalSpawnJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
@@ -33,7 +36,11 @@ namespace PlayGround.System.Aoe
                     ? aoeExpansion.EventQueue.AsParallelWriter()
                     : default,
                 HasProjectileEventQueue = projectileExpansion != null,
-                HasAoeEventQueue = aoeExpansion != null
+                HasAoeEventQueue = aoeExpansion != null,
+                ProjectileTemplates = hasProjectileTemplates ? projectileTemplates.Map : default,
+                AoeTemplates = hasAoeTemplates ? aoeTemplates.Map : default,
+                HasProjectileTemplates = hasProjectileTemplates,
+                HasAoeTemplates = hasAoeTemplates
             }.ScheduleParallel(state.Dependency);
 
             state.Dependency = handle;
@@ -58,8 +65,12 @@ namespace PlayGround.System.Aoe
             public float DeltaTime;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventQueue;
             public NativeQueue<AoeSpawnEvent>.ParallelWriter AoeEventQueue;
+            [ReadOnly] public NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnTemplateData> ProjectileTemplates;
+            [ReadOnly] public NativeHashMap<Unity.Entities.Hash128, AoeSpawnTemplateData> AoeTemplates;
             public bool HasProjectileEventQueue;
             public bool HasAoeEventQueue;
+            public bool HasProjectileTemplates;
+            public bool HasAoeTemplates;
 
             private void Execute(
                 ref AoeIntervalSpawnStateComponent state,
@@ -80,24 +91,26 @@ namespace PlayGround.System.Aoe
                     tickIndex++;
                     if (spawner.ChildKind == IntervalChildKind.Aoe)
                     {
-                        int childCount = math.max(1, spawner.AoeChild.Count);
-                        for (int childIndex = 0; childIndex < childCount; childIndex++)
+                        if (HasAoeEventQueue
+                            && HasAoeTemplates
+                            && AoeTemplates.TryGetValue(spawner.TemplateKey, out AoeSpawnTemplateData child))
                         {
-                            EnqueueAoeChildSpawn(identity, kinematics, in spawner, tickIndex, childIndex);
+                            EnqueueAoeChildSpawn(identity, kinematics, in spawner, in child, tickIndex);
                         }
                     }
                     else
                     {
-                        int childCount = math.max(1, spawner.ProjectileChild.ChildCountPerTick);
-                        for (int childIndex = 0; childIndex < childCount; childIndex++)
+                        if (HasProjectileEventQueue
+                            && HasProjectileTemplates
+                            && ProjectileTemplates.TryGetValue(spawner.TemplateKey, out ProjectileSpawnTemplateData child))
                         {
-                            EnqueueProjectileChildSpawn(identity, kinematics, in spawner, tickIndex, childIndex, childCount);
+                            EnqueueProjectileChildSpawn(identity, kinematics, in spawner, in child, tickIndex);
                         }
                     }
 
                     cooldown += NextIntervalSeconds(
                         identity.AoeId,
-                        spawner.SpawnerId,
+                        spawner.JitterSeed,
                         tickIndex,
                         spawner.IntervalSeconds,
                         spawner.IntervalJitterSeconds);
@@ -111,25 +124,15 @@ namespace PlayGround.System.Aoe
                 AoeIdentityComponent parentIdentity,
                 CombatKinematicsComponent parentKinematics,
                 in AoeIntervalSpawnerComponent spawner,
-                int tickIndex,
-                int childIndex,
-                int childCount)
+                in ProjectileSpawnTemplateData child,
+                int tickIndex)
             {
-                if (!HasProjectileEventQueue)
-                {
-                    return;
-                }
-
-                IntervalProjectileChild child = spawner.ProjectileChild;
-                float2 direction = RadialDirection(childIndex, childCount);
-                int childProjectileId = ChildId(parentIdentity.AoeId, spawner.SpawnerId, tickIndex, childIndex);
-
                 var hitPayload = new ProjectileHitPayload(
                     new CombatHitPayload
                     {
                         DamageAmount = child.DamageAmount,
                         DirectDamageEnabled = child.DirectDamageEnabled,
-                        SourceNodeId = child.SourceNodeId,
+                        SourceNodeId = default,
                         StackEffect = child.StackEffect
                     },
                     child.ImpactAoe,
@@ -138,17 +141,19 @@ namespace PlayGround.System.Aoe
                 ProjectileEventQueue.Enqueue(new ProjectileSpawnEvent
                 {
                     Faction = parentIdentity.Faction,
-                    BaseProjectileId = childProjectileId,
+                    BaseProjectileId = parentIdentity.AoeId,
                     TypeId = child.TypeId,
                     HasChildSpawner = 0,
                     SeedContactGateTargetId = 0,
                     Position = parentKinematics.Position,
-                    BaseDirection = direction,
+                    BaseDirection = new float2(1f, 0f),
                     Speed = child.Speed,
-                    Count = 1,
+                    Count = math.max(1, child.ChildCountPerTick),
                     SpreadDegrees = 0f,
                     JitterDegrees = 0f,
-                    JitterSeed = 0u,
+                    JitterSeed = (uint)spawner.JitterSeed,
+                    SpawnPatternType = ProjectileChildSpawnPatternType.Radial,
+                    DeterministicIdTickIndex = tickIndex,
                     PierceRemaining = child.PierceCount,
                     RepeatHitCooldownSeconds = child.RepeatHitCooldownSeconds,
                     Lifetime = child.Lifetime,
@@ -184,19 +189,13 @@ namespace PlayGround.System.Aoe
                 AoeIdentityComponent parentIdentity,
                 CombatKinematicsComponent parentKinematics,
                 in AoeIntervalSpawnerComponent spawner,
-                int tickIndex,
-                int childIndex)
+                in AoeSpawnTemplateData child,
+                int tickIndex)
             {
-                if (!HasAoeEventQueue)
-                {
-                    return;
-                }
-
-                IntervalAoeChild child = spawner.AoeChild;
                 AoeEventQueue.Enqueue(new AoeSpawnEvent
                 {
                     Faction = parentIdentity.Faction,
-                    AoeId = ChildId(parentIdentity.AoeId, spawner.SpawnerId, tickIndex, childIndex),
+                    AoeId = parentIdentity.AoeId,
                     TypeId = child.TypeId,
                     Lifetime = child.Lifetime,
                     RepeatHitCooldownSeconds = child.RepeatHitCooldownSeconds,
@@ -209,51 +208,29 @@ namespace PlayGround.System.Aoe
                     BoundsMin = default,
                     BoundsMax = default,
                     ShapeType = child.ShapeType,
+                    Count = math.max(1, child.Count),
+                    JitterSeed = (uint)spawner.JitterSeed,
+                    DeterministicIdTickIndex = tickIndex,
                     Render = child.Render,
                     ProjectileBurst = child.ProjectileBurst,
                     AoeSpawn = child.AoeSpawn
                 });
             }
 
-            private static float2 RadialDirection(int childIndex, int childCount)
-            {
-                if (childCount <= 1)
-                {
-                    return new float2(1f, 0f);
-                }
-
-                float radians = math.PI * 2f * childIndex / childCount;
-                math.sincos(radians, out float s, out float c);
-                return new float2(c, s);
-            }
-
-            private static int ChildId(int parentAoeId, int spawnerId, int tickIndex, int childIndex)
-            {
-                unchecked
-                {
-                    int hash = parentAoeId;
-                    hash = (hash * 397) ^ spawnerId;
-                    hash = (hash * 397) ^ tickIndex;
-                    hash = (hash * 397) ^ childIndex;
-                    hash &= int.MaxValue;
-                    return hash == 0 ? 1 : hash;
-                }
-            }
-
             private static float NextIntervalSeconds(
                 int parentAoeId,
-                int spawnerId,
+                int jitterSeed,
                 int tickIndex,
                 float intervalSeconds,
                 float intervalJitterSeconds)
             {
                 return intervalSeconds
-                    + DeterministicJitter(parentAoeId, spawnerId, tickIndex, intervalJitterSeconds);
+                    + DeterministicJitter(parentAoeId, jitterSeed, tickIndex, intervalJitterSeconds);
             }
 
             private static float DeterministicJitter(
                 int parentAoeId,
-                int spawnerId,
+                int jitterSeed,
                 int tickIndex,
                 float maxOffsetSeconds)
             {
@@ -265,7 +242,7 @@ namespace PlayGround.System.Aoe
                 unchecked
                 {
                     uint hash = (uint)parentAoeId;
-                    hash = (hash * 397u) ^ (uint)spawnerId;
+                    hash = (hash * 397u) ^ (uint)jitterSeed;
                     hash = (hash * 397u) ^ (uint)tickIndex;
                     hash *= 0x9E3779B9u;
                     hash ^= hash >> 16;

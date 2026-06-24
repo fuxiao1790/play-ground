@@ -8,8 +8,6 @@ using Unity.Mathematics;
 
 namespace PlayGround.System.Projectile
 {
-    // Replaces ProjectileChildSpawnSystem: enqueues ProjectileSpawnEvent into the expansion
-    // queue instead of ECB-appending ProjectileSpawnRequestElement to the scope buffer.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(CombatLifetimeSystem))]
     [UpdateBefore(typeof(ProjectileTrackingSystem))]
@@ -23,20 +21,24 @@ namespace PlayGround.System.Projectile
             {
                 return;
             }
+
             var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
+            bool hasProjectileTemplates = SystemAPI.TryGetSingleton(out ProjectileSpawnTemplate projectileTemplates);
+            bool hasAoeTemplates = SystemAPI.TryGetSingleton(out AoeSpawnTemplate aoeTemplates);
 
             JobHandle handle = new ProjectileChildSpawnEntityJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
                 ProjectileEventQueue = expansion.EventQueue.AsParallelWriter(),
                 AoeEventQueue = aoeExpansion != null ? aoeExpansion.EventQueue.AsParallelWriter() : default,
-                HasAoeEventQueue = aoeExpansion != null
+                HasAoeEventQueue = aoeExpansion != null,
+                ProjectileTemplates = hasProjectileTemplates ? projectileTemplates.Map : default,
+                AoeTemplates = hasAoeTemplates ? aoeTemplates.Map : default,
+                HasProjectileTemplates = hasProjectileTemplates,
+                HasAoeTemplates = hasAoeTemplates
             }.ScheduleParallel(state.Dependency);
 
             state.Dependency = handle;
-
-            // Expansion reads EventQueue on the main thread and only completes its own
-            // component-derived dependency; forward this write job so it waits on us.
             expansion.ProducerHandle = JobHandle.CombineDependencies(expansion.ProducerHandle, handle);
             if (aoeExpansion != null)
             {
@@ -51,7 +53,11 @@ namespace PlayGround.System.Projectile
             public float DeltaTime;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventQueue;
             public NativeQueue<AoeSpawnEvent>.ParallelWriter AoeEventQueue;
+            [ReadOnly] public NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnTemplateData> ProjectileTemplates;
+            [ReadOnly] public NativeHashMap<Unity.Entities.Hash128, AoeSpawnTemplateData> AoeTemplates;
             public bool HasAoeEventQueue;
+            public bool HasProjectileTemplates;
+            public bool HasAoeTemplates;
 
             private void Execute(
                 ref ProjectileChildSpawnStateComponent childSpawnState,
@@ -73,28 +79,31 @@ namespace PlayGround.System.Projectile
                     tickIndex++;
                     if (childSpawnState.ChildKind == IntervalChildKind.Aoe)
                     {
-                        int childCount = math.max(1, aoeSpawner.Child.Count);
-                        for (int childIndex = 0; childIndex < childCount; childIndex++)
+                        if (HasAoeEventQueue
+                            && HasAoeTemplates
+                            && AoeTemplates.TryGetValue(aoeSpawner.TemplateKey, out AoeSpawnTemplateData child))
                         {
-                            EnqueueAoeChildSpawn(identity, kinematics, in aoeSpawner, tickIndex, childIndex);
+                            EnqueueAoeChildSpawn(identity, kinematics, in aoeSpawner, in child, tickIndex);
                         }
+
                         cooldown += NextIntervalSeconds(
                             identity.ProjectileId,
-                            aoeSpawner.SpawnerId,
+                            aoeSpawner.JitterSeed,
                             tickIndex,
                             aoeSpawner.IntervalSeconds,
                             aoeSpawner.IntervalJitterSeconds);
                     }
                     else
                     {
-                        int childCount = math.max(1, spawner.Child.ChildCountPerTick);
-                        for (int childIndex = 0; childIndex < childCount; childIndex++)
+                        if (HasProjectileTemplates
+                            && ProjectileTemplates.TryGetValue(spawner.TemplateKey, out ProjectileSpawnTemplateData child))
                         {
-                            EnqueueProjectileChildSpawn(identity, kinematics, in spawner, tickIndex, childIndex);
+                            EnqueueProjectileChildSpawn(identity, kinematics, in spawner, in child, tickIndex);
                         }
+
                         cooldown += NextIntervalSeconds(
                             identity.ProjectileId,
-                            spawner.SpawnerId,
+                            spawner.JitterSeed,
                             tickIndex,
                             spawner.IntervalSeconds,
                             spawner.IntervalJitterSeconds);
@@ -109,24 +118,18 @@ namespace PlayGround.System.Projectile
                 ProjectileIdentityComponent parentIdentity,
                 CombatKinematicsComponent parentKinematics,
                 in ProjectileChildSpawnerComponent spawner,
-                int tickIndex,
-                int childIndex)
+                in ProjectileSpawnTemplateData child,
+                int tickIndex)
             {
-                IntervalProjectileChild child = spawner.Child;
-                float2 velocity = ComputeChildVelocity(parentKinematics, in spawner, childIndex);
-                float speed = math.length(velocity);
-                float2 baseDirection = speed > 0.0001f
-                    ? velocity / speed
-                    : math.normalizesafe(parentKinematics.Velocity, new float2(1f, 0f));
-
-                int childProjectileId = ChildProjectileId(parentIdentity.ProjectileId, spawner.SpawnerId, tickIndex, childIndex);
-
+                float parentSpeed = math.length(parentKinematics.Velocity);
+                float speed = child.Speed > 0f ? child.Speed : parentSpeed;
+                float2 baseDirection = math.normalizesafe(parentKinematics.Velocity, new float2(1f, 0f));
                 var hitPayload = new ProjectileHitPayload(
                     new CombatHitPayload
                     {
                         DamageAmount = child.DamageAmount,
                         DirectDamageEnabled = child.DirectDamageEnabled,
-                        SourceNodeId = child.SourceNodeId,
+                        SourceNodeId = default,
                         StackEffect = child.StackEffect
                     },
                     child.ImpactAoe,
@@ -135,17 +138,19 @@ namespace PlayGround.System.Projectile
                 ProjectileEventQueue.Enqueue(new ProjectileSpawnEvent
                 {
                     Faction = parentIdentity.Faction,
-                    BaseProjectileId = childProjectileId,
+                    BaseProjectileId = parentIdentity.ProjectileId,
                     TypeId = child.TypeId,
                     HasChildSpawner = 0,
                     SeedContactGateTargetId = 0,
                     Position = parentKinematics.Position,
                     BaseDirection = baseDirection,
                     Speed = speed,
-                    Count = 1,
-                    SpreadDegrees = 0f,
+                    Count = math.max(1, child.ChildCountPerTick),
+                    SpreadDegrees = child.SideSpreadDegrees,
                     JitterDegrees = 0f,
-                    JitterSeed = 0u,
+                    JitterSeed = (uint)spawner.JitterSeed,
+                    SpawnPatternType = child.SpawnPatternType,
+                    DeterministicIdTickIndex = tickIndex,
                     PierceRemaining = child.PierceCount,
                     RepeatHitCooldownSeconds = child.RepeatHitCooldownSeconds,
                     Lifetime = child.Lifetime,
@@ -172,7 +177,7 @@ namespace PlayGround.System.Projectile
                         VisualScale = new float2(child.VisualScale, child.VisualScale),
                         VisualRotationSin = child.VisualRotationSin,
                         VisualRotationCos = child.VisualRotationCos,
-                        RenderZ = 0f // expansion overrides per-id
+                        RenderZ = 0f
                     }
                 });
             }
@@ -181,19 +186,13 @@ namespace PlayGround.System.Projectile
                 ProjectileIdentityComponent parentIdentity,
                 CombatKinematicsComponent parentKinematics,
                 in AoeIntervalSpawnerComponent spawner,
-                int tickIndex,
-                int childIndex)
+                in AoeSpawnTemplateData child,
+                int tickIndex)
             {
-                if (!HasAoeEventQueue)
-                {
-                    return;
-                }
-
-                IntervalAoeChild child = spawner.Child;
                 AoeEventQueue.Enqueue(new AoeSpawnEvent
                 {
                     Faction = parentIdentity.Faction,
-                    AoeId = ChildProjectileId(parentIdentity.ProjectileId, spawner.SpawnerId, tickIndex, childIndex),
+                    AoeId = parentIdentity.ProjectileId,
                     TypeId = child.TypeId,
                     Lifetime = child.Lifetime,
                     RepeatHitCooldownSeconds = child.RepeatHitCooldownSeconds,
@@ -206,83 +205,29 @@ namespace PlayGround.System.Projectile
                     BoundsMin = default,
                     BoundsMax = default,
                     ShapeType = child.ShapeType,
+                    Count = math.max(1, child.Count),
+                    JitterSeed = (uint)spawner.JitterSeed,
+                    DeterministicIdTickIndex = tickIndex,
                     Render = child.Render,
                     ProjectileBurst = child.ProjectileBurst,
                     AoeSpawn = child.AoeSpawn
                 });
             }
 
-            private static float2 ComputeChildVelocity(
-                CombatKinematicsComponent parentKinematics,
-                in ProjectileChildSpawnerComponent spawner,
-                int childIndex)
-            {
-                IntervalProjectileChild child = spawner.Child;
-                float2 forward = math.normalizesafe(parentKinematics.Velocity, new float2(1f, 0f));
-                float2 dir;
-                switch (child.SpawnPatternType)
-                {
-                    case ProjectileChildSpawnPatternType.SideSpray:
-                    {
-                        float2 left  = new float2(-forward.y,  forward.x);
-                        float2 right = new float2( forward.y, -forward.x);
-                        bool isLeft  = (childIndex & 1) == 0;
-                        int leftCount  = (child.ChildCountPerTick + 1) / 2;
-                        int rightCount =  child.ChildCountPerTick / 2;
-                        int sideIndex  = childIndex / 2;
-                        int sideCount  = isLeft ? leftCount : rightCount;
-                        float2 sideDir = isLeft ? left : right;
-                        float spreadRad = math.radians(child.SideSpreadDegrees);
-                        float angle = SideSpreadAngle(spreadRad, sideIndex, sideCount);
-                        dir = Rotate(sideDir, angle);
-                        break;
-                    }
-                    default:
-                        dir = forward;
-                        break;
-                }
-                return child.Speed > 0f ? dir * child.Speed : dir * math.length(parentKinematics.Velocity);
-            }
-
-            private static float SideSpreadAngle(float totalRad, int shotIndex, int shotCount)
-            {
-                if (shotCount <= 1) return 0f;
-                return -totalRad * 0.5f + totalRad / (shotCount - 1) * shotIndex;
-            }
-
-            private static float2 Rotate(float2 v, float radians)
-            {
-                math.sincos(radians, out float s, out float c);
-                return new float2(c * v.x - s * v.y, s * v.x + c * v.y);
-            }
-
-            private static int ChildProjectileId(int parentProjectileId, int spawnerId, int tickIndex, int childIndex)
-            {
-                unchecked
-                {
-                    int hash = parentProjectileId;
-                    hash = (hash * 397) ^ spawnerId;
-                    hash = (hash * 397) ^ tickIndex;
-                    hash = (hash * 397) ^ childIndex;
-                    hash &= int.MaxValue;
-                    return hash == 0 ? 1 : hash;
-                }
-            }
-
             private static float NextIntervalSeconds(
                 int parentProjectileId,
-                int spawnerId,
+                int jitterSeed,
                 int tickIndex,
                 float intervalSeconds,
                 float intervalJitterSeconds)
             {
                 return intervalSeconds
-                    + DeterministicJitter(parentProjectileId, spawnerId, tickIndex, intervalJitterSeconds);
+                    + DeterministicJitter(parentProjectileId, jitterSeed, tickIndex, intervalJitterSeconds);
             }
 
             private static float DeterministicJitter(
                 int parentProjectileId,
-                int spawnerId,
+                int jitterSeed,
                 int tickIndex,
                 float maxOffsetSeconds)
             {
@@ -294,7 +239,7 @@ namespace PlayGround.System.Projectile
                 unchecked
                 {
                     uint hash = (uint)parentProjectileId;
-                    hash = (hash * 397u) ^ (uint)spawnerId;
+                    hash = (hash * 397u) ^ (uint)jitterSeed;
                     hash = (hash * 397u) ^ (uint)tickIndex;
                     hash *= 0x9E3779B9u;
                     hash ^= hash >> 16;

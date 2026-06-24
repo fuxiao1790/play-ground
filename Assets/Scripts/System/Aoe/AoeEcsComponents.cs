@@ -2,6 +2,7 @@ using PlayGround.System.Common;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using Hash128 = Unity.Entities.Hash128;
 
 namespace PlayGround.System.Aoe
 {
@@ -67,12 +68,11 @@ namespace PlayGround.System.Aoe
     // ECS Lifecycle: optional interval-spawner component; added to lingering AOE spawner archetypes; kept until root teardown; reset on reuse.
     public struct AoeIntervalSpawnerComponent : IComponentData
     {
-        public int SpawnerId;
+        public int JitterSeed;
         public IntervalChildKind ChildKind;
         public float IntervalSeconds;
         public float IntervalJitterSeconds;
-        public IntervalProjectileChild ProjectileChild;
-        public IntervalAoeChild AoeChild;
+        public Hash128 TemplateKey;
     }
 
     // ECS Lifecycle: optional interval-spawner state; added to lingering AOE spawner archetypes; kept until root teardown; reset on reuse.

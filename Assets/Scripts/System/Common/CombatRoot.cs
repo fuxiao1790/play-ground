@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using PlayGround.Common;
 using PlayGround.Skills;
 using PlayGround.System.Aoe;
@@ -333,7 +333,7 @@ namespace PlayGround.System.Common
 
             if (hasProjectileChildSpawner)
             {
-                evt.ChildSpawner = ChildSpawnerComponentFor(request.ChildSpawn, request.HitPayload.SourceNodeId);
+                evt.ChildSpawner = ChildSpawnerComponentFor(request.ChildSpawn);
                 evt.ChildSpawnState = new ProjectileChildSpawnStateComponent
                 {
                     ChildSpawnCooldownRemaining = request.ChildSpawn.IntervalSeconds
@@ -393,45 +393,16 @@ namespace PlayGround.System.Common
             };
         }
 
-        private ProjectileChildSpawnerComponent ChildSpawnerComponentFor(ProjectileChildSpawnConfig config, EntityId sourceNodeId)
+        private static ProjectileChildSpawnerComponent ChildSpawnerComponentFor(ProjectileChildSpawnConfig config)
         {
-            math.sincos(math.radians(config.VisualRotationDegrees), out float sin, out float cos);
             return new ProjectileChildSpawnerComponent
             {
-                SpawnerId = config.SpawnerId,
+                JitterSeed = config.JitterSeed,
                 IntervalSeconds = config.IntervalSeconds,
                 IntervalJitterSeconds = config.IntervalJitterSeconds,
-                Child = new IntervalProjectileChild
-                {
-                    TypeId = config.TypeId,
-                    ChildCountPerTick = Mathf.Max(1, config.Behavior.Count),
-                    SpawnPatternType = config.Behavior.PatternType,
-                    SideSpreadDegrees = config.Behavior.SpreadDegrees,
-                    Speed = config.Speed,
-                    Lifetime = config.Lifetime,
-                    Radius = config.Radius,
-                    HalfExtents = new float2(config.HalfExtents.x, config.HalfExtents.y),
-                    RotationRadians = config.RotationRadians,
-                    ShapeType = config.ShapeType,
-                    DamageAmount = config.Damage.Amount,
-                    DirectDamageEnabled = config.DirectDamageEnabled,
-                    PierceCount = config.PierceCount,
-                    RepeatHitCooldownSeconds = config.RepeatHitCooldownSeconds,
-                    VisualScale = config.VisualScale > 0f ? config.VisualScale : 1f,
-                    VisualRotationSin = sin,
-                    VisualRotationCos = cos,
-                    TrackingEnabled = config.Tracking.Enabled,
-                    TrackingTurnSpeedRadians = math.radians(config.Tracking.TurnSpeedDegrees),
-                    TrackingQueryIntervalSeconds = config.Tracking.QueryIntervalSeconds,
-                    TrackingInitialQueryDelaySeconds = config.Tracking.InitialQueryDelaySeconds,
-                    SourceNodeId = sourceNodeId,
-                    ImpactAoe = config.ImpactAoe,
-                    StackEffect = config.StackEffect,
-                    ImpactProjectile = config.ImpactProjectile
-                }
+                TemplateKey = config.TemplateKey
             };
         }
-
         private static ProjectileTrackingComponent TrackingComponentFor(ProjectileTrackingConfig config)
         {
             return new ProjectileTrackingComponent
@@ -746,7 +717,7 @@ namespace PlayGround.System.Common
         // ---- Faction defaults ----
 
         // Faction must always resolve to a real value (never None) once a root
-        // binds — None is reserved as the "never spawned" sentinel on identity
+        // binds 鈥?None is reserved as the "never spawned" sentinel on identity
         // components, not as a valid root state. Untagged roots (e.g. ad-hoc
         // roots built in isolated tests) default to Player so their spawns are
         // never silently skipped by collision/render/dispatch systems.
@@ -824,7 +795,7 @@ namespace PlayGround.System.Common
         }
 
         private static bool IsAoeIntervalSpawnerEnabled(ProjectileAoeIntervalSpawnerComponent spawner) =>
-            spawner.SpawnerId > 0 && spawner.IntervalSeconds > 0f;
+            spawner.JitterSeed > 0 && spawner.IntervalSeconds > 0f;
 
         [global::System.Serializable]
         private sealed class ProjectileRenderDefinition

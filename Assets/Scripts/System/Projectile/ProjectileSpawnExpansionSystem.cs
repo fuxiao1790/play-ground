@@ -129,21 +129,42 @@ namespace PlayGround.System.Projectile
                 for (int ci = 0; ci < Events.Length; ci++)
                 {
                     ProjectileSpawnEvent evt = Events[ci];
+                    int count = math.max(1, evt.Count);
 
-                    if (evt.Count <= 1)
+                    if (evt.DeterministicIdTickIndex > 0
+                        && evt.SpawnPatternType == ProjectileChildSpawnPatternType.SideSpray)
                     {
-                        WriteCommand(in evt, evt.BaseProjectileId, evt.BaseDirection * evt.Speed);
+                        for (int i = 0; i < count; i++)
+                        {
+                            int id = ProjectileIdFor(in evt, i);
+                            float2 velocity = SideSprayVelocity(in evt, i, count);
+                            WriteCommand(in evt, id, velocity);
+                        }
+                    }
+                    else if (evt.DeterministicIdTickIndex > 0
+                        && evt.SpawnPatternType == ProjectileChildSpawnPatternType.Radial)
+                    {
+                        for (int i = 0; i < count; i++)
+                        {
+                            int id = ProjectileIdFor(in evt, i);
+                            float2 velocity = RadialDirection(i, count) * evt.Speed;
+                            WriteCommand(in evt, id, velocity);
+                        }
+                    }
+                    else if (count <= 1)
+                    {
+                        WriteCommand(in evt, ProjectileIdFor(in evt, 0), evt.BaseDirection * evt.Speed);
                     }
                     else
                     {
                         var rng = new Random(evt.JitterSeed != 0 ? evt.JitterSeed : 1u);
-                        for (int i = 0; i < evt.Count; i++)
+                        for (int i = 0; i < count; i++)
                         {
-                            float angle = SpreadAngle(evt.SpreadDegrees, i, evt.Count);
+                            float angle = SpreadAngle(evt.SpreadDegrees, i, count);
                             if (evt.JitterDegrees > 0f)
                                 angle += rng.NextFloat(-evt.JitterDegrees, evt.JitterDegrees);
 
-                            int id = evt.BaseProjectileId + i;
+                            int id = ProjectileIdFor(in evt, i);
                             float2 velocity = Rotate(evt.BaseDirection, angle) * evt.Speed;
                             WriteCommand(in evt, id, velocity);
                         }
@@ -195,6 +216,51 @@ namespace PlayGround.System.Projectile
 
             private static float SpreadAngle(float spread, int i, int count) =>
                 count <= 1 ? 0f : -spread * 0.5f + spread / (count - 1) * i;
+
+            private static float2 SideSprayVelocity(in ProjectileSpawnEvent evt, int shotIndex, int shotCount)
+            {
+                float2 forward = math.normalizesafe(evt.BaseDirection, new float2(1f, 0f));
+                float2 left = new float2(-forward.y, forward.x);
+                float2 right = new float2(forward.y, -forward.x);
+                bool isLeft = (shotIndex & 1) == 0;
+                int leftCount = (shotCount + 1) / 2;
+                int rightCount = shotCount / 2;
+                int sideIndex = shotIndex / 2;
+                int sideCount = isLeft ? leftCount : rightCount;
+                float2 sideDirection = isLeft ? left : right;
+                float angle = SpreadAngle(evt.SpreadDegrees, sideIndex, sideCount);
+                return Rotate(sideDirection, angle) * evt.Speed;
+            }
+
+            private static float2 RadialDirection(int shotIndex, int shotCount)
+            {
+                if (shotCount <= 1)
+                {
+                    return new float2(1f, 0f);
+                }
+
+                float radians = math.PI * 2f * shotIndex / shotCount;
+                math.sincos(radians, out float s, out float c);
+                return new float2(c, s);
+            }
+
+            private static int ProjectileIdFor(in ProjectileSpawnEvent evt, int shotIndex)
+            {
+                if (evt.DeterministicIdTickIndex <= 0)
+                {
+                    return evt.BaseProjectileId + shotIndex;
+                }
+
+                unchecked
+                {
+                    int hash = evt.BaseProjectileId;
+                    hash = (hash * 397) ^ (int)evt.JitterSeed;
+                    hash = (hash * 397) ^ evt.DeterministicIdTickIndex;
+                    hash = (hash * 397) ^ shotIndex;
+                    hash &= int.MaxValue;
+                    return hash == 0 ? 1 : hash;
+                }
+            }
 
             private static float2 Rotate(float2 v, float degrees)
             {

@@ -17,6 +17,8 @@ namespace PlayGround.Tests.PlayMode
         private EntityManager entityManager;
         private SimulationSystemGroup simGroup;
         private Entity scopeEntity;
+        private NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnTemplateData> projectileTemplateMap;
+        private Unity.Entities.Hash128 childProjectileTemplateKey;
         private double elapsedTime;
 
         [SetUp]
@@ -37,11 +39,17 @@ namespace PlayGround.Tests.PlayMode
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
+
+            projectileTemplateMap = new NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnTemplateData>(8, Allocator.Persistent);
+            entityManager.AddComponentData(scopeEntity, new ProjectileSpawnTemplate { Map = projectileTemplateMap });
+            childProjectileTemplateKey = RegisterChildProjectileTemplate();
         }
 
         [TearDown]
         public void TearDown()
         {
+            if (projectileTemplateMap.IsCreated)
+                projectileTemplateMap.Dispose();
             if (testWorld.IsCreated)
                 testWorld.Dispose();
         }
@@ -117,6 +125,44 @@ namespace PlayGround.Tests.PlayMode
 
             Assert.That(Type.GetType("PlayGround.System.Projectile.ProjectileSpawnCommandData, PlayGround.Runtime"), Is.Null);
             Assert.That(Type.GetType("PlayGround.System.Aoe.AoeSpawnCommandData, PlayGround.Runtime"), Is.Null);
+        }
+
+        [Test]
+        public void DeterministicFanOut_UsesPreviousChildIdHash()
+        {
+            EnqueueEvent(MakeEvent(
+                count: 3,
+                baseProjectileId: 9999,
+                jitterSeed: 123u,
+                deterministicIdTickIndex: 2));
+
+            Tick(0.01f);
+
+            int[] ids = ActiveProjectileIds();
+            Assert.That(ids, Does.Contain(ExpectedChildId(9999, 123, 2, 0)));
+            Assert.That(ids, Does.Contain(ExpectedChildId(9999, 123, 2, 1)));
+            Assert.That(ids, Does.Contain(ExpectedChildId(9999, 123, 2, 2)));
+        }
+
+        [Test]
+        public void RadialFanOut_Count4_ProducesFullCircleVelocities()
+        {
+            const float speed = 5f;
+            EnqueueEvent(MakeEvent(
+                count: 4,
+                speed: speed,
+                jitterSeed: 5u,
+                deterministicIdTickIndex: 1,
+                spawnPatternType: ProjectileChildSpawnPatternType.Radial));
+
+            Tick(0.01f);
+
+            float2[] velocities = ActiveProjectileVelocities();
+            Assert.That(velocities.Length, Is.EqualTo(4));
+            Assert.That(ContainsVelocity(velocities, new float2(speed, 0f)), Is.True);
+            Assert.That(ContainsVelocity(velocities, new float2(0f, speed)), Is.True);
+            Assert.That(ContainsVelocity(velocities, new float2(-speed, 0f)), Is.True);
+            Assert.That(ContainsVelocity(velocities, new float2(0f, -speed)), Is.True);
         }
 
         [Test]
@@ -223,7 +269,11 @@ namespace PlayGround.Tests.PlayMode
             float2 baseDirection = default,
             float speed = 5f,
             float lifetime = 10f,
-            bool hasChildSpawner = false)
+            bool hasChildSpawner = false,
+            int baseProjectileId = 1,
+            uint jitterSeed = 0u,
+            int deterministicIdTickIndex = 0,
+            ProjectileChildSpawnPatternType spawnPatternType = ProjectileChildSpawnPatternType.Forward)
         {
             if (math.lengthsq(baseDirection) < 0.0001f)
                 baseDirection = new float2(1f, 0f);
@@ -231,13 +281,16 @@ namespace PlayGround.Tests.PlayMode
             {
                 Faction = CombatFaction.Player,
                 TypeId = 1,
-                BaseProjectileId = 1,
+                BaseProjectileId = baseProjectileId,
                 HasChildSpawner = hasChildSpawner ? 1 : 0,
                 Position = position,
                 BaseDirection = baseDirection,
                 Speed = speed,
                 Count = count,
                 SpreadDegrees = spreadDegrees,
+                JitterSeed = jitterSeed,
+                SpawnPatternType = spawnPatternType,
+                DeterministicIdTickIndex = deterministicIdTickIndex,
                 Lifetime = lifetime,
                 Radius = 0.25f,
                 HalfExtents = float2.zero,
@@ -250,19 +303,9 @@ namespace PlayGround.Tests.PlayMode
                 ChildSpawner = hasChildSpawner
                     ? new ProjectileChildSpawnerComponent
                     {
-                        SpawnerId = 1,
+                        JitterSeed = 1,
                         IntervalSeconds = 1f,
-                        Child = new IntervalProjectileChild
-                        {
-                            TypeId = 1,
-                            ChildCountPerTick = 1,
-                            SpawnPatternType = ProjectileChildSpawnPatternType.Forward,
-                            Lifetime = 1f,
-                            Radius = 0.1f,
-                            ShapeType = CombatShapeType.Circle,
-                            DamageAmount = 1f,
-                            DirectDamageEnabled = true
-                        }
+                        TemplateKey = default
                     }
                     : default,
                 ChildSpawnState = hasChildSpawner
@@ -274,6 +317,27 @@ namespace PlayGround.Tests.PlayMode
                     }
                     : default
             };
+        }
+
+        private Unity.Entities.Hash128 RegisterChildProjectileTemplate()
+        {
+            var data = new ProjectileSpawnTemplateData
+            {
+                TypeId = 1,
+                ChildCountPerTick = 1,
+                SpawnPatternType = ProjectileChildSpawnPatternType.Forward,
+                Speed = 5f,
+                Lifetime = 10f,
+                Radius = 0.25f,
+                HalfExtents = float2.zero,
+                ShapeType = CombatShapeType.Circle,
+                DamageAmount = 1f,
+                DirectDamageEnabled = true,
+                VisualScale = 1f
+            };
+            Unity.Entities.Hash128 key = SpawnTemplateHash.Of(in data);
+            projectileTemplateMap.TryAdd(key, data);
+            return key;
         }
 
         private Entity CreateDisabledProjectileSlot(bool childSpawner)
@@ -363,21 +427,9 @@ namespace PlayGround.Tests.PlayMode
             entityManager.SetComponentEnabled<CombatLifetimeComponent>(entity, true);
             entityManager.SetComponentData(entity, new ProjectileChildSpawnerComponent
             {
-                SpawnerId = 9999,
+                JitterSeed = 9999,
                 IntervalSeconds = 1f,
-                Child = new IntervalProjectileChild
-                {
-                    TypeId = 1,
-                    ChildCountPerTick = 1,
-                    SpawnPatternType = ProjectileChildSpawnPatternType.Forward,
-                    Speed = 5f,
-                    Lifetime = 5f,
-                    Radius = 0.2f,
-                    HalfExtents = float2.zero,
-                    ShapeType = CombatShapeType.Circle,
-                    DamageAmount = 1f,
-                    DirectDamageEnabled = true
-                }
+                TemplateKey = childProjectileTemplateKey
             });
             entityManager.SetComponentData(entity, new ProjectileChildSpawnStateComponent
             {
@@ -429,6 +481,54 @@ namespace PlayGround.Tests.PlayMode
             using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
             Assert.That(entities.Length, Is.GreaterThan(0), "No projectile entities found.");
             return entities[0];
+        }
+
+        private int[] ActiveProjectileIds()
+        {
+            using EntityQuery q = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<ProjectileTag>(),
+                ComponentType.ReadOnly<Active>());
+            using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
+            var ids = new int[entities.Length];
+            for (int i = 0; i < entities.Length; i++)
+                ids[i] = entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]).ProjectileId;
+            return ids;
+        }
+
+        private float2[] ActiveProjectileVelocities()
+        {
+            using EntityQuery q = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<ProjectileTag>(),
+                ComponentType.ReadOnly<Active>());
+            using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
+            var velocities = new float2[entities.Length];
+            for (int i = 0; i < entities.Length; i++)
+                velocities[i] = entityManager.GetComponentData<CombatKinematicsComponent>(entities[i]).Velocity;
+            return velocities;
+        }
+
+        private static bool ContainsVelocity(float2[] velocities, float2 expected)
+        {
+            for (int i = 0; i < velocities.Length; i++)
+            {
+                if (math.lengthsq(velocities[i] - expected) <= 0.001f)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static int ExpectedChildId(int parentProjectileId, int jitterSeed, int tickIndex, int childIndex)
+        {
+            unchecked
+            {
+                int hash = parentProjectileId;
+                hash = (hash * 397) ^ jitterSeed;
+                hash = (hash * 397) ^ tickIndex;
+                hash = (hash * 397) ^ childIndex;
+                hash &= int.MaxValue;
+                return hash == 0 ? 1 : hash;
+            }
         }
 
         private float2 ReadFirstActiveProjectilePosition()

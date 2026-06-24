@@ -361,7 +361,7 @@ namespace PlayGround.System.Aoe
                 CooldownRemaining = cmd.IntervalSpawner.IntervalSeconds
                     + DeterministicJitter(
                         cmd.AoeId,
-                        cmd.IntervalSpawner.SpawnerId,
+                        cmd.IntervalSpawner.JitterSeed,
                         cmd.IntervalSpawner.IntervalJitterSeconds),
                 TickIndex = 0
             };
@@ -584,7 +584,7 @@ namespace PlayGround.System.Aoe
             }
         }
 
-        private static float DeterministicJitter(int aoeId, int spawnerId, float maxOffsetSeconds)
+        private static float DeterministicJitter(int aoeId, int jitterSeed, float maxOffsetSeconds)
         {
             if (maxOffsetSeconds <= 0f)
             {
@@ -594,7 +594,7 @@ namespace PlayGround.System.Aoe
             unchecked
             {
                 uint hash = (uint)aoeId;
-                hash = (hash * 397u) ^ (uint)spawnerId;
+                hash = (hash * 397u) ^ (uint)jitterSeed;
                 hash *= 0x9E3779B9u;
                 hash ^= hash >> 16;
                 hash *= 0x7FEB352Du;
