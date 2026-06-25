@@ -85,13 +85,13 @@ namespace PlayGround.System.Common
                 entityManager.AddBuffer<VfxSpawnRequestElement>(ownedScope);
                 entityManager.AddComponentData(ownedScope, new ProjectileSpawnTemplate
                 {
-                    Map = new NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnTemplateData>(
+                    Map = new NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnEvent>(
                         InitialTemplateRegistryCapacity,
                         Allocator.Persistent)
                 });
                 entityManager.AddComponentData(ownedScope, new AoeSpawnTemplate
                 {
-                    Map = new NativeHashMap<Unity.Entities.Hash128, AoeSpawnTemplateData>(
+                    Map = new NativeHashMap<Unity.Entities.Hash128, AoeSpawnEvent>(
                         InitialTemplateRegistryCapacity,
                         Allocator.Persistent)
                 });

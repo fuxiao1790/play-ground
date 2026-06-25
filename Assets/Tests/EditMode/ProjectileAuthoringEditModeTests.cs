@@ -100,30 +100,33 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void SpawnTemplateData_IsBlittableAndContentHashed()
+        public void SpawnTemplateEvents_AreBlittableAndContentHashed()
         {
-            Assert.That(UnsafeUtility.IsBlittable<ProjectileSpawnTemplateData>(), Is.True);
-            Assert.That(UnsafeUtility.IsBlittable<AoeSpawnTemplateData>(), Is.True);
+            Assert.That(UnsafeUtility.IsBlittable<ProjectileSpawnEvent>(), Is.True);
+            Assert.That(UnsafeUtility.IsBlittable<AoeSpawnEvent>(), Is.True);
             Assert.That(UnsafeUtility.SizeOf<AoeSpawnCommand>(), Is.LessThan(4096));
 
-            var projectileA = new ProjectileSpawnTemplateData
+            var projectileA = new ProjectileSpawnEvent
             {
                 TypeId = 7,
-                ChildCountPerTick = 2,
+                Count = 2,
                 Speed = 12f,
                 Lifetime = 0.75f,
                 ShapeType = CombatShapeType.Circle,
-                DamageAmount = 4f,
-                DirectDamageEnabled = true
+                HitPayload = new ProjectileHitPayload(new CombatHitPayload
+                {
+                    DamageAmount = 4f,
+                    DirectDamageEnabled = true
+                })
             };
-            ProjectileSpawnTemplateData projectileB = projectileA;
-            ProjectileSpawnTemplateData projectileC = projectileA;
-            projectileC.ChildCountPerTick = 3;
+            ProjectileSpawnEvent projectileB = projectileA;
+            ProjectileSpawnEvent projectileC = projectileA;
+            projectileC.Count = 3;
 
             Assert.That(SpawnTemplateHash.Of(in projectileB), Is.EqualTo(SpawnTemplateHash.Of(in projectileA)));
             Assert.That(SpawnTemplateHash.Of(in projectileC), Is.Not.EqualTo(SpawnTemplateHash.Of(in projectileA)));
 
-            var aoeA = new AoeSpawnTemplateData
+            var aoeA = new AoeSpawnEvent
             {
                 TypeId = 9,
                 Lifetime = 1.5f,
@@ -138,8 +141,8 @@ namespace PlayGround.Tests.EditMode
                     DirectDamageEnabled = true
                 }
             };
-            AoeSpawnTemplateData aoeB = aoeA;
-            AoeSpawnTemplateData aoeC = aoeA;
+            AoeSpawnEvent aoeB = aoeA;
+            AoeSpawnEvent aoeC = aoeA;
             aoeC.Count = 2;
 
             Assert.That(SpawnTemplateHash.Of(in aoeB), Is.EqualTo(SpawnTemplateHash.Of(in aoeA)));

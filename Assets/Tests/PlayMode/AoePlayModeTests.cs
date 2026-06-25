@@ -205,19 +205,22 @@ namespace PlayGround.Tests.PlayMode
             int projectileStartCount = entityManager.GetComponentData<ProjectileSpawnTemplate>(scope).Map.Count;
             int aoeStartCount = entityManager.GetComponentData<AoeSpawnTemplate>(scope).Map.Count;
 
-            var projectileA = new ProjectileSpawnTemplateData
+            var projectileA = new ProjectileSpawnEvent
             {
                 TypeId = ++nextTargetId,
-                ChildCountPerTick = 2,
+                Count = 2,
                 Speed = 10f,
                 Lifetime = 1f,
                 Radius = 0.25f,
                 ShapeType = CombatShapeType.Circle,
-                DamageAmount = 4f,
-                DirectDamageEnabled = true
+                HitPayload = new ProjectileHitPayload(new CombatHitPayload
+                {
+                    DamageAmount = 4f,
+                    DirectDamageEnabled = true
+                })
             };
-            ProjectileSpawnTemplateData projectileC = projectileA;
-            projectileC.ChildCountPerTick = 3;
+            ProjectileSpawnEvent projectileC = projectileA;
+            projectileC.Count = 3;
 
             Hash128 projectileKeyA = root.RegisterTimedSpawnTemplate(in projectileA);
             Hash128 projectileKeyB = root.RegisterTimedSpawnTemplate(in projectileA);
@@ -233,7 +236,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(projectileRegistry.Map.ContainsKey(projectileKeyA), Is.True);
             Assert.That(projectileRegistry.Map.ContainsKey(projectileKeyC), Is.True);
 
-            var aoeA = new AoeSpawnTemplateData
+            var aoeA = new AoeSpawnEvent
             {
                 TypeId = ++nextTargetId,
                 Lifetime = 1.5f,
@@ -249,7 +252,7 @@ namespace PlayGround.Tests.PlayMode
                     DirectDamageEnabled = true
                 }
             };
-            AoeSpawnTemplateData aoeC = aoeA;
+            AoeSpawnEvent aoeC = aoeA;
             aoeC.Count = 2;
 
             Hash128 aoeKeyA = root.RegisterTimedSpawnTemplate(in aoeA);

@@ -17,7 +17,7 @@ namespace PlayGround.Tests.PlayMode
         private EntityManager entityManager;
         private SimulationSystemGroup simGroup;
         private Entity scopeEntity;
-        private NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnTemplateData> projectileTemplateMap;
+        private NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnEvent> projectileTemplateMap;
         private Unity.Entities.Hash128 childProjectileTemplateKey;
         private double elapsedTime;
 
@@ -40,7 +40,7 @@ namespace PlayGround.Tests.PlayMode
             entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
 
-            projectileTemplateMap = new NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnTemplateData>(8, Allocator.Persistent);
+            projectileTemplateMap = new NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnEvent>(8, Allocator.Persistent);
             entityManager.AddComponentData(scopeEntity, new ProjectileSpawnTemplate { Map = projectileTemplateMap });
             childProjectileTemplateKey = RegisterChildProjectileTemplate();
         }
@@ -321,22 +321,30 @@ namespace PlayGround.Tests.PlayMode
 
         private Unity.Entities.Hash128 RegisterChildProjectileTemplate()
         {
-            var data = new ProjectileSpawnTemplateData
+            var evt = new ProjectileSpawnEvent
             {
                 TypeId = 1,
-                ChildCountPerTick = 1,
+                Count = 1,
                 SpawnPatternType = ProjectileChildSpawnPatternType.Forward,
                 Speed = 5f,
                 Lifetime = 10f,
                 Radius = 0.25f,
                 HalfExtents = float2.zero,
                 ShapeType = CombatShapeType.Circle,
-                DamageAmount = 1f,
-                DirectDamageEnabled = true,
-                VisualScale = 1f
+                HitPayload = new ProjectileHitPayload(new CombatHitPayload
+                {
+                    DamageAmount = 1f,
+                    DirectDamageEnabled = true
+                }),
+                Render = new CombatRenderComponent
+                {
+                    IsRenderable = 1,
+                    AlignToVelocity = 1,
+                    VisualScale = new float2(1f, 1f)
+                }
             };
-            Unity.Entities.Hash128 key = SpawnTemplateHash.Of(in data);
-            projectileTemplateMap.TryAdd(key, data);
+            Unity.Entities.Hash128 key = SpawnTemplateHash.Of(in evt);
+            projectileTemplateMap.TryAdd(key, evt);
             return key;
         }
 

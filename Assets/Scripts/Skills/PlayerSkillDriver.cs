@@ -306,9 +306,10 @@ namespace PlayGround.Skills
                 SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(child, combatRoot);
             ProjectileSpawnTemplateData data =
                 SkillIntervalTemplateBuilder.BuildProjectileTemplateData(child, setup.Behavior, combatRoot, stackEffect);
+            ProjectileSpawnEvent evt = SkillIntervalTemplateBuilder.BuildProjectileTemplateEvent(data);
 
             setup.TemplateData = data;
-            setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in data);
+            setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in evt);
             setup.SpawnConfig = SkillIntervalTemplateBuilder.BuildProjectileChildSpawnConfig(setup, data);
         }
 
@@ -326,9 +327,10 @@ namespace PlayGround.Skills
                     Mathf.Max(1, setup.Count),
                     combatRoot,
                     stackEffect);
+            AoeSpawnEvent evt = SkillIntervalTemplateBuilder.BuildAoeTemplateEvent(data);
 
             setup.TemplateData = data;
-            setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in data);
+            setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in evt);
         }
 
         private void RegisterAoeTypesRecursive(RuntimeSkillDefinition def)
@@ -451,6 +453,56 @@ namespace PlayGround.Skills
             };
         }
 
+        public static ProjectileSpawnEvent BuildProjectileTemplateEvent(ProjectileSpawnTemplateData data)
+        {
+            return new ProjectileSpawnEvent
+            {
+                TypeId = data.TypeId,
+                HasChildSpawner = 0,
+                Speed = data.Speed,
+                Count = Mathf.Max(1, data.ChildCountPerTick),
+                SpreadDegrees = data.SideSpreadDegrees,
+                SpawnPatternType = data.SpawnPatternType,
+                PierceRemaining = data.PierceCount,
+                RepeatHitCooldownSeconds = data.RepeatHitCooldownSeconds,
+                Lifetime = data.Lifetime,
+                Radius = data.Radius,
+                RotationRadians = data.RotationRadians,
+                HalfExtents = data.HalfExtents,
+                ShapeType = data.ShapeType,
+                HitPayload = new ProjectileHitPayload(
+                    new CombatHitPayload
+                    {
+                        DamageAmount = data.DamageAmount,
+                        DirectDamageEnabled = data.DirectDamageEnabled,
+                        SourceNodeId = default,
+                        StackEffect = data.StackEffect
+                    },
+                    data.ImpactAoe,
+                    data.ImpactProjectile),
+                Tracking = new ProjectileTrackingComponent
+                {
+                    TrackingEnabled = data.TrackingEnabled,
+                    TrackingTurnSpeedRadians = data.TrackingTurnSpeedRadians,
+                    TrackingQueryCooldownRemaining = data.TrackingInitialQueryDelaySeconds,
+                    TrackingQueryIntervalSeconds = data.TrackingQueryIntervalSeconds,
+                    TrackedTargetId = 0,
+                    TrackedTargetIndex = -1,
+                    TrackedTargetPosition = default,
+                    TrackingRandomState = 0
+                },
+                Render = new CombatRenderComponent
+                {
+                    IsRenderable = 1,
+                    AlignToVelocity = 1,
+                    VisualScale = new Unity.Mathematics.float2(data.VisualScale, data.VisualScale),
+                    VisualRotationSin = data.VisualRotationSin,
+                    VisualRotationCos = data.VisualRotationCos,
+                    RenderZ = 0f
+                }
+            };
+        }
+
         public static AoeSpawnTemplateData BuildAoeTemplateData(
             RuntimeAoeDefinition child,
             int count,
@@ -481,6 +533,26 @@ namespace PlayGround.Skills
                 AoeSpawn = BuildAoeOnHitSpawnSnapshot(child.OnHitAoeSpawnDefinition, root, MaxAoeOnHitSpawnDepth),
                 Render = AoeRenderComponentFor(geometry),
                 Count = Mathf.Max(1, count)
+            };
+        }
+
+        public static AoeSpawnEvent BuildAoeTemplateEvent(AoeSpawnTemplateData data)
+        {
+            return new AoeSpawnEvent
+            {
+                TypeId = data.TypeId,
+                Lifetime = data.Lifetime,
+                RepeatHitCooldownSeconds = data.RepeatHitCooldownSeconds,
+                HitPayload = data.HitPayload,
+                AreaSize = data.AreaSize,
+                Radius = data.Radius,
+                RotationRadians = data.RotationRadians,
+                HalfExtents = data.HalfExtents,
+                ShapeType = data.ShapeType,
+                Count = Mathf.Max(1, data.Count),
+                Render = data.Render,
+                ProjectileBurst = data.ProjectileBurst,
+                AoeSpawn = data.AoeSpawn
             };
         }
 

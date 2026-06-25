@@ -194,16 +194,16 @@ namespace PlayGround.System.Common
             return baseProjectileId;
         }
 
-        public Hash128 RegisterTimedSpawnTemplate(in ProjectileSpawnTemplateData data)
+        public Hash128 RegisterTimedSpawnTemplate(in ProjectileSpawnEvent evt)
         {
             EnsureRuntimeReady();
 
-            Hash128 key = SpawnTemplateHash.Of(in data);
+            Hash128 key = SpawnTemplateHash.Of(in evt);
             ProjectileSpawnTemplate registry = entityManager.GetComponentData<ProjectileSpawnTemplate>(scopeEntity);
             if (!registry.Map.ContainsKey(key))
             {
                 entityManager.CompleteAllTrackedJobs();
-                registry.Map.Add(key, data);
+                registry.Map.Add(key, evt);
             }
 
             return key;
@@ -211,16 +211,16 @@ namespace PlayGround.System.Common
 
         // ---- AOE API ----
 
-        public Hash128 RegisterTimedSpawnTemplate(in AoeSpawnTemplateData data)
+        public Hash128 RegisterTimedSpawnTemplate(in AoeSpawnEvent evt)
         {
             EnsureRuntimeReady();
 
-            Hash128 key = SpawnTemplateHash.Of(in data);
+            Hash128 key = SpawnTemplateHash.Of(in evt);
             AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(scopeEntity);
             if (!registry.Map.ContainsKey(key))
             {
                 entityManager.CompleteAllTrackedJobs();
-                registry.Map.Add(key, data);
+                registry.Map.Add(key, evt);
             }
 
             return key;

@@ -65,8 +65,8 @@ namespace PlayGround.System.Aoe
             public float DeltaTime;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventQueue;
             public NativeQueue<AoeSpawnEvent>.ParallelWriter AoeEventQueue;
-            [ReadOnly] public NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnTemplateData> ProjectileTemplates;
-            [ReadOnly] public NativeHashMap<Unity.Entities.Hash128, AoeSpawnTemplateData> AoeTemplates;
+            [ReadOnly] public NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnEvent> ProjectileTemplates;
+            [ReadOnly] public NativeHashMap<Unity.Entities.Hash128, AoeSpawnEvent> AoeTemplates;
             public bool HasProjectileEventQueue;
             public bool HasAoeEventQueue;
             public bool HasProjectileTemplates;
@@ -102,7 +102,7 @@ namespace PlayGround.System.Aoe
                     {
                         if (HasAoeEventQueue
                             && HasAoeTemplates
-                            && AoeTemplates.TryGetValue(spawner.TemplateKey, out AoeSpawnTemplateData child))
+                            && AoeTemplates.TryGetValue(spawner.TemplateKey, out AoeSpawnEvent child))
                         {
                             EnqueueAoeChildSpawn(identity, kinematics, in spawner, in child, tickIndex);
                         }
@@ -111,7 +111,7 @@ namespace PlayGround.System.Aoe
                     {
                         if (HasProjectileEventQueue
                             && HasProjectileTemplates
-                            && ProjectileTemplates.TryGetValue(spawner.TemplateKey, out ProjectileSpawnTemplateData child))
+                            && ProjectileTemplates.TryGetValue(spawner.TemplateKey, out ProjectileSpawnEvent child))
                         {
                             EnqueueProjectileChildSpawn(identity, kinematics, in spawner, in child, tickIndex);
                         }
@@ -133,97 +133,41 @@ namespace PlayGround.System.Aoe
                 AoeIdentityComponent parentIdentity,
                 CombatKinematicsComponent parentKinematics,
                 in AoeIntervalSpawnerComponent spawner,
-                in ProjectileSpawnTemplateData child,
+                in ProjectileSpawnEvent child,
                 int tickIndex)
             {
-                var hitPayload = new ProjectileHitPayload(
-                    new CombatHitPayload
-                    {
-                        DamageAmount = child.DamageAmount,
-                        DirectDamageEnabled = child.DirectDamageEnabled,
-                        SourceNodeId = default,
-                        StackEffect = child.StackEffect
-                    },
-                    child.ImpactAoe,
-                    child.ImpactProjectile);
-
-                ProjectileEventQueue.Enqueue(new ProjectileSpawnEvent
-                {
-                    Faction = parentIdentity.Faction,
-                    BaseProjectileId = parentIdentity.AoeId,
-                    TypeId = child.TypeId,
-                    HasChildSpawner = 0,
-                    SeedContactGateTargetId = 0,
-                    Position = parentKinematics.Position,
-                    BaseDirection = new float2(1f, 0f),
-                    Speed = child.Speed,
-                    Count = math.max(1, child.ChildCountPerTick),
-                    SpreadDegrees = 0f,
-                    JitterDegrees = 0f,
-                    JitterSeed = (uint)spawner.JitterSeed,
-                    SpawnPatternType = ProjectileChildSpawnPatternType.Radial,
-                    DeterministicIdTickIndex = tickIndex,
-                    PierceRemaining = child.PierceCount,
-                    RepeatHitCooldownSeconds = child.RepeatHitCooldownSeconds,
-                    Lifetime = child.Lifetime,
-                    Radius = child.Radius,
-                    RotationRadians = child.RotationRadians,
-                    HalfExtents = child.HalfExtents,
-                    ShapeType = child.ShapeType,
-                    HitPayload = hitPayload,
-                    Tracking = new ProjectileTrackingComponent
-                    {
-                        TrackingEnabled = child.TrackingEnabled,
-                        TrackingTurnSpeedRadians = child.TrackingTurnSpeedRadians,
-                        TrackingQueryCooldownRemaining = child.TrackingInitialQueryDelaySeconds,
-                        TrackingQueryIntervalSeconds = child.TrackingQueryIntervalSeconds,
-                        TrackedTargetId = 0,
-                        TrackedTargetIndex = -1,
-                        TrackedTargetPosition = default,
-                        TrackingRandomState = 0
-                    },
-                    Render = new CombatRenderComponent
-                    {
-                        IsRenderable = 1,
-                        AlignToVelocity = 1,
-                        VisualScale = new float2(child.VisualScale, child.VisualScale),
-                        VisualRotationSin = child.VisualRotationSin,
-                        VisualRotationCos = child.VisualRotationCos,
-                        RenderZ = 0f
-                    }
-                });
+                ProjectileSpawnEvent evt = child;
+                evt.Faction = parentIdentity.Faction;
+                evt.BaseProjectileId = parentIdentity.AoeId;
+                evt.SeedContactGateTargetId = 0;
+                evt.Position = parentKinematics.Position;
+                evt.BaseDirection = new float2(1f, 0f);
+                evt.Count = math.max(1, evt.Count);
+                evt.SpreadDegrees = 0f;
+                evt.JitterDegrees = 0f;
+                evt.JitterSeed = (uint)spawner.JitterSeed;
+                evt.SpawnPatternType = ProjectileChildSpawnPatternType.Radial;
+                evt.DeterministicIdTickIndex = tickIndex;
+                ProjectileEventQueue.Enqueue(evt);
             }
 
             private void EnqueueAoeChildSpawn(
                 AoeIdentityComponent parentIdentity,
                 CombatKinematicsComponent parentKinematics,
                 in AoeIntervalSpawnerComponent spawner,
-                in AoeSpawnTemplateData child,
+                in AoeSpawnEvent child,
                 int tickIndex)
             {
-                AoeEventQueue.Enqueue(new AoeSpawnEvent
-                {
-                    Faction = parentIdentity.Faction,
-                    AoeId = parentIdentity.AoeId,
-                    TypeId = child.TypeId,
-                    Lifetime = child.Lifetime,
-                    RepeatHitCooldownSeconds = child.RepeatHitCooldownSeconds,
-                    HitPayload = child.HitPayload,
-                    AreaSize = child.AreaSize,
-                    Radius = child.Radius,
-                    RotationRadians = child.RotationRadians,
-                    Position = parentKinematics.Position,
-                    HalfExtents = child.HalfExtents,
-                    BoundsMin = default,
-                    BoundsMax = default,
-                    ShapeType = child.ShapeType,
-                    Count = math.max(1, child.Count),
-                    JitterSeed = (uint)spawner.JitterSeed,
-                    DeterministicIdTickIndex = tickIndex,
-                    Render = child.Render,
-                    ProjectileBurst = child.ProjectileBurst,
-                    AoeSpawn = child.AoeSpawn
-                });
+                AoeSpawnEvent evt = child;
+                evt.Faction = parentIdentity.Faction;
+                evt.AoeId = parentIdentity.AoeId;
+                evt.Position = parentKinematics.Position;
+                evt.BoundsMin = default;
+                evt.BoundsMax = default;
+                evt.Count = math.max(1, evt.Count);
+                evt.JitterSeed = (uint)spawner.JitterSeed;
+                evt.DeterministicIdTickIndex = tickIndex;
+                AoeEventQueue.Enqueue(evt);
             }
 
             private static float NextIntervalSeconds(
