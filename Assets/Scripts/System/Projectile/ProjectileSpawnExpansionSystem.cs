@@ -13,7 +13,7 @@ namespace PlayGround.System.Projectile
     // containers for the matching apply systems to consume.
     // Built beside the old ProjectileMultiExpandSystem; inert until Task 004 wires producers.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(TimedProjectileSpawnSystem))]
+    [UpdateAfter(typeof(TimedSpawnSystem))]
     [UpdateAfter(typeof(ProjectileCollisionSystem))]
     [UpdateAfter(typeof(PlayGround.System.Aoe.ImpactAoeCollisionSystem))]
     [UpdateAfter(typeof(StatusProcessSystem))]
@@ -30,7 +30,7 @@ namespace PlayGround.System.Projectile
         internal JobHandle PendingHandle;
 
         // Combined handle of every producer job that wrote EventQueue this frame
-        // (TimedProjectileSpawnSystem, ProjectileCollisionSystem, LingeringAoeCollisionSystem, ImpactAoeCollisionSystem).
+        // (TimedSpawnSystem, ProjectileCollisionSystem, LingeringAoeCollisionSystem, ImpactAoeCollisionSystem).
         // Producers run before this system in the order graph but their write jobs are
         // async; ECS does not track the queue, so this system must complete them itself
         // before reading the queue on the main thread. Reset to default each frame.

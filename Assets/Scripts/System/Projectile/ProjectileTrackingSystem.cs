@@ -10,7 +10,7 @@ namespace PlayGround.System.Projectile
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileSimulationSystem))]
-    [UpdateAfter(typeof(TimedProjectileSpawnSystem))]
+    [UpdateAfter(typeof(TimedSpawnSystem))]
     [UpdateBefore(typeof(ProjectileMovementSystem))]
     public partial struct ProjectileTrackingSystem : ISystem
     {

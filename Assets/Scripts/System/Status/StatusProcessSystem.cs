@@ -50,7 +50,7 @@ namespace PlayGround.System.Common
             int projectileIdBase = ReserveIdBlock(ref nextProjectileDetonationSourceId, entityCount);
 
             // This job writes the expansion EventQueues via ParallelWriter, the same queues
-            // other producers (TimedProjectileSpawnSystem, collision systems) already wrote
+            // other producers (TimedSpawnSystem, collision systems) already wrote
             // this frame. Those writes are tracked in each expansion system's ProducerHandle,
             // not in this SystemBase's component-derived Dependency, so we must depend on them
             // explicitly or the job-safety system rejects the schedule.

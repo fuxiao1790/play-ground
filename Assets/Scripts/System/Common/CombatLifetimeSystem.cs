@@ -12,7 +12,7 @@ namespace PlayGround.System.Common
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileSimulationSystem))]
-    [UpdateBefore(typeof(TimedProjectileSpawnSystem))]
+    [UpdateBefore(typeof(TimedSpawnSystem))]
     [UpdateBefore(typeof(ProjectileTrackingSystem))]
     [UpdateBefore(typeof(ProjectileMovementSystem))]
     [UpdateBefore(typeof(ProjectileContactGateSystem))]

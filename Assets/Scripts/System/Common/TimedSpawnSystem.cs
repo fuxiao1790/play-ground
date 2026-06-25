@@ -1,4 +1,4 @@
-using PlayGround.System.Common;
+using PlayGround.System.Aoe;
 using PlayGround.System.Projectile;
 using Unity.Burst;
 using Unity.Collections;
@@ -6,13 +6,13 @@ using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
 
-namespace PlayGround.System.Aoe
+namespace PlayGround.System.Common
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(CombatLifetimeSystem))]
-    [UpdateBefore(typeof(AoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
-    public partial struct TimedAoeSpawnSystem : ISystem
+    [UpdateBefore(typeof(AoeSpawnExpansionSystem))]
+    public partial struct TimedSpawnSystem : ISystem
     {
         public void OnUpdate(ref SystemState state)
         {
@@ -26,7 +26,7 @@ namespace PlayGround.System.Aoe
             bool hasProjectileTemplates = SystemAPI.TryGetSingleton(out ProjectileSpawnTemplate projectileTemplates);
             bool hasAoeTemplates = SystemAPI.TryGetSingleton(out AoeSpawnTemplate aoeTemplates);
 
-            JobHandle handle = new AoeIntervalSpawnJob
+            JobHandle handle = new TimedSpawnJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
                 ProjectileEventQueue = projectileExpansion != null
@@ -59,8 +59,8 @@ namespace PlayGround.System.Aoe
         }
 
         [BurstCompile]
-        [WithAll(typeof(AoeTag), typeof(Active), typeof(CombatLifetimeComponent), typeof(TimedSpawnTag))]
-        private partial struct AoeIntervalSpawnJob : IJobEntity
+        [WithAll(typeof(Active), typeof(CombatLifetimeComponent), typeof(TimedSpawnTag))]
+        private partial struct TimedSpawnJob : IJobEntity
         {
             public float DeltaTime;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventQueue;
@@ -72,117 +72,100 @@ namespace PlayGround.System.Aoe
             public bool HasProjectileTemplates;
             public bool HasAoeTemplates;
 
-            // Safety guards: the catch-up loop below advances cooldown by the per-tick
-            // interval. If that interval ever resolves to <= 0 (bad/zero config reaching the
-            // baked component), the loop would never terminate and hard-freeze the editor in
-            // Burst. Clamp the advance to a positive minimum and hard-cap iterations per update.
+            // Safety guards: a bad interval must advance by a positive amount and stop after a bounded catch-up.
             private const float MinIntervalSeconds = 1e-3f;
             private const int MaxTicksPerUpdate = 256;
 
             private void Execute(
-                ref TimedSpawnStateComponent timedSpawnState,
-                in AoeIdentityComponent identity,
+                ref TimedSpawnStateComponent state,
+                in TimedSpawnComponent spawn,
                 in CombatKinematicsComponent kinematics,
-                in CombatLifetimeComponent lifetime,
-                in TimedSpawnComponent timedSpawn)
+                in CombatLifetimeComponent lifetime)
             {
-                if (lifetime.Remaining <= 0f || identity.Faction == CombatFaction.None)
+                if (lifetime.Remaining <= 0f || spawn.Faction == CombatFaction.None)
                 {
                     return;
                 }
 
-                float cooldown = timedSpawnState.CooldownRemaining - DeltaTime;
-                int tickIndex = timedSpawnState.TickIndex;
+                float cooldown = state.CooldownRemaining - DeltaTime;
+                int tickIndex = state.TickIndex;
                 int ticksThisUpdate = 0;
                 while (cooldown <= 0f && ticksThisUpdate < MaxTicksPerUpdate)
                 {
                     ticksThisUpdate++;
                     tickIndex++;
-                    if (timedSpawn.ChildKind == IntervalChildKind.Aoe)
+                    if (spawn.ChildKind == IntervalChildKind.Aoe)
                     {
                         if (HasAoeEventQueue
                             && HasAoeTemplates
-                            && AoeTemplates.TryGetValue(timedSpawn.TemplateKey, out AoeSpawnEvent child))
+                            && AoeTemplates.TryGetValue(spawn.TemplateKey, out AoeSpawnEvent aoe))
                         {
-                            EnqueueAoeChildSpawn(identity, kinematics, in timedSpawn, in child, tickIndex);
+                            Stamp(ref aoe, in spawn, in kinematics, tickIndex);
+                            AoeEventQueue.Enqueue(aoe);
                         }
                     }
                     else
                     {
                         if (HasProjectileEventQueue
                             && HasProjectileTemplates
-                            && ProjectileTemplates.TryGetValue(timedSpawn.TemplateKey, out ProjectileSpawnEvent child))
+                            && ProjectileTemplates.TryGetValue(spawn.TemplateKey, out ProjectileSpawnEvent projectile))
                         {
-                            EnqueueProjectileChildSpawn(identity, kinematics, in timedSpawn, in child, tickIndex);
+                            Stamp(ref projectile, in spawn, in kinematics, tickIndex);
+                            ProjectileEventQueue.Enqueue(projectile);
                         }
                     }
 
                     cooldown += math.max(MinIntervalSeconds, NextIntervalSeconds(
-                        identity.AoeId,
-                        timedSpawn.JitterSeed,
+                        spawn.SourceId,
+                        spawn.JitterSeed,
                         tickIndex,
-                        timedSpawn.IntervalSeconds,
-                        timedSpawn.IntervalJitterSeconds));
+                        spawn.IntervalSeconds,
+                        spawn.IntervalJitterSeconds));
                 }
 
-                timedSpawnState.CooldownRemaining = cooldown;
-                timedSpawnState.TickIndex = tickIndex;
+                state.CooldownRemaining = cooldown;
+                state.TickIndex = tickIndex;
             }
 
-            private void EnqueueProjectileChildSpawn(
-                AoeIdentityComponent parentIdentity,
-                CombatKinematicsComponent parentKinematics,
-                in TimedSpawnComponent timedSpawn,
-                in ProjectileSpawnEvent child,
+            private static void Stamp(
+                ref ProjectileSpawnEvent evt,
+                in TimedSpawnComponent spawn,
+                in CombatKinematicsComponent kinematics,
                 int tickIndex)
             {
-                ProjectileSpawnEvent evt = child;
-                evt.Faction = parentIdentity.Faction;
-                evt.BaseProjectileId = parentIdentity.AoeId;
-                evt.SeedContactGateTargetId = 0;
-                evt.Position = parentKinematics.Position;
-                evt.BaseDirection = new float2(1f, 0f);
-                evt.Count = math.max(1, evt.Count);
-                evt.SpreadDegrees = 0f;
-                evt.JitterDegrees = 0f;
-                evt.JitterSeed = (uint)timedSpawn.JitterSeed;
-                evt.SpawnPatternType = ProjectileChildSpawnPatternType.Radial;
+                evt.Faction = spawn.Faction;
+                evt.BaseProjectileId = spawn.SourceId;
+                evt.Position = kinematics.Position;
+                evt.JitterSeed = (uint)spawn.JitterSeed;
                 evt.DeterministicIdTickIndex = tickIndex;
-                ProjectileEventQueue.Enqueue(evt);
             }
 
-            private void EnqueueAoeChildSpawn(
-                AoeIdentityComponent parentIdentity,
-                CombatKinematicsComponent parentKinematics,
-                in TimedSpawnComponent timedSpawn,
-                in AoeSpawnEvent child,
+            private static void Stamp(
+                ref AoeSpawnEvent evt,
+                in TimedSpawnComponent spawn,
+                in CombatKinematicsComponent kinematics,
                 int tickIndex)
             {
-                AoeSpawnEvent evt = child;
-                evt.Faction = parentIdentity.Faction;
-                evt.AoeId = parentIdentity.AoeId;
-                evt.Position = parentKinematics.Position;
-                evt.BoundsMin = default;
-                evt.BoundsMax = default;
-                evt.Count = math.max(1, evt.Count);
-                evt.JitterSeed = (uint)timedSpawn.JitterSeed;
+                evt.Faction = spawn.Faction;
+                evt.AoeId = spawn.SourceId;
+                evt.Position = kinematics.Position;
+                evt.JitterSeed = (uint)spawn.JitterSeed;
                 evt.DeterministicIdTickIndex = tickIndex;
-                AoeEventQueue.Enqueue(evt);
             }
 
             private static float NextIntervalSeconds(
-                int parentAoeId,
+                int sourceId,
                 int jitterSeed,
                 int tickIndex,
                 float intervalSeconds,
                 float intervalJitterSeconds)
             {
                 return intervalSeconds
-                    + DeterministicJitter(parentAoeId, jitterSeed, tickIndex, intervalJitterSeconds);
+                    + DeterministicJitter(sourceId, jitterSeed, tickIndex, intervalJitterSeconds);
             }
 
             private static float DeterministicJitter(
-                int parentAoeId,
+                int sourceId,
                 int jitterSeed,
                 int tickIndex,
                 float maxOffsetSeconds)
@@ -194,7 +177,7 @@ namespace PlayGround.System.Aoe
 
                 unchecked
                 {
-                    uint hash = (uint)parentAoeId;
+                    uint hash = (uint)sourceId;
                     hash = (hash * 397u) ^ (uint)jitterSeed;
                     hash = (hash * 397u) ^ (uint)tickIndex;
                     hash *= 0x9E3779B9u;
