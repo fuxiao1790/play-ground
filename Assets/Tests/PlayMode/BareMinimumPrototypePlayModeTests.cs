@@ -618,8 +618,8 @@ namespace PlayGround.Tests.PlayMode
             yield return null;
 
             Entity childSpawnerEntity = FirstScopedChildSpawnerEntity(projectileRoot);
-            ProjectileChildSpawnerComponent spawner =
-                World.DefaultGameObjectInjectionWorld.EntityManager.GetComponentData<ProjectileChildSpawnerComponent>(childSpawnerEntity);
+            TimedSpawnComponent spawner =
+                World.DefaultGameObjectInjectionWorld.EntityManager.GetComponentData<TimedSpawnComponent>(childSpawnerEntity);
 
             Assert.That(spawner.IntervalJitterSeconds, Is.EqualTo(IntervalJitterSeconds).Within(0.0001f));
             Object.Destroy(projectileObject);
@@ -1072,7 +1072,7 @@ namespace PlayGround.Tests.PlayMode
         {
             return CountScopedProjectiles(
                 projectileRoot,
-                entity => World.DefaultGameObjectInjectionWorld.EntityManager.HasComponent<ProjectileChildSpawnerTag>(entity));
+                entity => World.DefaultGameObjectInjectionWorld.EntityManager.HasComponent<TimedSpawnTag>(entity));
         }
 
         private static Entity FirstScopedChildSpawnerEntity(CombatRoot projectileRoot)
@@ -1083,7 +1083,7 @@ namespace PlayGround.Tests.PlayMode
                 entity =>
                 {
                     EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
-                    if (!entityManager.HasComponent<ProjectileChildSpawnerTag>(entity))
+                    if (!entityManager.HasComponent<TimedSpawnTag>(entity))
                     {
                         return false;
                     }

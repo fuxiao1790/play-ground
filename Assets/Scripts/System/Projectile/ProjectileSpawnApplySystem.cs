@@ -375,7 +375,7 @@ namespace PlayGround.System.Projectile
                 .WithAll<CombatRenderFaction>()
                 .WithAll<CombatRenderTypeId>()
                 .WithDisabled<Active>()
-                .WithNone<ProjectileChildSpawnerTag>()
+                .WithNone<TimedSpawnTag>()
                 .Build(this);
 
         protected override JobHandle ScheduleReuseJob(
@@ -549,10 +549,9 @@ namespace PlayGround.System.Projectile
                 typeof(ProjectileCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
                 typeof(ProjectileContactGateElement),
-                typeof(ProjectileChildSpawnerTag),
-                typeof(ProjectileChildSpawnerComponent),
-                typeof(AoeIntervalSpawnerComponent),
-                typeof(ProjectileChildSpawnStateComponent));
+                typeof(TimedSpawnTag),
+                typeof(TimedSpawnComponent),
+                typeof(TimedSpawnStateComponent));
 
         protected override NativeQueue<ProjectileSpawnCommand> CommandContainer(
             ProjectileSpawnExpansionSystem expansionSys) =>
@@ -563,7 +562,7 @@ namespace PlayGround.System.Projectile
                 .WithAll<ProjectileTag>()
                 .WithAll<CombatRenderFaction>()
                 .WithAll<CombatRenderTypeId>()
-                .WithAll<ProjectileChildSpawnerTag>()
+                .WithAll<TimedSpawnTag>()
                 .WithDisabled<Active>()
                 .Build(this);
 
@@ -589,9 +588,8 @@ namespace PlayGround.System.Projectile
                 RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
                 RenderElementHandle = GetComponentTypeHandle<CombatRenderElement>(false),
                 ContactGateHandle = GetBufferTypeHandle<ProjectileContactGateElement>(false),
-                ChildSpawnerHandle = GetComponentTypeHandle<ProjectileChildSpawnerComponent>(false),
-                AoeSpawnerHandle = GetComponentTypeHandle<AoeIntervalSpawnerComponent>(false),
-                ChildSpawnStateHandle = GetComponentTypeHandle<ProjectileChildSpawnStateComponent>(false),
+                TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
+                TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
             }.Schedule(query, default);
 
         protected override void CreateProjectileEntity(
@@ -604,36 +602,21 @@ namespace PlayGround.System.Projectile
             ecb.AddSharedComponent(entity, new CombatRenderFaction { Faction = faction });
             ecb.AddSharedComponent(entity, new CombatRenderTypeId { TypeId = cmd.TypeId });
             RecordCommonProjectileReset(ecb, entity, faction, cmd);
-            ecb.SetComponent(entity, cmd.ChildSpawner);
-            ecb.SetComponent(entity, cmd.AoeSpawner);
-            ecb.SetComponent(entity, InitialChildSpawnStateFor(cmd));
+            ecb.SetComponent(entity, cmd.TimedSpawn);
+            ecb.SetComponent(entity, InitialTimedSpawnStateFor(cmd));
         }
 
-        private static ProjectileChildSpawnStateComponent InitialChildSpawnStateFor(in ProjectileSpawnCommand cmd)
+        private static TimedSpawnStateComponent InitialTimedSpawnStateFor(in ProjectileSpawnCommand cmd)
         {
-            IntervalChildKind childKind = cmd.ChildSpawnState.ChildKind;
-            float intervalSeconds;
-            float intervalJitterSeconds;
-            int jitterSeed;
-            if (childKind == IntervalChildKind.Aoe)
+            TimedSpawnComponent timedSpawn = cmd.TimedSpawn;
+            return new TimedSpawnStateComponent
             {
-                intervalSeconds = cmd.AoeSpawner.IntervalSeconds;
-                intervalJitterSeconds = cmd.AoeSpawner.IntervalJitterSeconds;
-                jitterSeed = cmd.AoeSpawner.JitterSeed;
-            }
-            else
-            {
-                intervalSeconds = cmd.ChildSpawner.IntervalSeconds;
-                intervalJitterSeconds = cmd.ChildSpawner.IntervalJitterSeconds;
-                jitterSeed = cmd.ChildSpawner.JitterSeed;
-            }
-
-            return new ProjectileChildSpawnStateComponent
-            {
-                ChildSpawnCooldownRemaining = intervalSeconds
-                    + DeterministicJitter(cmd.ProjectileId, jitterSeed, intervalJitterSeconds),
-                ChildSpawnTickIndex = 0,
-                ChildKind = childKind
+                CooldownRemaining = timedSpawn.IntervalSeconds
+                    + DeterministicJitter(
+                        cmd.ProjectileId,
+                        timedSpawn.JitterSeed,
+                        timedSpawn.IntervalJitterSeconds),
+                TickIndex = 0
             };
         }
 
@@ -677,9 +660,8 @@ namespace PlayGround.System.Projectile
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderElement> RenderElementHandle;
             [NativeDisableContainerSafetyRestriction] public BufferTypeHandle<ProjectileContactGateElement> ContactGateHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileChildSpawnerComponent> ChildSpawnerHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeIntervalSpawnerComponent> AoeSpawnerHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileChildSpawnStateComponent> ChildSpawnStateHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<TimedSpawnStateComponent> TimedSpawnStateHandle;
 
             public void Execute(
                 in ArchetypeChunk chunk,
@@ -705,12 +687,10 @@ namespace PlayGround.System.Projectile
                 NativeArray<CombatRenderComponent> renders = chunk.GetNativeArray(ref RenderHandle);
                 NativeArray<CombatRenderElement> renderElems = chunk.GetNativeArray(ref RenderElementHandle);
                 BufferAccessor<ProjectileContactGateElement> gates = chunk.GetBufferAccessor(ref ContactGateHandle);
-                NativeArray<ProjectileChildSpawnerComponent> childSpawners =
-                    chunk.GetNativeArray(ref ChildSpawnerHandle);
-                NativeArray<AoeIntervalSpawnerComponent> aoeSpawners =
-                    chunk.GetNativeArray(ref AoeSpawnerHandle);
-                NativeArray<ProjectileChildSpawnStateComponent> childStates =
-                    chunk.GetNativeArray(ref ChildSpawnStateHandle);
+                NativeArray<TimedSpawnComponent> timedSpawns =
+                    chunk.GetNativeArray(ref TimedSpawnHandle);
+                NativeArray<TimedSpawnStateComponent> timedSpawnStates =
+                    chunk.GetNativeArray(ref TimedSpawnStateHandle);
 
                 for (int i = 0; i < chunk.Count && cfgIdx < Configs.Length; i++)
                 {
@@ -762,9 +742,8 @@ namespace PlayGround.System.Projectile
                         });
                     }
 
-                    childSpawners[i] = cfg.ChildSpawner;
-                    aoeSpawners[i] = cfg.AoeSpawner;
-                    childStates[i] = InitialChildSpawnStateFor(cfg);
+                    timedSpawns[i] = cfg.TimedSpawn;
+                    timedSpawnStates[i] = InitialTimedSpawnStateFor(cfg);
 
                     activeMask[i] = true;
                     collisionActiveMask[i] = NeedsCollision(cfg.HitPayload);

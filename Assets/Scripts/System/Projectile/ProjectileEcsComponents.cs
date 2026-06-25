@@ -1,8 +1,6 @@
 using PlayGround.System.Common;
 using Unity.Entities;
 using Unity.Mathematics;
-using UnityEngine;
-using Hash128 = Unity.Entities.Hash128;
 
 namespace PlayGround.System.Projectile
 {
@@ -40,14 +38,6 @@ namespace PlayGround.System.Projectile
         public uint TrackingRandomState;
     }
 
-    // ECS Lifecycle: optional child-spawner component; added to child-spawning archetypes; kept until root teardown; reset on reuse.
-    public struct ProjectileChildSpawnStateComponent : IComponentData
-    {
-        public float ChildSpawnCooldownRemaining;
-        public int ChildSpawnTickIndex;
-        public IntervalChildKind ChildKind;
-    }
-
     // ECS Lifecycle: projectile buffer; added by spawn materialization; kept until root teardown; cleared on reuse.
     [InternalBufferCapacity(CollisionConstants.MaxProjectileGateCapacity)] // = 16
     public struct ProjectileContactGateElement : IBufferElementData
@@ -59,29 +49,6 @@ namespace PlayGround.System.Projectile
     // ECS Lifecycle: enableable projectile tag; added at entity creation; kept until root teardown; enabled when the projectile produces collision effects (damage, stack, impact AOE/projectile); disabled for visual-only projectiles so the collision job skips them entirely.
     public struct ProjectileCollisionActiveTag : IComponentData, IEnableableComponent
     {
-    }
-
-    // ECS Lifecycle: optional child-spawner tag; added to child-spawning archetypes; kept until root teardown.
-    public struct ProjectileChildSpawnerTag : IComponentData
-    {
-    }
-
-    // ECS Lifecycle: optional child-spawner component; added to child-spawning archetypes; kept until root teardown; reset on reuse.
-    public struct ProjectileChildSpawnerComponent : IComponentData
-    {
-        public int JitterSeed;
-        public float IntervalSeconds;
-        public float IntervalJitterSeconds;
-        public Hash128 TemplateKey;
-    }
-
-    // ECS Lifecycle: optional interval AOE spawner component; added to child-spawning projectile archetypes; kept until root teardown; reset on reuse.
-    public struct AoeIntervalSpawnerComponent : IComponentData
-    {
-        public int JitterSeed;
-        public float IntervalSeconds;
-        public float IntervalJitterSeconds;
-        public Hash128 TemplateKey;
     }
 
 }

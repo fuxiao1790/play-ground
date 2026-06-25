@@ -167,8 +167,8 @@ namespace PlayGround.System.Aoe
                             Render                   = evt.Render,
                             ProjectileBurst          = evt.ProjectileBurst,
                             AoeSpawn                 = evt.AoeSpawn,
-                            HasIntervalSpawner       = evt.HasIntervalSpawner,
-                            IntervalSpawner          = evt.IntervalSpawner
+                            HasTimedSpawner          = evt.HasTimedSpawner,
+                            TimedSpawn               = evt.TimedSpawn
                         });
                     }
 

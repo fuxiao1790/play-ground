@@ -166,7 +166,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void ChildSpawn_ChildSpawnerProjectile_ProducesChildWithHasChildSpawnerZero()
+        public void ChildSpawn_TimedSpawnProjectile_ProducesChildWithHasTimedSpawnerZero()
         {
             CreateChildSpawnerEntity();
 
@@ -175,11 +175,11 @@ namespace PlayGround.Tests.PlayMode
             // parent + at least one child
             Assert.That(TotalProjectileCount(), Is.GreaterThanOrEqualTo(2));
 
-            // child has no child-spawner tag (HasChildSpawner=0 archetype)
+            // child has no timed-spawn tag (HasTimedSpawner=0 archetype)
             using EntityQuery childQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<Active>(),
-                ComponentType.Exclude<ProjectileChildSpawnerTag>());
+                ComponentType.Exclude<TimedSpawnTag>());
             Assert.That(childQuery.CalculateEntityCount(), Is.GreaterThanOrEqualTo(1));
         }
 
@@ -229,7 +229,7 @@ namespace PlayGround.Tests.PlayMode
         {
             Entity disabledChildSpawner = CreateDisabledProjectileSlot(childSpawner: true);
 
-            EnqueueEvent(MakeEvent(count: 1, hasChildSpawner: false));
+            EnqueueEvent(MakeEvent(count: 1, hasTimedSpawner: false));
             Tick(0.01f);
 
             Assert.That(entityManager.IsComponentEnabled<Active>(disabledChildSpawner), Is.False);
@@ -242,7 +242,7 @@ namespace PlayGround.Tests.PlayMode
         {
             Entity disabledBasic = CreateDisabledProjectileSlot(childSpawner: false);
 
-            EnqueueEvent(MakeEvent(count: 1, hasChildSpawner: true));
+            EnqueueEvent(MakeEvent(count: 1, hasTimedSpawner: true));
             Tick(0.01f);
 
             Assert.That(entityManager.IsComponentEnabled<Active>(disabledBasic), Is.False);
@@ -269,7 +269,7 @@ namespace PlayGround.Tests.PlayMode
             float2 baseDirection = default,
             float speed = 5f,
             float lifetime = 10f,
-            bool hasChildSpawner = false,
+            bool hasTimedSpawner = false,
             int baseProjectileId = 1,
             uint jitterSeed = 0u,
             int deterministicIdTickIndex = 0,
@@ -282,7 +282,7 @@ namespace PlayGround.Tests.PlayMode
                 Faction = CombatFaction.Player,
                 TypeId = 1,
                 BaseProjectileId = baseProjectileId,
-                HasChildSpawner = hasChildSpawner ? 1 : 0,
+                HasTimedSpawner = hasTimedSpawner ? 1 : 0,
                 Position = position,
                 BaseDirection = baseDirection,
                 Speed = speed,
@@ -300,20 +300,13 @@ namespace PlayGround.Tests.PlayMode
                     DamageAmount = 1f,
                     DirectDamageEnabled = true
                 }),
-                ChildSpawner = hasChildSpawner
-                    ? new ProjectileChildSpawnerComponent
+                TimedSpawn = hasTimedSpawner
+                    ? new TimedSpawnComponent
                     {
+                        ChildKind = IntervalChildKind.Projectile,
                         JitterSeed = 1,
                         IntervalSeconds = 1f,
                         TemplateKey = default
-                    }
-                    : default,
-                ChildSpawnState = hasChildSpawner
-                    ? new ProjectileChildSpawnStateComponent
-                    {
-                        ChildSpawnCooldownRemaining = 1f,
-                        ChildSpawnTickIndex = 0,
-                        ChildKind = IntervalChildKind.Projectile
                     }
                     : default
             };
@@ -365,10 +358,9 @@ namespace PlayGround.Tests.PlayMode
                     typeof(ProjectileCollisionActiveTag),
                     typeof(CombatRenderActiveTag),
                     typeof(ProjectileContactGateElement),
-                    typeof(ProjectileChildSpawnerTag),
-                    typeof(ProjectileChildSpawnerComponent),
-                    typeof(PlayGround.System.Projectile.AoeIntervalSpawnerComponent),
-                    typeof(ProjectileChildSpawnStateComponent))
+                    typeof(TimedSpawnTag),
+                    typeof(TimedSpawnComponent),
+                    typeof(TimedSpawnStateComponent))
                 : entityManager.CreateEntity(
                     typeof(ProjectileTag),
                     typeof(ProjectileIdentityComponent),
@@ -410,10 +402,9 @@ namespace PlayGround.Tests.PlayMode
                 typeof(ProjectileCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
                 typeof(ProjectileContactGateElement),
-                typeof(ProjectileChildSpawnerTag),
-                typeof(ProjectileChildSpawnerComponent),
-                typeof(PlayGround.System.Projectile.AoeIntervalSpawnerComponent),
-                typeof(ProjectileChildSpawnStateComponent));
+                typeof(TimedSpawnTag),
+                typeof(TimedSpawnComponent),
+                typeof(TimedSpawnStateComponent));
 
             entityManager.SetComponentData(entity, new ProjectileIdentityComponent
             {
@@ -433,17 +424,19 @@ namespace PlayGround.Tests.PlayMode
             });
             entityManager.SetComponentData(entity, new CombatLifetimeComponent { Remaining = 100f });
             entityManager.SetComponentEnabled<CombatLifetimeComponent>(entity, true);
-            entityManager.SetComponentData(entity, new ProjectileChildSpawnerComponent
+            entityManager.SetComponentData(entity, new TimedSpawnComponent
             {
+                Faction = CombatFaction.Player,
+                SourceId = 9999,
+                ChildKind = IntervalChildKind.Projectile,
                 JitterSeed = 9999,
                 IntervalSeconds = 1f,
                 TemplateKey = childProjectileTemplateKey
             });
-            entityManager.SetComponentData(entity, new ProjectileChildSpawnStateComponent
+            entityManager.SetComponentData(entity, new TimedSpawnStateComponent
             {
-                ChildSpawnCooldownRemaining = 0f,
-                ChildSpawnTickIndex = 0,
-                ChildKind = IntervalChildKind.Projectile
+                CooldownRemaining = 0f,
+                TickIndex = 0
             });
             entityManager.SetComponentEnabled<Active>(entity, true);
             entityManager.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, true);
@@ -470,7 +463,7 @@ namespace PlayGround.Tests.PlayMode
             using EntityQuery q = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<Active>(),
-                ComponentType.Exclude<ProjectileChildSpawnerTag>());
+                ComponentType.Exclude<TimedSpawnTag>());
             return q.CalculateEntityCount();
         }
 
@@ -479,7 +472,7 @@ namespace PlayGround.Tests.PlayMode
             using EntityQuery q = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<Active>(),
-                ComponentType.ReadOnly<ProjectileChildSpawnerTag>());
+                ComponentType.ReadOnly<TimedSpawnTag>());
             return q.CalculateEntityCount();
         }
 

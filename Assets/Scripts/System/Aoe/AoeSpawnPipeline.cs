@@ -28,8 +28,8 @@ namespace PlayGround.System.Aoe
         public CombatRenderComponent Render;
         public AoeProjectileBurstSnapshot ProjectileBurst;
         public AoeOnHitSpawnSnapshot AoeSpawn;
-        public int HasIntervalSpawner;
-        public AoeIntervalSpawnerComponent IntervalSpawner;
+        public int HasTimedSpawner;
+        public TimedSpawnComponent TimedSpawn;
     }
 
     // ECS Lifecycle: resolved single-entity allocation intent; produced by expansion, consumed by apply; never carries multiplicity.
@@ -52,8 +52,8 @@ namespace PlayGround.System.Aoe
         public CombatRenderComponent Render;
         public AoeProjectileBurstSnapshot ProjectileBurst;
         public AoeOnHitSpawnSnapshot AoeSpawn;
-        public int HasIntervalSpawner;
-        public AoeIntervalSpawnerComponent IntervalSpawner;
+        public int HasTimedSpawner;
+        public TimedSpawnComponent TimedSpawn;
     }
 
     internal static class AoeSpawnPipeline

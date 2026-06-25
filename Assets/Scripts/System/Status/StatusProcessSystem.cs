@@ -245,7 +245,7 @@ namespace PlayGround.System.Common
                     Faction = detonation.Faction,
                     TypeId = burst.ProjectileTypeId,
                     BaseProjectileId = baseId,
-                    HasChildSpawner = 0,
+                    HasTimedSpawner = 0,
                     SeedContactGateTargetId = 0,
                     Position = position,
                     BaseDirection = new float2(1f, 0f),
@@ -272,8 +272,7 @@ namespace PlayGround.System.Common
                     }),
                     Tracking = default,
                     Render = ProjectileRender(burst.VisualScale, burst.VisualRotationDegrees, baseId),
-                    ChildSpawner = default,
-                    ChildSpawnState = default
+                    TimedSpawn = default
                 };
             }
 

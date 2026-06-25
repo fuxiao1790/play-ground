@@ -419,7 +419,7 @@ namespace PlayGround.Skills
             return new ProjectileSpawnEvent
             {
                 TypeId = child.TypeId,
-                HasChildSpawner = 0,
+                HasTimedSpawner = 0,
                 Speed = child.Speed,
                 Count = Mathf.Max(1, behavior.Count),
                 SpreadDegrees = behavior.SpreadDegrees,

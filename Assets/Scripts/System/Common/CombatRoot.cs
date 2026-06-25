@@ -9,7 +9,6 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 using Hash128 = Unity.Entities.Hash128;
-using ProjectileAoeIntervalSpawnerComponent = PlayGround.System.Projectile.AoeIntervalSpawnerComponent;
 
 namespace PlayGround.System.Common
 {
@@ -300,10 +299,8 @@ namespace PlayGround.System.Common
         {
             float2 position = new(request.Position.x, request.Position.y);
             float2 halfExtents = new(request.HalfExtents.x, request.HalfExtents.y);
-            bool hasProjectileChildSpawner =
-                request.ChildKind == IntervalChildKind.Projectile && request.ChildSpawn.Enabled;
-            bool hasAoeChildSpawner =
-                request.ChildKind == IntervalChildKind.Aoe && IsAoeIntervalSpawnerEnabled(request.AoeIntervalSpawner);
+            TimedSpawnComponent timedSpawn = TimedSpawnFor(request, faction, baseProjectileId);
+            bool hasTimedSpawner = IsTimedSpawnEnabled(timedSpawn);
 
             var evt = new ProjectileSpawnEvent
             {
@@ -311,7 +308,7 @@ namespace PlayGround.System.Common
                 BaseProjectileId = baseProjectileId,
                 TypeId = request.ProjectileTypeId,
                 PierceRemaining = request.PierceCount,
-                HasChildSpawner = hasProjectileChildSpawner || hasAoeChildSpawner ? 1 : 0,
+                HasTimedSpawner = hasTimedSpawner ? 1 : 0,
                 SeedContactGateTargetId = seedContactGateTargetId,
                 RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds,
                 Lifetime = request.Lifetime,
@@ -329,30 +326,8 @@ namespace PlayGround.System.Common
                 SpreadDegrees = request.SpreadDegrees,
                 JitterDegrees = request.JitterDegrees,
                 JitterSeed = (uint)baseProjectileId * 2654435761u,
+                TimedSpawn = timedSpawn
             };
-
-            if (hasProjectileChildSpawner)
-            {
-                evt.ChildSpawner = ChildSpawnerComponentFor(request.ChildSpawn);
-                evt.ChildSpawnState = new ProjectileChildSpawnStateComponent
-                {
-                    ChildSpawnCooldownRemaining = request.ChildSpawn.IntervalSeconds
-                        + DeterministicJitter(baseProjectileId, request.ChildSpawn.IntervalJitterSeconds),
-                    ChildSpawnTickIndex = 0,
-                    ChildKind = IntervalChildKind.Projectile
-                };
-            }
-            else if (hasAoeChildSpawner)
-            {
-                evt.AoeSpawner = request.AoeIntervalSpawner;
-                evt.ChildSpawnState = new ProjectileChildSpawnStateComponent
-                {
-                    ChildSpawnCooldownRemaining = request.AoeIntervalSpawner.IntervalSeconds
-                        + DeterministicJitter(baseProjectileId, request.AoeIntervalSpawner.IntervalJitterSeconds),
-                    ChildSpawnTickIndex = 0,
-                    ChildKind = IntervalChildKind.Aoe
-                };
-            }
 
             return evt;
         }
@@ -388,21 +363,54 @@ namespace PlayGround.System.Common
                 Render = AoeRenderComponentFor(request.TypeId, geometry),
                 ProjectileBurst = request.ProjectileBurst,
                 AoeSpawn = request.AoeSpawn,
-                HasIntervalSpawner = request.HasIntervalSpawner ? 1 : 0,
-                IntervalSpawner = request.IntervalSpawner
+                HasTimedSpawner = request.HasTimedSpawner ? 1 : 0,
+                TimedSpawn = StampTimedSpawn(request.TimedSpawn, faction, aoeId)
             };
         }
 
-        private static ProjectileChildSpawnerComponent ChildSpawnerComponentFor(ProjectileChildSpawnConfig config)
+        private static TimedSpawnComponent TimedSpawnFor(
+            ProjectileSpawnRequest request,
+            CombatFaction faction,
+            int sourceId)
         {
-            return new ProjectileChildSpawnerComponent
+            TimedSpawnComponent timedSpawn = request.TimedSpawn;
+            if (!IsTimedSpawnEnabled(timedSpawn)
+                && request.ChildKind == IntervalChildKind.Projectile
+                && request.ChildSpawn.Enabled)
             {
-                JitterSeed = config.JitterSeed,
-                IntervalSeconds = config.IntervalSeconds,
-                IntervalJitterSeconds = config.IntervalJitterSeconds,
-                TemplateKey = config.TemplateKey
-            };
+                timedSpawn = new TimedSpawnComponent
+                {
+                    ChildKind = IntervalChildKind.Projectile,
+                    TemplateKey = request.ChildSpawn.TemplateKey,
+                    IntervalSeconds = request.ChildSpawn.IntervalSeconds,
+                    IntervalJitterSeconds = request.ChildSpawn.IntervalJitterSeconds,
+                    JitterSeed = request.ChildSpawn.JitterSeed
+                };
+            }
+
+            return StampTimedSpawn(timedSpawn, faction, sourceId);
         }
+
+        private static TimedSpawnComponent StampTimedSpawn(
+            TimedSpawnComponent timedSpawn,
+            CombatFaction faction,
+            int sourceId)
+        {
+            if (!IsTimedSpawnEnabled(timedSpawn))
+            {
+                return default;
+            }
+
+            timedSpawn.Faction = faction;
+            timedSpawn.SourceId = sourceId;
+            return timedSpawn;
+        }
+
+        private static bool IsTimedSpawnEnabled(TimedSpawnComponent timedSpawn) =>
+            timedSpawn.JitterSeed > 0
+            && timedSpawn.IntervalSeconds > 0f
+            && !timedSpawn.TemplateKey.Equals(default(Hash128));
+
         private static ProjectileTrackingComponent TrackingComponentFor(ProjectileTrackingConfig config)
         {
             return new ProjectileTrackingComponent
@@ -777,25 +785,6 @@ namespace PlayGround.System.Common
                 return false;
             }
         }
-
-        private static float DeterministicJitter(int projectileId, float maxOffsetSeconds)
-        {
-            if (maxOffsetSeconds <= 0f)
-            {
-                return 0f;
-            }
-
-            uint hash = (uint)projectileId * 0x9E3779B9u;
-            hash ^= hash >> 16;
-            hash *= 0x7FEB352Du;
-            hash ^= hash >> 15;
-            hash *= 0x846CA68Bu;
-            hash ^= hash >> 16;
-            return ((hash & 0x00FFFFFFu) + 1u) / 16777217f * maxOffsetSeconds;
-        }
-
-        private static bool IsAoeIntervalSpawnerEnabled(ProjectileAoeIntervalSpawnerComponent spawner) =>
-            spawner.JitterSeed > 0 && spawner.IntervalSeconds > 0f;
 
         [global::System.Serializable]
         private sealed class ProjectileRenderDefinition

@@ -32,7 +32,7 @@ namespace PlayGround.System.Aoe
             new(ProfilerCategory.Scripts, "AoeSpawnApplySystem.Reuse", ProfilerMarkerDataUnit.Count);
 
         private EntityArchetype lingeringArchetype;
-        private EntityArchetype intervalSpawnerLingeringArchetype;
+        private EntityArchetype timedSpawnerLingeringArchetype;
         private EntityArchetype impactArchetype;
 
         private readonly Dictionary<AoeSpawnKey, AoeSpawnBucket> _byKey = new();
@@ -58,7 +58,7 @@ namespace PlayGround.System.Aoe
                 typeof(AoeCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
                 typeof(AoeContactGateElement));
-            intervalSpawnerLingeringArchetype = EntityManager.CreateArchetype(
+            timedSpawnerLingeringArchetype = EntityManager.CreateArchetype(
                 typeof(AoeTag),
                 typeof(AoeIdentityComponent),
                 typeof(CombatLifetimeComponent),
@@ -74,9 +74,9 @@ namespace PlayGround.System.Aoe
                 typeof(AoeCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
                 typeof(AoeContactGateElement),
-                typeof(AoeIntervalSpawnerTag),
-                typeof(AoeIntervalSpawnerComponent),
-                typeof(AoeIntervalSpawnStateComponent));
+                typeof(TimedSpawnTag),
+                typeof(TimedSpawnComponent),
+                typeof(TimedSpawnStateComponent));
             impactArchetype = EntityManager.CreateArchetype(
                 typeof(AoeTag),
                 typeof(AoeIdentityComponent),
@@ -122,8 +122,8 @@ namespace PlayGround.System.Aoe
                     for (int j = 0; j < n; j++)
                     {
                         AoeSpawnCommand cmd = reader.Read<AoeSpawnCommand>();
-                        bool hasIntervalSpawner = HasIntervalSpawner(cmd);
-                        var key = new AoeSpawnKey((int)cmd.Faction, cmd.TypeId, cmd.Lifetime > 0f, hasIntervalSpawner);
+                        bool hasTimedSpawner = HasTimedSpawner(cmd);
+                        var key = new AoeSpawnKey((int)cmd.Faction, cmd.TypeId, cmd.Lifetime > 0f, hasTimedSpawner);
                         if (!_byKey.TryGetValue(key, out AoeSpawnBucket bucket))
                         {
                             bucket = GetBucket();
@@ -176,10 +176,10 @@ namespace PlayGround.System.Aoe
                             RenderHandle          = GetComponentTypeHandle<CombatRenderComponent>(false),
                             RenderElementHandle   = GetComponentTypeHandle<CombatRenderElement>(false),
                             ContactGateHandle     = GetBufferTypeHandle<AoeContactGateElement>(false),
-                            IntervalSpawnerHandle = GetComponentTypeHandle<AoeIntervalSpawnerComponent>(false),
-                            IntervalStateHandle   = GetComponentTypeHandle<AoeIntervalSpawnStateComponent>(false),
+                            TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
+                            TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
                             HasLingeringComponents = key.Lingering,
-                            HasIntervalSpawner = key.HasIntervalSpawner,
+                            HasTimedSpawner = key.HasTimedSpawner,
                         }.Schedule(query, default);
 
                         jobHandles.Add(spawnHandle);
@@ -244,14 +244,14 @@ namespace PlayGround.System.Aoe
             {
                 if (key.Lingering)
                 {
-                    if (key.HasIntervalSpawner)
+                    if (key.HasTimedSpawner)
                     {
                         query = new EntityQueryBuilder(Allocator.Temp)
                             .WithAll<AoeTag>()
                             .WithAll<CombatRenderFaction>()
                             .WithAll<CombatRenderTypeId>()
                             .WithAll<CombatLifetimeComponent>()
-                            .WithAll<AoeIntervalSpawnerTag>()
+                            .WithAll<TimedSpawnTag>()
                             .WithDisabled<Active>()
                             .Build(this);
                     }
@@ -263,7 +263,7 @@ namespace PlayGround.System.Aoe
                             .WithAll<CombatRenderTypeId>()
                             .WithAll<CombatLifetimeComponent>()
                             .WithDisabled<Active>()
-                            .WithNone<AoeIntervalSpawnerTag>()
+                            .WithNone<TimedSpawnTag>()
                             .Build(this);
                     }
                 }
@@ -275,7 +275,7 @@ namespace PlayGround.System.Aoe
                         .WithAll<CombatRenderTypeId>()
                         .WithDisabled<Active>()
                         .WithNone<CombatLifetimeComponent>()
-                        .WithNone<AoeIntervalSpawnerTag>()
+                        .WithNone<TimedSpawnTag>()
                         .Build(this);
                 }
                 _deadSlotQueriesByKey[key] = query;
@@ -300,14 +300,14 @@ namespace PlayGround.System.Aoe
         private void CreateAoeEntity(CombatFaction faction, AoeSpawnCommand cmd, EntityCommandBuffer ecb)
         {
             bool lingering = cmd.Lifetime > 0f;
-            bool hasIntervalSpawner = HasIntervalSpawner(cmd);
+            bool hasTimedSpawner = HasTimedSpawner(cmd);
             EntityArchetype archetype = lingering
-                ? hasIntervalSpawner ? intervalSpawnerLingeringArchetype : lingeringArchetype
+                ? hasTimedSpawner ? timedSpawnerLingeringArchetype : lingeringArchetype
                 : impactArchetype;
             Entity entity = ecb.CreateEntity(archetype);
             ecb.AddSharedComponent(entity, new CombatRenderFaction { Faction = faction });
             ecb.AddSharedComponent(entity, new CombatRenderTypeId { TypeId = cmd.TypeId });
-            RecordAoeReset(ecb, entity, faction, cmd, lingering, hasIntervalSpawner);
+            RecordAoeReset(ecb, entity, faction, cmd, lingering, hasTimedSpawner);
         }
 
         private static void RecordAoeReset(
@@ -316,7 +316,7 @@ namespace PlayGround.System.Aoe
             CombatFaction faction,
             AoeSpawnCommand cmd,
             bool lingering,
-            bool hasIntervalSpawner)
+            bool hasTimedSpawner)
         {
             CombatKinematicsComponent kinematics = KinematicsFor(cmd);
             CombatRenderComponent render = cmd.Render;
@@ -332,10 +332,10 @@ namespace PlayGround.System.Aoe
                 ecb.SetComponentEnabled<CombatLifetimeComponent>(entity, true);
                 ecb.SetComponent(entity, PulseVfxFor(cmd));
             }
-            if (hasIntervalSpawner)
+            if (hasTimedSpawner)
             {
-                ecb.SetComponent(entity, cmd.IntervalSpawner);
-                ecb.SetComponent(entity, InitialIntervalStateFor(cmd));
+                ecb.SetComponent(entity, cmd.TimedSpawn);
+                ecb.SetComponent(entity, InitialTimedSpawnStateFor(cmd));
             }
             ecb.SetComponent(entity, render);
             ecb.SetComponent(entity, CombatRenderMatrixUtility.ElementFor(kinematics, render));
@@ -352,17 +352,17 @@ namespace PlayGround.System.Aoe
             || cmd.ProjectileBurst.Enabled
             || cmd.AoeSpawn.Enabled;
 
-        private static bool HasIntervalSpawner(in AoeSpawnCommand cmd) =>
-            cmd.Lifetime > 0f && cmd.HasIntervalSpawner != 0;
+        private static bool HasTimedSpawner(in AoeSpawnCommand cmd) =>
+            cmd.Lifetime > 0f && cmd.HasTimedSpawner != 0;
 
-        private static AoeIntervalSpawnStateComponent InitialIntervalStateFor(in AoeSpawnCommand cmd) =>
-            new AoeIntervalSpawnStateComponent
+        private static TimedSpawnStateComponent InitialTimedSpawnStateFor(in AoeSpawnCommand cmd) =>
+            new TimedSpawnStateComponent
             {
-                CooldownRemaining = cmd.IntervalSpawner.IntervalSeconds
+                CooldownRemaining = cmd.TimedSpawn.IntervalSeconds
                     + DeterministicJitter(
                         cmd.AoeId,
-                        cmd.IntervalSpawner.JitterSeed,
-                        cmd.IntervalSpawner.IntervalJitterSeconds),
+                        cmd.TimedSpawn.JitterSeed,
+                        cmd.TimedSpawn.IntervalJitterSeconds),
                 TickIndex = 0
             };
 
@@ -424,10 +424,10 @@ namespace PlayGround.System.Aoe
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderComponent>    RenderHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderElement>      RenderElementHandle;
             [NativeDisableContainerSafetyRestriction] public BufferTypeHandle<AoeContactGateElement>       ContactGateHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeIntervalSpawnerComponent> IntervalSpawnerHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeIntervalSpawnStateComponent> IntervalStateHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<TimedSpawnStateComponent> TimedSpawnStateHandle;
             public bool HasLingeringComponents;
-            public bool HasIntervalSpawner;
+            public bool HasTimedSpawner;
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex,
                 bool useEnabledMask, in v128 chunkEnabledMask)
@@ -451,18 +451,18 @@ namespace PlayGround.System.Aoe
                 NativeArray<CombatLifetimeComponent> lifetimes = default;
                 NativeArray<AoePulseVfxComponent> pulseVfxs = default;
                 BufferAccessor<AoeContactGateElement> gates = default;
-                NativeArray<AoeIntervalSpawnerComponent> intervalSpawners = default;
-                NativeArray<AoeIntervalSpawnStateComponent> intervalStates = default;
+                NativeArray<TimedSpawnComponent> timedSpawns = default;
+                NativeArray<TimedSpawnStateComponent> timedSpawnStates = default;
                 if (HasLingeringComponents)
                 {
                     lifetimeMask = chunk.GetEnabledMask(ref LifetimeHandle);
                     lifetimes = chunk.GetNativeArray(ref LifetimeHandle);
                     pulseVfxs = chunk.GetNativeArray(ref PulseVfxHandle);
                     gates = chunk.GetBufferAccessor(ref ContactGateHandle);
-                    if (HasIntervalSpawner)
+                    if (HasTimedSpawner)
                     {
-                        intervalSpawners = chunk.GetNativeArray(ref IntervalSpawnerHandle);
-                        intervalStates = chunk.GetNativeArray(ref IntervalStateHandle);
+                        timedSpawns = chunk.GetNativeArray(ref TimedSpawnHandle);
+                        timedSpawnStates = chunk.GetNativeArray(ref TimedSpawnStateHandle);
                     }
                 }
 
@@ -511,10 +511,10 @@ namespace PlayGround.System.Aoe
                         };
                         gates[i].Clear();
                     }
-                    if (HasIntervalSpawner)
+                    if (HasTimedSpawner)
                     {
-                        intervalSpawners[i] = cfg.IntervalSpawner;
-                        intervalStates[i] = InitialIntervalStateFor(cfg);
+                        timedSpawns[i] = cfg.TimedSpawn;
+                        timedSpawnStates[i] = InitialTimedSpawnStateFor(cfg);
                     }
                     CombatRenderComponent render = cfg.Render;
                     renders[i]     = render;
@@ -536,26 +536,26 @@ namespace PlayGround.System.Aoe
             private readonly int _factionValue;
             private readonly int _typeId;
             private readonly bool _lingering;
-            private readonly bool _hasIntervalSpawner;
+            private readonly bool _hasTimedSpawner;
 
             public int FactionValue => _factionValue;
             public int TypeId       => _typeId;
             public bool Lingering   => _lingering;
-            public bool HasIntervalSpawner => _hasIntervalSpawner;
+            public bool HasTimedSpawner => _hasTimedSpawner;
 
-            public AoeSpawnKey(int factionValue, int typeId, bool lingering, bool hasIntervalSpawner)
+            public AoeSpawnKey(int factionValue, int typeId, bool lingering, bool hasTimedSpawner)
             {
                 _factionValue        = factionValue;
                 _typeId              = typeId;
                 _lingering           = lingering;
-                _hasIntervalSpawner  = hasIntervalSpawner;
+                _hasTimedSpawner     = hasTimedSpawner;
             }
 
             public bool Equals(AoeSpawnKey other) =>
                 _factionValue == other._factionValue
                 && _typeId == other._typeId
                 && _lingering == other._lingering
-                && _hasIntervalSpawner == other._hasIntervalSpawner;
+                && _hasTimedSpawner == other._hasTimedSpawner;
 
             public override bool Equals(object obj) => obj is AoeSpawnKey k && Equals(k);
 
@@ -566,7 +566,7 @@ namespace PlayGround.System.Aoe
                     int hash = _factionValue;
                     hash = hash * 397 ^ _typeId;
                     hash = hash * 397 ^ (_lingering ? 1 : 0);
-                    hash = hash * 397 ^ (_hasIntervalSpawner ? 1 : 0);
+                    hash = hash * 397 ^ (_hasTimedSpawner ? 1 : 0);
                     return hash;
                 }
             }

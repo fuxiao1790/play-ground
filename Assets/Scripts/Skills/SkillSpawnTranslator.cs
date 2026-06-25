@@ -4,8 +4,6 @@ using PlayGround.System.Aoe;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using UnityEngine;
-using AoeSourceIntervalSpawnerComponent = PlayGround.System.Aoe.AoeIntervalSpawnerComponent;
-using ProjectileAoeIntervalSpawnerComponent = PlayGround.System.Projectile.AoeIntervalSpawnerComponent;
 
 namespace PlayGround.Skills
 {
@@ -55,9 +53,13 @@ namespace PlayGround.Skills
             ProjectileImpactAoeSnapshot impactAoe = BuildImpactAoeSnapshot(def, root);
             ProjectileImpactProjectileSnapshot impactProjectile = BuildImpactProjectileSnapshot(def, root);
             ProjectileChildSpawnConfig childSpawn = ProjectileChildSpawnFromSetup(def.ChildSpawnSetup);
-            ProjectileAoeIntervalSpawnerComponent aoeIntervalSpawner =
-                ProjectileAoeIntervalSpawnerFromSetup(def.AoeIntervalSpawnSetup);
-            IntervalChildKind childKind = IsProjectileAoeIntervalSpawnerEnabled(aoeIntervalSpawner)
+            TimedSpawnComponent timedSpawn = ProjectileTimedSpawnFromSetup(def.ChildSpawnSetup);
+            TimedSpawnComponent aoeTimedSpawn = ProjectileAoeTimedSpawnFromSetup(def.AoeIntervalSpawnSetup);
+            if (IsTimedSpawnEnabled(aoeTimedSpawn))
+            {
+                timedSpawn = aoeTimedSpawn;
+            }
+            IntervalChildKind childKind = timedSpawn.ChildKind == IntervalChildKind.Aoe
                 ? IntervalChildKind.Aoe
                 : IntervalChildKind.Projectile;
 
@@ -87,7 +89,7 @@ namespace PlayGround.Skills
                 def.Count,
                 def.SpreadDegrees,
                 def.JitterDegrees,
-                aoeIntervalSpawner,
+                timedSpawn,
                 childKind));
         }
 
@@ -105,8 +107,8 @@ namespace PlayGround.Skills
             int count = Mathf.Max(1, def.Count);
             AoeSpawnGeometry geometry = def.CreateSpawnGeometry();
             StackEffectSnapshot effectiveStackEffect = BuildApplicatorStackEffectSnapshot(def, root, stackEffect);
-            AoeSourceIntervalSpawnerComponent intervalSpawner = AoeSourceIntervalSpawnerFromSetup(def);
-            bool hasIntervalSpawner = IsAoeSourceIntervalSpawnerEnabled(intervalSpawner);
+            TimedSpawnComponent timedSpawn = AoeTimedSpawnFromSetup(def);
+            bool hasTimedSpawner = IsTimedSpawnEnabled(timedSpawn);
 
             for (int i = 0; i < count; i++)
             {
@@ -122,12 +124,34 @@ namespace PlayGround.Skills
                     critChance: def.CritChance,
                     critMultiplier: def.CritMultiplier,
                     stackEffect: effectiveStackEffect,
-                    hasIntervalSpawner: hasIntervalSpawner,
-                    intervalSpawner: intervalSpawner));
+                    hasTimedSpawner: hasTimedSpawner,
+                    timedSpawn: timedSpawn));
             }
         }
 
-        private static ProjectileAoeIntervalSpawnerComponent ProjectileAoeIntervalSpawnerFromSetup(
+        private static TimedSpawnComponent ProjectileTimedSpawnFromSetup(RuntimeChildSpawnSetup setup)
+        {
+            RuntimeProjectileDefinition child = setup?.ChildDefinition;
+            if (setup == null
+                || child == null
+                || child.TypeId < 0
+                || child.Prefab == null
+                || IsDefault(setup.TemplateKey))
+            {
+                return default;
+            }
+
+            return new TimedSpawnComponent
+            {
+                ChildKind = IntervalChildKind.Projectile,
+                JitterSeed = setup.JitterSeed,
+                IntervalSeconds = Mathf.Max(0.01f, setup.IntervalSeconds),
+                IntervalJitterSeconds = Mathf.Max(0f, setup.IntervalJitterSeconds),
+                TemplateKey = setup.TemplateKey
+            };
+        }
+
+        private static TimedSpawnComponent ProjectileAoeTimedSpawnFromSetup(
             RuntimeAoeIntervalSpawnSetup setup)
         {
             RuntimeAoeDefinition child = setup?.ChildDefinition;
@@ -136,8 +160,9 @@ namespace PlayGround.Skills
                 return default;
             }
 
-            return new ProjectileAoeIntervalSpawnerComponent
+            return new TimedSpawnComponent
             {
+                ChildKind = IntervalChildKind.Aoe,
                 JitterSeed = setup.JitterSeed,
                 IntervalSeconds = Mathf.Max(0.01f, setup.IntervalSeconds),
                 IntervalJitterSeconds = Mathf.Max(0f, setup.IntervalJitterSeconds),
@@ -145,7 +170,7 @@ namespace PlayGround.Skills
             };
         }
 
-        private static AoeSourceIntervalSpawnerComponent AoeSourceIntervalSpawnerFromSetup(
+        private static TimedSpawnComponent AoeTimedSpawnFromSetup(
             RuntimeAoeDefinition def)
         {
             RuntimeChildSpawnSetup projectileSetup = def.ChildSpawnSetup;
@@ -156,7 +181,7 @@ namespace PlayGround.Skills
                 && projectileChild.Prefab != null
                 && !IsDefault(projectileSetup.TemplateKey))
             {
-                return new AoeSourceIntervalSpawnerComponent
+                return new TimedSpawnComponent
                 {
                     JitterSeed = projectileSetup.JitterSeed,
                     ChildKind = IntervalChildKind.Projectile,
@@ -173,7 +198,7 @@ namespace PlayGround.Skills
                 return default;
             }
 
-            return new AoeSourceIntervalSpawnerComponent
+            return new TimedSpawnComponent
             {
                 JitterSeed = aoeSetup.JitterSeed,
                 ChildKind = IntervalChildKind.Aoe,
@@ -183,11 +208,10 @@ namespace PlayGround.Skills
             };
         }
 
-        private static bool IsProjectileAoeIntervalSpawnerEnabled(ProjectileAoeIntervalSpawnerComponent spawner) =>
-            spawner.JitterSeed > 0 && spawner.IntervalSeconds > 0f;
-
-        private static bool IsAoeSourceIntervalSpawnerEnabled(AoeSourceIntervalSpawnerComponent spawner) =>
-            spawner.JitterSeed > 0 && spawner.IntervalSeconds > 0f;
+        private static bool IsTimedSpawnEnabled(TimedSpawnComponent timedSpawn) =>
+            timedSpawn.JitterSeed > 0
+            && timedSpawn.IntervalSeconds > 0f
+            && !IsDefault(timedSpawn.TemplateKey);
 
         private static ProjectileChildSpawnConfig ProjectileChildSpawnFromSetup(RuntimeChildSpawnSetup setup)
         {

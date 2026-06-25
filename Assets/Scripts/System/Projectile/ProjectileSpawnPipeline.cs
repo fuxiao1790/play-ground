@@ -10,7 +10,7 @@ namespace PlayGround.System.Projectile
         public CombatFaction Faction;
         public int TypeId;
         public int BaseProjectileId;
-        public int HasChildSpawner;
+        public int HasTimedSpawner;
         public int SeedContactGateTargetId;
         public float2 Position;
         public float2 BaseDirection;
@@ -33,9 +33,7 @@ namespace PlayGround.System.Projectile
         public ProjectileHitPayload HitPayload;
         public ProjectileTrackingComponent Tracking;
         public CombatRenderComponent Render;
-        public ProjectileChildSpawnerComponent ChildSpawner;
-        public AoeIntervalSpawnerComponent AoeSpawner;
-        public ProjectileChildSpawnStateComponent ChildSpawnState;
+        public TimedSpawnComponent TimedSpawn;
     }
 
     // resolved single-entity allocation intent; produced by expansion, consumed by apply; never carries multiplicity.
@@ -44,7 +42,7 @@ namespace PlayGround.System.Projectile
         public CombatFaction Faction;
         public int ProjectileId;
         public int TypeId;
-        public int HasChildSpawner;
+        public int HasTimedSpawner;
         public int PierceRemaining;
         public float RepeatHitCooldownSeconds;
         public int SeedContactGateTargetId;
@@ -60,9 +58,7 @@ namespace PlayGround.System.Projectile
         public ProjectileHitPayload HitPayload;
         public ProjectileTrackingComponent Tracking;
         public CombatRenderComponent Render;
-        public ProjectileChildSpawnerComponent ChildSpawner;
-        public AoeIntervalSpawnerComponent AoeSpawner;
-        public ProjectileChildSpawnStateComponent ChildSpawnState;
+        public TimedSpawnComponent TimedSpawn;
     }
 
     internal static class ProjectileSpawnPipeline
@@ -94,7 +90,7 @@ namespace PlayGround.System.Projectile
                 Faction = faction,
                 TypeId = snapshot.ProjectileTypeId,
                 BaseProjectileId = baseId,
-                HasChildSpawner = 0,
+                HasTimedSpawner = 0,
                 SeedContactGateTargetId = targetId,
                 Position = position,
                 BaseDirection = baseDirection,
@@ -140,7 +136,7 @@ namespace PlayGround.System.Projectile
                 Faction = faction,
                 TypeId = snapshot.ProjectileTypeId,
                 BaseProjectileId = baseId,
-                HasChildSpawner = 0,
+                HasTimedSpawner = 0,
                 SeedContactGateTargetId = 0,
                 Position = position,
                 BaseDirection = baseDirection,

@@ -181,6 +181,30 @@ namespace PlayGround.System.Common
     {
     }
 
+    // ECS Lifecycle: optional timed-spawn data; added to timed-spawning projectile/AOE archetypes; kept until root teardown; reset on reuse.
+    public struct TimedSpawnComponent : IComponentData
+    {
+        public CombatFaction Faction;
+        public int SourceId;
+        public IntervalChildKind ChildKind;
+        public Unity.Entities.Hash128 TemplateKey;
+        public float IntervalSeconds;
+        public float IntervalJitterSeconds;
+        public int JitterSeed;
+    }
+
+    // ECS Lifecycle: optional timed-spawn state; added to timed-spawning projectile/AOE archetypes; kept until root teardown; reset on reuse.
+    public struct TimedSpawnStateComponent : IComponentData
+    {
+        public float CooldownRemaining;
+        public int TickIndex;
+    }
+
+    // ECS Lifecycle: optional timed-spawn tag; added to timed-spawning projectile/AOE archetypes; kept until root teardown.
+    public struct TimedSpawnTag : IComponentData
+    {
+    }
+
     // ECS Lifecycle: enableable common lifetime component; added at entity creation for finite-lifetime reusable entities;
     // ENABLED on spawn for finite lifetimes, DISABLED for pulse AOEs (deactivated by collision the same tick);
     // CombatLifetimeSystem counts it down and disables Active on expiry.

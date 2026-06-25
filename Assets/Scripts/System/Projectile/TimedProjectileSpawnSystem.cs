@@ -47,7 +47,7 @@ namespace PlayGround.System.Projectile
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileTag), typeof(Active), typeof(ProjectileChildSpawnerTag))]
+        [WithAll(typeof(ProjectileTag), typeof(Active), typeof(TimedSpawnTag))]
         private partial struct ProjectileChildSpawnEntityJob : IJobEntity
         {
             public float DeltaTime;
@@ -67,66 +67,58 @@ namespace PlayGround.System.Projectile
             private const int MaxTicksPerUpdate = 256;
 
             private void Execute(
-                ref ProjectileChildSpawnStateComponent childSpawnState,
+                ref TimedSpawnStateComponent timedSpawnState,
                 in ProjectileIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
                 in CombatLifetimeComponent lifetime,
-                in ProjectileChildSpawnerComponent spawner,
-                in AoeIntervalSpawnerComponent aoeSpawner)
+                in TimedSpawnComponent timedSpawn)
             {
                 if (lifetime.Remaining <= 0f || identity.Faction == CombatFaction.None)
                 {
                     return;
                 }
 
-                float cooldown = childSpawnState.ChildSpawnCooldownRemaining - DeltaTime;
-                int tickIndex = childSpawnState.ChildSpawnTickIndex;
+                float cooldown = timedSpawnState.CooldownRemaining - DeltaTime;
+                int tickIndex = timedSpawnState.TickIndex;
                 int ticksThisUpdate = 0;
                 while (cooldown <= 0f && ticksThisUpdate < MaxTicksPerUpdate)
                 {
                     ticksThisUpdate++;
                     tickIndex++;
-                    if (childSpawnState.ChildKind == IntervalChildKind.Aoe)
+                    if (timedSpawn.ChildKind == IntervalChildKind.Aoe)
                     {
                         if (HasAoeEventQueue
                             && HasAoeTemplates
-                            && AoeTemplates.TryGetValue(aoeSpawner.TemplateKey, out AoeSpawnEvent child))
+                            && AoeTemplates.TryGetValue(timedSpawn.TemplateKey, out AoeSpawnEvent child))
                         {
-                            EnqueueAoeChildSpawn(identity, kinematics, in aoeSpawner, in child, tickIndex);
+                            EnqueueAoeChildSpawn(identity, kinematics, in timedSpawn, in child, tickIndex);
                         }
-
-                        cooldown += math.max(MinIntervalSeconds, NextIntervalSeconds(
-                            identity.ProjectileId,
-                            aoeSpawner.JitterSeed,
-                            tickIndex,
-                            aoeSpawner.IntervalSeconds,
-                            aoeSpawner.IntervalJitterSeconds));
                     }
                     else
                     {
                         if (HasProjectileTemplates
-                            && ProjectileTemplates.TryGetValue(spawner.TemplateKey, out ProjectileSpawnEvent child))
+                            && ProjectileTemplates.TryGetValue(timedSpawn.TemplateKey, out ProjectileSpawnEvent child))
                         {
-                            EnqueueProjectileChildSpawn(identity, kinematics, in spawner, in child, tickIndex);
+                            EnqueueProjectileChildSpawn(identity, kinematics, in timedSpawn, in child, tickIndex);
                         }
-
-                        cooldown += math.max(MinIntervalSeconds, NextIntervalSeconds(
-                            identity.ProjectileId,
-                            spawner.JitterSeed,
-                            tickIndex,
-                            spawner.IntervalSeconds,
-                            spawner.IntervalJitterSeconds));
                     }
+
+                    cooldown += math.max(MinIntervalSeconds, NextIntervalSeconds(
+                        identity.ProjectileId,
+                        timedSpawn.JitterSeed,
+                        tickIndex,
+                        timedSpawn.IntervalSeconds,
+                        timedSpawn.IntervalJitterSeconds));
                 }
 
-                childSpawnState.ChildSpawnCooldownRemaining = cooldown;
-                childSpawnState.ChildSpawnTickIndex = tickIndex;
+                timedSpawnState.CooldownRemaining = cooldown;
+                timedSpawnState.TickIndex = tickIndex;
             }
 
             private void EnqueueProjectileChildSpawn(
                 ProjectileIdentityComponent parentIdentity,
                 CombatKinematicsComponent parentKinematics,
-                in ProjectileChildSpawnerComponent spawner,
+                in TimedSpawnComponent timedSpawn,
                 in ProjectileSpawnEvent child,
                 int tickIndex)
             {
@@ -141,7 +133,7 @@ namespace PlayGround.System.Projectile
                 evt.Speed = evt.Speed > 0f ? evt.Speed : parentSpeed;
                 evt.Count = math.max(1, evt.Count);
                 evt.JitterDegrees = 0f;
-                evt.JitterSeed = (uint)spawner.JitterSeed;
+                evt.JitterSeed = (uint)timedSpawn.JitterSeed;
                 evt.DeterministicIdTickIndex = tickIndex;
                 ProjectileEventQueue.Enqueue(evt);
             }
@@ -149,7 +141,7 @@ namespace PlayGround.System.Projectile
             private void EnqueueAoeChildSpawn(
                 ProjectileIdentityComponent parentIdentity,
                 CombatKinematicsComponent parentKinematics,
-                in AoeIntervalSpawnerComponent spawner,
+                in TimedSpawnComponent timedSpawn,
                 in AoeSpawnEvent child,
                 int tickIndex)
             {
@@ -160,7 +152,7 @@ namespace PlayGround.System.Projectile
                 evt.BoundsMin = default;
                 evt.BoundsMax = default;
                 evt.Count = math.max(1, evt.Count);
-                evt.JitterSeed = (uint)spawner.JitterSeed;
+                evt.JitterSeed = (uint)timedSpawn.JitterSeed;
                 evt.DeterministicIdTickIndex = tickIndex;
                 AoeEventQueue.Enqueue(evt);
             }

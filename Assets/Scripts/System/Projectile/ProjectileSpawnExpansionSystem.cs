@@ -187,7 +187,7 @@ namespace PlayGround.System.Projectile
                     Faction = evt.Faction,
                     ProjectileId = projectileId,
                     TypeId = evt.TypeId,
-                    HasChildSpawner = evt.HasChildSpawner,
+                    HasTimedSpawner = evt.HasTimedSpawner,
                     PierceRemaining = evt.PierceRemaining,
                     RepeatHitCooldownSeconds = evt.RepeatHitCooldownSeconds,
                     SeedContactGateTargetId = evt.SeedContactGateTargetId,
@@ -203,12 +203,10 @@ namespace PlayGround.System.Projectile
                     HitPayload = evt.HitPayload,
                     Tracking = evt.Tracking,
                     Render = render,
-                    ChildSpawner = evt.ChildSpawner,
-                    AoeSpawner = evt.AoeSpawner,
-                    ChildSpawnState = evt.ChildSpawnState
+                    TimedSpawn = evt.TimedSpawn
                 };
 
-                if (evt.HasChildSpawner != 0)
+                if (evt.HasTimedSpawner != 0)
                     ChildSpawnerCommands.Enqueue(command);
                 else
                     BasicCommands.Enqueue(command);

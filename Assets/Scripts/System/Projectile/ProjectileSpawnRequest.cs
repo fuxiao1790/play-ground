@@ -74,7 +74,7 @@ namespace PlayGround.System.Projectile
             int count = 1,
             float spreadDegrees = 0f,
             float jitterDegrees = 0f,
-            AoeIntervalSpawnerComponent aoeIntervalSpawner = default,
+            TimedSpawnComponent timedSpawn = default,
             IntervalChildKind childKind = IntervalChildKind.Projectile)
         {
             Position = position;
@@ -109,7 +109,7 @@ namespace PlayGround.System.Projectile
             Count = Mathf.Max(1, count);
             SpreadDegrees = Mathf.Max(0f, spreadDegrees);
             JitterDegrees = Mathf.Max(0f, jitterDegrees);
-            AoeIntervalSpawner = aoeIntervalSpawner;
+            TimedSpawn = timedSpawn;
             ChildKind = childKind;
         }
 
@@ -170,7 +170,7 @@ namespace PlayGround.System.Projectile
         public float RepeatHitCooldownSeconds { get; }
         public ProjectileTrackingConfig Tracking { get; }
         public ProjectileChildSpawnConfig ChildSpawn { get; }
-        public AoeIntervalSpawnerComponent AoeIntervalSpawner { get; }
+        public TimedSpawnComponent TimedSpawn { get; }
         public IntervalChildKind ChildKind { get; }
         public bool DirectDamageEnabled { get; }
         public ProjectileImpactAoeSnapshot ImpactAoe { get; }
