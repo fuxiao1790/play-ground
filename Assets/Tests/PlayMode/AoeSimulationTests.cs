@@ -566,7 +566,9 @@ namespace PlayGround.Tests.PlayMode
             AoeSpawnEvent detonation = DequeueSingleAoeEvent();
             Assert.That(TryReadStackEntry(target.Proxy, 102, out _), Is.False);
             Assert.That(detonation.HitPayload.DamageAmount, Is.EqualTo(18f).Within(0.0001f));
-            Assert.That(detonation.AreaSize, Is.EqualTo(6f).Within(0.0001f));
+            // Damage still sums across stacks, but area is capped at the configured geometry
+            // (areaScale clamped to 1): SummedArea 6 over a geometry AreaSize of 1 -> 1.
+            Assert.That(detonation.AreaSize, Is.EqualTo(1f).Within(0.0001f));
         }
 
         [Test]
@@ -613,10 +615,13 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(detonation.Position.x, Is.EqualTo(3f).Within(0.0001f));
             Assert.That(detonation.Position.y, Is.EqualTo(-2f).Within(0.0001f));
             Assert.That(detonation.HitPayload.DamageAmount, Is.EqualTo(10f).Within(0.0001f));
-            Assert.That(detonation.AreaSize, Is.EqualTo(6f).Within(0.0001f));
-            Assert.That(detonation.Radius, Is.EqualTo(6f).Within(0.0001f));
-            Assert.That(detonation.HalfExtents.x, Is.EqualTo(3f).Within(0.0001f));
-            Assert.That(detonation.HalfExtents.y, Is.EqualTo(1.5f).Within(0.0001f));
+            // Damage sums (4 + 6 = 10), but area is capped at the configured geometry: SummedArea
+            // 6 over geometry AreaSize 2 clamps areaScale to 1, so radius/half-extents stay at the
+            // authored values rather than scaling up with stack count.
+            Assert.That(detonation.AreaSize, Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(detonation.Radius, Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(detonation.HalfExtents.x, Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(detonation.HalfExtents.y, Is.EqualTo(0.5f).Within(0.0001f));
             Assert.That(detonation.Lifetime, Is.EqualTo(0.5f).Within(0.0001f));
             Assert.That(detonation.RepeatHitCooldownSeconds, Is.EqualTo(0.125f).Within(0.0001f));
         }

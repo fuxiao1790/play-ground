@@ -185,8 +185,15 @@ namespace PlayGround.System.Common
             {
                 DetonationSnapshot detonation = entry.Detonation;
                 AoeSpawnGeometry geometry = detonation.AoeGeometry;
+                // Damage accumulates with every stack consumed, but the explosion AREA is
+                // capped at the configured geometry. A single-frame burst (e.g. an on-impact
+                // 360 deg projectile spawn) can drive Count -- and therefore SummedArea -- well
+                // past one threshold's worth before this once-per-frame system detonates it. An
+                // unclamped areaScale then renders and collides far larger than intended, scaling
+                // with the projectile/cluster count. Clamp to 1 so area/radius/bounds stay at the
+                // intended geometry; SummedDamage below still scales the hit with stack count.
                 float areaScale = geometry.AreaSize > 0f && entry.SummedArea > 0f
-                    ? entry.SummedArea / geometry.AreaSize
+                    ? math.min(1f, entry.SummedArea / geometry.AreaSize)
                     : 1f;
                 float radius = geometry.Radius * areaScale;
                 float2 halfExtents = new(geometry.HalfExtents.x * areaScale, geometry.HalfExtents.y * areaScale);
@@ -215,7 +222,7 @@ namespace PlayGround.System.Common
                         SourceNodeId = default,
                         StackEffect = default
                     },
-                    AreaSize = entry.SummedArea > 0f ? entry.SummedArea : geometry.AreaSize,
+                    AreaSize = geometry.AreaSize > 0f ? geometry.AreaSize * areaScale : entry.SummedArea,
                     Radius = radius,
                     RotationRadians = geometry.RotationRadians,
                     Position = position,
