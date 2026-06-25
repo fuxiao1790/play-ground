@@ -8,7 +8,7 @@ namespace PlayGround.Skills
         [Min(0)] public int spawnCount;
         [SerializeField] public float spreadDegrees = 30f;
 
-        public override SkillDefinitionTags SourceSkillTags => SkillDefinitionTags.Projectile;
+        public override SkillDefinitionTags SourceSkillTags => SkillDefinitionTags.Projectile | SkillDefinitionTags.Aoe;
         public override SkillDefinitionTags TargetSkillTags => SkillDefinitionTags.Projectile;
     }
 }

@@ -1,4 +1,8 @@
 # ECS Performance Notes
+
+This is the detailed ECS performance and high-churn notes doc. Use
+[index.md](./index.md) for the simulation overview and aspect map.
+
 > Source: [Your ECS Probably Still Sucks](https://gist.github.com/Dreaming381/89d65f81b9b430ffead443a2d430defc) — Dreaming381
 
 ---

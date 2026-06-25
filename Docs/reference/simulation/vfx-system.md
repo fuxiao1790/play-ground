@@ -3,6 +3,9 @@
 All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be checked against code before implementation work.
 
+This is the detailed VFX ECS dispatch doc. Use [index.md](./index.md) for the
+simulation overview and aspect map.
+
 ## Summary
 
 The VFX system dispatches batched Visual Effect Graph events from ECS simulation

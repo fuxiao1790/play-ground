@@ -194,6 +194,8 @@ namespace PlayGround.Skills
                     RegisterProjectileTypesRecursive(aoeDef.AoeIntervalSpawnSetup.ChildDefinition);
                 if (aoeDef.OnHitAoeSpawnDefinition != null)
                     RegisterProjectileTypesRecursive(aoeDef.OnHitAoeSpawnDefinition);
+                if (aoeDef.OnHitProjectileSpawnDefinition != null)
+                    RegisterProjectileTypesRecursive(aoeDef.OnHitProjectileSpawnDefinition);
                 if (aoeDef.StackingDetonation != null)
                     RegisterProjectileTypesRecursive(aoeDef.StackingDetonation);
             }
@@ -269,6 +271,8 @@ namespace PlayGround.Skills
 
                 if (aoeDef.OnHitAoeSpawnDefinition != null)
                     RegisterIntervalTemplatesRecursive(aoeDef.OnHitAoeSpawnDefinition);
+                if (aoeDef.OnHitProjectileSpawnDefinition != null)
+                    RegisterIntervalTemplatesRecursive(aoeDef.OnHitProjectileSpawnDefinition);
                 if (aoeDef.StackingDetonation != null)
                     RegisterIntervalTemplatesRecursive(aoeDef.StackingDetonation);
             }
@@ -348,6 +352,8 @@ namespace PlayGround.Skills
                     RegisterAoeTypesRecursive(aoeDef.AoeIntervalSpawnSetup.ChildDefinition);
                 if (aoeDef.OnHitAoeSpawnDefinition != null)
                     RegisterAoeTypesRecursive(aoeDef.OnHitAoeSpawnDefinition);
+                if (aoeDef.OnHitProjectileSpawnDefinition != null)
+                    RegisterAoeTypesRecursive(aoeDef.OnHitProjectileSpawnDefinition);
                 if (aoeDef.StackingDetonation != null)
                     RegisterAoeTypesRecursive(aoeDef.StackingDetonation);
             }
@@ -486,7 +492,9 @@ namespace PlayGround.Skills
                 ShapeType = geometry.ShapeType,
                 Count = Mathf.Max(1, count),
                 Render = AoeRenderComponentFor(geometry),
-                ProjectileBurst = default,
+                ProjectileBurst = child.OnHitProjectileSpawnDefinition != null
+                    ? BuildProjectileDetonationBurstSnapshot(child.OnHitProjectileSpawnDefinition, root.TargetMask)
+                    : default,
                 AoeSpawn = BuildAoeOnHitSpawnSnapshot(child.OnHitAoeSpawnDefinition, root, MaxAoeOnHitSpawnDepth)
             };
         }

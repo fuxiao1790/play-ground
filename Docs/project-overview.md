@@ -51,7 +51,8 @@ Current Unity state:
 - Use target proxy entities for projectile and AOE collision. Do not use live
   trigger callbacks as the authoritative high-count hit path.
 - Use generic `Active` enable/disable for projectile and AOE slot reuse.
-- Keep managed target callback access restricted to `DamageDispatchBridge`.
+- Keep managed target callback access restricted to the presentation bridge
+  (`CombatApplyBridge`).
 
 ## Runtime Target
 
@@ -137,8 +138,8 @@ Implemented:
 - AOE ECS runtime with Event -> Command expansion, apply/reuse, generic
   lifetime, pulse VFX, contact gates, pulse and lingering collision,
   damage/projectile-burst/VFX event output, and batched rendering
-- native damage transport through `DamageReplayEvent`,
-  `DamageFinalizeSystem`, and `DamageDispatchBridge`
+- ECS hit aggregation through `CombatHitEvent`, `CombatApplyFinalizeSystem`,
+  and `CombatApplyBridge`
 - VFX request buffering and dispatch through `CombatVfxRoot` and
   `CombatVfxDispatchSystem`
 
@@ -181,16 +182,38 @@ Performance work to keep visible as content grows:
 ## Key Docs
 
 - [folder-structure.md](./folder-structure.md): file map
-- [architecture.md](./architecture.md): runtime ownership and system shape
+- [architecture/index.md](./architecture/index.md): architecture entry point
+- [architecture/layer-rules.md](./architecture/layer-rules.md): ownership and
+  boundary rules
+- [architecture/data-flow-overview.md](./architecture/data-flow-overview.md):
+  cross-layer flow map
+- [architecture/phase-order.md](./architecture/phase-order.md): update and ECS
+  phase order
+- [layers/game-logic.md](./layers/game-logic.md): game logic ownership
+- [layers/ecs-simulation.md](./layers/ecs-simulation.md): ECS simulation
+  ownership
+- [contracts/spawn-events-and-commands.md](./contracts/spawn-events-and-commands.md):
+  spawn event and command contracts
+- [contracts/target-proxy.md](./contracts/target-proxy.md): target proxy
+  contract
+- [contracts/combat-hit-and-tick-results.md](./contracts/combat-hit-and-tick-results.md):
+  combat result contract
 - [coding-standards.md](./coding-standards.md): Unity C# rules
-- [design/gameplay.md](./design/gameplay.md): gameplay loop and open design
-- [game-logic/skill-system.md](./game-logic/skill-system.md): skill and support
-  model
-- [simulation/projectile-system.md](./simulation/projectile-system.md):
-  projectile runtime
-- [simulation/aoe-system.md](./simulation/aoe-system.md): AOE runtime
-- [simulation/vfx-system.md](./simulation/vfx-system.md): VFX runtime
-- [game-logic/mobs.md](./game-logic/mobs.md): mob runtime and content target
-- [game-logic/mob-behaviour.md](./game-logic/mob-behaviour.md): mob AI design
+- [reference/design/gameplay.md](./reference/design/gameplay.md): gameplay loop
+  and open design
+- [reference/game-logic/skill-system.md](./reference/game-logic/skill-system.md):
+  skill and support detail
+- [reference/simulation/index.md](./reference/simulation/index.md): simulation
+  detail index
+- [reference/simulation/snapshotting.md](./reference/simulation/snapshotting.md):
+  snapshot and spawn safety detail
+- [reference/simulation/projectile-system.md](./reference/simulation/projectile-system.md):
+  projectile runtime detail
+- [reference/simulation/aoe-system.md](./reference/simulation/aoe-system.md):
+  AOE runtime detail
+- [reference/simulation/project-aoe-system-common.md](./reference/simulation/project-aoe-system-common.md):
+  shared projectile/AOE runtime detail
+- [reference/simulation/vfx-system.md](./reference/simulation/vfx-system.md):
+  VFX runtime detail
 - [testing.md](./testing.md): Unity test approach
 - [release.md](./release.md): Unity Windows build notes

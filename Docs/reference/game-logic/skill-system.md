@@ -41,6 +41,11 @@ or any internal config types. A translation layer sits between the two.
 The skill system only crosses the boundary through that layer. The player-facing
 authoring surface is limited to skill system types.
 
+For the broader ownership split between skill/game logic docs and simulation
+docs, see
+[game-logic.md](../../layers/game-logic.md) and
+[ecs-simulation.md](../../layers/ecs-simulation.md).
+
 ```
 ┌─────────────────────────────────┐
 │  Layer 1: Equipment state       │
@@ -485,14 +490,18 @@ the AOE's hit and compiles into `RuntimeAoeDefinition.OnHitAoeSpawnDefinition`
 class OnImpactAoeTrigger : TriggerLink { }
 ```
 
-Compatible tags: source `Projectile`, target `Aoe`.
+Compatible tags: source `Projectile` or `Aoe`, target `Aoe`.
 
 **OnImpactProjectileTrigger**
 
-Fires the effect set as a burst of projectiles from the cause projectile's
-impact point, aimed back from the impact. Compiles into
-`RuntimeProjectileDefinition.ImpactProjectileDefinition`. Effect must compile to
-a `RuntimeProjectileDefinition`.
+Fires the effect set as a burst of projectiles when the cause skill hits. The
+cause may be a projectile or an AOE; the effect must compile to a
+`RuntimeProjectileDefinition`. For a projectile source the burst originates at
+the impact point aimed back from impact, and compiles into
+`RuntimeProjectileDefinition.ImpactProjectileDefinition`. For an AOE source the
+burst fires on each AOE hit and compiles into
+`RuntimeAoeDefinition.OnHitProjectileSpawnDefinition`, materialized as the
+`AoeProjectileBurstSnapshot` on the AOE's `AoeHitSpawnComponent`.
 
 ```csharp
 class OnImpactProjectileTrigger : TriggerLink {
@@ -501,14 +510,19 @@ class OnImpactProjectileTrigger : TriggerLink {
 }
 ```
 
-Compatible tags: source `Projectile`, target `Projectile`.
+Compatible tags: source `Projectile` or `Aoe`, target `Projectile`.
 `spawnCount` is **additive** with the effect set's own projectile count: the
 impact burst size is `effectDefinition.Count + spawnCount`, floored to `1`. A
 `spawnCount` of `0` means the effect set's own count alone determines the burst.
 `spreadDegrees` overrides the effect set's spread and fans the burst around the
 back-aimed impact direction. Proj→proj→proj nesting is not supported (a value-type
 struct cannot be recursive); a nested impact-projectile chain on the effect is
-dropped with a compile warning.
+dropped with a compile warning. From an AOE source the burst is a flat
+`AoeProjectileBurstSnapshot`, so the spawned projectile's own impact AOE/projectile
+chains cannot fire and are dropped with a compile warning. Only top-level and
+interval-spawned AOEs carry the on-hit burst; an AOE reached via a projectile's
+impact-AOE or another AOE's on-hit spawn cannot (those snapshots have no burst
+slot).
 
 **OnAoeHitSpawnTrigger**
 
@@ -612,6 +626,10 @@ compile(SkillSet set, allChains, snapshot) -> RuntimeSkillDefinition:
             compile chain.effect recursively -> RuntimeAoeDefinition
             if runtime is projectile: set runtime.ImpactAoeDefinition
             else if runtime is AOE:   set runtime.OnHitAoeSpawnDefinition
+        if chain.link is OnImpactProjectileTrigger:
+            compile chain.effect recursively -> RuntimeProjectileDefinition
+            if runtime is projectile: set runtime.ImpactProjectileDefinition
+            else if runtime is AOE:   set runtime.OnHitProjectileSpawnDefinition
         if chain.link is OnAoeHitSpawnTrigger:
             compile chain.effect recursively to RuntimeAoeDefinition
             set runtime.OnHitAoeSpawnDefinition

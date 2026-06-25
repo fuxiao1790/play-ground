@@ -3,6 +3,9 @@
 All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
+This is the detailed combat-state ECS redesign doc. Use [index.md](./index.md)
+for the simulation overview and aspect map.
+
 Status: proposed redesign of the current mob damage, projectile damage replay,
 and AOE damage replay systems
 

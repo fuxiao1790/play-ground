@@ -120,6 +120,9 @@ namespace PlayGround.Skills
                     def.LifetimeSeconds,
                     def.TickIntervalSeconds,
                     geometry,
+                    projectileBurst: def.OnHitProjectileSpawnDefinition != null
+                        ? BuildProjectileDetonationBurstSnapshot(def.OnHitProjectileSpawnDefinition, root.TargetMask)
+                        : default,
                     aoeSpawn: BuildAoeOnHitSpawnSnapshot(def.OnHitAoeSpawnDefinition, root, MaxAoeOnHitSpawnDepth),
                     critChance: def.CritChance,
                     critMultiplier: def.CritMultiplier,

@@ -141,8 +141,8 @@ hit simulation should use target proxy entities and baked shapes instead of
 thousands of live trigger objects.
 
 Managed target references are restricted. `TargetCompanion` may exist on proxy
-entities, but only `DamageDispatchBridge` may read it to call
-`ICombatTarget.ReceiveHits`.
+entities, but only `CombatApplyBridge` may read it to call
+`ICombatTarget.ReceiveCombatTick`.
 
 ## Combat Event Separation
 
@@ -153,8 +153,9 @@ Keep these as distinct typed paths:
   expansion systems.
 - `ProjectileSpawnCommand` and `AoeSpawnCommand` carry one-entity allocation
   intent into apply systems.
-- `DamageReplayEvent` carries damage/crit/status replay data through
-  `DamageDispatchBridge.DamageQueue`.
+- `CombatHitEvent` carries raw hit data into ECS finalization.
+- `CombatTickResult` carries aggregate damage/status presentation data through
+  `CombatApplyBridge`.
 - `VfxPendingSpawn` and `VfxSpawnRequestElement` carry visual-only requests into
   VFX dispatch.
 

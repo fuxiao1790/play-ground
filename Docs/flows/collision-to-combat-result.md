@@ -1,0 +1,63 @@
+# Collision To Combat Result
+
+## Purpose
+
+Trace how projectile and AOE hits become ECS-owned combat state and compact
+presentation results.
+
+## Sequence
+
+1. Projectile/AOE collision systems query unmanaged target proxy data.
+2. Collision systems qualify hits with broad phase, narrow phase, faction, and
+   repeat-hit gates.
+3. Accepted hits emit plain data hit events and optional spawn/VFX consequences.
+4. `CombatApplyFinalizeSystem` buckets hits by target proxy, rolls crits, sums
+   damage, updates `TargetHealth`, accrues `TargetStackEntry`, and freezes
+   `CombatTickResult`.
+5. `StatusProcessSystem` processes stacks and may enqueue detonation spawns.
+6. Presentation bridge resolves `TargetCompanion` and calls managed target
+   feedback once per changed target.
+
+## Producers
+
+`ProjectileCollisionSystem`, AOE collision systems, and status systems.
+
+## Consumers
+
+`CombatApplyFinalizeSystem`, `StatusProcessSystem`, presentation bridge,
+actor roots, and spawn expansion systems for follow-up events.
+
+## Contracts Used
+
+- [Target Proxy](../contracts/target-proxy.md)
+- [Combat Hit And Tick Results](../contracts/combat-hit-and-tick-results.md)
+- [Spawn Events And Commands](../contracts/spawn-events-and-commands.md)
+- [VFX Requests](../contracts/vfx-requests.md)
+
+## Layer Boundaries Crossed
+
+- [ECS Simulation](../layers/ecs-simulation.md) to
+  [Presentation And Feedback](../layers/presentation-and-feedback.md)
+
+## Ordering / Timing Requirements
+
+Hit finalization runs after projectile/AOE collision and before spawn expansion.
+Managed target callbacks run after finalized result data exists.
+
+## Failure / Edge Cases
+
+Dense hit frames produce aggregated target results, not one managed plain-damage
+callback per hit. Per-hit authored side effects must stay in ECS consequence
+paths or dedicated semantic events.
+
+## Related Decisions
+
+- [ADR-004](../decisions/adr-004-target-proxy-collision.md)
+- [ADR-006](../decisions/adr-006-ecs-aggregated-combat-results.md)
+
+## Notes / TODOs
+
+Older reference docs still mention `DamageReplayEvent` and
+`DamageDispatchBridge` in places. TODO: verify every old name against current
+`CombatApplyFinalizeSystem`/`CombatApplyBridge` code before deleting legacy
+wording.

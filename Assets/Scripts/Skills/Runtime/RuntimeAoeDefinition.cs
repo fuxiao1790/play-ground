@@ -30,6 +30,10 @@ namespace PlayGround.Skills.Runtime
         // snapshot is bounded by AoeOnHitSpawnSnapshot.MaxStackChainLinks.
         public RuntimeSkillDefinition OnHitAoeSpawnDefinition { get; set; }
 
+        // Compiled from OnImpactProjectileTrigger on an AOE source; null if none.
+        // Fires as an AoeProjectileBurstSnapshot when this AOE hits a target.
+        public RuntimeProjectileDefinition OnHitProjectileSpawnDefinition { get; set; }
+
         // Compiled from StackTrigger; null if none.
         public RuntimeStackingDetonation StackingDetonation { get; set; }
 

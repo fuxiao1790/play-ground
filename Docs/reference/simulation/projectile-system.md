@@ -3,6 +3,9 @@
 All docs in `Docs/` are design references. They describe current implementation
 intent and should be checked against code before large changes.
 
+This is the detailed projectile ECS doc. Use [index.md](./index.md) for the
+simulation overview and aspect map.
+
 ## Summary
 
 Projectiles are high-count combat entities simulated with Unity Entities/DOTS.

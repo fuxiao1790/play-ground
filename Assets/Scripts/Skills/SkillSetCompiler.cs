@@ -59,18 +59,28 @@ namespace PlayGround.Skills
 
                 if (chain.link is OnImpactProjectileTrigger impactProjTrigger)
                 {
-                    if (runtime is RuntimeProjectileDefinition projDef)
+                    RuntimeSkillDefinition compiledTarget = Compile(slots, chain.effectIndex, allChains, snapshot);
+                    if (compiledTarget is RuntimeProjectileDefinition impactProjDef)
                     {
-                        RuntimeSkillDefinition compiledTarget = Compile(slots, chain.effectIndex, allChains, snapshot);
-                        if (compiledTarget is RuntimeProjectileDefinition impactProjDef)
+                        impactProjDef.Count = Mathf.Max(1, impactProjDef.Count + impactProjTrigger.spawnCount);
+                        impactProjDef.SpreadDegrees = impactProjTrigger.spreadDegrees;
+
+                        if (runtime is RuntimeProjectileDefinition projDef)
                         {
                             projDef.ImpactProjectileDefinition = impactProjDef;
-                            impactProjDef.Count = Mathf.Max(1, impactProjDef.Count + impactProjTrigger.spawnCount);
-                            impactProjDef.SpreadDegrees = impactProjTrigger.spreadDegrees;
                             if (impactProjDef.ImpactProjectileDefinition != null)
                             {
                                 SkillSet effectSet = GetSkillSet(slots, chain.effectIndex);
                                 Debug.LogWarning($"[SkillSetCompiler] '{effectSet?.Skill?.name}' has OnImpactProjectileTrigger but is itself used as an impact-projectile target. The nested OnImpactProjectile chain will not fire - C# value-type structs cannot be recursive. Restructure the loadout to avoid proj->proj->proj nesting.");
+                            }
+                        }
+                        else if (runtime is RuntimeAoeDefinition aoeSourceDef)
+                        {
+                            aoeSourceDef.OnHitProjectileSpawnDefinition = impactProjDef;
+                            if (impactProjDef.ImpactProjectileDefinition != null || impactProjDef.ImpactAoeDefinition != null)
+                            {
+                                SkillSet effectSet = GetSkillSet(slots, chain.effectIndex);
+                                Debug.LogWarning($"[SkillSetCompiler] '{effectSet?.Skill?.name}' is spawned as an on-hit projectile burst from an AOE source. The flat AoeProjectileBurstSnapshot cannot carry the projectile's own impact AOE/projectile, so those nested chains will not fire.");
                             }
                         }
                     }
