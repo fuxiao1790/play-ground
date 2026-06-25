@@ -353,7 +353,7 @@ namespace PlayGround.System.Aoe
             || cmd.AoeSpawn.Enabled;
 
         private static bool HasTimedSpawner(in AoeSpawnCommand cmd) =>
-            cmd.Lifetime > 0f && cmd.HasTimedSpawner != 0;
+            cmd.Lifetime > 0f && !cmd.TimedSpawn.TemplateKey.Equals(default(Hash128));
 
         private static TimedSpawnStateComponent InitialTimedSpawnStateFor(in AoeSpawnCommand cmd) =>
             new TimedSpawnStateComponent
