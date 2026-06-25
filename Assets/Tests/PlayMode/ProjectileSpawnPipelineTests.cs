@@ -184,6 +184,17 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void ChildSpawn_ZeroInterval_IsBoundedByLoopGuard()
+        {
+            CreateChildSpawnerEntity(intervalSeconds: 0f);
+
+            Tick(1f);
+
+            Assert.That(TotalProjectileCount(), Is.GreaterThan(1));
+            Assert.That(TotalProjectileCount(), Is.LessThanOrEqualTo(257));
+        }
+
+        [Test]
         public void NextTick_SpawnedProjectileDoesNotMoveInSameTick()
         {
             var spawnPos = new float2(5f, 5f);
@@ -386,7 +397,7 @@ namespace PlayGround.Tests.PlayMode
             return entity;
         }
 
-        private void CreateChildSpawnerEntity()
+        private void CreateChildSpawnerEntity(float intervalSeconds = 1f)
         {
             Entity entity = entityManager.CreateEntity(
                 typeof(ProjectileTag),
@@ -430,7 +441,7 @@ namespace PlayGround.Tests.PlayMode
                 SourceId = 9999,
                 ChildKind = IntervalChildKind.Projectile,
                 JitterSeed = 9999,
-                IntervalSeconds = 1f,
+                IntervalSeconds = intervalSeconds,
                 TemplateKey = childProjectileTemplateKey
             });
             entityManager.SetComponentData(entity, new TimedSpawnStateComponent

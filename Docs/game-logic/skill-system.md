@@ -660,34 +660,46 @@ Registration re-runs via `BindAoeRoot` whenever `CombatRoot` is wired after comp
 
 ### Spawn-Template Registry
 
-Interval spawns use one template kind per child domain:
-`ProjectileSpawnTemplateData` for projectile children and `AoeSpawnTemplateData`
-for AOE children. A timed spawn is treated as a normal child spawn template plus
-a timer, so there is no separate "timed projectile" or "timed AOE" template
-shape.
+Interval spawns store the spawn event itself as the template. The shared
+`CombatScope` entity owns one registry per child domain:
+`ProjectileSpawnTemplate` holds a `NativeHashMap<Hash128, ProjectileSpawnEvent>`
+and `AoeSpawnTemplate` holds a `NativeHashMap<Hash128, AoeSpawnEvent>`. There is
+no separate template-data shape and no template-to-event conversion step.
 
 The runtime data is split into three tiers:
-- Registry data: cold shared template data on the shared `CombatScope` entity,
-  keyed by `Hash128 TemplateKey`. It contains full child spawn behavior such as
-  count/fan-out, damage, crit inputs, render data, and nested hit payload
-  snapshots.
-- Slim timer config: per-source ECS spawner components keep
-  `ChildKind`, `IntervalSeconds`, `IntervalJitterSeconds`, `JitterSeed`, and
-  `TemplateKey`.
-- Hot timer state: `ProjectileChildSpawnStateComponent` and
-  `AoeIntervalSpawnStateComponent` keep mutable cooldown and tick index. This
-  state is reset when an entity is cold-created or reused from the pool.
+- Registry data: cold shared spawn events on the shared `CombatScope` entity,
+  keyed by `Hash128 TemplateKey`. The stored events contain full child spawn
+  behavior such as count/fan-out, damage, crit inputs, render data, and nested
+  hit payload snapshots. Per-instance fields such as position, faction, source
+  id, jitter seed, and deterministic tick index are left default in the stored
+  event.
+- Slim timer config: per-source `TimedSpawnComponent` keeps `Faction`,
+  `SourceId`, `ChildKind`, `TemplateKey`, `IntervalSeconds`,
+  `IntervalJitterSeconds`, and `JitterSeed`.
+- Hot timer state: `TimedSpawnStateComponent` keeps mutable cooldown and tick
+  index. This state is reset when a timed-spawning projectile or lingering AOE
+  is cold-created or reused from the pool.
 
-`CombatRoot.RegisterTimedSpawnTemplate` hashes the template content and inserts
-only if the key is absent. Identical child behavior shares one registry entry;
-changing behavior such as `spawnCount` creates a different key, and selecting a
-previous behavior reuses the previous key. Jitter seed is not part of the
-template hash because it belongs to the individual timer config.
+One `TimedSpawnSystem` processes active timed-spawning projectile and lingering
+AOE sources. When a cooldown is due, it fetches the stored event by
+`TemplateKey`, stamps the per-instance fields from the source entity, and
+enqueues the existing `ProjectileSpawnEvent` or `AoeSpawnEvent`. Children still
+flow through the canonical event -> expansion -> command -> apply path.
+
+`CombatRoot.RegisterTimedSpawnTemplate` hashes the stored event content and
+inserts only if the key is absent. Identical child behavior shares one registry
+entry; changing behavior such as `spawnCount` creates a different key, and
+selecting a previous behavior reuses the previous key. Jitter seed is not part
+of the template hash because it belongs to the individual timer config.
 
 Registry entries are never recycled in the current implementation. This keeps
 old pooled or still-active spawners valid after loadout recompiles. A future
 enhancement may add reference counts plus a grace-period sweep, but v1 relies on
 the small number of distinct compiled behaviors per session.
+
+The timed-spawn loop clamps every tick advance to a positive minimum and caps
+catch-up iterations per update. A bad or zero authored interval can produce only
+a bounded number of child events in one update, so it cannot freeze the editor.
 
 ---
 
