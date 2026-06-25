@@ -54,8 +54,7 @@ namespace PlayGround.Skills
             StackEffectSnapshot effectiveStackEffect = BuildApplicatorStackEffectSnapshot(def, root, stackEffect);
             ProjectileImpactAoeSnapshot impactAoe = BuildImpactAoeSnapshot(def, root);
             ProjectileImpactProjectileSnapshot impactProjectile = BuildImpactProjectileSnapshot(def, root);
-            ProjectileChildSpawnConfig childSpawn = def.BuildChildSpawnConfig(
-                BuildApplicatorStackEffectSnapshot(def.ChildSpawnSetup?.ChildDefinition, root));
+            ProjectileChildSpawnConfig childSpawn = ProjectileChildSpawnFromSetup(def.ChildSpawnSetup);
             ProjectileAoeIntervalSpawnerComponent aoeIntervalSpawner =
                 ProjectileAoeIntervalSpawnerFromSetup(def.AoeIntervalSpawnSetup);
             IntervalChildKind childKind = IsProjectileAoeIntervalSpawnerEnabled(aoeIntervalSpawner)
@@ -132,7 +131,7 @@ namespace PlayGround.Skills
             RuntimeAoeIntervalSpawnSetup setup)
         {
             RuntimeAoeDefinition child = setup?.ChildDefinition;
-            if (setup == null || child == null || child.TypeId < 0 || !setup.HasRegisteredTemplate)
+            if (setup == null || child == null || child.TypeId < 0 || IsDefault(setup.TemplateKey))
             {
                 return default;
             }
@@ -155,7 +154,7 @@ namespace PlayGround.Skills
                 && projectileChild != null
                 && projectileChild.TypeId >= 0
                 && projectileChild.Prefab != null
-                && projectileSetup.HasRegisteredTemplate)
+                && !IsDefault(projectileSetup.TemplateKey))
             {
                 return new AoeSourceIntervalSpawnerComponent
                 {
@@ -169,7 +168,7 @@ namespace PlayGround.Skills
 
             RuntimeAoeIntervalSpawnSetup aoeSetup = def.AoeIntervalSpawnSetup;
             RuntimeAoeDefinition aoeChild = aoeSetup?.ChildDefinition;
-            if (aoeSetup == null || aoeChild == null || aoeChild.TypeId < 0 || !aoeSetup.HasRegisteredTemplate)
+            if (aoeSetup == null || aoeChild == null || aoeChild.TypeId < 0 || IsDefault(aoeSetup.TemplateKey))
             {
                 return default;
             }
@@ -189,6 +188,35 @@ namespace PlayGround.Skills
 
         private static bool IsAoeSourceIntervalSpawnerEnabled(AoeSourceIntervalSpawnerComponent spawner) =>
             spawner.JitterSeed > 0 && spawner.IntervalSeconds > 0f;
+
+        private static ProjectileChildSpawnConfig ProjectileChildSpawnFromSetup(RuntimeChildSpawnSetup setup)
+        {
+            RuntimeProjectileDefinition child = setup?.ChildDefinition;
+            if (setup == null
+                || child == null
+                || child.TypeId < 0
+                || child.Prefab == null
+                || IsDefault(setup.TemplateKey))
+            {
+                return ProjectileChildSpawnConfig.Disabled;
+            }
+
+            return new ProjectileChildSpawnConfig(
+                setup.JitterSeed,
+                child.TypeId,
+                Mathf.Max(0.01f, setup.IntervalSeconds),
+                Mathf.Max(0f, setup.IntervalJitterSeconds),
+                speed: 0f,
+                lifetime: 0f,
+                radius: 0f,
+                halfExtents: default,
+                shapeType: CombatShapeType.Circle,
+                rotationRadians: 0f,
+                damage: default,
+                templateKey: setup.TemplateKey);
+        }
+
+        private static bool IsDefault(Unity.Entities.Hash128 key) => key.Equals(default(Unity.Entities.Hash128));
 
         private static ProjectileImpactAoeSnapshot BuildImpactAoeSnapshot(
             RuntimeProjectileDefinition def,

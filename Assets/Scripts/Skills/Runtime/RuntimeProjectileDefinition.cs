@@ -1,7 +1,6 @@
 using PlayGround.Skills;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
-using UnityEngine;
 using Hash128 = Unity.Entities.Hash128;
 
 namespace PlayGround.Skills.Runtime
@@ -14,9 +13,6 @@ namespace PlayGround.Skills.Runtime
         public float IntervalJitterSeconds { get; set; }
         public ProjectileChildSpawnBehavior Behavior { get; set; }
         public Hash128 TemplateKey { get; set; }
-        public ProjectileSpawnTemplateData TemplateData { get; set; }
-        public ProjectileChildSpawnConfig SpawnConfig { get; set; }
-        public bool HasRegisteredTemplate => !TemplateKey.Equals(default(Hash128));
     }
 
     public sealed class RuntimeAoeIntervalSpawnSetup
@@ -28,8 +24,6 @@ namespace PlayGround.Skills.Runtime
         public int Count { get; set; }
         public float SideSpreadDegrees { get; set; }
         public Hash128 TemplateKey { get; set; }
-        public AoeSpawnTemplateData TemplateData { get; set; }
-        public bool HasRegisteredTemplate => !TemplateKey.Equals(default(Hash128));
     }
 
     public sealed class RuntimeProjectileDefinition : RuntimeSkillDefinition
@@ -59,74 +53,5 @@ namespace PlayGround.Skills.Runtime
 
         // Compiled from StackTrigger; null if none.
         public RuntimeStackingDetonation StackingDetonation { get; set; }
-
-        public ProjectileChildSpawnConfig BuildChildSpawnConfig(StackEffectSnapshot stackEffect = default)
-        {
-            RuntimeChildSpawnSetup setup = ChildSpawnSetup;
-            if (setup == null || setup.ChildDefinition == null || setup.ChildDefinition.TypeId < 0)
-                return ProjectileChildSpawnConfig.Disabled;
-
-            if (setup.HasRegisteredTemplate)
-                return setup.SpawnConfig;
-
-            RuntimeProjectileDefinition child = setup.ChildDefinition;
-            BasicAttackPrefab prefab = child.Prefab;
-            return new ProjectileChildSpawnConfig(
-                setup.JitterSeed,
-                child.TypeId,
-                Mathf.Max(0.01f, setup.IntervalSeconds),
-                setup.IntervalJitterSeconds,
-                child.Speed,
-                child.Lifetime,
-                prefab.Radius,
-                prefab.HalfExtents,
-                prefab.ShapeType,
-                prefab.RotationRadians,
-                new PlayGround.Common.DamageSnapshot(Mathf.Max(0f, child.Damage)),
-                0,
-                child.DirectDamageEnabled,
-                child.PierceCount,
-                child.RepeatHitCooldown,
-                prefab.VisualScale,
-                prefab.VisualRotationDegrees,
-                child.Tracking,
-                setup.Behavior,
-                impactAoe: BuildChildImpactAoeSnapshot(child),
-                stackEffect: stackEffect,
-                impactProjectile: BuildChildImpactProjectileSnapshot(child),
-                templateKey: setup.TemplateKey);
-        }
-
-        private static ProjectileImpactAoeSnapshot BuildChildImpactAoeSnapshot(RuntimeProjectileDefinition child)
-        {
-            RuntimeAoeDefinition impact = child.ImpactAoeDefinition;
-            if (impact == null || impact.TypeId < 0)
-                return default;
-            return new ProjectileImpactAoeSnapshot(
-                impact.TypeId, 0, Mathf.Max(0f, impact.Damage),
-                impact.LifetimeSeconds, impact.TickIntervalSeconds,
-                impact.CreateSpawnGeometry(),
-                impact.CritChance, impact.CritMultiplier);
-        }
-
-        private static ProjectileImpactProjectileSnapshot BuildChildImpactProjectileSnapshot(RuntimeProjectileDefinition child)
-        {
-            RuntimeProjectileDefinition impact = child.ImpactProjectileDefinition;
-            if (impact == null || impact.TypeId < 0)
-                return default;
-            BasicAttackPrefab prefab = impact.Prefab;
-            if (prefab == null)
-                return default;
-            return new ProjectileImpactProjectileSnapshot(
-                impact.TypeId, 0, Mathf.Max(1, impact.Count), impact.SpreadDegrees,
-                impact.Speed, impact.Lifetime, prefab.Radius, prefab.HalfExtents,
-                prefab.RotationRadians, prefab.ShapeType,
-                new PlayGround.Common.DamageSnapshot(Mathf.Max(0f, impact.Damage)),
-                impact.DirectDamageEnabled, impact.PierceCount, impact.RepeatHitCooldown,
-                impact.Tracking,
-                BuildChildImpactAoeSnapshot(impact),
-                visualScale: prefab.VisualScale,
-                visualRotationDegrees: prefab.VisualRotationDegrees);
-        }
     }
 }
