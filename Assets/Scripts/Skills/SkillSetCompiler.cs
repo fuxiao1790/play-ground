@@ -46,11 +46,13 @@ namespace PlayGround.Skills
 
                 if (chain.link is OnImpactAoeTrigger)
                 {
-                    if (runtime is RuntimeProjectileDefinition projDef)
+                    RuntimeSkillDefinition compiledTarget = Compile(slots, chain.effectIndex, allChains, snapshot);
+                    if (compiledTarget is RuntimeAoeDefinition aoeTarget)
                     {
-                        RuntimeSkillDefinition compiledTarget = Compile(slots, chain.effectIndex, allChains, snapshot);
-                        if (compiledTarget is RuntimeAoeDefinition aoeDef)
-                            projDef.ImpactAoeDefinition = aoeDef;
+                        if (runtime is RuntimeProjectileDefinition projDef)
+                            projDef.ImpactAoeDefinition = aoeTarget;
+                        else if (runtime is RuntimeAoeDefinition sourceAoeDef)
+                            sourceAoeDef.OnHitAoeSpawnDefinition = aoeTarget;
                     }
                     continue;
                 }

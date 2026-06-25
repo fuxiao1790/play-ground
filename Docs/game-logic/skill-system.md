@@ -474,9 +474,12 @@ Directionality defaults:
 
 **OnImpactAoeTrigger**
 
-Fires the effect set as an AOE centered at the cause projectile's impact point.
-Compiles into `RuntimeProjectileDefinition.ImpactAoeDefinition`. Effect must
-compile to a `RuntimeAoeDefinition`.
+Fires the effect set as an AOE when the cause skill hits. The cause may be a
+projectile or an AOE; the effect must compile to a `RuntimeAoeDefinition`. For a
+projectile source the AOE is centered at the impact point and compiles into
+`RuntimeProjectileDefinition.ImpactAoeDefinition`. For an AOE source it fires on
+the AOE's hit and compiles into `RuntimeAoeDefinition.OnHitAoeSpawnDefinition`
+(the same field as `OnAoeHitSpawnTrigger`).
 
 ```csharp
 class OnImpactAoeTrigger : TriggerLink { }
@@ -607,7 +610,8 @@ compile(SkillSet set, allChains, snapshot) -> RuntimeSkillDefinition:
             bake RuntimeAoeIntervalSpawnSetup onto runtime.AoeIntervalSpawnSetup
         if chain.link is OnImpactAoeTrigger:
             compile chain.effect recursively -> RuntimeAoeDefinition
-            set runtime.ImpactAoeDefinition
+            if runtime is projectile: set runtime.ImpactAoeDefinition
+            else if runtime is AOE:   set runtime.OnHitAoeSpawnDefinition
         if chain.link is OnAoeHitSpawnTrigger:
             compile chain.effect recursively to RuntimeAoeDefinition
             set runtime.OnHitAoeSpawnDefinition
