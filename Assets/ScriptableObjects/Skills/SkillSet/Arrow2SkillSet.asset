@@ -15,11 +15,4 @@ MonoBehaviour:
   skill: {fileID: 11400000, guid: a2000000000000000000000000000014, type: 2}
   supports:
   - {fileID: 11400000, guid: d07c2ec4b643bfd4e953fc934c2ea674, type: 2}
-  - {fileID: 11400000, guid: 7d0cc39fd2349e849a97c91eb66cf04f, type: 2}
   - {fileID: 11400000, guid: e79cf38ef9f7b3f41bb7856217f5d3db, type: 2}
-  - {fileID: 11400000, guid: 7d0cc39fd2349e849a97c91eb66cf04f, type: 2}
-  - {fileID: 11400000, guid: 7d0cc39fd2349e849a97c91eb66cf04f, type: 2}
-  - {fileID: 11400000, guid: 7d0cc39fd2349e849a97c91eb66cf04f, type: 2}
-  - {fileID: 11400000, guid: 7d0cc39fd2349e849a97c91eb66cf04f, type: 2}
-  - {fileID: 11400000, guid: 7d0cc39fd2349e849a97c91eb66cf04f, type: 2}
-  - {fileID: 11400000, guid: 7d0cc39fd2349e849a97c91eb66cf04f, type: 2}

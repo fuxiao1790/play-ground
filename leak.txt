@@ -1,0 +1,88 @@
+Found 1 leak(s) from callstack:
+0x000001964cefe183 (Mono JIT Code) Unity.Collections.Memory/Unmanaged/Array:Resize (void*,long,long,Unity.Collections.AllocatorManager/AllocatorHandle,long,int) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/Memory.cs:79)
+0x000001964cefe023 (Mono JIT Code) Unity.Collections.Memory/Unmanaged:Allocate (long,int,Unity.Collections.AllocatorManager/AllocatorHandle) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/Memory.cs:20)
+0x0000019633848143 (Mono JIT Code) Unity.Collections.LowLevel.Unsafe.HashMapHelper`1<Unity.Entities.Hash128>:Alloc (int,int,int,Unity.Collections.AllocatorManager/AllocatorHandle) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/UnsafeHashMap.cs:117)
+0x0000019633847fcb (Mono JIT Code) Unity.Collections.NativeHashMap`2<Unity.Entities.Hash128, PlayGround.System.Projectile.ProjectileSpawnEvent>:.ctor (int,Unity.Collections.AllocatorManager/AllocatorHandle) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/NativeHashMap.cs:152)
+0x00000196338455db (Mono JIT Code) PlayGround.System.Common.CombatScopeOwner:Acquire (Unity.Entities.EntityManager) (at E:/UnityHub/projects/play-ground/Assets/Scripts/System/Common/CombatEcsComponents.cs:86)
+0x0000019633844a23 (Mono JIT Code) PlayGround.System.Common.CombatRoot:BindWorld () (at E:/UnityHub/projects/play-ground/Assets/Scripts/System/Common/CombatRoot.cs:559)
+0x0000019633843873 (Mono JIT Code) PlayGround.System.Common.CombatRoot:Awake () (at E:/UnityHub/projects/play-ground/Assets/Scripts/System/Common/CombatRoot.cs:112)
+0x0000019728a270a8 (Mono JIT Code) (wrapper runtime-invoke) object:runtime_invoke_void__this__ (object,intptr,intptr,intptr)
+0x00007ffbd9626c0e (mono-2.0-bdwgc) mono_jit_runtime_invoke (at C:/build/output/Unity-Technologies/mono/mono/mini/mini-runtime.c:3445)
+0x00007ffbd9568984 (mono-2.0-bdwgc) do_runtime_invoke (at C:/build/output/Unity-Technologies/mono/mono/metadata/object.c:3068)
+0x00007ffbd9568a70 (mono-2.0-bdwgc) mono_runtime_invoke (at C:/build/output/Unity-Technologies/mono/mono/metadata/object.c:3115)
+0x00007ffba26425a5 (Unity) scripting_method_invoke
+0x00007ffba266ad4e (Unity) ScriptingInvocation::Invoke
+0x00007ffba266ae7e (Unity) ScriptingInvocation::InvokeChecked
+0x00007ffba25d763c (Unity) SerializableManagedRef::CallMethod
+0x00007ffba26a390a (Unity) MonoBehaviour::CallAwake
+0x00007ffba26a307a (Unity) MonoBehaviour::AddToManager
+0x00007ffba26a3529 (Unity) MonoBehaviour::AwakeFromLoad
+0x00007ffba25b22f0 (Unity) AwakeFromLoadQueue::InvokePersistentManagerAwake
+
+
+Found 1 leak(s) from callstack:
+0x000001964cefe183 (Mono JIT Code) Unity.Collections.Memory/Unmanaged/Array:Resize (void*,long,long,Unity.Collections.AllocatorManager/AllocatorHandle,long,int) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/Memory.cs:79)
+0x000001964cefe023 (Mono JIT Code) Unity.Collections.Memory/Unmanaged:Allocate (long,int,Unity.Collections.AllocatorManager/AllocatorHandle) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/Memory.cs:20)
+0x0000019633848393 (Mono JIT Code) Unity.Collections.LowLevel.Unsafe.HashMapHelper`1<Unity.Entities.Hash128>:Init (int,int,int,Unity.Collections.AllocatorManager/AllocatorHandle) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/UnsafeHashMap.cs:95)
+0x000001963384816b (Mono JIT Code) Unity.Collections.LowLevel.Unsafe.HashMapHelper`1<Unity.Entities.Hash128>:Alloc (int,int,int,Unity.Collections.AllocatorManager/AllocatorHandle) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/UnsafeHashMap.cs:117)
+0x0000019633848d9b (Mono JIT Code) Unity.Collections.NativeHashMap`2<Unity.Entities.Hash128, PlayGround.System.Aoe.AoeSpawnEvent>:.ctor (int,Unity.Collections.AllocatorManager/AllocatorHandle) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/NativeHashMap.cs:152)
+0x000001963384571b (Mono JIT Code) PlayGround.System.Common.CombatScopeOwner:Acquire (Unity.Entities.EntityManager) (at E:/UnityHub/projects/play-ground/Assets/Scripts/System/Common/CombatEcsComponents.cs:92)
+0x0000019633844a23 (Mono JIT Code) PlayGround.System.Common.CombatRoot:BindWorld () (at E:/UnityHub/projects/play-ground/Assets/Scripts/System/Common/CombatRoot.cs:559)
+0x0000019633843873 (Mono JIT Code) PlayGround.System.Common.CombatRoot:Awake () (at E:/UnityHub/projects/play-ground/Assets/Scripts/System/Common/CombatRoot.cs:112)
+0x0000019728a270a8 (Mono JIT Code) (wrapper runtime-invoke) object:runtime_invoke_void__this__ (object,intptr,intptr,intptr)
+0x00007ffbd9626c0e (mono-2.0-bdwgc) mono_jit_runtime_invoke (at C:/build/output/Unity-Technologies/mono/mono/mini/mini-runtime.c:3445)
+0x00007ffbd9568984 (mono-2.0-bdwgc) do_runtime_invoke (at C:/build/output/Unity-Technologies/mono/mono/metadata/object.c:3068)
+0x00007ffbd9568a70 (mono-2.0-bdwgc) mono_runtime_invoke (at C:/build/output/Unity-Technologies/mono/mono/metadata/object.c:3115)
+0x00007ffba26425a5 (Unity) scripting_method_invoke
+0x00007ffba266ad4e (Unity) ScriptingInvocation::Invoke
+0x00007ffba266ae7e (Unity) ScriptingInvocation::InvokeChecked
+0x00007ffba25d763c (Unity) SerializableManagedRef::CallMethod
+0x00007ffba26a390a (Unity) MonoBehaviour::CallAwake
+0x00007ffba26a307a (Unity) MonoBehaviour::AddToManager
+0x00007ffba26a3529 (Unity) MonoBehaviour::AwakeFromLoad
+
+
+Found 1 leak(s) from callstack:
+0x000001964cefe183 (Mono JIT Code) Unity.Collections.Memory/Unmanaged/Array:Resize (void*,long,long,Unity.Collections.AllocatorManager/AllocatorHandle,long,int) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/Memory.cs:79)
+0x000001964cefe023 (Mono JIT Code) Unity.Collections.Memory/Unmanaged:Allocate (long,int,Unity.Collections.AllocatorManager/AllocatorHandle) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/Memory.cs:20)
+0x0000019633848143 (Mono JIT Code) Unity.Collections.LowLevel.Unsafe.HashMapHelper`1<Unity.Entities.Hash128>:Alloc (int,int,int,Unity.Collections.AllocatorManager/AllocatorHandle) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/UnsafeHashMap.cs:117)
+0x0000019633848d9b (Mono JIT Code) Unity.Collections.NativeHashMap`2<Unity.Entities.Hash128, PlayGround.System.Aoe.AoeSpawnEvent>:.ctor (int,Unity.Collections.AllocatorManager/AllocatorHandle) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/NativeHashMap.cs:152)
+0x000001963384571b (Mono JIT Code) PlayGround.System.Common.CombatScopeOwner:Acquire (Unity.Entities.EntityManager) (at E:/UnityHub/projects/play-ground/Assets/Scripts/System/Common/CombatEcsComponents.cs:92)
+0x0000019633844a23 (Mono JIT Code) PlayGround.System.Common.CombatRoot:BindWorld () (at E:/UnityHub/projects/play-ground/Assets/Scripts/System/Common/CombatRoot.cs:559)
+0x0000019633843873 (Mono JIT Code) PlayGround.System.Common.CombatRoot:Awake () (at E:/UnityHub/projects/play-ground/Assets/Scripts/System/Common/CombatRoot.cs:112)
+0x0000019728a270a8 (Mono JIT Code) (wrapper runtime-invoke) object:runtime_invoke_void__this__ (object,intptr,intptr,intptr)
+0x00007ffbd9626c0e (mono-2.0-bdwgc) mono_jit_runtime_invoke (at C:/build/output/Unity-Technologies/mono/mono/mini/mini-runtime.c:3445)
+0x00007ffbd9568984 (mono-2.0-bdwgc) do_runtime_invoke (at C:/build/output/Unity-Technologies/mono/mono/metadata/object.c:3068)
+0x00007ffbd9568a70 (mono-2.0-bdwgc) mono_runtime_invoke (at C:/build/output/Unity-Technologies/mono/mono/metadata/object.c:3115)
+0x00007ffba26425a5 (Unity) scripting_method_invoke
+0x00007ffba266ad4e (Unity) ScriptingInvocation::Invoke
+0x00007ffba266ae7e (Unity) ScriptingInvocation::InvokeChecked
+0x00007ffba25d763c (Unity) SerializableManagedRef::CallMethod
+0x00007ffba26a390a (Unity) MonoBehaviour::CallAwake
+0x00007ffba26a307a (Unity) MonoBehaviour::AddToManager
+0x00007ffba26a3529 (Unity) MonoBehaviour::AwakeFromLoad
+0x00007ffba25b22f0 (Unity) AwakeFromLoadQueue::InvokePersistentManagerAwake
+
+
+Found 1 leak(s) from callstack:
+0x000001964cefe183 (Mono JIT Code) Unity.Collections.Memory/Unmanaged/Array:Resize (void*,long,long,Unity.Collections.AllocatorManager/AllocatorHandle,long,int) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/Memory.cs:79)
+0x000001964cefe023 (Mono JIT Code) Unity.Collections.Memory/Unmanaged:Allocate (long,int,Unity.Collections.AllocatorManager/AllocatorHandle) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/Memory.cs:20)
+0x0000019633848393 (Mono JIT Code) Unity.Collections.LowLevel.Unsafe.HashMapHelper`1<Unity.Entities.Hash128>:Init (int,int,int,Unity.Collections.AllocatorManager/AllocatorHandle) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/UnsafeHashMap.cs:95)
+0x000001963384816b (Mono JIT Code) Unity.Collections.LowLevel.Unsafe.HashMapHelper`1<Unity.Entities.Hash128>:Alloc (int,int,int,Unity.Collections.AllocatorManager/AllocatorHandle) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/UnsafeHashMap.cs:117)
+0x0000019633847fcb (Mono JIT Code) Unity.Collections.NativeHashMap`2<Unity.Entities.Hash128, PlayGround.System.Projectile.ProjectileSpawnEvent>:.ctor (int,Unity.Collections.AllocatorManager/AllocatorHandle) (at ./Library/PackageCache/com.unity.collections@5b6ebd78ccc0/Unity.Collections/NativeHashMap.cs:152)
+0x00000196338455db (Mono JIT Code) PlayGround.System.Common.CombatScopeOwner:Acquire (Unity.Entities.EntityManager) (at E:/UnityHub/projects/play-ground/Assets/Scripts/System/Common/CombatEcsComponents.cs:86)
+0x0000019633844a23 (Mono JIT Code) PlayGround.System.Common.CombatRoot:BindWorld () (at E:/UnityHub/projects/play-ground/Assets/Scripts/System/Common/CombatRoot.cs:559)
+0x0000019633843873 (Mono JIT Code) PlayGround.System.Common.CombatRoot:Awake () (at E:/UnityHub/projects/play-ground/Assets/Scripts/System/Common/CombatRoot.cs:112)
+0x0000019728a270a8 (Mono JIT Code) (wrapper runtime-invoke) object:runtime_invoke_void__this__ (object,intptr,intptr,intptr)
+0x00007ffbd9626c0e (mono-2.0-bdwgc) mono_jit_runtime_invoke (at C:/build/output/Unity-Technologies/mono/mono/mini/mini-runtime.c:3445)
+0x00007ffbd9568984 (mono-2.0-bdwgc) do_runtime_invoke (at C:/build/output/Unity-Technologies/mono/mono/metadata/object.c:3068)
+0x00007ffbd9568a70 (mono-2.0-bdwgc) mono_runtime_invoke (at C:/build/output/Unity-Technologies/mono/mono/metadata/object.c:3115)
+0x00007ffba26425a5 (Unity) scripting_method_invoke
+0x00007ffba266ad4e (Unity) ScriptingInvocation::Invoke
+0x00007ffba266ae7e (Unity) ScriptingInvocation::InvokeChecked
+0x00007ffba25d763c (Unity) SerializableManagedRef::CallMethod
+0x00007ffba26a390a (Unity) MonoBehaviour::CallAwake
+0x00007ffba26a307a (Unity) MonoBehaviour::AddToManager
+0x00007ffba26a3529 (Unity) MonoBehaviour::AwakeFromLoad
+
+

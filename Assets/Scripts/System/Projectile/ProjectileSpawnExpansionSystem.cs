@@ -25,8 +25,12 @@ namespace PlayGround.System.Projectile
         private EntityQuery _scopeQuery;
 
         internal NativeQueue<ProjectileSpawnEvent> EventQueue;
-        internal NativeQueue<ProjectileSpawnCommand> BasicProjectileCommandContainer;
-        internal NativeQueue<ProjectileSpawnCommand> ChildSpawnerProjectileCommandContainer;
+        // NativeList (not NativeQueue) so the apply systems can read it as a NativeArray with
+        // zero copy. The expansion job appends via ParallelWriter (AddNoResize) into capacity
+        // pre-sized each frame, so this stays correct whether that job runs single- or
+        // multi-threaded.
+        internal NativeList<ProjectileSpawnCommand> BasicProjectileCommandContainer;
+        internal NativeList<ProjectileSpawnCommand> ChildSpawnerProjectileCommandContainer;
         internal JobHandle PendingHandle;
 
         // Combined handle of every producer job that wrote EventQueue this frame
@@ -39,8 +43,8 @@ namespace PlayGround.System.Projectile
         protected override void OnCreate()
         {
             EventQueue = new NativeQueue<ProjectileSpawnEvent>(Allocator.Persistent);
-            BasicProjectileCommandContainer = new NativeQueue<ProjectileSpawnCommand>(Allocator.Persistent);
-            ChildSpawnerProjectileCommandContainer = new NativeQueue<ProjectileSpawnCommand>(Allocator.Persistent);
+            BasicProjectileCommandContainer = new NativeList<ProjectileSpawnCommand>(256, Allocator.Persistent);
+            ChildSpawnerProjectileCommandContainer = new NativeList<ProjectileSpawnCommand>(64, Allocator.Persistent);
             _scopeQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CombatScope>(),
                 ComponentType.ReadWrite<ProjectileSpawnEvent>());
@@ -64,6 +68,11 @@ namespace PlayGround.System.Projectile
             // this system's component-derived Dependency. Complete them before any read.
             ProducerHandle.Complete();
             ProducerHandle = default;
+
+            // Discard last frame's commands (already consumed by the apply systems). Done
+            // unconditionally so a no-event frame leaves the consumers an empty container.
+            BasicProjectileCommandContainer.Clear();
+            ChildSpawnerProjectileCommandContainer.Clear();
 
             int queueCount = EventQueue.Count;
 
@@ -106,6 +115,26 @@ namespace PlayGround.System.Projectile
                 }
             }
 
+            // Pre-size the command lists so the expansion job can append via ParallelWriter
+            // (AddNoResize). This keeps the producer side correct if/when the job becomes
+            // multi-threaded -- a parallel writer cannot grow the backing allocation, so the
+            // capacity (an exact upper bound = sum of per-event fan-out) must be set up front.
+            int basicCommandBound = 0;
+            int childCommandBound = 0;
+            for (int e = 0; e < events.Length; e++)
+            {
+                ProjectileSpawnEvent evt = events[e];
+                int fanout = math.max(1, evt.Count);
+                if (evt.HasTimedSpawner != 0)
+                    childCommandBound += fanout;
+                else
+                    basicCommandBound += fanout;
+            }
+            if (BasicProjectileCommandContainer.Capacity < basicCommandBound)
+                BasicProjectileCommandContainer.SetCapacity(basicCommandBound);
+            if (ChildSpawnerProjectileCommandContainer.Capacity < childCommandBound)
+                ChildSpawnerProjectileCommandContainer.SetCapacity(childCommandBound);
+
             Dependency = new ProjectileExpansionJob
             {
                 Events = events,
@@ -121,8 +150,8 @@ namespace PlayGround.System.Projectile
         private struct ProjectileExpansionJob : IJob
         {
             [ReadOnly] public NativeArray<ProjectileSpawnEvent> Events;
-            public NativeQueue<ProjectileSpawnCommand>.ParallelWriter BasicCommands;
-            public NativeQueue<ProjectileSpawnCommand>.ParallelWriter ChildSpawnerCommands;
+            public NativeList<ProjectileSpawnCommand>.ParallelWriter BasicCommands;
+            public NativeList<ProjectileSpawnCommand>.ParallelWriter ChildSpawnerCommands;
 
             public void Execute()
             {
@@ -207,9 +236,9 @@ namespace PlayGround.System.Projectile
                 };
 
                 if (evt.HasTimedSpawner != 0)
-                    ChildSpawnerCommands.Enqueue(command);
+                    ChildSpawnerCommands.AddNoResize(command);
                 else
-                    BasicCommands.Enqueue(command);
+                    BasicCommands.AddNoResize(command);
             }
 
             private static float SpreadAngle(float spread, int i, int count) =>

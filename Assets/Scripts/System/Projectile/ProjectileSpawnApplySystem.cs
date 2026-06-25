@@ -16,16 +16,26 @@ namespace PlayGround.System.Projectile
     public abstract partial class ProjectileSpawnApplySystemBase : SystemBase
     {
         private readonly ProfilerMarker _spawnMarker;
+        private readonly ProfilerMarker _completeDependencyMarker;
+        private readonly ProfilerMarker _drainCommandsMarker;
         private readonly ProfilerMarker _reuseJobMarker;
+        private readonly ProfilerMarker _coldCreateMarker;
         private readonly ProfilerCounterValue<int> _spawnColdCreateCounter;
         private readonly ProfilerCounterValue<int> _spawnReuseCounter;
 
         private EntityArchetype _archetype;
 
-        private readonly Dictionary<ProjectileSpawnKey, ProjectileSpawnBucket> _byKey = new();
         private readonly Dictionary<ProjectileSpawnKey, EntityQuery> _deadSlotQueriesByKey = new();
-        private readonly List<ProjectileSpawnBucket> _bucketPool = new();
         private readonly List<ProjectileSpawnWork> _spawnWork = new();
+
+        // Burst counting-sort scratch, reused across frames to avoid reallocation.
+        private NativeHashMap<ProjectileSpawnKey, int> _keyToIndex;
+        private NativeList<ProjectileSpawnKey> _keys;
+        private NativeList<int> _counts;
+        private NativeList<int> _offsets;
+        // Sorted-position -> original command index. Bucketing permutes indices, not payloads,
+        // so the large ProjectileSpawnCommand struct is copied exactly once (by the reuse/cold path).
+        private NativeList<int> _order;
 
         protected ProjectileSpawnApplySystemBase(
             string spawnMarkerName,
@@ -34,7 +44,10 @@ namespace PlayGround.System.Projectile
             string reuseCounterName)
         {
             _spawnMarker = new ProfilerMarker(spawnMarkerName);
+            _completeDependencyMarker = new ProfilerMarker($"{spawnMarkerName}.CompleteDependency");
+            _drainCommandsMarker = new ProfilerMarker($"{spawnMarkerName}.DrainCommands");
             _reuseJobMarker = new ProfilerMarker(reuseMarkerName);
+            _coldCreateMarker = new ProfilerMarker($"{spawnMarkerName}.ColdCreate");
             _spawnColdCreateCounter =
                 new ProfilerCounterValue<int>(ProfilerCategory.Scripts, coldCounterName, ProfilerMarkerDataUnit.Count);
             _spawnReuseCounter =
@@ -44,55 +57,65 @@ namespace PlayGround.System.Projectile
         protected override void OnCreate()
         {
             _archetype = CreateArchetype();
+            _keyToIndex = new NativeHashMap<ProjectileSpawnKey, int>(16, Allocator.Persistent);
+            _keys = new NativeList<ProjectileSpawnKey>(16, Allocator.Persistent);
+            _counts = new NativeList<int>(16, Allocator.Persistent);
+            _offsets = new NativeList<int>(16, Allocator.Persistent);
+            _order = new NativeList<int>(256, Allocator.Persistent);
         }
 
         protected override void OnDestroy()
         {
             Dependency.Complete();
             DisposeSpawnWorkReferences();
-            DisposeBuckets(_byKey.Values);
-            DisposeBuckets(_bucketPool);
-            _byKey.Clear();
+            if (_keyToIndex.IsCreated) _keyToIndex.Dispose();
+            if (_keys.IsCreated) _keys.Dispose();
+            if (_counts.IsCreated) _counts.Dispose();
+            if (_offsets.IsCreated) _offsets.Dispose();
+            if (_order.IsCreated) _order.Dispose();
             _deadSlotQueriesByKey.Clear();
-            _bucketPool.Clear();
             _spawnWork.Clear();
         }
 
         protected override void OnUpdate()
         {
-            Dependency.Complete();
-
-            ReturnBuckets();
-
-            var expansionSys = World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
-            int totalRequests = 0;
-            if (expansionSys != null)
+            using (_completeDependencyMarker.Auto())
             {
-                expansionSys.PendingHandle.Complete();
-                NativeQueue<ProjectileSpawnCommand> commandContainer = CommandContainer(expansionSys);
-                if (commandContainer.IsCreated && commandContainer.Count > 0)
+                Dependency.Complete();
+            }
+
+            int totalRequests = 0;
+            NativeArray<ProjectileSpawnCommand> commands = default;
+            using (_drainCommandsMarker.Auto())
+            {
+                var expansionSys = World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
+                if (expansionSys != null)
                 {
-                    // Bulk-drain in one memcpy instead of per-element TryDequeue: the managed
-                    // NativeQueue.TryDequeue path crosses the safety boundary per command and
-                    // copies the (large) command struct out individually, which dominated the
-                    // main-thread cost of this system. ToArray copies the whole queue once.
-                    NativeArray<ProjectileSpawnCommand> commands = commandContainer.ToArray(Allocator.Temp);
-                    commandContainer.Clear();
-
-                    for (int i = 0; i < commands.Length; i++)
+                    expansionSys.PendingHandle.Complete();
+                    NativeList<ProjectileSpawnCommand> commandContainer = CommandContainer(expansionSys);
+                    if (commandContainer.IsCreated && commandContainer.Length > 0)
                     {
-                        ProjectileSpawnCommand cmd = commands[i];
-                        var key = new ProjectileSpawnKey((int)cmd.Faction, cmd.TypeId);
-                        if (!_byKey.TryGetValue(key, out ProjectileSpawnBucket bucket))
-                        {
-                            bucket = GetBucket();
-                            _byKey[key] = bucket;
-                        }
-                        bucket.Requests.Add(cmd);
-                        totalRequests++;
-                    }
+                        // Read the producer's NativeList in place (no copy) and bucket by reuse
+                        // key inside a Burst job. The job counting-sorts an index permutation
+                        // (Order), not the payload: pass 1 counts per key, prefix-sum yields
+                        // offsets, pass 2 scatters the 4-byte command indices into per-key
+                        // contiguous runs. The large command struct is copied exactly once, by
+                        // the reuse/cold path that reads commands[Order[i]]. The expansion system
+                        // clears the list at the start of next frame, so we leave it untouched.
+                        commands = commandContainer.AsArray();
+                        totalRequests = commands.Length;
 
-                    commands.Dispose();
+                        _order.ResizeUninitialized(commands.Length);
+                        new BucketCommandsJob
+                        {
+                            Commands = commands,
+                            KeyToIndex = _keyToIndex,
+                            Keys = _keys,
+                            Counts = _counts,
+                            Offsets = _offsets,
+                            Order = _order.AsArray(),
+                        }.Schedule().Complete();
+                    }
                 }
             }
 
@@ -106,18 +129,20 @@ namespace PlayGround.System.Projectile
 
                 using (_reuseJobMarker.Auto())
                 {
-                    var jobHandles = new NativeList<JobHandle>(_byKey.Count, Allocator.Temp);
-                    foreach (var (key, bucket) in _byKey)
+                    NativeArray<int> order = _order.AsArray();
+                    var jobHandles = new NativeList<JobHandle>(_keys.Length, Allocator.Temp);
+                    for (int b = 0; b < _keys.Length; b++)
                     {
+                        ProjectileSpawnKey key = _keys[b];
                         CombatFaction faction = (CombatFaction)key.FactionValue;
                         EntityQuery query = DeadSlotQueryFor(key, faction);
-                        NativeArray<ProjectileSpawnCommand> configs = bucket.Requests.AsArray();
+                        NativeArray<int> orderSlice = order.GetSubArray(_offsets[b], _counts[b]);
                         var claimedReference = new NativeReference<int>(Allocator.TempJob);
                         claimedReference.Value = 0;
 
-                        JobHandle spawnHandle = ScheduleReuseJob(faction, configs, claimedReference, query);
+                        JobHandle spawnHandle = ScheduleReuseJob(faction, commands, orderSlice, claimedReference, query);
                         jobHandles.Add(spawnHandle);
-                        _spawnWork.Add(new ProjectileSpawnWork(faction, configs, claimedReference));
+                        _spawnWork.Add(new ProjectileSpawnWork(faction, commands, orderSlice, claimedReference));
                     }
 
                     JobHandle.CombineDependencies(jobHandles.AsArray()).Complete();
@@ -125,15 +150,18 @@ namespace PlayGround.System.Projectile
                 }
 
                 int coldCreateCount = 0;
-                foreach (ProjectileSpawnWork work in _spawnWork)
+                using (_coldCreateMarker.Auto())
                 {
-                    int claimed = work.ClaimedCount.Value;
-                    work.ClaimedCount.Dispose();
-                    reuseCount += claimed;
-                    for (int i = claimed; i < work.Configs.Length; i++)
+                    foreach (ProjectileSpawnWork work in _spawnWork)
                     {
-                        CreateProjectileEntity(work.Faction, work.Configs[i], _archetype, createEcb);
-                        coldCreateCount++;
+                        int claimed = work.ClaimedCount.Value;
+                        work.ClaimedCount.Dispose();
+                        reuseCount += claimed;
+                        for (int i = claimed; i < work.Order.Length; i++)
+                        {
+                            CreateProjectileEntity(work.Faction, work.Commands[work.Order[i]], _archetype, createEcb);
+                            coldCreateCount++;
+                        }
                     }
                 }
                 _spawnWork.Clear();
@@ -143,18 +171,21 @@ namespace PlayGround.System.Projectile
                 _spawnReuseCounter.Value = reuseCount;
                 _spawnColdCreateCounter.Value = totalRequests - reuseCount;
             }
+
+            commands.Dispose();
         }
 
         protected abstract EntityArchetype CreateArchetype();
 
-        protected abstract NativeQueue<ProjectileSpawnCommand> CommandContainer(
+        protected abstract NativeList<ProjectileSpawnCommand> CommandContainer(
             ProjectileSpawnExpansionSystem expansionSys);
 
         protected abstract EntityQuery BuildDeadSlotQuery();
 
         protected abstract JobHandle ScheduleReuseJob(
             CombatFaction faction,
-            NativeArray<ProjectileSpawnCommand> configs,
+            NativeArray<ProjectileSpawnCommand> commands,
+            NativeArray<int> order,
             NativeReference<int> claimedReference,
             EntityQuery query);
 
@@ -163,34 +194,6 @@ namespace PlayGround.System.Projectile
             ProjectileSpawnCommand cmd,
             EntityArchetype archetype,
             EntityCommandBuffer ecb);
-
-        private void ReturnBuckets()
-        {
-            foreach (var bucket in _byKey.Values)
-            {
-                bucket.Requests.Clear();
-                _bucketPool.Add(bucket);
-            }
-            _byKey.Clear();
-        }
-
-        private ProjectileSpawnBucket GetBucket()
-        {
-            if (_bucketPool.Count > 0)
-            {
-                int last = _bucketPool.Count - 1;
-                var bucket = _bucketPool[last];
-                _bucketPool.RemoveAt(last);
-                return bucket;
-            }
-            return new ProjectileSpawnBucket();
-        }
-
-        private static void DisposeBuckets(IEnumerable<ProjectileSpawnBucket> buckets)
-        {
-            foreach (ProjectileSpawnBucket bucket in buckets)
-                bucket.Dispose();
-        }
 
         private EntityQuery DeadSlotQueryFor(ProjectileSpawnKey key, CombatFaction faction)
         {
@@ -304,31 +307,81 @@ namespace PlayGround.System.Projectile
             }
         }
 
-        private sealed class ProjectileSpawnBucket : IDisposable
+        // Counting-sort the drained commands into per-key contiguous runs, in Burst.
+        // Pass 1 assigns a dense bucket index per distinct (faction, typeId) key and counts
+        // per bucket; prefix-sum yields offsets; pass 2 scatters the command *indices* (4 bytes)
+        // into Order. The large ProjectileSpawnCommand struct is never copied here.
+        [BurstCompile]
+        private struct BucketCommandsJob : IJob
         {
-            public readonly NativeList<ProjectileSpawnCommand> Requests =
-                new(Allocator.Persistent);
+            [ReadOnly] public NativeArray<ProjectileSpawnCommand> Commands;
+            public NativeHashMap<ProjectileSpawnKey, int> KeyToIndex;
+            public NativeList<ProjectileSpawnKey> Keys;
+            public NativeList<int> Counts;
+            public NativeList<int> Offsets;
+            public NativeArray<int> Order;
 
-            public void Dispose()
+            public void Execute()
             {
-                if (Requests.IsCreated)
-                    Requests.Dispose();
+                KeyToIndex.Clear();
+                Keys.Clear();
+                Counts.Clear();
+
+                int count = Commands.Length;
+                var bucketIds = new NativeArray<int>(count, Allocator.Temp);
+                for (int i = 0; i < count; i++)
+                {
+                    ProjectileSpawnCommand cmd = Commands[i];
+                    var key = new ProjectileSpawnKey((int)cmd.Faction, cmd.TypeId);
+                    if (!KeyToIndex.TryGetValue(key, out int idx))
+                    {
+                        idx = Keys.Length;
+                        KeyToIndex.Add(key, idx);
+                        Keys.Add(key);
+                        Counts.Add(0);
+                    }
+                    bucketIds[i] = idx;
+                    Counts[idx] = Counts[idx] + 1;
+                }
+
+                int buckets = Counts.Length;
+                Offsets.ResizeUninitialized(buckets);
+                var cursor = new NativeArray<int>(buckets, Allocator.Temp);
+                int running = 0;
+                for (int b = 0; b < buckets; b++)
+                {
+                    Offsets[b] = running;
+                    running += Counts[b];
+                }
+
+                for (int i = 0; i < count; i++)
+                {
+                    int idx = bucketIds[i];
+                    Order[Offsets[idx] + cursor[idx]] = i;
+                    cursor[idx] = cursor[idx] + 1;
+                }
+
+                cursor.Dispose();
+                bucketIds.Dispose();
             }
         }
 
         private readonly struct ProjectileSpawnWork
         {
             public readonly CombatFaction Faction;
-            public readonly NativeArray<ProjectileSpawnCommand> Configs;
+            public readonly NativeArray<ProjectileSpawnCommand> Commands;
+            public readonly NativeArray<int> Order;
             public readonly NativeReference<int> ClaimedCount;
 
             public ProjectileSpawnWork(
                 CombatFaction faction,
-                NativeArray<ProjectileSpawnCommand> configs,
+                NativeArray<ProjectileSpawnCommand> commands,
+                NativeArray<int> order,
                 NativeReference<int> claimedCount)
             {
                 Faction = faction;
-                Configs = configs;
+                Commands = commands;
+                Order = order;
                 ClaimedCount = claimedCount;
             }
         }
@@ -365,7 +418,7 @@ namespace PlayGround.System.Projectile
                 typeof(CombatRenderActiveTag),
                 typeof(ProjectileContactGateElement));
 
-        protected override NativeQueue<ProjectileSpawnCommand> CommandContainer(
+        protected override NativeList<ProjectileSpawnCommand> CommandContainer(
             ProjectileSpawnExpansionSystem expansionSys) =>
             expansionSys.BasicProjectileCommandContainer;
 
@@ -380,13 +433,15 @@ namespace PlayGround.System.Projectile
 
         protected override JobHandle ScheduleReuseJob(
             CombatFaction faction,
-            NativeArray<ProjectileSpawnCommand> configs,
+            NativeArray<ProjectileSpawnCommand> commands,
+            NativeArray<int> order,
             NativeReference<int> claimedReference,
             EntityQuery query) =>
             new BasicProjectileSpawnJob
             {
                 Faction = faction,
-                Configs = configs,
+                Commands = commands,
+                Order = order,
                 ClaimedCount = claimedReference,
                 ActiveHandle = GetComponentTypeHandle<Active>(false),
                 CollisionActiveHandle = GetComponentTypeHandle<ProjectileCollisionActiveTag>(false),
@@ -418,7 +473,8 @@ namespace PlayGround.System.Projectile
         private struct BasicProjectileSpawnJob : IJobChunk
         {
             public CombatFaction Faction;
-            [ReadOnly] public NativeArray<ProjectileSpawnCommand> Configs;
+            [ReadOnly] public NativeArray<ProjectileSpawnCommand> Commands;
+            [ReadOnly] public NativeArray<int> Order;
             [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
 
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<Active> ActiveHandle;
@@ -441,7 +497,7 @@ namespace PlayGround.System.Projectile
                 in v128 chunkEnabledMask)
             {
                 int cfgIdx = ClaimedCount.Value;
-                if (cfgIdx >= Configs.Length) return;
+                if (cfgIdx >= Order.Length) return;
 
                 EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
                 EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
@@ -459,11 +515,11 @@ namespace PlayGround.System.Projectile
                 NativeArray<CombatRenderElement> renderElems = chunk.GetNativeArray(ref RenderElementHandle);
                 BufferAccessor<ProjectileContactGateElement> gates = chunk.GetBufferAccessor(ref ContactGateHandle);
 
-                for (int i = 0; i < chunk.Count && cfgIdx < Configs.Length; i++)
+                for (int i = 0; i < chunk.Count && cfgIdx < Order.Length; i++)
                 {
                     if (activeMask[i]) continue;
 
-                    ProjectileSpawnCommand cfg = Configs[cfgIdx++];
+                    ProjectileSpawnCommand cfg = Commands[Order[cfgIdx++]];
 
                     identities[i] = new ProjectileIdentityComponent
                     {
@@ -553,7 +609,7 @@ namespace PlayGround.System.Projectile
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
 
-        protected override NativeQueue<ProjectileSpawnCommand> CommandContainer(
+        protected override NativeList<ProjectileSpawnCommand> CommandContainer(
             ProjectileSpawnExpansionSystem expansionSys) =>
             expansionSys.ChildSpawnerProjectileCommandContainer;
 
@@ -568,13 +624,15 @@ namespace PlayGround.System.Projectile
 
         protected override JobHandle ScheduleReuseJob(
             CombatFaction faction,
-            NativeArray<ProjectileSpawnCommand> configs,
+            NativeArray<ProjectileSpawnCommand> commands,
+            NativeArray<int> order,
             NativeReference<int> claimedReference,
             EntityQuery query) =>
             new ChildSpawnerProjectileSpawnJob
             {
                 Faction = faction,
-                Configs = configs,
+                Commands = commands,
+                Order = order,
                 ClaimedCount = claimedReference,
                 ActiveHandle = GetComponentTypeHandle<Active>(false),
                 CollisionActiveHandle = GetComponentTypeHandle<ProjectileCollisionActiveTag>(false),
@@ -645,7 +703,8 @@ namespace PlayGround.System.Projectile
         private struct ChildSpawnerProjectileSpawnJob : IJobChunk
         {
             public CombatFaction Faction;
-            [ReadOnly] public NativeArray<ProjectileSpawnCommand> Configs;
+            [ReadOnly] public NativeArray<ProjectileSpawnCommand> Commands;
+            [ReadOnly] public NativeArray<int> Order;
             [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
 
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<Active> ActiveHandle;
@@ -670,7 +729,7 @@ namespace PlayGround.System.Projectile
                 in v128 chunkEnabledMask)
             {
                 int cfgIdx = ClaimedCount.Value;
-                if (cfgIdx >= Configs.Length) return;
+                if (cfgIdx >= Order.Length) return;
 
                 EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
                 EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
@@ -692,11 +751,11 @@ namespace PlayGround.System.Projectile
                 NativeArray<TimedSpawnStateComponent> timedSpawnStates =
                     chunk.GetNativeArray(ref TimedSpawnStateHandle);
 
-                for (int i = 0; i < chunk.Count && cfgIdx < Configs.Length; i++)
+                for (int i = 0; i < chunk.Count && cfgIdx < Order.Length; i++)
                 {
                     if (activeMask[i]) continue;
 
-                    ProjectileSpawnCommand cfg = Configs[cfgIdx++];
+                    ProjectileSpawnCommand cfg = Commands[Order[cfgIdx++]];
 
                     identities[i] = new ProjectileIdentityComponent
                     {
