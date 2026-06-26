@@ -7,11 +7,9 @@ using Unity.Mathematics;
 
 namespace PlayGround.System.Projectile
 {
-    // Drains ProjectileSpawnEvent from EventQueue (internal producers) and the scope
-    // DynamicBuffer<ProjectileSpawnEvent> (managed submission), fans them out by Count/Spread/Jitter,
-    // and writes fully-resolved ProjectileSpawnCommand into per-shape command
-    // containers for the matching apply systems to consume.
-    // Built beside the old ProjectileMultiExpandSystem; inert until Task 004 wires producers.
+    // Drains thin ProjectileSpawnEvent values, dereferences command-shaped templates,
+    // stamps per-instance frame data, fans out by Count/Spread/Jitter, and writes
+    // fully-resolved ProjectileSpawnCommand into apply-system containers.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(TimedSpawnSystem))]
     [UpdateAfter(typeof(ProjectileCollisionSystem))]
@@ -25,19 +23,9 @@ namespace PlayGround.System.Projectile
         private EntityQuery _scopeQuery;
 
         internal NativeQueue<ProjectileSpawnEvent> EventQueue;
-        // NativeList (not NativeQueue) so the apply systems can read it as a NativeArray with
-        // zero copy. The expansion job appends via ParallelWriter (AddNoResize) into capacity
-        // pre-sized each frame, so this stays correct whether that job runs single- or
-        // multi-threaded.
         internal NativeList<ProjectileSpawnCommand> BasicProjectileCommandContainer;
         internal NativeList<ProjectileSpawnCommand> ChildSpawnerProjectileCommandContainer;
         internal JobHandle PendingHandle;
-
-        // Combined handle of every producer job that wrote EventQueue this frame
-        // (TimedSpawnSystem, ProjectileCollisionSystem, LingeringAoeCollisionSystem, ImpactAoeCollisionSystem).
-        // Producers run before this system in the order graph but their write jobs are
-        // async; ECS does not track the queue, so this system must complete them itself
-        // before reading the queue on the main thread. Reset to default each frame.
         internal JobHandle ProducerHandle;
 
         protected override void OnCreate()
@@ -54,32 +42,34 @@ namespace PlayGround.System.Projectile
         {
             PendingHandle.Complete();
             if (BasicProjectileCommandContainer.IsCreated)
+            {
                 BasicProjectileCommandContainer.Dispose();
+            }
+
             if (ChildSpawnerProjectileCommandContainer.IsCreated)
+            {
                 ChildSpawnerProjectileCommandContainer.Dispose();
+            }
+
             EventQueue.Dispose();
         }
 
         protected override void OnUpdate()
         {
             Dependency.Complete();
-
-            // Producers write EventQueue via ParallelWriter; their handles are not part of
-            // this system's component-derived Dependency. Complete them before any read.
             ProducerHandle.Complete();
             ProducerHandle = default;
 
-            // Discard last frame's commands (already consumed by the apply systems). Done
-            // unconditionally so a no-event frame leaves the consumers an empty container.
             BasicProjectileCommandContainer.Clear();
             ChildSpawnerProjectileCommandContainer.Clear();
 
             int queueCount = EventQueue.Count;
-
             using NativeArray<Entity> scopes = _scopeQuery.ToEntityArray(Allocator.Temp);
             int bufferCount = 0;
             for (int s = 0; s < scopes.Length; s++)
+            {
                 bufferCount += EntityManager.GetBuffer<ProjectileSpawnEvent>(scopes[s]).Length;
+            }
 
             int totalEvents = queueCount + bufferCount;
             if (totalEvents == 0)
@@ -91,10 +81,6 @@ namespace PlayGround.System.Projectile
             var events = new NativeArray<ProjectileSpawnEvent>(totalEvents, Allocator.TempJob);
             int offset = 0;
 
-            // Bulk copy queued events in one memcpy instead of per-element TryDequeue: the
-            // managed NativeQueue.TryDequeue path crosses the safety boundary and copies the
-            // (large) event struct individually per element, which dominated this system's
-            // main-thread cost. Producers are already completed above, so Count is stable.
             if (queueCount > 0)
             {
                 NativeArray<ProjectileSpawnEvent> queued = EventQueue.ToArray(Allocator.Temp);
@@ -115,29 +101,49 @@ namespace PlayGround.System.Projectile
                 }
             }
 
-            // Pre-size the command lists so the expansion job can append via ParallelWriter
-            // (AddNoResize). This keeps the producer side correct if/when the job becomes
-            // multi-threaded -- a parallel writer cannot grow the backing allocation, so the
-            // capacity (an exact upper bound = sum of per-event fan-out) must be set up front.
+            if (!SystemAPI.TryGetSingleton(out ProjectileSpawnTemplate templates))
+            {
+                PendingHandle = events.Dispose(Dependency);
+                Dependency = PendingHandle;
+                return;
+            }
+
             int basicCommandBound = 0;
             int childCommandBound = 0;
             for (int e = 0; e < events.Length; e++)
             {
                 ProjectileSpawnEvent evt = events[e];
-                int fanout = math.max(1, evt.Count);
-                if (evt.HasTimedSpawner != 0)
+                if (evt.Kind != IntervalChildKind.Projectile
+                    || !templates.Map.TryGetValue(evt.TemplateKey, out ProjectileSpawnCommand template))
+                {
+                    continue;
+                }
+
+                int fanout = math.max(1, template.Count);
+                if (template.HasTimedSpawner != 0)
+                {
                     childCommandBound += fanout;
+                }
                 else
+                {
                     basicCommandBound += fanout;
+                }
             }
+
             if (BasicProjectileCommandContainer.Capacity < basicCommandBound)
+            {
                 BasicProjectileCommandContainer.SetCapacity(basicCommandBound);
+            }
+
             if (ChildSpawnerProjectileCommandContainer.Capacity < childCommandBound)
+            {
                 ChildSpawnerProjectileCommandContainer.SetCapacity(childCommandBound);
+            }
 
             Dependency = new ProjectileExpansionJob
             {
                 Events = events,
+                Templates = templates.Map,
                 BasicCommands = BasicProjectileCommandContainer.AsParallelWriter(),
                 ChildSpawnerCommands = ChildSpawnerProjectileCommandContainer.AsParallelWriter()
             }.Schedule(Dependency);
@@ -150,6 +156,7 @@ namespace PlayGround.System.Projectile
         private struct ProjectileExpansionJob : IJob
         {
             [ReadOnly] public NativeArray<ProjectileSpawnEvent> Events;
+            [ReadOnly] public NativeHashMap<Hash128, ProjectileSpawnCommand> Templates;
             public NativeList<ProjectileSpawnCommand>.ParallelWriter BasicCommands;
             public NativeList<ProjectileSpawnCommand>.ParallelWriter ChildSpawnerCommands;
 
@@ -158,95 +165,113 @@ namespace PlayGround.System.Projectile
                 for (int ci = 0; ci < Events.Length; ci++)
                 {
                     ProjectileSpawnEvent evt = Events[ci];
-                    int count = math.max(1, evt.Count);
+                    if (evt.Kind != IntervalChildKind.Projectile
+                        || !Templates.TryGetValue(evt.TemplateKey, out ProjectileSpawnCommand command))
+                    {
+                        continue;
+                    }
 
-                    if (evt.DeterministicIdTickIndex > 0
-                        && evt.SpawnPatternType == ProjectileChildSpawnPatternType.SideSpray)
+                    Stamp(ref command, in evt);
+                    int count = math.max(1, command.Count);
+
+                    if (command.DeterministicIdTickIndex > 0
+                        && command.SpawnPatternType == ProjectileChildSpawnPatternType.SideSpray)
                     {
                         for (int i = 0; i < count; i++)
                         {
-                            int id = ProjectileIdFor(in evt, i);
-                            float2 velocity = SideSprayVelocity(in evt, i, count);
-                            WriteCommand(in evt, id, velocity);
+                            int id = ProjectileIdFor(in command, i);
+                            float2 velocity = SideSprayVelocity(in command, i, count);
+                            WriteCommand(in command, id, velocity);
                         }
                     }
-                    else if (evt.DeterministicIdTickIndex > 0
-                        && evt.SpawnPatternType == ProjectileChildSpawnPatternType.Radial)
+                    else if (command.DeterministicIdTickIndex > 0
+                        && command.SpawnPatternType == ProjectileChildSpawnPatternType.Radial)
                     {
                         for (int i = 0; i < count; i++)
                         {
-                            int id = ProjectileIdFor(in evt, i);
-                            float2 velocity = RadialDirection(i, count) * evt.Speed;
-                            WriteCommand(in evt, id, velocity);
+                            int id = ProjectileIdFor(in command, i);
+                            float2 velocity = RadialDirection(i, count) * command.Speed;
+                            WriteCommand(in command, id, velocity);
                         }
                     }
                     else if (count <= 1)
                     {
-                        WriteCommand(in evt, ProjectileIdFor(in evt, 0), evt.BaseDirection * evt.Speed);
+                        WriteCommand(in command, ProjectileIdFor(in command, 0), command.BaseDirection * command.Speed);
                     }
                     else
                     {
-                        var rng = new Random(evt.JitterSeed != 0 ? evt.JitterSeed : 1u);
+                        var rng = new Random(command.JitterSeed != 0 ? command.JitterSeed : 1u);
                         for (int i = 0; i < count; i++)
                         {
-                            float angle = SpreadAngle(evt.SpreadDegrees, i, count);
-                            if (evt.JitterDegrees > 0f)
-                                angle += rng.NextFloat(-evt.JitterDegrees, evt.JitterDegrees);
+                            float angle = SpreadAngle(command.SpreadDegrees, i, count);
+                            if (command.JitterDegrees > 0f)
+                            {
+                                angle += rng.NextFloat(-command.JitterDegrees, command.JitterDegrees);
+                            }
 
-                            int id = ProjectileIdFor(in evt, i);
-                            float2 velocity = Rotate(evt.BaseDirection, angle) * evt.Speed;
-                            WriteCommand(in evt, id, velocity);
+                            int id = ProjectileIdFor(in command, i);
+                            float2 velocity = Rotate(command.BaseDirection, angle) * command.Speed;
+                            WriteCommand(in command, id, velocity);
                         }
                     }
                 }
             }
 
-            private void WriteCommand(in ProjectileSpawnEvent evt, int projectileId, float2 velocity)
+            private static void Stamp(ref ProjectileSpawnCommand command, in ProjectileSpawnEvent evt)
+            {
+                command.Faction = evt.Faction;
+                command.ProjectileId = evt.SourceId;
+                command.Position = evt.Position;
+                command.JitterSeed = evt.JitterSeed;
+                command.DeterministicIdTickIndex = evt.DeterministicIdTickIndex;
+                command.SeedContactGateTargetId = evt.ContactGateSeedTargetId;
+                if (math.lengthsq(evt.AimDirection) > 0.0001f)
+                {
+                    command.BaseDirection = math.normalize(evt.AimDirection);
+                }
+            }
+
+            private void WriteCommand(in ProjectileSpawnCommand template, int projectileId, float2 velocity)
             {
                 ProjectileCollisionMath.ComputeWorldBounds(
-                    evt.Position, evt.Radius, evt.HalfExtents, evt.RotationRadians, evt.ShapeType,
+                    template.Position, template.Radius, template.HalfExtents, template.RotationRadians, template.ShapeType,
                     out float2 boundsMin, out float2 boundsMax);
 
-                CombatRenderComponent render = evt.Render;
+                CombatRenderComponent render = template.Render;
                 render.RenderZ = CombatRoot.ProjectileRenderZ
                     - (projectileId % CombatRoot.ProjectileRenderZSlots) * CombatRoot.ProjectileRenderZStep;
 
-                var command = new ProjectileSpawnCommand
+                TimedSpawnComponent timedSpawn = template.TimedSpawn;
+                if (template.HasTimedSpawner != 0)
                 {
-                    Faction = evt.Faction,
-                    ProjectileId = projectileId,
-                    TypeId = evt.TypeId,
-                    HasTimedSpawner = evt.HasTimedSpawner,
-                    PierceRemaining = evt.PierceRemaining,
-                    RepeatHitCooldownSeconds = evt.RepeatHitCooldownSeconds,
-                    SeedContactGateTargetId = evt.SeedContactGateTargetId,
-                    Lifetime = evt.Lifetime,
-                    Radius = evt.Radius,
-                    RotationRadians = evt.RotationRadians,
-                    Position = evt.Position,
-                    Velocity = velocity,
-                    HalfExtents = evt.HalfExtents,
-                    BoundsMin = boundsMin,
-                    BoundsMax = boundsMax,
-                    ShapeType = evt.ShapeType,
-                    HitPayload = evt.HitPayload,
-                    Tracking = evt.Tracking,
-                    Render = render,
-                    TimedSpawn = evt.TimedSpawn
-                };
+                    timedSpawn.Faction = template.Faction;
+                    timedSpawn.SourceId = projectileId;
+                }
 
-                if (evt.HasTimedSpawner != 0)
+                var command = template;
+                command.ProjectileId = projectileId;
+                command.Velocity = velocity;
+                command.BoundsMin = boundsMin;
+                command.BoundsMax = boundsMax;
+                command.Render = render;
+                command.TimedSpawn = timedSpawn;
+
+                if (template.HasTimedSpawner != 0)
+                {
                     ChildSpawnerCommands.AddNoResize(command);
+                }
                 else
+                {
                     BasicCommands.AddNoResize(command);
+                }
             }
 
             private static float SpreadAngle(float spread, int i, int count) =>
                 count <= 1 ? 0f : -spread * 0.5f + spread / (count - 1) * i;
 
-            private static float2 SideSprayVelocity(in ProjectileSpawnEvent evt, int shotIndex, int shotCount)
+            private static float2 SideSprayVelocity(in ProjectileSpawnCommand command, int shotIndex, int shotCount)
             {
-                float2 forward = math.normalizesafe(evt.BaseDirection, new float2(1f, 0f));
+                float2 forward = math.normalizesafe(command.BaseDirection, new float2(1f, 0f));
                 float2 left = new float2(-forward.y, forward.x);
                 float2 right = new float2(forward.y, -forward.x);
                 bool isLeft = (shotIndex & 1) == 0;
@@ -255,8 +280,8 @@ namespace PlayGround.System.Projectile
                 int sideIndex = shotIndex / 2;
                 int sideCount = isLeft ? leftCount : rightCount;
                 float2 sideDirection = isLeft ? left : right;
-                float angle = SpreadAngle(evt.SpreadDegrees, sideIndex, sideCount);
-                return Rotate(sideDirection, angle) * evt.Speed;
+                float angle = SpreadAngle(command.SpreadDegrees, sideIndex, sideCount);
+                return Rotate(sideDirection, angle) * command.Speed;
             }
 
             private static float2 RadialDirection(int shotIndex, int shotCount)
@@ -271,18 +296,18 @@ namespace PlayGround.System.Projectile
                 return new float2(c, s);
             }
 
-            private static int ProjectileIdFor(in ProjectileSpawnEvent evt, int shotIndex)
+            private static int ProjectileIdFor(in ProjectileSpawnCommand command, int shotIndex)
             {
-                if (evt.DeterministicIdTickIndex <= 0)
+                if (command.DeterministicIdTickIndex <= 0)
                 {
-                    return evt.BaseProjectileId + shotIndex;
+                    return command.ProjectileId + shotIndex;
                 }
 
                 unchecked
                 {
-                    int hash = evt.BaseProjectileId;
-                    hash = (hash * 397) ^ (int)evt.JitterSeed;
-                    hash = (hash * 397) ^ evt.DeterministicIdTickIndex;
+                    int hash = command.ProjectileId;
+                    hash = (hash * 397) ^ (int)command.JitterSeed;
+                    hash = (hash * 397) ^ command.DeterministicIdTickIndex;
                     hash = (hash * 397) ^ shotIndex;
                     hash &= int.MaxValue;
                     return hash == 0 ? 1 : hash;

@@ -189,50 +189,52 @@ namespace PlayGround.System.Common
 
             int baseProjectileId = nextProjectileId + 1;
             nextProjectileId += request.Count;
+            ProjectileSpawnCommand template = ProjectileCommandFor(request, baseProjectileId, seedContactGateTargetId);
+            Hash128 templateKey = RegisterSpawnTemplate(in template);
             entityManager.GetBuffer<ProjectileSpawnEvent>(scopeEntity)
-                .Add(ProjectileEventFor(request, baseProjectileId, seedContactGateTargetId));
+                .Add(ProjectileEventFor(templateKey, request, baseProjectileId, seedContactGateTargetId));
             return baseProjectileId;
         }
 
-        public Hash128 RegisterSpawnTemplate(in ProjectileSpawnEvent evt)
+        public Hash128 RegisterSpawnTemplate(in ProjectileSpawnCommand template)
         {
             EnsureRuntimeReady();
 
-            ProjectileSpawnEvent template = SpawnTemplateFor(in evt);
-            Hash128 key = SpawnTemplateHash.Of(in template);
+            ProjectileSpawnCommand normalizedTemplate = SpawnTemplateFor(in template);
+            Hash128 key = SpawnTemplateHash.Of(in normalizedTemplate);
             ProjectileSpawnTemplate registry = entityManager.GetComponentData<ProjectileSpawnTemplate>(scopeEntity);
             if (!registry.Map.ContainsKey(key))
             {
                 entityManager.CompleteAllTrackedJobs();
-                registry.Map.Add(key, template);
+                registry.Map.Add(key, normalizedTemplate);
             }
 
             return key;
         }
 
-        public Hash128 RegisterTimedSpawnTemplate(in ProjectileSpawnEvent evt) =>
-            RegisterSpawnTemplate(in evt);
+        public Hash128 RegisterTimedSpawnTemplate(in ProjectileSpawnCommand template) =>
+            RegisterSpawnTemplate(in template);
 
         // ---- AOE API ----
 
-        public Hash128 RegisterSpawnTemplate(in AoeSpawnEvent evt)
+        public Hash128 RegisterSpawnTemplate(in AoeSpawnCommand template)
         {
             EnsureRuntimeReady();
 
-            AoeSpawnEvent template = SpawnTemplateFor(in evt);
-            Hash128 key = SpawnTemplateHash.Of(in template);
+            AoeSpawnCommand normalizedTemplate = SpawnTemplateFor(in template);
+            Hash128 key = SpawnTemplateHash.Of(in normalizedTemplate);
             AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(scopeEntity);
             if (!registry.Map.ContainsKey(key))
             {
                 entityManager.CompleteAllTrackedJobs();
-                registry.Map.Add(key, template);
+                registry.Map.Add(key, normalizedTemplate);
             }
 
             return key;
         }
 
-        public Hash128 RegisterTimedSpawnTemplate(in AoeSpawnEvent evt) =>
-            RegisterSpawnTemplate(in evt);
+        public Hash128 RegisterTimedSpawnTemplate(in AoeSpawnCommand template) =>
+            RegisterSpawnTemplate(in template);
 
         public int RegisterConfig(AoeConfig config)
         {
@@ -297,24 +299,45 @@ namespace PlayGround.System.Common
             }
 
             int aoeId = ++nextAoeId;
-            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Add(AoeEventFor(request, aoeId));
+            AoeSpawnCommand template = AoeCommandFor(request, aoeId);
+            Hash128 templateKey = RegisterSpawnTemplate(in template);
+            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Add(AoeEventFor(templateKey, request, aoeId));
             spawnedAoes++;
             return aoeId;
         }
 
         // ---- Request builders ----
 
-        private ProjectileSpawnEvent ProjectileEventFor(ProjectileSpawnRequest request, int baseProjectileId, int seedContactGateTargetId)
+        private ProjectileSpawnEvent ProjectileEventFor(
+            Hash128 templateKey,
+            ProjectileSpawnRequest request,
+            int baseProjectileId,
+            int seedContactGateTargetId)
+        {
+            return new ProjectileSpawnEvent
+            {
+                Kind = IntervalChildKind.Projectile,
+                TemplateKey = templateKey,
+                Position = new float2(request.Position.x, request.Position.y),
+                AimDirection = new float2(request.Direction.x, request.Direction.y),
+                Faction = faction,
+                SourceId = baseProjectileId,
+                JitterSeed = (uint)baseProjectileId * 2654435761u,
+                ContactGateSeedTargetId = seedContactGateTargetId
+            };
+        }
+
+        private ProjectileSpawnCommand ProjectileCommandFor(ProjectileSpawnRequest request, int baseProjectileId, int seedContactGateTargetId)
         {
             float2 position = new(request.Position.x, request.Position.y);
             float2 halfExtents = new(request.HalfExtents.x, request.HalfExtents.y);
             TimedSpawnComponent timedSpawn = TimedSpawnFor(request, faction, baseProjectileId);
             bool hasTimedSpawner = IsTimedSpawnEnabled(timedSpawn);
 
-            var evt = new ProjectileSpawnEvent
+            return new ProjectileSpawnCommand
             {
                 Faction = faction,
-                BaseProjectileId = baseProjectileId,
+                ProjectileId = baseProjectileId,
                 TypeId = request.ProjectileTypeId,
                 PierceRemaining = request.PierceCount,
                 HasTimedSpawner = hasTimedSpawner ? 1 : 0,
@@ -337,17 +360,28 @@ namespace PlayGround.System.Common
                 JitterSeed = (uint)baseProjectileId * 2654435761u,
                 TimedSpawn = timedSpawn
             };
-
-            return evt;
         }
 
-        private AoeSpawnEvent AoeEventFor(AoeSpawnRequest request, int aoeId)
+        private AoeSpawnEvent AoeEventFor(Hash128 templateKey, AoeSpawnRequest request, int aoeId)
+        {
+            return new AoeSpawnEvent
+            {
+                Kind = IntervalChildKind.Aoe,
+                TemplateKey = templateKey,
+                Position = new float2(request.Position.x, request.Position.y),
+                Faction = faction,
+                SourceId = aoeId,
+                JitterSeed = (uint)aoeId * 2654435761u
+            };
+        }
+
+        private AoeSpawnCommand AoeCommandFor(AoeSpawnRequest request, int aoeId)
         {
             AoeSpawnGeometry geometry = request.Geometry;
             float2 position = new(request.Position.x, request.Position.y);
             float2 halfExtents = new(geometry.HalfExtents.x, geometry.HalfExtents.y);
 
-            return new AoeSpawnEvent
+            return new AoeSpawnCommand
             {
                 Faction = faction,
                 AoeId = aoeId,
@@ -420,21 +454,31 @@ namespace PlayGround.System.Common
             && timedSpawn.IntervalSeconds > 0f
             && !timedSpawn.TemplateKey.Equals(default(Hash128));
 
-        private static ProjectileSpawnEvent SpawnTemplateFor(in ProjectileSpawnEvent evt)
+        private static ProjectileSpawnCommand SpawnTemplateFor(in ProjectileSpawnCommand command)
         {
-            ProjectileSpawnEvent template = evt;
+            ProjectileSpawnCommand template = command;
             template.Faction = CombatFaction.None;
-            template.BaseProjectileId = 0;
+            template.ProjectileId = 0;
             template.SeedContactGateTargetId = 0;
             template.Position = default;
+            template.Velocity = default;
+            template.BoundsMin = default;
+            template.BoundsMax = default;
             template.JitterSeed = 0;
             template.DeterministicIdTickIndex = 0;
+            CombatRenderComponent render = template.Render;
+            render.RenderZ = 0f;
+            template.Render = render;
+            TimedSpawnComponent timedSpawn = template.TimedSpawn;
+            timedSpawn.Faction = CombatFaction.None;
+            timedSpawn.SourceId = 0;
+            template.TimedSpawn = timedSpawn;
             return template;
         }
 
-        private static AoeSpawnEvent SpawnTemplateFor(in AoeSpawnEvent evt)
+        private static AoeSpawnCommand SpawnTemplateFor(in AoeSpawnCommand command)
         {
-            AoeSpawnEvent template = evt;
+            AoeSpawnCommand template = command;
             template.Faction = CombatFaction.None;
             template.AoeId = 0;
             template.Position = default;
@@ -442,6 +486,10 @@ namespace PlayGround.System.Common
             template.BoundsMax = default;
             template.JitterSeed = 0;
             template.DeterministicIdTickIndex = 0;
+            TimedSpawnComponent timedSpawn = template.TimedSpawn;
+            timedSpawn.Faction = CombatFaction.None;
+            timedSpawn.SourceId = 0;
+            template.TimedSpawn = timedSpawn;
             return template;
         }
 

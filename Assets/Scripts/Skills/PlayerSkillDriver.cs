@@ -308,10 +308,10 @@ namespace PlayGround.Skills
 
             StackEffectSnapshot stackEffect =
                 SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(child, combatRoot);
-            ProjectileSpawnEvent evt =
-                SkillIntervalTemplateBuilder.BuildProjectileTemplateEvent(child, setup.Behavior, combatRoot, stackEffect);
+            ProjectileSpawnCommand template =
+                SkillIntervalTemplateBuilder.BuildProjectileTemplate(child, setup.Behavior, combatRoot, stackEffect);
 
-            setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in evt);
+            setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in template);
         }
 
         private void RegisterAoeIntervalTemplate(RuntimeAoeIntervalSpawnSetup setup)
@@ -322,14 +322,14 @@ namespace PlayGround.Skills
 
             StackEffectSnapshot stackEffect =
                 SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(child, combatRoot);
-            AoeSpawnEvent evt =
-                SkillIntervalTemplateBuilder.BuildAoeTemplateEvent(
+            AoeSpawnCommand template =
+                SkillIntervalTemplateBuilder.BuildAoeTemplate(
                     child,
                     Mathf.Max(1, setup.Count),
                     combatRoot,
                     stackEffect);
 
-            setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in evt);
+            setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in template);
         }
 
         private void RegisterAoeTypesRecursive(RuntimeSkillDefinition def)
@@ -415,14 +415,14 @@ namespace PlayGround.Skills
     {
         private const int MaxAoeOnHitSpawnDepth = AoeOnHitSpawnSnapshot.MaxStackChainLinks;
 
-        public static ProjectileSpawnEvent BuildProjectileTemplateEvent(
+        public static ProjectileSpawnCommand BuildProjectileTemplate(
             RuntimeProjectileDefinition child,
             ProjectileChildSpawnBehavior behavior,
             CombatRoot root,
             StackEffectSnapshot stackEffect)
         {
             BasicAttackPrefab prefab = child.Prefab;
-            return new ProjectileSpawnEvent
+            return new ProjectileSpawnCommand
             {
                 TypeId = child.TypeId,
                 HasTimedSpawner = 0,
@@ -464,14 +464,14 @@ namespace PlayGround.Skills
             };
         }
 
-        public static AoeSpawnEvent BuildAoeTemplateEvent(
+        public static AoeSpawnCommand BuildAoeTemplate(
             RuntimeAoeDefinition child,
             int count,
             CombatRoot root,
             StackEffectSnapshot stackEffect)
         {
             AoeSpawnGeometry geometry = child.CreateSpawnGeometry();
-            return new AoeSpawnEvent
+            return new AoeSpawnCommand
             {
                 TypeId = child.TypeId,
                 Lifetime = child.LifetimeSeconds,

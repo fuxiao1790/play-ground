@@ -17,7 +17,7 @@ namespace PlayGround.Tests.PlayMode
         private EntityManager entityManager;
         private SimulationSystemGroup simGroup;
         private Entity scopeEntity;
-        private NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnEvent> projectileTemplateMap;
+        private NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnCommand> projectileTemplateMap;
         private Unity.Entities.Hash128 childProjectileTemplateKey;
         private double elapsedTime;
 
@@ -40,7 +40,7 @@ namespace PlayGround.Tests.PlayMode
             entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
 
-            projectileTemplateMap = new NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnEvent>(8, Allocator.Persistent);
+            projectileTemplateMap = new NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnCommand>(8, Allocator.Persistent);
             entityManager.AddComponentData(scopeEntity, new ProjectileSpawnTemplate { Map = projectileTemplateMap });
             childProjectileTemplateKey = RegisterChildProjectileTemplate();
         }
@@ -347,8 +347,9 @@ namespace PlayGround.Tests.PlayMode
                     VisualScale = new float2(1f, 1f)
                 }
             };
-            Unity.Entities.Hash128 key = SpawnTemplateHash.Of(in evt);
-            projectileTemplateMap.TryAdd(key, evt);
+            ProjectileSpawnCommand template = SpawnTemplateHash.ProjectileCommandFromEvent(in evt);
+            Unity.Entities.Hash128 key = SpawnTemplateHash.Of(in template);
+            projectileTemplateMap.TryAdd(key, template);
             return key;
         }
 

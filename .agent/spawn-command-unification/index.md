@@ -80,7 +80,11 @@ spawns; the other follow-ups simply never adopted it.
 - `TimedSpawnSystem`'s fetch-by-key -> copy -> stamp -> enqueue pattern, generalized.
 
 **Introduced (justified):**
-- A slim `SpawnInvocation` runtime event (the queues stop carrying fat events).
+- No new event type. `ProjectileSpawnEvent` / `AoeSpawnEvent` are **refactored thin**
+  (registry link + per-instance frame); the queues stop carrying fat events.
+- The registry value moves from event-shaped to **command-shaped** so expansion is
+  copy + stamp + explode with no event→command remap (no duplicate fat
+  representation per spawn).
 - A `(kind, Hash128)` on-hit-spawn slot on the source components, replacing four
   embedded snapshot structs.
 - Key-based stacking detonation: `StackEffectSnapshot` carries
@@ -94,8 +98,11 @@ the cycle, lossiness, and CS8377; the registry is the documented bound.
 - **Concurrency** — registration is compile-time / managed (pre-tick); collision,
   status, expansion, and timed-spawn only *read* the registry `[ReadOnly]`. Safe by
   the frozen-during-tick contract. ✓
-- **Plain data** — `SpawnInvocation` and the command are blittable (kind byte,
+- **Plain data** — the thin event and the command are blittable (kind byte,
   `Hash128`, floats, ids); no managed refs in any native container. Fixes CS8377. ✓
+- **No duplicate fat representation** — registry template is command-shaped, so a
+  spawn exists as exactly one fat layout (template == output); expansion stamps and
+  explodes without remapping. ✓
 - **Cycle** — follow-up is a `Hash128` key, not an embedded value → no struct cycle
   is expressible. ✓
 - **Bound** — depth cap enforced at registration; templates fully enumerable at
@@ -108,7 +115,7 @@ the cycle, lossiness, and CS8377; the registry is the documented bound.
 | # | Task | File |
 |---|---|---|
 | 001 | Registry: command-template storage + unified registration API + concurrency annotation | [001-registry-command-templates.md](001-registry-command-templates.md) |
-| 002 | Slim `SpawnInvocation` event + queue/scope-buffer plumbing | [002-slim-spawn-invocation.md](002-slim-spawn-invocation.md) |
+| 002 | Refactor `*SpawnEvent` to a thin registry link + queue/scope-buffer plumbing | [002-slim-spawn-invocation.md](002-slim-spawn-invocation.md) |
 | 003 | Expansion rewrite: dereference key + stamp instance frame + explode volley | [003-expansion-dereference.md](003-expansion-dereference.md) |
 | 004 | Source follow-up slots become `(kind, key)`; drop embedded snapshots from components | [004-keyed-followup-slots.md](004-keyed-followup-slots.md) |
 | 005 | Collision / status / timed emit `SpawnInvocation` | [005-emit-invocations.md](005-emit-invocations.md) |
@@ -122,11 +129,12 @@ Dependency order: 001 → 002 → 003; 004 in parallel with 001–003; 005 needs
 
 ## Open questions
 
-1. **Registry value shape.** Reuse the existing fat `ProjectileSpawnEvent` /
-   `AoeSpawnEvent` as the stored template (recommended — already keyed and blittable,
-   minimal churn), or introduce dedicated `*SpawnCommandTemplate` structs? Lean:
-   reuse, and demote those event types to template-only (runtime enqueues
-   `SpawnInvocation`).
+1. **Registry value shape — RESOLVED to command-shaped.** The template is stored in
+   command layout (not event layout) so expansion does not remap. Remaining
+   micro-decision: extend `ProjectileSpawnCommand` / `AoeSpawnCommand` with the ~5
+   volley fields (zero new types; command carries a few pre-explosion-only fields)
+   vs. a dedicated command-template struct (clean field validity; +1 type). Lean:
+   extend the command.
 2. **One unified queue or two domain queues.** `SpawnInvocation` carries `kind`, so a
    single queue + expansion routing is possible. Lean: one invocation type and one
    submission path, routed to the existing two command/apply paths at expansion

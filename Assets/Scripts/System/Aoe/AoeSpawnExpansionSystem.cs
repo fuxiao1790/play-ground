@@ -8,11 +8,8 @@ using Unity.Mathematics;
 
 namespace PlayGround.System.Aoe
 {
-    // Drains AoeSpawnEvent from EventQueue (internal producers) and the scope
-    // DynamicBuffer<AoeSpawnEvent> (managed submission), resolves world bounds,
-    // and writes AoeSpawnCommand into PendingCommands for AoeSpawnApplySystem.
-    // Also emits spawn-time VFX (Trigger=0) per AoE on the main thread.
-    // Built beside the old AoeSpawnSystem; inert until Task 006 wires producers.
+    // Drains thin AoeSpawnEvent values, dereferences command-shaped templates,
+    // stamps per-instance frame data, and writes AoeSpawnCommand into PendingCommands.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
     [UpdateAfter(typeof(PlayGround.System.Projectile.ProjectileCollisionSystem))]
@@ -27,11 +24,6 @@ namespace PlayGround.System.Aoe
         internal NativeQueue<AoeSpawnEvent> EventQueue;
         internal NativeStream PendingCommands;
         internal JobHandle PendingHandle;
-
-        // Combined handle of every producer job that wrote EventQueue this frame
-        // (ProjectileCollisionSystem, StatusProcessSystem). Producers run before this system in the order graph
-        // but their write jobs are async; ECS does not track the queue, so this system must
-        // complete them itself before reading the queue on the main thread. Reset each frame.
         internal JobHandle ProducerHandle;
 
         protected override void OnCreate()
@@ -45,28 +37,31 @@ namespace PlayGround.System.Aoe
         protected override void OnDestroy()
         {
             if (PendingCommands.IsCreated)
+            {
                 PendingCommands.Dispose();
+            }
+
             EventQueue.Dispose();
         }
 
         protected override void OnUpdate()
         {
             if (PendingCommands.IsCreated)
+            {
                 PendingCommands.Dispose();
+            }
 
             Dependency.Complete();
-
-            // Producers write EventQueue via ParallelWriter; their handles are not part of
-            // this system's component-derived Dependency. Complete them before any read.
             ProducerHandle.Complete();
             ProducerHandle = default;
 
             int queueCount = EventQueue.Count;
-
             using NativeArray<Entity> scopes = _scopeQuery.ToEntityArray(Allocator.Temp);
             int bufferCount = 0;
             for (int s = 0; s < scopes.Length; s++)
+            {
                 bufferCount += EntityManager.GetBuffer<AoeSpawnEvent>(scopes[s]).Length;
+            }
 
             int totalEvents = queueCount + bufferCount;
             if (totalEvents == 0)
@@ -79,14 +74,27 @@ namespace PlayGround.System.Aoe
             int offset = 0;
 
             while (EventQueue.TryDequeue(out AoeSpawnEvent evt))
+            {
                 events[offset++] = evt;
+            }
 
             for (int s = 0; s < scopes.Length; s++)
             {
                 DynamicBuffer<AoeSpawnEvent> buf = EntityManager.GetBuffer<AoeSpawnEvent>(scopes[s]);
                 for (int i = 0; i < buf.Length; i++)
+                {
                     events[offset++] = buf[i];
+                }
+
                 buf.Clear();
+            }
+
+            if (!SystemAPI.TryGetSingleton(out AoeSpawnTemplate templates))
+            {
+                PendingCommands = default;
+                Dependency = events.Dispose(Dependency);
+                PendingHandle = Dependency;
+                return;
             }
 
             if (scopes.Length > 0)
@@ -95,22 +103,34 @@ namespace PlayGround.System.Aoe
                     EntityManager.GetBuffer<VfxSpawnRequestElement>(scopes[0]);
                 int vfxCount = 0;
                 for (int i = 0; i < totalEvents; i++)
-                    vfxCount += math.max(1, events[i].Count);
+                {
+                    if (events[i].Kind == IntervalChildKind.Aoe
+                        && templates.Map.TryGetValue(events[i].TemplateKey, out AoeSpawnCommand template))
+                    {
+                        vfxCount += math.max(1, template.Count);
+                    }
+                }
 
                 vfxBuffer.EnsureCapacity(vfxBuffer.Length + vfxCount);
                 for (int i = 0; i < totalEvents; i++)
                 {
                     AoeSpawnEvent e = events[i];
-                    int count = math.max(1, e.Count);
+                    if (e.Kind != IntervalChildKind.Aoe
+                        || !templates.Map.TryGetValue(e.TemplateKey, out AoeSpawnCommand template))
+                    {
+                        continue;
+                    }
+
+                    int count = math.max(1, template.Count);
                     for (int j = 0; j < count; j++)
                     {
                         vfxBuffer.Add(new VfxSpawnRequestElement
                         {
                             Faction = e.Faction,
-                            TypeId = e.TypeId,
+                            TypeId = template.TypeId,
                             Trigger = 0,
                             Position = e.Position,
-                            AreaSize = e.AreaSize
+                            AreaSize = template.AreaSize
                         });
                     }
                 }
@@ -121,6 +141,7 @@ namespace PlayGround.System.Aoe
             Dependency = new AoeExpansionJob
             {
                 Events = events,
+                Templates = templates.Map,
                 Stream = PendingCommands.AsWriter()
             }.Schedule(Dependency);
 
@@ -132,6 +153,7 @@ namespace PlayGround.System.Aoe
         private struct AoeExpansionJob : IJob
         {
             [ReadOnly] public NativeArray<AoeSpawnEvent> Events;
+            [ReadOnly] public NativeHashMap<Hash128, AoeSpawnCommand> Templates;
             public NativeStream.Writer Stream;
 
             public void Execute()
@@ -141,53 +163,59 @@ namespace PlayGround.System.Aoe
                     AoeSpawnEvent evt = Events[ci];
                     Stream.BeginForEachIndex(ci);
 
-                    CombatCollisionMath.ComputeWorldBounds(
-                        evt.Position, evt.Radius, evt.HalfExtents, evt.RotationRadians, evt.ShapeType,
-                        out float2 boundsMin, out float2 boundsMax);
-
-                    int count = math.max(1, evt.Count);
-                    for (int i = 0; i < count; i++)
+                    if (evt.Kind == IntervalChildKind.Aoe
+                        && Templates.TryGetValue(evt.TemplateKey, out AoeSpawnCommand command))
                     {
-                        Stream.Write(new AoeSpawnCommand
+                        Stamp(ref command, in evt);
+
+                        CombatCollisionMath.ComputeWorldBounds(
+                            command.Position, command.Radius, command.HalfExtents, command.RotationRadians, command.ShapeType,
+                            out float2 boundsMin, out float2 boundsMax);
+
+                        int count = math.max(1, command.Count);
+                        for (int i = 0; i < count; i++)
                         {
-                            Faction                  = evt.Faction,
-                            AoeId                    = AoeIdFor(in evt, i),
-                            TypeId                   = evt.TypeId,
-                            Lifetime                 = evt.Lifetime,
-                            RepeatHitCooldownSeconds = evt.RepeatHitCooldownSeconds,
-                            HitPayload               = evt.HitPayload,
-                            AreaSize                 = evt.AreaSize,
-                            Radius                   = evt.Radius,
-                            RotationRadians          = evt.RotationRadians,
-                            Position                 = evt.Position,
-                            HalfExtents              = evt.HalfExtents,
-                            BoundsMin                = boundsMin,
-                            BoundsMax                = boundsMax,
-                            ShapeType                = evt.ShapeType,
-                            Render                   = evt.Render,
-                            ProjectileBurst          = evt.ProjectileBurst,
-                            AoeSpawn                 = evt.AoeSpawn,
-                            HasTimedSpawner          = evt.HasTimedSpawner,
-                            TimedSpawn               = evt.TimedSpawn
-                        });
+                            AoeSpawnCommand spawned = command;
+                            spawned.AoeId = AoeIdFor(in command, i);
+                            spawned.BoundsMin = boundsMin;
+                            spawned.BoundsMax = boundsMax;
+                            if (spawned.HasTimedSpawner != 0)
+                            {
+                                TimedSpawnComponent timedSpawn = spawned.TimedSpawn;
+                                timedSpawn.Faction = spawned.Faction;
+                                timedSpawn.SourceId = spawned.AoeId;
+                                spawned.TimedSpawn = timedSpawn;
+                            }
+
+                            Stream.Write(spawned);
+                        }
                     }
 
                     Stream.EndForEachIndex();
                 }
             }
 
-            private static int AoeIdFor(in AoeSpawnEvent evt, int index)
+            private static void Stamp(ref AoeSpawnCommand command, in AoeSpawnEvent evt)
             {
-                if (evt.DeterministicIdTickIndex <= 0)
+                command.Faction = evt.Faction;
+                command.AoeId = evt.SourceId;
+                command.Position = evt.Position;
+                command.JitterSeed = evt.JitterSeed;
+                command.DeterministicIdTickIndex = evt.DeterministicIdTickIndex;
+            }
+
+            private static int AoeIdFor(in AoeSpawnCommand command, int index)
+            {
+                if (command.DeterministicIdTickIndex <= 0)
                 {
-                    return evt.AoeId + index;
+                    return command.AoeId + index;
                 }
 
                 unchecked
                 {
-                    int hash = evt.AoeId;
-                    hash = (hash * 397) ^ (int)evt.JitterSeed;
-                    hash = (hash * 397) ^ evt.DeterministicIdTickIndex;
+                    int hash = command.AoeId;
+                    hash = (hash * 397) ^ (int)command.JitterSeed;
+                    hash = (hash * 397) ^ command.DeterministicIdTickIndex;
                     hash = (hash * 397) ^ index;
                     hash &= int.MaxValue;
                     return hash == 0 ? 1 : hash;

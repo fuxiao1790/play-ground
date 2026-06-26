@@ -206,7 +206,7 @@ namespace PlayGround.Tests.PlayMode
             int projectileStartCount = entityManager.GetComponentData<ProjectileSpawnTemplate>(scope).Map.Count;
             int aoeStartCount = entityManager.GetComponentData<AoeSpawnTemplate>(scope).Map.Count;
 
-            var projectileA = new ProjectileSpawnEvent
+            var projectileEventA = new ProjectileSpawnEvent
             {
                 TypeId = ++nextTargetId,
                 Count = 2,
@@ -220,21 +220,25 @@ namespace PlayGround.Tests.PlayMode
                     DirectDamageEnabled = true
                 })
             };
-            ProjectileSpawnEvent projectileC = projectileA;
+            ProjectileSpawnCommand projectileA = SpawnTemplateHash.ProjectileCommandFromEvent(in projectileEventA);
+            ProjectileSpawnCommand projectileC = projectileA;
             projectileC.Count = 3;
-            ProjectileSpawnEvent projectileRuntimeFrame = projectileA;
+            ProjectileSpawnCommand projectileRuntimeFrame = projectileA;
             projectileRuntimeFrame.Faction = CombatFaction.Player;
-            projectileRuntimeFrame.BaseProjectileId = 123;
+            projectileRuntimeFrame.ProjectileId = 123;
             projectileRuntimeFrame.SeedContactGateTargetId = 456;
             projectileRuntimeFrame.Position = new float2(7f, 9f);
+            projectileRuntimeFrame.Velocity = new float2(1f, 2f);
+            projectileRuntimeFrame.BoundsMin = new float2(6f, 8f);
+            projectileRuntimeFrame.BoundsMax = new float2(8f, 10f);
             projectileRuntimeFrame.JitterSeed = 789u;
             projectileRuntimeFrame.DeterministicIdTickIndex = 12;
 
             Hash128 projectileKeyA = root.RegisterSpawnTemplate(in projectileA);
-            Hash128 projectileKeyB = root.RegisterTimedSpawnTemplate(in projectileA);
+            Hash128 projectileKeyB = root.RegisterTimedSpawnTemplate(in projectileEventA);
             Hash128 projectileKeyC = root.RegisterSpawnTemplate(in projectileC);
             Hash128 projectileRuntimeFrameKey = root.RegisterSpawnTemplate(in projectileRuntimeFrame);
-            Hash128 projectileKeyD = root.RegisterTimedSpawnTemplate(in projectileA);
+            Hash128 projectileKeyD = root.RegisterTimedSpawnTemplate(in projectileEventA);
             ProjectileSpawnTemplate projectileRegistry =
                 entityManager.GetComponentData<ProjectileSpawnTemplate>(scope);
 
@@ -246,12 +250,15 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(projectileRegistry.Map.ContainsKey(projectileKeyA), Is.True);
             Assert.That(projectileRegistry.Map.ContainsKey(projectileKeyC), Is.True);
             Assert.That(projectileRegistry.Map[projectileKeyA].Faction, Is.EqualTo(CombatFaction.None));
-            Assert.That(projectileRegistry.Map[projectileKeyA].BaseProjectileId, Is.Zero);
+            Assert.That(projectileRegistry.Map[projectileKeyA].ProjectileId, Is.Zero);
             Assert.That(projectileRegistry.Map[projectileKeyA].Position, Is.EqualTo(default(float2)));
+            Assert.That(projectileRegistry.Map[projectileKeyA].Velocity, Is.EqualTo(default(float2)));
+            Assert.That(projectileRegistry.Map[projectileKeyA].BoundsMin, Is.EqualTo(default(float2)));
+            Assert.That(projectileRegistry.Map[projectileKeyA].BoundsMax, Is.EqualTo(default(float2)));
             Assert.That(projectileRegistry.Map[projectileKeyA].JitterSeed, Is.Zero);
             Assert.That(projectileRegistry.Map[projectileKeyA].DeterministicIdTickIndex, Is.Zero);
 
-            var aoeA = new AoeSpawnEvent
+            var aoeEventA = new AoeSpawnEvent
             {
                 TypeId = ++nextTargetId,
                 Lifetime = 1.5f,
@@ -267,9 +274,10 @@ namespace PlayGround.Tests.PlayMode
                     DirectDamageEnabled = true
                 }
             };
-            AoeSpawnEvent aoeC = aoeA;
+            AoeSpawnCommand aoeA = SpawnTemplateHash.AoeCommandFromEvent(in aoeEventA);
+            AoeSpawnCommand aoeC = aoeA;
             aoeC.Count = 2;
-            AoeSpawnEvent aoeRuntimeFrame = aoeA;
+            AoeSpawnCommand aoeRuntimeFrame = aoeA;
             aoeRuntimeFrame.Faction = CombatFaction.Mob;
             aoeRuntimeFrame.AoeId = 321;
             aoeRuntimeFrame.Position = new float2(-3f, 4f);
@@ -279,10 +287,10 @@ namespace PlayGround.Tests.PlayMode
             aoeRuntimeFrame.DeterministicIdTickIndex = 21;
 
             Hash128 aoeKeyA = root.RegisterSpawnTemplate(in aoeA);
-            Hash128 aoeKeyB = root.RegisterTimedSpawnTemplate(in aoeA);
+            Hash128 aoeKeyB = root.RegisterTimedSpawnTemplate(in aoeEventA);
             Hash128 aoeKeyC = root.RegisterSpawnTemplate(in aoeC);
             Hash128 aoeRuntimeFrameKey = root.RegisterSpawnTemplate(in aoeRuntimeFrame);
-            Hash128 aoeKeyD = root.RegisterTimedSpawnTemplate(in aoeA);
+            Hash128 aoeKeyD = root.RegisterTimedSpawnTemplate(in aoeEventA);
             AoeSpawnTemplate aoeRegistry = entityManager.GetComponentData<AoeSpawnTemplate>(scope);
 
             Assert.That(aoeKeyB, Is.EqualTo(aoeKeyA));

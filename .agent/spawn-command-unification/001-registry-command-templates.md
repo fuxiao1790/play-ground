@@ -6,19 +6,34 @@ Make the scope-owned spawn-template registry the single home for all follow-up
 spawn data, and expose one registration API for every spawn kind. Encode the
 write-only-external / read-only-during-tick contract in code.
 
+## Registry value is command-shaped (not event-shaped)
+
+The stored template is laid out the way apply consumes it — **command shape** — so
+expansion is copy + stamp + explode with no event→command remap. The registry map
+type changes from `NativeHashMap<Hash128, *SpawnEvent>` to
+`NativeHashMap<Hash128, *SpawnCommand-template>`, where the command-template is the
+existing command plus the few volley/aim-input fields expansion needs
+(`Count`, `SpreadDegrees`, `JitterDegrees`, `SpawnPatternType`, `Speed`), with
+per-instance slots (`Position`, `Velocity`, `BoundsMin/Max`, resolved id) default.
+
+Micro-decision (open-question #1): extend `ProjectileSpawnCommand` /
+`AoeSpawnCommand` with those volley fields (zero new types; command carries a few
+pre-explosion-only fields) vs. a dedicated command-template struct (clean field
+validity; +1 type). Lean: extend the command, zero new types.
+
 ## Changes
 
 - [SpawnTemplateComponents.cs](../../Assets/Scripts/System/Common/SpawnTemplateComponents.cs):
-  keep `ProjectileSpawnTemplate` / `AoeSpawnTemplate` (`NativeHashMap<Hash128,
-  *SpawnEvent>`); the stored `*SpawnEvent` is the **command template** (volley
-  params + per-entity data, per-instance fields default). Document on the struct
-  that it is written only pre-tick and read `[ReadOnly]` during the tick.
+  `ProjectileSpawnTemplate` / `AoeSpawnTemplate` store the command-shaped template
+  keyed by `Hash128`. Document on the struct that it is written only pre-tick and
+  read `[ReadOnly]` during the tick.
 - [CombatRoot.cs](../../Assets/Scripts/System/Common/CombatRoot.cs): generalize
   `RegisterTimedSpawnTemplate(in ProjectileSpawnEvent)` /
-  `(in AoeSpawnEvent)` into the canonical `RegisterSpawnTemplate(...)` used by all
-  follow-ups (impact AOE, impact projectile, AOE burst, AOE on-hit, detonation,
-  interval, root cast). Same content-hash dedup; same "insert only if absent".
-  Keep the old method names as thin aliases until 006 migrates callers.
+  `(in AoeSpawnEvent)` into the canonical `RegisterSpawnTemplate(...)` taking the
+  command-template, used by all follow-ups (impact AOE, impact projectile, AOE
+  burst, AOE on-hit, detonation, interval, root cast). Same content-hash dedup; same
+  "insert only if absent". Keep the old method names as thin aliases until 006
+  migrates callers.
 - Add a depth-cap helper/constant (`MaxSpawnChainDepth = 3`) used by 006.
 
 ## Acceptance criteria

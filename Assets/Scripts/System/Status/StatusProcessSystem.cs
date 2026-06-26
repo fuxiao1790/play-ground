@@ -208,31 +208,11 @@ namespace PlayGround.System.Common
 
                 return new AoeSpawnEvent
                 {
+                    Kind = IntervalChildKind.Aoe,
                     Faction = detonation.Faction,
-                    AoeId = aoeId,
-                    TypeId = detonation.TypeId,
-                    Lifetime = math.max(0f, detonation.LifetimeSeconds),
-                    RepeatHitCooldownSeconds = math.max(0f, detonation.TickIntervalSeconds),
-                    HitPayload = new CombatHitPayload
-                    {
-                        DamageAmount = math.max(0f, entry.SummedDamage),
-                        CritChance = detonation.CritChance,
-                        CritMultiplier = detonation.CritMultiplier,
-                        DirectDamageEnabled = true,
-                        SourceNodeId = default,
-                        StackEffect = default
-                    },
-                    AreaSize = geometry.AreaSize > 0f ? geometry.AreaSize * areaScale : entry.SummedArea,
-                    Radius = radius,
-                    RotationRadians = geometry.RotationRadians,
                     Position = position,
-                    HalfExtents = halfExtents,
-                    BoundsMin = boundsMin,
-                    BoundsMax = boundsMax,
-                    ShapeType = geometry.ShapeType,
-                    Render = RenderFor(geometry, areaScale),
-                    ProjectileBurst = default,
-                    AoeSpawn = detonation.AoeOnHitSpawn
+                    SourceId = aoeId,
+                    JitterSeed = (uint)aoeId * 2654435761u
                 };
             }
 
@@ -249,37 +229,12 @@ namespace PlayGround.System.Common
 
                 return new ProjectileSpawnEvent
                 {
+                    Kind = IntervalChildKind.Projectile,
                     Faction = detonation.Faction,
-                    TypeId = burst.ProjectileTypeId,
-                    BaseProjectileId = baseId,
-                    HasTimedSpawner = 0,
-                    SeedContactGateTargetId = 0,
                     Position = position,
-                    BaseDirection = new float2(1f, 0f),
-                    Speed = burst.Speed,
-                    Count = count,
-                    SpreadDegrees = burst.SpreadDegrees,
-                    JitterDegrees = 0f,
-                    JitterSeed = (uint)baseId * 2654435761u,
-                    PierceRemaining = burst.PierceCount,
-                    RepeatHitCooldownSeconds = burst.RepeatHitCooldownSeconds,
-                    Lifetime = burst.LifetimeSeconds,
-                    Radius = burst.Radius,
-                    RotationRadians = burst.RotationRadians,
-                    HalfExtents = new float2(burst.HalfExtents.x, burst.HalfExtents.y),
-                    ShapeType = burst.ShapeType,
-                    HitPayload = new ProjectileHitPayload(new CombatHitPayload
-                    {
-                        DamageAmount = totalDamage / count,
-                        CritChance = 0f,
-                        CritMultiplier = 1.5f,
-                        DirectDamageEnabled = burst.DirectDamageEnabled,
-                        SourceNodeId = default,
-                        StackEffect = default
-                    }),
-                    Tracking = default,
-                    Render = ProjectileRender(burst.VisualScale, burst.VisualRotationDegrees, baseId),
-                    TimedSpawn = default
+                    AimDirection = new float2(1f, 0f),
+                    SourceId = baseId,
+                    JitterSeed = (uint)baseId * 2654435761u
                 };
             }
 

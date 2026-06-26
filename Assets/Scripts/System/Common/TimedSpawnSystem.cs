@@ -23,9 +23,6 @@ namespace PlayGround.System.Common
                 return;
             }
 
-            bool hasProjectileTemplates = SystemAPI.TryGetSingleton(out ProjectileSpawnTemplate projectileTemplates);
-            bool hasAoeTemplates = SystemAPI.TryGetSingleton(out AoeSpawnTemplate aoeTemplates);
-
             JobHandle handle = new TimedSpawnJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
@@ -36,11 +33,7 @@ namespace PlayGround.System.Common
                     ? aoeExpansion.EventQueue.AsParallelWriter()
                     : default,
                 HasProjectileEventQueue = projectileExpansion != null,
-                HasAoeEventQueue = aoeExpansion != null,
-                ProjectileTemplates = hasProjectileTemplates ? projectileTemplates.Map : default,
-                AoeTemplates = hasAoeTemplates ? aoeTemplates.Map : default,
-                HasProjectileTemplates = hasProjectileTemplates,
-                HasAoeTemplates = hasAoeTemplates
+                HasAoeEventQueue = aoeExpansion != null
             }.ScheduleParallel(state.Dependency);
 
             state.Dependency = handle;
@@ -65,12 +58,8 @@ namespace PlayGround.System.Common
             public float DeltaTime;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventQueue;
             public NativeQueue<AoeSpawnEvent>.ParallelWriter AoeEventQueue;
-            [ReadOnly] public NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnEvent> ProjectileTemplates;
-            [ReadOnly] public NativeHashMap<Unity.Entities.Hash128, AoeSpawnEvent> AoeTemplates;
             public bool HasProjectileEventQueue;
             public bool HasAoeEventQueue;
-            public bool HasProjectileTemplates;
-            public bool HasAoeTemplates;
 
             // Safety guards: a bad interval must advance by a positive amount and stop after a bounded catch-up.
             private const float MinIntervalSeconds = 1e-3f;
@@ -96,22 +85,16 @@ namespace PlayGround.System.Common
                     tickIndex++;
                     if (spawn.ChildKind == IntervalChildKind.Aoe)
                     {
-                        if (HasAoeEventQueue
-                            && HasAoeTemplates
-                            && AoeTemplates.TryGetValue(spawn.TemplateKey, out AoeSpawnEvent aoe))
+                        if (HasAoeEventQueue)
                         {
-                            Stamp(ref aoe, in spawn, in kinematics, tickIndex);
-                            AoeEventQueue.Enqueue(aoe);
+                            AoeEventQueue.Enqueue(BuildAoeEvent(in spawn, in kinematics, tickIndex));
                         }
                     }
                     else
                     {
-                        if (HasProjectileEventQueue
-                            && HasProjectileTemplates
-                            && ProjectileTemplates.TryGetValue(spawn.TemplateKey, out ProjectileSpawnEvent projectile))
+                        if (HasProjectileEventQueue)
                         {
-                            Stamp(ref projectile, in spawn, in kinematics, tickIndex);
-                            ProjectileEventQueue.Enqueue(projectile);
+                            ProjectileEventQueue.Enqueue(BuildProjectileEvent(in spawn, in kinematics, tickIndex));
                         }
                     }
 
@@ -127,30 +110,40 @@ namespace PlayGround.System.Common
                 state.TickIndex = tickIndex;
             }
 
-            private static void Stamp(
-                ref ProjectileSpawnEvent evt,
+            private static ProjectileSpawnEvent BuildProjectileEvent(
                 in TimedSpawnComponent spawn,
                 in CombatKinematicsComponent kinematics,
                 int tickIndex)
             {
-                evt.Faction = spawn.Faction;
-                evt.BaseProjectileId = spawn.SourceId;
-                evt.Position = kinematics.Position;
-                evt.JitterSeed = (uint)spawn.JitterSeed;
-                evt.DeterministicIdTickIndex = tickIndex;
+                return new ProjectileSpawnEvent
+                {
+                    Kind = IntervalChildKind.Projectile,
+                    TemplateKey = spawn.TemplateKey,
+                    Position = kinematics.Position,
+                    AimDirection = default,
+                    Faction = spawn.Faction,
+                    SourceId = spawn.SourceId,
+                    JitterSeed = (uint)spawn.JitterSeed,
+                    DeterministicIdTickIndex = tickIndex
+                };
             }
 
-            private static void Stamp(
-                ref AoeSpawnEvent evt,
+            private static AoeSpawnEvent BuildAoeEvent(
                 in TimedSpawnComponent spawn,
                 in CombatKinematicsComponent kinematics,
                 int tickIndex)
             {
-                evt.Faction = spawn.Faction;
-                evt.AoeId = spawn.SourceId;
-                evt.Position = kinematics.Position;
-                evt.JitterSeed = (uint)spawn.JitterSeed;
-                evt.DeterministicIdTickIndex = tickIndex;
+                return new AoeSpawnEvent
+                {
+                    Kind = IntervalChildKind.Aoe,
+                    TemplateKey = spawn.TemplateKey,
+                    Position = kinematics.Position,
+                    AimDirection = default,
+                    Faction = spawn.Faction,
+                    SourceId = spawn.SourceId,
+                    JitterSeed = (uint)spawn.JitterSeed,
+                    DeterministicIdTickIndex = tickIndex
+                };
             }
 
             private static float NextIntervalSeconds(
