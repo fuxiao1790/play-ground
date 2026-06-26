@@ -166,7 +166,6 @@ namespace PlayGround.System.Aoe
                             ShapeType                = evt.ShapeType,
                             Render                   = evt.Render,
                             ProjectileBurst          = evt.ProjectileBurst,
-                            ProjectileBurstStacking  = evt.ProjectileBurstStacking,
                             AoeSpawn                 = evt.AoeSpawn,
                             HasTimedSpawner          = evt.HasTimedSpawner,
                             TimedSpawn               = evt.TimedSpawn

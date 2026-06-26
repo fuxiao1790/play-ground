@@ -362,7 +362,6 @@ namespace PlayGround.System.Common
                 ShapeType = geometry.ShapeType,
                 Render = AoeRenderComponentFor(request.TypeId, geometry),
                 ProjectileBurst = request.ProjectileBurst,
-                ProjectileBurstStacking = request.ProjectileBurstStacking,
                 AoeSpawn = request.AoeSpawn,
                 HasTimedSpawner = request.HasTimedSpawner ? 1 : 0,
                 TimedSpawn = StampTimedSpawn(request.TimedSpawn, faction, aoeId)

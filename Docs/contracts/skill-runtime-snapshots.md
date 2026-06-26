@@ -65,4 +65,4 @@ runtime entities.
 ## Notes / TODOs
 
 Detailed reference:
-[snapshotting.md](../reference/simulation/snapshotting.md).
+[spawn-template-registry.md](../reference/simulation/spawn-template-registry.md).

@@ -31,4 +31,4 @@ snapshots or new spawns. Snapshot contracts must stay small and explicit.
 
 - [Skill Runtime Snapshots](../contracts/skill-runtime-snapshots.md)
 - [Skill To Combat Spawn](../flows/skill-to-combat-spawn.md)
-- [snapshotting.md](../reference/simulation/snapshotting.md)
+- [spawn-template-registry.md](../reference/simulation/spawn-template-registry.md)

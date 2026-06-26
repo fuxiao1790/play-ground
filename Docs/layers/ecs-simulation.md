@@ -91,5 +91,5 @@ preparation.
   [index.md](../reference/simulation/index.md),
   [projectile-system.md](../reference/simulation/projectile-system.md),
   [aoe-system.md](../reference/simulation/aoe-system.md),
-  [snapshotting.md](../reference/simulation/snapshotting.md),
+  [spawn-template-registry.md](../reference/simulation/spawn-template-registry.md),
   [ecs-notes.md](../reference/simulation/ecs-notes.md).

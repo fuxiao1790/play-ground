@@ -1,4 +1,3 @@
-using PlayGround.Skills.Runtime;
 using PlayGround.System.Common;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -28,7 +27,6 @@ namespace PlayGround.System.Aoe
         public int DeterministicIdTickIndex;
         public CombatRenderComponent Render;
         public AoeProjectileBurstSnapshot ProjectileBurst;
-        public RuntimeStackingDetonation ProjectileBurstStacking;
         public AoeOnHitSpawnSnapshot AoeSpawn;
         public int HasTimedSpawner;
         public TimedSpawnComponent TimedSpawn;
@@ -53,7 +51,6 @@ namespace PlayGround.System.Aoe
         public CombatShapeType ShapeType;
         public CombatRenderComponent Render;
         public AoeProjectileBurstSnapshot ProjectileBurst;
-        public RuntimeStackingDetonation ProjectileBurstStacking;
         public AoeOnHitSpawnSnapshot AoeSpawn;
         public int HasTimedSpawner;
         public TimedSpawnComponent TimedSpawn;

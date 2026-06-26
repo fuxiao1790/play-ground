@@ -1,10 +1,10 @@
-# Snapshotting
+# Spawn Template Registry
 
 All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be checked against code before implementation work.
 
-This is the detailed snapshotting and spawn-safety ECS doc. Use
-[index.md](./index.md) for the simulation overview and aspect map.
+This document defines the spawn-template-registry contract for ECS combat
+spawning. Use [index.md](./index.md) for the broader simulation overview.
 
 ## Summary
 
@@ -12,19 +12,21 @@ Combat spawn data is snapshotted before ECS simulation owns it. In-flight
 projectiles and AOEs must not depend on live managed authoring objects,
 ScriptableObjects, prefab components, Transforms, or target GameObjects.
 
-Current combat flow uses plain-data snapshots:
+The flow is plain-data end to end:
 
-- managed requests are converted into typed spawn events
-- timed-spawn templates are stored as spawn events in scope-owned registries
-- expansion systems convert events into one-entity commands
-- apply systems initialize ECS components from commands
-- collision systems read only ECS component snapshots and target proxy data
-- collision systems emit typed plain-data consequence events
+- managed requests become typed spawn events
+- spawn template registries store spawn events for entities that can spawn
+  other entities, so follow-up behavior is referenced by key instead of being
+  embedded in every command
+- expansion systems turn events into one-entity commands
+- apply systems initialize ECS components from those commands
+- collision systems read only ECS snapshots and target proxy data
+- consequence events remain typed and plain-data
 - damage and status are finalized in ECS and bridged once per hit target
 
-This is the core safety rule for projectile -> AOE, projectile -> projectile,
-AOE -> projectile, AOE -> AOE, stack-triggered detonations, interval child
-spawns, and future chained effects.
+This rule applies to projectile -> AOE, projectile -> projectile, AOE ->
+projectile, AOE -> AOE, stack-triggered detonations, interval child spawns,
+and future chained effects.
 
 ## Current Data Levels
 
@@ -65,7 +67,7 @@ Runtime component snapshot:
 - impact, burst, and AOE-on-hit snapshot structs in
   `PlayGround.System.Common`
 
-Scope-owned timed-spawn template registry:
+Scope-owned spawn template registry:
 
 - `ProjectileSpawnTemplate`
 - `AoeSpawnTemplate`
@@ -85,20 +87,20 @@ Finalized presentation result:
 
 ## Required Rules
 
-- Snapshot payloads must contain only plain data: integers, floats, enums,
+- Snapshot payloads may contain only plain data: integers, floats, enums,
   small value structs, `Entity`, `Hash128`, and ids.
 - Snapshot payloads must not contain managed references, strings, GC handles,
   GameObjects, Transforms, Colliders, or ScriptableObjects.
 - Collision systems must never call into authoring objects or managed target
   callbacks.
-- Damage, status, spawn follow-ups, and VFX are separate typed paths.
+- Damage, status, spawn follow-ups, and VFX must stay on separate typed paths.
 - Only `CombatApplyBridge` may read managed `TargetCompanion` references.
-- Spawn follow-ups stay in ECS as typed spawn events and go through normal
-  expansion/apply.
+- Follow-up spawns stay in ECS as typed spawn events and flow through normal
+  expansion and apply.
 - Timed spawn must use stored spawn events as templates. Do not add separate
   template-data structs or template-to-event conversion paths.
-- Recursive or large child-spawn behavior must be represented by event-template
-  keys, not by embedding full nested interval-spawn snapshots in commands.
+- Recursive or large child-spawn behavior must be keyed by spawn-template
+  reference, not embedded in commands.
 
 ## Hit Payload
 
@@ -122,7 +124,9 @@ spawn; in-flight entities never read authoring assets or registries.
 
 ## Events As Templates
 
-Interval-spawn templates are stored as the existing spawn event types:
+Spawn template registries store the existing spawn event types so entities that
+can spawn other entities can reference them by key. This is the shared storage
+for interval-spawn and other follow-up spawn behavior:
 
 ```csharp
 public struct ProjectileSpawnTemplate : IComponentData
@@ -150,8 +154,8 @@ Registry rules:
 - the stored event is the template
 - there is no separate `TemplateData` struct
 - there is no template-to-event conversion step
-- stored events are blittable and read by Burst jobs
-- per-instance fields are left default in the stored event before hashing
+- stored events are blittable and readable by Burst jobs
+- per-instance fields are left default before hashing
 - identical child behavior deduplicates to one map entry
 - entries are never removed in v1
 
@@ -206,11 +210,11 @@ queries active entities with:
 - `TimedSpawnStateComponent`
 
 The system ticks cooldown, fetches the stored event by `TemplateKey`, stamps the
-per-instance fields, and enqueues the existing event type into the existing
-projectile or AOE expansion queue. The only domain switch is
-`TimedSpawnComponent.ChildKind`, which chooses the destination event queue.
+per-instance fields, and enqueues the existing event type into the projectile or
+AOE expansion queue. The only domain switch is
+`TimedSpawnComponent.ChildKind`, which selects the destination queue.
 
-The tick loop must keep its safety guard:
+The tick loop must keep these safety guards:
 
 - clamp interval advance to a positive minimum
 - cap catch-up ticks per update

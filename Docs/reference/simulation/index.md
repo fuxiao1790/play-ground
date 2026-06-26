@@ -35,7 +35,7 @@ Use this split:
 | Aspect | Overview | Detail |
 |---|---|---|
 | Shared combat runtime | Common scope, faction, target proxy, spawn event -> command -> apply flow, reuse, despawn, rendering, VFX, and frame timing rules. | [project-aoe-system-common.md](./project-aoe-system-common.md) |
-| Snapshotting | Spawn safety rules for managed requests, ECS events, commands, runtime component snapshots, timed-spawn templates, and consequence events. | [snapshotting.md](./snapshotting.md) |
+| Spawn template registry | Spawn safety rules for managed requests, ECS events, commands, runtime component snapshots, timed-spawn templates, and consequence events. | [spawn-template-registry.md](./spawn-template-registry.md) |
 | Projectiles | High-count moving attacks, tracking, timed spawns, impact spawns, collision, lifetime, render data, and projectile-specific reuse. | [projectile-system.md](./projectile-system.md) |
 | AOEs | Pulse and lingering areas, repeat-hit gates, projectile bursts from AOE hits, lifetime, pulse VFX, and AOE-specific reuse. | [aoe-system.md](./aoe-system.md) |
 | Combat state and status | ECS-owned target health/status direction, damage aggregation, compact presentation sync, and mob GameObject presentation boundary. | [mob-combat-state-ecs.md](./mob-combat-state-ecs.md) |

@@ -73,7 +73,7 @@ Some docs are intentionally boundary docs:
 
 - [game-logic/skill-system.md](../game-logic/skill-system.md): skill authoring,
   composition, compilation, cooldowns, and trigger semantics.
-- [simulation/snapshotting.md](../simulation/snapshotting.md): plain-data
+- [simulation/spawn-template-registry.md](../simulation/spawn-template-registry.md): plain-data
   snapshot rules for requests, events, commands, runtime components, timed
   templates, and consequence events.
 - [simulation/project-aoe-system-common.md](../simulation/project-aoe-system-common.md):
@@ -93,7 +93,7 @@ When a feature touches game logic and simulation:
   player-facing behavior.
 - Update simulation docs for data contracts, components, systems, frame order,
   pooling, and consequences.
-- Update snapshotting docs when live authored data becomes copied runtime data.
+- Update spawn-template-registry docs when live authored data becomes copied runtime data.
 - Update architecture or this boundary doc when ownership changes.
 - Keep examples consistent across skill, projectile, AOE, status, and VFX docs.
 

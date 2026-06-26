@@ -71,5 +71,5 @@ after expansion and after current-frame collision.
 ## Notes / TODOs
 
 Detailed references:
-[snapshotting.md](../reference/simulation/snapshotting.md) and
+[spawn-template-registry.md](../reference/simulation/spawn-template-registry.md) and
 [project-aoe-system-common.md](../reference/simulation/project-aoe-system-common.md).

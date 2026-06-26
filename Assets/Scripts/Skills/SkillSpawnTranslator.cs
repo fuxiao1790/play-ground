@@ -123,7 +123,6 @@ namespace PlayGround.Skills
                     projectileBurst: def.OnHitProjectileSpawnDefinition != null
                         ? BuildProjectileDetonationBurstSnapshot(def.OnHitProjectileSpawnDefinition, root.TargetMask)
                         : default,
-                    projectileBurstStacking: def.OnHitProjectileSpawnDefinition?.StackingDetonation,
                     aoeSpawn: BuildAoeOnHitSpawnSnapshot(def.OnHitAoeSpawnDefinition, root, MaxAoeOnHitSpawnDepth),
                     critChance: def.CritChance,
                     critMultiplier: def.CritMultiplier,

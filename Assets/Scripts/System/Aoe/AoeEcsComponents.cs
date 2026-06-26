@@ -1,4 +1,3 @@
-using PlayGround.Skills.Runtime;
 using PlayGround.System.Common;
 using Unity.Entities;
 
@@ -34,7 +33,6 @@ namespace PlayGround.System.Aoe
         public CombatHitPayload HitPayload;
         public AoeProjectileBurstSnapshot ProjectileBurst;
         public AoeOnHitSpawnSnapshot AoeSpawn;
-        public RuntimeStackingDetonation ProjectileBurstStacking;
     }
 
     // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse; carries fire-time gameplay area size for VFX dispatch.
