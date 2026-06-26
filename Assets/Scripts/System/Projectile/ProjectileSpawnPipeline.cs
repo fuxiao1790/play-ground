@@ -127,7 +127,7 @@ namespace PlayGround.System.Projectile
                     CritMultiplier = 1.5f,
                     DirectDamageEnabled = snapshot.DirectDamageEnabled,
                     SourceNodeId = default,
-                    StackEffect = snapshot.StackEffect
+                    StackEffect = default
                 },
                 default,
                 default);

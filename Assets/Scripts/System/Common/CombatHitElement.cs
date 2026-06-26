@@ -157,7 +157,6 @@ namespace PlayGround.System.Common
             int pierceCount = 0,
             float repeatHitCooldownSeconds = 0f,
             ProjectileTrackingConfig tracking = default,
-            StackEffectSnapshot stackEffect = default,
             float visualScale = 0f,
             float visualRotationDegrees = 0f)
         {
@@ -177,7 +176,6 @@ namespace PlayGround.System.Common
             PierceCount = Mathf.Max(0, pierceCount);
             RepeatHitCooldownSeconds = Mathf.Max(0f, repeatHitCooldownSeconds);
             Tracking = tracking;
-            StackEffect = stackEffect;
             VisualScale = Mathf.Max(0f, visualScale);
             VisualRotationDegrees = visualRotationDegrees;
         }
@@ -198,7 +196,6 @@ namespace PlayGround.System.Common
         public int PierceCount { get; }
         public float RepeatHitCooldownSeconds { get; }
         public ProjectileTrackingConfig Tracking { get; }
-        public StackEffectSnapshot StackEffect { get; }
         public float VisualScale { get; }
         public float VisualRotationDegrees { get; }
     }

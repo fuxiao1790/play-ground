@@ -1,4 +1,5 @@
 using PlayGround.Common;
+using PlayGround.Skills.Runtime;
 using PlayGround.System.Common;
 using UnityEngine;
 
@@ -16,6 +17,7 @@ namespace PlayGround.System.Aoe
             AoeSpawnGeometry geometry = default,
             float areaSize = 0f,
             AoeProjectileBurstSnapshot projectileBurst = default,
+            RuntimeStackingDetonation projectileBurstStacking = null,
             AoeOnHitSpawnSnapshot aoeSpawn = default,
             float critChance = 0f,
             float critMultiplier = 1.5f,
@@ -33,6 +35,7 @@ namespace PlayGround.System.Aoe
             Geometry = geometry;
             AreaSize = geometry.IsValid ? geometry.AreaSize : Mathf.Max(0f, areaSize);
             ProjectileBurst = projectileBurst;
+            ProjectileBurstStacking = projectileBurstStacking;
             AoeSpawn = aoeSpawn;
             CritChance = critChance;
             CritMultiplier = critMultiplier;
@@ -51,6 +54,7 @@ namespace PlayGround.System.Aoe
         public AoeSpawnGeometry Geometry { get; }
         public float AreaSize { get; }
         public AoeProjectileBurstSnapshot ProjectileBurst { get; }
+        public RuntimeStackingDetonation ProjectileBurstStacking { get; }
         public AoeOnHitSpawnSnapshot AoeSpawn { get; }
         public float CritChance { get; }
         public float CritMultiplier { get; }
