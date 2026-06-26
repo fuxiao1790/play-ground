@@ -47,32 +47,6 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void SpawnRequestPreservesImpactAoeSnapshot()
-        {
-            var impact = new ProjectileImpactAoeSnapshot(
-                typeId: 2,
-                targetMask: 4,
-                damageAmount: 9f,
-                lifetimeSeconds: 0.5f,
-                tickIntervalSeconds: 0.25f);
-            var command = new ProjectileSpawnRequest(
-                Vector2.zero,
-                Vector2.right,
-                3f,
-                1f,
-                0.25f,
-                new Vector2(0.25f, 0.25f),
-                0f,
-                new DamageSnapshot(7f),
-                CombatShapeType.Circle,
-                impactAoe: impact);
-
-            Assert.That(command.HitPayload.ImpactAoe.Enabled, Is.True);
-            Assert.That(command.HitPayload.ImpactAoe.TypeId, Is.EqualTo(2));
-            Assert.That(command.HitPayload.ImpactAoe.DamageAmount, Is.EqualTo(9f));
-        }
-
-        [Test]
         public void BasicAttackPrefabBakesSpriteAndHurtboxShape()
         {
             GameObject attackObject = new("BasicAttackPrefabTest");
@@ -106,7 +80,7 @@ namespace PlayGround.Tests.EditMode
             Assert.That(UnsafeUtility.IsBlittable<AoeSpawnEvent>(), Is.True);
             Assert.That(UnsafeUtility.SizeOf<AoeSpawnCommand>(), Is.LessThan(4096));
 
-            var projectileA = new ProjectileSpawnEvent
+            var projA = new ProjectileSpawnCommand
             {
                 TypeId = 7,
                 Count = 2,
@@ -119,14 +93,14 @@ namespace PlayGround.Tests.EditMode
                     DirectDamageEnabled = true
                 })
             };
-            ProjectileSpawnEvent projectileB = projectileA;
-            ProjectileSpawnEvent projectileC = projectileA;
-            projectileC.Count = 3;
+            ProjectileSpawnCommand projB = projA;
+            ProjectileSpawnCommand projC = projA;
+            projC.Count = 3;
 
-            Assert.That(SpawnTemplateHash.Of(in projectileB), Is.EqualTo(SpawnTemplateHash.Of(in projectileA)));
-            Assert.That(SpawnTemplateHash.Of(in projectileC), Is.Not.EqualTo(SpawnTemplateHash.Of(in projectileA)));
+            Assert.That(SpawnTemplateHash.Of(in projB), Is.EqualTo(SpawnTemplateHash.Of(in projA)));
+            Assert.That(SpawnTemplateHash.Of(in projC), Is.Not.EqualTo(SpawnTemplateHash.Of(in projA)));
 
-            var aoeA = new AoeSpawnEvent
+            var aoeA = new AoeSpawnCommand
             {
                 TypeId = 9,
                 Lifetime = 1.5f,
@@ -141,8 +115,8 @@ namespace PlayGround.Tests.EditMode
                     DirectDamageEnabled = true
                 }
             };
-            AoeSpawnEvent aoeB = aoeA;
-            AoeSpawnEvent aoeC = aoeA;
+            AoeSpawnCommand aoeB = aoeA;
+            AoeSpawnCommand aoeC = aoeA;
             aoeC.Count = 2;
 
             Assert.That(SpawnTemplateHash.Of(in aoeB), Is.EqualTo(SpawnTemplateHash.Of(in aoeA)));

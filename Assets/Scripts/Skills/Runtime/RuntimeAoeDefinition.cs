@@ -26,12 +26,12 @@ namespace PlayGround.Skills.Runtime
         // Compiled from AoeIntervalSpawnTrigger on lingering AOEs; null if none.
         public RuntimeAoeIntervalSpawnSetup AoeIntervalSpawnSetup { get; set; }
 
-        // Compiled from OnAoeHitSpawnTrigger; null if none. The concrete ECS
-        // snapshot is bounded by AoeOnHitSpawnSnapshot.MaxStackChainLinks.
+        // Compiled from OnAoeHitSpawnTrigger; null if none. Chain depth is bounded
+        // by SpawnTemplateLimits.MaxSpawnChainDepth.
         public RuntimeSkillDefinition OnHitAoeSpawnDefinition { get; set; }
 
         // Compiled from OnImpactProjectileTrigger on an AOE source; null if none.
-        // Fires as an AoeProjectileBurstSnapshot when this AOE hits a target.
+        // Fires via the on-hit spawn template key when this AOE hits a target.
         public RuntimeProjectileDefinition OnHitProjectileSpawnDefinition { get; set; }
 
         // Compiled from StackTrigger; null if none.

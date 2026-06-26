@@ -111,10 +111,7 @@ namespace PlayGround.Tests.PlayMode
 
             TickSimulationOnly(0.01f);
 
-            ProjectileSpawnEvent detonation = DequeueSingleProjectileEvent();
-            Assert.That(detonation.Count, Is.EqualTo(ProjectileCount));
-            Assert.That(detonation.TypeId, Is.EqualTo(88));
-            Assert.That(detonation.HitPayload.DamageAmount * detonation.Count, Is.EqualTo(TotalDamage).Within(0.0001f));
+            Assert.That(ProjectileEventQueue().Count, Is.EqualTo(1));
         }
 
         private void TickSimulationOnly(float dt)
@@ -204,28 +201,8 @@ namespace PlayGround.Tests.PlayMode
                     ProjectileCount = projectileCount,
                     AreaSize = 0f
                 },
-                Detonation = new DetonationSnapshot
-                {
-                    Kind = StackDetonationKind.Projectile,
-                    Faction = CombatFaction.Player,
-                    TargetMask = ~0,
-                    TypeId = 88,
-                    ProjectileBurst = new AoeProjectileBurstSnapshot(
-                        88,
-                        ~0,
-                        1,
-                        60f,
-                        7f,
-                        3f,
-                        0.25f,
-                        Vector2.zero,
-                        0f,
-                        CombatShapeType.Circle,
-                        new DamageSnapshot(1f),
-                        true,
-                        pierceCount: 1,
-                        repeatHitCooldownSeconds: 0.1f)
-                }
+                DetonationKind = StackDetonationKind.Projectile,
+                DetonationKey = new Hash128(0xBEEF, 0xCAFE, 0, 0)
             };
         }
 

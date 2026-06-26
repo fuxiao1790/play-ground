@@ -66,9 +66,7 @@ namespace PlayGround.System.Projectile
             ProjectileChildSpawnConfig childSpawn = default,
             bool directDamageEnabled = true,
             EntityId sourceNodeId = default,
-            ProjectileImpactAoeSnapshot impactAoe = default,
             StackEffectSnapshot stackEffect = default,
-            ProjectileImpactProjectileSnapshot impactProjectile = default,
             float critChance = 0f,
             float critMultiplier = 1.5f,
             int count = 1,
@@ -94,7 +92,6 @@ namespace PlayGround.System.Projectile
             Tracking = tracking;
             ChildSpawn = childSpawn;
             DirectDamageEnabled = directDamageEnabled;
-            ImpactAoe = impactAoe;
             HitPayload = new ProjectileHitPayload(
                 new CombatHitPayload
                 {
@@ -131,8 +128,7 @@ namespace PlayGround.System.Projectile
             ProjectileTrackingConfig tracking = default,
             ProjectileChildSpawnConfig childSpawn = default,
             bool directDamageEnabled = true,
-            EntityId sourceNodeId = default,
-            ProjectileImpactAoeSnapshot impactAoe = default)
+            EntityId sourceNodeId = default)
             : this(
                 position,
                 direction,
@@ -150,8 +146,7 @@ namespace PlayGround.System.Projectile
                 tracking,
                 childSpawn,
                 directDamageEnabled,
-                sourceNodeId,
-                impactAoe)
+                sourceNodeId)
         {
         }
 
@@ -173,7 +168,6 @@ namespace PlayGround.System.Projectile
         public TimedSpawnComponent TimedSpawn { get; }
         public IntervalChildKind ChildKind { get; }
         public bool DirectDamageEnabled { get; }
-        public ProjectileImpactAoeSnapshot ImpactAoe { get; }
         public ProjectileHitPayload HitPayload { get; }
         public int Count { get; }
         public float SpreadDegrees { get; }
@@ -230,9 +224,7 @@ namespace PlayGround.System.Projectile
             float visualRotationDegrees = 0f,
             ProjectileTrackingConfig tracking = default,
             ProjectileChildSpawnBehavior behavior = default,
-            ProjectileImpactAoeSnapshot impactAoe = default,
             StackEffectSnapshot stackEffect = default,
-            ProjectileImpactProjectileSnapshot impactProjectile = default,
             Hash128 templateKey = default,
             OnHitSpawnRef onHitSpawn = default)
         {
@@ -255,9 +247,7 @@ namespace PlayGround.System.Projectile
             VisualRotationDegrees = visualRotationDegrees;
             Tracking = tracking;
             Behavior = behavior;
-            ImpactAoe = impactAoe;
             StackEffect = stackEffect;
-            ImpactProjectile = impactProjectile;
             TemplateKey = templateKey;
         }
 
@@ -324,9 +314,7 @@ namespace PlayGround.System.Projectile
         public float VisualRotationDegrees { get; }
         public ProjectileTrackingConfig Tracking { get; }
         public ProjectileChildSpawnBehavior Behavior { get; }
-        public ProjectileImpactAoeSnapshot ImpactAoe { get; }
         public StackEffectSnapshot StackEffect { get; }
-        public ProjectileImpactProjectileSnapshot ImpactProjectile { get; }
         public Hash128 TemplateKey { get; }
         public bool Enabled => JitterSeed > 0 && IntervalSeconds > 0f;
     }

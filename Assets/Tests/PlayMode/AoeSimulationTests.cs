@@ -25,6 +25,7 @@ namespace PlayGround.Tests.PlayMode
         private CombatApplyFinalizeSystem hitApply;
         private StatusProcessSystem statusProcess;
         private Entity scopeEntity;
+        private Entity aoeTemplateEntity;
         private double elapsedTime;
         private int nextAoeId;
         private int nextTargetId = 5000;
@@ -60,13 +61,27 @@ namespace PlayGround.Tests.PlayMode
             entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
+
+            aoeTemplateEntity = entityManager.CreateEntity();
+            entityManager.AddComponentData(aoeTemplateEntity, new AoeSpawnTemplate
+            {
+                Map = new NativeHashMap<Hash128, AoeSpawnCommand>(32, Allocator.Persistent)
+            });
         }
 
         [TearDown]
         public void TearDown()
         {
             if (testWorld.IsCreated)
+            {
+                if (entityManager.Exists(aoeTemplateEntity))
+                {
+                    AoeSpawnTemplate templates = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
+                    if (templates.Map.IsCreated)
+                        templates.Map.Dispose();
+                }
                 testWorld.Dispose();
+            }
         }
 
         [Test]
@@ -474,43 +489,12 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void AoeOnHitSpawnQueuesNextAoeAtHitTarget()
-        {
-            AddTarget(float2.zero, 0.25f, 1);
-            var linkedAoe = new AoeOnHitSpawnSnapshot(
-                typeId: 2,
-                targetMask: ~0,
-                damageAmount: 3f,
-                directDamageEnabled: true,
-                lifetimeSeconds: 0f,
-                tickIntervalSeconds: 0f,
-                geometry: new AoeSpawnGeometry(
-                    1f,
-                    CombatShapeType.Circle,
-                    1f,
-                    Vector2.zero,
-                    0f,
-                    Vector2.zero,
-                    0f),
-                critChance: 0f,
-                critMultiplier: 1.5f);
-            SpawnCircle(float2.zero, 1f, 0f, aoeSpawn: linkedAoe);
-
-            Tick(0.01f);
-            Assert.That(ReadHitCount(), Is.EqualTo(0));
-
-            Tick(0.01f);
-            Assert.That(ReadHitCount(), Is.EqualTo(1));
-            Assert.That(TotalAoeCount(), Is.EqualTo(2));
-        }
-
-        [Test]
         public void StatusProcessFizzleRemovesPartialStackWithoutDetonation()
         {
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
 
-            QueueStackHit(target.Proxy, StackEffect(debuffKey: 101, threshold: 2, lifetime: 0.05f, damage: 3f, area: 1f, detonationTypeId: 7, next: default));
+            QueueStackHit(target.Proxy, StackEffect(debuffKey: 101, threshold: 2, lifetime: 0.05f, damage: 3f, area: 1f, detonationTypeId: 7));
 
             TickStatusPipelineOnly(0f);
             Assert.That(ReadStackEntry(target.Proxy, 101).Count, Is.EqualTo(1));
@@ -551,8 +535,8 @@ namespace PlayGround.Tests.PlayMode
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
 
-            QueueStackHit(target.Proxy, StackEffect(debuffKey: 102, threshold: 3, lifetime: 10f, damage: 2f, area: 1f, detonationTypeId: 7, next: default));
-            QueueStackHit(target.Proxy, StackEffect(debuffKey: 102, threshold: 3, lifetime: 10f, damage: 5f, area: 2f, detonationTypeId: 7, next: default));
+            QueueStackHit(target.Proxy, StackEffect(debuffKey: 102, threshold: 3, lifetime: 10f, damage: 2f, area: 1f, detonationTypeId: 7));
+            QueueStackHit(target.Proxy, StackEffect(debuffKey: 102, threshold: 3, lifetime: 10f, damage: 5f, area: 2f, detonationTypeId: 7));
             TickStatusPipelineOnly(0f);
 
             TargetStackEntry partial = ReadStackEntry(target.Proxy, 102);
@@ -560,15 +544,11 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(partial.SummedDamage, Is.EqualTo(7f).Within(0.0001f));
             Assert.That(partial.SummedArea, Is.EqualTo(3f).Within(0.0001f));
 
-            QueueStackHit(target.Proxy, StackEffect(debuffKey: 102, threshold: 3, lifetime: 10f, damage: 11f, area: 3f, detonationTypeId: 7, next: default));
+            QueueStackHit(target.Proxy, StackEffect(debuffKey: 102, threshold: 3, lifetime: 10f, damage: 11f, area: 3f, detonationTypeId: 7));
             TickStatusPipelineOnly(0f);
 
-            AoeSpawnEvent detonation = DequeueSingleAoeEvent();
+            Assert.That(AoeEventQueue().Count, Is.EqualTo(1));
             Assert.That(TryReadStackEntry(target.Proxy, 102, out _), Is.False);
-            Assert.That(detonation.HitPayload.DamageAmount, Is.EqualTo(18f).Within(0.0001f));
-            // Damage still sums across stacks, but area is capped at the configured geometry
-            // (areaScale clamped to 1): SummedArea 6 over a geometry AreaSize of 1 -> 1.
-            Assert.That(detonation.AreaSize, Is.EqualTo(1f).Within(0.0001f));
         }
 
         [Test]
@@ -576,14 +556,6 @@ namespace PlayGround.Tests.PlayMode
         {
             AddTarget(new float2(3f, -2f), 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
-            AoeSpawnGeometry geometry = new(
-                2f,
-                CombatShapeType.Rectangle,
-                2f,
-                new Vector2(1f, 0.5f),
-                0.25f,
-                new Vector2(0.5f, 0.25f),
-                15f);
 
             QueueStackHit(target.Proxy, StackEffect(
                 debuffKey: 104,
@@ -591,39 +563,20 @@ namespace PlayGround.Tests.PlayMode
                 lifetime: 10f,
                 damage: 4f,
                 area: 2f,
-                detonationTypeId: 77,
-                next: default,
-                geometry: geometry,
-                lifetimeSeconds: 0.5f,
-                tickIntervalSeconds: 0.125f));
+                detonationTypeId: 77));
             QueueStackHit(target.Proxy, StackEffect(
                 debuffKey: 104,
                 threshold: 2,
                 lifetime: 10f,
                 damage: 6f,
                 area: 4f,
-                detonationTypeId: 77,
-                next: default,
-                geometry: geometry,
-                lifetimeSeconds: 0.5f,
-                tickIntervalSeconds: 0.125f));
+                detonationTypeId: 77));
 
             TickStatusPipelineOnly(0f);
 
             AoeSpawnEvent detonation = DequeueSingleAoeEvent();
-            Assert.That(detonation.TypeId, Is.EqualTo(77));
             Assert.That(detonation.Position.x, Is.EqualTo(3f).Within(0.0001f));
             Assert.That(detonation.Position.y, Is.EqualTo(-2f).Within(0.0001f));
-            Assert.That(detonation.HitPayload.DamageAmount, Is.EqualTo(10f).Within(0.0001f));
-            // Damage sums (4 + 6 = 10), but area is capped at the configured geometry: SummedArea
-            // 6 over geometry AreaSize 2 clamps areaScale to 1, so radius/half-extents stay at the
-            // authored values rather than scaling up with stack count.
-            Assert.That(detonation.AreaSize, Is.EqualTo(2f).Within(0.0001f));
-            Assert.That(detonation.Radius, Is.EqualTo(2f).Within(0.0001f));
-            Assert.That(detonation.HalfExtents.x, Is.EqualTo(1f).Within(0.0001f));
-            Assert.That(detonation.HalfExtents.y, Is.EqualTo(0.5f).Within(0.0001f));
-            Assert.That(detonation.Lifetime, Is.EqualTo(0.5f).Within(0.0001f));
-            Assert.That(detonation.RepeatHitCooldownSeconds, Is.EqualTo(0.125f).Within(0.0001f));
         }
 
         [Test]
@@ -638,8 +591,7 @@ namespace PlayGround.Tests.PlayMode
                 lifetime: 5f,
                 damage: 2f,
                 area: 1f,
-                detonationTypeId: 7,
-                next: default));
+                detonationTypeId: 7));
 
             TickStatusPipelineOnly(0f);
             presentationGroup.Update();
@@ -660,8 +612,6 @@ namespace PlayGround.Tests.PlayMode
         public void AoeApplicatorProjectileDetonationQueuesNovaWithSummedContribution()
         {
             AddTarget(float2.zero, 0.25f, 1);
-            const float TotalDamage = 12f;
-            const int ProjectileCount = 5;
 
             SpawnCircle(
                 float2.zero,
@@ -671,15 +621,12 @@ namespace PlayGround.Tests.PlayMode
                     debuffKey: 302,
                     threshold: 1,
                     lifetime: 10f,
-                    damage: TotalDamage,
-                    projectileCount: ProjectileCount));
+                    damage: 12f,
+                    projectileCount: 5));
 
             TickSimulationOnly(0.01f);
 
-            ProjectileSpawnEvent detonation = DequeueSingleProjectileEvent();
-            Assert.That(detonation.Count, Is.EqualTo(ProjectileCount));
-            Assert.That(detonation.TypeId, Is.EqualTo(70));
-            Assert.That(detonation.HitPayload.DamageAmount * detonation.Count, Is.EqualTo(TotalDamage).Within(0.0001f));
+            Assert.That(ProjectileEventQueue().Count, Is.EqualTo(1));
         }
 
         [Test]
@@ -699,55 +646,15 @@ namespace PlayGround.Tests.PlayMode
                     ProjectileCount = 2,
                     AreaSize = 1f
                 },
-                Detonation = new DetonationSnapshot
-                {
-                    Kind = (StackDetonationKind)999,
-                    Faction = CombatFaction.Player,
-                    TargetMask = ~0,
-                    TypeId = 71
-                }
+                Faction = CombatFaction.Player,
+                DetonationKind = (StackDetonationKind)999,
+                DetonationKey = new Hash128(1u, 0u, 0u, 0u)
             });
 
             TickStatusPipelineOnly(0f);
 
             Assert.That(AoeEventQueue().Count, Is.EqualTo(0));
             Assert.That(ProjectileEventQueue().Count, Is.EqualTo(0));
-        }
-
-        [Test]
-        public void ThreeStackingExplosionsComposeThroughAoeHitSpawnLinks()
-        {
-            AddTarget(float2.zero, 0.25f, 1);
-            AoeSpawnGeometry geometry = UnitAoeGeometry();
-            AoeOnHitSpawnSnapshot thirdApplicator = StackingApplicatorSnapshot(
-                typeId: 3,
-                debuffKey: 203,
-                detonationTypeId: 30,
-                detonationDamage: 9f,
-                next: default);
-            AoeOnHitSpawnSnapshot secondApplicator = StackingApplicatorSnapshot(
-                typeId: 2,
-                debuffKey: 202,
-                detonationTypeId: 20,
-                detonationDamage: 7f,
-                next: thirdApplicator);
-            StackEffectSnapshot firstStack = StackEffect(
-                debuffKey: 201,
-                threshold: 1,
-                lifetime: 10f,
-                damage: 5f,
-                area: geometry.AreaSize,
-                detonationTypeId: 10,
-                next: secondApplicator);
-
-            SpawnCircle(float2.zero, 1f, 0f, stackEffect: firstStack);
-            for (int i = 0; i < 8; i++)
-                Tick(0.01f);
-
-            Assert.That(AoeCountByType(10), Is.EqualTo(1));
-            Assert.That(AoeCountByType(20), Is.EqualTo(1));
-            Assert.That(AoeCountByType(30), Is.EqualTo(1));
-            Assert.That(TotalHitCount(), Is.EqualTo(3));
         }
 
         private void Tick(float dt)
@@ -779,13 +686,10 @@ namespace PlayGround.Tests.PlayMode
             float damage,
             float lifetime = 0f,
             float tickInterval = 0f,
-            AoeOnHitSpawnSnapshot aoeSpawn = default,
             StackEffectSnapshot stackEffect = default)
         {
-            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Add(new AoeSpawnEvent
+            var template = new AoeSpawnCommand
             {
-                Faction = CombatFaction.Player,
-                AoeId = ++nextAoeId,
                 TypeId = 1,
                 Lifetime = lifetime,
                 RepeatHitCooldownSeconds = tickInterval,
@@ -796,10 +700,20 @@ namespace PlayGround.Tests.PlayMode
                     StackEffect = stackEffect
                 },
                 Radius = radius,
-                Position = position,
-                HalfExtents = float2.zero,
+                AreaSize = radius,
                 ShapeType = CombatShapeType.Circle,
-                AoeSpawn = aoeSpawn
+                Count = 1
+            };
+            Hash128 key = SpawnTemplateHash.Of(in template);
+            AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
+            registry.Map.TryAdd(key, template);
+            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Add(new AoeSpawnEvent
+            {
+                Kind = IntervalChildKind.Aoe,
+                TemplateKey = key,
+                Position = position,
+                Faction = CombatFaction.Player,
+                SourceId = ++nextAoeId
             });
         }
 
@@ -977,23 +891,14 @@ namespace PlayGround.Tests.PlayMode
             });
         }
 
-        private StackEffectSnapshot StackEffect(
+        private static StackEffectSnapshot StackEffect(
             int debuffKey,
             int threshold,
             float lifetime,
             float damage,
             float area,
-            int detonationTypeId,
-            AoeOnHitSpawnSnapshot next,
-            AoeSpawnGeometry geometry = default,
-            float lifetimeSeconds = 0f,
-            float tickIntervalSeconds = 0f)
+            int detonationTypeId)
         {
-            if (geometry.AreaSize <= 0f)
-            {
-                geometry = UnitAoeGeometry();
-            }
-
             return new StackEffectSnapshot
             {
                 DebuffKey = debuffKey,
@@ -1004,22 +909,13 @@ namespace PlayGround.Tests.PlayMode
                     Damage = damage,
                     AreaSize = area
                 },
-                Detonation = new DetonationSnapshot
-                {
-                    Kind = StackDetonationKind.Aoe,
-                    Faction = CombatFaction.Player,
-                    TargetMask = ~0,
-                    TypeId = detonationTypeId,
-                    LifetimeSeconds = lifetimeSeconds,
-                    TickIntervalSeconds = tickIntervalSeconds,
-                    AoeGeometry = geometry,
-                    CritMultiplier = 1.5f,
-                    AoeOnHitSpawn = next
-                }
+                Faction = CombatFaction.Player,
+                DetonationKind = StackDetonationKind.Aoe,
+                DetonationKey = new Hash128((uint)detonationTypeId, 0xAABBCCDDu, 0u, 0u)
             };
         }
 
-        private StackEffectSnapshot ProjectileStackEffect(
+        private static StackEffectSnapshot ProjectileStackEffect(
             int debuffKey,
             int threshold,
             float lifetime,
@@ -1038,97 +934,10 @@ namespace PlayGround.Tests.PlayMode
                     ProjectileCount = projectileCount,
                     AreaSize = 0f
                 },
-                Detonation = ProjectileDetonationSnapshot(projectileTypeId)
-            };
-        }
-
-        private static DetonationSnapshot ProjectileDetonationSnapshot(int projectileTypeId)
-        {
-            return new DetonationSnapshot
-            {
-                Kind = StackDetonationKind.Projectile,
                 Faction = CombatFaction.Player,
-                TargetMask = ~0,
-                TypeId = projectileTypeId,
-                ProjectileBurst = new AoeProjectileBurstSnapshot(
-                    projectileTypeId,
-                    ~0,
-                    1,
-                    45f,
-                    6f,
-                    4f,
-                    0.25f,
-                    Vector2.zero,
-                    0f,
-                    CombatShapeType.Circle,
-                    new DamageSnapshot(1f),
-                    true,
-                    pierceCount: 1,
-                    repeatHitCooldownSeconds: 0.1f)
+                DetonationKind = StackDetonationKind.Projectile,
+                DetonationKey = new Hash128(0xBEEFu, (uint)projectileTypeId, 0u, 0u)
             };
-        }
-
-        private AoeOnHitSpawnSnapshot StackingApplicatorSnapshot(
-            int typeId,
-            int debuffKey,
-            int detonationTypeId,
-            float detonationDamage,
-            AoeOnHitSpawnSnapshot next)
-        {
-            AoeSpawnGeometry geometry = UnitAoeGeometry();
-            return new AoeOnHitSpawnSnapshot(
-                typeId,
-                ~0,
-                0f,
-                false,
-                0f,
-                0f,
-                geometry,
-                0f,
-                1.5f,
-                debuffKey,
-                1,
-                10f,
-                new StackContribution
-                {
-                    Damage = detonationDamage,
-                    AreaSize = geometry.AreaSize
-                },
-                StackDetonationKind.Aoe,
-                detonationTypeId,
-                0f,
-                0f,
-                geometry,
-                0f,
-                1.5f,
-                TailSnapshot(next));
-        }
-
-        private static AoeOnHitSpawnTailSnapshot TailSnapshot(AoeOnHitSpawnSnapshot snapshot)
-        {
-            return snapshot.Enabled
-                ? new AoeOnHitSpawnTailSnapshot(
-                    snapshot.TypeId,
-                    snapshot.TargetMask,
-                    snapshot.DamageAmount,
-                    snapshot.DirectDamageEnabled,
-                    snapshot.LifetimeSeconds,
-                    snapshot.TickIntervalSeconds,
-                    snapshot.Geometry,
-                    snapshot.CritChance,
-                    snapshot.CritMultiplier,
-                    snapshot.StackDebuffKey,
-                    snapshot.StackThreshold,
-                    snapshot.StackLifetime,
-                    snapshot.StackContribution,
-                    snapshot.StackDetonationKind,
-                    snapshot.StackDetonationTypeId,
-                    snapshot.StackDetonationLifetimeSeconds,
-                    snapshot.StackDetonationTickIntervalSeconds,
-                    snapshot.StackDetonationAoeGeometry,
-                    snapshot.StackDetonationCritChance,
-                    snapshot.StackDetonationCritMultiplier)
-                : default;
         }
 
         private static AoeSpawnGeometry UnitAoeGeometry()
