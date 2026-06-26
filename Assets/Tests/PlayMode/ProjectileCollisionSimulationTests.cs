@@ -18,7 +18,10 @@ namespace PlayGround.Tests.PlayMode
         private EntityManager entityManager;
         private SimulationSystemGroup simGroup;
         private ProjectileSpawnExpansionSystem projectileExpansion;
+        private AoeSpawnExpansionSystem aoeExpansion;
         private Entity scopeEntity;
+        private Entity projectileTemplateEntity;
+        private Entity aoeTemplateEntity;
         private double elapsedTime;
         private int nextProjectileId;
         private int nextTargetId = 7000;
@@ -31,10 +34,17 @@ namespace PlayGround.Tests.PlayMode
             entityManager = testWorld.EntityManager;
             simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
             projectileExpansion = testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
+            aoeExpansion = testWorld.GetOrCreateSystemManaged<AoeSpawnExpansionSystem>();
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContactGateSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileCollisionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<StatusProcessSystem>());
+            simGroup.AddSystemToUpdateList(projectileExpansion);
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<BasicProjectileSpawnApplySystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ChildSpawnerProjectileSpawnApplySystem>());
+            simGroup.AddSystemToUpdateList(aoeExpansion);
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<AoeSpawnApplySystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoePulseVfxSystem>());
             simGroup.SortSystems();
             testWorld.GetOrCreateSystemManaged<CombatApplyBridge>();
 
@@ -42,6 +52,18 @@ namespace PlayGround.Tests.PlayMode
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
+
+            projectileTemplateEntity = entityManager.CreateEntity();
+            entityManager.AddComponentData(projectileTemplateEntity, new ProjectileSpawnTemplate
+            {
+                Map = new NativeHashMap<Hash128, ProjectileSpawnCommand>(16, Allocator.Persistent)
+            });
+
+            aoeTemplateEntity = entityManager.CreateEntity();
+            entityManager.AddComponentData(aoeTemplateEntity, new AoeSpawnTemplate
+            {
+                Map = new NativeHashMap<Hash128, AoeSpawnCommand>(16, Allocator.Persistent)
+            });
         }
 
         [TearDown]
@@ -49,6 +71,16 @@ namespace PlayGround.Tests.PlayMode
         {
             if (testWorld.IsCreated)
             {
+                if (entityManager.Exists(projectileTemplateEntity))
+                {
+                    ProjectileSpawnTemplate t = entityManager.GetComponentData<ProjectileSpawnTemplate>(projectileTemplateEntity);
+                    if (t.Map.IsCreated) t.Map.Dispose();
+                }
+                if (entityManager.Exists(aoeTemplateEntity))
+                {
+                    AoeSpawnTemplate t = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
+                    if (t.Map.IsCreated) t.Map.Dispose();
+                }
                 testWorld.Dispose();
             }
         }
@@ -99,6 +131,14 @@ namespace PlayGround.Tests.PlayMode
         {
             const float TotalDamage = 15f;
             const int ProjectileCount = 6;
+            var detonationKey = new Hash128(0xBEEFu, 0xCAFEu, 0u, 0u);
+            RegisterProjectileTemplate(detonationKey, new ProjectileSpawnCommand
+            {
+                TypeId = 42,
+                Count = ProjectileCount,
+                Speed = 5f
+            });
+
             AddTarget(float2.zero, 0.25f);
             CreateProjectile(
                 pierceRemaining: 0,
@@ -111,7 +151,101 @@ namespace PlayGround.Tests.PlayMode
 
             TickSimulationOnly(0.01f);
 
-            Assert.That(ProjectileEventQueue().Count, Is.EqualTo(1));
+            Assert.That(ProjectileCountByTypeId(42), Is.EqualTo(ProjectileCount));
+        }
+
+        [Test]
+        public void ProjectileImpactAoeMaterializesFromRegistry()
+        {
+            const int AoeTypeId = 77;
+            var aoeTemplate = new AoeSpawnCommand
+            {
+                TypeId = AoeTypeId,
+                Radius = 0.5f,
+                ShapeType = CombatShapeType.Circle,
+                HitPayload = new CombatHitPayload { DamageAmount = 1f, DirectDamageEnabled = true },
+                Count = 1
+            };
+            Hash128 aoeKey = SpawnTemplateHash.Of(in aoeTemplate);
+            RegisterAoeTemplate(aoeKey, aoeTemplate);
+
+            AddTarget(float2.zero, 0.25f);
+            CreateProjectile(
+                pierceRemaining: 0,
+                onHitSpawn: new OnHitSpawnRef { Kind = IntervalChildKind.Aoe, TemplateKey = aoeKey });
+
+            TickSimulationOnly(0.01f);
+
+            Assert.That(AoeEntityCount(), Is.EqualTo(1));
+            Assert.That(AoeTypeIdOf(FirstAoeEntity()), Is.EqualTo(AoeTypeId));
+        }
+
+        [Test]
+        public void ProjectileImpactProjectileMaterializesFromRegistry()
+        {
+            const int ChildTypeId = 5;
+            var childTemplate = new ProjectileSpawnCommand
+            {
+                TypeId = ChildTypeId,
+                Count = 1,
+                PierceRemaining = 99,
+                Speed = 5f,
+                BaseDirection = new float2(1f, 0f),
+                Radius = 0.5f,
+                ShapeType = CombatShapeType.Circle
+            };
+            Hash128 childKey = SpawnTemplateHash.Of(in childTemplate);
+            RegisterProjectileTemplate(childKey, childTemplate);
+
+            AddTarget(float2.zero, 0.25f);
+            CreateProjectile(
+                pierceRemaining: 0,
+                onHitSpawn: new OnHitSpawnRef { Kind = IntervalChildKind.Projectile, TemplateKey = childKey });
+
+            TickSimulationOnly(0.01f);
+
+            // Original projectile is disabled (pierce exhausted); child spawned from registry template.
+            Assert.That(ProjectileCountByTypeId(ChildTypeId), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ImpactSpawnContactGateSeedPreventsChildFromHittingSpawnTarget()
+        {
+            const int ChildTypeId = 9;
+            var childTemplate = new ProjectileSpawnCommand
+            {
+                TypeId = ChildTypeId,
+                Count = 1,
+                PierceRemaining = 5,
+                Speed = 5f,
+                BaseDirection = new float2(1f, 0f),
+                Radius = 0.5f,
+                ShapeType = CombatShapeType.Circle,
+                HitPayload = new ProjectileHitPayload(new CombatHitPayload
+                {
+                    DamageAmount = 2f,
+                    CritMultiplier = 1f,
+                    DirectDamageEnabled = true
+                })
+            };
+            Hash128 childKey = SpawnTemplateHash.Of(in childTemplate);
+            RegisterProjectileTemplate(childKey, childTemplate);
+
+            AddTarget(float2.zero, 0.25f);
+            CreateProjectile(
+                pierceRemaining: 0,
+                onHitSpawn: new OnHitSpawnRef { Kind = IntervalChildKind.Projectile, TemplateKey = childKey });
+
+            // Tick 1: parent hits target; child materializes with contact-gate seed blocking the same target.
+            TickSimulationOnly(0.01f);
+            int hitsAfterTick1 = ReadFinalizedHitCount();
+
+            // Tick 2: child projectile exists but cannot re-hit the seeded target this tick.
+            TickSimulationOnly(0.01f);
+            int hitsAfterTick2 = ReadFinalizedHitCount();
+
+            Assert.That(hitsAfterTick1, Is.EqualTo(1), "Parent hits target once.");
+            Assert.That(hitsAfterTick2, Is.EqualTo(0), "Child is gated from immediately re-hitting the spawn target.");
         }
 
         private void TickSimulationOnly(float dt)
@@ -121,7 +255,10 @@ namespace PlayGround.Tests.PlayMode
             simGroup.Update();
         }
 
-        private Entity CreateProjectile(int pierceRemaining, StackEffectSnapshot stackEffect = default)
+        private Entity CreateProjectile(
+            int pierceRemaining,
+            StackEffectSnapshot stackEffect = default,
+            OnHitSpawnRef onHitSpawn = default)
         {
             Entity entity = entityManager.CreateEntity(
                 typeof(ProjectileTag),
@@ -165,13 +302,15 @@ namespace PlayGround.Tests.PlayMode
             entityManager.SetComponentData(entity, new ProjectileHitComponent
             {
                 PierceRemaining = pierceRemaining,
-                HitPayload = new ProjectileHitPayload(new CombatHitPayload
-                {
-                    DamageAmount = 1f,
-                    CritMultiplier = 1f,
-                    DirectDamageEnabled = true,
-                    StackEffect = stackEffect
-                })
+                HitPayload = new ProjectileHitPayload(
+                    new CombatHitPayload
+                    {
+                        DamageAmount = 1f,
+                        CritMultiplier = 1f,
+                        DirectDamageEnabled = true,
+                        StackEffect = stackEffect
+                    },
+                    onHitSpawn: onHitSpawn)
             });
 
             return entity;
@@ -182,6 +321,58 @@ namespace PlayGround.Tests.PlayMode
             var target = new TestCombatTarget(++nextTargetId, position, radius);
             return CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
         }
+
+        // ---- Registry helpers ----
+
+        private void RegisterProjectileTemplate(Hash128 key, ProjectileSpawnCommand template)
+        {
+            ProjectileSpawnTemplate registry = entityManager.GetComponentData<ProjectileSpawnTemplate>(projectileTemplateEntity);
+            registry.Map.TryAdd(key, template);
+        }
+
+        private void RegisterAoeTemplate(Hash128 key, AoeSpawnCommand template)
+        {
+            AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
+            registry.Map.TryAdd(key, template);
+        }
+
+        // ---- Query helpers ----
+
+        private int AoeEntityCount()
+        {
+            using EntityQuery q = entityManager.CreateEntityQuery(ComponentType.ReadOnly<AoeTag>());
+            return q.CalculateEntityCount();
+        }
+
+        private Entity FirstAoeEntity()
+        {
+            using EntityQuery q = entityManager.CreateEntityQuery(ComponentType.ReadOnly<AoeTag>());
+            using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
+            return entities.Length > 0 ? entities[0] : Entity.Null;
+        }
+
+        private int AoeTypeIdOf(Entity entity)
+        {
+            if (entity == Entity.Null || !entityManager.HasComponent<AoeIdentityComponent>(entity))
+                return -1;
+            return entityManager.GetComponentData<AoeIdentityComponent>(entity).TypeId;
+        }
+
+        private int ProjectileCountByTypeId(int typeId)
+        {
+            using EntityQuery q = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileIdentityComponent>());
+            using NativeArray<ProjectileIdentityComponent> identities =
+                q.ToComponentDataArray<ProjectileIdentityComponent>(Allocator.Temp);
+            int count = 0;
+            for (int i = 0; i < identities.Length; i++)
+            {
+                if (identities[i].TypeId == typeId)
+                    count++;
+            }
+            return count;
+        }
+
+        // ---- Stack-effect factory ----
 
         private static StackEffectSnapshot ProjectileStackEffect(
             int debuffKey,
@@ -202,26 +393,8 @@ namespace PlayGround.Tests.PlayMode
                     AreaSize = 0f
                 },
                 DetonationKind = StackDetonationKind.Projectile,
-                DetonationKey = new Hash128(0xBEEF, 0xCAFE, 0, 0)
+                DetonationKey = new Hash128(0xBEEFu, 0xCAFEu, 0u, 0u)
             };
-        }
-
-        private ProjectileSpawnEvent DequeueSingleProjectileEvent()
-        {
-            NativeQueue<ProjectileSpawnEvent> queue = ProjectileEventQueue();
-            Assert.That(queue.Count, Is.EqualTo(1));
-            Assert.That(queue.TryDequeue(out ProjectileSpawnEvent evt), Is.True);
-            return evt;
-        }
-
-        private NativeQueue<ProjectileSpawnEvent> ProjectileEventQueue()
-        {
-            const global::System.Reflection.BindingFlags Flags =
-                global::System.Reflection.BindingFlags.Instance |
-                global::System.Reflection.BindingFlags.NonPublic;
-            var field = typeof(ProjectileSpawnExpansionSystem).GetField("EventQueue", Flags);
-            Assert.That(field, Is.Not.Null);
-            return (NativeQueue<ProjectileSpawnEvent>)field.GetValue(projectileExpansion);
         }
 
         private int ReadFinalizedHitCount()

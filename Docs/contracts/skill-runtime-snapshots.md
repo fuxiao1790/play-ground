@@ -23,12 +23,9 @@ Current snapshot categories:
 - runtime AOE definitions
 - `CombatHitPayload`
 - `StackEffectSnapshot`
-- `ProjectileImpactAoeSnapshot`
-- `ProjectileImpactProjectileSnapshot`
-- `AoeProjectileBurstSnapshot`
-- `AoeOnHitSpawnSnapshot`
+- `OnHitSpawnRef` — `(kind, Hash128)` registry key for all on-hit follow-up spawns
 - `TimedSpawnComponent`
-- timed spawn template keys (`Hash128`)
+- spawn template keys (`Hash128`) — used by all follow-up slots
 
 ## Guarantees
 

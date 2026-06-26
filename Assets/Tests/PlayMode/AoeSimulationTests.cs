@@ -26,6 +26,7 @@ namespace PlayGround.Tests.PlayMode
         private StatusProcessSystem statusProcess;
         private Entity scopeEntity;
         private Entity aoeTemplateEntity;
+        private Entity projectileTemplateEntity;
         private double elapsedTime;
         private int nextAoeId;
         private int nextTargetId = 5000;
@@ -51,6 +52,11 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<LingeringAoeCollisionSystem>());
             simGroup.AddSystemToUpdateList(hitApply);
             simGroup.AddSystemToUpdateList(statusProcess);
+            simGroup.AddSystemToUpdateList(projectileExpansion);
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<BasicProjectileSpawnApplySystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ChildSpawnerProjectileSpawnApplySystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContactGateSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileCollisionSystem>());
             simGroup.SortSystems();
 
             presentationGroup = testWorld.GetOrCreateSystemManaged<PresentationSystemGroup>();
@@ -67,6 +73,12 @@ namespace PlayGround.Tests.PlayMode
             {
                 Map = new NativeHashMap<Hash128, AoeSpawnCommand>(32, Allocator.Persistent)
             });
+
+            projectileTemplateEntity = entityManager.CreateEntity();
+            entityManager.AddComponentData(projectileTemplateEntity, new ProjectileSpawnTemplate
+            {
+                Map = new NativeHashMap<Hash128, ProjectileSpawnCommand>(16, Allocator.Persistent)
+            });
         }
 
         [TearDown]
@@ -77,6 +89,12 @@ namespace PlayGround.Tests.PlayMode
                 if (entityManager.Exists(aoeTemplateEntity))
                 {
                     AoeSpawnTemplate templates = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
+                    if (templates.Map.IsCreated)
+                        templates.Map.Dispose();
+                }
+                if (entityManager.Exists(projectileTemplateEntity))
+                {
+                    ProjectileSpawnTemplate templates = entityManager.GetComponentData<ProjectileSpawnTemplate>(projectileTemplateEntity);
                     if (templates.Map.IsCreated)
                         templates.Map.Dispose();
                 }
@@ -611,8 +629,17 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void AoeApplicatorProjectileDetonationQueuesNovaWithSummedContribution()
         {
-            AddTarget(float2.zero, 0.25f, 1);
+            const int ProjectileCount = 5;
+            const int DetonationTypeId = 70;
+            var detonationKey = new Hash128(0xBEEFu, (uint)DetonationTypeId, 0u, 0u);
+            RegisterProjectileTemplate(detonationKey, new ProjectileSpawnCommand
+            {
+                TypeId = DetonationTypeId,
+                Count = ProjectileCount,
+                Speed = 5f
+            });
 
+            AddTarget(float2.zero, 0.25f, 1);
             SpawnCircle(
                 float2.zero,
                 1f,
@@ -622,11 +649,11 @@ namespace PlayGround.Tests.PlayMode
                     threshold: 1,
                     lifetime: 10f,
                     damage: 12f,
-                    projectileCount: 5));
+                    projectileCount: ProjectileCount));
 
             TickSimulationOnly(0.01f);
 
-            Assert.That(ProjectileEventQueue().Count, Is.EqualTo(1));
+            Assert.That(ProjectileCountByTypeId(DetonationTypeId), Is.EqualTo(ProjectileCount));
         }
 
         [Test]
@@ -655,6 +682,138 @@ namespace PlayGround.Tests.PlayMode
 
             Assert.That(AoeEventQueue().Count, Is.EqualTo(0));
             Assert.That(ProjectileEventQueue().Count, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void AoeOnHitProjectileBurstMaterializesFromRegistry()
+        {
+            const int ProjectileTypeId = 55;
+            var projTemplate = new ProjectileSpawnCommand
+            {
+                TypeId = ProjectileTypeId,
+                Count = 1,
+                PierceRemaining = 99,
+                Speed = 0f,
+                Lifetime = 10f,
+                Radius = 0.5f,
+                ShapeType = CombatShapeType.Circle
+            };
+            Hash128 projKey = SpawnTemplateHash.Of(in projTemplate);
+            RegisterProjectileTemplate(projKey, projTemplate);
+
+            AddTarget(float2.zero, 0.25f, 1);
+            SpawnCircle(
+                float2.zero, 2f, damage: 0f, lifetime: 5f, tickInterval: 100f,
+                onHitSpawn: new OnHitSpawnRef { Kind = IntervalChildKind.Projectile, TemplateKey = projKey });
+
+            // Tick 1: lingering AOE materializes, hits target, emits projectile event.
+            // Projectile expansion + apply run in the same tick (after status process).
+            TickSimulationOnly(0.01f);
+
+            Assert.That(ProjectileCountByTypeId(ProjectileTypeId), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void AoeOnHitAoeMaterializesFromRegistry()
+        {
+            const int SecondAoeTypeId = 66;
+            var secondAoeTemplate = new AoeSpawnCommand
+            {
+                TypeId = SecondAoeTypeId,
+                Radius = 1f,
+                ShapeType = CombatShapeType.Circle,
+                HitPayload = new CombatHitPayload { DamageAmount = 1f, DirectDamageEnabled = true },
+                Count = 1
+            };
+            Hash128 secondAoeKey = SpawnTemplateHash.Of(in secondAoeTemplate);
+            AoeSpawnTemplate aoeRegistry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
+            aoeRegistry.Map.TryAdd(secondAoeKey, secondAoeTemplate);
+
+            AddTarget(float2.zero, 0.25f, 1);
+            SpawnCircle(
+                float2.zero, 2f, damage: 0f, lifetime: 5f, tickInterval: 100f,
+                onHitSpawn: new OnHitSpawnRef { Kind = IntervalChildKind.Aoe, TemplateKey = secondAoeKey });
+
+            // Tick 1: first AOE materializes, hits target, emits second AOE event.
+            TickSimulationOnly(0.01f);
+            // The on-hit AOE event lands in aoeExpansion.EventQueue during tick 1's collision.
+            // aoeExpansion already ran this tick. So the second AOE materializes in tick 2.
+            TickSimulationOnly(0.01f);
+
+            Assert.That(AoeCountByType(SecondAoeTypeId), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ThreeDeepStackingChain_LingeringAoeToOnHitProjectileToStackDetonation()
+        {
+            // Chain: Level1=lingering AOE (OnHitSpawn=Projectile)
+            //        Level2=on-hit projectile (DirectDamage + StackEffect{threshold=1})
+            //        Level3=detonation projectile (spawned by StatusProcessSystem on threshold)
+            const int Lvl2TypeId = 20;
+            const int Lvl3TypeId = 30;
+            const int Lvl3Count = 2;
+            const int DebuffKey = 111;
+
+            var detonationKey = new Hash128(0xABCDu, 0x1234u, 0u, 0u);
+            var lvl3Template = new ProjectileSpawnCommand
+            {
+                TypeId = Lvl3TypeId,
+                Count = Lvl3Count,
+                Speed = 5f,
+                Radius = 0.5f,
+                ShapeType = CombatShapeType.Circle
+            };
+            RegisterProjectileTemplate(detonationKey, lvl3Template);
+
+            var lvl2Template = new ProjectileSpawnCommand
+            {
+                TypeId = Lvl2TypeId,
+                Count = 1,
+                PierceRemaining = 0,
+                Speed = 0f,
+                Lifetime = 10f,
+                Radius = 0.5f,
+                ShapeType = CombatShapeType.Circle,
+                HitPayload = new ProjectileHitPayload(new CombatHitPayload
+                {
+                    DamageAmount = 1f,
+                    CritMultiplier = 1f,
+                    DirectDamageEnabled = true,
+                    StackEffect = new StackEffectSnapshot
+                    {
+                        DebuffKey = DebuffKey,
+                        Threshold = 1,
+                        Lifetime = 10f,
+                        Contribution = new StackContribution { Damage = 5f },
+                        DetonationKind = StackDetonationKind.Projectile,
+                        DetonationKey = detonationKey
+                    }
+                })
+            };
+            Hash128 lvl2Key = SpawnTemplateHash.Of(in lvl2Template);
+            RegisterProjectileTemplate(lvl2Key, lvl2Template);
+
+            // Level 1: lingering AOE with on-hit projectile spawn. No direct damage.
+            AddTarget(float2.zero, 0.25f, 1);
+            SpawnCircle(
+                float2.zero, 2f, damage: 0f, lifetime: 5f, tickInterval: 100f,
+                onHitSpawn: new OnHitSpawnRef { Kind = IntervalChildKind.Projectile, TemplateKey = lvl2Key });
+
+            // Tick 1: AOE materializes, hits target, emits lvl-2 projectile event.
+            //         Projectile expansion creates lvl-2 entity this tick (after status process).
+            //         Projectile collision runs: lvl-2 projectile is contact-gated from the hit target.
+            // Ticks 2–10: contact gate ticks down (0.1f / 0.01f = 10 ticks to expire).
+            // Tick 11: gate expired, lvl-2 hits target, CombatHitEvent with stack queued.
+            // Tick 12: hitApply processes stack (count=1 >= threshold=1);
+            //          statusProcess fires lvl-3 detonation event;
+            //          projectile expansion creates lvl-3 entities.
+            const int TicksToExpireGate = 11;
+            const int TicksAfterGate = 2;
+            for (int i = 0; i < TicksToExpireGate + TicksAfterGate; i++)
+                TickSimulationOnly(0.01f);
+
+            Assert.That(ProjectileCountByTypeId(Lvl3TypeId), Is.GreaterThanOrEqualTo(Lvl3Count),
+                "Level-3 detonation projectiles must materialize from the registry-keyed stacking chain.");
         }
 
         private void Tick(float dt)
@@ -686,7 +845,8 @@ namespace PlayGround.Tests.PlayMode
             float damage,
             float lifetime = 0f,
             float tickInterval = 0f,
-            StackEffectSnapshot stackEffect = default)
+            StackEffectSnapshot stackEffect = default,
+            OnHitSpawnRef onHitSpawn = default)
         {
             var template = new AoeSpawnCommand
             {
@@ -699,6 +859,7 @@ namespace PlayGround.Tests.PlayMode
                     DirectDamageEnabled = damage > 0f,
                     StackEffect = stackEffect
                 },
+                OnHitSpawn = onHitSpawn,
                 Radius = radius,
                 AreaSize = radius,
                 ShapeType = CombatShapeType.Circle,
@@ -715,6 +876,26 @@ namespace PlayGround.Tests.PlayMode
                 Faction = CombatFaction.Player,
                 SourceId = ++nextAoeId
             });
+        }
+
+        private void RegisterProjectileTemplate(Hash128 key, ProjectileSpawnCommand template)
+        {
+            ProjectileSpawnTemplate registry = entityManager.GetComponentData<ProjectileSpawnTemplate>(projectileTemplateEntity);
+            registry.Map.TryAdd(key, template);
+        }
+
+        private int ProjectileCountByTypeId(int typeId)
+        {
+            using EntityQuery q = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileIdentityComponent>());
+            using NativeArray<ProjectileIdentityComponent> identities =
+                q.ToComponentDataArray<ProjectileIdentityComponent>(Allocator.Temp);
+            int count = 0;
+            for (int i = 0; i < identities.Length; i++)
+            {
+                if (identities[i].TypeId == typeId)
+                    count++;
+            }
+            return count;
         }
 
         private void AddTarget(float2 position, float radius, int targetMask, float health = 100f)

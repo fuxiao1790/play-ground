@@ -41,9 +41,7 @@ instance frame, and exploding template-level multiplicity (count, spread, jitter
 into one command per spawned entity.
 
 See [spawn-template-registry.md](../reference/simulation/spawn-template-registry.md)
-for the registry concurrency contract and the unified `(kind, key)` model. Older
-event types still embed per-source snapshot data; those are being unified onto
-registry keys.
+for the registry concurrency contract and the `(kind, key)` model.
 
 ## Guarantees
 

@@ -145,8 +145,8 @@ Scope-owned spawn template registry:
 
 - `ProjectileSpawnTemplate`
 - `AoeSpawnTemplate`
-- `NativeHashMap<Hash128, ProjectileSpawnEvent>`
-- `NativeHashMap<Hash128, AoeSpawnEvent>`
+- `NativeHashMap<Hash128, ProjectileSpawnCommand>`
+- `NativeHashMap<Hash128, AoeSpawnCommand>`
 
 Collision consequence event:
 
@@ -198,24 +198,19 @@ spawn; in-flight entities never read authoring assets or registries.
 
 ## Events As Templates
 
-> Target model (see [Unified Spawn Model](#unified-spawn-model)): the stored
-> value is a spawn command template and the runtime event is a slim link. The
-> shape below documents the current interval-spawn implementation, which stores
-> events directly; it is being unified onto the keyed command-template form.
-
-Spawn template registries store the existing spawn event types so entities that
-can spawn other entities can reference them by key. This is the shared storage
-for interval-spawn and other follow-up spawn behavior:
+Spawn template registries store command-shaped templates so entities that can
+spawn other entities can reference them by key. This is the shared storage for
+all follow-up spawn behavior — interval, on-hit, and detonation:
 
 ```csharp
 public struct ProjectileSpawnTemplate : IComponentData
 {
-    public NativeHashMap<Hash128, ProjectileSpawnEvent> Map;
+    public NativeHashMap<Hash128, ProjectileSpawnCommand> Map;
 }
 
 public struct AoeSpawnTemplate : IComponentData
 {
-    public NativeHashMap<Hash128, AoeSpawnEvent> Map;
+    public NativeHashMap<Hash128, AoeSpawnCommand> Map;
 }
 ```
 
@@ -223,28 +218,31 @@ The shared `CombatScope` entity owns both maps. `CombatScopeOwner` creates them
 when the first `CombatRoot` binds the world and disposes them when the last root
 releases the scope.
 
-`CombatRoot.RegisterTimedSpawnTemplate(in ProjectileSpawnEvent)` and
-`CombatRoot.RegisterTimedSpawnTemplate(in AoeSpawnEvent)` hash the stored event
-content with `SpawnTemplateHash.Of`. The returned `Hash128` is copied into a
-`TimedSpawnComponent.TemplateKey`.
+`CombatRoot.RegisterSpawnTemplate(in ProjectileSpawnCommand)` and
+`CombatRoot.RegisterSpawnTemplate(in AoeSpawnCommand)` hash the normalized
+command content with `SpawnTemplateHash.Of`. The returned `Hash128` is used as
+the registry key and stored on whichever source carries the follow-up slot
+(e.g., `TimedSpawnComponent.TemplateKey` or `OnHitSpawnRef.TemplateKey`).
 
 Registry rules:
 
-- the stored event is the template
+- the stored value is a **command-shaped template** — the same struct that
+  expansion writes, with per-instance fields zeroed
 - there is no separate `TemplateData` struct
-- there is no template-to-event conversion step
-- stored events are blittable and readable by Burst jobs
+- there is no event-to-command remap step; expansion stamps and explodes directly
+- stored commands are blittable and readable by Burst jobs
 - per-instance fields are left default before hashing
-- identical child behavior deduplicates to one map entry
+- identical follow-up behavior deduplicates to one map entry
 - entries are never removed in v1
 
-Per-instance fields stamped by `TimedSpawnSystem`:
+Per-instance fields stamped by expansion:
 
 - `Position`
 - `Faction`
-- `BaseProjectileId` or `AoeId`
+- `ProjectileId` or `AoeId`
 - `JitterSeed`
 - `DeterministicIdTickIndex`
+- `SeedContactGateTargetId` (for on-hit spawns)
 
 ## Timed Spawn Runtime
 
@@ -301,12 +299,10 @@ The tick loop must keep these safety guards:
 
 ## Projectile Runtime Snapshot
 
-Projectile spawn events and commands may carry:
+Projectile commands and component data carry:
 
-- `ProjectileHitPayload`
-- `ProjectileImpactAoeSnapshot`
-- `ProjectileImpactProjectileSnapshot`
-- `TimedSpawnComponent`
+- `ProjectileHitPayload` — hit payload with optional `OnHitSpawnRef (kind, key)`
+- `TimedSpawnComponent` — optional interval-child spawn config
 
 Projectile entities carry `ProjectileHitComponent`:
 
@@ -319,11 +315,16 @@ public struct ProjectileHitComponent : IComponentData
 }
 ```
 
+`ProjectileHitPayload` wraps `CombatHitPayload` plus `OnHitSpawnRef`. The
+`OnHitSpawnRef` is a `(kind, Hash128)` reference into the registry; it replaces
+the former embedded `ProjectileImpactAoeSnapshot` and
+`ProjectileImpactProjectileSnapshot`.
+
 When a projectile hit qualifies, `ProjectileCollisionSystem` may emit:
 
 - `CombatHitEvent`
-- `AoeSpawnEvent` from `AoeSpawnPipeline.BuildImpactAoeEvent`
-- `ProjectileSpawnEvent` from `ProjectileSpawnPipeline.BuildImpactProjectileEvent`
+- `ProjectileSpawnEvent` (slim link) when `OnHitSpawn.Kind == Projectile`
+- `AoeSpawnEvent` (slim link) when `OnHitSpawn.Kind == Aoe`
 - `VfxPendingSpawn`
 
 The collision system may disable the source projectile by disabling `Active`
@@ -331,12 +332,11 @@ when pierce is consumed.
 
 ## AOE Runtime Snapshot
 
-AOE spawn events and commands may carry:
+AOE commands and component data carry:
 
-- `CombatHitPayload`
-- `AoeProjectileBurstSnapshot`
-- `AoeOnHitSpawnSnapshot`
-- `TimedSpawnComponent`
+- `CombatHitPayload` — hit payload with optional stack effect
+- `OnHitSpawnRef (kind, key)` — optional on-hit follow-up spawn reference
+- `TimedSpawnComponent` — optional interval-child spawn config
 
 AOE entities carry `AoeHitSpawnComponent`:
 
@@ -344,16 +344,18 @@ AOE entities carry `AoeHitSpawnComponent`:
 public struct AoeHitSpawnComponent : IComponentData
 {
     public CombatHitPayload HitPayload;
-    public AoeProjectileBurstSnapshot ProjectileBurst;
-    public AoeOnHitSpawnSnapshot AoeSpawn;
+    public OnHitSpawnRef OnHitSpawn;
 }
 ```
+
+`OnHitSpawnRef` is a `(kind, Hash128)` reference into the registry; it replaces
+the former embedded `AoeProjectileBurstSnapshot` and `AoeOnHitSpawnSnapshot`.
 
 When an AOE hit qualifies, AOE collision may emit:
 
 - `CombatHitEvent`
-- `ProjectileSpawnEvent` from `ProjectileSpawnPipeline.BuildBurstEvent`
-- `AoeSpawnEvent` from `AoeSpawnPipeline.BuildOnHitAoeSpawnEvent`
+- `ProjectileSpawnEvent` (slim link) when `OnHitSpawn.Kind == Projectile`
+- `AoeSpawnEvent` (slim link) when `OnHitSpawn.Kind == Aoe`
 - `VfxPendingSpawn`
 
 Pulse AOEs disable `Active` after their one collision pass. Lingering AOEs keep
@@ -493,25 +495,21 @@ aggregate damage, hit count, crit count, health, and status ranges.
 
 ## Cross-Domain Spawn Rules
 
-> Target model: all of the per-source snapshot structs below collapse to one
-> uniform `(kind, Hash128)` reference into the registry — see
-> [Unified Spawn Model](#unified-spawn-model). The list documents the current
-> embedded-snapshot implementation, which is being unified.
+Every follow-up spawn uses the same `(kind, Hash128)` reference into the
+registry, regardless of the source:
 
-Current per-source carriers (being unified onto registry keys):
+- projectile on-hit → AOE: `ProjectileHitPayload.OnHitSpawn {Kind=Aoe, key}`
+- projectile on-hit → projectile: `ProjectileHitPayload.OnHitSpawn {Kind=Projectile, key}`
+- AOE on-hit → projectile burst: `AoeHitSpawnComponent.OnHitSpawn {Kind=Projectile, key}`
+- AOE on-hit → AOE: `AoeHitSpawnComponent.OnHitSpawn {Kind=Aoe, key}`
+- stack projectile detonation: `StackEffectSnapshot.DetonationKey` (Projectile kind)
+- interval child spawn: `TimedSpawnComponent.TemplateKey`
 
-- projectile impact AOE uses `ProjectileImpactAoeSnapshot`
-- projectile impact projectile uses `ProjectileImpactProjectileSnapshot`
-- AOE projectile burst uses `AoeProjectileBurstSnapshot`
-- AOE-on-hit spawn uses `AoeOnHitSpawnSnapshot`
-- stack projectile detonation also uses `AoeProjectileBurstSnapshot`
-- interval child spawn uses `TimedSpawnComponent.TemplateKey` (already keyed)
+Collision and timed-spawn systems emit slim `SpawnEvent` links (kind + key +
+per-instance frame). The normal expansion/apply path dereferences the key,
+stamps per-instance fields, and decides commands, reuse, and cold creation.
 
-Collision and timed-spawn systems do not allocate spawned entities. They emit
-spawn events. The normal expansion/apply path decides commands, reuse, and cold
-creation.
-
-Keep recursive spawn bounded by registered template keys, not by embedded
+Recursive spawn is bounded by registered template keys, not by embedded
 snapshot shape. A key reference cannot form a value-type cycle and cannot grow an
 unbounded child list. Do not add managed callbacks to collision-time or tick-time
 payloads.
@@ -535,34 +533,37 @@ payloads.
 
 ## Testing Checklist
 
-- Fire projectile with impact AOE snapshot; confirm AOE event reaches AOE
-  expansion and materializes through AOE apply.
-- Fire projectile with impact projectile snapshot; confirm projectile event
-  reaches projectile expansion and materializes through projectile apply.
-- Fire AOE with projectile burst snapshot; confirm projectile burst follows the
-  projectile spawn pipeline.
-- Fire AOE with AOE-on-hit snapshot; confirm child AOE follows the AOE spawn
-  pipeline.
+- Fire projectile with `OnHitSpawn {Kind=Aoe, key}`; confirm AOE event reaches
+  AOE expansion and materializes through AOE apply (registry dereference).
+- Fire projectile with `OnHitSpawn {Kind=Projectile, key}`; confirm projectile
+  event reaches projectile expansion and materializes through projectile apply.
+- Fire AOE with `OnHitSpawn {Kind=Projectile, key}`; confirm projectile burst
+  follows the projectile spawn pipeline.
+- Fire AOE with `OnHitSpawn {Kind=Aoe, key}`; confirm child AOE follows the AOE
+  spawn pipeline.
 - Fire timed projectile source; confirm `TimedSpawnSystem` fetches the stored
-  projectile event by `TemplateKey` and emits children at the configured
+  projectile command by `TemplateKey` and emits children at the configured
   interval.
 - Fire timed lingering-AOE source; confirm `TimedSpawnSystem` fetches the stored
-  projectile or AOE event by `TemplateKey`, emits children, and stops at expiry.
-- Confirm identical interval child behavior deduplicates to one registry entry
-  and differing behavior creates distinct keys.
-- Confirm changing dynamic count recompiles to a new key and re-selecting a
-  prior count reuses the old key.
-- Confirm stored template events have per-instance fields default before hashing.
+  projectile or AOE command by `TemplateKey`, emits children, and stops at expiry.
+- Confirm identical follow-up behavior deduplicates to one registry entry and
+  differing behavior creates distinct keys.
+- Confirm changing dynamic count creates a new key and re-selecting a prior count
+  reuses the old key.
+- Confirm stored templates have per-instance fields zeroed before hashing.
 - Confirm `sizeof(AoeSpawnCommand) < 4096`.
 - Fire stacking applicators with AOE and projectile sources whose detonation is
-  projectile; confirm both queue a projectile nova with summed count and total
-  damage.
+  projectile; confirm both materialize a projectile nova with summed count and
+  total damage.
 - Fire a stacking applicator; confirm the applied AOE/projectile entity carries
   one `StackEffectSnapshot` in its hit payload.
 - Apply stacks below threshold and stop refreshing; confirm the target
   `TargetStackEntry` fizzles with no detonation.
 - Apply mixed fire-time contributions to one debuff key; confirm threshold
   detonation uses the summed contribution and clears the entry.
+- Run a lingering-AOE → on-hit projectile → stack detonation chain; confirm
+  three levels materialize correctly through the registry.
+- Confirm the registry count is unchanged after a simulation tick.
 - Mutate authoring data after firing; verify in-flight entities still use the
   original snapshot.
 - Confirm simulation jobs do not read managed companions.
