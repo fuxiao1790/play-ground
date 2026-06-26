@@ -26,6 +26,7 @@ namespace PlayGround.System.Common
         internal const float ProjectileRenderZStep = 0.000001f;
         internal const int ProjectileRenderZSlots = 1_000_000;
         internal const float AoeRenderZ = 0.5f;
+        internal const int MaxSpawnChainDepth = SpawnTemplateLimits.MaxSpawnChainDepth;
 
         private static readonly CombatRoot[] ByFaction = new CombatRoot[3];
 
@@ -193,37 +194,45 @@ namespace PlayGround.System.Common
             return baseProjectileId;
         }
 
-        public Hash128 RegisterTimedSpawnTemplate(in ProjectileSpawnEvent evt)
+        public Hash128 RegisterSpawnTemplate(in ProjectileSpawnEvent evt)
         {
             EnsureRuntimeReady();
 
-            Hash128 key = SpawnTemplateHash.Of(in evt);
+            ProjectileSpawnEvent template = SpawnTemplateFor(in evt);
+            Hash128 key = SpawnTemplateHash.Of(in template);
             ProjectileSpawnTemplate registry = entityManager.GetComponentData<ProjectileSpawnTemplate>(scopeEntity);
             if (!registry.Map.ContainsKey(key))
             {
                 entityManager.CompleteAllTrackedJobs();
-                registry.Map.Add(key, evt);
+                registry.Map.Add(key, template);
             }
 
             return key;
         }
 
+        public Hash128 RegisterTimedSpawnTemplate(in ProjectileSpawnEvent evt) =>
+            RegisterSpawnTemplate(in evt);
+
         // ---- AOE API ----
 
-        public Hash128 RegisterTimedSpawnTemplate(in AoeSpawnEvent evt)
+        public Hash128 RegisterSpawnTemplate(in AoeSpawnEvent evt)
         {
             EnsureRuntimeReady();
 
-            Hash128 key = SpawnTemplateHash.Of(in evt);
+            AoeSpawnEvent template = SpawnTemplateFor(in evt);
+            Hash128 key = SpawnTemplateHash.Of(in template);
             AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(scopeEntity);
             if (!registry.Map.ContainsKey(key))
             {
                 entityManager.CompleteAllTrackedJobs();
-                registry.Map.Add(key, evt);
+                registry.Map.Add(key, template);
             }
 
             return key;
         }
+
+        public Hash128 RegisterTimedSpawnTemplate(in AoeSpawnEvent evt) =>
+            RegisterSpawnTemplate(in evt);
 
         public int RegisterConfig(AoeConfig config)
         {
@@ -410,6 +419,31 @@ namespace PlayGround.System.Common
             timedSpawn.JitterSeed > 0
             && timedSpawn.IntervalSeconds > 0f
             && !timedSpawn.TemplateKey.Equals(default(Hash128));
+
+        private static ProjectileSpawnEvent SpawnTemplateFor(in ProjectileSpawnEvent evt)
+        {
+            ProjectileSpawnEvent template = evt;
+            template.Faction = CombatFaction.None;
+            template.BaseProjectileId = 0;
+            template.SeedContactGateTargetId = 0;
+            template.Position = default;
+            template.JitterSeed = 0;
+            template.DeterministicIdTickIndex = 0;
+            return template;
+        }
+
+        private static AoeSpawnEvent SpawnTemplateFor(in AoeSpawnEvent evt)
+        {
+            AoeSpawnEvent template = evt;
+            template.Faction = CombatFaction.None;
+            template.AoeId = 0;
+            template.Position = default;
+            template.BoundsMin = default;
+            template.BoundsMax = default;
+            template.JitterSeed = 0;
+            template.DeterministicIdTickIndex = 0;
+            return template;
+        }
 
         private static ProjectileTrackingComponent TrackingComponentFor(ProjectileTrackingConfig config)
         {

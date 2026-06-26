@@ -6,15 +6,22 @@ using Unity.Entities;
 namespace PlayGround.System.Common
 {
     // ECS Lifecycle: singleton registry component; added to the shared combat scope entity on first CombatScopeOwner.Acquire and disposed on final CombatScopeOwner.Release.
+    // Registry contract: Map stores projectile command templates keyed by content hash. CombatRoot writes templates only from managed pre-tick code; systems and jobs read this map as [ReadOnly] during the simulation tick.
     public struct ProjectileSpawnTemplate : IComponentData
     {
         public NativeHashMap<Hash128, ProjectileSpawnEvent> Map;
     }
 
     // ECS Lifecycle: singleton registry component; added to the shared combat scope entity on first CombatScopeOwner.Acquire and disposed on final CombatScopeOwner.Release.
+    // Registry contract: Map stores AOE command templates keyed by content hash. CombatRoot writes templates only from managed pre-tick code; systems and jobs read this map as [ReadOnly] during the simulation tick.
     public struct AoeSpawnTemplate : IComponentData
     {
         public NativeHashMap<Hash128, AoeSpawnEvent> Map;
+    }
+
+    public static class SpawnTemplateLimits
+    {
+        public const int MaxSpawnChainDepth = 3;
     }
 
     public static class SpawnTemplateHash
