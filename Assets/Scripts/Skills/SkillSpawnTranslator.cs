@@ -434,6 +434,7 @@ namespace PlayGround.Skills
                 projectile.DirectDamageEnabled,
                 projectile.PierceCount,
                 projectile.RepeatHitCooldown,
+                projectile.Tracking,
                 prefab.VisualScale,
                 prefab.VisualRotationDegrees);
         }

@@ -153,7 +153,7 @@ namespace PlayGround.System.Projectile
                 HalfExtents = new float2(snapshot.HalfExtents.x, snapshot.HalfExtents.y),
                 ShapeType = snapshot.ShapeType,
                 HitPayload = hitPayload,
-                Tracking = default,
+                Tracking = TrackingFor(snapshot.Tracking),
                 Render = ProjectileRender(snapshot.VisualScale, snapshot.VisualRotationDegrees, baseId)
             };
         }

@@ -156,6 +156,7 @@ namespace PlayGround.System.Common
             bool directDamageEnabled = true,
             int pierceCount = 0,
             float repeatHitCooldownSeconds = 0f,
+            ProjectileTrackingConfig tracking = default,
             float visualScale = 0f,
             float visualRotationDegrees = 0f)
         {
@@ -174,6 +175,7 @@ namespace PlayGround.System.Common
             DirectDamageEnabled = directDamageEnabled;
             PierceCount = Mathf.Max(0, pierceCount);
             RepeatHitCooldownSeconds = Mathf.Max(0f, repeatHitCooldownSeconds);
+            Tracking = tracking;
             VisualScale = Mathf.Max(0f, visualScale);
             VisualRotationDegrees = visualRotationDegrees;
         }
@@ -193,6 +195,7 @@ namespace PlayGround.System.Common
         public bool DirectDamageEnabled { get; }
         public int PierceCount { get; }
         public float RepeatHitCooldownSeconds { get; }
+        public ProjectileTrackingConfig Tracking { get; }
         public float VisualScale { get; }
         public float VisualRotationDegrees { get; }
     }
