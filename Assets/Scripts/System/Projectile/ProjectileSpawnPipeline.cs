@@ -137,7 +137,7 @@ namespace PlayGround.System.Projectile
                 TypeId = snapshot.ProjectileTypeId,
                 BaseProjectileId = baseId,
                 HasTimedSpawner = 0,
-                SeedContactGateTargetId = 0,
+                SeedContactGateTargetId = targetId,
                 Position = position,
                 BaseDirection = baseDirection,
                 Speed = snapshot.Speed,
