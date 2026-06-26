@@ -722,6 +722,7 @@ namespace PlayGround.Skills
                 projectile.PierceCount,
                 projectile.RepeatHitCooldown,
                 projectile.Tracking,
+                BuildApplicatorStackEffectSnapshot(projectile, null),
                 prefab.VisualScale,
                 prefab.VisualRotationDegrees);
         }
