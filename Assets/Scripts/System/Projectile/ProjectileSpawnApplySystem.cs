@@ -275,8 +275,7 @@ namespace PlayGround.System.Projectile
         protected static bool NeedsCollision(in ProjectileHitPayload payload) =>
             payload.DirectDamageEnabled
             || payload.StackEffect.Enabled
-            || payload.ImpactAoe.Enabled
-            || payload.ImpactProjectile.Enabled;
+            || payload.OnHitSpawn.Enabled;
 
         private readonly struct ProjectileSpawnKey : IEquatable<ProjectileSpawnKey>
         {

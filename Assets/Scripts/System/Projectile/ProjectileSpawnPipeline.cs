@@ -61,12 +61,13 @@ namespace PlayGround.System.Projectile
         public static ProjectileSpawnEvent BuildImpactProjectileEvent(
             CombatFaction faction, int sourceId, int typeId, int targetId,
             float2 position, float2 targetPosition,
-            in ProjectileImpactProjectileSnapshot snapshot)
+            OnHitSpawnRef spawnRef)
         {
             int baseId = HashId(sourceId, typeId, targetId, ImpactProjectileIdSalt);
             return new ProjectileSpawnEvent
             {
-                Kind = IntervalChildKind.Projectile,
+                Kind = spawnRef.Kind,
+                TemplateKey = spawnRef.TemplateKey,
                 Faction = faction,
                 Position = position,
                 AimDirection = DirectionFromTo(position, targetPosition, invert: true),
@@ -79,12 +80,13 @@ namespace PlayGround.System.Projectile
         public static ProjectileSpawnEvent BuildBurstEvent(
             CombatFaction faction, int sourceId, int typeId, int targetId,
             float2 position, float2 targetPosition,
-            in AoeProjectileBurstSnapshot snapshot)
+            OnHitSpawnRef spawnRef)
         {
             int baseId = HashId(sourceId, typeId, targetId, ProjectileBurstIdSalt);
             return new ProjectileSpawnEvent
             {
-                Kind = IntervalChildKind.Projectile,
+                Kind = spawnRef.Kind,
+                TemplateKey = spawnRef.TemplateKey,
                 Faction = faction,
                 Position = position,
                 AimDirection = DirectionFromTo(position, targetPosition, invert: false),

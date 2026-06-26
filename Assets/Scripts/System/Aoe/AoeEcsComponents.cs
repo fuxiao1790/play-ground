@@ -27,12 +27,11 @@ namespace PlayGround.System.Aoe
         public float RepeatHitCooldownSeconds;
     }
 
-    // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse; carries fire-time hit-spawn snapshot data.
+    // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse; carries fire-time hit-spawn template reference data.
     public struct AoeHitSpawnComponent : IComponentData
     {
         public CombatHitPayload HitPayload;
-        public AoeProjectileBurstSnapshot ProjectileBurst;
-        public AoeOnHitSpawnSnapshot AoeSpawn;
+        public OnHitSpawnRef OnHitSpawn;
     }
 
     // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse; carries fire-time gameplay area size for VFX dispatch.

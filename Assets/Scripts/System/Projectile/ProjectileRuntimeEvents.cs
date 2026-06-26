@@ -8,17 +8,14 @@ namespace PlayGround.System.Projectile
     {
         public ProjectileHitPayload(
             CombatHitPayload hitPayload,
-            ProjectileImpactAoeSnapshot impactAoe = default,
-            ProjectileImpactProjectileSnapshot impactProjectile = default)
+            OnHitSpawnRef onHitSpawn = default)
         {
             HitPayload = hitPayload;
-            ImpactAoe = impactAoe;
-            ImpactProjectile = impactProjectile;
+            OnHitSpawn = onHitSpawn;
         }
 
         public CombatHitPayload HitPayload { get; }
-        public ProjectileImpactAoeSnapshot ImpactAoe { get; }
-        public ProjectileImpactProjectileSnapshot ImpactProjectile { get; }
+        public OnHitSpawnRef OnHitSpawn { get; }
 
         public float DamageAmount => HitPayload.DamageAmount;
         public float CritChance => HitPayload.CritChance;

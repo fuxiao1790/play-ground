@@ -281,20 +281,22 @@ namespace PlayGround.System.Projectile
                                 });
                             }
 
-                            if (projectileHit.HitPayload.ImpactProjectile.Enabled)
+                            if (projectileHit.HitPayload.OnHitSpawn.Enabled
+                                && projectileHit.HitPayload.OnHitSpawn.Kind == IntervalChildKind.Projectile)
                             {
                                 ProjectileEventWriter.Enqueue(ProjectileSpawnPipeline.BuildImpactProjectileEvent(
                                     identity.Faction, identity.ProjectileId, identity.TypeId, targetKey,
                                     kinematics.Position, targetPosition.Value,
-                                    projectileHit.HitPayload.ImpactProjectile));
+                                    projectileHit.HitPayload.OnHitSpawn));
                             }
 
-                            if (projectileHit.HitPayload.ImpactAoe.Enabled)
+                            if (projectileHit.HitPayload.OnHitSpawn.Enabled
+                                && projectileHit.HitPayload.OnHitSpawn.Kind == IntervalChildKind.Aoe)
                             {
                                 AoeEventWriter.Enqueue(AoeSpawnPipeline.BuildImpactAoeEvent(
                                     identity.Faction, identity.ProjectileId, identity.TypeId, targetKey,
                                     kinematics.Position, projectileHit.HitPayload.SourceNodeId,
-                                    projectileHit.HitPayload.ImpactAoe));
+                                    projectileHit.HitPayload.OnHitSpawn));
                             }
 
                             vfxPending.Write(new VfxPendingSpawn

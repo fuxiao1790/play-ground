@@ -404,8 +404,7 @@ namespace PlayGround.System.Common
                 HalfExtents = halfExtents,
                 ShapeType = geometry.ShapeType,
                 Render = AoeRenderComponentFor(request.TypeId, geometry),
-                ProjectileBurst = request.ProjectileBurst,
-                AoeSpawn = request.AoeSpawn,
+                OnHitSpawn = request.OnHitSpawn,
                 HasTimedSpawner = request.HasTimedSpawner ? 1 : 0,
                 TimedSpawn = StampTimedSpawn(request.TimedSpawn, faction, aoeId)
             };

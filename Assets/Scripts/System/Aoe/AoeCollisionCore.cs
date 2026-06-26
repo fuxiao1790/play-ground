@@ -210,25 +210,26 @@ namespace PlayGround.System.Aoe
                 });
             }
 
-            if (hitSpawn.ProjectileBurst.Enabled)
+            if (hitSpawn.OnHitSpawn.Enabled
+                && hitSpawn.OnHitSpawn.Kind == IntervalChildKind.Projectile)
             {
                 projectileEventWriter.Enqueue(ProjectileSpawnPipeline.BuildBurstEvent(
                     identity.Faction, identity.AoeId, identity.TypeId, targetKey,
                     targetPosition.Value, kinematics.Position,
-                    hitSpawn.ProjectileBurst));
+                    hitSpawn.OnHitSpawn));
             }
 
-            if (hasAoeEventWriter && hitSpawn.AoeSpawn.Enabled)
+            if (hasAoeEventWriter
+                && hitSpawn.OnHitSpawn.Enabled
+                && hitSpawn.OnHitSpawn.Kind == IntervalChildKind.Aoe)
             {
-                // The link is bounded by AoeOnHitSpawnSnapshot.MaxStackChainLinks.
-                // Each spawned AOE is a fresh snapshot; there is no runtime retarget.
                 aoeEventWriter.Enqueue(AoeSpawnPipeline.BuildOnHitAoeSpawnEvent(
                     identity.Faction,
                     identity.AoeId,
                     identity.TypeId,
                     targetKey,
                     targetPosition.Value,
-                    hitSpawn.AoeSpawn));
+                    hitSpawn.OnHitSpawn));
             }
 
             if (!hitVfxEmitted)

@@ -370,27 +370,13 @@ namespace PlayGround.System.Common
 
         public StackEffectSnapshot BuildStackEffect(CombatFaction faction)
         {
-            var detonation = new DetonationSnapshot
-            {
-                Kind = StackDetonationKind,
-                Faction = faction,
-                TargetMask = TargetMask,
-                TypeId = StackDetonationTypeId,
-                LifetimeSeconds = StackDetonationLifetimeSeconds,
-                TickIntervalSeconds = StackDetonationTickIntervalSeconds,
-                AoeGeometry = StackDetonationAoeGeometry,
-                CritChance = StackDetonationCritChance,
-                CritMultiplier = StackDetonationCritMultiplier,
-                AoeOnHitSpawn = NextAoeOnHitSpawn.ToSnapshot()
-            };
-
             return new StackEffectSnapshot
             {
                 DebuffKey = StackDebuffKey,
                 Threshold = StackThreshold,
                 Lifetime = StackLifetime,
                 Contribution = StackContribution,
-                Detonation = detonation
+                DetonationKind = StackDetonationKind
             };
         }
     }

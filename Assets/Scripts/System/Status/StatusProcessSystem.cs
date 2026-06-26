@@ -166,7 +166,7 @@ namespace PlayGround.System.Common
 
                         return;
                     case StackDetonationKind.Projectile:
-                        if (HasProjectileEventWriter && snapshot.ProjectileBurst.Enabled)
+                        if (HasProjectileEventWriter && snapshot.Enabled)
                         {
                             ProjectileEventWriter.Enqueue(BuildProjectileDetonation(
                                 entry,
@@ -184,31 +184,11 @@ namespace PlayGround.System.Common
                 int aoeId)
             {
                 DetonationSnapshot detonation = entry.Detonation;
-                AoeSpawnGeometry geometry = detonation.AoeGeometry;
-                // Damage accumulates with every stack consumed, but the explosion AREA is
-                // capped at the configured geometry. A single-frame burst (e.g. an on-impact
-                // 360 deg projectile spawn) can drive Count -- and therefore SummedArea -- well
-                // past one threshold's worth before this once-per-frame system detonates it. An
-                // unclamped areaScale then renders and collides far larger than intended, scaling
-                // with the projectile/cluster count. Clamp to 1 so area/radius/bounds stay at the
-                // intended geometry; SummedDamage below still scales the hit with stack count.
-                float areaScale = geometry.AreaSize > 0f && entry.SummedArea > 0f
-                    ? math.min(1f, entry.SummedArea / geometry.AreaSize)
-                    : 1f;
-                float radius = geometry.Radius * areaScale;
-                float2 halfExtents = new(geometry.HalfExtents.x * areaScale, geometry.HalfExtents.y * areaScale);
-                CombatCollisionMath.ComputeWorldBounds(
-                    position,
-                    radius,
-                    halfExtents,
-                    geometry.RotationRadians,
-                    geometry.ShapeType,
-                    out float2 boundsMin,
-                    out float2 boundsMax);
 
                 return new AoeSpawnEvent
                 {
                     Kind = IntervalChildKind.Aoe,
+                    TemplateKey = detonation.TemplateKey,
                     Faction = detonation.Faction,
                     Position = position,
                     SourceId = aoeId,
@@ -222,14 +202,12 @@ namespace PlayGround.System.Common
                 int sourceId)
             {
                 DetonationSnapshot detonation = entry.Detonation;
-                AoeProjectileBurstSnapshot burst = detonation.ProjectileBurst;
-                int count = math.max(1, entry.SummedProjectileCount);
-                float totalDamage = math.max(0f, entry.SummedDamage);
-                int baseId = HashId(sourceId, detonation.TypeId, 0, 0x7AB025);
+                int baseId = HashId(sourceId, entry.DebuffKey, 0, 0x7AB025);
 
                 return new ProjectileSpawnEvent
                 {
                     Kind = IntervalChildKind.Projectile,
+                    TemplateKey = detonation.TemplateKey,
                     Faction = detonation.Faction,
                     Position = position,
                     AimDirection = new float2(1f, 0f),

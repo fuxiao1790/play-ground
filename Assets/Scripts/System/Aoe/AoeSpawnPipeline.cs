@@ -42,8 +42,7 @@ namespace PlayGround.System.Aoe
         public uint JitterSeed;
         public int DeterministicIdTickIndex;
         public CombatRenderComponent Render;
-        public AoeProjectileBurstSnapshot ProjectileBurst;
-        public AoeOnHitSpawnSnapshot AoeSpawn;
+        public OnHitSpawnRef OnHitSpawn;
         public int HasTimedSpawner;
         public TimedSpawnComponent TimedSpawn;
     }
@@ -55,12 +54,13 @@ namespace PlayGround.System.Aoe
         public static AoeSpawnEvent BuildImpactAoeEvent(
             CombatFaction faction, int sourceId, int typeId, int targetId,
             float2 position, EntityId sourceNodeId,
-            in ProjectileImpactAoeSnapshot snapshot)
+            OnHitSpawnRef spawnRef)
         {
             int aoeId = HashId(sourceId, typeId, targetId, ImpactAoeIdSalt);
             return new AoeSpawnEvent
             {
-                Kind = IntervalChildKind.Aoe,
+                Kind = spawnRef.Kind,
+                TemplateKey = spawnRef.TemplateKey,
                 Faction = faction,
                 Position = position,
                 SourceId = aoeId,
@@ -75,12 +75,13 @@ namespace PlayGround.System.Aoe
             int sourceTypeId,
             int targetId,
             float2 position,
-            in AoeOnHitSpawnSnapshot snapshot)
+            OnHitSpawnRef spawnRef)
         {
             int aoeId = HashId(sourceId, sourceTypeId, targetId, ImpactAoeIdSalt ^ 0x13579B);
             return new AoeSpawnEvent
             {
-                Kind = IntervalChildKind.Aoe,
+                Kind = spawnRef.Kind,
+                TemplateKey = spawnRef.TemplateKey,
                 Faction = faction,
                 Position = position,
                 SourceId = aoeId,

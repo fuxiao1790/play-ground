@@ -343,11 +343,6 @@ namespace PlayGround.Skills
             RuntimeAoeDefinition aoe,
             int threshold)
         {
-            AoeSpawnGeometry geometry = aoe.CreateSpawnGeometry();
-            AoeOnHitSpawnSnapshot onHitSpawn = BuildAoeOnHitSpawnSnapshot(
-                aoe.OnHitAoeSpawnDefinition,
-                root,
-                MaxAoeOnHitSpawnDepth);
             float stacksPerHit = Mathf.Max(1, stacking.StacksPerHit);
             return new StackEffectSnapshot
             {
@@ -360,19 +355,7 @@ namespace PlayGround.Skills
                     ProjectileCount = 0,
                     AreaSize = Mathf.Max(0.01f, aoe.AreaSize) * stacksPerHit / threshold
                 },
-                Detonation = new DetonationSnapshot
-                {
-                    Kind = StackDetonationKind.Aoe,
-                    Faction = root.Faction,
-                    TargetMask = root.TargetMask,
-                    TypeId = aoe.TypeId,
-                    LifetimeSeconds = aoe.LifetimeSeconds,
-                    TickIntervalSeconds = aoe.TickIntervalSeconds,
-                    AoeGeometry = geometry,
-                    CritChance = aoe.CritChance,
-                    CritMultiplier = aoe.CritMultiplier,
-                    AoeOnHitSpawn = onHitSpawn
-                }
+                DetonationKind = StackDetonationKind.Aoe
             };
         }
 
@@ -394,20 +377,7 @@ namespace PlayGround.Skills
                     ProjectileCount = Mathf.Max(1, Mathf.RoundToInt(projectile.Count * stacksPerHit)),
                     AreaSize = 0f
                 },
-                Detonation = new DetonationSnapshot
-                {
-                    Kind = StackDetonationKind.Projectile,
-                    Faction = root.Faction,
-                    TargetMask = root.TargetMask,
-                    TypeId = projectile.TypeId,
-                    LifetimeSeconds = projectile.Lifetime,
-                    TickIntervalSeconds = 0f,
-                    AoeGeometry = default,
-                    ProjectileBurst = BuildProjectileDetonationBurstSnapshot(projectile, root.TargetMask),
-                    CritChance = 0f,
-                    CritMultiplier = 1.5f,
-                    AoeOnHitSpawn = default
-                }
+                DetonationKind = StackDetonationKind.Projectile
             };
         }
 

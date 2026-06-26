@@ -18,35 +18,29 @@ namespace PlayGround.System.Common
     {
         public StackDetonationKind Kind;
         public CombatFaction Faction;
-        public int TargetMask;
-        public int TypeId;
-        public float LifetimeSeconds;
-        public float TickIntervalSeconds;
-        public PlayGround.System.Aoe.AoeSpawnGeometry AoeGeometry;
-        public AoeProjectileBurstSnapshot ProjectileBurst;
-        public float CritChance;
-        public float CritMultiplier;
-        // Bounded AOE hit-spawn tail. This caps stacking-skill composition at
-        // three skills for now without recursive value-type snapshots.
-        public AoeOnHitSpawnSnapshot AoeOnHitSpawn;
+        public Unity.Entities.Hash128 TemplateKey;
 
-        public readonly bool Enabled => Kind != StackDetonationKind.None && TypeId >= 0;
+        public readonly bool Enabled =>
+            Kind != StackDetonationKind.None
+            && !TemplateKey.Equals(default(Unity.Entities.Hash128));
     }
 
     // Fire-time stack payload carried by applicators. One payload means one owned
-    // stack accumulator; composition is handled by ordinary hit-spawn links.
+    // stack accumulator; detonation spawn data is resolved through the template registry.
     public struct StackEffectSnapshot
     {
         public int DebuffKey;
         public int Threshold;
         public float Lifetime;
         public StackContribution Contribution;
-        public DetonationSnapshot Detonation;
+        public StackDetonationKind DetonationKind;
+        public Unity.Entities.Hash128 DetonationKey;
 
         public readonly bool Enabled =>
             DebuffKey >= 0
             && Threshold > 0
             && Lifetime > 0f
-            && Detonation.Enabled;
+            && DetonationKind != StackDetonationKind.None
+            && !DetonationKey.Equals(default(Unity.Entities.Hash128));
     }
 }

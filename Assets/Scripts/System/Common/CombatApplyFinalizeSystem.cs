@@ -330,7 +330,7 @@ namespace PlayGround.System.Common
                 entry.SummedProjectileCount += stack.Contribution.ProjectileCount;
                 entry.SummedArea += stack.Contribution.AreaSize;
                 entry.LifetimeRemaining = math.max(0f, stack.Lifetime);
-                entry.Detonation = stack.Detonation;
+                entry.Detonation = DetonationFor(in stack);
                 stackEntries[entryIndex] = entry;
             }
 
@@ -356,11 +356,18 @@ namespace PlayGround.System.Common
                     SummedProjectileCount = 0,
                     SummedArea = 0f,
                     LifetimeRemaining = math.max(0f, stack.Lifetime),
-                    Detonation = stack.Detonation
+                    Detonation = DetonationFor(in stack)
                 });
 
                 return stackEntries.Length - 1;
             }
+
+            private static DetonationSnapshot DetonationFor(in StackEffectSnapshot stack) =>
+                new()
+                {
+                    Kind = stack.DetonationKind,
+                    TemplateKey = stack.DetonationKey
+                };
 
             private static int FindEntryIndex(DynamicBuffer<TargetStackEntry> stackEntries, int debuffKey)
             {

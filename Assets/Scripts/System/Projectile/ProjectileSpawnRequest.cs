@@ -75,7 +75,8 @@ namespace PlayGround.System.Projectile
             float spreadDegrees = 0f,
             float jitterDegrees = 0f,
             TimedSpawnComponent timedSpawn = default,
-            IntervalChildKind childKind = IntervalChildKind.Projectile)
+            IntervalChildKind childKind = IntervalChildKind.Projectile,
+            OnHitSpawnRef onHitSpawn = default)
         {
             Position = position;
             Direction = direction.sqrMagnitude > 0f ? direction.normalized : Vector2.right;
@@ -104,8 +105,7 @@ namespace PlayGround.System.Projectile
                     SourceNodeId = sourceNodeId,
                     StackEffect = stackEffect
                 },
-                impactAoe,
-                impactProjectile);
+                onHitSpawn);
             Count = Mathf.Max(1, count);
             SpreadDegrees = Mathf.Max(0f, spreadDegrees);
             JitterDegrees = Mathf.Max(0f, jitterDegrees);
@@ -233,7 +233,8 @@ namespace PlayGround.System.Projectile
             ProjectileImpactAoeSnapshot impactAoe = default,
             StackEffectSnapshot stackEffect = default,
             ProjectileImpactProjectileSnapshot impactProjectile = default,
-            Hash128 templateKey = default)
+            Hash128 templateKey = default,
+            OnHitSpawnRef onHitSpawn = default)
         {
             JitterSeed = jitterSeed;
             TypeId = typeId;

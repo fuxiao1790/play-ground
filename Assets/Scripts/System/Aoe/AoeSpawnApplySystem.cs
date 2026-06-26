@@ -349,8 +349,7 @@ namespace PlayGround.System.Aoe
         private static bool NeedsCollision(in AoeSpawnCommand cmd) =>
             cmd.HitPayload.DirectDamageEnabled
             || cmd.HitPayload.StackEffect.Enabled
-            || cmd.ProjectileBurst.Enabled
-            || cmd.AoeSpawn.Enabled;
+            || cmd.OnHitSpawn.Enabled;
 
         private static bool HasTimedSpawner(in AoeSpawnCommand cmd) =>
             cmd.Lifetime > 0f && !cmd.TimedSpawn.TemplateKey.Equals(default(Hash128));
@@ -390,8 +389,7 @@ namespace PlayGround.System.Aoe
             new AoeHitSpawnComponent
             {
                 HitPayload = cmd.HitPayload,
-                ProjectileBurst = cmd.ProjectileBurst,
-                AoeSpawn = cmd.AoeSpawn
+                OnHitSpawn = cmd.OnHitSpawn
             };
 
         private static AoeAreaComponent AreaFor(in AoeSpawnCommand cmd) =>
@@ -493,8 +491,7 @@ namespace PlayGround.System.Aoe
                     hitSpawns[i]   = new AoeHitSpawnComponent
                     {
                         HitPayload = cfg.HitPayload,
-                        ProjectileBurst = cfg.ProjectileBurst,
-                        AoeSpawn = cfg.AoeSpawn
+                        OnHitSpawn = cfg.OnHitSpawn
                     };
                     areas[i]       = new AoeAreaComponent
                     {
