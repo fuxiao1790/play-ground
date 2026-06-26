@@ -251,7 +251,7 @@ namespace PlayGround.System.Projectile
             {
                 PierceRemaining = cmd.PierceRemaining,
                 RepeatHitCooldownSeconds = cmd.RepeatHitCooldownSeconds,
-                HitPayload = cmd.HitPayload
+                HitPayload = HitPayloadFor(in cmd, faction)
             });
             ecb.SetComponent(entity, cmd.Tracking);
             ecb.SetComponentEnabled<ProjectileTrackingComponent>(entity, cmd.Tracking.TrackingEnabled);
@@ -276,6 +276,15 @@ namespace PlayGround.System.Projectile
             payload.DirectDamageEnabled
             || payload.StackEffect.Enabled
             || payload.OnHitSpawn.Enabled;
+
+        internal static ProjectileHitPayload HitPayloadFor(in ProjectileSpawnCommand cmd, CombatFaction faction)
+        {
+            CombatHitPayload hitPayload = cmd.HitPayload.HitPayload;
+            StackEffectSnapshot stack = hitPayload.StackEffect;
+            stack.Faction = faction;
+            hitPayload.StackEffect = stack;
+            return new ProjectileHitPayload(hitPayload, cmd.HitPayload.OnHitSpawn);
+        }
 
         private readonly struct ProjectileSpawnKey : IEquatable<ProjectileSpawnKey>
         {
@@ -546,7 +555,7 @@ namespace PlayGround.System.Projectile
                     {
                         PierceRemaining = cfg.PierceRemaining,
                         RepeatHitCooldownSeconds = cfg.RepeatHitCooldownSeconds,
-                        HitPayload = cfg.HitPayload
+                        HitPayload = HitPayloadFor(in cfg, Faction)
                     };
                     tracking[i] = cfg.Tracking;
                     trackingMask[i] = cfg.Tracking.TrackingEnabled;
@@ -782,7 +791,7 @@ namespace PlayGround.System.Projectile
                     {
                         PierceRemaining = cfg.PierceRemaining,
                         RepeatHitCooldownSeconds = cfg.RepeatHitCooldownSeconds,
-                        HitPayload = cfg.HitPayload
+                        HitPayload = HitPayloadFor(in cfg, Faction)
                     };
                     tracking[i] = cfg.Tracking;
                     trackingMask[i] = cfg.Tracking.TrackingEnabled;

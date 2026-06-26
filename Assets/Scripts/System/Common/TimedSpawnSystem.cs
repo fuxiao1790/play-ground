@@ -87,14 +87,34 @@ namespace PlayGround.System.Common
                     {
                         if (HasAoeEventQueue)
                         {
-                            AoeEventQueue.Enqueue(BuildAoeEvent(in spawn, in kinematics, tickIndex));
+                            AoeEventQueue.Enqueue(new AoeSpawnEvent
+                            {
+                                Kind = IntervalChildKind.Aoe,
+                                TemplateKey = spawn.TemplateKey,
+                                Position = kinematics.Position,
+                                AimDirection = default,
+                                Faction = spawn.Faction,
+                                SourceId = spawn.SourceId,
+                                JitterSeed = (uint)spawn.JitterSeed,
+                                DeterministicIdTickIndex = tickIndex
+                            });
                         }
                     }
                     else
                     {
                         if (HasProjectileEventQueue)
                         {
-                            ProjectileEventQueue.Enqueue(BuildProjectileEvent(in spawn, in kinematics, tickIndex));
+                            ProjectileEventQueue.Enqueue(new ProjectileSpawnEvent
+                            {
+                                Kind = IntervalChildKind.Projectile,
+                                TemplateKey = spawn.TemplateKey,
+                                Position = kinematics.Position,
+                                AimDirection = default,
+                                Faction = spawn.Faction,
+                                SourceId = spawn.SourceId,
+                                JitterSeed = (uint)spawn.JitterSeed,
+                                DeterministicIdTickIndex = tickIndex
+                            });
                         }
                     }
 
@@ -108,42 +128,6 @@ namespace PlayGround.System.Common
 
                 state.CooldownRemaining = cooldown;
                 state.TickIndex = tickIndex;
-            }
-
-            private static ProjectileSpawnEvent BuildProjectileEvent(
-                in TimedSpawnComponent spawn,
-                in CombatKinematicsComponent kinematics,
-                int tickIndex)
-            {
-                return new ProjectileSpawnEvent
-                {
-                    Kind = IntervalChildKind.Projectile,
-                    TemplateKey = spawn.TemplateKey,
-                    Position = kinematics.Position,
-                    AimDirection = default,
-                    Faction = spawn.Faction,
-                    SourceId = spawn.SourceId,
-                    JitterSeed = (uint)spawn.JitterSeed,
-                    DeterministicIdTickIndex = tickIndex
-                };
-            }
-
-            private static AoeSpawnEvent BuildAoeEvent(
-                in TimedSpawnComponent spawn,
-                in CombatKinematicsComponent kinematics,
-                int tickIndex)
-            {
-                return new AoeSpawnEvent
-                {
-                    Kind = IntervalChildKind.Aoe,
-                    TemplateKey = spawn.TemplateKey,
-                    Position = kinematics.Position,
-                    AimDirection = default,
-                    Faction = spawn.Faction,
-                    SourceId = spawn.SourceId,
-                    JitterSeed = (uint)spawn.JitterSeed,
-                    DeterministicIdTickIndex = tickIndex
-                };
             }
 
             private static float NextIntervalSeconds(

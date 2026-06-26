@@ -324,7 +324,7 @@ namespace PlayGround.System.Aoe
             ecb.SetComponent(entity, kinematics);
             ecb.SetComponent(entity, CollisionFor(cmd));
             ecb.SetComponent(entity, HitGateFor(cmd));
-            ecb.SetComponent(entity, HitSpawnFor(cmd));
+            ecb.SetComponent(entity, HitSpawnFor(cmd, faction));
             ecb.SetComponent(entity, AreaFor(cmd));
             if (lingering)
             {
@@ -385,12 +385,20 @@ namespace PlayGround.System.Aoe
         private static AoeHitGateComponent HitGateFor(in AoeSpawnCommand cmd) =>
             new AoeHitGateComponent { RepeatHitCooldownSeconds = cmd.RepeatHitCooldownSeconds };
 
-        private static AoeHitSpawnComponent HitSpawnFor(in AoeSpawnCommand cmd) =>
+        private static AoeHitSpawnComponent HitSpawnFor(in AoeSpawnCommand cmd, CombatFaction faction) =>
             new AoeHitSpawnComponent
             {
-                HitPayload = cmd.HitPayload,
+                HitPayload = HitPayloadFor(cmd.HitPayload, faction),
                 OnHitSpawn = cmd.OnHitSpawn
             };
+
+        private static CombatHitPayload HitPayloadFor(CombatHitPayload hitPayload, CombatFaction faction)
+        {
+            StackEffectSnapshot stack = hitPayload.StackEffect;
+            stack.Faction = faction;
+            hitPayload.StackEffect = stack;
+            return hitPayload;
+        }
 
         private static AoeAreaComponent AreaFor(in AoeSpawnCommand cmd) =>
             new AoeAreaComponent { Size = cmd.AreaSize > 0f ? cmd.AreaSize : 1f };
@@ -490,7 +498,7 @@ namespace PlayGround.System.Aoe
                     };
                     hitSpawns[i]   = new AoeHitSpawnComponent
                     {
-                        HitPayload = cfg.HitPayload,
+                        HitPayload = HitPayloadFor(cfg.HitPayload, Faction),
                         OnHitSpawn = cfg.OnHitSpawn
                     };
                     areas[i]       = new AoeAreaComponent

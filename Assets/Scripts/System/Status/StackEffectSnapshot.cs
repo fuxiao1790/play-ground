@@ -33,6 +33,7 @@ namespace PlayGround.System.Common
         public int Threshold;
         public float Lifetime;
         public StackContribution Contribution;
+        public CombatFaction Faction;
         public StackDetonationKind DetonationKind;
         public Unity.Entities.Hash128 DetonationKey;
 

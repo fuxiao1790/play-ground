@@ -366,6 +366,7 @@ namespace PlayGround.System.Common
                 new()
                 {
                     Kind = stack.DetonationKind,
+                    Faction = stack.Faction,
                     TemplateKey = stack.DetonationKey
                 };
 

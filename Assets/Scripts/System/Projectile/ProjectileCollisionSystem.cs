@@ -150,6 +150,9 @@ namespace PlayGround.System.Projectile
         [WithAll(typeof(ProjectileTag), typeof(Active), typeof(ProjectileCollisionActiveTag))]
         private partial struct ProjectileCollisionJob : IJobEntity
         {
+            private const int ImpactAoeIdSalt = 0x5F1A0E;
+            private const int ImpactProjectileIdSalt = 0x2C1297;
+
             [ReadOnly] public NativeArray<Entity> TargetEntities;
             [ReadOnly] public NativeArray<TargetPosition> TargetPositions;
             [ReadOnly] public NativeArray<TargetCollisionShape> TargetShapes;
@@ -284,19 +287,45 @@ namespace PlayGround.System.Projectile
                             if (projectileHit.HitPayload.OnHitSpawn.Enabled
                                 && projectileHit.HitPayload.OnHitSpawn.Kind == IntervalChildKind.Projectile)
                             {
-                                ProjectileEventWriter.Enqueue(ProjectileSpawnPipeline.BuildImpactProjectileEvent(
-                                    identity.Faction, identity.ProjectileId, identity.TypeId, targetKey,
-                                    kinematics.Position, targetPosition.Value,
-                                    projectileHit.HitPayload.OnHitSpawn));
+                                int baseId = HashId(
+                                    identity.ProjectileId,
+                                    identity.TypeId,
+                                    targetKey,
+                                    ImpactProjectileIdSalt);
+                                ProjectileEventWriter.Enqueue(new ProjectileSpawnEvent
+                                {
+                                    Kind = projectileHit.HitPayload.OnHitSpawn.Kind,
+                                    TemplateKey = projectileHit.HitPayload.OnHitSpawn.TemplateKey,
+                                    Faction = identity.Faction,
+                                    Position = kinematics.Position,
+                                    AimDirection = DirectionFromTo(
+                                        kinematics.Position,
+                                        targetPosition.Value,
+                                        invert: true),
+                                    SourceId = baseId,
+                                    JitterSeed = (uint)baseId * 2654435761u,
+                                    ContactGateSeedTargetId = targetKey
+                                });
                             }
 
                             if (projectileHit.HitPayload.OnHitSpawn.Enabled
                                 && projectileHit.HitPayload.OnHitSpawn.Kind == IntervalChildKind.Aoe)
                             {
-                                AoeEventWriter.Enqueue(AoeSpawnPipeline.BuildImpactAoeEvent(
-                                    identity.Faction, identity.ProjectileId, identity.TypeId, targetKey,
-                                    kinematics.Position, projectileHit.HitPayload.SourceNodeId,
-                                    projectileHit.HitPayload.OnHitSpawn));
+                                int aoeId = HashId(
+                                    identity.ProjectileId,
+                                    identity.TypeId,
+                                    targetKey,
+                                    ImpactAoeIdSalt);
+                                AoeEventWriter.Enqueue(new AoeSpawnEvent
+                                {
+                                    Kind = projectileHit.HitPayload.OnHitSpawn.Kind,
+                                    TemplateKey = projectileHit.HitPayload.OnHitSpawn.TemplateKey,
+                                    Faction = identity.Faction,
+                                    Position = kinematics.Position,
+                                    SourceId = aoeId,
+                                    JitterSeed = (uint)aoeId * 2654435761u,
+                                    ContactGateSeedTargetId = targetKey
+                                });
                             }
 
                             vfxPending.Write(new VfxPendingSpawn
@@ -406,6 +435,31 @@ namespace PlayGround.System.Projectile
                     int key = ((entity.Index + 1) * 397) ^ entity.Version;
                     key &= 0x7fffffff;
                     return key == 0 ? 1 : key;
+                }
+            }
+
+            private static float2 DirectionFromTo(float2 from, float2 to, bool invert)
+            {
+                float2 toTarget = to - from;
+                if (math.lengthsq(toTarget) <= 0.0001f)
+                {
+                    return new float2(1f, 0f);
+                }
+
+                float2 dir = math.normalize(toTarget);
+                return invert ? -dir : dir;
+            }
+
+            private static int HashId(int a, int b, int c, int salt)
+            {
+                unchecked
+                {
+                    int hash = salt;
+                    hash = (hash * 397) ^ a;
+                    hash = (hash * 397) ^ b;
+                    hash = (hash * 397) ^ c;
+                    hash &= int.MaxValue;
+                    return hash == 0 ? 1 : hash;
                 }
             }
         }

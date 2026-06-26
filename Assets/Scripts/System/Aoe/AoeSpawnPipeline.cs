@@ -1,7 +1,6 @@
 using PlayGround.System.Common;
 using Unity.Entities;
 using Unity.Mathematics;
-using EntityId = UnityEngine.EntityId;
 
 namespace PlayGround.System.Aoe
 {
@@ -47,60 +46,4 @@ namespace PlayGround.System.Aoe
         public TimedSpawnComponent TimedSpawn;
     }
 
-    internal static class AoeSpawnPipeline
-    {
-        private const int ImpactAoeIdSalt = 0x5F1A0E;
-
-        public static AoeSpawnEvent BuildImpactAoeEvent(
-            CombatFaction faction, int sourceId, int typeId, int targetId,
-            float2 position, EntityId sourceNodeId,
-            OnHitSpawnRef spawnRef)
-        {
-            int aoeId = HashId(sourceId, typeId, targetId, ImpactAoeIdSalt);
-            return new AoeSpawnEvent
-            {
-                Kind = spawnRef.Kind,
-                TemplateKey = spawnRef.TemplateKey,
-                Faction = faction,
-                Position = position,
-                SourceId = aoeId,
-                JitterSeed = (uint)aoeId * 2654435761u,
-                ContactGateSeedTargetId = targetId
-            };
-        }
-
-        public static AoeSpawnEvent BuildOnHitAoeSpawnEvent(
-            CombatFaction faction,
-            int sourceId,
-            int sourceTypeId,
-            int targetId,
-            float2 position,
-            OnHitSpawnRef spawnRef)
-        {
-            int aoeId = HashId(sourceId, sourceTypeId, targetId, ImpactAoeIdSalt ^ 0x13579B);
-            return new AoeSpawnEvent
-            {
-                Kind = spawnRef.Kind,
-                TemplateKey = spawnRef.TemplateKey,
-                Faction = faction,
-                Position = position,
-                SourceId = aoeId,
-                JitterSeed = (uint)aoeId * 2654435761u,
-                ContactGateSeedTargetId = targetId
-            };
-        }
-
-        private static int HashId(int a, int b, int c, int salt)
-        {
-            unchecked
-            {
-                int hash = salt;
-                hash = (hash * 397) ^ a;
-                hash = (hash * 397) ^ b;
-                hash = (hash * 397) ^ c;
-                hash &= int.MaxValue;
-                return hash == 0 ? 1 : hash;
-            }
-        }
-    }
 }

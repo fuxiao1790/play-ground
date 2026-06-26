@@ -1,4 +1,3 @@
-using PlayGround.Common;
 using PlayGround.System.Aoe;
 using PlayGround.System.Projectile;
 using Unity.Burst;
@@ -159,99 +158,40 @@ namespace PlayGround.System.Common
                 switch (snapshot.Kind)
                 {
                     case StackDetonationKind.Aoe:
-                        if (HasAoeEventWriter)
+                        if (HasAoeEventWriter && snapshot.Enabled)
                         {
-                            AoeEventWriter.Enqueue(BuildAoeSpawnEvent(entry, position, AoeIdBase + localId));
+                            int aoeId = AoeIdBase + localId;
+                            AoeEventWriter.Enqueue(new AoeSpawnEvent
+                            {
+                                Kind = IntervalChildKind.Aoe,
+                                TemplateKey = snapshot.TemplateKey,
+                                Faction = snapshot.Faction,
+                                Position = position,
+                                SourceId = aoeId,
+                                JitterSeed = (uint)aoeId * 2654435761u
+                            });
                         }
 
                         return;
                     case StackDetonationKind.Projectile:
                         if (HasProjectileEventWriter && snapshot.Enabled)
                         {
-                            ProjectileEventWriter.Enqueue(BuildProjectileDetonation(
-                                entry,
-                                position,
-                                ProjectileDetonationSourceIdBase + localId));
+                            int sourceId = ProjectileDetonationSourceIdBase + localId;
+                            int baseId = HashId(sourceId, entry.DebuffKey, 0, 0x7AB025);
+                            ProjectileEventWriter.Enqueue(new ProjectileSpawnEvent
+                            {
+                                Kind = IntervalChildKind.Projectile,
+                                TemplateKey = snapshot.TemplateKey,
+                                Faction = snapshot.Faction,
+                                Position = position,
+                                AimDirection = new float2(1f, 0f),
+                                SourceId = baseId,
+                                JitterSeed = (uint)baseId * 2654435761u
+                            });
                         }
 
                         return;
                 }
-            }
-
-            private static AoeSpawnEvent BuildAoeSpawnEvent(
-                in TargetStackEntry entry,
-                float2 position,
-                int aoeId)
-            {
-                DetonationSnapshot detonation = entry.Detonation;
-
-                return new AoeSpawnEvent
-                {
-                    Kind = IntervalChildKind.Aoe,
-                    TemplateKey = detonation.TemplateKey,
-                    Faction = detonation.Faction,
-                    Position = position,
-                    SourceId = aoeId,
-                    JitterSeed = (uint)aoeId * 2654435761u
-                };
-            }
-
-            private static ProjectileSpawnEvent BuildProjectileDetonation(
-                in TargetStackEntry entry,
-                float2 position,
-                int sourceId)
-            {
-                DetonationSnapshot detonation = entry.Detonation;
-                int baseId = HashId(sourceId, entry.DebuffKey, 0, 0x7AB025);
-
-                return new ProjectileSpawnEvent
-                {
-                    Kind = IntervalChildKind.Projectile,
-                    TemplateKey = detonation.TemplateKey,
-                    Faction = detonation.Faction,
-                    Position = position,
-                    AimDirection = new float2(1f, 0f),
-                    SourceId = baseId,
-                    JitterSeed = (uint)baseId * 2654435761u
-                };
-            }
-
-            private static CombatRenderComponent RenderFor(in AoeSpawnGeometry geometry, float areaScale)
-            {
-                if (geometry.VisualScale.x <= 0f && geometry.VisualScale.y <= 0f)
-                {
-                    return default;
-                }
-
-                return new CombatRenderComponent
-                {
-                    IsRenderable = 1,
-                    AlignToVelocity = 0,
-                    VisualScale = new float2(geometry.VisualScale.x * areaScale, geometry.VisualScale.y * areaScale),
-                    VisualRotationSin = geometry.VisualRotationSin,
-                    VisualRotationCos = geometry.VisualRotationCos,
-                    RenderZ = CombatRoot.AoeRenderZ
-                };
-            }
-
-            private static CombatRenderComponent ProjectileRender(float visualScale, float visualRotationDegrees, int projectileId)
-            {
-                if (visualScale <= 0f)
-                {
-                    return default;
-                }
-
-                math.sincos(math.radians(visualRotationDegrees), out float sin, out float cos);
-                return new CombatRenderComponent
-                {
-                    IsRenderable = 1,
-                    AlignToVelocity = 1,
-                    VisualScale = new float2(visualScale, visualScale),
-                    VisualRotationSin = sin,
-                    VisualRotationCos = cos,
-                    RenderZ = CombatRoot.ProjectileRenderZ
-                        - (projectileId % CombatRoot.ProjectileRenderZSlots) * CombatRoot.ProjectileRenderZStep
-                };
             }
 
             private static int HashId(int a, int b, int c, int salt)

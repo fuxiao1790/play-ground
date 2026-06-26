@@ -60,6 +60,8 @@ namespace PlayGround.System.Aoe
     internal static class AoeCollisionCore
     {
         internal const float SpatialHashCellSize = 64f;
+        private const int ImpactAoeIdSalt = 0x5F1A0E;
+        private const int ProjectileBurstIdSalt = 0x7AB025;
 
         internal static void RunCollision<TGate>(
             int entityIndexInQuery,
@@ -213,23 +215,35 @@ namespace PlayGround.System.Aoe
             if (hitSpawn.OnHitSpawn.Enabled
                 && hitSpawn.OnHitSpawn.Kind == IntervalChildKind.Projectile)
             {
-                projectileEventWriter.Enqueue(ProjectileSpawnPipeline.BuildBurstEvent(
-                    identity.Faction, identity.AoeId, identity.TypeId, targetKey,
-                    targetPosition.Value, kinematics.Position,
-                    hitSpawn.OnHitSpawn));
+                int baseId = HashId(identity.AoeId, identity.TypeId, targetKey, ProjectileBurstIdSalt);
+                projectileEventWriter.Enqueue(new ProjectileSpawnEvent
+                {
+                    Kind = hitSpawn.OnHitSpawn.Kind,
+                    TemplateKey = hitSpawn.OnHitSpawn.TemplateKey,
+                    Faction = identity.Faction,
+                    Position = targetPosition.Value,
+                    AimDirection = DirectionFromTo(targetPosition.Value, kinematics.Position),
+                    SourceId = baseId,
+                    JitterSeed = (uint)baseId * 2654435761u,
+                    ContactGateSeedTargetId = targetKey
+                });
             }
 
             if (hasAoeEventWriter
                 && hitSpawn.OnHitSpawn.Enabled
                 && hitSpawn.OnHitSpawn.Kind == IntervalChildKind.Aoe)
             {
-                aoeEventWriter.Enqueue(AoeSpawnPipeline.BuildOnHitAoeSpawnEvent(
-                    identity.Faction,
-                    identity.AoeId,
-                    identity.TypeId,
-                    targetKey,
-                    targetPosition.Value,
-                    hitSpawn.OnHitSpawn));
+                int aoeId = HashId(identity.AoeId, identity.TypeId, targetKey, ImpactAoeIdSalt ^ 0x13579B);
+                aoeEventWriter.Enqueue(new AoeSpawnEvent
+                {
+                    Kind = hitSpawn.OnHitSpawn.Kind,
+                    TemplateKey = hitSpawn.OnHitSpawn.TemplateKey,
+                    Faction = identity.Faction,
+                    Position = targetPosition.Value,
+                    SourceId = aoeId,
+                    JitterSeed = (uint)aoeId * 2654435761u,
+                    ContactGateSeedTargetId = targetKey
+                });
             }
 
             if (!hitVfxEmitted)
@@ -291,6 +305,30 @@ namespace PlayGround.System.Aoe
                 hash = (hash ^ (uint)x) * 1099511628211UL;
                 hash = (hash ^ (uint)y) * 1099511628211UL;
                 return (long)hash;
+            }
+        }
+
+        private static float2 DirectionFromTo(float2 from, float2 to)
+        {
+            float2 toTarget = to - from;
+            if (math.lengthsq(toTarget) <= 0.0001f)
+            {
+                return new float2(1f, 0f);
+            }
+
+            return math.normalize(toTarget);
+        }
+
+        private static int HashId(int a, int b, int c, int salt)
+        {
+            unchecked
+            {
+                int hash = salt;
+                hash = (hash * 397) ^ a;
+                hash = (hash * 397) ^ b;
+                hash = (hash * 397) ^ c;
+                hash &= int.MaxValue;
+                return hash == 0 ? 1 : hash;
             }
         }
     }
