@@ -7,6 +7,7 @@ using PlayGround.System.Vfx;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
+using Hash128 = Unity.Entities.Hash128;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -166,7 +167,7 @@ namespace PlayGround.Tests.PlayMode
                 HitPayload = new CombatHitPayload { DamageAmount = 1f, DirectDamageEnabled = true },
                 Count = 1
             };
-            Hash128 aoeKey = SpawnTemplateHash.Of(in aoeTemplate);
+            var aoeKey = SpawnTemplateHash.Of(in aoeTemplate);
             RegisterAoeTemplate(aoeKey, aoeTemplate);
 
             AddTarget(float2.zero, 0.25f);
@@ -194,7 +195,7 @@ namespace PlayGround.Tests.PlayMode
                 Radius = 0.5f,
                 ShapeType = CombatShapeType.Circle
             };
-            Hash128 childKey = SpawnTemplateHash.Of(in childTemplate);
+            var childKey = SpawnTemplateHash.Of(in childTemplate);
             RegisterProjectileTemplate(childKey, childTemplate);
 
             AddTarget(float2.zero, 0.25f);
@@ -228,7 +229,7 @@ namespace PlayGround.Tests.PlayMode
                     DirectDamageEnabled = true
                 })
             };
-            Hash128 childKey = SpawnTemplateHash.Of(in childTemplate);
+            var childKey = SpawnTemplateHash.Of(in childTemplate);
             RegisterProjectileTemplate(childKey, childTemplate);
 
             AddTarget(float2.zero, 0.25f);
@@ -324,13 +325,13 @@ namespace PlayGround.Tests.PlayMode
 
         // ---- Registry helpers ----
 
-        private void RegisterProjectileTemplate(Hash128 key, ProjectileSpawnCommand template)
+        private void RegisterProjectileTemplate(Unity.Entities.Hash128 key, ProjectileSpawnCommand template)
         {
             ProjectileSpawnTemplate registry = entityManager.GetComponentData<ProjectileSpawnTemplate>(projectileTemplateEntity);
             registry.Map.TryAdd(key, template);
         }
 
-        private void RegisterAoeTemplate(Hash128 key, AoeSpawnCommand template)
+        private void RegisterAoeTemplate(Unity.Entities.Hash128 key, AoeSpawnCommand template)
         {
             AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
             registry.Map.TryAdd(key, template);

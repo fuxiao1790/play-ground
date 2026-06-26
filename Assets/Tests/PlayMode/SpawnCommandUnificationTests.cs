@@ -6,6 +6,7 @@ using PlayGround.System.Vfx;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
+using Hash128 = Unity.Entities.Hash128;
 using Unity.Mathematics;
 
 namespace PlayGround.Tests.PlayMode
@@ -133,7 +134,7 @@ namespace PlayGround.Tests.PlayMode
             registry.Map.TryAdd(key, template);
             registry.Map.TryAdd(key, template); // second add is a no-op
 
-            Assert.That(registry.Map.Count(), Is.EqualTo(1));
+            Assert.That(registry.Map.Count, Is.EqualTo(1));
         }
 
         // ---- Frozen registry ----
@@ -149,13 +150,13 @@ namespace PlayGround.Tests.PlayMode
             registry.Map.TryAdd(SpawnTemplateHash.Of(in t1), t1);
             registry.Map.TryAdd(SpawnTemplateHash.Of(in t2), t2);
             registry.Map.TryAdd(SpawnTemplateHash.Of(in t3), t3);
-            int countBefore = registry.Map.Count();
+            int countBefore = registry.Map.Count;
 
             Tick(0.01f); // no entities — all systems do nothing
 
             // Re-read after the tick (component is a struct; the map reference is stable).
             registry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
-            int countAfter = registry.Map.Count();
+            int countAfter = registry.Map.Count;
 
             Assert.That(countAfter, Is.EqualTo(countBefore),
                 "No system may write the spawn-template registry during a simulation tick.");
@@ -201,7 +202,7 @@ namespace PlayGround.Tests.PlayMode
             var ids = new int[3];
             for (int i = 0; i < identities.Length; i++)
                 ids[i] = identities[i].AoeId;
-            System.Array.Sort(ids);
+            global::System.Array.Sort(ids);
             Assert.That(ids[0], Is.EqualTo(100));
             Assert.That(ids[1], Is.EqualTo(101));
             Assert.That(ids[2], Is.EqualTo(102));

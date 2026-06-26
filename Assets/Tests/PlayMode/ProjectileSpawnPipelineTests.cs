@@ -113,16 +113,26 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void SpawnCommandTypesDoNotCarryEventMultiplicityOrOldCommandDataNames()
+        public void SpawnEventsAreSlim_TemplateFieldsLiveOnlyInCommands()
         {
-            Assert.That(typeof(ProjectileSpawnCommand).GetField(nameof(ProjectileSpawnEvent.Count)), Is.Null);
-            Assert.That(typeof(ProjectileSpawnCommand).GetField(nameof(ProjectileSpawnEvent.SpreadDegrees)), Is.Null);
-            Assert.That(typeof(ProjectileSpawnCommand).GetField(nameof(ProjectileSpawnEvent.JitterDegrees)), Is.Null);
-            Assert.That(typeof(ProjectileSpawnCommand).GetField(nameof(ProjectileSpawnEvent.JitterSeed)), Is.Null);
-            Assert.That(typeof(ProjectileSpawnCommand).GetField(nameof(ProjectileSpawnEvent.BaseDirection)), Is.Null);
-            Assert.That(typeof(ProjectileSpawnCommand).GetField(nameof(ProjectileSpawnEvent.Speed)), Is.Null);
-            Assert.That(typeof(AoeSpawnCommand).GetField("Count"), Is.Null);
+            // Thin events carry only registry link + per-instance frame — no template fields.
+            Assert.That(typeof(ProjectileSpawnEvent).GetField("Count"), Is.Null);
+            Assert.That(typeof(ProjectileSpawnEvent).GetField("SpreadDegrees"), Is.Null);
+            Assert.That(typeof(ProjectileSpawnEvent).GetField("JitterDegrees"), Is.Null);
+            Assert.That(typeof(ProjectileSpawnEvent).GetField("BaseDirection"), Is.Null);
+            Assert.That(typeof(ProjectileSpawnEvent).GetField("Speed"), Is.Null);
+            Assert.That(typeof(AoeSpawnEvent).GetField("TypeId"), Is.Null);
+            Assert.That(typeof(AoeSpawnEvent).GetField("Lifetime"), Is.Null);
+            Assert.That(typeof(AoeSpawnEvent).GetField("Count"), Is.Null);
+            Assert.That(typeof(AoeSpawnEvent).GetField("HitPayload"), Is.Null);
 
+            // Command-shaped templates carry the template fields.
+            Assert.That(typeof(ProjectileSpawnCommand).GetField("Count"), Is.Not.Null);
+            Assert.That(typeof(ProjectileSpawnCommand).GetField("Speed"), Is.Not.Null);
+            Assert.That(typeof(AoeSpawnCommand).GetField("Count"), Is.Not.Null);
+            Assert.That(typeof(AoeSpawnCommand).GetField("TypeId"), Is.Not.Null);
+
+            // Old fat-event struct names must not exist.
             Assert.That(Type.GetType("PlayGround.System.Projectile.ProjectileSpawnCommandData, PlayGround.Runtime"), Is.Null);
             Assert.That(Type.GetType("PlayGround.System.Aoe.AoeSpawnCommandData, PlayGround.Runtime"), Is.Null);
         }
@@ -273,7 +283,7 @@ namespace PlayGround.Tests.PlayMode
             entityManager.GetBuffer<ProjectileSpawnEvent>(scopeEntity).Add(evt);
         }
 
-        private static ProjectileSpawnEvent MakeEvent(
+        private ProjectileSpawnEvent MakeEvent(
             int count = 1,
             float spreadDegrees = 0f,
             float2 position = default,
@@ -288,20 +298,15 @@ namespace PlayGround.Tests.PlayMode
         {
             if (math.lengthsq(baseDirection) < 0.0001f)
                 baseDirection = new float2(1f, 0f);
-            return new ProjectileSpawnEvent
+            var template = new ProjectileSpawnCommand
             {
-                Faction = CombatFaction.Player,
                 TypeId = 1,
-                BaseProjectileId = baseProjectileId,
                 HasTimedSpawner = hasTimedSpawner ? 1 : 0,
-                Position = position,
                 BaseDirection = baseDirection,
                 Speed = speed,
                 Count = count,
                 SpreadDegrees = spreadDegrees,
-                JitterSeed = jitterSeed,
                 SpawnPatternType = spawnPatternType,
-                DeterministicIdTickIndex = deterministicIdTickIndex,
                 Lifetime = lifetime,
                 Radius = 0.25f,
                 HalfExtents = float2.zero,
@@ -321,11 +326,24 @@ namespace PlayGround.Tests.PlayMode
                     }
                     : default
             };
+            Unity.Entities.Hash128 key = SpawnTemplateHash.Of(in template);
+            projectileTemplateMap.TryAdd(key, template);
+            return new ProjectileSpawnEvent
+            {
+                Kind = IntervalChildKind.Projectile,
+                TemplateKey = key,
+                Position = position,
+                AimDirection = baseDirection,
+                Faction = CombatFaction.Player,
+                SourceId = baseProjectileId,
+                JitterSeed = jitterSeed,
+                DeterministicIdTickIndex = deterministicIdTickIndex
+            };
         }
 
         private Unity.Entities.Hash128 RegisterChildProjectileTemplate()
         {
-            var evt = new ProjectileSpawnEvent
+            var template = new ProjectileSpawnCommand
             {
                 TypeId = 1,
                 Count = 1,
@@ -347,7 +365,6 @@ namespace PlayGround.Tests.PlayMode
                     VisualScale = new float2(1f, 1f)
                 }
             };
-            ProjectileSpawnCommand template = SpawnTemplateHash.ProjectileCommandFromEvent(in evt);
             Unity.Entities.Hash128 key = SpawnTemplateHash.Of(in template);
             projectileTemplateMap.TryAdd(key, template);
             return key;

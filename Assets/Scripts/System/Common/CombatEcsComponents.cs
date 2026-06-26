@@ -74,27 +74,24 @@ namespace PlayGround.System.Common
 
         private static Entity ownedScope;
         private static int ownerCount;
+        private static NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnCommand> ownedProjectileMap;
+        private static NativeHashMap<Unity.Entities.Hash128, AoeSpawnCommand> ownedAoeMap;
 
         public static Entity Acquire(EntityManager entityManager)
         {
             if (ownedScope == Entity.Null || !entityManager.Exists(ownedScope))
             {
+                ownedProjectileMap = new NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnCommand>(
+                    InitialTemplateRegistryCapacity, Allocator.Persistent);
+                ownedAoeMap = new NativeHashMap<Unity.Entities.Hash128, AoeSpawnCommand>(
+                    InitialTemplateRegistryCapacity, Allocator.Persistent);
+
                 ownedScope = entityManager.CreateEntity(typeof(CombatScope));
                 entityManager.AddBuffer<ProjectileSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<AoeSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<VfxSpawnRequestElement>(ownedScope);
-                entityManager.AddComponentData(ownedScope, new ProjectileSpawnTemplate
-                {
-                    Map = new NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnCommand>(
-                        InitialTemplateRegistryCapacity,
-                        Allocator.Persistent)
-                });
-                entityManager.AddComponentData(ownedScope, new AoeSpawnTemplate
-                {
-                    Map = new NativeHashMap<Unity.Entities.Hash128, AoeSpawnCommand>(
-                        InitialTemplateRegistryCapacity,
-                        Allocator.Persistent)
-                });
+                entityManager.AddComponentData(ownedScope, new ProjectileSpawnTemplate { Map = ownedProjectileMap });
+                entityManager.AddComponentData(ownedScope, new AoeSpawnTemplate { Map = ownedAoeMap });
                 ownerCount = 0;
             }
 
@@ -115,35 +112,49 @@ namespace PlayGround.System.Common
                 return;
             }
 
+            DisposeMaps();
+
             if (entityManager.Exists(ownedScope))
             {
-                DisposeTemplateRegistries(entityManager, ownedScope);
                 entityManager.DestroyEntity(ownedScope);
             }
 
             ownedScope = Entity.Null;
         }
 
-        private static void DisposeTemplateRegistries(EntityManager entityManager, Entity scope)
+        // Called when the world is already disposed and entity access is not possible.
+        // The maps are tracked as static refs so they can still be freed.
+        public static void ReleaseAfterWorldDispose(Entity scope)
         {
-            if (entityManager.HasComponent<ProjectileSpawnTemplate>(scope))
+            if (scope == Entity.Null || scope != ownedScope)
             {
-                ProjectileSpawnTemplate projectileTemplates =
-                    entityManager.GetComponentData<ProjectileSpawnTemplate>(scope);
-                if (projectileTemplates.Map.IsCreated)
-                {
-                    projectileTemplates.Map.Dispose();
-                }
+                return;
             }
 
-            if (entityManager.HasComponent<AoeSpawnTemplate>(scope))
+            ownerCount = global::System.Math.Max(0, ownerCount - 1);
+            if (ownerCount > 0)
             {
-                AoeSpawnTemplate aoeTemplates = entityManager.GetComponentData<AoeSpawnTemplate>(scope);
-                if (aoeTemplates.Map.IsCreated)
-                {
-                    aoeTemplates.Map.Dispose();
-                }
+                return;
             }
+
+            DisposeMaps();
+            ownedScope = Entity.Null;
+        }
+
+        private static void DisposeMaps()
+        {
+            if (ownedProjectileMap.IsCreated)
+            {
+                ownedProjectileMap.Dispose();
+            }
+
+            if (ownedAoeMap.IsCreated)
+            {
+                ownedAoeMap.Dispose();
+            }
+
+            ownedProjectileMap = default;
+            ownedAoeMap = default;
         }
     }
 

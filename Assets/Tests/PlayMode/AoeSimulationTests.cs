@@ -9,6 +9,7 @@ using PlayGround.System.Vfx;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
+using Hash128 = Unity.Entities.Hash128;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -698,7 +699,7 @@ namespace PlayGround.Tests.PlayMode
                 Radius = 0.5f,
                 ShapeType = CombatShapeType.Circle
             };
-            Hash128 projKey = SpawnTemplateHash.Of(in projTemplate);
+            var projKey = SpawnTemplateHash.Of(in projTemplate);
             RegisterProjectileTemplate(projKey, projTemplate);
 
             AddTarget(float2.zero, 0.25f, 1);
@@ -725,7 +726,7 @@ namespace PlayGround.Tests.PlayMode
                 HitPayload = new CombatHitPayload { DamageAmount = 1f, DirectDamageEnabled = true },
                 Count = 1
             };
-            Hash128 secondAoeKey = SpawnTemplateHash.Of(in secondAoeTemplate);
+            var secondAoeKey = SpawnTemplateHash.Of(in secondAoeTemplate);
             AoeSpawnTemplate aoeRegistry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
             aoeRegistry.Map.TryAdd(secondAoeKey, secondAoeTemplate);
 
@@ -790,7 +791,7 @@ namespace PlayGround.Tests.PlayMode
                     }
                 })
             };
-            Hash128 lvl2Key = SpawnTemplateHash.Of(in lvl2Template);
+            var lvl2Key = SpawnTemplateHash.Of(in lvl2Template);
             RegisterProjectileTemplate(lvl2Key, lvl2Template);
 
             // Level 1: lingering AOE with on-hit projectile spawn. No direct damage.
@@ -878,7 +879,7 @@ namespace PlayGround.Tests.PlayMode
             });
         }
 
-        private void RegisterProjectileTemplate(Hash128 key, ProjectileSpawnCommand template)
+        private void RegisterProjectileTemplate(Unity.Entities.Hash128 key, ProjectileSpawnCommand template)
         {
             ProjectileSpawnTemplate registry = entityManager.GetComponentData<ProjectileSpawnTemplate>(projectileTemplateEntity);
             registry.Map.TryAdd(key, template);

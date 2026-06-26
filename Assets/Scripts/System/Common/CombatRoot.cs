@@ -127,6 +127,10 @@ namespace PlayGround.System.Common
                 DestroyScopedEntities(allAoeQuery, GetAoeFaction);
                 CombatScopeOwner.Release(entityManager, scopeEntity);
             }
+            else if (scopeEntity != Entity.Null)
+            {
+                CombatScopeOwner.ReleaseAfterWorldDispose(scopeEntity);
+            }
 
             runtimeReady = false;
             targetRegistry.ClearProxyBinding();

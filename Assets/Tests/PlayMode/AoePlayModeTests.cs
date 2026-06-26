@@ -206,7 +206,7 @@ namespace PlayGround.Tests.PlayMode
             int projectileStartCount = entityManager.GetComponentData<ProjectileSpawnTemplate>(scope).Map.Count;
             int aoeStartCount = entityManager.GetComponentData<AoeSpawnTemplate>(scope).Map.Count;
 
-            var projectileEventA = new ProjectileSpawnEvent
+            var projectileA = new ProjectileSpawnCommand
             {
                 TypeId = ++nextTargetId,
                 Count = 2,
@@ -220,7 +220,6 @@ namespace PlayGround.Tests.PlayMode
                     DirectDamageEnabled = true
                 })
             };
-            ProjectileSpawnCommand projectileA = SpawnTemplateHash.ProjectileCommandFromEvent(in projectileEventA);
             ProjectileSpawnCommand projectileC = projectileA;
             projectileC.Count = 3;
             ProjectileSpawnCommand projectileRuntimeFrame = projectileA;
@@ -235,10 +234,10 @@ namespace PlayGround.Tests.PlayMode
             projectileRuntimeFrame.DeterministicIdTickIndex = 12;
 
             Hash128 projectileKeyA = root.RegisterSpawnTemplate(in projectileA);
-            Hash128 projectileKeyB = root.RegisterTimedSpawnTemplate(in projectileEventA);
+            Hash128 projectileKeyB = root.RegisterTimedSpawnTemplate(in projectileA);
             Hash128 projectileKeyC = root.RegisterSpawnTemplate(in projectileC);
             Hash128 projectileRuntimeFrameKey = root.RegisterSpawnTemplate(in projectileRuntimeFrame);
-            Hash128 projectileKeyD = root.RegisterTimedSpawnTemplate(in projectileEventA);
+            Hash128 projectileKeyD = root.RegisterTimedSpawnTemplate(in projectileA);
             ProjectileSpawnTemplate projectileRegistry =
                 entityManager.GetComponentData<ProjectileSpawnTemplate>(scope);
 
@@ -258,7 +257,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(projectileRegistry.Map[projectileKeyA].JitterSeed, Is.Zero);
             Assert.That(projectileRegistry.Map[projectileKeyA].DeterministicIdTickIndex, Is.Zero);
 
-            var aoeEventA = new AoeSpawnEvent
+            var aoeA = new AoeSpawnCommand
             {
                 TypeId = ++nextTargetId,
                 Lifetime = 1.5f,
@@ -274,7 +273,6 @@ namespace PlayGround.Tests.PlayMode
                     DirectDamageEnabled = true
                 }
             };
-            AoeSpawnCommand aoeA = SpawnTemplateHash.AoeCommandFromEvent(in aoeEventA);
             AoeSpawnCommand aoeC = aoeA;
             aoeC.Count = 2;
             AoeSpawnCommand aoeRuntimeFrame = aoeA;
@@ -287,10 +285,10 @@ namespace PlayGround.Tests.PlayMode
             aoeRuntimeFrame.DeterministicIdTickIndex = 21;
 
             Hash128 aoeKeyA = root.RegisterSpawnTemplate(in aoeA);
-            Hash128 aoeKeyB = root.RegisterTimedSpawnTemplate(in aoeEventA);
+            Hash128 aoeKeyB = root.RegisterTimedSpawnTemplate(in aoeA);
             Hash128 aoeKeyC = root.RegisterSpawnTemplate(in aoeC);
             Hash128 aoeRuntimeFrameKey = root.RegisterSpawnTemplate(in aoeRuntimeFrame);
-            Hash128 aoeKeyD = root.RegisterTimedSpawnTemplate(in aoeEventA);
+            Hash128 aoeKeyD = root.RegisterTimedSpawnTemplate(in aoeA);
             AoeSpawnTemplate aoeRegistry = entityManager.GetComponentData<AoeSpawnTemplate>(scope);
 
             Assert.That(aoeKeyB, Is.EqualTo(aoeKeyA));
@@ -900,29 +898,40 @@ namespace PlayGround.Tests.PlayMode
             float damage,
             int threshold)
         {
+            var detonationTemplate = new AoeSpawnCommand
+            {
+                TypeId = aoeTypeId,
+                Lifetime = 0f,
+                RepeatHitCooldownSeconds = 0f,
+                Radius = geometry.Radius,
+                ShapeType = geometry.ShapeType,
+                HalfExtents = new Unity.Mathematics.float2(geometry.HalfExtents.x, geometry.HalfExtents.y),
+                RotationRadians = geometry.RotationRadians,
+                AreaSize = geometry.AreaSize,
+                Count = 1,
+                HitPayload = new CombatHitPayload
+                {
+                    DamageAmount = damage,
+                    CritMultiplier = 1.5f,
+                    DirectDamageEnabled = damage > 0f
+                }
+            };
+            Hash128 detonationKey = root.RegisterSpawnTemplate(in detonationTemplate);
+
             return new StackEffectSnapshot
             {
                 DebuffKey = debuffKey,
                 Threshold = threshold,
                 Lifetime = 10f,
+                Faction = Faction(root),
                 Contribution = new StackContribution
                 {
                     Damage = damage / threshold,
                     ProjectileCount = 0,
                     AreaSize = geometry.AreaSize / threshold
                 },
-                Detonation = new DetonationSnapshot
-                {
-                    Kind = StackDetonationKind.Aoe,
-                    Faction = Faction(root),
-                    TargetMask = DefaultTargetMask,
-                    TypeId = aoeTypeId,
-                    LifetimeSeconds = 0f,
-                    TickIntervalSeconds = 0f,
-                    AoeGeometry = geometry,
-                    CritChance = 0f,
-                    CritMultiplier = 1.5f
-                }
+                DetonationKind = StackDetonationKind.Aoe,
+                DetonationKey = detonationKey
             };
         }
 
