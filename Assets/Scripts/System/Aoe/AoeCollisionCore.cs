@@ -215,7 +215,8 @@ namespace PlayGround.System.Aoe
                 projectileEventWriter.Enqueue(ProjectileSpawnPipeline.BuildBurstEvent(
                     identity.Faction, identity.AoeId, identity.TypeId, targetKey,
                     targetPosition.Value, kinematics.Position,
-                    hitSpawn.ProjectileBurst));
+                    hitSpawn.ProjectileBurst,
+                    hitSpawn.ProjectileBurstStacking));
             }
 
             if (hasAoeEventWriter && hitSpawn.AoeSpawn.Enabled)

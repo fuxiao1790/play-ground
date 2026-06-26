@@ -115,7 +115,8 @@ namespace PlayGround.System.Projectile
         public static ProjectileSpawnEvent BuildBurstEvent(
             CombatFaction faction, int sourceId, int typeId, int targetId,
             float2 position, float2 targetPosition,
-            in AoeProjectileBurstSnapshot snapshot)
+            in AoeProjectileBurstSnapshot snapshot,
+            PlayGround.Skills.Runtime.RuntimeStackingDetonation stackingDetonation = null)
         {
             int baseId = HashId(sourceId, typeId, targetId, ProjectileBurstIdSalt);
             float2 baseDirection = DirectionFromTo(position, targetPosition, invert: false);
@@ -127,7 +128,7 @@ namespace PlayGround.System.Projectile
                     CritMultiplier = 1.5f,
                     DirectDamageEnabled = snapshot.DirectDamageEnabled,
                     SourceNodeId = default,
-                    StackEffect = default
+                    StackEffect = BuildStackEffectFromDetonation(stackingDetonation)
                 },
                 default,
                 default);
@@ -170,6 +171,26 @@ namespace PlayGround.System.Projectile
                 TrackedTargetIndex = -1,
                 TrackedTargetPosition = default,
                 TrackingRandomState = 0
+            };
+        }
+
+        private static StackEffectSnapshot BuildStackEffectFromDetonation(PlayGround.Skills.Runtime.RuntimeStackingDetonation stacking)
+        {
+            if (stacking == null || stacking.DebuffKey < 0)
+                return default;
+
+            return new StackEffectSnapshot
+            {
+                DebuffKey = stacking.DebuffKey,
+                Threshold = math.max(1, stacking.StackThreshold),
+                Lifetime = math.max(0f, stacking.DebuffLifetimeSeconds),
+                Contribution = new StackContribution
+                {
+                    Damage = 0f,
+                    ProjectileCount = 0,
+                    AreaSize = 0f
+                },
+                Detonation = default
             };
         }
 

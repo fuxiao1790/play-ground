@@ -391,6 +391,7 @@ namespace PlayGround.System.Aoe
             {
                 HitPayload = cmd.HitPayload,
                 ProjectileBurst = cmd.ProjectileBurst,
+                ProjectileBurstStacking = cmd.ProjectileBurstStacking,
                 AoeSpawn = cmd.AoeSpawn
             };
 
