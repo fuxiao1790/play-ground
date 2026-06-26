@@ -28,18 +28,30 @@ Command types:
 - `ProjectileSpawnCommand`
 - `AoeSpawnCommand`
 
-Events may contain count, spread, jitter, base direction, faction, type ids,
-movement, hit payloads, tracking, render data, and optional timed/impact/on-hit
-snapshots.
+An event is a slim link into the spawn-template registry plus a per-instance
+frame: spawn kind, template key (`Hash128`), position, aim / base direction,
+faction, source id, jitter seed, deterministic tick index, and contact-gate seed
+target. The event carries no spawn data of its own.
 
-Commands describe exactly one ECS entity with resolved position, velocity,
-bounds, identity, hit payload, lifetime, render state, and optional timed-spawn
-state.
+Commands carry the resolved spawn data. A command describes exactly one ECS
+entity with position, velocity, bounds, identity, hit payload, lifetime, render
+state, and optional timed-spawn state. Expansion produces commands by
+dereferencing the event's template key against the registry, applying the
+instance frame, and exploding template-level multiplicity (count, spread, jitter)
+into one command per spawned entity.
+
+See [spawn-template-registry.md](../reference/simulation/spawn-template-registry.md)
+for the registry concurrency contract and the unified `(kind, key)` model. Older
+event types still embed per-source snapshot data; those are being unified onto
+registry keys.
 
 ## Guarantees
 
-Events are gameplay intent. Commands are allocation intent. Expansion owns spawn
-math. Apply owns reuse and cold creation.
+Events are gameplay intent (a registry link + instance frame). Commands are
+allocation intent (resolved data). Expansion owns the registry dereference and
+spawn math. Apply owns reuse and cold creation. The registry is written only by
+external (pre-tick) spawns and is read-only and immutable during the simulation
+tick.
 
 ## Restrictions
 

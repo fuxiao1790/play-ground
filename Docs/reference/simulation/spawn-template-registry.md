@@ -28,6 +28,80 @@ This rule applies to projectile -> AOE, projectile -> projectile, AOE ->
 projectile, AOE -> AOE, stack-triggered detonations, interval child spawns,
 and future chained effects.
 
+## Registry Concurrency Contract
+
+The spawn-template registry is written only by **external spawns** — managed
+gameplay code running in the GameObject `Update()` lifecycle, which executes
+before the ECS simulation tick. The registry is never written from inside the
+tick: no system, job, collision, status, or timed-spawn code adds or removes
+entries.
+
+Because all writes happen before the tick and entries are never removed in v1,
+the registry is **immutable for the entire simulation tick**:
+
+- it cannot rehash or reallocate mid-tick;
+- every simulation job may take it `[ReadOnly]` and read it concurrently with no
+  safety-system conflict;
+- a stored template is fetched, copied to a local value, stamped with
+  per-instance fields, and enqueued — the registry entry itself is never mutated.
+
+Registration, including loadout recompiles, happens in managed land before the
+next tick, so the write-only-external contract holds across equipment changes.
+On-demand registration, if ever needed, must also occur in `Update()` (external,
+pre-tick) — never from a job. This invariant is what makes registry reads safe in
+collision and status jobs; it is load-bearing, not incidental.
+
+## Unified Spawn Model
+
+A follow-up spawn is just a spawn. The source — projectile impact, AOE on-hit,
+stack detonation, interval tick — does not change the result: some projectiles or
+AOEs are created. Every follow-up therefore reduces to one keyed spawn, not a
+bespoke per-source snapshot.
+
+A source entity carries only two fields per follow-up:
+
+- **spawn kind** — projectile or AOE
+- **spawn template id** — a `Hash128` key into the registry
+
+The registry value is the spawn command template (the resolved spawn data). The
+source holds the key; expansion dereferences it. This replaces the embedded
+per-source snapshot structs (`AoeProjectileBurstSnapshot`,
+`ProjectileImpactProjectileSnapshot`, `ProjectileImpactAoeSnapshot`,
+`AoeOnHitSpawnSnapshot`) and removes the value-type cycle they forced
+(`StackEffectSnapshot -> DetonationSnapshot -> AoeProjectileBurstSnapshot`): a key
+reference cannot form a struct cycle. A stacking detonation is likewise just a
+`(kind, key)` plus contribution; `StackEffectSnapshot` carries the detonation key,
+not an embedded `DetonationSnapshot`.
+
+### Events Carry No Data
+
+Only the **command** holds spawn data. The **event** is a slim link into the
+registry plus the per-instance frame:
+
+- spawn kind + template key
+- position, aim / base direction
+- faction, source id, jitter seed, deterministic tick index
+- contact-gate seed target (so an impact spawn does not re-hit the just-hit
+  target)
+
+Expansion is the single dereference-and-explode step: read the slim event, fetch
+the template by key, apply the instance frame, and emit one command per spawned
+entity. Multiplicity, spread, and jitter are template-level and read from the
+registry during expansion — not carried on the event. This keeps everything
+through native queues and scope buffers a tiny ref struct, with exactly one fat
+data shape (the registry template) and one materialized shape (the command).
+
+Every runtime spawn event references a registry entry, including the root cast.
+There are no ad-hoc data-carrying events.
+
+### Bounded Nesting
+
+Spawn chains are bounded to **3 levels**: level 1 is the initial cast, level 2 is
+the first trigger, level 3 is the second trigger. Because nesting is bounded and
+fully authored, every template is enumerable and registered at compile time, so
+the registry is complete before the first tick. The depth cap is enforced at
+registration time.
+
 ## Current Data Levels
 
 Managed request:
@@ -123,6 +197,11 @@ applied-stack payload. The stack payload is plain data resolved before root
 spawn; in-flight entities never read authoring assets or registries.
 
 ## Events As Templates
+
+> Target model (see [Unified Spawn Model](#unified-spawn-model)): the stored
+> value is a spawn command template and the runtime event is a slim link. The
+> shape below documents the current interval-spawn implementation, which stores
+> events directly; it is being unified onto the keyed command-template form.
 
 Spawn template registries store the existing spawn event types so entities that
 can spawn other entities can reference them by key. This is the shared storage
@@ -414,22 +493,28 @@ aggregate damage, hit count, crit count, health, and status ranges.
 
 ## Cross-Domain Spawn Rules
 
-Cross-domain spawn data is plain data carried by snapshots or registry keys:
+> Target model: all of the per-source snapshot structs below collapse to one
+> uniform `(kind, Hash128)` reference into the registry — see
+> [Unified Spawn Model](#unified-spawn-model). The list documents the current
+> embedded-snapshot implementation, which is being unified.
+
+Current per-source carriers (being unified onto registry keys):
 
 - projectile impact AOE uses `ProjectileImpactAoeSnapshot`
 - projectile impact projectile uses `ProjectileImpactProjectileSnapshot`
 - AOE projectile burst uses `AoeProjectileBurstSnapshot`
 - AOE-on-hit spawn uses `AoeOnHitSpawnSnapshot`
 - stack projectile detonation also uses `AoeProjectileBurstSnapshot`
-- interval child spawn uses `TimedSpawnComponent.TemplateKey`
+- interval child spawn uses `TimedSpawnComponent.TemplateKey` (already keyed)
 
 Collision and timed-spawn systems do not allocate spawned entities. They emit
 spawn events. The normal expansion/apply path decides commands, reuse, and cold
 creation.
 
-Keep recursive spawn bounded by snapshot shape or by registered event-template
-keys. Do not add unbounded child lists or managed callbacks to collision-time or
-tick-time payloads.
+Keep recursive spawn bounded by registered template keys, not by embedded
+snapshot shape. A key reference cannot form a value-type cycle and cannot grow an
+unbounded child list. Do not add managed callbacks to collision-time or tick-time
+payloads.
 
 ## Memory And Performance Guidance
 
