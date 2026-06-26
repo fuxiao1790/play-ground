@@ -215,6 +215,42 @@ namespace PlayGround.System.Common
         public Hash128 RegisterTimedSpawnTemplate(in ProjectileSpawnCommand template) =>
             RegisterSpawnTemplate(in template);
 
+        internal int SpawnRegisteredProjectile(
+            Hash128 templateKey,
+            Vector2 position,
+            Vector2 direction,
+            int count,
+            int seedContactGateTargetId = 0)
+        {
+            EnsureRuntimeReady();
+            if (templateKey.Equals(default(Hash128)))
+            {
+                return 0;
+            }
+
+            int projectileCount = math.max(1, count);
+            int baseProjectileId = nextProjectileId + 1;
+            nextProjectileId += projectileCount;
+            float2 aim = direction.sqrMagnitude > 0f
+                ? new float2(direction.normalized.x, direction.normalized.y)
+                : new float2(1f, 0f);
+
+            entityManager.GetBuffer<ProjectileSpawnEvent>(scopeEntity)
+                .Add(new ProjectileSpawnEvent
+                {
+                    Kind = IntervalChildKind.Projectile,
+                    TemplateKey = templateKey,
+                    Position = new float2(position.x, position.y),
+                    AimDirection = aim,
+                    Faction = faction,
+                    SourceId = baseProjectileId,
+                    JitterSeed = (uint)baseProjectileId * 2654435761u,
+                    ContactGateSeedTargetId = seedContactGateTargetId
+                });
+
+            return baseProjectileId;
+        }
+
         // ---- AOE API ----
 
         public Hash128 RegisterSpawnTemplate(in AoeSpawnCommand template)
@@ -235,6 +271,37 @@ namespace PlayGround.System.Common
 
         public Hash128 RegisterTimedSpawnTemplate(in AoeSpawnCommand template) =>
             RegisterSpawnTemplate(in template);
+
+        internal int SpawnRegisteredAoe(Hash128 templateKey, Vector2 position, int count)
+        {
+            EnsureRuntimeReady();
+            if (templateKey.Equals(default(Hash128)))
+            {
+                return 0;
+            }
+
+            int aoeCount = math.max(1, count);
+            int aoeId = ++nextAoeId;
+            nextAoeId += aoeCount - 1;
+            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity)
+                .Add(new AoeSpawnEvent
+                {
+                    Kind = IntervalChildKind.Aoe,
+                    TemplateKey = templateKey,
+                    Position = new float2(position.x, position.y),
+                    Faction = faction,
+                    SourceId = aoeId,
+                    JitterSeed = (uint)aoeId * 2654435761u
+                });
+            spawnedAoes += aoeCount;
+            return aoeId;
+        }
+
+        internal CombatRenderComponent ProjectileTemplateRenderComponent(int projectileTypeId) =>
+            ProjectileRenderComponentFor(projectileTypeId, 0);
+
+        internal CombatRenderComponent AoeTemplateRenderComponent(int typeId, AoeSpawnGeometry geometry) =>
+            AoeRenderComponentFor(typeId, geometry);
 
         public int RegisterConfig(AoeConfig config)
         {

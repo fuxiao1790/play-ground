@@ -75,7 +75,7 @@ namespace PlayGround.Skills
                 vfxRoot.BindFaction(combatRoot.Faction);
             RegisterProjectileTypes();
             RegisterAoeTypes();
-            RegisterIntervalTemplates();
+            RegisterSpawnTemplates();
         }
 
         // --- private ---
@@ -84,7 +84,7 @@ namespace PlayGround.Skills
         {
             if (loadout == null) return;
 
-            validationWarnings = SkillLoadoutValidator.Validate(loadout);
+            var warnings = new List<SkillValidationWarning>(SkillLoadoutValidator.Validate(loadout));
 
             PlayerStatSnapshot snapshot = PlayerStatAggregator.Aggregate(loadout);
             IReadOnlyList<LoadoutSlot> slots = loadout.Slots;
@@ -126,7 +126,8 @@ namespace PlayGround.Skills
 
             RegisterProjectileTypes();
             RegisterAoeTypes();
-            RegisterIntervalTemplates();
+            RegisterSpawnTemplates(warnings);
+            validationWarnings = warnings.ToArray();
         }
 
         private static TriggerChain[] ParseChains(IReadOnlyList<LoadoutSlot> slots)
@@ -236,68 +237,135 @@ namespace PlayGround.Skills
                 RegisterAoeTypesRecursive(compiledSlots[i]);
         }
 
-        private void RegisterIntervalTemplates()
+        private void RegisterSpawnTemplates(List<SkillValidationWarning> warnings = null)
         {
             if (combatRoot == null || compiledSlots == null) return;
 
             for (int i = 0; i < activeSlotCount; i++)
-                RegisterIntervalTemplatesRecursive(compiledSlots[i]);
+                RegisterSpawnTemplatesRecursive(compiledSlots[i], 1, warnings, i);
         }
 
-        private void RegisterIntervalTemplatesRecursive(RuntimeSkillDefinition def)
+        private bool RegisterSpawnTemplatesRecursive(
+            RuntimeSkillDefinition def,
+            int depth,
+            List<SkillValidationWarning> warnings,
+            int slotIndex)
         {
-            if (def == null) return;
+            if (def == null) return false;
+            if (depth > CombatRoot.MaxSpawnChainDepth)
+            {
+                warnings?.Add(new SkillValidationWarning(
+                    SkillValidationWarningCode.SpawnChainDepthExceeded,
+                    slotIndex,
+                    $"Spawn chain exceeds max depth {CombatRoot.MaxSpawnChainDepth}. Overflow link will be ignored."));
+                return false;
+            }
 
             if (def is RuntimeStackingDetonation stackingDetonation)
             {
                 EnsureStackingDetonationDebuffKey(stackingDetonation);
-                RegisterIntervalTemplatesRecursive(stackingDetonation.Detonation);
-                return;
+                return RegisterSpawnTemplatesRecursive(stackingDetonation.Detonation, depth, warnings, slotIndex);
             }
 
             if (def is RuntimeAoeDefinition aoeDef)
             {
                 if (aoeDef.ChildSpawnSetup?.ChildDefinition != null)
                 {
-                    RegisterProjectileIntervalTemplate(aoeDef.ChildSpawnSetup);
-                    RegisterIntervalTemplatesRecursive(aoeDef.ChildSpawnSetup.ChildDefinition);
+                    if (RegisterSpawnTemplatesRecursive(
+                            aoeDef.ChildSpawnSetup.ChildDefinition,
+                            depth + 1,
+                            warnings,
+                            slotIndex))
+                    {
+                        RegisterProjectileIntervalTemplate(aoeDef.ChildSpawnSetup);
+                    }
                 }
 
                 if (aoeDef.AoeIntervalSpawnSetup?.ChildDefinition != null)
                 {
-                    RegisterAoeIntervalTemplate(aoeDef.AoeIntervalSpawnSetup);
-                    RegisterIntervalTemplatesRecursive(aoeDef.AoeIntervalSpawnSetup.ChildDefinition);
+                    if (RegisterSpawnTemplatesRecursive(
+                            aoeDef.AoeIntervalSpawnSetup.ChildDefinition,
+                            depth + 1,
+                            warnings,
+                            slotIndex))
+                    {
+                        RegisterAoeIntervalTemplate(aoeDef.AoeIntervalSpawnSetup);
+                    }
                 }
 
                 if (aoeDef.OnHitAoeSpawnDefinition != null)
-                    RegisterIntervalTemplatesRecursive(aoeDef.OnHitAoeSpawnDefinition);
+                    RegisterSpawnTemplatesRecursive(aoeDef.OnHitAoeSpawnDefinition, depth + 1, warnings, slotIndex);
                 if (aoeDef.OnHitProjectileSpawnDefinition != null)
-                    RegisterIntervalTemplatesRecursive(aoeDef.OnHitProjectileSpawnDefinition);
+                    RegisterSpawnTemplatesRecursive(aoeDef.OnHitProjectileSpawnDefinition, depth + 1, warnings, slotIndex);
                 if (aoeDef.StackingDetonation != null)
-                    RegisterIntervalTemplatesRecursive(aoeDef.StackingDetonation);
+                    RegisterSpawnTemplatesRecursive(aoeDef.StackingDetonation, depth + 1, warnings, slotIndex);
+
+                StackEffectSnapshot stackEffect =
+                    SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(aoeDef, combatRoot);
+                AoeSpawnCommand template =
+                    SkillIntervalTemplateBuilder.BuildAoeTemplate(
+                        aoeDef,
+                        Mathf.Max(1, aoeDef.Count),
+                        combatRoot,
+                        stackEffect,
+                        BuildOnHitSpawnRef(aoeDef),
+                        AoeTimedSpawnFromDefinition(aoeDef));
+                aoeDef.SpawnTemplateKey = combatRoot.RegisterSpawnTemplate(in template);
+                return true;
             }
 
             if (def is RuntimeProjectileDefinition projDef)
             {
                 if (projDef.ChildSpawnSetup?.ChildDefinition != null)
                 {
-                    RegisterProjectileIntervalTemplate(projDef.ChildSpawnSetup);
-                    RegisterIntervalTemplatesRecursive(projDef.ChildSpawnSetup.ChildDefinition);
+                    if (RegisterSpawnTemplatesRecursive(
+                            projDef.ChildSpawnSetup.ChildDefinition,
+                            depth + 1,
+                            warnings,
+                            slotIndex))
+                    {
+                        RegisterProjectileIntervalTemplate(projDef.ChildSpawnSetup);
+                    }
                 }
 
                 if (projDef.AoeIntervalSpawnSetup?.ChildDefinition != null)
                 {
-                    RegisterAoeIntervalTemplate(projDef.AoeIntervalSpawnSetup);
-                    RegisterIntervalTemplatesRecursive(projDef.AoeIntervalSpawnSetup.ChildDefinition);
+                    if (RegisterSpawnTemplatesRecursive(
+                            projDef.AoeIntervalSpawnSetup.ChildDefinition,
+                            depth + 1,
+                            warnings,
+                            slotIndex))
+                    {
+                        RegisterAoeIntervalTemplate(projDef.AoeIntervalSpawnSetup);
+                    }
                 }
 
                 if (projDef.ImpactAoeDefinition != null)
-                    RegisterIntervalTemplatesRecursive(projDef.ImpactAoeDefinition);
+                    RegisterSpawnTemplatesRecursive(projDef.ImpactAoeDefinition, depth + 1, warnings, slotIndex);
                 if (projDef.ImpactProjectileDefinition != null)
-                    RegisterIntervalTemplatesRecursive(projDef.ImpactProjectileDefinition);
+                    RegisterSpawnTemplatesRecursive(projDef.ImpactProjectileDefinition, depth + 1, warnings, slotIndex);
                 if (projDef.StackingDetonation != null)
-                    RegisterIntervalTemplatesRecursive(projDef.StackingDetonation);
+                    RegisterSpawnTemplatesRecursive(projDef.StackingDetonation, depth + 1, warnings, slotIndex);
+
+                StackEffectSnapshot stackEffect =
+                    SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(projDef, combatRoot);
+                ProjectileSpawnCommand template =
+                    SkillIntervalTemplateBuilder.BuildProjectileTemplate(
+                        projDef,
+                        new ProjectileChildSpawnBehavior(
+                            Mathf.Max(1, projDef.Count),
+                            ProjectileChildSpawnPatternType.Forward,
+                            projDef.SpreadDegrees),
+                        combatRoot,
+                        stackEffect,
+                        BuildOnHitSpawnRef(projDef),
+                        ProjectileTimedSpawnFromDefinition(projDef),
+                        projDef.JitterDegrees);
+                projDef.SpawnTemplateKey = combatRoot.RegisterSpawnTemplate(in template);
+                return true;
             }
+
+            return false;
         }
 
         private void RegisterProjectileIntervalTemplate(RuntimeChildSpawnSetup setup)
@@ -309,7 +377,12 @@ namespace PlayGround.Skills
             StackEffectSnapshot stackEffect =
                 SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(child, combatRoot);
             ProjectileSpawnCommand template =
-                SkillIntervalTemplateBuilder.BuildProjectileTemplate(child, setup.Behavior, combatRoot, stackEffect);
+                SkillIntervalTemplateBuilder.BuildProjectileTemplate(
+                    child,
+                    setup.Behavior,
+                    combatRoot,
+                    stackEffect,
+                    BuildOnHitSpawnRef(child));
 
             setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in template);
         }
@@ -327,10 +400,119 @@ namespace PlayGround.Skills
                     child,
                     Mathf.Max(1, setup.Count),
                     combatRoot,
-                    stackEffect);
+                    stackEffect,
+                    BuildOnHitSpawnRef(child));
 
             setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in template);
         }
+
+        private static OnHitSpawnRef BuildOnHitSpawnRef(RuntimeProjectileDefinition def)
+        {
+            if (def == null)
+                return default;
+
+            if (def.ImpactProjectileDefinition != null
+                && !IsDefault(def.ImpactProjectileDefinition.SpawnTemplateKey))
+            {
+                return new OnHitSpawnRef
+                {
+                    Kind = IntervalChildKind.Projectile,
+                    TemplateKey = def.ImpactProjectileDefinition.SpawnTemplateKey
+                };
+            }
+
+            if (def.ImpactAoeDefinition != null
+                && !IsDefault(def.ImpactAoeDefinition.SpawnTemplateKey))
+            {
+                return new OnHitSpawnRef
+                {
+                    Kind = IntervalChildKind.Aoe,
+                    TemplateKey = def.ImpactAoeDefinition.SpawnTemplateKey
+                };
+            }
+
+            return default;
+        }
+
+        private static OnHitSpawnRef BuildOnHitSpawnRef(RuntimeAoeDefinition def)
+        {
+            if (def == null)
+                return default;
+
+            if (def.OnHitProjectileSpawnDefinition != null
+                && !IsDefault(def.OnHitProjectileSpawnDefinition.SpawnTemplateKey))
+            {
+                return new OnHitSpawnRef
+                {
+                    Kind = IntervalChildKind.Projectile,
+                    TemplateKey = def.OnHitProjectileSpawnDefinition.SpawnTemplateKey
+                };
+            }
+
+            if (def.OnHitAoeSpawnDefinition is RuntimeAoeDefinition onHitAoe
+                && !IsDefault(onHitAoe.SpawnTemplateKey))
+            {
+                return new OnHitSpawnRef
+                {
+                    Kind = IntervalChildKind.Aoe,
+                    TemplateKey = onHitAoe.SpawnTemplateKey
+                };
+            }
+
+            return default;
+        }
+
+        private static TimedSpawnComponent ProjectileTimedSpawnFromDefinition(RuntimeProjectileDefinition def)
+        {
+            TimedSpawnComponent timedSpawn = ProjectileTimedSpawnFromSetup(def.ChildSpawnSetup);
+            TimedSpawnComponent aoeTimedSpawn = AoeTimedSpawnFromSetup(def.AoeIntervalSpawnSetup);
+            return IsTimedSpawnEnabled(aoeTimedSpawn) ? aoeTimedSpawn : timedSpawn;
+        }
+
+        private static TimedSpawnComponent AoeTimedSpawnFromDefinition(RuntimeAoeDefinition def)
+        {
+            TimedSpawnComponent timedSpawn = ProjectileTimedSpawnFromSetup(def.ChildSpawnSetup);
+            TimedSpawnComponent aoeTimedSpawn = AoeTimedSpawnFromSetup(def.AoeIntervalSpawnSetup);
+            return IsTimedSpawnEnabled(aoeTimedSpawn) ? aoeTimedSpawn : timedSpawn;
+        }
+
+        private static TimedSpawnComponent ProjectileTimedSpawnFromSetup(RuntimeChildSpawnSetup setup)
+        {
+            if (setup == null || IsDefault(setup.TemplateKey))
+                return default;
+
+            return new TimedSpawnComponent
+            {
+                ChildKind = IntervalChildKind.Projectile,
+                JitterSeed = setup.JitterSeed,
+                IntervalSeconds = Mathf.Max(0.01f, setup.IntervalSeconds),
+                IntervalJitterSeconds = Mathf.Max(0f, setup.IntervalJitterSeconds),
+                TemplateKey = setup.TemplateKey
+            };
+        }
+
+        private static TimedSpawnComponent AoeTimedSpawnFromSetup(RuntimeAoeIntervalSpawnSetup setup)
+        {
+            if (setup == null || IsDefault(setup.TemplateKey))
+                return default;
+
+            return new TimedSpawnComponent
+            {
+                ChildKind = IntervalChildKind.Aoe,
+                JitterSeed = setup.JitterSeed,
+                IntervalSeconds = Mathf.Max(0.01f, setup.IntervalSeconds),
+                IntervalJitterSeconds = Mathf.Max(0f, setup.IntervalJitterSeconds),
+                TemplateKey = setup.TemplateKey
+            };
+        }
+
+        private static bool IsTimedSpawnEnabled(TimedSpawnComponent timedSpawn) =>
+            timedSpawn.JitterSeed > 0
+            && timedSpawn.IntervalSeconds > 0f
+            && !IsDefault(timedSpawn.TemplateKey);
+
+        private static bool IsDefault(Unity.Entities.Hash128 key) =>
+            key.Equals(default(Unity.Entities.Hash128));
 
         private void RegisterAoeTypesRecursive(RuntimeSkillDefinition def)
         {
@@ -413,22 +595,25 @@ namespace PlayGround.Skills
 
     internal static class SkillIntervalTemplateBuilder
     {
-        private const int MaxAoeOnHitSpawnDepth = AoeOnHitSpawnSnapshot.MaxStackChainLinks;
-
         public static ProjectileSpawnCommand BuildProjectileTemplate(
             RuntimeProjectileDefinition child,
             ProjectileChildSpawnBehavior behavior,
             CombatRoot root,
-            StackEffectSnapshot stackEffect)
+            StackEffectSnapshot stackEffect,
+            OnHitSpawnRef onHitSpawn = default,
+            TimedSpawnComponent timedSpawn = default,
+            float jitterDegrees = 0f)
         {
             BasicAttackPrefab prefab = child.Prefab;
+            bool hasTimedSpawner = IsTimedSpawnEnabled(timedSpawn);
             return new ProjectileSpawnCommand
             {
                 TypeId = child.TypeId,
-                HasTimedSpawner = 0,
+                HasTimedSpawner = hasTimedSpawner ? 1 : 0,
                 Speed = child.Speed,
                 Count = Mathf.Max(1, behavior.Count),
                 SpreadDegrees = behavior.SpreadDegrees,
+                JitterDegrees = Mathf.Max(0f, jitterDegrees),
                 SpawnPatternType = behavior.PatternType,
                 PierceRemaining = child.PierceCount,
                 RepeatHitCooldownSeconds = child.RepeatHitCooldown,
@@ -446,7 +631,8 @@ namespace PlayGround.Skills
                         DirectDamageEnabled = child.DirectDamageEnabled,
                         SourceNodeId = default,
                         StackEffect = stackEffect
-                    }),
+                    },
+                    onHitSpawn),
                 Tracking = new ProjectileTrackingComponent
                 {
                     TrackingEnabled = child.Tracking.Enabled,
@@ -458,7 +644,10 @@ namespace PlayGround.Skills
                     TrackedTargetPosition = default,
                     TrackingRandomState = 0
                 },
-                Render = ProjectileRenderComponentFor(prefab)
+                Render = root != null
+                    ? root.ProjectileTemplateRenderComponent(child.TypeId)
+                    : ProjectileRenderComponentFor(prefab),
+                TimedSpawn = timedSpawn
             };
         }
 
@@ -466,9 +655,12 @@ namespace PlayGround.Skills
             RuntimeAoeDefinition child,
             int count,
             CombatRoot root,
-            StackEffectSnapshot stackEffect)
+            StackEffectSnapshot stackEffect,
+            OnHitSpawnRef onHitSpawn = default,
+            TimedSpawnComponent timedSpawn = default)
         {
             AoeSpawnGeometry geometry = child.CreateSpawnGeometry();
+            bool hasTimedSpawner = IsTimedSpawnEnabled(timedSpawn);
             return new AoeSpawnCommand
             {
                 TypeId = child.TypeId,
@@ -489,8 +681,12 @@ namespace PlayGround.Skills
                 HalfExtents = new Unity.Mathematics.float2(geometry.HalfExtents.x, geometry.HalfExtents.y),
                 ShapeType = geometry.ShapeType,
                 Count = Mathf.Max(1, count),
-                Render = AoeRenderComponentFor(geometry),
-                OnHitSpawn = default
+                Render = root != null
+                    ? root.AoeTemplateRenderComponent(child.TypeId, geometry)
+                    : AoeRenderComponentFor(geometry),
+                OnHitSpawn = onHitSpawn,
+                HasTimedSpawner = hasTimedSpawner ? 1 : 0,
+                TimedSpawn = timedSpawn
             };
         }
 
@@ -506,63 +702,6 @@ namespace PlayGround.Skills
                 stackEffect = BuildStackEffectSnapshot(aoe.StackingDetonation, root);
 
             return stackEffect.Enabled ? stackEffect : fallback;
-        }
-
-        public static ProjectileImpactAoeSnapshot BuildImpactAoeSnapshot(
-            RuntimeProjectileDefinition def,
-            CombatRoot root)
-        {
-            RuntimeAoeDefinition impact = def.ImpactAoeDefinition;
-            if (impact == null || impact.TypeId < 0)
-                return default;
-
-            int targetMask = root != null ? root.TargetMask : 0;
-            return new ProjectileImpactAoeSnapshot(
-                impact.TypeId,
-                targetMask,
-                Mathf.Max(0f, impact.Damage),
-                impact.LifetimeSeconds,
-                impact.TickIntervalSeconds,
-                impact.CreateSpawnGeometry(),
-                impact.CritChance,
-                impact.CritMultiplier,
-                stackEffect: BuildApplicatorStackEffectSnapshot(impact, root),
-                aoeSpawn: BuildAoeOnHitSpawnSnapshot(impact.OnHitAoeSpawnDefinition, root, MaxAoeOnHitSpawnDepth));
-        }
-
-        public static ProjectileImpactProjectileSnapshot BuildImpactProjectileSnapshot(
-            RuntimeProjectileDefinition def,
-            CombatRoot root)
-        {
-            RuntimeProjectileDefinition impact = def.ImpactProjectileDefinition;
-            if (impact == null || impact.TypeId < 0)
-                return default;
-
-            BasicAttackPrefab prefab = impact.Prefab;
-            if (prefab == null)
-                return default;
-
-            int targetMask = root != null ? root.TargetMask : 0;
-            return new ProjectileImpactProjectileSnapshot(
-                impact.TypeId,
-                targetMask,
-                Mathf.Max(1, impact.Count),
-                impact.SpreadDegrees,
-                impact.Speed,
-                impact.Lifetime,
-                prefab.Radius,
-                prefab.HalfExtents,
-                prefab.RotationRadians,
-                prefab.ShapeType,
-                new DamageSnapshot(Mathf.Max(0f, impact.Damage)),
-                impact.DirectDamageEnabled,
-                impact.PierceCount,
-                impact.RepeatHitCooldown,
-                impact.Tracking,
-                BuildImpactAoeSnapshot(impact, root),
-                BuildApplicatorStackEffectSnapshot(impact, root),
-                visualScale: prefab.VisualScale,
-                visualRotationDegrees: prefab.VisualRotationDegrees);
         }
 
         private static CombatRenderComponent ProjectileRenderComponentFor(BasicAttackPrefab prefab)
@@ -625,6 +764,9 @@ namespace PlayGround.Skills
             RuntimeAoeDefinition aoe,
             int threshold)
         {
+            if (aoe.SpawnTemplateKey.Equals(default(Unity.Entities.Hash128)))
+                return default;
+
             float stacksPerHit = Mathf.Max(1, stacking.StacksPerHit);
             return new StackEffectSnapshot
             {
@@ -637,7 +779,9 @@ namespace PlayGround.Skills
                     ProjectileCount = 0,
                     AreaSize = Mathf.Max(0.01f, aoe.AreaSize) * stacksPerHit / threshold
                 },
-                DetonationKind = StackDetonationKind.Aoe
+                Faction = root.Faction,
+                DetonationKind = StackDetonationKind.Aoe,
+                DetonationKey = aoe.SpawnTemplateKey
             };
         }
 
@@ -647,6 +791,9 @@ namespace PlayGround.Skills
             RuntimeProjectileDefinition projectile,
             int threshold)
         {
+            if (projectile.SpawnTemplateKey.Equals(default(Unity.Entities.Hash128)))
+                return default;
+
             float stacksPerHit = Mathf.Max(1, stacking.StacksPerHit);
             return new StackEffectSnapshot
             {
@@ -659,184 +806,15 @@ namespace PlayGround.Skills
                     ProjectileCount = Mathf.Max(1, Mathf.RoundToInt(projectile.Count * stacksPerHit)),
                     AreaSize = 0f
                 },
-                DetonationKind = StackDetonationKind.Projectile
+                Faction = root.Faction,
+                DetonationKind = StackDetonationKind.Projectile,
+                DetonationKey = projectile.SpawnTemplateKey
             };
         }
 
-        private static AoeProjectileBurstSnapshot BuildProjectileDetonationBurstSnapshot(
-            RuntimeProjectileDefinition projectile,
-            int targetMask)
-        {
-            BasicAttackPrefab prefab = projectile.Prefab;
-            if (prefab == null || projectile.TypeId < 0)
-                return default;
-
-            return new AoeProjectileBurstSnapshot(
-                projectile.TypeId,
-                targetMask,
-                Mathf.Max(1, projectile.Count),
-                projectile.SpreadDegrees,
-                projectile.Speed,
-                projectile.Lifetime,
-                prefab.Radius,
-                prefab.HalfExtents,
-                prefab.RotationRadians,
-                prefab.ShapeType,
-                new DamageSnapshot(Mathf.Max(0f, projectile.Damage)),
-                projectile.DirectDamageEnabled,
-                projectile.PierceCount,
-                projectile.RepeatHitCooldown,
-                projectile.Tracking,
-                prefab.VisualScale,
-                prefab.VisualRotationDegrees);
-        }
-
-        private static AoeOnHitSpawnSnapshot BuildAoeOnHitSpawnSnapshot(
-            RuntimeSkillDefinition def,
-            CombatRoot root,
-            int remainingLinks)
-        {
-            if (def == null || root == null || remainingLinks <= 0)
-                return default;
-
-            if (def is RuntimeAoeDefinition aoe)
-                return BuildPlainAoeOnHitSpawnSnapshot(
-                    aoe,
-                    root,
-                    BuildStackPayloadFor(aoe.StackingDetonation, root));
-
-            return default;
-        }
-
-        private static AoeOnHitSpawnTailSnapshot BuildAoeOnHitSpawnTailSnapshot(
-            RuntimeSkillDefinition def,
-            CombatRoot root)
-        {
-            if (def == null || root == null)
-                return default;
-
-            if (def is RuntimeAoeDefinition aoe)
-                return BuildPlainAoeOnHitSpawnTailSnapshot(
-                    aoe,
-                    root,
-                    BuildStackPayloadFor(aoe.StackingDetonation, root));
-
-            return default;
-        }
-
-        private static AoeOnHitSpawnSnapshot BuildPlainAoeOnHitSpawnSnapshot(
-            RuntimeAoeDefinition aoe,
-            CombatRoot root,
-            StackPayload stackPayload,
-            AoeOnHitSpawnTailSnapshot tail = default)
-        {
-            if (aoe == null || root == null || aoe.TypeId < 0)
-                return default;
-
-            return new AoeOnHitSpawnSnapshot(
-                aoe.TypeId,
-                root.TargetMask,
-                Mathf.Max(0f, aoe.Damage),
-                aoe.DirectDamageEnabled,
-                aoe.LifetimeSeconds,
-                aoe.TickIntervalSeconds,
-                aoe.CreateSpawnGeometry(),
-                aoe.CritChance,
-                aoe.CritMultiplier,
-                stackPayload.DebuffKey,
-                stackPayload.Threshold,
-                stackPayload.Lifetime,
-                stackPayload.Contribution,
-                stackPayload.DetonationKind,
-                stackPayload.DetonationTypeId,
-                stackPayload.DetonationLifetimeSeconds,
-                stackPayload.DetonationTickIntervalSeconds,
-                stackPayload.DetonationAoeGeometry,
-                stackPayload.DetonationCritChance,
-                stackPayload.DetonationCritMultiplier,
-                tail);
-        }
-
-        private static AoeOnHitSpawnTailSnapshot BuildPlainAoeOnHitSpawnTailSnapshot(
-            RuntimeAoeDefinition aoe,
-            CombatRoot root,
-            StackPayload stackPayload)
-        {
-            if (aoe == null || root == null || aoe.TypeId < 0)
-                return default;
-
-            return new AoeOnHitSpawnTailSnapshot(
-                aoe.TypeId,
-                root.TargetMask,
-                Mathf.Max(0f, aoe.Damage),
-                aoe.DirectDamageEnabled,
-                aoe.LifetimeSeconds,
-                aoe.TickIntervalSeconds,
-                aoe.CreateSpawnGeometry(),
-                aoe.CritChance,
-                aoe.CritMultiplier,
-                stackPayload.DebuffKey,
-                stackPayload.Threshold,
-                stackPayload.Lifetime,
-                stackPayload.Contribution,
-                stackPayload.DetonationKind,
-                stackPayload.DetonationTypeId,
-                stackPayload.DetonationLifetimeSeconds,
-                stackPayload.DetonationTickIntervalSeconds,
-                stackPayload.DetonationAoeGeometry,
-                stackPayload.DetonationCritChance,
-                stackPayload.DetonationCritMultiplier);
-        }
-
-        private static StackPayload BuildStackPayloadFor(
-            RuntimeStackingDetonation stacking,
-            CombatRoot root)
-        {
-            if (stacking == null
-                || root == null
-                || stacking.DebuffKey < 0
-                || stacking.Detonation is not RuntimeAoeDefinition detonation
-                || detonation.TypeId < 0)
-            {
-                return default;
-            }
-
-            int threshold = Mathf.Max(1, stacking.StackThreshold);
-            float stacksPerHit = Mathf.Max(1, stacking.StacksPerHit);
-            return new StackPayload
-            {
-                DebuffKey = stacking.DebuffKey,
-                Threshold = threshold,
-                Lifetime = Mathf.Max(0f, stacking.DebuffLifetimeSeconds),
-                Contribution = new StackContribution
-                {
-                    Damage = Mathf.Max(0f, detonation.Damage) * stacksPerHit / threshold,
-                    ProjectileCount = 0,
-                    AreaSize = Mathf.Max(0.01f, detonation.AreaSize) * stacksPerHit / threshold
-                },
-                DetonationKind = StackDetonationKind.Aoe,
-                DetonationTypeId = detonation.TypeId,
-                DetonationLifetimeSeconds = detonation.LifetimeSeconds,
-                DetonationTickIntervalSeconds = detonation.TickIntervalSeconds,
-                DetonationAoeGeometry = detonation.CreateSpawnGeometry(),
-                DetonationCritChance = detonation.CritChance,
-                DetonationCritMultiplier = detonation.CritMultiplier
-            };
-        }
-
-        private struct StackPayload
-        {
-            public int DebuffKey;
-            public int Threshold;
-            public float Lifetime;
-            public StackContribution Contribution;
-            public StackDetonationKind DetonationKind;
-            public int DetonationTypeId;
-            public float DetonationLifetimeSeconds;
-            public float DetonationTickIntervalSeconds;
-            public AoeSpawnGeometry DetonationAoeGeometry;
-            public float DetonationCritChance;
-            public float DetonationCritMultiplier;
-        }
+        private static bool IsTimedSpawnEnabled(TimedSpawnComponent timedSpawn) =>
+            timedSpawn.JitterSeed > 0
+            && timedSpawn.IntervalSeconds > 0f
+            && !timedSpawn.TemplateKey.Equals(default(Unity.Entities.Hash128));
     }
 }

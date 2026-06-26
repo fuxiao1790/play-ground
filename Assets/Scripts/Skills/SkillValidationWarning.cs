@@ -10,6 +10,7 @@ namespace PlayGround.Skills
         UnsupportedTriggerSource,
         UnsupportedTriggerTarget,
         UnsupportedStackingDetonation,
+        SpawnChainDepthExceeded,
     }
 
     public readonly struct SkillValidationWarning
