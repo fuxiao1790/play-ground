@@ -46,6 +46,26 @@ namespace PlayGround.System.Common
         public override int GetHashCode() => TypeId;
     }
 
+    // ECS Lifecycle: shared render component; added at entity creation; kept until owning domain root teardown; partitions render chunks by globally unique batch id without structural archetype cost.
+    public struct CombatRenderBatchId : ISharedComponentData, global::System.IEquatable<CombatRenderBatchId>
+    {
+        public int Value;
+        public readonly bool Equals(CombatRenderBatchId other) => Value == other.Value;
+        public override int GetHashCode() => Value;
+    }
+
+    public sealed class CombatRenderResourceEntry
+    {
+        public CombatSpriteRenderResources Resources;
+        public int Layer;
+        public float BoundsHalfExtent;
+    }
+
+    public sealed class CombatRenderResourceRegistry : IComponentData
+    {
+        public readonly Dictionary<int, CombatRenderResourceEntry> Entries = new();
+    }
+
     public static class CombatRenderMatrixUtility
     {
         private const float MinimumDirectionLengthSquared = 0.000001f;
