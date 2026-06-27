@@ -3,6 +3,10 @@ spawner spawns increasingly tankier mobs with a defined curve.
 projectile spawn expansion system/job isn't multi threaded.
 basic projetile spawn job is also not multi threaded
 
+damage application
+hit events => random entitiy
+hit events => a random entity in a chunk
+
 overhaul faction in the ecs.
 faction should simply be a field in a component for projectiles, aoes, mobs, player.
 faction should simple allow projectile and aoes to ignore targets if they have the same faction.
