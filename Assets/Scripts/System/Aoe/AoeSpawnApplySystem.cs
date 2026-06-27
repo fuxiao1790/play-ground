@@ -123,7 +123,7 @@ namespace PlayGround.System.Aoe
                     {
                         AoeSpawnCommand cmd = reader.Read<AoeSpawnCommand>();
                         bool hasTimedSpawner = HasTimedSpawner(cmd);
-                        var key = new AoeSpawnKey((int)cmd.Faction, cmd.TypeId, cmd.Lifetime > 0f, hasTimedSpawner);
+                        var key = new AoeSpawnKey(((int)cmd.Faction << 16) | cmd.TypeId, cmd.Lifetime > 0f, hasTimedSpawner);
                         if (!_byKey.TryGetValue(key, out AoeSpawnBucket bucket))
                         {
                             bucket = GetBucket();
@@ -151,8 +151,8 @@ namespace PlayGround.System.Aoe
                     var jobHandles = new NativeList<JobHandle>(_byKey.Count, Allocator.Temp);
                     foreach (var (key, bucket) in _byKey)
                     {
-                        CombatFaction faction = (CombatFaction)key.FactionValue;
-                        EntityQuery query = DeadSlotQueryFor(key, faction);
+                        CombatFaction faction = (CombatFaction)(key.BatchId >> 16);
+                        EntityQuery query = DeadSlotQueryFor(key);
                         NativeArray<AoeSpawnCommand> configs = bucket.Requests.AsArray();
                         var claimedReference = new NativeReference<int>(Allocator.TempJob);
                         claimedReference.Value = 0;
@@ -238,7 +238,7 @@ namespace PlayGround.System.Aoe
                 bucket.Dispose();
         }
 
-        private EntityQuery DeadSlotQueryFor(AoeSpawnKey key, CombatFaction faction)
+        private EntityQuery DeadSlotQueryFor(AoeSpawnKey key)
         {
             if (!_deadSlotQueriesByKey.TryGetValue(key, out EntityQuery query))
             {
@@ -248,8 +248,7 @@ namespace PlayGround.System.Aoe
                     {
                         query = new EntityQueryBuilder(Allocator.Temp)
                             .WithAll<AoeTag>()
-                            .WithAll<CombatRenderFaction>()
-                            .WithAll<CombatRenderTypeId>()
+                            .WithAll<CombatRenderBatchId>()
                             .WithAll<CombatLifetimeComponent>()
                             .WithAll<TimedSpawnTag>()
                             .WithDisabled<Active>()
@@ -259,8 +258,7 @@ namespace PlayGround.System.Aoe
                     {
                         query = new EntityQueryBuilder(Allocator.Temp)
                             .WithAll<AoeTag>()
-                            .WithAll<CombatRenderFaction>()
-                            .WithAll<CombatRenderTypeId>()
+                            .WithAll<CombatRenderBatchId>()
                             .WithAll<CombatLifetimeComponent>()
                             .WithDisabled<Active>()
                             .WithNone<TimedSpawnTag>()
@@ -271,8 +269,7 @@ namespace PlayGround.System.Aoe
                 {
                     query = new EntityQueryBuilder(Allocator.Temp)
                         .WithAll<AoeTag>()
-                        .WithAll<CombatRenderFaction>()
-                        .WithAll<CombatRenderTypeId>()
+                        .WithAll<CombatRenderBatchId>()
                         .WithDisabled<Active>()
                         .WithNone<CombatLifetimeComponent>()
                         .WithNone<TimedSpawnTag>()
@@ -281,9 +278,7 @@ namespace PlayGround.System.Aoe
                 _deadSlotQueriesByKey[key] = query;
             }
 
-            query.SetSharedComponentFilter(
-                new CombatRenderFaction { Faction = faction },
-                new CombatRenderTypeId { TypeId = key.TypeId });
+            query.SetSharedComponentFilter(new CombatRenderBatchId { Value = key.BatchId });
             return query;
         }
 
@@ -305,8 +300,7 @@ namespace PlayGround.System.Aoe
                 ? hasTimedSpawner ? timedSpawnerLingeringArchetype : lingeringArchetype
                 : impactArchetype;
             Entity entity = ecb.CreateEntity(archetype);
-            ecb.AddSharedComponent(entity, new CombatRenderFaction { Faction = faction });
-            ecb.AddSharedComponent(entity, new CombatRenderTypeId { TypeId = cmd.TypeId });
+            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = ((int)faction << 16) | cmd.TypeId });
             RecordAoeReset(ecb, entity, faction, cmd, lingering, hasTimedSpawner);
         }
 
@@ -538,27 +532,23 @@ namespace PlayGround.System.Aoe
 
         private readonly struct AoeSpawnKey : IEquatable<AoeSpawnKey>
         {
-            private readonly int _factionValue;
-            private readonly int _typeId;
+            private readonly int _batchId;
             private readonly bool _lingering;
             private readonly bool _hasTimedSpawner;
 
-            public int FactionValue => _factionValue;
-            public int TypeId       => _typeId;
-            public bool Lingering   => _lingering;
+            public int BatchId          => _batchId;
+            public bool Lingering       => _lingering;
             public bool HasTimedSpawner => _hasTimedSpawner;
 
-            public AoeSpawnKey(int factionValue, int typeId, bool lingering, bool hasTimedSpawner)
+            public AoeSpawnKey(int batchId, bool lingering, bool hasTimedSpawner)
             {
-                _factionValue        = factionValue;
-                _typeId              = typeId;
-                _lingering           = lingering;
-                _hasTimedSpawner     = hasTimedSpawner;
+                _batchId         = batchId;
+                _lingering       = lingering;
+                _hasTimedSpawner = hasTimedSpawner;
             }
 
             public bool Equals(AoeSpawnKey other) =>
-                _factionValue == other._factionValue
-                && _typeId == other._typeId
+                _batchId == other._batchId
                 && _lingering == other._lingering
                 && _hasTimedSpawner == other._hasTimedSpawner;
 
@@ -568,8 +558,7 @@ namespace PlayGround.System.Aoe
             {
                 unchecked
                 {
-                    int hash = _factionValue;
-                    hash = hash * 397 ^ _typeId;
+                    int hash = _batchId;
                     hash = hash * 397 ^ (_lingering ? 1 : 0);
                     hash = hash * 397 ^ (_hasTimedSpawner ? 1 : 0);
                     return hash;

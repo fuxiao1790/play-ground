@@ -134,8 +134,8 @@ namespace PlayGround.System.Projectile
                     for (int b = 0; b < _keys.Length; b++)
                     {
                         ProjectileSpawnKey key = _keys[b];
-                        CombatFaction faction = (CombatFaction)key.FactionValue;
-                        EntityQuery query = DeadSlotQueryFor(key, faction);
+                        CombatFaction faction = (CombatFaction)(key.BatchId >> 16);
+                        EntityQuery query = DeadSlotQueryFor(key);
                         NativeArray<int> orderSlice = order.GetSubArray(_offsets[b], _counts[b]);
                         var claimedReference = new NativeReference<int>(Allocator.TempJob);
                         claimedReference.Value = 0;
@@ -195,7 +195,7 @@ namespace PlayGround.System.Projectile
             EntityArchetype archetype,
             EntityCommandBuffer ecb);
 
-        private EntityQuery DeadSlotQueryFor(ProjectileSpawnKey key, CombatFaction faction)
+        private EntityQuery DeadSlotQueryFor(ProjectileSpawnKey key)
         {
             if (!_deadSlotQueriesByKey.TryGetValue(key, out EntityQuery query))
             {
@@ -203,9 +203,7 @@ namespace PlayGround.System.Projectile
                 _deadSlotQueriesByKey[key] = query;
             }
 
-            query.SetSharedComponentFilter(
-                new CombatRenderFaction { Faction = faction },
-                new CombatRenderTypeId { TypeId = key.TypeId });
+            query.SetSharedComponentFilter(new CombatRenderBatchId { Value = key.BatchId });
             return query;
         }
 
@@ -288,31 +286,15 @@ namespace PlayGround.System.Projectile
 
         private readonly struct ProjectileSpawnKey : IEquatable<ProjectileSpawnKey>
         {
-            private readonly int _factionValue;
-            private readonly int _typeId;
+            private readonly int _batchId;
 
-            public int FactionValue => _factionValue;
-            public int TypeId => _typeId;
+            public int BatchId => _batchId;
 
-            public ProjectileSpawnKey(int factionValue, int typeId)
-            {
-                _factionValue = factionValue;
-                _typeId = typeId;
-            }
+            public ProjectileSpawnKey(int batchId) { _batchId = batchId; }
 
-            public bool Equals(ProjectileSpawnKey other) =>
-                _factionValue == other._factionValue &&
-                _typeId == other._typeId;
-
+            public bool Equals(ProjectileSpawnKey other) => _batchId == other._batchId;
             public override bool Equals(object obj) => obj is ProjectileSpawnKey k && Equals(k);
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    return _factionValue * 397 ^ _typeId;
-                }
-            }
+            public override int GetHashCode() => _batchId;
         }
 
         // Counting-sort the drained commands into per-key contiguous runs, in Burst.
@@ -340,7 +322,7 @@ namespace PlayGround.System.Projectile
                 for (int i = 0; i < count; i++)
                 {
                     ProjectileSpawnCommand cmd = Commands[i];
-                    var key = new ProjectileSpawnKey((int)cmd.Faction, cmd.TypeId);
+                    var key = new ProjectileSpawnKey(((int)cmd.Faction << 16) | cmd.TypeId);
                     if (!KeyToIndex.TryGetValue(key, out int idx))
                     {
                         idx = Keys.Length;
@@ -433,8 +415,7 @@ namespace PlayGround.System.Projectile
         protected override EntityQuery BuildDeadSlotQuery() =>
             new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<ProjectileTag>()
-                .WithAll<CombatRenderFaction>()
-                .WithAll<CombatRenderTypeId>()
+                .WithAll<CombatRenderBatchId>()
                 .WithDisabled<Active>()
                 .WithNone<TimedSpawnTag>()
                 .Build(this);
@@ -472,8 +453,7 @@ namespace PlayGround.System.Projectile
             EntityCommandBuffer ecb)
         {
             Entity entity = ecb.CreateEntity(archetype);
-            ecb.AddSharedComponent(entity, new CombatRenderFaction { Faction = faction });
-            ecb.AddSharedComponent(entity, new CombatRenderTypeId { TypeId = cmd.TypeId });
+            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = ((int)faction << 16) | cmd.TypeId });
             RecordCommonProjectileReset(ecb, entity, faction, cmd);
         }
 
@@ -624,8 +604,7 @@ namespace PlayGround.System.Projectile
         protected override EntityQuery BuildDeadSlotQuery() =>
             new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<ProjectileTag>()
-                .WithAll<CombatRenderFaction>()
-                .WithAll<CombatRenderTypeId>()
+                .WithAll<CombatRenderBatchId>()
                 .WithAll<TimedSpawnTag>()
                 .WithDisabled<Active>()
                 .Build(this);
@@ -665,8 +644,7 @@ namespace PlayGround.System.Projectile
             EntityCommandBuffer ecb)
         {
             Entity entity = ecb.CreateEntity(archetype);
-            ecb.AddSharedComponent(entity, new CombatRenderFaction { Faction = faction });
-            ecb.AddSharedComponent(entity, new CombatRenderTypeId { TypeId = cmd.TypeId });
+            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = ((int)faction << 16) | cmd.TypeId });
             RecordCommonProjectileReset(ecb, entity, faction, cmd);
             ecb.SetComponent(entity, cmd.TimedSpawn);
             ecb.SetComponent(entity, InitialTimedSpawnStateFor(cmd));

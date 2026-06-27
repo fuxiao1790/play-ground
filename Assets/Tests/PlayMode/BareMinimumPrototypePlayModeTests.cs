@@ -898,16 +898,14 @@ namespace PlayGround.Tests.PlayMode
         private static int RenderInstanceCount(CombatRoot projectileRoot, int typeId)
         {
             CombatFaction faction = ProjectileFaction(projectileRoot);
+            int batchId = ((int)faction << 16) | typeId;
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
-                ComponentType.ReadOnly<CombatRenderFaction>(),
-                ComponentType.ReadOnly<CombatRenderTypeId>(),
+                ComponentType.ReadOnly<CombatRenderBatchId>(),
                 ComponentType.ReadOnly<CombatRenderElement>(),
                 ComponentType.ReadOnly<CombatRenderActiveTag>());
-            query.SetSharedComponentFilter(
-                new CombatRenderFaction { Faction = faction },
-                new CombatRenderTypeId { TypeId = typeId });
+            query.SetSharedComponentFilter(new CombatRenderBatchId { Value = batchId });
             int count = query.CalculateEntityCount();
             query.ResetFilter();
             return count;
