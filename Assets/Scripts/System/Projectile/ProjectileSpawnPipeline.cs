@@ -26,6 +26,9 @@ namespace PlayGround.System.Projectile
         public CombatFaction Faction;
         public int ProjectileId;
         public int TypeId;
+        // Render identity, allocated from the unified render-resource id space (decoupled
+        // from the behavior TypeId). Drives the CombatRenderBatchId / registry lookup.
+        public int RenderTypeId;
         public int HasTimedSpawner;
         public float2 BaseDirection;
         public float Speed;

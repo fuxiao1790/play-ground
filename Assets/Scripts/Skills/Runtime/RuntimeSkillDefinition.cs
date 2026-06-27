@@ -5,6 +5,9 @@ namespace PlayGround.Skills.Runtime
     public abstract class RuntimeSkillDefinition
     {
         public int TypeId { get; set; } = -1;
+        // Render identity from the unified render-resource id space; 0 means "no render".
+        // Stamped onto spawn commands as RenderTypeId.
+        public int RenderId { get; set; }
         public float Damage { get; set; }
         public float RecoveryTime { get; set; } = 0.2f;
         public float CritChance { get; set; }

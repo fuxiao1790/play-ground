@@ -26,6 +26,9 @@ namespace PlayGround.System.Aoe
         public CombatFaction Faction;
         public int AoeId;
         public int TypeId;
+        // Render identity, allocated from the unified render-resource id space (decoupled
+        // from the behavior TypeId). Drives the CombatRenderBatchId / registry lookup.
+        public int RenderTypeId;
         public float Lifetime;
         public float RepeatHitCooldownSeconds;
         public CombatHitPayload HitPayload;

@@ -322,7 +322,7 @@ namespace PlayGround.System.Projectile
                 for (int i = 0; i < count; i++)
                 {
                     ProjectileSpawnCommand cmd = Commands[i];
-                    var key = new ProjectileSpawnKey(((int)cmd.Faction << 16) | cmd.TypeId);
+                    var key = new ProjectileSpawnKey(((int)cmd.Faction << 16) | cmd.RenderTypeId);
                     if (!KeyToIndex.TryGetValue(key, out int idx))
                     {
                         idx = Keys.Length;
@@ -453,7 +453,7 @@ namespace PlayGround.System.Projectile
             EntityCommandBuffer ecb)
         {
             Entity entity = ecb.CreateEntity(archetype);
-            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = ((int)faction << 16) | cmd.TypeId });
+            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = ((int)faction << 16) | cmd.RenderTypeId });
             RecordCommonProjectileReset(ecb, entity, faction, cmd);
         }
 
@@ -644,7 +644,7 @@ namespace PlayGround.System.Projectile
             EntityCommandBuffer ecb)
         {
             Entity entity = ecb.CreateEntity(archetype);
-            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = ((int)faction << 16) | cmd.TypeId });
+            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = ((int)faction << 16) | cmd.RenderTypeId });
             RecordCommonProjectileReset(ecb, entity, faction, cmd);
             ecb.SetComponent(entity, cmd.TimedSpawn);
             ecb.SetComponent(entity, InitialTimedSpawnStateFor(cmd));

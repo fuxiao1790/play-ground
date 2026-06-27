@@ -123,7 +123,7 @@ namespace PlayGround.System.Aoe
                     {
                         AoeSpawnCommand cmd = reader.Read<AoeSpawnCommand>();
                         bool hasTimedSpawner = HasTimedSpawner(cmd);
-                        var key = new AoeSpawnKey(((int)cmd.Faction << 16) | cmd.TypeId, cmd.Lifetime > 0f, hasTimedSpawner);
+                        var key = new AoeSpawnKey(((int)cmd.Faction << 16) | cmd.RenderTypeId, cmd.Lifetime > 0f, hasTimedSpawner);
                         if (!_byKey.TryGetValue(key, out AoeSpawnBucket bucket))
                         {
                             bucket = GetBucket();
@@ -300,7 +300,7 @@ namespace PlayGround.System.Aoe
                 ? hasTimedSpawner ? timedSpawnerLingeringArchetype : lingeringArchetype
                 : impactArchetype;
             Entity entity = ecb.CreateEntity(archetype);
-            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = ((int)faction << 16) | cmd.TypeId });
+            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = ((int)faction << 16) | cmd.RenderTypeId });
             RecordAoeReset(ecb, entity, faction, cmd, lingering, hasTimedSpawner);
         }
 

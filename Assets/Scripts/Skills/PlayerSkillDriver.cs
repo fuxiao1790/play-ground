@@ -204,6 +204,7 @@ namespace PlayGround.Skills
             if (def is RuntimeProjectileDefinition projDef && projDef.Prefab != null && projDef.TypeId < 0)
             {
                 projDef.TypeId = combatRoot.RegisterTemplate(projDef.Prefab);
+                projDef.RenderId = combatRoot.ProjectileRenderId(projDef.TypeId);
                 if (vfxRoot != null)
                 {
                     vfxRoot.Register(projDef.TypeId, 0, projDef.Prefab.SpawnEffect);
@@ -568,6 +569,7 @@ namespace PlayGround.Skills
             if (aoeDef == null || combatRoot == null || aoeDef.TypeId >= 0) return;
             AoeTypeDefinition definition = aoeDef.CreateTypeDefinition();
             aoeDef.TypeId = combatRoot.RegisterType(definition);
+            aoeDef.RenderId = combatRoot.AoeRenderId(aoeDef.TypeId);
             if (vfxRoot != null)
             {
                 vfxRoot.Register(aoeDef.TypeId, 0, definition.SpawnEffect, requireAreaSizeContract: true);
@@ -609,6 +611,7 @@ namespace PlayGround.Skills
             return new ProjectileSpawnCommand
             {
                 TypeId = child.TypeId,
+                RenderTypeId = child.RenderId,
                 HasTimedSpawner = hasTimedSpawner ? 1 : 0,
                 Speed = child.Speed,
                 Count = Mathf.Max(1, behavior.Count),
@@ -645,7 +648,7 @@ namespace PlayGround.Skills
                     TrackingRandomState = 0
                 },
                 Render = root != null
-                    ? root.ProjectileTemplateRenderComponent(child.TypeId)
+                    ? root.ProjectileTemplateRenderComponent(child.RenderId)
                     : ProjectileRenderComponentFor(prefab),
                 TimedSpawn = timedSpawn
             };
@@ -664,6 +667,7 @@ namespace PlayGround.Skills
             return new AoeSpawnCommand
             {
                 TypeId = child.TypeId,
+                RenderTypeId = child.RenderId,
                 Lifetime = child.LifetimeSeconds,
                 RepeatHitCooldownSeconds = child.TickIntervalSeconds,
                 HitPayload = new CombatHitPayload
@@ -682,7 +686,7 @@ namespace PlayGround.Skills
                 ShapeType = geometry.ShapeType,
                 Count = Mathf.Max(1, count),
                 Render = root != null
-                    ? root.AoeTemplateRenderComponent(child.TypeId, geometry)
+                    ? root.AoeTemplateRenderComponent(child.RenderId, geometry)
                     : AoeRenderComponentFor(geometry),
                 OnHitSpawn = onHitSpawn,
                 HasTimedSpawner = hasTimedSpawner ? 1 : 0,
