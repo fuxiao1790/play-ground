@@ -6,6 +6,10 @@ basic projetile spawn job is also not multi threaded
 damage application
 hit events => random entitiy
 hit events => a random entity in a chunk
+hit events contain target entitiy id
+find chunk index using entity id
+group hit events by chunk index
+
 
 overhaul faction in the ecs.
 faction should simply be a field in a component for projectiles, aoes, mobs, player.
