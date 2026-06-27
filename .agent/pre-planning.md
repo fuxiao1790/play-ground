@@ -7,7 +7,9 @@ user-invocable: true
 # Pre-Planning & Exploration
 
 ## Purpose
-Gather architectural context for implementation planning by reading structured documentation first. Only resort to code exploration if documentation is incomplete.
+**Explore agent ONLY:** Gather architectural context for implementation planning by reading structured documentation first. Only resort to code exploration if documentation is incomplete.
+
+**CRITICAL:** This agent stops after producing `info.md`. Do NOT create work breakdowns, task lists, deployment orders, or plan files. That is the job of the Plan agent in a separate step.
 
 ## How to Use This Template
 
@@ -31,12 +33,12 @@ Start with these resources in order:
 - Topic-specific design docs (e.g., spawn-system.md, skill-system.md)
 
 **Step 2: Extract What Documentation Answers**
-From docs, identify:
-- Where `[FEATURE/SYSTEM]` is described
-- Current design and rationale
-- Which systems interact with `[FEATURE/SYSTEM]`
-- File locations and component names
-- Performance considerations or constraints
+From docs, identify and LINK (don't summarize):
+- Where `[FEATURE/SYSTEM]` is described → link to that section
+- Current design and rationale → link to design doc
+- Which systems interact with `[FEATURE/SYSTEM]` → link to those files
+- File locations and component names → link to specific lines
+- Performance considerations or constraints → link to perf docs
 
 **Step 3: Report Gaps**
 If documentation does NOT adequately answer your questions, report:
@@ -60,11 +62,16 @@ If documentation gaps remain, read specific files:
 - Use folder-structure.md to locate files
 - Read architecture docs to understand expected patterns
 - Read only files doc points to, don't blind search
-- Report findings back as: "Docs should have this at [filepath] but it's missing"
+- Report findings back as links: `[ClassName](path/file.cs#L123)` — one sentence why it matters
+- Don't copy/paste code; link to the actual line and briefly note what it shows
 
 ### Output Structure
 
-Create `./.agent/<task_name>/info.md` with:
+**ONLY produce ONE file:** `./.agent/<task_name>/info.md`
+
+Do NOT create index.md, task lists, work breakdowns, or deployment plans. The Explore agent's job ends with info.md.
+
+Create `info.md` with **links, not summaries**:
 
 ```markdown
 ---
@@ -74,26 +81,31 @@ description: Exploration findings for [TASK]
 
 # Exploration Findings
 
-## Current Design (from docs)
-[What documentation says about current implementation]
+## Current Design
+- Design doc: [Docs/architecture/...md](path)
+- Related systems: [Docs/reference/...md](path), [Docs/reference/...md](path)
 
 ## Key Files & Components
-[Specific files, components, systems mentioned in docs]
+- `ClassName` ([path/file.cs:line](path/file.cs#L123)) — brief note
+- `ComponentType` ([path/file.cs:line](path/file.cs#L456)) — brief note
 
 ## System Integration
-[Which systems interact with [FEATURE/SYSTEM]]
+- Links to systems that interact with [FEATURE/SYSTEM]
+- [SystemName.cs](path) reads/writes [ComponentName]
 
 ## Performance & Constraints
-[Performance budgets, threading models, data-flow boundaries]
+- [Docs/reference/performance.md#section](path) — constraint or budget
+- Threading model: [Docs/architecture/ecs-notes.md#threading](path)
 
 ## Documentation Gaps
-[What information was missing and should be documented]
+- Missing: [what's missing] — should be documented in [Docs/section]
+- Incomplete: [what needs clarification] — reference to [file.cs:line](path) shows actual behavior differs from doc
 
 ## Recommended Next Step
-[Is documentation sufficient for planning, or what needs documenting first?]
+[One sentence: is documentation sufficient for planning, or what needs documenting first?]
 ```
 
-This `info.md` becomes input to the planning agent, reducing blind searching and providing grounded context for implementation planning.
+**Key principle:** Link to sources rather than summarize them. The Plan agent follows the links to understand context. This keeps info.md focused and maintainable.
 
 ## Key Resources
 - `./Docs/project-overview.md` — doc index
