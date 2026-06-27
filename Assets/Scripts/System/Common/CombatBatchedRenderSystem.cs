@@ -18,18 +18,19 @@ namespace PlayGround.System.Common
 
         protected override void OnCreate()
         {
+            Entity registryEntity = EntityManager.CreateEntity();
+            EntityManager.AddComponentObject(registryEntity, new CombatRenderResourceRegistry());
+
             projectileRenderQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CombatRenderElement>()
-                .WithAll<CombatRenderFaction>()
-                .WithAll<CombatRenderTypeId>()
+                .WithAll<CombatRenderBatchId>()
                 .WithAll<CombatRenderActiveTag>()
                 .WithAll<ProjectileTag>()
                 .Build(this);
 
             aoeRenderQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CombatRenderElement>()
-                .WithAll<CombatRenderFaction>()
-                .WithAll<CombatRenderTypeId>()
+                .WithAll<CombatRenderBatchId>()
                 .WithAll<CombatRenderActiveTag>()
                 .WithAll<AoeTag>()
                 .Build(this);
@@ -49,47 +50,28 @@ namespace PlayGround.System.Common
         {
             CompleteDependency();
 
-            if (CombatRoot.TryGetByFaction(CombatFaction.Player, out CombatRoot playerRoot))
+            var registry = SystemAPI.ManagedAPI.GetSingleton<CombatRenderResourceRegistry>();
+            foreach (KeyValuePair<int, CombatRenderResourceEntry> pair in registry.Entries)
             {
-                SubmitFaction(playerRoot);
-            }
-
-            if (CombatRoot.TryGetByFaction(CombatFaction.Mob, out CombatRoot mobRoot))
-            {
-                SubmitFaction(mobRoot);
+                SubmitBatchId(pair.Key, pair.Value);
             }
         }
 
-        private void SubmitFaction(CombatRoot root)
+        private void SubmitBatchId(int batchId, CombatRenderResourceEntry entry)
         {
-            SubmitDomain(root.Faction, projectileRenderQuery, root.ProjectileRenderResources, root.RenderLayer, root.BatchBoundsHalfExtent);
-            SubmitDomain(root.Faction, aoeRenderQuery, root.AoeRenderResources, root.RenderLayer, root.BatchBoundsHalfExtent);
-        }
+            CombatRenderBatchId filter = new CombatRenderBatchId { Value = batchId };
 
-        private void SubmitDomain(
-            CombatFaction faction,
-            EntityQuery domainQuery,
-            IReadOnlyDictionary<int, CombatSpriteRenderResources> resourcesByType,
-            int layer,
-            float boundsHalfExtent)
-        {
-            if (resourcesByType.Count == 0)
-            {
-                return;
-            }
+            projectileRenderQuery.SetSharedComponentFilter(filter);
+            using NativeArray<CombatRenderElement> projElements =
+                projectileRenderQuery.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
+            SubmitBatches(projElements, entry.Resources, entry.Layer, entry.BoundsHalfExtent);
+            projectileRenderQuery.ResetFilter();
 
-            foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in resourcesByType)
-            {
-                domainQuery.SetSharedComponentFilter(
-                    new CombatRenderFaction { Faction = faction },
-                    new CombatRenderTypeId { TypeId = pair.Key });
-
-                using NativeArray<CombatRenderElement> elements =
-                    domainQuery.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
-
-                SubmitBatches(elements, pair.Value, layer, boundsHalfExtent);
-                domainQuery.ResetFilter();
-            }
+            aoeRenderQuery.SetSharedComponentFilter(filter);
+            using NativeArray<CombatRenderElement> aoeElements =
+                aoeRenderQuery.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
+            SubmitBatches(aoeElements, entry.Resources, entry.Layer, entry.BoundsHalfExtent);
+            aoeRenderQuery.ResetFilter();
         }
 
         private void SubmitBatches(
