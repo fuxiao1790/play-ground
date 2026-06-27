@@ -10,7 +10,7 @@ namespace PlayGround.System.Vfx
     public sealed class CombatVfxPreviewDriver : MonoBehaviour
     {
         private const string PositionsPropertyName = "Positions";
-        private const string AreaSizePropertyName = "AreaSize";
+        private const string AreaSizePropertyName = "AreaSizes";
         private const string SpawnCountPropertyName = "SpawnCount";
         private const string SpawnEventName = "OnSpawn";
 

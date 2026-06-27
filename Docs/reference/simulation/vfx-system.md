@@ -46,10 +46,11 @@ Simulation job
   -> VfxFlushJob or stream flush job
   -> DynamicBuffer<VfxSpawnRequestElement> on shared CombatScope
   -> CombatVfxDispatchSystem in PresentationSystemGroup
+     (splits requests by Faction; routes each faction to its CombatVfxRoot)
   -> CombatVfxRoot.DrainAndDispatch
   -> CombatVfxDispatcher.StageSpawn
   -> CombatVfxDispatcher.Dispatch
-  -> GraphicsBuffer.SetData
+  -> GraphicsBuffer.SetData (Positions + AreaSizes)
   -> VisualEffect.SetGraphicsBuffer / SetInt / SendEvent
 ```
 
@@ -68,24 +69,24 @@ Simulation job
 `CombatVfxRoot`:
 
 - scene-object owner for one `CombatVfxDispatcher`
-- static int-keyed registry for ECS lookup
+- static faction-keyed registry (`ByFaction[]`) for ECS lookup via `TryGetByFaction`
 - `Register(typeId, trigger, asset, maxPerFrame, requireAreaSizeContract)`
-- `Bind(scopeEntity, entityManager)` adds `CombatScopeVfxCatalog`
-- `DrainAndDispatch(buffer)` stages events, clears the buffer, and dispatches
+- `BindFaction(faction)` registers this root as the handler for a `CombatFaction`
+- `DrainAndDispatch(requests)` stages events, clears the list, and dispatches
 
 `CombatVfxDispatchSystem`:
 
 - `PresentationSystemGroup`
-- queries scope entities with `CombatScopeVfxCatalog`
-- resolves `CombatVfxRoot` from the static registry
-- calls `DrainAndDispatch`
+- queries the singleton entity for `DynamicBuffer<VfxSpawnRequestElement>`
+- splits requests by `Faction` (Player / Mob)
+- resolves each `CombatVfxRoot` via `TryGetByFaction` and calls `DrainAndDispatch`
 
 `CombatVfxDispatcher`:
 
 - owns one VFX instance per `(typeId, trigger)` pair
-- owns `GraphicsBuffer` and staging `NativeList` data
+- owns `GraphicsBuffer` and staging `NativeList` data for both `Positions` and `AreaSizes`
 - caps staged events by `maxPerFrame`
-- uploads positions and optional area size data
+- always uploads both `Positions` and `AreaSizes` buffers on every dispatch
 - sends the graph event
 - disposes native/GPU resources on teardown
 
@@ -104,12 +105,14 @@ Each registered `VisualEffectAsset` must expose:
 
 - `GraphicsBuffer` named `Positions`, with one `float2` world position per
   spawn event
+- `GraphicsBuffer` named `AreaSizes`, with one `float` area size per spawn event
 - `int` named `SpawnCount`
 - event named `OnSpawn`
 
-AOE VFX registered with `requireAreaSizeContract: true` must also expose:
-
-- `GraphicsBuffer` named `AreaSizes`, with one `float` area size per spawn event
+The runtime always uploads both `Positions` and `AreaSizes` buffers on every
+dispatch, regardless of VFX type. `requireAreaSizeContract: true` at
+registration only enables upfront validation that the graph exposes `AreaSizes`;
+omitting it skips the check but the buffer is still sent.
 
 Graphs that cannot satisfy the contract are invalid for this runtime. There is
 no per-event `Play()` fallback.
@@ -160,12 +163,14 @@ configured `CombatVfxRoot`. `CombatRoot` does not depend on `CombatVfxRoot`.
 
 ## Area Size
 
-AOE VFX receive `AreaSize` so graph particles can scale to gameplay area. AOE
-geometry is resolved before ECS receives the spawn event, and that area value is
-copied into VFX requests from collision, pulse, and lifetime paths.
+Every VFX request carries an `AreaSize` value. AOE requests populate it from
+resolved AOE geometry before the event reaches ECS — that area value is copied
+into VFX requests from collision, pulse, and lifetime paths. Projectile requests
+populate it from render visual scale so graphs can size impact or expire effects
+consistently.
 
-Projectile VFX also carry `AreaSize`, usually derived from render visual scale,
-so graphs can size impact or expire effects consistently.
+The `AreaSizes` buffer is always uploaded on every dispatch. Graphs that do not
+need to scale by area size can expose the buffer and ignore it.
 
 ## Render Layering
 
