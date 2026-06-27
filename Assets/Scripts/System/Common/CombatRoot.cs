@@ -69,6 +69,7 @@ namespace PlayGround.System.Common
         private World entityWorld;
         private EntityManager entityManager;
         private Entity scopeEntity;
+        private CombatRenderResourceRegistry _renderRegistry;
         private EntityQuery allProjectileQuery;
         private EntityQuery allAoeQuery;
         private bool runtimeReady;
@@ -83,8 +84,6 @@ namespace PlayGround.System.Common
         internal EntityManager EntityManager => entityManager;
         internal CombatFaction Faction => faction;
         internal IReadOnlyDictionary<int, ICombatTarget> TargetsById => targetRegistry.TargetsById;
-        internal IReadOnlyDictionary<int, CombatSpriteRenderResources> ProjectileRenderResources => projectileRenderResourcesByType;
-        internal IReadOnlyDictionary<int, CombatSpriteRenderResources> AoeRenderResources => aoeRenderResourcesByType;
         internal int RenderLayer => gameObject.layer;
         internal float BatchBoundsHalfExtent => batchBoundsHalfExtent;
 
@@ -110,6 +109,15 @@ namespace PlayGround.System.Common
             }
             ByFaction[(int)faction] = this;
             BindWorld();
+            using (EntityQuery q = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<CombatRenderResourceRegistry>()))
+            {
+                _renderRegistry = q.IsEmpty
+                    ? null
+                    : entityManager.GetComponentObject<CombatRenderResourceRegistry>(q.GetSingletonEntity());
+            }
+            if (_renderRegistry == null)
+                Debug.LogWarning("[CombatRoot] CombatRenderResourceRegistry singleton not found; render registry will not be populated.");
             BuildProjectileRenderResources();
             runtimeReady = true;
         }
@@ -136,6 +144,14 @@ namespace PlayGround.System.Common
             targetRegistry.ClearProxyBinding();
             DisposeEcsHandles();
             ReleaseWorld();
+            if (_renderRegistry != null)
+            {
+                foreach (int typeId in projectileRenderResourcesByType.Keys)
+                    _renderRegistry.Entries.Remove(BatchIdFor(faction, typeId));
+                foreach (int typeId in aoeRenderResourcesByType.Keys)
+                    _renderRegistry.Entries.Remove(BatchIdFor(faction, typeId));
+                _renderRegistry = null;
+            }
             DestroyRenderResources();
         }
 
@@ -166,6 +182,13 @@ namespace PlayGround.System.Common
             {
                 projectileRenderResourcesByType[typeId] = BuildProjectileResources(
                     template.Sprite, template.VisualScale, template.VisualRotationDegrees, template.Material);
+                if (_renderRegistry != null)
+                    _renderRegistry.Entries[BatchIdFor(faction, typeId)] = new CombatRenderResourceEntry
+                    {
+                        Resources = projectileRenderResourcesByType[typeId],
+                        Layer = gameObject.layer,
+                        BoundsHalfExtent = batchBoundsHalfExtent
+                    };
             }
 
             return typeId;
@@ -580,6 +603,9 @@ namespace PlayGround.System.Common
 
         // ---- Render resources ----
 
+        private static int BatchIdFor(CombatFaction faction, int typeId) =>
+            ((int)faction << 16) | typeId;
+
         private void BuildProjectileRenderResources()
         {
             DestroyProjectileRenderResources();
@@ -588,6 +614,13 @@ namespace PlayGround.System.Common
             if (projectileSprite != null)
             {
                 projectileRenderResourcesByType[0] = BuildProjectileResources(projectileSprite, visualScale, 0f);
+                if (_renderRegistry != null)
+                    _renderRegistry.Entries[BatchIdFor(faction, 0)] = new CombatRenderResourceEntry
+                    {
+                        Resources = projectileRenderResourcesByType[0],
+                        Layer = gameObject.layer,
+                        BoundsHalfExtent = batchBoundsHalfExtent
+                    };
             }
 
             if (projectileTemplates != null)
@@ -614,6 +647,13 @@ namespace PlayGround.System.Common
 
                     projectileRenderResourcesByType[definition.TypeId] =
                         BuildProjectileResources(definition.Sprite, definition.VisualScale, definition.VisualRotationDegrees);
+                    if (_renderRegistry != null)
+                        _renderRegistry.Entries[BatchIdFor(faction, definition.TypeId)] = new CombatRenderResourceEntry
+                        {
+                            Resources = projectileRenderResourcesByType[definition.TypeId],
+                            Layer = gameObject.layer,
+                            BoundsHalfExtent = batchBoundsHalfExtent
+                        };
                 }
             }
         }
@@ -652,6 +692,13 @@ namespace PlayGround.System.Common
 
             aoeRenderResourcesByType[typeId] = BatchedSpriteRenderer.BuildResources(
                 visual.Sprite, visual.VisualScale, visual.VisualRotationDegrees, visual.Material, "AoeQuadMesh");
+            if (_renderRegistry != null)
+                _renderRegistry.Entries[BatchIdFor(faction, typeId)] = new CombatRenderResourceEntry
+                {
+                    Resources = aoeRenderResourcesByType[typeId],
+                    Layer = gameObject.layer,
+                    BoundsHalfExtent = batchBoundsHalfExtent
+                };
         }
 
         private CombatRenderComponent AoeRenderComponentFor(int typeId, AoeSpawnGeometry geometry)
