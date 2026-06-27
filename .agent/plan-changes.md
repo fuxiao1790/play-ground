@@ -23,15 +23,16 @@ Produce a complete, unambiguous implementation plan after discussing a bug, issu
 ## Before Planning: Ground the Design
 The plan is only as good as the constraints it respects, and that context must end
 up in `index.md` — not only in conversation. Before writing tasks:
-1. Read the design docs and code for the affected systems.
-2. Extract the load-bearing contracts the change must honor — threading/concurrency
+1. **Read exploration findings**: Check if `./.agent/<task_name>/info.md` exists from pre-planning phase. Use it as ground truth for architectural context and constraints.
+2. Read the design docs and code for affected systems (especially for gaps noted in info.md).
+3. Extract the load-bearing contracts the change must honor — threading/concurrency
    guarantees, data-flow and ownership boundaries, lifecycle and allocation rules,
    performance budgets.
-3. Identify existing mechanisms that already solve part of the problem; default to
+4. Identify existing mechanisms that already solve part of the problem; default to
    conforming to them instead of adding a parallel path.
-4. Name any invariant that is load-bearing but unwritten. If you cannot confirm it
+5. Name any invariant that is load-bearing but unwritten. If you cannot confirm it
    from code or docs, ask one explicit question before proceeding.
-5. Pressure-test the proposed approach against each constraint, and record the result.
+6. Pressure-test the proposed approach against each constraint, and record the result.
 
 ## Output Structure
 
