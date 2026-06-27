@@ -84,8 +84,6 @@ namespace PlayGround.System.Common
         internal EntityManager EntityManager => entityManager;
         internal CombatFaction Faction => faction;
         internal IReadOnlyDictionary<int, ICombatTarget> TargetsById => targetRegistry.TargetsById;
-        internal int RenderLayer => gameObject.layer;
-        internal float BatchBoundsHalfExtent => batchBoundsHalfExtent;
 
         internal static bool TryGetByFaction(CombatFaction faction, out CombatRoot root)
         {

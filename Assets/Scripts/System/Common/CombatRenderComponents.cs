@@ -30,22 +30,6 @@ namespace PlayGround.System.Common
     {
     }
 
-    // ECS Lifecycle: shared render component; added at entity creation; kept until owning domain root teardown; partitions render chunks by faction without structural archetype cost.
-    public struct CombatRenderFaction : ISharedComponentData, global::System.IEquatable<CombatRenderFaction>
-    {
-        public CombatFaction Faction;
-        public readonly bool Equals(CombatRenderFaction other) => Faction == other.Faction;
-        public override int GetHashCode() => (int)Faction;
-    }
-
-    // ECS Lifecycle: shared render component; added at entity creation; kept until owning domain root teardown; partitions render chunks by type without structural archetype cost.
-    public struct CombatRenderTypeId : ISharedComponentData, global::System.IEquatable<CombatRenderTypeId>
-    {
-        public int TypeId;
-        public readonly bool Equals(CombatRenderTypeId other) => TypeId == other.TypeId;
-        public override int GetHashCode() => TypeId;
-    }
-
     // ECS Lifecycle: shared render component; added at entity creation; kept until owning domain root teardown; partitions render chunks by globally unique batch id without structural archetype cost.
     public struct CombatRenderBatchId : ISharedComponentData, global::System.IEquatable<CombatRenderBatchId>
     {
