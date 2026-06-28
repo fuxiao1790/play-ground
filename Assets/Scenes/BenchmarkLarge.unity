@@ -334,7 +334,7 @@ GameObject:
   - component: {fileID: 529810936}
   - component: {fileID: 529810935}
   m_Layer: 0
-  m_Name: CombatEcsRoot_PlayerToMobs
+  m_Name: CombatEcsRoot
   m_TagString: PlayerProjectileRoot
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -352,10 +352,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d7e49a35cd98bac49b62c3db1b2f9166, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.System.Common.CombatRoot
-  targetLayers:
-    serializedVersion: 2
-    m_Bits: 8192
-  targetTag: Mob
   projectileSprite: {fileID: 0}
   visualScale: 1
   projectileTemplates: []
@@ -678,8 +674,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1efbc012e2b6afe489459361bdd5419e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Game.GameRoot
-  playerCombatRoot: {fileID: 529810935}
-  mobCombatRoot: {fileID: 1086898361}
+  combatRoot: {fileID: 0}
   mobSpawner: {fileID: 2000001003}
   mobs: []
   player: {fileID: 830174276}
@@ -795,60 +790,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1086898359
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1086898360}
-  - component: {fileID: 1086898361}
-  m_Layer: 0
-  m_Name: CombatEcsRoot_MobToPlayer
-  m_TagString: MobProjectileRoot
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1086898360
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1086898359}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -37.66828, y: 1.02604, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1086898361
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1086898359}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d7e49a35cd98bac49b62c3db1b2f9166, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.System.Common.CombatRoot
-  targetLayers:
-    serializedVersion: 2
-    m_Bits: 512
-  targetTag: Player
-  projectileSprite: {fileID: 0}
-  visualScale: 1
-  projectileTemplates: []
-  renderTypes: []
-  spawnVisuals: 1
-  batchBoundsHalfExtent: 100000
 --- !u!1 &1388216860
 GameObject:
   m_ObjectHideFlags: 0
@@ -1401,8 +1342,7 @@ MonoBehaviour:
   - {fileID: 2000001033}
   spawnParent: {fileID: 0}
   target: {fileID: 0}
-  playerCombatRoot: {fileID: 529810935}
-  mobCombatRoot: {fileID: 1086898361}
+  combatRoot: {fileID: 0}
   runtimeMobSprite: {fileID: 0}
   randomSeed: 0
 --- !u!1 &2000001010
@@ -1672,4 +1612,3 @@ SceneRoots:
   - {fileID: 998230101}
   - {fileID: 1807457117}
   - {fileID: 529810936}
-  - {fileID: 1086898360}

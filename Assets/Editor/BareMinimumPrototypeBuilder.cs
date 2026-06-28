@@ -77,7 +77,7 @@ namespace PlayGround.Editor
                 player.GetComponentInChildren<SpriteRenderer>(),
                 worldCamera);
 
-            gameRoot.Configure(projectileRoot, mobProjectileRoot, player.GetComponent<PlayerRoot>(), spawner);
+            gameRoot.Configure(projectileRoot, player.GetComponent<PlayerRoot>(), spawner);
 
             GameObject level = CreateLevel(groundSprite);
             level.GetComponent<PlayAreaRoot>().BuildRuntimeWalls();
@@ -230,7 +230,7 @@ namespace PlayGround.Editor
                 CreateSpawnPoint(spawnerObject.transform, pool, "SpawnPoint_East", new Vector3(6f, 0f, 0f), 1.4f),
                 CreateSpawnPoint(spawnerObject.transform, pool, "SpawnPoint_NorthEast", new Vector3(5f, 2f, 0f), 1.8f)
             };
-            spawner.Configure(pool, 20, target, playerProjectileRoot, mobProjectileRoot, points);
+            spawner.Configure(pool, 20, target, playerProjectileRoot, points);
             return spawnerObject;
         }
 
