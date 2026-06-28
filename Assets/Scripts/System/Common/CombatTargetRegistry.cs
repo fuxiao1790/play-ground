@@ -9,22 +9,15 @@ namespace PlayGround.System.Common
         private readonly Dictionary<int, T> targetsById = new();
         private readonly Dictionary<T, int> proxyKeyByTarget = new();
         private EntityManager entityManager;
-        private CombatFaction faction;
-        private global::System.Func<T, bool> targetFilter;
         private bool proxyBindingReady;
 
         public IReadOnlyList<T> Targets => targets;
         public IReadOnlyDictionary<int, T> TargetsById => targetsById;
 
-        public void ConfigureProxyBinding(
-            EntityManager manager,
-            CombatFaction proxyFaction,
-            global::System.Func<T, bool> filter = null)
+        public void ConfigureProxyBinding(EntityManager manager)
         {
             entityManager = manager;
-            faction = proxyFaction;
-            targetFilter = filter;
-            proxyBindingReady = manager != default && proxyFaction != CombatFaction.None;
+            proxyBindingReady = manager != default;
 
             for (int i = 0; i < targets.Count; i++)
             {
@@ -35,8 +28,6 @@ namespace PlayGround.System.Common
         public void ClearProxyBinding()
         {
             entityManager = default;
-            faction = CombatFaction.None;
-            targetFilter = null;
             proxyBindingReady = false;
             targetsById.Clear();
             proxyKeyByTarget.Clear();
@@ -63,13 +54,12 @@ namespace PlayGround.System.Common
         {
             if (!proxyBindingReady
                 || target == null
-                || !target.IsCombatTargetActive
-                || (targetFilter != null && !targetFilter(target)))
+                || !target.IsCombatTargetActive)
             {
                 return;
             }
 
-            Entity proxy = CombatTargetProxy.Create(entityManager, target, faction);
+            Entity proxy = CombatTargetProxy.Create(entityManager, target, target.CombatFaction);
             if (proxy == Entity.Null)
             {
                 return;

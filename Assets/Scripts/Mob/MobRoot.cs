@@ -75,6 +75,7 @@ namespace PlayGround.Mob
             get => combatTargetProxy;
             set => combatTargetProxy = value;
         }
+        public CombatFaction CombatFaction => CombatFaction.Mob;
         public EntityId ProjectileHitNodeId => gameObject.GetEntityId();
         public Vector2 CombatTargetPosition => ProjectileTargetShapeUtility.Position(hurtbox, transform);
         public float CombatTargetRadius => ProjectileTargetShapeUtility.Radius(hurtbox, targetRadius);

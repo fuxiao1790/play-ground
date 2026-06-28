@@ -781,7 +781,7 @@ namespace PlayGround.System.Common
             allAoeQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AoeTag>(),
                 ComponentType.ReadOnly<AoeIdentityComponent>());
-            targetRegistry.ConfigureProxyBinding(entityManager, faction, canTargetFilter);
+            targetRegistry.ConfigureProxyBinding(entityManager);
             ecsHandlesCreated = true;
         }
 

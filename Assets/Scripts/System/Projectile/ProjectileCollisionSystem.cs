@@ -75,14 +75,13 @@ namespace PlayGround.System.Projectile
             }
 
             // Pass 2: register each target at its center cell (one entry per target,
-            // no duplicates), keyed by Faction so a projectile's cell lookup only
-            // matches targets belonging to its own faction's target set.
+            // no duplicates). Faction filtering is done per-candidate in the job.
             var targetCells = new NativeParallelMultiHashMap<long, int>(
                 math.max(1, totalTargetCount), Allocator.TempJob);
             for (int i = 0; i < targetPositions.Length; i++)
             {
                 int2 cell = FloorCell(targetPositions[i].Value);
-                targetCells.Add(CellKey(targetFactions[i].Value, cell.x, cell.y), i);
+                targetCells.Add(CellKey(cell.x, cell.y), i);
             }
 
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
@@ -94,6 +93,7 @@ namespace PlayGround.System.Projectile
                 TargetEntities = targetEntities,
                 TargetPositions = targetPositions,
                 TargetShapes = targetShapes,
+                TargetFactions = targetFactions,
                 TargetCells = targetCells,
                 TotalTargetCount = totalTargetCount,
                 MaxTargetRadius = maxTargetRadius,
@@ -156,6 +156,7 @@ namespace PlayGround.System.Projectile
             [ReadOnly] public NativeArray<Entity> TargetEntities;
             [ReadOnly] public NativeArray<TargetPosition> TargetPositions;
             [ReadOnly] public NativeArray<TargetCollisionShape> TargetShapes;
+            [ReadOnly] public NativeArray<TargetFaction> TargetFactions;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> TargetCells;
             public int TotalTargetCount;
             public float MaxTargetRadius;
@@ -223,7 +224,7 @@ namespace PlayGround.System.Projectile
                 {
                     for (int cx = cellMin.x; cx <= cellMax.x; cx++)
                     {
-                        long key = CellKey(identity.Faction, cx, cy);
+                        long key = CellKey(cx, cy);
                         if (!TargetCells.TryGetFirstValue(key, out int targetIdx,
                             out NativeParallelMultiHashMapIterator<long> iterator))
                         {
@@ -232,6 +233,11 @@ namespace PlayGround.System.Projectile
 
                         do
                         {
+                            if (TargetFactions[targetIdx].Value == identity.Faction)
+                            {
+                                continue;
+                            }
+
                             Entity targetEntity = TargetEntities[targetIdx];
                             TargetPosition targetPosition = TargetPositions[targetIdx];
                             TargetCollisionShape target = TargetShapes[targetIdx];
@@ -471,12 +477,11 @@ namespace PlayGround.System.Projectile
                 (int)math.floor(pos.y / SpatialHashCellSize));
         }
 
-        private static long CellKey(CombatFaction faction, int x, int y)
+        private static long CellKey(int x, int y)
         {
             unchecked
             {
                 ulong hash = 1469598103934665603UL;
-                hash = (hash ^ (byte)faction) * 1099511628211UL;
                 hash = (hash ^ (uint)x) * 1099511628211UL;
                 hash = (hash ^ (uint)y) * 1099511628211UL;
                 return (long)hash;

@@ -54,6 +54,7 @@ namespace PlayGround.System.Common
     public interface ICombatTarget
     {
         int TargetId { get; }
+        CombatFaction CombatFaction => CombatFaction.None;
         Entity CombatTargetProxy
         {
             get => Entity.Null;
