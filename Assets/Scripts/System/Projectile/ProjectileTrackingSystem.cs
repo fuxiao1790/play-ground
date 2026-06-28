@@ -53,10 +53,9 @@ namespace PlayGround.System.Projectile
                 {
                     Entity target = targetEntities[i];
                     TargetPosition position = targetPositions[i];
-                    CombatFaction faction = targetFactions[i].Value;
-                    targetIndicesById.TryAdd(TargetIdKey(faction, TargetKey(target)), i);
+                    targetIndicesById.TryAdd(TargetIdKey(TargetKey(target)), i);
                     int2 cell = FloorCell(position.Value);
-                    targetCells.Add(CellKey(faction, cell.x, cell.y), i);
+                    targetCells.Add(CellKey(cell.x, cell.y), i);
                 }
             }
 
@@ -65,6 +64,7 @@ namespace PlayGround.System.Projectile
                 DeltaTime = SystemAPI.Time.DeltaTime,
                 TargetEntities = targetEntities,
                 TargetPositions = targetPositions,
+                TargetFactions = targetFactions,
                 TargetIndicesById = targetIndicesById,
                 TargetCells = targetCells
             };
@@ -98,6 +98,7 @@ namespace PlayGround.System.Projectile
             public float DeltaTime;
             [ReadOnly] public NativeArray<Entity> TargetEntities;
             [ReadOnly] public NativeArray<TargetPosition> TargetPositions;
+            [ReadOnly] public NativeArray<TargetFaction> TargetFactions;
             [ReadOnly] public NativeParallelHashMap<long, int> TargetIndicesById;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> TargetCells;
 
@@ -143,18 +144,20 @@ namespace PlayGround.System.Projectile
                 int cachedIndex = tracking.TrackedTargetIndex;
                 if (cachedIndex >= 0
                     && cachedIndex < TargetEntities.Length
-                    && TargetKey(TargetEntities[cachedIndex]) == tracking.TrackedTargetId)
+                    && TargetKey(TargetEntities[cachedIndex]) == tracking.TrackedTargetId
+                    && TargetFactions[cachedIndex].Value != identity.Faction)
                 {
                     tracking.TrackedTargetPosition = TargetPositions[cachedIndex].Value;
                     return true;
                 }
 
                 if (TargetIndicesById.TryGetValue(
-                        TargetIdKey(identity.Faction, tracking.TrackedTargetId),
+                        TargetIdKey(tracking.TrackedTargetId),
                         out int mappedIndex)
                     && mappedIndex >= 0
                     && mappedIndex < TargetEntities.Length
-                    && TargetKey(TargetEntities[mappedIndex]) == tracking.TrackedTargetId)
+                    && TargetKey(TargetEntities[mappedIndex]) == tracking.TrackedTargetId
+                    && TargetFactions[mappedIndex].Value != identity.Faction)
                 {
                     tracking.TrackedTargetIndex = mappedIndex;
                     tracking.TrackedTargetPosition = TargetPositions[mappedIndex].Value;
@@ -201,10 +204,11 @@ namespace PlayGround.System.Projectile
                                 ref randomState,
                                 ref validTargetCount,
                                 ref selectedTargetIndex,
+                                identity.Faction,
                                 kinematics,
                                 forward,
                                 minimumDotSquared,
-                                CellKey(identity.Faction, cell.x, cell.y));
+                                CellKey(cell.x, cell.y));
                     }
                 }
 
@@ -225,6 +229,7 @@ namespace PlayGround.System.Projectile
                 ref uint randomState,
                 ref int validTargetCount,
                 ref int selectedTargetIndex,
+                CombatFaction projectileFaction,
                 CombatKinematicsComponent kinematics,
                 float2 forward,
                 float minimumDotSquared,
@@ -241,6 +246,11 @@ namespace PlayGround.System.Projectile
                 do
                 {
                     if (targetIndex < 0 || targetIndex >= TargetPositions.Length)
+                    {
+                        continue;
+                    }
+
+                    if (TargetFactions[targetIndex].Value == projectileFaction)
                     {
                         continue;
                     }
@@ -400,12 +410,11 @@ namespace PlayGround.System.Projectile
                 (int)math.floor(pos.y / TrackingSpatialHashCellSize));
         }
 
-        private static long CellKey(CombatFaction faction, int x, int y)
+        private static long CellKey(int x, int y)
         {
             unchecked
             {
                 ulong hash = 1469598103934665603UL;
-                hash = (hash ^ (byte)faction) * 1099511628211UL;
                 hash = (hash ^ (uint)x) * 1099511628211UL;
                 hash = (hash ^ (uint)y) * 1099511628211UL;
                 return (long)hash;
@@ -422,12 +431,11 @@ namespace PlayGround.System.Projectile
             }
         }
 
-        private static long TargetIdKey(CombatFaction faction, int targetId)
+        private static long TargetIdKey(int targetId)
         {
             unchecked
             {
                 ulong hash = 1469598103934665603UL;
-                hash = (hash ^ (byte)faction) * 1099511628211UL;
                 hash = (hash ^ (uint)targetId) * 1099511628211UL;
                 return (long)hash;
             }
