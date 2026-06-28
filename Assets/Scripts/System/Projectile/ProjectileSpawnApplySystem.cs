@@ -374,7 +374,6 @@ namespace PlayGround.System.Projectile
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileSpawnExpansionSystem))]
     [UpdateAfter(typeof(AoeSpawnExpansionSystem))]
-    [UpdateBefore(typeof(CombatRenderPrepareSystem))]
     public sealed partial class BasicProjectileSpawnApplySystem : ProjectileSpawnApplySystemBase
     {
         public BasicProjectileSpawnApplySystem()
@@ -556,7 +555,6 @@ namespace PlayGround.System.Projectile
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileSpawnExpansionSystem))]
     [UpdateAfter(typeof(AoeSpawnExpansionSystem))]
-    [UpdateBefore(typeof(CombatRenderPrepareSystem))]
     public sealed partial class ChildSpawnerProjectileSpawnApplySystem : ProjectileSpawnApplySystemBase
     {
         public ChildSpawnerProjectileSpawnApplySystem()

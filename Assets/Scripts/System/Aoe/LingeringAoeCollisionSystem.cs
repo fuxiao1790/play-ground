@@ -12,7 +12,6 @@ namespace PlayGround.System.Aoe
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AoeContactGateSystem))]
     [UpdateBefore(typeof(CombatApplyFinalizeSystem))]
-    [UpdateBefore(typeof(CombatRenderPrepareSystem))]
     public partial struct LingeringAoeCollisionSystem : ISystem
     {
         private EntityQuery lingeringAoeQuery;

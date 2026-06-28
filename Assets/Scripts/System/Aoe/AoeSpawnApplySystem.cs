@@ -19,7 +19,6 @@ namespace PlayGround.System.Aoe
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AoeSpawnExpansionSystem))]
     [UpdateAfter(typeof(ProjectileSpawnExpansionSystem))]
-    [UpdateBefore(typeof(CombatRenderPrepareSystem))]
     public partial class AoeSpawnApplySystem : SystemBase
     {
         private static readonly ProfilerMarker SpawnMarker =

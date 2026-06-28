@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -307,10 +309,10 @@ namespace PlayGround.System.Common
         public void Destroy()
         {
             if (Material != null)
-                Object.Destroy(Material);
+                UnityEngine.Object.Destroy(Material);
 
             if (Mesh != null)
-                Object.Destroy(Mesh);
+                UnityEngine.Object.Destroy(Mesh);
         }
     }
 

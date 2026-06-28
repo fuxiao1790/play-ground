@@ -10,7 +10,6 @@ namespace PlayGround.System.Aoe
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(CombatLifetimeSystem))]
-    [UpdateBefore(typeof(CombatRenderPrepareSystem))]
     public partial struct AoePulseVfxSystem : ISystem
     {
         private EntityQuery scopeQuery;

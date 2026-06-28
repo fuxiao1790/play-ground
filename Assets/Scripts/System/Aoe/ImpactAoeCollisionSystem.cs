@@ -13,7 +13,6 @@ namespace PlayGround.System.Aoe
     [UpdateAfter(typeof(AoeContactGateSystem))]
     [UpdateAfter(typeof(LingeringAoeCollisionSystem))]
     [UpdateBefore(typeof(CombatApplyFinalizeSystem))]
-    [UpdateBefore(typeof(CombatRenderPrepareSystem))]
     public partial struct ImpactAoeCollisionSystem : ISystem
     {
         private EntityQuery impactAoeQuery;
