@@ -48,6 +48,77 @@ namespace PlayGround.System.Common
     public sealed class CombatRenderResourceRegistry : IComponentData
     {
         public readonly Dictionary<int, CombatRenderResourceEntry> Entries = new();
+
+        private int _nextRenderId = 1;
+
+        public const string ProjectileMeshName = "ProjectileQuadMesh";
+        public const string AoeMeshName = "AoeQuadMesh";
+
+        private const float BoundsHalfExtent = 100000f;
+
+        // Mints a render id, builds GPU resources on the calling (main) thread, and publishes
+        // into Entries. Returns 0 for a null sprite (== "no visual").
+        public int Register(
+            Sprite sprite,
+            Vector2 visualScale,
+            float visualRotationDegrees,
+            Material sourceMaterial,
+            string meshName,
+            int layer)
+        {
+            if (sprite == null) return 0;
+
+            CombatSpriteRenderResources resources = BatchedSpriteRenderer.BuildResources(
+                sprite, visualScale, visualRotationDegrees, sourceMaterial, meshName);
+            int renderId = _nextRenderId++;
+            Entries[renderId] = new CombatRenderResourceEntry
+            {
+                Resources = resources,
+                Layer = layer,
+                BoundsHalfExtent = BoundsHalfExtent
+            };
+            return renderId;
+        }
+
+        public CombatRenderComponent GetProjectileRenderComponent(int renderId, int projectileId)
+        {
+            if (!Entries.TryGetValue(renderId, out var entry)) return default;
+            CombatSpriteRenderResources res = entry.Resources;
+            return new CombatRenderComponent
+            {
+                IsRenderable = 1,
+                AlignToVelocity = 1,
+                VisualScale = new float2(res.VisualScale.x, res.VisualScale.y),
+                VisualRotationSin = res.VisualRotationSin,
+                VisualRotationCos = res.VisualRotationCos,
+                RenderZ = CombatRoot.ProjectileRenderZ
+                    - projectileId % CombatRoot.ProjectileRenderZSlots * CombatRoot.ProjectileRenderZStep
+            };
+        }
+
+        // AOE visual data comes from geometry; the entry only gates whether a visual exists.
+        public CombatRenderComponent GetAoeRenderComponent(int renderId, AoeSpawnGeometry geometry)
+        {
+            if (!Entries.ContainsKey(renderId)) return default;
+            return new CombatRenderComponent
+            {
+                IsRenderable = 1,
+                AlignToVelocity = 0,
+                VisualScale = new float2(geometry.VisualScale.x, geometry.VisualScale.y),
+                VisualRotationSin = geometry.VisualRotationSin,
+                VisualRotationCos = geometry.VisualRotationCos,
+                RenderZ = CombatRoot.AoeRenderZ
+            };
+        }
+
+        // Destroys all GPU resources and clears the store. Called from CombatRoot.OnDestroy.
+        public void Unregister()
+        {
+            foreach (var entry in Entries.Values)
+                entry.Resources.Destroy();
+            Entries.Clear();
+            _nextRenderId = 1;
+        }
     }
 
     public static class CombatRenderMatrixUtility

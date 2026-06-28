@@ -1,8 +1,7 @@
-using PlayGround.System.Common;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace PlayGround.System.Aoe
+namespace PlayGround.System.Common
 {
     public readonly struct AoeShape
     {
