@@ -123,7 +123,7 @@ namespace PlayGround.System.Aoe
                     {
                         AoeSpawnCommand cmd = reader.Read<AoeSpawnCommand>();
                         bool hasTimedSpawner = HasTimedSpawner(cmd);
-                        var key = new AoeSpawnKey(((int)cmd.Faction << 16) | cmd.RenderTypeId, cmd.Lifetime > 0f, hasTimedSpawner);
+                        var key = new AoeSpawnKey(cmd.RenderTypeId, cmd.Lifetime > 0f, hasTimedSpawner);
                         if (!_byKey.TryGetValue(key, out AoeSpawnBucket bucket))
                         {
                             bucket = GetBucket();
@@ -151,7 +151,6 @@ namespace PlayGround.System.Aoe
                     var jobHandles = new NativeList<JobHandle>(_byKey.Count, Allocator.Temp);
                     foreach (var (key, bucket) in _byKey)
                     {
-                        CombatFaction faction = (CombatFaction)(key.BatchId >> 16);
                         EntityQuery query = DeadSlotQueryFor(key);
                         NativeArray<AoeSpawnCommand> configs = bucket.Requests.AsArray();
                         var claimedReference = new NativeReference<int>(Allocator.TempJob);
@@ -159,7 +158,6 @@ namespace PlayGround.System.Aoe
 
                         JobHandle spawnHandle = new AoeSpawnJob
                         {
-                            Faction               = faction,
                             Configs               = configs,
                             ClaimedCount          = claimedReference,
                             ActiveHandle          = GetComponentTypeHandle<Active>(false),
@@ -183,7 +181,7 @@ namespace PlayGround.System.Aoe
                         }.Schedule(query, default);
 
                         jobHandles.Add(spawnHandle);
-                        _spawnWork.Add(new AoeSpawnWork(faction, configs, claimedReference));
+                        _spawnWork.Add(new AoeSpawnWork(configs, claimedReference));
                     }
 
                     JobHandle.CombineDependencies(jobHandles.AsArray()).Complete();
@@ -197,7 +195,7 @@ namespace PlayGround.System.Aoe
                     reuseCount += claimed;
                     for (int i = claimed; i < work.Configs.Length; i++)
                     {
-                        CreateAoeEntity(work.Faction, work.Configs[i], createEcb);
+                        CreateAoeEntity(work.Configs[i], createEcb);
                         coldCreateCount++;
                     }
                 }
@@ -292,7 +290,7 @@ namespace PlayGround.System.Aoe
             _spawnWork.Clear();
         }
 
-        private void CreateAoeEntity(CombatFaction faction, AoeSpawnCommand cmd, EntityCommandBuffer ecb)
+        private void CreateAoeEntity(AoeSpawnCommand cmd, EntityCommandBuffer ecb)
         {
             bool lingering = cmd.Lifetime > 0f;
             bool hasTimedSpawner = HasTimedSpawner(cmd);
@@ -300,25 +298,24 @@ namespace PlayGround.System.Aoe
                 ? hasTimedSpawner ? timedSpawnerLingeringArchetype : lingeringArchetype
                 : impactArchetype;
             Entity entity = ecb.CreateEntity(archetype);
-            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = ((int)faction << 16) | cmd.RenderTypeId });
-            RecordAoeReset(ecb, entity, faction, cmd, lingering, hasTimedSpawner);
+            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = cmd.RenderTypeId });
+            RecordAoeReset(ecb, entity, cmd, lingering, hasTimedSpawner);
         }
 
         private static void RecordAoeReset(
             EntityCommandBuffer ecb,
             Entity entity,
-            CombatFaction faction,
             AoeSpawnCommand cmd,
             bool lingering,
             bool hasTimedSpawner)
         {
             CombatKinematicsComponent kinematics = KinematicsFor(cmd);
             CombatRenderComponent render = cmd.Render;
-            ecb.SetComponent(entity, IdentityFor(faction, cmd));
+            ecb.SetComponent(entity, IdentityFor(cmd));
             ecb.SetComponent(entity, kinematics);
             ecb.SetComponent(entity, CollisionFor(cmd));
             ecb.SetComponent(entity, HitGateFor(cmd));
-            ecb.SetComponent(entity, HitSpawnFor(cmd, faction));
+            ecb.SetComponent(entity, HitSpawnFor(cmd));
             ecb.SetComponent(entity, AreaFor(cmd));
             if (lingering)
             {
@@ -359,8 +356,8 @@ namespace PlayGround.System.Aoe
                 TickIndex = 0
             };
 
-        private static AoeIdentityComponent IdentityFor(CombatFaction faction, in AoeSpawnCommand cmd) =>
-            new AoeIdentityComponent { Faction = faction, AoeId = cmd.AoeId, TypeId = cmd.TypeId };
+        private static AoeIdentityComponent IdentityFor(in AoeSpawnCommand cmd) =>
+            new AoeIdentityComponent { Faction = cmd.Faction, AoeId = cmd.AoeId, TypeId = cmd.TypeId };
 
         private static CombatKinematicsComponent KinematicsFor(in AoeSpawnCommand cmd) =>
             new CombatKinematicsComponent { Position = cmd.Position, Velocity = default };
@@ -379,10 +376,10 @@ namespace PlayGround.System.Aoe
         private static AoeHitGateComponent HitGateFor(in AoeSpawnCommand cmd) =>
             new AoeHitGateComponent { RepeatHitCooldownSeconds = cmd.RepeatHitCooldownSeconds };
 
-        private static AoeHitSpawnComponent HitSpawnFor(in AoeSpawnCommand cmd, CombatFaction faction) =>
+        private static AoeHitSpawnComponent HitSpawnFor(in AoeSpawnCommand cmd) =>
             new AoeHitSpawnComponent
             {
-                HitPayload = HitPayloadFor(cmd.HitPayload, faction),
+                HitPayload = HitPayloadFor(cmd.HitPayload, cmd.Faction),
                 OnHitSpawn = cmd.OnHitSpawn
             };
 
@@ -406,7 +403,6 @@ namespace PlayGround.System.Aoe
         [BurstCompile]
         private struct AoeSpawnJob : IJobChunk
         {
-            public CombatFaction Faction;
             [ReadOnly] public NativeArray<AoeSpawnCommand> Configs;
             [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
 
@@ -474,7 +470,7 @@ namespace PlayGround.System.Aoe
 
                     identities[i] = new AoeIdentityComponent
                     {
-                        Faction = Faction, AoeId = cfg.AoeId, TypeId = cfg.TypeId
+                        Faction = cfg.Faction, AoeId = cfg.AoeId, TypeId = cfg.TypeId
                     };
                     CombatKinematicsComponent kin = new CombatKinematicsComponent
                     {
@@ -492,7 +488,7 @@ namespace PlayGround.System.Aoe
                     };
                     hitSpawns[i]   = new AoeHitSpawnComponent
                     {
-                        HitPayload = HitPayloadFor(cfg.HitPayload, Faction),
+                        HitPayload = HitPayloadFor(cfg.HitPayload, cfg.Faction),
                         OnHitSpawn = cfg.OnHitSpawn
                     };
                     areas[i]       = new AoeAreaComponent
@@ -601,16 +597,13 @@ namespace PlayGround.System.Aoe
 
         private readonly struct AoeSpawnWork
         {
-            public readonly CombatFaction Faction;
             public readonly NativeArray<AoeSpawnCommand> Configs;
             public readonly NativeReference<int> ClaimedCount;
 
             public AoeSpawnWork(
-                CombatFaction faction,
                 NativeArray<AoeSpawnCommand> configs,
                 NativeReference<int> claimedCount)
             {
-                Faction = faction;
                 Configs = configs;
                 ClaimedCount = claimedCount;
             }

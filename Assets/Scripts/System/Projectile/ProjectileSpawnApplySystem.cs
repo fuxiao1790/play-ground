@@ -134,15 +134,14 @@ namespace PlayGround.System.Projectile
                     for (int b = 0; b < _keys.Length; b++)
                     {
                         ProjectileSpawnKey key = _keys[b];
-                        CombatFaction faction = (CombatFaction)(key.BatchId >> 16);
                         EntityQuery query = DeadSlotQueryFor(key);
                         NativeArray<int> orderSlice = order.GetSubArray(_offsets[b], _counts[b]);
                         var claimedReference = new NativeReference<int>(Allocator.TempJob);
                         claimedReference.Value = 0;
 
-                        JobHandle spawnHandle = ScheduleReuseJob(faction, commands, orderSlice, claimedReference, query);
+                        JobHandle spawnHandle = ScheduleReuseJob(commands, orderSlice, claimedReference, query);
                         jobHandles.Add(spawnHandle);
-                        _spawnWork.Add(new ProjectileSpawnWork(faction, commands, orderSlice, claimedReference));
+                        _spawnWork.Add(new ProjectileSpawnWork(commands, orderSlice, claimedReference));
                     }
 
                     JobHandle.CombineDependencies(jobHandles.AsArray()).Complete();
@@ -159,7 +158,7 @@ namespace PlayGround.System.Projectile
                         reuseCount += claimed;
                         for (int i = claimed; i < work.Order.Length; i++)
                         {
-                            CreateProjectileEntity(work.Faction, work.Commands[work.Order[i]], _archetype, createEcb);
+                            CreateProjectileEntity(work.Commands[work.Order[i]], _archetype, createEcb);
                             coldCreateCount++;
                         }
                     }
@@ -183,14 +182,12 @@ namespace PlayGround.System.Projectile
         protected abstract EntityQuery BuildDeadSlotQuery();
 
         protected abstract JobHandle ScheduleReuseJob(
-            CombatFaction faction,
             NativeArray<ProjectileSpawnCommand> commands,
             NativeArray<int> order,
             NativeReference<int> claimedReference,
             EntityQuery query);
 
         protected abstract void CreateProjectileEntity(
-            CombatFaction faction,
             ProjectileSpawnCommand cmd,
             EntityArchetype archetype,
             EntityCommandBuffer ecb);
@@ -298,9 +295,9 @@ namespace PlayGround.System.Projectile
         }
 
         // Counting-sort the drained commands into per-key contiguous runs, in Burst.
-        // Pass 1 assigns a dense bucket index per distinct (faction, typeId) key and counts
-        // per bucket; prefix-sum yields offsets; pass 2 scatters the command *indices* (4 bytes)
-        // into Order. The large ProjectileSpawnCommand struct is never copied here.
+        // Pass 1 assigns a dense bucket index per distinct typeId key and counts per bucket;
+        // prefix-sum yields offsets; pass 2 scatters the command *indices* (4 bytes) into Order.
+        // The large ProjectileSpawnCommand struct is never copied here.
         [BurstCompile]
         private struct BucketCommandsJob : IJob
         {
@@ -322,7 +319,7 @@ namespace PlayGround.System.Projectile
                 for (int i = 0; i < count; i++)
                 {
                     ProjectileSpawnCommand cmd = Commands[i];
-                    var key = new ProjectileSpawnKey(((int)cmd.Faction << 16) | cmd.RenderTypeId);
+                    var key = new ProjectileSpawnKey(cmd.RenderTypeId);
                     if (!KeyToIndex.TryGetValue(key, out int idx))
                     {
                         idx = Keys.Length;
@@ -358,18 +355,15 @@ namespace PlayGround.System.Projectile
 
         private readonly struct ProjectileSpawnWork
         {
-            public readonly CombatFaction Faction;
             public readonly NativeArray<ProjectileSpawnCommand> Commands;
             public readonly NativeArray<int> Order;
             public readonly NativeReference<int> ClaimedCount;
 
             public ProjectileSpawnWork(
-                CombatFaction faction,
                 NativeArray<ProjectileSpawnCommand> commands,
                 NativeArray<int> order,
                 NativeReference<int> claimedCount)
             {
-                Faction = faction;
                 Commands = commands;
                 Order = order;
                 ClaimedCount = claimedCount;
@@ -421,14 +415,12 @@ namespace PlayGround.System.Projectile
                 .Build(this);
 
         protected override JobHandle ScheduleReuseJob(
-            CombatFaction faction,
             NativeArray<ProjectileSpawnCommand> commands,
             NativeArray<int> order,
             NativeReference<int> claimedReference,
             EntityQuery query) =>
             new BasicProjectileSpawnJob
             {
-                Faction = faction,
                 Commands = commands,
                 Order = order,
                 ClaimedCount = claimedReference,
@@ -447,20 +439,18 @@ namespace PlayGround.System.Projectile
             }.Schedule(query, default);
 
         protected override void CreateProjectileEntity(
-            CombatFaction faction,
             ProjectileSpawnCommand cmd,
             EntityArchetype archetype,
             EntityCommandBuffer ecb)
         {
             Entity entity = ecb.CreateEntity(archetype);
-            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = ((int)faction << 16) | cmd.RenderTypeId });
-            RecordCommonProjectileReset(ecb, entity, faction, cmd);
+            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = cmd.RenderTypeId });
+            RecordCommonProjectileReset(ecb, entity, cmd.Faction, cmd);
         }
 
         [BurstCompile]
         private struct BasicProjectileSpawnJob : IJobChunk
         {
-            public CombatFaction Faction;
             [ReadOnly] public NativeArray<ProjectileSpawnCommand> Commands;
             [ReadOnly] public NativeArray<int> Order;
             [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
@@ -511,7 +501,7 @@ namespace PlayGround.System.Projectile
 
                     identities[i] = new ProjectileIdentityComponent
                     {
-                        Faction = Faction,
+                        Faction = cfg.Faction,
                         ProjectileId = cfg.ProjectileId,
                         TypeId = cfg.TypeId
                     };
@@ -535,7 +525,7 @@ namespace PlayGround.System.Projectile
                     {
                         PierceRemaining = cfg.PierceRemaining,
                         RepeatHitCooldownSeconds = cfg.RepeatHitCooldownSeconds,
-                        HitPayload = HitPayloadFor(in cfg, Faction)
+                        HitPayload = HitPayloadFor(in cfg, cfg.Faction)
                     };
                     tracking[i] = cfg.Tracking;
                     trackingMask[i] = cfg.Tracking.TrackingEnabled;
@@ -610,14 +600,12 @@ namespace PlayGround.System.Projectile
                 .Build(this);
 
         protected override JobHandle ScheduleReuseJob(
-            CombatFaction faction,
             NativeArray<ProjectileSpawnCommand> commands,
             NativeArray<int> order,
             NativeReference<int> claimedReference,
             EntityQuery query) =>
             new ChildSpawnerProjectileSpawnJob
             {
-                Faction = faction,
                 Commands = commands,
                 Order = order,
                 ClaimedCount = claimedReference,
@@ -638,14 +626,13 @@ namespace PlayGround.System.Projectile
             }.Schedule(query, default);
 
         protected override void CreateProjectileEntity(
-            CombatFaction faction,
             ProjectileSpawnCommand cmd,
             EntityArchetype archetype,
             EntityCommandBuffer ecb)
         {
             Entity entity = ecb.CreateEntity(archetype);
-            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = ((int)faction << 16) | cmd.RenderTypeId });
-            RecordCommonProjectileReset(ecb, entity, faction, cmd);
+            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = cmd.RenderTypeId });
+            RecordCommonProjectileReset(ecb, entity, cmd.Faction, cmd);
             ecb.SetComponent(entity, cmd.TimedSpawn);
             ecb.SetComponent(entity, InitialTimedSpawnStateFor(cmd));
         }
@@ -688,7 +675,6 @@ namespace PlayGround.System.Projectile
         [BurstCompile]
         private struct ChildSpawnerProjectileSpawnJob : IJobChunk
         {
-            public CombatFaction Faction;
             [ReadOnly] public NativeArray<ProjectileSpawnCommand> Commands;
             [ReadOnly] public NativeArray<int> Order;
             [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
@@ -745,7 +731,7 @@ namespace PlayGround.System.Projectile
 
                     identities[i] = new ProjectileIdentityComponent
                     {
-                        Faction = Faction,
+                        Faction = cfg.Faction,
                         ProjectileId = cfg.ProjectileId,
                         TypeId = cfg.TypeId
                     };
@@ -769,7 +755,7 @@ namespace PlayGround.System.Projectile
                     {
                         PierceRemaining = cfg.PierceRemaining,
                         RepeatHitCooldownSeconds = cfg.RepeatHitCooldownSeconds,
-                        HitPayload = HitPayloadFor(in cfg, Faction)
+                        HitPayload = HitPayloadFor(in cfg, cfg.Faction)
                     };
                     tracking[i] = cfg.Tracking;
                     trackingMask[i] = cfg.Tracking.TrackingEnabled;

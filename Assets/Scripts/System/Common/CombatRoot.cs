@@ -152,7 +152,7 @@ namespace PlayGround.System.Common
             if (_renderRegistry != null)
             {
                 foreach (int renderId in renderResourcesById.Keys)
-                    _renderRegistry.Entries.Remove(BatchIdFor(faction, renderId));
+                    _renderRegistry.Entries.Remove(BatchIdFor(renderId));
                 _renderRegistry = null;
             }
             DestroyRenderResources();
@@ -610,13 +610,7 @@ namespace PlayGround.System.Common
         private const string ProjectileMeshName = "ProjectileQuadMesh";
         private const string AoeMeshName = "AoeQuadMesh";
 
-        // Render identity carries the faction (high bits) so reuse pools stay
-        // faction-isolated, and a render id (low bits) minted from one space shared
-        // by projectiles and AOEs. Projectile and AOE behavior type ids overlap, so
-        // they must NOT be used as the render key directly (that collided in the
-        // single render registry).
-        private static int BatchIdFor(CombatFaction faction, int renderId) =>
-            ((int)faction << 16) | renderId;
+        private static int BatchIdFor(int renderId) => renderId;
 
         // The one render-resource registration entry point. Mints a render id from
         // the shared space, builds the GPU resources, and publishes them to the ECS
@@ -639,7 +633,7 @@ namespace PlayGround.System.Common
             int renderId = nextRenderId++;
             renderResourcesById[renderId] = resources;
             if (_renderRegistry != null)
-                _renderRegistry.Entries[BatchIdFor(faction, renderId)] = new CombatRenderResourceEntry
+                _renderRegistry.Entries[BatchIdFor(renderId)] = new CombatRenderResourceEntry
                 {
                     Resources = resources,
                     Layer = gameObject.layer,
