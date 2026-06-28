@@ -15,3 +15,5 @@ MonoBehaviour:
   skill: {fileID: 11400000, guid: a2000000000000000000000000000007, type: 2}
   supports:
   - {fileID: 11400000, guid: 98db028a9d87c7b48b8781e058d379fe, type: 2}
+  - {fileID: 11400000, guid: 4f45b6f0e6e0705479a291cc0556a898, type: 2}
+  - {fileID: 11400000, guid: 4f45b6f0e6e0705479a291cc0556a898, type: 2}

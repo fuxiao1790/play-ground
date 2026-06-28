@@ -38,13 +38,12 @@ only `PlayerSkillDriver` (handled in 007). `TryGetByFaction` has no external cal
    defaults if still desired, or drop them (faction no longer derives from tags). Keep a
    single discovery tag for the one root (e.g. reuse `PlayerProjectileRoot` as the
    unified-root tag, or introduce one) so tag-based `Find` in callers resolves it.
-5. **`CanTarget`/targetLayers/targetTag (collapse, do not keep inert):** these are the
-   old per-root friendly-fire gate at proxy creation. Faction replaces them, so remove
-   their targeting role: drop the `canTargetFilter` proxy gate (001) and stop deriving
-   targeting layers/tag from the root. `TargetMask` is **not** a collision filter today
-   (see index "Friendly-fire filter" analysis); leave its removal + the `MobProjectileAttack`
-   `targetMask:` argument and request `TargetMask` field to 008 once the mask tests are
-   reconciled, so this task does not churn request payloads mid-flight.
+5. **Delete the old targeting gate.** Remove `CanTarget`, `targetLayers`, `targetTag`,
+   `ConfigureTargetBinding`, the `canTargetFilter` proxy gate (001), and `TargetMask` from
+   `CombatRoot`. They were the per-root friendly-fire gate; faction replaces them. Also
+   delete the `targetMask` parameter/field from `ProjectileSpawnRequest`, `AoeConfig`,
+   `AoeRuntimeEvents`, and the `MobProjectileAttack` `targetMask:` argument (it never
+   reached collision). Do not keep any of it as inert state.
 
 ## Acceptance Criteria
 - `CombatRoot` has no `faction` field, no `ByFaction`/`TryGetByFaction`, no `Faction`

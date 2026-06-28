@@ -36,6 +36,11 @@ and have each caller pass its own faction to the spawn API (006).
    - Add a `CombatFaction faction` parameter to `Spawn(...)` and forward it to
      `SpawnRegisteredProjectile` / `SpawnRegisteredAoe`. `PlayerSkillDriver.Tick` passes
      `CombatFaction.Player`.
+7. **VFX: keep compiling only (out of scope).** The only required VFX touch is replacing
+   the broken `combatRoot.Faction` read in `PlayerSkillDriver` with literal
+   `CombatFaction.Player` (item 5). Do **not** rework VFX faction routing or fix mob VFX
+   binding in this overhaul — `VfxSpawnRequestElement.Faction` still flows from
+   `identity.Faction`, so VFX dispatch keeps working as-is for whatever roots are bound.
 7. **Scene (manual):** in the gameplay/benchmark scenes, delete the second `CombatRoot`
    GameObject and point `GameRoot`/`MobSpawnerRoot`/`PlayerSkillDriver` serialized refs
    at the single `CombatRoot`. (`CombatVfxRoot`s stay two, faction-keyed.)

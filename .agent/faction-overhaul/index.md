@@ -33,6 +33,35 @@ The ECS world, scope, ref-counted ownership, spawn-template registry, expansion,
 apply structure, hit aggregation, status, and render systems are **reused unchanged
 in shape**; only the faction-as-key usages are removed.
 
+> **Delete the existing faction machinery; do not preserve or reconcile it** (per the
+> project owner — "existing faction logic can largely be ignored and should be deleted …
+> i don't really care about existing logic"; this overhaul is the open todo,
+> [todo.md:14-20](../../Docs/todo.md#L14-L20)). Acceptance for every task is the **clean
+> model specified here**, never parity with current runtime behavior. Any earlier
+> "behavior unchanged" wording is void — assume current faction code is wrong.
+>
+> **What gets deleted (not migrated):**
+> - The two-root model: `CombatRoot.faction`, the `ByFaction[]` static + `TryGetByFaction`,
+>   and `ApplyTaggedDefaults`' tag→faction logic ([CombatRoot.cs](../../Assets/Scripts/System/Common/CombatRoot.cs)).
+> - **Firing-faction `TargetFaction`** and the registry-wide `faction` field + the
+>   `CanTarget`/targetLayers/targetTag proxy gate that emulated "who can hit whom"
+>   ([CombatTargetRegistry.cs](../../Assets/Scripts/System/Common/CombatTargetRegistry.cs),
+>   [CombatRoot.cs:197-210](../../Assets/Scripts/System/Common/CombatRoot.cs#L197-L210)).
+> - **Faction in the spatial-hash key** (`CellKey(faction,…)`) in all three collision/
+>   tracking systems.
+> - **Faction in the render batch id** (`(faction<<16)|renderId`) and the per-bucket reuse
+>   faction.
+> - The unenforced target-mask "filter" (`request.TargetMask`, `TargetCollisionShape.Mask`,
+>   `AoeConfig.TargetMask`) — it never gated collision; remove it rather than keep dead state.
+>
+> **What survives as the field:** the `Faction` member on `ProjectileIdentityComponent`,
+> `AoeIdentityComponent`, `TargetFaction`, and the spawn event/command — these *are* the
+> "faction is a field" model and are kept; only their key/structural uses are removed.
+>
+> **Out of scope (minimal touch, keep compiling only):** VFX faction routing
+> (`CombatVfxRoot`/`VfxSpawnRequestElement.Faction`) is a separate consumer of the field
+> and is not reworked here; 007 only replaces the one broken `combatRoot.Faction` read.
+
 ## Rationale for Major Decisions
 
 - **One root, faction per spawn (not per root).** The request is explicit: "1 world
@@ -230,15 +259,10 @@ changed within 005). 007 needs the 006 spawn API. 008 last.
 - **`CombatRoot.CanTarget`/targetLayers/targetTag** are the *removed* friendly-fire gate
   (collapsed into faction); 006 deletes their targeting role rather than leaving them
   inert.
-- **Open question — request `TargetMask`:** static reading says it is already not
-  enforced at collision (no mask on commands/entities; collision never reads
-  `TargetCollisionShape.Mask`), yet `ProjectileTargetMaskFiltersHits`
-  ([BareMinimumPrototypePlayModeTests.cs:174](../../Assets/Tests/PlayMode/BareMinimumPrototypePlayModeTests.cs#L174))
-  and the AoE mask tests assert filtering. **Resolve in 008 by running those tests first:**
-  if they were exercising the now-removed `CanTarget` gate, convert them to faction-skip
-  tests and delete the dead `TargetMask` from `ProjectileSpawnRequest`/`AoeConfig`
-  (data-path collapse). If mask is wanted as an orthogonal sub-target filter, that is a
-  *separate* feature from faction and must be restored explicitly at collision — not left
-  as silent dead state. Do not keep `TargetMask` inert.
+- **Target `TargetMask` is deleted, not reconciled.** It never gated collision (no mask on
+  commands/entities; collision never reads `TargetCollisionShape.Mask`). Remove the field
+  from `ProjectileSpawnRequest`/`AoeConfig`/`AoeRuntimeEvents` and the `MobProjectileAttack`
+  `targetMask:` argument. The mask tests (`ProjectileTargetMaskFiltersHits` + AoE) are
+  deleted or rewritten as same-faction-skip tests in 008 — do not try to make them pass.
 - **Deferred:** faction- (or faction×region-) granular spatial hash keys for collision
   and acquisition, to recover the locality the unified hash gives up (I10).

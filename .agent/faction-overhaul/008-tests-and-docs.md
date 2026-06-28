@@ -21,18 +21,12 @@ Under the old firing-faction model that matched; after 001/002/004 a `Player` pr
      (`TargetFaction { Value = Mob }` and/or `CombatTargetProxy.Create(em, target, Mob)`).
    - Add at least one assertion that a **same-faction** target is **not** hit/acquired
      (new coverage for the skip).
-2. **Target-mask tests — reconcile (data-path collapse)**
-   ([BareMinimumPrototypePlayModeTests.cs:174](../../Assets/Tests/PlayMode/BareMinimumPrototypePlayModeTests.cs#L174)
-   `ProjectileTargetMaskFiltersHits`, plus AoE mask cases):
-   - Run them first to confirm the real pre-change behavior (static reading says request
-     `TargetMask` is not enforced at collision; the live gate was per-root `CanTarget`,
-     removed in 006).
-   - If they asserted the `CanTarget` gate, rewrite as faction-skip coverage and delete
-     the now-dead `TargetMask` from `ProjectileSpawnRequest`/`AoeConfig`/`AoeRuntimeEvents`
-     and the `MobProjectileAttack` `targetMask:` argument.
-   - If a target *sub-mask* filter is still wanted, it is a separate feature from faction;
-     either restore an explicit collision-time mask check or drop it — do not leave it
-     dead. Record the choice in the task notes.
+2. **Target-mask tests — delete or rewrite as faction-skip.**
+   `ProjectileTargetMaskFiltersHits`
+   ([BareMinimumPrototypePlayModeTests.cs:174](../../Assets/Tests/PlayMode/BareMinimumPrototypePlayModeTests.cs#L174))
+   and the AoE mask cases test a filter that is being deleted (006). Do not try to make
+   them pass — delete them, or replace with same-faction-skip coverage. Drop any other
+   test references to `targetMask`/`ConfigureTargetBinding`.
 3. **Pipeline/prototype tests**
    ([ProjectileSpawnPipelineTests.cs](../../Assets/Tests/PlayMode/ProjectileSpawnPipelineTests.cs),
    [SpawnCommandUnificationTests.cs](../../Assets/Tests/PlayMode/SpawnCommandUnificationTests.cs),
