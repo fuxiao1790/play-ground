@@ -4,16 +4,36 @@
 `Assets/Scripts/System/Common/CombatRenderComponents.cs`
 
 ## Dependency
-None — first step.
+None — first step. Adds API only; no callers wired yet.
 
-## Changes
+## Single store: use `Entries`
 
-Add to `CombatRenderResourceRegistry`:
+The registry already holds the resources in
+`Entries[renderId].Resources` (`CombatRenderResourceEntry.Resources`). Do **not**
+add a second `Dictionary<int, CombatSpriteRenderResources>` — that would recreate
+the duplicate store this refactor removes. Everything below reads/writes `Entries`.
+
+## Changes to `CombatRenderResourceRegistry`
+
+### Counter + constants
 
 ```csharp
-private readonly Dictionary<int, CombatSpriteRenderResources> _resourcesById = new();
 private int _nextRenderId = 1;
 
+public const string ProjectileMeshName = "ProjectileQuadMesh";
+public const string AoeMeshName = "AoeQuadMesh";
+
+// Effectively-infinite, cosmetic batch bounds (was CombatRoot.batchBoundsHalfExtent).
+private const float BoundsHalfExtent = 100000f;
+```
+
+### Register (mint + build + publish)
+
+```csharp
+// The one render-resource registration entry point. Mints a render id, builds the
+// GPU resources on the calling (main) thread, and publishes them into Entries under
+// the batch id (== renderId). Projectiles and AOEs both register here, distinguished
+// only by mesh name. Returns 0 for a null sprite (== "no visual").
 public int Register(
     Sprite sprite,
     Vector2 visualScale,
@@ -23,28 +43,34 @@ public int Register(
     int layer)
 {
     if (sprite == null) return 0;
+
     CombatSpriteRenderResources resources = BatchedSpriteRenderer.BuildResources(
         sprite, visualScale, visualRotationDegrees, sourceMaterial, meshName);
     int renderId = _nextRenderId++;
-    _resourcesById[renderId] = resources;
     Entries[renderId] = new CombatRenderResourceEntry
     {
         Resources = resources,
         Layer = layer,
-        BoundsHalfExtent = 100000f
+        BoundsHalfExtent = BoundsHalfExtent
     };
     return renderId;
 }
 ```
 
-No `BatchIdFor` helper — the faction overhaul already made `CombatRenderBatchId.Value = cmd.RenderTypeId` (plain renderId). The registry key is just `renderId`. No faction parameter on `Register`.
+No `faction` parameter (batch id is faction-free) and no `BatchIdFor` (apply systems
+already write `cmd.RenderTypeId` into `CombatRenderBatchId.Value`).
 
-Add render-component builders:
+### Render-component builders
+
+These read the resource straight from `Entries`. The render-Z layout constants stay
+in `CombatRoot` (external systems reference `CombatRoot.ProjectileRenderZ` etc.), so
+the registry references them as consts.
 
 ```csharp
 public CombatRenderComponent GetProjectileRenderComponent(int renderId, int projectileId)
 {
-    if (!_resourcesById.TryGetValue(renderId, out var res)) return default;
+    if (!Entries.TryGetValue(renderId, out var entry)) return default;
+    CombatSpriteRenderResources res = entry.Resources;
     return new CombatRenderComponent
     {
         IsRenderable = 1,
@@ -57,9 +83,13 @@ public CombatRenderComponent GetProjectileRenderComponent(int renderId, int proj
     };
 }
 
+// AOE visual data comes from the geometry, not the stored resource; the entry only
+// gates whether a visual exists. The renderId is present in Entries iff the AOE type's
+// prefab carried a sprite (see TryBuildAoeRenderResource / TryGetVisual in 002); a
+// vfx-only / spriteless type has no entry and this returns default.
 public CombatRenderComponent GetAoeRenderComponent(int renderId, AoeSpawnGeometry geometry)
 {
-    if (!_resourcesById.ContainsKey(renderId)) return default;
+    if (!Entries.ContainsKey(renderId)) return default;
     return new CombatRenderComponent
     {
         IsRenderable = 1,
@@ -72,25 +102,32 @@ public CombatRenderComponent GetAoeRenderComponent(int renderId, AoeSpawnGeometr
 }
 ```
 
-Add teardown:
+### Teardown
 
 ```csharp
-// Removes and destroys all render resources. Called from CombatRoot.OnDestroy.
+// Destroys all GPU resources and clears the store. One root owns all entries, so
+// teardown clears everything. Called from CombatRoot.OnDestroy.
 public void Unregister()
 {
-    foreach (var res in _resourcesById.Values)
-        res.Destroy();
-    _resourcesById.Clear();
+    foreach (var entry in Entries.Values)
+        entry.Resources.Destroy();
     Entries.Clear();
+    _nextRenderId = 1;
 }
 ```
 
-No faction parameter — one root owns all entries; clear everything on teardown.
+## New usings / namespace notes
+- `Entries` already exists on the type; `CombatSpriteRenderResources`, `BatchedSpriteRenderer`,
+  `AoeSpawnGeometry`, and `CombatRoot` are all in `PlayGround.System.*` — confirm the
+  needed `using`s (`UnityEngine` for `Sprite`/`Material`/`Vector2`, `Unity.Mathematics`
+  for `float2`) are present in `CombatRenderComponents.cs`.
 
 ## Acceptance Criteria
-- `CombatRenderResourceRegistry` compiles standalone with the new methods.
-- `Register`, `GetProjectileRenderComponent`, `GetAoeRenderComponent`, `Unregister` are all accessible as `public`.
-- No callers yet wired — this step only adds the API.
+- Registry compiles standalone with `Register`, `GetProjectileRenderComponent`,
+  `GetAoeRenderComponent`, `Unregister`, `ProjectileMeshName`, `AoeMeshName` as `public`.
+- No `_resourcesById` (or any second resource dictionary) is introduced — `Entries` is
+  the sole store.
+- No callers wired yet — this step only adds API.
 
 ## Scope
-Small. ~60 lines added to one file.
+Small. ~70 lines added to one file.
