@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using PlayGround.Common;
 using PlayGround.Skills;
 using PlayGround.System.Aoe;
@@ -12,10 +12,10 @@ using Hash128 = Unity.Entities.Hash128;
 
 namespace PlayGround.System.Common
 {
-    // Unified combat root: one per faction. Owns one ECS world handle and ONE
-    // shared scope serving both the projectile and AOE domains (shared target
-    // list + damage buffer + per-domain spawn request buffers). Merges the former
-    // ProjectileRoot + AoeRoot + CombatRuntimeRoot.
+    // Unified combat root: one instance serves all factions. Owns one ECS world handle
+    // and ONE shared scope serving both the projectile and AOE domains (shared target
+    // list + damage buffer + per-domain spawn request buffers). Faction is a per-spawn
+    // argument, not a property of the root.
     //
     // Render resources are exposed through a static int-keyed registry (mirrors
     // CombatVfxRoot) so the shared scope can serve both domains' render data
@@ -27,12 +27,6 @@ namespace PlayGround.System.Common
         internal const int ProjectileRenderZSlots = 1_000_000;
         internal const float AoeRenderZ = 0.5f;
         internal const int MaxSpawnChainDepth = SpawnTemplateLimits.MaxSpawnChainDepth;
-
-        private static readonly CombatRoot[] ByFaction = new CombatRoot[3];
-
-        [Header("Targeting")]
-        [SerializeField] private LayerMask targetLayers;
-        [SerializeField] private string targetTag;
 
         [Header("Projectile visuals")]
         [SerializeField] private Sprite projectileSprite;
@@ -48,8 +42,6 @@ namespace PlayGround.System.Common
         private float batchBoundsHalfExtent = 100000f;
 
         private readonly CombatTargetRegistry<ICombatTarget> targetRegistry = new();
-        private global::System.Func<ICombatTarget, bool> canTargetFilter;
-        private CombatFaction faction;
 
         // Render-resource state. Render identity is decoupled from the per-domain
         // behavior type ids: projectile and AOE type id spaces overlap, so render
@@ -84,35 +76,15 @@ namespace PlayGround.System.Common
         private bool ecsHandlesCreated;
 
         public CombatTargetRegistry<ICombatTarget> TargetRegistry => targetRegistry;
-        public int TargetMask => targetLayers.value != 0 ? targetLayers.value : ~0;
         public AoeRuntimeCounters Counters => new(ActiveAoeCount(), spawnedAoes, 0, 0, 0, 0);
 
         internal Entity ScopeEntity => scopeEntity;
         internal EntityManager EntityManager => entityManager;
-        internal CombatFaction Faction => faction;
         internal IReadOnlyDictionary<int, ICombatTarget> TargetsById => targetRegistry.TargetsById;
-
-        internal static bool TryGetByFaction(CombatFaction faction, out CombatRoot root)
-        {
-            root = faction != CombatFaction.None ? ByFaction[(int)faction] : null;
-            return root != null;
-        }
 
         private void Awake()
         {
             runtimeReady = false;
-            canTargetFilter = CanTarget;
-            ApplyTaggedDefaults();
-            CombatRoot existing = ByFaction[(int)faction];
-            if (existing != null && existing != this)
-            {
-                Debug.LogWarning(
-                    $"[CombatRoot] '{name}' (faction={faction}) is overwriting '{existing.name}' in the static faction lookup. " +
-                    $"Assign the '{GameplayTags.MobProjectileRoot}' tag to the mob CombatRoot GameObject " +
-                    $"and '{GameplayTags.PlayerProjectileRoot}' to the player CombatRoot GameObject so each faction " +
-                    $"registers in its own slot. Until fixed, player projectiles will use mob render resources and won't appear.", this);
-            }
-            ByFaction[(int)faction] = this;
             BindWorld();
             using (EntityQuery q = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CombatRenderResourceRegistry>()))
@@ -129,15 +101,10 @@ namespace PlayGround.System.Common
 
         private void OnDestroy()
         {
-            if (ByFaction[(int)faction] == this)
-            {
-                ByFaction[(int)faction] = null;
-            }
-
             if (HasValidEcsState())
             {
-                DestroyScopedEntities(allProjectileQuery, GetProjectileFaction);
-                DestroyScopedEntities(allAoeQuery, GetAoeFaction);
+                DestroyScopedEntities(allProjectileQuery);
+                DestroyScopedEntities(allAoeQuery);
                 CombatScopeOwner.Release(entityManager, scopeEntity);
             }
             else if (scopeEntity != Entity.Null)
@@ -152,7 +119,7 @@ namespace PlayGround.System.Common
             if (_renderRegistry != null)
             {
                 foreach (int renderId in renderResourcesById.Keys)
-                    _renderRegistry.Entries.Remove(BatchIdFor(renderId));
+                    _renderRegistry.Entries.Remove(renderId);
                 _renderRegistry = null;
             }
             DestroyRenderResources();
@@ -161,12 +128,6 @@ namespace PlayGround.System.Common
         // ---- Projectile API ----
 
         public void Configure(Sprite sprite) => projectileSprite = sprite;
-
-        public void ConfigureTargetBinding(LayerMask layers, string tag = null)
-        {
-            targetLayers = layers;
-            targetTag = tag;
-        }
 
         public int RegisterTemplate(BasicAttackPrefab template)
         {
@@ -194,22 +155,7 @@ namespace PlayGround.System.Common
             return typeId;
         }
 
-        public bool CanTarget(ICombatTarget target)
-        {
-            if (target == null || (target.CombatTargetMask & TargetMask) == 0)
-            {
-                return false;
-            }
-
-            if (!string.IsNullOrEmpty(targetTag) && target is Component component && !component.CompareTag(targetTag))
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        public int Spawn(ProjectileSpawnRequest request, int seedContactGateTargetId = 0)
+        public int Spawn(ProjectileSpawnRequest request, CombatFaction faction, int seedContactGateTargetId = 0)
         {
             EnsureRuntimeReady();
             ValidateSpawnRequest(request);
@@ -219,7 +165,7 @@ namespace PlayGround.System.Common
             ProjectileSpawnCommand template = ProjectileCommandFor(request, baseProjectileId, seedContactGateTargetId);
             Hash128 templateKey = RegisterSpawnTemplate(in template);
             entityManager.GetBuffer<ProjectileSpawnEvent>(scopeEntity)
-                .Add(ProjectileEventFor(templateKey, request, baseProjectileId, seedContactGateTargetId));
+                .Add(ProjectileEventFor(templateKey, request, baseProjectileId, seedContactGateTargetId, faction));
             return baseProjectileId;
         }
 
@@ -247,6 +193,7 @@ namespace PlayGround.System.Common
             Vector2 position,
             Vector2 direction,
             int count,
+            CombatFaction faction,
             int seedContactGateTargetId = 0)
         {
             EnsureRuntimeReady();
@@ -299,7 +246,7 @@ namespace PlayGround.System.Common
         public Hash128 RegisterTimedSpawnTemplate(in AoeSpawnCommand template) =>
             RegisterSpawnTemplate(in template);
 
-        internal int SpawnRegisteredAoe(Hash128 templateKey, Vector2 position, int count)
+        internal int SpawnRegisteredAoe(Hash128 templateKey, Vector2 position, int count, CombatFaction faction)
         {
             EnsureRuntimeReady();
             if (templateKey.Equals(default(Hash128)))
@@ -368,19 +315,18 @@ namespace PlayGround.System.Common
             return typeId;
         }
 
-        public int Spawn(ProjectileAoeSpawnRequest request)
+        public int Spawn(ProjectileAoeSpawnRequest request, CombatFaction faction)
         {
             return Spawn(new AoeSpawnRequest(
                 request.EffectTypeId,
                 request.Position,
-                TargetMask,
                 request.Damage,
                 request.LifetimeSeconds,
                 request.TickIntervalSeconds,
-                request.Geometry));
+                request.Geometry), faction);
         }
 
-        public int Spawn(AoeSpawnRequest request)
+        public int Spawn(AoeSpawnRequest request, CombatFaction faction)
         {
             EnsureRuntimeReady();
             if (!typeRegistry.TryGetDefinition(request.TypeId, out _))
@@ -395,7 +341,7 @@ namespace PlayGround.System.Common
             int aoeId = ++nextAoeId;
             AoeSpawnCommand template = AoeCommandFor(request, aoeId);
             Hash128 templateKey = RegisterSpawnTemplate(in template);
-            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Add(AoeEventFor(templateKey, request, aoeId));
+            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Add(AoeEventFor(templateKey, request, aoeId, faction));
             spawnedAoes++;
             return aoeId;
         }
@@ -406,7 +352,8 @@ namespace PlayGround.System.Common
             Hash128 templateKey,
             ProjectileSpawnRequest request,
             int baseProjectileId,
-            int seedContactGateTargetId)
+            int seedContactGateTargetId,
+            CombatFaction faction)
         {
             return new ProjectileSpawnEvent
             {
@@ -425,13 +372,13 @@ namespace PlayGround.System.Common
         {
             float2 position = new(request.Position.x, request.Position.y);
             float2 halfExtents = new(request.HalfExtents.x, request.HalfExtents.y);
-            TimedSpawnComponent timedSpawn = TimedSpawnFor(request, faction, baseProjectileId);
+            TimedSpawnComponent timedSpawn = TimedSpawnFor(request, baseProjectileId);
             bool hasTimedSpawner = IsTimedSpawnEnabled(timedSpawn);
             int renderId = ProjectileRenderId(request.ProjectileTypeId);
 
             return new ProjectileSpawnCommand
             {
-                Faction = faction,
+                Faction = CombatFaction.None,
                 ProjectileId = baseProjectileId,
                 TypeId = request.ProjectileTypeId,
                 RenderTypeId = renderId,
@@ -458,7 +405,7 @@ namespace PlayGround.System.Common
             };
         }
 
-        private AoeSpawnEvent AoeEventFor(Hash128 templateKey, AoeSpawnRequest request, int aoeId)
+        private AoeSpawnEvent AoeEventFor(Hash128 templateKey, AoeSpawnRequest request, int aoeId, CombatFaction faction)
         {
             return new AoeSpawnEvent
             {
@@ -480,7 +427,7 @@ namespace PlayGround.System.Common
 
             return new AoeSpawnCommand
             {
-                Faction = faction,
+                Faction = CombatFaction.None,
                 AoeId = aoeId,
                 TypeId = request.TypeId,
                 RenderTypeId = renderId,
@@ -504,13 +451,12 @@ namespace PlayGround.System.Common
                 Render = AoeRenderComponentForRenderId(renderId, geometry),
                 OnHitSpawn = request.OnHitSpawn,
                 HasTimedSpawner = request.HasTimedSpawner ? 1 : 0,
-                TimedSpawn = StampTimedSpawn(request.TimedSpawn, faction, aoeId)
+                TimedSpawn = StampTimedSpawn(request.TimedSpawn, CombatFaction.None, aoeId)
             };
         }
 
         private static TimedSpawnComponent TimedSpawnFor(
             ProjectileSpawnRequest request,
-            CombatFaction faction,
             int sourceId)
         {
             TimedSpawnComponent timedSpawn = request.TimedSpawn;
@@ -528,7 +474,7 @@ namespace PlayGround.System.Common
                 };
             }
 
-            return StampTimedSpawn(timedSpawn, faction, sourceId);
+            return StampTimedSpawn(timedSpawn, CombatFaction.None, sourceId);
         }
 
         private static TimedSpawnComponent StampTimedSpawn(
@@ -570,6 +516,12 @@ namespace PlayGround.System.Common
             timedSpawn.Faction = CombatFaction.None;
             timedSpawn.SourceId = 0;
             template.TimedSpawn = timedSpawn;
+            ProjectileHitPayload hp = template.HitPayload;
+            CombatHitPayload combat = hp.HitPayload;
+            StackEffectSnapshot stack = combat.StackEffect;
+            stack.Faction = CombatFaction.None;
+            combat.StackEffect = stack;
+            template.HitPayload = new ProjectileHitPayload(combat, hp.OnHitSpawn);
             return template;
         }
 
@@ -587,6 +539,11 @@ namespace PlayGround.System.Common
             timedSpawn.Faction = CombatFaction.None;
             timedSpawn.SourceId = 0;
             template.TimedSpawn = timedSpawn;
+            CombatHitPayload hitPayload = template.HitPayload;
+            StackEffectSnapshot stack = hitPayload.StackEffect;
+            stack.Faction = CombatFaction.None;
+            hitPayload.StackEffect = stack;
+            template.HitPayload = hitPayload;
             return template;
         }
 
@@ -610,11 +567,9 @@ namespace PlayGround.System.Common
         private const string ProjectileMeshName = "ProjectileQuadMesh";
         private const string AoeMeshName = "AoeQuadMesh";
 
-        private static int BatchIdFor(int renderId) => renderId;
-
         // The one render-resource registration entry point. Mints a render id from
         // the shared space, builds the GPU resources, and publishes them to the ECS
-        // render registry under the faction-scoped batch id. "A sprite is a sprite":
+        // render registry under the batch id (== renderId). "A sprite is a sprite":
         // projectiles and AOEs both register here, distinguished only by mesh name.
         public int RegisterRenderResource(
             Sprite sprite,
@@ -633,7 +588,7 @@ namespace PlayGround.System.Common
             int renderId = nextRenderId++;
             renderResourcesById[renderId] = resources;
             if (_renderRegistry != null)
-                _renderRegistry.Entries[BatchIdFor(renderId)] = new CombatRenderResourceEntry
+                _renderRegistry.Entries[renderId] = new CombatRenderResourceEntry
                 {
                     Resources = resources,
                     Layer = gameObject.layer,
@@ -786,22 +741,12 @@ namespace PlayGround.System.Common
                 return 0;
             }
 
-            int count = 0;
-            DynamicBuffer<AoeSpawnEvent> pending = entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity);
-            for (int i = 0; i < pending.Length; i++)
-            {
-                if (pending[i].Faction == faction)
-                {
-                    count++;
-                }
-            }
+            int count = entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Length;
 
             using NativeArray<Entity> entities = allAoeQuery.ToEntityArray(Allocator.Temp);
             for (int i = 0; i < entities.Length; i++)
             {
-                Entity entity = entities[i];
-                AoeIdentityComponent identity = entityManager.GetComponentData<AoeIdentityComponent>(entity);
-                if (identity.Faction == faction && entityManager.IsComponentEnabled<Active>(entity))
+                if (entityManager.IsComponentEnabled<Active>(entities[i]))
                 {
                     count++;
                 }
@@ -810,21 +755,12 @@ namespace PlayGround.System.Common
             return count;
         }
 
-        private CombatFaction GetProjectileFaction(Entity entity) =>
-            entityManager.GetComponentData<ProjectileIdentityComponent>(entity).Faction;
-
-        private CombatFaction GetAoeFaction(Entity entity) =>
-            entityManager.GetComponentData<AoeIdentityComponent>(entity).Faction;
-
-        private void DestroyScopedEntities(EntityQuery query, global::System.Func<Entity, CombatFaction> factionOf)
+        private void DestroyScopedEntities(EntityQuery query)
         {
             using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
             for (int i = 0; i < entities.Length; i++)
             {
-                if (factionOf(entities[i]) == faction)
-                {
-                    entityManager.DestroyEntity(entities[i]);
-                }
+                entityManager.DestroyEntity(entities[i]);
             }
         }
 
@@ -932,70 +868,6 @@ namespace PlayGround.System.Common
             }
 
             query = default;
-        }
-
-        // ---- Faction defaults ----
-
-        // Faction must always resolve to a real value (never None) once a root
-        // binds 鈥?None is reserved as the "never spawned" sentinel on identity
-        // components, not as a valid root state. Untagged roots (e.g. ad-hoc
-        // roots built in isolated tests) default to Player so their spawns are
-        // never silently skipped by collision/render/dispatch systems.
-        private void ApplyTaggedDefaults()
-        {
-            faction = CombatFaction.Player;
-
-            if (HasTag(GameplayTags.PlayerProjectileRoot))
-            {
-                ApplyTargetDefaults(GameplayLayers.MobHurtbox, GameplayTags.Mob);
-                ApplyObjectLayer(GameplayLayers.PlayerProjectile);
-                return;
-            }
-
-            if (HasTag(GameplayTags.MobProjectileRoot))
-            {
-                faction = CombatFaction.Mob;
-                ApplyTargetDefaults(GameplayLayers.PlayerHurtbox, GameplayTags.Player);
-                ApplyObjectLayer(GameplayLayers.MobProjectile);
-            }
-        }
-
-        private void ApplyTargetDefaults(string targetLayerName, string defaultTargetTag)
-        {
-            if (targetLayers.value == 0)
-            {
-                int layer = LayerMask.NameToLayer(targetLayerName);
-                if (layer >= 0)
-                {
-                    targetLayers = 1 << layer;
-                }
-            }
-
-            if (string.IsNullOrEmpty(targetTag))
-            {
-                targetTag = defaultTargetTag;
-            }
-        }
-
-        private void ApplyObjectLayer(string layerName)
-        {
-            int layer = LayerMask.NameToLayer(layerName);
-            if (layer >= 0)
-            {
-                gameObject.layer = layer;
-            }
-        }
-
-        private bool HasTag(string tag)
-        {
-            try
-            {
-                return CompareTag(tag);
-            }
-            catch (UnityException)
-            {
-                return false;
-            }
         }
 
         [global::System.Serializable]

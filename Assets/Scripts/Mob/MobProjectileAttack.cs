@@ -89,8 +89,7 @@ namespace PlayGround.Mob
                 new DamageSnapshot(damage),
                 ProjectileShape,
                 ProjectileTypeId,
-                targetMask: projectileRoot.TargetMask,
-                sourceNodeId: owner.ProjectileHitNodeId));
+                sourceNodeId: owner.ProjectileHitNodeId), CombatFaction.Mob);
             cooldownRemaining = cooldownSeconds;
         }
 

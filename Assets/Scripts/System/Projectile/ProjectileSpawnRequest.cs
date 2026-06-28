@@ -26,7 +26,6 @@ namespace PlayGround.System.Projectile
                 damage,
                 shapeType,
                 0,
-                1,
                 0,
                 0f,
                 ProjectileTrackingConfig.Disabled,
@@ -59,7 +58,6 @@ namespace PlayGround.System.Projectile
             DamageSnapshot damage,
             CombatShapeType shapeType,
             int projectileTypeId = 0,
-            int targetMask = 1,
             int pierceCount = 0,
             float repeatHitCooldownSeconds = 0f,
             ProjectileTrackingConfig tracking = default,
@@ -86,7 +84,6 @@ namespace PlayGround.System.Projectile
             Damage = damage;
             ShapeType = shapeType;
             ProjectileTypeId = projectileTypeId;
-            TargetMask = targetMask;
             PierceCount = Mathf.Max(0, pierceCount);
             RepeatHitCooldownSeconds = Mathf.Max(0f, repeatHitCooldownSeconds);
             Tracking = tracking;
@@ -122,7 +119,6 @@ namespace PlayGround.System.Projectile
             DamageSnapshot damage,
             ProjectileShapeType shapeType,
             int projectileTypeId = 0,
-            int targetMask = 1,
             int pierceCount = 0,
             float repeatHitCooldownSeconds = 0f,
             ProjectileTrackingConfig tracking = default,
@@ -140,7 +136,6 @@ namespace PlayGround.System.Projectile
                 damage,
                 (CombatShapeType)(int)shapeType,
                 projectileTypeId,
-                targetMask,
                 pierceCount,
                 repeatHitCooldownSeconds,
                 tracking,
@@ -160,7 +155,6 @@ namespace PlayGround.System.Projectile
         public DamageSnapshot Damage { get; }
         public CombatShapeType ShapeType { get; }
         public int ProjectileTypeId { get; }
-        public int TargetMask { get; }
         public int PierceCount { get; }
         public float RepeatHitCooldownSeconds { get; }
         public ProjectileTrackingConfig Tracking { get; }
@@ -216,7 +210,6 @@ namespace PlayGround.System.Projectile
             CombatShapeType shapeType,
             float rotationRadians,
             DamageSnapshot damage,
-            int targetMask = 0,
             bool directDamageEnabled = true,
             int pierceCount = 0,
             float repeatHitCooldownSeconds = 0f,
@@ -239,7 +232,6 @@ namespace PlayGround.System.Projectile
             ShapeType = shapeType;
             RotationRadians = rotationRadians;
             Damage = damage;
-            TargetMask = targetMask;
             DirectDamageEnabled = directDamageEnabled;
             PierceCount = Mathf.Max(0, pierceCount);
             RepeatHitCooldownSeconds = Mathf.Max(0f, repeatHitCooldownSeconds);
@@ -264,7 +256,6 @@ namespace PlayGround.System.Projectile
             ProjectileShapeType shapeType,
             float rotationRadians,
             DamageSnapshot damage,
-            int targetMask = 0,
             bool directDamageEnabled = true,
             int pierceCount = 0,
             float repeatHitCooldownSeconds = 0f,
@@ -284,7 +275,6 @@ namespace PlayGround.System.Projectile
                 (CombatShapeType)(int)shapeType,
                 rotationRadians,
                 damage,
-                targetMask,
                 directDamageEnabled,
                 pierceCount,
                 repeatHitCooldownSeconds,
@@ -306,7 +296,6 @@ namespace PlayGround.System.Projectile
         public CombatShapeType ShapeType { get; }
         public float RotationRadians { get; }
         public DamageSnapshot Damage { get; }
-        public int TargetMask { get; }
         public bool DirectDamageEnabled { get; }
         public int PierceCount { get; }
         public float RepeatHitCooldownSeconds { get; }

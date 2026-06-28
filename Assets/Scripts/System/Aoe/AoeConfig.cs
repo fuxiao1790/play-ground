@@ -15,7 +15,6 @@ namespace PlayGround.System.Aoe
         [SerializeField] private float damage = 1f;
         [SerializeField, Min(1)] private int count = 1;
         [SerializeField] private bool spawnAtAimPosition;
-        [SerializeField] private int targetMask = 1;
 
         public BasicAoePrefab Prefab => basicPrefab;
         public GameObject VisualPrefab => basicPrefab != null ? basicPrefab.gameObject : null;
@@ -27,7 +26,6 @@ namespace PlayGround.System.Aoe
         public virtual float TickIntervalSeconds => 0f;
         public int Count => count;
         public bool SpawnAtAimPosition => spawnAtAimPosition;
-        public int TargetMask => targetMask;
 
         public void Configure(BasicAoePrefab prefab)
         {

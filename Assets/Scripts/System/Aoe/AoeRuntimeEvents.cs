@@ -9,7 +9,6 @@ namespace PlayGround.System.Aoe
         public AoeSpawnRequest(
             int typeId,
             Vector2 position,
-            int targetMask,
             DamageSnapshot damage,
             float lifetimeSeconds,
             float tickIntervalSeconds,
@@ -25,7 +24,6 @@ namespace PlayGround.System.Aoe
         {
             TypeId = typeId;
             Position = position;
-            TargetMask = targetMask;
             Damage = damage;
             LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds);
             TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds);
@@ -42,7 +40,6 @@ namespace PlayGround.System.Aoe
 
         public int TypeId { get; }
         public Vector2 Position { get; }
-        public int TargetMask { get; }
         public DamageSnapshot Damage { get; }
         public float LifetimeSeconds { get; }
         public float TickIntervalSeconds { get; }
