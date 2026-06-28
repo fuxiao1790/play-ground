@@ -79,6 +79,7 @@ namespace PlayGround.System.Aoe
             NativeArray<Entity> targetEntities,
             NativeArray<TargetPosition> targetPositions,
             NativeArray<TargetCollisionShape> targetShapes,
+            NativeArray<TargetFaction> targetFactions,
             NativeParallelMultiHashMap<long, int> occupiedTargetCells,
             NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
             bool hasHitWriter,
@@ -110,7 +111,7 @@ namespace PlayGround.System.Aoe
             {
                 for (int cx = min.x; cx <= max.x && remaining > 0; cx++)
                 {
-                    long key = CellKey(identity.Faction, cx, cy);
+                    long key = CellKey(cx, cy);
                     if (!occupiedTargetCells.TryGetFirstValue(
                             key,
                             out int i,
@@ -119,6 +120,9 @@ namespace PlayGround.System.Aoe
 
                     do
                     {
+                        if (targetFactions[i].Value == identity.Faction)
+                            continue;
+
                         Entity targetEntity = targetEntities[i];
                         int targetKey = TargetKey(targetEntity);
 
@@ -296,12 +300,11 @@ namespace PlayGround.System.Aoe
             (int)math.floor(max.x / SpatialHashCellSize),
             (int)math.floor(max.y / SpatialHashCellSize));
 
-        internal static long CellKey(CombatFaction faction, int x, int y)
+        internal static long CellKey(int x, int y)
         {
             unchecked
             {
                 ulong hash = 1469598103934665603UL;
-                hash = (hash ^ (byte)faction) * 1099511628211UL;
                 hash = (hash ^ (uint)x) * 1099511628211UL;
                 hash = (hash ^ (uint)y) * 1099511628211UL;
                 return (long)hash;

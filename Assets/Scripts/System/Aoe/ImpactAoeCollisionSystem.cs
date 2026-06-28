@@ -77,7 +77,7 @@ namespace PlayGround.System.Aoe
                 int2 max = AoeCollisionCore.MaxCell(target.BoundsMax);
                 for (int y = min.y; y <= max.y; y++)
                 for (int x = min.x; x <= max.x; x++)
-                    occupiedTargetCells.Add(AoeCollisionCore.CellKey(targetFactions[i].Value, x, y), i);
+                    occupiedTargetCells.Add(AoeCollisionCore.CellKey(x, y), i);
             }
 
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
@@ -90,6 +90,7 @@ namespace PlayGround.System.Aoe
                 TargetEntities = targetEntities,
                 TargetPositions = targetPositions,
                 TargetShapes = targetShapes,
+                TargetFactions = targetFactions,
                 OccupiedTargetCells = occupiedTargetCells,
                 HitWriter = hitApply != null
                     ? hitApply.AsParallelWriter()
@@ -146,6 +147,7 @@ namespace PlayGround.System.Aoe
             [ReadOnly] public NativeArray<Entity> TargetEntities;
             [ReadOnly] public NativeArray<TargetPosition> TargetPositions;
             [ReadOnly] public NativeArray<TargetCollisionShape> TargetShapes;
+            [ReadOnly] public NativeArray<TargetFaction> TargetFactions;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> OccupiedTargetCells;
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
             public bool HasHitWriter;
@@ -184,6 +186,7 @@ namespace PlayGround.System.Aoe
                     TargetEntities,
                     TargetPositions,
                     TargetShapes,
+                    TargetFactions,
                     OccupiedTargetCells,
                     HitWriter,
                     HasHitWriter,
