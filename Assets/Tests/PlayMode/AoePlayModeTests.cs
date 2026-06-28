@@ -137,7 +137,7 @@ namespace PlayGround.Tests.PlayMode
         {
             CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out _);
             MobRoot mob = CreateMobTarget(Vector2.zero);
-            mob.BindAoeRoot(root);
+            mob.BindCombatRoot(root);
             mob.Register(root.TargetRegistry);
 
             AoeConfig triggerConfig = CreateMinimalAoeConfig();
@@ -460,8 +460,8 @@ namespace PlayGround.Tests.PlayMode
             int projectileChildTypeId = projectileSource.ChildSpawnSetup.ChildDefinition.TypeId;
             int aoeChildTypeId = aoeSource.AoeIntervalSpawnSetup.ChildDefinition.TypeId;
 
-            SkillSpawnTranslator.Spawn(projectileSource, Vector2.zero, Vector2.right, Vector2.zero, root);
-            SkillSpawnTranslator.Spawn(aoeSource, Vector2.zero, Vector2.right, Vector2.zero, root);
+            SkillSpawnTranslator.Spawn(projectileSource, Vector2.zero, Vector2.right, Vector2.zero, root, CombatFaction.Player);
+            SkillSpawnTranslator.Spawn(aoeSource, Vector2.zero, Vector2.right, Vector2.zero, root, CombatFaction.Player);
 
             for (int i = 0; i < 10; i++)
                 yield return new WaitForSeconds(0.02f);
@@ -549,16 +549,16 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(projectileRuntime.ImpactAoeDefinition.StackingDetonation, Is.Not.Null);
 
             MobRoot mob = CreateMobTarget(new Vector2(1f, 0f));
-            mob.BindAoeRoot(root);
+            mob.BindCombatRoot(root);
             mob.Register(root.TargetRegistry);
-            SkillSpawnTranslator.Spawn(runtime, Vector2.zero, Vector2.right, Vector2.zero, root);
+            SkillSpawnTranslator.Spawn(runtime, Vector2.zero, Vector2.right, Vector2.zero, root, CombatFaction.Player);
             for (int i = 0; i < 4; i++)
                 yield return null;
 
             int debuffKey = projectileRuntime.ImpactAoeDefinition.StackingDetonation.DebuffKey;
             Assert.That(EcsDebuffStackCount(mob, debuffKey), Is.EqualTo(1));
 
-            SkillSpawnTranslator.Spawn(runtime, Vector2.zero, Vector2.right, Vector2.zero, root);
+            SkillSpawnTranslator.Spawn(runtime, Vector2.zero, Vector2.right, Vector2.zero, root, CombatFaction.Player);
             for (int i = 0; i < 8; i++)
                 yield return null;
 
@@ -952,7 +952,7 @@ namespace PlayGround.Tests.PlayMode
             int detonationTypeId = root.RegisterType(detonationDef);
 
             MobRoot mob = CreateMobTarget(Vector2.zero);
-            mob.BindAoeRoot(root);
+            mob.BindCombatRoot(root);
             mob.Register(root.TargetRegistry);
 
             AoeSpawnGeometry geometry = Geometry(templateObject, 2f);
@@ -993,7 +993,7 @@ namespace PlayGround.Tests.PlayMode
             int pulseTypeId = root.RegisterType(pulseDef);
 
             MobRoot mob = CreateMobTarget(Vector2.zero);
-            mob.BindAoeRoot(root);
+            mob.BindCombatRoot(root);
             mob.Register(root.TargetRegistry);
 
             const float ChainDamage = 5f;

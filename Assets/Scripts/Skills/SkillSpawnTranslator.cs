@@ -12,7 +12,8 @@ namespace PlayGround.Skills
             Vector2 origin,
             Vector2 aimDir,
             Vector2 aimWorldPos,
-            CombatRoot combatRoot)
+            CombatRoot combatRoot,
+            CombatFaction faction)
         {
             if (def == null || combatRoot == null || IsDefault(def.SpawnTemplateKey))
             {
@@ -30,7 +31,8 @@ namespace PlayGround.Skills
                     projectile.SpawnTemplateKey,
                     origin,
                     aimDir,
-                    Mathf.Max(1, projectile.Count));
+                    Mathf.Max(1, projectile.Count),
+                    faction);
                 return;
             }
 
@@ -44,7 +46,8 @@ namespace PlayGround.Skills
                 combatRoot.SpawnRegisteredAoe(
                     aoe.SpawnTemplateKey,
                     aimWorldPos,
-                    Mathf.Max(1, aoe.Count));
+                    Mathf.Max(1, aoe.Count),
+                    faction);
             }
         }
 

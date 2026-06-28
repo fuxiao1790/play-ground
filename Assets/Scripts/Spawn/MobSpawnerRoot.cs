@@ -19,8 +19,7 @@ namespace PlayGround.Spawn
         [SerializeField] private SpawnPoint[] spawnPoints = Array.Empty<SpawnPoint>();
         [SerializeField] private Transform spawnParent;
         [SerializeField] private Transform target;
-        [SerializeField] private CombatRoot playerCombatRoot;
-        [SerializeField] private CombatRoot mobCombatRoot;
+        [SerializeField] private CombatRoot combatRoot;
         [SerializeField] private Sprite runtimeMobSprite;
         [SerializeField] private int randomSeed;
 
@@ -37,8 +36,7 @@ namespace PlayGround.Spawn
         private void Awake()
         {
             random = randomSeed == 0 ? new global::System.Random() : new global::System.Random(randomSeed);
-            playerCombatRoot ??= FindTaggedCombatRoot(GameplayTags.PlayerProjectileRoot);
-            mobCombatRoot ??= FindTaggedCombatRoot(GameplayTags.MobProjectileRoot);
+            combatRoot ??= FindTaggedCombatRoot(GameplayTags.PlayerProjectileRoot);
             if (fallbackPool == null)
             {
                 fallbackPool = CreateRuntimePool();
@@ -64,15 +62,13 @@ namespace PlayGround.Spawn
             MobSpawnPool pool,
             int mobCap,
             Transform targetTransform = null,
-            CombatRoot playerCombat = null,
-            CombatRoot mobCombat = null,
+            CombatRoot combat = null,
             SpawnPoint[] points = null)
         {
             fallbackPool = pool;
             maxMobs = Mathf.Max(0, mobCap);
             target = targetTransform;
-            playerCombatRoot = playerCombat;
-            mobCombatRoot = mobCombat;
+            combatRoot = combat;
             spawnPoints = points ?? spawnPoints;
         }
 
@@ -81,10 +77,9 @@ namespace PlayGround.Spawn
             runtimeMobSprite = mobSprite;
         }
 
-        public void BindCombatRoots(CombatRoot playerToMobRoot, CombatRoot mobToPlayerRoot)
+        public void BindCombatRoot(CombatRoot root)
         {
-            playerCombatRoot = playerToMobRoot;
-            mobCombatRoot = mobToPlayerRoot;
+            combatRoot = root;
             for (int i = 0; i < spawnedMobs.Count; i++)
             {
                 MobRoot mob = spawnedMobs[i];
@@ -93,15 +88,10 @@ namespace PlayGround.Spawn
                     continue;
                 }
 
-                if (playerCombatRoot != null)
+                if (combatRoot != null)
                 {
-                    mob.Register(playerCombatRoot.TargetRegistry);
-                    mob.BindAoeRoot(playerCombatRoot);
-                }
-
-                if (mobCombatRoot != null)
-                {
-                    mob.BindCombatRoot(mobCombatRoot);
+                    mob.Register(combatRoot.TargetRegistry);
+                    mob.BindCombatRoot(combatRoot);
                 }
             }
         }
@@ -202,15 +192,10 @@ namespace PlayGround.Spawn
                 mob.SetTarget(target);
             }
 
-            if (playerCombatRoot != null)
+            if (combatRoot != null)
             {
-                mob.Register(playerCombatRoot.TargetRegistry);
-                mob.BindAoeRoot(playerCombatRoot);
-            }
-
-            if (mobCombatRoot != null)
-            {
-                mob.BindCombatRoot(mobCombatRoot);
+                mob.Register(combatRoot.TargetRegistry);
+                mob.BindCombatRoot(combatRoot);
             }
 
             coordinator?.OnSpawned(spawnPoint, mob);

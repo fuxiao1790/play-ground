@@ -48,7 +48,6 @@ namespace PlayGround.Mob
         private CombatTargetSet combatTargetSet;
         // Player-faction combat root used by status-triggered AOE (damages mobs),
         // distinct from combatRoot which fires this mob's own projectiles at the player.
-        private CombatRoot aoeCombatRoot;
         private MobEventQueue eventQueue;
         private MobStateDriver stateDriver;
         private MobBehaviourSelector behaviourSelector;
@@ -245,12 +244,6 @@ namespace PlayGround.Mob
             RebuildProjectileAttack();
         }
 
-        // Player-faction root for status-triggered AOE (hits mobs).
-        public void BindAoeRoot(CombatRoot root)
-        {
-            aoeCombatRoot = root;
-        }
-
         public void Register(CombatTargetRegistry<ICombatTarget> targetRegistry)
         {
             if (targetRegistry == null || registries.Contains(targetRegistry))
@@ -347,26 +340,26 @@ namespace PlayGround.Mob
         {
             if (def is not StackingTriggerDef triggerDef
                 || triggerDef.TriggerAoeConfig == null
-                || aoeCombatRoot == null
+                || combatRoot == null
                 || !result.Triggered)
             {
                 return;
             }
 
-            int typeId = aoeCombatRoot.RegisterConfig(triggerDef.TriggerAoeConfig);
+            int typeId = combatRoot.RegisterConfig(triggerDef.TriggerAoeConfig);
             float damagePerFire = result.TriggerCount > 0
                 ? result.TotalTriggerDamage / result.TriggerCount
                 : 0f;
 
             for (int i = 0; i < result.TriggerCount; i++)
             {
-                aoeCombatRoot.Spawn(new ProjectileAoeSpawnRequest(
+                combatRoot.Spawn(new ProjectileAoeSpawnRequest(
                     typeId,
                     result.OwnerPosition,
                     new DamageSnapshot(Mathf.Max(0f, damagePerFire)),
                     triggerDef.TriggerAoeLifetimeSeconds,
                     triggerDef.TriggerAoeTickIntervalSeconds,
-                    triggerDef.TriggerAoeConfig.CreateSpawnGeometry()));
+                    triggerDef.TriggerAoeConfig.CreateSpawnGeometry()), CombatFaction.Player);
             }
         }
 

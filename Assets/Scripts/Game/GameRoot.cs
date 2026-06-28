@@ -10,8 +10,7 @@ namespace PlayGround.Game
 {
     public sealed class GameRoot : MonoBehaviour
     {
-        [SerializeField] private CombatRoot playerCombatRoot;
-        [SerializeField] private CombatRoot mobCombatRoot;
+        [SerializeField] private CombatRoot combatRoot;
         [SerializeField] private MobSpawnerRoot mobSpawner;
         [SerializeField] private MobRoot[] mobs;
         [SerializeField] private PlayGround.Player.PlayerRoot player;
@@ -20,19 +19,14 @@ namespace PlayGround.Game
 
         private void Awake()
         {
-            if (playerCombatRoot == null)
+            if (combatRoot == null)
             {
-                playerCombatRoot = FindTaggedComponent<CombatRoot>(GameplayTags.PlayerProjectileRoot);
+                combatRoot = FindTaggedComponent<CombatRoot>(GameplayTags.PlayerProjectileRoot);
             }
 
-            if (playerCombatRoot == null)
+            if (combatRoot == null)
             {
-                throw new MissingReferenceException($"{nameof(GameRoot)} needs a player combat root.");
-            }
-
-            if (mobCombatRoot == null)
-            {
-                mobCombatRoot = FindTaggedComponent<CombatRoot>(GameplayTags.MobProjectileRoot);
+                throw new MissingReferenceException($"{nameof(GameRoot)} needs a combat root.");
             }
 
             if (player == null)
@@ -48,7 +42,7 @@ namespace PlayGround.Game
 
             if (mobSpawner != null)
             {
-                mobSpawner.BindCombatRoots(playerCombatRoot, mobCombatRoot);
+                mobSpawner.BindCombatRoot(combatRoot);
             }
 
             if ((mobs == null || mobs.Length == 0) && mobSpawner == null)
@@ -69,18 +63,8 @@ namespace PlayGround.Game
                         throw new MissingReferenceException($"{nameof(GameRoot)} mob slot {i} is empty.");
                     }
 
-                    if (playerCombatRoot.CanTarget(mobs[i]))
-                    {
-                        mobs[i].Register(playerCombatRoot.TargetRegistry);
-                    }
-
-                    // Player-faction root for the mob's status-triggered AOE (hits mobs).
-                    mobs[i].BindAoeRoot(playerCombatRoot);
-
-                    if (mobCombatRoot != null)
-                    {
-                        mobs[i].BindCombatRoot(mobCombatRoot);
-                    }
+                    mobs[i].Register(combatRoot.TargetRegistry);
+                    mobs[i].BindCombatRoot(combatRoot);
 
                     if (player != null)
                     {
@@ -89,9 +73,9 @@ namespace PlayGround.Game
                 }
             }
 
-            if (mobCombatRoot != null && player != null && mobCombatRoot.CanTarget(player))
+            if (player != null)
             {
-                player.Register(mobCombatRoot.TargetRegistry);
+                player.Register(combatRoot.TargetRegistry);
             }
 
             if (gameplayCamera == null)
@@ -116,34 +100,30 @@ namespace PlayGround.Game
 
         private void Start()
         {
-            if (player != null && playerCombatRoot != null)
+            if (player != null && combatRoot != null)
             {
                 PlayGround.Skills.PlayerSkillDriver driver =
                     player.GetComponent<PlayGround.Skills.PlayerSkillDriver>();
-                driver?.BindCombatRoot(playerCombatRoot);
+                driver?.BindCombatRoot(combatRoot);
             }
         }
 
         public void Configure(
-            CombatRoot playerCombat,
-            CombatRoot mobCombat,
+            CombatRoot combat,
             PlayGround.Player.PlayerRoot playerRoot,
             MobRoot[] mobRoots)
         {
-            playerCombatRoot = playerCombat;
-            mobCombatRoot = mobCombat;
+            combatRoot = combat;
             player = playerRoot;
             mobs = mobRoots;
         }
 
         public void Configure(
-            CombatRoot playerCombat,
-            CombatRoot mobCombat,
+            CombatRoot combat,
             PlayGround.Player.PlayerRoot playerRoot,
             MobSpawnerRoot spawner)
         {
-            playerCombatRoot = playerCombat;
-            mobCombatRoot = mobCombat;
+            combatRoot = combat;
             player = playerRoot;
             mobSpawner = spawner;
             mobs = null;

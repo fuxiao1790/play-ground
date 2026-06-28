@@ -38,8 +38,8 @@ namespace PlayGround.Skills
 
         private void Start()
         {
-            if (vfxRoot != null && combatRoot != null)
-                vfxRoot.BindFaction(combatRoot.Faction);
+            if (vfxRoot != null)
+                vfxRoot.BindFaction(CombatFaction.Player);
             CompileAndRegister();
         }
 
@@ -61,7 +61,8 @@ namespace PlayGround.Skills
                     transform.position,
                     aimDir,
                     aimWorldPos,
-                    combatRoot);
+                    combatRoot,
+                    CombatFaction.Player);
 
                 slotStates[i].ResetOnFire();
             }
@@ -71,8 +72,8 @@ namespace PlayGround.Skills
         {
             if (combatRoot == root) return;
             combatRoot = root;
-            if (vfxRoot != null && combatRoot != null)
-                vfxRoot.BindFaction(combatRoot.Faction);
+            if (vfxRoot != null)
+                vfxRoot.BindFaction(CombatFaction.Player);
             RegisterProjectileTypes();
             RegisterAoeTypes();
             RegisterSpawnTemplates();
@@ -783,7 +784,7 @@ namespace PlayGround.Skills
                     ProjectileCount = 0,
                     AreaSize = Mathf.Max(0.01f, aoe.AreaSize) * stacksPerHit / threshold
                 },
-                Faction = root.Faction,
+                Faction = CombatFaction.None,
                 DetonationKind = StackDetonationKind.Aoe,
                 DetonationKey = aoe.SpawnTemplateKey
             };
@@ -810,7 +811,7 @@ namespace PlayGround.Skills
                     ProjectileCount = Mathf.Max(1, Mathf.RoundToInt(projectile.Count * stacksPerHit)),
                     AreaSize = 0f
                 },
-                Faction = root.Faction,
+                Faction = CombatFaction.None,
                 DetonationKind = StackDetonationKind.Projectile,
                 DetonationKey = projectile.SpawnTemplateKey
             };
