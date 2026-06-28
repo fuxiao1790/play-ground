@@ -20,22 +20,22 @@ registry.
 | `CombatBatchedRenderSystem.OnUpdate` iterates `registry.Entries` and `SetSharedComponentFilter` per entry; registry must stay stable during presentation | `CombatBatchedRenderSystem.cs:54–57` |
 | Render resources must be registered before the first spawn event that uses them; ordering: register → spawn event → apply | `combat-root-api.md §Ordering` |
 | ECS world is initialized before scene MonoBehaviour `Awake`; registry singleton exists when CombatRoot.Awake runs | Unity lifecycle + `CombatBatchedRenderSystem.OnCreate` |
-| `CombatRenderBatchId` shared component partitions entity chunks; value is `(faction << 16) | renderId`; the render id space must remain unique per faction | `CombatRenderComponents.cs:35–39` + apply systems |
+| `CombatRenderBatchId` shared component partitions entity chunks; value is `renderId` (faction overhaul removed the `(faction<<16)\|renderId` encoding); the render id space is globally unique within the one CombatRoot | `CombatRenderComponents.cs:34–39`, `ProjectileSpawnApplySystem.cs:447` |
 | `batchBoundsHalfExtent` is effectively infinite (100 000); not a load-bearing culling invariant — treat as cosmetic | Confirmed in conversation |
-| `CombatRoot` MonoBehaviour lifecycle: `Awake` registers, `OnDestroy` teardown; registration order between Player and Mob roots is indeterminate | Unity lifecycle |
+| There is one unified `CombatRoot`; `Awake` is called once; teardown is called once. No concurrent registration or faction-filtered teardown. | Faction overhaul (task 006) |
 
 ## Mechanisms Reused vs. Introduced
 
 **Reused**
 - `CombatRenderResourceRegistry` managed singleton — already exists on an entity created in `CombatBatchedRenderSystem.OnCreate`; new methods added to the existing class.
-- `BatchIdFor = (faction << 16) | renderId` — encoding unchanged; helper moves from `CombatRoot` to the registry.
 - `BatchedSpriteRenderer.BuildResources` — static utility; called by registry instead of CombatRoot.
+- `Entries[renderId]` key — the faction overhaul already changed the registry key to plain `renderId`; we keep that encoding.
 
 **Introduced**
-- `CombatRenderResourceRegistry.Register(sprite, faction, layer, meshName)` — unified mint + build + publish.
+- `CombatRenderResourceRegistry.Register(sprite, visualScale, rotDeg, material, meshName, layer)` — unified mint + build + publish. No faction parameter (batch id = renderId, globally unique within the one root).
 - `CombatRenderResourceRegistry.GetProjectileRenderComponent(renderId, projectileId)` — replaces `CombatRoot.ProjectileRenderComponentForRenderId`.
 - `CombatRenderResourceRegistry.GetAoeRenderComponent(renderId, geometry)` — replaces `CombatRoot.AoeRenderComponentForRenderId`.
-- `CombatRenderResourceRegistry.Unregister(faction)` — removes + destroys all entries for a faction on teardown; replaces `CombatRoot.DestroyRenderResources` + the manual entry removal loop.
+- `CombatRenderResourceRegistry.Unregister()` — removes + destroys all entries; replaces `CombatRoot.DestroyRenderResources` + the manual `Entries.Remove` loop. No faction parameter needed (one root owns all entries).
 - `CombatRoot.RenderRegistry` property — exposes the cached registry reference so the compiler can call it directly.
 
 **Justification**: no parallel path is introduced. The registry was already the authoritative ECS-side store; this change makes it own the lifecycle and logic that were previously duplicated in CombatRoot.
@@ -61,18 +61,19 @@ registry.
 | Invariant | Validation |
 |---|---|
 | GPU objects built on main thread | `Registry.Register` is called from MonoBehaviour `Awake` and from compiler code in `PlayerSkillDriver` — both main-thread contexts. No burst/job involvement. ✓ |
-| Destroy called at teardown | `Registry.Unregister(faction)` removes entries and calls `Destroy()` on each `CombatSpriteRenderResources`; called from `CombatRoot.OnDestroy`. ✓ |
+| Destroy called at teardown | `Registry.Unregister()` removes all entries and calls `Destroy()` on each `CombatSpriteRenderResources`; called from `CombatRoot.OnDestroy`. ✓ |
 | Registry stable during presentation | `Unregister` is called from `OnDestroy`, which fires outside the ECS system update loop. ✓ |
 | Register before spawn | `Awake` calls `BuildProjectileRenderResources` (calls `registry.Register`); compiler registers before building spawn templates; both happen before any `Spawn(Request)` call. ✓ |
-| Batch id encoding unchanged | `BatchIdFor` same formula, moved to registry as a static helper. Apply systems unchanged. ✓ |
-| Faction teardown removes only its own entries | `Unregister(faction)` iterates `renderResourcesById` filtering by faction; CombatRoot passes its own `faction` value. ✓ |
+| Batch id = renderId | Faction overhaul already changed apply systems to write `cmd.RenderTypeId` directly into `CombatRenderBatchId.Value`; registry key is `renderId`. No `BatchIdFor` helper needed. ✓ |
 | ECS singleton exists at Awake | Registry created in `CombatBatchedRenderSystem.OnCreate`; ECS world initializes before scene Awake. ✓ |
 
-## Open Question
+## Notes
 
-One load-bearing invariant not confirmed in code: when two `CombatRoot` instances (Player + Mob) both call `registry.Register(...)` concurrently in `Awake`, is that safe?
-
-**Answer**: Unity MonoBehaviour `Awake` runs on the main thread sequentially (not in parallel), so two roots cannot interleave. Safe.
+The faction overhaul (task 006) reduced CombatRoot to a single instance and changed the render batch id encoding to plain `renderId`. Both of those changes remove earlier complexity from this plan:
+- No `BatchIdFor(faction, renderId)` helper needed — the key is just `renderId`.
+- `Unregister` needs no faction parameter — one root, one teardown, clear everything.
+- No concurrent-Awake concern — one Awake.
+- `Register` has no `faction` parameter — batch id is faction-free.
 
 ## Task List
 

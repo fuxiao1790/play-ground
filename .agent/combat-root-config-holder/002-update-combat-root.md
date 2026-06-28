@@ -20,9 +20,10 @@ RegisterRenderResource(Sprite, Vector2, float, Material, string) → int
 ProjectileRenderComponentForRenderId(int, int) → CombatRenderComponent
 AoeRenderComponentForRenderId(int, AoeSpawnGeometry) → CombatRenderComponent
 DestroyRenderResources()
-BatchIdFor(CombatFaction, int) → int        (static; now lives on registry)
 ProjectileMeshName / AoeMeshName            (consts; move inline or to registry)
 ```
+
+Note: `BatchIdFor` was already removed by the faction overhaul.
 
 ## What to Add
 
@@ -35,26 +36,26 @@ internal CombatRenderResourceRegistry RenderRegistry => _renderRegistry;
 
 **Awake setup — `BuildProjectileRenderResources`**
 Replace every call to `RegisterRenderResource(...)` with
-`_renderRegistry.Register(..., faction, gameObject.layer)`.
+`_renderRegistry.Register(..., gameObject.layer)`.
 
-No structural change — just the callee changes.
+No structural change — just the callee changes. No `faction` argument (batch id is now plain renderId).
 
 **Teardown — `OnDestroy`**
 Replace:
 ```csharp
 foreach (int renderId in renderResourcesById.Keys)
-    _renderRegistry.Entries.Remove(BatchIdFor(faction, renderId));
+    _renderRegistry.Entries.Remove(renderId);
 _renderRegistry = null;
 DestroyRenderResources();
 ```
 With:
 ```csharp
-_renderRegistry?.Unregister(faction);
+_renderRegistry?.Unregister();
 _renderRegistry = null;
 ```
 
 **AOE render resource — `TryBuildAoeRenderResource`**
-Replace local `RegisterRenderResource(...)` call with `_renderRegistry.Register(..., faction, gameObject.layer)`.
+Replace local `RegisterRenderResource(...)` call with `_renderRegistry.Register(..., gameObject.layer)`.
 
 **Command builders — `ProjectileCommandFor` and `AoeCommandFor`**
 Replace `ProjectileRenderComponentForRenderId(renderId, id)` with

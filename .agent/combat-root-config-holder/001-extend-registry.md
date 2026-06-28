@@ -14,38 +14,30 @@ Add to `CombatRenderResourceRegistry`:
 private readonly Dictionary<int, CombatSpriteRenderResources> _resourcesById = new();
 private int _nextRenderId = 1;
 
-public static int BatchIdFor(CombatFaction faction, int renderId) =>
-    ((int)faction << 16) | renderId;
-
-public int Register(Sprite sprite, CombatFaction faction, int layer, string meshName)
-{
-    // sprite == null → renderId 0 (no visual)
-    CombatSpriteRenderResources resources = BatchedSpriteRenderer.BuildResources(
-        sprite, visualScale, rotationDeg, material, meshName);
-    int renderId = _nextRenderId++;
-    _resourcesById[renderId] = resources;
-    Entries[BatchIdFor(faction, renderId)] = new CombatRenderResourceEntry
-    {
-        Resources = resources,
-        Layer = layer,
-        BoundsHalfExtent = 100000f   // effectively infinite; field kept for future use
-    };
-    return renderId;
-}
-```
-
-Actual signature (matching what callers need):
-
-```csharp
 public int Register(
     Sprite sprite,
     Vector2 visualScale,
     float visualRotationDegrees,
     Material sourceMaterial,
     string meshName,
-    CombatFaction faction,
     int layer)
+{
+    if (sprite == null) return 0;
+    CombatSpriteRenderResources resources = BatchedSpriteRenderer.BuildResources(
+        sprite, visualScale, visualRotationDegrees, sourceMaterial, meshName);
+    int renderId = _nextRenderId++;
+    _resourcesById[renderId] = resources;
+    Entries[renderId] = new CombatRenderResourceEntry
+    {
+        Resources = resources,
+        Layer = layer,
+        BoundsHalfExtent = 100000f
+    };
+    return renderId;
+}
 ```
+
+No `BatchIdFor` helper — the faction overhaul already made `CombatRenderBatchId.Value = cmd.RenderTypeId` (plain renderId). The registry key is just `renderId`. No faction parameter on `Register`.
 
 Add render-component builders:
 
@@ -83,33 +75,21 @@ public CombatRenderComponent GetAoeRenderComponent(int renderId, AoeSpawnGeometr
 Add teardown:
 
 ```csharp
-// Removes and destroys all render resources registered for the given faction.
-public void Unregister(CombatFaction faction)
+// Removes and destroys all render resources. Called from CombatRoot.OnDestroy.
+public void Unregister()
 {
-    var toRemove = new List<int>(); // reuse scratch or iterate+remove in two passes
-    foreach (var (batchId, _) in Entries)
-    {
-        if ((CombatFaction)(batchId >> 16) == faction)
-            toRemove.Add(batchId);
-    }
-    foreach (int batchId in toRemove)
-    {
-        int renderId = batchId & 0xFFFF;
-        if (_resourcesById.TryGetValue(renderId, out var res))
-        {
-            res.Destroy();
-            _resourcesById.Remove(renderId);
-        }
-        Entries.Remove(batchId);
-    }
+    foreach (var res in _resourcesById.Values)
+        res.Destroy();
+    _resourcesById.Clear();
+    Entries.Clear();
 }
 ```
 
-Note: `BatchIdFor` was previously private static on `CombatRoot`. Moving it here as public static is the right home — it encodes the registry key format.
+No faction parameter — one root owns all entries; clear everything on teardown.
 
 ## Acceptance Criteria
 - `CombatRenderResourceRegistry` compiles standalone with the new methods.
-- `BatchIdFor`, `Register`, `GetProjectileRenderComponent`, `GetAoeRenderComponent`, `Unregister` are all accessible as `public`.
+- `Register`, `GetProjectileRenderComponent`, `GetAoeRenderComponent`, `Unregister` are all accessible as `public`.
 - No callers yet wired — this step only adds the API.
 
 ## Scope

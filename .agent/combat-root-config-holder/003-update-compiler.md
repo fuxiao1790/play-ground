@@ -43,9 +43,10 @@ projDef.RenderId = combatRoot.RenderRegistry?.Register(
     projDef.Prefab.VisualRotationDegrees,
     projDef.Prefab.Material,
     CombatRenderResourceRegistry.ProjectileMeshName,
-    combatRoot.Faction,
     combatRoot.Layer) ?? 0;
 ```
+
+No `combatRoot.Faction` argument — the faction overhaul removed that field; batch id is plain renderId.
 
 Note: `RegisterTemplate` stays — it still mints the behavior typeId and populates
 `projectileRenderIdByType` in CombatRoot (used by the `Spawn(Request)` path). But the
@@ -78,7 +79,6 @@ projDef.RenderId = combatRoot.RenderRegistry.Register(
     projDef.Prefab.VisualRotationDegrees,
     projDef.Prefab.Material,
     CombatRenderResourceRegistry.ProjectileMeshName,
-    combatRoot.Faction,
     combatRoot.Layer);
 
 // 3. Bind renderId into CombatRoot's local map for the Spawn(Request) path
