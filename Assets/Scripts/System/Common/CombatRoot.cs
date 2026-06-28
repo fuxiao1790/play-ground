@@ -34,23 +34,12 @@ namespace PlayGround.System.Common
         [SerializeField] private BasicAttackPrefab[] projectileTemplates = global::System.Array.Empty<BasicAttackPrefab>();
         [SerializeField] private ProjectileRenderDefinition[] renderTypes = global::System.Array.Empty<ProjectileRenderDefinition>();
 
-        [Header("AOE visuals")]
-        [SerializeField] private bool spawnVisuals = true;
-
-        [SerializeField, Tooltip("Half-extent used for the batch world bounds. Increase to avoid GPU culling; decrease for tighter culling.")]
-        [Min(0f)]
-        private float batchBoundsHalfExtent = 100000f;
-
         private readonly CombatTargetRegistry<ICombatTarget> targetRegistry = new();
 
-        // Render-resource state. Render identity is decoupled from the per-domain
-        // behavior type ids: projectile and AOE type id spaces overlap, so render
-        // resources are minted into one shared id space (renderResourcesById) and the
-        // per-domain maps translate a behavior type id to its render id.
-        private readonly Dictionary<int, CombatSpriteRenderResources> renderResourcesById = new();
+        // Per-domain typeId → renderId maps. The registry owns the render-id counter
+        // and GPU resources; these maps translate a behavior type id to its render id.
         private readonly Dictionary<int, int> projectileRenderIdByType = new();
         private readonly Dictionary<int, int> aoeRenderIdByType = new();
-        private int nextRenderId = 1;
 
         // Projectile state.
         private readonly Dictionary<BasicAttackPrefab, int> templateTypeIds = new();
@@ -116,13 +105,8 @@ namespace PlayGround.System.Common
             targetRegistry.ClearProxyBinding();
             DisposeEcsHandles();
             ReleaseWorld();
-            if (_renderRegistry != null)
-            {
-                foreach (int renderId in renderResourcesById.Keys)
-                    _renderRegistry.Entries.Remove(renderId);
-                _renderRegistry = null;
-            }
-            DestroyRenderResources();
+            _renderRegistry?.Unregister();
+            _renderRegistry = null;
         }
 
         // ---- Projectile API ----
@@ -144,12 +128,13 @@ namespace PlayGround.System.Common
 
             if (!projectileRenderIdByType.ContainsKey(typeId))
             {
-                projectileRenderIdByType[typeId] = RegisterRenderResource(
+                projectileRenderIdByType[typeId] = _renderRegistry?.Register(
                     template.Sprite,
                     ProjectileVisualScale(template.VisualScale),
                     template.VisualRotationDegrees,
                     template.Material,
-                    ProjectileMeshName);
+                    CombatRenderResourceRegistry.ProjectileMeshName,
+                    gameObject.layer) ?? 0;
             }
 
             return typeId;
@@ -272,10 +257,10 @@ namespace PlayGround.System.Common
         }
 
         internal CombatRenderComponent ProjectileTemplateRenderComponent(int renderId) =>
-            ProjectileRenderComponentForRenderId(renderId, 0);
+            _renderRegistry?.GetProjectileRenderComponent(renderId, 0) ?? default;
 
         internal CombatRenderComponent AoeTemplateRenderComponent(int renderId, AoeSpawnGeometry geometry) =>
-            AoeRenderComponentForRenderId(renderId, geometry);
+            _renderRegistry?.GetAoeRenderComponent(renderId, geometry) ?? default;
 
         public int RegisterConfig(AoeConfig config)
         {
@@ -394,7 +379,7 @@ namespace PlayGround.System.Common
                 ShapeType = request.ShapeType,
                 HitPayload = request.HitPayload,
                 Tracking = TrackingComponentFor(request.Tracking),
-                Render = ProjectileRenderComponentForRenderId(renderId, baseProjectileId),
+                Render = _renderRegistry?.GetProjectileRenderComponent(renderId, baseProjectileId) ?? default,
                 Count = request.Count,
                 BaseDirection = new float2(request.Direction.x, request.Direction.y),
                 Speed = request.Speed,
@@ -448,7 +433,7 @@ namespace PlayGround.System.Common
                 Position = position,
                 HalfExtents = halfExtents,
                 ShapeType = geometry.ShapeType,
-                Render = AoeRenderComponentForRenderId(renderId, geometry),
+                Render = _renderRegistry?.GetAoeRenderComponent(renderId, geometry) ?? default,
                 OnHitSpawn = request.OnHitSpawn,
                 HasTimedSpawner = request.HasTimedSpawner ? 1 : 0,
                 TimedSpawn = StampTimedSpawn(request.TimedSpawn, CombatFaction.None, aoeId)
@@ -564,39 +549,6 @@ namespace PlayGround.System.Common
 
         // ---- Render resources ----
 
-        private const string ProjectileMeshName = "ProjectileQuadMesh";
-        private const string AoeMeshName = "AoeQuadMesh";
-
-        // The one render-resource registration entry point. Mints a render id from
-        // the shared space, builds the GPU resources, and publishes them to the ECS
-        // render registry under the batch id (== renderId). "A sprite is a sprite":
-        // projectiles and AOEs both register here, distinguished only by mesh name.
-        public int RegisterRenderResource(
-            Sprite sprite,
-            Vector2 visualScale,
-            float visualRotationDegrees,
-            Material sourceMaterial,
-            string meshName)
-        {
-            if (sprite == null)
-            {
-                return 0;
-            }
-
-            CombatSpriteRenderResources resources = BatchedSpriteRenderer.BuildResources(
-                sprite, visualScale, visualRotationDegrees, sourceMaterial, meshName);
-            int renderId = nextRenderId++;
-            renderResourcesById[renderId] = resources;
-            if (_renderRegistry != null)
-                _renderRegistry.Entries[renderId] = new CombatRenderResourceEntry
-                {
-                    Resources = resources,
-                    Layer = gameObject.layer,
-                    BoundsHalfExtent = batchBoundsHalfExtent
-                };
-            return renderId;
-        }
-
         // Render id for a projectile behavior type id (0 when the type has no visual).
         internal int ProjectileRenderId(int projectileTypeId) =>
             projectileRenderIdByType.TryGetValue(projectileTypeId, out int renderId) ? renderId : 0;
@@ -607,13 +559,16 @@ namespace PlayGround.System.Common
 
         private void BuildProjectileRenderResources()
         {
-            DestroyRenderResources();
+            _renderRegistry?.Unregister();
+            projectileRenderIdByType.Clear();
+            aoeRenderIdByType.Clear();
             templateTypeIds.Clear();
             nextTemplateTypeId = 1;
             if (projectileSprite != null)
             {
-                projectileRenderIdByType[0] = RegisterRenderResource(
-                    projectileSprite, new Vector2(visualScale, visualScale), 0f, null, ProjectileMeshName);
+                projectileRenderIdByType[0] = _renderRegistry?.Register(
+                    projectileSprite, new Vector2(visualScale, visualScale), 0f, null,
+                    CombatRenderResourceRegistry.ProjectileMeshName, gameObject.layer) ?? 0;
             }
 
             if (projectileTemplates != null)
@@ -638,12 +593,13 @@ namespace PlayGround.System.Common
                         continue;
                     }
 
-                    projectileRenderIdByType[definition.TypeId] = RegisterRenderResource(
+                    projectileRenderIdByType[definition.TypeId] = _renderRegistry?.Register(
                         definition.Sprite,
                         ProjectileVisualScale(definition.VisualScale),
                         definition.VisualRotationDegrees,
                         null,
-                        ProjectileMeshName);
+                        CombatRenderResourceRegistry.ProjectileMeshName,
+                        gameObject.layer) ?? 0;
                 }
             }
         }
@@ -654,63 +610,13 @@ namespace PlayGround.System.Common
             return new Vector2(positiveScale, positiveScale);
         }
 
-        internal CombatRenderComponent ProjectileRenderComponentForRenderId(int renderId, int projectileId)
-        {
-            if (!renderResourcesById.TryGetValue(renderId, out CombatSpriteRenderResources resources))
-            {
-                return default;
-            }
-
-            return new CombatRenderComponent
-            {
-                IsRenderable = 1,
-                AlignToVelocity = 1,
-                VisualScale = new float2(resources.VisualScale.x, resources.VisualScale.y),
-                VisualRotationSin = resources.VisualRotationSin,
-                VisualRotationCos = resources.VisualRotationCos,
-                RenderZ = ProjectileRenderZ - (projectileId % ProjectileRenderZSlots) * ProjectileRenderZStep
-            };
-        }
-
         private void TryBuildAoeRenderResource(int typeId)
         {
-            if (!spawnVisuals || !typeRegistry.TryGetVisual(typeId, out AoeVisualDefinition visual))
-            {
+            if (!typeRegistry.TryGetVisual(typeId, out AoeVisualDefinition visual))
                 return;
-            }
-
-            aoeRenderIdByType[typeId] = RegisterRenderResource(
-                visual.Sprite, visual.VisualScale, visual.VisualRotationDegrees, visual.Material, AoeMeshName);
-        }
-
-        internal CombatRenderComponent AoeRenderComponentForRenderId(int renderId, AoeSpawnGeometry geometry)
-        {
-            if (!spawnVisuals || !renderResourcesById.ContainsKey(renderId))
-            {
-                return default;
-            }
-
-            return new CombatRenderComponent
-            {
-                IsRenderable = 1,
-                AlignToVelocity = 0,
-                VisualScale = new float2(geometry.VisualScale.x, geometry.VisualScale.y),
-                VisualRotationSin = geometry.VisualRotationSin,
-                VisualRotationCos = geometry.VisualRotationCos,
-                RenderZ = AoeRenderZ
-            };
-        }
-
-        private void DestroyRenderResources()
-        {
-            foreach (KeyValuePair<int, CombatSpriteRenderResources> pair in renderResourcesById)
-            {
-                pair.Value.Destroy();
-            }
-
-            renderResourcesById.Clear();
-            projectileRenderIdByType.Clear();
-            aoeRenderIdByType.Clear();
+            aoeRenderIdByType[typeId] = _renderRegistry?.Register(
+                visual.Sprite, visual.VisualScale, visual.VisualRotationDegrees, visual.Material,
+                CombatRenderResourceRegistry.AoeMeshName, gameObject.layer) ?? 0;
         }
 
         // ---- World / scope ----
