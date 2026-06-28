@@ -405,7 +405,7 @@ namespace PlayGround.Tests.PlayMode
                     typeof(CombatRenderActiveTag),
                     typeof(ProjectileContactGateElement));
 
-            entityManager.AddSharedComponent(entity, new CombatRenderBatchId { Value = ((int)CombatFaction.Player << 16) | 1 });
+            entityManager.AddSharedComponent(entity, new CombatRenderBatchId { Value = 1 });
             entityManager.SetComponentEnabled<Active>(entity, false);
             entityManager.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, false);
             entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, false);

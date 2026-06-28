@@ -128,6 +128,19 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void SameFactionTargetIsNotHit()
+        {
+            AddTarget(float2.zero, 0.25f, CombatFaction.Player);
+            Entity projectile = CreateProjectile(pierceRemaining: 0);
+
+            TickSimulationOnly(0.01f);
+
+            Assert.That(ReadFinalizedHitCount(), Is.EqualTo(0));
+            Assert.That(entityManager.IsComponentEnabled<Active>(projectile), Is.True,
+                "Player projectile must not hit a Player target — same-faction skip.");
+        }
+
+        [Test]
         public void ProjectileApplicatorProjectileDetonationQueuesNovaWithSummedContribution()
         {
             const float TotalDamage = 15f;
@@ -317,10 +330,10 @@ namespace PlayGround.Tests.PlayMode
             return entity;
         }
 
-        private Entity AddTarget(float2 position, float radius)
+        private Entity AddTarget(float2 position, float radius, CombatFaction faction = CombatFaction.Mob)
         {
             var target = new TestCombatTarget(++nextTargetId, position, radius);
-            return CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
+            return CombatTargetProxy.Create(entityManager, target, faction);
         }
 
         // ---- Registry helpers ----

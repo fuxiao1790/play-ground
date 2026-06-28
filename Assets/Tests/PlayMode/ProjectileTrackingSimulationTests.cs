@@ -161,6 +161,23 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void SameFactionTargetIsNotAcquired()
+        {
+            AddTarget(position: new float2(0f, 40f), radius: 0.25f, targetMask: 1, faction: CombatFaction.Player);
+            SpawnTrackedProjectile(
+                position: float2.zero,
+                velocity: new float2(0f, 10f),
+                turnSpeedRadians: math.radians(180f));
+
+            Tick(0.1f);
+
+            ProjectileTrackingComponent tracking =
+                entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(0),
+                "Player projectile must not acquire a Player target — same-faction skip.");
+        }
+
+        [Test]
         public void AcquisitionSpreadsIdenticalProjectilesAcrossEqualTargets()
         {
             AddTarget(position: new float2(-5f, 40f), radius: 0.25f, targetMask: 1);
@@ -259,7 +276,7 @@ namespace PlayGround.Tests.PlayMode
             return projectileEntity;
         }
 
-        private int AddTarget(float2 position, float radius, int targetMask)
+        private int AddTarget(float2 position, float radius, int targetMask, CombatFaction faction = CombatFaction.Mob)
         {
             Entity target = entityManager.CreateEntity(
                 typeof(TargetProxyTag),
@@ -277,7 +294,7 @@ namespace PlayGround.Tests.PlayMode
                 BoundsMax = position + radius,
                 Mask = targetMask
             });
-            entityManager.SetComponentData(target, new TargetFaction { Value = CombatFaction.Player });
+            entityManager.SetComponentData(target, new TargetFaction { Value = faction });
             entityManager.SetComponentData(target, new TargetCompanion { Target = new TestTarget(targetMask) });
             return CombatTargetProxy.TargetKey(target);
         }

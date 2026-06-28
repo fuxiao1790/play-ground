@@ -40,7 +40,7 @@ namespace PlayGround.Tests.PlayMode
             AoeTargetProbe target = CreateTarget(new Vector2(2.5f, 0f), DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(Command(typeId, templateObject, Vector2.zero, DefaultTargetMask, 2f));
+            root.Spawn(Command(typeId, templateObject, Vector2.zero, 2f), CombatFaction.Player);
             yield return null;
 
             Assert.That(target.HitCount, Is.EqualTo(1));
@@ -57,7 +57,7 @@ namespace PlayGround.Tests.PlayMode
                 out int typeId,
                 templateScale: new Vector3(2f, 2f, 1f),
                 visualScale: new Vector3(3f, 4f, 1f));
-            root.Spawn(Command(typeId, templateObject, Vector2.zero, DefaultTargetMask, 2f));
+            root.Spawn(Command(typeId, templateObject, Vector2.zero, 2f), CombatFaction.Player);
             yield return null;
 
             Matrix4x4 matrix = FirstScopedAoeRenderMatrix(root);
@@ -82,11 +82,10 @@ namespace PlayGround.Tests.PlayMode
             root.Spawn(new AoeSpawnRequest(
                 typeId,
                 Vector2.zero,
-                DefaultTargetMask,
                 new DamageSnapshot(2f),
                 lifetimeSeconds: 0f,
                 tickIntervalSeconds: 0f,
-                Geometry(templateObject, 2f)));
+                Geometry(templateObject, 2f)), CombatFaction.Player);
             yield return null;
 
             CombatCollisionComponent collision = FirstScopedAoeCollision(root);
@@ -108,7 +107,7 @@ namespace PlayGround.Tests.PlayMode
 
             for (int i = 0; i < 3; i++)
             {
-                root.Spawn(Command(typeId, templateObject, Vector2.zero, DefaultTargetMask, 1f));
+                root.Spawn(Command(typeId, templateObject, Vector2.zero, 1f), CombatFaction.Player);
                 yield return null;
             }
 
@@ -124,7 +123,7 @@ namespace PlayGround.Tests.PlayMode
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(Command(typeId, templateObject, Vector2.zero, DefaultTargetMask, 3f));
+            root.Spawn(Command(typeId, templateObject, Vector2.zero, 3f), CombatFaction.Player);
             yield return null;
 
             Assert.That(target.HitCount, Is.EqualTo(1));
@@ -165,7 +164,7 @@ namespace PlayGround.Tests.PlayMode
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
             root.TargetRegistry.Register(target);
 
-            root.Spawn(Command(typeId, templateObject, Vector2.zero, DefaultTargetMask, 2f));
+            root.Spawn(Command(typeId, templateObject, Vector2.zero, 2f), CombatFaction.Player);
             yield return null;
 
             AoeRuntimeCounters counters = root.Counters;
@@ -590,13 +589,11 @@ namespace PlayGround.Tests.PlayMode
             int typeId,
             GameObject templateObject,
             Vector2 position,
-            int targetMask,
             float damage)
         {
             return new AoeSpawnRequest(
                 typeId,
                 position,
-                targetMask,
                 new DamageSnapshot(damage),
                 lifetimeSeconds: 0f,
                 tickIntervalSeconds: 0f,
@@ -840,12 +837,7 @@ namespace PlayGround.Tests.PlayMode
             return (Entity)scopeEntityField.GetValue(root);
         }
 
-        private static CombatFaction Faction(CombatRoot root)
-        {
-            const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            FieldInfo factionField = typeof(CombatRoot).GetField("faction", Flags);
-            return (CombatFaction)factionField.GetValue(root);
-        }
+        private static CombatFaction Faction(CombatRoot root) => CombatFaction.Player;
 
         private static void CompileAndRegister(PlayerSkillDriver driver)
         {
@@ -923,7 +915,7 @@ namespace PlayGround.Tests.PlayMode
                 DebuffKey = debuffKey,
                 Threshold = threshold,
                 Lifetime = 10f,
-                Faction = Faction(root),
+                Faction = CombatFaction.None,
                 Contribution = new StackContribution
                 {
                     Damage = damage / threshold,
@@ -961,12 +953,11 @@ namespace PlayGround.Tests.PlayMode
             root.Spawn(new AoeSpawnRequest(
                 lingeringTypeId,
                 Vector2.zero,
-                DefaultTargetMask,
                 new DamageSnapshot(0f),
                 lifetimeSeconds: 10f,
                 tickIntervalSeconds: 0f,
                 geometry: geometry,
-                stackEffect: stackEffect));
+                stackEffect: stackEffect), CombatFaction.Player);
 
             yield return null; // frame 1: initial hit → 1 stack
             Assert.That(EcsDebuffStackCount(mob, VolatileStackKey), Is.EqualTo(1),
@@ -1003,12 +994,11 @@ namespace PlayGround.Tests.PlayMode
             root.Spawn(new AoeSpawnRequest(
                 lingeringTypeId,
                 Vector2.zero,
-                DefaultTargetMask,
                 new DamageSnapshot(0f),
                 lifetimeSeconds: 10f,
                 tickIntervalSeconds: 0f,
                 geometry: geometry,
-                stackEffect: stackEffect));
+                stackEffect: stackEffect), CombatFaction.Player);
 
             yield return null; // frame 1: 1 stack
             yield return null; // frame 2: 2 stacks
@@ -1045,21 +1035,19 @@ namespace PlayGround.Tests.PlayMode
             root.Spawn(new AoeSpawnRequest(
                 poisonTypeId,
                 Vector2.zero,
-                DefaultTargetMask,
                 new DamageSnapshot(0f),
                 lifetimeSeconds: 10f,
                 tickIntervalSeconds: 0f,
                 geometry: geometry,
-                stackEffect: SingleStageStackEffect(root, geometry, PoisonStackKey, poisonTypeId, 2)));
+                stackEffect: SingleStageStackEffect(root, geometry, PoisonStackKey, poisonTypeId, 2)), CombatFaction.Player);
             root.Spawn(new AoeSpawnRequest(
                 burningTypeId,
                 Vector2.zero,
-                DefaultTargetMask,
                 new DamageSnapshot(0f),
                 lifetimeSeconds: 10f,
                 tickIntervalSeconds: 0f,
                 geometry: geometry,
-                stackEffect: SingleStageStackEffect(root, geometry, BurningStackKey, burningTypeId, 3)));
+                stackEffect: SingleStageStackEffect(root, geometry, BurningStackKey, burningTypeId, 3)), CombatFaction.Player);
 
             yield return null;
             Assert.That(EcsDebuffStackCount(mob, PoisonStackKey), Is.EqualTo(1));

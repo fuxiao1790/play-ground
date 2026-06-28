@@ -22,10 +22,10 @@ Key API surface:
 - AOE config/type registration
 - timed spawn template registration returning `Hash128`
 - target registry access for actor registration
-- `Spawn(ProjectileSpawnRequest)`
-- `Spawn(AoeSpawnRequest)`
-- `Spawn(ProjectileAoeSpawnRequest)`
-- combat faction and scope/world binding
+- `Spawn(ProjectileSpawnRequest, CombatFaction)`
+- `Spawn(AoeSpawnRequest, CombatFaction)`
+- `Spawn(ProjectileAoeSpawnRequest, CombatFaction)`
+- scope/world binding (one root, faction is per-spawn not per-root)
 
 ## Guarantees
 
@@ -42,7 +42,8 @@ simulation events.
 ## Lifetime
 
 `CombatRoot` acquires ECS world/scope ownership on bind/enable and releases it
-on teardown. Faction-owned resources are cleaned when the root is destroyed.
+on teardown. One root serves all factions; resources are cleaned when the root
+is destroyed.
 
 ## Ordering
 

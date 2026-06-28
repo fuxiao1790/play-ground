@@ -9,7 +9,7 @@ buffers.
 
 ## Owns
 
-- `CombatRoot` per firing faction.
+- One faction-agnostic `CombatRoot`; faction is a per-spawn argument, not a per-root property.
 - `CombatTargetRegistry` for managed target registration.
 - `CombatTargetProxy` creation, push, and deletion entry points.
 - Ref-counted ECS world/scope acquisition and release through combat ownership

@@ -2,8 +2,9 @@
 
 ## Purpose
 
-Define the ECS-readable representation of player and mob targets for collision,
-tracking, health/status aggregation, and presentation bridge lookup.
+Define the ECS-readable representation of targets for collision, tracking,
+health/status aggregation, and presentation bridge lookup. Targets from all
+factions share one proxy schema and one spatial hash.
 
 ## Produced By
 
@@ -22,7 +23,7 @@ Current proxy data includes:
 - `TargetProxyTag`
 - `TargetPosition`
 - `TargetCollisionShape`
-- `TargetFaction`
+- `TargetFaction` — the target's **own** allegiance (`Player`, `Mob`, etc.); collision and tracking skip same-faction candidates (`self.Faction == target.Faction`)
 - `TargetHealth`
 - `TargetStackEntry` buffer
 - managed `TargetCompanion`
@@ -65,5 +66,6 @@ deletion should occur after current-frame hit/result replay safety.
 
 ## Notes / TODOs
 
-TODO: verify whether all `CombatTargetElement` usages are legacy or whether any
-current tests still require it as an active contract.
+`TargetFaction` is set once at proxy creation to the target's own allegiance
+(not the firing faction). The friendly-fire gate uses a single inequality test
+in the narrow phase rather than per-faction spatial-hash buckets.

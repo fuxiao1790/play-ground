@@ -236,6 +236,25 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void SameFactionTargetIsNotHit()
+        {
+            int targetId = ++nextTargetId;
+            var target = new TestCombatTarget(targetId);
+            target.Position = float2.zero;
+            target.Radius = 0.25f;
+            target.Mask = 1;
+            target.Health = 100f;
+            target.Proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
+            targetsById.Add(targetId, target);
+
+            SpawnCircle(float2.zero, 1f, 2f);
+
+            Tick(0.01f);
+            Assert.That(ReadHitCount(), Is.EqualTo(0),
+                "Player AOE must not hit a Player target — same-faction skip.");
+        }
+
+        [Test]
         public void PulseEntityIsReusedOnRespawn()
         {
             AddTarget(float2.zero, 0.25f, 1);
@@ -916,7 +935,7 @@ namespace PlayGround.Tests.PlayMode
             target.Radius = radius;
             target.Mask = targetMask;
             target.Health = health;
-            target.Proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
+            target.Proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Mob);
         }
 
         private void ReplaceTarget(int targetId, float2 position, float radius, int targetMask)

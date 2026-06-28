@@ -85,7 +85,7 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
-            projectileRoot.Spawn(new ProjectileSpawnRequest(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
+            projectileRoot.Spawn(new ProjectileSpawnRequest(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle), CombatFaction.Player);
             yield return null;
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(6f));
@@ -99,7 +99,7 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
-            projectileRoot.Spawn(new ProjectileSpawnRequest(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
+            projectileRoot.Spawn(new ProjectileSpawnRequest(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle), CombatFaction.Player);
             yield return null;
 
             Assert.That(projectileObject.transform.childCount, Is.EqualTo(0));
@@ -130,7 +130,7 @@ namespace PlayGround.Tests.PlayMode
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
 
-            projectileRoot.Spawn(new ProjectileSpawnRequest(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle));
+            projectileRoot.Spawn(new ProjectileSpawnRequest(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(4f), CombatShapeType.Circle), CombatFaction.Player);
             yield return null;
 
             Object.Destroy(projectileObject);
@@ -171,32 +171,6 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileTargetMaskFiltersHits()
-        {
-            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
-            mob.Register(projectileRoot.TargetRegistry);
-
-            var command = new ProjectileSpawnRequest(
-                Vector2.zero,
-                Vector2.right,
-                0f,
-                1f,
-                1f,
-                new Vector2(1f, 1f),
-                0f,
-                new DamageSnapshot(4f),
-                CombatShapeType.Circle,
-                targetMask: 2);
-
-            projectileRoot.Spawn(command);
-            yield return null;
-
-            Assert.That(mob.CurrentHealth, Is.EqualTo(10f));
-            Object.Destroy(projectileObject);
-            Object.Destroy(mobObject);
-        }
-
-        [UnityTest]
         public IEnumerator ProjectileTrackingAcquiresTargetInForwardArea()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
@@ -215,7 +189,7 @@ namespace PlayGround.Tests.PlayMode
                 CombatShapeType.Circle,
                 tracking: new ProjectileTrackingConfig(true, 50f, 360f, 0f));
 
-            projectileRoot.Spawn(command);
+            projectileRoot.Spawn(command, CombatFaction.Player);
             Time.captureDeltaTime = 0.1f;
             yield return null;
             Time.captureDeltaTime = 0f;
@@ -240,42 +214,6 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator GameRootBindsTaggedMobToCombatRootByTagAndLayer()
-        {
-            int mobHurtboxLayer = LayerMask.NameToLayer(GameplayLayers.MobHurtbox);
-            Assume.That(mobHurtboxLayer, Is.GreaterThanOrEqualTo(0));
-
-            CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
-            projectileObject.tag = GameplayTags.PlayerProjectileRoot;
-            projectileRoot.ConfigureTargetBinding(1 << mobHurtboxLayer, GameplayTags.Mob);
-            mobObject.tag = GameplayTags.Mob;
-            mobObject.GetComponent<Collider2D>().gameObject.layer = mobHurtboxLayer;
-
-            GameObject gameRootObject = new("GameRoot");
-            gameRootObject.AddComponent<GameRoot>();
-
-            var command = new ProjectileSpawnRequest(
-                Vector2.zero,
-                Vector2.right,
-                0f,
-                1f,
-                1f,
-                new Vector2(1f, 1f),
-                0f,
-                new DamageSnapshot(4f),
-                CombatShapeType.Circle,
-                targetMask: projectileRoot.TargetMask);
-
-            projectileRoot.Spawn(command);
-            yield return null;
-
-            Assert.That(mob.CurrentHealth, Is.EqualTo(6f));
-            Object.Destroy(gameRootObject);
-            Object.Destroy(projectileObject);
-            Object.Destroy(mobObject);
-        }
-
-        [UnityTest]
         public IEnumerator ProjectileDirectDamageToggleSuppressesTargetDamage()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
@@ -292,7 +230,7 @@ namespace PlayGround.Tests.PlayMode
                 CombatShapeType.Circle,
                 directDamageEnabled: false);
 
-            projectileRoot.Spawn(command);
+            projectileRoot.Spawn(command, CombatFaction.Player);
             yield return null;
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(10f));
@@ -314,8 +252,8 @@ namespace PlayGround.Tests.PlayMode
                 1f,
                 new DamageSnapshot(10f),
                 CombatShapeType.Circle);
-            projectileRoot.Spawn(command);
-            projectileRoot.Spawn(command);
+            projectileRoot.Spawn(command, CombatFaction.Player);
+            projectileRoot.Spawn(command, CombatFaction.Player);
             yield return null;
 
             // Both hits land on the same target in one frame → one batch per unique target.
@@ -345,7 +283,7 @@ namespace PlayGround.Tests.PlayMode
                 pierceCount: 2,
                 repeatHitCooldownSeconds: 0.02f);
 
-            projectileRoot.Spawn(command);
+            projectileRoot.Spawn(command, CombatFaction.Player);
             Time.captureDeltaTime = 0.01f;
             yield return null;
             yield return null;
@@ -378,7 +316,7 @@ namespace PlayGround.Tests.PlayMode
                 childSpawn: new ProjectileChildSpawnConfig(1, 0, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)),
                 directDamageEnabled: false);
 
-            projectileRoot.Spawn(command);
+            projectileRoot.Spawn(command, CombatFaction.Player);
             Time.captureDeltaTime = 0.02f;
             yield return null;
             Time.captureDeltaTime = 0.001f;
@@ -391,14 +329,9 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileIntervalSpawnedChildUsesRootTargetMaskForTracking()
+        public IEnumerator ProjectileIntervalSpawnedChildTracksNearbyTarget()
         {
-            int mobHurtboxLayer = LayerMask.NameToLayer(GameplayLayers.MobHurtbox);
-            Assume.That(mobHurtboxLayer, Is.GreaterThanOrEqualTo(0));
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
-            int mobHurtboxMask = 1 << mobHurtboxLayer;
-            projectileRoot.ConfigureTargetBinding(mobHurtboxMask);
-            mobObject.layer = mobHurtboxLayer;
             mobObject.transform.position = new Vector2(10f, 10f);
             mob.Register(projectileRoot.TargetRegistry);
 
@@ -414,7 +347,6 @@ namespace PlayGround.Tests.PlayMode
                 CombatShapeType.Circle,
                 0f,
                 new DamageSnapshot(1f),
-                targetMask: 1,
                 tracking: new ProjectileTrackingConfig(true, 50f, 360f, 0f),
                 behavior: new ProjectileChildSpawnBehavior(1, ProjectileChildSpawnPatternType.Forward));
             var command = new ProjectileSpawnRequest(
@@ -430,7 +362,7 @@ namespace PlayGround.Tests.PlayMode
                 childSpawn: intervalSpawn,
                 directDamageEnabled: false);
 
-            projectileRoot.Spawn(command);
+            projectileRoot.Spawn(command, CombatFaction.Player);
             Time.captureDeltaTime = 0.02f;
             yield return null;
             Time.captureDeltaTime = 0.1f;
@@ -463,7 +395,7 @@ namespace PlayGround.Tests.PlayMode
                 CombatShapeType.Circle,
                 sourceNodeId: sourceNodeId);
 
-            projectileRoot.Spawn(command);
+            projectileRoot.Spawn(command, CombatFaction.Player);
             yield return null;
 
             Assert.That(probe.LastDamage.Amount, Is.EqualTo(2f));
@@ -490,14 +422,14 @@ namespace PlayGround.Tests.PlayMode
                 CombatShapeType.Circle,
                 childSpawn: new ProjectileChildSpawnConfig(1, 0, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)));
 
-            projectileRoot.Spawn(command);
+            projectileRoot.Spawn(command, CombatFaction.Player);
             Time.captureDeltaTime = 0.02f;
             yield return null;
             Time.captureDeltaTime = 0.001f;
             yield return null;
             Time.captureDeltaTime = 0f;
 
-            Assert.That(RenderInstanceCount(projectileRoot, 0), Is.EqualTo(3));
+            Assert.That(RenderInstanceCount(0), Is.EqualTo(3));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
         }
@@ -519,7 +451,7 @@ namespace PlayGround.Tests.PlayMode
                 CombatShapeType.Circle,
                 childSpawn: new ProjectileChildSpawnConfig(1, 0, 1f, IntervalJitterSeconds, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)));
 
-            projectileRoot.Spawn(command);
+            projectileRoot.Spawn(command, CombatFaction.Player);
             yield return null;
 
             Entity childSpawnerEntity = FirstScopedChildSpawnerEntity(projectileRoot);
@@ -547,7 +479,7 @@ namespace PlayGround.Tests.PlayMode
                 CombatShapeType.Circle,
                 childSpawn: new ProjectileChildSpawnConfig(1, 16, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)));
 
-            Assert.Throws<global::System.InvalidOperationException>(() => projectileRoot.Spawn(command));
+            Assert.Throws<global::System.InvalidOperationException>(() => projectileRoot.Spawn(command, CombatFaction.Player));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
         }
@@ -558,14 +490,14 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
             var command = new ProjectileSpawnRequest(new Vector2(50f, 50f), Vector2.right, 0f, 0f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle);
 
-            projectileRoot.Spawn(command);
+            projectileRoot.Spawn(command, CombatFaction.Player);
             Time.captureDeltaTime = 0.01f;
             yield return null;
             int warmedCount = CountScopedProjectileEntities(projectileRoot);
 
             for (int i = 0; i < 4; i++)
             {
-                projectileRoot.Spawn(command);
+                projectileRoot.Spawn(command, CombatFaction.Player);
                 yield return null;
             }
 
@@ -582,12 +514,12 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out MobRoot mob);
             mob.Register(projectileRoot.TargetRegistry);
 
-            projectileRoot.Spawn(new ProjectileSpawnRequest(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle));
+            projectileRoot.Spawn(new ProjectileSpawnRequest(Vector2.zero, Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle), CombatFaction.Player);
             Time.captureDeltaTime = 0.01f;
             yield return null;
             Assert.That(SumScopedContactGates(projectileRoot), Is.GreaterThan(0));
 
-            projectileRoot.Spawn(new ProjectileSpawnRequest(new Vector2(50f, 50f), Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle));
+            projectileRoot.Spawn(new ProjectileSpawnRequest(new Vector2(50f, 50f), Vector2.right, 0f, 1f, 1f, new DamageSnapshot(1f), CombatShapeType.Circle), CombatFaction.Player);
             yield return null;
             Time.captureDeltaTime = 0f;
 
@@ -767,7 +699,7 @@ namespace PlayGround.Tests.PlayMode
             GameObject gameRootObject = new("GameRoot");
             gameRootObject.SetActive(false);
             GameRoot gameRoot = gameRootObject.AddComponent<GameRoot>();
-            gameRoot.Configure(projectileRoot, null, null, new MobRoot[0]);
+            gameRoot.Configure(projectileRoot, null, new MobRoot[0]);
             gameRootObject.SetActive(true);
 
             Assert.That(Object.FindAnyObjectByType<MobSpawnerRoot>(), Is.Not.Null);
@@ -888,24 +820,22 @@ namespace PlayGround.Tests.PlayMode
 
         private static IEnumerator SpawnAndDrainChildCycle(CombatRoot projectileRoot, ProjectileSpawnRequest command)
         {
-            projectileRoot.Spawn(command);
+            projectileRoot.Spawn(command, CombatFaction.Player);
             Time.captureDeltaTime = 0.002f;
             yield return null;
             yield return null;
             Time.captureDeltaTime = 0f;
         }
 
-        private static int RenderInstanceCount(CombatRoot projectileRoot, int typeId)
+        private static int RenderInstanceCount(int typeId)
         {
-            CombatFaction faction = ProjectileFaction(projectileRoot);
-            int batchId = ((int)faction << 16) | typeId;
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<CombatRenderBatchId>(),
                 ComponentType.ReadOnly<CombatRenderElement>(),
                 ComponentType.ReadOnly<CombatRenderActiveTag>());
-            query.SetSharedComponentFilter(new CombatRenderBatchId { Value = batchId });
+            query.SetSharedComponentFilter(new CombatRenderBatchId { Value = typeId });
             int count = query.CalculateEntityCount();
             query.ResetFilter();
             return count;
@@ -913,22 +843,15 @@ namespace PlayGround.Tests.PlayMode
 
         private static Vector2 ProjectileVelocity(CombatRoot projectileRoot)
         {
-            CombatFaction faction = ProjectileFaction(projectileRoot);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
                 ComponentType.ReadOnly<CombatKinematicsComponent>());
             using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
 
-            for (int i = 0; i < entities.Length; i++)
+            if (entities.Length > 0)
             {
-                ProjectileIdentityComponent identity = entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]);
-                if (identity.Faction != faction)
-                {
-                    continue;
-                }
-
-                CombatKinematicsComponent kinematics = entityManager.GetComponentData<CombatKinematicsComponent>(entities[i]);
+                CombatKinematicsComponent kinematics = entityManager.GetComponentData<CombatKinematicsComponent>(entities[0]);
                 return new Vector2(kinematics.Velocity.x, kinematics.Velocity.y);
             }
 
@@ -938,7 +861,6 @@ namespace PlayGround.Tests.PlayMode
 
         private static float MaxProjectileVelocityY(CombatRoot projectileRoot)
         {
-            CombatFaction faction = ProjectileFaction(projectileRoot);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
@@ -948,12 +870,6 @@ namespace PlayGround.Tests.PlayMode
 
             for (int i = 0; i < entities.Length; i++)
             {
-                ProjectileIdentityComponent identity = entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]);
-                if (identity.Faction != faction)
-                {
-                    continue;
-                }
-
                 CombatKinematicsComponent kinematics = entityManager.GetComponentData<CombatKinematicsComponent>(entities[i]);
                 maxVelocityY = Mathf.Max(maxVelocityY, kinematics.Velocity.y);
             }
@@ -1000,7 +916,6 @@ namespace PlayGround.Tests.PlayMode
 
         private static int SumScopedContactGates(CombatRoot projectileRoot)
         {
-            CombatFaction faction = ProjectileFaction(projectileRoot);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
@@ -1010,12 +925,6 @@ namespace PlayGround.Tests.PlayMode
 
             for (int i = 0; i < entities.Length; i++)
             {
-                ProjectileIdentityComponent identity = entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]);
-                if (identity.Faction != faction)
-                {
-                    continue;
-                }
-
                 gateCount += entityManager.GetBuffer<ProjectileContactGateElement>(entities[i]).Length;
             }
 
@@ -1024,7 +933,6 @@ namespace PlayGround.Tests.PlayMode
 
         private static int CountScopedProjectiles(CombatRoot projectileRoot, global::System.Func<Entity, bool> predicate)
         {
-            CombatFaction faction = ProjectileFaction(projectileRoot);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileIdentityComponent>());
             using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
@@ -1032,21 +940,13 @@ namespace PlayGround.Tests.PlayMode
 
             for (int i = 0; i < entities.Length; i++)
             {
-                ProjectileIdentityComponent identity = entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]);
-                if (identity.Faction == faction && predicate(entities[i]))
+                if (predicate(entities[i]))
                 {
                     count++;
                 }
             }
 
             return count;
-        }
-
-        private static CombatFaction ProjectileFaction(CombatRoot projectileRoot)
-        {
-            const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            var factionField = typeof(CombatRoot).GetField("faction", Flags);
-            return (CombatFaction)factionField.GetValue(projectileRoot);
         }
 
         private static void CreateSpawnFixture(
@@ -1127,7 +1027,7 @@ namespace PlayGround.Tests.PlayMode
                 Vector2.zero, Vector2.right, 0f, 1f, 1f,
                 new Vector2(1f, 1f), 0f,
                 new DamageSnapshot(3f), CombatShapeType.Circle,
-                critChance: 1f, critMultiplier: 2f));
+                critChance: 1f, critMultiplier: 2f), CombatFaction.Player);
             yield return null;
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(4f).Within(0.001f));
@@ -1145,7 +1045,7 @@ namespace PlayGround.Tests.PlayMode
                 Vector2.zero, Vector2.right, 0f, 1f, 1f,
                 new Vector2(1f, 1f), 0f,
                 new DamageSnapshot(3f), CombatShapeType.Circle,
-                critChance: 0f, critMultiplier: 2f));
+                critChance: 0f, critMultiplier: 2f), CombatFaction.Player);
             yield return null;
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(7f).Within(0.001f));
@@ -1160,10 +1060,10 @@ namespace PlayGround.Tests.PlayMode
             CritProbe probe = CreateCritProbe(Vector2.zero);
             root.TargetRegistry.Register(probe);
 
-            root.Spawn(new AoeSpawnRequest(typeId, Vector2.zero, ~0,
+            root.Spawn(new AoeSpawnRequest(typeId, Vector2.zero,
                 new DamageSnapshot(3f), 0f, 0f,
                 AoeGeometry(templateObject),
-                critChance: 1f, critMultiplier: 2f));
+                critChance: 1f, critMultiplier: 2f), CombatFaction.Player);
             yield return null;
 
             Assert.That(probe.LastDamage.Amount, Is.EqualTo(6f).Within(0.001f));
@@ -1180,10 +1080,10 @@ namespace PlayGround.Tests.PlayMode
             CritProbe probe = CreateCritProbe(Vector2.zero);
             root.TargetRegistry.Register(probe);
 
-            root.Spawn(new AoeSpawnRequest(typeId, Vector2.zero, ~0,
+            root.Spawn(new AoeSpawnRequest(typeId, Vector2.zero,
                 new DamageSnapshot(3f), 0f, 0f,
                 AoeGeometry(templateObject),
-                critChance: 0f, critMultiplier: 2f));
+                critChance: 0f, critMultiplier: 2f), CombatFaction.Player);
             yield return null;
 
             Assert.That(probe.LastDamage.Amount, Is.EqualTo(3f).Within(0.001f));
