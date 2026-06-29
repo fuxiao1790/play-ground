@@ -1,22 +1,24 @@
+using PlayGround.Skills.Modifiers;
 using UnityEngine;
 
 namespace PlayGround.Skills
 {
     [CreateAssetMenu(menuName = "PlayGround/Skills/Supports/Piercing", fileName = "PiercingSupport")]
-    public sealed class PiercingSupport : AdditiveSupport
+    public sealed class PiercingSupport : StatModifierSupport, IBaseValueModifier, IProjectileBehaviorModifier
     {
         [SerializeField, Min(0)] private int pierceCount = 2;
         [SerializeField, Min(0f)] private float repeatHitCooldown = 0.5f;
 
         public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Projectile;
 
-        public override void Apply(SkillDefinition def)
+        public void CollectAdded(AddedSink sink)
         {
-            if (def is ProjectileDefinition p)
-            {
-                p.pierceCount = pierceCount;
-                p.repeatHitCooldown = repeatHitCooldown;
-            }
+            sink.Add(SkillStat.PierceCount, pierceCount);
+        }
+
+        public void ApplyToProjectile(ProjectileBehaviorContext ctx)
+        {
+            ctx.RepeatHitCooldown = repeatHitCooldown;
         }
     }
 }
