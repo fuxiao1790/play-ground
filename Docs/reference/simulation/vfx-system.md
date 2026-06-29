@@ -44,9 +44,8 @@ not emit spawn VFX from projectile or AOE apply systems.
 Simulation job
   -> VfxPendingSpawn in a NativeQueue or NativeStream
   -> VfxFlushJob or stream flush job
-  -> DynamicBuffer<VfxSpawnRequestElement> on shared CombatScope
+  -> DynamicBuffer<VfxSpawnRequestElement> on VfxSingleton entity
   -> CombatVfxDispatchSystem in PresentationSystemGroup
-     (splits requests by Faction; routes each faction to its CombatVfxRoot)
   -> CombatVfxRoot.DrainAndDispatch
   -> CombatVfxDispatcher.StageSpawn
   -> CombatVfxDispatcher.Dispatch
@@ -56,30 +55,30 @@ Simulation job
 
 `VfxPendingSpawn` carries:
 
-- `CombatFaction Faction`
 - `int TypeId`
 - `byte Trigger`
 - `float2 Position`
 - `float AreaSize`
 
-`VfxSpawnRequestElement` is the scope-buffer version of the same data.
+`VfxSpawnRequestElement` is the VFX singleton buffer version of the same data.
+Like batched sprite rendering, VFX dispatch is faction-agnostic and owns a
+presentation singleton entity for its staging buffer.
 
 ## Key Classes
 
 `CombatVfxRoot`:
 
 - scene-object owner for one `CombatVfxDispatcher`
-- static faction-keyed registry (`ByFaction[]`) for ECS lookup via `TryGetByFaction`
+- static `Instance` set in `Awake` for ECS presentation lookup
 - `Register(typeId, trigger, asset, maxPerFrame, requireAreaSizeContract)`
-- `BindFaction(faction)` registers this root as the handler for a `CombatFaction`
 - `DrainAndDispatch(requests)` stages events, clears the list, and dispatches
 
 `CombatVfxDispatchSystem`:
 
 - `PresentationSystemGroup`
-- queries the singleton entity for `DynamicBuffer<VfxSpawnRequestElement>`
-- splits requests by `Faction` (Player / Mob)
-- resolves each `CombatVfxRoot` via `TryGetByFaction` and calls `DrainAndDispatch`
+- creates and queries the `VfxSingleton` entity for
+  `DynamicBuffer<VfxSpawnRequestElement>`
+- drains the single VFX buffer through `CombatVfxRoot.Instance`
 
 `CombatVfxDispatcher`:
 
@@ -93,11 +92,11 @@ Simulation job
 `VfxFlushJob`:
 
 - Burst `IJob`
-- drains `NativeQueue<VfxPendingSpawn>` into the shared scope buffer
+- drains `NativeQueue<VfxPendingSpawn>` into the VFX singleton buffer
 - used by common lifetime and AOE pulse VFX paths
 
 Collision systems use a `NativeStream` for hit/expire VFX and a local stream
-flush job to append into the same scope buffer.
+flush job to append into the same VFX singleton buffer.
 
 ## VFX Graph Contract
 

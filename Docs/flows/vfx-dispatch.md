@@ -8,9 +8,9 @@ Trace visual-only requests from simulation to VFX Graph dispatch.
 
 1. Collision, lifetime, pulse, or spawn systems create `VfxPendingSpawn`.
 2. Flush jobs append requests to `DynamicBuffer<VfxSpawnRequestElement>` on the
-   shared `CombatScope`.
+   VFX singleton entity.
 3. `CombatVfxDispatchSystem` runs in presentation.
-4. It resolves `CombatVfxRoot` through the scope VFX catalog.
+4. It resolves the single `CombatVfxRoot.Instance`.
 5. `CombatVfxRoot` drains and clears the buffer.
 6. `CombatVfxDispatcher` stages requests by `(typeId, trigger)`, caps count,
    uploads GPU buffers, and sends VFX Graph events.

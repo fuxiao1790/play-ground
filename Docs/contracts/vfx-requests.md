@@ -19,7 +19,6 @@ Request data:
 
 - `VfxPendingSpawn`
 - `VfxSpawnRequestElement`
-- `CombatFaction Faction`
 - `int TypeId`
 - `byte Trigger`
 - `float2 Position`
@@ -44,8 +43,8 @@ call managed VFX objects directly.
 
 ## Lifetime
 
-Requests live in native queues/streams until flushed to scope buffers, then live
-until presentation dispatch drains and clears them.
+Requests live in native queues/streams until flushed to the VFX singleton
+buffer, then live until presentation dispatch drains and clears them.
 
 ## Ordering
 

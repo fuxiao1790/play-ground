@@ -28,7 +28,7 @@ submission, debug text, and visual budgets.
 ## Inputs
 
 - `CombatTickResult` presentation data.
-- `VfxSpawnRequestElement` scope buffers.
+- `VfxSpawnRequestElement` buffer on the VFX singleton entity.
 - Prepared render matrices and render shared components.
 - Actor target companion references during presentation only.
 
