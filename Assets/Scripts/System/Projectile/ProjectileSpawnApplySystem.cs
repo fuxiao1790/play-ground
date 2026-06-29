@@ -23,6 +23,9 @@ namespace PlayGround.System.Projectile
         private readonly ProfilerCounterValue<int> _spawnColdCreateCounter;
         private readonly ProfilerCounterValue<int> _spawnReuseCounter;
 
+        internal int LastColdCreateCount;
+        internal int LastReuseCount;
+
         private EntityArchetype _archetype;
 
         private readonly Dictionary<ProjectileSpawnKey, EntityQuery> _deadSlotQueriesByKey = new();
@@ -119,7 +122,12 @@ namespace PlayGround.System.Projectile
                 }
             }
 
-            if (totalRequests == 0) return;
+            if (totalRequests == 0)
+            {
+                LastReuseCount = 0;
+                LastColdCreateCount = 0;
+                return;
+            }
 
             using (_spawnMarker.Auto())
             {
@@ -169,6 +177,8 @@ namespace PlayGround.System.Projectile
                     createEcb.Playback(EntityManager);
                 _spawnReuseCounter.Value = reuseCount;
                 _spawnColdCreateCounter.Value = totalRequests - reuseCount;
+                LastReuseCount = reuseCount;
+                LastColdCreateCount = totalRequests - reuseCount;
             }
 
             commands.Dispose();

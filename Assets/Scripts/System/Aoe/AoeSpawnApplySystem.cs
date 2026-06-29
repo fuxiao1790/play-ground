@@ -30,6 +30,9 @@ namespace PlayGround.System.Aoe
         private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
             new(ProfilerCategory.Scripts, "AoeSpawnApplySystem.Reuse", ProfilerMarkerDataUnit.Count);
 
+        internal int LastColdCreateCount;
+        internal int LastReuseCount;
+
         private EntityArchetype lingeringArchetype;
         private EntityArchetype timedSpawnerLingeringArchetype;
         private EntityArchetype impactArchetype;
@@ -136,7 +139,12 @@ namespace PlayGround.System.Aoe
                 expansionSys.PendingCommands.Dispose();
             }
 
-            if (totalRequests == 0) return;
+            if (totalRequests == 0)
+            {
+                LastReuseCount = 0;
+                LastColdCreateCount = 0;
+                return;
+            }
 
             using (SpawnMarker.Auto())
             {
@@ -204,6 +212,8 @@ namespace PlayGround.System.Aoe
                     createEcb.Playback(EntityManager);
                 SpawnReuseCounter.Value = reuseCount;
                 SpawnColdCreateCounter.Value = totalRequests - reuseCount;
+                LastReuseCount = reuseCount;
+                LastColdCreateCount = totalRequests - reuseCount;
             }
         }
 

@@ -10,6 +10,7 @@ namespace PlayGround.System.Vfx
         internal NativeQueue<VfxPendingSpawn> PendingSpawns;
         internal JobHandle ProducerHandle;
         internal bool HasQueue => PendingSpawns.IsCreated;
+        internal int LastVfxEventCount;
 
         internal NativeQueue<VfxPendingSpawn>.ParallelWriter AsParallelWriter() =>
             PendingSpawns.AsParallelWriter();
@@ -32,6 +33,7 @@ namespace PlayGround.System.Vfx
         {
             ProducerHandle.Complete();
             ProducerHandle = default;
+            LastVfxEventCount = PendingSpawns.IsCreated ? PendingSpawns.Count : 0;
 
             if (PendingSpawns.Count == 0)
             {

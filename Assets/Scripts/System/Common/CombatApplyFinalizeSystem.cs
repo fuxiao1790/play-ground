@@ -50,6 +50,7 @@ namespace PlayGround.System.Common
         internal NativeQueue<CombatHitEvent> HitQueue;
         internal JobHandle ProducerHandle;
         internal int AccrualFrame;
+        internal int LastHitEventCount;
 
         private int entryEvictions;
 
@@ -92,6 +93,7 @@ namespace PlayGround.System.Common
                 using (CountHitsMarker.Auto())
                 {
                     hitCount = HitQueue.Count;
+                    LastHitEventCount = hitCount;
                 }
 
                 if (hitCount == 0)
