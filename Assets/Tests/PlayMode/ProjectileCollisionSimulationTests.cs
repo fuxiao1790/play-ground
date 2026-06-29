@@ -3,7 +3,6 @@ using PlayGround.Common;
 using PlayGround.System.Aoe;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
-using PlayGround.System.Vfx;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
@@ -52,8 +51,6 @@ namespace PlayGround.Tests.PlayMode
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
-            Entity vfxEntity = entityManager.CreateEntity(typeof(VfxSingleton));
-            entityManager.AddBuffer<VfxSpawnRequestElement>(vfxEntity);
 
             projectileTemplateEntity = entityManager.CreateEntity();
             entityManager.AddComponentData(projectileTemplateEntity, new ProjectileSpawnTemplate
