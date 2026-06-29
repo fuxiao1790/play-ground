@@ -7,7 +7,7 @@ public class PerformanceText : MonoBehaviour
 {
     [SerializeField] private Text text;
     [SerializeField] private Vector2 padding = new(12f, 12f);
-    [SerializeField] private Vector2 size = new(360f, 120f);
+    [SerializeField] private Vector2 size = new(360f, 156f);
     [SerializeField] private int fontSize = 18;
 
     private CombatStatsGatherSystem statsSystem;
@@ -61,6 +61,8 @@ public class PerformanceText : MonoBehaviour
             $"FPS: {fps:0}\n" +
             $"Spawn ECB:   {stats.EntitiesSpawnedViaEcb}\n" +
             $"Spawn reuse: {stats.EntitiesSpawnedViaReuse}\n" +
+            $"Projectiles:  {stats.ActiveProjectiles}\n" +
+            $"AOEs:         {stats.ActiveAoes}\n" +
             $"Hit events:  {stats.HitEventsCreated}\n" +
             $"VFX events:  {stats.VfxEventsCreated}";
     }

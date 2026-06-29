@@ -11,6 +11,10 @@ namespace PlayGround.System.Stats
     // - EntitiesSpawnedViaReuse sums LastReuseCount from those same spawn apply
     //   systems. Each producer sets it from the claimed disabled Active slots
     //   counted during its reuse job phase.
+    // - ActiveProjectiles and ActiveAoes mirror CombatBatchedRenderSystem's
+    //   last render-active counts. The render system already materializes
+    //   per-batch NativeArrays for drawing, so it records their Lengths while
+    //   doing that existing work; gathering only reads cached ints.
     // - HitEventsCreated mirrors CombatApplyFinalizeSystem.LastHitEventCount,
     //   assigned from HitQueue.Count before the queue is flattened or cleared.
     // - VfxEventsCreated mirrors CombatVfxDispatchSystem.LastVfxEventCount,
@@ -28,6 +32,8 @@ namespace PlayGround.System.Stats
     {
         public int EntitiesSpawnedViaEcb;
         public int EntitiesSpawnedViaReuse;
+        public int ActiveProjectiles;
+        public int ActiveAoes;
         public int HitEventsCreated;
         public int VfxEventsCreated;
     }

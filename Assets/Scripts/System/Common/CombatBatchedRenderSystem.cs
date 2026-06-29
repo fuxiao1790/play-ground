@@ -25,6 +25,9 @@ namespace PlayGround.System.Common
         private ComponentTypeHandle<CombatRenderComponent> renderHandle;
         private ComponentTypeHandle<CombatRenderElement> elementHandle;
 
+        internal int LastActiveProjectileCount;
+        internal int LastActiveAoeCount;
+
         protected override void OnCreate()
         {
             Entity registryEntity = EntityManager.CreateEntity();
@@ -68,6 +71,9 @@ namespace PlayGround.System.Common
 
         protected override void OnUpdate()
         {
+            LastActiveProjectileCount = 0;
+            LastActiveAoeCount = 0;
+
             kinematicsHandle.Update(this);
             renderHandle.Update(this);
             elementHandle.Update(this);
@@ -95,12 +101,14 @@ namespace PlayGround.System.Common
             projectileRenderQuery.SetSharedComponentFilter(filter);
             using NativeArray<CombatRenderElement> projElements =
                 projectileRenderQuery.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
+            LastActiveProjectileCount += projElements.Length;
             SubmitAll(projElements, entry);
             projectileRenderQuery.ResetFilter();
 
             aoeRenderQuery.SetSharedComponentFilter(filter);
             using NativeArray<CombatRenderElement> aoeElements =
                 aoeRenderQuery.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
+            LastActiveAoeCount += aoeElements.Length;
             SubmitAll(aoeElements, entry);
             aoeRenderQuery.ResetFilter();
         }

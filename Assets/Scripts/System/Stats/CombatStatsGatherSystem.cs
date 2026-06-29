@@ -8,6 +8,7 @@ namespace PlayGround.System.Stats
 {
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     [UpdateAfter(typeof(CombatVfxDispatchSystem))]
+    [UpdateAfter(typeof(CombatBatchedRenderSystem))]
     public partial class CombatStatsGatherSystem : SystemBase
     {
         private Entity _statsEntity;
@@ -16,6 +17,7 @@ namespace PlayGround.System.Stats
         private AoeSpawnApplySystem _aoe;
         private CombatApplyFinalizeSystem _finalize;
         private CombatVfxDispatchSystem _vfx;
+        private CombatBatchedRenderSystem _render;
 
         protected override void OnCreate()
         {
@@ -62,6 +64,8 @@ namespace PlayGround.System.Stats
             {
                 EntitiesSpawnedViaEcb = ecb,
                 EntitiesSpawnedViaReuse = reuse,
+                ActiveProjectiles = _render?.LastActiveProjectileCount ?? 0,
+                ActiveAoes = _render?.LastActiveAoeCount ?? 0,
                 HitEventsCreated = _finalize?.LastHitEventCount ?? 0,
                 VfxEventsCreated = _vfx?.LastVfxEventCount ?? 0,
             };
@@ -80,6 +84,7 @@ namespace PlayGround.System.Stats
             _aoe ??= World.GetExistingSystemManaged<AoeSpawnApplySystem>();
             _finalize ??= World.GetExistingSystemManaged<CombatApplyFinalizeSystem>();
             _vfx ??= World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
+            _render ??= World.GetExistingSystemManaged<CombatBatchedRenderSystem>();
         }
     }
 }
