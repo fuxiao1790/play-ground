@@ -16,6 +16,7 @@ namespace PlayGround.System.Projectile
     {
         private const float TrackingSpatialHashCellSize = 64f;
         private const int ForwardAcquisitionLateralCellRadius = 1;
+        private const int MissedTargetSearchCooldownIndex = -2;
         private static readonly ProfilerMarker<int> TargetSpatialHashBuildMarker =
             new("ProjectileTrackingSystem.TargetSpatialHashBuild", "Targets");
 
@@ -119,6 +120,11 @@ namespace PlayGround.System.Projectile
                     return;
                 }
 
+                if (ShouldSkipAfterMissedTargetSearch(ref tracking))
+                {
+                    return;
+                }
+
                 if (TryRefreshTrackedTarget(ref tracking, identity))
                 {
                     tracking.TrackingQueryCooldownRemaining = math.max(0f, tracking.TrackingQueryCooldownRemaining - DeltaTime);
@@ -129,6 +135,26 @@ namespace PlayGround.System.Projectile
                 {
                     tracking.TrackingQueryCooldownRemaining = tracking.TrackingQueryIntervalSeconds;
                 }
+            }
+
+            private bool ShouldSkipAfterMissedTargetSearch(ref ProjectileTrackingComponent tracking)
+            {
+                if (tracking.TrackedTargetId != 0
+                    || tracking.TrackedTargetIndex != MissedTargetSearchCooldownIndex)
+                {
+                    return false;
+                }
+
+                tracking.TrackingQueryCooldownRemaining = math.max(
+                    0f,
+                    tracking.TrackingQueryCooldownRemaining - DeltaTime);
+                if (tracking.TrackingQueryCooldownRemaining > 0f)
+                {
+                    return true;
+                }
+
+                tracking.TrackedTargetIndex = -1;
+                return false;
             }
 
             private bool TryRefreshTrackedTarget(
@@ -189,32 +215,37 @@ namespace PlayGround.System.Projectile
                 float minimumDot = math.cos(math.min(reachableAngle, math.PI * 0.5f));
                 float minimumDotSquared = minimumDot * minimumDot;
                 float2 forward = kinematics.Velocity / speed;
-                float2 side = new(-forward.y, forward.x);
 
-                for (float forwardDistance = 0f; forwardDistance <= reachableDistance; forwardDistance += TrackingSpatialHashCellSize)
+                SearchAcquisitionCone(
+                    ref randomState,
+                    ref validTargetCount,
+                    ref selectedTargetIndex,
+                    identity.Faction,
+                    kinematics,
+                    forward,
+                    reachableDistance,
+                    minimumDotSquared,
+                    stopAfterFirstDistanceBandWithTarget: false);
+
+                if (selectedTargetIndex < 0)
                 {
-                    for (int lane = 0; lane <= ForwardAcquisitionLateralCellRadius * 2; lane++)
-                    {
-                        int lateralOffset = LaneToLateralOffset(lane);
-                        float2 probePosition = kinematics.Position
-                            + forward * forwardDistance
-                            + side * lateralOffset * TrackingSpatialHashCellSize;
-                        int2 cell = FloorCell(probePosition);
-                        TrySelectRandomTargetInCell(
-                                ref randomState,
-                                ref validTargetCount,
-                                ref selectedTargetIndex,
-                                identity.Faction,
-                                kinematics,
-                                forward,
-                                minimumDotSquared,
-                                CellKey(cell.x, cell.y));
-                    }
+                    SearchAcquisitionCone(
+                        ref randomState,
+                        ref validTargetCount,
+                        ref selectedTargetIndex,
+                        identity.Faction,
+                        kinematics,
+                        -forward,
+                        reachableDistance,
+                        minimumDotSquared,
+                        stopAfterFirstDistanceBandWithTarget: true);
                 }
 
                 tracking.TrackingRandomState = randomState;
                 if (selectedTargetIndex < 0)
                 {
+                    tracking.TrackedTargetIndex = MissedTargetSearchCooldownIndex;
+                    tracking.TrackingQueryCooldownRemaining = tracking.TrackingQueryIntervalSeconds;
                     return false;
                 }
 
@@ -223,6 +254,48 @@ namespace PlayGround.System.Projectile
                 tracking.TrackedTargetIndex = selectedTargetIndex;
                 tracking.TrackedTargetPosition = TargetPositions[selectedTargetIndex].Value;
                 return true;
+            }
+
+            private void SearchAcquisitionCone(
+                ref uint randomState,
+                ref int validTargetCount,
+                ref int selectedTargetIndex,
+                CombatFaction projectileFaction,
+                CombatKinematicsComponent kinematics,
+                float2 searchDirection,
+                float reachableDistance,
+                float minimumDotSquared,
+                bool stopAfterFirstDistanceBandWithTarget)
+            {
+                float2 side = new(-searchDirection.y, searchDirection.x);
+
+                for (float forwardDistance = 0f; forwardDistance <= reachableDistance; forwardDistance += TrackingSpatialHashCellSize)
+                {
+                    int validTargetCountBeforeDistance = validTargetCount;
+                    for (int lane = 0; lane <= ForwardAcquisitionLateralCellRadius * 2; lane++)
+                    {
+                        int lateralOffset = LaneToLateralOffset(lane);
+                        float2 probePosition = kinematics.Position
+                            + searchDirection * forwardDistance
+                            + side * lateralOffset * TrackingSpatialHashCellSize;
+                        int2 cell = FloorCell(probePosition);
+                        TrySelectRandomTargetInCell(
+                            ref randomState,
+                            ref validTargetCount,
+                            ref selectedTargetIndex,
+                            projectileFaction,
+                            kinematics,
+                            searchDirection,
+                            minimumDotSquared,
+                            CellKey(cell.x, cell.y));
+                    }
+
+                    if (stopAfterFirstDistanceBandWithTarget
+                        && validTargetCount > validTargetCountBeforeDistance)
+                    {
+                        return;
+                    }
+                }
             }
 
             private bool TrySelectRandomTargetInCell(
@@ -256,7 +329,7 @@ namespace PlayGround.System.Projectile
                     }
 
                     TargetPosition target = TargetPositions[targetIndex];
-                    if (!IsValidForwardAcquisitionTarget(kinematics, target, forward, minimumDotSquared))
+                    if (!IsValidAcquisitionTarget(kinematics, target, forward, minimumDotSquared))
                     {
                         continue;
                     }
@@ -283,10 +356,10 @@ namespace PlayGround.System.Projectile
                 return (lane & 1) == 1 ? (lane + 1) / 2 : -(lane / 2);
             }
 
-            private static bool IsValidForwardAcquisitionTarget(
+            private static bool IsValidAcquisitionTarget(
                 CombatKinematicsComponent kinematics,
                 TargetPosition target,
-                float2 forward,
+                float2 searchDirection,
                 float minimumDotSquared)
             {
                 float2 toTarget = target.Value - kinematics.Position;
@@ -296,7 +369,7 @@ namespace PlayGround.System.Projectile
                     return true;
                 }
 
-                float forwardDistance = math.dot(toTarget, forward);
+                float forwardDistance = math.dot(toTarget, searchDirection);
                 if (forwardDistance <= 0f)
                 {
                     return false;
@@ -390,16 +463,21 @@ namespace PlayGround.System.Projectile
                     return desiredDirection;
                 }
 
-                float deltaLength = math.sqrt(deltaLengthSquared);
-                if (deltaLength > maxTurnRadians)
+                float cross = currentDirection.x * desiredDirection.y - currentDirection.y * desiredDirection.x;
+                float dot = math.clamp(math.dot(currentDirection, desiredDirection), -1f, 1f);
+                float angle = math.atan2(cross, dot);
+                float absoluteAngle = math.abs(angle);
+                if (absoluteAngle <= maxTurnRadians)
                 {
-                    directionDelta *= maxTurnRadians / deltaLength;
+                    return desiredDirection;
                 }
 
-                float2 steered = currentDirection + directionDelta;
-                return math.lengthsq(steered) <= ProjectileSimulationConstants.MinimumDirectionLengthSquared
-                    ? currentDirection
-                    : math.normalize(steered);
+                float turnAngle = math.select(maxTurnRadians, -maxTurnRadians, angle < 0f);
+                float sin = math.sin(turnAngle);
+                float cos = math.cos(turnAngle);
+                return new float2(
+                    currentDirection.x * cos - currentDirection.y * sin,
+                    currentDirection.x * sin + currentDirection.y * cos);
             }
         }
 

@@ -98,6 +98,59 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void AcquiresBackwardTargetWhenNoForwardTargetExists()
+        {
+            int backwardTargetId = AddTarget(position: new float2(-40f, 0f), radius: 0.25f, targetMask: 1);
+            SpawnTrackedProjectile(
+                position: float2.zero,
+                velocity: new float2(10f, 0f),
+                turnSpeedRadians: math.radians(180f));
+
+            Tick(0.1f);
+
+            ProjectileTrackingComponent tracking =
+                entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(backwardTargetId));
+        }
+
+        [Test]
+        public void SteersTowardBackwardAcquiredTarget()
+        {
+            int backwardTargetId = AddTarget(position: new float2(-40f, 0f), radius: 0.25f, targetMask: 1);
+            SpawnTrackedProjectile(
+                position: float2.zero,
+                velocity: new float2(10f, 0f),
+                turnSpeedRadians: math.radians(180f));
+
+            Tick(0.1f);
+
+            ProjectileTrackingComponent tracking =
+                entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
+            CombatKinematicsComponent kinematics =
+                entityManager.GetComponentData<CombatKinematicsComponent>(projectileEntity);
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(backwardTargetId));
+            Assert.That(kinematics.Velocity.x, Is.LessThan(10f));
+            Assert.That(math.abs(kinematics.Velocity.y), Is.GreaterThan(0.001f));
+        }
+
+        [Test]
+        public void PrefersForwardTargetOverBackwardTarget()
+        {
+            int forwardTargetId = AddTarget(position: new float2(40f, 0f), radius: 0.25f, targetMask: 1);
+            AddTarget(position: new float2(-40f, 0f), radius: 0.25f, targetMask: 1);
+            SpawnTrackedProjectile(
+                position: float2.zero,
+                velocity: new float2(10f, 0f),
+                turnSpeedRadians: math.radians(180f));
+
+            Tick(0.1f);
+
+            ProjectileTrackingComponent tracking =
+                entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(forwardTargetId));
+        }
+
+        [Test]
         public void ReacquiresNearbyTargetWithManyFarTargets()
         {
             for (int i = 0; i < 500; i++)
@@ -157,6 +210,31 @@ namespace PlayGround.Tests.PlayMode
 
             ProjectileTrackingComponent tracking =
                 entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(targetId));
+        }
+
+        [Test]
+        public void WaitsQueryIntervalAfterFailedAcquisition()
+        {
+            SpawnTrackedProjectile(
+                position: float2.zero,
+                velocity: new float2(10f, 0f),
+                turnSpeedRadians: math.radians(180f),
+                queryIntervalSeconds: 0.5f);
+
+            Tick(0.1f);
+
+            int targetId = AddTarget(position: new float2(-40f, 0f), radius: 0.25f, targetMask: 1);
+
+            Tick(0.1f);
+
+            ProjectileTrackingComponent tracking =
+                entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(0));
+
+            Tick(0.5f);
+
+            tracking = entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
             Assert.That(tracking.TrackedTargetId, Is.EqualTo(targetId));
         }
 
