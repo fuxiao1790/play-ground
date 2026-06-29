@@ -33,7 +33,7 @@ namespace PlayGround.System.Vfx
         {
             ProducerHandle.Complete();
             ProducerHandle = default;
-            LastVfxEventCount = PendingSpawns.IsCreated ? PendingSpawns.Count : 0;
+            LastVfxEventCount = 0;
 
             if (PendingSpawns.Count == 0)
             {
@@ -47,7 +47,7 @@ namespace PlayGround.System.Vfx
                 return;
             }
 
-            root.DrainAndDispatch(ref PendingSpawns);
+            LastVfxEventCount = root.DrainAndDispatch(ref PendingSpawns);
         }
     }
 }

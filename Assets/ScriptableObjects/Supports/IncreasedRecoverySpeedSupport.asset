@@ -9,7 +9,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a100000000000000000000000000001f, type: 3}
+  m_Script: {fileID: 11500000, guid: 31c042cd8b79ebd4ab1eaf71da885001, type: 3}
   m_Name: IncreasedRecoverySpeedSupport
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.IncreasedRecoverySpeedSupport
   recoverySpeedMultiplier: 1.5

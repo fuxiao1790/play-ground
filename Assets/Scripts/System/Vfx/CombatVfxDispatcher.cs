@@ -147,19 +147,22 @@ namespace PlayGround.System.Vfx
             return count;
         }
 
-        public void StageSpawn(int typeId, int trigger, float2 position, float areaSize = 1f)
+        public bool StageSpawn(int typeId, int trigger, float2 position, float areaSize = 1f)
         {
             int key = typeId * 256 + trigger;
             if (!resources.TryGetValue(key, out VfxTypeResources res))
             {
-                return;
+                return false;
             }
 
-            if (res.Staging.Length < res.MaxPerFrame)
+            if (res.Staging.Length >= res.MaxPerFrame)
             {
-                res.Staging.Add(position);
-                res.AreaSizeStaging.Add(math.max(0.01f, areaSize));
+                return false;
             }
+
+            res.Staging.Add(position);
+            res.AreaSizeStaging.Add(math.max(0.01f, areaSize));
+            return true;
         }
 
         public void Dispatch()

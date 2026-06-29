@@ -1,3 +1,5 @@
+using PlayGround.System.Stats;
+using Unity.Entities;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -5,15 +7,46 @@ public class PerformanceText : MonoBehaviour
 {
     [SerializeField] private Text text;
     [SerializeField] private Vector2 padding = new(12f, 12f);
-    [SerializeField] private Vector2 size = new(320f, 96f);
+    [SerializeField] private Vector2 size = new(360f, 120f);
     [SerializeField] private int fontSize = 18;
 
+    private CombatStatsGatherSystem statsSystem;
+    private CombatStatsSingleton stats;
+    private bool boundToStats;
     private float smoothedDeltaTime;
 
     private void Awake()
     {
         EnsureOverlayText();
     }
+
+    private void OnEnable()
+    {
+        World world = World.DefaultGameObjectInjectionWorld;
+        statsSystem = world?.GetExistingSystemManaged<CombatStatsGatherSystem>();
+        if (statsSystem == null)
+        {
+            Debug.LogWarning(
+                "[PerformanceText] CombatStatsGatherSystem not found; ECS stats will not display.");
+            return;
+        }
+
+        statsSystem.Bind(this);
+        boundToStats = true;
+    }
+
+    private void OnDisable()
+    {
+        if (boundToStats)
+        {
+            statsSystem?.Unbind(this);
+        }
+
+        boundToStats = false;
+        statsSystem = null;
+    }
+
+    internal void Apply(in CombatStatsSingleton snapshot) => stats = snapshot;
 
     private void Update()
     {
@@ -24,7 +57,12 @@ public class PerformanceText : MonoBehaviour
 
         smoothedDeltaTime += (Time.unscaledDeltaTime - smoothedDeltaTime) * 0.1f;
         float fps = smoothedDeltaTime > 0f ? 1f / smoothedDeltaTime : 0f;
-        text.text = $"FPS: {fps:0}";
+        text.text =
+            $"FPS: {fps:0}\n" +
+            $"Spawn ECB:   {stats.EntitiesSpawnedViaEcb}\n" +
+            $"Spawn reuse: {stats.EntitiesSpawnedViaReuse}\n" +
+            $"Hit events:  {stats.HitEventsCreated}\n" +
+            $"VFX events:  {stats.VfxEventsCreated}";
     }
 
     private void EnsureOverlayText()
