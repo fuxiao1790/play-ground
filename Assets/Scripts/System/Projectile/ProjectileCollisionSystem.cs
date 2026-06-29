@@ -336,7 +336,6 @@ namespace PlayGround.System.Projectile
 
                             vfxPending.Write(new VfxPendingSpawn
                             {
-                                Faction = identity.Faction,
                                 TypeId = identity.TypeId,
                                 Trigger = 1,
                                 Position = kinematics.Position,
@@ -375,7 +374,6 @@ namespace PlayGround.System.Projectile
                 renderActive.ValueRW = false;
                 vfxPending.Write(new VfxPendingSpawn
                 {
-                    Faction = identity.Faction,
                     TypeId = identity.TypeId,
                     Trigger = 2,
                     Position = position,

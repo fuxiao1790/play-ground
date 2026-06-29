@@ -254,7 +254,6 @@ namespace PlayGround.System.Aoe
             {
                 vfxPending.Write(new VfxPendingSpawn
                 {
-                    Faction = identity.Faction,
                     TypeId = identity.TypeId,
                     Trigger = 1,
                     Position = kinematics.Position,

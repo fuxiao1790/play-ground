@@ -84,7 +84,6 @@ namespace PlayGround.System.Common
                     renderActive.ValueRW = false;
                     VfxPending.Enqueue(new VfxPendingSpawn
                     {
-                        Faction = identity.Faction,
                         TypeId = identity.TypeId,
                         Trigger = 2,
                         Position = kinematics.Position,
@@ -119,7 +118,6 @@ namespace PlayGround.System.Common
                     renderActive.ValueRW = false;
                     VfxPending.Enqueue(new VfxPendingSpawn
                     {
-                        Faction = identity.Faction,
                         TypeId = identity.TypeId,
                         Trigger = 2,
                         Position = kinematics.Position,

@@ -68,7 +68,6 @@ namespace PlayGround.System.Aoe
                 pulseVfx.RemainingInterval = pulseVfx.Interval;
                 VfxPending.Enqueue(new VfxPendingSpawn
                 {
-                    Faction = identity.Faction,
                     TypeId = identity.TypeId,
                     Trigger = 3,
                     Position = kinematics.Position,

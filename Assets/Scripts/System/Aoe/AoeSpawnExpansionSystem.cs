@@ -126,7 +126,6 @@ namespace PlayGround.System.Aoe
                     {
                         vfxBuffer.Add(new VfxSpawnRequestElement
                         {
-                            Faction = e.Faction,
                             TypeId = template.TypeId,
                             Trigger = 0,
                             Position = e.Position,

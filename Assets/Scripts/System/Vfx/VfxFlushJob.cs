@@ -1,4 +1,3 @@
-using PlayGround.System.Common;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -17,14 +16,13 @@ namespace PlayGround.System.Vfx
         {
             while (Pending.TryDequeue(out VfxPendingSpawn p))
             {
-                if (p.Faction == CombatFaction.None || !VfxBuffers.HasBuffer(Scope))
+                if (!VfxBuffers.HasBuffer(Scope))
                 {
                     continue;
                 }
 
                 VfxBuffers[Scope].Add(new VfxSpawnRequestElement
                 {
-                    Faction = p.Faction,
                     TypeId = p.TypeId,
                     Trigger = p.Trigger,
                     Position = p.Position,
@@ -58,14 +56,13 @@ namespace PlayGround.System.Vfx
 
         private void Write(VfxPendingSpawn p)
         {
-            if (p.Faction == CombatFaction.None || !VfxBuffers.HasBuffer(Scope))
+            if (!VfxBuffers.HasBuffer(Scope))
             {
                 return;
             }
 
             VfxBuffers[Scope].Add(new VfxSpawnRequestElement
             {
-                Faction = p.Faction,
                 TypeId = p.TypeId,
                 Trigger = p.Trigger,
                 Position = p.Position,
