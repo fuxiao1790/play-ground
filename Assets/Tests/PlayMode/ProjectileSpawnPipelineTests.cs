@@ -38,7 +38,8 @@ namespace PlayGround.Tests.PlayMode
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
-            entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
+            Entity vfxEntity = entityManager.CreateEntity(typeof(VfxSingleton));
+            entityManager.AddBuffer<VfxSpawnRequestElement>(vfxEntity);
 
             projectileTemplateMap = new NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnCommand>(8, Allocator.Persistent);
             entityManager.AddComponentData(scopeEntity, new ProjectileSpawnTemplate { Map = projectileTemplateMap });

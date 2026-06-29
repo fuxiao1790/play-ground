@@ -67,7 +67,8 @@ namespace PlayGround.Tests.PlayMode
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
-            entityManager.AddBuffer<VfxSpawnRequestElement>(scopeEntity);
+            Entity vfxEntity = entityManager.CreateEntity(typeof(VfxSingleton));
+            entityManager.AddBuffer<VfxSpawnRequestElement>(vfxEntity);
 
             aoeTemplateEntity = entityManager.CreateEntity();
             entityManager.AddComponentData(aoeTemplateEntity, new AoeSpawnTemplate
