@@ -12,13 +12,6 @@ namespace PlayGround.System.Aoe
     [UpdateAfter(typeof(CombatLifetimeSystem))]
     public partial struct AoePulseVfxSystem : ISystem
     {
-        private EntityQuery vfxQuery;
-
-        public void OnCreate(ref SystemState state)
-        {
-            vfxQuery = state.GetEntityQuery(ComponentType.ReadOnly<VfxSingleton>());
-        }
-
         public void OnUpdate(ref SystemState state)
         {
             var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
@@ -31,7 +24,7 @@ namespace PlayGround.System.Aoe
 
             JobHandle vfxFlushHandle = new VfxFlushJob
             {
-                Scope = vfxQuery.GetSingletonEntity(),
+                VfxEntity = SystemAPI.GetSingletonEntity<VfxSingleton>(),
                 Pending = vfxPending,
                 VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
             }.Schedule(pulseHandle);

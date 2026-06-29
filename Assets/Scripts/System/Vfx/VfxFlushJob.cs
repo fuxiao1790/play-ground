@@ -8,7 +8,7 @@ namespace PlayGround.System.Vfx
     [BurstCompile]
     public struct VfxFlushJob : IJob
     {
-        public Entity Scope;
+        public Entity VfxEntity;
         public NativeQueue<VfxPendingSpawn> Pending;
         public BufferLookup<VfxSpawnRequestElement> VfxBuffers;
 
@@ -16,12 +16,12 @@ namespace PlayGround.System.Vfx
         {
             while (Pending.TryDequeue(out VfxPendingSpawn p))
             {
-                if (!VfxBuffers.HasBuffer(Scope))
+                if (!VfxBuffers.HasBuffer(VfxEntity))
                 {
                     continue;
                 }
 
-                VfxBuffers[Scope].Add(new VfxSpawnRequestElement
+                VfxBuffers[VfxEntity].Add(new VfxSpawnRequestElement
                 {
                     TypeId = p.TypeId,
                     Trigger = p.Trigger,
@@ -35,7 +35,7 @@ namespace PlayGround.System.Vfx
     [BurstCompile]
     public struct VfxStreamFlushJob : IJob
     {
-        public Entity Scope;
+        public Entity VfxEntity;
         public NativeStream Pending;
         public BufferLookup<VfxSpawnRequestElement> VfxBuffers;
 
@@ -56,12 +56,12 @@ namespace PlayGround.System.Vfx
 
         private void Write(VfxPendingSpawn p)
         {
-            if (!VfxBuffers.HasBuffer(Scope))
+            if (!VfxBuffers.HasBuffer(VfxEntity))
             {
                 return;
             }
 
-            VfxBuffers[Scope].Add(new VfxSpawnRequestElement
+            VfxBuffers[VfxEntity].Add(new VfxSpawnRequestElement
             {
                 TypeId = p.TypeId,
                 Trigger = p.Trigger,

@@ -127,7 +127,7 @@ namespace PlayGround.System.Projectile
 
             var vfxFlushHandle = new VfxStreamFlushJob
             {
-                Scope = SystemAPI.GetSingletonEntity<VfxSingleton>(),
+                VfxEntity = SystemAPI.GetSingletonEntity<VfxSingleton>(),
                 Pending = vfxPending,
                 VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
             }.Schedule(collisionHandle);

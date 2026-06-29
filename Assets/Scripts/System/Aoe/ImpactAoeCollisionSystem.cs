@@ -46,8 +46,7 @@ namespace PlayGround.System.Aoe
             if (impactAoeCount == 0)
                 return;
 
-            if (!SystemAPI.TryGetSingletonEntity<VfxSingleton>(out Entity vfxEntity))
-                return;
+            Entity vfxEntity = SystemAPI.GetSingletonEntity<VfxSingleton>();
 
             state.EntityManager.CompleteDependencyBeforeRO<TargetPosition>();
             state.EntityManager.CompleteDependencyBeforeRO<TargetCollisionShape>();
@@ -121,7 +120,7 @@ namespace PlayGround.System.Aoe
 
             var vfxFlushHandle = new VfxStreamFlushJob
             {
-                Scope = vfxEntity,
+                VfxEntity = vfxEntity,
                 Pending = vfxPending,
                 VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
             }.Schedule(collisionHandle);

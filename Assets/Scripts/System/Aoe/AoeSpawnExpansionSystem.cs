@@ -97,41 +97,39 @@ namespace PlayGround.System.Aoe
                 return;
             }
 
-            if (SystemAPI.TryGetSingletonEntity<VfxSingleton>(out Entity vfxEntity))
+            Entity vfxEntity = SystemAPI.GetSingletonEntity<VfxSingleton>();
+            DynamicBuffer<VfxSpawnRequestElement> vfxBuffer =
+                EntityManager.GetBuffer<VfxSpawnRequestElement>(vfxEntity);
+            int vfxCount = 0;
+            for (int i = 0; i < totalEvents; i++)
             {
-                DynamicBuffer<VfxSpawnRequestElement> vfxBuffer =
-                    EntityManager.GetBuffer<VfxSpawnRequestElement>(vfxEntity);
-                int vfxCount = 0;
-                for (int i = 0; i < totalEvents; i++)
+                if (events[i].Kind == IntervalChildKind.Aoe
+                    && templates.Map.TryGetValue(events[i].TemplateKey, out AoeSpawnCommand template))
                 {
-                    if (events[i].Kind == IntervalChildKind.Aoe
-                        && templates.Map.TryGetValue(events[i].TemplateKey, out AoeSpawnCommand template))
-                    {
-                        vfxCount += math.max(1, template.Count);
-                    }
+                    vfxCount += math.max(1, template.Count);
+                }
+            }
+
+            vfxBuffer.EnsureCapacity(vfxBuffer.Length + vfxCount);
+            for (int i = 0; i < totalEvents; i++)
+            {
+                AoeSpawnEvent e = events[i];
+                if (e.Kind != IntervalChildKind.Aoe
+                    || !templates.Map.TryGetValue(e.TemplateKey, out AoeSpawnCommand template))
+                {
+                    continue;
                 }
 
-                vfxBuffer.EnsureCapacity(vfxBuffer.Length + vfxCount);
-                for (int i = 0; i < totalEvents; i++)
+                int count = math.max(1, template.Count);
+                for (int j = 0; j < count; j++)
                 {
-                    AoeSpawnEvent e = events[i];
-                    if (e.Kind != IntervalChildKind.Aoe
-                        || !templates.Map.TryGetValue(e.TemplateKey, out AoeSpawnCommand template))
+                    vfxBuffer.Add(new VfxSpawnRequestElement
                     {
-                        continue;
-                    }
-
-                    int count = math.max(1, template.Count);
-                    for (int j = 0; j < count; j++)
-                    {
-                        vfxBuffer.Add(new VfxSpawnRequestElement
-                        {
-                            TypeId = template.TypeId,
-                            Trigger = 0,
-                            Position = e.Position,
-                            AreaSize = template.AreaSize
-                        });
-                    }
+                        TypeId = template.TypeId,
+                        Trigger = 0,
+                        Position = e.Position,
+                        AreaSize = template.AreaSize
+                    });
                 }
             }
 
