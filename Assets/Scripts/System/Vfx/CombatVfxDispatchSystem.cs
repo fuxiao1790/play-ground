@@ -5,20 +5,31 @@ namespace PlayGround.System.Vfx
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     public partial class CombatVfxDispatchSystem : SystemBase
     {
-        private EntityQuery scopeQuery;
+        private EntityQuery vfxQuery;
 
         protected override void OnCreate()
         {
-            scopeQuery = EntityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<VfxSpawnRequestElement>());
+            vfxQuery = EntityManager.CreateEntityQuery(ComponentType.ReadOnly<VfxSingleton>());
+            if (vfxQuery.IsEmptyIgnoreFilter)
+            {
+                Entity vfxEntity = EntityManager.CreateEntity(typeof(VfxSingleton));
+                EntityManager.AddBuffer<VfxSpawnRequestElement>(vfxEntity);
+                return;
+            }
+
+            Entity existingVfxEntity = vfxQuery.GetSingletonEntity();
+            if (!EntityManager.HasBuffer<VfxSpawnRequestElement>(existingVfxEntity))
+            {
+                EntityManager.AddBuffer<VfxSpawnRequestElement>(existingVfxEntity);
+            }
         }
 
         protected override void OnUpdate()
         {
             CompleteDependency();
 
-            Entity scope = scopeQuery.GetSingletonEntity();
-            DynamicBuffer<VfxSpawnRequestElement> buffer = EntityManager.GetBuffer<VfxSpawnRequestElement>(scope);
+            Entity vfxEntity = vfxQuery.GetSingletonEntity();
+            DynamicBuffer<VfxSpawnRequestElement> buffer = EntityManager.GetBuffer<VfxSpawnRequestElement>(vfxEntity);
             if (buffer.Length == 0)
             {
                 return;

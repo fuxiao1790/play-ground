@@ -1,6 +1,5 @@
 using PlayGround.System.Aoe;
 using PlayGround.System.Projectile;
-using PlayGround.System.Vfx;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -89,7 +88,6 @@ namespace PlayGround.System.Common
                 ownedScope = entityManager.CreateEntity(typeof(CombatScope));
                 entityManager.AddBuffer<ProjectileSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<AoeSpawnEvent>(ownedScope);
-                entityManager.AddBuffer<VfxSpawnRequestElement>(ownedScope);
                 entityManager.AddComponentData(ownedScope, new ProjectileSpawnTemplate { Map = ownedProjectileMap });
                 entityManager.AddComponentData(ownedScope, new AoeSpawnTemplate { Map = ownedAoeMap });
                 ownerCount = 0;

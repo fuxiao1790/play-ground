@@ -21,18 +21,18 @@ namespace PlayGround.System.Common
     [UpdateBefore(typeof(LingeringAoeCollisionSystem))]
     public partial struct CombatLifetimeSystem : ISystem
     {
-        private EntityQuery scopeQuery;
+        private EntityQuery vfxQuery;
 
         public void OnCreate(ref SystemState state)
         {
-            scopeQuery = state.GetEntityQuery(ComponentType.ReadOnly<CombatScope>());
+            vfxQuery = state.GetEntityQuery(ComponentType.ReadOnly<VfxSingleton>());
         }
 
         public void OnUpdate(ref SystemState state)
         {
             var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
             float deltaTime = SystemAPI.Time.DeltaTime;
-            Entity scope = scopeQuery.GetSingletonEntity();
+            Entity vfxEntity = vfxQuery.GetSingletonEntity();
             BufferLookup<VfxSpawnRequestElement> vfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>();
 
             var projectileJob = new ProjectileLifetimeJob
@@ -53,7 +53,7 @@ namespace PlayGround.System.Common
 
             JobHandle vfxFlushHandle = new VfxFlushJob
             {
-                Scope = scope,
+                Scope = vfxEntity,
                 Pending = vfxPending,
                 VfxBuffers = vfxBuffers
             }.Schedule(aoeHandle);

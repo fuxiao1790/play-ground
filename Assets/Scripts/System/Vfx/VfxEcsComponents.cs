@@ -3,6 +3,12 @@ using Unity.Mathematics;
 
 namespace PlayGround.System.Vfx
 {
+    // ECS Lifecycle: VFX staging singleton tag; created by CombatVfxDispatchSystem.OnCreate
+    // (or by test setup); hosts the DynamicBuffer<VfxSpawnRequestElement> drained each frame.
+    public struct VfxSingleton : IComponentData
+    {
+    }
+
     // ECS Lifecycle: transient native payload; not added to entities; queued or streamed by simulation jobs, drained by VfxFlushJob variants.
     public struct VfxPendingSpawn
     {
@@ -12,7 +18,7 @@ namespace PlayGround.System.Vfx
         public float AreaSize;
     }
 
-    // ECS Lifecycle: scope buffer; added at root setup; kept until root teardown; drained by CombatVfxDispatchSystem in PresentationSystemGroup.
+    // ECS Lifecycle: VFX staging buffer; owned by the VfxSingleton entity; drained by CombatVfxDispatchSystem in PresentationSystemGroup.
     public struct VfxSpawnRequestElement : IBufferElementData
     {
         public int TypeId;

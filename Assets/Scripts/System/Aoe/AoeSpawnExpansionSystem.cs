@@ -97,10 +97,10 @@ namespace PlayGround.System.Aoe
                 return;
             }
 
-            if (scopes.Length > 0)
+            if (SystemAPI.TryGetSingletonEntity<VfxSingleton>(out Entity vfxEntity))
             {
                 DynamicBuffer<VfxSpawnRequestElement> vfxBuffer =
-                    EntityManager.GetBuffer<VfxSpawnRequestElement>(scopes[0]);
+                    EntityManager.GetBuffer<VfxSpawnRequestElement>(vfxEntity);
                 int vfxCount = 0;
                 for (int i = 0; i < totalEvents; i++)
                 {
