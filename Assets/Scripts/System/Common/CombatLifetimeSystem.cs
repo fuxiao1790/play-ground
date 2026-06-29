@@ -23,35 +23,36 @@ namespace PlayGround.System.Common
     {
         public void OnUpdate(ref SystemState state)
         {
-            var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
             float deltaTime = SystemAPI.Time.DeltaTime;
-            Entity vfxEntity = SystemAPI.GetSingletonEntity<VfxSingleton>();
-            BufferLookup<VfxSpawnRequestElement> vfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>();
+            var vfx = state.World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
+            bool hasVfx = vfx != null && vfx.HasQueue;
+            NativeQueue<VfxPendingSpawn>.ParallelWriter vfxWriter = hasVfx
+                ? vfx.AsParallelWriter()
+                : default;
 
             var projectileJob = new ProjectileLifetimeJob
             {
                 DeltaTime = deltaTime,
-                VfxPending = vfxPending.AsParallelWriter()
+                VfxPending = vfxWriter,
+                HasVfxWriter = hasVfx
             };
             var aoeJob = new AoeLifetimeJob
             {
                 DeltaTime = deltaTime,
-                VfxPending = vfxPending.AsParallelWriter()
+                VfxPending = vfxWriter,
+                HasVfxWriter = hasVfx
             };
 
-            // aoeJob chains after projectileJob — both write to vfxPending.AsParallelWriter()
-            // and NativeQueue<T> safety doesn't permit concurrent parallel writers across jobs.
+            // AOE job chains after projectile job because both write to the same VFX queue writer.
             JobHandle projectileHandle = projectileJob.ScheduleParallel(state.Dependency);
             JobHandle aoeHandle = aoeJob.ScheduleParallel(projectileHandle);
 
-            JobHandle vfxFlushHandle = new VfxFlushJob
+            if (hasVfx)
             {
-                VfxEntity = vfxEntity,
-                Pending = vfxPending,
-                VfxBuffers = vfxBuffers
-            }.Schedule(aoeHandle);
+                vfx.ProducerHandle = JobHandle.CombineDependencies(vfx.ProducerHandle, aoeHandle);
+            }
 
-            state.Dependency = vfxPending.Dispose(vfxFlushHandle);
+            state.Dependency = aoeHandle;
         }
 
         [BurstCompile]
@@ -60,6 +61,7 @@ namespace PlayGround.System.Common
         {
             public float DeltaTime;
             public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
+            public bool HasVfxWriter;
 
             private void Execute(
                 in ProjectileIdentityComponent identity,
@@ -75,13 +77,16 @@ namespace PlayGround.System.Common
                     lifetime.Remaining = 0f;
                     active.ValueRW = false;
                     renderActive.ValueRW = false;
-                    VfxPending.Enqueue(new VfxPendingSpawn
+                    if (HasVfxWriter)
                     {
-                        TypeId = identity.TypeId,
-                        Trigger = 2,
-                        Position = kinematics.Position,
-                        AreaSize = math.max(render.VisualScale.x, render.VisualScale.y)
-                    });
+                        VfxPending.Enqueue(new VfxPendingSpawn
+                        {
+                            TypeId = identity.TypeId,
+                            Trigger = 2,
+                            Position = kinematics.Position,
+                            AreaSize = math.max(render.VisualScale.x, render.VisualScale.y)
+                        });
+                    }
                 }
             }
         }
@@ -92,6 +97,7 @@ namespace PlayGround.System.Common
         {
             public float DeltaTime;
             public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
+            public bool HasVfxWriter;
 
             private void Execute(
                 in AoeIdentityComponent identity,
@@ -109,13 +115,16 @@ namespace PlayGround.System.Common
                     active.ValueRW = false;
                     collisionActive.ValueRW = false;
                     renderActive.ValueRW = false;
-                    VfxPending.Enqueue(new VfxPendingSpawn
+                    if (HasVfxWriter)
                     {
-                        TypeId = identity.TypeId,
-                        Trigger = 2,
-                        Position = kinematics.Position,
-                        AreaSize = math.max(render.VisualScale.x, render.VisualScale.y)
-                    });
+                        VfxPending.Enqueue(new VfxPendingSpawn
+                        {
+                            TypeId = identity.TypeId,
+                            Trigger = 2,
+                            Position = kinematics.Position,
+                            AreaSize = math.max(render.VisualScale.x, render.VisualScale.y)
+                        });
+                    }
                 }
             }
         }

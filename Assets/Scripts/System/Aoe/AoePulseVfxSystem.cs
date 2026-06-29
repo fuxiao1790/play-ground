@@ -14,22 +14,25 @@ namespace PlayGround.System.Aoe
     {
         public void OnUpdate(ref SystemState state)
         {
-            var vfxPending = new NativeQueue<VfxPendingSpawn>(Allocator.TempJob);
+            var vfx = state.World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
+            bool hasVfx = vfx != null && vfx.HasQueue;
+            NativeQueue<VfxPendingSpawn>.ParallelWriter vfxWriter = hasVfx
+                ? vfx.AsParallelWriter()
+                : default;
 
             JobHandle pulseHandle = new AoePulseVfxJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
-                VfxPending = vfxPending.AsParallelWriter()
+                VfxPending = vfxWriter,
+                HasVfxWriter = hasVfx
             }.ScheduleParallel(state.Dependency);
 
-            JobHandle vfxFlushHandle = new VfxFlushJob
+            if (hasVfx)
             {
-                VfxEntity = SystemAPI.GetSingletonEntity<VfxSingleton>(),
-                Pending = vfxPending,
-                VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
-            }.Schedule(pulseHandle);
+                vfx.ProducerHandle = JobHandle.CombineDependencies(vfx.ProducerHandle, pulseHandle);
+            }
 
-            state.Dependency = vfxPending.Dispose(vfxFlushHandle);
+            state.Dependency = pulseHandle;
         }
 
         [BurstCompile]
@@ -38,6 +41,7 @@ namespace PlayGround.System.Aoe
         {
             public float DeltaTime;
             public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
+            public bool HasVfxWriter;
 
             private void Execute(
                 in AoeIdentityComponent identity,
@@ -59,13 +63,16 @@ namespace PlayGround.System.Aoe
                 }
 
                 pulseVfx.RemainingInterval = pulseVfx.Interval;
-                VfxPending.Enqueue(new VfxPendingSpawn
+                if (HasVfxWriter)
                 {
-                    TypeId = identity.TypeId,
-                    Trigger = 3,
-                    Position = kinematics.Position,
-                    AreaSize = area.Size
-                });
+                    VfxPending.Enqueue(new VfxPendingSpawn
+                    {
+                        TypeId = identity.TypeId,
+                        Trigger = 3,
+                        Position = kinematics.Position,
+                        AreaSize = area.Size
+                    });
+                }
             }
         }
     }
