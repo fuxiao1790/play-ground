@@ -97,41 +97,8 @@ namespace PlayGround.System.Aoe
                 return;
             }
 
-            Entity vfxEntity = SystemAPI.GetSingletonEntity<VfxSingleton>();
-            DynamicBuffer<VfxSpawnRequestElement> vfxBuffer =
-                EntityManager.GetBuffer<VfxSpawnRequestElement>(vfxEntity);
-            int vfxCount = 0;
-            for (int i = 0; i < totalEvents; i++)
-            {
-                if (events[i].Kind == IntervalChildKind.Aoe
-                    && templates.Map.TryGetValue(events[i].TemplateKey, out AoeSpawnCommand template))
-                {
-                    vfxCount += math.max(1, template.Count);
-                }
-            }
-
-            vfxBuffer.EnsureCapacity(vfxBuffer.Length + vfxCount);
-            for (int i = 0; i < totalEvents; i++)
-            {
-                AoeSpawnEvent e = events[i];
-                if (e.Kind != IntervalChildKind.Aoe
-                    || !templates.Map.TryGetValue(e.TemplateKey, out AoeSpawnCommand template))
-                {
-                    continue;
-                }
-
-                int count = math.max(1, template.Count);
-                for (int j = 0; j < count; j++)
-                {
-                    vfxBuffer.Add(new VfxSpawnRequestElement
-                    {
-                        TypeId = template.TypeId,
-                        Trigger = 0,
-                        Position = e.Position,
-                        AreaSize = template.AreaSize
-                    });
-                }
-            }
+            var vfx = World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
+            bool hasVfx = vfx != null && vfx.HasQueue;
 
             PendingCommands = new NativeStream(totalEvents, Allocator.TempJob);
 
@@ -139,8 +106,15 @@ namespace PlayGround.System.Aoe
             {
                 Events = events,
                 Templates = templates.Map,
-                Stream = PendingCommands.AsWriter()
+                Stream = PendingCommands.AsWriter(),
+                VfxPending = hasVfx ? vfx.AsParallelWriter() : default,
+                HasVfxWriter = hasVfx
             }.Schedule(Dependency);
+
+            if (vfx != null)
+            {
+                vfx.ProducerHandle = JobHandle.CombineDependencies(vfx.ProducerHandle, Dependency);
+            }
 
             Dependency = events.Dispose(Dependency);
             PendingHandle = Dependency;
@@ -152,6 +126,8 @@ namespace PlayGround.System.Aoe
             [ReadOnly] public NativeArray<AoeSpawnEvent> Events;
             [ReadOnly] public NativeHashMap<Hash128, AoeSpawnCommand> Templates;
             public NativeStream.Writer Stream;
+            public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
+            public bool HasVfxWriter;
 
             public void Execute()
             {
@@ -185,6 +161,16 @@ namespace PlayGround.System.Aoe
                             }
 
                             Stream.Write(spawned);
+                            if (HasVfxWriter)
+                            {
+                                VfxPending.Enqueue(new VfxPendingSpawn
+                                {
+                                    TypeId = command.TypeId,
+                                    Trigger = 0,
+                                    Position = evt.Position,
+                                    AreaSize = command.AreaSize
+                                });
+                            }
                         }
                     }
 
