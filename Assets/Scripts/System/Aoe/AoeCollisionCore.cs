@@ -64,7 +64,6 @@ namespace PlayGround.System.Aoe
         private const int ProjectileBurstIdSalt = 0x7AB025;
 
         internal static void RunCollision<TGate>(
-            int entityIndexInQuery,
             in AoeIdentityComponent identity,
             in CombatKinematicsComponent kinematics,
             in CombatCollisionComponent collision,
@@ -83,19 +82,16 @@ namespace PlayGround.System.Aoe
             NativeParallelMultiHashMap<long, int> occupiedTargetCells,
             NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
             bool hasHitWriter,
-            NativeStream.Writer vfxPendingWriter,
+            NativeQueue<VfxPendingSpawn>.ParallelWriter vfxPendingWriter,
+            bool hasVfxWriter,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
             NativeQueue<AoeSpawnEvent>.ParallelWriter aoeEventWriter,
             bool hasAoeEventWriter)
             where TGate : struct, IContactGate
         {
-            NativeStream.Writer vfxPending = vfxPendingWriter;
-            vfxPending.BeginForEachIndex(entityIndexInQuery);
-
             if (identity.Faction == CombatFaction.None)
             {
                 Deactivate(active, collisionActive, renderActive);
-                EndVfxStream(ref vfxPending);
                 return;
             }
 
@@ -161,7 +157,8 @@ namespace PlayGround.System.Aoe
                             targetEntity,
                             targetPosition,
                             targetKey,
-                            ref vfxPending,
+                            vfxPendingWriter,
+                            hasVfxWriter,
                             ref hitVfxEmitted,
                             hitWriter,
                             hasHitWriter,
@@ -178,8 +175,6 @@ namespace PlayGround.System.Aoe
 
             if (deactivateAfterPass)
                 Deactivate(active, collisionActive, renderActive);
-
-            EndVfxStream(ref vfxPending);
         }
 
         internal static void EmitHit(
@@ -190,7 +185,8 @@ namespace PlayGround.System.Aoe
             Entity targetEntity,
             TargetPosition targetPosition,
             int targetKey,
-            ref NativeStream.Writer vfxPending,
+            NativeQueue<VfxPendingSpawn>.ParallelWriter vfxPending,
+            bool hasVfxWriter,
             ref bool hitVfxEmitted,
             NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
             bool hasHitWriter,
@@ -250,9 +246,9 @@ namespace PlayGround.System.Aoe
                 });
             }
 
-            if (!hitVfxEmitted)
+            if (!hitVfxEmitted && hasVfxWriter)
             {
-                vfxPending.Write(new VfxPendingSpawn
+                vfxPending.Enqueue(new VfxPendingSpawn
                 {
                     TypeId = identity.TypeId,
                     Trigger = 1,
@@ -271,11 +267,6 @@ namespace PlayGround.System.Aoe
             active.ValueRW = false;
             collisionActive.ValueRW = false;
             renderActive.ValueRW = false;
-        }
-
-        internal static void EndVfxStream(ref NativeStream.Writer vfxPending)
-        {
-            vfxPending.EndForEachIndex();
         }
 
         internal static bool HasHitEvent(in AoeHitSpawnComponent hitSpawn) =>

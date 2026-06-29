@@ -46,8 +46,6 @@ namespace PlayGround.System.Aoe
             if (impactAoeCount == 0)
                 return;
 
-            Entity vfxEntity = SystemAPI.GetSingletonEntity<VfxSingleton>();
-
             state.EntityManager.CompleteDependencyBeforeRO<TargetPosition>();
             state.EntityManager.CompleteDependencyBeforeRO<TargetCollisionShape>();
             state.EntityManager.CompleteDependencyBeforeRO<TargetFaction>();
@@ -81,7 +79,7 @@ namespace PlayGround.System.Aoe
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
             var hitApply = state.World.GetExistingSystemManaged<CombatApplyFinalizeSystem>();
-            var vfxPending = new NativeStream(impactAoeCount, Allocator.TempJob);
+            var vfx = state.World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
 
             var job = new ImpactAoeCollisionJob
             {
@@ -94,7 +92,10 @@ namespace PlayGround.System.Aoe
                     ? hitApply.AsParallelWriter()
                     : default,
                 HasHitWriter = hitApply != null && hitApply.HitQueue.IsCreated,
-                VfxPending = vfxPending.AsWriter(),
+                VfxPending = vfx != null
+                    ? vfx.AsParallelWriter()
+                    : default,
+                HasVfxWriter = vfx != null && vfx.HasQueue,
                 ProjectileEventWriter = expansion != null
                     ? expansion.EventQueue.AsParallelWriter()
                     : default,
@@ -104,8 +105,6 @@ namespace PlayGround.System.Aoe
                 HasAoeEventWriter = aoeExpansion != null && aoeExpansion.EventQueue.IsCreated
             };
 
-            // Pass impactAoeQuery explicitly so [EntityIndexInQuery] stays in [0, impactAoeCount)
-            // and matches the NativeStream size exactly.
             var collisionHandle = job.ScheduleParallel(impactAoeQuery, state.Dependency);
 
             if (expansion != null)
@@ -117,15 +116,10 @@ namespace PlayGround.System.Aoe
             if (hitApply != null)
                 hitApply.ProducerHandle =
                     JobHandle.CombineDependencies(hitApply.ProducerHandle, collisionHandle);
+            if (vfx != null)
+                vfx.ProducerHandle =
+                    JobHandle.CombineDependencies(vfx.ProducerHandle, collisionHandle);
 
-            var vfxFlushHandle = new VfxStreamFlushJob
-            {
-                VfxEntity = vfxEntity,
-                Pending = vfxPending,
-                VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
-            }.Schedule(collisionHandle);
-
-            JobHandle disposeVfxHandle = vfxPending.Dispose(vfxFlushHandle);
             JobHandle targetDisposeHandle = JobHandle.CombineDependencies(
                 targetEntities.Dispose(collisionHandle),
                 JobHandle.CombineDependencies(
@@ -133,8 +127,7 @@ namespace PlayGround.System.Aoe
                     JobHandle.CombineDependencies(
                         targetShapes.Dispose(collisionHandle),
                         targetFactions.Dispose(collisionHandle))));
-            state.Dependency = occupiedTargetCells.Dispose(
-                JobHandle.CombineDependencies(targetDisposeHandle, disposeVfxHandle));
+            state.Dependency = occupiedTargetCells.Dispose(targetDisposeHandle);
         }
 
         [BurstCompile]
@@ -149,13 +142,13 @@ namespace PlayGround.System.Aoe
             [ReadOnly] public NativeParallelMultiHashMap<long, int> OccupiedTargetCells;
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
             public bool HasHitWriter;
-            public NativeStream.Writer VfxPending;
+            public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
+            public bool HasVfxWriter;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public NativeQueue<AoeSpawnEvent>.ParallelWriter AoeEventWriter;
             public bool HasAoeEventWriter;
 
             private void Execute(
-                [EntityIndexInQuery] int entityIndexInQuery,
                 Entity entity,
                 in AoeIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
@@ -169,7 +162,6 @@ namespace PlayGround.System.Aoe
             {
                 var gate = new ScratchGate { Seen = default };
                 AoeCollisionCore.RunCollision(
-                    entityIndexInQuery,
                     identity,
                     kinematics,
                     collision,
@@ -189,6 +181,7 @@ namespace PlayGround.System.Aoe
                     HitWriter,
                     HasHitWriter,
                     VfxPending,
+                    HasVfxWriter,
                     ProjectileEventWriter,
                     AoeEventWriter,
                     HasAoeEventWriter);

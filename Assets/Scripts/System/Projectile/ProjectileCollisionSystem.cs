@@ -87,7 +87,7 @@ namespace PlayGround.System.Projectile
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
             var hitApply = state.World.GetExistingSystemManaged<CombatApplyFinalizeSystem>();
-            var vfxPending = new NativeStream(activeProjectileCount, Allocator.TempJob);
+            var vfx = state.World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
             var job = new ProjectileCollisionJob
             {
                 TargetEntities = targetEntities,
@@ -101,7 +101,10 @@ namespace PlayGround.System.Projectile
                     ? hitApply.AsParallelWriter()
                     : default,
                 HasHitWriter = hitApply != null && hitApply.HitQueue.IsCreated,
-                VfxPending = vfxPending.AsWriter(),
+                VfxPending = vfx != null
+                    ? vfx.AsParallelWriter()
+                    : default,
+                HasVfxWriter = vfx != null && vfx.HasQueue,
                 ProjectileEventWriter = expansion != null
                     ? expansion.EventQueue.AsParallelWriter()
                     : default,
@@ -124,15 +127,10 @@ namespace PlayGround.System.Projectile
             if (hitApply != null)
                 hitApply.ProducerHandle =
                     JobHandle.CombineDependencies(hitApply.ProducerHandle, collisionHandle);
+            if (vfx != null)
+                vfx.ProducerHandle =
+                    JobHandle.CombineDependencies(vfx.ProducerHandle, collisionHandle);
 
-            var vfxFlushHandle = new VfxStreamFlushJob
-            {
-                VfxEntity = SystemAPI.GetSingletonEntity<VfxSingleton>(),
-                Pending = vfxPending,
-                VfxBuffers = SystemAPI.GetBufferLookup<VfxSpawnRequestElement>()
-            }.Schedule(collisionHandle);
-
-            JobHandle disposeVfxHandle = vfxPending.Dispose(vfxFlushHandle);
             JobHandle targetDisposeHandle = JobHandle.CombineDependencies(
                 targetEntities.Dispose(collisionHandle),
                 JobHandle.CombineDependencies(
@@ -140,10 +138,7 @@ namespace PlayGround.System.Projectile
                     JobHandle.CombineDependencies(
                         targetShapes.Dispose(collisionHandle),
                         targetFactions.Dispose(collisionHandle))));
-            state.Dependency = targetCells.Dispose(
-                JobHandle.CombineDependencies(
-                    targetDisposeHandle,
-                    disposeVfxHandle));
+            state.Dependency = targetCells.Dispose(targetDisposeHandle);
         }
 
         [BurstCompile]
@@ -162,12 +157,12 @@ namespace PlayGround.System.Projectile
             public float MaxTargetRadius;
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
             public bool HasHitWriter;
-            public NativeStream.Writer VfxPending;
+            public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
+            public bool HasVfxWriter;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public NativeQueue<AoeSpawnEvent>.ParallelWriter AoeEventWriter;
 
             private void Execute(
-                [EntityIndexInQuery] int entityIndexInQuery,
                 Entity entity,
                 in ProjectileIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
@@ -179,35 +174,28 @@ namespace PlayGround.System.Projectile
                 EnabledRefRW<CombatRenderActiveTag> renderActive,
                 DynamicBuffer<ProjectileContactGateElement> contactGates)
             {
-                NativeStream.Writer vfxPending = VfxPending;
-                vfxPending.BeginForEachIndex(entityIndexInQuery);
-
                 float areaSize = math.max(render.VisualScale.x, render.VisualScale.y);
                 if (identity.Faction == CombatFaction.None)
                 {
-                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, ref vfxPending);
-                    EndVfxStream(ref vfxPending);
+                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, VfxPending, HasVfxWriter);
                     return;
                 }
 
                 if (lifetime.Remaining <= 0f)
                 {
-                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, ref vfxPending);
-                    EndVfxStream(ref vfxPending);
+                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, VfxPending, HasVfxWriter);
                     return;
                 }
 
                 // Pierce is the projectile's hit cap. It may still hit at 0; below zero is exhausted.
                 if (projectileHit.PierceRemaining < 0)
                 {
-                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, ref vfxPending);
-                    EndVfxStream(ref vfxPending);
+                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, VfxPending, HasVfxWriter);
                     return;
                 }
 
                 if (TotalTargetCount == 0)
                 {
-                    EndVfxStream(ref vfxPending);
                     return;
                 }
 
@@ -334,13 +322,16 @@ namespace PlayGround.System.Projectile
                                 });
                             }
 
-                            vfxPending.Write(new VfxPendingSpawn
+                            if (HasVfxWriter)
                             {
-                                TypeId = identity.TypeId,
-                                Trigger = 1,
-                                Position = kinematics.Position,
-                                AreaSize = areaSize
-                            });
+                                VfxPending.Enqueue(new VfxPendingSpawn
+                                {
+                                    TypeId = identity.TypeId,
+                                    Trigger = 1,
+                                    Position = kinematics.Position,
+                                    AreaSize = areaSize
+                                });
+                            }
 
                             AddOrRefreshGate(contactGates, targetKey,
                                 projectileHit.RepeatHitCooldownSeconds);
@@ -348,16 +339,13 @@ namespace PlayGround.System.Projectile
                             projectileHit.PierceRemaining--;
                             if (projectileHit.PierceRemaining < 0)
                             {
-                                Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, ref vfxPending);
-                                EndVfxStream(ref vfxPending);
+                                Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, VfxPending, HasVfxWriter);
                                 return;
                             }
                         }
                         while (TargetCells.TryGetNextValue(out targetIdx, ref iterator));
                     }
                 }
-
-                EndVfxStream(ref vfxPending);
             }
 
             private void Deactivate(
@@ -367,23 +355,22 @@ namespace PlayGround.System.Projectile
                 ref CombatLifetimeComponent lifetime,
                 EnabledRefRW<Active> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive,
-                ref NativeStream.Writer vfxPending)
+                NativeQueue<VfxPendingSpawn>.ParallelWriter vfxPending,
+                bool hasVfxWriter)
             {
                 lifetime.Remaining = 0f;
                 active.ValueRW = false;
                 renderActive.ValueRW = false;
-                vfxPending.Write(new VfxPendingSpawn
+                if (hasVfxWriter)
                 {
-                    TypeId = identity.TypeId,
-                    Trigger = 2,
-                    Position = position,
-                    AreaSize = areaSize
-                });
-            }
-
-            private static void EndVfxStream(ref NativeStream.Writer vfxPending)
-            {
-                vfxPending.EndForEachIndex();
+                    vfxPending.Enqueue(new VfxPendingSpawn
+                    {
+                        TypeId = identity.TypeId,
+                        Trigger = 2,
+                        Position = position,
+                        AreaSize = areaSize
+                    });
+                }
             }
 
             private static bool IsGated(DynamicBuffer<ProjectileContactGateElement> contactGates, int targetId)
