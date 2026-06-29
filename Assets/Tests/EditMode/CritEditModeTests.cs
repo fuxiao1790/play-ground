@@ -91,6 +91,25 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void Compiler_StacksIncreasedAoeSupport_AdditivelyFromBaseAreaSize()
+        {
+            AoeSkill skill = CreateAsset<AoeSkill>("Aoe Skill");
+            ((AoeDefinition)skill.Definition).baseAreaSize = 10f;
+            IncreasedAoeSupport support = CreateAsset<IncreasedAoeSupport>("Increased AOE");
+            SetField(support, "areaSizeMultiplier", 1.8f);
+            SkillSet set = CreateSkillSet("Set", skill, support, support);
+
+            RuntimeSkillDefinition result = SkillSetCompiler.Compile(
+                Slots(set),
+                0,
+                global::System.Array.Empty<TriggerChain>(),
+                PlayerStatSnapshot.Identity);
+
+            Assert.That(result, Is.TypeOf<RuntimeAoeDefinition>());
+            Assert.That(((RuntimeAoeDefinition)result).AreaSize, Is.EqualTo(26f).Within(0.0001f));
+        }
+
+        [Test]
         public void Compiler_UsesSkillBaseRecoveryTime()
         {
             ProjectileSkill skill = CreateAsset<ProjectileSkill>("Projectile Skill");
@@ -111,11 +130,29 @@ namespace PlayGround.Tests.EditMode
             Assert.That(result.RecoveryTime, Is.EqualTo(0.2f).Within(0.0001f));
         }
 
-        private SkillSet CreateSkillSet(string name, Skill skill)
+        [Test]
+        public void Compiler_StacksIncreasedRecoverySpeedSupport_Additively()
+        {
+            ProjectileSkill skill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            SetField(skill, "baseRecoveryTime", 0.6f);
+            IncreasedRecoverySpeedSupport support = CreateAsset<IncreasedRecoverySpeedSupport>("Increased Recovery Speed");
+            SetField(support, "recoverySpeedMultiplier", 1.5f);
+            SkillSet set = CreateSkillSet("Set", skill, support, support);
+
+            RuntimeSkillDefinition result = SkillSetCompiler.Compile(
+                Slots(set),
+                0,
+                global::System.Array.Empty<TriggerChain>(),
+                PlayerStatSnapshot.Identity);
+
+            Assert.That(result.RecoveryTime, Is.EqualTo(0.3f).Within(0.0001f));
+        }
+
+        private SkillSet CreateSkillSet(string name, Skill skill, params SkillSupport[] supports)
         {
             SkillSet set = CreateAsset<SkillSet>(name);
             SetField(set, "skill", skill);
-            SetField(set, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(set, "supports", supports ?? global::System.Array.Empty<SkillSupport>());
             return set;
         }
 

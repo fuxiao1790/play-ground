@@ -13,9 +13,15 @@ namespace PlayGround.Skills
 
         public override void Apply(SkillDefinition def)
         {
-            if (def is AoeDefinitionBase a)
+            Apply(def, def);
+        }
+
+        public override void Apply(SkillDefinition def, SkillDefinition baseDefinition)
+        {
+            if (def is AoeDefinitionBase a && baseDefinition is AoeDefinitionBase baseAoe)
             {
-                a.baseAreaSize *= areaSizeMultiplier;
+                float addedAreaSize = baseAoe.baseAreaSize * (areaSizeMultiplier - 1f);
+                a.baseAreaSize += addedAreaSize;
             }
         }
     }

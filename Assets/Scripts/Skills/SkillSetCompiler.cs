@@ -24,7 +24,7 @@ namespace PlayGround.Skills
             if (runtime is RuntimeStackingDetonation rootStackingDetonation)
                 rootStackingDetonation.DebuffName = set.Skill.name;
 
-            runtime.RecoveryTime = Mathf.Max(0.01f, set.Skill.BaseRecoveryTime * snapshot.CastSpeedMultiplier);
+            runtime.RecoveryTime = ResolveRecoveryTime(set.Skill.BaseRecoveryTime, set.Supports, snapshot);
 
             // Adjacency is forward-only (i -> i+2); recursion terminates by strictly
             // increasing slot index. No cycle is possible, so no recursion guard is needed.
@@ -105,7 +105,7 @@ namespace PlayGround.Skills
                 return null;
 
             SkillDefinition defCopy = definition.DeepCopy();
-            ApplySupports(defCopy, supports);
+            ApplySupports(defCopy, definition, supports);
             return ApplyConversionSupports(
                 definition,
                 BuildRuntime(defCopy, snapshot),
@@ -115,6 +115,7 @@ namespace PlayGround.Skills
 
         private static void ApplySupports(
             SkillDefinition definition,
+            SkillDefinition baseDefinition,
             IReadOnlyList<SkillSupport> supports)
         {
             if (definition == null || supports == null)
@@ -123,7 +124,7 @@ namespace PlayGround.Skills
             for (int i = 0; i < supports.Count; i++)
             {
                 if (supports[i] is AdditiveSupport additive)
-                    additive.Apply(definition);
+                    additive.Apply(definition, baseDefinition);
             }
         }
 
@@ -146,6 +147,27 @@ namespace PlayGround.Skills
             }
 
             return runtime;
+        }
+
+        private static float ResolveRecoveryTime(
+            float baseRecoveryTime,
+            IReadOnlyList<SkillSupport> supports,
+            PlayerStatSnapshot snapshot)
+        {
+            float recoverySpeedMultiplier = 1f;
+            if (supports != null)
+            {
+                for (int i = 0; i < supports.Count; i++)
+                {
+                    if (supports[i] == null)
+                        continue;
+
+                    recoverySpeedMultiplier += Mathf.Max(0.01f, supports[i].RecoverySpeedMultiplier) - 1f;
+                }
+            }
+
+            float recoveryTime = baseRecoveryTime * snapshot.CastSpeedMultiplier / Mathf.Max(0.01f, recoverySpeedMultiplier);
+            return Mathf.Max(0.01f, recoveryTime);
         }
 
         private static RuntimeSkillDefinition BuildRuntime(SkillDefinition def, PlayerStatSnapshot snapshot)

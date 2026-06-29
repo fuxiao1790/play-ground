@@ -6,5 +6,10 @@ namespace PlayGround.Skills
     {
         public abstract SkillDefinitionTags SupportedSkillTags { get; }
         public abstract void Apply(SkillDefinition def);
+
+        public virtual void Apply(SkillDefinition def, SkillDefinition baseDefinition)
+        {
+            Apply(def);
+        }
     }
 }

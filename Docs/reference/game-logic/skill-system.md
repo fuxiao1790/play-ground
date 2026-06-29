@@ -331,8 +331,10 @@ Examples:
 | Piercing | `pierceCount`, `repeatHitCooldown` |
 | Homing | `trackingEnabled`, `trackingRange`, `trackingTurnSpeed` |
 | Concentrated Effect | `baseAreaSize` (AOE), `damage` |
+| Increased AOE Effect | `baseAreaSize` (AOE); each support adds its bonus from the skill's original base area size |
 | Faster Projectiles | `speed`, `lifetime` |
 | Added Damage | `damage` |
+| Increased Recovery Speed | `recoveryTime`; each support adds its recovery-speed bonus before converting back to cooldown time |
 
 Supports also declare compatible skill tags:
 
@@ -344,6 +346,8 @@ Supports also declare compatible skill tags:
 | Faster Projectiles | `Projectile` |
 | Added Damage | `Projectile`, `Aoe` |
 | Concentrated Effect | `Aoe` |
+| Increased AOE Effect | `Aoe` |
+| Increased Recovery Speed | `Projectile`, `Aoe` |
 
 Example: putting Multiple Projectiles on an AOE skill is allowed, but it does
 nothing and validation returns a warning.
@@ -614,7 +618,7 @@ compile(SkillSet set, allChains, snapshot) -> RuntimeSkillDefinition:
     for each support in set.supports:
         if support is ConversionSupport:
             runtime = support.Compile(def, runtime, snapshot)
-    runtime.RecoveryTime = set.skill.BaseRecoveryTime * snapshot.CastSpeedMultiplier
+    runtime.RecoveryTime = set.skill.BaseRecoveryTime * snapshot.CastSpeedMultiplier / summedSupportRecoverySpeed
     for each chain in allChains where chain.cause == set:
         if chain.link is ProjectileIntervalSpawnTrigger:
             compile chain.effect recursively -> RuntimeProjectileDefinition
