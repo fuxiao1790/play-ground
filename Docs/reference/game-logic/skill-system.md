@@ -15,9 +15,10 @@ that set a stack detonation. It owns threshold, lifetime, stacks-per-hit, and
 presentation config. A stacking set is triggered-only and fires only when reached
 through a `StackTrigger`.
 
-**Additive Support** — augments the Skill in the same set. Modifies count,
-pierce, speed, tracking, damage, spread, or other behavior fields. Only ever
-affects the one Skill it shares a set with. No cross-set influence.
+**Stat Modifier Support** - augments the Skill in the same set through typed
+modifier kinds: flat base additions, increased percentages, Pre/Post
+multipliers, or behavior contexts. Only ever affects the one Skill it shares a
+set with. No cross-set influence.
 
 **Skill Set** — the unit of authoring. Contains one or more Skills and zero or
 more Skill Supports. Self-contained: its Skills are only modified by its own
@@ -49,7 +50,7 @@ docs, see
 ```
 ┌─────────────────────────────────┐
 │  Layer 1: Equipment state       │
-│  Skill, AdditiveSupport,        │
+│  Skill, SkillSupport,          │
 │  SkillSet, TriggerLink,         │
 │  PlayerLoadout                  │
 │                                 │
@@ -81,7 +82,8 @@ Layer 2.5 (SkillSpawnTranslator) — stateless utility used by Layer 2. Not a ch
 
 ### Layer 1: Equipment State
 
-Types: `Skill`, `AdditiveSupport`, `SkillSet`, `TriggerLink`, `PlayerLoadout`
+Types: `Skill`, `StatModifierSupport`, `ConversionSupport`, `SkillSet`,
+`TriggerLink`, `PlayerLoadout`
 
 - Owns all stat sources: base skill stats, base recovery time, supports, items,
   buffs, character level
@@ -95,9 +97,11 @@ Types: `Skill`, `AdditiveSupport`, `SkillSet`, `TriggerLink`, `PlayerLoadout`
 
 Types: `PlayerStatSnapshot`, `PlayerStatAggregator`
 
-Stateless utility — not a chain tier. Pure aggregation function: inputs in, flat snapshot
-out, no stored state. Collapses all Layer 1 stat sources into a single flat multiplier set.
-Owns no data — all sources come from Layer 1.
+Stateless utility - not a chain tier. Pure aggregation function: inputs in, flat snapshot
+out, no stored state. Collapses player-level Layer 1 stat sources into a flat
+snapshot. The compiler feeds those snapshot multipliers into the same per-stat
+fold used by supports, as Post multipliers where applicable. Owns no data - all
+sources come from Layer 1.
 
 `PlayerStatSnapshot` fields:
 - `castSpeedMultiplier`
@@ -105,9 +109,10 @@ Owns no data — all sources come from Layer 1.
 - `areaSizeMultiplier`
 
 Baking:
-- `recoveryTime = baseRecoveryTime * castSpeedMultiplier`
-- `damage = baseDamage * damageMultiplier`
-- `areaSize = baseAreaSize * areaSizeMultiplier`
+- `damageMultiplier` contributes a Post multiplier to the `Damage` fold
+- `areaSizeMultiplier` contributes a Post multiplier to the `AreaSize` fold
+- `castSpeedMultiplier` is applied as a recovery-time multiplier after
+  `RecoverySpeed` is folded
 
 ### Layer 2: Orchestration
 
@@ -299,19 +304,41 @@ instances with separate keys, so their stacks cannot collide. `debuffName` and
 
 ## Supports
 
-Each support derives from `SkillSupport`. `AdditiveSupport` has an `Apply`
-method that mutates a runtime definition copy. Additive supports are composable
-and order-independent unless two supports modify the same field, in which case
-application order follows slot order left to right. `ConversionSupport` can
-replace the compiled runtime shape; `StackingSupport` is the current conversion
-support and marks its set triggered-only.
+Each support derives from `SkillSupport`. Augment supports derive from
+`StatModifierSupport`, which carries `SupportedSkillTags` for validation, and
+then implement one or more kind interfaces. `ConversionSupport` stays separate:
+it can replace the compiled runtime shape after normal stat and behavior baking.
+`StackingSupport` is the current conversion support and marks its set
+triggered-only.
+
+The four augment kinds are composable interfaces, not mutually exclusive base
+classes:
 
 ```csharp
 abstract class SkillSupport : ScriptableObject { }
 
-abstract class AdditiveSupport : SkillSupport {
+abstract class StatModifierSupport : SkillSupport {
     public abstract SkillDefinitionTags SupportedSkillTags { get; }
-    public abstract void Apply(SkillDefinition def);
+}
+
+interface IBaseValueModifier {
+    void CollectAdded(AddedSink sink);              // flat added value
+}
+
+interface IIncreasedModifier {
+    void CollectIncreases(IncreasedSink sink);      // summed increased percent
+}
+
+interface IMultiplierModifier {
+    void CollectMultipliers(MultiplierSink sink);   // Pre/Post multiplier
+}
+
+interface IProjectileBehaviorModifier {
+    void ApplyToProjectile(ProjectileBehaviorContext ctx);
+}
+
+interface IAoeBehaviorModifier {
+    void ApplyToAoe(AoeBehaviorContext ctx);
 }
 
 abstract class ConversionSupport : SkillSupport {
@@ -323,18 +350,43 @@ abstract class ConversionSupport : SkillSupport {
 }
 ```
 
-Examples:
+A support may implement more than one kind. `PiercingSupport` is both an
+`IBaseValueModifier` for `PierceCount` and an `IProjectileBehaviorModifier` for
+`RepeatHitCooldown`. Each interface receives only its constrained sink or
+behavior context, so an increased modifier cannot write base values or multiply
+stats.
 
-| Support | Fields it modifies |
-|---|---|
-| Multiple Projectiles | `count`, `spreadDegrees` |
-| Piercing | `pierceCount`, `repeatHitCooldown` |
-| Homing | `trackingEnabled`, `trackingRange`, `trackingTurnSpeed` |
-| Concentrated Effect | `baseAreaSize` (AOE), `damage` |
-| Increased AOE Effect | `baseAreaSize` (AOE); each support adds its bonus from the skill's original base area size |
-| Faster Projectiles | `speed`, `lifetime` |
-| Added Damage | `damage` |
-| Increased Recovery Speed | `recoveryTime`; each support adds its recovery-speed bonus before converting back to cooldown time |
+Numeric stats use one fold per stat:
+
+```text
+value = (base * preMultiplier + added) * (1 + increased) * postMultiplier
+```
+
+Increases are summed, multipliers are multiplied, and support order no longer
+changes numeric output. Player snapshot multipliers feed this same fold as Post
+multipliers: `DamageMultiplier` contributes to `Damage`, and
+`AreaSizeMultiplier` contributes to `AreaSize`. `CastSpeedMultiplier` remains a
+recovery-time multiplier.
+
+Recovery is folded as recovery speed and then inverted:
+
+```text
+recoverySpeedFactor = Resolve(RecoverySpeed, 1)
+recoveryTime = baseRecoveryTime * castSpeedMultiplier / max(0.01, recoverySpeedFactor)
+```
+
+Current augment supports:
+
+| Support | Kind interface(s) | Stat / behavior contribution |
+|---|---|---|
+| Multiple Projectiles | `IProjectileBehaviorModifier` | Sets projectile `count`, `spreadDegrees` |
+| Piercing | `IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `PierceCount`; sets projectile `repeatHitCooldown` |
+| Homing | `IProjectileBehaviorModifier` | Enables tracking and sets turn speed/query interval |
+| Concentrated Effect | `IMultiplierModifier` | Post multiplier on `AreaSize` only |
+| Increased AOE Effect | `IIncreasedModifier` | Increased percent on `AreaSize` |
+| Faster Projectiles | `IMultiplierModifier` | Post multipliers on `ProjectileSpeed`, `ProjectileLifetime` |
+| Added Damage | `IBaseValueModifier` | Adds `Damage` |
+| Increased Recovery Speed | `IIncreasedModifier` | Increased percent on `RecoverySpeed` |
 
 Supports also declare compatible skill tags:
 
@@ -611,14 +663,27 @@ parseChains(slots) -> TriggerChain[]:
 
 compile(SkillSet set, allChains, snapshot) -> RuntimeSkillDefinition:
     def = set.skill.Definition.DeepCopy()
+    acc = new StatModifierAccumulator()
+    SnapshotModifiers.Contribute(acc, snapshot)   // damage/area snapshot multipliers as Post terms
     for each support in set.supports:
-        if support is AdditiveSupport:
-            support.Apply(def)
-    runtime = BuildRuntime(def, snapshot)       // ProjectileDefinition -> RuntimeProjectileDefinition, etc.
+        if support is IBaseValueModifier:
+            support.CollectAdded(new AddedSink(acc))
+        if support is IIncreasedModifier:
+            support.CollectIncreases(new IncreasedSink(acc))
+        if support is IMultiplierModifier:
+            support.CollectMultipliers(new MultiplierSink(acc))
+        // These are independent if checks; multi-kind supports visit every matching branch.
+    for each support in set.supports:
+        if def is ProjectileDefinition and support is IProjectileBehaviorModifier:
+            support.ApplyToProjectile(new ProjectileBehaviorContext(def))
+        else if def is AoeDefinitionBase and support is IAoeBehaviorModifier:
+            support.ApplyToAoe(new AoeBehaviorContext(def))
+    runtime = BuildRuntime(def, acc, snapshot)    // numeric fields resolve through the fold
     for each support in set.supports:
         if support is ConversionSupport:
-            runtime = support.Compile(def, runtime, snapshot)
-    runtime.RecoveryTime = set.skill.BaseRecoveryTime * snapshot.CastSpeedMultiplier / summedSupportRecoverySpeed
+            runtime = support.Compile(set.skill.Definition, runtime, snapshot)
+    recoverySpeedFactor = acc.Resolve(RecoverySpeed, 1)
+    runtime.RecoveryTime = set.skill.BaseRecoveryTime * snapshot.CastSpeedMultiplier / max(0.01, recoverySpeedFactor)
     for each chain in allChains where chain.cause == set:
         if chain.link is ProjectileIntervalSpawnTrigger:
             compile chain.effect recursively -> RuntimeProjectileDefinition
@@ -762,8 +827,8 @@ editors, skill slot UIs, or player save data:
 | Type | Role |
 |---|---|
 | `Skill` | Authored baseline for one spell or attack; carries base stat fields |
-| `SkillSupport` | Base type for additive and conversion supports |
-| `AdditiveSupport` | Augments the skill in its set |
+| `SkillSupport` | Base type for modifier and conversion supports |
+| `StatModifierSupport` | Base type for augment supports with skill tag validation |
 | `StackingSupport` | Converts a normal skill set into a stack detonation |
 | `SkillSet` | One skill plus its supports |
 | `SkillSetSlot` | Slot entry wrapping a `SkillSet` in the loadout list |
@@ -897,7 +962,7 @@ Fires one magic bullet at base speed and damage.
 
 ---
 
-### Augmented: additive supports only
+### Augmented: modifier supports only
 
 ```
 Slots: [SetA: [MultipleProjectiles(count=5, spread=40°), Piercing(pierce=2)] + MagicBullet]
@@ -972,7 +1037,7 @@ the summed contribution.
 
 ## Set Isolation Rules
 
-- Additive Supports only modify the Skill in the same set.
+- Stat Modifier Supports only modify the Skill in the same set.
 - Trigger Links carry no stats or behavior into the target set.
 - The target set's Skill and Supports fully determine triggered behavior.
 - Stat inheritance across sets does not exist.

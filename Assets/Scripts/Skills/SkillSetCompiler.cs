@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using PlayGround.Skills.Modifiers;
 using PlayGround.Skills.Runtime;
 using PlayGround.System.Projectile;
 using UnityEngine;
@@ -18,13 +19,14 @@ namespace PlayGround.Skills
             SkillSet set = GetSkillSet(slots, slotIndex);
             if (set == null || set.Skill == null) return null;
 
-            RuntimeSkillDefinition runtime = CompileDefinition(set.Skill.Definition, set.Supports, snapshot);
+            CompileDefinitionResult compiled = CompileDefinition(set.Skill.Definition, set.Supports, snapshot);
+            RuntimeSkillDefinition runtime = compiled.Runtime;
             if (runtime == null) return null;
 
             if (runtime is RuntimeStackingDetonation rootStackingDetonation)
                 rootStackingDetonation.DebuffName = set.Skill.name;
 
-            runtime.RecoveryTime = ResolveRecoveryTime(set.Skill.BaseRecoveryTime, set.Supports, snapshot);
+            runtime.RecoveryTime = ResolveRecoveryTime(set.Skill.BaseRecoveryTime, compiled.Modifiers, snapshot);
 
             // Adjacency is forward-only (i -> i+2); recursion terminates by strictly
             // increasing slot index. No cycle is possible, so no recursion guard is needed.
@@ -96,26 +98,55 @@ namespace PlayGround.Skills
             return runtime;
         }
 
-        private static RuntimeSkillDefinition CompileDefinition(
+        private static CompileDefinitionResult CompileDefinition(
             SkillDefinition definition,
             IReadOnlyList<SkillSupport> supports,
             PlayerStatSnapshot snapshot)
         {
             if (definition == null)
-                return null;
+                return default;
 
             SkillDefinition defCopy = definition.DeepCopy();
-            ApplySupports(defCopy, definition, supports);
-            return ApplyConversionSupports(
+            var modifiers = new StatModifierAccumulator();
+            SnapshotModifiers.Contribute(modifiers, snapshot);
+            CollectSupportModifiers(modifiers, supports);
+            ApplySupportBehaviors(defCopy, supports);
+
+            RuntimeSkillDefinition runtime = ApplyConversionSupports(
                 definition,
-                BuildRuntime(defCopy, snapshot),
+                BuildRuntime(defCopy, modifiers, snapshot),
                 supports,
                 snapshot);
+
+            return new CompileDefinitionResult(runtime, modifiers);
         }
 
-        private static void ApplySupports(
+        private static void CollectSupportModifiers(
+            StatModifierAccumulator modifiers,
+            IReadOnlyList<SkillSupport> supports)
+        {
+            if (modifiers == null || supports == null)
+                return;
+
+            for (int i = 0; i < supports.Count; i++)
+            {
+                SkillSupport support = supports[i];
+                if (support == null)
+                    continue;
+
+                if (support is IBaseValueModifier baseValue)
+                    baseValue.CollectAdded(new AddedSink(modifiers));
+
+                if (support is IIncreasedModifier increased)
+                    increased.CollectIncreases(new IncreasedSink(modifiers));
+
+                if (support is IMultiplierModifier multiplier)
+                    multiplier.CollectMultipliers(new MultiplierSink(modifiers));
+            }
+        }
+
+        private static void ApplySupportBehaviors(
             SkillDefinition definition,
-            SkillDefinition baseDefinition,
             IReadOnlyList<SkillSupport> supports)
         {
             if (definition == null || supports == null)
@@ -123,8 +154,20 @@ namespace PlayGround.Skills
 
             for (int i = 0; i < supports.Count; i++)
             {
-                if (supports[i] is AdditiveSupport additive)
-                    additive.Apply(definition, baseDefinition);
+                SkillSupport support = supports[i];
+                if (support == null)
+                    continue;
+
+                if (definition is ProjectileDefinition projectile
+                    && support is IProjectileBehaviorModifier projectileModifier)
+                {
+                    projectileModifier.ApplyToProjectile(new ProjectileBehaviorContext(projectile));
+                }
+                else if (definition is AoeDefinitionBase aoe
+                         && support is IAoeBehaviorModifier aoeModifier)
+                {
+                    aoeModifier.ApplyToAoe(new AoeBehaviorContext(aoe));
+                }
             }
         }
 
@@ -151,39 +194,33 @@ namespace PlayGround.Skills
 
         private static float ResolveRecoveryTime(
             float baseRecoveryTime,
-            IReadOnlyList<SkillSupport> supports,
+            StatModifierAccumulator modifiers,
             PlayerStatSnapshot snapshot)
         {
-            float recoverySpeedMultiplier = 1f;
-            if (supports != null)
-            {
-                for (int i = 0; i < supports.Count; i++)
-                {
-                    if (supports[i] == null)
-                        continue;
-
-                    recoverySpeedMultiplier += Mathf.Max(0.01f, supports[i].RecoverySpeedMultiplier) - 1f;
-                }
-            }
-
-            float recoveryTime = baseRecoveryTime * snapshot.CastSpeedMultiplier / Mathf.Max(0.01f, recoverySpeedMultiplier);
+            float speedFactor = modifiers != null
+                ? modifiers.Resolve(SkillStat.RecoverySpeed, 1f)
+                : 1f;
+            float recoveryTime = baseRecoveryTime * snapshot.CastSpeedMultiplier / Mathf.Max(0.01f, speedFactor);
             return Mathf.Max(0.01f, recoveryTime);
         }
 
-        private static RuntimeSkillDefinition BuildRuntime(SkillDefinition def, PlayerStatSnapshot snapshot)
+        private static RuntimeSkillDefinition BuildRuntime(
+            SkillDefinition def,
+            StatModifierAccumulator modifiers,
+            PlayerStatSnapshot snapshot)
         {
             if (def is ProjectileDefinition p)
             {
                 return new RuntimeProjectileDefinition
                 {
                     Prefab = p.prefab,
-                    Speed = p.speed,
-                    Lifetime = p.lifetime,
-                    Damage = Mathf.Max(0f, p.damage * snapshot.DamageMultiplier),
+                    Speed = modifiers.Resolve(SkillStat.ProjectileSpeed, p.speed),
+                    Lifetime = modifiers.Resolve(SkillStat.ProjectileLifetime, p.lifetime),
+                    Damage = Mathf.Max(0f, modifiers.Resolve(SkillStat.Damage, p.damage)),
                     Count = Mathf.Max(1, p.count),
                     SpreadDegrees = p.spreadDegrees,
                     JitterDegrees = p.jitterDegrees,
-                    PierceCount = Mathf.Max(0, p.pierceCount),
+                    PierceCount = Mathf.Max(0, Mathf.RoundToInt(modifiers.Resolve(SkillStat.PierceCount, p.pierceCount))),
                     RepeatHitCooldown = Mathf.Max(0f, p.repeatHitCooldown),
                     DirectDamageEnabled = p.directDamageEnabled,
                     Tracking = p.GetTrackingConfig(),
@@ -206,13 +243,13 @@ namespace PlayGround.Skills
                 {
                     VisualPrefab = a.VisualPrefab,
                     CollisionShape = a.CollisionShape,
-                    AreaSize = Mathf.Max(0.01f, a.baseAreaSize * snapshot.AreaSizeMultiplier),
+                    AreaSize = Mathf.Max(0.01f, modifiers.Resolve(SkillStat.AreaSize, a.baseAreaSize)),
                     VisualRotationDegrees = a.VisualRotationDegrees,
                     SpawnEffect = a.SpawnEffect,
                     HitEffect = a.HitEffect,
                     ExpireEffect = a.ExpireEffect,
                     PulseEffect = a.PulseEffect,
-                    Damage = Mathf.Max(0f, a.damage * snapshot.DamageMultiplier),
+                    Damage = Mathf.Max(0f, modifiers.Resolve(SkillStat.Damage, a.damage)),
                     LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds),
                     TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds),
                     Count = Mathf.Max(1, a.count),
@@ -223,6 +260,27 @@ namespace PlayGround.Skills
             }
 
             return null;
+        }
+
+        private readonly struct CompileDefinitionResult
+        {
+            public CompileDefinitionResult(RuntimeSkillDefinition runtime, StatModifierAccumulator modifiers)
+            {
+                Runtime = runtime;
+                Modifiers = modifiers;
+            }
+
+            public RuntimeSkillDefinition Runtime { get; }
+            public StatModifierAccumulator Modifiers { get; }
+        }
+
+        private static class SnapshotModifiers
+        {
+            public static void Contribute(StatModifierAccumulator modifiers, PlayerStatSnapshot snapshot)
+            {
+                modifiers.AddMultiplier(SkillStat.Damage, snapshot.DamageMultiplier, MultiplierTiming.Post);
+                modifiers.AddMultiplier(SkillStat.AreaSize, snapshot.AreaSizeMultiplier, MultiplierTiming.Post);
+            }
         }
 
         private static void ApplyChildSpawn(

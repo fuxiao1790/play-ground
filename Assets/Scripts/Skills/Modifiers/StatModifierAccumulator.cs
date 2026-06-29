@@ -8,7 +8,7 @@ namespace PlayGround.Skills.Modifiers
 
     public sealed class StatModifierAccumulator
     {
-        private static readonly int StatCount = System.Enum.GetValues(typeof(SkillStat)).Length;
+        private static readonly int StatCount = global::System.Enum.GetValues(typeof(SkillStat)).Length;
 
         private readonly float[] added = new float[StatCount];
         private readonly float[] increased = new float[StatCount];

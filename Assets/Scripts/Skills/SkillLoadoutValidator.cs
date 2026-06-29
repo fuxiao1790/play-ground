@@ -70,7 +70,7 @@ namespace PlayGround.Skills
             SkillSupport[] supports = slot.skillSet.Supports;
             for (int i = 0; i < supports.Length; i++)
             {
-                if (supports[i] is not AdditiveSupport support)
+                if (supports[i] is not StatModifierSupport support)
                     continue;
 
                 if (SkillDefinitionTagUtility.HasAny(skillTags, support.SupportedSkillTags))
