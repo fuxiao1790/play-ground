@@ -102,6 +102,17 @@ namespace PlayGround.System.Aoe
 
             PendingCommands = new NativeStream(totalEvents, Allocator.TempJob);
 
+            // AoeExpansionJob is a plain IJob with no ECS component access, so the
+            // job-safety system cannot auto-chain it behind the IJobEntity VFX
+            // producers (lifetime, pulse, collision) the way shared component access
+            // chains those. Feed the collector's accumulated ProducerHandle in as an
+            // input dependency so writes to the shared VFX queue stay serialized.
+            JobHandle expansionInput = Dependency;
+            if (hasVfx)
+            {
+                expansionInput = JobHandle.CombineDependencies(expansionInput, vfx.ProducerHandle);
+            }
+
             Dependency = new AoeExpansionJob
             {
                 Events = events,
@@ -109,11 +120,12 @@ namespace PlayGround.System.Aoe
                 Stream = PendingCommands.AsWriter(),
                 VfxPending = hasVfx ? vfx.AsParallelWriter() : default,
                 HasVfxWriter = hasVfx
-            }.Schedule(Dependency);
+            }.Schedule(expansionInput);
 
-            if (vfx != null)
+            if (hasVfx)
             {
-                vfx.ProducerHandle = JobHandle.CombineDependencies(vfx.ProducerHandle, Dependency);
+                // Dependency already includes the prior ProducerHandle via expansionInput.
+                vfx.ProducerHandle = Dependency;
             }
 
             Dependency = events.Dispose(Dependency);
