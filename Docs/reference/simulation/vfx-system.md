@@ -30,23 +30,25 @@ Non-goals:
 
 | Value | Name | Current emitters |
 |---|---|---|
-| 0 | spawn | registered by authoring, currently reserved for future spawn VFX |
-| 1 | hit | `ProjectileCollisionSystem`, `AoeCollisionSystem` |
+| 0 | spawn | `AoeSpawnExpansionSystem` for expansion-spawned AOEs |
+| 1 | hit | `ProjectileCollisionSystem`, `ImpactAoeCollisionSystem`, `LingeringAoeCollisionSystem` |
 | 2 | expire | `CombatLifetimeSystem`, projectile collision deactivation |
 | 3 | pulse | `AoePulseVfxSystem` |
 
-Authoring can register trigger 0 assets today, but the current ECS runtime does
-not emit spawn VFX from projectile or AOE apply systems.
+Authoring can register trigger 0 assets today. The current ECS runtime emits
+spawn VFX for expansion-spawned AOEs; projectile spawn VFX is still registered
+but not emitted by the projectile spawn apply path.
 
 ## Data Flow
 
 ```text
-Simulation job
-  -> VfxPendingSpawn in a NativeQueue or NativeStream
-  -> VfxFlushJob or stream flush job
-  -> DynamicBuffer<VfxSpawnRequestElement> on VfxSingleton entity
+Simulation producer job
+  -> VfxPendingSpawn enqueued into the shared NativeQueue<VfxPendingSpawn>
+     owned by CombatVfxDispatchSystem via AsParallelWriter()
+  -> producer job handle combined into CombatVfxDispatchSystem.ProducerHandle
   -> CombatVfxDispatchSystem in PresentationSystemGroup
-  -> CombatVfxRoot.DrainAndDispatch
+  -> ProducerHandle.Complete()
+  -> CombatVfxRoot.DrainAndDispatch(ref queue) on the main thread
   -> CombatVfxDispatcher.StageSpawn
   -> CombatVfxDispatcher.Dispatch
   -> GraphicsBuffer.SetData (Positions + AreaSizes)
@@ -60,9 +62,9 @@ Simulation job
 - `float2 Position`
 - `float AreaSize`
 
-`VfxSpawnRequestElement` is the VFX singleton buffer version of the same data.
-Like batched sprite rendering, VFX dispatch is faction-agnostic and owns a
-presentation singleton entity for its staging buffer.
+`VfxPendingSpawn` is the single VFX request payload. Like batched sprite
+rendering, VFX dispatch is faction-agnostic; its presentation system owns the
+shared native queue that bridges simulation producers to main-thread dispatch.
 
 ## Key Classes
 
@@ -71,14 +73,15 @@ presentation singleton entity for its staging buffer.
 - scene-object owner for one `CombatVfxDispatcher`
 - static `Instance` set in `Awake` for ECS presentation lookup
 - `Register(typeId, trigger, asset, maxPerFrame, requireAreaSizeContract)`
-- `DrainAndDispatch(requests)` stages events, clears the list, and dispatches
+- `DrainAndDispatch(ref queue)` dequeues events, stages them, and dispatches
 
 `CombatVfxDispatchSystem`:
 
 - `PresentationSystemGroup`
-- creates and queries the `VfxSingleton` entity for
-  `DynamicBuffer<VfxSpawnRequestElement>`
-- drains the single VFX buffer through `CombatVfxRoot.Instance`
+- owns the persistent shared `NativeQueue<VfxPendingSpawn>`
+- exposes `AsParallelWriter()` and `ProducerHandle` for simulation producers
+- completes producers and drains the queue through `CombatVfxRoot.Instance`
+  each frame
 
 `CombatVfxDispatcher`:
 
@@ -88,15 +91,6 @@ presentation singleton entity for its staging buffer.
 - always uploads both `Positions` and `AreaSizes` buffers on every dispatch
 - sends the graph event
 - disposes native/GPU resources on teardown
-
-`VfxFlushJob`:
-
-- Burst `IJob`
-- drains `NativeQueue<VfxPendingSpawn>` into the VFX singleton buffer
-- used by common lifetime and AOE pulse VFX paths
-
-Collision systems use a `NativeStream` for hit/expire VFX and a local stream
-flush job to append into the same VFX singleton buffer.
 
 ## VFX Graph Contract
 
@@ -118,6 +112,10 @@ no per-event `Play()` fallback.
 
 ## Emitters
 
+`AoeSpawnExpansionSystem` emits:
+
+- trigger 0 for each expansion-spawned AOE
+
 `ProjectileCollisionSystem` emits:
 
 - trigger 1 on each confirmed projectile-target hit
@@ -128,7 +126,7 @@ no per-event `Play()` fallback.
 - trigger 2 when projectile lifetime expires
 - trigger 2 when lingering AOE lifetime expires
 
-`AoeCollisionSystem` emits:
+`ImpactAoeCollisionSystem` and `LingeringAoeCollisionSystem` emit:
 
 - trigger 1 for confirmed AOE-target hits
 
@@ -142,7 +140,7 @@ no per-event `Play()` fallback.
 Projectile VFX slots live on `BasicAttackPrefab`:
 
 ```text
-spawnEffect   -> trigger 0, registered but not emitted by current runtime
+spawnEffect   -> trigger 0, registered but not emitted by current projectile runtime
 hitEffect     -> trigger 1
 expireEffect  -> trigger 2
 ```
@@ -151,7 +149,7 @@ AOE VFX slots live on `BasicAoePrefab`, `LingeringAoePrefab`, and
 `AoeTypeDefinition`:
 
 ```text
-spawnEffect   -> trigger 0, registered but not emitted by current runtime
+spawnEffect   -> trigger 0, emitted by AoeSpawnExpansionSystem
 hitEffect     -> trigger 1
 expireEffect  -> trigger 2
 pulseEffect   -> trigger 3

@@ -7,18 +7,20 @@ Trace visual-only requests from simulation to VFX Graph dispatch.
 ## Sequence
 
 1. Collision, lifetime, pulse, or spawn systems create `VfxPendingSpawn`.
-2. Flush jobs append requests to `DynamicBuffer<VfxSpawnRequestElement>` on the
-   VFX singleton entity.
-3. `CombatVfxDispatchSystem` runs in presentation.
-4. It resolves the single `CombatVfxRoot.Instance`.
-5. `CombatVfxRoot` drains and clears the buffer.
-6. `CombatVfxDispatcher` stages requests by `(typeId, trigger)`, caps count,
+2. Producer jobs enqueue requests into the shared
+   `NativeQueue<VfxPendingSpawn>` owned by `CombatVfxDispatchSystem`, using
+   `AsParallelWriter()`, and combine their job handles into `ProducerHandle`.
+3. `CombatVfxDispatchSystem` runs in presentation, completes `ProducerHandle`,
+   and resolves the single `CombatVfxRoot.Instance`.
+4. `CombatVfxRoot` drains the queue on the main thread.
+5. `CombatVfxDispatcher` stages requests by `(typeId, trigger)`, caps count,
    uploads GPU buffers, and sends VFX Graph events.
 
 ## Producers
 
-`ProjectileCollisionSystem`, AOE collision systems, `CombatLifetimeSystem`, and
-`AoePulseVfxSystem`.
+`AoeSpawnExpansionSystem`, `ProjectileCollisionSystem`,
+`ImpactAoeCollisionSystem`, `LingeringAoeCollisionSystem`,
+`CombatLifetimeSystem`, and `AoePulseVfxSystem`.
 
 ## Consumers
 
@@ -36,8 +38,8 @@ Visual Effect Graph assets.
 
 ## Ordering / Timing Requirements
 
-VFX dispatch runs after simulation data is flushed. VFX requests are visual-only
-and may be capped without changing gameplay.
+VFX dispatch runs after simulation producers complete. VFX requests are
+visual-only and may be capped without changing gameplay.
 
 ## Failure / Edge Cases
 

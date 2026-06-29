@@ -18,7 +18,6 @@ dispatch.
 Request data:
 
 - `VfxPendingSpawn`
-- `VfxSpawnRequestElement`
 - `int TypeId`
 - `byte Trigger`
 - `float2 Position`
@@ -26,7 +25,7 @@ Request data:
 
 Trigger values:
 
-- `0`: spawn, registered but not emitted by current projectile/AOE apply paths
+- `0`: spawn, emitted by `AoeSpawnExpansionSystem` for expansion-spawned AOEs
 - `1`: hit
 - `2`: expire
 - `3`: pulse
@@ -43,12 +42,14 @@ call managed VFX objects directly.
 
 ## Lifetime
 
-Requests live in native queues/streams until flushed to the VFX singleton
-buffer, then live until presentation dispatch drains and clears them.
+Requests live in the persistent shared `NativeQueue<VfxPendingSpawn>` owned by
+`CombatVfxDispatchSystem` until presentation completes producers and drains the
+queue on the main thread.
 
 ## Ordering
 
-Flush before presentation dispatch. Dispatch after simulation.
+Producer jobs enqueue during simulation. Presentation completes
+`CombatVfxDispatchSystem.ProducerHandle` before draining and dispatching.
 
 ## Related Layers
 
