@@ -38,8 +38,6 @@ namespace PlayGround.Skills
 
         private void Start()
         {
-            if (vfxRoot != null)
-                vfxRoot.BindFaction(CombatFaction.Player);
             CompileAndRegister();
         }
 
@@ -72,8 +70,6 @@ namespace PlayGround.Skills
         {
             if (combatRoot == root) return;
             combatRoot = root;
-            if (vfxRoot != null)
-                vfxRoot.BindFaction(CombatFaction.Player);
             RegisterProjectileTypes();
             RegisterAoeTypes();
             RegisterSpawnTemplates();

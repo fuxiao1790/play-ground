@@ -1,5 +1,3 @@
-using PlayGround.System.Common;
-using Unity.Collections;
 using Unity.Entities;
 
 namespace PlayGround.System.Vfx
@@ -26,31 +24,8 @@ namespace PlayGround.System.Vfx
                 return;
             }
 
-            using var playerRequests = new NativeList<VfxSpawnRequestElement>(buffer.Length, Allocator.Temp);
-            using var mobRequests = new NativeList<VfxSpawnRequestElement>(buffer.Length, Allocator.Temp);
-            for (int i = 0; i < buffer.Length; i++)
-            {
-                VfxSpawnRequestElement e = buffer[i];
-                if (e.Faction == CombatFaction.Player)
-                {
-                    playerRequests.Add(e);
-                }
-                else if (e.Faction == CombatFaction.Mob)
-                {
-                    mobRequests.Add(e);
-                }
-            }
+            CombatVfxRoot.Instance?.DrainAndDispatch(buffer.AsNativeArray());
             buffer.Clear();
-
-            if (CombatVfxRoot.TryGetByFaction(CombatFaction.Player, out CombatVfxRoot playerRoot))
-            {
-                playerRoot.DrainAndDispatch(playerRequests.AsArray());
-            }
-
-            if (CombatVfxRoot.TryGetByFaction(CombatFaction.Mob, out CombatVfxRoot mobRoot))
-            {
-                mobRoot.DrainAndDispatch(mobRequests.AsArray());
-            }
         }
     }
 }

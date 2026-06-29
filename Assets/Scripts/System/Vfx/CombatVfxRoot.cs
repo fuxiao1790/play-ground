@@ -1,4 +1,3 @@
-using PlayGround.System.Common;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.VFX;
@@ -7,21 +6,21 @@ namespace PlayGround.System.Vfx
 {
     public sealed class CombatVfxRoot : MonoBehaviour
     {
-        private static readonly CombatVfxRoot[] ByFaction = new CombatVfxRoot[3];
+        public static CombatVfxRoot Instance { get; private set; }
 
         private CombatVfxDispatcher dispatcher;
-        private CombatFaction faction;
 
         private void Awake()
         {
             dispatcher = new CombatVfxDispatcher(transform);
+            Instance = this;
         }
 
         private void OnDestroy()
         {
-            if (ByFaction[(int)faction] == this)
+            if (Instance == this)
             {
-                ByFaction[(int)faction] = null;
+                Instance = null;
             }
 
             dispatcher?.Dispose();
@@ -37,18 +36,6 @@ namespace PlayGround.System.Vfx
         {
             dispatcher?.Dispose();
             dispatcher = new CombatVfxDispatcher(transform);
-        }
-
-        public void BindFaction(CombatFaction boundFaction)
-        {
-            faction = boundFaction;
-            ByFaction[(int)faction] = this;
-        }
-
-        internal static bool TryGetByFaction(CombatFaction faction, out CombatVfxRoot root)
-        {
-            root = faction != CombatFaction.None ? ByFaction[(int)faction] : null;
-            return root != null;
         }
 
         internal void DrainAndDispatch(NativeArray<VfxSpawnRequestElement> requests)
