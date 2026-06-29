@@ -38,18 +38,18 @@ namespace PlayGround.System.Vfx
             dispatcher = new CombatVfxDispatcher(transform);
         }
 
-        internal void DrainAndDispatch(NativeArray<VfxSpawnRequestElement> requests)
+        internal void DrainAndDispatch(ref NativeQueue<VfxPendingSpawn> queue)
         {
             if (dispatcher == null)
             {
                 return;
             }
 
-            for (int i = 0; i < requests.Length; i++)
+            while (queue.TryDequeue(out VfxPendingSpawn p))
             {
-                VfxSpawnRequestElement e = requests[i];
-                dispatcher.StageSpawn(e.TypeId, e.Trigger, e.Position, e.AreaSize);
+                dispatcher.StageSpawn(p.TypeId, p.Trigger, p.Position, p.AreaSize);
             }
+
             dispatcher.Dispatch();
         }
     }

@@ -1,42 +1,51 @@
+using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 
 namespace PlayGround.System.Vfx
 {
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     public partial class CombatVfxDispatchSystem : SystemBase
     {
-        private EntityQuery vfxQuery;
+        internal NativeQueue<VfxPendingSpawn> PendingSpawns;
+        internal JobHandle ProducerHandle;
+        internal bool HasQueue => PendingSpawns.IsCreated;
+
+        internal NativeQueue<VfxPendingSpawn>.ParallelWriter AsParallelWriter() =>
+            PendingSpawns.AsParallelWriter();
 
         protected override void OnCreate()
         {
-            vfxQuery = EntityManager.CreateEntityQuery(ComponentType.ReadOnly<VfxSingleton>());
-            if (vfxQuery.IsEmptyIgnoreFilter)
-            {
-                Entity vfxEntity = EntityManager.CreateEntity(typeof(VfxSingleton));
-                EntityManager.AddBuffer<VfxSpawnRequestElement>(vfxEntity);
-                return;
-            }
+            PendingSpawns = new NativeQueue<VfxPendingSpawn>(Allocator.Persistent);
+        }
 
-            Entity existingVfxEntity = vfxQuery.GetSingletonEntity();
-            if (!EntityManager.HasBuffer<VfxSpawnRequestElement>(existingVfxEntity))
+        protected override void OnDestroy()
+        {
+            ProducerHandle.Complete();
+            if (PendingSpawns.IsCreated)
             {
-                EntityManager.AddBuffer<VfxSpawnRequestElement>(existingVfxEntity);
+                PendingSpawns.Dispose();
             }
         }
 
         protected override void OnUpdate()
         {
-            CompleteDependency();
+            ProducerHandle.Complete();
+            ProducerHandle = default;
 
-            Entity vfxEntity = vfxQuery.GetSingletonEntity();
-            DynamicBuffer<VfxSpawnRequestElement> buffer = EntityManager.GetBuffer<VfxSpawnRequestElement>(vfxEntity);
-            if (buffer.Length == 0)
+            if (PendingSpawns.Count == 0)
             {
                 return;
             }
 
-            CombatVfxRoot.Instance?.DrainAndDispatch(buffer.AsNativeArray());
-            buffer.Clear();
+            CombatVfxRoot root = CombatVfxRoot.Instance;
+            if (root == null)
+            {
+                PendingSpawns.Clear();
+                return;
+            }
+
+            root.DrainAndDispatch(ref PendingSpawns);
         }
     }
 }
