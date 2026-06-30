@@ -9,7 +9,7 @@ using Unity.Mathematics;
 namespace PlayGround.System.Common
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(CombatApplyFinalizeSystem))]
+    [UpdateAfter(typeof(CombatApplyFinalizeSingleSystem))]
     [UpdateBefore(typeof(AoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
     public partial class StatusProcessSystem : SystemBase
@@ -43,7 +43,7 @@ namespace PlayGround.System.Common
             AoeSpawnExpansionSystem aoeExpansion = World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
             ProjectileSpawnExpansionSystem projectileExpansion =
                 World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
-            CombatApplyFinalizeSystem hitApply = World.GetExistingSystemManaged<CombatApplyFinalizeSystem>();
+            CombatApplyFinalizeSingleSystem hitApply = World.GetExistingSystemManaged<CombatApplyFinalizeSingleSystem>();
 
             int aoeIdBase = ReserveIdBlock(ref nextAoeId, entityCount);
             int projectileIdBase = ReserveIdBlock(ref nextProjectileDetonationSourceId, entityCount);

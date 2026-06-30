@@ -15,7 +15,7 @@ namespace PlayGround.System.Stats
     //   last render-active counts. The render system already materializes
     //   per-batch NativeArrays for drawing, so it records their Lengths while
     //   doing that existing work; gathering only reads cached ints.
-    // - HitEventsCreated mirrors CombatApplyFinalizeSystem.LastHitEventCount,
+    // - HitEventsCreated mirrors CombatApplyFinalizeSingleSystem.LastHitEventCount,
     //   assigned from HitQueue.Count before the queue is flattened or cleared.
     // - VfxEventsCreated mirrors CombatVfxDispatchSystem.LastVfxEventCount,
     //   assigned after the VFX root drains PendingSpawns. It counts only requests

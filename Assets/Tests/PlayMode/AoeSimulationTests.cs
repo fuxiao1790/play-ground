@@ -22,7 +22,7 @@ namespace PlayGround.Tests.PlayMode
         private PresentationSystemGroup presentationGroup;
         private AoeSpawnExpansionSystem aoeExpansion;
         private ProjectileSpawnExpansionSystem projectileExpansion;
-        private CombatApplyFinalizeSystem hitApply;
+        private CombatApplyFinalizeSingleSystem hitApply;
         private StatusProcessSystem statusProcess;
         private Entity scopeEntity;
         private Entity aoeTemplateEntity;
@@ -41,7 +41,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
             aoeExpansion = testWorld.GetOrCreateSystemManaged<AoeSpawnExpansionSystem>();
             projectileExpansion = testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
-            hitApply = testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSystem>();
+            hitApply = testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSingleSystem>();
             statusProcess = testWorld.GetOrCreateSystemManaged<StatusProcessSystem>();
             simGroup.AddSystemToUpdateList(aoeExpansion);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<AoeSpawnApplySystem>());
@@ -1205,7 +1205,7 @@ namespace PlayGround.Tests.PlayMode
 
         private NativeQueue<CombatHitEvent> HitQueue()
         {
-            FieldInfo field = typeof(CombatApplyFinalizeSystem).GetField(
+            FieldInfo field = typeof(CombatApplyFinalizeSingleSystem).GetField(
                 "HitQueue",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null);

@@ -12,7 +12,7 @@ namespace PlayGround.System.Projectile
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileContactGateSystem))]
     [UpdateBefore(typeof(PlayGround.System.Aoe.AoeContactGateSystem))]
-    [UpdateBefore(typeof(CombatApplyFinalizeSystem))]
+    [UpdateBefore(typeof(CombatApplyFinalizeSingleSystem))]
     public partial struct ProjectileCollisionSystem : ISystem
     {
         // this depends on the arena size and mob count
@@ -86,7 +86,7 @@ namespace PlayGround.System.Projectile
 
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
-            var hitApply = state.World.GetExistingSystemManaged<CombatApplyFinalizeSystem>();
+            var hitApply = state.World.GetExistingSystemManaged<CombatApplyFinalizeSingleSystem>();
             var vfx = state.World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
             var job = new ProjectileCollisionJob
             {

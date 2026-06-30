@@ -12,7 +12,7 @@ namespace PlayGround.System.Aoe
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AoeContactGateSystem))]
     [UpdateAfter(typeof(LingeringAoeCollisionSystem))]
-    [UpdateBefore(typeof(CombatApplyFinalizeSystem))]
+    [UpdateBefore(typeof(CombatApplyFinalizeSingleSystem))]
     public partial struct ImpactAoeCollisionSystem : ISystem
     {
         private EntityQuery impactAoeQuery;
@@ -78,7 +78,7 @@ namespace PlayGround.System.Aoe
 
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
-            var hitApply = state.World.GetExistingSystemManaged<CombatApplyFinalizeSystem>();
+            var hitApply = state.World.GetExistingSystemManaged<CombatApplyFinalizeSingleSystem>();
             var vfx = state.World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
 
             var job = new ImpactAoeCollisionJob

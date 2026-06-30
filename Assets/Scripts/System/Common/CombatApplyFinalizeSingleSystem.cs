@@ -1,57 +1,51 @@
-// RETIRED: multi-threaded combat finalize. Replaced by the single-threaded
-// CombatApplyFinalizeSingleSystem; multi-threading this workload was not worth the
-// upfront main-thread setup (flatten, bucket, unique-key, oversized alloc) it
-// required to enable a parallel split that saved less than it cost. Kept disabled
-// for reference.
-#if false
 using System.Collections.Generic;
 using PlayGround.Common;
 using PlayGround.System.Aoe;
 using PlayGround.System.Projectile;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Profiling;
-using UnityEngine;
 
 namespace PlayGround.System.Common
 {
+    // Applies queued combat hit events to ECS target health and stack buffers, then
+    // hands per-target results to CombatApplyBridge for presentation replay.
+    //
+    // The finalize work runs in a single Burst IJob over one pass of the hit array:
+    //   - no bucketing job / multihashmap
+    //   - no GetUniqueKeyArray
+    //   - status snapshots are packed densely instead of on a fixed per-target stride
+    // Multi-threading the workload was not worth it: the upfront main-thread setup to
+    // enable the parallel split (flatten, bucket, unique-key extraction, oversized
+    // persistent allocation) cost more than the parallel finalize ever saved. See the
+    // commented-out CombatApplyFinalizeSystem for the retired multi-threaded variant.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileCollisionSystem))]
     [UpdateAfter(typeof(LingeringAoeCollisionSystem))]
     [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
     [UpdateBefore(typeof(AoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
-    public partial class CombatApplyFinalizeSystem : SystemBase
+    [UpdateBefore(typeof(StatusProcessSystem))]
+    public partial class CombatApplyFinalizeSingleSystem : SystemBase
     {
         private const int MaxTargetStackEntries = 32;
 
-        private static readonly ProfilerMarker Marker = new("CombatApplyFinalizeSystem");
+        private static readonly ProfilerMarker Marker = new("CombatApplyFinalizeSingleSystem");
         private static readonly ProfilerMarker CompleteProducersMarker =
-            new("CombatApplyFinalizeSystem.CompleteProducers");
+            new("CombatApplyFinalizeSingleSystem.CompleteProducers");
         private static readonly ProfilerMarker DisposePreviousMarker =
-            new("CombatApplyFinalizeSystem.DisposePrevious");
-        private static readonly ProfilerMarker CountHitsMarker =
-            new("CombatApplyFinalizeSystem.CountHits");
+            new("CombatApplyFinalizeSingleSystem.DisposePrevious");
         private static readonly ProfilerMarker FlattenHitsMarker =
-            new("CombatApplyFinalizeSystem.FlattenHits");
-        private static readonly ProfilerMarker BucketHitsMarker =
-            new("CombatApplyFinalizeSystem.BucketHits");
-        private static readonly ProfilerMarker PrepareFinalizeMarker =
-            new("CombatApplyFinalizeSystem.PrepareFinalize");
-        private static readonly ProfilerMarker FinalizeCombatMarker =
-            new("CombatApplyFinalizeSystem.FinalizeCombat");
-        private static readonly ProfilerMarker CountEvictionsMarker =
-            new("CombatApplyFinalizeSystem.CountEvictions");
-        private static readonly ProfilerMarker DisposeScratchMarker =
-            new("CombatApplyFinalizeSystem.DisposeScratch");
+            new("CombatApplyFinalizeSingleSystem.FlattenHits");
+        private static readonly ProfilerMarker FinalizeMarker =
+            new("CombatApplyFinalizeSingleSystem.Finalize");
         private static readonly ProfilerMarker PublishResultsMarker =
-            new("CombatApplyFinalizeSystem.PublishResults");
+            new("CombatApplyFinalizeSingleSystem.PublishResults");
         private static readonly ProfilerCounterValue<int> EntryEvictionCounter =
-            new(ProfilerCategory.Scripts, "CombatApplyFinalizeSystem.StackEntryEvictions", ProfilerMarkerDataUnit.Count);
+            new(ProfilerCategory.Scripts, "CombatApplyFinalizeSingleSystem.StackEntryEvictions", ProfilerMarkerDataUnit.Count);
 
         internal NativeQueue<CombatHitEvent> HitQueue;
         internal JobHandle ProducerHandle;
@@ -95,13 +89,8 @@ namespace PlayGround.System.Common
                     bridge?.DisposeFinalizedCombat();
                 }
 
-                int hitCount;
-                using (CountHitsMarker.Auto())
-                {
-                    hitCount = HitQueue.Count;
-                    LastHitEventCount = hitCount;
-                }
-
+                int hitCount = HitQueue.Count;
+                LastHitEventCount = hitCount;
                 if (hitCount == 0)
                 {
                     HitQueue.Clear();
@@ -115,75 +104,41 @@ namespace PlayGround.System.Common
                     HitQueue.Clear();
                 }
 
-                NativeParallelMultiHashMap<Entity, int> hitIndexMap;
-                using (BucketHitsMarker.Auto())
+                var resultsList = new NativeList<CombatTickResult>(math.max(16, hitCount / 4), Allocator.TempJob);
+                var statusList = new NativeList<StatusStackSnapshot>(MaxTargetStackEntries, Allocator.TempJob);
+                var evictionRef = new NativeReference<int>(Allocator.TempJob);
+
+                using (FinalizeMarker.Auto())
                 {
-                    hitIndexMap = new NativeParallelMultiHashMap<Entity, int>(flatHits.Length, Allocator.TempJob);
-                    JobHandle bucketHandle = new BucketHitsJob
+                    Dependency = new FinalizeCombatSingleJob
                     {
                         Hits = flatHits,
-                        HitIndexWriter = hitIndexMap.AsParallelWriter()
-                    }.Schedule(flatHits.Length, 64);
-                    bucketHandle.Complete();
-                }
-
-                int frameCount = UnityEngine.Time.frameCount;
-                NativeArray<Entity> keys;
-                int keyCount;
-                NativeArray<CombatTickResult> results;
-                NativeArray<StatusStackSnapshot> statusSnapshots;
-                NativeArray<int> evictionCounts;
-                using (PrepareFinalizeMarker.Auto())
-                {
-                    (keys, keyCount) = hitIndexMap.GetUniqueKeyArray(Allocator.TempJob);
-                    results = new NativeArray<CombatTickResult>(keyCount, Allocator.Persistent);
-                    statusSnapshots = new NativeArray<StatusStackSnapshot>(
-                        keyCount * MaxTargetStackEntries,
-                        Allocator.Persistent);
-                    evictionCounts = new NativeArray<int>(keyCount, Allocator.TempJob);
-                }
-
-                using (FinalizeCombatMarker.Auto())
-                {
-                    JobHandle rollHandle = new FinalizeCombatJob
-                    {
-                        Hits = flatHits,
-                        HitIndexMap = hitIndexMap,
-                        Keys = keys,
-                        Results = results,
                         HealthLookup = GetComponentLookup<TargetHealth>(),
                         StackBuffers = GetBufferLookup<TargetStackEntry>(),
-                        StatusSnapshots = statusSnapshots,
-                        EvictionCounts = evictionCounts,
+                        Results = resultsList,
+                        StatusSnapshots = statusList,
+                        EvictionCount = evictionRef,
                         AccrualFrame = AccrualFrame,
-                        FrameCount = (uint)frameCount
-                    }.Schedule(keyCount, 32);
+                        FrameCount = (uint)UnityEngine.Time.frameCount
+                    }.Schedule(Dependency);
 
-                    rollHandle.Complete();
+                    Dependency.Complete();
                 }
 
-                int frameEvictions = 0;
-                using (CountEvictionsMarker.Auto())
+                int frameEvictions = evictionRef.Value;
+                if (frameEvictions > 0)
                 {
-                    for (int i = 0; i < evictionCounts.Length; i++)
-                    {
-                        frameEvictions += evictionCounts[i];
-                    }
-
-                    if (frameEvictions > 0)
-                    {
-                        entryEvictions += frameEvictions;
-                        EntryEvictionCounter.Value = entryEvictions;
-                    }
+                    entryEvictions += frameEvictions;
+                    EntryEvictionCounter.Value = entryEvictions;
                 }
 
-                using (DisposeScratchMarker.Auto())
-                {
-                    evictionCounts.Dispose();
-                    keys.Dispose();
-                    hitIndexMap.Dispose();
-                    flatHits.Dispose();
-                }
+                NativeArray<CombatTickResult> results = resultsList.ToArray(Allocator.Persistent);
+                NativeArray<StatusStackSnapshot> statusSnapshots = statusList.ToArray(Allocator.Persistent);
+
+                flatHits.Dispose();
+                resultsList.Dispose();
+                statusList.Dispose();
+                evictionRef.Dispose();
 
                 using (PublishResultsMarker.Auto())
                 {
@@ -201,69 +156,57 @@ namespace PlayGround.System.Common
         }
 
         [BurstCompile]
-        private struct BucketHitsJob : IJobParallelFor
+        private struct FinalizeCombatSingleJob : IJob
         {
             [ReadOnly] public NativeArray<CombatHitEvent> Hits;
-            public NativeParallelMultiHashMap<Entity, int>.ParallelWriter HitIndexWriter;
-
-            public void Execute(int index)
-            {
-                Entity target = Hits[index].TargetProxy;
-                if (target != Entity.Null)
-                {
-                    HitIndexWriter.Add(target, index);
-                }
-            }
-        }
-
-        [BurstCompile]
-        private struct FinalizeCombatJob : IJobParallelFor
-        {
-            [ReadOnly] public NativeArray<CombatHitEvent> Hits;
-            [ReadOnly] public NativeParallelMultiHashMap<Entity, int> HitIndexMap;
-            [ReadOnly] public NativeArray<Entity> Keys;
-            public NativeArray<CombatTickResult> Results;
-            [NativeDisableParallelForRestriction] public ComponentLookup<TargetHealth> HealthLookup;
-            [NativeDisableParallelForRestriction] public BufferLookup<TargetStackEntry> StackBuffers;
-            [NativeDisableParallelForRestriction] public NativeArray<StatusStackSnapshot> StatusSnapshots;
-            [WriteOnly] public NativeArray<int> EvictionCounts;
+            public ComponentLookup<TargetHealth> HealthLookup;
+            public BufferLookup<TargetStackEntry> StackBuffers;
+            public NativeList<CombatTickResult> Results;
+            public NativeList<StatusStackSnapshot> StatusSnapshots;
+            public NativeReference<int> EvictionCount;
             public int AccrualFrame;
             public uint FrameCount;
 
-            public void Execute(int index)
+            public void Execute()
             {
-                Entity target = Keys[index];
-                CombatTickResult result = new()
-                {
-                    TargetProxy = target
-                };
-                int hitIndexInTarget = 0;
                 int evictionCount = 0;
-                float damageTaken = 0f;
-                int hitCount = 0;
-                int critCount = 0;
-                bool hasHealth = HealthLookup.HasComponent(target);
-                TargetHealth health = hasHealth
-                    ? HealthLookup[target]
-                    : default;
-                bool hasStackBuffer = StackBuffers.HasBuffer(target);
-                DynamicBuffer<TargetStackEntry> stackEntries = hasStackBuffer
-                    ? StackBuffers[target]
-                    : default;
-                bool stackChanged = false;
+                var map = new NativeHashMap<Entity, int>(Hits.Length, Allocator.Temp);
+                var accums = new NativeList<TargetAccum>(Allocator.Temp);
 
-                foreach (int flatHitIndex in HitIndexMap.GetValuesForKey(target))
+                for (int h = 0; h < Hits.Length; h++)
                 {
-                    CombatHitEvent hit = Hits[flatHitIndex];
-                    if (hit.StackEffect.Enabled && hasStackBuffer)
+                    CombatHitEvent hit = Hits[h];
+                    Entity target = hit.TargetProxy;
+                    if (target == Entity.Null)
                     {
-                        AccrueStack(stackEntries, hit.StackEffect, AccrualFrame, ref evictionCount);
-                        stackChanged = true;
+                        continue;
+                    }
+
+                    if (!map.TryGetValue(target, out int idx))
+                    {
+                        idx = accums.Length;
+                        map.Add(target, idx);
+                        accums.Add(new TargetAccum
+                        {
+                            Target = target,
+                            HasStackBuffer = StackBuffers.HasBuffer(target) ? (byte)1 : (byte)0
+                        });
+                    }
+
+                    TargetAccum acc = accums[idx];
+
+                    if (hit.StackEffect.Enabled && acc.HasStackBuffer == 1)
+                    {
+                        DynamicBuffer<TargetStackEntry> buffer = StackBuffers[target];
+                        AccrueStack(buffer, hit.StackEffect, AccrualFrame, ref evictionCount);
+                        acc.StackChanged = 1;
                     }
 
                     if (hit.DirectDamageEnabled)
                     {
-                        uint seed = math.hash(new uint3((uint)target.Index, FrameCount, (uint)hitIndexInTarget));
+                        // Crit seed uses target entity, frame, and per-target hit index.
+                        // Hit order is unspecified, but damage is per-hit and order-independent.
+                        uint seed = math.hash(new uint3((uint)target.Index, FrameCount, (uint)acc.HitIndex));
                         if (seed == 0)
                         {
                             seed = 1;
@@ -274,48 +217,72 @@ namespace PlayGround.System.Common
                         bool isCrit = random.NextFloat() < hit.CritChance;
                         float rolledAmount = math.max(0f, isCrit ? baseAmount * hit.CritMultiplier : baseAmount);
 
-                        damageTaken += rolledAmount;
-                        hitCount++;
+                        acc.DamageTaken += rolledAmount;
+                        acc.HitCount++;
                         if (isCrit)
                         {
-                            critCount++;
+                            acc.CritCount++;
                         }
                     }
 
-                    hitIndexInTarget++;
+                    acc.HitIndex++;
+                    accums[idx] = acc;
                 }
 
-                // Crit seed uses target entity, frame, and per-target enumeration index.
-                // Bucket order is unspecified, but damage is per-hit and order-independent.
-                if (stackChanged)
+                for (int i = 0; i < accums.Length; i++)
                 {
-                    int statusStart = index * MaxTargetStackEntries;
-                    int statusCount = math.min(stackEntries.Length, MaxTargetStackEntries);
-                    for (int i = 0; i < statusCount; i++)
+                    TargetAccum acc = accums[i];
+                    CombatTickResult result = new()
                     {
-                        TargetStackEntry entry = stackEntries[i];
-                        StatusSnapshots[statusStart + i] = new StatusStackSnapshot(
-                            entry.DebuffKey,
-                            entry.Count,
-                            entry.LifetimeRemaining);
+                        TargetProxy = acc.Target,
+                        DamageTaken = acc.DamageTaken,
+                        HitCount = acc.HitCount,
+                        CritCount = acc.CritCount
+                    };
+
+                    if (acc.StackChanged == 1 && acc.HasStackBuffer == 1)
+                    {
+                        DynamicBuffer<TargetStackEntry> buffer = StackBuffers[acc.Target];
+                        int statusCount = math.min(buffer.Length, MaxTargetStackEntries);
+                        int statusStart = StatusSnapshots.Length;
+                        for (int j = 0; j < statusCount; j++)
+                        {
+                            TargetStackEntry entry = buffer[j];
+                            StatusSnapshots.Add(new StatusStackSnapshot(
+                                entry.DebuffKey,
+                                entry.Count,
+                                entry.LifetimeRemaining));
+                        }
+
+                        result.StatusStart = statusStart;
+                        result.StatusCount = statusCount;
                     }
 
-                    result.StatusStart = statusStart;
-                    result.StatusCount = statusCount;
+                    if (HealthLookup.HasComponent(acc.Target))
+                    {
+                        TargetHealth health = HealthLookup[acc.Target];
+                        health.Current -= acc.DamageTaken;
+                        HealthLookup[acc.Target] = health;
+                        result.Health = health.Current;
+                    }
+
+                    Results.Add(result);
                 }
 
-                if (hasHealth)
-                {
-                    health.Current -= damageTaken;
-                    HealthLookup[target] = health;
-                    result.Health = health.Current;
-                }
+                EvictionCount.Value = evictionCount;
+                accums.Dispose();
+                map.Dispose();
+            }
 
-                result.DamageTaken = damageTaken;
-                result.HitCount = hitCount;
-                result.CritCount = critCount;
-                Results[index] = result;
-                EvictionCounts[index] = evictionCount;
+            private struct TargetAccum
+            {
+                public Entity Target;
+                public float DamageTaken;
+                public int HitCount;
+                public int CritCount;
+                public int HitIndex;
+                public byte StackChanged;
+                public byte HasStackBuffer;
             }
 
             private static void AccrueStack(
@@ -562,4 +529,3 @@ namespace PlayGround.System.Common
         public int StatusCount;
     }
 }
-#endif

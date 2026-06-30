@@ -15,7 +15,7 @@ namespace PlayGround.System.Stats
         private BasicProjectileSpawnApplySystem _basicProj;
         private ChildSpawnerProjectileSpawnApplySystem _childProj;
         private AoeSpawnApplySystem _aoe;
-        private CombatApplyFinalizeSystem _finalize;
+        private CombatApplyFinalizeSingleSystem _finalize;
         private CombatVfxDispatchSystem _vfx;
         private CombatBatchedRenderSystem _render;
 
@@ -82,7 +82,7 @@ namespace PlayGround.System.Stats
             _basicProj ??= World.GetExistingSystemManaged<BasicProjectileSpawnApplySystem>();
             _childProj ??= World.GetExistingSystemManaged<ChildSpawnerProjectileSpawnApplySystem>();
             _aoe ??= World.GetExistingSystemManaged<AoeSpawnApplySystem>();
-            _finalize ??= World.GetExistingSystemManaged<CombatApplyFinalizeSystem>();
+            _finalize ??= World.GetExistingSystemManaged<CombatApplyFinalizeSingleSystem>();
             _vfx ??= World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
             _render ??= World.GetExistingSystemManaged<CombatBatchedRenderSystem>();
         }
