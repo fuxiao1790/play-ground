@@ -6,8 +6,8 @@ final decisions, and should be revisited in detail before implementation locks i
 ## Concepts
 
 **Skill** — an active spell or attack. Defines what is spawned: a projectile,
-an AOE, a beam. Owns base visual, collision shape, base recovery time, and
-behavior data. A Skill slotted alone fires with base behavior and no
+an AOE, a beam. Owns base visual, collision shape, base rate (attacks/casts
+per second), and behavior data. A Skill slotted alone fires with base behavior and no
 augmentation.
 
 **Stacking Support** - a conversion support placed on a normal skill set to make
@@ -85,7 +85,7 @@ Layer 2.5 (SkillSpawnTranslator) — stateless utility used by Layer 2. Not a ch
 Types: `Skill`, `StatModifierSupport`, `ConversionSupport`, `SkillSet`,
 `TriggerLink`, `PlayerLoadout`
 
-- Owns all stat sources: base skill stats, base recovery time, supports, items,
+- Owns all stat sources: base skill stats, base rate, supports, items,
   buffs, character level
 - `PlayerLoadout` is live mutable equipment state — not just an authoring template
 - `Skill` SOs are immutable authored templates; `PlayerLoadout` holds mutable slot references into them
@@ -99,20 +99,21 @@ Types: `PlayerStatSnapshot`, `PlayerStatAggregator`
 
 Stateless utility - not a chain tier. Pure aggregation function: inputs in, flat snapshot
 out, no stored state. Collapses player-level Layer 1 stat sources into a flat
-snapshot. The compiler feeds those snapshot multipliers into the same per-stat
-fold used by supports, as Post multipliers where applicable. Owns no data - all
-sources come from Layer 1.
+snapshot. The compiler feeds snapshot terms into the same per-stat fold used by
+supports: Post multipliers where applicable, and increased percentages where the
+stat is authored as increased scaling. Owns no data - all sources come from
+Layer 1.
 
 `PlayerStatSnapshot` fields:
-- `castSpeedMultiplier`
+- `increasedRatePercent`
 - `damageMultiplier`
 - `areaSizeMultiplier`
 
 Baking:
+- `increasedRatePercent` contributes an increased percent to the `Rate` fold
 - `damageMultiplier` contributes a Post multiplier to the `Damage` fold
 - `areaSizeMultiplier` contributes a Post multiplier to the `AreaSize` fold
-- `castSpeedMultiplier` is applied as a recovery-time multiplier after
-  `RecoverySpeed` is folded
+- `recoveryTime` is derived after folding: `recoveryTime = 1 / rate`
 
 ### Layer 2: Orchestration
 
@@ -133,7 +134,8 @@ Types: `PlayerSkillDriver`, `SkillSlotState`, `SkillSetCompiler`
 
 `SkillSlotState` per root slot:
 - `elapsedSinceLastFire` — ticked each frame, reset on successful fire
-- `recoveryTime` — copied from `RuntimeSkillDefinition` whenever stats change
+- `recoveryTime` — copied from `RuntimeSkillDefinition` whenever stats change;
+  derived internally as `1 / rate`, not authored directly
 - `IsReady` — `elapsedSinceLastFire >= recoveryTime`
 - `CooldownProgress` — 0..1, for UI
 
@@ -183,7 +185,7 @@ mutated at runtime.
 
 ```csharp
 abstract class Skill : ScriptableObject {
-    float baseRecoveryTime;          // base cooldown in seconds; scaled by castSpeedMultiplier at compile time
+    float baseRate;                  // casts/sec; folded through the Rate stat at compile time
     public abstract SkillDefinitionTags Tags { get; }
     public abstract SkillDefinition Definition { get; }
 }
@@ -363,16 +365,18 @@ value = (base * preMultiplier + added) * (1 + increased) * postMultiplier
 ```
 
 Increases are summed, multipliers are multiplied, and support order no longer
-changes numeric output. Player snapshot multipliers feed this same fold as Post
-multipliers: `DamageMultiplier` contributes to `Damage`, and
-`AreaSizeMultiplier` contributes to `AreaSize`. `CastSpeedMultiplier` remains a
-recovery-time multiplier.
+changes numeric output. Player snapshot terms feed this same fold:
+`DamageMultiplier` contributes a Post multiplier to `Damage`,
+`AreaSizeMultiplier` contributes a Post multiplier to `AreaSize`, and
+`increasedRatePercent` contributes to the summed increased term on `Rate`.
 
-Recovery is folded as recovery speed and then inverted:
+Rate uses the same fold as other stats. `IncreasedRateSupport` and the player
+`increasedRatePercent` both feed the increased bucket, then cooldown is derived
+from the folded rate:
 
 ```text
-recoverySpeedFactor = Resolve(RecoverySpeed, 1)
-recoveryTime = baseRecoveryTime * castSpeedMultiplier / max(0.01, recoverySpeedFactor)
+rate = Resolve(Rate, baseRate)
+recoveryTime = 1 / max(0.01, rate)
 ```
 
 Current augment supports:
@@ -386,7 +390,7 @@ Current augment supports:
 | Increased AOE Effect | `IIncreasedModifier` | Increased percent on `AreaSize` |
 | Faster Projectiles | `IMultiplierModifier` | Post multipliers on `ProjectileSpeed`, `ProjectileLifetime` |
 | Added Damage | `IBaseValueModifier` | Adds `Damage` |
-| Increased Recovery Speed | `IIncreasedModifier` | Increased percent on `RecoverySpeed` |
+| Increased Skill Speed | `IIncreasedModifier` | Increased percent on `Rate` |
 
 Supports also declare compatible skill tags:
 
@@ -399,7 +403,7 @@ Supports also declare compatible skill tags:
 | Added Damage | `Projectile`, `Aoe` |
 | Concentrated Effect | `Aoe` |
 | Increased AOE Effect | `Aoe` |
-| Increased Recovery Speed | `Projectile`, `Aoe` |
+| Increased Skill Speed | `Projectile`, `Aoe` |
 
 Example: putting Multiple Projectiles on an AOE skill is allowed, but it does
 nothing and validation returns a warning.
@@ -682,8 +686,8 @@ compile(SkillSet set, allChains, snapshot) -> RuntimeSkillDefinition:
     for each support in set.supports:
         if support is ConversionSupport:
             runtime = support.Compile(set.skill.Definition, runtime, snapshot)
-    recoverySpeedFactor = acc.Resolve(RecoverySpeed, 1)
-    runtime.RecoveryTime = set.skill.BaseRecoveryTime * snapshot.CastSpeedMultiplier / max(0.01, recoverySpeedFactor)
+    rate = acc.Resolve(Rate, set.skill.BaseRate)
+    runtime.RecoveryTime = 1 / max(0.01, rate)
     for each chain in allChains where chain.cause == set:
         if chain.link is ProjectileIntervalSpawnTrigger:
             compile chain.effect recursively -> RuntimeProjectileDefinition
@@ -849,7 +853,7 @@ player-facing authoring surface.
 
 1. `Assets > Create > PlayGround > Skills > Projectile Skill` or `AOE Skill`.
 2. Assign sprite, material, and collision shape fields.
-3. Set `baseRecoveryTime` (cooldown in seconds before the skill can fire again).
+3. Set `baseRate` (attacks/casts per second).
 4. Set base behavior values (speed, damage, lifetime, etc.).
 
 ### Creating a Stacking Detonation

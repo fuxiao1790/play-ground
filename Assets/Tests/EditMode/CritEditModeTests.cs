@@ -41,7 +41,7 @@ namespace PlayGround.Tests.EditMode
         {
             ProjectileSkill skill = CreateAsset<ProjectileSkill>("Projectile Skill");
             SkillSet set = CreateSkillSet("Set", skill);
-            var snapshot = new PlayerStatSnapshot(1f, 1f, critChance: 0.3f, critMultiplier: 2.5f);
+            var snapshot = new PlayerStatSnapshot(0f, 1f, critChance: 0.3f, critMultiplier: 2.5f);
 
             RuntimeSkillDefinition result = SkillSetCompiler.Compile(
                 Slots(set),
@@ -59,7 +59,7 @@ namespace PlayGround.Tests.EditMode
         {
             AoeSkill skill = CreateAsset<AoeSkill>("Aoe Skill");
             SkillSet set = CreateSkillSet("Set", skill);
-            var snapshot = new PlayerStatSnapshot(1f, 1f, critChance: 0.15f, critMultiplier: 3f);
+            var snapshot = new PlayerStatSnapshot(0f, 1f, critChance: 0.15f, critMultiplier: 3f);
 
             RuntimeSkillDefinition result = SkillSetCompiler.Compile(
                 Slots(set),
@@ -78,7 +78,7 @@ namespace PlayGround.Tests.EditMode
             AoeSkill skill = CreateAsset<AoeSkill>("Aoe Skill");
             ((AoeDefinition)skill.Definition).baseAreaSize = 1.25f;
             SkillSet set = CreateSkillSet("Set", skill);
-            var snapshot = new PlayerStatSnapshot(1f, 1f, critChance: 0f, critMultiplier: 1.5f, areaSizeMultiplier: 2f);
+            var snapshot = new PlayerStatSnapshot(0f, 1f, critChance: 0f, critMultiplier: 1.5f, areaSizeMultiplier: 2f);
 
             RuntimeSkillDefinition result = SkillSetCompiler.Compile(
                 Slots(set),
@@ -110,33 +110,28 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void Compiler_UsesSkillBaseRecoveryTime()
+        public void Compiler_DerivesRecoveryTimeFromBaseRate()
         {
             ProjectileSkill skill = CreateAsset<ProjectileSkill>("Projectile Skill");
-            SetField(skill, "baseRecoveryTime", 0.4f);
+            SetField(skill, "baseRate", 5f);
             SkillSet set = CreateSkillSet("Set", skill);
-            var snapshot = new PlayerStatSnapshot(
-                castSpeedMultiplier: 0.5f,
-                damageMultiplier: 1f,
-                critChance: 0f,
-                critMultiplier: 1.5f);
 
             RuntimeSkillDefinition result = SkillSetCompiler.Compile(
                 Slots(set),
                 0,
                 global::System.Array.Empty<TriggerChain>(),
-                snapshot);
+                PlayerStatSnapshot.Identity);
 
             Assert.That(result.RecoveryTime, Is.EqualTo(0.2f).Within(0.0001f));
         }
 
         [Test]
-        public void Compiler_StacksIncreasedRecoverySpeedSupport_Additively()
+        public void Compiler_StacksIncreasedRateSupport_Additively()
         {
             ProjectileSkill skill = CreateAsset<ProjectileSkill>("Projectile Skill");
-            SetField(skill, "baseRecoveryTime", 0.6f);
-            IncreasedRecoverySpeedSupport support = CreateAsset<IncreasedRecoverySpeedSupport>("Increased Recovery Speed");
-            SetField(support, "recoverySpeedMultiplier", 1.5f);
+            SetField(skill, "baseRate", 5f);
+            IncreasedRateSupport support = CreateAsset<IncreasedRateSupport>("Increased Rate");
+            SetField(support, "increasedRatePercent", 0.5f);
             SkillSet set = CreateSkillSet("Set", skill, support, support);
 
             RuntimeSkillDefinition result = SkillSetCompiler.Compile(
@@ -145,7 +140,7 @@ namespace PlayGround.Tests.EditMode
                 global::System.Array.Empty<TriggerChain>(),
                 PlayerStatSnapshot.Identity);
 
-            Assert.That(result.RecoveryTime, Is.EqualTo(0.3f).Within(0.0001f));
+            Assert.That(result.RecoveryTime, Is.EqualTo(0.1f).Within(0.0001f));
         }
 
         private SkillSet CreateSkillSet(string name, Skill skill, params SkillSupport[] supports)

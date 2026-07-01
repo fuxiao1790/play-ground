@@ -95,15 +95,15 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void RecoverySpeedFoldCombinesWithCastSpeedTimeMultiplier()
+        public void RateFoldCombinesSupportAndPlayerIncreases()
         {
             ProjectileSkill skill = CreateProjectileSkill("Projectile Skill");
-            SetField(skill, "baseRecoveryTime", 0.5f);
-            IncreasedRecoverySpeedSupport support = CreateAsset<IncreasedRecoverySpeedSupport>("Increased Recovery Speed");
-            SetField(support, "recoverySpeedMultiplier", 2f);
+            SetField(skill, "baseRate", 2.5f);
+            IncreasedRateSupport support = CreateAsset<IncreasedRateSupport>("Increased Rate");
+            SetField(support, "increasedRatePercent", 0.5f);
             SkillSet set = CreateSkillSet("Set", skill, support);
             var snapshot = new PlayerStatSnapshot(
-                castSpeedMultiplier: 0.5f,
+                increasedRatePercent: 0.5f,
                 damageMultiplier: 1f,
                 critChance: 0f,
                 critMultiplier: 1.5f);
@@ -114,7 +114,7 @@ namespace PlayGround.Tests.EditMode
                 global::System.Array.Empty<TriggerChain>(),
                 snapshot);
 
-            Assert.That(runtime.RecoveryTime, Is.EqualTo(0.125f).Within(0.0001f));
+            Assert.That(runtime.RecoveryTime, Is.EqualTo(0.2f).Within(0.0001f));
         }
 
         [Test]
