@@ -6,7 +6,7 @@ namespace PlayGround.Skills.Modifiers
         AreaSize,
         ProjectileSpeed,
         ProjectileLifetime,
-        RecoverySpeed,
+        Rate,
         PierceCount,
     }
 }
