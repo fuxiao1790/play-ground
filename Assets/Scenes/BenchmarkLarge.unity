@@ -356,8 +356,6 @@ MonoBehaviour:
   visualScale: 1
   projectileTemplates: []
   renderTypes: []
-  spawnVisuals: 1
-  batchBoundsHalfExtent: 100000
 --- !u!4 &529810936
 Transform:
   m_ObjectHideFlags: 0
@@ -674,7 +672,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1efbc012e2b6afe489459361bdd5419e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Game.GameRoot
-  combatRoot: {fileID: 0}
+  combatRoot: {fileID: 529810935}
   mobSpawner: {fileID: 2000001003}
   mobs: []
   player: {fileID: 830174276}
