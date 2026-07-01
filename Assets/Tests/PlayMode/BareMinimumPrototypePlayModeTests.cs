@@ -6,8 +6,6 @@ using UnityEngine.TestTools;
 using PlayGround.Skills;
 using PlayGround.Common;
 using PlayGround.Mob;
-using PlayGround.Mob.Behaviours;
-using PlayGround.Mob.Triggers;
 using PlayGround.Player;
 using PlayGround.Game;
 using PlayGround.Spawn;
@@ -729,13 +727,7 @@ namespace PlayGround.Tests.PlayMode
             SpriteRenderer renderer = mobObject.AddComponent<SpriteRenderer>();
             mob = mobObject.AddComponent<MobRoot>();
             mob.Configure(body, hurtbox, hurtbox, renderer, null);
-            mob.ConfigureAuthoring(
-                new MobBehaviour[] { ScriptableObject.CreateInstance<WanderBehaviour>() },
-                new MobTrigger[] { ScriptableObject.CreateInstance<HurtRecoveryTrigger>() },
-                new[] { new MobTriggerBehaviourMapping { triggerKey = MobRoot.DefaultTriggerKey, behaviourKey = "wander" } },
-                10f,
-                0f,
-                0.5f);
+            mob.ConfigureAuthoring(10f, 0f, 0.5f);
             mobObject.SetActive(true);
         }
 
@@ -994,13 +986,7 @@ namespace PlayGround.Tests.PlayMode
             SpriteRenderer renderer = mobObject.AddComponent<SpriteRenderer>();
             mob = mobObject.AddComponent<MobRoot>();
             mob.Configure(body, bodyCollider, hurtbox, renderer, null);
-            mob.ConfigureAuthoring(
-                new MobBehaviour[] { ScriptableObject.CreateInstance<WanderBehaviour>() },
-                new MobTrigger[] { ScriptableObject.CreateInstance<HurtRecoveryTrigger>() },
-                new[] { new MobTriggerBehaviourMapping { triggerKey = MobRoot.DefaultTriggerKey, behaviourKey = "wander" } },
-                10f,
-                0f,
-                0.5f);
+            mob.ConfigureAuthoring(10f, 0f, 0.5f);
             mobObject.SetActive(true);
             return mobObject;
         }

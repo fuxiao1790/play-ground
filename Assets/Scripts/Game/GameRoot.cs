@@ -17,8 +17,21 @@ namespace PlayGround.Game
         [SerializeField] private GameplayCamera gameplayCamera;
         [SerializeField] private PlayAreaRoot playArea;
 
+        [Header("Fixed tick")]
+        [Tooltip("When on, the game runs at a constant tick rate with a fixed delta time. " +
+            "If a frame can't keep up, the game dilates time (slow motion) instead of " +
+            "widening the tick. When off, Unity's default variable timestep is used.")]
+        [SerializeField] private bool useFixedTick = true;
+
+        [Tooltip("Ticks per second used when Use Fixed Tick is on.")]
+        [SerializeField] private int fixedTicksPerSecond = 60;
+
+        private bool fixedTickApplied;
+
         private void Awake()
         {
+            ConfigureFixedTick();
+
             if (combatRoot == null)
             {
                 combatRoot = FindTaggedComponent<CombatRoot>(GameplayTags.PlayerProjectileRoot);
@@ -106,6 +119,37 @@ namespace PlayGround.Game
                     player.GetComponent<PlayGround.Skills.PlayerSkillDriver>();
                 driver?.BindCombatRoot(combatRoot);
             }
+        }
+
+        private void OnDestroy()
+        {
+            // Release the fixed-tick clock so it doesn't bleed into other scenes or the editor.
+            if (fixedTickApplied)
+            {
+                Time.captureDeltaTime = 0f;
+                fixedTickApplied = false;
+            }
+        }
+
+        // Pin the game to a constant tick. captureDeltaTime forces every rendered frame to
+        // advance game time by exactly one tick, so a frame that renders slowly dilates time
+        // (slow motion) instead of producing a larger delta or catching up. fixedDeltaTime
+        // matches so physics/FixedUpdate steps once per frame. vSync off + targetFrameRate keeps
+        // wall-clock speed at 1x while the machine can keep up. The ECS sim reads its delta from
+        // Unity time, so this pins the combat simulation too.
+        private void ConfigureFixedTick()
+        {
+            if (!useFixedTick || fixedTicksPerSecond <= 0)
+            {
+                return;
+            }
+
+            float tickSeconds = 1f / fixedTicksPerSecond;
+            Time.captureDeltaTime = tickSeconds;
+            Time.fixedDeltaTime = tickSeconds;
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate = fixedTicksPerSecond;
+            fixedTickApplied = true;
         }
 
         public void Configure(

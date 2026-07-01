@@ -171,7 +171,6 @@ GameObject:
   - component: {fileID: 9150876510746367444}
   - component: {fileID: 4056045694063569842}
   - component: {fileID: 3357404410216037366}
-  - component: {fileID: 3357404410216037367}
   m_Layer: 12
   m_Name: Slime
   m_TagString: Mob
@@ -275,43 +274,11 @@ MonoBehaviour:
   bodyCollider: {fileID: 4056045694063569842}
   hurtbox: {fileID: 6353082840976283008}
   spriteRenderer: {fileID: 227430868430504257}
-  animator: {fileID: 0}
   target: {fileID: 0}
   speed: 0.9375
   maxHealth: 150000
-  hurtFlashSeconds: 0.08
   targetRadius: 0.5
-  behaviours:
-  - {fileID: 11400000, guid: 8949dc08cfc8b4a4ea1964651c8ee618, type: 2}
-  - {fileID: 11400000, guid: c917351a0ab435742b09846c81175123, type: 2}
-  triggers:
-  - {fileID: 11400000, guid: 27d086ebdd98ddf43ba18b07eb271633, type: 2}
-  - {fileID: 11400000, guid: ef70f5dea72042b4e8f7a2f0c2e4a9b4, type: 2}
-  triggerBehaviourMap:
-  - triggerKey: on_spawn
-    behaviourKey: wander
-  - triggerKey: on_target_seen
-    behaviourKey: swarm_target
-  projectileAttackEnabled: 0
-  combatRoot: {fileID: 0}
-  projectileCooldown: 1.4
-  projectileRange: 4.0625
-  projectileSpawnOffset: 0.375
-  projectileSpeed: 6.875
-  projectileLifetime: 1.8
-  projectileDamage: 1
-  projectileRadius: 0.25
-  projectileShapeType: 0
-  projectileBasicPrefab: {fileID: 0}
---- !u!114 &3357404410216037367
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6597991707308015085}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1864ebe8444f27a488f6b2a04e2c3af3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Common.StatusEffects.StatusEffects
+  wanderMinDuration: 0.7
+  wanderMaxDuration: 2
+  wanderPauseChance: 0.15
+  randomSeed: 0

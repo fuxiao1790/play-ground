@@ -1,11 +1,7 @@
 using System;
 using System.Collections.Generic;
-using PlayGround.Skills;
 using PlayGround.Common;
-using PlayGround.Common.StatusEffects;
-using PlayGround.System.Aoe;
 using PlayGround.System.Common;
-using PlayGround.System.Projectile;
 using Unity.Entities;
 using UnityEngine;
 
@@ -13,47 +9,27 @@ namespace PlayGround.Mob
 {
     public class MobRoot : MonoBehaviour, ICombatTarget
     {
-        public const string DefaultTriggerKey = "on_spawn";
-
         [SerializeField] private Rigidbody2D body;
         [SerializeField] private Collider2D bodyCollider;
         [SerializeField] private Collider2D hurtbox;
         [SerializeField] private SpriteRenderer spriteRenderer;
-        [SerializeField] private Animator animator;
         [SerializeField] private Transform target;
-        [SerializeField] private float speed = 40f;
+        [SerializeField] private float speed = 2.5f;
         [SerializeField] private float maxHealth = 35f;
-        [SerializeField] private float hurtFlashSeconds = 0.08f;
         [SerializeField] private float targetRadius = 0.5f;
-        [SerializeField] private MobBehaviour[] behaviours = Array.Empty<MobBehaviour>();
-        [SerializeField] private MobTrigger[] triggers = Array.Empty<MobTrigger>();
-        [SerializeField] private MobTriggerBehaviourMapping[] triggerBehaviourMap = Array.Empty<MobTriggerBehaviourMapping>();
-        [SerializeField] private bool projectileAttackEnabled;
-        [SerializeField] private CombatRoot combatRoot;
-        [SerializeField] private float projectileCooldown = 1.4f;
-        [SerializeField] private float projectileRange = 130f;
-        [SerializeField] private float projectileSpawnOffset = 12f;
-        [SerializeField] private float projectileSpeed = 220f;
-        [SerializeField] private float projectileLifetime = 1.8f;
-        [SerializeField] private float projectileDamage = 1f;
-        [SerializeField] private float projectileRadius = 0.25f;
-        [SerializeField] private CombatShapeType projectileShapeType = CombatShapeType.Circle;
-        [SerializeField] private BasicAttackPrefab projectileBasicPrefab;
+        [SerializeField, Min(0.05f)] private float wanderMinDuration = 0.7f;
+        [SerializeField, Min(0.05f)] private float wanderMaxDuration = 2f;
+        [SerializeField, Range(0f, 1f)] private float wanderPauseChance = 0.15f;
+        [SerializeField] private int randomSeed;
 
         private static int nextTargetId;
-        public StatusEffects StatusEffects { get; private set; }
-        private readonly MobBlackboard blackboard = new();
         private readonly List<StatusStackSnapshot> statusSnapshots = new();
         private readonly List<CombatTargetRegistry<ICombatTarget>> registries = new();
         private CombatTargetSet combatTargetSet;
-        // Player-faction combat root used by status-triggered AOE (damages mobs),
-        // distinct from combatRoot which fires this mob's own projectiles at the player.
-        private MobEventQueue eventQueue;
-        private MobStateDriver stateDriver;
-        private MobBehaviourSelector behaviourSelector;
-        private MobAnimatorDriver animatorDriver;
-        private MobProjectileAttack projectileAttack;
         private Entity combatTargetProxy;
+        private global::System.Random random;
+        private Vector2 wanderVelocity;
+        private float wanderTimer;
         private bool deleteProxyInLateUpdate;
         private int targetId;
         private bool isAlive = true;
@@ -65,9 +41,7 @@ namespace PlayGround.Mob
         public float CurrentHealth { get; private set; }
         public float MaxHealth => maxHealth;
         public IReadOnlyList<StatusStackSnapshot> StatusSnapshots => statusSnapshots;
-        public MobBehaviourState BehaviourState => stateDriver?.CurrentState ?? MobBehaviourState.Idle;
         public Transform Target => target;
-        public MobBlackboard Blackboard => blackboard;
         public int TargetId => targetId;
         public Entity CombatTargetProxy
         {
@@ -76,11 +50,11 @@ namespace PlayGround.Mob
         }
         public CombatFaction CombatFaction => CombatFaction.Mob;
         public EntityId ProjectileHitNodeId => gameObject.GetEntityId();
-        public Vector2 CombatTargetPosition => ProjectileTargetShapeUtility.Position(hurtbox, transform);
-        public float CombatTargetRadius => ProjectileTargetShapeUtility.Radius(hurtbox, targetRadius);
-        public Vector2 CombatTargetHalfExtents => ProjectileTargetShapeUtility.HalfExtents(hurtbox, targetRadius);
-        public float CombatTargetRotationRadians => ProjectileTargetShapeUtility.RotationRadians(hurtbox);
-        public CombatShapeType CombatTargetShapeType => ProjectileTargetShapeUtility.ShapeType(hurtbox);
+        public Vector2 CombatTargetPosition => CombatTargetShapeUtility.Position(hurtbox, transform);
+        public float CombatTargetRadius => CombatTargetShapeUtility.Radius(hurtbox, targetRadius);
+        public Vector2 CombatTargetHalfExtents => CombatTargetShapeUtility.HalfExtents(hurtbox, targetRadius);
+        public float CombatTargetRotationRadians => CombatTargetShapeUtility.RotationRadians(hurtbox);
+        public CombatShapeType CombatTargetShapeType => CombatTargetShapeUtility.ShapeType(hurtbox);
         public int CombatTargetMask => 1 << hurtbox.gameObject.layer;
         public float CombatMaxHealth => MaxHealth;
         public bool IsCombatTargetActive => isActiveAndEnabled && isAlive && CurrentHealth > 0f;
@@ -88,27 +62,12 @@ namespace PlayGround.Mob
         protected virtual void Awake()
         {
             ValidateReferences();
-            behaviours = CloneRuntimeAssets(behaviours);
-            triggers = CloneRuntimeAssets(triggers);
 
             targetId = ++nextTargetId;
             CurrentHealth = Mathf.Max(1f, maxHealth);
-            eventQueue = new MobEventQueue();
-            behaviourSelector = new MobBehaviourSelector();
-            behaviourSelector.Configure(behaviours, triggerBehaviourMap);
-            stateDriver = new MobStateDriver(blackboard);
-            animatorDriver = new MobAnimatorDriver(animator, spriteRenderer);
-            blackboard.Target = target;
-            blackboard.Health = CurrentHealth;
-            blackboard.MaxHealth = MaxHealth;
-
-            RebuildProjectileAttack();
-            StatusEffects = GetComponent<StatusEffects>();
-            if (StatusEffects != null)
-            {
-                StatusEffects.Initialize(d => TakeDamage(d), () => isAlive);
-                StatusEffects.EffectTriggered += OnStatusEffectTriggered;
-            }
+            int seed = randomSeed != 0 ? randomSeed : unchecked(Environment.TickCount ^ targetId);
+            random = new global::System.Random(seed);
+            PickNewWanderVelocity();
         }
 
         protected virtual void Update()
@@ -120,7 +79,9 @@ namespace PlayGround.Mob
             }
 
             PushCombatTargetProxy();
-            animatorDriver.Tick(Time.deltaTime);
+            float deltaTime = Time.deltaTime;
+            TickWander(deltaTime);
+            body.linearVelocity = wanderVelocity;
         }
 
         protected virtual void LateUpdate()
@@ -131,57 +92,10 @@ namespace PlayGround.Mob
             }
         }
 
-        protected virtual void FixedUpdate()
-        {
-            if (!isAlive)
-            {
-                return;
-            }
-
-            float deltaTime = Time.fixedDeltaTime;
-            blackboard.BeginFrame(DefaultTriggerKey);
-            blackboard.Target = target != null ? target : blackboard.Target;
-            blackboard.Health = CurrentHealth;
-            blackboard.BehaviourState = stateDriver.CurrentState;
-
-            for (int i = 0; i < triggers.Length; i++)
-            {
-                triggers[i].UpdateTrigger(deltaTime, this, blackboard, eventQueue);
-            }
-
-            StatusEffects?.Tick(deltaTime);
-            eventQueue.PushType(MobEventType.Tick, this);
-            stateDriver.Update(eventQueue.Events);
-            eventQueue.Clear();
-            blackboard.BehaviourState = stateDriver.CurrentState;
-            animatorDriver.RequestState(stateDriver.CurrentState);
-
-            if (stateDriver.CurrentState == MobBehaviourState.Dead)
-            {
-                SoftDie();
-                return;
-            }
-
-            projectileAttack?.Update(deltaTime, blackboard.Target);
-
-            Vector2 velocity = stateDriver.CurrentState == MobBehaviourState.Hurt
-                ? Vector2.zero
-                : behaviourSelector.Update(deltaTime, this, blackboard, stateDriver.CurrentState);
-            body.linearVelocity = velocity;
-        }
-
         protected virtual void OnDisable()
         {
             DeleteCombatTargetProxy();
             UnregisterTargets();
-        }
-
-        protected virtual void OnDestroy()
-        {
-            if (StatusEffects != null)
-            {
-                StatusEffects.EffectTriggered -= OnStatusEffectTriggered;
-            }
         }
 
         public void Configure(
@@ -198,50 +112,23 @@ namespace PlayGround.Mob
             target = targetTransform;
         }
 
-        public void ConfigureAuthoring(
-            MobBehaviour[] mobBehaviours,
-            MobTrigger[] mobTriggers,
-            MobTriggerBehaviourMapping[] mobTriggerBehaviourMap,
-            float health,
-            float moveSpeed,
-            float radius)
+        public void ConfigureAuthoring(float health, float moveSpeed, float radius)
         {
-            behaviours = mobBehaviours;
-            triggers = mobTriggers;
-            triggerBehaviourMap = mobTriggerBehaviourMap;
             maxHealth = health;
             speed = moveSpeed;
             targetRadius = radius;
         }
 
-        public void ConfigureProjectileAttack(
-            CombatRoot root,
-            float cooldown,
-            float range,
-            float spawnOffset,
-            float attackSpeed,
-            float lifetime,
-            float damage,
-            float radius,
-            BasicAttackPrefab basicPrefab = null)
+        public void ConfigureWander(float minDuration, float maxDuration, float pauseChance, int seed = 0)
         {
-            projectileAttackEnabled = true;
-            combatRoot = root;
-            projectileCooldown = cooldown;
-            projectileRange = range;
-            projectileSpawnOffset = spawnOffset;
-            projectileSpeed = attackSpeed;
-            projectileLifetime = lifetime;
-            projectileDamage = damage;
-            projectileRadius = radius;
-            projectileBasicPrefab = basicPrefab;
-            RebuildProjectileAttack();
+            wanderMinDuration = Mathf.Max(0.05f, minDuration);
+            wanderMaxDuration = Mathf.Max(wanderMinDuration, maxDuration);
+            wanderPauseChance = Mathf.Clamp01(pauseChance);
+            randomSeed = seed;
         }
 
         public void BindCombatRoot(CombatRoot root)
         {
-            combatRoot = root;
-            RebuildProjectileAttack();
         }
 
         public void Register(CombatTargetRegistry<ICombatTarget> targetRegistry)
@@ -264,7 +151,6 @@ namespace PlayGround.Mob
         public void SetTarget(Transform targetTransform)
         {
             target = targetTransform;
-            blackboard.Target = targetTransform;
         }
 
         public void ReceiveHit(in CombatHitData hit)
@@ -279,7 +165,7 @@ namespace PlayGround.Mob
         {
             if (result.HitCount > 0)
             {
-                ApplyCombatHealth(result.Health, result.DamageTaken, result.CritCount > 0);
+                ApplyCombatHealth(result.Health);
             }
 
             if (result.StatusCount > 0)
@@ -304,11 +190,10 @@ namespace PlayGround.Mob
                 return false;
             }
 
-            RequestDamageFeedback(damage.Amount, damage.IsCrit);
             return true;
         }
 
-        private void ApplyCombatHealth(float health, float damageTaken, bool anyCrit)
+        private void ApplyCombatHealth(float health)
         {
             if (!isAlive)
             {
@@ -316,50 +201,10 @@ namespace PlayGround.Mob
             }
 
             CurrentHealth = health;
-            blackboard.Health = CurrentHealth;
             if (CurrentHealth <= 0f)
             {
-                eventQueue.PushType(MobEventType.Died, this);
                 SoftDie();
                 return;
-            }
-
-            if (damageTaken > 0f)
-            {
-                RequestDamageFeedback(damageTaken, anyCrit);
-            }
-        }
-
-        private void RequestDamageFeedback(float damageAmount, bool isCrit)
-        {
-            animatorDriver.RequestHurt(hurtFlashSeconds);
-            eventQueue.PushType(isCrit ? MobEventType.CritDamaged : MobEventType.Damaged, this, damageAmount);
-        }
-
-        private void OnStatusEffectTriggered(StatusEffectDef def, StatusEffectTriggerResult result)
-        {
-            if (def is not StackingTriggerDef triggerDef
-                || triggerDef.TriggerAoeConfig == null
-                || combatRoot == null
-                || !result.Triggered)
-            {
-                return;
-            }
-
-            int typeId = combatRoot.RegisterConfig(triggerDef.TriggerAoeConfig);
-            float damagePerFire = result.TriggerCount > 0
-                ? result.TotalTriggerDamage / result.TriggerCount
-                : 0f;
-
-            for (int i = 0; i < result.TriggerCount; i++)
-            {
-                combatRoot.Spawn(new ProjectileAoeSpawnRequest(
-                    typeId,
-                    result.OwnerPosition,
-                    new DamageSnapshot(Mathf.Max(0f, damagePerFire)),
-                    triggerDef.TriggerAoeLifetimeSeconds,
-                    triggerDef.TriggerAoeTickIntervalSeconds,
-                    triggerDef.TriggerAoeConfig.CreateSpawnGeometry()), CombatFaction.Player);
             }
         }
 
@@ -373,6 +218,7 @@ namespace PlayGround.Mob
             isAlive = false;
             CurrentHealth = 0f;
             body.linearVelocity = Vector2.zero;
+            wanderVelocity = Vector2.zero;
             body.simulated = false;
             if (bodyCollider != null)
             {
@@ -450,85 +296,37 @@ namespace PlayGround.Mob
             {
                 throw new MissingReferenceException($"{nameof(MobRoot)} on {name} needs a SpriteRenderer.");
             }
-
-            if (behaviours == null || behaviours.Length == 0)
-            {
-                throw new MissingReferenceException($"{nameof(MobRoot)} on {name} needs behaviours.");
-            }
-
-            for (int i = 0; i < behaviours.Length; i++)
-            {
-                if (behaviours[i] == null)
-                {
-                    throw new MissingReferenceException($"{nameof(MobRoot)} on {name} behaviour slot {i} is empty.");
-                }
-            }
-
-            if (triggers == null || triggers.Length == 0)
-            {
-                throw new MissingReferenceException($"{nameof(MobRoot)} on {name} needs triggers.");
-            }
-
-            for (int i = 0; i < triggers.Length; i++)
-            {
-                if (triggers[i] == null)
-                {
-                    throw new MissingReferenceException($"{nameof(MobRoot)} on {name} trigger slot {i} is empty.");
-                }
-            }
-
-            if (triggerBehaviourMap == null || triggerBehaviourMap.Length == 0)
-            {
-                throw new MissingReferenceException($"{nameof(MobRoot)} on {name} needs trigger behaviour mappings.");
-            }
         }
 
-        private void RebuildProjectileAttack()
+        private void TickWander(float deltaTime)
         {
-            combatRoot ??= FindTaggedCombatRoot();
-            if (!projectileAttackEnabled || combatRoot == null)
+            wanderTimer -= deltaTime;
+            if (wanderTimer > 0f)
             {
-                projectileAttack = null;
                 return;
             }
 
-            projectileAttack = new MobProjectileAttack(
-                this,
-                combatRoot,
-                projectileCooldown,
-                projectileRange,
-                projectileSpawnOffset,
-                projectileSpeed,
-                projectileLifetime,
-                projectileDamage,
-                projectileRadius,
-                projectileShapeType,
-                projectileBasicPrefab);
+            PickNewWanderVelocity();
         }
 
-        private static T[] CloneRuntimeAssets<T>(T[] assets)
-            where T : ScriptableObject
+        private void PickNewWanderVelocity()
         {
-            var clones = new T[assets.Length];
-            for (int i = 0; i < assets.Length; i++)
+            float durationT = NextRandom01();
+            wanderTimer = Mathf.Lerp(wanderMinDuration, Mathf.Max(wanderMinDuration, wanderMaxDuration), durationT);
+            if (NextRandom01() < wanderPauseChance)
             {
-                clones[i] = Instantiate(assets[i]);
+                wanderVelocity = Vector2.zero;
+                return;
             }
 
-            return clones;
+            float angle = NextRandom01() * Mathf.PI * 2f;
+            wanderVelocity = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * speed;
         }
 
-        private static CombatRoot FindTaggedCombatRoot()
+        private float NextRandom01()
         {
-            try
-            {
-                GameObject rootObject = GameObject.FindWithTag(GameplayTags.MobProjectileRoot);
-                return rootObject != null ? rootObject.GetComponent<CombatRoot>() : null;
-            }
-            catch (UnityException)
-            {
-                return null;
-            }
+            random ??= new global::System.Random(unchecked(Environment.TickCount ^ targetId));
+            return (float)random.NextDouble();
         }
     }
 }

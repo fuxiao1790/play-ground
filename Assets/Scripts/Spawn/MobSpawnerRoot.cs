@@ -2,11 +2,7 @@ using System;
 using System.Collections.Generic;
 using PlayGround.Common;
 using PlayGround.Mob;
-using PlayGround.Mob.Behaviours;
-using PlayGround.Mob.Triggers;
-using PlayGround.System.Aoe;
 using PlayGround.System.Common;
-using PlayGround.System.Projectile;
 using UnityEngine;
 
 namespace PlayGround.Spawn
@@ -278,13 +274,7 @@ namespace PlayGround.Spawn
 
             MobRoot root = mobObject.AddComponent<MobRoot>();
             root.Configure(body, bodyCollider, hurtbox, renderer, target);
-            root.ConfigureAuthoring(
-                new MobBehaviour[] { ScriptableObject.CreateInstance<WanderBehaviour>() },
-                new MobTrigger[] { ScriptableObject.CreateInstance<HurtRecoveryTrigger>() },
-                new[] { new MobTriggerBehaviourMapping { triggerKey = MobRoot.DefaultTriggerKey, behaviourKey = "wander" } },
-                35f,
-                2.5f,
-                0.5f);
+            root.ConfigureAuthoring(35f, 2.5f, 0.5f);
             return root;
         }
 

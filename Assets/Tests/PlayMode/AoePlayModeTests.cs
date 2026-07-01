@@ -3,10 +3,7 @@ using System.Reflection;
 using NUnit.Framework;
 using PlayGround.Common;
 using PlayGround.Skills;
-using PlayGround.Common.StatusEffects;
 using PlayGround.Mob;
-using PlayGround.Mob.Behaviours;
-using PlayGround.Mob.Triggers;
 using PlayGround.Skills.Runtime;
 using PlayGround.System.Aoe;
 using PlayGround.System.Common;
@@ -129,32 +126,6 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(target.HitCount, Is.EqualTo(1));
             Assert.That(target.LastDamage.Amount, Is.EqualTo(3f));
             Cleanup(rootObject, templateObject, target.gameObject);
-        }
-
-        [UnityTest]
-        public IEnumerator MobStatusTriggerSpawnsAoeThroughBoundAoeRoot()
-        {
-            CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out _);
-            MobRoot mob = CreateMobTarget(Vector2.zero);
-            mob.BindCombatRoot(root);
-            mob.Register(root.TargetRegistry);
-
-            AoeConfig triggerConfig = CreateMinimalAoeConfig();
-            StackingTriggerDef trigger = ScriptableObject.CreateInstance<StackingTriggerDef>();
-            trigger.Configure(3, triggerConfig, 6f);
-
-            mob.StatusEffects.AddEffect(trigger, 3, trigger.DamageContributionPerStack);
-
-            Assert.That(root.Counters.SpawnedAoes, Is.EqualTo(0));
-            mob.StatusEffects.Tick(0f);
-            Assert.That(root.Counters.SpawnedAoes, Is.EqualTo(1));
-
-            yield return null;
-
-            Assert.That(mob.CurrentHealth, Is.EqualTo(4f));
-            Object.Destroy(trigger);
-            Object.Destroy(triggerConfig);
-            Cleanup(rootObject, templateObject, mob.gameObject);
         }
 
         [UnityTest]
@@ -816,16 +787,9 @@ namespace PlayGround.Tests.PlayMode
             CircleCollider2D hurtbox = mobObject.AddComponent<CircleCollider2D>();
             hurtbox.isTrigger = true;
             SpriteRenderer renderer = mobObject.AddComponent<SpriteRenderer>();
-            mobObject.AddComponent<StatusEffects>();
             MobRoot mob = mobObject.AddComponent<MobRoot>();
             mob.Configure(body, hurtbox, hurtbox, renderer, null);
-            mob.ConfigureAuthoring(
-                new MobBehaviour[] { ScriptableObject.CreateInstance<WanderBehaviour>() },
-                new MobTrigger[] { ScriptableObject.CreateInstance<HurtRecoveryTrigger>() },
-                new[] { new MobTriggerBehaviourMapping { triggerKey = MobRoot.DefaultTriggerKey, behaviourKey = "wander" } },
-                10f,
-                0f,
-                0.5f);
+            mob.ConfigureAuthoring(10f, 0f, 0.5f);
             mobObject.SetActive(true);
             return mob;
         }

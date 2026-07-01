@@ -5,8 +5,6 @@ using PlayGround.Common;
 using PlayGround.Game;
 using PlayGround.Level;
 using PlayGround.Mob;
-using PlayGround.Mob.Behaviours;
-using PlayGround.Mob.Triggers;
 using PlayGround.Player;
 using PlayGround.Spawn;
 using PlayGround.System.Common;
@@ -59,14 +57,10 @@ namespace PlayGround.Editor
             CombatRoot projectileRoot = projectileObject.AddComponent<CombatRoot>();
             projectileRoot.Configure(projectileSprite);
 
-            GameObject mobProjectileObject = new("CombatRoot_MobToPlayer");
-            CombatRoot mobProjectileRoot = mobProjectileObject.AddComponent<CombatRoot>();
-            mobProjectileRoot.Configure(projectileSprite);
-
             GameObject player = CreatePlayer(playerSprite, inputActions);
             MobRoot[] mobPrefabs = CreateMobPrefabAssets(mobSprite);
             MobSpawnPool spawnPool = EnsureSpawnPoolAsset("Assets/ScriptableObjects/Spawn/StarterMobPool.asset", mobPrefabs);
-            GameObject spawnerObject = CreateSpawner(spawnPool, player.transform, projectileRoot, mobProjectileRoot);
+            GameObject spawnerObject = CreateSpawner(spawnPool, player.transform, projectileRoot);
             MobSpawnerRoot spawner = spawnerObject.GetComponent<MobSpawnerRoot>();
             GameObject cameraObject = CreateCamera(player.transform);
             Camera worldCamera = cameraObject.GetComponent<Camera>();
@@ -84,7 +78,6 @@ namespace PlayGround.Editor
 
             PrefabUtility.SaveAsPrefabAsset(player, "Assets/Prefabs/Player/Player.prefab");
             PrefabUtility.SaveAsPrefabAsset(projectileObject, "Assets/Prefabs/Projectiles/CombatRoot_PlayerToMob.prefab");
-            PrefabUtility.SaveAsPrefabAsset(mobProjectileObject, "Assets/Prefabs/Projectiles/CombatRoot_MobToPlayer.prefab");
 
             Directory.CreateDirectory("Assets/Scenes");
             EditorSceneManager.SaveScene(scene, MainScenePath);
@@ -128,20 +121,9 @@ namespace PlayGround.Editor
 
         private static MobRoot[] CreateMobPrefabAssets(Sprite sprite)
         {
-            MobBehaviour wander = EnsureMobAsset<WanderBehaviour>("Assets/ScriptableObjects/Mobs/Wander.asset");
-            MobBehaviour swarm = EnsureMobAsset<SwarmTargetBehaviour>("Assets/ScriptableObjects/Mobs/SwarmTarget.asset");
-            MobTrigger sensor = EnsureMobAsset<TargetSensorTrigger>("Assets/ScriptableObjects/Mobs/TargetSensor.asset");
-            MobTrigger recovery = EnsureMobAsset<HurtRecoveryTrigger>("Assets/ScriptableObjects/Mobs/HurtRecovery.asset");
-            var mappings = new[]
-            {
-                new MobTriggerBehaviourMapping { triggerKey = MobRoot.DefaultTriggerKey, behaviourKey = "wander" },
-                new MobTriggerBehaviourMapping { triggerKey = "on_target_seen", behaviourKey = "swarm_target" }
-            };
-
-            GameObject slime = CreateMob<SlimeRoot>("Slime", sprite, Vector3.zero, null, WorldUnits(30f), 35f, 0.5f, null, wander, swarm, sensor, recovery, mappings);
-            GameObject skeleton = CreateMob<SkeletonRoot>("Skeleton", sprite, Vector3.zero, null, WorldUnits(45f), 30f, 0.45f, null, wander, swarm, sensor, recovery, mappings);
-            GameObject bat = CreateMob<BatRoot>("Bat", sprite, Vector3.zero, null, WorldUnits(60f), 20f, 0.35f, null, wander, swarm, sensor, recovery, mappings);
-            bat.GetComponent<BatRoot>().ConfigureProjectileAttack(null, 1.4f, WorldUnits(130f), WorldUnits(12f), WorldUnits(220f), 1.8f, 1f, 0.25f);
+            GameObject slime = CreateMob<SlimeRoot>("Slime", sprite, Vector3.zero, null, WorldUnits(30f), 35f, 0.5f);
+            GameObject skeleton = CreateMob<SkeletonRoot>("Skeleton", sprite, Vector3.zero, null, WorldUnits(45f), 30f, 0.45f);
+            GameObject bat = CreateMob<BatRoot>("Bat", sprite, Vector3.zero, null, WorldUnits(60f), 20f, 0.35f);
 
             GameObject slimePrefab = PrefabUtility.SaveAsPrefabAsset(slime, "Assets/Prefabs/Mobs/Slime.prefab");
             GameObject skeletonPrefab = PrefabUtility.SaveAsPrefabAsset(skeleton, "Assets/Prefabs/Mobs/Skeleton.prefab");
@@ -166,13 +148,7 @@ namespace PlayGround.Editor
             Transform target,
             float speed,
             float health,
-            float radius,
-            CombatRoot mobProjectileRoot,
-            MobBehaviour wander,
-            MobBehaviour swarm,
-            MobTrigger sensor,
-            MobTrigger recovery,
-            MobTriggerBehaviourMapping[] mappings)
+            float radius)
             where T : MobRoot
         {
             GameObject mob = new(name);
@@ -201,17 +177,7 @@ namespace PlayGround.Editor
 
             T root = mob.AddComponent<T>();
             root.Configure(body, bodyCollider, hurtbox, renderer, target);
-            root.ConfigureAuthoring(
-                new[] { wander, swarm },
-                new[] { sensor, recovery },
-                mappings,
-                health,
-                speed,
-                radius);
-            if (mobProjectileRoot != null)
-            {
-                root.ConfigureProjectileAttack(mobProjectileRoot, 1.4f, 130f, 12f, 220f, 1.8f, 1f, 0.25f);
-            }
+            root.ConfigureAuthoring(health, speed, radius);
 
             return mob;
         }
@@ -219,8 +185,7 @@ namespace PlayGround.Editor
         private static GameObject CreateSpawner(
             MobSpawnPool pool,
             Transform target,
-            CombatRoot playerProjectileRoot,
-            CombatRoot mobProjectileRoot)
+            CombatRoot playerProjectileRoot)
         {
             GameObject spawnerObject = new("MobSpawnerRoot");
             MobSpawnerRoot spawner = spawnerObject.AddComponent<MobSpawnerRoot>();
@@ -318,7 +283,6 @@ namespace PlayGround.Editor
                 "Assets/Prefabs/Mobs",
                 "Assets/Prefabs/Projectiles",
                 "Assets/ScriptableObjects",
-                "Assets/ScriptableObjects/Mobs",
                 "Assets/ScriptableObjects/Spawn"
             };
 
@@ -352,20 +316,6 @@ namespace PlayGround.Editor
             }
 
             tagManager.ApplyModifiedProperties();
-        }
-
-        private static T EnsureMobAsset<T>(string path)
-            where T : ScriptableObject
-        {
-            T asset = AssetDatabase.LoadAssetAtPath<T>(path);
-            if (asset != null)
-            {
-                return asset;
-            }
-
-            asset = ScriptableObject.CreateInstance<T>();
-            AssetDatabase.CreateAsset(asset, path);
-            return asset;
         }
 
         private static MobSpawnPool EnsureSpawnPoolAsset(string path, MobRoot[] prefabs)
