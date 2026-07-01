@@ -591,6 +591,58 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void CompilerAttachesStackTriggerToStackingDetonationApplicator()
+        {
+            LingeringAoeSkill applicatorSkill = CreateAsset<LingeringAoeSkill>("Lingering AOE Applicator");
+            LingeringAoeSkill firstDetonationSkill = CreateAsset<LingeringAoeSkill>("Stacking Lingering AOE");
+            AoeSkill secondDetonationSkill = CreateAsset<AoeSkill>("Stacking AOE");
+            StackingSupport firstStackingSupport = CreateAsset<StackingSupport>("First Stacking Support");
+            StackingSupport secondStackingSupport = CreateAsset<StackingSupport>("Second Stacking Support");
+            SkillSet applicatorSet = CreateSkillSet("Lingering Applicator Set", applicatorSkill);
+            SkillSet firstDetonationSet = CreateSkillSet("Stacking Lingering Set", firstDetonationSkill, firstStackingSupport);
+            SkillSet secondDetonationSet = CreateSkillSet("Stacking AOE Set", secondDetonationSkill, secondStackingSupport);
+            StackTrigger firstStackTrigger = CreateAsset<StackTrigger>("First Stack Trigger");
+            StackTrigger secondStackTrigger = CreateAsset<StackTrigger>("Second Stack Trigger");
+            var chains = new[]
+            {
+                new TriggerChain
+                {
+                    causeIndex = 0,
+                    link = firstStackTrigger,
+                    effectIndex = 2,
+                },
+                new TriggerChain
+                {
+                    causeIndex = 2,
+                    link = secondStackTrigger,
+                    effectIndex = 4,
+                },
+            };
+            var slots = new LoadoutSlot[]
+            {
+                new SkillSetSlot { skillSet = applicatorSet },
+                new TriggerLinkSlot { link = firstStackTrigger },
+                new SkillSetSlot { skillSet = firstDetonationSet },
+                new TriggerLinkSlot { link = secondStackTrigger },
+                new SkillSetSlot { skillSet = secondDetonationSet },
+            };
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
+            var applicator = (RuntimeAoeDefinition)runtime;
+            Assert.That(applicator.StackingDetonation, Is.Not.Null);
+
+            // The first stacking detonation is itself the applicator for the second
+            // stack trigger: its inner spawned definition must carry the downstream
+            // stacking detonation, not the RuntimeStackingDetonation wrapper.
+            Assert.That(applicator.StackingDetonation.Detonation, Is.TypeOf<RuntimeAoeDefinition>());
+            var firstDetonation = (RuntimeAoeDefinition)applicator.StackingDetonation.Detonation;
+            Assert.That(firstDetonation.StackingDetonation, Is.Not.Null);
+            Assert.That(firstDetonation.StackingDetonation.Detonation, Is.TypeOf<RuntimeAoeDefinition>());
+        }
+
+        [Test]
         public void DriverDoesNotBindStackingSupportSetAsRoot()
         {
             AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");

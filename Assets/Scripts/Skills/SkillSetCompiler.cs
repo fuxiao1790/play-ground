@@ -28,6 +28,15 @@ namespace PlayGround.Skills
 
             runtime.RecoveryTime = ResolveRecoveryTime(set.Skill.BaseRate, compiled.Modifiers);
 
+            // A stacking-detonation set wraps its spawned definition in a
+            // RuntimeStackingDetonation. The wrapper itself is never spawned, so its
+            // outgoing triggers (including a downstream StackTrigger) must attach to
+            // the inner detonation — that inner projectile/AOE is the entity that
+            // spawns and hits targets, and thus the applicator for the next link.
+            RuntimeSkillDefinition triggerHost = runtime is RuntimeStackingDetonation stackingHost
+                ? stackingHost.Detonation
+                : runtime;
+
             // Adjacency is forward-only (i -> i+2); recursion terminates by strictly
             // increasing slot index. No cycle is possible, so no recursion guard is needed.
             foreach (TriggerChain chain in allChains)
@@ -36,13 +45,13 @@ namespace PlayGround.Skills
 
                 if (chain.link is ProjectileIntervalSpawnTrigger childTrigger)
                 {
-                    ApplyChildSpawn(runtime, childTrigger, slots, chain.effectIndex, allChains, snapshot);
+                    ApplyChildSpawn(triggerHost, childTrigger, slots, chain.effectIndex, allChains, snapshot);
                     continue;
                 }
 
                 if (chain.link is AoeIntervalSpawnTrigger aoeIntervalTrigger)
                 {
-                    ApplyAoeIntervalSpawn(runtime, aoeIntervalTrigger, slots, chain.effectIndex, allChains, snapshot);
+                    ApplyAoeIntervalSpawn(triggerHost, aoeIntervalTrigger, slots, chain.effectIndex, allChains, snapshot);
                     continue;
                 }
 
@@ -51,9 +60,9 @@ namespace PlayGround.Skills
                     RuntimeSkillDefinition compiledTarget = Compile(slots, chain.effectIndex, allChains, snapshot);
                     if (compiledTarget is RuntimeAoeDefinition aoeTarget)
                     {
-                        if (runtime is RuntimeProjectileDefinition projDef)
+                        if (triggerHost is RuntimeProjectileDefinition projDef)
                             projDef.ImpactAoeDefinition = aoeTarget;
-                        else if (runtime is RuntimeAoeDefinition sourceAoeDef)
+                        else if (triggerHost is RuntimeAoeDefinition sourceAoeDef)
                             sourceAoeDef.OnHitAoeSpawnDefinition = aoeTarget;
                     }
                     continue;
@@ -67,9 +76,9 @@ namespace PlayGround.Skills
                         impactProjDef.Count = Mathf.Max(1, impactProjDef.Count + impactProjTrigger.spawnCount);
                         impactProjDef.SpreadDegrees = impactProjTrigger.spreadDegrees;
 
-                        if (runtime is RuntimeProjectileDefinition projDef)
+                        if (triggerHost is RuntimeProjectileDefinition projDef)
                             projDef.ImpactProjectileDefinition = impactProjDef;
-                        else if (runtime is RuntimeAoeDefinition aoeSourceDef)
+                        else if (triggerHost is RuntimeAoeDefinition aoeSourceDef)
                             aoeSourceDef.OnHitProjectileSpawnDefinition = impactProjDef;
                     }
                     continue;
@@ -78,7 +87,7 @@ namespace PlayGround.Skills
                 if (chain.link is OnAoeHitSpawnTrigger)
                 {
                     RuntimeSkillDefinition compiledTarget = Compile(slots, chain.effectIndex, allChains, snapshot);
-                    if (runtime is RuntimeAoeDefinition aoeDef)
+                    if (triggerHost is RuntimeAoeDefinition aoeDef)
                         aoeDef.OnHitAoeSpawnDefinition = compiledTarget;
                 }
 
@@ -88,9 +97,9 @@ namespace PlayGround.Skills
                     if (compiledTarget is not RuntimeStackingDetonation stackingDetonation)
                         continue;
 
-                    if (runtime is RuntimeProjectileDefinition projDef)
+                    if (triggerHost is RuntimeProjectileDefinition projDef)
                         projDef.StackingDetonation = stackingDetonation;
-                    else if (runtime is RuntimeAoeDefinition aoeDef)
+                    else if (triggerHost is RuntimeAoeDefinition aoeDef)
                         aoeDef.StackingDetonation = stackingDetonation;
                 }
             }
