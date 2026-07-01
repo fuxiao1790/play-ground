@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000002, type: 3}
   m_Name: BenchmarkBulletRootSkill
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileSkill
-  baseRecoveryTime: 0.15
+  baseRate: 6.666667
   definition:
     prefab: {fileID: 1001001001001001004, guid: e7758e210128aa14484024efc694a154, type: 3}
     speed: 15

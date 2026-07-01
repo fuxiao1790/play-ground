@@ -10,6 +10,6 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 31c042cd8b79ebd4ab1eaf71da885001, type: 3}
-  m_Name: IncreasedRecoverySpeedSupport
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.IncreasedRecoverySpeedSupport
-  recoverySpeedMultiplier: 1.5
+  m_Name: IncreasedRateSupport
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.IncreasedRateSupport
+  increasedRatePercent: 0.5

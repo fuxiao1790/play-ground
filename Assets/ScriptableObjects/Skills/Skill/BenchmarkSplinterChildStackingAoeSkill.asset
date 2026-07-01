@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000002, type: 3}
   m_Name: BenchmarkSplinterChildStackingAoeSkill
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileSkill
-  baseRecoveryTime: 0.5
+  baseRate: 2
   definition:
     prefab: {fileID: 1001001001001001004, guid: baeb278528c76aa4e996b0a93bdf4fcc, type: 3}
     speed: 13
