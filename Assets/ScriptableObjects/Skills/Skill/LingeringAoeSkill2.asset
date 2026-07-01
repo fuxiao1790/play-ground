@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96d9854370791424b9d8c6ce4070bffb, type: 3}
+  m_Name: LingeringAoeSkill2
+  m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:LingeringAoeSkill
+  baseRate: 4
+  definition:
+    baseAreaSize: 3
+    damage: 4
+    count: 1
+    directDamageEnabled: 1
+    prefab: {fileID: 1037899157007725660, guid: 41d5eb1328725cb43ac0a062223fbacd, type: 3}
+    lifetimeSeconds: 4.5
+    tickIntervalSeconds: 0.2

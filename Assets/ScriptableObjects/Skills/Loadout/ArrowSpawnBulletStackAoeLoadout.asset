@@ -23,16 +23,16 @@ MonoBehaviour:
   - rid: 3401312232701689930
   - rid: 3401312232701689931
   - rid: 3401312232701689933
-  - rid: 3401312232701690067
-  - rid: 3401312232701690069
-  - rid: 3401312232701690070
-  - rid: 3401312232701690072
-  - rid: 3401312232701690073
   - rid: 3401312296732721281
   - rid: 3401312296732721282
   - rid: 3401312296732721286
   - rid: 3401312322639102025
   - rid: 3401312322639102026
+  - rid: 3401312387152740504
+  - rid: 3401312387152740506
+  - rid: 3401312387152740507
+  - rid: 3401312387152740508
+  - rid: 3401312387152740509
   maxRootSets: 10
   references:
     version: 2
@@ -77,26 +77,6 @@ MonoBehaviour:
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
         skillSet: {fileID: 11400000, guid: b2000000000000000000000000000009, type: 2}
-    - rid: 3401312232701690067
-      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
-      data:
-        skillSet: {fileID: 11400000, guid: a2000000000000000000000000000003, type: 2}
-    - rid: 3401312232701690069
-      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
-      data:
-        link: {fileID: 11400000, guid: 72106f578633ced47afdee80a7dc84db, type: 2}
-    - rid: 3401312232701690070
-      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
-      data:
-        skillSet: {fileID: 11400000, guid: a2000000000000000000000000000004, type: 2}
-    - rid: 3401312232701690072
-      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
-      data:
-        link: {fileID: 11400000, guid: 1a2b3c4d5e6f708192a3b4c5d6e7f801, type: 2}
-    - rid: 3401312232701690073
-      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
-      data:
-        skillSet: {fileID: 11400000, guid: a2000000000000000000000000000024, type: 2}
     - rid: 3401312296732721281
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
@@ -117,3 +97,23 @@ MonoBehaviour:
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
         skillSet: {fileID: 11400000, guid: c2000000000000000000000000000001, type: 2}
+    - rid: 3401312387152740504
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        skillSet: {fileID: 11400000, guid: 338190b6b2091a24b8630045a37ddcd2, type: 2}
+    - rid: 3401312387152740506
+      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        link: {fileID: 11400000, guid: c4000000000000000000000000000001, type: 2}
+    - rid: 3401312387152740507
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        skillSet: {fileID: 11400000, guid: b2000000000000000000000000000009, type: 2}
+    - rid: 3401312387152740508
+      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        link: {fileID: 11400000, guid: c4000000000000000000000000000001, type: 2}
+    - rid: 3401312387152740509
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        skillSet: {fileID: 11400000, guid: 4df1199445ec2254fb0c1826642c1b74, type: 2}
