@@ -16,8 +16,8 @@ MonoBehaviour:
   definition:
     baseAreaSize: 4.5
     damage: 10
-    echoCount: 5
-    scatterRadius: 15
+    echoCount: 1
+    scatterRadius: 0
     directDamageEnabled: 1
     prefab: {fileID: 1037899157007725660, guid: 41d5eb1328725cb43ac0a062223fbacd, type: 3}
     lifetimeSeconds: 3
