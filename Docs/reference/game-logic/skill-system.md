@@ -252,7 +252,8 @@ nothing to behavior.
 ```
 AoeDefinition
  ├─ prefab:    BasicAoePrefab   ← sprite, material, hitbox collider, particle effects
- └─ behavior:  baseAreaSize, damage, count, directDamageEnabled
+ └─ behavior:  baseAreaSize, damage, echoCount, scatterRadius,
+               directDamageEnabled
 ```
 
 Regular AOE content compiles as pulse AOE. It does not expose lifetime or tick
@@ -264,7 +265,7 @@ interval, and the runtime receives `0` for both timing fields.
 LingeringAoeDefinition
  ├─ prefab:    LingeringAoePrefab ← sprite, material, hitbox collider, particle effects
  └─ behavior:  baseAreaSize, damage, lifetimeSeconds, tickIntervalSeconds,
-               count, directDamageEnabled
+               echoCount, scatterRadius, directDamageEnabled
 ```
 
 ### StackingSupport
@@ -384,6 +385,7 @@ Current augment supports:
 | Support | Kind interface(s) | Stat / behavior contribution |
 |---|---|---|
 | Multiple Projectiles | `IProjectileBehaviorModifier` | Sets projectile `count`, `spreadDegrees` |
+| Multiple AOEs | `IAoeBehaviorModifier` | Sets AOE `echoCount`, `scatterRadius` |
 | Piercing | `IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `PierceCount`; sets projectile `repeatHitCooldown` |
 | Homing | `IProjectileBehaviorModifier` | Enables tracking and sets turn speed/query interval |
 | Concentrated Effect | `IMultiplierModifier` | Post multiplier on `AreaSize` only |
@@ -397,6 +399,7 @@ Supports also declare compatible skill tags:
 | Support | Compatible tags |
 |---|---|
 | Multiple Projectiles | `Projectile` |
+| Multiple AOEs | `Aoe` |
 | Piercing | `Projectile` |
 | Homing | `Projectile` |
 | Faster Projectiles | `Projectile` |
@@ -524,9 +527,11 @@ time to jitter seconds using `intervalSeconds * intervalJitterPercent / 100`.
 The compiled jitter seconds are passed into the ECS interval spawner and applied
 when scheduling interval ticks.
 
-`spawnCount` is **additive** with the effect set's own count: the per-tick count
-is `childDefinition.Count + spawnCount`, floored to `1`. A `spawnCount` of `0`
-means the effect set's own count alone determines the per-tick burst.
+`spawnCount` is **additive** with the effect set's own multiplicity. For
+projectile children this means `childDefinition.Count + spawnCount`, floored to
+`1`. For AOE children this means `childDefinition.EchoCount + spawnCount`,
+floored to `1`; each echoed copy then follows the child AOE's
+`scatterRadius`.
 
 Directionality defaults:
 
@@ -534,8 +539,10 @@ Directionality defaults:
   `sideSpreadDegrees`
 - projectile child from AOE source: radial 360-degree fan from the AOE center;
   `sideSpreadDegrees` is ignored
-- AOE child from any source: spawned at the source center; `Count > 1` emits
-  multiple AOE spawn events at that center.
+- AOE child from any source: spawned around the source center. Echo copies fan
+  through `AoeSpawnExpansionSystem`; each copy is placed in a deterministic
+  random disk within the child `scatterRadius` around the center. With
+  `scatterRadius = 0`, echo copies overlap at the center.
 
 **OnImpactAoeTrigger**
 

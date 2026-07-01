@@ -60,6 +60,21 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void MultipleAoesSupportSetsEchoAndScatter()
+        {
+            AoeSkill skill = CreateAoeSkill("AOE Skill");
+            MultipleAoesSupport support = CreateAsset<MultipleAoesSupport>("Multiple AOEs");
+            SetField(support, "echoCount", 4);
+            SetField(support, "scatterRadius", 2.25f);
+            SkillSet set = CreateSkillSet("Set", skill, support);
+
+            var runtime = (RuntimeAoeDefinition)Compile(set);
+
+            Assert.That(runtime.EchoCount, Is.EqualTo(4));
+            Assert.That(runtime.ScatterRadius, Is.EqualTo(2.25f).Within(0.0001f));
+        }
+
+        [Test]
         public void AddedIncreasedAndMultiplierComposePerFormula()
         {
             AoeSkill skill = CreateAoeSkill("AOE Skill", damage: 10f);

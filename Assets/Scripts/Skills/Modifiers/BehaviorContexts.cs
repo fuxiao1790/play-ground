@@ -53,9 +53,14 @@ namespace PlayGround.Skills.Modifiers
             this.aoe = aoe;
         }
 
-        public int Count
+        public int EchoCount
         {
-            set => aoe.count = value;
+            set => aoe.echoCount = value;
+        }
+
+        public float ScatterRadius
+        {
+            set => aoe.scatterRadius = value;
         }
 
         public bool DirectDamageEnabled

@@ -18,7 +18,8 @@ namespace PlayGround.Skills.Runtime
         public VisualEffectAsset PulseEffect { get; set; }
         public float LifetimeSeconds { get; set; }
         public float TickIntervalSeconds { get; set; }
-        public int Count { get; set; } = 1;
+        public int EchoCount { get; set; } = 1;
+        public float ScatterRadius { get; set; }
         public bool DirectDamageEnabled { get; set; } = true;
 
         // Compiled from ProjectileIntervalSpawnTrigger on lingering AOEs; null if none.

@@ -106,7 +106,7 @@ namespace PlayGround.Tests.EditMode
                 Lifetime = 1.5f,
                 RepeatHitCooldownSeconds = 0.2f,
                 ShapeType = CombatShapeType.Circle,
-                Count = 1,
+                EchoCount = 1,
                 HitPayload = new CombatHitPayload
                 {
                     DamageAmount = 5f,
@@ -117,7 +117,7 @@ namespace PlayGround.Tests.EditMode
             };
             AoeSpawnCommand aoeB = aoeA;
             AoeSpawnCommand aoeC = aoeA;
-            aoeC.Count = 2;
+            aoeC.EchoCount = 2;
 
             Assert.That(SpawnTemplateHash.Of(in aoeB), Is.EqualTo(SpawnTemplateHash.Of(in aoeA)));
             Assert.That(SpawnTemplateHash.Of(in aoeC), Is.Not.EqualTo(SpawnTemplateHash.Of(in aoeA)));

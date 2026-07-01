@@ -21,6 +21,9 @@ Search the whole solution for AOE-side `count` / `Count` and classify each:
   - If it is pool/preload/type config unrelated to per-cast multiplicity, leave it
     and add a one-line comment noting it is **not** echo, to prevent confusion.
   - Record the finding in this file before editing.
+  - Finding: `AoeConfig.Count` is not used by `CreateTypeDefinition`, `CombatRoot.RegisterConfig`,
+    or any spawn request path; legacy config spawns build a single `AoeSpawnCommand`.
+    It is unrelated to echo and is documented in code as not echo multiplicity.
 - `Assets/Tests/PlayMode/SpawnCommandUnificationTests.cs`,
   `AoeSimulationTests.cs`, `AoePlayModeTests.cs` — update any `AoeSpawnCommand`
   construction / assertions using `Count` (test edits proper live in 005, but the

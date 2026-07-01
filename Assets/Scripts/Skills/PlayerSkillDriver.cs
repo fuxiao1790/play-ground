@@ -303,7 +303,7 @@ namespace PlayGround.Skills
                 AoeSpawnCommand template =
                     SkillIntervalTemplateBuilder.BuildAoeTemplate(
                         aoeDef,
-                        Mathf.Max(1, aoeDef.Count),
+                        Mathf.Max(1, aoeDef.EchoCount),
                         combatRoot,
                         stackEffect,
                         BuildOnHitSpawnRef(aoeDef),
@@ -653,7 +653,7 @@ namespace PlayGround.Skills
 
         public static AoeSpawnCommand BuildAoeTemplate(
             RuntimeAoeDefinition child,
-            int count,
+            int echoCount,
             CombatRoot root,
             StackEffectSnapshot stackEffect,
             OnHitSpawnRef onHitSpawn = default,
@@ -681,7 +681,8 @@ namespace PlayGround.Skills
                 RotationRadians = geometry.RotationRadians,
                 HalfExtents = new Unity.Mathematics.float2(geometry.HalfExtents.x, geometry.HalfExtents.y),
                 ShapeType = geometry.ShapeType,
-                Count = Mathf.Max(1, count),
+                EchoCount = Mathf.Max(1, echoCount),
+                ScatterRadius = child.ScatterRadius,
                 Render = root != null
                     ? root.AoeTemplateRenderComponent(child.RenderId, geometry)
                     : AoeRenderComponentFor(geometry),

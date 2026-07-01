@@ -44,7 +44,9 @@ namespace PlayGround.Skills
         [FormerlySerializedAs("sizeMultiplier")]
         [Min(0.01f)] public float baseAreaSize = 1f;
         public float damage = 10f;
-        [Min(1)] public int count = 1;
+        [FormerlySerializedAs("count")]
+        [Min(1)] public int echoCount = 1;
+        [Min(0f)] public float scatterRadius = 0f;
         public bool directDamageEnabled = true;
 
         public abstract GameObject VisualPrefab { get; }

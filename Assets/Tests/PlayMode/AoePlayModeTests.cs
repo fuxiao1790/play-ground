@@ -234,7 +234,7 @@ namespace PlayGround.Tests.PlayMode
                 RepeatHitCooldownSeconds = 0.2f,
                 Radius = 1f,
                 ShapeType = CombatShapeType.Circle,
-                Count = 1,
+                EchoCount = 1,
                 HitPayload = new CombatHitPayload
                 {
                     DamageAmount = 5f,
@@ -244,7 +244,7 @@ namespace PlayGround.Tests.PlayMode
                 }
             };
             AoeSpawnCommand aoeC = aoeA;
-            aoeC.Count = 2;
+            aoeC.EchoCount = 2;
             AoeSpawnCommand aoeRuntimeFrame = aoeA;
             aoeRuntimeFrame.Faction = CombatFaction.Mob;
             aoeRuntimeFrame.AoeId = 321;
@@ -864,7 +864,7 @@ namespace PlayGround.Tests.PlayMode
                 HalfExtents = new Unity.Mathematics.float2(geometry.HalfExtents.x, geometry.HalfExtents.y),
                 RotationRadians = geometry.RotationRadians,
                 AreaSize = geometry.AreaSize,
-                Count = 1,
+                EchoCount = 1,
                 HitPayload = new CombatHitPayload
                 {
                     DamageAmount = damage,

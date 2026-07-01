@@ -153,15 +153,26 @@ namespace PlayGround.System.Aoe
                     {
                         Stamp(ref command, in evt);
 
-                        CombatCollisionMath.ComputeWorldBounds(
-                            command.Position, command.Radius, command.HalfExtents, command.RotationRadians, command.ShapeType,
-                            out float2 boundsMin, out float2 boundsMax);
-
-                        int count = math.max(1, command.Count);
-                        for (int i = 0; i < count; i++)
+                        int echoCount = math.max(1, command.EchoCount);
+                        var rng = new Random(command.JitterSeed != 0 ? command.JitterSeed : 1u);
+                        for (int i = 0; i < echoCount; i++)
                         {
                             AoeSpawnCommand spawned = command;
                             spawned.AoeId = AoeIdFor(in command, i);
+                            float2 pos = command.Position;
+                            if (command.ScatterRadius > 0f)
+                            {
+                                float angle = rng.NextFloat(0f, 2f * math.PI);
+                                float dist = command.ScatterRadius * math.sqrt(rng.NextFloat());
+                                math.sincos(angle, out float s, out float c);
+                                pos += new float2(c, s) * dist;
+                            }
+
+                            CombatCollisionMath.ComputeWorldBounds(
+                                pos, command.Radius, command.HalfExtents, command.RotationRadians, command.ShapeType,
+                                out float2 boundsMin, out float2 boundsMax);
+
+                            spawned.Position = pos;
                             spawned.BoundsMin = boundsMin;
                             spawned.BoundsMax = boundsMax;
                             if (spawned.HasTimedSpawner != 0)
@@ -179,7 +190,7 @@ namespace PlayGround.System.Aoe
                                 {
                                     TypeId = command.TypeId,
                                     Trigger = 0,
-                                    Position = evt.Position,
+                                    Position = pos,
                                     AreaSize = command.AreaSize
                                 });
                             }

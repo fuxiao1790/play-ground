@@ -250,7 +250,8 @@ namespace PlayGround.Skills
                     Damage = Mathf.Max(0f, modifiers.Resolve(SkillStat.Damage, a.damage)),
                     LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds),
                     TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds),
-                    Count = Mathf.Max(1, a.count),
+                    EchoCount = Mathf.Max(1, a.echoCount),
+                    ScatterRadius = Mathf.Max(0f, a.scatterRadius),
                     DirectDamageEnabled = a.directDamageEnabled,
                     CritChance = snapshot.CritChance,
                     CritMultiplier = snapshot.CritMultiplier,
@@ -342,7 +343,7 @@ namespace PlayGround.Skills
                 ChildDefinition = childDef,
                 IntervalSeconds = intervalSeconds,
                 IntervalJitterSeconds = intervalSeconds * Mathf.Clamp(trigger.intervalJitterPercent, 0f, 100f) * 0.01f,
-                Count = Mathf.Max(1, childDef.Count + trigger.spawnCount),
+                Count = Mathf.Max(1, childDef.EchoCount + trigger.spawnCount),
                 SideSpreadDegrees = trigger.sideSpreadDegrees,
             };
 

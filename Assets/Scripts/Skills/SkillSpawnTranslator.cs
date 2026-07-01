@@ -46,7 +46,7 @@ namespace PlayGround.Skills
                 combatRoot.SpawnRegisteredAoe(
                     aoe.SpawnTemplateKey,
                     aimWorldPos,
-                    Mathf.Max(1, aoe.Count),
+                    Mathf.Max(1, aoe.EchoCount),
                     faction);
             }
         }

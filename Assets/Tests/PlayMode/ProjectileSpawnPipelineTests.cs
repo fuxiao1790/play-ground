@@ -127,7 +127,8 @@ namespace PlayGround.Tests.PlayMode
             // Command-shaped templates carry the template fields.
             Assert.That(typeof(ProjectileSpawnCommand).GetField("Count"), Is.Not.Null);
             Assert.That(typeof(ProjectileSpawnCommand).GetField("Speed"), Is.Not.Null);
-            Assert.That(typeof(AoeSpawnCommand).GetField("Count"), Is.Not.Null);
+            Assert.That(typeof(AoeSpawnCommand).GetField("EchoCount"), Is.Not.Null);
+            Assert.That(typeof(AoeSpawnCommand).GetField("ScatterRadius"), Is.Not.Null);
             Assert.That(typeof(AoeSpawnCommand).GetField("TypeId"), Is.Not.Null);
 
             // Old fat-event struct names must not exist.

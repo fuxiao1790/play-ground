@@ -120,9 +120,12 @@ destroyed proxy entities.
 - projectile impact AOE snapshots
 - stack-triggered managed spawns through mob/player hit handling
 
-`AoeSpawnCommand` is one resolved entity allocation request. It contains the
-position, bounds, type id, lifetime, repeat cooldown, hit payload, render data,
-and optional projectile burst snapshot for one AOE.
+`AoeSpawnCommand` is the AOE command shape used by the spawn-template registry
+and by apply. Before expansion it can carry fan-out behavior such as
+`EchoCount`, `ScatterRadius`, and `JitterSeed`. After expansion each written
+command represents one resolved AOE entity with final position, bounds, type id,
+lifetime, repeat cooldown, hit payload, render data, and optional projectile
+burst snapshot.
 
 Current flow:
 
@@ -130,16 +133,18 @@ Current flow:
    producers enqueue events into `AoeSpawnExpansionSystem.EventQueue`.
 2. `AoeSpawnExpansionSystem` drains the native event queue and the shared scope
    `DynamicBuffer<AoeSpawnEvent>`.
-3. Expansion resolves bounds and writes `AoeSpawnCommand` values to a
+3. Expansion fans `EchoCount` copies, scatters each copy inside
+   `ScatterRadius` using a deterministic random disk seeded by `JitterSeed`,
+   computes per-copy bounds, and writes one `AoeSpawnCommand` per copy to a
    `NativeStream`.
 4. `AoeSpawnApplySystem` reads commands, buckets them by faction and type, and
    queries reusable AOE slots with `WithDisabled<Active>()`.
 5. Reused slots are reset in an `IJobChunk`.
 6. Remaining commands cold-create entities through an `EntityCommandBuffer`.
 
-AOE expansion is currently simple because AOE multiplicity is mostly resolved
-before the event reaches ECS. Keep expansion as the place for any future scatter
-or pattern math.
+AOE uses the same event-to-command fan-out contract as projectiles: spawn
+events carry intent, expansion owns multiplicity and deterministic variation,
+and apply only materializes already-resolved single-entity commands.
 
 ## Entity Data And Reuse
 
@@ -321,5 +326,3 @@ Revisit only with profiling:
   `DamageDispatchBridge` groups by target for callback dispatch.
 - Crit rolling currently happens in the managed bridge.
 - Dedicated AOE stress scenes and hard pass/fail thresholds are still limited.
-- AOE expansion is intentionally minimal today; future scatter/pattern work
-  should live in `AoeSpawnExpansionSystem`.

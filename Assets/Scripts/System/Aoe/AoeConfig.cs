@@ -14,6 +14,7 @@ namespace PlayGround.System.Aoe
         private float areaSize = 1f;
         [SerializeField, Min(0)] private int preloadCount;
         [SerializeField] private float damage = 1f;
+        // Legacy config-only value; not AOE echo multiplicity.
         [SerializeField, Min(1)] private int count = 1;
         [SerializeField] private bool spawnAtAimPosition;
 

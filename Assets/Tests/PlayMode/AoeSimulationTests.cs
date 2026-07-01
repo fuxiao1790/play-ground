@@ -102,6 +102,141 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void AoeEchoZeroScatterSpawnsOverlappingCopies()
+        {
+            const int TypeId = 9101;
+            const int EchoCount = 4;
+            float2 center = new(2.5f, -3.25f);
+
+            SpawnEchoAoe(TypeId, center, EchoCount, scatterRadius: 0f, jitterSeed: 123u, sourceId: 2000);
+            TickSimulationOnly(0.01f);
+
+            AoeSpawnSnapshot[] snapshots = ReadAoeSnapshotsByType(TypeId);
+            Assert.That(snapshots, Has.Length.EqualTo(EchoCount));
+            for (int i = 0; i < snapshots.Length; i++)
+            {
+                AssertFloat2(snapshots[i].Position, center);
+            }
+        }
+
+        [Test]
+        public void AoeEchoScatterStaysWithinRadiusAndMovesCopies()
+        {
+            const int TypeId = 9102;
+            const int EchoCount = 8;
+            const float ScatterRadius = 3f;
+            float2 center = new(-1f, 4f);
+
+            SpawnEchoAoe(TypeId, center, EchoCount, ScatterRadius, jitterSeed: 456u, sourceId: 2100);
+            TickSimulationOnly(0.01f);
+
+            AoeSpawnSnapshot[] snapshots = ReadAoeSnapshotsByType(TypeId);
+            Assert.That(snapshots, Has.Length.EqualTo(EchoCount));
+
+            bool anyMoved = false;
+            float2 first = snapshots[0].Position;
+            for (int i = 0; i < snapshots.Length; i++)
+            {
+                Assert.That(math.distance(snapshots[i].Position, center), Is.LessThanOrEqualTo(ScatterRadius + 0.0001f));
+                anyMoved |= math.lengthsq(snapshots[i].Position - first) > 0.000001f;
+            }
+
+            Assert.That(anyMoved, Is.True);
+        }
+
+        [Test]
+        public void AoeEchoScatterIsDeterministicByJitterSeed()
+        {
+            const int TypeA = 9110;
+            const int TypeB = 9111;
+            const int TypeC = 9112;
+            const int EchoCount = 6;
+            float2 center = new(5f, 6f);
+
+            SpawnEchoAoe(TypeA, center, EchoCount, scatterRadius: 2.5f, jitterSeed: 999u, sourceId: 3000);
+            SpawnEchoAoe(TypeB, center, EchoCount, scatterRadius: 2.5f, jitterSeed: 999u, sourceId: 3100);
+            SpawnEchoAoe(TypeC, center, EchoCount, scatterRadius: 2.5f, jitterSeed: 1000u, sourceId: 3200);
+            TickSimulationOnly(0.01f);
+
+            AoeSpawnSnapshot[] first = ReadAoeSnapshotsByType(TypeA);
+            AoeSpawnSnapshot[] sameSeed = ReadAoeSnapshotsByType(TypeB);
+            AoeSpawnSnapshot[] differentSeed = ReadAoeSnapshotsByType(TypeC);
+
+            Assert.That(first, Has.Length.EqualTo(EchoCount));
+            Assert.That(sameSeed, Has.Length.EqualTo(EchoCount));
+            Assert.That(differentSeed, Has.Length.EqualTo(EchoCount));
+
+            bool anyDifferent = false;
+            for (int i = 0; i < EchoCount; i++)
+            {
+                AssertFloat2(sameSeed[i].Position, first[i].Position);
+                anyDifferent |= math.lengthsq(differentSeed[i].Position - first[i].Position) > 0.000001f;
+            }
+
+            Assert.That(anyDifferent, Is.True);
+        }
+
+        [Test]
+        public void AoeEchoScatterBoundsMatchScatteredPosition()
+        {
+            const int TypeId = 9120;
+            const int EchoCount = 5;
+            const float Radius = 0.75f;
+            float2 center = new(1.25f, -2.5f);
+
+            SpawnEchoAoe(TypeId, center, EchoCount, scatterRadius: 4f, jitterSeed: 222u, sourceId: 4000, radius: Radius);
+            TickSimulationOnly(0.01f);
+
+            AoeSpawnSnapshot[] snapshots = ReadAoeSnapshotsByType(TypeId);
+            Assert.That(snapshots, Has.Length.EqualTo(EchoCount));
+            for (int i = 0; i < snapshots.Length; i++)
+            {
+                CombatCollisionMath.ComputeWorldBounds(
+                    snapshots[i].Position,
+                    Radius,
+                    float2.zero,
+                    0f,
+                    CombatShapeType.Circle,
+                    out float2 expectedMin,
+                    out float2 expectedMax);
+
+                AssertFloat2(snapshots[i].BoundsMin, expectedMin);
+                AssertFloat2(snapshots[i].BoundsMax, expectedMax);
+            }
+        }
+
+        [Test]
+        public void AoeEchoIdsAreUniqueForSequentialAndDeterministicPaths()
+        {
+            const int SequentialTypeId = 9130;
+            const int DeterministicTypeId = 9131;
+            const int EchoCount = 5;
+
+            SpawnEchoAoe(SequentialTypeId, float2.zero, EchoCount, scatterRadius: 0f, jitterSeed: 77u, sourceId: 5000);
+            SpawnEchoAoe(
+                DeterministicTypeId,
+                new float2(2f, 0f),
+                EchoCount,
+                scatterRadius: 1f,
+                jitterSeed: 88u,
+                sourceId: 6000,
+                deterministicIdTickIndex: 12);
+            TickSimulationOnly(0.01f);
+
+            AoeSpawnSnapshot[] sequential = ReadAoeSnapshotsByType(SequentialTypeId);
+            AoeSpawnSnapshot[] deterministic = ReadAoeSnapshotsByType(DeterministicTypeId);
+            Assert.That(sequential, Has.Length.EqualTo(EchoCount));
+            Assert.That(deterministic, Has.Length.EqualTo(EchoCount));
+
+            AssertDistinctAoeIds(sequential);
+            AssertDistinctAoeIds(deterministic);
+            for (int i = 0; i < sequential.Length; i++)
+            {
+                Assert.That(sequential[i].AoeId, Is.EqualTo(5000 + i));
+            }
+        }
+
+        [Test]
         public void PulseHitsOverlappingTargetOnce()
         {
             AddTarget(float2.zero, 0.25f, 1);
@@ -741,7 +876,7 @@ namespace PlayGround.Tests.PlayMode
                 Radius = 1f,
                 ShapeType = CombatShapeType.Circle,
                 HitPayload = new CombatHitPayload { DamageAmount = 1f, DirectDamageEnabled = true },
-                Count = 1
+                EchoCount = 1
             };
             var secondAoeKey = SpawnTemplateHash.Of(in secondAoeTemplate);
             AoeSpawnTemplate aoeRegistry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
@@ -881,7 +1016,7 @@ namespace PlayGround.Tests.PlayMode
                 Radius = radius,
                 AreaSize = radius,
                 ShapeType = CombatShapeType.Circle,
-                Count = 1
+                EchoCount = 1
             };
             Hash128 key = SpawnTemplateHash.Of(in template);
             AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
@@ -893,6 +1028,47 @@ namespace PlayGround.Tests.PlayMode
                 Position = position,
                 Faction = CombatFaction.Player,
                 SourceId = ++nextAoeId
+            });
+        }
+
+        private void SpawnEchoAoe(
+            int typeId,
+            float2 position,
+            int echoCount,
+            float scatterRadius,
+            uint jitterSeed,
+            int sourceId,
+            int deterministicIdTickIndex = 0,
+            float radius = 1f)
+        {
+            var template = new AoeSpawnCommand
+            {
+                TypeId = typeId,
+                Lifetime = 5f,
+                RepeatHitCooldownSeconds = 100f,
+                HitPayload = new CombatHitPayload
+                {
+                    DamageAmount = 1f,
+                    DirectDamageEnabled = true
+                },
+                Radius = radius,
+                AreaSize = radius,
+                ShapeType = CombatShapeType.Circle,
+                EchoCount = echoCount,
+                ScatterRadius = scatterRadius
+            };
+            Hash128 key = SpawnTemplateHash.Of(in template);
+            AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
+            registry.Map.TryAdd(key, template);
+            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Add(new AoeSpawnEvent
+            {
+                Kind = IntervalChildKind.Aoe,
+                TemplateKey = key,
+                Position = position,
+                Faction = CombatFaction.Player,
+                SourceId = sourceId,
+                JitterSeed = jitterSeed,
+                DeterministicIdTickIndex = deterministicIdTickIndex
             });
         }
 
@@ -1203,6 +1379,49 @@ namespace PlayGround.Tests.PlayMode
             return count;
         }
 
+        private AoeSpawnSnapshot[] ReadAoeSnapshotsByType(int typeId)
+        {
+            using EntityQuery q = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<AoeIdentityComponent>(),
+                ComponentType.ReadOnly<CombatKinematicsComponent>(),
+                ComponentType.ReadOnly<CombatCollisionComponent>());
+            using NativeArray<AoeIdentityComponent> identities = q.ToComponentDataArray<AoeIdentityComponent>(Allocator.Temp);
+            using NativeArray<CombatKinematicsComponent> kinematics = q.ToComponentDataArray<CombatKinematicsComponent>(Allocator.Temp);
+            using NativeArray<CombatCollisionComponent> collisions = q.ToComponentDataArray<CombatCollisionComponent>(Allocator.Temp);
+
+            var snapshots = new List<AoeSpawnSnapshot>();
+            for (int i = 0; i < identities.Length; i++)
+            {
+                if (identities[i].TypeId != typeId)
+                    continue;
+
+                snapshots.Add(new AoeSpawnSnapshot(
+                    identities[i].AoeId,
+                    identities[i].TypeId,
+                    kinematics[i].Position,
+                    collisions[i].BoundsMin,
+                    collisions[i].BoundsMax));
+            }
+
+            snapshots.Sort((left, right) => left.AoeId.CompareTo(right.AoeId));
+            return snapshots.ToArray();
+        }
+
+        private static void AssertFloat2(float2 actual, float2 expected, float tolerance = 0.0001f)
+        {
+            Assert.That(actual.x, Is.EqualTo(expected.x).Within(tolerance));
+            Assert.That(actual.y, Is.EqualTo(expected.y).Within(tolerance));
+        }
+
+        private static void AssertDistinctAoeIds(AoeSpawnSnapshot[] snapshots)
+        {
+            var ids = new HashSet<int>();
+            for (int i = 0; i < snapshots.Length; i++)
+            {
+                Assert.That(ids.Add(snapshots[i].AoeId), Is.True, $"Duplicate AOE id {snapshots[i].AoeId}.");
+            }
+        }
+
         private NativeQueue<CombatHitEvent> HitQueue()
         {
             FieldInfo field = typeof(CombatApplyFinalizeSingleSystem).GetField(
@@ -1228,6 +1447,24 @@ namespace PlayGround.Tests.PlayMode
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null);
             return (NativeQueue<ProjectileSpawnEvent>)field.GetValue(projectileExpansion);
+        }
+
+        private readonly struct AoeSpawnSnapshot
+        {
+            public AoeSpawnSnapshot(int aoeId, int typeId, float2 position, float2 boundsMin, float2 boundsMax)
+            {
+                AoeId = aoeId;
+                TypeId = typeId;
+                Position = position;
+                BoundsMin = boundsMin;
+                BoundsMax = boundsMax;
+            }
+
+            public int AoeId { get; }
+            public int TypeId { get; }
+            public float2 Position { get; }
+            public float2 BoundsMin { get; }
+            public float2 BoundsMax { get; }
         }
 
         private sealed class TestCombatTarget : ICombatTarget

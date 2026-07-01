@@ -85,8 +85,8 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void SpawnTemplateHash_IdenticalAoeCommandsProduceSameKey()
         {
-            AoeSpawnCommand a = MakeAoeTemplate(radius: 2f, typeId: 1, count: 3);
-            AoeSpawnCommand b = MakeAoeTemplate(radius: 2f, typeId: 1, count: 3);
+            AoeSpawnCommand a = MakeAoeTemplate(radius: 2f, typeId: 1, echoCount: 3);
+            AoeSpawnCommand b = MakeAoeTemplate(radius: 2f, typeId: 1, echoCount: 3);
 
             Hash128 keyA = SpawnTemplateHash.Of(in a);
             Hash128 keyB = SpawnTemplateHash.Of(in b);
@@ -95,10 +95,10 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void SpawnTemplateHash_DifferentCountProducesDistinctKey()
+        public void SpawnTemplateHash_DifferentEchoCountProducesDistinctKey()
         {
-            AoeSpawnCommand a = MakeAoeTemplate(radius: 2f, typeId: 1, count: 3);
-            AoeSpawnCommand b = MakeAoeTemplate(radius: 2f, typeId: 1, count: 5);
+            AoeSpawnCommand a = MakeAoeTemplate(radius: 2f, typeId: 1, echoCount: 3);
+            AoeSpawnCommand b = MakeAoeTemplate(radius: 2f, typeId: 1, echoCount: 5);
 
             Hash128 keyA = SpawnTemplateHash.Of(in a);
             Hash128 keyB = SpawnTemplateHash.Of(in b);
@@ -107,11 +107,11 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void SpawnTemplateHash_PriorCountReusesPriorKey()
+        public void SpawnTemplateHash_PriorEchoCountReusesPriorKey()
         {
-            AoeSpawnCommand original = MakeAoeTemplate(radius: 2f, typeId: 1, count: 3);
-            AoeSpawnCommand changed = MakeAoeTemplate(radius: 2f, typeId: 1, count: 5);
-            AoeSpawnCommand reverted = MakeAoeTemplate(radius: 2f, typeId: 1, count: 3);
+            AoeSpawnCommand original = MakeAoeTemplate(radius: 2f, typeId: 1, echoCount: 3);
+            AoeSpawnCommand changed = MakeAoeTemplate(radius: 2f, typeId: 1, echoCount: 5);
+            AoeSpawnCommand reverted = MakeAoeTemplate(radius: 2f, typeId: 1, echoCount: 3);
 
             Hash128 keyOriginal = SpawnTemplateHash.Of(in original);
             Hash128 keyChanged = SpawnTemplateHash.Of(in changed);
@@ -126,7 +126,7 @@ namespace PlayGround.Tests.PlayMode
         {
             AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
 
-            AoeSpawnCommand template = MakeAoeTemplate(radius: 1f, typeId: 7, count: 2);
+            AoeSpawnCommand template = MakeAoeTemplate(radius: 1f, typeId: 7, echoCount: 2);
             Hash128 key = SpawnTemplateHash.Of(in template);
 
             registry.Map.TryAdd(key, template);
@@ -142,9 +142,9 @@ namespace PlayGround.Tests.PlayMode
         {
             AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
 
-            AoeSpawnCommand t1 = MakeAoeTemplate(radius: 1f, typeId: 1, count: 1);
-            AoeSpawnCommand t2 = MakeAoeTemplate(radius: 2f, typeId: 2, count: 2);
-            AoeSpawnCommand t3 = MakeAoeTemplate(radius: 3f, typeId: 3, count: 3);
+            AoeSpawnCommand t1 = MakeAoeTemplate(radius: 1f, typeId: 1, echoCount: 1);
+            AoeSpawnCommand t2 = MakeAoeTemplate(radius: 2f, typeId: 2, echoCount: 2);
+            AoeSpawnCommand t3 = MakeAoeTemplate(radius: 3f, typeId: 3, echoCount: 3);
             registry.Map.TryAdd(SpawnTemplateHash.Of(in t1), t1);
             registry.Map.TryAdd(SpawnTemplateHash.Of(in t2), t2);
             registry.Map.TryAdd(SpawnTemplateHash.Of(in t3), t3);
@@ -170,7 +170,7 @@ namespace PlayGround.Tests.PlayMode
             var template = new AoeSpawnCommand
             {
                 TypeId = 1,
-                Count = 3,
+                EchoCount = 3,
                 Radius = 1f,
                 ShapeType = CombatShapeType.Circle,
                 HitPayload = new CombatHitPayload { DamageAmount = 1f, DirectDamageEnabled = true }
@@ -215,12 +215,12 @@ namespace PlayGround.Tests.PlayMode
             simGroup.Update();
         }
 
-        private static AoeSpawnCommand MakeAoeTemplate(float radius, int typeId, int count)
+        private static AoeSpawnCommand MakeAoeTemplate(float radius, int typeId, int echoCount)
         {
             return new AoeSpawnCommand
             {
                 TypeId = typeId,
-                Count = count,
+                EchoCount = echoCount,
                 Radius = radius,
                 AreaSize = radius,
                 ShapeType = CombatShapeType.Circle,

@@ -40,7 +40,8 @@ namespace PlayGround.System.Aoe
         public float2 BoundsMin;
         public float2 BoundsMax;
         public CombatShapeType ShapeType;
-        public int Count;
+        public int EchoCount;
+        public float ScatterRadius;
         public uint JitterSeed;
         public int DeterministicIdTickIndex;
         public CombatRenderComponent Render;

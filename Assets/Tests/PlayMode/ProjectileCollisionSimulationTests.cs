@@ -176,7 +176,7 @@ namespace PlayGround.Tests.PlayMode
                 Radius = 0.5f,
                 ShapeType = CombatShapeType.Circle,
                 HitPayload = new CombatHitPayload { DamageAmount = 1f, DirectDamageEnabled = true },
-                Count = 1
+                EchoCount = 1
             };
             var aoeKey = SpawnTemplateHash.Of(in aoeTemplate);
             RegisterAoeTemplate(aoeKey, aoeTemplate);
