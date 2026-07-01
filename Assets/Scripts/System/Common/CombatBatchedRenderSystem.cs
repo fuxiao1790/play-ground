@@ -1,8 +1,6 @@
 using System.Collections.Generic;
 using PlayGround.System.Aoe;
 using PlayGround.System.Projectile;
-using Unity.Burst;
-using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -16,14 +14,9 @@ namespace PlayGround.System.Common
     {
         private const int MaxInstancesPerDraw = 1023;
 
-        private EntityQuery renderPrepareQuery;
         private EntityQuery projectileRenderQuery;
         private EntityQuery aoeRenderQuery;
         private NativeArray<CombatRenderElement> submitBuffer;
-
-        private ComponentTypeHandle<CombatKinematicsComponent> kinematicsHandle;
-        private ComponentTypeHandle<CombatRenderComponent> renderHandle;
-        private ComponentTypeHandle<CombatRenderElement> elementHandle;
 
         internal int LastActiveProjectileCount;
         internal int LastActiveAoeCount;
@@ -32,13 +25,6 @@ namespace PlayGround.System.Common
         {
             Entity registryEntity = EntityManager.CreateEntity();
             EntityManager.AddComponentObject(registryEntity, new CombatRenderResourceRegistry());
-
-            renderPrepareQuery = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<CombatKinematicsComponent>()
-                .WithAll<CombatRenderComponent>()
-                .WithAll<CombatRenderElement>()
-                .WithAll<CombatRenderActiveTag>()
-                .Build(this);
 
             projectileRenderQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CombatRenderElement>()
@@ -55,10 +41,6 @@ namespace PlayGround.System.Common
                 .Build(this);
 
             submitBuffer = new NativeArray<CombatRenderElement>(MaxInstancesPerDraw, Allocator.Persistent);
-
-            kinematicsHandle = GetComponentTypeHandle<CombatKinematicsComponent>(true);
-            renderHandle = GetComponentTypeHandle<CombatRenderComponent>(true);
-            elementHandle = GetComponentTypeHandle<CombatRenderElement>(false);
         }
 
         protected override void OnDestroy()
@@ -71,21 +53,10 @@ namespace PlayGround.System.Common
 
         protected override void OnUpdate()
         {
+            CompleteDependency();
+
             LastActiveProjectileCount = 0;
             LastActiveAoeCount = 0;
-
-            kinematicsHandle.Update(this);
-            renderHandle.Update(this);
-            elementHandle.Update(this);
-
-            Dependency = new RenderPrepareJob
-            {
-                Kinematics = kinematicsHandle,
-                RenderComponents = renderHandle,
-                RenderElements = elementHandle
-            }.ScheduleParallel(renderPrepareQuery, Dependency);
-
-            CompleteDependency();
 
             var registry = SystemAPI.ManagedAPI.GetSingleton<CombatRenderResourceRegistry>();
             foreach (KeyValuePair<int, CombatRenderResourceEntry> pair in registry.Entries)
@@ -132,31 +103,6 @@ namespace PlayGround.System.Common
                 int count = math.min(MaxInstancesPerDraw, elements.Length - start);
                 NativeArray<CombatRenderElement>.Copy(elements, start, submitBuffer, 0, count);
                 Graphics.RenderMeshInstanced(rp, resources.Mesh, 0, submitBuffer, count, 0);
-            }
-        }
-
-        [BurstCompile]
-        private struct RenderPrepareJob : IJobChunk
-        {
-            [ReadOnly] public ComponentTypeHandle<CombatKinematicsComponent> Kinematics;
-            [ReadOnly] public ComponentTypeHandle<CombatRenderComponent> RenderComponents;
-            public ComponentTypeHandle<CombatRenderElement> RenderElements;
-
-            public void Execute(
-                in ArchetypeChunk chunk,
-                int unfilteredChunkIndex,
-                bool useEnabledMask,
-                in v128 chunkEnabledMask)
-            {
-                NativeArray<CombatKinematicsComponent> kin = chunk.GetNativeArray(ref Kinematics);
-                NativeArray<CombatRenderComponent> rend = chunk.GetNativeArray(ref RenderComponents);
-                NativeArray<CombatRenderElement> elem = chunk.GetNativeArray(ref RenderElements);
-
-                var enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
-                while (enumerator.NextEntityIndex(out int i))
-                {
-                    elem[i] = CombatRenderMatrixUtility.ElementFor(kin[i], rend[i]);
-                }
             }
         }
     }
