@@ -26,7 +26,7 @@ namespace PlayGround.Skills
             if (runtime is RuntimeStackingDetonation rootStackingDetonation)
                 rootStackingDetonation.DebuffName = set.Skill.name;
 
-            runtime.RecoveryTime = ResolveRecoveryTime(set.Skill.BaseRecoveryTime, compiled.Modifiers, snapshot);
+            runtime.RecoveryTime = ResolveRecoveryTime(set.Skill.BaseRate, compiled.Modifiers);
 
             // Adjacency is forward-only (i -> i+2); recursion terminates by strictly
             // increasing slot index. No cycle is possible, so no recursion guard is needed.
@@ -193,15 +193,13 @@ namespace PlayGround.Skills
         }
 
         private static float ResolveRecoveryTime(
-            float baseRecoveryTime,
-            StatModifierAccumulator modifiers,
-            PlayerStatSnapshot snapshot)
+            float baseRate,
+            StatModifierAccumulator modifiers)
         {
-            float speedFactor = modifiers != null
-                ? modifiers.Resolve(SkillStat.RecoverySpeed, 1f)
-                : 1f;
-            float recoveryTime = baseRecoveryTime * snapshot.CastSpeedMultiplier / Mathf.Max(0.01f, speedFactor);
-            return Mathf.Max(0.01f, recoveryTime);
+            float rate = modifiers != null
+                ? modifiers.Resolve(SkillStat.Rate, baseRate)
+                : baseRate;
+            return 1f / Mathf.Max(0.01f, rate);
         }
 
         private static RuntimeSkillDefinition BuildRuntime(
@@ -278,6 +276,7 @@ namespace PlayGround.Skills
         {
             public static void Contribute(StatModifierAccumulator modifiers, PlayerStatSnapshot snapshot)
             {
+                modifiers.AddIncreased(SkillStat.Rate, snapshot.IncreasedRatePercent);
                 modifiers.AddMultiplier(SkillStat.Damage, snapshot.DamageMultiplier, MultiplierTiming.Post);
                 modifiers.AddMultiplier(SkillStat.AreaSize, snapshot.AreaSizeMultiplier, MultiplierTiming.Post);
             }

@@ -2,23 +2,23 @@ namespace PlayGround.Skills
 {
     public readonly struct PlayerStatSnapshot
     {
-        public static readonly PlayerStatSnapshot Identity = new(1f, 1f, 0f, 1.5f, 1f);
+        public static readonly PlayerStatSnapshot Identity = new(0f, 1f, 0f, 1.5f, 1f);
 
         public PlayerStatSnapshot(
-            float castSpeedMultiplier,
+            float increasedRatePercent,
             float damageMultiplier,
             float critChance,
             float critMultiplier,
             float areaSizeMultiplier = 1f)
         {
-            CastSpeedMultiplier = castSpeedMultiplier;
+            IncreasedRatePercent = increasedRatePercent;
             DamageMultiplier = damageMultiplier;
             CritChance = critChance;
             CritMultiplier = critMultiplier;
             AreaSizeMultiplier = areaSizeMultiplier;
         }
 
-        public float CastSpeedMultiplier { get; }
+        public float IncreasedRatePercent { get; }
         public float DamageMultiplier { get; }
         public float CritChance { get; }
         public float CritMultiplier { get; }
