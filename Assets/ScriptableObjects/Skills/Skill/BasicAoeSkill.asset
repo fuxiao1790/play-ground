@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.AoeSkill
   baseRate: 2.222222
   definition:
-    baseAreaSize: 2
+    baseAreaSize: 2.3
     damage: 18
     echoCount: 1
     scatterRadius: 0

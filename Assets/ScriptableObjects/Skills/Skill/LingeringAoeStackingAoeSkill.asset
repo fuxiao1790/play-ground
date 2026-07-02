@@ -14,9 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.LingeringAoeSkill
   baseRate: 4
   definition:
-    baseAreaSize: 3
+    baseAreaSize: 2.5
     damage: 4
-    count: 1
+    echoCount: 1
+    scatterRadius: 0
     directDamageEnabled: 1
     prefab: {fileID: 1037899157007725660, guid: e4b99e89657a29846b967bfd8cb4e1ee, type: 3}
     lifetimeSeconds: 2.4
