@@ -15,10 +15,8 @@ Update design docs and run focused validation.
 - `dotnet build .\PlayGround.Runtime.csproj`: passed.
 - `dotnet build .\PlayGround.Tests.PlayMode.csproj`: passed.
 - `dotnet build .\PlayGround.Tests.EditMode.csproj`: passed.
-- Focused Unity PlayMode run for `ProjectileSpawnPipelineTests`: Unity exited
-  before writing result XML while existing `Unity.exe` processes were already
-  running for this project. The sparse log ended at project-path setup with
-  return code `1`, so no test result was produced.
+- Focused Unity PlayMode run for `ProjectileSpawnPipelineTests`: not started
+  because existing `Unity.exe` processes were already running for this project.
 
 ## Dependencies
 

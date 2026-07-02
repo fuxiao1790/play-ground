@@ -62,7 +62,7 @@ Non-goals:
   `ProjectileSpawnEvent`, `ProjectileSpawnCommand`, and helpers for impact and
   burst events.
 - `Assets/Scripts/System/Projectile/ProjectileSpawnExpansionSystem.cs`: drains
-  spawn events and expands volley data into per-shape command queues.
+  spawn events and expands volley data into one ordered command list.
 - `Assets/Scripts/System/Projectile/ProjectileSpawnApplySystem.cs`: applies
   basic and child-spawner projectile commands by reusing disabled entities or
   cold-creating overflow entities.
@@ -97,7 +97,7 @@ Physics2D. They operate on:
 
 - projectile entities
 - target proxy entities
-- native event queues/streams
+- native event queues
 - common ECS components
 - render and VFX request buffers
 
@@ -160,8 +160,8 @@ Current flow:
    shared scope `DynamicBuffer<ProjectileSpawnEvent>`.
 3. Expansion resolves volley math, spread, jitter, velocity, ids, bounds, and
    per-shot render Z.
-4. Expansion writes commands into one projectile command queue.
-5. `ProjectileSpawnApplySystem` consumes the command queue.
+4. Expansion writes commands into one projectile command list.
+5. `ProjectileSpawnApplySystem` consumes the command list.
 6. The apply system captures disabled projectile chunks with
    `WithAll<ProjectileTag>()` and `WithDisabled<Active>()`.
 7. Apply schedules one single-threaded Burst reuse job that walks disabled
