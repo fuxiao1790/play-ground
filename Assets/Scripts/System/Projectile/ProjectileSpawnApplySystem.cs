@@ -1,9 +1,7 @@
 using PlayGround.System.Aoe;
 using PlayGround.System.Common;
 using Unity.Burst;
-using Unity.Burst.Intrinsics;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -35,7 +33,6 @@ namespace PlayGround.System.Projectile
 
         private EntityArchetype _archetype;
         private EntityQuery _deadSlotQuery;
-        private readonly global::System.Collections.Generic.List<ProjectileSpawnWork> _spawnWork = new();
 
         protected override void OnCreate()
         {
@@ -66,8 +63,6 @@ namespace PlayGround.System.Projectile
         protected override void OnDestroy()
         {
             Dependency.Complete();
-            DisposeSpawnWorkReferences();
-            _spawnWork.Clear();
         }
 
         protected override void OnUpdate()
@@ -85,11 +80,11 @@ namespace PlayGround.System.Projectile
                 if (expansionSys != null)
                 {
                     expansionSys.PendingHandle.Complete();
-                    NativeList<ProjectileSpawnCommand> commandContainer = expansionSys.ProjectileCommandContainer;
-                    if (commandContainer.IsCreated && commandContainer.Length > 0)
+                    if (expansionSys.ProjectileCommandStream.IsCreated)
                     {
-                        commands = commandContainer.AsArray();
-                        totalRequests = commands.Length;
+                        commands = ParallelDeadSlotSpawnApply.DrainToArray<ProjectileSpawnCommand>(
+                            expansionSys.ProjectileCommandStream, Allocator.TempJob);
+                        totalRequests = commands.IsCreated ? commands.Length : 0;
                     }
                 }
             }
@@ -106,53 +101,74 @@ namespace PlayGround.System.Projectile
                 using var createEcb = new EntityCommandBuffer(Allocator.Temp);
                 int reuseCount = 0;
                 int coldCreateCount = 0;
-                _spawnWork.Clear();
 
                 using (ReuseJobMarker.Auto())
                 {
-                    var claimedReference = new NativeReference<int>(Allocator.TempJob);
-                    claimedReference.Value = 0;
-
-                    JobHandle spawnHandle = new ProjectileSpawnJob
+                    using NativeArray<ArchetypeChunk> chunks =
+                        _deadSlotQuery.ToArchetypeChunkArray(Allocator.TempJob);
+                    int workerCount = ParallelDeadSlotSpawnApply.WorkerCountFor(chunks.Length);
+                    if (workerCount > 0)
                     {
-                        Commands = commands,
-                        ClaimedCount = claimedReference,
-                        ActiveHandle = GetComponentTypeHandle<Active>(false),
-                        CollisionActiveHandle = GetComponentTypeHandle<ProjectileCollisionActiveTag>(false),
-                        RenderActiveHandle = GetComponentTypeHandle<CombatRenderActiveTag>(false),
-                        IdentityHandle = GetComponentTypeHandle<ProjectileIdentityComponent>(false),
-                        KinematicsHandle = GetComponentTypeHandle<CombatKinematicsComponent>(false),
-                        CollisionHandle = GetComponentTypeHandle<CombatCollisionComponent>(false),
-                        LifetimeHandle = GetComponentTypeHandle<CombatLifetimeComponent>(false),
-                        HitHandle = GetComponentTypeHandle<ProjectileHitComponent>(false),
-                        TrackingHandle = GetComponentTypeHandle<ProjectileTrackingComponent>(false),
-                        RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
-                        RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderBatchId>(false),
-                        RenderElementHandle = GetComponentTypeHandle<CombatRenderElement>(false),
-                        ContactGateHandle = GetBufferTypeHandle<ProjectileContactGateElement>(false),
-                        TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
-                        TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
-                    }.Schedule(_deadSlotQuery, default);
+                        using NativeArray<ParallelSpawnWorkerRange> workerRanges =
+                            ParallelDeadSlotSpawnApply.BuildWorkerRanges(
+                                chunks.Length,
+                                workerCount,
+                                Allocator.TempJob);
+                        using NativeStream commandIndices =
+                            ParallelDeadSlotSpawnApply.BuildCommandIndexStream(
+                                totalRequests,
+                                workerCount,
+                                Allocator.TempJob);
+                        using var remainder = new NativeQueue<int>(Allocator.TempJob);
 
-                    spawnHandle.Complete();
-                    _spawnWork.Add(new ProjectileSpawnWork(commands, claimedReference));
-                }
-
-                using (ColdCreateMarker.Auto())
-                {
-                    foreach (ProjectileSpawnWork work in _spawnWork)
-                    {
-                        int claimed = work.ClaimedCount.Value;
-                        work.ClaimedCount.Dispose();
-                        reuseCount += claimed;
-                        for (int i = claimed; i < work.Commands.Length; i++)
+                        JobHandle spawnHandle = new ProjectileSpawnJob
                         {
-                            CreateProjectileEntity(work.Commands[i], createEcb);
-                            coldCreateCount++;
+                            Commands = commands,
+                            Chunks = chunks,
+                            WorkerRanges = workerRanges,
+                            CommandIndices = commandIndices.AsReader(),
+                            Remainder = remainder.AsParallelWriter(),
+                            ActiveHandle = GetComponentTypeHandle<Active>(false),
+                            CollisionActiveHandle = GetComponentTypeHandle<ProjectileCollisionActiveTag>(false),
+                            RenderActiveHandle = GetComponentTypeHandle<CombatRenderActiveTag>(false),
+                            IdentityHandle = GetComponentTypeHandle<ProjectileIdentityComponent>(false),
+                            KinematicsHandle = GetComponentTypeHandle<CombatKinematicsComponent>(false),
+                            CollisionHandle = GetComponentTypeHandle<CombatCollisionComponent>(false),
+                            LifetimeHandle = GetComponentTypeHandle<CombatLifetimeComponent>(false),
+                            HitHandle = GetComponentTypeHandle<ProjectileHitComponent>(false),
+                            TrackingHandle = GetComponentTypeHandle<ProjectileTrackingComponent>(false),
+                            RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
+                            RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderBatchId>(false),
+                            RenderElementHandle = GetComponentTypeHandle<CombatRenderElement>(false),
+                            ContactGateHandle = GetBufferTypeHandle<ProjectileContactGateElement>(false),
+                            TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
+                            TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
+                        }.Schedule(workerCount, 1, default);
+
+                        spawnHandle.Complete();
+                        reuseCount = totalRequests - remainder.Count;
+
+                        using (ColdCreateMarker.Auto())
+                        {
+                            while (remainder.TryDequeue(out int commandIndex))
+                            {
+                                CreateProjectileEntity(commands[commandIndex], createEcb);
+                                coldCreateCount++;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        using (ColdCreateMarker.Auto())
+                        {
+                            for (int i = 0; i < commands.Length; i++)
+                            {
+                                CreateProjectileEntity(commands[i], createEcb);
+                                coldCreateCount++;
+                            }
                         }
                     }
                 }
-                _spawnWork.Clear();
 
                 if (coldCreateCount > 0)
                 {
@@ -164,18 +180,11 @@ namespace PlayGround.System.Projectile
                 LastReuseCount = reuseCount;
                 LastColdCreateCount = totalRequests - reuseCount;
             }
-        }
 
-        private void DisposeSpawnWorkReferences()
-        {
-            foreach (ProjectileSpawnWork work in _spawnWork)
+            if (commands.IsCreated)
             {
-                if (work.ClaimedCount.IsCreated)
-                {
-                    work.ClaimedCount.Dispose();
-                }
+                commands.Dispose();
             }
-            _spawnWork.Clear();
         }
 
         private void CreateProjectileEntity(ProjectileSpawnCommand cmd, EntityCommandBuffer ecb)
@@ -300,140 +309,144 @@ namespace PlayGround.System.Projectile
         }
 
         [BurstCompile]
-        private struct ProjectileSpawnJob : IJobChunk
+        private struct ProjectileSpawnJob : IJobParallelFor
         {
             [ReadOnly] public NativeArray<ProjectileSpawnCommand> Commands;
-            [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
+            [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
+            [ReadOnly] public NativeArray<ParallelSpawnWorkerRange> WorkerRanges;
+            public NativeStream.Reader CommandIndices;
+            public NativeQueue<int>.ParallelWriter Remainder;
 
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<Active> ActiveHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileCollisionActiveTag> CollisionActiveHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderActiveTag> RenderActiveHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileIdentityComponent> IdentityHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatKinematicsComponent> KinematicsHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatCollisionComponent> CollisionHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatLifetimeComponent> LifetimeHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileHitComponent> HitHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileTrackingComponent> TrackingHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderBatchId> RenderBatchIdHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderElement> RenderElementHandle;
-            [NativeDisableContainerSafetyRestriction] public BufferTypeHandle<ProjectileContactGateElement> ContactGateHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<TimedSpawnStateComponent> TimedSpawnStateHandle;
+            public ComponentTypeHandle<Active> ActiveHandle;
+            public ComponentTypeHandle<ProjectileCollisionActiveTag> CollisionActiveHandle;
+            public ComponentTypeHandle<CombatRenderActiveTag> RenderActiveHandle;
+            public ComponentTypeHandle<ProjectileIdentityComponent> IdentityHandle;
+            public ComponentTypeHandle<CombatKinematicsComponent> KinematicsHandle;
+            public ComponentTypeHandle<CombatCollisionComponent> CollisionHandle;
+            public ComponentTypeHandle<CombatLifetimeComponent> LifetimeHandle;
+            public ComponentTypeHandle<ProjectileHitComponent> HitHandle;
+            public ComponentTypeHandle<ProjectileTrackingComponent> TrackingHandle;
+            public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
+            public ComponentTypeHandle<CombatRenderBatchId> RenderBatchIdHandle;
+            public ComponentTypeHandle<CombatRenderElement> RenderElementHandle;
+            public BufferTypeHandle<ProjectileContactGateElement> ContactGateHandle;
+            public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
+            public ComponentTypeHandle<TimedSpawnStateComponent> TimedSpawnStateHandle;
 
-            public void Execute(
-                in ArchetypeChunk chunk,
-                int unfilteredChunkIndex,
-                bool useEnabledMask,
-                in v128 chunkEnabledMask)
+            public void Execute(int workerIndex)
             {
-                int cfgIdx = ClaimedCount.Value;
-                if (cfgIdx >= Commands.Length)
+                NativeStream.Reader reader = CommandIndices;
+                reader.BeginForEachIndex(workerIndex);
+                ParallelSpawnWorkerRange range = WorkerRanges[workerIndex];
+                int chunkEnd = range.ChunkStart + range.ChunkCount;
+
+                for (int chunkIndex = range.ChunkStart;
+                     chunkIndex < chunkEnd && reader.RemainingItemCount > 0;
+                     chunkIndex++)
                 {
-                    return;
-                }
+                    ArchetypeChunk chunk = Chunks[chunkIndex];
+                    EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
+                    EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
+                    EnabledMask renderActiveMask = chunk.GetEnabledMask(ref RenderActiveHandle);
+                    EnabledMask trackingMask = chunk.GetEnabledMask(ref TrackingHandle);
+                    EnabledMask lifetimeMask = chunk.GetEnabledMask(ref LifetimeHandle);
+                    EnabledMask timedSpawnMask = chunk.GetEnabledMask(ref TimedSpawnHandle);
 
-                EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
-                EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
-                EnabledMask renderActiveMask = chunk.GetEnabledMask(ref RenderActiveHandle);
-                EnabledMask trackingMask = chunk.GetEnabledMask(ref TrackingHandle);
-                EnabledMask lifetimeMask = chunk.GetEnabledMask(ref LifetimeHandle);
-                EnabledMask timedSpawnMask = chunk.GetEnabledMask(ref TimedSpawnHandle);
+                    NativeArray<ProjectileIdentityComponent> identities =
+                        chunk.GetNativeArray(ref IdentityHandle);
+                    NativeArray<CombatKinematicsComponent> kinematics =
+                        chunk.GetNativeArray(ref KinematicsHandle);
+                    NativeArray<CombatCollisionComponent> collisions =
+                        chunk.GetNativeArray(ref CollisionHandle);
+                    NativeArray<CombatLifetimeComponent> lifetimes =
+                        chunk.GetNativeArray(ref LifetimeHandle);
+                    NativeArray<ProjectileHitComponent> hits = chunk.GetNativeArray(ref HitHandle);
+                    NativeArray<ProjectileTrackingComponent> tracking =
+                        chunk.GetNativeArray(ref TrackingHandle);
+                    NativeArray<CombatRenderComponent> renders =
+                        chunk.GetNativeArray(ref RenderHandle);
+                    NativeArray<CombatRenderBatchId> batchIds =
+                        chunk.GetNativeArray(ref RenderBatchIdHandle);
+                    NativeArray<CombatRenderElement> renderElems =
+                        chunk.GetNativeArray(ref RenderElementHandle);
+                    BufferAccessor<ProjectileContactGateElement> gates =
+                        chunk.GetBufferAccessor(ref ContactGateHandle);
+                    NativeArray<TimedSpawnComponent> timedSpawns =
+                        chunk.GetNativeArray(ref TimedSpawnHandle);
+                    NativeArray<TimedSpawnStateComponent> timedSpawnStates =
+                        chunk.GetNativeArray(ref TimedSpawnStateHandle);
 
-                NativeArray<ProjectileIdentityComponent> identities = chunk.GetNativeArray(ref IdentityHandle);
-                NativeArray<CombatKinematicsComponent> kinematics = chunk.GetNativeArray(ref KinematicsHandle);
-                NativeArray<CombatCollisionComponent> collisions = chunk.GetNativeArray(ref CollisionHandle);
-                NativeArray<CombatLifetimeComponent> lifetimes = chunk.GetNativeArray(ref LifetimeHandle);
-                NativeArray<ProjectileHitComponent> hits = chunk.GetNativeArray(ref HitHandle);
-                NativeArray<ProjectileTrackingComponent> tracking = chunk.GetNativeArray(ref TrackingHandle);
-                NativeArray<CombatRenderComponent> renders = chunk.GetNativeArray(ref RenderHandle);
-                NativeArray<CombatRenderBatchId> batchIds = chunk.GetNativeArray(ref RenderBatchIdHandle);
-                NativeArray<CombatRenderElement> renderElems = chunk.GetNativeArray(ref RenderElementHandle);
-                BufferAccessor<ProjectileContactGateElement> gates = chunk.GetBufferAccessor(ref ContactGateHandle);
-                NativeArray<TimedSpawnComponent> timedSpawns =
-                    chunk.GetNativeArray(ref TimedSpawnHandle);
-                NativeArray<TimedSpawnStateComponent> timedSpawnStates =
-                    chunk.GetNativeArray(ref TimedSpawnStateHandle);
-
-                for (int i = 0; i < chunk.Count && cfgIdx < Commands.Length; i++)
-                {
-                    if (activeMask[i])
+                    for (int i = 0; i < chunk.Count && reader.RemainingItemCount > 0; i++)
                     {
-                        continue;
-                    }
-
-                    ProjectileSpawnCommand cfg = Commands[cfgIdx++];
-
-                    identities[i] = new ProjectileIdentityComponent
-                    {
-                        Faction = cfg.Faction,
-                        ProjectileId = cfg.ProjectileId,
-                        TypeId = cfg.TypeId
-                    };
-                    kinematics[i] = new CombatKinematicsComponent
-                    {
-                        Position = cfg.Position,
-                        Velocity = cfg.Velocity
-                    };
-                    collisions[i] = new CombatCollisionComponent
-                    {
-                        ShapeType = cfg.ShapeType,
-                        Radius = cfg.Radius,
-                        HalfExtents = cfg.HalfExtents,
-                        RotationRadians = cfg.RotationRadians,
-                        BoundsMin = cfg.BoundsMin,
-                        BoundsMax = cfg.BoundsMax
-                    };
-                    lifetimes[i] = new CombatLifetimeComponent { Remaining = cfg.Lifetime };
-                    lifetimeMask[i] = true;
-                    hits[i] = new ProjectileHitComponent
-                    {
-                        PierceRemaining = cfg.PierceRemaining,
-                        RepeatHitCooldownSeconds = cfg.RepeatHitCooldownSeconds,
-                        HitPayload = HitPayloadFor(in cfg, cfg.Faction)
-                    };
-                    tracking[i] = cfg.Tracking;
-                    trackingMask[i] = cfg.Tracking.TrackingEnabled;
-                    renders[i] = cfg.Render;
-                    batchIds[i] = new CombatRenderBatchId { Value = cfg.RenderTypeId };
-                    renderElems[i] = new CombatRenderElement();
-
-                    DynamicBuffer<ProjectileContactGateElement> gate = gates[i];
-                    gate.Clear();
-                    if (cfg.SeedContactGateTargetId > 0)
-                    {
-                        gate.Add(new ProjectileContactGateElement
+                        if (activeMask[i])
                         {
-                            TargetId = cfg.SeedContactGateTargetId,
-                            CooldownRemaining = math.max(0.1f, cfg.RepeatHitCooldownSeconds)
-                        });
+                            continue;
+                        }
+
+                        int commandIndex = reader.Read<int>();
+                        ProjectileSpawnCommand cfg = Commands[commandIndex];
+
+                        identities[i] = new ProjectileIdentityComponent
+                        {
+                            Faction = cfg.Faction,
+                            ProjectileId = cfg.ProjectileId,
+                            TypeId = cfg.TypeId
+                        };
+                        kinematics[i] = new CombatKinematicsComponent
+                        {
+                            Position = cfg.Position,
+                            Velocity = cfg.Velocity
+                        };
+                        collisions[i] = new CombatCollisionComponent
+                        {
+                            ShapeType = cfg.ShapeType,
+                            Radius = cfg.Radius,
+                            HalfExtents = cfg.HalfExtents,
+                            RotationRadians = cfg.RotationRadians,
+                            BoundsMin = cfg.BoundsMin,
+                            BoundsMax = cfg.BoundsMax
+                        };
+                        lifetimes[i] = new CombatLifetimeComponent { Remaining = cfg.Lifetime };
+                        lifetimeMask[i] = true;
+                        hits[i] = new ProjectileHitComponent
+                        {
+                            PierceRemaining = cfg.PierceRemaining,
+                            RepeatHitCooldownSeconds = cfg.RepeatHitCooldownSeconds,
+                            HitPayload = HitPayloadFor(in cfg, cfg.Faction)
+                        };
+                        tracking[i] = cfg.Tracking;
+                        trackingMask[i] = cfg.Tracking.TrackingEnabled;
+                        renders[i] = cfg.Render;
+                        batchIds[i] = new CombatRenderBatchId { Value = cfg.RenderTypeId };
+                        renderElems[i] = new CombatRenderElement();
+
+                        DynamicBuffer<ProjectileContactGateElement> gate = gates[i];
+                        gate.Clear();
+                        if (cfg.SeedContactGateTargetId > 0)
+                        {
+                            gate.Add(new ProjectileContactGateElement
+                            {
+                                TargetId = cfg.SeedContactGateTargetId,
+                                CooldownRemaining = math.max(0.1f, cfg.RepeatHitCooldownSeconds)
+                            });
+                        }
+
+                        bool hasTimedSpawner = cfg.HasTimedSpawner != 0;
+                        timedSpawns[i] = hasTimedSpawner ? cfg.TimedSpawn : default;
+                        timedSpawnStates[i] = hasTimedSpawner ? InitialTimedSpawnStateFor(cfg) : default;
+                        timedSpawnMask[i] = hasTimedSpawner;
+
+                        activeMask[i] = true;
+                        collisionActiveMask[i] = NeedsCollision(cfg.HitPayload);
+                        renderActiveMask[i] = true;
                     }
-
-                    bool hasTimedSpawner = cfg.HasTimedSpawner != 0;
-                    timedSpawns[i] = hasTimedSpawner ? cfg.TimedSpawn : default;
-                    timedSpawnStates[i] = hasTimedSpawner ? InitialTimedSpawnStateFor(cfg) : default;
-                    timedSpawnMask[i] = hasTimedSpawner;
-
-                    activeMask[i] = true;
-                    collisionActiveMask[i] = NeedsCollision(cfg.HitPayload);
-                    renderActiveMask[i] = true;
                 }
 
-                ClaimedCount.Value = cfgIdx;
-            }
-        }
-
-        private readonly struct ProjectileSpawnWork
-        {
-            public readonly NativeArray<ProjectileSpawnCommand> Commands;
-            public readonly NativeReference<int> ClaimedCount;
-
-            public ProjectileSpawnWork(
-                NativeArray<ProjectileSpawnCommand> commands,
-                NativeReference<int> claimedCount)
-            {
-                Commands = commands;
-                ClaimedCount = claimedCount;
+                while (reader.RemainingItemCount > 0)
+                {
+                    Remainder.Enqueue(reader.Read<int>());
+                }
+                reader.EndForEachIndex();
             }
         }
     }

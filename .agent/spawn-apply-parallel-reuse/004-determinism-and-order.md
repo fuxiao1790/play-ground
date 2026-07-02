@@ -25,6 +25,14 @@ different chunk fill order) does not change simulation results.
   - Any float summation that accumulates across entities in iteration order.
 - Confirm no system relies on newly created entities appearing in a specific chunk
   before the next structural sync.
+- Expansion is now also parallel (`ProjectileExpansionJob` / `AoeExpansionJob` are
+  `IJobParallelFor` over events), so the *command order* within each per-domain
+  list is thread-scheduling dependent, not just the slot each command lands in.
+  Per-command IDs (`ProjectileIdFor` / `AoeIdFor`) and per-event RNG remain
+  deterministic, so this adds no new per-entity variation beyond ordering. If
+  byte-for-byte command ordering is ever required, switch the projectile writer to
+  a per-event `NativeStream` (as the AOE path can) instead of a shared
+  `ParallelWriter` list.
 - If an order dependence exists, decide: sort at the consumer, or constrain apply
   ordering for that path only. Do not reintroduce a serial claim cursor.
 

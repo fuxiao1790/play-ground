@@ -13,10 +13,13 @@ Trace how projectile and AOE intent becomes reusable ECS entities.
 3. Expansion owns count, spread, jitter, bounds, deterministic id, and command
    production.
 4. Expansion writes `ProjectileSpawnCommand` or `AoeSpawnCommand`.
-5. Apply systems route commands by domain reuse pool.
-6. Apply jobs reset disabled `Active` slots found with `WithDisabled<Active>()`.
-7. Unclaimed commands cold-create entities through an ECB.
-8. Spawned/reused entities join simulation on the next update.
+5. Apply systems capture disabled-slot chunks for their domain reuse pool.
+6. Apply builds one command-index lane per worker and assigns each worker a
+   disjoint chunk range.
+7. One parallel apply job per domain resets disabled `Active` slots from that
+   worker's lane.
+8. Overflow command indices cold-create entities through an ECB.
+9. Spawned/reused entities join simulation on the next update.
 
 ## Producers
 
@@ -49,9 +52,11 @@ Commands are one entity; events are gameplay intent.
 
 ## Failure / Edge Cases
 
-Pool misses cold-create overflow entities. Scope membership does not identify
-domain or faction. Commands should stay small enough for native stream block
-limits.
+Pool misses cold-create overflow entities. Uneven reuse is intentional: one
+worker may overflow its lane while another worker has spare slots, so the
+resident pool can converge to a slightly larger steady-state size. Scope
+membership does not identify domain or faction. Commands should stay small
+enough for native stream block limits.
 
 ## Related Decisions
 

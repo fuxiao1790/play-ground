@@ -524,6 +524,44 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void ParallelApply_ImpactOverflowReportsSplitThenConverges()
+        {
+            var impactApply = testWorld.GetExistingSystemManaged<ImpactAoeSpawnApplySystem>();
+            CreateDisabledImpactAoeSlot();
+
+            SpawnCircle(float2.zero, 1f, 1f, echoCount: 4);
+            TickSimulationOnly(0.01f);
+
+            Assert.That(ReadInternalInt(impactApply, "LastReuseCount"), Is.EqualTo(1));
+            Assert.That(ReadInternalInt(impactApply, "LastColdCreateCount"), Is.EqualTo(3));
+            Assert.That(ImpactAoeCount(), Is.EqualTo(4));
+
+            DisableAllImpactAoes();
+            SpawnCircle(float2.zero, 1f, 1f, echoCount: 4);
+            TickSimulationOnly(0.01f);
+
+            Assert.That(ReadInternalInt(impactApply, "LastReuseCount"), Is.EqualTo(4));
+            Assert.That(ReadInternalInt(impactApply, "LastColdCreateCount"), Is.EqualTo(0));
+            Assert.That(ImpactAoeCount(), Is.EqualTo(4));
+        }
+
+        [Test]
+        public void ParallelApply_LingeringOverflowReportsSplitAndResetsTimedSpawn()
+        {
+            var lingeringApply = testWorld.GetExistingSystemManaged<LingeringAoeSpawnApplySystem>();
+            Entity disabledTimedSlot = CreateDisabledLingeringAoeSlot(timedSpawnEnabled: true);
+
+            SpawnCircle(float2.zero, 1f, 1f, lifetime: 10f, tickInterval: 0.05f, echoCount: 4);
+            TickSimulationOnly(0.01f);
+
+            Assert.That(ReadInternalInt(lingeringApply, "LastReuseCount"), Is.EqualTo(1));
+            Assert.That(ReadInternalInt(lingeringApply, "LastColdCreateCount"), Is.EqualTo(3));
+            Assert.That(LingeringAoeCount(), Is.EqualTo(4));
+            Assert.That(entityManager.IsComponentEnabled<TimedSpawnComponent>(disabledTimedSlot), Is.False);
+            Assert.That(entityManager.GetBuffer<AoeContactGateElement>(disabledTimedSlot).Length, Is.EqualTo(0));
+        }
+
+        [Test]
         public void TargetProxyLifecycle_CreatePushDeleteControlsCollisionVisibility()
         {
             int targetId = ++nextTargetId;
@@ -1053,7 +1091,8 @@ namespace PlayGround.Tests.PlayMode
             OnHitSpawnRef onHitSpawn = default,
             int renderTypeId = 1,
             TimedSpawnComponent timedSpawn = default,
-            bool hasTimedSpawner = false)
+            bool hasTimedSpawner = false,
+            int echoCount = 1)
         {
             var template = new AoeSpawnCommand
             {
@@ -1071,7 +1110,7 @@ namespace PlayGround.Tests.PlayMode
                 Radius = radius,
                 AreaSize = radius,
                 ShapeType = CombatShapeType.Circle,
-                EchoCount = 1,
+                EchoCount = echoCount,
                 HasTimedSpawner = hasTimedSpawner ? 1 : 0,
                 TimedSpawn = timedSpawn
             };
@@ -1244,6 +1283,94 @@ namespace PlayGround.Tests.PlayMode
         {
             using EntityQuery q = entityManager.CreateEntityQuery(ComponentType.ReadOnly<AoeTag>());
             return q.CalculateEntityCount();
+        }
+
+        private int ImpactAoeCount()
+        {
+            using EntityQuery q = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AoeTag>()
+                .WithNone<CombatLifetimeComponent>()
+                .Build(entityManager);
+            return q.CalculateEntityCount();
+        }
+
+        private int LingeringAoeCount()
+        {
+            using EntityQuery q = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AoeTag>()
+                .WithAll<CombatLifetimeComponent>()
+                .Build(entityManager);
+            return q.CalculateEntityCount();
+        }
+
+        private Entity CreateDisabledImpactAoeSlot()
+        {
+            Entity entity = entityManager.CreateEntity(
+                typeof(AoeTag),
+                typeof(AoeIdentityComponent),
+                typeof(AoeHitGateComponent),
+                typeof(AoeHitSpawnComponent),
+                typeof(AoeAreaComponent),
+                typeof(CombatRenderComponent),
+                typeof(CombatRenderBatchId),
+                typeof(CombatRenderElement),
+                typeof(CombatKinematicsComponent),
+                typeof(CombatCollisionComponent),
+                typeof(Active),
+                typeof(AoeCollisionActiveTag),
+                typeof(CombatRenderActiveTag));
+
+            entityManager.SetComponentEnabled<Active>(entity, false);
+            entityManager.SetComponentEnabled<AoeCollisionActiveTag>(entity, false);
+            entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, false);
+            return entity;
+        }
+
+        private Entity CreateDisabledLingeringAoeSlot(bool timedSpawnEnabled)
+        {
+            Entity entity = entityManager.CreateEntity(
+                typeof(AoeTag),
+                typeof(AoeIdentityComponent),
+                typeof(CombatLifetimeComponent),
+                typeof(AoeHitGateComponent),
+                typeof(AoeHitSpawnComponent),
+                typeof(AoeAreaComponent),
+                typeof(AoePulseVfxComponent),
+                typeof(CombatRenderComponent),
+                typeof(CombatRenderBatchId),
+                typeof(CombatRenderElement),
+                typeof(CombatKinematicsComponent),
+                typeof(CombatCollisionComponent),
+                typeof(Active),
+                typeof(AoeCollisionActiveTag),
+                typeof(CombatRenderActiveTag),
+                typeof(AoeContactGateElement),
+                typeof(TimedSpawnComponent),
+                typeof(TimedSpawnStateComponent));
+
+            DynamicBuffer<AoeContactGateElement> gates = entityManager.GetBuffer<AoeContactGateElement>(entity);
+            gates.Add(new AoeContactGateElement { TargetId = 123, CooldownRemaining = 1f });
+            entityManager.SetComponentEnabled<Active>(entity, false);
+            entityManager.SetComponentEnabled<AoeCollisionActiveTag>(entity, false);
+            entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, false);
+            entityManager.SetComponentEnabled<CombatLifetimeComponent>(entity, true);
+            entityManager.SetComponentEnabled<TimedSpawnComponent>(entity, timedSpawnEnabled);
+            return entity;
+        }
+
+        private void DisableAllImpactAoes()
+        {
+            using EntityQuery q = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AoeTag>()
+                .WithNone<CombatLifetimeComponent>()
+                .Build(entityManager);
+            using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
+            for (int i = 0; i < entities.Length; i++)
+            {
+                entityManager.SetComponentEnabled<Active>(entities[i], false);
+                entityManager.SetComponentEnabled<AoeCollisionActiveTag>(entities[i], false);
+                entityManager.SetComponentEnabled<CombatRenderActiveTag>(entities[i], false);
+            }
         }
 
         private Entity FirstAoeEntity()
@@ -1522,6 +1649,14 @@ namespace PlayGround.Tests.PlayMode
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null);
             return (NativeQueue<ProjectileSpawnEvent>)field.GetValue(projectileExpansion);
+        }
+
+        private static int ReadInternalInt(object target, string fieldName)
+        {
+            const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var field = target.GetType().GetField(fieldName, Flags);
+            Assert.That(field, Is.Not.Null);
+            return (int)field.GetValue(target);
         }
 
         private readonly struct AoeSpawnSnapshot

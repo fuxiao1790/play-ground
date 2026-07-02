@@ -56,35 +56,39 @@ This document tracks implementation decisions, patterns, and current architectur
 
 ## Spawn Reuse Scheduling
 
-Projectile and AOE spawn reuse avoid main-thread entity-slot slice assignment.
-Spawn commands are stored in one native container per reuse pool: projectile,
-impact AOE, and lingering AOE. Each apply system owns one disabled-slot query,
-schedules one direct reuse `IJobChunk`, and writes the same reset components
-that cold creation initializes. The apply systems then cold-create unclaimed
-commands in the same frame.
+Projectile and AOE spawn reuse avoid a shared claim cursor. Spawn commands are
+stored in one native container per reuse pool: projectile, impact AOE, and
+lingering AOE. Each apply system owns one disabled-slot query, captures matching
+chunks, splits those chunks into worker-owned ranges, and builds one
+`NativeStream` lane of command indices per worker. A single parallel
+worker-index job per domain resets disabled slots with the same components that
+cold creation initializes. The apply systems then cold-create overflow command
+indices in the same frame.
 
 ### Progress
 
 - The main thread no longer walks matching disabled entity slots just to assign
   worker slices.
+- The apply path no longer has one shared command claim cursor.
 - Worker time owns the disabled-slot scan and reset work.
 - The current shape keeps query/category selection in ECS queries rather than
   per-entity branch filters.
 - Same-frame cold fallback remains unchanged, so underwarmed pools still work.
+- Reuse can run across multiple worker-owned chunk ranges.
 
 ### Known Drawback
 
-- Each pool currently schedules one chunk job, not a parallel chunk job. If one
-  pool owns almost all matching chunks, reuse can still become effectively
-  single-threaded.
-- This is accepted for now because projectile and AOE spawn are not the current
-  bottleneck, and avoiding unsafe atomic claim keeps the implementation simpler.
+- Reuse is intentionally lossy under imbalance. A worker cold-creates the
+  remaining command indices in its lane once its own chunk range is full, even
+  if another worker has spare disabled slots.
+- This can grow the resident pool slightly beyond perfect packing. The overflow
+  cost should fall as the pool converges.
 
 **Revisit if profiling shows** `ProjectileSpawnApplySystem.ReuseJob`,
 `ImpactAoeSpawnApplySystem.ReuseJob`, `LingeringAoeSpawnApplySystem.ReuseJob`,
-or cold fallback dominates frame time. A likely next test is to count matching
-chunks on workers, build only a chunk prefix on the main thread, and schedule
-parallel reset slices without unsafe atomics.
+or cold fallback dominates frame time. The next lever is a per-chunk
+disabled-slot popcount so command lanes can be sized closer to real free
+capacity while keeping apply parallel and cursor-free.
 
 ---
 

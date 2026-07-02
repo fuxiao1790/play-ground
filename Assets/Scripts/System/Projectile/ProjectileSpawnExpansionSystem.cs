@@ -23,14 +23,13 @@ namespace PlayGround.System.Projectile
         private EntityQuery _scopeQuery;
 
         internal NativeQueue<ProjectileSpawnEvent> EventQueue;
-        internal NativeList<ProjectileSpawnCommand> ProjectileCommandContainer;
+        internal NativeStream ProjectileCommandStream;
         internal JobHandle PendingHandle;
         internal JobHandle ProducerHandle;
 
         protected override void OnCreate()
         {
             EventQueue = new NativeQueue<ProjectileSpawnEvent>(Allocator.Persistent);
-            ProjectileCommandContainer = new NativeList<ProjectileSpawnCommand>(256, Allocator.Persistent);
             _scopeQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CombatScope>(),
                 ComponentType.ReadWrite<ProjectileSpawnEvent>());
@@ -39,9 +38,9 @@ namespace PlayGround.System.Projectile
         protected override void OnDestroy()
         {
             PendingHandle.Complete();
-            if (ProjectileCommandContainer.IsCreated)
+            if (ProjectileCommandStream.IsCreated)
             {
-                ProjectileCommandContainer.Dispose();
+                ProjectileCommandStream.Dispose();
             }
 
             EventQueue.Dispose();
@@ -49,11 +48,14 @@ namespace PlayGround.System.Projectile
 
         protected override void OnUpdate()
         {
+            if (ProjectileCommandStream.IsCreated)
+            {
+                ProjectileCommandStream.Dispose();
+            }
+
             Dependency.Complete();
             ProducerHandle.Complete();
             ProducerHandle = default;
-
-            ProjectileCommandContainer.Clear();
 
             int queueCount = EventQueue.Count;
             using NativeArray<Entity> scopes = _scopeQuery.ToEntityArray(Allocator.Temp);
@@ -100,98 +102,81 @@ namespace PlayGround.System.Projectile
                 return;
             }
 
-            int commandBound = 0;
-            for (int e = 0; e < events.Length; e++)
-            {
-                ProjectileSpawnEvent evt = events[e];
-                if (evt.Kind != IntervalChildKind.Projectile
-                    || !templates.Map.TryGetValue(evt.TemplateKey, out ProjectileSpawnCommand template))
-                {
-                    continue;
-                }
-
-                int fanout = math.max(1, template.Count);
-                commandBound += fanout;
-            }
-
-            if (ProjectileCommandContainer.Capacity < commandBound)
-            {
-                ProjectileCommandContainer.SetCapacity(commandBound);
-            }
+            ProjectileCommandStream = new NativeStream(events.Length, Allocator.TempJob);
 
             Dependency = new ProjectileExpansionJob
             {
                 Events = events,
                 Templates = templates.Map,
-                Commands = ProjectileCommandContainer.AsParallelWriter()
-            }.Schedule(Dependency);
+                Commands = ProjectileCommandStream.AsWriter()
+            }.Schedule(events.Length, 1, Dependency);
 
             Dependency = events.Dispose(Dependency);
             PendingHandle = Dependency;
         }
 
         [BurstCompile]
-        private struct ProjectileExpansionJob : IJob
+        private struct ProjectileExpansionJob : IJobParallelFor
         {
             [ReadOnly] public NativeArray<ProjectileSpawnEvent> Events;
             [ReadOnly] public NativeHashMap<Hash128, ProjectileSpawnCommand> Templates;
-            public NativeList<ProjectileSpawnCommand>.ParallelWriter Commands;
+            public NativeStream.Writer Commands;
 
-            public void Execute()
+            public void Execute(int ci)
             {
-                for (int ci = 0; ci < Events.Length; ci++)
+                ProjectileSpawnEvent evt = Events[ci];
+                if (evt.Kind != IntervalChildKind.Projectile
+                    || !Templates.TryGetValue(evt.TemplateKey, out ProjectileSpawnCommand command))
                 {
-                    ProjectileSpawnEvent evt = Events[ci];
-                    if (evt.Kind != IntervalChildKind.Projectile
-                        || !Templates.TryGetValue(evt.TemplateKey, out ProjectileSpawnCommand command))
-                    {
-                        continue;
-                    }
+                    return;
+                }
 
-                    Stamp(ref command, in evt);
-                    int count = math.max(1, command.Count);
+                Commands.BeginForEachIndex(ci);
+                Stamp(ref command, in evt);
+                int count = math.max(1, command.Count);
 
-                    if (command.DeterministicIdTickIndex > 0
-                        && command.SpawnPatternType == ProjectileChildSpawnPatternType.SideSpray)
+                if (command.DeterministicIdTickIndex > 0
+                    && command.SpawnPatternType == ProjectileChildSpawnPatternType.SideSpray)
+                {
+                    for (int i = 0; i < count; i++)
                     {
-                        for (int i = 0; i < count; i++)
-                        {
-                            int id = ProjectileIdFor(in command, i);
-                            float2 velocity = SideSprayVelocity(in command, i, count);
-                            WriteCommand(in command, id, velocity);
-                        }
-                    }
-                    else if (command.DeterministicIdTickIndex > 0
-                        && command.SpawnPatternType == ProjectileChildSpawnPatternType.Radial)
-                    {
-                        for (int i = 0; i < count; i++)
-                        {
-                            int id = ProjectileIdFor(in command, i);
-                            float2 velocity = RadialDirection(i, count) * command.Speed;
-                            WriteCommand(in command, id, velocity);
-                        }
-                    }
-                    else if (count <= 1)
-                    {
-                        WriteCommand(in command, ProjectileIdFor(in command, 0), command.BaseDirection * command.Speed);
-                    }
-                    else
-                    {
-                        var rng = new Random(command.JitterSeed != 0 ? command.JitterSeed : 1u);
-                        for (int i = 0; i < count; i++)
-                        {
-                            float angle = SpreadAngle(command.SpreadDegrees, i, count);
-                            if (command.JitterDegrees > 0f)
-                            {
-                                angle += rng.NextFloat(-command.JitterDegrees, command.JitterDegrees);
-                            }
-
-                            int id = ProjectileIdFor(in command, i);
-                            float2 velocity = Rotate(command.BaseDirection, angle) * command.Speed;
-                            WriteCommand(in command, id, velocity);
-                        }
+                        int id = ProjectileIdFor(in command, i);
+                        float2 velocity = SideSprayVelocity(in command, i, count);
+                        WriteCommand(in command, id, velocity);
                     }
                 }
+                else if (command.DeterministicIdTickIndex > 0
+                    && command.SpawnPatternType == ProjectileChildSpawnPatternType.Radial)
+                {
+                    for (int i = 0; i < count; i++)
+                    {
+                        int id = ProjectileIdFor(in command, i);
+                        float2 velocity = RadialDirection(i, count) * command.Speed;
+                        WriteCommand(in command, id, velocity);
+                    }
+                }
+                else if (count <= 1)
+                {
+                    WriteCommand(in command, ProjectileIdFor(in command, 0), command.BaseDirection * command.Speed);
+                }
+                else
+                {
+                    var rng = new Random(command.JitterSeed != 0 ? command.JitterSeed : 1u);
+                    for (int i = 0; i < count; i++)
+                    {
+                        float angle = SpreadAngle(command.SpreadDegrees, i, count);
+                        if (command.JitterDegrees > 0f)
+                        {
+                            angle += rng.NextFloat(-command.JitterDegrees, command.JitterDegrees);
+                        }
+
+                        int id = ProjectileIdFor(in command, i);
+                        float2 velocity = Rotate(command.BaseDirection, angle) * command.Speed;
+                        WriteCommand(in command, id, velocity);
+                    }
+                }
+
+                Commands.EndForEachIndex();
             }
 
             private static void Stamp(ref ProjectileSpawnCommand command, in ProjectileSpawnEvent evt)
@@ -233,7 +218,7 @@ namespace PlayGround.System.Projectile
                 command.Render = render;
                 command.TimedSpawn = timedSpawn;
 
-                Commands.AddNoResize(command);
+                Commands.Write(command);
             }
 
             private static float SpreadAngle(float spread, int i, int count) =>

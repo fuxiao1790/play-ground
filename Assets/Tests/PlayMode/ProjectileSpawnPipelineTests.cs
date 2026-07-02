@@ -153,6 +153,35 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void ParallelApply_ForcedOverflowKeepsDeterministicIdsAcrossRepeatedRuns()
+        {
+            var apply = testWorld.GetExistingSystemManaged<ProjectileSpawnApplySystem>();
+
+            for (int run = 0; run < 3; run++)
+            {
+                CreateDisabledProjectileSlot(childSpawner: run % 2 == 0);
+                int sourceId = 7000 + run * 100;
+                EnqueueEvent(MakeEvent(
+                    count: 4,
+                    baseProjectileId: sourceId,
+                    jitterSeed: 321u,
+                    deterministicIdTickIndex: 9,
+                    lifetime: 100f));
+
+                Tick(0.01f);
+
+                Assert.That(ReadInternalInt(apply, "LastReuseCount"), Is.EqualTo(1));
+                Assert.That(ReadInternalInt(apply, "LastColdCreateCount"), Is.EqualTo(3));
+
+                int[] ids = ActiveProjectileIds();
+                for (int childIndex = 0; childIndex < 4; childIndex++)
+                {
+                    Assert.That(ids, Does.Contain(ExpectedChildId(sourceId, 321, 9, childIndex)));
+                }
+            }
+        }
+
+        [Test]
         public void RadialFanOut_Count4_ProducesFullCircleVelocities()
         {
             const float speed = 5f;
@@ -598,6 +627,16 @@ namespace PlayGround.Tests.PlayMode
                 hash &= int.MaxValue;
                 return hash == 0 ? 1 : hash;
             }
+        }
+
+        private static int ReadInternalInt(object target, string fieldName)
+        {
+            const global::System.Reflection.BindingFlags Flags =
+                global::System.Reflection.BindingFlags.Instance |
+                global::System.Reflection.BindingFlags.NonPublic;
+            var field = target.GetType().GetField(fieldName, Flags);
+            Assert.That(field, Is.Not.Null);
+            return (int)field.GetValue(target);
         }
 
         private float2 ReadFirstActiveProjectilePosition()
