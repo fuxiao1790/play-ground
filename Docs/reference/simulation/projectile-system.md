@@ -110,7 +110,7 @@ not one scope entity per faction. Faction is carried explicitly on:
 - `TargetFaction`
 - `DamageReplayEvent` source metadata through identity values
 - `VfxPendingSpawn`
-- render shared components
+- per-entity render batch data
 
 Projectile systems must query `ProjectileTag` plus the generic components they
 need. `Active` alone never makes an entity a projectile.
@@ -268,12 +268,12 @@ hit consumes the source.
 ## Rendering And VFX
 
 Projectile visuals are batched. `CombatRoot` builds sprite render resources and
-stores them in dictionaries keyed by type id. Runtime entities carry common
-render components plus render shared components for faction and type.
+stores them in dictionaries keyed by render id. Runtime entities carry common
+render components plus a plain `CombatRenderBatchId` copied from `RenderTypeId`.
 
 `CombatRenderPrepareSystem` writes matrices for active projectile and AOE
-entities. `CombatBatchedRenderSystem` runs in `PresentationSystemGroup`, looks
-up the owning `CombatRoot` by faction, filters by domain tag and render type,
+entities. `CombatBatchedRenderSystem` runs in `PresentationSystemGroup`, filters
+by domain tag and active render tag, scatters matrices by `CombatRenderBatchId`,
 and submits `Graphics.RenderMeshInstanced` batches.
 
 Gameplay VFX requests are plain ECS/native data until presentation. Projectile

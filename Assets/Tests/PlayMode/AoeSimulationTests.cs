@@ -404,6 +404,26 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void AoeReuse_OverwritesRenderBatchId()
+        {
+            const int FirstRenderType = 50;
+            const int SecondRenderType = 60;
+
+            SpawnCircle(float2.zero, 1f, 1f, renderTypeId: FirstRenderType);
+            Tick(0.01f);
+            Entity first = FirstAoeEntity();
+            Assert.That(entityManager.GetComponentData<CombatRenderBatchId>(first).Value, Is.EqualTo(FirstRenderType));
+
+            SpawnCircle(float2.zero, 1f, 1f, renderTypeId: SecondRenderType);
+            Tick(0.01f);
+            Entity reused = FirstAoeEntity();
+
+            Assert.That(reused, Is.EqualTo(first));
+            Assert.That(entityManager.GetComponentData<CombatRenderBatchId>(reused).Value, Is.EqualTo(SecondRenderType));
+            Assert.That(TotalAoeCount(), Is.EqualTo(1));
+        }
+
+        [Test]
         public void ImpactArchetypeOmitsLingeringOnlyComponentsAndHasLargerChunkCapacity()
         {
             SpawnCircle(float2.zero, 1f, 1f);
@@ -999,11 +1019,13 @@ namespace PlayGround.Tests.PlayMode
             float lifetime = 0f,
             float tickInterval = 0f,
             StackEffectSnapshot stackEffect = default,
-            OnHitSpawnRef onHitSpawn = default)
+            OnHitSpawnRef onHitSpawn = default,
+            int renderTypeId = 1)
         {
             var template = new AoeSpawnCommand
             {
                 TypeId = 1,
+                RenderTypeId = renderTypeId,
                 Lifetime = lifetime,
                 RepeatHitCooldownSeconds = tickInterval,
                 HitPayload = new CombatHitPayload

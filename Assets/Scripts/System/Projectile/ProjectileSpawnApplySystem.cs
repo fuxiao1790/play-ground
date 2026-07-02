@@ -210,7 +210,6 @@ namespace PlayGround.System.Projectile
                 _deadSlotQueriesByKey[key] = query;
             }
 
-            query.SetSharedComponentFilter(new CombatRenderBatchId { Value = key.BatchId });
             return query;
         }
 
@@ -261,6 +260,7 @@ namespace PlayGround.System.Projectile
             ecb.SetComponent(entity, cmd.Tracking);
             ecb.SetComponentEnabled<ProjectileTrackingComponent>(entity, cmd.Tracking.TrackingEnabled);
             ecb.SetComponent(entity, cmd.Render);
+            ecb.SetComponent(entity, new CombatRenderBatchId { Value = cmd.RenderTypeId });
             ecb.SetComponent(entity, new CombatRenderElement());
 
             if (cmd.SeedContactGateTargetId > 0)
@@ -293,15 +293,9 @@ namespace PlayGround.System.Projectile
 
         private readonly struct ProjectileSpawnKey : IEquatable<ProjectileSpawnKey>
         {
-            private readonly int _batchId;
-
-            public int BatchId => _batchId;
-
-            public ProjectileSpawnKey(int batchId) { _batchId = batchId; }
-
-            public bool Equals(ProjectileSpawnKey other) => _batchId == other._batchId;
+            public bool Equals(ProjectileSpawnKey other) => true;
             public override bool Equals(object obj) => obj is ProjectileSpawnKey k && Equals(k);
-            public override int GetHashCode() => _batchId;
+            public override int GetHashCode() => 0;
         }
 
         // Counting-sort the drained commands into per-key contiguous runs, in Burst.
@@ -328,8 +322,7 @@ namespace PlayGround.System.Projectile
                 var bucketIds = new NativeArray<int>(count, Allocator.Temp);
                 for (int i = 0; i < count; i++)
                 {
-                    ProjectileSpawnCommand cmd = Commands[i];
-                    var key = new ProjectileSpawnKey(cmd.RenderTypeId);
+                    var key = new ProjectileSpawnKey();
                     if (!KeyToIndex.TryGetValue(key, out int idx))
                     {
                         idx = Keys.Length;
@@ -405,6 +398,7 @@ namespace PlayGround.System.Projectile
                 typeof(ProjectileHitComponent),
                 typeof(ProjectileTrackingComponent),
                 typeof(CombatRenderComponent),
+                typeof(CombatRenderBatchId),
                 typeof(CombatRenderElement),
                 typeof(Active),
                 typeof(ProjectileCollisionActiveTag),
@@ -418,7 +412,6 @@ namespace PlayGround.System.Projectile
         protected override EntityQuery BuildDeadSlotQuery() =>
             new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<ProjectileTag>()
-                .WithAll<CombatRenderBatchId>()
                 .WithDisabled<Active>()
                 .WithNone<TimedSpawnTag>()
                 .Build(this);
@@ -443,6 +436,7 @@ namespace PlayGround.System.Projectile
                 HitHandle = GetComponentTypeHandle<ProjectileHitComponent>(false),
                 TrackingHandle = GetComponentTypeHandle<ProjectileTrackingComponent>(false),
                 RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
+                RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderBatchId>(false),
                 RenderElementHandle = GetComponentTypeHandle<CombatRenderElement>(false),
                 ContactGateHandle = GetBufferTypeHandle<ProjectileContactGateElement>(false),
             }.Schedule(query, default);
@@ -453,7 +447,6 @@ namespace PlayGround.System.Projectile
             EntityCommandBuffer ecb)
         {
             Entity entity = ecb.CreateEntity(archetype);
-            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = cmd.RenderTypeId });
             RecordCommonProjectileReset(ecb, entity, cmd.Faction, cmd);
         }
 
@@ -474,6 +467,7 @@ namespace PlayGround.System.Projectile
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileHitComponent> HitHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileTrackingComponent> TrackingHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderBatchId> RenderBatchIdHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderElement> RenderElementHandle;
             [NativeDisableContainerSafetyRestriction] public BufferTypeHandle<ProjectileContactGateElement> ContactGateHandle;
 
@@ -499,6 +493,7 @@ namespace PlayGround.System.Projectile
                 NativeArray<ProjectileHitComponent> hits = chunk.GetNativeArray(ref HitHandle);
                 NativeArray<ProjectileTrackingComponent> tracking = chunk.GetNativeArray(ref TrackingHandle);
                 NativeArray<CombatRenderComponent> renders = chunk.GetNativeArray(ref RenderHandle);
+                NativeArray<CombatRenderBatchId> batchIds = chunk.GetNativeArray(ref RenderBatchIdHandle);
                 NativeArray<CombatRenderElement> renderElems = chunk.GetNativeArray(ref RenderElementHandle);
                 BufferAccessor<ProjectileContactGateElement> gates = chunk.GetBufferAccessor(ref ContactGateHandle);
 
@@ -539,6 +534,7 @@ namespace PlayGround.System.Projectile
                     tracking[i] = cfg.Tracking;
                     trackingMask[i] = cfg.Tracking.TrackingEnabled;
                     renders[i] = cfg.Render;
+                    batchIds[i] = new CombatRenderBatchId { Value = cfg.RenderTypeId };
                     renderElems[i] = new CombatRenderElement();
 
                     DynamicBuffer<ProjectileContactGateElement> gate = gates[i];
@@ -586,6 +582,7 @@ namespace PlayGround.System.Projectile
                 typeof(ProjectileHitComponent),
                 typeof(ProjectileTrackingComponent),
                 typeof(CombatRenderComponent),
+                typeof(CombatRenderBatchId),
                 typeof(CombatRenderElement),
                 typeof(Active),
                 typeof(ProjectileCollisionActiveTag),
@@ -602,7 +599,6 @@ namespace PlayGround.System.Projectile
         protected override EntityQuery BuildDeadSlotQuery() =>
             new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<ProjectileTag>()
-                .WithAll<CombatRenderBatchId>()
                 .WithAll<TimedSpawnTag>()
                 .WithDisabled<Active>()
                 .Build(this);
@@ -627,6 +623,7 @@ namespace PlayGround.System.Projectile
                 HitHandle = GetComponentTypeHandle<ProjectileHitComponent>(false),
                 TrackingHandle = GetComponentTypeHandle<ProjectileTrackingComponent>(false),
                 RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
+                RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderBatchId>(false),
                 RenderElementHandle = GetComponentTypeHandle<CombatRenderElement>(false),
                 ContactGateHandle = GetBufferTypeHandle<ProjectileContactGateElement>(false),
                 TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
@@ -639,7 +636,6 @@ namespace PlayGround.System.Projectile
             EntityCommandBuffer ecb)
         {
             Entity entity = ecb.CreateEntity(archetype);
-            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = cmd.RenderTypeId });
             RecordCommonProjectileReset(ecb, entity, cmd.Faction, cmd);
             ecb.SetComponent(entity, cmd.TimedSpawn);
             ecb.SetComponent(entity, InitialTimedSpawnStateFor(cmd));
@@ -697,6 +693,7 @@ namespace PlayGround.System.Projectile
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileHitComponent> HitHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<ProjectileTrackingComponent> TrackingHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderBatchId> RenderBatchIdHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderElement> RenderElementHandle;
             [NativeDisableContainerSafetyRestriction] public BufferTypeHandle<ProjectileContactGateElement> ContactGateHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
@@ -724,6 +721,7 @@ namespace PlayGround.System.Projectile
                 NativeArray<ProjectileHitComponent> hits = chunk.GetNativeArray(ref HitHandle);
                 NativeArray<ProjectileTrackingComponent> tracking = chunk.GetNativeArray(ref TrackingHandle);
                 NativeArray<CombatRenderComponent> renders = chunk.GetNativeArray(ref RenderHandle);
+                NativeArray<CombatRenderBatchId> batchIds = chunk.GetNativeArray(ref RenderBatchIdHandle);
                 NativeArray<CombatRenderElement> renderElems = chunk.GetNativeArray(ref RenderElementHandle);
                 BufferAccessor<ProjectileContactGateElement> gates = chunk.GetBufferAccessor(ref ContactGateHandle);
                 NativeArray<TimedSpawnComponent> timedSpawns =
@@ -768,6 +766,7 @@ namespace PlayGround.System.Projectile
                     tracking[i] = cfg.Tracking;
                     trackingMask[i] = cfg.Tracking.TrackingEnabled;
                     renders[i] = cfg.Render;
+                    batchIds[i] = new CombatRenderBatchId { Value = cfg.RenderTypeId };
                     renderElems[i] = new CombatRenderElement();
 
                     DynamicBuffer<ProjectileContactGateElement> gate = gates[i];

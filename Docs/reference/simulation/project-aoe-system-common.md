@@ -274,17 +274,16 @@ Follow-up spawns stay in ECS event flow and return to expansion/apply.
 
 Projectile and AOE visuals share the batched sprite render path.
 
-Runtime entities carry common render data and render shared components:
+Runtime entities carry common render data:
 
 - `CombatRenderComponent`
 - `CombatRenderElement`
 - `CombatRenderActiveTag`
-- `CombatRenderFaction`
-- `CombatRenderTypeId`
+- `CombatRenderBatchId`
 
 `CombatRenderPrepareSystem` prepares matrices for active renderable entities.
-`CombatBatchedRenderSystem` runs in presentation, resolves the owning
-`CombatRoot` by faction, and submits batches.
+`CombatBatchedRenderSystem` runs in presentation, scatters matrices by
+`CombatRenderBatchId`, and submits batches through registered render resources.
 
 VFX requests are data until presentation. Collision, lifetime, pulse, and spawn
 systems write VFX request data into native queues/streams or scope buffers.

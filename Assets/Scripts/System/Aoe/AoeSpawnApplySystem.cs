@@ -53,6 +53,7 @@ namespace PlayGround.System.Aoe
                 typeof(AoeAreaComponent),
                 typeof(AoePulseVfxComponent),
                 typeof(CombatRenderComponent),
+                typeof(CombatRenderBatchId),
                 typeof(CombatRenderElement),
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
@@ -69,6 +70,7 @@ namespace PlayGround.System.Aoe
                 typeof(AoeAreaComponent),
                 typeof(AoePulseVfxComponent),
                 typeof(CombatRenderComponent),
+                typeof(CombatRenderBatchId),
                 typeof(CombatRenderElement),
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
@@ -86,6 +88,7 @@ namespace PlayGround.System.Aoe
                 typeof(AoeHitSpawnComponent),
                 typeof(AoeAreaComponent),
                 typeof(CombatRenderComponent),
+                typeof(CombatRenderBatchId),
                 typeof(CombatRenderElement),
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
@@ -125,7 +128,7 @@ namespace PlayGround.System.Aoe
                     {
                         AoeSpawnCommand cmd = reader.Read<AoeSpawnCommand>();
                         bool hasTimedSpawner = HasTimedSpawner(cmd);
-                        var key = new AoeSpawnKey(cmd.RenderTypeId, cmd.Lifetime > 0f, hasTimedSpawner);
+                        var key = new AoeSpawnKey(cmd.Lifetime > 0f, hasTimedSpawner);
                         if (!_byKey.TryGetValue(key, out AoeSpawnBucket bucket))
                         {
                             bucket = GetBucket();
@@ -179,6 +182,7 @@ namespace PlayGround.System.Aoe
                             AreaHandle            = GetComponentTypeHandle<AoeAreaComponent>(false),
                             PulseVfxHandle        = GetComponentTypeHandle<AoePulseVfxComponent>(false),
                             RenderHandle          = GetComponentTypeHandle<CombatRenderComponent>(false),
+                            RenderBatchIdHandle   = GetComponentTypeHandle<CombatRenderBatchId>(false),
                             RenderElementHandle   = GetComponentTypeHandle<CombatRenderElement>(false),
                             ContactGateHandle     = GetBufferTypeHandle<AoeContactGateElement>(false),
                             TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
@@ -255,7 +259,6 @@ namespace PlayGround.System.Aoe
                     {
                         query = new EntityQueryBuilder(Allocator.Temp)
                             .WithAll<AoeTag>()
-                            .WithAll<CombatRenderBatchId>()
                             .WithAll<CombatLifetimeComponent>()
                             .WithAll<TimedSpawnTag>()
                             .WithDisabled<Active>()
@@ -265,7 +268,6 @@ namespace PlayGround.System.Aoe
                     {
                         query = new EntityQueryBuilder(Allocator.Temp)
                             .WithAll<AoeTag>()
-                            .WithAll<CombatRenderBatchId>()
                             .WithAll<CombatLifetimeComponent>()
                             .WithDisabled<Active>()
                             .WithNone<TimedSpawnTag>()
@@ -276,7 +278,6 @@ namespace PlayGround.System.Aoe
                 {
                     query = new EntityQueryBuilder(Allocator.Temp)
                         .WithAll<AoeTag>()
-                        .WithAll<CombatRenderBatchId>()
                         .WithDisabled<Active>()
                         .WithNone<CombatLifetimeComponent>()
                         .WithNone<TimedSpawnTag>()
@@ -285,7 +286,6 @@ namespace PlayGround.System.Aoe
                 _deadSlotQueriesByKey[key] = query;
             }
 
-            query.SetSharedComponentFilter(new CombatRenderBatchId { Value = key.BatchId });
             return query;
         }
 
@@ -307,7 +307,6 @@ namespace PlayGround.System.Aoe
                 ? hasTimedSpawner ? timedSpawnerLingeringArchetype : lingeringArchetype
                 : impactArchetype;
             Entity entity = ecb.CreateEntity(archetype);
-            ecb.AddSharedComponent(entity, new CombatRenderBatchId { Value = cmd.RenderTypeId });
             RecordAoeReset(ecb, entity, cmd, lingering, hasTimedSpawner);
         }
 
@@ -338,6 +337,7 @@ namespace PlayGround.System.Aoe
                 ecb.SetComponent(entity, InitialTimedSpawnStateFor(cmd));
             }
             ecb.SetComponent(entity, render);
+            ecb.SetComponent(entity, new CombatRenderBatchId { Value = cmd.RenderTypeId });
             ecb.SetComponent(entity, CombatRenderMatrixUtility.ElementFor(kinematics, render));
             bool collisionEnabled = NeedsCollision(cmd);
             bool active = lingering || collisionEnabled;
@@ -427,6 +427,7 @@ namespace PlayGround.System.Aoe
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeAreaComponent>         AreaHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoePulseVfxComponent>     PulseVfxHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderComponent>    RenderHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderBatchId>       RenderBatchIdHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderElement>      RenderElementHandle;
             [NativeDisableContainerSafetyRestriction] public BufferTypeHandle<AoeContactGateElement>       ContactGateHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
@@ -451,6 +452,7 @@ namespace PlayGround.System.Aoe
                 NativeArray<AoeHitSpawnComponent>     hitSpawns   = chunk.GetNativeArray(ref HitSpawnHandle);
                 NativeArray<AoeAreaComponent>         areas       = chunk.GetNativeArray(ref AreaHandle);
                 NativeArray<CombatRenderComponent>    renders     = chunk.GetNativeArray(ref RenderHandle);
+                NativeArray<CombatRenderBatchId>      batchIds    = chunk.GetNativeArray(ref RenderBatchIdHandle);
                 NativeArray<CombatRenderElement>      renderElems = chunk.GetNativeArray(ref RenderElementHandle);
                 EnabledMask lifetimeMask = default;
                 NativeArray<CombatLifetimeComponent> lifetimes = default;
@@ -522,6 +524,7 @@ namespace PlayGround.System.Aoe
                     }
                     CombatRenderComponent render = cfg.Render;
                     renders[i]     = render;
+                    batchIds[i]    = new CombatRenderBatchId { Value = cfg.RenderTypeId };
                     renderElems[i] = CombatRenderMatrixUtility.ElementFor(kin, render);
 
                     bool collisionEnabled = NeedsCollision(cfg);
@@ -537,24 +540,20 @@ namespace PlayGround.System.Aoe
 
         private readonly struct AoeSpawnKey : IEquatable<AoeSpawnKey>
         {
-            private readonly int _batchId;
             private readonly bool _lingering;
             private readonly bool _hasTimedSpawner;
 
-            public int BatchId          => _batchId;
             public bool Lingering       => _lingering;
             public bool HasTimedSpawner => _hasTimedSpawner;
 
-            public AoeSpawnKey(int batchId, bool lingering, bool hasTimedSpawner)
+            public AoeSpawnKey(bool lingering, bool hasTimedSpawner)
             {
-                _batchId         = batchId;
                 _lingering       = lingering;
                 _hasTimedSpawner = hasTimedSpawner;
             }
 
             public bool Equals(AoeSpawnKey other) =>
-                _batchId == other._batchId
-                && _lingering == other._lingering
+                _lingering == other._lingering
                 && _hasTimedSpawner == other._hasTimedSpawner;
 
             public override bool Equals(object obj) => obj is AoeSpawnKey k && Equals(k);
@@ -563,8 +562,7 @@ namespace PlayGround.System.Aoe
             {
                 unchecked
                 {
-                    int hash = _batchId;
-                    hash = hash * 397 ^ (_lingering ? 1 : 0);
+                    int hash = _lingering ? 1 : 0;
                     hash = hash * 397 ^ (_hasTimedSpawner ? 1 : 0);
                     return hash;
                 }

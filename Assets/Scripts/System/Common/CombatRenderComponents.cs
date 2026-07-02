@@ -31,12 +31,10 @@ namespace PlayGround.System.Common
     {
     }
 
-    // ECS Lifecycle: shared render component; added at entity creation; kept until owning domain root teardown; partitions render chunks by globally unique batch id without structural archetype cost.
-    public struct CombatRenderBatchId : ISharedComponentData, global::System.IEquatable<CombatRenderBatchId>
+    // ECS Lifecycle: common render component; per-entity render resource id copied from spawn commands; identifies the GPU resource batch at submit.
+    public struct CombatRenderBatchId : IComponentData
     {
         public int Value;
-        public readonly bool Equals(CombatRenderBatchId other) => Value == other.Value;
-        public override int GetHashCode() => Value;
     }
 
     public sealed class CombatRenderResourceEntry

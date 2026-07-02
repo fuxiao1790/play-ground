@@ -29,7 +29,7 @@ submission, debug text, and visual budgets.
 
 - `CombatTickResult` presentation data.
 - `VfxSpawnRequestElement` buffer on the VFX singleton entity.
-- Prepared render matrices and render shared components.
+- Prepared render matrices and per-entity render batch ids.
 - Actor target companion references during presentation only.
 
 ## Outputs

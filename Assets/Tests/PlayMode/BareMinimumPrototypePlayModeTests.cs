@@ -827,9 +827,13 @@ namespace PlayGround.Tests.PlayMode
                 ComponentType.ReadOnly<CombatRenderBatchId>(),
                 ComponentType.ReadOnly<CombatRenderElement>(),
                 ComponentType.ReadOnly<CombatRenderActiveTag>());
-            query.SetSharedComponentFilter(new CombatRenderBatchId { Value = typeId });
-            int count = query.CalculateEntityCount();
-            query.ResetFilter();
+            using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
+            int count = 0;
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (entityManager.GetComponentData<CombatRenderBatchId>(entities[i]).Value == typeId)
+                    count++;
+            }
             return count;
         }
 

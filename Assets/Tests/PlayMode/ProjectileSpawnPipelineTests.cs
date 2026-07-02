@@ -245,6 +245,48 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void BasicReuse_OverwritesRenderBatchId()
+        {
+            const int FirstRenderType = 10;
+            const int SecondRenderType = 20;
+
+            EnqueueEvent(MakeEvent(count: 1, lifetime: 0.001f, renderTypeId: FirstRenderType));
+            Tick(0.01f);
+            Tick(0.01f);
+            Entity first = FirstProjectileEntity();
+            Assert.That(entityManager.GetComponentData<CombatRenderBatchId>(first).Value, Is.EqualTo(FirstRenderType));
+
+            EnqueueEvent(MakeEvent(count: 1, lifetime: 10f, renderTypeId: SecondRenderType));
+            Tick(0.01f);
+            Entity reused = FirstProjectileEntity();
+
+            Assert.That(reused, Is.EqualTo(first));
+            Assert.That(entityManager.GetComponentData<CombatRenderBatchId>(reused).Value, Is.EqualTo(SecondRenderType));
+            Assert.That(TotalProjectileCount(), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ChildSpawnerReuse_OverwritesRenderBatchId()
+        {
+            const int FirstRenderType = 30;
+            const int SecondRenderType = 40;
+
+            EnqueueEvent(MakeEvent(count: 1, lifetime: 0.001f, hasTimedSpawner: true, renderTypeId: FirstRenderType));
+            Tick(0.01f);
+            Tick(0.01f);
+            Entity first = FirstProjectileEntity();
+            Assert.That(entityManager.GetComponentData<CombatRenderBatchId>(first).Value, Is.EqualTo(FirstRenderType));
+
+            EnqueueEvent(MakeEvent(count: 1, lifetime: 10f, hasTimedSpawner: true, renderTypeId: SecondRenderType));
+            Tick(0.01f);
+            Entity reused = FirstProjectileEntity();
+
+            Assert.That(reused, Is.EqualTo(first));
+            Assert.That(entityManager.GetComponentData<CombatRenderBatchId>(reused).Value, Is.EqualTo(SecondRenderType));
+            Assert.That(TotalProjectileCount(), Is.EqualTo(1));
+        }
+
+        [Test]
         public void BasicApplyDoesNotReuseDisabledChildSpawnerSlot()
         {
             Entity disabledChildSpawner = CreateDisabledProjectileSlot(childSpawner: true);
@@ -290,6 +332,7 @@ namespace PlayGround.Tests.PlayMode
             float speed = 5f,
             float lifetime = 10f,
             bool hasTimedSpawner = false,
+            int renderTypeId = 1,
             int baseProjectileId = 1,
             uint jitterSeed = 0u,
             int deterministicIdTickIndex = 0,
@@ -300,6 +343,7 @@ namespace PlayGround.Tests.PlayMode
             var template = new ProjectileSpawnCommand
             {
                 TypeId = 1,
+                RenderTypeId = renderTypeId,
                 HasTimedSpawner = hasTimedSpawner ? 1 : 0,
                 BaseDirection = baseDirection,
                 Speed = speed,
@@ -345,6 +389,7 @@ namespace PlayGround.Tests.PlayMode
             var template = new ProjectileSpawnCommand
             {
                 TypeId = 1,
+                RenderTypeId = 1,
                 Count = 1,
                 SpawnPatternType = ProjectileChildSpawnPatternType.Forward,
                 Speed = 5f,
@@ -381,6 +426,7 @@ namespace PlayGround.Tests.PlayMode
                     typeof(ProjectileHitComponent),
                     typeof(ProjectileTrackingComponent),
                     typeof(CombatRenderComponent),
+                    typeof(CombatRenderBatchId),
                     typeof(CombatRenderElement),
                     typeof(Active),
                     typeof(ProjectileCollisionActiveTag),
@@ -398,13 +444,14 @@ namespace PlayGround.Tests.PlayMode
                     typeof(ProjectileHitComponent),
                     typeof(ProjectileTrackingComponent),
                     typeof(CombatRenderComponent),
+                    typeof(CombatRenderBatchId),
                     typeof(CombatRenderElement),
                     typeof(Active),
                     typeof(ProjectileCollisionActiveTag),
                     typeof(CombatRenderActiveTag),
                     typeof(ProjectileContactGateElement));
 
-            entityManager.AddSharedComponent(entity, new CombatRenderBatchId { Value = 1 });
+            entityManager.SetComponentData(entity, new CombatRenderBatchId { Value = 1 });
             entityManager.SetComponentEnabled<Active>(entity, false);
             entityManager.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, false);
             entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, false);
@@ -424,6 +471,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(ProjectileHitComponent),
                 typeof(ProjectileTrackingComponent),
                 typeof(CombatRenderComponent),
+                typeof(CombatRenderBatchId),
                 typeof(CombatRenderElement),
                 typeof(Active),
                 typeof(ProjectileCollisionActiveTag),
@@ -439,6 +487,7 @@ namespace PlayGround.Tests.PlayMode
                 ProjectileId = 9999,
                 TypeId = 1
             });
+            entityManager.SetComponentData(entity, new CombatRenderBatchId { Value = 1 });
             entityManager.SetComponentData(entity, new CombatKinematicsComponent
             {
                 Position = float2.zero,

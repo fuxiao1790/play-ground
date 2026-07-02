@@ -16,6 +16,10 @@ namespace PlayGround.System.Common
 
         private EntityQuery projectileRenderQuery;
         private EntityQuery aoeRenderQuery;
+        private ComponentTypeHandle<CombatRenderElement> renderElementHandle;
+        private ComponentTypeHandle<CombatRenderBatchId> renderBatchIdHandle;
+        private ComponentTypeHandle<CombatRenderActiveTag> renderActiveHandle;
+        private readonly Dictionary<int, NativeList<Matrix4x4>> _batchBuffers = new();
 
         internal int LastActiveProjectileCount;
         internal int LastActiveAoeCount;
@@ -40,6 +44,16 @@ namespace PlayGround.System.Common
                 .Build(this);
         }
 
+        protected override void OnDestroy()
+        {
+            foreach (NativeList<Matrix4x4> buffer in _batchBuffers.Values)
+            {
+                if (buffer.IsCreated)
+                    buffer.Dispose();
+            }
+            _batchBuffers.Clear();
+        }
+
         protected override void OnUpdate()
         {
             CompleteDependency();
@@ -48,32 +62,61 @@ namespace PlayGround.System.Common
             LastActiveAoeCount = 0;
 
             var registry = SystemAPI.ManagedAPI.GetSingleton<CombatRenderResourceRegistry>();
+            PrepareBatchBuffers(registry);
+
+            renderElementHandle = GetComponentTypeHandle<CombatRenderElement>(true);
+            renderBatchIdHandle = GetComponentTypeHandle<CombatRenderBatchId>(true);
+            renderActiveHandle = GetComponentTypeHandle<CombatRenderActiveTag>(true);
+
+            LastActiveProjectileCount = Scatter(projectileRenderQuery);
+            LastActiveAoeCount = Scatter(aoeRenderQuery);
+
             foreach (KeyValuePair<int, CombatRenderResourceEntry> pair in registry.Entries)
             {
-                SubmitBatchId(pair.Key, pair.Value);
+                NativeList<Matrix4x4> buffer = _batchBuffers[pair.Key];
+                if (buffer.Length > 0)
+                    SubmitAll(buffer.AsArray(), pair.Value);
             }
         }
 
-        private void SubmitBatchId(int batchId, CombatRenderResourceEntry entry)
+        private void PrepareBatchBuffers(CombatRenderResourceRegistry registry)
         {
-            CombatRenderBatchId filter = new CombatRenderBatchId { Value = batchId };
+            foreach (NativeList<Matrix4x4> buffer in _batchBuffers.Values)
+                buffer.Clear();
 
-            projectileRenderQuery.SetSharedComponentFilter(filter);
-            using NativeArray<CombatRenderElement> projElements =
-                projectileRenderQuery.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
-            LastActiveProjectileCount += projElements.Length;
-            SubmitAll(projElements, entry);
-            projectileRenderQuery.ResetFilter();
-
-            aoeRenderQuery.SetSharedComponentFilter(filter);
-            using NativeArray<CombatRenderElement> aoeElements =
-                aoeRenderQuery.ToComponentDataArray<CombatRenderElement>(Allocator.Temp);
-            LastActiveAoeCount += aoeElements.Length;
-            SubmitAll(aoeElements, entry);
-            aoeRenderQuery.ResetFilter();
+            foreach (int batchId in registry.Entries.Keys)
+            {
+                if (!_batchBuffers.ContainsKey(batchId))
+                    _batchBuffers.Add(batchId, new NativeList<Matrix4x4>(Allocator.Persistent));
+            }
         }
 
-        private void SubmitAll(NativeArray<CombatRenderElement> elements, CombatRenderResourceEntry entry)
+        private int Scatter(EntityQuery query)
+        {
+            int activeCount = 0;
+            using NativeArray<ArchetypeChunk> chunks = query.ToArchetypeChunkArray(Allocator.Temp);
+            foreach (ArchetypeChunk chunk in chunks)
+            {
+                NativeArray<CombatRenderElement> elements = chunk.GetNativeArray(ref renderElementHandle);
+                NativeArray<CombatRenderBatchId> batchIds = chunk.GetNativeArray(ref renderBatchIdHandle);
+                EnabledMask activeMask = chunk.GetEnabledMask(ref renderActiveHandle);
+                for (int i = 0; i < chunk.Count; i++)
+                {
+                    if (!activeMask[i])
+                        continue;
+
+                    int batchId = batchIds[i].Value;
+                    if (!_batchBuffers.TryGetValue(batchId, out NativeList<Matrix4x4> buffer))
+                        continue;
+
+                    buffer.Add(elements[i].objectToWorld);
+                    activeCount++;
+                }
+            }
+            return activeCount;
+        }
+
+        private void SubmitAll(NativeArray<Matrix4x4> elements, CombatRenderResourceEntry entry)
         {
             CombatSpriteRenderResources resources = entry.Resources;
             RenderParams rp = new RenderParams(resources.Material)

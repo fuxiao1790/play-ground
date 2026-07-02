@@ -19,7 +19,7 @@ All in [CombatRenderComponents.cs](../../Assets/Scripts/System/Common/CombatRend
 | `CombatRenderComponent` | `IComponentData` | Static per-entity visual params — `VisualScale`, rotation sin/cos, `RenderZ`, `IsRenderable`, `AlignToVelocity`. Set once at spawn. |
 | `CombatRenderElement` | `IComponentData` | Computed `objectToWorld` `Matrix4x4`. Rewritten every frame by prepare. |
 | `CombatRenderActiveTag` | enableable tag | Gate: is entity rendered this frame. Toggled in lockstep with `Active`. |
-| `CombatRenderBatchId` | `ISharedComponentData` | Partitions chunks by render-resource id so one draw = one batch. Set at spawn (= `RenderTypeId`). |
+| `CombatRenderBatchId` | `IComponentData` | Per-entity render-resource id copied from spawn `RenderTypeId`; used only to select the GPU resource batch at submit. |
 | `CombatRenderResourceRegistry` | managed singleton | Holds GPU mesh/material/props keyed by render id. |
 | `CombatRenderMatrixUtility` | static | Builds matrix from kinematics + render params. |
 
@@ -34,7 +34,7 @@ CombatRoot (main thread)
 Projectile/AoeSpawnApplySystem
   • create archetype w/ render comps
   • SetComponent CombatRenderComponent  (from template)
-  • AddSharedComponent CombatRenderBatchId = cmd.RenderTypeId
+  • SetComponent CombatRenderBatchId = cmd.RenderTypeId
   • reset CombatRenderElement
   • enable CombatRenderActiveTag
         │
@@ -48,9 +48,9 @@ CombatRenderPrepareSystem  [OrderFirst]
         │
 CombatBatchedRenderSystem
   • CompleteDependency()  (waits on prepare job + all sim jobs)
-  • for each registry entry: filter by CombatRenderBatchId,
-    gate by CombatRenderActiveTag, split by ProjectileTag/AoeTag
-  • ToComponentDataArray<CombatRenderElement> → Graphics.RenderMeshInstanced
+  • clear/reuse per-batch matrix buffers
+  • scatter active ProjectileTag/AoeTag chunks by CombatRenderBatchId
+  • Graphics.RenderMeshInstanced for each non-empty registered batch
 ```
 
 ## Key dependency facts
@@ -65,7 +65,7 @@ CombatBatchedRenderSystem
 2. **Render never touches gameplay/faction/damage components.** Domain split
    comes from `ProjectileTag`/`AoeTag` (queries in
    [CombatBatchedRenderSystem](../../Assets/Scripts/System/Common/CombatBatchedRenderSystem.cs)); batch
-   grouping comes from `CombatRenderBatchId` (= `RenderTypeId`). Matches the
+   grouping comes from per-entity `CombatRenderBatchId` (= `RenderTypeId`). Matches the
    restriction in [render-batch-data.md](../../Docs/contracts/render-batch-data.md).
 
 3. **Render lifecycle rides on the domain, it does not own it.**
@@ -88,7 +88,7 @@ CombatBatchedRenderSystem
   resources; `GetProjectile/AoeRenderComponent()` bakes the
   `CombatRenderComponent` snapshot into spawn commands/templates.
 - **ProjectileSpawnApplySystem / AoeSpawnApplySystem** (Simulation) — at spawn:
-  build archetype, set `CombatRenderComponent`, add `CombatRenderBatchId`,
+  build archetype, set `CombatRenderComponent`, set `CombatRenderBatchId`,
   reset `CombatRenderElement`, enable `CombatRenderActiveTag`.
 - **CombatRenderPrepareSystem** (Presentation, OrderFirst) — writes
   `CombatRenderElement` from `CombatKinematicsComponent` + `CombatRenderComponent`.
@@ -98,29 +98,22 @@ CombatBatchedRenderSystem
 ## Consumers / readers
 
 - **CombatBatchedRenderSystem** (Presentation) — reads `CombatRenderElement`
-  (filtered by `CombatRenderBatchId`, gated by `CombatRenderActiveTag`, split by
-  `ProjectileTag`/`AoeTag`), looks up GPU resources in the registry, issues
-  `Graphics.RenderMeshInstanced`.
+  and `CombatRenderBatchId` (gated by `CombatRenderActiveTag`, split by
+  `ProjectileTag`/`AoeTag`), scatters matrices into registered batch buffers,
+  looks up GPU resources in the registry, and issues `Graphics.RenderMeshInstanced`.
 
 ## Rework-relevant state
 
-Current on-disk code is the **working baseline** (clean tree at commit `ea94816`):
-`CombatRenderPrepareSystem` writes `CombatRenderElement`, and
-`CombatBatchedRenderSystem` reads it back via `ToComponentDataArray`. Coherent —
-no half-applied state.
+Current on-disk code has the batch-id/spawn-pool coupling removed:
+`CombatRenderBatchId` is plain component data, spawn reuse overwrites it, and
+`CombatBatchedRenderSystem` scatters prepared matrices into reused per-batch
+buffers by reading that int.
 
-- **Prepare/submit split is landed and working** — `CombatRenderPrepareSystem`
-  runs `PresentationSystemGroup` OrderFirst; submit is consume-only.
-- **Instance-buffer step was ATTEMPTED and REVERTED.** The
-  `NativeList<Matrix4x4>`-per-batch submit (which would have killed the
-  `ToComponentDataArray` copy at
-  [CombatBatchedRenderSystem.cs:63](../../Assets/Scripts/System/Common/CombatBatchedRenderSystem.cs#L63))
-  **completely broke rendering and spawning** and was rolled back. The
-  `.agent/render-instance-buffers/` plan folder was deleted with it. So the
-  per-entity `CombatRenderElement` `IComponentData` copy is still in place — by
-  choice, as the known-good path — not because the work is merely pending.
-  **Root cause of the breakage is not yet captured; understand it before any
-  re-attempt.**
+- **Prepare/submit split remains** — `CombatRenderPrepareSystem` runs
+  `PresentationSystemGroup` OrderFirst; submit is consume-only and waits with
+  `CompleteDependency()` before main-thread scatter.
+- **Deferred follow-ups** — parallel count/prefix-sum/scatter, dropping
+  `CombatRenderElement`, and removing degenerate projectile counting-sort.
 - **Two `CombatApplyBridge` classes still exist** —
   [CombatApplyFinalizeSingleSystem.cs:382](../../Assets/Scripts/System/Common/CombatApplyFinalizeSingleSystem.cs#L382)
   and [CombatApplyFinalizeSystem.cs:415](../../Assets/Scripts/System/Common/CombatApplyFinalizeSystem.cs#L415),

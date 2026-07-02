@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define shared ECS render data used to batch projectile and AOE sprite visuals.
+Define ECS render data used to batch projectile and AOE sprite visuals.
 
 ## Produced By
 
@@ -21,21 +21,28 @@ Current render data includes:
 - `CombatRenderComponent`
 - `CombatRenderElement`
 - `CombatRenderActiveTag`
-- `CombatRenderFaction`
-- `CombatRenderTypeId`
+- `CombatRenderBatchId`
 - prepared transform matrices
-- root-owned render resources keyed by faction/type id
+- root-owned render resources keyed by render id
+
+`CombatRenderBatchId` is a plain `IComponentData` int. Its value is copied from
+the spawn command's `RenderTypeId` and selects the GPU resource batch at submit.
+It does not partition chunks and does not partition spawn pools.
 
 ## Guarantees
 
-Renderable projectile/AOE entities can be grouped by faction and type id for
-instanced sprite submission.
+Renderable projectile/AOE entities can be grouped by `CombatRenderBatchId` for
+instanced sprite submission. The render resource registry remains the owner of
+mesh/material/property resources for each render id.
 
 ## Restrictions
 
 Render state must not define gameplay domain or faction by itself. Domain still
-comes from `ProjectileTag` or `AoeTag`; faction comes from `CombatFaction` or
-render shared faction data.
+comes from `ProjectileTag` or `AoeTag`; faction comes from `CombatFaction`.
+
+Spawn pooling must not key on `CombatRenderBatchId`. Reuse can claim any
+disabled slot in the matching archetype and must overwrite the batch id from the
+current spawn command.
 
 ## Lifetime
 
@@ -45,7 +52,9 @@ live with the owning combat root and are released on root teardown.
 ## Ordering
 
 Render preparation runs after simulation/apply. Batched render submission runs
-in presentation.
+in presentation, reads `CombatRenderElement` and `CombatRenderBatchId`, scatters
+matrices into per-batch scratch buffers, and submits each non-empty registry
+batch. It does not use shared-component filters or `ToComponentDataArray`.
 
 ## Related Layers
 
@@ -60,5 +69,7 @@ in presentation.
 
 ## Notes / TODOs
 
-TODO: verify whether current render preparation includes both projectile and AOE
-matrices in one shared system or split systems after recent code changes.
+Deferred render optimizations:
+
+- replace the main-thread scatter with parallel count/prefix-sum/scatter
+- fold matrix generation into scatter and remove `CombatRenderElement`
