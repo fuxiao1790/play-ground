@@ -15,24 +15,22 @@ namespace PlayGround.System.Projectile
     [UpdateAfter(typeof(ProjectileCollisionSystem))]
     [UpdateAfter(typeof(PlayGround.System.Aoe.ImpactAoeCollisionSystem))]
     [UpdateAfter(typeof(StatusProcessSystem))]
-    [UpdateBefore(typeof(BasicProjectileSpawnApplySystem))]
-    [UpdateBefore(typeof(ChildSpawnerProjectileSpawnApplySystem))]
-    [UpdateBefore(typeof(PlayGround.System.Aoe.AoeSpawnApplySystem))]
+    [UpdateBefore(typeof(ProjectileSpawnApplySystem))]
+    [UpdateBefore(typeof(PlayGround.System.Aoe.ImpactAoeSpawnApplySystem))]
+    [UpdateBefore(typeof(PlayGround.System.Aoe.LingeringAoeSpawnApplySystem))]
     public partial class ProjectileSpawnExpansionSystem : SystemBase
     {
         private EntityQuery _scopeQuery;
 
         internal NativeQueue<ProjectileSpawnEvent> EventQueue;
-        internal NativeList<ProjectileSpawnCommand> BasicProjectileCommandContainer;
-        internal NativeList<ProjectileSpawnCommand> ChildSpawnerProjectileCommandContainer;
+        internal NativeList<ProjectileSpawnCommand> ProjectileCommandContainer;
         internal JobHandle PendingHandle;
         internal JobHandle ProducerHandle;
 
         protected override void OnCreate()
         {
             EventQueue = new NativeQueue<ProjectileSpawnEvent>(Allocator.Persistent);
-            BasicProjectileCommandContainer = new NativeList<ProjectileSpawnCommand>(256, Allocator.Persistent);
-            ChildSpawnerProjectileCommandContainer = new NativeList<ProjectileSpawnCommand>(64, Allocator.Persistent);
+            ProjectileCommandContainer = new NativeList<ProjectileSpawnCommand>(256, Allocator.Persistent);
             _scopeQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CombatScope>(),
                 ComponentType.ReadWrite<ProjectileSpawnEvent>());
@@ -41,14 +39,9 @@ namespace PlayGround.System.Projectile
         protected override void OnDestroy()
         {
             PendingHandle.Complete();
-            if (BasicProjectileCommandContainer.IsCreated)
+            if (ProjectileCommandContainer.IsCreated)
             {
-                BasicProjectileCommandContainer.Dispose();
-            }
-
-            if (ChildSpawnerProjectileCommandContainer.IsCreated)
-            {
-                ChildSpawnerProjectileCommandContainer.Dispose();
+                ProjectileCommandContainer.Dispose();
             }
 
             EventQueue.Dispose();
@@ -60,8 +53,7 @@ namespace PlayGround.System.Projectile
             ProducerHandle.Complete();
             ProducerHandle = default;
 
-            BasicProjectileCommandContainer.Clear();
-            ChildSpawnerProjectileCommandContainer.Clear();
+            ProjectileCommandContainer.Clear();
 
             int queueCount = EventQueue.Count;
             using NativeArray<Entity> scopes = _scopeQuery.ToEntityArray(Allocator.Temp);
@@ -108,8 +100,7 @@ namespace PlayGround.System.Projectile
                 return;
             }
 
-            int basicCommandBound = 0;
-            int childCommandBound = 0;
+            int commandBound = 0;
             for (int e = 0; e < events.Length; e++)
             {
                 ProjectileSpawnEvent evt = events[e];
@@ -120,32 +111,19 @@ namespace PlayGround.System.Projectile
                 }
 
                 int fanout = math.max(1, template.Count);
-                if (template.HasTimedSpawner != 0)
-                {
-                    childCommandBound += fanout;
-                }
-                else
-                {
-                    basicCommandBound += fanout;
-                }
+                commandBound += fanout;
             }
 
-            if (BasicProjectileCommandContainer.Capacity < basicCommandBound)
+            if (ProjectileCommandContainer.Capacity < commandBound)
             {
-                BasicProjectileCommandContainer.SetCapacity(basicCommandBound);
-            }
-
-            if (ChildSpawnerProjectileCommandContainer.Capacity < childCommandBound)
-            {
-                ChildSpawnerProjectileCommandContainer.SetCapacity(childCommandBound);
+                ProjectileCommandContainer.SetCapacity(commandBound);
             }
 
             Dependency = new ProjectileExpansionJob
             {
                 Events = events,
                 Templates = templates.Map,
-                BasicCommands = BasicProjectileCommandContainer.AsParallelWriter(),
-                ChildSpawnerCommands = ChildSpawnerProjectileCommandContainer.AsParallelWriter()
+                Commands = ProjectileCommandContainer.AsParallelWriter()
             }.Schedule(Dependency);
 
             Dependency = events.Dispose(Dependency);
@@ -157,8 +135,7 @@ namespace PlayGround.System.Projectile
         {
             [ReadOnly] public NativeArray<ProjectileSpawnEvent> Events;
             [ReadOnly] public NativeHashMap<Hash128, ProjectileSpawnCommand> Templates;
-            public NativeList<ProjectileSpawnCommand>.ParallelWriter BasicCommands;
-            public NativeList<ProjectileSpawnCommand>.ParallelWriter ChildSpawnerCommands;
+            public NativeList<ProjectileSpawnCommand>.ParallelWriter Commands;
 
             public void Execute()
             {
@@ -256,14 +233,7 @@ namespace PlayGround.System.Projectile
                 command.Render = render;
                 command.TimedSpawn = timedSpawn;
 
-                if (template.HasTimedSpawner != 0)
-                {
-                    ChildSpawnerCommands.AddNoResize(command);
-                }
-                else
-                {
-                    BasicCommands.AddNoResize(command);
-                }
+                Commands.AddNoResize(command);
             }
 
             private static float SpreadAngle(float spread, int i, int count) =>

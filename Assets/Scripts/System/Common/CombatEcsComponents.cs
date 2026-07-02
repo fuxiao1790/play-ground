@@ -190,8 +190,9 @@ namespace PlayGround.System.Common
     {
     }
 
-    // ECS Lifecycle: optional timed-spawn data; added to timed-spawning projectile/AOE archetypes; kept until root teardown; reset on reuse.
-    public struct TimedSpawnComponent : IComponentData
+    // ECS Lifecycle: enableable timed-spawn data; present on projectiles and lingering AOEs; absent from impact AOEs.
+    // Enabled only while interval children should emit. Enabling this requires enabled CombatLifetimeComponent.
+    public struct TimedSpawnComponent : IComponentData, IEnableableComponent
     {
         public CombatFaction Faction;
         public int SourceId;
@@ -202,21 +203,15 @@ namespace PlayGround.System.Common
         public int JitterSeed;
     }
 
-    // ECS Lifecycle: optional timed-spawn state; added to timed-spawning projectile/AOE archetypes; kept until root teardown; reset on reuse.
+    // ECS Lifecycle: timed-spawn state; present on projectiles and lingering AOEs; absent from impact AOEs; reset when timed spawn is enabled.
     public struct TimedSpawnStateComponent : IComponentData
     {
         public float CooldownRemaining;
         public int TickIndex;
     }
 
-    // ECS Lifecycle: optional timed-spawn tag; added to timed-spawning projectile/AOE archetypes; kept until root teardown.
-    public struct TimedSpawnTag : IComponentData
-    {
-    }
-
-    // ECS Lifecycle: enableable common lifetime component; added at entity creation for finite-lifetime reusable entities;
-    // ENABLED on spawn for finite lifetimes, DISABLED for pulse AOEs (deactivated by collision the same tick);
-    // CombatLifetimeSystem counts it down and disables Active on expiry.
+    // ECS Lifecycle: enableable common lifetime component; present and enabled on projectiles and lingering AOEs; absent from impact AOEs.
+    // Presence is the impact-vs-lingering AOE discriminator. CombatLifetimeSystem counts it down and disables Active on expiry.
     public struct CombatLifetimeComponent : IComponentData, IEnableableComponent
     {
         public float Remaining;

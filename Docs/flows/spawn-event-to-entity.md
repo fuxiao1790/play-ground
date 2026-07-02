@@ -13,7 +13,7 @@ Trace how projectile and AOE intent becomes reusable ECS entities.
 3. Expansion owns count, spread, jitter, bounds, deterministic id, and command
    production.
 4. Expansion writes `ProjectileSpawnCommand` or `AoeSpawnCommand`.
-5. Apply systems bucket commands by reuse identity.
+5. Apply systems route commands by domain reuse pool.
 6. Apply jobs reset disabled `Active` slots found with `WithDisabled<Active>()`.
 7. Unclaimed commands cold-create entities through an ECB.
 8. Spawned/reused entities join simulation on the next update.
@@ -26,7 +26,8 @@ Trace how projectile and AOE intent becomes reusable ECS entities.
 ## Consumers
 
 `ProjectileSpawnExpansionSystem`, `AoeSpawnExpansionSystem`,
-projectile apply systems, and `AoeSpawnApplySystem`.
+`ProjectileSpawnApplySystem`, `ImpactAoeSpawnApplySystem`, and
+`LingeringAoeSpawnApplySystem`.
 
 ## Contracts Used
 

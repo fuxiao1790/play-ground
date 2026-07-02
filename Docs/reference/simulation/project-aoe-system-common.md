@@ -62,8 +62,8 @@ consequence events, and frame timing. Domain-specific details still live in
   impact/on-hit event builders.
 - `Assets/Scripts/System/Aoe/AoeSpawnExpansionSystem.cs`: AOE event drain,
   command expansion, and spawn VFX request emission.
-- `Assets/Scripts/System/Aoe/AoeSpawnApplySystem.cs`: AOE slot reuse and cold
-  creation.
+- AOE spawn apply file: impact and lingering AOE
+  slot reuse and cold creation.
 - `Assets/Scripts/System/Aoe/AoeCollisionCore.cs`: AOE collision consequences
   and pulse deactivation.
 - `Assets/Scripts/System/Status/StatusProcessSystem.cs`: status-stack
@@ -144,13 +144,12 @@ Commands are one-entity allocation intent:
 Projectile flow:
 
 `ProjectileSpawnEvent` -> `ProjectileSpawnExpansionSystem` ->
-`ProjectileSpawnCommand` -> `BasicProjectileSpawnApplySystem` or
-`ChildSpawnerProjectileSpawnApplySystem`.
+`ProjectileSpawnCommand` -> `ProjectileSpawnApplySystem`.
 
 AOE flow:
 
 `AoeSpawnEvent` -> `AoeSpawnExpansionSystem` -> `AoeSpawnCommand` ->
-`AoeSpawnApplySystem`.
+`ImpactAoeSpawnApplySystem` or `LingeringAoeSpawnApplySystem`.
 
 Do not add a direct path that creates projectile or AOE entities from managed
 gameplay code, collision systems, status systems, or timed-spawn systems.
@@ -186,8 +185,8 @@ Expansion systems own spawn math and command production.
 - shared scope `DynamicBuffer<ProjectileSpawnEvent>`
 
 It expands count/spread/jitter/pattern data, resolves per-shot ids and
-velocities, computes bounds, updates render Z, and writes commands into basic
-or timed-spawner command containers.
+velocities, computes bounds, updates render Z, and writes commands into one
+projectile command container.
 
 `AoeSpawnExpansionSystem` drains:
 
@@ -195,7 +194,8 @@ or timed-spawner command containers.
 - shared scope `DynamicBuffer<AoeSpawnEvent>`
 
 It computes bounds, resolves deterministic ids, emits spawn VFX requests with
-trigger `0`, and writes `AoeSpawnCommand` values into a `NativeStream`.
+trigger `0`, and writes `AoeSpawnCommand` values into impact or lingering
+command containers.
 
 Apply systems should not interpret volley, scatter, jitter, or pattern math.
 
@@ -203,14 +203,15 @@ Apply systems should not interpret volley, scatter, jitter, or pattern math.
 
 Apply systems own reuse and cold creation.
 
-Projectile apply systems bucket commands by faction and render type. Basic
-projectiles reuse disabled non-timed slots. Timed-spawner projectiles reuse
-disabled slots with `TimedSpawnTag`.
+Projectile apply uses one disabled-slot query:
+`WithAll<ProjectileTag>()` plus `WithDisabled<Active>()`. Timed vs non-timed
+projectiles reuse across the same pool; `TimedSpawnComponent` is enabled or
+disabled during reset.
 
-AOE apply buckets commands by faction, type id, lingering versus impact, and
-timed-spawner state. Lingering AOEs reuse slots with `CombatLifetimeComponent`.
-Impact AOEs reuse slots without `CombatLifetimeComponent`. Timed lingering AOEs
-reuse slots with `TimedSpawnTag`.
+AOE apply is split by pool. Impact AOEs reuse slots without
+`CombatLifetimeComponent`. Lingering AOEs reuse slots with
+`CombatLifetimeComponent`. Timed vs non-timed lingering AOEs reuse across the
+same lingering pool; `TimedSpawnComponent` is enabled or disabled during reset.
 
 Reusable slots are found with `WithDisabled<Active>()`. Reuse jobs reset all
 per-instance data and enable the needed enableable components. Commands not
@@ -345,7 +346,7 @@ simulation update.
 Current tests that support this map include:
 
 - `Assets/Tests/PlayMode/ProjectileSpawnPipelineTests.cs`: projectile event to
-  command to apply flow, basic versus timed-spawner archetypes, child spawn
+  command to apply flow, timed-spawn enable state, child spawn
   behavior, and command shape checks.
 - `Assets/Tests/PlayMode/AoeSimulationTests.cs`: AOE expansion/apply, impact
   versus lingering lifetime shape, collision consequences, and event queue

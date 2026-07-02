@@ -99,12 +99,11 @@ stay narrow and explicit.
 - `ProjectileSpawnPipeline`: defines `ProjectileSpawnEvent` and
   `ProjectileSpawnCommand`.
 - `ProjectileSpawnExpansionSystem`: drains event queues and scope buffers,
-  resolves volley math, and writes basic or child-spawner command queues.
-- `BasicProjectileSpawnApplySystem`: reuses or creates normal projectile slots.
-- `ChildSpawnerProjectileSpawnApplySystem`: reuses or creates child-spawner
-  projectile slots.
-- `TimedProjectileSpawnSystem`: emits child projectile events from active
-  child-spawner projectiles.
+  resolves volley math, and writes the projectile command queue.
+- `ProjectileSpawnApplySystem`: reuses or creates projectile slots and toggles
+  timed spawn through enabled `TimedSpawnComponent`.
+- `TimedSpawnSystem`: emits child projectile or AOE events from active timed
+  spawn sources.
 - `ProjectileTrackingSystem`: target proxy acquisition and homing steering.
 - `ProjectileMovementSystem`: position integration and bounds refresh.
 - `ProjectileContactGateSystem`: repeat-hit gate expiry.
@@ -116,8 +115,10 @@ stay narrow and explicit.
 
 - `AoeSpawnPipeline`: defines `AoeSpawnEvent` and `AoeSpawnCommand`.
 - `AoeSpawnExpansionSystem`: drains event queues and scope buffers, resolves
-  bounds, and writes command stream.
-- `AoeSpawnApplySystem`: reuses or creates AOE slots.
+  bounds, and writes impact or lingering command queues.
+- `ImpactAoeSpawnApplySystem`: reuses or creates lean impact AOE slots.
+- `LingeringAoeSpawnApplySystem`: reuses or creates lingering AOE slots and
+  toggles timed spawn through enabled `TimedSpawnComponent`.
 - `AoeContactGateSystem`: lingering AOE repeat-hit gate expiry.
 - `AoePulseVfxSystem`: interval pulse VFX for lingering AOEs.
 - `AoeCollisionSystem`: target proxy broad phase, narrow-phase hit checks,

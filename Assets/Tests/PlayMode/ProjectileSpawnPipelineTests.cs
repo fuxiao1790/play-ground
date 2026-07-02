@@ -30,8 +30,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileMovementSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TimedSpawnSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<BasicProjectileSpawnApplySystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ChildSpawnerProjectileSpawnApplySystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileSpawnApplySystem>());
             simGroup.SortSystems();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
@@ -184,12 +183,8 @@ namespace PlayGround.Tests.PlayMode
             // parent + at least one child
             Assert.That(TotalProjectileCount(), Is.GreaterThanOrEqualTo(2));
 
-            // child has no timed-spawn tag (HasTimedSpawner=0 archetype)
-            using EntityQuery childQuery = entityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<ProjectileTag>(),
-                ComponentType.ReadOnly<Active>(),
-                ComponentType.Exclude<TimedSpawnTag>());
-            Assert.That(childQuery.CalculateEntityCount(), Is.GreaterThanOrEqualTo(1));
+            // child has timed-spawn component present but disabled.
+            Assert.That(ActiveBasicProjectileCount(), Is.GreaterThanOrEqualTo(1));
         }
 
         [Test]
@@ -287,29 +282,31 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void BasicApplyDoesNotReuseDisabledChildSpawnerSlot()
+        public void BasicApplyReusesDisabledChildSpawnerSlot()
         {
             Entity disabledChildSpawner = CreateDisabledProjectileSlot(childSpawner: true);
 
             EnqueueEvent(MakeEvent(count: 1, hasTimedSpawner: false));
             Tick(0.01f);
 
-            Assert.That(entityManager.IsComponentEnabled<Active>(disabledChildSpawner), Is.False);
+            Assert.That(entityManager.IsComponentEnabled<Active>(disabledChildSpawner), Is.True);
+            Assert.That(entityManager.IsComponentEnabled<TimedSpawnComponent>(disabledChildSpawner), Is.False);
             Assert.That(ActiveBasicProjectileCount(), Is.EqualTo(1));
-            Assert.That(TotalProjectileCount(), Is.EqualTo(2));
+            Assert.That(TotalProjectileCount(), Is.EqualTo(1));
         }
 
         [Test]
-        public void ChildSpawnerApplyDoesNotReuseDisabledBasicSlot()
+        public void ChildSpawnerApplyReusesDisabledBasicSlot()
         {
             Entity disabledBasic = CreateDisabledProjectileSlot(childSpawner: false);
 
             EnqueueEvent(MakeEvent(count: 1, hasTimedSpawner: true));
             Tick(0.01f);
 
-            Assert.That(entityManager.IsComponentEnabled<Active>(disabledBasic), Is.False);
+            Assert.That(entityManager.IsComponentEnabled<Active>(disabledBasic), Is.True);
+            Assert.That(entityManager.IsComponentEnabled<TimedSpawnComponent>(disabledBasic), Is.True);
             Assert.That(ActiveChildSpawnerProjectileCount(), Is.EqualTo(1));
-            Assert.That(TotalProjectileCount(), Is.EqualTo(2));
+            Assert.That(TotalProjectileCount(), Is.EqualTo(1));
         }
 
         private void Tick(float dt)
@@ -416,40 +413,23 @@ namespace PlayGround.Tests.PlayMode
 
         private Entity CreateDisabledProjectileSlot(bool childSpawner)
         {
-            Entity entity = childSpawner
-                ? entityManager.CreateEntity(
-                    typeof(ProjectileTag),
-                    typeof(ProjectileIdentityComponent),
-                    typeof(CombatKinematicsComponent),
-                    typeof(CombatCollisionComponent),
-                    typeof(CombatLifetimeComponent),
-                    typeof(ProjectileHitComponent),
-                    typeof(ProjectileTrackingComponent),
-                    typeof(CombatRenderComponent),
-                    typeof(CombatRenderBatchId),
-                    typeof(CombatRenderElement),
-                    typeof(Active),
-                    typeof(ProjectileCollisionActiveTag),
-                    typeof(CombatRenderActiveTag),
-                    typeof(ProjectileContactGateElement),
-                    typeof(TimedSpawnTag),
-                    typeof(TimedSpawnComponent),
-                    typeof(TimedSpawnStateComponent))
-                : entityManager.CreateEntity(
-                    typeof(ProjectileTag),
-                    typeof(ProjectileIdentityComponent),
-                    typeof(CombatKinematicsComponent),
-                    typeof(CombatCollisionComponent),
-                    typeof(CombatLifetimeComponent),
-                    typeof(ProjectileHitComponent),
-                    typeof(ProjectileTrackingComponent),
-                    typeof(CombatRenderComponent),
-                    typeof(CombatRenderBatchId),
-                    typeof(CombatRenderElement),
-                    typeof(Active),
-                    typeof(ProjectileCollisionActiveTag),
-                    typeof(CombatRenderActiveTag),
-                    typeof(ProjectileContactGateElement));
+            Entity entity = entityManager.CreateEntity(
+                typeof(ProjectileTag),
+                typeof(ProjectileIdentityComponent),
+                typeof(CombatKinematicsComponent),
+                typeof(CombatCollisionComponent),
+                typeof(CombatLifetimeComponent),
+                typeof(ProjectileHitComponent),
+                typeof(ProjectileTrackingComponent),
+                typeof(CombatRenderComponent),
+                typeof(CombatRenderBatchId),
+                typeof(CombatRenderElement),
+                typeof(Active),
+                typeof(ProjectileCollisionActiveTag),
+                typeof(CombatRenderActiveTag),
+                typeof(ProjectileContactGateElement),
+                typeof(TimedSpawnComponent),
+                typeof(TimedSpawnStateComponent));
 
             entityManager.SetComponentData(entity, new CombatRenderBatchId { Value = 1 });
             entityManager.SetComponentEnabled<Active>(entity, false);
@@ -457,6 +437,7 @@ namespace PlayGround.Tests.PlayMode
             entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, false);
             entityManager.SetComponentEnabled<CombatLifetimeComponent>(entity, true);
             entityManager.SetComponentEnabled<ProjectileTrackingComponent>(entity, false);
+            entityManager.SetComponentEnabled<TimedSpawnComponent>(entity, childSpawner);
             return entity;
         }
 
@@ -477,7 +458,6 @@ namespace PlayGround.Tests.PlayMode
                 typeof(ProjectileCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
                 typeof(ProjectileContactGateElement),
-                typeof(TimedSpawnTag),
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
 
@@ -518,6 +498,7 @@ namespace PlayGround.Tests.PlayMode
             entityManager.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, true);
             entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
             entityManager.SetComponentEnabled<ProjectileTrackingComponent>(entity, false);
+            entityManager.SetComponentEnabled<TimedSpawnComponent>(entity, true);
         }
 
         private int ActiveProjectileCount()
@@ -536,20 +517,31 @@ namespace PlayGround.Tests.PlayMode
 
         private int ActiveBasicProjectileCount()
         {
-            using EntityQuery q = entityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<ProjectileTag>(),
-                ComponentType.ReadOnly<Active>(),
-                ComponentType.Exclude<TimedSpawnTag>());
-            return q.CalculateEntityCount();
+            return ActiveProjectileCountWhereTimedSpawn(enabled: false);
         }
 
         private int ActiveChildSpawnerProjectileCount()
         {
+            return ActiveProjectileCountWhereTimedSpawn(enabled: true);
+        }
+
+        private int ActiveProjectileCountWhereTimedSpawn(bool enabled)
+        {
             using EntityQuery q = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<Active>(),
-                ComponentType.ReadOnly<TimedSpawnTag>());
-            return q.CalculateEntityCount();
+                ComponentType.ReadOnly<TimedSpawnComponent>());
+            using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
+            int count = 0;
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (entityManager.IsComponentEnabled<TimedSpawnComponent>(entities[i]) == enabled)
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         private Entity FirstProjectileEntity()

@@ -17,17 +17,15 @@ This document tracks implementation decisions, patterns, and current architectur
   projectile leaves play.
 - `ProjectileSpawnExpansionSystem` expands `ProjectileSpawnEvent` into
   one-entity `ProjectileSpawnCommand` values.
-- `BasicProjectileSpawnApplySystem` and
-  `ChildSpawnerProjectileSpawnApplySystem` group commands by faction/render
-  type/slot kind, then query matching disabled chunks with
-  `WithDisabled<Active>()` before materializing cold creates.
-- Reuse key is faction, render type id, and slot kind. Slot kind is normal or
-  child-spawner archetype.
-- Root/external spawn events use a child-spawner slot only when the expanded
-  command has child spawning enabled. Child-spawned children currently request
-  normal slots with `HasChildSpawner = 0`.
-- Child-spawner components are part of the entity archetype at creation time.
-  Do not add/remove those components during reuse.
+- `ProjectileSpawnApplySystem` queries disabled projectile chunks with
+  `WithAll<ProjectileTag>()` and `WithDisabled<Active>()` before materializing
+  cold creates.
+- There is one projectile archetype. `TimedSpawnComponent` and
+  `TimedSpawnStateComponent` are present on all projectile slots; the component
+  enabled bit selects whether interval children emit.
+- Root/external spawn events set `HasTimedSpawner` on the expanded command when
+  interval children should emit. Reuse can cross between timed and non-timed
+  projectiles because timed spawn is reset as enableable state.
 
 ---
 
@@ -44,9 +42,13 @@ This document tracks implementation decisions, patterns, and current architectur
 - Runtime despawn disables `Active`.
 - `AoeSpawnExpansionSystem` expands `AoeSpawnEvent` into one-entity
   `AoeSpawnCommand` values.
-- `AoeSpawnApplySystem` groups commands by faction and AOE type id, then queries
-  matching disabled chunks with `WithDisabled<Active>()` before materializing
-  cold creates.
+- `ImpactAoeSpawnApplySystem` queries `WithAll<AoeTag>()`,
+  `WithDisabled<Active>()`, and `WithNone<CombatLifetimeComponent>()`.
+- `LingeringAoeSpawnApplySystem` queries `WithAll<AoeTag>()`,
+  `WithDisabled<Active>()`, and present `CombatLifetimeComponent`.
+- Impact AOE stays lifetime/timed-spawn absent. Lingering AOE carries
+  `TimedSpawnComponent` and `TimedSpawnStateComponent`; timed vs non-timed
+  lingering reuse crosses through the enableable timed-spawn bit.
 - AOE counters track active, spawned, despawned/reused, hit events, active
   visuals, and render batches.
 
@@ -54,37 +56,35 @@ This document tracks implementation decisions, patterns, and current architectur
 
 ## Spawn Reuse Scheduling
 
-Projectile and AOE spawn reuse now avoid the old main-thread entity-slot slice
-assignment. Spawn commands are stored in persistent native buckets keyed by the
-same reuse identity already used for pooling: projectile faction/render
-type/slot kind, or AOE faction/type id. Each bucket owns a cached disabled-slot
-query with the matching filters, schedules one direct reuse `IJobChunk`, and
-writes the same reset components that cold creation initializes. The apply
-systems schedule all bucket reuse jobs first, complete one combined dependency,
-then cold-create the unclaimed commands in the same frame.
+Projectile and AOE spawn reuse avoid main-thread entity-slot slice assignment.
+Spawn commands are stored in one native container per reuse pool: projectile,
+impact AOE, and lingering AOE. Each apply system owns one disabled-slot query,
+schedules one direct reuse `IJobChunk`, and writes the same reset components
+that cold creation initializes. The apply systems then cold-create unclaimed
+commands in the same frame.
 
 ### Progress
 
 - The main thread no longer walks matching disabled entity slots just to assign
   worker slices.
 - Worker time owns the disabled-slot scan and reset work.
-- The current shape performs well when spawn load is spread across many
-  buckets, archetypes, scopes, or type ids.
+- The current shape keeps query/category selection in ECS queries rather than
+  per-entity branch filters.
 - Same-frame cold fallback remains unchanged, so underwarmed pools still work.
 
 ### Known Drawback
 
-- Each bucket is currently one scheduled chunk job, not a parallel chunk job.
-  If one bucket/archetype owns almost all matching chunks and other buckets have
-  little or no work, reuse can still become effectively single-threaded.
+- Each pool currently schedules one chunk job, not a parallel chunk job. If one
+  pool owns almost all matching chunks, reuse can still become effectively
+  single-threaded.
 - This is accepted for now because projectile and AOE spawn are not the current
   bottleneck, and avoiding unsafe atomic claim keeps the implementation simpler.
 
-**Revisit if profiling shows** `Projectile.Spawn.ReuseJob`, `Aoe.Spawn.ReuseJob`,
-or cold fallback dominates frame time. A likely next test is a hybrid path: keep
-the current direct bucket job for normal many-bucket frames, but for very large
-single-bucket frames count matching chunks on workers, build only a chunk prefix
-on the main thread, and schedule parallel reset slices without unsafe atomics.
+**Revisit if profiling shows** `ProjectileSpawnApplySystem.ReuseJob`,
+`ImpactAoeSpawnApplySystem.ReuseJob`, `LingeringAoeSpawnApplySystem.ReuseJob`,
+or cold fallback dominates frame time. A likely next test is to count matching
+chunks on workers, build only a chunk prefix on the main thread, and schedule
+parallel reset slices without unsafe atomics.
 
 ---
 

@@ -12,7 +12,7 @@ lines.
 |---|---|---|
 | `Frame` | `0` | Frame index, zero based |
 | `FunctionPath` | `Main Thread/PlayerLoop/UpdateScene/...` | Full call-stack path, `/` separated |
-| `Function` | `AoeSpawnApplySystem` | Leaf function name |
+| `Function` | `ImpactAoeSpawnApplySystem` | Leaf function name |
 | `Total%` | `16.5%` | Percent of frame time including children |
 | `Self%` | `2.2%` | Percent of frame time for this node only |
 | `Calls` | `1` | Call count that frame |
@@ -47,7 +47,7 @@ Summarize a system's cost across all frames:
 
 ```powershell
 Import-Csv ProfilerCaptures\play-ground_2026-06-10_10-09-36.csv |
-  Where-Object { $_.Function -like '*AoeSpawnApplySystem*' } |
+  Where-Object { $_.Function -like '*ImpactAoeSpawnApplySystem*' -or $_.Function -like '*LingeringAoeSpawnApplySystem*' } |
   Measure-Object -Property TimeMs -Average -Maximum -Sum |
   Format-List
 ```
@@ -95,7 +95,8 @@ Prefer searching over reading full captures.
 
 Examples:
 
-- find rows mentioning a system: `AoeSpawnApplySystem`
+- find rows mentioning a system: `ProjectileSpawnApplySystem`,
+  `ImpactAoeSpawnApplySystem`, or `LingeringAoeSpawnApplySystem`
 - find GC allocations: `[0-9]+ [KMG]B`
 - find Burst jobs: `\(Burst\)`
 

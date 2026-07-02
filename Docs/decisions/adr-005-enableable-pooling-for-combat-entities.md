@@ -13,18 +13,22 @@ component operations cause structural changes and sync points.
 
 Keep reusable projectile/AOE archetypes stable and despawn by disabling
 enableable state such as `Active`, collision-active tags, render-active tags,
-and lifetime where appropriate.
+timed spawn, and lifetime where appropriate.
 
 ## Consequences
 
 Hot despawn avoids structural churn. Apply systems search disabled slots before
 cold creation. Archetype design must include reusable component sets up front,
-including timed-spawner variants.
+including optional timed-spawn data on projectile and lingering AOE entities.
+The runtime now uses three combat archetypes: projectile, impact AOE, and
+lingering AOE. Removing the former timed variants adds two small timed
+spawn components to projectile and lingering chunks, while keeping impact AOE
+chunks lean with no lifetime, pulse VFX, contact gates, or timed-spawn data.
 
 ## Alternatives Considered
 
 - Destroy entities on despawn: rejected for high churn.
-- Add/remove child-spawner components during reuse: rejected because it changes
+- Add/remove timed-spawn components during reuse: rejected because it changes
   archetypes in hot paths.
 
 ## Related Docs

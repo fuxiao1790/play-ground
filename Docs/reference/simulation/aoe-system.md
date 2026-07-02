@@ -47,8 +47,9 @@ Non-goals:
   `AoeSpawnCommand`, and impact AOE event helpers.
 - `Assets/Scripts/System/Aoe/AoeSpawnExpansionSystem.cs`: drains AOE events and
   writes resolved commands.
-- `Assets/Scripts/System/Aoe/AoeSpawnApplySystem.cs`: reuses disabled AOE
-  entities or cold-creates overflow.
+- AOE spawn apply file: contains impact and
+  lingering apply systems that reuse disabled AOE entities or cold-create
+  overflow.
 - `Assets/Scripts/System/Aoe/AoeCollisionSystem.cs`: target proxy broad phase,
   narrow-phase collision, contact gates, damage events, projectile burst events,
   VFX events, and pulse deactivation.
@@ -135,10 +136,10 @@ Current flow:
    `DynamicBuffer<AoeSpawnEvent>`.
 3. Expansion fans `EchoCount` copies, scatters each copy inside
    `ScatterRadius` using a deterministic random disk seeded by `JitterSeed`,
-   computes per-copy bounds, and writes one `AoeSpawnCommand` per copy to a
-   `NativeStream`.
-4. `AoeSpawnApplySystem` reads commands, buckets them by faction and type, and
-   queries reusable AOE slots with `WithDisabled<Active>()`.
+   computes per-copy bounds, and writes one `AoeSpawnCommand` per copy to the
+   impact or lingering command container.
+4. `ImpactAoeSpawnApplySystem` and `LingeringAoeSpawnApplySystem` read their
+   command containers and query reusable AOE slots with `WithDisabled<Active>()`.
 5. Reused slots are reset in an `IJobChunk`.
 6. Remaining commands cold-create entities through an `EntityCommandBuffer`.
 
@@ -148,21 +149,30 @@ and apply only materializes already-resolved single-entity commands.
 
 ## Entity Data And Reuse
 
-AOE entities carry:
+There are two AOE archetypes:
+
+- Impact AOE: lean one-shot area, no `CombatLifetimeComponent`, no
+  `AoeContactGateElement`, no `AoePulseVfxComponent`, and no timed-spawn data.
+- Lingering AOE: finite-lifetime area with `CombatLifetimeComponent`,
+  `AoeContactGateElement`, `AoePulseVfxComponent`, `TimedSpawnComponent`, and
+  `TimedSpawnStateComponent`.
+
+All AOE entities carry:
 
 - `AoeTag`
 - `AoeIdentityComponent`
 - generic `Active`
-- `CombatLifetimeComponent`
 - `CombatKinematicsComponent`
 - `CombatCollisionComponent`
 - `AoeCollisionActiveTag`
 - `AoeHitGateComponent`
 - `AoeHitSpawnComponent`
 - `AoeAreaComponent`
-- `AoeContactGateElement`
-- `AoePulseVfxComponent`
 - common render components
+
+`CombatLifetimeComponent` presence is the impact-vs-lingering discriminator.
+Timed spawn is an enableable bit on lingering AOEs only. This removes the former
+non-timed vs timed-lingering archetype split while keeping impact chunks small.
 
 Runtime despawn disables `Active` and `CombatRenderActiveTag`. Entities remain
 available for reuse until the owning `CombatRoot` tears down its faction data.
@@ -172,9 +182,9 @@ active/renderable while collision skips them.
 
 ## Damage Timing
 
-Pulse AOE:
+Impact AOE:
 
-- `CombatLifetimeComponent` is disabled for the entity.
+- `CombatLifetimeComponent` is absent.
 - Collision runs once.
 - The AOE deactivates after that collision pass.
 
@@ -266,8 +276,8 @@ Important simulation ordering:
 6. `DamageFinalizeSystem` freezes the native damage queue.
 7. `ProjectileSpawnExpansionSystem` and `AoeSpawnExpansionSystem` drain events
    and produce commands.
-8. `AoeSpawnApplySystem` and projectile apply systems reuse slots and
-   cold-create overflow.
+8. `ProjectileSpawnApplySystem`, `ImpactAoeSpawnApplySystem`, and
+   `LingeringAoeSpawnApplySystem` reuse slots and cold-create overflow.
 9. `CombatRenderPrepareSystem` prepares render matrices.
 10. Presentation systems dispatch damage, VFX, and render batches.
 

@@ -44,7 +44,8 @@ namespace PlayGround.Tests.PlayMode
             hitApply = testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSingleSystem>();
             statusProcess = testWorld.GetOrCreateSystemManaged<StatusProcessSystem>();
             simGroup.AddSystemToUpdateList(aoeExpansion);
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<AoeSpawnApplySystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnApplySystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoeContactGateSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<CombatLifetimeSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoePulseVfxSystem>());
@@ -53,8 +54,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(hitApply);
             simGroup.AddSystemToUpdateList(statusProcess);
             simGroup.AddSystemToUpdateList(projectileExpansion);
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<BasicProjectileSpawnApplySystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ChildSpawnerProjectileSpawnApplySystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContactGateSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileCollisionSystem>());
             simGroup.SortSystems();
@@ -437,9 +437,13 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(entityManager.HasComponent<CombatLifetimeComponent>(impact), Is.False);
             Assert.That(entityManager.HasComponent<AoeContactGateElement>(impact), Is.False);
             Assert.That(entityManager.HasComponent<AoePulseVfxComponent>(impact), Is.False);
+            Assert.That(entityManager.HasComponent<TimedSpawnComponent>(impact), Is.False);
             Assert.That(entityManager.HasComponent<CombatLifetimeComponent>(lingering), Is.True);
             Assert.That(entityManager.HasComponent<AoeContactGateElement>(lingering), Is.True);
             Assert.That(entityManager.HasComponent<AoePulseVfxComponent>(lingering), Is.True);
+            Assert.That(entityManager.HasComponent<TimedSpawnComponent>(lingering), Is.True);
+            Assert.That(entityManager.IsComponentEnabled<CombatLifetimeComponent>(lingering), Is.True);
+            Assert.That(entityManager.IsComponentEnabled<TimedSpawnComponent>(lingering), Is.False);
 
             int impactCapacity = entityManager.GetChunk(impact).Capacity;
             int lingeringCapacity = entityManager.GetChunk(lingering).Capacity;
@@ -490,6 +494,33 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(reusedImpact, Is.EqualTo(firstImpact));
             Assert.That(reusedLingering, Is.EqualTo(firstLingering));
             Assert.That(TotalAoeCount(), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void LingeringTimedSpawnSlotsReuseAcrossEnabledState()
+        {
+            SpawnCircle(float2.zero, 1f, 1f, lifetime: 0.001f, tickInterval: 0.05f);
+            Tick(0.01f);
+            Tick(0.01f);
+            Entity firstLingering = FirstLingeringAoeEntity();
+            Assert.That(entityManager.IsComponentEnabled<TimedSpawnComponent>(firstLingering), Is.False);
+
+            SpawnTimedCircle(float2.zero, lifetime: 0.001f);
+            Tick(0.01f);
+            Entity reusedAsTimed = FirstLingeringAoeEntity();
+            Assert.That(reusedAsTimed, Is.EqualTo(firstLingering));
+            Assert.That(entityManager.IsComponentEnabled<CombatLifetimeComponent>(reusedAsTimed), Is.True);
+            Assert.That(entityManager.IsComponentEnabled<TimedSpawnComponent>(reusedAsTimed), Is.True);
+
+            Tick(0.01f);
+            SpawnCircle(float2.zero, 1f, 1f, lifetime: 0.001f, tickInterval: 0.05f);
+            Tick(0.01f);
+            Entity reusedAsNonTimed = FirstLingeringAoeEntity();
+
+            Assert.That(reusedAsNonTimed, Is.EqualTo(firstLingering));
+            Assert.That(entityManager.IsComponentEnabled<CombatLifetimeComponent>(reusedAsNonTimed), Is.True);
+            Assert.That(entityManager.IsComponentEnabled<TimedSpawnComponent>(reusedAsNonTimed), Is.False);
+            Assert.That(TotalAoeCount(), Is.EqualTo(1));
         }
 
         [Test]
@@ -1020,7 +1051,9 @@ namespace PlayGround.Tests.PlayMode
             float tickInterval = 0f,
             StackEffectSnapshot stackEffect = default,
             OnHitSpawnRef onHitSpawn = default,
-            int renderTypeId = 1)
+            int renderTypeId = 1,
+            TimedSpawnComponent timedSpawn = default,
+            bool hasTimedSpawner = false)
         {
             var template = new AoeSpawnCommand
             {
@@ -1038,7 +1071,9 @@ namespace PlayGround.Tests.PlayMode
                 Radius = radius,
                 AreaSize = radius,
                 ShapeType = CombatShapeType.Circle,
-                EchoCount = 1
+                EchoCount = 1,
+                HasTimedSpawner = hasTimedSpawner ? 1 : 0,
+                TimedSpawn = timedSpawn
             };
             Hash128 key = SpawnTemplateHash.Of(in template);
             AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
@@ -1051,6 +1086,24 @@ namespace PlayGround.Tests.PlayMode
                 Faction = CombatFaction.Player,
                 SourceId = ++nextAoeId
             });
+        }
+
+        private void SpawnTimedCircle(float2 position, float lifetime)
+        {
+            SpawnCircle(
+                position,
+                radius: 1f,
+                damage: 1f,
+                lifetime: lifetime,
+                tickInterval: 0.05f,
+                timedSpawn: new TimedSpawnComponent
+                {
+                    ChildKind = IntervalChildKind.Projectile,
+                    TemplateKey = new Hash128(0x1234u, 0x5678u, 0x9ABCu, 0xDEF0u),
+                    IntervalSeconds = 100f,
+                    JitterSeed = 7
+                },
+                hasTimedSpawner: true);
         }
 
         private void SpawnEchoAoe(

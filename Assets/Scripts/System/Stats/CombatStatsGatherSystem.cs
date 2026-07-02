@@ -12,9 +12,9 @@ namespace PlayGround.System.Stats
     public partial class CombatStatsGatherSystem : SystemBase
     {
         private Entity _statsEntity;
-        private BasicProjectileSpawnApplySystem _basicProj;
-        private ChildSpawnerProjectileSpawnApplySystem _childProj;
-        private AoeSpawnApplySystem _aoe;
+        private ProjectileSpawnApplySystem _projectiles;
+        private ImpactAoeSpawnApplySystem _impactAoe;
+        private LingeringAoeSpawnApplySystem _lingeringAoe;
         private CombatApplyFinalizeSingleSystem _finalize;
         private CombatVfxDispatchSystem _vfx;
         private CombatBatchedRenderSystem _render;
@@ -52,13 +52,13 @@ namespace PlayGround.System.Stats
             CacheProducerSystems();
 
             int ecb =
-                (_basicProj?.LastColdCreateCount ?? 0) +
-                (_childProj?.LastColdCreateCount ?? 0) +
-                (_aoe?.LastColdCreateCount ?? 0);
+                (_projectiles?.LastColdCreateCount ?? 0) +
+                (_impactAoe?.LastColdCreateCount ?? 0) +
+                (_lingeringAoe?.LastColdCreateCount ?? 0);
             int reuse =
-                (_basicProj?.LastReuseCount ?? 0) +
-                (_childProj?.LastReuseCount ?? 0) +
-                (_aoe?.LastReuseCount ?? 0);
+                (_projectiles?.LastReuseCount ?? 0) +
+                (_impactAoe?.LastReuseCount ?? 0) +
+                (_lingeringAoe?.LastReuseCount ?? 0);
 
             var snapshot = new CombatStatsSingleton
             {
@@ -79,9 +79,9 @@ namespace PlayGround.System.Stats
 
         private void CacheProducerSystems()
         {
-            _basicProj ??= World.GetExistingSystemManaged<BasicProjectileSpawnApplySystem>();
-            _childProj ??= World.GetExistingSystemManaged<ChildSpawnerProjectileSpawnApplySystem>();
-            _aoe ??= World.GetExistingSystemManaged<AoeSpawnApplySystem>();
+            _projectiles ??= World.GetExistingSystemManaged<ProjectileSpawnApplySystem>();
+            _impactAoe ??= World.GetExistingSystemManaged<ImpactAoeSpawnApplySystem>();
+            _lingeringAoe ??= World.GetExistingSystemManaged<LingeringAoeSpawnApplySystem>();
             _finalize ??= World.GetExistingSystemManaged<CombatApplyFinalizeSingleSystem>();
             _vfx ??= World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
             _render ??= World.GetExistingSystemManaged<CombatBatchedRenderSystem>();

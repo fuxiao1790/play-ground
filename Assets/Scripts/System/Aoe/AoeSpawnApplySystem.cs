@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using Unity.Burst;
@@ -13,45 +11,32 @@ using Unity.Profiling;
 
 namespace PlayGround.System.Aoe
 {
-    // Port of AoeSpawnSystem with input changed from AoeSpawnRequestElement to AoeSpawnCommand.
-    // Reads PendingCommands from AoeSpawnExpansionSystem. VFX emission moved to expansion.
-    // Built beside the old AoeSpawnSystem; inert until Task 006 wires producers.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(AoeSpawnExpansionSystem))]
     [UpdateAfter(typeof(ProjectileSpawnExpansionSystem))]
-    public partial class AoeSpawnApplySystem : SystemBase
+    public partial class ImpactAoeSpawnApplySystem : SystemBase
     {
-        private static readonly ProfilerMarker SpawnMarker =
-            new("AoeSpawnApplySystem");
-        private static readonly ProfilerMarker ReuseJobMarker =
-            new("AoeSpawnApplySystem.ReuseJob");
+        private static readonly ProfilerMarker SpawnMarker = new("ImpactAoeSpawnApplySystem");
+        private static readonly ProfilerMarker ReuseJobMarker = new("ImpactAoeSpawnApplySystem.ReuseJob");
         private static readonly ProfilerCounterValue<int> SpawnColdCreateCounter =
-            new(ProfilerCategory.Scripts, "AoeSpawnApplySystem.Cold", ProfilerMarkerDataUnit.Count);
+            new(ProfilerCategory.Scripts, "ImpactAoeSpawnApplySystem.Cold", ProfilerMarkerDataUnit.Count);
         private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
-            new(ProfilerCategory.Scripts, "AoeSpawnApplySystem.Reuse", ProfilerMarkerDataUnit.Count);
+            new(ProfilerCategory.Scripts, "ImpactAoeSpawnApplySystem.Reuse", ProfilerMarkerDataUnit.Count);
 
         internal int LastColdCreateCount;
         internal int LastReuseCount;
 
-        private EntityArchetype lingeringArchetype;
-        private EntityArchetype timedSpawnerLingeringArchetype;
-        private EntityArchetype impactArchetype;
-
-        private readonly Dictionary<AoeSpawnKey, AoeSpawnBucket> _byKey = new();
-        private readonly Dictionary<AoeSpawnKey, EntityQuery> _deadSlotQueriesByKey = new();
-        private readonly List<AoeSpawnBucket> _bucketPool = new();
-        private readonly List<AoeSpawnWork> _spawnWork = new();
+        private EntityArchetype _impactArchetype;
+        private EntityQuery _deadSlotQuery;
 
         protected override void OnCreate()
         {
-            lingeringArchetype = EntityManager.CreateArchetype(
+            _impactArchetype = EntityManager.CreateArchetype(
                 typeof(AoeTag),
                 typeof(AoeIdentityComponent),
-                typeof(CombatLifetimeComponent),
                 typeof(AoeHitGateComponent),
                 typeof(AoeHitSpawnComponent),
                 typeof(AoeAreaComponent),
-                typeof(AoePulseVfxComponent),
                 typeof(CombatRenderComponent),
                 typeof(CombatRenderBatchId),
                 typeof(CombatRenderElement),
@@ -59,9 +44,187 @@ namespace PlayGround.System.Aoe
                 typeof(CombatCollisionComponent),
                 typeof(Active),
                 typeof(AoeCollisionActiveTag),
-                typeof(CombatRenderActiveTag),
-                typeof(AoeContactGateElement));
-            timedSpawnerLingeringArchetype = EntityManager.CreateArchetype(
+                typeof(CombatRenderActiveTag));
+
+            _deadSlotQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AoeTag>()
+                .WithDisabled<Active>()
+                .WithNone<CombatLifetimeComponent>()
+                .Build(this);
+        }
+
+        protected override void OnUpdate()
+        {
+            Dependency.Complete();
+
+            var expansionSys = World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
+            NativeArray<AoeSpawnCommand> commands = default;
+            int totalRequests = 0;
+            if (expansionSys != null)
+            {
+                expansionSys.PendingHandle.Complete();
+                NativeList<AoeSpawnCommand> commandContainer = expansionSys.ImpactCommandContainer;
+                if (commandContainer.IsCreated && commandContainer.Length > 0)
+                {
+                    commands = commandContainer.AsArray();
+                    totalRequests = commands.Length;
+                }
+            }
+
+            if (totalRequests == 0)
+            {
+                LastReuseCount = 0;
+                LastColdCreateCount = 0;
+                return;
+            }
+
+            using (SpawnMarker.Auto())
+            {
+                using var createEcb = new EntityCommandBuffer(Allocator.Temp);
+                var claimedReference = new NativeReference<int>(Allocator.TempJob);
+                claimedReference.Value = 0;
+
+                using (ReuseJobMarker.Auto())
+                {
+                    new ImpactAoeSpawnJob
+                    {
+                        Configs = commands,
+                        ClaimedCount = claimedReference,
+                        ActiveHandle = GetComponentTypeHandle<Active>(false),
+                        CollisionActiveHandle = GetComponentTypeHandle<AoeCollisionActiveTag>(false),
+                        RenderActiveHandle = GetComponentTypeHandle<CombatRenderActiveTag>(false),
+                        IdentityHandle = GetComponentTypeHandle<AoeIdentityComponent>(false),
+                        KinematicsHandle = GetComponentTypeHandle<CombatKinematicsComponent>(false),
+                        CollisionHandle = GetComponentTypeHandle<CombatCollisionComponent>(false),
+                        HitGateHandle = GetComponentTypeHandle<AoeHitGateComponent>(false),
+                        HitSpawnHandle = GetComponentTypeHandle<AoeHitSpawnComponent>(false),
+                        AreaHandle = GetComponentTypeHandle<AoeAreaComponent>(false),
+                        RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
+                        RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderBatchId>(false),
+                        RenderElementHandle = GetComponentTypeHandle<CombatRenderElement>(false),
+                    }.Schedule(_deadSlotQuery, default).Complete();
+                }
+
+                int reuseCount = claimedReference.Value;
+                claimedReference.Dispose();
+                int coldCreateCount = 0;
+                for (int i = reuseCount; i < commands.Length; i++)
+                {
+                    Entity entity = createEcb.CreateEntity(_impactArchetype);
+                    AoeSpawnApplyUtility.RecordImpactReset(createEcb, entity, commands[i]);
+                    coldCreateCount++;
+                }
+
+                if (coldCreateCount > 0)
+                {
+                    createEcb.Playback(EntityManager);
+                }
+
+                SpawnReuseCounter.Value = reuseCount;
+                SpawnColdCreateCounter.Value = totalRequests - reuseCount;
+                LastReuseCount = reuseCount;
+                LastColdCreateCount = totalRequests - reuseCount;
+            }
+        }
+
+        [BurstCompile]
+        private struct ImpactAoeSpawnJob : IJobChunk
+        {
+            [ReadOnly] public NativeArray<AoeSpawnCommand> Configs;
+            [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
+
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<Active> ActiveHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeCollisionActiveTag> CollisionActiveHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderActiveTag> RenderActiveHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeIdentityComponent> IdentityHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatKinematicsComponent> KinematicsHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatCollisionComponent> CollisionHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeHitGateComponent> HitGateHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeHitSpawnComponent> HitSpawnHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeAreaComponent> AreaHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderBatchId> RenderBatchIdHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderElement> RenderElementHandle;
+
+            public void Execute(
+                in ArchetypeChunk chunk,
+                int unfilteredChunkIndex,
+                bool useEnabledMask,
+                in v128 chunkEnabledMask)
+            {
+                int cfgIdx = ClaimedCount.Value;
+                if (cfgIdx >= Configs.Length)
+                {
+                    return;
+                }
+
+                EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
+                EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
+                EnabledMask renderActiveMask = chunk.GetEnabledMask(ref RenderActiveHandle);
+
+                NativeArray<AoeIdentityComponent> identities = chunk.GetNativeArray(ref IdentityHandle);
+                NativeArray<CombatKinematicsComponent> kinematics = chunk.GetNativeArray(ref KinematicsHandle);
+                NativeArray<CombatCollisionComponent> collisions = chunk.GetNativeArray(ref CollisionHandle);
+                NativeArray<AoeHitGateComponent> hitGates = chunk.GetNativeArray(ref HitGateHandle);
+                NativeArray<AoeHitSpawnComponent> hitSpawns = chunk.GetNativeArray(ref HitSpawnHandle);
+                NativeArray<AoeAreaComponent> areas = chunk.GetNativeArray(ref AreaHandle);
+                NativeArray<CombatRenderComponent> renders = chunk.GetNativeArray(ref RenderHandle);
+                NativeArray<CombatRenderBatchId> batchIds = chunk.GetNativeArray(ref RenderBatchIdHandle);
+                NativeArray<CombatRenderElement> renderElems = chunk.GetNativeArray(ref RenderElementHandle);
+
+                for (int i = 0; i < chunk.Count && cfgIdx < Configs.Length; i++)
+                {
+                    if (activeMask[i])
+                    {
+                        continue;
+                    }
+
+                    AoeSpawnCommand cfg = Configs[cfgIdx++];
+                    AoeSpawnApplyUtility.WriteCommon(
+                        cfg,
+                        identities,
+                        kinematics,
+                        collisions,
+                        hitGates,
+                        hitSpawns,
+                        areas,
+                        renders,
+                        batchIds,
+                        renderElems,
+                        i);
+
+                    bool collisionEnabled = AoeSpawnApplyUtility.NeedsCollision(cfg);
+                    activeMask[i] = collisionEnabled;
+                    collisionActiveMask[i] = collisionEnabled;
+                    renderActiveMask[i] = collisionEnabled;
+                }
+
+                ClaimedCount.Value = cfgIdx;
+            }
+        }
+    }
+
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(AoeSpawnExpansionSystem))]
+    [UpdateAfter(typeof(ProjectileSpawnExpansionSystem))]
+    public partial class LingeringAoeSpawnApplySystem : SystemBase
+    {
+        private static readonly ProfilerMarker SpawnMarker = new("LingeringAoeSpawnApplySystem");
+        private static readonly ProfilerMarker ReuseJobMarker = new("LingeringAoeSpawnApplySystem.ReuseJob");
+        private static readonly ProfilerCounterValue<int> SpawnColdCreateCounter =
+            new(ProfilerCategory.Scripts, "LingeringAoeSpawnApplySystem.Cold", ProfilerMarkerDataUnit.Count);
+        private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
+            new(ProfilerCategory.Scripts, "LingeringAoeSpawnApplySystem.Reuse", ProfilerMarkerDataUnit.Count);
+
+        internal int LastColdCreateCount;
+        internal int LastReuseCount;
+
+        private EntityArchetype _lingeringArchetype;
+        private EntityQuery _deadSlotQuery;
+
+        protected override void OnCreate()
+        {
+            _lingeringArchetype = EntityManager.CreateArchetype(
                 typeof(AoeTag),
                 typeof(AoeIdentityComponent),
                 typeof(CombatLifetimeComponent),
@@ -78,68 +241,32 @@ namespace PlayGround.System.Aoe
                 typeof(AoeCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
                 typeof(AoeContactGateElement),
-                typeof(TimedSpawnTag),
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
-            impactArchetype = EntityManager.CreateArchetype(
-                typeof(AoeTag),
-                typeof(AoeIdentityComponent),
-                typeof(AoeHitGateComponent),
-                typeof(AoeHitSpawnComponent),
-                typeof(AoeAreaComponent),
-                typeof(CombatRenderComponent),
-                typeof(CombatRenderBatchId),
-                typeof(CombatRenderElement),
-                typeof(CombatKinematicsComponent),
-                typeof(CombatCollisionComponent),
-                typeof(Active),
-                typeof(AoeCollisionActiveTag),
-                typeof(CombatRenderActiveTag));
-        }
 
-        protected override void OnDestroy()
-        {
-            Dependency.Complete();
-            DisposeSpawnWorkReferences();
-            DisposeBuckets(_byKey.Values);
-            DisposeBuckets(_bucketPool);
-            _byKey.Clear();
-            _deadSlotQueriesByKey.Clear();
-            _bucketPool.Clear();
-            _spawnWork.Clear();
+            _deadSlotQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AoeTag>()
+                .WithAll<CombatLifetimeComponent>()
+                .WithDisabled<Active>()
+                .Build(this);
         }
 
         protected override void OnUpdate()
         {
             Dependency.Complete();
 
-            ReturnBuckets();
-
             var expansionSys = World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
+            NativeArray<AoeSpawnCommand> commands = default;
             int totalRequests = 0;
-            if (expansionSys != null && expansionSys.PendingCommands.IsCreated)
+            if (expansionSys != null)
             {
                 expansionSys.PendingHandle.Complete();
-                NativeStream.Reader reader = expansionSys.PendingCommands.AsReader();
-                for (int i = 0; i < reader.ForEachCount; i++)
+                NativeList<AoeSpawnCommand> commandContainer = expansionSys.LingeringCommandContainer;
+                if (commandContainer.IsCreated && commandContainer.Length > 0)
                 {
-                    int n = reader.BeginForEachIndex(i);
-                    for (int j = 0; j < n; j++)
-                    {
-                        AoeSpawnCommand cmd = reader.Read<AoeSpawnCommand>();
-                        bool hasTimedSpawner = HasTimedSpawner(cmd);
-                        var key = new AoeSpawnKey(cmd.Lifetime > 0f, hasTimedSpawner);
-                        if (!_byKey.TryGetValue(key, out AoeSpawnBucket bucket))
-                        {
-                            bucket = GetBucket();
-                            _byKey[key] = bucket;
-                        }
-                        bucket.Requests.Add(cmd);
-                        totalRequests++;
-                    }
-                    reader.EndForEachIndex();
+                    commands = commandContainer.AsArray();
+                    totalRequests = commands.Length;
                 }
-                expansionSys.PendingCommands.Dispose();
             }
 
             if (totalRequests == 0)
@@ -152,68 +279,50 @@ namespace PlayGround.System.Aoe
             using (SpawnMarker.Auto())
             {
                 using var createEcb = new EntityCommandBuffer(Allocator.Temp);
-                int reuseCount = 0;
-                int coldCreateCount = 0;
-                _spawnWork.Clear();
+                var claimedReference = new NativeReference<int>(Allocator.TempJob);
+                claimedReference.Value = 0;
 
                 using (ReuseJobMarker.Auto())
                 {
-                    var jobHandles = new NativeList<JobHandle>(_byKey.Count, Allocator.Temp);
-                    foreach (var (key, bucket) in _byKey)
+                    new LingeringAoeSpawnJob
                     {
-                        EntityQuery query = DeadSlotQueryFor(key);
-                        NativeArray<AoeSpawnCommand> configs = bucket.Requests.AsArray();
-                        var claimedReference = new NativeReference<int>(Allocator.TempJob);
-                        claimedReference.Value = 0;
-
-                        JobHandle spawnHandle = new AoeSpawnJob
-                        {
-                            Configs               = configs,
-                            ClaimedCount          = claimedReference,
-                            ActiveHandle          = GetComponentTypeHandle<Active>(false),
-                            CollisionActiveHandle = GetComponentTypeHandle<AoeCollisionActiveTag>(false),
-                            RenderActiveHandle    = GetComponentTypeHandle<CombatRenderActiveTag>(false),
-                            IdentityHandle        = GetComponentTypeHandle<AoeIdentityComponent>(false),
-                            KinematicsHandle      = GetComponentTypeHandle<CombatKinematicsComponent>(false),
-                            CollisionHandle       = GetComponentTypeHandle<CombatCollisionComponent>(false),
-                            LifetimeHandle        = GetComponentTypeHandle<CombatLifetimeComponent>(false),
-                            HitGateHandle         = GetComponentTypeHandle<AoeHitGateComponent>(false),
-                            HitSpawnHandle        = GetComponentTypeHandle<AoeHitSpawnComponent>(false),
-                            AreaHandle            = GetComponentTypeHandle<AoeAreaComponent>(false),
-                            PulseVfxHandle        = GetComponentTypeHandle<AoePulseVfxComponent>(false),
-                            RenderHandle          = GetComponentTypeHandle<CombatRenderComponent>(false),
-                            RenderBatchIdHandle   = GetComponentTypeHandle<CombatRenderBatchId>(false),
-                            RenderElementHandle   = GetComponentTypeHandle<CombatRenderElement>(false),
-                            ContactGateHandle     = GetBufferTypeHandle<AoeContactGateElement>(false),
-                            TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
-                            TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
-                            HasLingeringComponents = key.Lingering,
-                            HasTimedSpawner = key.HasTimedSpawner,
-                        }.Schedule(query, default);
-
-                        jobHandles.Add(spawnHandle);
-                        _spawnWork.Add(new AoeSpawnWork(configs, claimedReference));
-                    }
-
-                    JobHandle.CombineDependencies(jobHandles.AsArray()).Complete();
-                    jobHandles.Dispose();
+                        Configs = commands,
+                        ClaimedCount = claimedReference,
+                        ActiveHandle = GetComponentTypeHandle<Active>(false),
+                        CollisionActiveHandle = GetComponentTypeHandle<AoeCollisionActiveTag>(false),
+                        RenderActiveHandle = GetComponentTypeHandle<CombatRenderActiveTag>(false),
+                        IdentityHandle = GetComponentTypeHandle<AoeIdentityComponent>(false),
+                        KinematicsHandle = GetComponentTypeHandle<CombatKinematicsComponent>(false),
+                        CollisionHandle = GetComponentTypeHandle<CombatCollisionComponent>(false),
+                        LifetimeHandle = GetComponentTypeHandle<CombatLifetimeComponent>(false),
+                        HitGateHandle = GetComponentTypeHandle<AoeHitGateComponent>(false),
+                        HitSpawnHandle = GetComponentTypeHandle<AoeHitSpawnComponent>(false),
+                        AreaHandle = GetComponentTypeHandle<AoeAreaComponent>(false),
+                        PulseVfxHandle = GetComponentTypeHandle<AoePulseVfxComponent>(false),
+                        RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
+                        RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderBatchId>(false),
+                        RenderElementHandle = GetComponentTypeHandle<CombatRenderElement>(false),
+                        ContactGateHandle = GetBufferTypeHandle<AoeContactGateElement>(false),
+                        TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
+                        TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
+                    }.Schedule(_deadSlotQuery, default).Complete();
                 }
 
-                foreach (AoeSpawnWork work in _spawnWork)
+                int reuseCount = claimedReference.Value;
+                claimedReference.Dispose();
+                int coldCreateCount = 0;
+                for (int i = reuseCount; i < commands.Length; i++)
                 {
-                    int claimed = work.ClaimedCount.Value;
-                    work.ClaimedCount.Dispose();
-                    reuseCount += claimed;
-                    for (int i = claimed; i < work.Configs.Length; i++)
-                    {
-                        CreateAoeEntity(work.Configs[i], createEcb);
-                        coldCreateCount++;
-                    }
+                    Entity entity = createEcb.CreateEntity(_lingeringArchetype);
+                    AoeSpawnApplyUtility.RecordLingeringReset(createEcb, entity, commands[i]);
+                    coldCreateCount++;
                 }
-                _spawnWork.Clear();
 
                 if (coldCreateCount > 0)
+                {
                     createEcb.Playback(EntityManager);
+                }
+
                 SpawnReuseCounter.Value = reuseCount;
                 SpawnColdCreateCounter.Value = totalRequests - reuseCount;
                 LastReuseCount = reuseCount;
@@ -221,101 +330,114 @@ namespace PlayGround.System.Aoe
             }
         }
 
-        private void ReturnBuckets()
+        [BurstCompile]
+        private struct LingeringAoeSpawnJob : IJobChunk
         {
-            foreach (var bucket in _byKey.Values)
-            {
-                bucket.Requests.Clear();
-                _bucketPool.Add(bucket);
-            }
-            _byKey.Clear();
-        }
+            [ReadOnly] public NativeArray<AoeSpawnCommand> Configs;
+            [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
 
-        private AoeSpawnBucket GetBucket()
-        {
-            if (_bucketPool.Count > 0)
-            {
-                int last = _bucketPool.Count - 1;
-                var bucket = _bucketPool[last];
-                _bucketPool.RemoveAt(last);
-                return bucket;
-            }
-            return new AoeSpawnBucket();
-        }
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<Active> ActiveHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeCollisionActiveTag> CollisionActiveHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderActiveTag> RenderActiveHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeIdentityComponent> IdentityHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatKinematicsComponent> KinematicsHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatCollisionComponent> CollisionHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatLifetimeComponent> LifetimeHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeHitGateComponent> HitGateHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeHitSpawnComponent> HitSpawnHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeAreaComponent> AreaHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoePulseVfxComponent> PulseVfxHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderBatchId> RenderBatchIdHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderElement> RenderElementHandle;
+            [NativeDisableContainerSafetyRestriction] public BufferTypeHandle<AoeContactGateElement> ContactGateHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
+            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<TimedSpawnStateComponent> TimedSpawnStateHandle;
 
-        private static void DisposeBuckets(IEnumerable<AoeSpawnBucket> buckets)
-        {
-            foreach (AoeSpawnBucket bucket in buckets)
-                bucket.Dispose();
-        }
-
-        private EntityQuery DeadSlotQueryFor(AoeSpawnKey key)
-        {
-            if (!_deadSlotQueriesByKey.TryGetValue(key, out EntityQuery query))
+            public void Execute(
+                in ArchetypeChunk chunk,
+                int unfilteredChunkIndex,
+                bool useEnabledMask,
+                in v128 chunkEnabledMask)
             {
-                if (key.Lingering)
+                int cfgIdx = ClaimedCount.Value;
+                if (cfgIdx >= Configs.Length)
                 {
-                    if (key.HasTimedSpawner)
-                    {
-                        query = new EntityQueryBuilder(Allocator.Temp)
-                            .WithAll<AoeTag>()
-                            .WithAll<CombatLifetimeComponent>()
-                            .WithAll<TimedSpawnTag>()
-                            .WithDisabled<Active>()
-                            .Build(this);
-                    }
-                    else
-                    {
-                        query = new EntityQueryBuilder(Allocator.Temp)
-                            .WithAll<AoeTag>()
-                            .WithAll<CombatLifetimeComponent>()
-                            .WithDisabled<Active>()
-                            .WithNone<TimedSpawnTag>()
-                            .Build(this);
-                    }
+                    return;
                 }
-                else
+
+                EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
+                EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
+                EnabledMask renderActiveMask = chunk.GetEnabledMask(ref RenderActiveHandle);
+                EnabledMask lifetimeMask = chunk.GetEnabledMask(ref LifetimeHandle);
+                EnabledMask timedSpawnMask = chunk.GetEnabledMask(ref TimedSpawnHandle);
+
+                NativeArray<AoeIdentityComponent> identities = chunk.GetNativeArray(ref IdentityHandle);
+                NativeArray<CombatKinematicsComponent> kinematics = chunk.GetNativeArray(ref KinematicsHandle);
+                NativeArray<CombatCollisionComponent> collisions = chunk.GetNativeArray(ref CollisionHandle);
+                NativeArray<CombatLifetimeComponent> lifetimes = chunk.GetNativeArray(ref LifetimeHandle);
+                NativeArray<AoeHitGateComponent> hitGates = chunk.GetNativeArray(ref HitGateHandle);
+                NativeArray<AoeHitSpawnComponent> hitSpawns = chunk.GetNativeArray(ref HitSpawnHandle);
+                NativeArray<AoeAreaComponent> areas = chunk.GetNativeArray(ref AreaHandle);
+                NativeArray<AoePulseVfxComponent> pulseVfxs = chunk.GetNativeArray(ref PulseVfxHandle);
+                NativeArray<CombatRenderComponent> renders = chunk.GetNativeArray(ref RenderHandle);
+                NativeArray<CombatRenderBatchId> batchIds = chunk.GetNativeArray(ref RenderBatchIdHandle);
+                NativeArray<CombatRenderElement> renderElems = chunk.GetNativeArray(ref RenderElementHandle);
+                BufferAccessor<AoeContactGateElement> gates = chunk.GetBufferAccessor(ref ContactGateHandle);
+                NativeArray<TimedSpawnComponent> timedSpawns = chunk.GetNativeArray(ref TimedSpawnHandle);
+                NativeArray<TimedSpawnStateComponent> timedSpawnStates =
+                    chunk.GetNativeArray(ref TimedSpawnStateHandle);
+
+                for (int i = 0; i < chunk.Count && cfgIdx < Configs.Length; i++)
                 {
-                    query = new EntityQueryBuilder(Allocator.Temp)
-                        .WithAll<AoeTag>()
-                        .WithDisabled<Active>()
-                        .WithNone<CombatLifetimeComponent>()
-                        .WithNone<TimedSpawnTag>()
-                        .Build(this);
+                    if (activeMask[i])
+                    {
+                        continue;
+                    }
+
+                    AoeSpawnCommand cfg = Configs[cfgIdx++];
+                    AoeSpawnApplyUtility.WriteCommon(
+                        cfg,
+                        identities,
+                        kinematics,
+                        collisions,
+                        hitGates,
+                        hitSpawns,
+                        areas,
+                        renders,
+                        batchIds,
+                        renderElems,
+                        i);
+
+                    lifetimes[i] = new CombatLifetimeComponent { Remaining = cfg.Lifetime };
+                    lifetimeMask[i] = true;
+                    pulseVfxs[i] = AoeSpawnApplyUtility.PulseVfxFor(cfg);
+                    gates[i].Clear();
+
+                    bool hasTimedSpawner = AoeSpawnApplyUtility.HasTimedSpawner(cfg);
+                    timedSpawns[i] = hasTimedSpawner ? cfg.TimedSpawn : default;
+                    timedSpawnStates[i] = hasTimedSpawner
+                        ? AoeSpawnApplyUtility.InitialTimedSpawnStateFor(cfg)
+                        : default;
+                    timedSpawnMask[i] = hasTimedSpawner;
+
+                    bool collisionEnabled = AoeSpawnApplyUtility.NeedsCollision(cfg);
+                    activeMask[i] = true;
+                    collisionActiveMask[i] = collisionEnabled;
+                    renderActiveMask[i] = true;
                 }
-                _deadSlotQueriesByKey[key] = query;
+
+                ClaimedCount.Value = cfgIdx;
             }
-
-            return query;
         }
+    }
 
-        private void DisposeSpawnWorkReferences()
-        {
-            foreach (AoeSpawnWork work in _spawnWork)
-            {
-                if (work.ClaimedCount.IsCreated)
-                    work.ClaimedCount.Dispose();
-            }
-            _spawnWork.Clear();
-        }
-
-        private void CreateAoeEntity(AoeSpawnCommand cmd, EntityCommandBuffer ecb)
-        {
-            bool lingering = cmd.Lifetime > 0f;
-            bool hasTimedSpawner = HasTimedSpawner(cmd);
-            EntityArchetype archetype = lingering
-                ? hasTimedSpawner ? timedSpawnerLingeringArchetype : lingeringArchetype
-                : impactArchetype;
-            Entity entity = ecb.CreateEntity(archetype);
-            RecordAoeReset(ecb, entity, cmd, lingering, hasTimedSpawner);
-        }
-
-        private static void RecordAoeReset(
+    internal static class AoeSpawnApplyUtility
+    {
+        public static void RecordImpactReset(
             EntityCommandBuffer ecb,
             Entity entity,
-            AoeSpawnCommand cmd,
-            bool lingering,
-            bool hasTimedSpawner)
+            in AoeSpawnCommand cmd)
         {
             CombatKinematicsComponent kinematics = KinematicsFor(cmd);
             CombatRenderComponent render = cmd.Render;
@@ -325,37 +447,80 @@ namespace PlayGround.System.Aoe
             ecb.SetComponent(entity, HitGateFor(cmd));
             ecb.SetComponent(entity, HitSpawnFor(cmd));
             ecb.SetComponent(entity, AreaFor(cmd));
-            if (lingering)
-            {
-                ecb.SetComponent(entity, new CombatLifetimeComponent { Remaining = cmd.Lifetime });
-                ecb.SetComponentEnabled<CombatLifetimeComponent>(entity, true);
-                ecb.SetComponent(entity, PulseVfxFor(cmd));
-            }
-            if (hasTimedSpawner)
-            {
-                ecb.SetComponent(entity, cmd.TimedSpawn);
-                ecb.SetComponent(entity, InitialTimedSpawnStateFor(cmd));
-            }
             ecb.SetComponent(entity, render);
             ecb.SetComponent(entity, new CombatRenderBatchId { Value = cmd.RenderTypeId });
             ecb.SetComponent(entity, CombatRenderMatrixUtility.ElementFor(kinematics, render));
             bool collisionEnabled = NeedsCollision(cmd);
-            bool active = lingering || collisionEnabled;
-            ecb.SetComponentEnabled<Active>(entity, active);
+            ecb.SetComponentEnabled<Active>(entity, collisionEnabled);
             ecb.SetComponentEnabled<AoeCollisionActiveTag>(entity, collisionEnabled);
-            ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, active);
+            ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, collisionEnabled);
         }
 
-        private static bool NeedsCollision(in AoeSpawnCommand cmd) =>
+        public static void RecordLingeringReset(
+            EntityCommandBuffer ecb,
+            Entity entity,
+            in AoeSpawnCommand cmd)
+        {
+            CombatKinematicsComponent kinematics = KinematicsFor(cmd);
+            CombatRenderComponent render = cmd.Render;
+            ecb.SetComponent(entity, IdentityFor(cmd));
+            ecb.SetComponent(entity, kinematics);
+            ecb.SetComponent(entity, CollisionFor(cmd));
+            ecb.SetComponent(entity, HitGateFor(cmd));
+            ecb.SetComponent(entity, HitSpawnFor(cmd));
+            ecb.SetComponent(entity, AreaFor(cmd));
+            ecb.SetComponent(entity, new CombatLifetimeComponent { Remaining = cmd.Lifetime });
+            ecb.SetComponentEnabled<CombatLifetimeComponent>(entity, true);
+            ecb.SetComponent(entity, PulseVfxFor(cmd));
+            bool hasTimedSpawner = HasTimedSpawner(cmd);
+            ecb.SetComponent(entity, hasTimedSpawner ? cmd.TimedSpawn : default);
+            ecb.SetComponent(entity, hasTimedSpawner ? InitialTimedSpawnStateFor(cmd) : default);
+            ecb.SetComponentEnabled<TimedSpawnComponent>(entity, hasTimedSpawner);
+            ecb.SetComponent(entity, render);
+            ecb.SetComponent(entity, new CombatRenderBatchId { Value = cmd.RenderTypeId });
+            ecb.SetComponent(entity, CombatRenderMatrixUtility.ElementFor(kinematics, render));
+            bool collisionEnabled = NeedsCollision(cmd);
+            ecb.SetComponentEnabled<Active>(entity, true);
+            ecb.SetComponentEnabled<AoeCollisionActiveTag>(entity, collisionEnabled);
+            ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
+        }
+
+        public static void WriteCommon(
+            in AoeSpawnCommand cfg,
+            NativeArray<AoeIdentityComponent> identities,
+            NativeArray<CombatKinematicsComponent> kinematics,
+            NativeArray<CombatCollisionComponent> collisions,
+            NativeArray<AoeHitGateComponent> hitGates,
+            NativeArray<AoeHitSpawnComponent> hitSpawns,
+            NativeArray<AoeAreaComponent> areas,
+            NativeArray<CombatRenderComponent> renders,
+            NativeArray<CombatRenderBatchId> batchIds,
+            NativeArray<CombatRenderElement> renderElems,
+            int index)
+        {
+            CombatKinematicsComponent kin = KinematicsFor(cfg);
+            CombatRenderComponent render = cfg.Render;
+            identities[index] = IdentityFor(cfg);
+            kinematics[index] = kin;
+            collisions[index] = CollisionFor(cfg);
+            hitGates[index] = HitGateFor(cfg);
+            hitSpawns[index] = HitSpawnFor(cfg);
+            areas[index] = AreaFor(cfg);
+            renders[index] = render;
+            batchIds[index] = new CombatRenderBatchId { Value = cfg.RenderTypeId };
+            renderElems[index] = CombatRenderMatrixUtility.ElementFor(kin, render);
+        }
+
+        public static bool NeedsCollision(in AoeSpawnCommand cmd) =>
             cmd.HitPayload.DirectDamageEnabled
             || cmd.HitPayload.StackEffect.Enabled
             || cmd.OnHitSpawn.Enabled;
 
-        private static bool HasTimedSpawner(in AoeSpawnCommand cmd) =>
-            cmd.Lifetime > 0f && !cmd.TimedSpawn.TemplateKey.Equals(default(Hash128));
+        public static bool HasTimedSpawner(in AoeSpawnCommand cmd) =>
+            cmd.Lifetime > 0f && cmd.HasTimedSpawner != 0;
 
-        private static TimedSpawnStateComponent InitialTimedSpawnStateFor(in AoeSpawnCommand cmd) =>
-            new TimedSpawnStateComponent
+        public static TimedSpawnStateComponent InitialTimedSpawnStateFor(in AoeSpawnCommand cmd) =>
+            new()
             {
                 CooldownRemaining = cmd.TimedSpawn.IntervalSeconds
                     + DeterministicJitter(
@@ -365,28 +530,34 @@ namespace PlayGround.System.Aoe
                 TickIndex = 0
             };
 
+        public static AoePulseVfxComponent PulseVfxFor(in AoeSpawnCommand cmd)
+        {
+            float interval = cmd.RepeatHitCooldownSeconds > 0f ? cmd.RepeatHitCooldownSeconds : 0f;
+            return new AoePulseVfxComponent { Interval = interval, RemainingInterval = interval };
+        }
+
         private static AoeIdentityComponent IdentityFor(in AoeSpawnCommand cmd) =>
-            new AoeIdentityComponent { Faction = cmd.Faction, AoeId = cmd.AoeId, TypeId = cmd.TypeId };
+            new() { Faction = cmd.Faction, AoeId = cmd.AoeId, TypeId = cmd.TypeId };
 
         private static CombatKinematicsComponent KinematicsFor(in AoeSpawnCommand cmd) =>
-            new CombatKinematicsComponent { Position = cmd.Position, Velocity = default };
+            new() { Position = cmd.Position, Velocity = default };
 
         private static CombatCollisionComponent CollisionFor(in AoeSpawnCommand cmd) =>
-            new CombatCollisionComponent
+            new()
             {
-                ShapeType       = cmd.ShapeType,
-                Radius          = cmd.Radius,
-                HalfExtents     = cmd.HalfExtents,
+                ShapeType = cmd.ShapeType,
+                Radius = cmd.Radius,
+                HalfExtents = cmd.HalfExtents,
                 RotationRadians = cmd.RotationRadians,
-                BoundsMin       = cmd.BoundsMin,
-                BoundsMax       = cmd.BoundsMax
+                BoundsMin = cmd.BoundsMin,
+                BoundsMax = cmd.BoundsMax
             };
 
         private static AoeHitGateComponent HitGateFor(in AoeSpawnCommand cmd) =>
-            new AoeHitGateComponent { RepeatHitCooldownSeconds = cmd.RepeatHitCooldownSeconds };
+            new() { RepeatHitCooldownSeconds = cmd.RepeatHitCooldownSeconds };
 
         private static AoeHitSpawnComponent HitSpawnFor(in AoeSpawnCommand cmd) =>
-            new AoeHitSpawnComponent
+            new()
             {
                 HitPayload = HitPayloadFor(cmd.HitPayload, cmd.Faction),
                 OnHitSpawn = cmd.OnHitSpawn
@@ -401,185 +572,7 @@ namespace PlayGround.System.Aoe
         }
 
         private static AoeAreaComponent AreaFor(in AoeSpawnCommand cmd) =>
-            new AoeAreaComponent { Size = cmd.AreaSize > 0f ? cmd.AreaSize : 1f };
-
-        private static AoePulseVfxComponent PulseVfxFor(in AoeSpawnCommand cmd)
-        {
-            float interval = cmd.RepeatHitCooldownSeconds > 0f ? cmd.RepeatHitCooldownSeconds : 0f;
-            return new AoePulseVfxComponent { Interval = interval, RemainingInterval = interval };
-        }
-
-        [BurstCompile]
-        private struct AoeSpawnJob : IJobChunk
-        {
-            [ReadOnly] public NativeArray<AoeSpawnCommand> Configs;
-            [NativeDisableContainerSafetyRestriction] public NativeReference<int> ClaimedCount;
-
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<Active>                   ActiveHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeCollisionActiveTag>    CollisionActiveHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderActiveTag>    RenderActiveHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeIdentityComponent>     IdentityHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatKinematicsComponent> KinematicsHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatCollisionComponent>  CollisionHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatLifetimeComponent>  LifetimeHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeHitGateComponent>      HitGateHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeHitSpawnComponent>     HitSpawnHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoeAreaComponent>         AreaHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<AoePulseVfxComponent>     PulseVfxHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderComponent>    RenderHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderBatchId>       RenderBatchIdHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<CombatRenderElement>      RenderElementHandle;
-            [NativeDisableContainerSafetyRestriction] public BufferTypeHandle<AoeContactGateElement>       ContactGateHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<TimedSpawnStateComponent> TimedSpawnStateHandle;
-            public bool HasLingeringComponents;
-            public bool HasTimedSpawner;
-
-            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex,
-                bool useEnabledMask, in v128 chunkEnabledMask)
-            {
-                int cfgIdx = ClaimedCount.Value;
-                if (cfgIdx >= Configs.Length) return;
-
-                EnabledMask activeMask          = chunk.GetEnabledMask(ref ActiveHandle);
-                EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
-                EnabledMask renderActiveMask    = chunk.GetEnabledMask(ref RenderActiveHandle);
-
-                NativeArray<AoeIdentityComponent>     identities  = chunk.GetNativeArray(ref IdentityHandle);
-                NativeArray<CombatKinematicsComponent> kinematics  = chunk.GetNativeArray(ref KinematicsHandle);
-                NativeArray<CombatCollisionComponent>  collisions  = chunk.GetNativeArray(ref CollisionHandle);
-                NativeArray<AoeHitGateComponent>      hitGates    = chunk.GetNativeArray(ref HitGateHandle);
-                NativeArray<AoeHitSpawnComponent>     hitSpawns   = chunk.GetNativeArray(ref HitSpawnHandle);
-                NativeArray<AoeAreaComponent>         areas       = chunk.GetNativeArray(ref AreaHandle);
-                NativeArray<CombatRenderComponent>    renders     = chunk.GetNativeArray(ref RenderHandle);
-                NativeArray<CombatRenderBatchId>      batchIds    = chunk.GetNativeArray(ref RenderBatchIdHandle);
-                NativeArray<CombatRenderElement>      renderElems = chunk.GetNativeArray(ref RenderElementHandle);
-                EnabledMask lifetimeMask = default;
-                NativeArray<CombatLifetimeComponent> lifetimes = default;
-                NativeArray<AoePulseVfxComponent> pulseVfxs = default;
-                BufferAccessor<AoeContactGateElement> gates = default;
-                NativeArray<TimedSpawnComponent> timedSpawns = default;
-                NativeArray<TimedSpawnStateComponent> timedSpawnStates = default;
-                if (HasLingeringComponents)
-                {
-                    lifetimeMask = chunk.GetEnabledMask(ref LifetimeHandle);
-                    lifetimes = chunk.GetNativeArray(ref LifetimeHandle);
-                    pulseVfxs = chunk.GetNativeArray(ref PulseVfxHandle);
-                    gates = chunk.GetBufferAccessor(ref ContactGateHandle);
-                    if (HasTimedSpawner)
-                    {
-                        timedSpawns = chunk.GetNativeArray(ref TimedSpawnHandle);
-                        timedSpawnStates = chunk.GetNativeArray(ref TimedSpawnStateHandle);
-                    }
-                }
-
-                for (int i = 0; i < chunk.Count && cfgIdx < Configs.Length; i++)
-                {
-                    if (activeMask[i]) continue;
-
-                    AoeSpawnCommand cfg = Configs[cfgIdx++];
-
-                    identities[i] = new AoeIdentityComponent
-                    {
-                        Faction = cfg.Faction, AoeId = cfg.AoeId, TypeId = cfg.TypeId
-                    };
-                    CombatKinematicsComponent kin = new CombatKinematicsComponent
-                    {
-                        Position = cfg.Position, Velocity = default
-                    };
-                    kinematics[i] = kin;
-                    collisions[i] = new CombatCollisionComponent
-                    {
-                        ShapeType = cfg.ShapeType, Radius = cfg.Radius, HalfExtents = cfg.HalfExtents,
-                        RotationRadians = cfg.RotationRadians, BoundsMin = cfg.BoundsMin, BoundsMax = cfg.BoundsMax
-                    };
-                    hitGates[i]    = new AoeHitGateComponent
-                    {
-                        RepeatHitCooldownSeconds = cfg.RepeatHitCooldownSeconds
-                    };
-                    hitSpawns[i]   = new AoeHitSpawnComponent
-                    {
-                        HitPayload = HitPayloadFor(cfg.HitPayload, cfg.Faction),
-                        OnHitSpawn = cfg.OnHitSpawn
-                    };
-                    areas[i]       = new AoeAreaComponent
-                    {
-                        Size = cfg.AreaSize > 0f ? cfg.AreaSize : 1f
-                    };
-                    if (HasLingeringComponents)
-                    {
-                        lifetimes[i] = new CombatLifetimeComponent { Remaining = cfg.Lifetime };
-                        lifetimeMask[i] = true;
-                        float interval = cfg.RepeatHitCooldownSeconds > 0f ? cfg.RepeatHitCooldownSeconds : 0f;
-                        pulseVfxs[i] = new AoePulseVfxComponent
-                        {
-                            Interval = interval, RemainingInterval = interval
-                        };
-                        gates[i].Clear();
-                    }
-                    if (HasTimedSpawner)
-                    {
-                        timedSpawns[i] = cfg.TimedSpawn;
-                        timedSpawnStates[i] = InitialTimedSpawnStateFor(cfg);
-                    }
-                    CombatRenderComponent render = cfg.Render;
-                    renders[i]     = render;
-                    batchIds[i]    = new CombatRenderBatchId { Value = cfg.RenderTypeId };
-                    renderElems[i] = CombatRenderMatrixUtility.ElementFor(kin, render);
-
-                    bool collisionEnabled = NeedsCollision(cfg);
-                    bool active = HasLingeringComponents || collisionEnabled;
-                    activeMask[i]          = active;
-                    collisionActiveMask[i] = collisionEnabled;
-                    renderActiveMask[i]    = active;
-                }
-
-                ClaimedCount.Value = cfgIdx;
-            }
-        }
-
-        private readonly struct AoeSpawnKey : IEquatable<AoeSpawnKey>
-        {
-            private readonly bool _lingering;
-            private readonly bool _hasTimedSpawner;
-
-            public bool Lingering       => _lingering;
-            public bool HasTimedSpawner => _hasTimedSpawner;
-
-            public AoeSpawnKey(bool lingering, bool hasTimedSpawner)
-            {
-                _lingering       = lingering;
-                _hasTimedSpawner = hasTimedSpawner;
-            }
-
-            public bool Equals(AoeSpawnKey other) =>
-                _lingering == other._lingering
-                && _hasTimedSpawner == other._hasTimedSpawner;
-
-            public override bool Equals(object obj) => obj is AoeSpawnKey k && Equals(k);
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = _lingering ? 1 : 0;
-                    hash = hash * 397 ^ (_hasTimedSpawner ? 1 : 0);
-                    return hash;
-                }
-            }
-        }
-
-        private sealed class AoeSpawnBucket : IDisposable
-        {
-            public readonly NativeList<AoeSpawnCommand> Requests =
-                new(Allocator.Persistent);
-
-            public void Dispose()
-            {
-                if (Requests.IsCreated)
-                    Requests.Dispose();
-            }
-        }
+            new() { Size = cmd.AreaSize > 0f ? cmd.AreaSize : 1f };
 
         private static float DeterministicJitter(int aoeId, int jitterSeed, float maxOffsetSeconds)
         {
@@ -599,20 +592,6 @@ namespace PlayGround.System.Aoe
                 hash *= 0x846CA68Bu;
                 hash ^= hash >> 16;
                 return ((hash & 0x00FFFFFFu) + 1u) / 16777217f * maxOffsetSeconds;
-            }
-        }
-
-        private readonly struct AoeSpawnWork
-        {
-            public readonly NativeArray<AoeSpawnCommand> Configs;
-            public readonly NativeReference<int> ClaimedCount;
-
-            public AoeSpawnWork(
-                NativeArray<AoeSpawnCommand> configs,
-                NativeReference<int> claimedCount)
-            {
-                Configs = configs;
-                ClaimedCount = claimedCount;
             }
         }
     }

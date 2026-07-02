@@ -9,26 +9,29 @@ using Unity.Mathematics;
 namespace PlayGround.System.Aoe
 {
     // Drains thin AoeSpawnEvent values, dereferences command-shaped templates,
-    // stamps per-instance frame data, and writes AoeSpawnCommand into PendingCommands.
+    // stamps per-instance frame data, and writes AoeSpawnCommand into impact or lingering apply containers.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
     [UpdateAfter(typeof(PlayGround.System.Projectile.ProjectileCollisionSystem))]
     [UpdateAfter(typeof(StatusProcessSystem))]
-    [UpdateBefore(typeof(AoeSpawnApplySystem))]
-    [UpdateBefore(typeof(PlayGround.System.Projectile.BasicProjectileSpawnApplySystem))]
-    [UpdateBefore(typeof(PlayGround.System.Projectile.ChildSpawnerProjectileSpawnApplySystem))]
+    [UpdateBefore(typeof(ImpactAoeSpawnApplySystem))]
+    [UpdateBefore(typeof(LingeringAoeSpawnApplySystem))]
+    [UpdateBefore(typeof(PlayGround.System.Projectile.ProjectileSpawnApplySystem))]
     public partial class AoeSpawnExpansionSystem : SystemBase
     {
         private EntityQuery _scopeQuery;
 
         internal NativeQueue<AoeSpawnEvent> EventQueue;
-        internal NativeStream PendingCommands;
+        internal NativeList<AoeSpawnCommand> ImpactCommandContainer;
+        internal NativeList<AoeSpawnCommand> LingeringCommandContainer;
         internal JobHandle PendingHandle;
         internal JobHandle ProducerHandle;
 
         protected override void OnCreate()
         {
             EventQueue = new NativeQueue<AoeSpawnEvent>(Allocator.Persistent);
+            ImpactCommandContainer = new NativeList<AoeSpawnCommand>(128, Allocator.Persistent);
+            LingeringCommandContainer = new NativeList<AoeSpawnCommand>(64, Allocator.Persistent);
             _scopeQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CombatScope>(),
                 ComponentType.ReadWrite<AoeSpawnEvent>());
@@ -36,9 +39,15 @@ namespace PlayGround.System.Aoe
 
         protected override void OnDestroy()
         {
-            if (PendingCommands.IsCreated)
+            PendingHandle.Complete();
+            if (ImpactCommandContainer.IsCreated)
             {
-                PendingCommands.Dispose();
+                ImpactCommandContainer.Dispose();
+            }
+
+            if (LingeringCommandContainer.IsCreated)
+            {
+                LingeringCommandContainer.Dispose();
             }
 
             EventQueue.Dispose();
@@ -46,14 +55,11 @@ namespace PlayGround.System.Aoe
 
         protected override void OnUpdate()
         {
-            if (PendingCommands.IsCreated)
-            {
-                PendingCommands.Dispose();
-            }
-
             Dependency.Complete();
             ProducerHandle.Complete();
             ProducerHandle = default;
+            ImpactCommandContainer.Clear();
+            LingeringCommandContainer.Clear();
 
             int queueCount = EventQueue.Count;
             using NativeArray<Entity> scopes = _scopeQuery.ToEntityArray(Allocator.Temp);
@@ -66,7 +72,7 @@ namespace PlayGround.System.Aoe
             int totalEvents = queueCount + bufferCount;
             if (totalEvents == 0)
             {
-                PendingCommands = default;
+                PendingHandle = default;
                 return;
             }
 
@@ -91,7 +97,6 @@ namespace PlayGround.System.Aoe
 
             if (!SystemAPI.TryGetSingleton(out AoeSpawnTemplate templates))
             {
-                PendingCommands = default;
                 Dependency = events.Dispose(Dependency);
                 PendingHandle = Dependency;
                 return;
@@ -100,7 +105,37 @@ namespace PlayGround.System.Aoe
             var vfx = World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
             bool hasVfx = vfx != null && vfx.HasQueue;
 
-            PendingCommands = new NativeStream(totalEvents, Allocator.TempJob);
+            int impactCommandBound = 0;
+            int lingeringCommandBound = 0;
+            for (int e = 0; e < events.Length; e++)
+            {
+                AoeSpawnEvent evt = events[e];
+                if (evt.Kind != IntervalChildKind.Aoe
+                    || !templates.Map.TryGetValue(evt.TemplateKey, out AoeSpawnCommand template))
+                {
+                    continue;
+                }
+
+                int fanout = math.max(1, template.EchoCount);
+                if (template.Lifetime > 0f)
+                {
+                    lingeringCommandBound += fanout;
+                }
+                else
+                {
+                    impactCommandBound += fanout;
+                }
+            }
+
+            if (ImpactCommandContainer.Capacity < impactCommandBound)
+            {
+                ImpactCommandContainer.SetCapacity(impactCommandBound);
+            }
+
+            if (LingeringCommandContainer.Capacity < lingeringCommandBound)
+            {
+                LingeringCommandContainer.SetCapacity(lingeringCommandBound);
+            }
 
             // AoeExpansionJob is a plain IJob with no ECS component access, so the
             // job-safety system cannot auto-chain it behind the IJobEntity VFX
@@ -117,7 +152,8 @@ namespace PlayGround.System.Aoe
             {
                 Events = events,
                 Templates = templates.Map,
-                Stream = PendingCommands.AsWriter(),
+                ImpactCommands = ImpactCommandContainer.AsParallelWriter(),
+                LingeringCommands = LingeringCommandContainer.AsParallelWriter(),
                 VfxPending = hasVfx ? vfx.AsParallelWriter() : default,
                 HasVfxWriter = hasVfx
             }.Schedule(expansionInput);
@@ -137,7 +173,8 @@ namespace PlayGround.System.Aoe
         {
             [ReadOnly] public NativeArray<AoeSpawnEvent> Events;
             [ReadOnly] public NativeHashMap<Hash128, AoeSpawnCommand> Templates;
-            public NativeStream.Writer Stream;
+            public NativeList<AoeSpawnCommand>.ParallelWriter ImpactCommands;
+            public NativeList<AoeSpawnCommand>.ParallelWriter LingeringCommands;
             public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
             public bool HasVfxWriter;
 
@@ -146,7 +183,6 @@ namespace PlayGround.System.Aoe
                 for (int ci = 0; ci < Events.Length; ci++)
                 {
                     AoeSpawnEvent evt = Events[ci];
-                    Stream.BeginForEachIndex(ci);
 
                     if (evt.Kind == IntervalChildKind.Aoe
                         && Templates.TryGetValue(evt.TemplateKey, out AoeSpawnCommand command))
@@ -183,7 +219,15 @@ namespace PlayGround.System.Aoe
                                 spawned.TimedSpawn = timedSpawn;
                             }
 
-                            Stream.Write(spawned);
+                            if (spawned.Lifetime > 0f)
+                            {
+                                LingeringCommands.AddNoResize(spawned);
+                            }
+                            else
+                            {
+                                ImpactCommands.AddNoResize(spawned);
+                            }
+
                             if (HasVfxWriter)
                             {
                                 VfxPending.Enqueue(new VfxPendingSpawn
@@ -196,8 +240,6 @@ namespace PlayGround.System.Aoe
                             }
                         }
                     }
-
-                    Stream.EndForEachIndex();
                 }
             }
 

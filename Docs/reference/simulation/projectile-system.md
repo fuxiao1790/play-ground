@@ -160,14 +160,12 @@ Current flow:
    shared scope `DynamicBuffer<ProjectileSpawnEvent>`.
 3. Expansion resolves volley math, spread, jitter, velocity, ids, bounds, and
    per-shot render Z.
-4. Expansion writes commands into separate command queues:
-   basic projectile commands and child-spawner projectile commands.
-5. `BasicProjectileSpawnApplySystem` and
-   `ChildSpawnerProjectileSpawnApplySystem` consume their command queues.
-6. Apply systems bucket commands by faction, render type, and shape/archetype.
-7. Apply systems query matching disabled entities with `WithDisabled<Active>()`
+4. Expansion writes commands into one projectile command queue.
+5. `ProjectileSpawnApplySystem` consumes the command queue.
+6. The apply system queries disabled projectile entities with
+   `WithAll<ProjectileTag>()` and `WithDisabled<Active>()`
    and reset them through `IJobChunk`.
-8. Any commands not satisfied by reuse are cold-created through an
+7. Any commands not satisfied by reuse are cold-created through an
    `EntityCommandBuffer`.
 
 The apply systems do not interpret volley patterns. Expansion owns spawn math.
@@ -186,17 +184,14 @@ Projectiles carry:
 - `ProjectileTrackingComponent`
 - `ProjectileCollisionActiveTag`
 - `ProjectileContactGateElement`
+- `TimedSpawnComponent`
+- `TimedSpawnStateComponent`
 - common render components
 
-Child-spawner projectiles additionally carry:
-
-- `ProjectileChildSpawnerTag`
-- `ProjectileChildSpawnerComponent`
-- `ProjectileChildSpawnStateComponent`
-
-The child-spawner shape is a separate archetype. Normal projectile slots do not
-gain child-spawner components later, and child-spawner slots are reused only by
-the child-spawner apply path.
+There is one projectile archetype. Timed child spawning is selected by enabled
+`TimedSpawnComponent`; non-timed projectiles still carry the component, but it
+is disabled. This removes the former basic vs timed projectile archetype
+split at a small chunk-width cost.
 
 Runtime despawn disables `Active` and `CombatRenderActiveTag`. It does not
 destroy the entity during normal churn. Cold-created entities are kept until
@@ -204,15 +199,15 @@ their owning `CombatRoot` is destroyed.
 
 ## Timed Child Spawns
 
-`TimedProjectileSpawnSystem` replaces the old child request buffer path. It
-queries active projectiles with `ProjectileChildSpawnerTag`, ticks their child
+`TimedSpawnSystem` replaces the old child request buffer path. It queries active
+finite-lifetime entities with enabled `TimedSpawnComponent`, ticks their child
 spawn cooldown using variable `deltaTime`, catches up missed intervals, and
-enqueues `ProjectileSpawnEvent` values directly into the projectile expansion
-queue.
+enqueues `ProjectileSpawnEvent` or `AoeSpawnEvent` values directly into the
+matching expansion queue.
 
-Child projectiles currently spawn as normal projectile slots. They may carry
-damage, stack effect, impact AOE, and impact projectile snapshots, but they do
-not recursively carry another child-spawner component.
+Child projectiles use the same projectile pool. They may carry damage, stack
+effect, impact AOE, and impact projectile snapshots. They only emit interval
+children when `TimedSpawnComponent` is enabled.
 
 ## Tracking And Movement
 

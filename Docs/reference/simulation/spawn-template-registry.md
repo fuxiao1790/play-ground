@@ -249,7 +249,7 @@ Per-instance fields stamped by expansion:
 `TimedSpawnComponent` is the slim, self-describing interval-spawn config:
 
 ```csharp
-public struct TimedSpawnComponent : IComponentData
+public struct TimedSpawnComponent : IComponentData, IEnableableComponent
 {
     public CombatFaction Faction;
     public int SourceId;
@@ -271,10 +271,10 @@ public struct TimedSpawnStateComponent : IComponentData
 }
 ```
 
-`TimedSpawnTag` marks the timed-spawning archetype. Apply systems add
-`TimedSpawnTag`, `TimedSpawnComponent`, and `TimedSpawnStateComponent` to
-projectile or lingering-AOE source archetypes when the command carries enabled
-timed spawn.
+`TimedSpawnComponent` enabled state marks an interval-spawning source. Projectile
+and lingering-AOE archetypes always contain `TimedSpawnComponent` and
+`TimedSpawnStateComponent`; apply systems enable the component only when the
+command carries timed spawn. Impact AOEs do not contain timed-spawn components.
 
 One `TimedSpawnSystem` handles both projectile and lingering-AOE sources. It
 queries active entities with:
@@ -282,7 +282,6 @@ queries active entities with:
 - `Active`
 - `CombatLifetimeComponent`
 - `CombatKinematicsComponent`
-- `TimedSpawnTag`
 - `TimedSpawnComponent`
 - `TimedSpawnStateComponent`
 
@@ -389,7 +388,7 @@ ProjectileSpawnRequest
   -> ProjectileSpawnEvent on shared scope buffer
   -> ProjectileSpawnExpansionSystem
   -> ProjectileSpawnCommand
-  -> BasicProjectileSpawnApplySystem or ChildSpawnerProjectileSpawnApplySystem
+  -> ProjectileSpawnApplySystem
   -> Projectile ECS entity with snapshotted components
   -> ProjectileCollisionSystem
      -> CombatHitEvent
@@ -408,7 +407,7 @@ Timed child spawns follow the same event path:
 ProjectileSpawnEvent or AoeSpawnEvent
   -> CombatRoot.RegisterTimedSpawnTemplate
   -> Hash128 TemplateKey
-  -> TimedSpawnComponent on source entity
+  -> enabled TimedSpawnComponent on source entity
   -> TimedSpawnSystem
   -> ProjectileSpawnEvent or AoeSpawnEvent
   -> normal expansion/apply path
@@ -422,7 +421,7 @@ AoeSpawnRequest
   -> AoeSpawnEvent on shared scope buffer
   -> AoeSpawnExpansionSystem
   -> AoeSpawnCommand
-  -> AoeSpawnApplySystem
+  -> ImpactAoeSpawnApplySystem or LingeringAoeSpawnApplySystem
   -> AOE ECS entity with snapshotted components
   -> AOE collision system
      -> CombatHitEvent

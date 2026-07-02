@@ -160,9 +160,8 @@ Docs/
   helpers.
 - `Assets/Scripts/System/Projectile/ProjectileSpawnExpansionSystem.cs`: drains
   projectile events and expands volley data into per-shape command queues.
-- `Assets/Scripts/System/Projectile/ProjectileSpawnApplySystem.cs`: basic and
-  timed-spawner apply systems; reuse disabled `Active` slots before cold
-  creation.
+- `Assets/Scripts/System/Projectile/ProjectileSpawnApplySystem.cs`: unified
+  projectile apply system; reuse disabled `Active` slots before cold creation.
 - `Assets/Scripts/System/Common/TimedSpawnSystem.cs`: shared timed child spawn
   event production.
 - `Assets/Scripts/System/Projectile/ProjectileTrackingSystem.cs`: target proxy
@@ -184,8 +183,8 @@ Docs/
   `AoeSpawnCommand`, and impact/on-hit AOE helpers.
 - `Assets/Scripts/System/Aoe/AoeSpawnExpansionSystem.cs`: drains AOE events and
   writes command stream.
-- `Assets/Scripts/System/Aoe/AoeSpawnApplySystem.cs`: applies AOE commands by
-  reusing disabled `Active` slots before cold creation.
+- AOE spawn apply file: impact and lingering AOE
+  apply systems; reuse disabled `Active` slots before cold creation.
 - `Assets/Scripts/System/Aoe/AoeContactGateSystem.cs`: lingering AOE repeat-hit
   gate expiry.
 - `Assets/Scripts/System/Aoe/AoeCollisionSystem.cs`: target proxy collision,

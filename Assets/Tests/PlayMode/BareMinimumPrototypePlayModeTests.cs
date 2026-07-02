@@ -887,7 +887,12 @@ namespace PlayGround.Tests.PlayMode
         {
             return CountScopedProjectiles(
                 projectileRoot,
-                entity => World.DefaultGameObjectInjectionWorld.EntityManager.HasComponent<TimedSpawnTag>(entity));
+                entity =>
+                {
+                    EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+                    return entityManager.HasComponent<TimedSpawnComponent>(entity)
+                        && entityManager.IsComponentEnabled<TimedSpawnComponent>(entity);
+                });
         }
 
         private static Entity FirstScopedChildSpawnerEntity(CombatRoot projectileRoot)
@@ -898,7 +903,8 @@ namespace PlayGround.Tests.PlayMode
                 entity =>
                 {
                     EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
-                    if (!entityManager.HasComponent<TimedSpawnTag>(entity))
+                    if (!entityManager.HasComponent<TimedSpawnComponent>(entity)
+                        || !entityManager.IsComponentEnabled<TimedSpawnComponent>(entity))
                     {
                         return false;
                     }
