@@ -16,7 +16,6 @@ namespace PlayGround.System.Common
 
         private EntityQuery projectileRenderQuery;
         private EntityQuery aoeRenderQuery;
-        private NativeArray<CombatRenderElement> submitBuffer;
 
         internal int LastActiveProjectileCount;
         internal int LastActiveAoeCount;
@@ -39,16 +38,6 @@ namespace PlayGround.System.Common
                 .WithAll<CombatRenderActiveTag>()
                 .WithAll<AoeTag>()
                 .Build(this);
-
-            submitBuffer = new NativeArray<CombatRenderElement>(MaxInstancesPerDraw, Allocator.Persistent);
-        }
-
-        protected override void OnDestroy()
-        {
-            if (submitBuffer.IsCreated)
-            {
-                submitBuffer.Dispose();
-            }
         }
 
         protected override void OnUpdate()
@@ -101,8 +90,7 @@ namespace PlayGround.System.Common
             for (int start = 0; start < elements.Length; start += MaxInstancesPerDraw)
             {
                 int count = math.min(MaxInstancesPerDraw, elements.Length - start);
-                NativeArray<CombatRenderElement>.Copy(elements, start, submitBuffer, 0, count);
-                Graphics.RenderMeshInstanced(rp, resources.Mesh, 0, submitBuffer, count, 0);
+                Graphics.RenderMeshInstanced(rp, resources.Mesh, 0, elements, count, start);
             }
         }
     }
