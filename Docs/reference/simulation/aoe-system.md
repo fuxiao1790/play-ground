@@ -140,10 +140,10 @@ Current flow:
    impact or lingering command container.
 4. `ImpactAoeSpawnApplySystem` and `LingeringAoeSpawnApplySystem` read their
    command containers and query reusable AOE slots with `WithDisabled<Active>()`.
-5. Each apply system captures its disabled chunks, builds worker chunk ranges,
-   and builds a worker-lane `NativeStream` of command indices.
-6. Reused slots are reset in one parallel worker-index job per AOE domain.
-7. Remaining command indices cold-create entities through an
+5. Each apply system captures its disabled chunks and schedules one
+   single-threaded Burst reuse job with one command cursor.
+6. Reused slots are reset in query chunk order.
+7. Remaining commands cold-create entities through an
    `EntityCommandBuffer`.
 
 AOE uses the same event-to-command fan-out contract as projectiles: spawn
@@ -183,13 +183,10 @@ available for reuse until the owning `CombatRoot` tears down its faction data.
 `AoeCollisionActiveTag` is separate from `Active`. It lets visual-only AOEs stay
 active/renderable while collision skips them.
 
-AOE reuse is intentionally lossy under uneven chunk ownership. Impact and
-lingering workers only reuse disabled slots in their assigned chunk ranges; if a
-worker fills its range, remaining command indices cold-create even if another
-worker has spare slots. This keeps apply cursor-free and parallel. The resident
-pool may converge to a slightly larger steady-state size. If profiling shows too
-much overflow cost, a future per-chunk disabled-slot popcount can improve lane
-packing without returning to a shared claim cursor.
+AOE reuse is single-cursor and deterministic per pool. Impact and lingering
+reuse jobs scan disabled chunks in query order, consume commands in command-list
+order, and return the reused prefix length. Cold creation handles the remaining
+suffix, so cold count indicates true pool shortage for that AOE archetype.
 
 ## Damage Timing
 
@@ -331,14 +328,14 @@ Current performance-sensitive choices:
 - proxy targets instead of collider reads in simulation
 - `Active` enable/disable reuse
 - target spatial hashing in collision
-- native queues/streams for damage, spawn, and VFX events
-- one parallel apply job per AOE reuse pool
+- native queues/lists for damage, spawn, and VFX events
+- one single-threaded Burst apply job per AOE reuse pool
 - batched render submission
 
 Revisit only with profiling:
 
 - AOE spatial hash cell size
-- per-chunk free-slot popcount for tighter reuse packing
+- dead-slot scan cost in spawn apply
 - per-hit damage replay volume
 - pulse VFX density and budgets
 

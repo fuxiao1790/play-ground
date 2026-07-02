@@ -22,8 +22,8 @@ namespace PlayGround.System.Aoe
         private EntityQuery _scopeQuery;
 
         internal NativeQueue<AoeSpawnEvent> EventQueue;
-        internal NativeStream ImpactCommandStream;
-        internal NativeStream LingeringCommandStream;
+        internal NativeList<AoeSpawnCommand> ImpactCommands;
+        internal NativeList<AoeSpawnCommand> LingeringCommands;
         internal JobHandle PendingHandle;
         internal JobHandle ProducerHandle;
 
@@ -38,14 +38,14 @@ namespace PlayGround.System.Aoe
         protected override void OnDestroy()
         {
             PendingHandle.Complete();
-            if (ImpactCommandStream.IsCreated)
+            if (ImpactCommands.IsCreated)
             {
-                ImpactCommandStream.Dispose();
+                ImpactCommands.Dispose();
             }
 
-            if (LingeringCommandStream.IsCreated)
+            if (LingeringCommands.IsCreated)
             {
-                LingeringCommandStream.Dispose();
+                LingeringCommands.Dispose();
             }
 
             EventQueue.Dispose();
@@ -53,14 +53,15 @@ namespace PlayGround.System.Aoe
 
         protected override void OnUpdate()
         {
-            if (ImpactCommandStream.IsCreated)
+            PendingHandle.Complete();
+            if (ImpactCommands.IsCreated)
             {
-                ImpactCommandStream.Dispose();
+                ImpactCommands.Dispose();
             }
 
-            if (LingeringCommandStream.IsCreated)
+            if (LingeringCommands.IsCreated)
             {
-                LingeringCommandStream.Dispose();
+                LingeringCommands.Dispose();
             }
 
             Dependency.Complete();
@@ -111,10 +112,10 @@ namespace PlayGround.System.Aoe
             var vfx = World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
             bool hasVfx = vfx != null && vfx.HasQueue;
 
-            ImpactCommandStream = new NativeStream(events.Length, Allocator.TempJob);
-            LingeringCommandStream = new NativeStream(events.Length, Allocator.TempJob);
+            ImpactCommands = new NativeList<AoeSpawnCommand>(events.Length, Allocator.TempJob);
+            LingeringCommands = new NativeList<AoeSpawnCommand>(events.Length, Allocator.TempJob);
 
-            // AoeExpansionJob is a plain IJobParallelFor with no ECS component access,
+            // AoeExpansionJob is a plain IJob with no ECS component access,
             // so the job-safety system cannot auto-chain it behind the IJobEntity VFX
             // producers (lifetime, pulse, collision) the way shared component access
             // chains those. Feed the collector's accumulated ProducerHandle in as an
@@ -129,11 +130,11 @@ namespace PlayGround.System.Aoe
             {
                 Events = events,
                 Templates = templates.Map,
-                ImpactCommands = ImpactCommandStream.AsWriter(),
-                LingeringCommands = LingeringCommandStream.AsWriter(),
+                ImpactCommands = ImpactCommands,
+                LingeringCommands = LingeringCommands,
                 VfxPending = hasVfx ? vfx.AsParallelWriter() : default,
                 HasVfxWriter = hasVfx
-            }.Schedule(events.Length, 1, expansionInput);
+            }.Schedule(expansionInput);
 
             if (hasVfx)
             {
@@ -146,97 +147,80 @@ namespace PlayGround.System.Aoe
         }
 
         [BurstCompile]
-        private struct AoeExpansionJob : IJobParallelFor
+        private struct AoeExpansionJob : IJob
         {
             [ReadOnly] public NativeArray<AoeSpawnEvent> Events;
             [ReadOnly] public NativeHashMap<Hash128, AoeSpawnCommand> Templates;
-            public NativeStream.Writer ImpactCommands;
-            public NativeStream.Writer LingeringCommands;
+            public NativeList<AoeSpawnCommand> ImpactCommands;
+            public NativeList<AoeSpawnCommand> LingeringCommands;
             public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
             public bool HasVfxWriter;
 
-            public void Execute(int ci)
+            public void Execute()
             {
-                AoeSpawnEvent evt = Events[ci];
-
-                if (evt.Kind != IntervalChildKind.Aoe
-                    || !Templates.TryGetValue(evt.TemplateKey, out AoeSpawnCommand command))
+                for (int ci = 0; ci < Events.Length; ci++)
                 {
-                    return;
-                }
+                    AoeSpawnEvent evt = Events[ci];
 
-                Stamp(ref command, in evt);
-
-                // Every echo of a command shares the template's lifetime, so the whole
-                // event routes to one domain stream. Begin that stream's lane once.
-                bool lingering = command.Lifetime > 0f;
-                if (lingering)
-                {
-                    LingeringCommands.BeginForEachIndex(ci);
-                }
-                else
-                {
-                    ImpactCommands.BeginForEachIndex(ci);
-                }
-
-                int echoCount = math.max(1, command.EchoCount);
-                var rng = new Random(command.JitterSeed != 0 ? command.JitterSeed : 1u);
-                for (int i = 0; i < echoCount; i++)
-                {
-                    AoeSpawnCommand spawned = command;
-                    spawned.AoeId = AoeIdFor(in command, i);
-                    float2 pos = command.Position;
-                    if (command.ScatterRadius > 0f)
+                    if (evt.Kind != IntervalChildKind.Aoe
+                        || !Templates.TryGetValue(evt.TemplateKey, out AoeSpawnCommand command))
                     {
-                        float angle = rng.NextFloat(0f, 2f * math.PI);
-                        float dist = command.ScatterRadius * math.sqrt(rng.NextFloat());
-                        math.sincos(angle, out float s, out float c);
-                        pos += new float2(c, s) * dist;
+                        continue;
                     }
 
-                    CombatCollisionMath.ComputeWorldBounds(
-                        pos, command.Radius, command.HalfExtents, command.RotationRadians, command.ShapeType,
-                        out float2 boundsMin, out float2 boundsMax);
+                    Stamp(ref command, in evt);
 
-                    spawned.Position = pos;
-                    spawned.BoundsMin = boundsMin;
-                    spawned.BoundsMax = boundsMax;
-                    if (spawned.HasTimedSpawner != 0)
+                    int echoCount = math.max(1, command.EchoCount);
+                    bool lingering = command.Lifetime > 0f;
+                    var rng = new Random(command.JitterSeed != 0 ? command.JitterSeed : 1u);
+                    for (int i = 0; i < echoCount; i++)
                     {
-                        TimedSpawnComponent timedSpawn = spawned.TimedSpawn;
-                        timedSpawn.Faction = spawned.Faction;
-                        timedSpawn.SourceId = spawned.AoeId;
-                        spawned.TimedSpawn = timedSpawn;
-                    }
-
-                    if (lingering)
-                    {
-                        LingeringCommands.Write(spawned);
-                    }
-                    else
-                    {
-                        ImpactCommands.Write(spawned);
-                    }
-
-                    if (HasVfxWriter)
-                    {
-                        VfxPending.Enqueue(new VfxPendingSpawn
+                        AoeSpawnCommand spawned = command;
+                        spawned.AoeId = AoeIdFor(in command, i);
+                        float2 pos = command.Position;
+                        if (command.ScatterRadius > 0f)
                         {
-                            TypeId = command.TypeId,
-                            Trigger = 0,
-                            Position = pos,
-                            AreaSize = command.AreaSize
-                        });
-                    }
-                }
+                            float angle = rng.NextFloat(0f, 2f * math.PI);
+                            float dist = command.ScatterRadius * math.sqrt(rng.NextFloat());
+                            math.sincos(angle, out float s, out float c);
+                            pos += new float2(c, s) * dist;
+                        }
 
-                if (lingering)
-                {
-                    LingeringCommands.EndForEachIndex();
-                }
-                else
-                {
-                    ImpactCommands.EndForEachIndex();
+                        CombatCollisionMath.ComputeWorldBounds(
+                            pos, command.Radius, command.HalfExtents, command.RotationRadians, command.ShapeType,
+                            out float2 boundsMin, out float2 boundsMax);
+
+                        spawned.Position = pos;
+                        spawned.BoundsMin = boundsMin;
+                        spawned.BoundsMax = boundsMax;
+                        if (spawned.HasTimedSpawner != 0)
+                        {
+                            TimedSpawnComponent timedSpawn = spawned.TimedSpawn;
+                            timedSpawn.Faction = spawned.Faction;
+                            timedSpawn.SourceId = spawned.AoeId;
+                            spawned.TimedSpawn = timedSpawn;
+                        }
+
+                        if (lingering)
+                        {
+                            LingeringCommands.Add(spawned);
+                        }
+                        else
+                        {
+                            ImpactCommands.Add(spawned);
+                        }
+
+                        if (HasVfxWriter)
+                        {
+                            VfxPending.Enqueue(new VfxPendingSpawn
+                            {
+                                TypeId = command.TypeId,
+                                Trigger = 0,
+                                Position = pos,
+                                AreaSize = command.AreaSize
+                            });
+                        }
+                    }
                 }
             }
 

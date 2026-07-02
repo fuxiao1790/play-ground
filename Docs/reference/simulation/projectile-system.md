@@ -164,10 +164,9 @@ Current flow:
 5. `ProjectileSpawnApplySystem` consumes the command queue.
 6. The apply system captures disabled projectile chunks with
    `WithAll<ProjectileTag>()` and `WithDisabled<Active>()`.
-7. Apply builds worker chunk ranges and a worker-lane `NativeStream` of command
-   indices, then schedules one parallel worker-index job to reset disabled
-   slots.
-8. Any command indices not satisfied by reuse are cold-created through an
+7. Apply schedules one single-threaded Burst reuse job that walks disabled
+   chunks with one command cursor and resets disabled slots.
+8. Any commands not satisfied by reuse are cold-created through an
    `EntityCommandBuffer`.
 
 The apply systems do not interpret volley patterns. Expansion owns spawn math.
@@ -199,13 +198,10 @@ Runtime despawn disables `Active` and `CombatRenderActiveTag`. It does not
 destroy the entity during normal churn. Cold-created entities are kept until
 their owning `CombatRoot` is destroyed.
 
-Projectile reuse is intentionally lossy under uneven chunk ownership. A worker
-only reuses disabled slots in its assigned chunk range; if that range fills, the
-remaining lane command indices cold-create even if another worker has spare
-slots. This trades perfect packing for cursor-free parallel apply. The pool
-normally converges after overflow creates enough resident capacity. A future
-optimization can add a per-chunk disabled-slot popcount to distribute commands
-closer to real free capacity without reintroducing a shared claim cursor.
+Projectile reuse is single-cursor and deterministic. The reuse job scans
+disabled chunks in query order, consumes commands in command-list order, and
+returns the reused prefix length. Cold creation handles the remaining suffix, so
+cold count indicates true pool shortage for the projectile archetype.
 
 ## Timed Child Spawns
 
@@ -333,15 +329,15 @@ Current performance-sensitive choices:
 - no one GameObject per projectile
 - no live Physics2D trigger hit path for projectiles
 - proxy targets instead of live collider reads in simulation
-- native queues/streams for hit, spawn, and VFX events
+- native queues/lists for hit, spawn, and VFX events
 - `Active` enable/disable for reuse
-- one parallel apply job per domain reuse pool
+- one single-threaded Burst apply job per domain reuse pool
 - batched render submission
 
 Revisit only with profiling:
 
 - spatial hash cell sizing
-- per-chunk free-slot popcount for tighter reuse packing
+- dead-slot scan cost in spawn apply
 - damage aggregation across many hits on few targets
 - render batch collection cost
 

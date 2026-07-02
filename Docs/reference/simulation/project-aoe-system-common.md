@@ -213,9 +213,10 @@ AOE apply is split by pool. Impact AOEs reuse slots without
 `CombatLifetimeComponent`. Timed vs non-timed lingering AOEs reuse across the
 same lingering pool; `TimedSpawnComponent` is enabled or disabled during reset.
 
-Reusable slots are found with `WithDisabled<Active>()`. Reuse jobs reset all
-per-instance data and enable the needed enableable components. Commands not
-claimed by reuse are cold-created through an `EntityCommandBuffer`.
+Reusable slots are found with `WithDisabled<Active>()`. Each apply system runs
+one single-threaded Burst reuse job that resets all per-instance data and
+enables the needed enableable components. Commands after the reused prefix are
+cold-created through an `EntityCommandBuffer`.
 
 Cold-created entities become part of the reusable pool after their first
 despawn.

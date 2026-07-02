@@ -1,157 +1,96 @@
-# Spawn Apply Parallel Reuse Plan
+# Spawn Apply Parallel Reuse Replacement
 
 ## Summary
 
-Simplify and parallelize the spawn apply step for all three combat domains
-(projectile, impact AOE, lingering AOE). Each domain's apply becomes a single
-parallel job over its disabled-slot query: each worker reads its own command
-stream partition and reuses the disabled-`Active` slots in its own chunk(s),
-independently. Commands a worker cannot place (more commands than free slots in
-its chunks) are collected as a remainder and cold-created via ECB after the job.
+Replace worker-lane spawn expansion/apply with one single-threaded Burst
+expansion job per domain and one single-threaded Burst dead-slot reuse job per
+apply pool.
 
-Uneven reuse is accepted by design: perfect slot packing is not a goal. The
-tradeoff is a slightly larger resident pool and more cold-create structural
-changes under imbalance, in exchange for cursor-free parallel apply.
+The new data flow is:
 
-Target pipeline:
+`SpawnEvent` -> single Burst expansion -> `NativeList<SpawnCommand>` ->
+single Burst dead-slot reuse -> cold-create unreused command suffix.
 
-    spawn event  --(NativeQueue, multi-producer)-->  expansion
-    expansion    --(per-domain command stream)-->    apply
-    apply        --parallel dead-slot reuse-->        reuse + ECB remainder
+## Rationale
 
-## Prerequisite
+The old parallel reuse path depended on worker-owned chunk ranges and
+worker-owned command-index lanes. Unity does not let this code pin one native
+stream lane to one worker in a useful way, so the system paid for stream setup,
+lane distribution, and imbalance without getting reliable worker-local
+ownership.
 
-Depends on the three-archetype refactor in
-`.agent/unify-combat-archetypes/`. That work gives each domain exactly one
-reusable archetype and one disabled-slot query, which is what lets apply drop
-per-variant bucketing and schedule a single parallel reuse job per domain. Do not
-start this plan until projectile/impact/lingering each have one archetype.
-
-## Problem With Current Apply
-
-- Reuse is serial. Both projectile and AOE apply schedule the reuse job with
-  `.Schedule` (not `ScheduleParallel`) and share a single
-  `NativeReference<int> ClaimedCount` across the whole query, marked
-  `[NativeDisableContainerSafetyRestriction]`. One worker walks all chunks and
-  claims commands off one counter. Source:
-  `Assets/Scripts/System/Projectile/ProjectileSpawnApplySystem.cs`,
-  `Assets/Scripts/System/Aoe/AoeSpawnApplySystem.cs`.
-- The shared claim cursor is the reason the job cannot be parallel: two workers
-  incrementing the same command cursor would need atomics and still contend.
-- This shows up in busy-scene frame cost. See
-  `.agent/idle-combat-system-cost/`.
-
-## Design
-
-### Event hop stays a queue
-
-Keep event collection as a multi-producer `NativeQueue<SpawnEvent>` (plus the
-existing scope `DynamicBuffer` for authored events). Events are enqueued from many
-systems at unpredictable counts; that is what a queue is for. Do not convert the
-event hop to a `NativeStream` — stream foreach-indices are awkward to write from
-arbitrary producers.
-
-### Command hop is a multi-lane stream
-
-The command→apply hop is a multi-lane `NativeStream`: **one lane per worker**.
-Apply picks a worker count `W`; each worker owns exactly one lane and a disjoint
-set of dead-slot chunks (1 lane : 1 worker : many chunks). This is the pinned
-mapping.
-
-### Apply is one parallel job per domain
-
-- Capture the dead-slot chunks at apply time:
-  `NativeArray<ArchetypeChunk> chunks = deadSlotQuery.ToArchetypeChunkArray(...)`,
-  `M = chunks.Length`. No structural change happens before the ECB playback, so
-  `chunks` stays valid through the job.
-- Choose `W = clamp(targetWorkers, 1, M)` (target ≈ job worker threads). Partition
-  `chunks` into `W` contiguous ranges; worker `w` owns `chunks[range_w]`.
-- Build the command `NativeStream` with `W` lanes and distribute the drained
-  commands across lanes (block or round-robin). Distribute command **indices**,
-  not the large command payloads (matching the projectile index-permutation
-  approach), so the big struct is copied once by the reuse/cold path.
-- Schedule `IJobParallelFor` over `W`. Worker `w` reads lane `w` and sweeps its
-  chunk range, greedily filling disabled-`Active` slots across all of its chunks
-  from lane `w`. No shared claim counter; each worker has its own lane and its own
-  chunks.
-- Overflow — worker `w`'s entire chunk set is full before its lane is exhausted —
-  pushes the remaining lane-`w` command indices to a parallel remainder container.
-- After the job, the main thread cold-creates the remainder via ECB.
-- Reuse count = total commands − remainder count; cold count = remainder count.
-
-### Why worker-owns-chunk-set, not one lane per chunk
-
-- A worker fills across every chunk it owns, so a command overflows only when that
-  worker's whole set is full. Binding a lane to a single chunk would overflow a
-  command the moment its one chunk filled, even with free slots next door — far
-  more waste.
-- `W` lanes (worker count), not one per chunk, means less stream/scatter overhead
-  and a lane count independent of pool size.
-- `IJobParallelFor` over `W` visits every worker, so no lane is dropped: a
-  fully-packed worker overflows its whole lane to ECB rather than losing commands.
-  The worker owns its chunk walk, so there is no chunk-skipping to worry about.
-
-### Optional waste control (deferred)
-
-If profiling shows excessive cold-create under imbalance, add a one-pass popcount
-of each chunk's disabled-`Active` mask so apply can size each chunk's command
-slice to its real free capacity — near-optimal packing, still parallel and
-cursor-free. Not built up front.
+The new structure removes the parallel lane abstraction entirely. Expansion
+produces one ordered command list. Apply owns one ordered command cursor and one
+disabled-slot scan for each pool.
 
 ## Constraints And Invariants
 
-- Reuse writes go directly to chunk component arrays (fast path); only the
-  remainder uses ECB. Do not route reuse through ECB.
-- Each entity is written by exactly one worker (its owning chunk), so component
-  handles need no `[NativeDisableContainerSafetyRestriction]`. The only shared
-  writes are the remainder container (`ParallelWriter`) and post-job counters.
-- Command payloads are copied at most once (index permutation, not payload sort).
-- Apply still resets every optional/enableable state per the unify plan
-  (`Active`, collision-active, render-active, tracking, lifetime, timed-spawn),
-  regardless of reuse vs cold-create.
-- Domain separation and pool disjointness from the unify plan are unchanged: each
-  apply job runs against exactly one domain's disabled-slot query.
+- ECS simulation owns projectile/AOE entities, spawn expansion/apply, and
+  `Active`-based reuse. Source: `Docs/layers/ecs-simulation.md`.
+- Spawn events are gameplay intent; spawn commands are one-entity allocation
+  intent. Expansion owns spawn math. Apply owns reuse and cold creation. Source:
+  `Docs/contracts/spawn-events-and-commands.md`.
+- Hot despawn must use enableable state, not destroy/create churn. Source:
+  `Docs/decisions/adr-005-enableable-pooling-for-combat-entities.md`.
+- Apply runs after collision; spawned/reused entities join simulation on the
+  next update. Source: `Docs/flows/spawn-event-to-entity.md`.
+- Domain identity must come from `ProjectileTag` or `AoeTag`, not `Active` or
+  scope membership. Source: `Docs/coding-standards.md`.
+
+## Reused Vs Introduced
+
+- Reused: existing event -> command -> apply contracts.
+- Reused: existing projectile, impact AOE, and lingering AOE pool queries.
+- Reused: existing cold-create ECB fallback.
+- Introduced: ordered `NativeList<TCommand>` command containers owned by
+  expansion systems.
+- Removed: `ParallelDeadSlotSpawnApply`, worker ranges, command-index
+  `NativeStream`s, and remainder queues.
 
 ## Design Validation
 
-- Parallelism: pass. Per-chunk partitions are independent; no shared cursor.
-- Safety: pass, and simpler than today. No cross-chunk writes; remainder via
-  `ParallelWriter`.
-- Reuse correctness: pass if the chunk-local loop fills only disabled-`Active`
-  slots and flips them active, identical to today's inner loop minus the shared
-  counter.
-- Lossiness: accepted. Resident pool converges to a larger steady-state size than
-  perfect packing; overflow cold-creates fall as per-chunk capacity rises. Must be
-  documented so it is not mistaken for a leak.
-- Structural-change cost: bounded but pay-per-overflow. This is the main cost of
-  lossy reuse; the optional popcount pass is the escape hatch if it bites.
-- Determinism/order: needs verification (task 004). Component values are identical
-  for reuse vs cold-create, so per-entity behavior is deterministic. Risk is only
-  if a downstream consumer depends on entity/chunk processing order; confirm the
-  hit-apply and VFX paths are order-independent.
+- Ownership stays clear: expansion owns command production; apply owns entity
+  materialization.
+- Enableable pooling remains intact: reusable slots are found through
+  `WithDisabled<Active>()`.
+- Cold creation now means true pool shortage for that archetype, not worker
+  lane imbalance.
+- Spawn math stays out of apply systems.
+- The data path has one representation of commands at apply time.
 
-## Task List
+## Additive Vs Refactor
 
-- [001 - Uniform parallel dead-slot apply mechanism](001-parallel-apply-mechanism.md)
-- [002 - Projectile apply migration](002-projectile-apply-migration.md)
-- [003 - AOE apply migration (impact and lingering)](003-aoe-apply-migration.md)
-- [004 - Determinism and reuse/cold-create order safety](004-determinism-and-order.md)
-- [005 - Tests and profiling](005-tests-and-profiling.md)
-- [006 - Docs](006-docs.md)
+Minimal/additive approach:
 
-## Resolved Decisions
+- resulting data flow: keep native streams and worker lanes, add tuning or
+  more balancing.
+- new concepts/types introduced: likely chunk popcounts or lane balancers.
+- copies/translations added: keep stream-to-array drain and lane-index streams.
+- long-term cost: parallel path remains hard to reason about and profile.
 
-- Command hop is a multi-lane `NativeStream`, **one lane per worker**, built at
-  apply time. 1 lane : 1 worker : many chunks.
-- Worker count `W = clamp(targetWorkers, 1, matchedChunkCount)`; each worker owns
-  a disjoint contiguous range of the dead-slot chunk array and its own lane.
-- Expansion emits a flat per-domain command list; **apply** builds the lane stream
-  and the chunk array/ranges, because only apply knows the runtime chunk count.
-- Iteration is `IJobParallelFor` over `W`. Each worker sweeps its chunk set,
-  filling greedily; a command overflows only when the worker's whole set is full.
-- Uneven remainder → ECB.
+Refactor approach:
+
+- resulting data flow: one command list, one reuse cursor, cold suffix.
+- existing concepts/types changed or removed: command streams replaced by
+  command lists; parallel helper removed.
+- copies/translations removed or avoided: no command stream drain, no
+  command-index stream, no remainder queue.
+- long-term benefit: fewer moving parts and clearer ownership.
+
+Decision:
+
+- choose refactor.
+- reason: the old worker-lane model cannot guarantee the worker/stream-lane
+  ownership it was designed around, so the abstraction cost is higher than the
+  benefit.
+
+## Tasks
+
+- [001-single-thread-expansion.md](001-single-thread-expansion.md)
+- [002-single-thread-reuse.md](002-single-thread-reuse.md)
+- [003-docs-and-validation.md](003-docs-and-validation.md)
 
 ## Open Questions
 
-- None blocking. The optional per-chunk free-slot popcount (near-optimal packing)
-  stays deferred until profiling shows overflow cost matters.
+- Build/test may reveal whether `NativeList<T>.Add` growth in Burst should be
+  replaced by a pre-count pass or conservative capacity reservation.

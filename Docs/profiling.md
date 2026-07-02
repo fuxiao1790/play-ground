@@ -91,8 +91,9 @@ Import-Csv ProfilerCaptures\play-ground_2026-06-10_10-09-36.csv |
 
 ## Spawn Apply Counters
 
-Projectile and AOE apply use one parallel worker-index reuse job per domain, then
-cold-create overflow command indices through ECB. Read these counters together:
+Projectile and AOE apply use one single-threaded Burst reuse job per domain,
+then cold-create the unreused command suffix through ECB. Read these counters
+together:
 
 - `ProjectileSpawnApplySystem.Reuse`
 - `ProjectileSpawnApplySystem.Cold`
@@ -102,11 +103,10 @@ cold-create overflow command indices through ECB. Read these counters together:
 - `LingeringAoeSpawnApplySystem.Cold`
 
 For each domain, reuse plus cold should equal the command count for that apply
-tick. Non-zero cold count under uneven worker/chunk distribution is expected.
-Repeated stress frames should converge toward more reuse after the resident pool
-grows. If cold stays high, check whether worker lanes are poorly matched to
-disabled-slot distribution; the documented future lever is a per-chunk
-free-slot popcount before lane assignment.
+tick. Repeated stress frames should converge toward more reuse after the
+resident pool grows. If cold stays high, the matching archetype lacks enough
+disabled slots for that tick; check despawn timing and pool warmup before
+optimizing the dead-slot scan.
 
 ## Grep Approach
 

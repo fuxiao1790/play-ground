@@ -23,7 +23,7 @@ namespace PlayGround.System.Projectile
         private EntityQuery _scopeQuery;
 
         internal NativeQueue<ProjectileSpawnEvent> EventQueue;
-        internal NativeStream ProjectileCommandStream;
+        internal NativeList<ProjectileSpawnCommand> ProjectileCommands;
         internal JobHandle PendingHandle;
         internal JobHandle ProducerHandle;
 
@@ -38,9 +38,9 @@ namespace PlayGround.System.Projectile
         protected override void OnDestroy()
         {
             PendingHandle.Complete();
-            if (ProjectileCommandStream.IsCreated)
+            if (ProjectileCommands.IsCreated)
             {
-                ProjectileCommandStream.Dispose();
+                ProjectileCommands.Dispose();
             }
 
             EventQueue.Dispose();
@@ -48,9 +48,10 @@ namespace PlayGround.System.Projectile
 
         protected override void OnUpdate()
         {
-            if (ProjectileCommandStream.IsCreated)
+            PendingHandle.Complete();
+            if (ProjectileCommands.IsCreated)
             {
-                ProjectileCommandStream.Dispose();
+                ProjectileCommands.Dispose();
             }
 
             Dependency.Complete();
@@ -102,81 +103,81 @@ namespace PlayGround.System.Projectile
                 return;
             }
 
-            ProjectileCommandStream = new NativeStream(events.Length, Allocator.TempJob);
+            ProjectileCommands = new NativeList<ProjectileSpawnCommand>(events.Length, Allocator.TempJob);
 
             Dependency = new ProjectileExpansionJob
             {
                 Events = events,
                 Templates = templates.Map,
-                Commands = ProjectileCommandStream.AsWriter()
-            }.Schedule(events.Length, 1, Dependency);
+                Commands = ProjectileCommands
+            }.Schedule(Dependency);
 
             Dependency = events.Dispose(Dependency);
             PendingHandle = Dependency;
         }
 
         [BurstCompile]
-        private struct ProjectileExpansionJob : IJobParallelFor
+        private struct ProjectileExpansionJob : IJob
         {
             [ReadOnly] public NativeArray<ProjectileSpawnEvent> Events;
             [ReadOnly] public NativeHashMap<Hash128, ProjectileSpawnCommand> Templates;
-            public NativeStream.Writer Commands;
+            public NativeList<ProjectileSpawnCommand> Commands;
 
-            public void Execute(int ci)
+            public void Execute()
             {
-                ProjectileSpawnEvent evt = Events[ci];
-                if (evt.Kind != IntervalChildKind.Projectile
-                    || !Templates.TryGetValue(evt.TemplateKey, out ProjectileSpawnCommand command))
+                for (int ci = 0; ci < Events.Length; ci++)
                 {
-                    return;
-                }
-
-                Commands.BeginForEachIndex(ci);
-                Stamp(ref command, in evt);
-                int count = math.max(1, command.Count);
-
-                if (command.DeterministicIdTickIndex > 0
-                    && command.SpawnPatternType == ProjectileChildSpawnPatternType.SideSpray)
-                {
-                    for (int i = 0; i < count; i++)
+                    ProjectileSpawnEvent evt = Events[ci];
+                    if (evt.Kind != IntervalChildKind.Projectile
+                        || !Templates.TryGetValue(evt.TemplateKey, out ProjectileSpawnCommand command))
                     {
-                        int id = ProjectileIdFor(in command, i);
-                        float2 velocity = SideSprayVelocity(in command, i, count);
-                        WriteCommand(in command, id, velocity);
+                        continue;
                     }
-                }
-                else if (command.DeterministicIdTickIndex > 0
-                    && command.SpawnPatternType == ProjectileChildSpawnPatternType.Radial)
-                {
-                    for (int i = 0; i < count; i++)
+
+                    Stamp(ref command, in evt);
+                    int count = math.max(1, command.Count);
+
+                    if (command.DeterministicIdTickIndex > 0
+                        && command.SpawnPatternType == ProjectileChildSpawnPatternType.SideSpray)
                     {
-                        int id = ProjectileIdFor(in command, i);
-                        float2 velocity = RadialDirection(i, count) * command.Speed;
-                        WriteCommand(in command, id, velocity);
-                    }
-                }
-                else if (count <= 1)
-                {
-                    WriteCommand(in command, ProjectileIdFor(in command, 0), command.BaseDirection * command.Speed);
-                }
-                else
-                {
-                    var rng = new Random(command.JitterSeed != 0 ? command.JitterSeed : 1u);
-                    for (int i = 0; i < count; i++)
-                    {
-                        float angle = SpreadAngle(command.SpreadDegrees, i, count);
-                        if (command.JitterDegrees > 0f)
+                        for (int i = 0; i < count; i++)
                         {
-                            angle += rng.NextFloat(-command.JitterDegrees, command.JitterDegrees);
+                            int id = ProjectileIdFor(in command, i);
+                            float2 velocity = SideSprayVelocity(in command, i, count);
+                            WriteCommand(in command, id, velocity);
                         }
+                    }
+                    else if (command.DeterministicIdTickIndex > 0
+                        && command.SpawnPatternType == ProjectileChildSpawnPatternType.Radial)
+                    {
+                        for (int i = 0; i < count; i++)
+                        {
+                            int id = ProjectileIdFor(in command, i);
+                            float2 velocity = RadialDirection(i, count) * command.Speed;
+                            WriteCommand(in command, id, velocity);
+                        }
+                    }
+                    else if (count <= 1)
+                    {
+                        WriteCommand(in command, ProjectileIdFor(in command, 0), command.BaseDirection * command.Speed);
+                    }
+                    else
+                    {
+                        var rng = new Random(command.JitterSeed != 0 ? command.JitterSeed : 1u);
+                        for (int i = 0; i < count; i++)
+                        {
+                            float angle = SpreadAngle(command.SpreadDegrees, i, count);
+                            if (command.JitterDegrees > 0f)
+                            {
+                                angle += rng.NextFloat(-command.JitterDegrees, command.JitterDegrees);
+                            }
 
-                        int id = ProjectileIdFor(in command, i);
-                        float2 velocity = Rotate(command.BaseDirection, angle) * command.Speed;
-                        WriteCommand(in command, id, velocity);
+                            int id = ProjectileIdFor(in command, i);
+                            float2 velocity = Rotate(command.BaseDirection, angle) * command.Speed;
+                            WriteCommand(in command, id, velocity);
+                        }
                     }
                 }
-
-                Commands.EndForEachIndex();
             }
 
             private static void Stamp(ref ProjectileSpawnCommand command, in ProjectileSpawnEvent evt)
@@ -218,7 +219,7 @@ namespace PlayGround.System.Projectile
                 command.Render = render;
                 command.TimedSpawn = timedSpawn;
 
-                Commands.Write(command);
+                Commands.Add(command);
             }
 
             private static float SpreadAngle(float spread, int i, int count) =>
