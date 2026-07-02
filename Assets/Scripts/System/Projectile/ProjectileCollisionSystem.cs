@@ -44,8 +44,7 @@ namespace PlayGround.System.Projectile
 
         public void OnUpdate(ref SystemState state)
         {
-            int activeProjectileCount = activeProjectileQuery.CalculateEntityCount();
-            if (activeProjectileCount == 0)
+            if (activeProjectileQuery.IsEmpty)
             {
                 return;
             }

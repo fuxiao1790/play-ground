@@ -42,8 +42,7 @@ namespace PlayGround.System.Aoe
 
         public void OnUpdate(ref SystemState state)
         {
-            int impactAoeCount = impactAoeQuery.CalculateEntityCount();
-            if (impactAoeCount == 0)
+            if (impactAoeQuery.IsEmpty)
                 return;
 
             state.EntityManager.CompleteDependencyBeforeRO<TargetPosition>();
