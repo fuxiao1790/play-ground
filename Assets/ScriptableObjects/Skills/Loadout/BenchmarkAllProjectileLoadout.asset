@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1000000000000000000000000000007, type: 3}
+  m_Name: BenchmarkAllProjectileLoadout
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.PlayerLoadout
+  slots:
+  - rid: 2535078034259050573
+  - rid: 2535078034259050575
+  - rid: 2535078034259050576
+  - rid: 2535078034259050577
+  - rid: 2535078034259050579
+  maxRootSets: 10
+  references:
+    version: 2
+    RefIds:
+    - rid: 2535078034259050573
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        skillSet: {fileID: 11400000, guid: a2000000000000000000000000000021, type: 2}
+    - rid: 2535078034259050575
+      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        link: {fileID: 11400000, guid: 72106f578633ced47afdee80a7dc84db, type: 2}
+    - rid: 2535078034259050576
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        skillSet: {fileID: 11400000, guid: a2000000000000000000000000000020, type: 2}
+    - rid: 2535078034259050577
+      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        link: {fileID: 11400000, guid: c4000000000000000000000000000001, type: 2}
+    - rid: 2535078034259050579
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        skillSet: {fileID: 11400000, guid: 43b8286bc0645a140abfdd0873c3d13e, type: 2}

@@ -167,6 +167,103 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void StackDetonationNovaIsGatedFromReHittingDetonationTarget()
+        {
+            const int NovaTypeId = 55;
+            const int NovaCount = 4;
+            var detonationKey = new Hash128(0xBEEFu, 0xCAFEu, 0u, 0u);
+            RegisterProjectileTemplate(detonationKey, new ProjectileSpawnCommand
+            {
+                TypeId = NovaTypeId,
+                Count = NovaCount,
+                Speed = 0f,
+                SpawnPatternType = ProjectileChildSpawnPatternType.Radial,
+                BaseDirection = new float2(1f, 0f),
+                Radius = 1f,
+                ShapeType = CombatShapeType.Circle,
+                HitPayload = new ProjectileHitPayload(new CombatHitPayload
+                {
+                    DamageAmount = 1f,
+                    CritMultiplier = 1f,
+                    DirectDamageEnabled = true
+                })
+            });
+
+            AddTarget(float2.zero, 1f);
+            CreateProjectile(
+                pierceRemaining: 0,
+                stackEffect: ProjectileStackEffect(
+                    debuffKey: 900,
+                    threshold: 1,
+                    lifetime: 10f,
+                    damage: 5f,
+                    projectileCount: NovaCount));
+
+            // Tick 1: applicator hits the target once, reaches threshold, and the nova
+            // detonates and spawns on top of the target.
+            TickSimulationOnly(0.001f);
+            int hitsAfterTick1 = ReadFinalizedHitCount();
+            int novaCount = ProjectileCountByTypeId(NovaTypeId);
+
+            // Tick 2: the nova projectiles overlap the detonation target but must be gated
+            // from instantly re-hitting it.
+            TickSimulationOnly(0.001f);
+            int hitsAfterTick2 = ReadFinalizedHitCount();
+
+            Assert.That(novaCount, Is.EqualTo(NovaCount), "Detonation nova spawns on the target.");
+            Assert.That(hitsAfterTick1, Is.EqualTo(1), "Applicator hits the target once.");
+            Assert.That(hitsAfterTick2, Is.EqualTo(0),
+                "Nova is gated from instantly re-hitting the detonation target it spawned on.");
+        }
+
+        [Test]
+        public void ProjectileStackDetonationFansOutAsRadialNova()
+        {
+            const int NovaTypeId = 56;
+            const int NovaCount = 4;
+            var detonationKey = new Hash128(0xBEEFu, 0xCAFEu, 0u, 0u);
+            RegisterProjectileTemplate(detonationKey, new ProjectileSpawnCommand
+            {
+                TypeId = NovaTypeId,
+                Count = NovaCount,
+                Speed = 5f,
+                SpawnPatternType = ProjectileChildSpawnPatternType.Radial,
+                Radius = 0.1f,
+                ShapeType = CombatShapeType.Circle
+            });
+
+            AddTarget(float2.zero, 1f);
+            CreateProjectile(
+                pierceRemaining: 0,
+                stackEffect: ProjectileStackEffect(
+                    debuffKey: 910,
+                    threshold: 1,
+                    lifetime: 10f,
+                    damage: 5f,
+                    projectileCount: NovaCount));
+
+            TickSimulationOnly(0.001f);
+
+            float2[] velocities = ProjectileVelocitiesByTypeId(NovaTypeId);
+            Assert.That(velocities.Length, Is.EqualTo(NovaCount), "Detonation spawns the full nova.");
+
+            // Radial nova: directions must cover opposing sides on both axes, proving the
+            // projectiles fan around the full circle instead of clustering in a forward cone.
+            float minX = float.MaxValue, maxX = float.MinValue, minY = float.MaxValue, maxY = float.MinValue;
+            foreach (float2 v in velocities)
+            {
+                float2 d = math.normalizesafe(v, new float2(1f, 0f));
+                minX = math.min(minX, d.x); maxX = math.max(maxX, d.x);
+                minY = math.min(minY, d.y); maxY = math.max(maxY, d.y);
+            }
+
+            Assert.That(maxX, Is.GreaterThan(0.5f), "some projectile travels +x");
+            Assert.That(minX, Is.LessThan(-0.5f), "some projectile travels -x");
+            Assert.That(maxY, Is.GreaterThan(0.5f), "some projectile travels +y");
+            Assert.That(minY, Is.LessThan(-0.5f), "some projectile travels -y");
+        }
+
+        [Test]
         public void ProjectileImpactAoeMaterializesFromRegistry()
         {
             const int AoeTypeId = 77;
@@ -382,6 +479,30 @@ namespace PlayGround.Tests.PlayMode
                     count++;
             }
             return count;
+        }
+
+        private float2[] ProjectileVelocitiesByTypeId(int typeId)
+        {
+            using EntityQuery q = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<ProjectileIdentityComponent>(),
+                ComponentType.ReadOnly<CombatKinematicsComponent>());
+            using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
+
+            int count = 0;
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]).TypeId == typeId)
+                    count++;
+            }
+
+            var velocities = new float2[count];
+            int next = 0;
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]).TypeId == typeId)
+                    velocities[next++] = entityManager.GetComponentData<CombatKinematicsComponent>(entities[i]).Velocity;
+            }
+            return velocities;
         }
 
         // ---- Stack-effect factory ----

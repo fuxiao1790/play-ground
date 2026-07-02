@@ -116,10 +116,12 @@ namespace PlayGround.System.Common
             public bool HasProjectileEventWriter;
 
             private void Execute(
+                Entity targetEntity,
                 [EntityIndexInQuery] int entityIndexInQuery,
                 in TargetPosition targetPosition,
                 DynamicBuffer<TargetStackEntry> stackEntries)
             {
+                int targetKey = TargetKey(targetEntity);
                 int localDetonationIndex = 0;
                 for (int i = stackEntries.Length - 1; i >= 0; i--)
                 {
@@ -139,7 +141,7 @@ namespace PlayGround.System.Common
                     if (entry.Count >= threshold)
                     {
                         int localId = entityIndexInQuery * MaxTargetStackEntries + localDetonationIndex;
-                        BuildDetonationSpawn(entry, targetPosition.Value, localId);
+                        BuildDetonationSpawn(entry, targetPosition.Value, localId, targetKey);
                         stackEntries.RemoveAt(i);
                         localDetonationIndex++;
                         continue;
@@ -152,7 +154,8 @@ namespace PlayGround.System.Common
             private void BuildDetonationSpawn(
                 in TargetStackEntry entry,
                 float2 position,
-                int localId)
+                int localId,
+                int targetKey)
             {
                 DetonationSnapshot snapshot = entry.Detonation;
                 switch (snapshot.Kind)
@@ -186,11 +189,33 @@ namespace PlayGround.System.Common
                                 Position = position,
                                 AimDirection = new float2(1f, 0f),
                                 SourceId = baseId,
-                                JitterSeed = (uint)baseId * 2654435761u
+                                JitterSeed = (uint)baseId * 2654435761u,
+                                // Non-zero tick index selects the deterministic pattern-expansion
+                                // path so the detonation fans out as a radial nova (its template is
+                                // registered with the radial pattern). baseId already makes the
+                                // per-shot ids unique, so a constant tick index is fine here.
+                                DeterministicIdTickIndex = 1,
+                                // Gate the nova against the detonation target so its projectiles
+                                // spread outward instead of instantly re-hitting the target they
+                                // spawn on top of — matches impact-projectile spawns
+                                // (ProjectileCollisionSystem) and AOE-hit projectile bursts.
+                                ContactGateSeedTargetId = targetKey
                             });
                         }
 
                         return;
+                }
+            }
+
+            // Matches CombatTargetProxy.TargetKey / the collision systems' TargetKey so a
+            // seeded contact gate refers to the same target key the collision job checks.
+            private static int TargetKey(Entity entity)
+            {
+                unchecked
+                {
+                    int key = ((entity.Index + 1) * 397) ^ entity.Version;
+                    key &= 0x7fffffff;
+                    return key == 0 ? 1 : key;
                 }
             }
 

@@ -247,7 +247,8 @@ namespace PlayGround.Skills
             RuntimeSkillDefinition def,
             int depth,
             List<SkillValidationWarning> warnings,
-            int slotIndex)
+            int slotIndex,
+            ProjectileChildSpawnPatternType selfPattern = ProjectileChildSpawnPatternType.Forward)
         {
             if (def == null) return false;
             if (depth > CombatRoot.MaxSpawnChainDepth)
@@ -262,7 +263,12 @@ namespace PlayGround.Skills
             if (def is RuntimeStackingDetonation stackingDetonation)
             {
                 EnsureStackingDetonationDebuffKey(stackingDetonation);
-                return RegisterSpawnTemplatesRecursive(stackingDetonation.Detonation, depth, warnings, slotIndex);
+                // A projectile detonation fires as a radial nova from the detonation point,
+                // so its own template is built with the radial pattern (its children, if any,
+                // keep the default forward pattern).
+                return RegisterSpawnTemplatesRecursive(
+                    stackingDetonation.Detonation, depth, warnings, slotIndex,
+                    ProjectileChildSpawnPatternType.Radial);
             }
 
             if (def is RuntimeAoeDefinition aoeDef)
@@ -352,7 +358,7 @@ namespace PlayGround.Skills
                         projDef,
                         new ProjectileChildSpawnBehavior(
                             Mathf.Max(1, projDef.Count),
-                            ProjectileChildSpawnPatternType.Forward,
+                            selfPattern,
                             projDef.SpreadDegrees),
                         combatRoot,
                         stackEffect,
