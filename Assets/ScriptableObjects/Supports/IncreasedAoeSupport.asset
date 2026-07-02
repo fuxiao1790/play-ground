@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a16dd7153d8bb784b97a322ff9039d7c, type: 3}
   m_Name: IncreasedAoeSupport
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.IncreasedAoeSupport
-  areaSizeMultiplier: 1.8
+  areaSizeMultiplier: 1.3
