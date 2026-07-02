@@ -104,13 +104,25 @@ CombatBatchedRenderSystem
 
 ## Rework-relevant state
 
-- **Prepare/submit split is already landed** — `CombatRenderPrepareSystem` exists
-  as `PresentationSystemGroup` OrderFirst; submit is consume-only.
-- **Instance-buffer step is NOT landed** — `CombatRenderElement` is still a
-  per-entity `IComponentData`, and submit still does `ToComponentDataArray`
-  ([CombatBatchedRenderSystem.cs:63](../../Assets/Scripts/System/Common/CombatBatchedRenderSystem.cs#L63)),
-  the exact copy the render-instance-buffers plan wants to kill.
-- **Two `CombatApplyBridge` classes exist** —
+Current on-disk code is the **working baseline** (clean tree at commit `ea94816`):
+`CombatRenderPrepareSystem` writes `CombatRenderElement`, and
+`CombatBatchedRenderSystem` reads it back via `ToComponentDataArray`. Coherent —
+no half-applied state.
+
+- **Prepare/submit split is landed and working** — `CombatRenderPrepareSystem`
+  runs `PresentationSystemGroup` OrderFirst; submit is consume-only.
+- **Instance-buffer step was ATTEMPTED and REVERTED.** The
+  `NativeList<Matrix4x4>`-per-batch submit (which would have killed the
+  `ToComponentDataArray` copy at
+  [CombatBatchedRenderSystem.cs:63](../../Assets/Scripts/System/Common/CombatBatchedRenderSystem.cs#L63))
+  **completely broke rendering and spawning** and was rolled back. The
+  `.agent/render-instance-buffers/` plan folder was deleted with it. So the
+  per-entity `CombatRenderElement` `IComponentData` copy is still in place — by
+  choice, as the known-good path — not because the work is merely pending.
+  **Root cause of the breakage is not yet captured; understand it before any
+  re-attempt.**
+- **Two `CombatApplyBridge` classes still exist** —
   [CombatApplyFinalizeSingleSystem.cs:382](../../Assets/Scripts/System/Common/CombatApplyFinalizeSingleSystem.cs#L382)
   and [CombatApplyFinalizeSystem.cs:415](../../Assets/Scripts/System/Common/CombatApplyFinalizeSystem.cs#L415),
-  both `UpdateBefore(CombatBatchedRenderSystem)`. Confirm which is live.
+  both `UpdateBefore(CombatBatchedRenderSystem)`. Confirm which is live. This
+  duplication is a plausible suspect for the spawn/render breakage above.
