@@ -2,45 +2,56 @@
 
 ## Goal
 
-Update all simulation systems that currently interpret component presence as behavior.
+Update the one simulation system that interprets `TimedSpawnTag` as behavior, and
+confirm the AOE collision/lifetime/pulse systems need no change under the
+three-archetype design.
 
 ## Scope
 
-- `TimedSpawnSystem`
-  - Replace `[WithAll(... TimedSpawnTag)]` with enabled `TimedSpawnComponent`.
-  - Keep `Active` and enabled `CombatLifetimeComponent` filtering.
-  - Use query attributes or `EntityQueryBuilder` enabled-component filters so the
-    job is scheduled only for active lifetime entities with enabled timed spawn;
-    do not schedule all lifetime entities and branch on `TimedSpawnComponent`
-    enabled state inside `Execute`.
+- `TimedSpawnSystem` (the only behavioral change)
+  - Replace `[WithAll(Active, CombatLifetimeComponent, TimedSpawnTag)]` with
+    `[WithAll(Active, CombatLifetimeComponent)]` plus enabled `TimedSpawnComponent`.
+  - For enableable components, `WithAll` already means present + enabled, so the
+    job is scheduled only for active, enabled-lifetime, enabled-timed-spawn
+    entities. Do not schedule all lifetime entities and branch on
+    `TimedSpawnComponent` enabled state inside `Execute`.
   - Continue to guard against `CombatFaction.None`.
-- `ImpactAoeCollisionSystem`
-  - Replace `WithNone<CombatLifetimeComponent>` with disabled lifetime selection.
-  - Use query-level disabled lifetime selection; do not process all AOEs and skip
-    lingering ones with an `if` inside the collision job.
-  - Keep impact behavior as one-shot collision that deactivates after pass.
-- `LingeringAoeCollisionSystem`
-  - Keep lifetime-present access but process enabled and disabled lifetime according to intended pulse/lingering behavior.
-  - Ensure it does not double-process impact AOEs if impact system owns disabled-lifetime AOEs. If one collision system handles both, remove duplicate impact path.
-  - If lingering remains a separate system, use query-level enabled lifetime
-    selection; do not schedule disabled-lifetime impact AOEs and reject them in
-    the job body.
-- `AoePulseVfxSystem`
-  - Continue to skip when lifetime is disabled or pulse interval is inert.
-- `CombatLifetimeSystem`
-  - Confirm enabled `CombatLifetimeComponent` query skips impact AOEs and non-lifetime slots.
-- Projectile tracking/collision
-  - Confirm all projectiles still have enabled lifetime on spawn.
+  - Runs for both projectiles and lingering AOEs; impact AOEs lack lifetime and
+    timed-spawn and are excluded by construction.
+
+- `ImpactAoeCollisionSystem` — no change.
+  - Impact AOEs stay lifetime-absent, so `WithNone<CombatLifetimeComponent>`
+    still selects exactly impact AOEs. Keep one-shot deactivate-after-pass.
+
+- `LingeringAoeCollisionSystem` — no change.
+  - Lingering AOEs keep present lifetime, so `WithPresent<CombatLifetimeComponent>`
+    still selects exactly lingering AOEs (both timed and non-timed; timed-spawn
+    enabled state is irrelevant to collision). No impact AOE matches.
+
+- `CombatLifetimeSystem` — confirm, no change.
+  - `[WithAll(AoeTag, Active, CombatLifetimeComponent)]` matches present+enabled
+    lifetime; impact AOEs are excluded by absence. Same for the projectile job.
+
+- `AoePulseVfxSystem` — confirm, no change.
+  - Already reads `EnabledRefRO<CombatLifetimeComponent>` and skips disabled;
+    only lingering AOEs carry the component.
+
+- `AoeContactGateSystem` — confirm it only touches lingering AOEs (contact-gate
+  buffer is present only on the lingering archetype).
+
+- Projectile tracking/collision — confirm all projectiles still spawn with
+  enabled lifetime and that the added timed-spawn components do not affect their
+  queries.
 
 ## Acceptance Criteria
 
 - No simulation behavior depends on `HasComponent<TimedSpawnTag>()`.
-- No AOE behavior depends on missing `CombatLifetimeComponent`.
-- No simulation job uses per-entity `if` checks as the primary selection mechanism
-  for timed-spawn enabled/disabled or lifetime enabled/disabled categories.
-- Impact AOEs collide once.
-- Lingering AOEs tick lifetime, repeat gates, pulse VFX, and expire.
-- Timed spawners emit children only when `TimedSpawnComponent` is enabled.
+- Impact and lingering collision remain disjoint; no AOE is processed by both.
+- Impact AOEs collide once; lingering AOEs tick lifetime, repeat gates, pulse VFX,
+  and expire.
+- Timed spawners emit children only when `TimedSpawnComponent` is enabled (and
+  therefore lifetime is enabled).
+- No new per-entity `if` check is introduced as the primary category selector.
 
 ## Dependencies
 
@@ -48,4 +59,4 @@ Depends on 001, 002, and 003.
 
 ## Complexity
 
-Medium.
+Small.

@@ -2,55 +2,70 @@
 
 ## Goal
 
-Collapse basic and timed-spawner projectile pools into one projectile archetype,
-one projectile apply path, one disabled-slot query, and one scheduled reuse job.
+Collapse the basic and child-spawner projectile pools into one projectile
+archetype, one projectile apply system, one disabled-slot query, and one
+scheduled reuse job.
+
+## Current State Notes
+
+- The split is two `SystemBase` subclasses (`BasicProjectileSpawnApplySystem`,
+  `ChildSpawnerProjectileSpawnApplySystem`) over `ProjectileSpawnApplySystemBase`,
+  each reading a separate expansion command container and creating a separate
+  archetype.
+- The per-system `ProjectileSpawnKey` bucketing is already degenerate
+  (`Equals => true`, `GetHashCode => 0`): the `BucketCommandsJob` and its
+  counting-sort scratch (`_keyToIndex`, `_keys`, `_counts`, `_offsets`, `_order`,
+  `_deadSlotQueriesByKey`) produce exactly one bucket today. This whole apparatus
+  is deletable, not just the dictionaries.
+- `ProjectileSpawnCommand` already carries `HasTimedSpawner`, so the unified reuse
+  job can drive `SetComponentEnabled<TimedSpawnComponent>` per command directly.
 
 ## Scope
 
-- Replace the two projectile archetypes with one archetype containing:
-  - existing basic projectile components
-  - `TimedSpawnComponent`
-  - `TimedSpawnStateComponent`
-- Remove the split apply implementation:
-  - delete the separate basic vs child-spawner reuse scheduling paths
-  - delete separate basic vs child-spawner dead-slot queries
-  - delete separate basic vs child-spawner cold archetype selection
-  - keep only thin compatibility wrappers if tests require named systems during migration, with no independent query/job logic inside them.
-- Collapse expansion/apply handoff to one projectile command container. If
-  expansion still emits two containers at the start of this task, combine them
-  before scheduling reuse; by task end the apply system schedules from one
-  projectile command list.
-- Reuse query becomes `ProjectileTag` plus disabled `Active`, with no `TimedSpawnTag` include/exclude.
-- The reuse query must be the only projectile slot-category filter:
-  - use `WithAll<ProjectileTag>()`
-  - use `WithDisabled<Active>()`
-  - do not use `WithAll<TimedSpawnTag>()`, `WithNone<TimedSpawnTag>()`, or exact archetype matching.
-- Reuse job writes common projectile data for every command and sets timed-spawn data/enabled state from `cmd.HasTimedSpawner` or equivalent.
+- Replace the two projectile archetypes with one archetype containing the current
+  basic components plus `TimedSpawnComponent` and `TimedSpawnStateComponent`.
+- Collapse to one concrete `ProjectileSpawnApplySystem`. Remove the base/subclass
+  split and the abstract `CreateArchetype`/`CommandContainer`/`BuildDeadSlotQuery`/
+  `ScheduleReuseJob`/`CreateProjectileEntity` seams. Keep a thin obsolete alias
+  only if tests require a named system during migration, with no independent
+  query/job logic.
+- Delete the degenerate bucket sort: no `ProjectileSpawnKey`, no `BucketCommandsJob`,
+  no counting-sort scratch, no `_deadSlotQueriesByKey`. Schedule one reuse job
+  directly against the drained command array.
+- Edit `ProjectileSpawnExpansionSystem`:
+  - Replace `BasicProjectileCommandContainer` + `ChildSpawnerProjectileCommandContainer`
+    with one `ProjectileCommandContainer`.
+  - Remove the `template.HasTimedSpawner` routing in `WriteCommand`/`ProjectileExpansionJob`;
+    always `AddNoResize` to the single container.
+  - Update the two-container capacity/bound bookkeeping to one bound.
+  - Repoint `[UpdateBefore(BasicProjectileSpawnApplySystem)]` and
+    `[UpdateBefore(ChildSpawnerProjectileSpawnApplySystem)]` to the single apply system.
+- Reuse query: `WithAll<ProjectileTag>()` plus `WithDisabled<Active>()`. No
+  `TimedSpawnTag` include/exclude, no exact-archetype matching.
+- Reuse job writes common projectile data for every command and sets timed-spawn
+  data plus `SetComponentEnabled<TimedSpawnComponent>` from `cmd.HasTimedSpawner`.
+  When timed spawn is enabled it also resets `TimedSpawnStateComponent`; when
+  disabled it may leave state untouched or reset to default.
 - Schedule exactly one projectile reuse job per frame when there are projectile
-  commands. The job runs against the single projectile disabled-slot query.
-- Reuse job must not iterate a broader projectile chunk set and branch per entity
-  to decide basic vs timed-spawner eligibility. It may only skip entities that are
-  already active/claimed as part of bounded command consumption.
-- Cold-create path creates only the unified projectile archetype and sets enableable states explicitly.
-- Remove per-pool bucket/query dictionaries from projectile apply. With one
-  projectile archetype there is no reason to group commands by basic vs timed
-  slot kind before reuse.
+  commands, against the single projectile disabled-slot query. The job may skip
+  already-active slots for bounded consumption but must not branch on basic vs
+  timed eligibility.
+- Cold-create path creates only the unified projectile archetype and sets
+  enableable states explicitly, including `TimedSpawnComponent` enabled/disabled.
 
 ## Acceptance Criteria
 
-- A disabled basic projectile slot can be reused by a timed-spawner projectile.
-- A disabled timed-spawner projectile slot can be reused by a non-timed projectile.
-- Projectile apply has one reuse query and one reuse job; there is no separate
-  basic apply job and child-spawner apply job.
-- Projectile apply no longer maintains bucket/query maps keyed by timed-spawner
-  or slot kind.
-- No projectile apply query uses `TimedSpawnTag`.
+- A disabled basic projectile slot can be reused by a timed-spawner projectile,
+  and vice versa.
+- Projectile apply has one archetype, one reuse query, and one reuse job.
+- Projectile expansion writes one command container; no `HasTimedSpawner` routing.
+- No projectile apply query or archetype uses `TimedSpawnTag`.
 - No projectile reuse job contains basic-vs-timed eligibility checks such as
   `if (hasTimedSpawner != commandNeedsTimedSpawner) continue;`.
-- Disabled `Active` and `ProjectileTag` are enforced by query construction, not
-  by manually scanning chunks and rejecting entities in the job.
+- Disabled `Active` and `ProjectileTag` are enforced by query construction.
 - Cold-create counter still reports overflow entity creation.
-- Basic projectile behavior, tracking, collision, render, and contact gates still reset correctly.
+- Basic projectile behavior, tracking, collision, render, and contact gates still
+  reset correctly; timed spawn ticks only when enabled.
 
 ## Dependencies
 
