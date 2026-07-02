@@ -20,5 +20,5 @@ MonoBehaviour:
     scatterRadius: 0
     directDamageEnabled: 1
     prefab: {fileID: 1037899157007725660, guid: e4b99e89657a29846b967bfd8cb4e1ee, type: 3}
-    lifetimeSeconds: 2.4
+    lifetimeSeconds: 2
     tickIntervalSeconds: 0.2
