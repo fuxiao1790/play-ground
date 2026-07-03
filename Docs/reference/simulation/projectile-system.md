@@ -268,14 +268,23 @@ hit consumes the source.
 
 ## Rendering And VFX
 
-Projectile visuals are batched. `CombatRoot` builds sprite render resources and
-stores them in dictionaries keyed by render id. Runtime entities carry common
-render components plus a plain `CombatRenderBatchId` copied from `RenderTypeId`.
+Projectile visuals draw through one shared, manually-assembled texture atlas
+(sliced into per-kind `Sprite`s in the editor ahead of time, not packed at
+runtime). `CombatRoot` builds sprite render resources by registering each
+kind's sprite with the shared `CombatRenderResourceRegistry`, which computes
+that sprite's UV rect within the configured atlas and throws if the sprite
+isn't actually part of it. Runtime entities carry common render components
+plus a plain `CombatRenderBatchId` copied from `RenderTypeId` (a kind
+identifier only) and a `UvRect` on `CombatRenderComponent`, computed once
+when the spawn command is built.
 
 `CombatRenderPrepareSystem` writes matrices for active projectile and AOE
-entities. `CombatBatchedRenderSystem` runs in `PresentationSystemGroup`, filters
-by domain tag and active render tag, scatters matrices by `CombatRenderBatchId`,
-and submits `Graphics.RenderMeshInstanced` batches.
+entities. `CombatBatchedRenderSystem` runs in `PresentationSystemGroup`,
+filters by domain tag and active render tag, and in one scatter pass fills a
+shared transform buffer and a parallel UV-rect buffer by reading each active
+entity's own `CombatRenderComponent.UvRect` directly (no per-frame lookup),
+then submits `Graphics.RenderMeshInstanced` against the registry's shared
+mesh/material, chunked at the 1023-instance cap.
 
 Gameplay VFX requests are plain ECS/native data until presentation. Projectile
 collision and lifetime produce `VfxPendingSpawn`; flush jobs append

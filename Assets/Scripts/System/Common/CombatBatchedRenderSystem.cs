@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using PlayGround.System.Aoe;
 using PlayGround.System.Projectile;
 using Unity.Collections;
@@ -17,9 +16,12 @@ namespace PlayGround.System.Common
         private EntityQuery projectileRenderQuery;
         private EntityQuery aoeRenderQuery;
         private ComponentTypeHandle<CombatRenderElement> renderElementHandle;
-        private ComponentTypeHandle<CombatRenderBatchId> renderBatchIdHandle;
+        private ComponentTypeHandle<CombatRenderComponent> renderComponentHandle;
         private ComponentTypeHandle<CombatRenderActiveTag> renderActiveHandle;
-        private readonly Dictionary<int, NativeList<Matrix4x4>> _batchBuffers = new();
+        private NativeList<Matrix4x4> _transforms;
+        private NativeList<Vector4> _uvRects;
+        private Vector4[] _uvRectScratch;
+        private MaterialPropertyBlock _matProps;
 
         internal int LastActiveProjectileCount;
         internal int LastActiveAoeCount;
@@ -29,16 +31,21 @@ namespace PlayGround.System.Common
             Entity registryEntity = EntityManager.CreateEntity();
             EntityManager.AddComponentObject(registryEntity, new CombatRenderResourceRegistry());
 
+            _transforms = new NativeList<Matrix4x4>(Allocator.Persistent);
+            _uvRects = new NativeList<Vector4>(Allocator.Persistent);
+            _uvRectScratch = new Vector4[MaxInstancesPerDraw];
+            _matProps = new MaterialPropertyBlock();
+
             projectileRenderQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CombatRenderElement>()
-                .WithAll<CombatRenderBatchId>()
+                .WithAll<CombatRenderComponent>()
                 .WithAll<CombatRenderActiveTag>()
                 .WithAll<ProjectileTag>()
                 .Build(this);
 
             aoeRenderQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CombatRenderElement>()
-                .WithAll<CombatRenderBatchId>()
+                .WithAll<CombatRenderComponent>()
                 .WithAll<CombatRenderActiveTag>()
                 .WithAll<AoeTag>()
                 .Build(this);
@@ -46,12 +53,8 @@ namespace PlayGround.System.Common
 
         protected override void OnDestroy()
         {
-            foreach (NativeList<Matrix4x4> buffer in _batchBuffers.Values)
-            {
-                if (buffer.IsCreated)
-                    buffer.Dispose();
-            }
-            _batchBuffers.Clear();
+            if (_transforms.IsCreated) _transforms.Dispose();
+            if (_uvRects.IsCreated) _uvRects.Dispose();
         }
 
         protected override void OnUpdate()
@@ -62,35 +65,25 @@ namespace PlayGround.System.Common
             LastActiveAoeCount = 0;
 
             var registry = SystemAPI.ManagedAPI.GetSingleton<CombatRenderResourceRegistry>();
-            PrepareBatchBuffers(registry);
+            if (registry.SharedMesh == null) return;
+
+            _transforms.Clear();
+            _uvRects.Clear();
 
             renderElementHandle = GetComponentTypeHandle<CombatRenderElement>(true);
-            renderBatchIdHandle = GetComponentTypeHandle<CombatRenderBatchId>(true);
+            renderComponentHandle = GetComponentTypeHandle<CombatRenderComponent>(true);
             renderActiveHandle = GetComponentTypeHandle<CombatRenderActiveTag>(true);
 
             LastActiveProjectileCount = Scatter(projectileRenderQuery);
             LastActiveAoeCount = Scatter(aoeRenderQuery);
 
-            foreach (KeyValuePair<int, CombatRenderResourceEntry> pair in registry.Entries)
-            {
-                NativeList<Matrix4x4> buffer = _batchBuffers[pair.Key];
-                if (buffer.Length > 0)
-                    SubmitAll(buffer.AsArray(), pair.Value);
-            }
+            if (_transforms.Length > 0)
+                SubmitAll(registry);
         }
 
-        private void PrepareBatchBuffers(CombatRenderResourceRegistry registry)
-        {
-            foreach (NativeList<Matrix4x4> buffer in _batchBuffers.Values)
-                buffer.Clear();
-
-            foreach (int batchId in registry.Entries.Keys)
-            {
-                if (!_batchBuffers.ContainsKey(batchId))
-                    _batchBuffers.Add(batchId, new NativeList<Matrix4x4>(Allocator.Persistent));
-            }
-        }
-
+        // UV rects are stored directly on CombatRenderComponent (computed once when the spawn
+        // command was built), not looked up from the registry here — this pass only reads
+        // already-prepared per-entity data.
         private int Scatter(EntityQuery query)
         {
             int activeCount = 0;
@@ -98,42 +91,49 @@ namespace PlayGround.System.Common
             foreach (ArchetypeChunk chunk in chunks)
             {
                 NativeArray<CombatRenderElement> elements = chunk.GetNativeArray(ref renderElementHandle);
-                NativeArray<CombatRenderBatchId> batchIds = chunk.GetNativeArray(ref renderBatchIdHandle);
+                NativeArray<CombatRenderComponent> renders = chunk.GetNativeArray(ref renderComponentHandle);
                 EnabledMask activeMask = chunk.GetEnabledMask(ref renderActiveHandle);
                 for (int i = 0; i < chunk.Count; i++)
                 {
-                    if (!activeMask[i])
+                    if (!activeMask[i] || renders[i].IsRenderable == 0)
                         continue;
 
-                    int batchId = batchIds[i].Value;
-                    if (!_batchBuffers.TryGetValue(batchId, out NativeList<Matrix4x4> buffer))
-                        continue;
-
-                    buffer.Add(elements[i].objectToWorld);
+                    float4 uvRect = renders[i].UvRect;
+                    _transforms.Add(elements[i].objectToWorld);
+                    _uvRects.Add(new Vector4(uvRect.x, uvRect.y, uvRect.z, uvRect.w));
                     activeCount++;
                 }
             }
             return activeCount;
         }
 
-        private void SubmitAll(NativeArray<Matrix4x4> elements, CombatRenderResourceEntry entry)
+        private void SubmitAll(CombatRenderResourceRegistry registry)
         {
-            CombatSpriteRenderResources resources = entry.Resources;
-            RenderParams rp = new RenderParams(resources.Material)
+            RenderParams rp = new RenderParams(registry.SharedMaterial)
             {
-                matProps = resources.Properties,
+                matProps = _matProps,
                 shadowCastingMode = ShadowCastingMode.Off,
                 receiveShadows = false,
-                layer = entry.Layer,
+                layer = registry.Layer,
                 worldBounds = new Bounds(
                     Vector3.zero,
-                    new Vector3(entry.BoundsHalfExtent, entry.BoundsHalfExtent, entry.BoundsHalfExtent) * 2f)
+                    new Vector3(
+                        CombatRenderResourceRegistry.BoundsHalfExtent,
+                        CombatRenderResourceRegistry.BoundsHalfExtent,
+                        CombatRenderResourceRegistry.BoundsHalfExtent) * 2f)
             };
 
-            for (int start = 0; start < elements.Length; start += MaxInstancesPerDraw)
+            NativeArray<Matrix4x4> transforms = _transforms.AsArray();
+            NativeArray<Vector4> uvRects = _uvRects.AsArray();
+
+            for (int start = 0; start < transforms.Length; start += MaxInstancesPerDraw)
             {
-                int count = math.min(MaxInstancesPerDraw, elements.Length - start);
-                Graphics.RenderMeshInstanced(rp, resources.Mesh, 0, elements, count, start);
+                int count = math.min(MaxInstancesPerDraw, transforms.Length - start);
+                for (int i = 0; i < count; i++)
+                    _uvRectScratch[i] = uvRects[start + i];
+
+                _matProps.SetVectorArray("_UvRect", _uvRectScratch);
+                Graphics.RenderMeshInstanced(rp, registry.SharedMesh, 0, transforms, count, start);
             }
         }
     }

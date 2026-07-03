@@ -59,8 +59,13 @@ namespace PlayGround.Tests.PlayMode
 
             Matrix4x4 matrix = FirstScopedAoeRenderMatrix(root);
 
-            Assert.That(matrix.m00, Is.EqualTo(6f).Within(0.0001f));
-            Assert.That(matrix.m11, Is.EqualTo(8f).Within(0.0001f));
+            // geometry.VisualScale (spawn-time, from transform lossyScale * areaSize) is (6, 8)
+            // here (templateScale 2 * visualScale (3,4), areaSize 1). The render matrix now also
+            // folds in the registered sprite's native size (rect (1,1) / default pixelsPerUnit 100
+            // = (0.01, 0.01)), since the shared atlas mesh no longer bakes native size into
+            // vertices (see combat-render-atlas/004-visual-scale-folding.md).
+            Assert.That(matrix.m00, Is.EqualTo(0.06f).Within(0.0001f));
+            Assert.That(matrix.m11, Is.EqualTo(0.08f).Within(0.0001f));
             Cleanup(rootObject, templateObject);
         }
 
@@ -90,8 +95,11 @@ namespace PlayGround.Tests.PlayMode
 
             Assert.That(target.HitCount, Is.EqualTo(1));
             Assert.That(collision.Radius, Is.EqualTo(2f).Within(0.0001f));
-            Assert.That(matrix.m00, Is.EqualTo(6f).Within(0.0001f));
-            Assert.That(matrix.m11, Is.EqualTo(8f).Within(0.0001f));
+            // geometry.VisualScale is (6, 8) here (visualScale (3,4) * areaSize 2, templateScale
+            // defaults to 1). See the sibling assertion above for the native-sprite-size folding
+            // (0.01, 0.01) that the render matrix now also includes.
+            Assert.That(matrix.m00, Is.EqualTo(0.06f).Within(0.0001f));
+            Assert.That(matrix.m11, Is.EqualTo(0.08f).Within(0.0001f));
             Cleanup(rootObject, templateObject, target.gameObject);
         }
 
@@ -605,6 +613,7 @@ namespace PlayGround.Tests.PlayMode
             rootObject = new GameObject("AoeRoot");
             rootObject.SetActive(false);
             root = rootObject.AddComponent<CombatRoot>();
+            root.ConfigureAtlas(Texture2D.whiteTexture);
             rootObject.SetActive(true);
 
             typeId = root.RegisterType(definition);
@@ -765,6 +774,7 @@ namespace PlayGround.Tests.PlayMode
             rootObject.SetActive(false);
             root = rootObject.AddComponent<CombatRoot>();
             root.Configure(sprite);
+            root.ConfigureAtlas(Texture2D.whiteTexture);
             rootObject.SetActive(true);
         }
 

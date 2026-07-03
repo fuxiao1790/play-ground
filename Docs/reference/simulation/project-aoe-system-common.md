@@ -274,7 +274,7 @@ Follow-up spawns stay in ECS event flow and return to expansion/apply.
 
 ## Rendering And VFX
 
-Projectile and AOE visuals share the batched sprite render path.
+Projectile and AOE visuals share the sprite-atlas render path.
 
 Runtime entities carry common render data:
 
@@ -283,9 +283,17 @@ Runtime entities carry common render data:
 - `CombatRenderActiveTag`
 - `CombatRenderBatchId`
 
+`CombatRenderBatchId` is a plain kind identifier; the atlas UV rect itself
+lives on `CombatRenderComponent.UvRect`, computed once by the shared
+`CombatRenderResourceRegistry` when the spawn command is built (one shared,
+manually-assembled atlas texture, one mesh, one material for every
+registered kind) rather than selecting a per-kind resource bundle.
 `CombatRenderPrepareSystem` prepares matrices for active renderable entities.
-`CombatBatchedRenderSystem` runs in presentation, scatters matrices by
-`CombatRenderBatchId`, and submits batches through registered render resources.
+`CombatBatchedRenderSystem` runs in presentation, scatters matrices and UV
+rects together in one active-only pass (reading each entity's own
+components directly, no per-frame registry lookup), and submits the shared
+mesh/material in as few `Graphics.RenderMeshInstanced` calls as the
+1023-instance cap requires.
 
 VFX requests are data until presentation. Collision, lifetime, pulse, and spawn
 systems write VFX request data into native queues/streams or scope buffers.

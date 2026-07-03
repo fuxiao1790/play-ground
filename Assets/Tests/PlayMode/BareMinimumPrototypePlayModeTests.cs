@@ -113,6 +113,7 @@ namespace PlayGround.Tests.PlayMode
             rootObject.SetActive(false);
             CombatRoot root = rootObject.AddComponent<CombatRoot>();
             root.Configure(sprite);
+            root.ConfigureAtlas(Texture2D.whiteTexture);
             GameObject templateObject = CreateBasicProjectileTemplate(sprite, out BasicAttackPrefab template);
 
             int typeId = root.RegisterTemplate(template);
@@ -689,6 +690,7 @@ namespace PlayGround.Tests.PlayMode
             projectileObject.SetActive(false);
             CombatRoot projectileRoot = projectileObject.AddComponent<CombatRoot>();
             projectileRoot.Configure(Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f));
+            projectileRoot.ConfigureAtlas(Texture2D.whiteTexture);
             projectileObject.SetActive(true);
 
             GameObject spawnerObject = new("MobSpawnerRoot");
@@ -717,6 +719,7 @@ namespace PlayGround.Tests.PlayMode
             projectileObject.SetActive(false);
             projectileRoot = projectileObject.AddComponent<CombatRoot>();
             projectileRoot.Configure(sprite);
+            projectileRoot.ConfigureAtlas(Texture2D.whiteTexture);
             projectileObject.SetActive(true);
 
             mobObject = new GameObject("Mob");
@@ -768,6 +771,7 @@ namespace PlayGround.Tests.PlayMode
             rootObject = new GameObject("CombatRoot");
             rootObject.SetActive(false);
             root = rootObject.AddComponent<CombatRoot>();
+            root.ConfigureAtlas(Texture2D.whiteTexture);
             rootObject.SetActive(true);
 
             typeId = root.RegisterType(definition);

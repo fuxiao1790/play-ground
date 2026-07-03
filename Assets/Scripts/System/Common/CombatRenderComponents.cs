@@ -1,11 +1,8 @@
 using System;
 using System.Collections.Generic;
-using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.Sprites;
 
 namespace PlayGround.System.Common
 {
@@ -18,6 +15,11 @@ namespace PlayGround.System.Common
         public float VisualRotationSin;
         public float VisualRotationCos;
         public float RenderZ;
+
+        // (uOffset, vOffset, uScale, vScale) into the shared combat atlas. Computed once by the
+        // registry when the spawn command is built (CombatRoot.ProjectileCommandFor/AoeCommandFor)
+        // and copied onto the entity like every other field here — never looked up per frame.
+        public float4 UvRect;
     }
 
     // ECS Lifecycle: common render component; owned by renderable domain entities; overwritten during render prep.
@@ -31,156 +33,173 @@ namespace PlayGround.System.Common
     {
     }
 
-    // ECS Lifecycle: common render component; per-entity render resource id copied from spawn commands; identifies the GPU resource batch at submit.
+    // ECS Lifecycle: common render component; per-entity render resource id copied from spawn commands; identifies which registered sprite kind this entity uses.
     public struct CombatRenderBatchId : IComponentData
     {
         public int Value;
     }
 
+    // Per-kind metadata: the folded visual scale (authored scale * native sprite size in world
+    // units, since the shared unit-quad mesh does not bake native pixel size into vertices) and
+    // the UV rect of this kind's sprite within the manually-assembled atlas texture.
     public sealed class CombatRenderResourceEntry
     {
-        public CombatSpriteRenderResources Resources;
-        public int Layer;
-        public float BoundsHalfExtent;
+        public Vector2 VisualScale;
+        public float VisualRotationSin;
+        public float VisualRotationCos;
+        public Vector4 UvRect;
     }
 
+    // Owns the shared render resources for every registered combat sprite kind: one unit-quad
+    // Mesh, one atlas Material, and per-kind UV rects computed from a single, manually-assembled
+    // atlas texture (assigned via CombatRoot's serialized field, not built at runtime). One
+    // shared atlas so all kinds draw in as few Graphics.RenderMeshInstanced calls as possible
+    // instead of one call per kind.
     public sealed class CombatRenderResourceRegistry : IComponentData
     {
         public readonly Dictionary<int, CombatRenderResourceEntry> Entries = new();
+        public const float BoundsHalfExtent = 100000f;
+
+        public Mesh SharedMesh { get; private set; }
+        public Material SharedMaterial { get; private set; }
+        public Texture2D AtlasTexture { get; private set; }
+        public int Layer { get; private set; }
 
         private int _nextRenderId = 1;
 
-        public const string ProjectileMeshName = "ProjectileQuadMesh";
-        public const string AoeMeshName = "AoeQuadMesh";
-
-        private const float BoundsHalfExtent = 100000f;
-
-        // Mints a render id, builds GPU resources on the calling (main) thread, and publishes
-        // into Entries. Returns 0 for a null sprite (== "no visual").
-        public int Register(
-            Sprite sprite,
-            Vector2 visualScale,
-            float visualRotationDegrees,
-            Material sourceMaterial,
-            string meshName,
-            int layer)
+        // Assigns the single, manually-assembled atlas texture (one page; no runtime packing).
+        // Must be called before any Register(...) call that passes a non-null sprite. Safe to call
+        // multiple times (e.g. once per CombatRoot instance sharing the same registry); the last
+        // call wins, matching how Layer is captured.
+        public void ConfigureAtlas(Texture2D atlasTexture)
         {
+            EnsureSharedResources();
+            AtlasTexture = atlasTexture;
+            SharedMaterial.mainTexture = atlasTexture;
+        }
+
+        // Mints a render id and stores the folded visual scale plus this sprite's UV rect within
+        // the configured atlas, on the calling (main) thread. Returns 0 for a null sprite (== "no
+        // visual"). Throws if the atlas isn't configured yet, or if the sprite wasn't manually
+        // placed in the configured atlas texture (skills must be assembled into the shared atlas
+        // in the editor ahead of time; this is not a dynamic/auto-packing atlas).
+        public int Register(Sprite sprite, Vector2 visualScale, float visualRotationDegrees, int layer)
+        {
+            EnsureSharedResources();
+            Layer = layer;
+
             if (sprite == null) return 0;
 
-            CombatSpriteRenderResources resources = BuildResources(
-                sprite, visualScale, visualRotationDegrees, sourceMaterial, meshName);
+            if (AtlasTexture == null)
+                throw new InvalidOperationException(
+                    $"Combat atlas texture is not configured; cannot register sprite '{sprite.name}'. Assign the atlas texture on CombatRoot before registering skills.");
+
+            if (sprite.texture != AtlasTexture)
+                throw new InvalidOperationException(
+                    $"Sprite '{sprite.name}' is not part of the combat atlas texture '{AtlasTexture.name}'. Combat sprites must be manually assembled into the shared atlas in the editor, not sourced from a separate texture.");
+
+            Vector4 uvRect = new(
+                sprite.rect.x / AtlasTexture.width,
+                sprite.rect.y / AtlasTexture.height,
+                sprite.rect.width / AtlasTexture.width,
+                sprite.rect.height / AtlasTexture.height);
+
+            Vector2 nativeSize = new(sprite.rect.width / sprite.pixelsPerUnit, sprite.rect.height / sprite.pixelsPerUnit);
+            Vector2 authoredScale = PositiveScale(visualScale);
+            math.sincos(math.radians(visualRotationDegrees), out float sin, out float cos);
+
             int renderId = _nextRenderId++;
             Entries[renderId] = new CombatRenderResourceEntry
             {
-                Resources = resources,
-                Layer = layer,
-                BoundsHalfExtent = BoundsHalfExtent
+                VisualScale = new Vector2(authoredScale.x * nativeSize.x, authoredScale.y * nativeSize.y),
+                VisualRotationSin = sin,
+                VisualRotationCos = cos,
+                UvRect = uvRect
             };
             return renderId;
         }
 
         public CombatRenderComponent GetProjectileRenderComponent(int renderId, int projectileId)
         {
-            if (!Entries.TryGetValue(renderId, out var entry)) return default;
-            CombatSpriteRenderResources res = entry.Resources;
+            if (!Entries.TryGetValue(renderId, out CombatRenderResourceEntry entry)) return default;
             return new CombatRenderComponent
             {
                 IsRenderable = 1,
                 AlignToVelocity = 1,
-                VisualScale = new float2(res.VisualScale.x, res.VisualScale.y),
-                VisualRotationSin = res.VisualRotationSin,
-                VisualRotationCos = res.VisualRotationCos,
+                VisualScale = new float2(entry.VisualScale.x, entry.VisualScale.y),
+                VisualRotationSin = entry.VisualRotationSin,
+                VisualRotationCos = entry.VisualRotationCos,
                 RenderZ = CombatRoot.ProjectileRenderZ
-                    - projectileId % CombatRoot.ProjectileRenderZSlots * CombatRoot.ProjectileRenderZStep
+                    - projectileId % CombatRoot.ProjectileRenderZSlots * CombatRoot.ProjectileRenderZStep,
+                UvRect = new float4(entry.UvRect.x, entry.UvRect.y, entry.UvRect.z, entry.UvRect.w)
             };
         }
 
-        // AOE visual data comes from geometry; the entry only gates whether a visual exists.
+        // AOE visual data comes from geometry (spawn-time area/scale); the entry supplies the
+        // sprite's own native-size scale, folded in since the shared unit-quad mesh does not
+        // bake native pixel size into vertices (each kind used to bake it into its own mesh).
         public CombatRenderComponent GetAoeRenderComponent(int renderId, AoeSpawnGeometry geometry)
         {
-            if (!Entries.ContainsKey(renderId)) return default;
+            if (!Entries.TryGetValue(renderId, out CombatRenderResourceEntry entry)) return default;
+            float2 scale = new float2(geometry.VisualScale.x, geometry.VisualScale.y)
+                * new float2(entry.VisualScale.x, entry.VisualScale.y);
             return new CombatRenderComponent
             {
                 IsRenderable = 1,
                 AlignToVelocity = 0,
-                VisualScale = new float2(geometry.VisualScale.x, geometry.VisualScale.y),
+                VisualScale = scale,
                 VisualRotationSin = geometry.VisualRotationSin,
                 VisualRotationCos = geometry.VisualRotationCos,
-                RenderZ = CombatRoot.AoeRenderZ
+                RenderZ = CombatRoot.AoeRenderZ,
+                UvRect = new float4(entry.UvRect.x, entry.UvRect.y, entry.UvRect.z, entry.UvRect.w)
             };
         }
 
-        // Destroys all GPU resources and clears the store. Called from CombatRoot.OnDestroy.
+        // Destroys the shared GPU resources this registry created and clears the store. Called
+        // from CombatRoot.OnDestroy. The atlas texture is a manually-assigned project asset, not
+        // created by this registry, so it is dereferenced here but never destroyed.
         public void Unregister()
         {
-            foreach (var entry in Entries.Values)
-                entry.Resources.Destroy();
+            if (SharedMaterial != null) UnityEngine.Object.Destroy(SharedMaterial);
+            if (SharedMesh != null) UnityEngine.Object.Destroy(SharedMesh);
+            SharedMaterial = null;
+            SharedMesh = null;
+            AtlasTexture = null;
+
             Entries.Clear();
             _nextRenderId = 1;
         }
 
-        private static CombatSpriteRenderResources BuildResources(
-            Sprite sprite,
-            Vector2 visualScale,
-            float visualRotationDegrees,
-            Material sourceMaterial,
-            string meshName)
+        private void EnsureSharedResources()
         {
-            Mesh mesh = BuildSpriteMesh(sprite, meshName);
-            Texture texture = sprite.texture;
-            int renderQueue = sourceMaterial != null && sourceMaterial.renderQueue >= 0
-                ? sourceMaterial.renderQueue
-                : (int)RenderQueue.Transparent;
-            Material material;
-            if (sourceMaterial != null)
-            {
-                material = new Material(sourceMaterial)
-                {
-                    mainTexture = texture,
-                    enableInstancing = true,
-                    renderQueue = renderQueue
-                };
-            }
-            else
-            {
-                material = new Material(FindSpriteShader())
-                {
-                    mainTexture = texture,
-                    enableInstancing = true,
-                    renderQueue = renderQueue
-                };
-            }
+            if (SharedMesh != null) return;
 
-            ConfigureMaterial(material, texture, renderQueue);
-            ValidateResources(sprite, material);
+            SharedMesh = BuildUnitQuadMesh();
 
-            MaterialPropertyBlock properties = new();
-            ConfigureProperties(properties, material, texture);
-            return new CombatSpriteRenderResources(mesh, material, properties, PositiveScale(visualScale), visualRotationDegrees);
+            Shader shader = Shader.Find("Combat/AtlasInstancedSprite");
+            if (shader == null)
+                throw new MissingReferenceException("Combat/AtlasInstancedSprite shader not found.");
+
+            SharedMaterial = new Material(shader) { enableInstancing = true };
         }
 
-        private static Mesh BuildSpriteMesh(Sprite sprite, string meshName)
+        private static Mesh BuildUnitQuadMesh()
         {
-            Mesh mesh = new() { name = meshName };
-            Rect rect = sprite.rect;
-            float pixelsPerUnit = sprite.pixelsPerUnit;
-            float width = rect.width / pixelsPerUnit;
-            float height = rect.height / pixelsPerUnit;
-            Vector4 outerUv = DataUtility.GetOuterUV(sprite);
+            Mesh mesh = new() { name = "CombatAtlasUnitQuad" };
 
             var vertices = new[]
             {
-                new Vector3(-width * 0.5f, -height * 0.5f, 0f),
-                new Vector3(-width * 0.5f, height * 0.5f, 0f),
-                new Vector3(width * 0.5f, height * 0.5f, 0f),
-                new Vector3(width * 0.5f, -height * 0.5f, 0f)
+                new Vector3(-0.5f, -0.5f, 0f),
+                new Vector3(-0.5f, 0.5f, 0f),
+                new Vector3(0.5f, 0.5f, 0f),
+                new Vector3(0.5f, -0.5f, 0f)
             };
             var uvs = new[]
             {
-                new Vector2(outerUv.x, outerUv.y),
-                new Vector2(outerUv.x, outerUv.w),
-                new Vector2(outerUv.z, outerUv.w),
-                new Vector2(outerUv.z, outerUv.y)
+                new Vector2(0f, 0f),
+                new Vector2(0f, 1f),
+                new Vector2(1f, 1f),
+                new Vector2(1f, 0f)
             };
 
             mesh.SetVertices(vertices);
@@ -190,128 +209,8 @@ namespace PlayGround.System.Common
             return mesh;
         }
 
-        private static Shader FindSpriteShader()
-        {
-            Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (shader != null) return shader;
-
-            shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default");
-            if (shader != null) return shader;
-
-            shader = Shader.Find("Sprites/Default");
-            if (shader != null) return shader;
-
-            throw new MissingReferenceException("No supported batched sprite render shader found.");
-        }
-
-        private static void ConfigureMaterial(Material material, Texture texture, int renderQueue)
-        {
-            material.enableInstancing = true;
-            material.renderQueue = renderQueue;
-            material.SetTexture("_MainTex", texture);
-
-            SetTextureIfPresent(material, "_BaseMap", texture);
-            SetColorIfPresent(material, "_Color", Color.white);
-            SetColorIfPresent(material, "_BaseColor", Color.white);
-            SetColorIfPresent(material, "_RendererColor", Color.white);
-            SetFloatIfPresent(material, "_Surface", 1f);
-            SetFloatIfPresent(material, "_Blend", 0f);
-            SetFloatIfPresent(material, "_SrcBlend", (float)BlendMode.SrcAlpha);
-            SetFloatIfPresent(material, "_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
-            SetFloatIfPresent(material, "_ZWrite", 0f);
-            SetFloatIfPresent(material, "_Cull", (float)CullMode.Off);
-
-            material.SetOverrideTag("RenderType", "Transparent");
-            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-        }
-
-        private static void ConfigureProperties(MaterialPropertyBlock properties, Material material, Texture texture)
-        {
-            properties.SetTexture("_MainTex", texture);
-
-            if (material.HasProperty("_BaseMap"))
-                properties.SetTexture("_BaseMap", texture);
-
-            if (material.HasProperty("_Color"))
-                properties.SetColor("_Color", Color.white);
-
-            if (material.HasProperty("_BaseColor"))
-                properties.SetColor("_BaseColor", Color.white);
-
-            if (material.HasProperty("_RendererColor"))
-                properties.SetColor("_RendererColor", Color.white);
-        }
-
-        private static void ValidateResources(Sprite sprite, Material material)
-        {
-            if (material == null)
-                throw new MissingReferenceException($"Batched sprite render material could not be created for sprite {sprite.name}.");
-
-            if (material.mainTexture == null)
-                throw new MissingReferenceException($"Batched sprite render material for sprite {sprite.name} has no main texture assigned.");
-
-            if (!material.enableInstancing)
-                throw new InvalidOperationException($"Batched sprite render material for sprite {sprite.name} does not support GPU instancing.");
-
-            if (material.shader == null || !material.shader.isSupported)
-                throw new MissingReferenceException($"Batched sprite render material shader is not supported for sprite {sprite.name}.");
-        }
-
         private static Vector2 PositiveScale(Vector2 scale) =>
-            new Vector2(scale.x > 0f ? scale.x : 1f, scale.y > 0f ? scale.y : 1f);
-
-        private static void SetTextureIfPresent(Material material, string propertyName, Texture texture)
-        {
-            if (material.HasProperty(propertyName))
-                material.SetTexture(propertyName, texture);
-        }
-
-        private static void SetColorIfPresent(Material material, string propertyName, Color color)
-        {
-            if (material.HasProperty(propertyName))
-                material.SetColor(propertyName, color);
-        }
-
-        private static void SetFloatIfPresent(Material material, string propertyName, float value)
-        {
-            if (material.HasProperty(propertyName))
-                material.SetFloat(propertyName, value);
-        }
-    }
-
-    public sealed class CombatSpriteRenderResources
-    {
-        public CombatSpriteRenderResources(
-            Mesh mesh,
-            Material material,
-            MaterialPropertyBlock properties,
-            Vector2 visualScale,
-            float visualRotationDegrees)
-        {
-            Mesh = mesh;
-            Material = material;
-            Properties = properties;
-            VisualScale = visualScale;
-            math.sincos(math.radians(visualRotationDegrees), out float visualRotationSin, out float visualRotationCos);
-            VisualRotationSin = visualRotationSin;
-            VisualRotationCos = visualRotationCos;
-        }
-
-        public Mesh Mesh { get; }
-        public Material Material { get; }
-        public MaterialPropertyBlock Properties { get; }
-        public Vector2 VisualScale { get; }
-        public float VisualRotationSin { get; }
-        public float VisualRotationCos { get; }
-
-        public void Destroy()
-        {
-            if (Material != null)
-                UnityEngine.Object.Destroy(Material);
-
-            if (Mesh != null)
-                UnityEngine.Object.Destroy(Mesh);
-        }
+            new(scale.x > 0f ? scale.x : 1f, scale.y > 0f ? scale.y : 1f);
     }
 
     public static class CombatRenderMatrixUtility

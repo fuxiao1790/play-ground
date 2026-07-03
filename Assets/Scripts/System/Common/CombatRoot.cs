@@ -28,6 +28,12 @@ namespace PlayGround.System.Common
         internal const float AoeRenderZ = 0.5f;
         internal const int MaxSpawnChainDepth = SpawnTemplateLimits.MaxSpawnChainDepth;
 
+        [Header("Render Atlas")]
+        [Tooltip("Single, manually-assembled atlas texture that every combat sprite kind's Sprite " +
+            "must be sliced from. There is no runtime/dynamic atlas packing: skills register " +
+            "themselves against this texture, and registration throws if a sprite is not part of it.")]
+        [SerializeField] private Texture2D combatAtlasTexture;
+
         [Header("Projectile visuals")]
         [SerializeField] private Sprite projectileSprite;
         [SerializeField] private float visualScale = 1f;
@@ -84,6 +90,7 @@ namespace PlayGround.System.Common
             }
             if (_renderRegistry == null)
                 Debug.LogWarning("[CombatRoot] CombatRenderResourceRegistry singleton not found; render registry will not be populated.");
+            _renderRegistry?.ConfigureAtlas(combatAtlasTexture);
             BuildProjectileRenderResources();
             runtimeReady = true;
         }
@@ -109,6 +116,10 @@ namespace PlayGround.System.Common
             _renderRegistry = null;
         }
 
+        // ---- Render atlas API ----
+
+        public void ConfigureAtlas(Texture2D atlasTexture) => combatAtlasTexture = atlasTexture;
+
         // ---- Projectile API ----
 
         public void Configure(Sprite sprite) => projectileSprite = sprite;
@@ -132,8 +143,6 @@ namespace PlayGround.System.Common
                     template.Sprite,
                     ProjectileVisualScale(template.VisualScale),
                     template.VisualRotationDegrees,
-                    template.Material,
-                    CombatRenderResourceRegistry.ProjectileMeshName,
                     gameObject.layer) ?? 0;
             }
 
@@ -567,8 +576,7 @@ namespace PlayGround.System.Common
             if (projectileSprite != null)
             {
                 projectileRenderIdByType[0] = _renderRegistry?.Register(
-                    projectileSprite, new Vector2(visualScale, visualScale), 0f, null,
-                    CombatRenderResourceRegistry.ProjectileMeshName, gameObject.layer) ?? 0;
+                    projectileSprite, new Vector2(visualScale, visualScale), 0f, gameObject.layer) ?? 0;
             }
 
             if (projectileTemplates != null)
@@ -597,8 +605,6 @@ namespace PlayGround.System.Common
                         definition.Sprite,
                         ProjectileVisualScale(definition.VisualScale),
                         definition.VisualRotationDegrees,
-                        null,
-                        CombatRenderResourceRegistry.ProjectileMeshName,
                         gameObject.layer) ?? 0;
                 }
             }
@@ -615,8 +621,7 @@ namespace PlayGround.System.Common
             if (!typeRegistry.TryGetVisual(typeId, out AoeVisualDefinition visual))
                 return;
             aoeRenderIdByType[typeId] = _renderRegistry?.Register(
-                visual.Sprite, visual.VisualScale, visual.VisualRotationDegrees, visual.Material,
-                CombatRenderResourceRegistry.AoeMeshName, gameObject.layer) ?? 0;
+                visual.Sprite, visual.VisualScale, visual.VisualRotationDegrees, gameObject.layer) ?? 0;
         }
 
         // ---- World / scope ----

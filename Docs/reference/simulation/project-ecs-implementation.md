@@ -99,10 +99,10 @@ Per-frame combat work is explicit in ECS systems and actor roots:
 
 - `PlayerRoot.Update` and `MobRoot.Update` push target proxy position and shape
   into ECS before simulation; their `LateUpdate` deletes queued dead proxies.
-- `CombatBatchedRenderSystem` (`PresentationSystemGroup`) resolves the owning
-  `CombatRoot` by `CombatFaction` and submits batched render instances through
-  tag-scoped queries (`ProjectileTag`/`AoeTag`), pulling render resources from
-  the root's registry.
+- `CombatBatchedRenderSystem` (`PresentationSystemGroup`) submits render
+  instances through tag-scoped queries (`ProjectileTag`/`AoeTag`), drawing
+  every registered kind together via the registry's shared atlas
+  mesh/material instead of one batch per kind.
 - `CombatApplyFinalizeSystem` (`SimulationSystemGroup`) applies target-bucketed
   `CombatHitEvent` values to ECS-owned `TargetHealth`, accrues status stacks,
   and freezes one `CombatTickResult` per hit target after collision and before

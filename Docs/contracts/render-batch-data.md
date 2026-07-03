@@ -18,22 +18,35 @@ and prepared matrices.
 
 Current render data includes:
 
-- `CombatRenderComponent`
+- `CombatRenderComponent` (includes `UvRect`, computed once when the spawn
+  command is built)
 - `CombatRenderElement`
 - `CombatRenderActiveTag`
 - `CombatRenderBatchId`
 - prepared transform matrices
-- root-owned render resources keyed by render id
+- one shared, manually-assembled atlas (mesh + material + a referenced,
+  not owned, atlas texture asset)
 
-`CombatRenderBatchId` is a plain `IComponentData` int. Its value is copied from
-the spawn command's `RenderTypeId` and selects the GPU resource batch at submit.
-It does not partition chunks and does not partition spawn pools.
+`CombatRenderBatchId` is a plain `IComponentData` int, copied from the spawn
+command's `RenderTypeId`. It is a kind identifier only — it does not select
+or index anything at render time; `CombatRenderComponent.UvRect` already
+carries the atlas coordinates directly on the entity. It does not partition
+chunks and does not partition spawn pools.
 
 ## Guarantees
 
-Renderable projectile/AOE entities can be grouped by `CombatRenderBatchId` for
-instanced sprite submission. The render resource registry remains the owner of
-mesh/material/property resources for each render id.
+The combat sprite atlas is **one manually-assembled texture asset** (sliced
+into per-kind `Sprite`s in the Unity Editor ahead of time), assigned via a
+serialized field on `CombatRoot` and threaded into
+`CombatRenderResourceRegistry.ConfigureAtlas(...)`. There is no runtime
+packing: `Register(...)` computes each kind's UV rect directly from
+`sprite.rect`/atlas texture dimensions, and throws if the sprite passed in
+isn't actually sliced from the configured atlas texture (fail loud on a
+missed content-authoring step, rather than silently misrendering). Every
+active projectile/AOE entity across every kind draws with one shared
+unit-quad mesh + one shared instanced material, in as few
+`Graphics.RenderMeshInstanced` calls as the 1023-instance-per-call cap
+requires (not one call per kind).
 
 ## Restrictions
 
@@ -52,9 +65,14 @@ live with the owning combat root and are released on root teardown.
 ## Ordering
 
 Render preparation runs after simulation/apply. Batched render submission runs
-in presentation, reads `CombatRenderElement` and `CombatRenderBatchId`, scatters
-matrices into per-batch scratch buffers, and submits each non-empty registry
-batch. It does not use shared-component filters or `ToComponentDataArray`.
+in presentation, reads `CombatRenderElement` and `CombatRenderComponent`, and
+in one active-only scatter pass fills a shared transform buffer and a
+parallel UV-rect buffer directly from each entity's own components (no
+registry lookup per entity — `UvRect` was already computed once, when the
+spawn command was built). Submission then chunks that shared buffer pair at
+the 1023-instance cap and calls `Graphics.RenderMeshInstanced` once per chunk
+against the registry's shared mesh/material. It does not use
+shared-component filters or `ToComponentDataArray`.
 
 ## Related Layers
 
