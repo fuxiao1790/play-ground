@@ -120,10 +120,15 @@ If a smoke test shows wrong orientation, the fix is a `transpose(...)` (or swapp
   **every** combat sprite the ECS may spawn (content + single-page enforcement).
 - [006-docs-and-tests.md](006-docs-and-tests.md) — rewrite the render-batch contract for the
   indirect/single-draw design; adjust PlayMode fixtures.
+- [007-renderer-feature.md](007-renderer-feature.md) — **added during implementation.** URP's 2D
+  Renderer does not execute the immediate `Graphics.RenderMeshIndirect` (Frame-Debugger-confirmed),
+  so the draw is recorded from a `ScriptableRendererFeature` on `Renderer2D.asset` instead.
+  Supersedes 003's submit call; requires a one-time Inspector step to add the feature.
 
 Dependencies: 002 is foundational (defines the struct). 001 depends on the Data Contract only
 (parallel with 002). 003 depends on 001 + 002. 004 depends on 001. 005 is independent content
 work (can proceed any time; gates real gameplay, not compilation). 006 depends on 003/004.
+007 depends on 003 (and replaces its immediate-mode submit).
 
 ## Constraints And Invariants
 

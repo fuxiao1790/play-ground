@@ -18,6 +18,10 @@ Shader "Combat/AtlasIndirectSprite"
         Pass
         {
             Name "CombatAtlasIndirectUnlit"
+            // The active renderer is URP's 2D Renderer (Renderer2D). It only executes passes
+            // tagged Universal2D; a pass with no LightMode defaults to SRPDefaultUnlit, which the
+            // 2D Renderer skips — geometry submits but never draws. This tag is what makes it render.
+            Tags { "LightMode" = "Universal2D" }
             Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
             ZTest LEqual
@@ -33,7 +37,8 @@ Shader "Combat/AtlasIndirectSprite"
             struct CombatInstanceData
             {
                 float4x4 objectToWorld;
-                float4 uvRect;
+                float4 uvOriginU; // xy = origin, zw = U axis
+                float4 uvV;       // xy = V axis
             };
 
             StructuredBuffer<CombatInstanceData> _InstanceData;
@@ -59,9 +64,13 @@ Shader "Combat/AtlasIndirectSprite"
                 Varyings OUT = (Varyings)0;
                 CombatInstanceData inst = _InstanceData[IN.instanceID];
 
+                // Unity Matrix4x4 and HLSL are both column-major by default, so a float4x4 read
+                // from a StructuredBuffer loads untransposed — standard mul(M, v) applies.
                 float3 worldPos = mul(inst.objectToWorld, float4(IN.positionOS.xyz, 1.0)).xyz;
                 OUT.positionHCS = TransformWorldToHClip(worldPos);
-                OUT.uv = inst.uvRect.xy + IN.uv * inst.uvRect.zw;
+                // Affine UV basis: reproduces the sprite's real atlas UVs even if the packer rotated
+                // it 90°. IN.uv is the unit-quad 0..1 coordinate.
+                OUT.uv = inst.uvOriginU.xy + IN.uv.x * inst.uvOriginU.zw + IN.uv.y * inst.uvV.xy;
                 return OUT;
             }
 

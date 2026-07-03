@@ -6,14 +6,13 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Assertions;
-using UnityEngine.Rendering;
 
 namespace PlayGround.System.Common
 {
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     public partial class CombatBatchedRenderSystem : SystemBase
     {
-        private const int InstanceDataStride = 80;
+        private const int InstanceDataStride = 96;
         private const int InitialInstanceCapacity = 1024;
         private static readonly int InstanceDataProperty = Shader.PropertyToID("_InstanceData");
 
@@ -25,9 +24,7 @@ namespace PlayGround.System.Common
         private NativeList<CombatInstanceData> _instances;
         private GraphicsBuffer _instanceBuffer;
         private GraphicsBuffer _argsBuffer;
-        private MaterialPropertyBlock _matProps;
         private int _instanceCapacity;
-        private bool _rebindBuffer;
 
         internal int LastActiveProjectileCount;
         internal int LastActiveAoeCount;
@@ -39,7 +36,6 @@ namespace PlayGround.System.Common
 
             Assert.AreEqual(InstanceDataStride, UnsafeUtility.SizeOf<CombatInstanceData>());
             _instances = new NativeList<CombatInstanceData>(Allocator.Persistent);
-            _matProps = new MaterialPropertyBlock();
 
             if (!SystemInfo.supportsIndirectArgumentsBuffer)
             {
@@ -70,6 +66,7 @@ namespace PlayGround.System.Common
 
         protected override void OnDestroy()
         {
+            CombatIndirectRenderData.Clear();
             if (_instances.IsCreated) _instances.Dispose();
             _instanceBuffer?.Dispose();
             _argsBuffer?.Dispose();
@@ -83,7 +80,11 @@ namespace PlayGround.System.Common
             LastActiveAoeCount = 0;
 
             var registry = SystemAPI.ManagedAPI.GetSingleton<CombatRenderResourceRegistry>();
-            if (registry.SharedMesh == null) return;
+            if (registry.SharedMesh == null)
+            {
+                CombatIndirectRenderData.Clear();
+                return;
+            }
 
             _instances.Clear();
 
@@ -95,7 +96,11 @@ namespace PlayGround.System.Common
             LastActiveAoeCount = Scatter(aoeRenderQuery);
 
             int activeCount = _instances.Length;
-            if (activeCount == 0) return;
+            if (activeCount == 0)
+            {
+                CombatIndirectRenderData.Clear();
+                return;
+            }
 
             EnsureInstanceCapacity(activeCount);
             _instanceBuffer.SetData(_instances.AsArray(), 0, 0, activeCount);
@@ -120,11 +125,13 @@ namespace PlayGround.System.Common
                     if (!activeMask[i] || renders[i].IsRenderable == 0)
                         continue;
 
-                    float4 uvRect = renders[i].UvRect;
+                    float4 originU = renders[i].UvOriginU;
+                    float4 v = renders[i].UvV;
                     _instances.Add(new CombatInstanceData
                     {
                         objectToWorld = elements[i].objectToWorld,
-                        uvRect = new Vector4(uvRect.x, uvRect.y, uvRect.z, uvRect.w)
+                        uvOriginU = new Vector4(originU.x, originU.y, originU.z, originU.w),
+                        uvV = new Vector4(v.x, v.y, v.z, v.w)
                     });
                     activeCount++;
                 }
@@ -143,7 +150,6 @@ namespace PlayGround.System.Common
             _instanceBuffer?.Dispose();
             _instanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, newCapacity, InstanceDataStride);
             _instanceCapacity = newCapacity;
-            _rebindBuffer = true;
         }
 
         private void PopulateArgs(CombatRenderResourceRegistry registry, int activeCount)
@@ -161,27 +167,15 @@ namespace PlayGround.System.Common
 
         private void Submit(CombatRenderResourceRegistry registry)
         {
-            if (_rebindBuffer)
-            {
-                _matProps.SetBuffer(InstanceDataProperty, _instanceBuffer);
-                _rebindBuffer = false;
-            }
+            // A GraphicsBuffer bound via MaterialPropertyBlock does not take effect for indirect
+            // draws (known Unity behavior) — it must be set on the material directly. Bind every
+            // frame so it survives buffer growth (new buffer identity) and material rebuilds.
+            registry.SharedMaterial.SetBuffer(InstanceDataProperty, _instanceBuffer);
 
-            RenderParams rp = new RenderParams(registry.SharedMaterial)
-            {
-                matProps = _matProps,
-                shadowCastingMode = ShadowCastingMode.Off,
-                receiveShadows = false,
-                layer = registry.Layer,
-                worldBounds = new Bounds(
-                    Vector3.zero,
-                    new Vector3(
-                        CombatRenderResourceRegistry.BoundsHalfExtent,
-                        CombatRenderResourceRegistry.BoundsHalfExtent,
-                        CombatRenderResourceRegistry.BoundsHalfExtent) * 2f)
-            };
-
-            Graphics.RenderMeshIndirect(rp, registry.SharedMesh, _argsBuffer, 1);
+            // Do NOT call Graphics.RenderMeshIndirect here — URP's 2D Renderer does not execute
+            // immediate-mode render requests. Publish the draw inputs for CombatIndirectRenderFeature
+            // to record inside the 2D render pass instead.
+            CombatIndirectRenderData.Publish(registry.SharedMesh, registry.SharedMaterial, _argsBuffer);
         }
     }
 }
