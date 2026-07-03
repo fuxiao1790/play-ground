@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
@@ -29,6 +30,13 @@ namespace PlayGround.System.Common
         public Matrix4x4 objectToWorld;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct CombatInstanceData
+    {
+        public Matrix4x4 objectToWorld;
+        public Vector4 uvRect;
+    }
+
     // ECS Lifecycle: common render enable tag; owned by renderable domain entities; enabled/disabled with the owning domain active tag.
     public struct CombatRenderActiveTag : IComponentData, IEnableableComponent
     {
@@ -54,8 +62,7 @@ namespace PlayGround.System.Common
     // Owns the shared render resources for every registered combat sprite kind: one unit-quad
     // Mesh, one atlas Material, and per-kind UV rects computed from a single, manually-assembled
     // SpriteAtlas (assigned via CombatRoot's serialized field, not built at runtime). One shared
-    // atlas so all kinds draw in as few Graphics.RenderMeshInstanced calls as possible instead of
-    // one call per kind.
+    // atlas so all kinds draw through one indirect submission instead of one call per kind.
     public sealed class CombatRenderResourceRegistry : IComponentData
     {
         public readonly Dictionary<int, CombatRenderResourceEntry> Entries = new();
@@ -196,11 +203,11 @@ namespace PlayGround.System.Common
 
             SharedMesh = BuildUnitQuadMesh();
 
-            Shader shader = Shader.Find("Combat/AtlasInstancedSprite");
+            Shader shader = Shader.Find("Combat/AtlasIndirectSprite");
             if (shader == null)
-                throw new MissingReferenceException("Combat/AtlasInstancedSprite shader not found.");
+                throw new MissingReferenceException("Combat/AtlasIndirectSprite shader not found.");
 
-            SharedMaterial = new Material(shader) { enableInstancing = true };
+            SharedMaterial = new Material(shader);
         }
 
         private static Mesh BuildUnitQuadMesh()
