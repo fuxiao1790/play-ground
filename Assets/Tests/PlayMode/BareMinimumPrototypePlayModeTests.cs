@@ -124,6 +124,24 @@ namespace PlayGround.Tests.PlayMode
             Object.Destroy(templateObject);
         }
 
+        [Test]
+        public void CombatRootKeepsAtlasAfterAwakeRenderResourceReset()
+        {
+            Sprite sprite = CombatAtlasTestFixture.Sprite;
+            GameObject rootObject = new("CombatRoot");
+            rootObject.SetActive(false);
+            CombatRoot root = rootObject.AddComponent<CombatRoot>();
+            root.ConfigureAtlas(CombatAtlasTestFixture.Atlas);
+            GameObject templateObject = CreateBasicProjectileTemplate(sprite, out BasicAttackPrefab template);
+
+            rootObject.SetActive(true);
+            int typeId = root.RegisterTemplate(template);
+
+            Assert.That(typeId, Is.GreaterThan(0));
+            Object.Destroy(rootObject);
+            Object.Destroy(templateObject);
+        }
+
         [UnityTest]
         public IEnumerator ProjectileLifetimeDeactivatesEcsEntity()
         {

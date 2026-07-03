@@ -92,7 +92,7 @@ namespace PlayGround.System.Common
             }
             if (_renderRegistry == null)
                 Debug.LogWarning("[CombatRoot] CombatRenderResourceRegistry singleton not found; render registry will not be populated.");
-            _renderRegistry?.ConfigureAtlas(combatSpriteAtlas);
+            ConfigureRenderRegistryAtlas();
             BuildProjectileRenderResources();
             runtimeReady = true;
         }
@@ -120,7 +120,11 @@ namespace PlayGround.System.Common
 
         // ---- Render atlas API ----
 
-        public void ConfigureAtlas(SpriteAtlas atlas) => combatSpriteAtlas = atlas;
+        public void ConfigureAtlas(SpriteAtlas atlas)
+        {
+            combatSpriteAtlas = atlas;
+            ConfigureRenderRegistryAtlas();
+        }
 
         // ---- Projectile API ----
 
@@ -571,6 +575,7 @@ namespace PlayGround.System.Common
         private void BuildProjectileRenderResources()
         {
             _renderRegistry?.Unregister();
+            ConfigureRenderRegistryAtlas();
             projectileRenderIdByType.Clear();
             aoeRenderIdByType.Clear();
             templateTypeIds.Clear();
@@ -622,8 +627,14 @@ namespace PlayGround.System.Common
         {
             if (!typeRegistry.TryGetVisual(typeId, out AoeVisualDefinition visual))
                 return;
+            ConfigureRenderRegistryAtlas();
             aoeRenderIdByType[typeId] = _renderRegistry?.Register(
                 visual.Sprite, visual.VisualScale, visual.VisualRotationDegrees, gameObject.layer) ?? 0;
+        }
+
+        private void ConfigureRenderRegistryAtlas()
+        {
+            _renderRegistry?.ConfigureAtlas(combatSpriteAtlas);
         }
 
         // ---- World / scope ----
