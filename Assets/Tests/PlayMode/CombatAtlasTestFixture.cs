@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.U2D;
@@ -13,12 +14,20 @@ namespace PlayGround.Tests.PlayMode
     internal static class CombatAtlasTestFixture
     {
         private const string AtlasPath = "Assets/Tests/TestAssets/CombatAtlasTest.spriteatlasv2";
-        private const string SourceTexturePath = "Assets/Tests/TestAssets/CombatAtlasTestSource.png";
 
         private static SpriteAtlas _atlas;
         private static Sprite _sprite;
 
-        public static SpriteAtlas Atlas => _atlas ??= AssetDatabase.LoadAssetAtPath<SpriteAtlas>(AtlasPath);
+        public static SpriteAtlas Atlas => _atlas ??= LoadAtlas();
+
+        public static Vector2 NativeSize
+        {
+            get
+            {
+                Sprite sprite = Sprite;
+                return new Vector2(sprite.rect.width / sprite.pixelsPerUnit, sprite.rect.height / sprite.pixelsPerUnit);
+            }
+        }
 
         // The original asset-database sprite reference (not SpriteAtlas.GetSprite(...)), matching
         // how a real skill prefab references its sprite: CombatRoot.Register(...) is always called
@@ -29,16 +38,29 @@ namespace PlayGround.Tests.PlayMode
             get
             {
                 if (_sprite != null) return _sprite;
-                foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(SourceTexturePath))
+                foreach (string dependencyPath in AssetDatabase.GetDependencies(AtlasPath, true))
                 {
-                    if (asset is Sprite sprite)
+                    foreach (UnityEngine.Object asset in AssetDatabase.LoadAllAssetsAtPath(dependencyPath))
                     {
-                        _sprite = sprite;
-                        break;
+                        if (asset is Sprite sprite)
+                        {
+                            _sprite = sprite;
+                            return _sprite;
+                        }
                     }
                 }
-                return _sprite;
+
+                throw new InvalidOperationException(
+                    $"No Sprite dependency found for test combat atlas '{AtlasPath}'. Add one sprite packable to the atlas and let Unity import it.");
             }
+        }
+
+        private static SpriteAtlas LoadAtlas()
+        {
+            SpriteAtlas atlas = AssetDatabase.LoadAssetAtPath<SpriteAtlas>(AtlasPath);
+            if (atlas == null)
+                throw new InvalidOperationException($"Test combat atlas not found at '{AtlasPath}'.");
+            return atlas;
         }
     }
 }

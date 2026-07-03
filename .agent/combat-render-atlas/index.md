@@ -371,3 +371,8 @@ each other. 006 depends on 003/004/005. 007 depends on all prior tasks.
    (1×1px sprite, pivot 0.5/0.5, PPU 100) needed to keep every existing
    hand-derived assertion correct without re-deriving. Until these exist,
    every PlayMode fixture that registers a sprite fails at `Register(...)`.
+## Post-Editor Continuation
+
+`Assets/Tests/TestAssets/CombatAtlasTest.spriteatlasv2` now exists. The PlayMode fixture no
+longer requires a separate `CombatAtlasTestSource.png` path; it loads the first `Sprite`
+dependency of the atlas and derives expected AOE render scale from that sprite's native size.

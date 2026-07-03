@@ -132,3 +132,8 @@ None.
 ## Scope
 
 Small — this replaced a Medium-scope packing task with a small configuration/validation one.
+## Post-Editor Continuation
+
+`Assets/Tests/TestAssets/CombatAtlasTest.spriteatlasv2` now exists. The PlayMode fixture no
+longer requires a hardcoded `CombatAtlasTestSource.png` path; it loads the first imported `Sprite`
+dependency of that atlas and derives expected native size from that sprite.

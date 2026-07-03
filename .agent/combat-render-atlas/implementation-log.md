@@ -1,6 +1,13 @@
 # Implementation Log
 
 ## Status
+Current post-editor status (2026-07-03): complete. Adjusted the PlayMode test fixture to use the
+actual editor-created `CombatAtlasTest.spriteatlasv2` dependencies instead of a hardcoded missing
+`CombatAtlasTestSource.png` path, and updated AOE matrix assertions to derive native sprite size
+from the loaded test sprite. `dotnet build PlayGround.Runtime.csproj` and
+`dotnet build PlayGround.Tests.PlayMode.csproj` are green. Unity PlayMode Test Runner was attempted
+but could not start because another Unity instance already has this project open.
+
 Complete, including two 2026-07-03 revisions (see below): the first replaced runtime atlas packing
 with a manually-assembled single-page atlas and moved UV rect storage from a per-frame registry
 lookup onto the entity; the second corrected the atlas field from a plain `Texture2D` to a real

@@ -23,13 +23,13 @@ existing `root.Configure(sprite)` pattern already uses — `Awake()` is what act
 already-packed member of that atlas — not `Sprite.Create(Texture2D.whiteTexture, ...)`.
 
 User-directed resolution: a real test atlas asset at
-`Assets/Tests/TestAssets/CombatAtlasTest.spriteatlasv2`, backed by a real source texture at
-`Assets/Tests/TestAssets/CombatAtlasTestSource.png` (see "Required Test Asset Specification"
-below), loaded via a new `#if UNITY_EDITOR`-guarded helper,
+`Assets/Tests/TestAssets/CombatAtlasTest.spriteatlasv2`, backed by a real sprite asset listed as
+one of that atlas's dependencies, loaded via a new `#if UNITY_EDITOR`-guarded helper,
 `Assets/Tests/PlayMode/CombatAtlasTestFixture.cs` (`CombatAtlasTestFixture.Atlas` /
-`CombatAtlasTestFixture.Sprite`, both `AssetDatabase.LoadAssetAtPath`/`LoadAllAssetsAtPath`-backed,
-cached in static fields). Every `Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f),
-Vector2.one * 0.5f)` call site was replaced with `CombatAtlasTestFixture.Sprite`, and every
+`CombatAtlasTestFixture.Sprite`, both `AssetDatabase`-backed, cached in static fields). The helper
+loads the atlas, walks `AssetDatabase.GetDependencies(AtlasPath, true)`, and uses the first
+`Sprite` dependency it finds. Every `Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f,
+1f), Vector2.one * 0.5f)` call site was replaced with `CombatAtlasTestFixture.Sprite`, and every
 `root.ConfigureAtlas(Texture2D.whiteTexture)` call site was replaced with
 `root.ConfigureAtlas(CombatAtlasTestFixture.Atlas)`.
 
@@ -46,6 +46,13 @@ Found and fixed the same 6 `CombatRoot`-creating fixture helpers as the first re
 `CreateAoeFixture`). `AoeSimulationTests.cs`, `ProjectileCollisionSimulationTests.cs`,
 `ProjectileSpawnPipelineTests.cs` never construct a real `CombatRoot` (they hand-build bare
 `World`s and entities directly), so they're unaffected by this requirement.
+
+Post-editor continuation: the created test atlas now owns the source of truth for the test sprite.
+`CombatAtlasTestFixture` no longer hardcodes a separate source texture path; it loads the atlas,
+walks its `AssetDatabase.GetDependencies(...)`, and uses the first `Sprite` dependency. The AOE
+matrix assertions now derive expected native size from `CombatAtlasTestFixture.NativeSize`, so
+they remain correct for the actual editor-created sprite rect instead of assuming a 1x1 source
+image.
 
 ## Required Test Asset Specification (Not Yet Created — User Action)
 
