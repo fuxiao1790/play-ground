@@ -40,6 +40,7 @@ Use this split:
 | AOEs | Pulse and lingering areas, repeat-hit gates, projectile bursts from AOE hits, lifetime, pulse VFX, and AOE-specific reuse. | [aoe-system.md](./aoe-system.md) |
 | Combat state and status | ECS-owned target health/status direction, damage aggregation, compact presentation sync, and mob GameObject presentation boundary. | [mob-combat-state-ecs.md](./mob-combat-state-ecs.md) |
 | VFX requests | Native VFX request flow from simulation jobs to presentation dispatch and Visual Effect Graph buffer contracts. | [vfx-system.md](./vfx-system.md) |
+| Combat rendering | Single indirect draw of all projectile/AOE sprites via a shared atlas + `ScriptableRendererFeature` on the URP 2D renderer, per-instance data in a `StructuredBuffer`, and the affine UV basis. | [combat-render-system.md](./combat-render-system.md) |
 | ECS performance patterns | Generic structural change costs, enableable components, high-churn patterns, locality, and profiling guidance. | [ecs-notes.md](./ecs-notes.md) |
 | Project ECS implementation | Pool patterns for projectiles and AOEs, spawn reuse scheduling, presentation bridge architecture, and collision event dispatch design. | [project-ecs-implementation.md](./project-ecs-implementation.md) |
 
