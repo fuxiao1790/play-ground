@@ -352,6 +352,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d7e49a35cd98bac49b62c3db1b2f9166, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.System.Common.CombatRoot
+  combatSpriteAtlas: {fileID: 100100200, guid: 8ca907ad4db264b4db96b4c5bdc995e4, type: 3}
   projectileSprite: {fileID: 0}
   visualScale: 1
   projectileTemplates: []
