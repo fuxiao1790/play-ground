@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.U2D;
 
 namespace PlayGround.System.Common
 {
@@ -52,9 +53,9 @@ namespace PlayGround.System.Common
 
     // Owns the shared render resources for every registered combat sprite kind: one unit-quad
     // Mesh, one atlas Material, and per-kind UV rects computed from a single, manually-assembled
-    // atlas texture (assigned via CombatRoot's serialized field, not built at runtime). One
-    // shared atlas so all kinds draw in as few Graphics.RenderMeshInstanced calls as possible
-    // instead of one call per kind.
+    // SpriteAtlas (assigned via CombatRoot's serialized field, not built at runtime). One shared
+    // atlas so all kinds draw in as few Graphics.RenderMeshInstanced calls as possible instead of
+    // one call per kind.
     public sealed class CombatRenderResourceRegistry : IComponentData
     {
         public readonly Dictionary<int, CombatRenderResourceEntry> Entries = new();
@@ -62,27 +63,35 @@ namespace PlayGround.System.Common
 
         public Mesh SharedMesh { get; private set; }
         public Material SharedMaterial { get; private set; }
+        public SpriteAtlas Atlas { get; private set; }
         public Texture2D AtlasTexture { get; private set; }
         public int Layer { get; private set; }
 
         private int _nextRenderId = 1;
 
-        // Assigns the single, manually-assembled atlas texture (one page; no runtime packing).
+        // Assigns the single, manually-assembled SpriteAtlas (one page; no runtime packing).
         // Must be called before any Register(...) call that passes a non-null sprite. Safe to call
         // multiple times (e.g. once per CombatRoot instance sharing the same registry); the last
-        // call wins, matching how Layer is captured.
-        public void ConfigureAtlas(Texture2D atlasTexture)
+        // call wins, matching how Layer is captured. The atlas's packed texture is not resolved
+        // here (Atlas.GetSprite(...) may still return null if packing hasn't happened yet) but
+        // lazily in Register(...), so packing order relative to CombatRoot.Awake() doesn't matter.
+        public void ConfigureAtlas(SpriteAtlas atlas)
         {
             EnsureSharedResources();
-            AtlasTexture = atlasTexture;
-            SharedMaterial.mainTexture = atlasTexture;
+            Atlas = atlas;
+            AtlasTexture = null;
         }
 
         // Mints a render id and stores the folded visual scale plus this sprite's UV rect within
         // the configured atlas, on the calling (main) thread. Returns 0 for a null sprite (== "no
-        // visual"). Throws if the atlas isn't configured yet, or if the sprite wasn't manually
-        // placed in the configured atlas texture (skills must be assembled into the shared atlas
-        // in the editor ahead of time; this is not a dynamic/auto-packing atlas).
+        // visual"). Throws if the atlas isn't configured, or if the sprite wasn't manually placed
+        // in the configured atlas (skills must be assembled into the shared atlas in the editor
+        // ahead of time; this is not a dynamic/auto-packing atlas). Membership is checked via
+        // SpriteAtlas.GetSprite(name), the documented runtime lookup API (there is no
+        // SpriteAtlas.GetTexture() — that was an earlier, incorrect assumption); it returns null
+        // both when the atlas hasn't been packed yet and when the sprite simply isn't a packable,
+        // so both cases collapse into one honest "not part of the atlas" error rather than a
+        // distinction this API can't actually make.
         public int Register(Sprite sprite, Vector2 visualScale, float visualRotationDegrees, int layer)
         {
             EnsureSharedResources();
@@ -90,21 +99,30 @@ namespace PlayGround.System.Common
 
             if (sprite == null) return 0;
 
-            if (AtlasTexture == null)
+            if (Atlas == null)
                 throw new InvalidOperationException(
-                    $"Combat atlas texture is not configured; cannot register sprite '{sprite.name}'. Assign the atlas texture on CombatRoot before registering skills.");
+                    $"Combat sprite atlas is not configured; cannot register sprite '{sprite.name}'. Assign the Sprite Atlas on CombatRoot before registering skills.");
 
-            if (sprite.texture != AtlasTexture)
+            Sprite packedSprite = Atlas.GetSprite(sprite.name);
+            if (packedSprite == null)
                 throw new InvalidOperationException(
-                    $"Sprite '{sprite.name}' is not part of the combat atlas texture '{AtlasTexture.name}'. Combat sprites must be manually assembled into the shared atlas in the editor, not sourced from a separate texture.");
+                    $"Sprite '{sprite.name}' is not part of the combat sprite atlas '{Atlas.name}' (GetSprite returned null — either it isn't a packable of this atlas, or the atlas hasn't been packed yet). Add it to the atlas's packables in the editor and repack.");
+
+            Texture2D atlasTexture = packedSprite.texture;
+            if (AtlasTexture != null && AtlasTexture != atlasTexture)
+                throw new InvalidOperationException(
+                    $"Sprite '{sprite.name}' resolved to a different packed texture than a previously registered sprite in atlas '{Atlas.name}'. The combat atlas must be a single page; this indicates the atlas has grown to multiple pages.");
+
+            AtlasTexture = atlasTexture;
+            SharedMaterial.mainTexture = atlasTexture;
 
             Vector4 uvRect = new(
-                sprite.rect.x / AtlasTexture.width,
-                sprite.rect.y / AtlasTexture.height,
-                sprite.rect.width / AtlasTexture.width,
-                sprite.rect.height / AtlasTexture.height);
+                packedSprite.rect.x / atlasTexture.width,
+                packedSprite.rect.y / atlasTexture.height,
+                packedSprite.rect.width / atlasTexture.width,
+                packedSprite.rect.height / atlasTexture.height);
 
-            Vector2 nativeSize = new(sprite.rect.width / sprite.pixelsPerUnit, sprite.rect.height / sprite.pixelsPerUnit);
+            Vector2 nativeSize = new(packedSprite.rect.width / packedSprite.pixelsPerUnit, packedSprite.rect.height / packedSprite.pixelsPerUnit);
             Vector2 authoredScale = PositiveScale(visualScale);
             math.sincos(math.radians(visualRotationDegrees), out float sin, out float cos);
 
@@ -156,14 +174,16 @@ namespace PlayGround.System.Common
         }
 
         // Destroys the shared GPU resources this registry created and clears the store. Called
-        // from CombatRoot.OnDestroy. The atlas texture is a manually-assigned project asset, not
-        // created by this registry, so it is dereferenced here but never destroyed.
+        // from CombatRoot.OnDestroy. The SpriteAtlas and its packed texture are manually-assigned
+        // project assets, not created by this registry, so they are dereferenced here but never
+        // destroyed.
         public void Unregister()
         {
             if (SharedMaterial != null) UnityEngine.Object.Destroy(SharedMaterial);
             if (SharedMesh != null) UnityEngine.Object.Destroy(SharedMesh);
             SharedMaterial = null;
             SharedMesh = null;
+            Atlas = null;
             AtlasTexture = null;
 
             Entries.Clear();

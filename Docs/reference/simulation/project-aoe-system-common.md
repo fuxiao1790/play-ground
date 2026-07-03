@@ -286,8 +286,8 @@ Runtime entities carry common render data:
 `CombatRenderBatchId` is a plain kind identifier; the atlas UV rect itself
 lives on `CombatRenderComponent.UvRect`, computed once by the shared
 `CombatRenderResourceRegistry` when the spawn command is built (one shared,
-manually-assembled atlas texture, one mesh, one material for every
-registered kind) rather than selecting a per-kind resource bundle.
+manually-assembled `SpriteAtlas`-backed texture, one mesh, one material for
+every registered kind) rather than selecting a per-kind resource bundle.
 `CombatRenderPrepareSystem` prepares matrices for active renderable entities.
 `CombatBatchedRenderSystem` runs in presentation, scatters matrices and UV
 rects together in one active-only pass (reading each entity's own

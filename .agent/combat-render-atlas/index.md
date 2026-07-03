@@ -22,6 +22,48 @@ no per-frame dictionary lookup. `CombatSpriteAtlasPacker` (originally task 002) 
 entirely; task 002 is repurposed to "Atlas Configuration." Everything below reflects the current,
 implemented design.
 
+## Revision Note (2026-07-03, same day, second correction)
+
+The first pass of the above revision implemented "single-page atlas" as a plain `Texture2D` field
+with sprites manually sliced from one big texture (Sprite Editor "Multiple" mode). User feedback:
+*"this field does not accept sprite atlas type"* — the intent was always Unity's real
+`UnityEngine.U2D.SpriteAtlas` asset type (the same kind of asset as the project's existing
+`Assets/Atlas/Skills.spriteatlasv2`), not a raw texture. Changed:
+
+- `CombatRoot.combatAtlasTexture` (`Texture2D`) → `combatSpriteAtlas` (`SpriteAtlas`);
+  `ConfigureAtlas(Texture2D)` → `ConfigureAtlas(SpriteAtlas)`.
+- `CombatRenderResourceRegistry` gained an `Atlas` (`SpriteAtlas`) property; `AtlasTexture`
+  (`Texture2D`) is now resolved lazily inside `Register(...)` (not cached at `ConfigureAtlas(...)`
+  time, since a `SpriteAtlas` may not be packed yet when `Awake()` runs).
+- Test fixtures needed a deeper fix than before: a real `SpriteAtlas` only validates sprites that
+  were actually packed into it via Unity's real asset pipeline, which the previous fix's
+  `Sprite.Create(Texture2D.whiteTexture, ...)` synthetic sprites can never be. Resolved via a real
+  test asset pair (`Assets/Tests/TestAssets/CombatAtlasTest.spriteatlasv2` +
+  `CombatAtlasTestSource.png`, user to create) loaded by a new
+  `Assets/Tests/PlayMode/CombatAtlasTestFixture.cs` helper — see task 002/006 for full detail.
+
+See task 002 for the full corrected design and task 006 for the test-fixture/asset fix.
+
+## Revision Note (2026-07-03, same day, third correction)
+
+The second revision assumed a `SpriteAtlas.GetTexture()` method to resolve the atlas's packed
+texture. That method does not exist — the user hit a real `CS1061` compiler error. Corrected:
+
+- `Register(...)`'s membership/pack check is now `Atlas.GetSprite(sprite.name)` (the documented
+  runtime lookup API), not `Atlas.GetTexture()`. `GetSprite` returns null both when the atlas
+  hasn't been packed yet and when the sprite isn't a packable of it — there's no public API to
+  tell those two cases apart, so `Register(...)` now throws one honest combined error instead of
+  the two separate, more specific ones the second revision (incorrectly) assumed were possible.
+- The UV rect and native-size fold now read from the sprite `GetSprite` returns (`packedSprite`),
+  not the original `sprite` parameter — `packedSprite.rect`/`.texture`/`.pixelsPerUnit` are
+  guaranteed accurate post-pack, whereas relying on the original reference's fields being
+  auto-redirected was an assumption the second revision made without a way to verify it.
+- Added a single-page guard: if a later `Register(...)` call resolves a different `AtlasTexture`
+  than an earlier one, it throws (defends the "1 single page atlas" constraint explicitly, catches
+  a multi-page atlas misconfiguration instead of silently mixing UV spaces).
+
+See task 002/003's third revision notes for the corrected code.
+
 ## Summary
 
 Replace one-draw-call-per-registered-sprite-kind rendering
@@ -107,16 +149,21 @@ existing `Graphics.RenderMeshInstanced` cap, unrelated to atlassing).
   *created* (shared `Mesh`/`Material`). Source: `CombatRoot.cs`. It must
   **not** destroy `AtlasTexture` — that's a manually-assigned project asset
   the registry does not own, only references.
-- **The atlas texture is a single-page, manually-assigned asset, not
+- **The atlas is a single-page, manually-assembled `SpriteAtlas` asset, not
   generated or grown at runtime.** Exposed as `[SerializeField] private
-  Texture2D combatAtlasTexture` on `CombatRoot`, threaded into the registry
+  SpriteAtlas combatSpriteAtlas` on `CombatRoot`, threaded into the registry
   via `ConfigureAtlas(...)`, called once in `CombatRoot.Awake()` before any
-  `Register(...)` call.
+  `Register(...)` call. (Corrected 2026-07-03 from an earlier plain-`Texture2D`
+  design per user feedback: "this field does not accept sprite atlas type.")
 - **`Register(...)` must throw, not silently degrade, if the atlas isn't
   configured or the sprite isn't part of it.** (User-directed.) Checked via
-  `sprite.texture != AtlasTexture` reference comparison — this only works
-  correctly if the sprite was actually sliced from the configured atlas
-  texture asset (not an independent texture that merely looks similar).
+  `Atlas.GetSprite(sprite.name)` — returns null both when the atlas isn't
+  packed yet and when the sprite isn't one of its packables, so both
+  collapse into one combined, honest error (there is no
+  `SpriteAtlas.GetTexture()` API and no other way to distinguish the two
+  cases). UV rect and native size are then read from the *returned* packed
+  sprite, not the original parameter, since only the returned one is
+  guaranteed accurate post-pack.
 - **Render kinds can still be registered after combat entities already
   exist.** Confirmed via `PlayerSkillDriver.RegisterProjectileTypes`/`RegisterAoeTypes`
   → `CombatRoot.RegisterTemplate`/`RegisterType`/`RegisterConfig` →
@@ -152,15 +199,17 @@ Reused:
   the registry's internals change.
 - `CombatRoot.Configure(Sprite sprite)`'s pattern of a public setter for
   pre-`Awake` test configuration — mirrored by the new
-  `CombatRoot.ConfigureAtlas(Texture2D atlas)`.
+  `CombatRoot.ConfigureAtlas(SpriteAtlas atlas)`.
 - `MaterialPropertyBlock` per-instance data delivery via `SetVectorArray` for
   the UV rect array — unchanged from the prior revision of this plan.
 
 Introduced:
-- `[SerializeField] private Texture2D combatAtlasTexture` on `CombatRoot`
-  (single page, manually assigned).
-- `CombatRenderResourceRegistry.ConfigureAtlas(Texture2D)` — assigns the
-  atlas texture and the shared material's `mainTexture`.
+- `[SerializeField] private SpriteAtlas combatSpriteAtlas` on `CombatRoot`
+  (single page, manually assembled in the Editor).
+- `CombatRenderResourceRegistry.ConfigureAtlas(SpriteAtlas)` — stores the
+  atlas reference; `Register(...)` resolves the packed texture lazily via
+  `Atlas.GetSprite(sprite.name).texture` and assigns it to the shared
+  material's `mainTexture`.
 - `CombatRenderComponent.UvRect` (`float4`) — computed once per registered
   kind, copied onto every spawned entity via existing `CombatRenderComponent`
   plumbing.
@@ -306,13 +355,19 @@ each other. 006 depends on 003/004/005. 007 depends on all prior tasks.
    this plan (asset deletion is a manual editor action, out of scope for an
    `.agent/`-only pass) — flagged here so it isn't forgotten as a follow-up.
 3. **Content-authoring follow-up (new, 2026-07-03, not resolvable in code):**
-   no combat-atlas texture asset exists yet, and no skill sprite has been
-   re-sliced from one. Until that content work happens, `Register(...)` will
+   no combat `SpriteAtlas` asset exists yet, and no skill sprite has been
+   added to one. Until that content work happens, `Register(...)` will
    throw for every real skill registration in actual gameplay scenes (as
    designed — fail loud). The one scene with a live `CombatRoot` instance
-   (`Assets/Scenes/BenchmarkLarge.unity`) will need its new `Combat Atlas
-   Texture` field assigned once the atlas asset exists. This is squarely a
-   content task (create the atlas texture, slice sprites, reassign every
-   skill prefab's `SpriteRenderer.sprite` to the sliced versions, assign the
-   atlas asset in the Inspector) that needs the Unity Editor and cannot be
-   done by editing files blindly.
+   (`Assets/Scenes/BenchmarkLarge.unity`) will need its new `Combat Sprite
+   Atlas` field assigned once the atlas asset exists. This is squarely a
+   content task (create a `SpriteAtlas` asset, add every skill sprite as a
+   packable, pack it, assign it in the Inspector) that needs the Unity Editor
+   and cannot be done by editing files blindly.
+4. **Test asset follow-up (new, 2026-07-03, second revision, blocking the
+   PlayMode suite):** `Assets/Tests/TestAssets/CombatAtlasTest.spriteatlasv2`
+   and `CombatAtlasTestSource.png` do not exist yet — user is creating them.
+   See task 006 "Required Test Asset Specification" for the exact spec
+   (1×1px sprite, pivot 0.5/0.5, PPU 100) needed to keep every existing
+   hand-derived assertion correct without re-deriving. Until these exist,
+   every PlayMode fixture that registers a sprite fails at `Register(...)`.

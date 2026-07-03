@@ -4,14 +4,25 @@
 computes the UV rect immediately from the configured atlas texture and `sprite.rect`. See
 `002-atlas-configuration.md` for where the atlas texture itself comes from.)*
 
+*(Updated again 2026-07-03, same day: the atlas is a real `UnityEngine.U2D.SpriteAtlas` asset, not
+a plain `Texture2D`. `AtlasTexture` is resolved lazily inside `Register(...)`, not cached at
+`ConfigureAtlas(...)` time — see `002-atlas-configuration.md`'s second revision. The rest of this
+file (mesh/material sharing, UV-rect math, `Unregister()` teardown) is unaffected.)*
+
+*(Updated a third time 2026-07-03, same day: `AtlasTexture` is resolved via
+`Atlas.GetSprite(sprite.name).texture`, not `Atlas.GetTexture()` — that method does not exist on
+`SpriteAtlas` (a real `CS1061` compiler error caught this). See `002-atlas-configuration.md`'s
+third revision for the corrected `Register(...)` body.)*
+
 ## Change
 
 Rework `CombatRenderResourceRegistry` (and its nested types) in
 `Assets/Scripts/System/Common/CombatRenderComponents.cs` to own one shared
 unit-quad `Mesh`, one shared atlas `Material` (built from the task-001
-shader), a reference to the manually-assigned atlas `Texture2D` (task 002),
-and per-kind UV rects computed immediately at registration — replacing
-today's per-kind `Mesh`/`Material`/`MaterialPropertyBlock` construction.
+shader), a reference to the manually-assembled `SpriteAtlas` (task 002) and
+its resolved packed `Texture2D`, and per-kind UV rects computed immediately
+at registration — replacing today's per-kind
+`Mesh`/`Material`/`MaterialPropertyBlock` construction.
 
 ### Structural simplification
 
@@ -41,11 +52,12 @@ public sealed class CombatRenderResourceRegistry : IComponentData
     public readonly Dictionary<int, CombatRenderResourceEntry> Entries = new();
     public Mesh SharedMesh { get; private set; }
     public Material SharedMaterial { get; private set; }
+    public SpriteAtlas Atlas { get; private set; }
     public Texture2D AtlasTexture { get; private set; }
     public int Layer { get; private set; }
     public const float BoundsHalfExtent = 100000f;
 
-    public void ConfigureAtlas(Texture2D atlasTexture); // see 002-atlas-configuration.md
+    public void ConfigureAtlas(SpriteAtlas atlas); // see 002-atlas-configuration.md
     public int Register(Sprite sprite, Vector2 visualScale, float visualRotationDegrees, int layer);
     public void Unregister();
 }
@@ -55,9 +67,11 @@ Notes:
 - `Register(...)` keeps the same 4-argument signature as before this revision
   (`sourceMaterial`/`meshName` were already dropped from the original
   per-kind-resource design — no further signature change here).
-- `Register(...)` throws (see task 002) if the atlas isn't configured or the
-  sprite doesn't belong to it; otherwise computes `UvRect` directly from
-  `sprite.rect`/`AtlasTexture.width`/`height` — no packing, no dirty flag, no
+- `Register(...)` throws (see task 002) if the atlas isn't configured or
+  `Atlas.GetSprite(sprite.name)` returns null (covers both "not packed yet"
+  and "sprite doesn't belong to it" — there's no API to tell those apart);
+  otherwise computes `UvRect` directly from the returned packed sprite's
+  `rect`/`atlasTexture.width`/`height` — no packing, no dirty flag, no
   `EnsureAtlasCurrent()`-style call needed anywhere (this method existed in
   the packer-based design and no longer exists at all).
 - `EnsureSharedResources()` (called once lazily, from both `Register(...)`

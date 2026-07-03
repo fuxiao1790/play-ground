@@ -1,12 +1,15 @@
 # Implementation Log
 
 ## Status
-Complete, including a 2026-07-03 revision (see below) that replaced runtime atlas packing with a
-manually-assembled single-page atlas and moved UV rect storage from a per-frame registry lookup
-onto the entity. No live Unity Editor compile/test run performed in this session (no Editor
-available in this environment) — recommend a domain reload + manual Play Mode check + PlayMode
-Test Runner pass before considering this done. **Real gameplay use additionally needs content
-work outside this session's reach — see "Revision (2026-07-03)" below.**
+Complete, including two 2026-07-03 revisions (see below): the first replaced runtime atlas packing
+with a manually-assembled single-page atlas and moved UV rect storage from a per-frame registry
+lookup onto the entity; the second corrected the atlas field from a plain `Texture2D` to a real
+`UnityEngine.U2D.SpriteAtlas` asset per user feedback. No live Unity Editor compile/test run
+performed in this session (no Editor available in this environment) — recommend a domain reload +
+manual Play Mode check + PlayMode Test Runner pass before considering this done. **Real gameplay
+use additionally needs content work outside this session's reach, and the PlayMode suite needs two
+new test asset files the user is creating — see "Revision (2026-07-03)" and "Revision 2
+(2026-07-03)" below.**
 
 ## Task Progress (current, post-revision)
 
@@ -76,6 +79,117 @@ actual gameplay — by design (fail loud), but it means gameplay won't run until
 is done. The one scene with a live `CombatRoot` (`Assets/Scenes/BenchmarkLarge.unity`) will need
 its new `Combat Atlas Texture` field assigned once that asset exists. This is a Unity Editor /
 image-authoring task, not something achievable by editing files blindly.
+
+## Revision 2 (2026-07-03, same day): Texture2D → Real SpriteAtlas
+
+*(This revision's `Register(...)` design assumed a `SpriteAtlas.GetTexture()` method that does not
+actually exist — the user hit a real `CS1061` compiler error. See "Revision 3" below for the fix;
+narrative below is left as originally written for the historical record of what was attempted, but
+any mention of `GetTexture()` in it describes code that never compiled.)*
+
+User caught a mistake in the first revision immediately via IDE selection feedback: *"this field
+does not accept sprite atlas type."* The `combatAtlasTexture` field was a plain `Texture2D`
+(sprites manually sliced from one big texture via Sprite Editor "Multiple" mode); the user's
+actual intent was Unity's real `UnityEngine.U2D.SpriteAtlas` asset type — the same kind of asset
+as the project's pre-existing `Assets/Atlas/Skills.spriteatlasv2` (confirmed by reading that file:
+it's a genuine `SpriteAtlasAsset` YAML, packables referenced by GUID+fileID, distinct from a
+sliced-texture approach).
+
+Code changes:
+- `CombatRoot.cs`: `combatAtlasTexture` (`Texture2D`) → `combatSpriteAtlas` (`SpriteAtlas`);
+  `using UnityEngine.U2D;` added; `ConfigureAtlas(Texture2D)` → `ConfigureAtlas(SpriteAtlas)`.
+- `CombatRenderComponents.cs`: registry gained `Atlas` (`SpriteAtlas`) property. `AtlasTexture`
+  (`Texture2D`) is no longer set eagerly in `ConfigureAtlas(...)` (a fresh/unpacked `SpriteAtlas`
+  can return null from `GetTexture()`) — it's resolved fresh inside `Register(...)` every call.
+  `Register(...)` gained a distinct third throw case: atlas configured but `GetTexture()` still
+  null (not packed yet), alongside the existing "not configured" and "sprite not part of atlas"
+  cases. The UV-rect math itself is **unchanged** — `sprite.rect`/atlas-texture-dimensions still
+  works because Unity's Sprite Packing system transparently redirects a packed sprite's
+  `.texture`/`.rect` to the atlas's page; only *how the texture reference is obtained* changed.
+
+Design decision explicitly asked and answered via `AskUserQuestion`: user confirmed "switch to
+`UnityEngine.U2D.SpriteAtlas`" over "keep `Texture2D`, slice via Sprite Editor" — the field was
+always meant to hold a real atlas asset, not a big sliced texture.
+
+**Test fixtures needed a deeper fix than revision 1's.** A real `SpriteAtlas` only validates
+sprites actually packed into it by Unity's real asset pipeline (texture import + atlas packable
+list + Pack Preview/build-time pack) — the in-memory `Sprite.Create(Texture2D.whiteTexture, new
+Rect(0f,0f,1f,1f), Vector2.one * 0.5f)` pattern every fixture used cannot satisfy this; there is no
+supported pure-runtime way to fabricate a packed `SpriteAtlas` from C# alone (confirmed: packing
+is an Editor-asset-pipeline operation, and `SpriteAtlas` packables must be persisted, GUID-backed
+assets, not synthetic in-memory objects).
+
+Asked the user two follow-up questions rather than guessing: (1) how to bridge tests — user chose
+**"I'll create a real SpriteAtlas test asset myself"** (not a test-only code bypass, not leaving
+tests broken); (2) where that asset should live — user chose
+`Assets/Tests/TestAssets/CombatAtlasTest.spriteatlasv2`.
+
+Implemented in anticipation of that asset:
+- **New** `Assets/Tests/PlayMode/CombatAtlasTestFixture.cs` (`#if UNITY_EDITOR`-guarded): loads
+  `Assets/Tests/TestAssets/CombatAtlasTest.spriteatlasv2` via `AssetDatabase.LoadAssetAtPath` and
+  the one `Sprite` sub-asset of `Assets/Tests/TestAssets/CombatAtlasTestSource.png` via
+  `AssetDatabase.LoadAllAssetsAtPath` + `OfType<Sprite>()`, both cached in static fields. Loads the
+  *original* asset-database sprite reference (not `SpriteAtlas.GetSprite(name)`) deliberately —
+  this matches how production code actually receives sprites (a skill prefab's authored `Sprite`
+  field, `.texture`-redirected post-pack), so the test path exercises the same mechanism real
+  skills do.
+- Every `Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f)` call
+  site (6 in `AoePlayModeTests.cs`, 3 in `BareMinimumPrototypePlayModeTests.cs` — confirmed via
+  grep, all nine used the *identical* signature) replaced with `CombatAtlasTestFixture.Sprite`.
+- Every `ConfigureAtlas(Texture2D.whiteTexture)` call site (6 total, matching the fixture count
+  from revision 1) replaced with `ConfigureAtlas(CombatAtlasTestFixture.Atlas)`.
+- Verified via grep afterward: zero remaining `Texture2D.whiteTexture`/`Sprite.Create` references
+  in `Assets/Tests/PlayMode/` outside an explanatory comment.
+
+**Not yet done — blocking, user-owned:** the two real asset files
+(`Assets/Tests/TestAssets/CombatAtlasTest.spriteatlasv2`,
+`Assets/Tests/TestAssets/CombatAtlasTestSource.png`) do not exist in the repo yet. Until the user
+creates them (spec recorded in task 006: 1×1px sprite region, pivot (0.5, 0.5), pixels-per-unit
+100 — matching the old synthetic sprite's properties exactly, so every hand-derived assertion like
+task 004's `(0.06, 0.08)` AOE matrix-scale values stays correct with no re-derivation),
+`CombatAtlasTestFixture.Atlas`/`.Sprite` resolve to `null` and every affected PlayMode test fails
+at `Register(...)`'s "atlas is not configured" throw. This is on top of, and separate from, the
+already-flagged production-atlas content-authoring gap above.
+
+## Revision 3 (2026-07-03, same day): GetTexture() Does Not Exist
+
+User reported a real compiler error via IDE selection: `error CS1061: 'SpriteAtlas' does not
+contain a definition for 'GetTexture'`. Revision 2's `Register(...)` design had called
+`Atlas.GetTexture()` to resolve the atlas's packed texture — that method was an incorrect
+assumption on my part; it isn't part of `SpriteAtlas`'s public API. This is the second real API
+mistake caught by the user in this same design area (the first being the `Texture2D`-vs-`SpriteAtlas`
+field-type mistake in Revision 2), both caught because the user has live compiler/Editor feedback
+this session did not have access to.
+
+Fix, in `CombatRenderComponents.cs`'s `Register(...)`:
+- Replaced `Atlas.GetTexture()` with `Sprite packedSprite = Atlas.GetSprite(sprite.name);` —
+  `GetSprite(string name)` is `SpriteAtlas`'s actual documented runtime lookup API. It returns
+  null both when the atlas hasn't been packed yet and when the named sprite isn't one of its
+  packables — there is no separate public API to distinguish those two cases, so the two-throw
+  design from Revision 2/task 002 (a distinct message for "not packed" vs. "not a member") was
+  also incorrect and has been collapsed into one combined, honestly-worded throw.
+- `Texture2D atlasTexture = packedSprite.texture;` resolves the packed texture from the *returned*
+  sprite, not the original `sprite` parameter.
+- Added a single-page guard not present before: if a later `Register(...)` call resolves a
+  different `AtlasTexture` than an earlier call already cached, it throws — directly enforces the
+  user's original "1 single page atlas" requirement, which nothing previously checked explicitly.
+- UV rect and native-size-fold math now read `packedSprite.rect`/`.pixelsPerUnit`/`.texture`
+  (the atlas's own copy) instead of the original `sprite` parameter's fields — more clearly correct
+  post-pack, and avoids relying on an unverified assumption about reference redirection semantics.
+
+Updated for consistency (all three had propagated the incorrect `GetTexture()` API): `index.md`
+(added a third revision note, fixed remaining stale mentions in Constraints/Reused sections),
+`002-atlas-configuration.md` (added a third revision note, rewrote the throw-cases list and code
+samples), `003-registry-rework.md` (added a third revision note, fixed the Notes bullet),
+`006-tests.md` (fixed one stale mention in the asset-spec section),
+`Docs/contracts/render-batch-data.md` (fixed the Guarantees section),
+`Assets/Tests/PlayMode/CombatAtlasTestFixture.cs` (fixed a comment). Grepped the whole repo for
+`GetTexture` afterward to confirm no other stale mentions remained outside this historical note.
+
+**Still not verifiable in this session:** no live Unity Editor/compiler available here, so this
+fix is based on `SpriteAtlas.GetSprite`'s documented signature, not a confirmed successful
+compile. Given two consecutive API mistakes in this same area, the recommended next step is for
+the user to attempt a real compile again before trusting this is now correct.
 
 ## Notes
 

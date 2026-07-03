@@ -1,29 +1,72 @@
 # Tests
 
 *(2026-07-03 addendum: the atlas-configuration revision adds a new requirement below — every test
-fixture that creates a real `CombatRoot` and registers a real sprite must configure the atlas
-texture, or `Register(...)` throws per task 002's validation. Already applied during
-implementation; recorded here for the record.)*
+fixture that creates a real `CombatRoot` and registers a real sprite must configure the atlas, or
+`Register(...)` throws per task 002's validation. Already applied during implementation; recorded
+here for the record.)*
 
-## New Requirement: Atlas Configuration In Test Fixtures
+*(2026-07-03, revised again the same day: the atlas field changed from `Texture2D` to
+`UnityEngine.U2D.SpriteAtlas` — see task 002's second revision note. This invalidated the original
+"just pass `Texture2D.whiteTexture` everywhere" fixture fix below, since a real `SpriteAtlas` can
+only validate sprites that were actually packed into it via Unity's real asset pipeline, which an
+in-memory `Sprite.Create(...)` sprite never is. The fix described in this section is the *current*
+one; the strikethrough-equivalent original ("use `Texture2D.whiteTexture` uniformly") no longer
+applies and has been superseded, not left in place.)*
+
+## Current Requirement: Real Atlas + Real Sprite Asset In Test Fixtures
 
 Every fixture helper that creates a `CombatRoot` via `AddComponent<CombatRoot>()` and goes on to
 register a real sprite (directly or via `RegisterTemplate`/`RegisterType`/`RegisterConfig`) must
-call `root.ConfigureAtlas(texture)` before `SetActive(true)` (the same pre-`Awake` window the
+call `root.ConfigureAtlas(atlas)` before `SetActive(true)` (the same pre-`Awake` window the
 existing `root.Configure(sprite)` pattern already uses — `Awake()` is what actually invokes
-`ConfigureAtlas`/`Register` on the real registry). All synthetic test sprites already use
-`Sprite.Create(Texture2D.whiteTexture, ...)` consistently across `AoePlayModeTests.cs` and
-`BareMinimumPrototypePlayModeTests.cs`, so `root.ConfigureAtlas(Texture2D.whiteTexture)` is the
-natural, uniform choice — the same texture object as every test sprite's `.texture`, satisfying
-`Register(...)`'s `sprite.texture == AtlasTexture` check.
+`ConfigureAtlas`/`Register` on the real registry), **and** the sprite it registers must be a real,
+already-packed member of that atlas — not `Sprite.Create(Texture2D.whiteTexture, ...)`.
 
-Found and fixed 6 `CombatRoot`-creating fixture helpers across the two files that needed this
+User-directed resolution: a real test atlas asset at
+`Assets/Tests/TestAssets/CombatAtlasTest.spriteatlasv2`, backed by a real source texture at
+`Assets/Tests/TestAssets/CombatAtlasTestSource.png` (see "Required Test Asset Specification"
+below), loaded via a new `#if UNITY_EDITOR`-guarded helper,
+`Assets/Tests/PlayMode/CombatAtlasTestFixture.cs` (`CombatAtlasTestFixture.Atlas` /
+`CombatAtlasTestFixture.Sprite`, both `AssetDatabase.LoadAssetAtPath`/`LoadAllAssetsAtPath`-backed,
+cached in static fields). Every `Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f),
+Vector2.one * 0.5f)` call site was replaced with `CombatAtlasTestFixture.Sprite`, and every
+`root.ConfigureAtlas(Texture2D.whiteTexture)` call site was replaced with
+`root.ConfigureAtlas(CombatAtlasTestFixture.Atlas)`.
+
+`CombatAtlasTestFixture.Sprite` intentionally loads the *original* asset-database sprite reference
+(`AssetDatabase.LoadAllAssetsAtPath(...).OfType<Sprite>()`), not `SpriteAtlas.GetSprite(name)` —
+this matches how production code actually receives sprites (a skill prefab's authored `Sprite`
+field, whose `.texture` Unity's Sprite Packing system transparently redirects to the atlas's
+packed page once packed), so the test exercises the same code path real gameplay does.
+
+Found and fixed the same 6 `CombatRoot`-creating fixture helpers as the first revision
 (`AoePlayModeTests.cs`: `CreateAoeFixture`, `CreateProjectileRoot`;
 `BareMinimumPrototypePlayModeTests.cs`: `CombatRootRegistersTemplateBeforeAwake`,
 `GameRootAcceptsAuthoredSpawnerWhenNoSceneMobsAreAuthored`, `CreateProjectileHitFixture`,
 `CreateAoeFixture`). `AoeSimulationTests.cs`, `ProjectileCollisionSimulationTests.cs`,
 `ProjectileSpawnPipelineTests.cs` never construct a real `CombatRoot` (they hand-build bare
 `World`s and entities directly), so they're unaffected by this requirement.
+
+## Required Test Asset Specification (Not Yet Created — User Action)
+
+The code assumes but does not itself create these two asset files (binary/Editor-asset creation is
+outside what this session can author or verify without a live Unity Editor):
+
+- `Assets/Tests/TestAssets/CombatAtlasTestSource.png` — any small image, imported as Texture Type
+  "Sprite (2D and UI)". **Must** produce exactly one `Sprite` sub-asset with pixel rect `(0, 0, 1,
+  1)` (i.e. a single 1×1px sprite — Sprite Mode "Single" with the whole image treated as one
+  sprite works if the source image itself is 1×1px; a larger image needs Sprite Mode "Single" too,
+  since "Multiple" mode with a 1×1 slice is unnecessary complexity here), pivot `(0.5, 0.5)`,
+  Pixels Per Unit `100` (Unity's default — matches what `Sprite.Create(..., new Rect(0,0,1,1),
+  Vector2.one * 0.5f)` produced before, so every existing hand-derived assertion, e.g. task 004's
+  `(0.06, 0.08)` AOE matrix-scale values, stays correct with no re-derivation).
+- `Assets/Tests/TestAssets/CombatAtlasTest.spriteatlasv2` — a `SpriteAtlas` asset with that
+  texture's sprite added as a packable, packed (Pack Preview, or automatic for Sprite Atlas V2)
+  so `Atlas.GetSprite("CombatAtlasTestSource")` (or whatever the sprite's actual name resolves to)
+  returns non-null and its `.texture` is the redirected, packed one.
+
+Until these exist, `CombatAtlasTestFixture.Atlas`/`.Sprite` resolve to `null` and every affected
+PlayMode test fails at the `Register(...)` call with the "atlas is not configured" exception.
 
 ## Change
 
@@ -78,6 +121,12 @@ each rather than assuming.
   was correct (if any of them turn out to need a change, that's new
   information — document what was actually wrong, don't silently patch).
 - Full PlayMode suite run (Unity Test Runner) is green.
+- (2026-07-03 SpriteAtlas revision) `CombatAtlasTestFixture.cs` compiles and,
+  once the two required test assets exist (see "Required Test Asset
+  Specification" above), every affected fixture's `Register(...)` call
+  succeeds instead of throwing — this cannot be verified in this session (no
+  Unity Editor available), so it remains an open item until run once in the
+  Editor.
 
 ## Dependencies
 

@@ -8,6 +8,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.U2D;
 using Hash128 = Unity.Entities.Hash128;
 
 namespace PlayGround.System.Common
@@ -29,10 +30,11 @@ namespace PlayGround.System.Common
         internal const int MaxSpawnChainDepth = SpawnTemplateLimits.MaxSpawnChainDepth;
 
         [Header("Render Atlas")]
-        [Tooltip("Single, manually-assembled atlas texture that every combat sprite kind's Sprite " +
-            "must be sliced from. There is no runtime/dynamic atlas packing: skills register " +
-            "themselves against this texture, and registration throws if a sprite is not part of it.")]
-        [SerializeField] private Texture2D combatAtlasTexture;
+        [Tooltip("Single-page Sprite Atlas that every combat sprite kind's Sprite must be a member " +
+            "of. There is no runtime/dynamic atlas packing: the atlas is assembled in the editor " +
+            "(Window > 2D > Sprite Atlas), skills register themselves against it, and registration " +
+            "throws if a sprite is not part of it.")]
+        [SerializeField] private SpriteAtlas combatSpriteAtlas;
 
         [Header("Projectile visuals")]
         [SerializeField] private Sprite projectileSprite;
@@ -90,7 +92,7 @@ namespace PlayGround.System.Common
             }
             if (_renderRegistry == null)
                 Debug.LogWarning("[CombatRoot] CombatRenderResourceRegistry singleton not found; render registry will not be populated.");
-            _renderRegistry?.ConfigureAtlas(combatAtlasTexture);
+            _renderRegistry?.ConfigureAtlas(combatSpriteAtlas);
             BuildProjectileRenderResources();
             runtimeReady = true;
         }
@@ -118,7 +120,7 @@ namespace PlayGround.System.Common
 
         // ---- Render atlas API ----
 
-        public void ConfigureAtlas(Texture2D atlasTexture) => combatAtlasTexture = atlasTexture;
+        public void ConfigureAtlas(SpriteAtlas atlas) => combatSpriteAtlas = atlas;
 
         // ---- Projectile API ----
 

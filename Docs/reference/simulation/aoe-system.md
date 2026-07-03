@@ -258,8 +258,8 @@ AOE visuals use the same shared-atlas rendering path as projectiles:
 
 - `CombatRoot` builds render resources from `AoeConfig` or
   `AoeTypeDefinition`, registering each kind's sprite with the shared
-  `CombatRenderResourceRegistry` (one atlas texture, one mesh, one material
-  for every kind).
+  `CombatRenderResourceRegistry` (one `SpriteAtlas`-backed texture, one mesh,
+  one material for every kind).
 - AOE entities carry common render components and faction/type shared
   components.
 - `CombatRenderPrepareSystem` writes object matrices.

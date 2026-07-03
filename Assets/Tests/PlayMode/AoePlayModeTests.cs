@@ -605,7 +605,7 @@ namespace PlayGround.Tests.PlayMode
             visualObject.transform.SetParent(templateObject.transform, false);
             visualObject.transform.localScale = visualScale ?? Vector3.one;
             SpriteRenderer renderer = visualObject.AddComponent<SpriteRenderer>();
-            renderer.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
+            renderer.sprite = CombatAtlasTestFixture.Sprite;
 
             var definition = new AoeTypeDefinition();
             definition.Configure(templateObject, shape);
@@ -613,7 +613,7 @@ namespace PlayGround.Tests.PlayMode
             rootObject = new GameObject("AoeRoot");
             rootObject.SetActive(false);
             root = rootObject.AddComponent<CombatRoot>();
-            root.ConfigureAtlas(Texture2D.whiteTexture);
+            root.ConfigureAtlas(CombatAtlasTestFixture.Atlas);
             rootObject.SetActive(true);
 
             typeId = root.RegisterType(definition);
@@ -628,7 +628,7 @@ namespace PlayGround.Tests.PlayMode
             GameObject visualObject = new GameObject("Visual");
             visualObject.transform.SetParent(prefabObject.transform, false);
             SpriteRenderer sr = visualObject.AddComponent<SpriteRenderer>();
-            sr.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
+            sr.sprite = CombatAtlasTestFixture.Sprite;
             BasicAoePrefab basicPrefab = prefabObject.AddComponent<BasicAoePrefab>();
             basicPrefab.Configure(sr, hurtbox);
 
@@ -644,7 +644,7 @@ namespace PlayGround.Tests.PlayMode
             GameObject visualObject = new("Visual");
             visualObject.transform.SetParent(prefabObject.transform, false);
             SpriteRenderer renderer = visualObject.AddComponent<SpriteRenderer>();
-            renderer.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
+            renderer.sprite = CombatAtlasTestFixture.Sprite;
             GameObject hurtboxObject = new("Hurtbox");
             hurtboxObject.transform.SetParent(prefabObject.transform, false);
             CircleCollider2D hurtbox = hurtboxObject.AddComponent<CircleCollider2D>();
@@ -661,7 +661,7 @@ namespace PlayGround.Tests.PlayMode
             GameObject visualObject = new("Visual");
             visualObject.transform.SetParent(prefabObject.transform, false);
             SpriteRenderer renderer = visualObject.AddComponent<SpriteRenderer>();
-            renderer.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
+            renderer.sprite = CombatAtlasTestFixture.Sprite;
             GameObject hurtboxObject = new("Hurtbox");
             hurtboxObject.transform.SetParent(prefabObject.transform, false);
             CircleCollider2D hurtbox = hurtboxObject.AddComponent<CircleCollider2D>();
@@ -678,7 +678,7 @@ namespace PlayGround.Tests.PlayMode
             GameObject visualObject = new("Visual");
             visualObject.transform.SetParent(prefabObject.transform, false);
             SpriteRenderer renderer = visualObject.AddComponent<SpriteRenderer>();
-            renderer.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
+            renderer.sprite = CombatAtlasTestFixture.Sprite;
             GameObject hurtboxObject = new("Hurtbox");
             hurtboxObject.transform.SetParent(prefabObject.transform, false);
             CircleCollider2D hurtbox = hurtboxObject.AddComponent<CircleCollider2D>();
@@ -769,12 +769,12 @@ namespace PlayGround.Tests.PlayMode
 
         private static void CreateProjectileRoot(out GameObject rootObject, out CombatRoot root)
         {
-            Sprite sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
+            Sprite sprite = CombatAtlasTestFixture.Sprite;
             rootObject = new GameObject("ProjectileRoot");
             rootObject.SetActive(false);
             root = rootObject.AddComponent<CombatRoot>();
             root.Configure(sprite);
-            root.ConfigureAtlas(Texture2D.whiteTexture);
+            root.ConfigureAtlas(CombatAtlasTestFixture.Atlas);
             rootObject.SetActive(true);
         }
 

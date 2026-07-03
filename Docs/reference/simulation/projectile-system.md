@@ -268,9 +268,10 @@ hit consumes the source.
 
 ## Rendering And VFX
 
-Projectile visuals draw through one shared, manually-assembled texture atlas
-(sliced into per-kind `Sprite`s in the editor ahead of time, not packed at
-runtime). `CombatRoot` builds sprite render resources by registering each
+Projectile visuals draw through one shared, manually-assembled `SpriteAtlas`
+asset (each kind's `Sprite` added as a packable in the editor ahead of time
+and packed, not packed at runtime). `CombatRoot` builds sprite render
+resources by registering each
 kind's sprite with the shared `CombatRenderResourceRegistry`, which computes
 that sprite's UV rect within the configured atlas and throws if the sprite
 isn't actually part of it. Runtime entities carry common render components

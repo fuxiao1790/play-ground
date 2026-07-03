@@ -108,12 +108,12 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void CombatRootRegistersTemplateBeforeAwake()
         {
-            Sprite sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
+            Sprite sprite = CombatAtlasTestFixture.Sprite;
             GameObject rootObject = new("CombatRoot");
             rootObject.SetActive(false);
             CombatRoot root = rootObject.AddComponent<CombatRoot>();
             root.Configure(sprite);
-            root.ConfigureAtlas(Texture2D.whiteTexture);
+            root.ConfigureAtlas(CombatAtlasTestFixture.Atlas);
             GameObject templateObject = CreateBasicProjectileTemplate(sprite, out BasicAttackPrefab template);
 
             int typeId = root.RegisterTemplate(template);
@@ -689,8 +689,8 @@ namespace PlayGround.Tests.PlayMode
             GameObject projectileObject = new("CombatRoot");
             projectileObject.SetActive(false);
             CombatRoot projectileRoot = projectileObject.AddComponent<CombatRoot>();
-            projectileRoot.Configure(Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f));
-            projectileRoot.ConfigureAtlas(Texture2D.whiteTexture);
+            projectileRoot.Configure(CombatAtlasTestFixture.Sprite);
+            projectileRoot.ConfigureAtlas(CombatAtlasTestFixture.Atlas);
             projectileObject.SetActive(true);
 
             GameObject spawnerObject = new("MobSpawnerRoot");
@@ -714,12 +714,12 @@ namespace PlayGround.Tests.PlayMode
             out GameObject mobObject,
             out MobRoot mob)
         {
-            Sprite sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), Vector2.one * 0.5f);
+            Sprite sprite = CombatAtlasTestFixture.Sprite;
             projectileObject = new GameObject("CombatRoot");
             projectileObject.SetActive(false);
             projectileRoot = projectileObject.AddComponent<CombatRoot>();
             projectileRoot.Configure(sprite);
-            projectileRoot.ConfigureAtlas(Texture2D.whiteTexture);
+            projectileRoot.ConfigureAtlas(CombatAtlasTestFixture.Atlas);
             projectileObject.SetActive(true);
 
             mobObject = new GameObject("Mob");
@@ -771,7 +771,7 @@ namespace PlayGround.Tests.PlayMode
             rootObject = new GameObject("CombatRoot");
             rootObject.SetActive(false);
             root = rootObject.AddComponent<CombatRoot>();
-            root.ConfigureAtlas(Texture2D.whiteTexture);
+            root.ConfigureAtlas(CombatAtlasTestFixture.Atlas);
             rootObject.SetActive(true);
 
             typeId = root.RegisterType(definition);

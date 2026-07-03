@@ -24,8 +24,8 @@ Current render data includes:
 - `CombatRenderActiveTag`
 - `CombatRenderBatchId`
 - prepared transform matrices
-- one shared, manually-assembled atlas (mesh + material + a referenced,
-  not owned, atlas texture asset)
+- one shared, manually-assembled `SpriteAtlas` asset (mesh + material + a
+  referenced, not owned, packed texture resolved from that atlas)
 
 `CombatRenderBatchId` is a plain `IComponentData` int, copied from the spawn
 command's `RenderTypeId`. It is a kind identifier only — it does not select
@@ -35,14 +35,18 @@ chunks and does not partition spawn pools.
 
 ## Guarantees
 
-The combat sprite atlas is **one manually-assembled texture asset** (sliced
-into per-kind `Sprite`s in the Unity Editor ahead of time), assigned via a
-serialized field on `CombatRoot` and threaded into
-`CombatRenderResourceRegistry.ConfigureAtlas(...)`. There is no runtime
-packing: `Register(...)` computes each kind's UV rect directly from
-`sprite.rect`/atlas texture dimensions, and throws if the sprite passed in
-isn't actually sliced from the configured atlas texture (fail loud on a
-missed content-authoring step, rather than silently misrendering). Every
+The combat sprite atlas is **one manually-assembled `UnityEngine.U2D.SpriteAtlas`
+asset** (each kind's `Sprite` added as a packable in the Unity Editor ahead
+of time and packed), assigned via a serialized field on `CombatRoot` and
+threaded into `CombatRenderResourceRegistry.ConfigureAtlas(...)`. There is no
+runtime packing: `Register(...)` resolves the atlas's packed copy of the
+sprite via `SpriteAtlas.GetSprite(name)` (there is no `SpriteAtlas.GetTexture()`
+API), computes each kind's UV rect directly from that packed sprite's
+`rect`/texture dimensions, and throws if the atlas isn't configured or the
+sprite passed in isn't actually part of it (`GetSprite` returns null both
+when the atlas hasn't been packed yet and when the sprite isn't a packable —
+fail loud on a missed content-authoring step, rather than silently
+misrendering). Every
 active projectile/AOE entity across every kind draws with one shared
 unit-quad mesh + one shared instanced material, in as few
 `Graphics.RenderMeshInstanced` calls as the 1023-instance-per-call cap
