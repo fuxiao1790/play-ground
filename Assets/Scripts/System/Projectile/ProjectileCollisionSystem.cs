@@ -15,11 +15,7 @@ namespace PlayGround.System.Projectile
     [UpdateBefore(typeof(CombatApplyFinalizeSingleSystem))]
     public partial struct ProjectileCollisionSystem : ISystem
     {
-        // this depends on the arena size and mob count
-        // cellSize = sqrt(arenaWidth * arenaHeight / mobCount) * ~1.5
-        private const float SpatialHashCellSize = 1f;
         private EntityQuery activeProjectileQuery;
-        private EntityQuery targetQuery;
 
         public void OnCreate(ref SystemState state)
         {
@@ -35,11 +31,6 @@ namespace PlayGround.System.Projectile
                 ComponentType.ReadWrite<ProjectileHitComponent>(),
                 ComponentType.ReadWrite<CombatRenderActiveTag>(),
                 ComponentType.ReadWrite<ProjectileContactGateElement>());
-            targetQuery = state.GetEntityQuery(
-                ComponentType.ReadOnly<TargetProxyTag>(),
-                ComponentType.ReadOnly<TargetPosition>(),
-                ComponentType.ReadOnly<TargetCollisionShape>(),
-                ComponentType.ReadOnly<TargetFaction>());
         }
 
         public void OnUpdate(ref SystemState state)
@@ -49,39 +40,8 @@ namespace PlayGround.System.Projectile
                 return;
             }
 
-            state.EntityManager.CompleteDependencyBeforeRO<TargetPosition>();
-            state.EntityManager.CompleteDependencyBeforeRO<TargetCollisionShape>();
-            state.EntityManager.CompleteDependencyBeforeRO<TargetFaction>();
-
-            NativeArray<Entity> targetEntities = targetQuery.ToEntityArray(Allocator.TempJob);
-            NativeArray<TargetPosition> targetPositions = targetQuery.ToComponentDataArray<TargetPosition>(Allocator.TempJob);
-            NativeArray<TargetCollisionShape> targetShapes = targetQuery.ToComponentDataArray<TargetCollisionShape>(Allocator.TempJob);
-            NativeArray<TargetFaction> targetFactions = targetQuery.ToComponentDataArray<TargetFaction>(Allocator.TempJob);
-
-            // Pass 1: count targets and find the largest bounding radius.
-            // Used to size the multimap and to expand the per-projectile query range
-            // so targets near cell boundaries are never missed.
-            int totalTargetCount = targetEntities.Length;
-            float maxTargetRadius = 0f;
-            for (int i = 0; i < targetShapes.Length; i++)
-            {
-                TargetCollisionShape t = targetShapes[i];
-                float r = CombatCollisionMath.BoundingRadius(t.Radius, t.HalfExtents, t.ShapeType);
-                if (r > maxTargetRadius)
-                {
-                    maxTargetRadius = r;
-                }
-            }
-
-            // Pass 2: register each target at its center cell (one entry per target,
-            // no duplicates). Faction filtering is done per-candidate in the job.
-            var targetCells = new NativeParallelMultiHashMap<long, int>(
-                math.max(1, totalTargetCount), Allocator.TempJob);
-            for (int i = 0; i < targetPositions.Length; i++)
-            {
-                int2 cell = FloorCell(targetPositions[i].Value);
-                targetCells.Add(CellKey(cell.x, cell.y), i);
-            }
+            TargetSpatialHashSingleton hash = SystemAPI.GetSingleton<TargetSpatialHashSingleton>();
+            state.Dependency = JobHandle.CombineDependencies(state.Dependency, hash.BuildHandle);
 
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
@@ -89,13 +49,13 @@ namespace PlayGround.System.Projectile
             var vfx = state.World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
             var job = new ProjectileCollisionJob
             {
-                TargetEntities = targetEntities,
-                TargetPositions = targetPositions,
-                TargetShapes = targetShapes,
-                TargetFactions = targetFactions,
-                TargetCells = targetCells,
-                TotalTargetCount = totalTargetCount,
-                MaxTargetRadius = maxTargetRadius,
+                TargetEntities = hash.TargetEntities.AsArray(),
+                TargetPositions = hash.TargetPositions.AsArray(),
+                TargetShapes = hash.TargetShapes.AsArray(),
+                TargetFactions = hash.TargetFactions.AsArray(),
+                TargetCells = hash.ProjectileCollisionCells,
+                TotalTargetCount = hash.TargetCount,
+                MaxTargetRadius = hash.MaxTargetRadius,
                 HitWriter = hitApply != null
                     ? hitApply.AsParallelWriter()
                     : default,
@@ -130,14 +90,12 @@ namespace PlayGround.System.Projectile
                 vfx.ProducerHandle =
                     JobHandle.CombineDependencies(vfx.ProducerHandle, collisionHandle);
 
-            JobHandle targetDisposeHandle = JobHandle.CombineDependencies(
-                targetEntities.Dispose(collisionHandle),
-                JobHandle.CombineDependencies(
-                    targetPositions.Dispose(collisionHandle),
-                    JobHandle.CombineDependencies(
-                        targetShapes.Dispose(collisionHandle),
-                        targetFactions.Dispose(collisionHandle))));
-            state.Dependency = targetCells.Dispose(targetDisposeHandle);
+            RefRW<TargetSpatialHashSingleton> hashRw = SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
+            hashRw.ValueRW.ConsumerHandle = JobHandle.CombineDependencies(
+                hashRw.ValueRW.ConsumerHandle,
+                collisionHandle);
+
+            state.Dependency = collisionHandle;
         }
 
         [BurstCompile]
@@ -153,7 +111,7 @@ namespace PlayGround.System.Projectile
             [ReadOnly] public NativeArray<TargetFaction> TargetFactions;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> TargetCells;
             public int TotalTargetCount;
-            public float MaxTargetRadius;
+            [ReadOnly] public NativeReference<float> MaxTargetRadius;
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
             public bool HasHitWriter;
             public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
@@ -202,16 +160,21 @@ namespace PlayGround.System.Projectile
                 // coordinates. Any target whose center falls within this expanded region is
                 // guaranteed to have its center cell included in the query, so no miss is
                 // possible at cell boundaries regardless of how large a target is.
-                float2 queryMin = collision.BoundsMin - new float2(MaxTargetRadius, MaxTargetRadius);
-                float2 queryMax = collision.BoundsMax + new float2(MaxTargetRadius, MaxTargetRadius);
-                int2 cellMin = FloorCell(queryMin);
-                int2 cellMax = FloorCell(queryMax);
+                float radiusExpansion = MaxTargetRadius.Value;
+                float2 queryMin = collision.BoundsMin - new float2(radiusExpansion, radiusExpansion);
+                float2 queryMax = collision.BoundsMax + new float2(radiusExpansion, radiusExpansion);
+                int2 cellMin = CombatSpatialHash.FloorCell(
+                    queryMin,
+                    CombatSpatialHash.ProjectileCollisionCellSize);
+                int2 cellMax = CombatSpatialHash.FloorCell(
+                    queryMax,
+                    CombatSpatialHash.ProjectileCollisionCellSize);
 
                 for (int cy = cellMin.y; cy <= cellMax.y; cy++)
                 {
                     for (int cx = cellMin.x; cx <= cellMax.x; cx++)
                     {
-                        long key = CellKey(cx, cy);
+                        long key = CombatSpatialHash.CellKey(cx, cy);
                         if (!TargetCells.TryGetFirstValue(key, out int targetIdx,
                             out NativeParallelMultiHashMapIterator<long> iterator))
                         {
@@ -454,22 +417,5 @@ namespace PlayGround.System.Projectile
             }
         }
 
-        private static int2 FloorCell(float2 pos)
-        {
-            return new int2(
-                (int)math.floor(pos.x / SpatialHashCellSize),
-                (int)math.floor(pos.y / SpatialHashCellSize));
-        }
-
-        private static long CellKey(int x, int y)
-        {
-            unchecked
-            {
-                ulong hash = 1469598103934665603UL;
-                hash = (hash ^ (uint)x) * 1099511628211UL;
-                hash = (hash ^ (uint)y) * 1099511628211UL;
-                return (long)hash;
-            }
-        }
     }
 }

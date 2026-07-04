@@ -5,7 +5,6 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
-using Unity.Mathematics;
 
 namespace PlayGround.System.Aoe
 {
@@ -16,7 +15,6 @@ namespace PlayGround.System.Aoe
     public partial struct ImpactAoeCollisionSystem : ISystem
     {
         private EntityQuery impactAoeQuery;
-        private EntityQuery targetQuery;
 
         public void OnCreate(ref SystemState state)
         {
@@ -33,11 +31,6 @@ namespace PlayGround.System.Aoe
                 .WithAllRW<CombatRenderActiveTag>()
                 .WithNone<CombatLifetimeComponent>()
                 .Build(ref state);
-            targetQuery = state.GetEntityQuery(
-                ComponentType.ReadOnly<TargetProxyTag>(),
-                ComponentType.ReadOnly<TargetPosition>(),
-                ComponentType.ReadOnly<TargetCollisionShape>(),
-                ComponentType.ReadOnly<TargetFaction>());
         }
 
         public void OnUpdate(ref SystemState state)
@@ -45,35 +38,8 @@ namespace PlayGround.System.Aoe
             if (impactAoeQuery.IsEmpty)
                 return;
 
-            state.EntityManager.CompleteDependencyBeforeRO<TargetPosition>();
-            state.EntityManager.CompleteDependencyBeforeRO<TargetCollisionShape>();
-            state.EntityManager.CompleteDependencyBeforeRO<TargetFaction>();
-
-            NativeArray<Entity> targetEntities = targetQuery.ToEntityArray(Allocator.TempJob);
-            NativeArray<TargetPosition> targetPositions = targetQuery.ToComponentDataArray<TargetPosition>(Allocator.TempJob);
-            NativeArray<TargetCollisionShape> targetShapes = targetQuery.ToComponentDataArray<TargetCollisionShape>(Allocator.TempJob);
-            NativeArray<TargetFaction> targetFactions = targetQuery.ToComponentDataArray<TargetFaction>(Allocator.TempJob);
-
-            int targetCellCapacity = 0;
-            for (int i = 0; i < targetShapes.Length; i++)
-            {
-                TargetCollisionShape target = targetShapes[i];
-                int2 min = AoeCollisionCore.MinCell(target.BoundsMin);
-                int2 max = AoeCollisionCore.MaxCell(target.BoundsMax);
-                targetCellCapacity += ((max.x - min.x) + 1) * ((max.y - min.y) + 1);
-            }
-
-            var occupiedTargetCells = new NativeParallelMultiHashMap<long, int>(
-                math.max(1, targetCellCapacity), Allocator.TempJob);
-            for (int i = 0; i < targetShapes.Length; i++)
-            {
-                TargetCollisionShape target = targetShapes[i];
-                int2 min = AoeCollisionCore.MinCell(target.BoundsMin);
-                int2 max = AoeCollisionCore.MaxCell(target.BoundsMax);
-                for (int y = min.y; y <= max.y; y++)
-                for (int x = min.x; x <= max.x; x++)
-                    occupiedTargetCells.Add(AoeCollisionCore.CellKey(x, y), i);
-            }
+            var hash = SystemAPI.GetSingleton<TargetSpatialHashSingleton>();
+            state.Dependency = JobHandle.CombineDependencies(state.Dependency, hash.BuildHandle);
 
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
@@ -82,11 +48,11 @@ namespace PlayGround.System.Aoe
 
             var job = new ImpactAoeCollisionJob
             {
-                TargetEntities = targetEntities,
-                TargetPositions = targetPositions,
-                TargetShapes = targetShapes,
-                TargetFactions = targetFactions,
-                OccupiedTargetCells = occupiedTargetCells,
+                TargetEntities = hash.TargetEntities.AsArray(),
+                TargetPositions = hash.TargetPositions.AsArray(),
+                TargetShapes = hash.TargetShapes.AsArray(),
+                TargetFactions = hash.TargetFactions.AsArray(),
+                OccupiedTargetCells = hash.AoeOccupiedCells,
                 HitWriter = hitApply != null
                     ? hitApply.AsParallelWriter()
                     : default,
@@ -119,14 +85,10 @@ namespace PlayGround.System.Aoe
                 vfx.ProducerHandle =
                     JobHandle.CombineDependencies(vfx.ProducerHandle, collisionHandle);
 
-            JobHandle targetDisposeHandle = JobHandle.CombineDependencies(
-                targetEntities.Dispose(collisionHandle),
-                JobHandle.CombineDependencies(
-                    targetPositions.Dispose(collisionHandle),
-                    JobHandle.CombineDependencies(
-                        targetShapes.Dispose(collisionHandle),
-                        targetFactions.Dispose(collisionHandle))));
-            state.Dependency = occupiedTargetCells.Dispose(targetDisposeHandle);
+            var rw = SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
+            rw.ValueRW.ConsumerHandle =
+                JobHandle.CombineDependencies(rw.ValueRW.ConsumerHandle, collisionHandle);
+            state.Dependency = collisionHandle;
         }
 
         [BurstCompile]

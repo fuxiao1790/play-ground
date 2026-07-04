@@ -59,7 +59,6 @@ namespace PlayGround.System.Aoe
 
     internal static class AoeCollisionCore
     {
-        internal const float SpatialHashCellSize = 64f;
         private const int ImpactAoeIdSalt = 0x5F1A0E;
         private const int ProjectileBurstIdSalt = 0x7AB025;
 
@@ -101,13 +100,13 @@ namespace PlayGround.System.Aoe
             int remaining = CollisionConstants.MaxAoeTargetsPerTick;
             bool hitVfxEmitted = false;
 
-            int2 min = MinCell(collision.BoundsMin);
-            int2 max = MaxCell(collision.BoundsMax);
+            int2 min = CombatSpatialHash.MinCell(collision.BoundsMin, CombatSpatialHash.AoeCellSize);
+            int2 max = CombatSpatialHash.MaxCell(collision.BoundsMax, CombatSpatialHash.AoeCellSize);
             for (int cy = min.y; cy <= max.y && remaining > 0; cy++)
             {
                 for (int cx = min.x; cx <= max.x && remaining > 0; cx++)
                 {
-                    long key = CellKey(cx, cy);
+                    long key = CombatSpatialHash.CellKey(cx, cy);
                     if (!occupiedTargetCells.TryGetFirstValue(
                             key,
                             out int i,
@@ -279,25 +278,6 @@ namespace PlayGround.System.Aoe
                 int key = ((entity.Index + 1) * 397) ^ entity.Version;
                 key &= 0x7fffffff;
                 return key == 0 ? 1 : key;
-            }
-        }
-
-        internal static int2 MinCell(float2 min) => new int2(
-            (int)math.floor(min.x / SpatialHashCellSize),
-            (int)math.floor(min.y / SpatialHashCellSize));
-
-        internal static int2 MaxCell(float2 max) => new int2(
-            (int)math.floor(max.x / SpatialHashCellSize),
-            (int)math.floor(max.y / SpatialHashCellSize));
-
-        internal static long CellKey(int x, int y)
-        {
-            unchecked
-            {
-                ulong hash = 1469598103934665603UL;
-                hash = (hash ^ (uint)x) * 1099511628211UL;
-                hash = (hash ^ (uint)y) * 1099511628211UL;
-                return (long)hash;
             }
         }
 

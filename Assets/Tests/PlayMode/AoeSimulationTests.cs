@@ -49,6 +49,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoeContactGateSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<CombatLifetimeSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoePulseVfxSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TargetSpatialHashSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ImpactAoeCollisionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<LingeringAoeCollisionSystem>());
             simGroup.AddSystemToUpdateList(hitApply);
@@ -275,6 +276,29 @@ namespace PlayGround.Tests.PlayMode
             Tick(0.01f);
 
             Assert.That(ReadHitCount(), Is.EqualTo(CollisionConstants.MaxAoeTargetsPerTick));
+        }
+
+        [Test]
+        public void PulseOverflowHitsFirstTargetsInCellScanOrder()
+        {
+            const int ExtraTargets = 4;
+            int firstTargetId = nextTargetId + 1;
+            int targetCount = CollisionConstants.MaxAoeTargetsPerTick + ExtraTargets;
+            for (int i = 0; i < targetCount; i++)
+            {
+                AddTargetById(float2.zero, 0.25f, 1, firstTargetId + i);
+            }
+
+            SpawnCircle(float2.zero, 1f, 2f);
+
+            Tick(0.01f);
+
+            Assert.That(ReadHitCount(), Is.EqualTo(CollisionConstants.MaxAoeTargetsPerTick));
+            for (int i = 0; i < targetCount; i++)
+            {
+                int expectedHits = i < CollisionConstants.MaxAoeTargetsPerTick ? 1 : 0;
+                Assert.That(targetsById[firstTargetId + i].HitCount, Is.EqualTo(expectedHits));
+            }
         }
 
         [Test]

@@ -4,7 +4,6 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
-using Unity.Profiling;
 
 namespace PlayGround.System.Projectile
 {
@@ -14,63 +13,29 @@ namespace PlayGround.System.Projectile
     [UpdateBefore(typeof(ProjectileMovementSystem))]
     public partial struct ProjectileTrackingSystem : ISystem
     {
-        private const float TrackingSpatialHashCellSize = 64f;
         private const int ForwardAcquisitionLateralCellRadius = 1;
         private const int MissedTargetSearchCooldownIndex = -2;
-        private static readonly ProfilerMarker<int> TargetSpatialHashBuildMarker =
-            new("ProjectileTrackingSystem.TargetSpatialHashBuild", "Targets");
-
-        private EntityQuery targetQuery;
-
-        public void OnCreate(ref SystemState state)
-        {
-            targetQuery = state.GetEntityQuery(
-                ComponentType.ReadOnly<TargetProxyTag>(),
-                ComponentType.ReadOnly<TargetPosition>(),
-                ComponentType.ReadOnly<TargetFaction>());
-        }
 
         public void OnUpdate(ref SystemState state)
         {
-            state.EntityManager.CompleteDependencyBeforeRO<TargetPosition>();
-            state.EntityManager.CompleteDependencyBeforeRO<TargetFaction>();
-
-            NativeArray<Entity> targetEntities = targetQuery.ToEntityArray(Allocator.TempJob);
-            NativeArray<TargetPosition> targetPositions = targetQuery.ToComponentDataArray<TargetPosition>(Allocator.TempJob);
-            NativeArray<TargetFaction> targetFactions = targetQuery.ToComponentDataArray<TargetFaction>(Allocator.TempJob);
-            int totalTargetCount = targetEntities.Length;
-
-            NativeParallelHashMap<long, int> targetIndicesById;
-            NativeParallelMultiHashMap<long, int> targetCells;
-
-            using (TargetSpatialHashBuildMarker.Auto(totalTargetCount))
-            {
-                targetIndicesById = new NativeParallelHashMap<long, int>(
-                    math.max(1, totalTargetCount), Allocator.TempJob);
-                targetCells = new NativeParallelMultiHashMap<long, int>(
-                    math.max(1, totalTargetCount), Allocator.TempJob);
-
-                for (int i = 0; i < targetEntities.Length; i++)
-                {
-                    Entity target = targetEntities[i];
-                    TargetPosition position = targetPositions[i];
-                    targetIndicesById.TryAdd(TargetIdKey(TargetKey(target)), i);
-                    int2 cell = FloorCell(position.Value);
-                    targetCells.Add(CellKey(cell.x, cell.y), i);
-                }
-            }
+            TargetSpatialHashSingleton hash = SystemAPI.GetSingleton<TargetSpatialHashSingleton>();
+            state.Dependency = JobHandle.CombineDependencies(state.Dependency, hash.BuildHandle);
 
             var acquisitionJob = new ProjectileTargetAcquisitionJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
-                TargetEntities = targetEntities,
-                TargetPositions = targetPositions,
-                TargetFactions = targetFactions,
-                TargetIndicesById = targetIndicesById,
-                TargetCells = targetCells
+                TargetEntities = hash.TargetEntities.AsArray(),
+                TargetPositions = hash.TargetPositions.AsArray(),
+                TargetFactions = hash.TargetFactions.AsArray(),
+                TargetIndicesById = hash.TrackingIndicesById,
+                TargetCells = hash.TrackingCells
             };
 
             JobHandle acquisitionHandle = acquisitionJob.ScheduleParallel(state.Dependency);
+            RefRW<TargetSpatialHashSingleton> hashRw = SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
+            hashRw.ValueRW.ConsumerHandle = JobHandle.CombineDependencies(
+                hashRw.ValueRW.ConsumerHandle,
+                acquisitionHandle);
 
             var steeringJob = new ProjectileSteeringJob
             {
@@ -78,18 +43,7 @@ namespace PlayGround.System.Projectile
             };
 
             JobHandle steeringHandle = steeringJob.ScheduleParallel(acquisitionHandle);
-            JobHandle disposeIdHandle = targetIndicesById.Dispose(acquisitionHandle);
-            JobHandle disposeCellsHandle = targetCells.Dispose(acquisitionHandle);
-            JobHandle disposeTargetsHandle = JobHandle.CombineDependencies(
-                targetEntities.Dispose(acquisitionHandle),
-                JobHandle.CombineDependencies(
-                    targetPositions.Dispose(acquisitionHandle),
-                    targetFactions.Dispose(acquisitionHandle)));
-            state.Dependency = JobHandle.CombineDependencies(
-                steeringHandle,
-                JobHandle.CombineDependencies(
-                    disposeTargetsHandle,
-                    JobHandle.CombineDependencies(disposeIdHandle, disposeCellsHandle)));
+            state.Dependency = steeringHandle;
         }
 
         [BurstCompile]
@@ -269,7 +223,7 @@ namespace PlayGround.System.Projectile
             {
                 float2 side = new(-searchDirection.y, searchDirection.x);
 
-                for (float forwardDistance = 0f; forwardDistance <= reachableDistance; forwardDistance += TrackingSpatialHashCellSize)
+                for (float forwardDistance = 0f; forwardDistance <= reachableDistance; forwardDistance += CombatSpatialHash.TrackingCellSize)
                 {
                     int validTargetCountBeforeDistance = validTargetCount;
                     for (int lane = 0; lane <= ForwardAcquisitionLateralCellRadius * 2; lane++)
@@ -277,8 +231,10 @@ namespace PlayGround.System.Projectile
                         int lateralOffset = LaneToLateralOffset(lane);
                         float2 probePosition = kinematics.Position
                             + searchDirection * forwardDistance
-                            + side * lateralOffset * TrackingSpatialHashCellSize;
-                        int2 cell = FloorCell(probePosition);
+                            + side * lateralOffset * CombatSpatialHash.TrackingCellSize;
+                        int2 cell = CombatSpatialHash.FloorCell(
+                            probePosition,
+                            CombatSpatialHash.TrackingCellSize);
                         TrySelectRandomTargetInCell(
                             ref randomState,
                             ref validTargetCount,
@@ -287,7 +243,7 @@ namespace PlayGround.System.Projectile
                             kinematics,
                             searchDirection,
                             minimumDotSquared,
-                            CellKey(cell.x, cell.y));
+                            CombatSpatialHash.CellKey(cell.x, cell.y));
                     }
 
                     if (stopAfterFirstDistanceBandWithTarget
@@ -478,24 +434,6 @@ namespace PlayGround.System.Projectile
                 return new float2(
                     currentDirection.x * cos - currentDirection.y * sin,
                     currentDirection.x * sin + currentDirection.y * cos);
-            }
-        }
-
-        private static int2 FloorCell(float2 pos)
-        {
-            return new int2(
-                (int)math.floor(pos.x / TrackingSpatialHashCellSize),
-                (int)math.floor(pos.y / TrackingSpatialHashCellSize));
-        }
-
-        private static long CellKey(int x, int y)
-        {
-            unchecked
-            {
-                ulong hash = 1469598103934665603UL;
-                hash = (hash ^ (uint)x) * 1099511628211UL;
-                hash = (hash ^ (uint)y) * 1099511628211UL;
-                return (long)hash;
             }
         }
 
