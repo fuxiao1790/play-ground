@@ -2,28 +2,41 @@ using PlayGround.System.Aoe;
 using PlayGround.System.Common;
 using PlayGround.System.Projectile;
 using PlayGround.System.Vfx;
+using Unity.Collections;
 using Unity.Entities;
 
 namespace PlayGround.System.Stats
 {
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     [UpdateAfter(typeof(CombatVfxDispatchSystem))]
-    [UpdateAfter(typeof(CombatBatchedRenderSystem))]
     public partial class CombatStatsGatherSystem : SystemBase
     {
         private Entity _statsEntity;
+        private EntityQuery activeProjectileRenderQuery;
+        private EntityQuery activeAoeRenderQuery;
         private ProjectileSpawnApplySystem _projectiles;
         private ImpactAoeSpawnApplySystem _impactAoe;
         private LingeringAoeSpawnApplySystem _lingeringAoe;
         private CombatApplyFinalizeSingleSystem _finalize;
         private CombatVfxDispatchSystem _vfx;
-        private CombatBatchedRenderSystem _render;
 
         protected override void OnCreate()
         {
             _statsEntity = EntityManager.CreateEntity();
             EntityManager.AddComponentData(_statsEntity, new CombatStatsSingleton());
             EntityManager.AddComponentObject(_statsEntity, new CombatStatsBinding());
+
+            activeProjectileRenderQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<CombatRenderComponent>()
+                .WithAll<CombatRenderActiveTag>()
+                .WithAll<ProjectileTag>()
+                .Build(this);
+
+            activeAoeRenderQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<CombatRenderComponent>()
+                .WithAll<CombatRenderActiveTag>()
+                .WithAll<AoeTag>()
+                .Build(this);
         }
 
         internal void Bind(global::PerformanceText display)
@@ -64,8 +77,8 @@ namespace PlayGround.System.Stats
             {
                 EntitiesSpawnedViaEcb = ecb,
                 EntitiesSpawnedViaReuse = reuse,
-                ActiveProjectiles = _render?.LastActiveProjectileCount ?? 0,
-                ActiveAoes = _render?.LastActiveAoeCount ?? 0,
+                ActiveProjectiles = activeProjectileRenderQuery.CalculateEntityCount(),
+                ActiveAoes = activeAoeRenderQuery.CalculateEntityCount(),
                 HitEventsCreated = _finalize?.LastHitEventCount ?? 0,
                 VfxEventsCreated = _vfx?.LastVfxEventCount ?? 0,
             };
@@ -84,7 +97,6 @@ namespace PlayGround.System.Stats
             _lingeringAoe ??= World.GetExistingSystemManaged<LingeringAoeSpawnApplySystem>();
             _finalize ??= World.GetExistingSystemManaged<CombatApplyFinalizeSingleSystem>();
             _vfx ??= World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
-            _render ??= World.GetExistingSystemManaged<CombatBatchedRenderSystem>();
         }
     }
 }

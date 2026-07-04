@@ -46,7 +46,6 @@ namespace PlayGround.System.Projectile
                 typeof(ProjectileTrackingComponent),
                 typeof(CombatRenderComponent),
                 typeof(CombatRenderBatchId),
-                typeof(CombatRenderElement),
                 typeof(Active),
                 typeof(ProjectileCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
@@ -123,7 +122,6 @@ namespace PlayGround.System.Projectile
                         TrackingHandle = GetComponentTypeHandle<ProjectileTrackingComponent>(false),
                         RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
                         RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderBatchId>(false),
-                        RenderElementHandle = GetComponentTypeHandle<CombatRenderElement>(false),
                         ContactGateHandle = GetBufferTypeHandle<ProjectileContactGateElement>(false),
                         TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
                         TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
@@ -200,7 +198,6 @@ namespace PlayGround.System.Projectile
             ecb.SetComponentEnabled<ProjectileTrackingComponent>(entity, cmd.Tracking.TrackingEnabled);
             ecb.SetComponent(entity, cmd.Render);
             ecb.SetComponent(entity, new CombatRenderBatchId { Value = cmd.RenderTypeId });
-            ecb.SetComponent(entity, new CombatRenderElement());
 
             if (cmd.SeedContactGateTargetId > 0)
             {
@@ -294,7 +291,6 @@ namespace PlayGround.System.Projectile
             public ComponentTypeHandle<ProjectileTrackingComponent> TrackingHandle;
             public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
             public ComponentTypeHandle<CombatRenderBatchId> RenderBatchIdHandle;
-            public ComponentTypeHandle<CombatRenderElement> RenderElementHandle;
             public BufferTypeHandle<ProjectileContactGateElement> ContactGateHandle;
             public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
             public ComponentTypeHandle<TimedSpawnStateComponent> TimedSpawnStateHandle;
@@ -330,8 +326,6 @@ namespace PlayGround.System.Projectile
                         chunk.GetNativeArray(ref RenderHandle);
                     NativeArray<CombatRenderBatchId> batchIds =
                         chunk.GetNativeArray(ref RenderBatchIdHandle);
-                    NativeArray<CombatRenderElement> renderElems =
-                        chunk.GetNativeArray(ref RenderElementHandle);
                     BufferAccessor<ProjectileContactGateElement> gates =
                         chunk.GetBufferAccessor(ref ContactGateHandle);
                     NativeArray<TimedSpawnComponent> timedSpawns =
@@ -380,7 +374,6 @@ namespace PlayGround.System.Projectile
                         trackingMask[i] = cfg.Tracking.TrackingEnabled;
                         renders[i] = cfg.Render;
                         batchIds[i] = new CombatRenderBatchId { Value = cfg.RenderTypeId };
-                        renderElems[i] = new CombatRenderElement();
 
                         DynamicBuffer<ProjectileContactGateElement> gate = gates[i];
                         gate.Clear();

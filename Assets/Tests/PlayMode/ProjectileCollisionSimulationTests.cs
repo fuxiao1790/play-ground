@@ -376,7 +376,6 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatCollisionComponent),
                 typeof(CombatRenderComponent),
                 typeof(CombatRenderBatchId),
-                typeof(CombatRenderElement),
                 typeof(CombatLifetimeComponent),
                 typeof(ProjectileHitComponent),
                 typeof(Active),

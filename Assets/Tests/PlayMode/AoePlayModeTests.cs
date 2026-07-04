@@ -729,7 +729,7 @@ namespace PlayGround.Tests.PlayMode
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AoeIdentityComponent>(),
-                ComponentType.ReadOnly<CombatRenderElement>());
+                ComponentType.ReadOnly<CombatRenderComponent>());
             using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
 
             for (int i = 0; i < entities.Length; i++)
@@ -737,7 +737,7 @@ namespace PlayGround.Tests.PlayMode
                 AoeIdentityComponent identity = entityManager.GetComponentData<AoeIdentityComponent>(entities[i]);
                 if (identity.Faction == faction)
                 {
-                    return entityManager.GetComponentData<CombatRenderElement>(entities[i]).objectToWorld;
+                    return entityManager.GetComponentData<CombatRenderComponent>(entities[i]).objectToWorld;
                 }
             }
 

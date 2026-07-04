@@ -847,7 +847,7 @@ namespace PlayGround.Tests.PlayMode
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<CombatRenderBatchId>(),
-                ComponentType.ReadOnly<CombatRenderElement>(),
+                ComponentType.ReadOnly<CombatRenderComponent>(),
                 ComponentType.ReadOnly<CombatRenderActiveTag>());
             using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
             int count = 0;

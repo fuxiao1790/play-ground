@@ -1,7 +1,9 @@
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using UnityEngine.Assertions;
 
 namespace PlayGround.System.Common
 {
@@ -12,33 +14,35 @@ namespace PlayGround.System.Common
 
         private ComponentTypeHandle<CombatKinematicsComponent> kinematicsHandle;
         private ComponentTypeHandle<CombatRenderComponent> renderHandle;
-        private ComponentTypeHandle<CombatRenderElement> elementHandle;
+        private ComponentTypeHandle<CombatRenderActiveTag> renderActiveHandle;
 
         protected override void OnCreate()
         {
+            Assert.AreEqual(96, UnsafeUtility.SizeOf<CombatRenderComponent>());
+
             renderPrepareQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CombatKinematicsComponent>()
                 .WithAll<CombatRenderComponent>()
-                .WithAll<CombatRenderElement>()
                 .WithAll<CombatRenderActiveTag>()
+                .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
                 .Build(this);
 
             kinematicsHandle = GetComponentTypeHandle<CombatKinematicsComponent>(true);
-            renderHandle = GetComponentTypeHandle<CombatRenderComponent>(true);
-            elementHandle = GetComponentTypeHandle<CombatRenderElement>(false);
+            renderHandle = GetComponentTypeHandle<CombatRenderComponent>(false);
+            renderActiveHandle = GetComponentTypeHandle<CombatRenderActiveTag>(true);
         }
 
         protected override void OnUpdate()
         {
             kinematicsHandle.Update(this);
             renderHandle.Update(this);
-            elementHandle.Update(this);
+            renderActiveHandle.Update(this);
 
             Dependency = new RenderPrepareJob
             {
                 Kinematics = kinematicsHandle,
                 RenderComponents = renderHandle,
-                RenderElements = elementHandle
+                RenderActive = renderActiveHandle
             }.ScheduleParallel(renderPrepareQuery, Dependency);
         }
 
@@ -46,8 +50,8 @@ namespace PlayGround.System.Common
         private struct RenderPrepareJob : IJobChunk
         {
             [ReadOnly] public ComponentTypeHandle<CombatKinematicsComponent> Kinematics;
-            [ReadOnly] public ComponentTypeHandle<CombatRenderComponent> RenderComponents;
-            public ComponentTypeHandle<CombatRenderElement> RenderElements;
+            public ComponentTypeHandle<CombatRenderComponent> RenderComponents;
+            [ReadOnly] public ComponentTypeHandle<CombatRenderActiveTag> RenderActive;
 
             public void Execute(
                 in ArchetypeChunk chunk,
@@ -57,12 +61,15 @@ namespace PlayGround.System.Common
             {
                 NativeArray<CombatKinematicsComponent> kin = chunk.GetNativeArray(ref Kinematics);
                 NativeArray<CombatRenderComponent> rend = chunk.GetNativeArray(ref RenderComponents);
-                NativeArray<CombatRenderElement> elem = chunk.GetNativeArray(ref RenderElements);
+                EnabledMask activeMask = chunk.GetEnabledMask(ref RenderActive);
 
-                var enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
-                while (enumerator.NextEntityIndex(out int i))
+                for (int i = 0; i < chunk.Count; i++)
                 {
-                    elem[i] = CombatRenderMatrixUtility.ElementFor(kin[i], rend[i]);
+                    CombatRenderComponent component = rend[i];
+                    component.objectToWorld = activeMask[i]
+                        ? CombatRenderMatrixUtility.ElementFor(kin[i], component)
+                        : CombatRenderMatrixUtility.DegenerateMatrix(component);
+                    rend[i] = component;
                 }
             }
         }

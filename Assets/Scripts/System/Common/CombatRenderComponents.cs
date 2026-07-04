@@ -9,36 +9,110 @@ using UnityEngine.U2D;
 namespace PlayGround.System.Common
 {
     // ECS Lifecycle: common render component; owned by renderable domain entities; lifecycle is defined by each domain tag/scope.
+    [StructLayout(LayoutKind.Sequential)]
     public struct CombatRenderComponent : IComponentData
     {
-        public int IsRenderable;
-        public int AlignToVelocity;
-        public float2 VisualScale;
-        public float VisualRotationSin;
-        public float VisualRotationCos;
-        public float RenderZ;
+        public Matrix4x4 objectToWorld; // 64 bytes; written by render prep and uploaded directly.
+        public Vector4 uvOriginU;       // 16 bytes: xy = origin, zw = U axis.
+        public Vector4 uvV;             // 16 bytes: xy = V axis, z = render id, w = align-to-velocity flag.
 
-        // Per-instance UV basis into the shared combat atlas, computed once by the registry when the
-        // spawn command is built and copied onto the entity like every other field here (never looked
-        // up per frame). An affine basis rather than a plain rect so it survives the atlas packer
-        // rotating a sprite 90°: atlasUV = UvOriginU.xy + quadUV.x * UvOriginU.zw + quadUV.y * UvV.xy.
-        public float4 UvOriginU; // xy = origin, zw = U axis (per unit quad-x)
-        public float4 UvV;       // xy = V axis (per unit quad-y)
+        public int IsRenderable
+        {
+            readonly get => RenderTypeId != 0 ? 1 : 0;
+            set
+            {
+                if (value == 0)
+                {
+                    RenderTypeId = 0;
+                }
+                else if (RenderTypeId == 0)
+                {
+                    RenderTypeId = 1;
+                }
+            }
+        }
+
+        public int AlignToVelocity
+        {
+            readonly get => uvV.w != 0f ? 1 : 0;
+            set => uvV.w = value != 0 ? 1f : 0f;
+        }
+
+        public float2 VisualScale
+        {
+            readonly get => new(
+                math.sqrt(objectToWorld.m00 * objectToWorld.m00 + objectToWorld.m10 * objectToWorld.m10),
+                math.sqrt(objectToWorld.m01 * objectToWorld.m01 + objectToWorld.m11 * objectToWorld.m11));
+            set => SetVisual2D(value, VisualRotationSin, VisualRotationCos);
+        }
+
+        public float VisualRotationSin
+        {
+            readonly get => objectToWorld.m02;
+            set => SetVisual2D(VisualScale, value, VisualRotationCos);
+        }
+
+        public float VisualRotationCos
+        {
+            readonly get => objectToWorld.m02 == 0f && objectToWorld.m12 == 0f ? 1f : objectToWorld.m12;
+            set => SetVisual2D(VisualScale, VisualRotationSin, value);
+        }
+
+        public float RenderZ
+        {
+            readonly get => objectToWorld.m23;
+            set => objectToWorld.m23 = value;
+        }
+
+        public float4 UvOriginU
+        {
+            readonly get => new(uvOriginU.x, uvOriginU.y, uvOriginU.z, uvOriginU.w);
+            set => uvOriginU = new Vector4(value.x, value.y, value.z, value.w);
+        }
+
+        public float4 UvV
+        {
+            readonly get => new(uvV.x, uvV.y, uvV.z, uvV.w);
+            set => uvV = new Vector4(
+                value.x,
+                value.y,
+                value.z != 0f ? value.z : uvV.z,
+                value.w != 0f ? value.w : uvV.w);
+        }
+
+        public int RenderTypeId
+        {
+            readonly get => (int)uvV.z;
+            set => uvV.z = value;
+        }
+
+        public void SetVisualTransform(
+            float2 visualScale,
+            float visualRotationSin,
+            float visualRotationCos,
+            float renderZ,
+            int alignToVelocity,
+            int renderTypeId)
+        {
+            SetVisual2D(visualScale, visualRotationSin, visualRotationCos);
+            objectToWorld.m23 = renderZ;
+            objectToWorld.m33 = 1f;
+            AlignToVelocity = alignToVelocity;
+            RenderTypeId = renderTypeId;
+        }
+
+        private void SetVisual2D(float2 scale, float sin, float cos)
+        {
+            objectToWorld.m00 = cos * scale.x;
+            objectToWorld.m01 = -sin * scale.y;
+            objectToWorld.m02 = sin;
+            objectToWorld.m10 = sin * scale.x;
+            objectToWorld.m11 = cos * scale.y;
+            objectToWorld.m12 = cos;
+            objectToWorld.m22 = math.max(scale.x, scale.y);
+            objectToWorld.m33 = 1f;
+        }
     }
-
-    // ECS Lifecycle: common render component; owned by renderable domain entities; overwritten during render prep.
-    public struct CombatRenderElement : IComponentData
-    {
-        public Matrix4x4 objectToWorld;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct CombatInstanceData
-    {
-        public Matrix4x4 objectToWorld; // 64
-        public Vector4 uvOriginU;       // 16: origin.xy, uAxis.xy
-        public Vector4 uvV;             // 16: vAxis.xy, 0, 0
-    }                                    // stride = 96
 
     // ECS Lifecycle: common render enable tag; owned by renderable domain entities; enabled/disabled with the owning domain active tag.
     public struct CombatRenderActiveTag : IComponentData, IEnableableComponent
@@ -51,9 +125,6 @@ namespace PlayGround.System.Common
         public int Value;
     }
 
-    // Per-kind metadata: the folded visual scale (authored scale * native sprite size in world
-    // units, since the shared unit-quad mesh does not bake native pixel size into vertices) and
-    // the UV rect of this kind's sprite within the manually-assembled atlas texture.
     public sealed class CombatRenderResourceEntry
     {
         public Vector2 VisualScale;
@@ -63,10 +134,6 @@ namespace PlayGround.System.Common
         public Vector4 UvV;
     }
 
-    // Owns the shared render resources for every registered combat sprite kind: one unit-quad
-    // Mesh, one atlas Material, and per-kind UV rects computed from a single, manually-assembled
-    // SpriteAtlas (assigned via CombatRoot's serialized field, not built at runtime). One shared
-    // atlas so all kinds draw through one indirect submission instead of one call per kind.
     public sealed class CombatRenderResourceRegistry : IComponentData
     {
         public readonly Dictionary<int, CombatRenderResourceEntry> Entries = new();
@@ -79,28 +146,12 @@ namespace PlayGround.System.Common
 
         private int _nextRenderId = 1;
 
-        // Assigns the single, manually-assembled SpriteAtlas (one page; no runtime packing).
-        // Must be called before any Register(...) call that passes a non-null sprite. Safe to call
-        // multiple times (e.g. once per CombatRoot instance sharing the same registry); the last
-        // call wins, matching how Layer is captured. The atlas's packed texture is not resolved
-        // here (Atlas.GetSprite(...) may still return null if packing hasn't happened yet) but
-        // lazily in Register(...), so packing order relative to CombatRoot.Awake() doesn't matter.
         public void ConfigureAtlas(SpriteAtlas atlas)
         {
             EnsureSharedResources();
             Atlas = atlas;
         }
 
-        // Mints a render id and stores the folded visual scale plus this sprite's UV rect within
-        // the configured atlas, on the calling (main) thread. Returns 0 for a null sprite (== "no
-        // visual"). Throws if the atlas isn't configured, or if the sprite wasn't manually placed
-        // in the configured atlas (skills must be assembled into the shared atlas in the editor
-        // ahead of time; this is not a dynamic/auto-packing atlas). Membership is checked via
-        // SpriteAtlas.GetSprite(name), the documented runtime lookup API (there is no
-        // SpriteAtlas.GetTexture() — that was an earlier, incorrect assumption); it returns null
-        // both when the atlas hasn't been packed yet and when the sprite simply isn't a packable,
-        // so both cases collapse into one honest "not part of the atlas" error rather than a
-        // distinction this API can't actually make.
         public int Register(Sprite sprite, Vector2 visualScale, float visualRotationDegrees, int layer)
         {
             EnsureSharedResources();
@@ -115,21 +166,10 @@ namespace PlayGround.System.Common
             Sprite packedSprite = Atlas.GetSprite(sprite.name);
             if (packedSprite == null)
                 throw new InvalidOperationException(
-                    $"Sprite '{sprite.name}' is not part of the combat sprite atlas '{Atlas.name}' (GetSprite returned null — either it isn't a packable of this atlas, or the atlas hasn't been packed yet). Add it to the atlas's packables in the editor and repack.");
+                    $"Sprite '{sprite.name}' is not part of the combat sprite atlas '{Atlas.name}' (GetSprite returned null). Add it to the atlas's packables in the editor and repack.");
 
-            // Bind the atlas page as the material's texture. Every sprite in a single-page atlas
-            // resolves to the same page, so binding per-registration is idempotent (last wins). We
-            // deliberately do NOT assert reference-equality across sprites: that's a proxy for
-            // "single page" that's trivially true when packed and falsely fails when the atlas is
-            // momentarily unpacked (sprites resolve to their source textures). Single-page is an
-            // atlas-authoring property (Pack Preview), enforced there, not re-checked here.
             SharedMaterial.mainTexture = packedSprite.texture;
 
-            // The atlas packer may rotate a sprite 90° when packing (enableRotation), so a plain
-            // axis-aligned UV rect can't reproduce its orientation. Build an affine UV basis from the
-            // sprite's own vertex->UV mapping instead: identify the bottom-left/right/top corners by
-            // local vertex position and read their atlas UVs. atlasUV = origin + qx*uAxis + qy*vAxis
-            // then renders the sprite upright regardless of how the atlas packed it.
             ComputeUvBasis(packedSprite, out Vector2 uvOrigin, out Vector2 uAxis, out Vector2 vAxis);
             Vector4 uvOriginU = new(uvOrigin.x, uvOrigin.y, uAxis.x, uAxis.y);
             Vector4 uvV = new(vAxis.x, vAxis.y, 0f, 0f);
@@ -153,45 +193,42 @@ namespace PlayGround.System.Common
         public CombatRenderComponent GetProjectileRenderComponent(int renderId, int projectileId)
         {
             if (!Entries.TryGetValue(renderId, out CombatRenderResourceEntry entry)) return default;
-            return new CombatRenderComponent
+            var component = new CombatRenderComponent
             {
-                IsRenderable = 1,
-                AlignToVelocity = 1,
-                VisualScale = new float2(entry.VisualScale.x, entry.VisualScale.y),
-                VisualRotationSin = entry.VisualRotationSin,
-                VisualRotationCos = entry.VisualRotationCos,
-                RenderZ = CombatRoot.ProjectileRenderZ
-                    - projectileId % CombatRoot.ProjectileRenderZSlots * CombatRoot.ProjectileRenderZStep,
                 UvOriginU = new float4(entry.UvOriginU.x, entry.UvOriginU.y, entry.UvOriginU.z, entry.UvOriginU.w),
                 UvV = new float4(entry.UvV.x, entry.UvV.y, entry.UvV.z, entry.UvV.w)
             };
+            component.SetVisualTransform(
+                new float2(entry.VisualScale.x, entry.VisualScale.y),
+                entry.VisualRotationSin,
+                entry.VisualRotationCos,
+                CombatRoot.ProjectileRenderZ
+                    - projectileId % CombatRoot.ProjectileRenderZSlots * CombatRoot.ProjectileRenderZStep,
+                1,
+                renderId);
+            return component;
         }
 
-        // AOE visual data comes from geometry (spawn-time area/scale); the entry supplies the
-        // sprite's own native-size scale, folded in since the shared unit-quad mesh does not
-        // bake native pixel size into vertices (each kind used to bake it into its own mesh).
         public CombatRenderComponent GetAoeRenderComponent(int renderId, AoeSpawnGeometry geometry)
         {
             if (!Entries.TryGetValue(renderId, out CombatRenderResourceEntry entry)) return default;
             float2 scale = new float2(geometry.VisualScale.x, geometry.VisualScale.y)
                 * new float2(entry.VisualScale.x, entry.VisualScale.y);
-            return new CombatRenderComponent
+            var component = new CombatRenderComponent
             {
-                IsRenderable = 1,
-                AlignToVelocity = 0,
-                VisualScale = scale,
-                VisualRotationSin = geometry.VisualRotationSin,
-                VisualRotationCos = geometry.VisualRotationCos,
-                RenderZ = CombatRoot.AoeRenderZ,
                 UvOriginU = new float4(entry.UvOriginU.x, entry.UvOriginU.y, entry.UvOriginU.z, entry.UvOriginU.w),
                 UvV = new float4(entry.UvV.x, entry.UvV.y, entry.UvV.z, entry.UvV.w)
             };
+            component.SetVisualTransform(
+                scale,
+                geometry.VisualRotationSin,
+                geometry.VisualRotationCos,
+                CombatRoot.AoeRenderZ,
+                0,
+                renderId);
+            return component;
         }
 
-        // Destroys the shared GPU resources this registry created and clears the store. Called
-        // from CombatRoot.OnDestroy. The SpriteAtlas and its packed texture are manually-assigned
-        // project assets, not created by this registry, so they are dereferenced here but never
-        // destroyed.
         public void Unregister()
         {
             if (SharedMaterial != null) UnityEngine.Object.Destroy(SharedMaterial);
@@ -246,11 +283,6 @@ namespace PlayGround.System.Common
         private static Vector2 PositiveScale(Vector2 scale) =>
             new(scale.x > 0f ? scale.x : 1f, scale.y > 0f ? scale.y : 1f);
 
-        // Builds an affine atlas-UV basis from a sprite's vertex->UV mapping. Identifies the
-        // bottom-left / bottom-right / top-left corners by local vertex position and reads their
-        // real atlas UVs, so a sprite the packer rotated 90° still maps onto the unit quad upright.
-        // Corner scores: BL minimizes x+y, BR maximizes x-y, TL maximizes y-x (exact for the 4-corner
-        // Full Rect sprites this atlas uses; enableTightPacking is off).
         private static void ComputeUvBasis(Sprite sprite, out Vector2 origin, out Vector2 uAxis, out Vector2 vAxis)
         {
             Vector2[] verts = sprite.vertices;
@@ -280,13 +312,13 @@ namespace PlayGround.System.Common
     {
         private const float MinimumDirectionLengthSquared = 0.000001f;
 
-        public static CombatRenderElement ElementFor(
+        public static Matrix4x4 ElementFor(
             CombatKinematicsComponent kinematics,
             CombatRenderComponent render)
         {
             if (render.IsRenderable == 0)
             {
-                return default;
+                return DegenerateMatrix(render);
             }
 
             float directionX = 1f;
@@ -306,28 +338,39 @@ namespace PlayGround.System.Common
             float sin = directionX * render.VisualRotationSin + directionY * render.VisualRotationCos;
             float2 scale = render.VisualScale;
 
-            return new CombatRenderElement
+            return new Matrix4x4
             {
-                objectToWorld = new Matrix4x4
-                {
-                    m00 = cos * scale.x,
-                    m01 = -sin * scale.y,
-                    m02 = 0f,
-                    m03 = kinematics.Position.x,
-                    m10 = sin * scale.x,
-                    m11 = cos * scale.y,
-                    m12 = 0f,
-                    m13 = kinematics.Position.y,
-                    m20 = 0f,
-                    m21 = 0f,
-                    m22 = math.max(scale.x, scale.y),
-                    m23 = render.RenderZ,
-                    m30 = 0f,
-                    m31 = 0f,
-                    m32 = 0f,
-                    m33 = 1f
-                }
+                m00 = cos * scale.x,
+                m01 = -sin * scale.y,
+                m02 = render.VisualRotationSin,
+                m03 = kinematics.Position.x,
+                m10 = sin * scale.x,
+                m11 = cos * scale.y,
+                m12 = render.VisualRotationCos,
+                m13 = kinematics.Position.y,
+                m20 = 0f,
+                m21 = 0f,
+                m22 = math.max(scale.x, scale.y),
+                m23 = render.RenderZ,
+                m30 = 0f,
+                m31 = 0f,
+                m32 = 0f,
+                m33 = 1f
             };
+        }
+
+        public static Matrix4x4 DegenerateMatrix(CombatRenderComponent render)
+        {
+            Matrix4x4 matrix = render.objectToWorld;
+            matrix.m00 = 0f;
+            matrix.m01 = 0f;
+            matrix.m10 = 0f;
+            matrix.m11 = 0f;
+            matrix.m20 = 0f;
+            matrix.m21 = 0f;
+            matrix.m22 = 0f;
+            matrix.m33 = 1f;
+            return matrix;
         }
     }
 }
