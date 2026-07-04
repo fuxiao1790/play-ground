@@ -13,12 +13,14 @@ data contract.
 Every active projectile and AOE, across every registered sprite kind, is drawn in
 **one `DrawMeshInstancedIndirect` per update** using a shared unit-quad mesh, a
 shared material, and one shared `SpriteAtlas` page. Per-instance data (a transform
-matrix + an atlas UV basis) travels to the GPU in a `StructuredBuffer` indexed by
-`SV_InstanceID`. There is no per-kind mesh/material, no per-kind draw call, and no
-1023-instance cap.
+matrix + packed render metadata) travels to the GPU in a `StructuredBuffer`
+indexed by `SV_InstanceID`. The atlas is static, so each registered kind's affine
+UV basis is uploaded once to a separate `_UvBasis` `StructuredBuffer` and looked
+up by `renderId` in the shader. There is no per-kind mesh/material, no per-kind
+draw call, and no 1023-instance cap.
 
 The draw is **recorded inside a URP `ScriptableRendererFeature`**, not issued with
-the immediate `Graphics.RenderMesh*` API — the project's 2D Renderer does not
+the immediate `Graphics.RenderMesh*` API; the project's 2D Renderer does not
 execute immediate render requests (see Critical Constraints).
 
 Non-goals:
@@ -27,20 +29,22 @@ Non-goals:
 - one draw call per sprite kind
 - runtime atlas packing (the atlas is authored + packed in the Editor)
 
-## Data flow
+## Data Flow
 
 ```text
 CombatRenderPrepareSystem (Burst, PresentationSystemGroup, OrderFirst)
-  -> writes CombatRenderElement.objectToWorld (full TRS: rotation, scale,
+  -> writes CombatRenderComponent.objectToWorld (full TRS: rotation, scale,
      position, RenderZ) for each active render entity
 
 CombatBatchedRenderSystem (PresentationSystemGroup)
   -> CompleteDependency()
   -> scatter projectile + AOE queries into ONE NativeList<CombatInstanceData>
-     (objectToWorld from CombatRenderElement; UV basis from CombatRenderComponent)
+     (objectToWorld + RenderMeta from CombatRenderComponent)
+  -> registry.EnsureUvBasisBuffer() only rebuilds the per-kind UV table when dirty
   -> EnsureInstanceCapacity (grow-by-doubling), instanceBuffer.SetData
   -> populate args GraphicsBuffer (IndirectDrawIndexedArgs; instanceCount = active)
   -> SharedMaterial.SetBuffer("_InstanceData", instanceBuffer)
+  -> SharedMaterial.SetBuffer("_UvBasis", uvBasisBuffer)
   -> CombatIndirectRenderData.Publish(mesh, material, argsBuffer)   [static handoff]
 
 CombatIndirectRenderFeature : ScriptableRendererFeature (on Renderer2D.asset)
@@ -49,126 +53,134 @@ CombatIndirectRenderFeature : ScriptableRendererFeature (on Renderer2D.asset)
 
 Shader "Combat/AtlasIndirectSprite" (Pass LightMode = Universal2D, #pragma target 4.5)
   -> inst = _InstanceData[SV_InstanceID]
+  -> basis = _UvBasis[inst.renderMeta & 0x7FFFFFFF]
   -> clip = TransformWorldToHClip(mul(inst.objectToWorld, positionOS))
-  -> uv   = inst.uvOriginU.xy + quad.x*inst.uvOriginU.zw + quad.y*inst.uvV.xy
+  -> uv   = basis.originU.xy + quad.x*basis.originU.zw + quad.y*basis.v.xy
   -> sample _MainTex (the atlas page)
 ```
 
 Zero-active and no-mesh-registered frames publish nothing (`HasWork = false`) and
 issue no draw.
 
-## Key types
+## Key Types
 
-- **`CombatInstanceData`** — the per-instance GPU record, defined identically in
-  C# (`[StructLayout(Sequential)]`) and HLSL. Stride **96 bytes**:
-  `Matrix4x4 objectToWorld` (64) + `Vector4 uvOriginU` (16: origin.xy, uAxis.xy) +
-  `Vector4 uvV` (16: vAxis.xy, 0, 0). `CombatBatchedRenderSystem.OnCreate` asserts
-  `SizeOf == 96` so a future field cannot silently desync the shader stride.
-- **`CombatRenderComponent`** — per-entity render inputs, including the affine
-  atlas-UV basis `UvOriginU` / `UvV`. Computed once by the registry when the spawn
-  command is built; copied onto entities by existing apply plumbing; read in
-  scatter. (There is no `UvRect` field anymore.)
-- **`CombatRenderElement`** — holds the prepared `objectToWorld` TRS matrix,
-  written by `CombatRenderPrepareSystem` via `CombatRenderMatrixUtility.ElementFor`.
-- **`CombatIndirectRenderData`** — static handoff (`Mesh`, `Material`,
+- **`CombatInstanceData`** - the per-instance GPU record, defined identically in
+  C# (`[StructLayout(Sequential)]`) and HLSL. Stride **68 bytes**:
+  `Matrix4x4 objectToWorld` (64) + `int/uint RenderMeta` (4). `RenderMeta` stores
+  `renderId` in bits 0..30 and the CPU-only align-to-velocity flag in bit 31.
+  `CombatBatchedRenderSystem.OnCreate` asserts `SizeOf == 68` so a future field
+  cannot silently desync the shader stride.
+- **`CombatRenderComponent`** - per-entity render inputs: prepared
+  `objectToWorld` matrix plus packed `RenderMeta`. It no longer carries
+  `UvOriginU`/`UvV`; the component remains binary-identical to `CombatInstanceData`.
+- **`CombatUvBasis`** - per-kind GPU record (`Vector4 originU`, `Vector4 v`,
+  stride 32) owned by `CombatRenderResourceRegistry` and exposed as `_UvBasis`.
+- **`CombatIndirectRenderData`** - static handoff (`Mesh`, `Material`,
   `GraphicsBuffer ArgsBuffer`, `bool HasWork`, `Publish`/`Clear`). Bridges the ECS
   system (main thread, Update) to the render feature (render loop, same frame).
   Mirrors the `CombatVfxRoot.Instance` handoff pattern.
-- **`CombatRenderResourceRegistry`** — owns the shared `Mesh` (unit quad),
-  `Material` (`Combat/AtlasIndirectSprite`), and the `SpriteAtlas` reference.
-  `Register(...)` computes each kind's UV basis and binds the atlas page as the
-  material's texture. `Unregister()` destroys the mesh/material it created (never
-  the atlas asset).
+- **`CombatRenderResourceRegistry`** - owns the shared `Mesh` (unit quad),
+  `Material` (`Combat/AtlasIndirectSprite`), the `SpriteAtlas` reference, and the
+  registry-owned `_uvBasisBuffer`. `Register(...)` computes each kind's UV basis
+  and binds the atlas page as the material's texture. `EnsureUvBasisBuffer()`
+  rebuilds the GPU table only when kinds change. `Unregister()` destroys the
+  mesh/material and disposes the UV buffer it created (never the atlas asset).
 
-## The UV basis (why not a rect)
+## The UV Basis
 
-The atlas is a pure pixel source. Its packer may **rotate a sprite 90°** when
+The atlas is a pure pixel source. Its packer may rotate a sprite 90 degrees when
 packing (`enableRotation`), so an axis-aligned UV rect cannot reproduce a sprite's
-orientation. Instead each entity carries an affine basis:
+orientation. Instead each registered kind has an affine basis:
 
-```
+```text
 atlasUV = UvOriginU.xy + quadUV.x * UvOriginU.zw + quadUV.y * UvV.xy
 ```
 
+That basis now lives in the per-kind `_UvBasis` GPU table, not in each instance.
+
 `CombatRenderResourceRegistry.ComputeUvBasis` derives it from the sprite's actual
-vertex→UV mapping: it classifies the bottom-left / bottom-right / top-left corners
-by local vertex position (BL minimizes x+y, BR maximizes x−y, TL maximizes y−x —
-exact for the 4-corner Full Rect sprites this atlas uses) and reads their real
-atlas UVs. This reproduces any packing rotation/flip so the sprite always renders
-upright.
+vertex-to-UV mapping: it classifies the bottom-left / bottom-right / top-left
+corners by local vertex position (BL minimizes x+y, BR maximizes x-y, TL
+maximizes y-x; exact for the 4-corner Full Rect sprites this atlas uses) and
+reads their real atlas UVs. This reproduces any packing rotation/flip so the
+sprite always renders upright.
 
-Two different "rotations" live in two different spaces and must not be confused:
+Two different rotations live in two different spaces and must not be confused:
 
-- **World orientation** is in the 4×4 `objectToWorld` matrix (velocity alignment +
+- **World orientation** is in the 4x4 `objectToWorld` matrix (velocity alignment +
   the prefab's authored `VisualRotationDegrees`). The prefab owns this.
 - **Atlas packing orientation** is in the UV basis. The renderer undoes it.
 
 Neither can do the other's job.
 
-## Critical constraints (hard-won; do not regress)
+## Critical Constraints
 
 - **The `Combat/AtlasIndirectSprite` shader must be in Always Included Shaders (or
   otherwise anchored).** `CombatRenderResourceRegistry.EnsureSharedResources` builds
   the material at runtime with `new Material(Shader.Find("Combat/AtlasIndirectSprite"))`.
-  Unity's build stripper only ships assets reachable through the **static reference
-  graph** (a scene/prefab/`.mat`/`Resources/` referencing it by GUID). A `Shader.Find`
+  Unity's build stripper only ships assets reachable through the static reference
+  graph (a scene/prefab/`.mat`/`Resources/` referencing it by GUID). A `Shader.Find`
   string lookup is invisible to that analysis, no `.mat` asset references this shader,
-  and it does not live in `Resources/` — so in a **player build** the shader is stripped,
-  `Shader.Find` returns `null`, `EnsureSharedResources` throws, and *the first
-  `Register(...)` call aborts skill/render setup so nothing spawns or draws*. Works fine
+  and it does not live in `Resources/`; in a player build the shader is stripped,
+  `Shader.Find` returns `null`, `EnsureSharedResources` throws, and the first
+  `Register(...)` call aborts skill/render setup so nothing spawns or draws. Works fine
   in the Editor (all assets loaded), fails only in builds. Fix: add the shader to
-  **Project Settings → Graphics → Always Included Shaders** (done — see
+  Project Settings > Graphics > Always Included Shaders (done; see
   `ProjectSettings/GraphicsSettings.asset`, guid `46d20b6f7f8d4e6b9a4fdb80abf1c395`).
   The shader is authored correctly; it is just undiscoverable by static analysis. A more
   precise alternative is to serialize a real `.mat` asset (pins exact variants and puts
   the shader back on the reference graph) instead of `Shader.Find`.
 - **URP 2D Renderer requires a RendererFeature + `Universal2D` LightMode.** The
-  active renderer is the URP 2D Renderer (`UniversalRP.asset` → `Renderer2D.asset`).
-  It only executes shader passes tagged `LightMode = Universal2D`, and it does
-  **not** execute immediate-mode `Graphics.RenderMesh*` render requests at all — the
-  draw must be recorded inside a `ScriptableRenderPass`. The
-  `Combat Indirect Render Feature` must be added to `Renderer2D.asset` in the
-  Inspector; without it, nothing draws.
-- **Indirect StructuredBuffer must be bound with `Material.SetBuffer`.** A
-  `GraphicsBuffer` set via `MaterialPropertyBlock` silently does not take effect for
-  indirect draws (known Unity behavior).
+  active renderer is the URP 2D Renderer (`UniversalRP.asset` > `Renderer2D.asset`).
+  It only executes shader passes tagged `LightMode = Universal2D`, and it does not
+  execute immediate-mode `Graphics.RenderMesh*` render requests at all; the draw must
+  be recorded inside a `ScriptableRenderPass`. The `Combat Indirect Render Feature`
+  must be added to `Renderer2D.asset` in the Inspector; without it, nothing draws.
+- **Indirect StructuredBuffers must be bound with `Material.SetBuffer`.** Both
+  `_InstanceData` and `_UvBasis` are set on the material this way. A `GraphicsBuffer`
+  set via `MaterialPropertyBlock` silently does not take effect for indirect draws
+  (known Unity behavior).
 - **Matrix uses `mul(M, v)`.** Unity `Matrix4x4` and HLSL are both column-major, so
   a `float4x4` read from a `StructuredBuffer` loads untransposed.
 - **UVs come from `sprite.uv` (+ `sprite.vertices`), never `sprite.rect`.** For a
   packed sprite, `sprite.rect` is in the original texture's space while
-  `sprite.texture` is the atlas page — mixing them yields out-of-range UVs.
-- **The atlas must be packed at runtime.** If it is not (e.g. a stale import after
-  changing packing settings), `SpriteAtlas.GetSprite(...)` returns sprites pointing
-  at their original **source** textures; binding one and sampling the rest produces
-  corrupted output. Keep `SpritePackerMode` at "Sprite Atlas V2 - Enabled"
+  `sprite.texture` is the atlas page; mixing them yields out-of-range UVs.
+- **The atlas must be packed at runtime.** If it is not (for example, a stale import
+  after changing packing settings), `SpriteAtlas.GetSprite(...)` returns sprites
+  pointing at their original source textures; binding one and sampling the rest
+  produces corrupted output. Keep `SpritePackerMode` at "Sprite Atlas V2 - Enabled"
   (`5`); reimport the atlas after changing its packing settings. Builds always pack.
-- **Single page is required.** One draw call binds one atlas texture, so every
-  combat sprite must pack onto one page (extra pages would force per-page draws +
-  bucketing). This is enforced by atlas authoring / Pack Preview, not by code — the
-  earlier per-registration "single page" reference-equality guard was removed
-  because it false-failed on the transient unpacked state above.
+- **Single page is required.** One draw call binds one atlas texture, so every combat
+  sprite must pack onto one page (extra pages would force per-page draws + bucketing).
+  This is enforced by atlas authoring / Pack Preview, not by code; the earlier
+  per-registration single-page reference-equality guard was removed because it
+  false-failed on the transient unpacked state above.
 
 Also: `RenderMeshInstanced` / `RenderMeshIndirect` (immediate) were both tried and
-abandoned here — the former cannot deliver per-instance UV data (its only
-per-instance channels are `objectToWorld`/`renderingLayerMask`/`prevObjectToWorld`;
-its `MaterialPropertyBlock` is uniform), and neither immediate call is executed by
-the 2D renderer. This is the same 2D-renderer incompatibility that ruled out
-Entities Graphics / BatchRendererGroup earlier.
+abandoned here. The former cannot deliver per-instance UV data (its only per-instance
+channels are `objectToWorld`/`renderingLayerMask`/`prevObjectToWorld`; its
+`MaterialPropertyBlock` is uniform), and neither immediate call is executed by the
+2D renderer. This is the same 2D-renderer incompatibility that ruled out Entities
+Graphics / BatchRendererGroup earlier.
 
-## Zero structural churn
+## Zero Structural Churn
 
 Adding indirect rendering added no ECS component to entities beyond the existing
 render components and changed no spawn/despawn/reuse structural behavior. Pool
 reuse/despawn still only flips the enableable `CombatRenderActiveTag` and rewrites
-value components. The GPU buffers are owned by `CombatBatchedRenderSystem` and
-disposed in `OnDestroy`; they reference no ECS memory.
+value components. The per-frame instance/args GPU buffers are owned by
+`CombatBatchedRenderSystem`; the static per-kind UV buffer is owned by
+`CombatRenderResourceRegistry`. They are disposed by their owners and reference no
+ECS memory.
 
-## Performance notes
+## Performance Notes
 
 - One `DrawMeshInstancedIndirect` per camera per update for all combat sprites, no
   1023 cap.
 - The scatter is a single main-thread active-only pass into one persistent
   `NativeList`; the instance buffer grows by doubling and never shrinks.
+- Per-instance upload is 68 bytes per active entity; static per-kind UV data is
+  uploaded only when the registry changes.
 - The ~13-24 ms idle-frame cost seen after busy scenes is **not** this system: it
   is `CompleteDependency()` syncing the non-shrinking idle simulation pool. See
   performance/idle-cost notes, not the render path.

@@ -15,9 +15,10 @@ namespace PlayGround.System.Common
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     public partial class CombatBatchedRenderSystem : SystemBase
     {
-        private const int InstanceDataStride = 96;
+        private const int InstanceDataStride = 68;
         private const int InitialInstanceCapacity = 1024;
         private static readonly int InstanceDataProperty = Shader.PropertyToID("_InstanceData");
+        private static readonly int UvBasisProperty = Shader.PropertyToID("_UvBasis");
         private static readonly ProfilerMarker WriteDirectWriteMarker = new("CombatBatchedRenderSystem.WriteDirect.Write");
         private static readonly ProfilerMarker WriteDirectMarker = new("CombatBatchedRenderSystem.WriteDirect");
         private EntityQuery renderQuery;
@@ -81,6 +82,7 @@ namespace PlayGround.System.Common
                 CombatIndirectRenderData.Clear();
                 return;
             }
+            GraphicsBuffer uvBasisBuffer = registry.EnsureUvBasisBuffer();
 
             _instanceData.Clear();
             EnsureInstanceCapacity(entityCount);
@@ -98,7 +100,7 @@ namespace PlayGround.System.Common
             _instanceBuffer.SetData(_instanceData.AsArray(), 0, 0, _instanceData.Length);
 
             PopulateArgs(registry, entityCount);
-            Submit(registry);
+            Submit(registry, uvBasisBuffer);
         }
 
         [BurstCompile]
@@ -144,9 +146,10 @@ namespace PlayGround.System.Common
             _argsBuffer.SetData(new[] { args });
         }
 
-        private void Submit(CombatRenderResourceRegistry registry)
+        private void Submit(CombatRenderResourceRegistry registry, GraphicsBuffer uvBasisBuffer)
         {
             registry.SharedMaterial.SetBuffer(InstanceDataProperty, _instanceBuffer);
+            registry.SharedMaterial.SetBuffer(UvBasisProperty, uvBasisBuffer);
             CombatIndirectRenderData.Publish(registry.SharedMesh, registry.SharedMaterial, _argsBuffer);
         }
     }

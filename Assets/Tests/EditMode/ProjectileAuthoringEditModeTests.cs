@@ -123,6 +123,33 @@ namespace PlayGround.Tests.EditMode
             Assert.That(SpawnTemplateHash.Of(in aoeC), Is.Not.EqualTo(SpawnTemplateHash.Of(in aoeA)));
         }
 
+        [Test]
+        public void CombatRenderComponent_PacksRenderIdAndAlignFlag()
+        {
+            var component = new CombatRenderComponent();
+
+            component.RenderTypeId = 42;
+            Assert.That(component.RenderMeta, Is.EqualTo(42));
+            Assert.That(component.AlignToVelocity, Is.EqualTo(0));
+            Assert.That(component.RenderTypeId, Is.EqualTo(42));
+            Assert.That(UnsafeUtility.SizeOf<CombatRenderComponent>(), Is.EqualTo(68));
+
+            component.AlignToVelocity = 1;
+            Assert.That(component.RenderMeta, Is.EqualTo(unchecked((int)0x8000002A)));
+            Assert.That(component.RenderTypeId, Is.EqualTo(42));
+            Assert.That(component.AlignToVelocity, Is.EqualTo(1));
+
+            component.RenderTypeId = 17;
+            Assert.That(component.RenderMeta, Is.EqualTo(unchecked((int)0x80000011)));
+            Assert.That(component.RenderTypeId, Is.EqualTo(17));
+            Assert.That(component.AlignToVelocity, Is.EqualTo(1));
+
+            component.AlignToVelocity = 0;
+            Assert.That(component.RenderMeta, Is.EqualTo(17));
+            Assert.That(component.RenderTypeId, Is.EqualTo(17));
+            Assert.That(component.AlignToVelocity, Is.EqualTo(0));
+        }
+
         private sealed class Vector2Comparer : IEqualityComparer<Vector2>
         {
             public static readonly Vector2Comparer Instance = new();

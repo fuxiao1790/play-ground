@@ -37,11 +37,17 @@ Shader "Combat/AtlasIndirectSprite"
             struct CombatInstanceData
             {
                 float4x4 objectToWorld;
-                float4 uvOriginU; // xy = origin, zw = U axis
-                float4 uvV;       // xy = V axis
+                uint renderMeta;
+            };
+
+            struct CombatUvBasis
+            {
+                float4 originU; // xy = origin, zw = U axis
+                float4 v;       // xy = V axis
             };
 
             StructuredBuffer<CombatInstanceData> _InstanceData;
+            StructuredBuffer<CombatUvBasis> _UvBasis;
 
             TEXTURE2D(_MainTex);
             SAMPLER(sampler_MainTex);
@@ -63,6 +69,8 @@ Shader "Combat/AtlasIndirectSprite"
             {
                 Varyings OUT = (Varyings)0;
                 CombatInstanceData inst = _InstanceData[IN.instanceID];
+                uint renderId = inst.renderMeta & 0x7FFFFFFFu;
+                CombatUvBasis basis = _UvBasis[renderId];
 
                 // Unity Matrix4x4 and HLSL are both column-major by default, so a float4x4 read
                 // from a StructuredBuffer loads untransposed — standard mul(M, v) applies.
@@ -70,7 +78,7 @@ Shader "Combat/AtlasIndirectSprite"
                 OUT.positionHCS = TransformWorldToHClip(worldPos);
                 // Affine UV basis: reproduces the sprite's real atlas UVs even if the packer rotated
                 // it 90°. IN.uv is the unit-quad 0..1 coordinate.
-                OUT.uv = inst.uvOriginU.xy + IN.uv.x * inst.uvOriginU.zw + IN.uv.y * inst.uvV.xy;
+                OUT.uv = basis.originU.xy + IN.uv.x * basis.originU.zw + IN.uv.y * basis.v.xy;
                 return OUT;
             }
 

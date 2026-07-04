@@ -18,7 +18,7 @@ namespace PlayGround.System.Common
 
         protected override void OnCreate()
         {
-            Assert.AreEqual(96, UnsafeUtility.SizeOf<CombatRenderComponent>());
+            Assert.AreEqual(68, UnsafeUtility.SizeOf<CombatRenderComponent>());
 
             renderPrepareQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CombatKinematicsComponent>()

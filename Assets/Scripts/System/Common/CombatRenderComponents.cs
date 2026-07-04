@@ -13,8 +13,7 @@ namespace PlayGround.System.Common
     public struct CombatRenderComponent : IComponentData
     {
         public Matrix4x4 objectToWorld; // 64 bytes; written by render prep and uploaded directly.
-        public Vector4 uvOriginU;       // 16 bytes: xy = origin, zw = U axis.
-        public Vector4 uvV;             // 16 bytes: xy = V axis, z = render id, w = align-to-velocity flag.
+        public int RenderMeta;          // bits 0..30 = render id; bit 31 = align-to-velocity flag.
 
         public int IsRenderable
         {
@@ -34,8 +33,10 @@ namespace PlayGround.System.Common
 
         public int AlignToVelocity
         {
-            readonly get => uvV.w != 0f ? 1 : 0;
-            set => uvV.w = value != 0 ? 1f : 0f;
+            readonly get => (RenderMeta >> 31) & 1;
+            set => RenderMeta = value != 0
+                ? RenderMeta | unchecked((int)0x80000000)
+                : RenderMeta & 0x7FFFFFFF;
         }
 
         public float2 VisualScale
@@ -64,26 +65,10 @@ namespace PlayGround.System.Common
             set => objectToWorld.m23 = value;
         }
 
-        public float4 UvOriginU
-        {
-            readonly get => new(uvOriginU.x, uvOriginU.y, uvOriginU.z, uvOriginU.w);
-            set => uvOriginU = new Vector4(value.x, value.y, value.z, value.w);
-        }
-
-        public float4 UvV
-        {
-            readonly get => new(uvV.x, uvV.y, uvV.z, uvV.w);
-            set => uvV = new Vector4(
-                value.x,
-                value.y,
-                value.z != 0f ? value.z : uvV.z,
-                value.w != 0f ? value.w : uvV.w);
-        }
-
         public int RenderTypeId
         {
-            readonly get => (int)uvV.z;
-            set => uvV.z = value;
+            readonly get => RenderMeta & 0x7FFFFFFF;
+            set => RenderMeta = (RenderMeta & unchecked((int)0x80000000)) | (value & 0x7FFFFFFF);
         }
 
         public void SetVisualTransform(
@@ -134,10 +119,18 @@ namespace PlayGround.System.Common
         public Vector4 UvV;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct CombatUvBasis
+    {
+        public Vector4 OriginU;
+        public Vector4 V;
+    }
+
     public sealed class CombatRenderResourceRegistry : IComponentData
     {
         public readonly Dictionary<int, CombatRenderResourceEntry> Entries = new();
         public const float BoundsHalfExtent = 100000f;
+        private const int UvBasisStride = 32;
 
         public Mesh SharedMesh { get; private set; }
         public Material SharedMaterial { get; private set; }
@@ -145,6 +138,8 @@ namespace PlayGround.System.Common
         public int Layer { get; private set; }
 
         private int _nextRenderId = 1;
+        private GraphicsBuffer _uvBasisBuffer;
+        private bool _uvDirty = true;
 
         public void ConfigureAtlas(SpriteAtlas atlas)
         {
@@ -187,17 +182,47 @@ namespace PlayGround.System.Common
                 UvOriginU = uvOriginU,
                 UvV = uvV
             };
+            _uvDirty = true;
             return renderId;
+        }
+
+        public GraphicsBuffer EnsureUvBasisBuffer()
+        {
+            if (!_uvDirty && _uvBasisBuffer != null)
+            {
+                return _uvBasisBuffer;
+            }
+
+            int count = _nextRenderId;
+            if (_uvBasisBuffer == null || _uvBasisBuffer.count < count)
+            {
+                _uvBasisBuffer?.Dispose();
+                _uvBasisBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, count, UvBasisStride);
+            }
+
+            CombatUvBasis[] data = new CombatUvBasis[count];
+            foreach (KeyValuePair<int, CombatRenderResourceEntry> pair in Entries)
+            {
+                int renderId = pair.Key;
+                if ((uint)renderId >= (uint)count) continue;
+
+                CombatRenderResourceEntry entry = pair.Value;
+                data[renderId] = new CombatUvBasis
+                {
+                    OriginU = entry.UvOriginU,
+                    V = entry.UvV
+                };
+            }
+
+            _uvBasisBuffer.SetData(data);
+            _uvDirty = false;
+            return _uvBasisBuffer;
         }
 
         public CombatRenderComponent GetProjectileRenderComponent(int renderId, int projectileId)
         {
             if (!Entries.TryGetValue(renderId, out CombatRenderResourceEntry entry)) return default;
-            var component = new CombatRenderComponent
-            {
-                UvOriginU = new float4(entry.UvOriginU.x, entry.UvOriginU.y, entry.UvOriginU.z, entry.UvOriginU.w),
-                UvV = new float4(entry.UvV.x, entry.UvV.y, entry.UvV.z, entry.UvV.w)
-            };
+            var component = new CombatRenderComponent();
             component.SetVisualTransform(
                 new float2(entry.VisualScale.x, entry.VisualScale.y),
                 entry.VisualRotationSin,
@@ -214,11 +239,7 @@ namespace PlayGround.System.Common
             if (!Entries.TryGetValue(renderId, out CombatRenderResourceEntry entry)) return default;
             float2 scale = new float2(geometry.VisualScale.x, geometry.VisualScale.y)
                 * new float2(entry.VisualScale.x, entry.VisualScale.y);
-            var component = new CombatRenderComponent
-            {
-                UvOriginU = new float4(entry.UvOriginU.x, entry.UvOriginU.y, entry.UvOriginU.z, entry.UvOriginU.w),
-                UvV = new float4(entry.UvV.x, entry.UvV.y, entry.UvV.z, entry.UvV.w)
-            };
+            var component = new CombatRenderComponent();
             component.SetVisualTransform(
                 scale,
                 geometry.VisualRotationSin,
@@ -233,12 +254,15 @@ namespace PlayGround.System.Common
         {
             if (SharedMaterial != null) UnityEngine.Object.Destroy(SharedMaterial);
             if (SharedMesh != null) UnityEngine.Object.Destroy(SharedMesh);
+            _uvBasisBuffer?.Dispose();
             SharedMaterial = null;
             SharedMesh = null;
+            _uvBasisBuffer = null;
             Atlas = null;
 
             Entries.Clear();
             _nextRenderId = 1;
+            _uvDirty = true;
         }
 
         private void EnsureSharedResources()
