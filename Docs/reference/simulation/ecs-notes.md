@@ -208,21 +208,24 @@ Projectile and AOE entities use disable-in-place pooling on the hot path:
    enableable tags instead of destroying entities.
 4. Later spawn-apply work reuses disabled slots before cold creation.
 5. `CombatPoolCleanupSystem` runs in `LateSimulationSystemGroup` and
-   permanently destroys only bounded excess disabled slots when both
-   frame-headroom gates pass.
+   permanently destroys disabled slots that sit in sparse chunks.
 
 Cleanup mirrors the current reuse pools: projectile, impact AOE, and lingering
 AOE. It does not key by `CombatRenderKindId`; that value is ordinary render
 component data on master, and spawn reuse overwrites it when a slot is claimed.
 
-For each pool:
+A Burst `IJobChunk` (scheduled parallel) counts enabled `Active` entities per
+chunk. When that count is below `ChunkActiveThreshold`, every disabled entity in
+the chunk is destroyed via an `EntityCommandBuffer.ParallelWriter`:
 
 ```text
-floor = max(RetentionTarget, ceil(active * PoolRatioMultiplier))
+trim chunk when activeCount < ChunkActiveThreshold
 ```
 
-Per-pool and per-frame caps keep the structural-change sync point small, and
-the floor prevents one calm frame from deleting below the reuse headroom line.
+Chunks at or above the threshold keep their disabled entities as a warm reuse
+buffer. There is no frame-time gate, retention floor, or per-frame delete cap:
+trimming starts the moment a chunk falls below the threshold, so a huge idle pool
+can drain in a single (potentially hitchy) command-buffer playback.
 
 ---
 

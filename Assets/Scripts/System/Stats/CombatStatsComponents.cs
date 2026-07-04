@@ -23,6 +23,8 @@ namespace PlayGround.System.Stats
     //   registered for (typeId, trigger), and that resource must still be under
     //   its max-per-frame cap. Blindly queued collision/lifetime/pulse requests
     //   with no registered visual do not contribute.
+    // - EntitiesDeleted mirrors CombatPoolCleanupSystem.LastDeletedCount: the pool
+    //   entities the trimmer destroyed on its last update this frame.
     // Producers write zero on no-work paths, so idle frames do not show stale
     // counts. This singleton is just the presentation snapshot; producers remain
     // the source of each per-frame value. CombatStatsGatherSystem only reads
@@ -36,6 +38,7 @@ namespace PlayGround.System.Stats
         public int ActiveAoes;
         public int HitEventsCreated;
         public int VfxEventsCreated;
+        public int EntitiesDeleted;
     }
 
     // ECS Lifecycle: managed singleton binding; created with the singleton entity;

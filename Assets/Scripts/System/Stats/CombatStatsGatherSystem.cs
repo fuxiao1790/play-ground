@@ -19,6 +19,7 @@ namespace PlayGround.System.Stats
         private LingeringAoeSpawnApplySystem _lingeringAoe;
         private CombatApplyFinalizeSingleSystem _finalize;
         private CombatVfxDispatchSystem _vfx;
+        private CombatPoolCleanupSystem _cleanup;
 
         protected override void OnCreate()
         {
@@ -81,6 +82,7 @@ namespace PlayGround.System.Stats
                 ActiveAoes = activeAoeRenderQuery.CalculateEntityCount(),
                 HitEventsCreated = _finalize?.LastHitEventCount ?? 0,
                 VfxEventsCreated = _vfx?.LastVfxEventCount ?? 0,
+                EntitiesDeleted = _cleanup?.LastDeletedCount ?? 0,
             };
 
             EntityManager.SetComponentData(_statsEntity, snapshot);
@@ -97,6 +99,7 @@ namespace PlayGround.System.Stats
             _lingeringAoe ??= World.GetExistingSystemManaged<LingeringAoeSpawnApplySystem>();
             _finalize ??= World.GetExistingSystemManaged<CombatApplyFinalizeSingleSystem>();
             _vfx ??= World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
+            _cleanup ??= World.GetExistingSystemManaged<CombatPoolCleanupSystem>();
         }
     }
 }

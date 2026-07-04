@@ -14,7 +14,6 @@ namespace PlayGround.Tests.PlayMode
         private World testWorld;
         private EntityManager entityManager;
         private CombatPoolCleanupSystem cleanupSystem;
-        private Entity clockEntity;
         private NativeHashMap<Hash128, ProjectileSpawnCommand> projectileTemplateMap;
         private Entity scopeEntity;
         private double elapsedTime;
@@ -25,9 +24,7 @@ namespace PlayGround.Tests.PlayMode
             testWorld = new World("CombatPoolCleanupSystemTest");
             entityManager = testWorld.EntityManager;
             cleanupSystem = testWorld.GetOrCreateSystemManaged<CombatPoolCleanupSystem>();
-            clockEntity = entityManager.CreateEntity(typeof(CombatFrameClock));
-            SetClock(smoothedMs: 0f);
-            SetConfig(Config(retentionTarget: 3, poolRatioMultiplier: 1f, perPoolDeleteCap: 4, maxDeletesPerFrame: 64));
+            SetConfig(new CombatPoolCleanupConfig { ChunkActiveThreshold = 4 });
         }
 
         [TearDown]
@@ -45,83 +42,59 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void DrainsDisabledProjectilePoolWhenIdleUntilFloor()
+        public void TrimsDisabledEntitiesInSparseChunk()
         {
-            CreateDisabledProjectiles(count: 10);
+            CreateActiveProjectiles(count: 3);
+            CreateDisabledProjectiles(count: 8);
 
             RunCleanup();
 
-            Assert.That(DisabledProjectileCount(), Is.EqualTo(6), "First frame is capped by PerPoolDeleteCap.");
-
-            RunCleanup();
-            RunCleanup();
-
-            Assert.That(DisabledProjectileCount(), Is.EqualTo(3), "Cleanup must converge to the retention floor, not zero.");
+            Assert.That(DisabledProjectileCount(), Is.EqualTo(0), "Sparse chunk sheds all its disabled entities.");
+            Assert.That(ActiveProjectileEntities().Length, Is.EqualTo(3), "Active entities are never destroyed.");
         }
 
         [Test]
-        public void SuppressedWhenSmoothedFrameGateFails()
+        public void RetainsDisabledEntitiesInBusyChunk()
         {
-            CreateDisabledProjectiles(count: 10);
-            SetConfig(Config(budgetMs: 1f, retentionTarget: 1, poolRatioMultiplier: 1f, perPoolDeleteCap: 10, maxDeletesPerFrame: 10));
-            SetClock(smoothedMs: 2f);
-
-            RunCleanup();
-
-            Assert.That(DisabledProjectileCount(), Is.EqualTo(10));
-        }
-
-        [Test]
-        public void SuppressedWhenCurrentFrameElapsedGateFails()
-        {
-            CreateDisabledProjectiles(count: 10);
-            SetConfig(Config(budgetMs: 1f, retentionTarget: 1, poolRatioMultiplier: 1f, perPoolDeleteCap: 10, maxDeletesPerFrame: 10));
-            SetClock(smoothedMs: 0f, frameStartOffsetMs: -10f);
-
-            RunCleanup();
-
-            Assert.That(DisabledProjectileCount(), Is.EqualTo(10));
-        }
-
-        [Test]
-        public void PerFrameGlobalCapBoundsDeletesAcrossPools()
-        {
-            SetConfig(Config(retentionTarget: 1, poolRatioMultiplier: 0f, perPoolDeleteCap: 10, maxDeletesPerFrame: 7));
-            CreateDisabledProjectiles(count: 10);
-            CreateDisabledImpactAoes(count: 10);
-
-            int before = TotalPooledCount();
-            RunCleanup();
-            int deleted = before - TotalPooledCount();
-
-            Assert.That(deleted, Is.GreaterThan(0));
-            Assert.That(deleted, Is.LessThanOrEqualTo(7));
-        }
-
-        [Test]
-        public void RetentionAndRatioFloorAreRespectedPerPool()
-        {
-            SetConfig(Config(retentionTarget: 3, poolRatioMultiplier: 4f, perPoolDeleteCap: 64, maxDeletesPerFrame: 64));
             CreateActiveProjectiles(count: 5);
-            CreateDisabledProjectiles(count: 4);
+            CreateDisabledProjectiles(count: 8);
 
             RunCleanup();
 
-            Assert.That(ProjectilePoolCount(), Is.EqualTo(9), "Ratio gate should block trim while active count is high.");
+            Assert.That(ActiveProjectileEntities().Length, Is.EqualTo(5));
+            Assert.That(DisabledProjectileCount(), Is.EqualTo(8),
+                "Chunk at/above the active threshold keeps its disabled reuse buffer.");
+        }
 
+        [Test]
+        public void FullyIdlePoolDrainsToZero()
+        {
+            CreateDisabledProjectiles(count: 10);
+
+            RunCleanup();
+
+            Assert.That(ProjectilePoolCount(), Is.EqualTo(0), "A pool with no active entities drains completely.");
+        }
+
+        [Test]
+        public void TrimsEverySparsePoolInOnePass()
+        {
+            CreateActiveProjectiles(count: 2);
+            CreateDisabledProjectiles(count: 6);
             CreateActiveImpactAoes(count: 2);
-            CreateDisabledImpactAoes(count: 20);
+            CreateDisabledImpactAoes(count: 6);
 
             RunCleanup();
 
+            Assert.That(DisabledProjectileCount(), Is.EqualTo(0));
+            Assert.That(DisabledImpactAoeCount(), Is.EqualTo(0));
+            Assert.That(ActiveProjectileEntities().Length, Is.EqualTo(2));
             Assert.That(ActiveImpactAoeCount(), Is.EqualTo(2));
-            Assert.That(DisabledImpactAoeCount(), Is.EqualTo(8), "Floor is max(retention, ceil(active * ratio)).");
         }
 
         [Test]
         public void ReuseClaimsDisabledSlotsBeforeCleanupDeletesExcess()
         {
-            SetConfig(Config(retentionTarget: 1, poolRatioMultiplier: 1f, perPoolDeleteCap: 64, maxDeletesPerFrame: 64));
             Entity[] originalSlots = CreateDisabledProjectiles(count: 10);
             SetupProjectileSpawnPipeline();
             EnqueueProjectileSpawn(count: 3);
@@ -135,13 +108,13 @@ namespace PlayGround.Tests.PlayMode
                 Assert.That(Contains(originalSlots, activeEntities[i]), Is.True, "Spawn must reuse a disabled slot before cleanup trims.");
             }
 
-            Assert.That(ProjectilePoolCount(), Is.EqualTo(6), "Three reused active slots plus the retention/ratio floor remain.");
+            Assert.That(ProjectilePoolCount(), Is.EqualTo(3),
+                "Three reused active slots survive; the remaining disabled slots are trimmed.");
         }
 
         [Test]
         public void ActiveProjectileContinuesToSimulateAfterDisabledPoolTrim()
         {
-            SetConfig(Config(retentionTarget: 1, poolRatioMultiplier: 0f, perPoolDeleteCap: 64, maxDeletesPerFrame: 64));
             Entity active = CreateMovableProjectile();
             CreateDisabledProjectiles(count: 10);
 
@@ -152,7 +125,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(entityManager.IsComponentEnabled<Active>(active), Is.True);
             CombatKinematicsComponent kinematics = entityManager.GetComponentData<CombatKinematicsComponent>(active);
             Assert.That(kinematics.Position.x, Is.EqualTo(0.5f).Within(0.0001f));
-            Assert.That(DisabledProjectileCount(), Is.EqualTo(1));
+            Assert.That(DisabledProjectileCount(), Is.EqualTo(0));
         }
 
         private void RunCleanup()
@@ -354,19 +327,9 @@ namespace PlayGround.Tests.PlayMode
             return copy;
         }
 
-        private int TotalPooledCount()
-        {
-            return ProjectilePoolCount() + ImpactAoePoolCount();
-        }
-
         private int ProjectilePoolCount()
         {
             return CountPooled(ProjectileQuery(), activeOnly: false, disabledOnly: false);
-        }
-
-        private int ImpactAoePoolCount()
-        {
-            return CountPooled(ImpactAoeQuery(), activeOnly: false, disabledOnly: false);
         }
 
         private int ActiveImpactAoeCount()
@@ -429,15 +392,6 @@ namespace PlayGround.Tests.PlayMode
                 .Build(entityManager);
         }
 
-        private void SetClock(float smoothedMs, float frameStartOffsetMs = 0f)
-        {
-            entityManager.SetComponentData(clockEntity, new CombatFrameClock
-            {
-                FrameStartTime = UnityEngine.Time.realtimeSinceStartupAsDouble + (frameStartOffsetMs / 1000.0),
-                SmoothedFrameMs = smoothedMs
-            });
-        }
-
         private void SetConfig(CombatPoolCleanupConfig config)
         {
             Entity configEntity = SystemAPIQuerySingleton<CombatPoolCleanupConfig>();
@@ -450,26 +404,6 @@ namespace PlayGround.Tests.PlayMode
             using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
             Assert.That(entities.Length, Is.EqualTo(1));
             return entities[0];
-        }
-
-        private static CombatPoolCleanupConfig Config(
-            float budgetMs = 100000f,
-            int retentionTarget = 3,
-            float poolRatioMultiplier = 1f,
-            int perPoolDeleteCap = 4,
-            int maxDeletesPerFrame = 64,
-            float sliceMs = 0f)
-        {
-            return new CombatPoolCleanupConfig
-            {
-                BudgetMs = budgetMs,
-                EmaAlpha = 0.1f,
-                RetentionTarget = retentionTarget,
-                PoolRatioMultiplier = poolRatioMultiplier,
-                PerPoolDeleteCap = perPoolDeleteCap,
-                MaxDeletesPerFrame = maxDeletesPerFrame,
-                SliceMs = sliceMs
-            };
         }
 
         private static bool Contains(Entity[] entities, Entity target)

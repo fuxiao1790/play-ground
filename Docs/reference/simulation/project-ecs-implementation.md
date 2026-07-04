@@ -99,23 +99,23 @@ reintroduce worker-lane command streams without a measured benefit.
 ## Pool Cleanup Scheduling
 
 `CombatPoolCleanupSystem` runs in `LateSimulationSystemGroup`, after the spawn
-apply systems have already claimed same-frame reusable slots. It first checks
-both frame-headroom gates:
+apply systems have already claimed same-frame reusable slots. A Burst-compiled
+`IJobChunk` scheduled with `ScheduleParallel` sweeps every reuse pool through one
+`IgnoreComponentEnabledState` query (`ProjectileTag`/`AoeTag` + `Active`), so each
+chunk carries its active and disabled entities together.
 
-- recent smoothed frame time is under budget
-- current-frame elapsed wall-clock time is still under budget
+Per chunk the job counts enabled `Active` entities. If that count is below
+`ChunkActiveThreshold`, the chunk is treated as sparse and every disabled entity
+in it is recorded for destruction on an `EntityCommandBuffer.ParallelWriter`.
+Chunks at or above the threshold keep their disabled entities as a warm reuse
+buffer whose size tracks current combat load. The system then completes the job,
+plays the command buffer back on the main thread at end of simulation (sync point
+isolated from the hot spawn/movement/collision/render-prep jobs), and disposes it.
 
-If either gate fails, cleanup does nothing. If both pass, it visits the three
-reuse pools with a rotating start index, counts active and disabled entities,
-and deletes only disabled excess above:
-
-```text
-max(RetentionTarget, ceil(active * PoolRatioMultiplier))
-```
-
-Deletes are capped per pool and per frame. The structural change happens on the
-main thread at the end of simulation, where the sync point is isolated from the
-hot spawn, movement, collision, and render-prep jobs.
+There is no frame-time gate (wall-clock frame time includes vsync/GPU sleep, so a
+calm scene falsely reads as over-budget) and no per-pool retention/ratio floor or
+per-frame delete cap; trimming begins as soon as a chunk drops below the active
+threshold.
 
 ---
 

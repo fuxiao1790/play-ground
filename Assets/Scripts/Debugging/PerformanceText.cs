@@ -64,7 +64,8 @@ public class PerformanceText : MonoBehaviour
             $"Projectiles:  {stats.ActiveProjectiles}\n" +
             $"AOEs:         {stats.ActiveAoes}\n" +
             $"Hit events:  {stats.HitEventsCreated}\n" +
-            $"VFX events:  {stats.VfxEventsCreated}";
+            $"VFX events:  {stats.VfxEventsCreated}\n" +
+            $"Deleted:     {stats.EntitiesDeleted}";
     }
 
     private void EnsureOverlayText()

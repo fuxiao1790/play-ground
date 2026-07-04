@@ -1,18 +1,35 @@
 using PlayGround.System.Aoe;
 using PlayGround.System.Projectile;
+using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Mathematics;
-using UnityEngine;
 
 namespace PlayGround.System.Common
 {
+    // ECS Lifecycle: singleton cleanup tunable; created by CombatPoolCleanupSystem on create.
+    public struct CombatPoolCleanupConfig : IComponentData
+    {
+        // A chunk has its disabled (pooled) entities destroyed when it holds fewer than
+        // this many active entities. Higher = more aggressive defrag / smaller reuse buffer.
+        // Chunks at or above the threshold keep their disabled entities as a warm reuse pool.
+        public int ChunkActiveThreshold;
+
+        public static CombatPoolCleanupConfig Default => new CombatPoolCleanupConfig
+        {
+            ChunkActiveThreshold = 32
+        };
+    }
+
     [UpdateInGroup(typeof(LateSimulationSystemGroup))]
     public partial class CombatPoolCleanupSystem : SystemBase
     {
-        private EntityQuery[] _allPoolQueries;
-        private EntityQuery[] _disabledPoolQueries;
-        private int _nextPoolStart;
+        private EntityQuery _poolQuery;
+        private EntityTypeHandle _entityHandle;
+        private ComponentTypeHandle<Active> _activeHandle;
+
+        // Pool entities destroyed on the last update; pulled by CombatStatsGatherSystem for the overlay.
+        internal int LastDeletedCount;
 
         protected override void OnCreate()
         {
@@ -22,170 +39,94 @@ namespace PlayGround.System.Common
                 EntityManager.SetComponentData(configEntity, CombatPoolCleanupConfig.Default);
             }
 
-            _allPoolQueries = new[]
-            {
-                BuildProjectileQuery(includeDisabledOnly: false),
-                BuildImpactAoeQuery(includeDisabledOnly: false),
-                BuildLingeringAoeQuery(includeDisabledOnly: false)
-            };
+            // One query spans every reuse pool (projectiles + both AOE archetypes). Chunks are
+            // already archetype-separated, so the per-chunk trim decision is pool-agnostic.
+            _poolQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<Active>()
+                .WithAny<ProjectileTag, AoeTag>()
+                .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
+                .Build(this);
 
-            _disabledPoolQueries = new[]
-            {
-                BuildProjectileQuery(includeDisabledOnly: true),
-                BuildImpactAoeQuery(includeDisabledOnly: true),
-                BuildLingeringAoeQuery(includeDisabledOnly: true)
-            };
+            _entityHandle = GetEntityTypeHandle();
+            _activeHandle = GetComponentTypeHandle<Active>(true);
         }
 
         protected override void OnUpdate()
         {
+            LastDeletedCount = 0;
+
+            if (_poolQuery.IsEmpty)
+            {
+                return;
+            }
+
             CombatPoolCleanupConfig cfg = SystemAPI.GetSingleton<CombatPoolCleanupConfig>();
-            CombatFrameClock clock = SystemAPI.GetSingleton<CombatFrameClock>();
 
-            if (clock.SmoothedFrameMs > 0f && clock.SmoothedFrameMs >= cfg.BudgetMs)
+            _entityHandle.Update(this);
+            _activeHandle.Update(this);
+
+            // Only disabled entities are destroyed and nothing else mutates the pool mid-update,
+            // so the drop in total pool count equals the number deleted.
+            int before = _poolQuery.CalculateEntityCount();
+
+            EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.TempJob);
+
+            Dependency = new PoolTrimJob
             {
-                return;
-            }
+                EntityHandle = _entityHandle,
+                ActiveHandle = _activeHandle,
+                ActiveThreshold = cfg.ChunkActiveThreshold,
+                Ecb = ecb.AsParallelWriter()
+            }.ScheduleParallel(_poolQuery, Dependency);
 
-            double now = UnityEngine.Time.realtimeSinceStartupAsDouble;
-            double elapsedMs = (now - clock.FrameStartTime) * 1000.0;
-            if (elapsedMs >= cfg.BudgetMs)
+            Dependency.Complete();
+            ecb.Playback(EntityManager);
+            ecb.Dispose();
+
+            LastDeletedCount = before - _poolQuery.CalculateEntityCount();
+        }
+
+        [BurstCompile]
+        private struct PoolTrimJob : IJobChunk
+        {
+            [ReadOnly] public EntityTypeHandle EntityHandle;
+            [ReadOnly] public ComponentTypeHandle<Active> ActiveHandle;
+            public int ActiveThreshold;
+            public EntityCommandBuffer.ParallelWriter Ecb;
+
+            public void Execute(
+                in ArchetypeChunk chunk,
+                int unfilteredChunkIndex,
+                bool useEnabledMask,
+                in v128 chunkEnabledMask)
             {
-                return;
-            }
+                EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
 
-            CompleteDependency();
-
-            int remaining = math.max(0, cfg.MaxDeletesPerFrame);
-            if (remaining <= 0)
-            {
-                return;
-            }
-
-            double sliceStart = UnityEngine.Time.realtimeSinceStartupAsDouble;
-            int start = _nextPoolStart % _allPoolQueries.Length;
-            int visited = 0;
-
-            for (int offset = 0; offset < _allPoolQueries.Length; offset++)
-            {
-                if (remaining <= 0)
+                int count = chunk.Count;
+                int activeCount = 0;
+                for (int i = 0; i < count; i++)
                 {
-                    break;
+                    if (activeMask[i])
+                    {
+                        activeCount++;
+                    }
                 }
 
-                int poolIndex = (start + offset) % _allPoolQueries.Length;
-                CountPool(_allPoolQueries[poolIndex], out int active, out int disabled);
-                visited++;
-
-                int deleted = TryTrimPool(
-                    _disabledPoolQueries[poolIndex],
-                    active,
-                    disabled,
-                    cfg,
-                    remaining);
-                remaining -= deleted;
-
-                if (cfg.SliceMs > 0f)
+                // Busy chunk: leave its disabled entities as a warm reuse buffer.
+                if (activeCount >= ActiveThreshold)
                 {
-                    double sliceElapsedMs = (UnityEngine.Time.realtimeSinceStartupAsDouble - sliceStart) * 1000.0;
-                    if (sliceElapsedMs >= cfg.SliceMs)
+                    return;
+                }
+
+                NativeArray<Entity> entities = chunk.GetNativeArray(EntityHandle);
+                for (int i = 0; i < count; i++)
+                {
+                    if (!activeMask[i])
                     {
-                        break;
+                        Ecb.DestroyEntity(unfilteredChunkIndex, entities[i]);
                     }
                 }
             }
-
-            _nextPoolStart = (_nextPoolStart + math.max(1, visited)) % _allPoolQueries.Length;
-        }
-
-        private EntityQuery BuildProjectileQuery(bool includeDisabledOnly)
-        {
-            EntityQueryBuilder builder = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<ProjectileTag>();
-
-            return BuildPoolQuery(builder, includeDisabledOnly);
-        }
-
-        private EntityQuery BuildImpactAoeQuery(bool includeDisabledOnly)
-        {
-            EntityQueryBuilder builder = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<AoeTag>()
-                .WithNone<CombatLifetimeComponent>();
-
-            return BuildPoolQuery(builder, includeDisabledOnly);
-        }
-
-        private EntityQuery BuildLingeringAoeQuery(bool includeDisabledOnly)
-        {
-            EntityQueryBuilder builder = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<AoeTag>()
-                .WithAll<CombatLifetimeComponent>();
-
-            return BuildPoolQuery(builder, includeDisabledOnly);
-        }
-
-        private EntityQuery BuildPoolQuery(EntityQueryBuilder builder, bool includeDisabledOnly)
-        {
-            if (includeDisabledOnly)
-            {
-                return builder
-                    .WithDisabled<Active>()
-                    .Build(this);
-            }
-
-            return builder
-                .WithAll<Active>()
-                .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
-                .Build(this);
-        }
-
-        private void CountPool(EntityQuery query, out int active, out int disabled)
-        {
-            active = 0;
-            disabled = 0;
-            using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
-            for (int i = 0; i < entities.Length; i++)
-            {
-                if (EntityManager.IsComponentEnabled<Active>(entities[i]))
-                {
-                    active++;
-                }
-                else
-                {
-                    disabled++;
-                }
-            }
-        }
-
-        private int TryTrimPool(
-            EntityQuery disabledQuery,
-            int active,
-            int disabled,
-            CombatPoolCleanupConfig cfg,
-            int remaining)
-        {
-            float ratioFloor = active * cfg.PoolRatioMultiplier;
-            if (disabled <= cfg.RetentionTarget || disabled <= ratioFloor)
-            {
-                return 0;
-            }
-
-            int floor = math.max(cfg.RetentionTarget, (int)math.ceil(ratioFloor));
-            int cap = math.min(cfg.PerPoolDeleteCap, remaining);
-            int toDelete = math.clamp(disabled - floor, 0, cap);
-            if (toDelete <= 0)
-            {
-                return 0;
-            }
-
-            using NativeArray<Entity> entities = disabledQuery.ToEntityArray(Allocator.Temp);
-            int deleteCount = math.min(toDelete, entities.Length);
-            if (deleteCount > 0)
-            {
-                EntityManager.DestroyEntity(entities.GetSubArray(0, deleteCount));
-            }
-
-            return deleteCount;
         }
     }
 }
