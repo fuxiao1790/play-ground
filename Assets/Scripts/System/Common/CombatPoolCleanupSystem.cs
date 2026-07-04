@@ -18,7 +18,7 @@ namespace PlayGround.System.Common
 
         public static CombatPoolCleanupConfig Default => new CombatPoolCleanupConfig
         {
-            ChunkActiveThresholdPercent = 50f
+            ChunkActiveThresholdPercent = 20f
         };
     }
 

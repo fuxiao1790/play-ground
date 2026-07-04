@@ -58,14 +58,14 @@ public class PerformanceText : MonoBehaviour
         smoothedDeltaTime += (Time.unscaledDeltaTime - smoothedDeltaTime) * 0.1f;
         float fps = smoothedDeltaTime > 0f ? 1f / smoothedDeltaTime : 0f;
         text.text =
-            $"FPS: {fps:0}\n" +
-            $"Spawn ECB:   {stats.EntitiesSpawnedViaEcb}\n" +
-            $"Spawn reuse: {stats.EntitiesSpawnedViaReuse}\n" +
+            $"FPS:          {fps:0}\n" +
+            $"Spawn reuse:  {stats.EntitiesSpawnedViaReuse}\n" +
+            $"Create ECB:   {stats.EntitiesSpawnedViaEcb}\n" +
+            $"Delete ECB:   {stats.EntitiesDeleted}\n" +
             $"Projectiles:  {stats.ActiveProjectiles}\n" +
             $"AOEs:         {stats.ActiveAoes}\n" +
-            $"Hit events:  {stats.HitEventsCreated}\n" +
-            $"VFX events:  {stats.VfxEventsCreated}\n" +
-            $"Deleted:     {stats.EntitiesDeleted}";
+            $"Hit events:   {stats.HitEventsCreated}\n" +
+            $"VFX events:   {stats.VfxEventsCreated}\n";
     }
 
     private void EnsureOverlayText()

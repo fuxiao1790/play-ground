@@ -24,7 +24,7 @@ namespace PlayGround.Tests.PlayMode
             testWorld = new World("CombatPoolCleanupSystemTest");
             entityManager = testWorld.EntityManager;
             cleanupSystem = testWorld.GetOrCreateSystemManaged<CombatPoolCleanupSystem>();
-            SetConfig(new CombatPoolCleanupConfig { ChunkActiveThreshold = 4 });
+            SetConfig(new CombatPoolCleanupConfig { ChunkActiveThresholdPercent = 40f });
         }
 
         [TearDown]
