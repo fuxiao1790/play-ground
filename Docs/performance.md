@@ -40,6 +40,9 @@ Simulation:
 - spatial partitioning for broad-phase target queries
 - callbacks replayed after simulation
 - Jobs/Burst for high-volume projectile work
+- projectile and AOE despawn stays disable-in-place on the hot path; disabled
+  pools are reclaimed later by a bounded end-of-simulation cleanup system only
+  when frame-time headroom exists
 
 Visuals:
 
@@ -104,11 +107,15 @@ Projectiles:
 - `CombatRoot` exposes active count, spawn/despawn totals, hit event count,
   simulation milliseconds, and render milliseconds
 - performance target: about 50k projectiles on screen with 20 targets at 120 fps
+- retained disabled projectile pools should drain gradually after spikes without
+  deleting below the configured retention or active-ratio floor
 
 AOEs:
 
 - many AOEs need spatial hash target queries
 - visuals must be optional, pooled, or batched
+- retained disabled AOE pools follow the same bounded cleanup rule as
+  projectiles, split by impact and lingering reuse pools
 
 Beams and lasers:
 

@@ -198,6 +198,34 @@ See [project-ecs-implementation.md](./project-ecs-implementation.md) for project
 
 ---
 
+## Project Combat Pool Cleanup
+
+Projectile and AOE entities use disable-in-place pooling on the hot path:
+
+1. Spawn-apply systems query disabled slots with `WithDisabled<Active>()`.
+2. Underwarmed pools cold-create entities into reusable archetypes.
+3. Expiry and collision systems disable `Active` and matching collision/render
+   enableable tags instead of destroying entities.
+4. Later spawn-apply work reuses disabled slots before cold creation.
+5. `CombatPoolCleanupSystem` runs in `LateSimulationSystemGroup` and
+   permanently destroys only bounded excess disabled slots when both
+   frame-headroom gates pass.
+
+Cleanup mirrors the current reuse pools: projectile, impact AOE, and lingering
+AOE. It does not key by `CombatRenderBatchId`; that value is ordinary render
+component data on master, and spawn reuse overwrites it when a slot is claimed.
+
+For each pool:
+
+```text
+floor = max(RetentionTarget, ceil(active * PoolRatioMultiplier))
+```
+
+Per-pool and per-frame caps keep the structural-change sync point small, and
+the floor prevents one calm frame from deleting below the reuse headroom line.
+
+---
+
 ## Frame Timing for Structural Changes
 
 Recommended phase structure:

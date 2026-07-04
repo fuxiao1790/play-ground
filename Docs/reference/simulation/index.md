@@ -53,8 +53,10 @@ Use this split:
 4. Combat apply/finalize systems aggregate health, status, and result data.
 5. Spawn expansion systems drain managed and ECS-produced events into commands.
 6. Apply systems reuse disabled slots before cold-creating overflow entities.
-7. Render preparation writes batched sprite matrices.
-8. Presentation systems dispatch combat results, VFX, and render batches.
+7. End-of-simulation cleanup may trim bounded excess disabled pool slots when
+   frame headroom exists.
+8. Render preparation writes batched sprite matrices.
+9. Presentation systems dispatch combat results, VFX, and render batches.
 
 Newly applied projectiles and AOEs do not move or collide until the next
 simulation update because apply runs after collision.
@@ -65,6 +67,8 @@ simulation update because apply runs after collision.
 - Put detailed runtime behavior in the specific aspect doc.
 - Keep spawn intent separate from allocation intent.
 - Keep hot despawn as enable/disable, not destroy/create.
+- Keep pool cleanup bounded, after spawn apply, and keyed by reuse pool rather
+  than render kind.
 - Require domain tags such as `ProjectileTag` and `AoeTag` on domain systems.
 - Do not treat `Active`, common components, or scope membership as domain or
   faction.

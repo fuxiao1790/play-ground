@@ -13,6 +13,9 @@ This document tracks implementation decisions, patterns, and current architectur
   components alone.
 - Runtime despawn disables `Active`; it does not destroy projectile entities
   during normal churn.
+- End-of-simulation cleanup may later destroy bounded excess disabled slots
+  when frame headroom exists and the projectile pool is above its retention and
+  active-ratio floor.
 - `CombatLifetimeSystem` and `ProjectileCollisionSystem` disable `Active` when a
   projectile leaves play.
 - `ProjectileSpawnExpansionSystem` expands `ProjectileSpawnEvent` into
@@ -40,6 +43,9 @@ This document tracks implementation decisions, patterns, and current architectur
   `CombatLifetimeComponent`, and generic `Active`. AOE systems must query
   `AoeTag`, never common combat components or scope membership alone.
 - Runtime despawn disables `Active`.
+- End-of-simulation cleanup may later destroy bounded excess disabled slots
+  when frame headroom exists. Impact and lingering AOEs are evaluated as
+  separate reuse pools because their archetypes differ.
 - `AoeSpawnExpansionSystem` expands `AoeSpawnEvent` into one-entity
   `AoeSpawnCommand` values.
 - `ImpactAoeSpawnApplySystem` queries `WithAll<AoeTag>()`,
@@ -87,6 +93,29 @@ frame.
 or cold fallback dominates frame time. The next lever should preserve the
 single source of truth for command order and disabled-slot ownership; do not
 reintroduce worker-lane command streams without a measured benefit.
+
+---
+
+## Pool Cleanup Scheduling
+
+`CombatPoolCleanupSystem` runs in `LateSimulationSystemGroup`, after the spawn
+apply systems have already claimed same-frame reusable slots. It first checks
+both frame-headroom gates:
+
+- recent smoothed frame time is under budget
+- current-frame elapsed wall-clock time is still under budget
+
+If either gate fails, cleanup does nothing. If both pass, it visits the three
+reuse pools with a rotating start index, counts active and disabled entities,
+and deletes only disabled excess above:
+
+```text
+max(RetentionTarget, ceil(active * PoolRatioMultiplier))
+```
+
+Deletes are capped per pool and per frame. The structural change happens on the
+main thread at the end of simulation, where the sync point is isolated from the
+hot spawn, movement, collision, and render-prep jobs.
 
 ---
 
