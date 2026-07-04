@@ -101,8 +101,7 @@ namespace PlayGround.System.Common
         private EntityQuery BuildProjectileQuery(bool includeDisabledOnly)
         {
             EntityQueryBuilder builder = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<ProjectileTag>()
-                .WithAll<Active>();
+                .WithAll<ProjectileTag>();
 
             return BuildPoolQuery(builder, includeDisabledOnly);
         }
@@ -111,7 +110,6 @@ namespace PlayGround.System.Common
         {
             EntityQueryBuilder builder = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<AoeTag>()
-                .WithAll<Active>()
                 .WithNone<CombatLifetimeComponent>();
 
             return BuildPoolQuery(builder, includeDisabledOnly);
@@ -121,8 +119,7 @@ namespace PlayGround.System.Common
         {
             EntityQueryBuilder builder = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<AoeTag>()
-                .WithAll<CombatLifetimeComponent>()
-                .WithAll<Active>();
+                .WithAll<CombatLifetimeComponent>();
 
             return BuildPoolQuery(builder, includeDisabledOnly);
         }
@@ -137,6 +134,7 @@ namespace PlayGround.System.Common
             }
 
             return builder
+                .WithAll<Active>()
                 .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
                 .Build(this);
         }

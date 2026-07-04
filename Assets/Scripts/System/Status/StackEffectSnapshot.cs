@@ -31,6 +31,7 @@ namespace PlayGround.System.Common
     {
         public int DebuffKey;
         public int Threshold;
+        public int StacksPerHit;
         public float Lifetime;
         public StackContribution Contribution;
         public CombatFaction Faction;

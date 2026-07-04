@@ -780,6 +780,7 @@ namespace PlayGround.Skills
             {
                 DebuffKey = stacking.DebuffKey,
                 Threshold = threshold,
+                StacksPerHit = Mathf.Max(1, stacking.StacksPerHit),
                 Lifetime = Mathf.Max(0f, stacking.DebuffLifetimeSeconds),
                 Contribution = new StackContribution
                 {
@@ -807,6 +808,7 @@ namespace PlayGround.Skills
             {
                 DebuffKey = stacking.DebuffKey,
                 Threshold = threshold,
+                StacksPerHit = Mathf.Max(1, stacking.StacksPerHit),
                 Lifetime = Mathf.Max(0f, stacking.DebuffLifetimeSeconds),
                 Contribution = new StackContribution
                 {

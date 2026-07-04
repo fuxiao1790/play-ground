@@ -840,6 +840,50 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void StatusProcessStacksPerHitBanksTowardThreshold()
+        {
+            AddTarget(float2.zero, 0.25f, 1);
+            TestCombatTarget target = targetsById[nextTargetId];
+
+            StackEffectSnapshot stack = StackEffect(
+                debuffKey: 120, threshold: 3, lifetime: 10f, damage: 2f, area: 1f, detonationTypeId: 7);
+            stack.StacksPerHit = 2;
+
+            // Hit 1 banks 2 stacks (< 3): no detonation yet.
+            QueueStackHit(target.Proxy, stack);
+            TickStatusPipelineOnly(0f);
+            Assert.That(ReadStackEntry(target.Proxy, 120).Count, Is.EqualTo(2));
+            Assert.That(AoeEventQueue().Count, Is.EqualTo(0));
+
+            // Hit 2 banks to 4 (>= 3): detonates in two hits, not three. One full
+            // threshold is consumed and the sub-threshold remainder stays banked.
+            QueueStackHit(target.Proxy, stack);
+            TickStatusPipelineOnly(0f);
+            Assert.That(AoeEventQueue().Count, Is.EqualTo(1));
+            Assert.That(ReadStackEntry(target.Proxy, 120).Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void StatusProcessBurstFiresOneDetonationPerThresholdSameFrame()
+        {
+            AddTarget(float2.zero, 0.25f, 1);
+            TestCombatTarget target = targetsById[nextTargetId];
+
+            // Four applicator hits land in one frame at threshold 2 => two full
+            // detonations fire the same frame instead of one with the overflow lost.
+            for (int i = 0; i < 4; i++)
+            {
+                QueueStackHit(target.Proxy, StackEffect(
+                    debuffKey: 121, threshold: 2, lifetime: 10f, damage: 2f, area: 1f, detonationTypeId: 7));
+            }
+
+            TickStatusPipelineOnly(0f);
+
+            Assert.That(AoeEventQueue().Count, Is.EqualTo(2));
+            Assert.That(TryReadStackEntry(target.Proxy, 121, out _), Is.False);
+        }
+
+        [Test]
         public void StatusPushFiresOnlyWhenStackChanges()
         {
             AddTarget(float2.zero, 0.25f, 1);

@@ -299,7 +299,7 @@ namespace PlayGround.System.Common
 
                 TargetStackEntry entry = stackEntries[entryIndex];
                 entry.Threshold = math.max(1, stack.Threshold);
-                entry.Count++;
+                entry.Count += math.max(1, stack.StacksPerHit);
                 entry.LastAccruedFrame = accrualFrame;
                 entry.SummedDamage += stack.Contribution.Damage;
                 entry.SummedProjectileCount += stack.Contribution.ProjectileCount;

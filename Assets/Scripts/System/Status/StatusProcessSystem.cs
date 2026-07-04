@@ -14,7 +14,11 @@ namespace PlayGround.System.Common
     [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
     public partial class StatusProcessSystem : SystemBase
     {
-        private const int MaxTargetStackEntries = 32;
+        // A target that banks well past threshold in one frame detonates once per
+        // threshold's worth of stacks, all in the same frame. This caps how many
+        // detonations one target can emit per frame so the reserved id block stays
+        // bounded and spawn ids stay unique; overflow rolls to the next frame.
+        private const int MaxDetonationsPerTarget = 256;
 
         private EntityQuery targetStackQuery;
         private int nextAoeId = 1;
@@ -92,7 +96,7 @@ namespace PlayGround.System.Common
 
         private static int ReserveIdBlock(ref int nextId, int entityCount)
         {
-            int blockSize = math.max(1, entityCount * MaxTargetStackEntries);
+            int blockSize = math.max(1, entityCount * MaxDetonationsPerTarget);
             if (nextId <= 0 || nextId > int.MaxValue - blockSize)
             {
                 nextId = 1;
@@ -140,11 +144,28 @@ namespace PlayGround.System.Common
                     int threshold = math.max(1, entry.Threshold);
                     if (entry.Count >= threshold)
                     {
-                        int localId = entityIndexInQuery * MaxTargetStackEntries + localDetonationIndex;
-                        BuildDetonationSpawn(entry, targetPosition.Value, localId, targetKey);
-                        stackEntries.RemoveAt(i);
-                        localDetonationIndex++;
-                        continue;
+                        // One detonation per full threshold banked. All fire this frame;
+                        // sub-threshold remainder stays banked for the next hit/detonation.
+                        int bursts = entry.Count / threshold;
+                        int budget = MaxDetonationsPerTarget - localDetonationIndex;
+                        if (bursts > budget)
+                        {
+                            bursts = budget;
+                        }
+
+                        for (int b = 0; b < bursts; b++)
+                        {
+                            int localId = entityIndexInQuery * MaxDetonationsPerTarget + localDetonationIndex;
+                            BuildDetonationSpawn(entry, targetPosition.Value, localId, targetKey);
+                            localDetonationIndex++;
+                        }
+
+                        entry.Count -= bursts * threshold;
+                        if (entry.Count <= 0)
+                        {
+                            stackEntries.RemoveAt(i);
+                            continue;
+                        }
                     }
 
                     stackEntries[i] = entry;

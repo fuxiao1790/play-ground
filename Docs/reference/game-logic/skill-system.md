@@ -896,10 +896,18 @@ The applicator remains a plain `RuntimeProjectileDefinition` or
 stacking detonation runtime.
 
 **Contribution model.** With `stackThreshold = 5` and `stacksPerHit = 1`, each
-applicator hit banks `1/5` of the detonation's damage and area. With
-`stacksPerHit = 2`, each hit banks `2/5`. At threshold the detonation fires the
-summed total, so stat changes mid-build apply per stack and stay correct across
-support or set swaps.
+applicator hit banks one stack, so five hits reach the threshold. With
+`stacksPerHit = 2`, each hit banks two stacks, so the threshold is reached in
+`ceil(5/2) = 3` hits. At threshold the detonation fires the summed total, so stat
+changes mid-build apply per stack and stay correct across support or set swaps.
+
+**Burst detonation.** Accrual and threshold detonation run in separate systems,
+so a target can bank several thresholds' worth of stacks in one frame (a dense
+applicator volley, or `stacksPerHit` overshoot). `StatusProcessSystem` fires one
+detonation per full threshold banked, all in the same frame — `floor(count /
+threshold)` detonations — and keeps the sub-threshold remainder banked for the
+next hit. This is capped per target per frame so detonation spawn ids stay
+bounded and unique; overflow beyond the cap rolls to the next frame.
 
 **Composition.** To chain after a detonation AOE, put a normal AOE trigger after
 the detonation set and then wire the next applicator to its own stacking set:
