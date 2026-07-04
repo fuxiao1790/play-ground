@@ -110,10 +110,7 @@ namespace PlayGround.System.Common
             public void Execute(in ArchetypeChunk chunk, int _, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 NativeArray<CombatRenderComponent> components = chunk.GetNativeArray(ref ComponentHandle);
-                for (int i = 0; i < components.Length; i++)
-                {
-                    InstanceData.Add(components[i]);
-                }
+                InstanceData.AddRange(components);
             }
         }
 
