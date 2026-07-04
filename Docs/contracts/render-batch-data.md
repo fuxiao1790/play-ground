@@ -21,7 +21,7 @@ Current render data includes:
 - `CombatRenderComponent` (the prepared `objectToWorld` TRS matrix plus packed
   `RenderMeta`: render id in bits 0..30, align-to-velocity in bit 31)
 - `CombatRenderActiveTag`
-- `CombatRenderBatchId`
+- `CombatRenderKindId`
 - `CombatInstanceData` - the per-instance GPU record (`objectToWorld` +
   `RenderMeta`, stride 68), scattered directly from `CombatRenderComponent` and
   uploaded to `_InstanceData`
@@ -33,7 +33,7 @@ Current render data includes:
 See [Combat Render System](../reference/simulation/combat-render-system.md) for
 the full submission design.
 
-`CombatRenderBatchId` is a plain `IComponentData` int, copied from the spawn
+`CombatRenderKindId` is a plain `IComponentData` int, copied from the spawn
 command's `RenderTypeId`. It is a kind identifier only; it does not partition
 chunks and does not partition spawn pools. The same render id is packed into
 `CombatRenderComponent.RenderMeta`, and the shader masks it out to index the
@@ -71,8 +71,8 @@ and no 1023-instance cap. The draw is recorded inside a URP
 Render state must not define gameplay domain or faction by itself. Domain still
 comes from `ProjectileTag` or `AoeTag`; faction comes from `CombatFaction`.
 
-Spawn pooling must not key on `CombatRenderBatchId`. Reuse can claim any disabled
-slot in the matching archetype and must overwrite the batch id from the current
+Spawn pooling must not key on `CombatRenderKindId`. Reuse can claim any disabled
+slot in the matching archetype and must overwrite the kind id from the current
 spawn command.
 
 ## Lifetime

@@ -412,14 +412,14 @@ namespace PlayGround.Tests.PlayMode
             SpawnCircle(float2.zero, 1f, 1f, renderTypeId: FirstRenderType);
             Tick(0.01f);
             Entity first = FirstAoeEntity();
-            Assert.That(entityManager.GetComponentData<CombatRenderBatchId>(first).Value, Is.EqualTo(FirstRenderType));
+            Assert.That(entityManager.GetComponentData<CombatRenderKindId>(first).Value, Is.EqualTo(FirstRenderType));
 
             SpawnCircle(float2.zero, 1f, 1f, renderTypeId: SecondRenderType);
             Tick(0.01f);
             Entity reused = FirstAoeEntity();
 
             Assert.That(reused, Is.EqualTo(first));
-            Assert.That(entityManager.GetComponentData<CombatRenderBatchId>(reused).Value, Is.EqualTo(SecondRenderType));
+            Assert.That(entityManager.GetComponentData<CombatRenderKindId>(reused).Value, Is.EqualTo(SecondRenderType));
             Assert.That(TotalAoeCount(), Is.EqualTo(1));
         }
 
@@ -1356,7 +1356,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(AoeHitSpawnComponent),
                 typeof(AoeAreaComponent),
                 typeof(CombatRenderComponent),
-                typeof(CombatRenderBatchId),
+                typeof(CombatRenderKindId),
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
                 typeof(Active),
@@ -1380,7 +1380,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(AoeAreaComponent),
                 typeof(AoePulseVfxComponent),
                 typeof(CombatRenderComponent),
-                typeof(CombatRenderBatchId),
+                typeof(CombatRenderKindId),
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
                 typeof(Active),

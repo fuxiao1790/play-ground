@@ -36,7 +36,7 @@ namespace PlayGround.System.Aoe
                 typeof(AoeHitSpawnComponent),
                 typeof(AoeAreaComponent),
                 typeof(CombatRenderComponent),
-                typeof(CombatRenderBatchId),
+                typeof(CombatRenderKindId),
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
                 typeof(Active),
@@ -101,7 +101,7 @@ namespace PlayGround.System.Aoe
                         HitSpawnHandle = GetComponentTypeHandle<AoeHitSpawnComponent>(false),
                         AreaHandle = GetComponentTypeHandle<AoeAreaComponent>(false),
                         RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
-                        RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderBatchId>(false),
+                        RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderKindId>(false),
                     }.Schedule(default).Complete();
 
                     reuseCount = reused.Value;
@@ -143,7 +143,7 @@ namespace PlayGround.System.Aoe
             public ComponentTypeHandle<AoeHitSpawnComponent> HitSpawnHandle;
             public ComponentTypeHandle<AoeAreaComponent> AreaHandle;
             public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
-            public ComponentTypeHandle<CombatRenderBatchId> RenderBatchIdHandle;
+            public ComponentTypeHandle<CombatRenderKindId> RenderBatchIdHandle;
 
             public void Execute()
             {
@@ -171,7 +171,7 @@ namespace PlayGround.System.Aoe
                     NativeArray<AoeAreaComponent> areas = chunk.GetNativeArray(ref AreaHandle);
                     NativeArray<CombatRenderComponent> renders =
                         chunk.GetNativeArray(ref RenderHandle);
-                    NativeArray<CombatRenderBatchId> batchIds =
+                    NativeArray<CombatRenderKindId> batchIds =
                         chunk.GetNativeArray(ref RenderBatchIdHandle);
 
                     for (int i = 0; i < chunk.Count && commandIndex < Configs.Length; i++)
@@ -235,7 +235,7 @@ namespace PlayGround.System.Aoe
                 typeof(AoeAreaComponent),
                 typeof(AoePulseVfxComponent),
                 typeof(CombatRenderComponent),
-                typeof(CombatRenderBatchId),
+                typeof(CombatRenderKindId),
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
                 typeof(Active),
@@ -305,7 +305,7 @@ namespace PlayGround.System.Aoe
                         AreaHandle = GetComponentTypeHandle<AoeAreaComponent>(false),
                         PulseVfxHandle = GetComponentTypeHandle<AoePulseVfxComponent>(false),
                         RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
-                        RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderBatchId>(false),
+                        RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderKindId>(false),
                         ContactGateHandle = GetBufferTypeHandle<AoeContactGateElement>(false),
                         TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
                         TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
@@ -352,7 +352,7 @@ namespace PlayGround.System.Aoe
             public ComponentTypeHandle<AoeAreaComponent> AreaHandle;
             public ComponentTypeHandle<AoePulseVfxComponent> PulseVfxHandle;
             public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
-            public ComponentTypeHandle<CombatRenderBatchId> RenderBatchIdHandle;
+            public ComponentTypeHandle<CombatRenderKindId> RenderBatchIdHandle;
             public BufferTypeHandle<AoeContactGateElement> ContactGateHandle;
             public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
             public ComponentTypeHandle<TimedSpawnStateComponent> TimedSpawnStateHandle;
@@ -389,7 +389,7 @@ namespace PlayGround.System.Aoe
                         chunk.GetNativeArray(ref PulseVfxHandle);
                     NativeArray<CombatRenderComponent> renders =
                         chunk.GetNativeArray(ref RenderHandle);
-                    NativeArray<CombatRenderBatchId> batchIds =
+                    NativeArray<CombatRenderKindId> batchIds =
                         chunk.GetNativeArray(ref RenderBatchIdHandle);
                     BufferAccessor<AoeContactGateElement> gates =
                         chunk.GetBufferAccessor(ref ContactGateHandle);
@@ -458,7 +458,7 @@ namespace PlayGround.System.Aoe
             ecb.SetComponent(entity, HitSpawnFor(cmd));
             ecb.SetComponent(entity, AreaFor(cmd));
             ecb.SetComponent(entity, render);
-            ecb.SetComponent(entity, new CombatRenderBatchId { Value = cmd.RenderTypeId });
+            ecb.SetComponent(entity, new CombatRenderKindId { Value = cmd.RenderTypeId });
             bool collisionEnabled = NeedsCollision(cmd);
             ecb.SetComponentEnabled<Active>(entity, collisionEnabled);
             ecb.SetComponentEnabled<AoeCollisionActiveTag>(entity, collisionEnabled);
@@ -486,7 +486,7 @@ namespace PlayGround.System.Aoe
             ecb.SetComponent(entity, hasTimedSpawner ? InitialTimedSpawnStateFor(cmd) : default);
             ecb.SetComponentEnabled<TimedSpawnComponent>(entity, hasTimedSpawner);
             ecb.SetComponent(entity, render);
-            ecb.SetComponent(entity, new CombatRenderBatchId { Value = cmd.RenderTypeId });
+            ecb.SetComponent(entity, new CombatRenderKindId { Value = cmd.RenderTypeId });
             bool collisionEnabled = NeedsCollision(cmd);
             ecb.SetComponentEnabled<Active>(entity, true);
             ecb.SetComponentEnabled<AoeCollisionActiveTag>(entity, collisionEnabled);
@@ -502,7 +502,7 @@ namespace PlayGround.System.Aoe
             NativeArray<AoeHitSpawnComponent> hitSpawns,
             NativeArray<AoeAreaComponent> areas,
             NativeArray<CombatRenderComponent> renders,
-            NativeArray<CombatRenderBatchId> batchIds,
+            NativeArray<CombatRenderKindId> batchIds,
             int index)
         {
             CombatKinematicsComponent kin = KinematicsFor(cfg);
@@ -514,7 +514,7 @@ namespace PlayGround.System.Aoe
             hitSpawns[index] = HitSpawnFor(cfg);
             areas[index] = AreaFor(cfg);
             renders[index] = render;
-            batchIds[index] = new CombatRenderBatchId { Value = cfg.RenderTypeId };
+            batchIds[index] = new CombatRenderKindId { Value = cfg.RenderTypeId };
         }
 
         public static bool NeedsCollision(in AoeSpawnCommand cmd) =>

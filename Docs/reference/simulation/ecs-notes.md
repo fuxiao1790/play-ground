@@ -212,7 +212,7 @@ Projectile and AOE entities use disable-in-place pooling on the hot path:
    frame-headroom gates pass.
 
 Cleanup mirrors the current reuse pools: projectile, impact AOE, and lingering
-AOE. It does not key by `CombatRenderBatchId`; that value is ordinary render
+AOE. It does not key by `CombatRenderKindId`; that value is ordinary render
 component data on master, and spawn reuse overwrites it when a slot is claimed.
 
 For each pool:

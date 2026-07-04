@@ -846,14 +846,14 @@ namespace PlayGround.Tests.PlayMode
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
-                ComponentType.ReadOnly<CombatRenderBatchId>(),
+                ComponentType.ReadOnly<CombatRenderKindId>(),
                 ComponentType.ReadOnly<CombatRenderComponent>(),
                 ComponentType.ReadOnly<CombatRenderActiveTag>());
             using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
             int count = 0;
             for (int i = 0; i < entities.Length; i++)
             {
-                if (entityManager.GetComponentData<CombatRenderBatchId>(entities[i]).Value == typeId)
+                if (entityManager.GetComponentData<CombatRenderKindId>(entities[i]).Value == typeId)
                     count++;
             }
             return count;

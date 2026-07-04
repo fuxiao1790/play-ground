@@ -278,14 +278,14 @@ namespace PlayGround.Tests.PlayMode
             Tick(0.01f);
             Tick(0.01f);
             Entity first = FirstProjectileEntity();
-            Assert.That(entityManager.GetComponentData<CombatRenderBatchId>(first).Value, Is.EqualTo(FirstRenderType));
+            Assert.That(entityManager.GetComponentData<CombatRenderKindId>(first).Value, Is.EqualTo(FirstRenderType));
 
             EnqueueEvent(MakeEvent(count: 1, lifetime: 10f, renderTypeId: SecondRenderType));
             Tick(0.01f);
             Entity reused = FirstProjectileEntity();
 
             Assert.That(reused, Is.EqualTo(first));
-            Assert.That(entityManager.GetComponentData<CombatRenderBatchId>(reused).Value, Is.EqualTo(SecondRenderType));
+            Assert.That(entityManager.GetComponentData<CombatRenderKindId>(reused).Value, Is.EqualTo(SecondRenderType));
             Assert.That(TotalProjectileCount(), Is.EqualTo(1));
         }
 
@@ -299,14 +299,14 @@ namespace PlayGround.Tests.PlayMode
             Tick(0.01f);
             Tick(0.01f);
             Entity first = FirstProjectileEntity();
-            Assert.That(entityManager.GetComponentData<CombatRenderBatchId>(first).Value, Is.EqualTo(FirstRenderType));
+            Assert.That(entityManager.GetComponentData<CombatRenderKindId>(first).Value, Is.EqualTo(FirstRenderType));
 
             EnqueueEvent(MakeEvent(count: 1, lifetime: 10f, hasTimedSpawner: true, renderTypeId: SecondRenderType));
             Tick(0.01f);
             Entity reused = FirstProjectileEntity();
 
             Assert.That(reused, Is.EqualTo(first));
-            Assert.That(entityManager.GetComponentData<CombatRenderBatchId>(reused).Value, Is.EqualTo(SecondRenderType));
+            Assert.That(entityManager.GetComponentData<CombatRenderKindId>(reused).Value, Is.EqualTo(SecondRenderType));
             Assert.That(TotalProjectileCount(), Is.EqualTo(1));
         }
 
@@ -451,7 +451,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(ProjectileHitComponent),
                 typeof(ProjectileTrackingComponent),
                 typeof(CombatRenderComponent),
-                typeof(CombatRenderBatchId),
+                typeof(CombatRenderKindId),
                 typeof(Active),
                 typeof(ProjectileCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
@@ -459,7 +459,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
 
-            entityManager.SetComponentData(entity, new CombatRenderBatchId { Value = 1 });
+            entityManager.SetComponentData(entity, new CombatRenderKindId { Value = 1 });
             entityManager.SetComponentEnabled<Active>(entity, false);
             entityManager.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, false);
             entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, false);
@@ -480,7 +480,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(ProjectileHitComponent),
                 typeof(ProjectileTrackingComponent),
                 typeof(CombatRenderComponent),
-                typeof(CombatRenderBatchId),
+                typeof(CombatRenderKindId),
                 typeof(Active),
                 typeof(ProjectileCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
@@ -494,7 +494,7 @@ namespace PlayGround.Tests.PlayMode
                 ProjectileId = 9999,
                 TypeId = 1
             });
-            entityManager.SetComponentData(entity, new CombatRenderBatchId { Value = 1 });
+            entityManager.SetComponentData(entity, new CombatRenderKindId { Value = 1 });
             entityManager.SetComponentData(entity, new CombatKinematicsComponent
             {
                 Position = float2.zero,

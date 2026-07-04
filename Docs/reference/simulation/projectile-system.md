@@ -275,7 +275,7 @@ resources by registering each
 kind's sprite with the shared `CombatRenderResourceRegistry`, which computes
 that sprite's UV rect within the configured atlas and throws if the sprite
 isn't actually part of it. Runtime entities carry common render components
-plus a plain `CombatRenderBatchId` copied from `RenderTypeId` (a kind
+plus a plain `CombatRenderKindId` copied from `RenderTypeId` (a kind
 identifier only) and a `UvRect` on `CombatRenderComponent`, computed once
 when the spawn command is built.
 

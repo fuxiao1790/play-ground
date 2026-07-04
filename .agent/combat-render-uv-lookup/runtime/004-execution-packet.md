@@ -35,7 +35,7 @@ Update docs and tests for the new per-kind UV lookup model and 68-byte instance 
 
 ## Relevant Global Context
 - UV basis math remains valid; only storage moved.
-- `CombatRenderBatchId` remains a kind id and now is also the shader lookup id through `RenderMeta`.
+- `CombatRenderKindId` remains a kind id and now is also the shader lookup id through `RenderMeta`.
 - `_InstanceData` and `_UvBasis` must be bound with `Material.SetBuffer`.
 
 ## Dependencies Confirmed

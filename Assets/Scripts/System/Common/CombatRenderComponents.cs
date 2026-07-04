@@ -105,7 +105,7 @@ namespace PlayGround.System.Common
     }
 
     // ECS Lifecycle: common render component; per-entity render resource id copied from spawn commands; identifies which registered sprite kind this entity uses.
-    public struct CombatRenderBatchId : IComponentData
+    public struct CombatRenderKindId : IComponentData
     {
         public int Value;
     }

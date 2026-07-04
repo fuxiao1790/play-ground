@@ -281,9 +281,9 @@ Runtime entities carry common render data:
 - `CombatRenderComponent`
 - `CombatRenderElement`
 - `CombatRenderActiveTag`
-- `CombatRenderBatchId`
+- `CombatRenderKindId`
 
-`CombatRenderBatchId` is a plain kind identifier; the atlas UV rect itself
+`CombatRenderKindId` is a plain kind identifier; the atlas UV rect itself
 lives on `CombatRenderComponent.UvRect`, computed once by the shared
 `CombatRenderResourceRegistry` when the spawn command is built (one shared,
 manually-assembled `SpriteAtlas`-backed texture, one mesh, one material for

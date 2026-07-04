@@ -289,7 +289,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(ProjectileHitComponent),
                 typeof(ProjectileTrackingComponent),
                 typeof(CombatRenderComponent),
-                typeof(CombatRenderBatchId),
+                typeof(CombatRenderKindId),
                 typeof(Active),
                 typeof(ProjectileCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
@@ -297,7 +297,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
 
-            entityManager.SetComponentData(entity, new CombatRenderBatchId { Value = 1 });
+            entityManager.SetComponentData(entity, new CombatRenderKindId { Value = 1 });
             entityManager.SetComponentData(entity, new ProjectileIdentityComponent
             {
                 Faction = CombatFaction.Player,
@@ -322,14 +322,14 @@ namespace PlayGround.Tests.PlayMode
                 typeof(AoeHitSpawnComponent),
                 typeof(AoeAreaComponent),
                 typeof(CombatRenderComponent),
-                typeof(CombatRenderBatchId),
+                typeof(CombatRenderKindId),
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
                 typeof(Active),
                 typeof(AoeCollisionActiveTag),
                 typeof(CombatRenderActiveTag));
 
-            entityManager.SetComponentData(entity, new CombatRenderBatchId { Value = 2 });
+            entityManager.SetComponentData(entity, new CombatRenderKindId { Value = 2 });
             entityManager.SetComponentEnabled<Active>(entity, active);
             entityManager.SetComponentEnabled<AoeCollisionActiveTag>(entity, active);
             entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, active);

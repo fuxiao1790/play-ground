@@ -375,7 +375,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
                 typeof(CombatRenderComponent),
-                typeof(CombatRenderBatchId),
+                typeof(CombatRenderKindId),
                 typeof(CombatLifetimeComponent),
                 typeof(ProjectileHitComponent),
                 typeof(Active),
@@ -407,7 +407,7 @@ namespace PlayGround.Tests.PlayMode
             {
                 VisualScale = new float2(1f, 1f)
             });
-            entityManager.SetComponentData(entity, new CombatRenderBatchId { Value = 1 });
+            entityManager.SetComponentData(entity, new CombatRenderKindId { Value = 1 });
             entityManager.SetComponentData(entity, new CombatLifetimeComponent { Remaining = 10f });
             entityManager.SetComponentData(entity, new ProjectileHitComponent
             {

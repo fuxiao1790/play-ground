@@ -20,7 +20,7 @@ only when frame headroom exists. It uses:
 - per-pool and per-frame delete caps
 
 The trimmer evaluates the current reuse pools on master: projectiles, impact
-AOEs, and lingering AOEs. It does not key cleanup by `CombatRenderBatchId`
+AOEs, and lingering AOEs. It does not key cleanup by `CombatRenderKindId`
 because spawn reuse can now claim any disabled slot in the matching reuse pool
 and overwrites render data on reset.
 

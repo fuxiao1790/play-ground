@@ -80,10 +80,10 @@ after expansion and after current-frame collision.
 
 ## Notes / TODOs
 
-Entity reuse is faction-agnostic and render-batch-agnostic. A disabled slot of
+Entity reuse is faction-agnostic and render-kind-agnostic. A disabled slot of
 any faction may be reused by a spawn of any other faction in the matching
 archetype. Per-entity faction is stamped from `event.Faction` at expansion time,
-and per-entity `CombatRenderBatchId` is overwritten from the spawn command's
+and per-entity `CombatRenderKindId` is overwritten from the spawn command's
 `RenderTypeId`.
 
 Detailed references:
