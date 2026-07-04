@@ -1,5 +1,7 @@
 using PlayGround.System.Aoe;
 using PlayGround.System.Projectile;
+using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
@@ -19,9 +21,11 @@ namespace PlayGround.System.Common
         private static readonly ProfilerMarker WriteDirectWriteMarker = new("CombatBatchedRenderSystem.WriteDirect.Write");
         private static readonly ProfilerMarker WriteDirectMarker = new("CombatBatchedRenderSystem.WriteDirect");
         private EntityQuery renderQuery;
+        private ComponentTypeHandle<CombatRenderComponent> renderComponentHandle;
         private GraphicsBuffer _instanceBuffer;
         private GraphicsBuffer _argsBuffer;
         private int _instanceCapacity;
+        private NativeList<CombatRenderComponent> _instanceData;
 
         protected override void OnCreate()
         {
@@ -42,6 +46,8 @@ namespace PlayGround.System.Common
                 1,
                 GraphicsBuffer.IndirectDrawIndexedArgs.size);
 
+            _instanceData = new NativeList<CombatRenderComponent>(Allocator.Persistent);
+
             renderQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CombatRenderComponent>()
                 .WithAll<CombatRenderActiveTag>()
@@ -53,6 +59,7 @@ namespace PlayGround.System.Common
         protected override void OnDestroy()
         {
             CombatIndirectRenderData.Clear();
+            if (_instanceData.IsCreated) _instanceData.Dispose();
             _instanceBuffer?.Dispose();
             _argsBuffer?.Dispose();
         }
@@ -75,30 +82,37 @@ namespace PlayGround.System.Common
                 return;
             }
 
+            _instanceData.Clear();
             EnsureInstanceCapacity(entityCount);
 
-            NativeArray<CombatRenderComponent> target = _instanceBuffer.LockBufferForWrite<CombatRenderComponent>(0, entityCount);
+            renderComponentHandle = GetComponentTypeHandle<CombatRenderComponent>(true);
             using (WriteDirectMarker.Auto())
             {
-                WriteDirect(target);
+                new WriteDirectJob
+                {
+                    InstanceData = _instanceData,
+                    ComponentHandle = renderComponentHandle
+                }.Run(renderQuery);
             }
-            _instanceBuffer.UnlockBufferAfterWrite<CombatRenderComponent>(entityCount);
+
+            _instanceBuffer.SetData(_instanceData.AsArray(), 0, 0, _instanceData.Length);
 
             PopulateArgs(registry, entityCount);
             Submit(registry);
         }
 
-        private void WriteDirect(NativeArray<CombatRenderComponent> target)
+        [BurstCompile]
+        private struct WriteDirectJob : IJobChunk
         {
-            int writeIndex = 0;
-            using (WriteDirectWriteMarker.Auto())
+            public NativeList<CombatRenderComponent> InstanceData;
+            [ReadOnly] public ComponentTypeHandle<CombatRenderComponent> ComponentHandle;
+
+            public void Execute(in ArchetypeChunk chunk, int _, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                foreach (var component in SystemAPI.Query<RefRO<CombatRenderComponent>>()
-                    .WithAll<CombatRenderActiveTag>()
-                    .WithAny<ProjectileTag, AoeTag>()
-                    .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState))
+                NativeArray<CombatRenderComponent> components = chunk.GetNativeArray(ref ComponentHandle);
+                for (int i = 0; i < components.Length; i++)
                 {
-                    target[writeIndex++] = component.ValueRO;
+                    InstanceData.Add(components[i]);
                 }
             }
         }
