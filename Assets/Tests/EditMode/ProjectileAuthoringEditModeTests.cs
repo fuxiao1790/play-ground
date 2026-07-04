@@ -132,7 +132,8 @@ namespace PlayGround.Tests.EditMode
             Assert.That(component.RenderMeta, Is.EqualTo(42));
             Assert.That(component.AlignToVelocity, Is.EqualTo(0));
             Assert.That(component.RenderTypeId, Is.EqualTo(42));
-            Assert.That(UnsafeUtility.SizeOf<CombatRenderComponent>(), Is.EqualTo(68));
+            Assert.That(UnsafeUtility.SizeOf<CombatRenderComponent>(), Is.EqualTo(32));
+            Assert.That(UnsafeUtility.SizeOf<CombatRenderAuthoring>(), Is.EqualTo(16));
 
             component.AlignToVelocity = 1;
             Assert.That(component.RenderMeta, Is.EqualTo(unchecked((int)0x8000002A)));

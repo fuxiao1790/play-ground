@@ -57,15 +57,15 @@ namespace PlayGround.Tests.PlayMode
             root.Spawn(Command(typeId, templateObject, Vector2.zero, 2f), CombatFaction.Player);
             yield return null;
 
-            Matrix4x4 matrix = FirstScopedAoeRenderMatrix(root);
+            CombatRenderComponent render = FirstScopedAoeRenderComponent(root);
 
             // geometry.VisualScale (spawn-time, from transform lossyScale * areaSize) is (6, 8)
             // here (templateScale 2 * visualScale (3,4), areaSize 1). The render matrix now also
             // folds in the registered sprite's native size, since the shared atlas mesh no longer
             // bakes native size into vertices (see combat-render-atlas/004-visual-scale-folding.md).
             Vector2 nativeSize = CombatAtlasTestFixture.NativeSize;
-            Assert.That(matrix.m00, Is.EqualTo(6f * nativeSize.x).Within(0.0001f));
-            Assert.That(matrix.m11, Is.EqualTo(8f * nativeSize.y).Within(0.0001f));
+            Assert.That(render.Rotation.x, Is.EqualTo(6f * nativeSize.x).Within(0.0001f));
+            Assert.That(render.Rotation.w, Is.EqualTo(8f * nativeSize.y).Within(0.0001f));
             Cleanup(rootObject, templateObject);
         }
 
@@ -91,15 +91,15 @@ namespace PlayGround.Tests.PlayMode
             yield return null;
 
             CombatCollisionComponent collision = FirstScopedAoeCollision(root);
-            Matrix4x4 matrix = FirstScopedAoeRenderMatrix(root);
+            CombatRenderComponent render = FirstScopedAoeRenderComponent(root);
 
             Assert.That(target.HitCount, Is.EqualTo(1));
             Assert.That(collision.Radius, Is.EqualTo(2f).Within(0.0001f));
             // geometry.VisualScale is (6, 8) here (visualScale (3,4) * areaSize 2, templateScale
             // defaults to 1). See the sibling assertion above for native-sprite-size folding.
             Vector2 nativeSize = CombatAtlasTestFixture.NativeSize;
-            Assert.That(matrix.m00, Is.EqualTo(6f * nativeSize.x).Within(0.0001f));
-            Assert.That(matrix.m11, Is.EqualTo(8f * nativeSize.y).Within(0.0001f));
+            Assert.That(render.Rotation.x, Is.EqualTo(6f * nativeSize.x).Within(0.0001f));
+            Assert.That(render.Rotation.w, Is.EqualTo(8f * nativeSize.y).Within(0.0001f));
             Cleanup(rootObject, templateObject, target.gameObject);
         }
 
@@ -723,7 +723,7 @@ namespace PlayGround.Tests.PlayMode
             definition.tickIntervalSeconds = tickInterval;
         }
 
-        private static Matrix4x4 FirstScopedAoeRenderMatrix(CombatRoot root)
+        private static CombatRenderComponent FirstScopedAoeRenderComponent(CombatRoot root)
         {
             CombatFaction faction = Faction(root);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
@@ -737,12 +737,12 @@ namespace PlayGround.Tests.PlayMode
                 AoeIdentityComponent identity = entityManager.GetComponentData<AoeIdentityComponent>(entities[i]);
                 if (identity.Faction == faction)
                 {
-                    return entityManager.GetComponentData<CombatRenderComponent>(entities[i]).objectToWorld;
+                    return entityManager.GetComponentData<CombatRenderComponent>(entities[i]);
                 }
             }
 
             Assert.Fail("No AOE render entity found for root.");
-            return Matrix4x4.identity;
+            return default;
         }
 
         private static CombatCollisionComponent FirstScopedAoeCollision(CombatRoot root)

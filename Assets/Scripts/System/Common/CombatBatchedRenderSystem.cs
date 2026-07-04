@@ -15,7 +15,7 @@ namespace PlayGround.System.Common
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     public partial class CombatBatchedRenderSystem : SystemBase
     {
-        private const int InstanceDataStride = 68;
+        private const int InstanceDataStride = 32;
         private const int InitialInstanceCapacity = 1024;
         private static readonly int InstanceDataProperty = Shader.PropertyToID("_InstanceData");
         private static readonly int UvBasisProperty = Shader.PropertyToID("_UvBasis");

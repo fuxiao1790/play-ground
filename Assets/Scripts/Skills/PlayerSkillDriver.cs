@@ -611,6 +611,19 @@ namespace PlayGround.Skills
         {
             BasicAttackPrefab prefab = child.Prefab;
             bool hasTimedSpawner = IsTimedSpawnEnabled(timedSpawn);
+            CombatRenderComponent render;
+            CombatRenderAuthoring authoring;
+            if (root != null)
+            {
+                render = root.ProjectileTemplateRenderComponent(child.RenderId);
+                authoring = root.ProjectileTemplateAuthoring(child.RenderId);
+            }
+            else
+            {
+                render = ProjectileRenderComponentFor(child.RenderId);
+                authoring = ProjectileAuthoringFor(prefab);
+            }
+
             return new ProjectileSpawnCommand
             {
                 TypeId = child.TypeId,
@@ -650,9 +663,8 @@ namespace PlayGround.Skills
                     TrackedTargetPosition = default,
                     TrackingRandomState = 0
                 },
-                Render = root != null
-                    ? root.ProjectileTemplateRenderComponent(child.RenderId)
-                    : ProjectileRenderComponentFor(prefab),
+                Render = render,
+                Authoring = authoring,
                 TimedSpawn = timedSpawn
             };
         }
@@ -667,6 +679,19 @@ namespace PlayGround.Skills
         {
             AoeSpawnGeometry geometry = child.CreateSpawnGeometry();
             bool hasTimedSpawner = IsTimedSpawnEnabled(timedSpawn);
+            CombatRenderComponent render;
+            CombatRenderAuthoring authoring;
+            if (root != null)
+            {
+                render = root.AoeTemplateRenderComponent(child.RenderId, geometry);
+                authoring = root.AoeTemplateAuthoring(child.RenderId, geometry);
+            }
+            else
+            {
+                render = AoeRenderComponentFor(child.RenderId, geometry);
+                authoring = AoeAuthoringFor(geometry);
+            }
+
             return new AoeSpawnCommand
             {
                 TypeId = child.TypeId,
@@ -689,9 +714,8 @@ namespace PlayGround.Skills
                 ShapeType = geometry.ShapeType,
                 EchoCount = Mathf.Max(1, echoCount),
                 ScatterRadius = child.ScatterRadius,
-                Render = root != null
-                    ? root.AoeTemplateRenderComponent(child.RenderId, geometry)
-                    : AoeRenderComponentFor(geometry),
+                Render = render,
+                Authoring = authoring,
                 OnHitSpawn = onHitSpawn,
                 HasTimedSpawner = hasTimedSpawner ? 1 : 0,
                 TimedSpawn = timedSpawn
@@ -712,22 +736,29 @@ namespace PlayGround.Skills
             return stackEffect.Enabled ? stackEffect : fallback;
         }
 
-        private static CombatRenderComponent ProjectileRenderComponentFor(BasicAttackPrefab prefab)
+        private static CombatRenderComponent ProjectileRenderComponentFor(int renderId)
         {
-            float visualScale = prefab.VisualScale > 0f ? prefab.VisualScale : 1f;
-            float radians = prefab.VisualRotationDegrees * Mathf.Deg2Rad;
             return new CombatRenderComponent
             {
-                IsRenderable = 1,
+                RenderTypeId = renderId > 0 ? renderId : 1,
                 AlignToVelocity = 1,
-                VisualScale = new Unity.Mathematics.float2(visualScale, visualScale),
-                VisualRotationSin = Mathf.Sin(radians),
-                VisualRotationCos = Mathf.Cos(radians),
                 RenderZ = 0f
             };
         }
 
-        private static CombatRenderComponent AoeRenderComponentFor(AoeSpawnGeometry geometry)
+        private static CombatRenderAuthoring ProjectileAuthoringFor(BasicAttackPrefab prefab)
+        {
+            float visualScale = prefab.VisualScale > 0f ? prefab.VisualScale : 1f;
+            float radians = prefab.VisualRotationDegrees * Mathf.Deg2Rad;
+            return new CombatRenderAuthoring
+            {
+                VisualScale = new Unity.Mathematics.float2(visualScale, visualScale),
+                VisualRotationSin = Mathf.Sin(radians),
+                VisualRotationCos = Mathf.Cos(radians)
+            };
+        }
+
+        private static CombatRenderComponent AoeRenderComponentFor(int renderId, AoeSpawnGeometry geometry)
         {
             if (geometry.VisualScale.x <= 0f && geometry.VisualScale.y <= 0f)
             {
@@ -736,12 +767,24 @@ namespace PlayGround.Skills
 
             return new CombatRenderComponent
             {
-                IsRenderable = 1,
+                RenderTypeId = renderId > 0 ? renderId : 1,
                 AlignToVelocity = 0,
+                RenderZ = CombatRoot.AoeRenderZ
+            };
+        }
+
+        private static CombatRenderAuthoring AoeAuthoringFor(AoeSpawnGeometry geometry)
+        {
+            if (geometry.VisualScale.x <= 0f && geometry.VisualScale.y <= 0f)
+            {
+                return default;
+            }
+
+            return new CombatRenderAuthoring
+            {
                 VisualScale = new Unity.Mathematics.float2(geometry.VisualScale.x, geometry.VisualScale.y),
                 VisualRotationSin = geometry.VisualRotationSin,
-                VisualRotationCos = geometry.VisualRotationCos,
-                RenderZ = CombatRoot.AoeRenderZ
+                VisualRotationCos = geometry.VisualRotationCos
             };
         }
 

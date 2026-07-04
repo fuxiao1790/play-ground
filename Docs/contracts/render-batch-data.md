@@ -8,7 +8,7 @@ Define ECS render data used to batch projectile and AOE sprite visuals.
 
 [Combat Bridge](../layers/combat-bridge.md) registers resources.
 [ECS Simulation](../layers/ecs-simulation.md) writes runtime render components
-and prepared matrices.
+and prepared compact 2D transforms.
 
 ## Consumed By
 
@@ -18,13 +18,16 @@ and prepared matrices.
 
 Current render data includes:
 
-- `CombatRenderComponent` (the prepared `objectToWorld` TRS matrix plus packed
-  `RenderMeta`: render id in bits 0..30, align-to-velocity in bit 31)
+- `CombatRenderComponent` (the prepared compact 2D transform: `Rotation`
+  float4, `Position` float3, plus packed `RenderMeta`; render id in bits 0..30,
+  align-to-velocity in bit 31)
+- `CombatRenderAuthoring` (CPU-only base visual scale/sin/cos, stride 16; seeded
+  by spawn and read by render preparation)
 - `CombatRenderActiveTag`
 - `CombatRenderKindId`
-- `CombatInstanceData` - the per-instance GPU record (`objectToWorld` +
-  `RenderMeta`, stride 68), scattered directly from `CombatRenderComponent` and
-  uploaded to `_InstanceData`
+- `CombatInstanceData` - the per-instance GPU record (`Rotation` + `Position` +
+  `RenderMeta`, stride 32), copied directly from `CombatRenderComponent` with
+  `AddRange` and uploaded to `_InstanceData`
 - `CombatUvBasis` - the per-kind GPU record (`OriginU` + `V`, stride 32),
   uploaded by `CombatRenderResourceRegistry` to `_UvBasis` and indexed by render id
 - one shared, manually-assembled `SpriteAtlas` asset (shared unit-quad mesh +
@@ -85,7 +88,7 @@ basis GPU buffer is owned and disposed by `CombatRenderResourceRegistry`.
 
 Render preparation runs after simulation/apply. Batched render submission runs in
 presentation, reads `CombatRenderComponent`, and in one active-only scatter pass
-fills a single `NativeList<CombatInstanceData>` directly from each entity's own
+fills a single `NativeList<CombatRenderComponent>` directly from each entity's own
 component. The registry ensures the static per-kind `_UvBasis` table is current,
 rebuilding it only when dirty. The system uploads the instance list to
 `_InstanceData`, writes the indirect args (`instanceCount` = active count), binds

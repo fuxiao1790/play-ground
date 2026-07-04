@@ -12,8 +12,8 @@ data contract.
 
 Every active projectile and AOE, across every registered sprite kind, is drawn in
 **one `DrawMeshInstancedIndirect` per update** using a shared unit-quad mesh, a
-shared material, and one shared `SpriteAtlas` page. Per-instance data (a transform
-matrix + packed render metadata) travels to the GPU in a `StructuredBuffer`
+shared material, and one shared `SpriteAtlas` page. Per-instance data (a compact
+2D transform + packed render metadata) travels to the GPU in a `StructuredBuffer`
 indexed by `SV_InstanceID`. The atlas is static, so each registered kind's affine
 UV basis is uploaded once to a separate `_UvBasis` `StructuredBuffer` and looked
 up by `renderId` in the shader. There is no per-kind mesh/material, no per-kind
@@ -33,13 +33,13 @@ Non-goals:
 
 ```text
 CombatRenderPrepareSystem (Burst, PresentationSystemGroup, OrderFirst)
-  -> writes CombatRenderComponent.objectToWorld (full TRS: rotation, scale,
-     position, RenderZ) for each active render entity
+  -> writes CombatRenderComponent.Rotation + Position (2x2 basis, position,
+     RenderZ) for each active render entity from kinematics + CombatRenderAuthoring
 
 CombatBatchedRenderSystem (PresentationSystemGroup)
   -> CompleteDependency()
   -> scatter projectile + AOE queries into ONE NativeList<CombatInstanceData>
-     (objectToWorld + RenderMeta from CombatRenderComponent)
+     (Rotation + Position + RenderMeta from CombatRenderComponent)
   -> registry.EnsureUvBasisBuffer() only rebuilds the per-kind UV table when dirty
   -> EnsureInstanceCapacity (grow-by-doubling), instanceBuffer.SetData
   -> populate args GraphicsBuffer (IndirectDrawIndexedArgs; instanceCount = active)
@@ -54,7 +54,8 @@ CombatIndirectRenderFeature : ScriptableRendererFeature (on Renderer2D.asset)
 Shader "Combat/AtlasIndirectSprite" (Pass LightMode = Universal2D, #pragma target 4.5)
   -> inst = _InstanceData[SV_InstanceID]
   -> basis = _UvBasis[inst.renderMeta & 0x7FFFFFFF]
-  -> clip = TransformWorldToHClip(mul(inst.objectToWorld, positionOS))
+  -> world.xy = inst.rotation 2x2 basis * positionOS.xy + inst.position.xy
+  -> clip = TransformWorldToHClip(float3(world.xy, inst.position.z))
   -> uv   = basis.originU.xy + quad.x*basis.originU.zw + quad.y*basis.v.xy
   -> sample _MainTex (the atlas page)
 ```
@@ -65,14 +66,20 @@ issue no draw.
 ## Key Types
 
 - **`CombatInstanceData`** - the per-instance GPU record, defined identically in
-  C# (`[StructLayout(Sequential)]`) and HLSL. Stride **68 bytes**:
-  `Matrix4x4 objectToWorld` (64) + `int/uint RenderMeta` (4). `RenderMeta` stores
-  `renderId` in bits 0..30 and the CPU-only align-to-velocity flag in bit 31.
-  `CombatBatchedRenderSystem.OnCreate` asserts `SizeOf == 68` so a future field
+  C# (`[StructLayout(Sequential)]`) and HLSL. Stride **32 bytes**:
+  `float4 Rotation` (m00, m01, m10, m11) + `float3 Position` (world x, world y,
+  RenderZ) + `int/uint RenderMeta` (4). `RenderMeta` stores `renderId` in bits
+  0..30 and the CPU-only align-to-velocity flag in bit 31.
+  `CombatBatchedRenderSystem.OnCreate` asserts `SizeOf == 32` so a future field
   cannot silently desync the shader stride.
 - **`CombatRenderComponent`** - per-entity render inputs: prepared
-  `objectToWorld` matrix plus packed `RenderMeta`. It no longer carries
-  `UvOriginU`/`UvV`; the component remains binary-identical to `CombatInstanceData`.
+  compact 2D basis/position plus packed `RenderMeta`. It no longer carries
+  `UvOriginU`/`UvV`; the component remains binary-identical to `CombatInstanceData`
+  and is uploaded with zero-copy `AddRange`.
+- **`CombatRenderAuthoring`** - CPU-only per-entity base visual transform
+  (`BaseScale`, `BaseSin`, `BaseCos`, stride 16). It is seeded by spawn commands
+  and read by render preparation; base rotation/scale is no longer stashed in
+  spare matrix cells.
 - **`CombatUvBasis`** - per-kind GPU record (`Vector4 originU`, `Vector4 v`,
   stride 32) owned by `CombatRenderResourceRegistry` and exposed as `_UvBasis`.
 - **`CombatIndirectRenderData`** - static handoff (`Mesh`, `Material`,
@@ -107,8 +114,9 @@ sprite always renders upright.
 
 Two different rotations live in two different spaces and must not be confused:
 
-- **World orientation** is in the 4x4 `objectToWorld` matrix (velocity alignment +
-  the prefab's authored `VisualRotationDegrees`). The prefab owns this.
+- **World orientation** is in the compact 2x2 rotation*scale basis plus position
+  (velocity alignment + the prefab's authored `VisualRotationDegrees`). The
+  prefab owns this.
 - **Atlas packing orientation** is in the UV basis. The renderer undoes it.
 
 Neither can do the other's job.
@@ -140,8 +148,9 @@ Neither can do the other's job.
   `_InstanceData` and `_UvBasis` are set on the material this way. A `GraphicsBuffer`
   set via `MaterialPropertyBlock` silently does not take effect for indirect draws
   (known Unity behavior).
-- **Matrix uses `mul(M, v)`.** Unity `Matrix4x4` and HLSL are both column-major, so
-  a `float4x4` read from a `StructuredBuffer` loads untransposed.
+- **The compact basis preserves the previous `mul(M, v)` result for 2D quads.**
+  Quad vertices have local `z == 0`, so the shader only needs m00, m01, m10,
+  m11, world x/y, and RenderZ.
 - **UVs come from `sprite.uv` (+ `sprite.vertices`), never `sprite.rect`.** For a
   packed sprite, `sprite.rect` is in the original texture's space while
   `sprite.texture` is the atlas page; mixing them yields out-of-range UVs.
@@ -179,15 +188,15 @@ ECS memory.
   1023 cap.
 - The scatter is a single main-thread active-only pass into one persistent
   `NativeList`; the instance buffer grows by doubling and never shrinks.
-- Per-instance upload is 68 bytes per active entity; static per-kind UV data is
+- Per-instance upload is 32 bytes per active entity; static per-kind UV data is
   uploaded only when the registry changes.
 - The atlas **texture** is not per-frame traffic. Its pixels are GPU-resident once
   Unity loads/packs the atlas, and it is bound to the material a single time at
   registration (`SharedMaterial.mainTexture = packedSprite.texture` in
   `CombatRenderResourceRegistry.Register`) — the shader samples `_MainTex` with no
   per-frame texture upload. Together with the per-kind UV buffer, both static inputs
-  (atlas pixels + UV basis) are init-time only; only the `objectToWorld` matrices
-  stream each frame.
+  (atlas pixels + UV basis) are init-time only; only the compact 2D instance
+  records stream each frame.
 - The ~13-24 ms idle-frame cost seen after busy scenes is **not** this system: it
   is `CompleteDependency()` syncing the non-shrinking idle simulation pool. See
   performance/idle-cost notes, not the render path.

@@ -30,7 +30,7 @@ namespace PlayGround.System.Projectile
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
                 ComponentType.ReadOnly<CombatKinematicsComponent>(),
                 ComponentType.ReadOnly<CombatCollisionComponent>(),
-                ComponentType.ReadOnly<CombatRenderComponent>(),
+                ComponentType.ReadOnly<CombatRenderAuthoring>(),
                 ComponentType.ReadWrite<CombatLifetimeComponent>(),
                 ComponentType.ReadWrite<ProjectileHitComponent>(),
                 ComponentType.ReadWrite<CombatRenderActiveTag>(),
@@ -166,14 +166,14 @@ namespace PlayGround.System.Projectile
                 in ProjectileIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
                 in CombatCollisionComponent collision,
-                in CombatRenderComponent render,
+                in CombatRenderAuthoring authoring,
                 ref CombatLifetimeComponent lifetime,
                 ref ProjectileHitComponent projectileHit,
                 EnabledRefRW<Active> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive,
                 DynamicBuffer<ProjectileContactGateElement> contactGates)
             {
-                float areaSize = math.max(render.VisualScale.x, render.VisualScale.y);
+                float areaSize = math.max(authoring.VisualScale.x, authoring.VisualScale.y);
                 if (identity.Faction == CombatFaction.None)
                 {
                     Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, VfxPending, HasVfxWriter);

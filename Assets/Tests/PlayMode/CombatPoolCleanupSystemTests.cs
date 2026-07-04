@@ -184,7 +184,10 @@ namespace PlayGround.Tests.PlayMode
                 }),
                 Render = new CombatRenderComponent
                 {
-                    IsRenderable = 1,
+                    RenderTypeId = 42
+                },
+                Authoring = new CombatRenderAuthoring
+                {
                     VisualScale = new float2(1f, 1f)
                 }
             };
@@ -262,6 +265,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(ProjectileHitComponent),
                 typeof(ProjectileTrackingComponent),
                 typeof(CombatRenderComponent),
+                typeof(CombatRenderAuthoring),
                 typeof(CombatRenderKindId),
                 typeof(Active),
                 typeof(ProjectileCollisionActiveTag),
@@ -295,6 +299,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(AoeHitSpawnComponent),
                 typeof(AoeAreaComponent),
                 typeof(CombatRenderComponent),
+                typeof(CombatRenderAuthoring),
                 typeof(CombatRenderKindId),
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),

@@ -45,6 +45,7 @@ namespace PlayGround.System.Aoe
         public uint JitterSeed;
         public int DeterministicIdTickIndex;
         public CombatRenderComponent Render;
+        public CombatRenderAuthoring Authoring;
         public OnHitSpawnRef OnHitSpawn;
         public int HasTimedSpawner;
         public TimedSpawnComponent TimedSpawn;

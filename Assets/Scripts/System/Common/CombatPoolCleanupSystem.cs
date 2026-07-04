@@ -11,14 +11,14 @@ namespace PlayGround.System.Common
     // ECS Lifecycle: singleton cleanup tunable; created by CombatPoolCleanupSystem on create.
     public struct CombatPoolCleanupConfig : IComponentData
     {
-        // A chunk has its disabled (pooled) entities destroyed when it holds fewer than
-        // this many active entities. Higher = more aggressive defrag / smaller reuse buffer.
-        // Chunks at or above the threshold keep their disabled entities as a warm reuse pool.
-        public int ChunkActiveThreshold;
+        // Percentage of active entities in a chunk (0-100). Chunks with active count at or above
+        // this threshold keep their disabled entities as a warm reuse pool. Higher = more aggressive
+        // defrag / smaller reuse buffer (e.g., 50 means keep pool only if 50%+ entities are active).
+        public float ChunkActiveThresholdPercent;
 
         public static CombatPoolCleanupConfig Default => new CombatPoolCleanupConfig
         {
-            ChunkActiveThreshold = 32
+            ChunkActiveThresholdPercent = 50f
         };
     }
 
@@ -76,7 +76,7 @@ namespace PlayGround.System.Common
             {
                 EntityHandle = _entityHandle,
                 ActiveHandle = _activeHandle,
-                ActiveThreshold = cfg.ChunkActiveThreshold,
+                ActiveThresholdPercent = cfg.ChunkActiveThresholdPercent,
                 Ecb = ecb.AsParallelWriter()
             }.ScheduleParallel(_poolQuery, Dependency);
 
@@ -97,7 +97,7 @@ namespace PlayGround.System.Common
         {
             [ReadOnly] public EntityTypeHandle EntityHandle;
             [ReadOnly] public ComponentTypeHandle<Active> ActiveHandle;
-            public int ActiveThreshold;
+            public float ActiveThresholdPercent;
             public EntityCommandBuffer.ParallelWriter Ecb;
 
             public void Execute(
@@ -119,7 +119,8 @@ namespace PlayGround.System.Common
                 }
 
                 // Busy chunk: leave its disabled entities as a warm reuse buffer.
-                if (activeCount >= ActiveThreshold)
+                int threshold = (int)(count * ActiveThresholdPercent / 100f);
+                if (activeCount >= threshold)
                 {
                     return;
                 }

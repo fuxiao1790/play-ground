@@ -66,7 +66,7 @@ namespace PlayGround.System.Common
             private void Execute(
                 in ProjectileIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
-                in CombatRenderComponent render,
+                in CombatRenderAuthoring authoring,
                 ref CombatLifetimeComponent lifetime,
                 EnabledRefRW<Active> active,
                 EnabledRefRW<CombatRenderActiveTag> renderActive)
@@ -84,7 +84,7 @@ namespace PlayGround.System.Common
                             TypeId = identity.TypeId,
                             Trigger = 2,
                             Position = kinematics.Position,
-                            AreaSize = math.max(render.VisualScale.x, render.VisualScale.y)
+                            AreaSize = math.max(authoring.VisualScale.x, authoring.VisualScale.y)
                         });
                     }
                 }
@@ -102,7 +102,7 @@ namespace PlayGround.System.Common
             private void Execute(
                 in AoeIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
-                in CombatRenderComponent render,
+                in CombatRenderAuthoring authoring,
                 ref CombatLifetimeComponent lifetime,
                 EnabledRefRW<Active> active,
                 EnabledRefRW<AoeCollisionActiveTag> collisionActive,
@@ -122,7 +122,7 @@ namespace PlayGround.System.Common
                             TypeId = identity.TypeId,
                             Trigger = 2,
                             Position = kinematics.Position,
-                            AreaSize = math.max(render.VisualScale.x, render.VisualScale.y)
+                            AreaSize = math.max(authoring.VisualScale.x, authoring.VisualScale.y)
                         });
                     }
                 }

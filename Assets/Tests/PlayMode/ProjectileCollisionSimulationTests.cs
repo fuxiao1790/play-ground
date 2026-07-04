@@ -375,6 +375,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
                 typeof(CombatRenderComponent),
+                typeof(CombatRenderAuthoring),
                 typeof(CombatRenderKindId),
                 typeof(CombatLifetimeComponent),
                 typeof(ProjectileHitComponent),
@@ -404,6 +405,10 @@ namespace PlayGround.Tests.PlayMode
                 BoundsMax = new float2(radius, radius)
             });
             entityManager.SetComponentData(entity, new CombatRenderComponent
+            {
+                RenderTypeId = 1
+            });
+            entityManager.SetComponentData(entity, new CombatRenderAuthoring
             {
                 VisualScale = new float2(1f, 1f)
             });

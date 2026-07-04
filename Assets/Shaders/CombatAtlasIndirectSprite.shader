@@ -20,7 +20,7 @@ Shader "Combat/AtlasIndirectSprite"
             Name "CombatAtlasIndirectUnlit"
             // The active renderer is URP's 2D Renderer (Renderer2D). It only executes passes
             // tagged Universal2D; a pass with no LightMode defaults to SRPDefaultUnlit, which the
-            // 2D Renderer skips — geometry submits but never draws. This tag is what makes it render.
+            // 2D Renderer skips �?geometry submits but never draws. This tag is what makes it render.
             Tags { "LightMode" = "Universal2D" }
             Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
@@ -36,7 +36,8 @@ Shader "Combat/AtlasIndirectSprite"
 
             struct CombatInstanceData
             {
-                float4x4 objectToWorld;
+                float4 rotation; // m00, m01, m10, m11
+                float3 position; // world x, world y, renderZ
                 uint renderMeta;
             };
 
@@ -72,9 +73,12 @@ Shader "Combat/AtlasIndirectSprite"
                 uint renderId = inst.renderMeta & 0x7FFFFFFFu;
                 CombatUvBasis basis = _UvBasis[renderId];
 
-                // Unity Matrix4x4 and HLSL are both column-major by default, so a float4x4 read
-                // from a StructuredBuffer loads untransposed — standard mul(M, v) applies.
-                float3 worldPos = mul(inst.objectToWorld, float4(IN.positionOS.xyz, 1.0)).xyz;
+                // Compact 2D basis reconstructs the same mul(M, v) result for unit quad z=0.
+                float2 os = IN.positionOS.xy;
+                float3 worldPos;
+                worldPos.x = inst.rotation.x * os.x + inst.rotation.y * os.y + inst.position.x;
+                worldPos.y = inst.rotation.z * os.x + inst.rotation.w * os.y + inst.position.y;
+                worldPos.z = inst.position.z;
                 OUT.positionHCS = TransformWorldToHClip(worldPos);
                 // Affine UV basis: reproduces the sprite's real atlas UVs even if the packer rotated
                 // it 90°. IN.uv is the unit-quad 0..1 coordinate.

@@ -12,8 +12,9 @@ namespace PlayGround.System.Common
     [StructLayout(LayoutKind.Sequential)]
     public struct CombatRenderComponent : IComponentData
     {
-        public Matrix4x4 objectToWorld; // 64 bytes; written by render prep and uploaded directly.
-        public int RenderMeta;          // bits 0..30 = render id; bit 31 = align-to-velocity flag.
+        public float4 Rotation; // m00, m01, m10, m11; written by render prep and uploaded directly.
+        public float3 Position; // world x, world y, RenderZ.
+        public int RenderMeta;  // bits 0..30 = render id; bit 31 = align-to-velocity flag.
 
         public int IsRenderable
         {
@@ -39,30 +40,10 @@ namespace PlayGround.System.Common
                 : RenderMeta & 0x7FFFFFFF;
         }
 
-        public float2 VisualScale
-        {
-            readonly get => new(
-                math.sqrt(objectToWorld.m00 * objectToWorld.m00 + objectToWorld.m10 * objectToWorld.m10),
-                math.sqrt(objectToWorld.m01 * objectToWorld.m01 + objectToWorld.m11 * objectToWorld.m11));
-            set => SetVisual2D(value, VisualRotationSin, VisualRotationCos);
-        }
-
-        public float VisualRotationSin
-        {
-            readonly get => objectToWorld.m02;
-            set => SetVisual2D(VisualScale, value, VisualRotationCos);
-        }
-
-        public float VisualRotationCos
-        {
-            readonly get => objectToWorld.m02 == 0f && objectToWorld.m12 == 0f ? 1f : objectToWorld.m12;
-            set => SetVisual2D(VisualScale, VisualRotationSin, value);
-        }
-
         public float RenderZ
         {
-            readonly get => objectToWorld.m23;
-            set => objectToWorld.m23 = value;
+            readonly get => Position.z;
+            set => Position.z = value;
         }
 
         public int RenderTypeId
@@ -71,31 +52,47 @@ namespace PlayGround.System.Common
             set => RenderMeta = (RenderMeta & unchecked((int)0x80000000)) | (value & 0x7FFFFFFF);
         }
 
+    }
+
+    // ECS Lifecycle: common render authoring component; seeded by spawn commands and read by render prep; never toggled separately from render lifecycle.
+    [StructLayout(LayoutKind.Sequential)]
+    public struct CombatRenderAuthoring : IComponentData
+    {
+        public float2 BaseScale;
+        public float BaseSin;
+        public float BaseCos;
+
+        public float2 VisualScale
+        {
+            readonly get => BaseScale;
+            set => BaseScale = value;
+        }
+
+        public float VisualRotationSin
+        {
+            readonly get => BaseSin;
+            set => BaseSin = value;
+        }
+
+        public float VisualRotationCos
+        {
+            readonly get => BaseSin == 0f && BaseCos == 0f ? 1f : BaseCos;
+            set => BaseCos = value;
+        }
+
         public void SetVisualTransform(
             float2 visualScale,
             float visualRotationSin,
-            float visualRotationCos,
-            float renderZ,
-            int alignToVelocity,
-            int renderTypeId)
+            float visualRotationCos)
         {
             SetVisual2D(visualScale, visualRotationSin, visualRotationCos);
-            objectToWorld.m23 = renderZ;
-            objectToWorld.m33 = 1f;
-            AlignToVelocity = alignToVelocity;
-            RenderTypeId = renderTypeId;
         }
 
         private void SetVisual2D(float2 scale, float sin, float cos)
         {
-            objectToWorld.m00 = cos * scale.x;
-            objectToWorld.m01 = -sin * scale.y;
-            objectToWorld.m02 = sin;
-            objectToWorld.m10 = sin * scale.x;
-            objectToWorld.m11 = cos * scale.y;
-            objectToWorld.m12 = cos;
-            objectToWorld.m22 = math.max(scale.x, scale.y);
-            objectToWorld.m33 = 1f;
+            BaseScale = scale;
+            BaseSin = sin;
+            BaseCos = cos;
         }
     }
 
@@ -219,34 +216,50 @@ namespace PlayGround.System.Common
             return _uvBasisBuffer;
         }
 
-        public CombatRenderComponent GetProjectileRenderComponent(int renderId, int projectileId)
+        public CombatRenderComponent GetProjectileRenderComponent(
+            int renderId,
+            int projectileId,
+            out CombatRenderAuthoring authoring)
         {
+            authoring = default;
             if (!Entries.TryGetValue(renderId, out CombatRenderResourceEntry entry)) return default;
-            var component = new CombatRenderComponent();
-            component.SetVisualTransform(
+
+            authoring.SetVisualTransform(
                 new float2(entry.VisualScale.x, entry.VisualScale.y),
                 entry.VisualRotationSin,
-                entry.VisualRotationCos,
-                CombatRoot.ProjectileRenderZ
+                entry.VisualRotationCos);
+
+            var component = new CombatRenderComponent
+            {
+                RenderZ = CombatRoot.ProjectileRenderZ
                     - projectileId % CombatRoot.ProjectileRenderZSlots * CombatRoot.ProjectileRenderZStep,
-                1,
-                renderId);
+                AlignToVelocity = 1,
+                RenderTypeId = renderId
+            };
             return component;
         }
 
-        public CombatRenderComponent GetAoeRenderComponent(int renderId, AoeSpawnGeometry geometry)
+        public CombatRenderComponent GetAoeRenderComponent(
+            int renderId,
+            AoeSpawnGeometry geometry,
+            out CombatRenderAuthoring authoring)
         {
+            authoring = default;
             if (!Entries.TryGetValue(renderId, out CombatRenderResourceEntry entry)) return default;
+
             float2 scale = new float2(geometry.VisualScale.x, geometry.VisualScale.y)
                 * new float2(entry.VisualScale.x, entry.VisualScale.y);
-            var component = new CombatRenderComponent();
-            component.SetVisualTransform(
+            authoring.SetVisualTransform(
                 scale,
                 geometry.VisualRotationSin,
-                geometry.VisualRotationCos,
-                CombatRoot.AoeRenderZ,
-                0,
-                renderId);
+                geometry.VisualRotationCos);
+
+            var component = new CombatRenderComponent
+            {
+                RenderZ = CombatRoot.AoeRenderZ,
+                AlignToVelocity = 0,
+                RenderTypeId = renderId
+            };
             return component;
         }
 
@@ -336,13 +349,14 @@ namespace PlayGround.System.Common
     {
         private const float MinimumDirectionLengthSquared = 0.000001f;
 
-        public static Matrix4x4 ElementFor(
+        public static CombatRenderComponent ElementFor(
             CombatKinematicsComponent kinematics,
+            CombatRenderAuthoring authoring,
             CombatRenderComponent render)
         {
             if (render.IsRenderable == 0)
             {
-                return DegenerateMatrix(render);
+                return DegenerateInstance(render);
             }
 
             float directionX = 1f;
@@ -358,43 +372,23 @@ namespace PlayGround.System.Common
                 }
             }
 
-            float cos = directionX * render.VisualRotationCos - directionY * render.VisualRotationSin;
-            float sin = directionX * render.VisualRotationSin + directionY * render.VisualRotationCos;
-            float2 scale = render.VisualScale;
+            float cos = directionX * authoring.VisualRotationCos - directionY * authoring.VisualRotationSin;
+            float sin = directionX * authoring.VisualRotationSin + directionY * authoring.VisualRotationCos;
+            float2 scale = authoring.VisualScale;
 
-            return new Matrix4x4
-            {
-                m00 = cos * scale.x,
-                m01 = -sin * scale.y,
-                m02 = render.VisualRotationSin,
-                m03 = kinematics.Position.x,
-                m10 = sin * scale.x,
-                m11 = cos * scale.y,
-                m12 = render.VisualRotationCos,
-                m13 = kinematics.Position.y,
-                m20 = 0f,
-                m21 = 0f,
-                m22 = math.max(scale.x, scale.y),
-                m23 = render.RenderZ,
-                m30 = 0f,
-                m31 = 0f,
-                m32 = 0f,
-                m33 = 1f
-            };
+            render.Rotation = new float4(
+                cos * scale.x,
+                -sin * scale.y,
+                sin * scale.x,
+                cos * scale.y);
+            render.Position = new float3(kinematics.Position.x, kinematics.Position.y, render.Position.z);
+            return render;
         }
 
-        public static Matrix4x4 DegenerateMatrix(CombatRenderComponent render)
+        public static CombatRenderComponent DegenerateInstance(CombatRenderComponent render)
         {
-            Matrix4x4 matrix = render.objectToWorld;
-            matrix.m00 = 0f;
-            matrix.m01 = 0f;
-            matrix.m10 = 0f;
-            matrix.m11 = 0f;
-            matrix.m20 = 0f;
-            matrix.m21 = 0f;
-            matrix.m22 = 0f;
-            matrix.m33 = 1f;
-            return matrix;
+            render.Rotation = default;
+            return render;
         }
     }
 }

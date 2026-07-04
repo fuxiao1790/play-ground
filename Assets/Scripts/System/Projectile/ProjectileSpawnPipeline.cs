@@ -53,6 +53,7 @@ namespace PlayGround.System.Projectile
         public ProjectileHitPayload HitPayload;
         public ProjectileTrackingComponent Tracking;
         public CombatRenderComponent Render;
+        public CombatRenderAuthoring Authoring;
         public TimedSpawnComponent TimedSpawn;
     }
 

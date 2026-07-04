@@ -271,11 +271,31 @@ namespace PlayGround.System.Common
             return aoeId;
         }
 
-        internal CombatRenderComponent ProjectileTemplateRenderComponent(int renderId) =>
-            _renderRegistry?.GetProjectileRenderComponent(renderId, 0) ?? default;
+        internal CombatRenderComponent ProjectileTemplateRenderComponent(int renderId)
+        {
+            if (_renderRegistry == null) return default;
+            return _renderRegistry.GetProjectileRenderComponent(renderId, 0, out _);
+        }
 
-        internal CombatRenderComponent AoeTemplateRenderComponent(int renderId, AoeSpawnGeometry geometry) =>
-            _renderRegistry?.GetAoeRenderComponent(renderId, geometry) ?? default;
+        internal CombatRenderAuthoring ProjectileTemplateAuthoring(int renderId)
+        {
+            if (_renderRegistry == null) return default;
+            _renderRegistry.GetProjectileRenderComponent(renderId, 0, out CombatRenderAuthoring authoring);
+            return authoring;
+        }
+
+        internal CombatRenderComponent AoeTemplateRenderComponent(int renderId, AoeSpawnGeometry geometry)
+        {
+            if (_renderRegistry == null) return default;
+            return _renderRegistry.GetAoeRenderComponent(renderId, geometry, out _);
+        }
+
+        internal CombatRenderAuthoring AoeTemplateAuthoring(int renderId, AoeSpawnGeometry geometry)
+        {
+            if (_renderRegistry == null) return default;
+            _renderRegistry.GetAoeRenderComponent(renderId, geometry, out CombatRenderAuthoring authoring);
+            return authoring;
+        }
 
         public int RegisterConfig(AoeConfig config)
         {
@@ -375,6 +395,10 @@ namespace PlayGround.System.Common
             TimedSpawnComponent timedSpawn = TimedSpawnFor(request, baseProjectileId);
             bool hasTimedSpawner = IsTimedSpawnEnabled(timedSpawn);
             int renderId = ProjectileRenderId(request.ProjectileTypeId);
+            CombatRenderAuthoring authoring = default;
+            CombatRenderComponent render = _renderRegistry != null
+                ? _renderRegistry.GetProjectileRenderComponent(renderId, baseProjectileId, out authoring)
+                : default;
 
             return new ProjectileSpawnCommand
             {
@@ -394,7 +418,8 @@ namespace PlayGround.System.Common
                 ShapeType = request.ShapeType,
                 HitPayload = request.HitPayload,
                 Tracking = TrackingComponentFor(request.Tracking),
-                Render = _renderRegistry?.GetProjectileRenderComponent(renderId, baseProjectileId) ?? default,
+                Render = render,
+                Authoring = authoring,
                 Count = request.Count,
                 BaseDirection = new float2(request.Direction.x, request.Direction.y),
                 Speed = request.Speed,
@@ -424,6 +449,10 @@ namespace PlayGround.System.Common
             float2 position = new(request.Position.x, request.Position.y);
             float2 halfExtents = new(geometry.HalfExtents.x, geometry.HalfExtents.y);
             int renderId = AoeRenderId(request.TypeId);
+            CombatRenderAuthoring authoring = default;
+            CombatRenderComponent render = _renderRegistry != null
+                ? _renderRegistry.GetAoeRenderComponent(renderId, geometry, out authoring)
+                : default;
 
             return new AoeSpawnCommand
             {
@@ -448,7 +477,8 @@ namespace PlayGround.System.Common
                 Position = position,
                 HalfExtents = halfExtents,
                 ShapeType = geometry.ShapeType,
-                Render = _renderRegistry?.GetAoeRenderComponent(renderId, geometry) ?? default,
+                Render = render,
+                Authoring = authoring,
                 OnHitSpawn = request.OnHitSpawn,
                 HasTimedSpawner = request.HasTimedSpawner ? 1 : 0,
                 TimedSpawn = StampTimedSpawn(request.TimedSpawn, CombatFaction.None, aoeId)
