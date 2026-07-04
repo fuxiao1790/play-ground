@@ -14,12 +14,6 @@ namespace PlayGround.System.Stats
         private Entity _statsEntity;
         private EntityQuery activeProjectileRenderQuery;
         private EntityQuery activeAoeRenderQuery;
-        private ProjectileSpawnApplySystem _projectiles;
-        private ImpactAoeSpawnApplySystem _impactAoe;
-        private LingeringAoeSpawnApplySystem _lingeringAoe;
-        private CombatApplyFinalizeSingleSystem _finalize;
-        private CombatVfxDispatchSystem _vfx;
-        private CombatPoolCleanupSystem _cleanup;
 
         protected override void OnCreate()
         {
@@ -63,43 +57,16 @@ namespace PlayGround.System.Stats
 
         protected override void OnUpdate()
         {
-            CacheProducerSystems();
-
-            int ecb =
-                (_projectiles?.LastColdCreateCount ?? 0) +
-                (_impactAoe?.LastColdCreateCount ?? 0) +
-                (_lingeringAoe?.LastColdCreateCount ?? 0);
-            int reuse =
-                (_projectiles?.LastReuseCount ?? 0) +
-                (_impactAoe?.LastReuseCount ?? 0) +
-                (_lingeringAoe?.LastReuseCount ?? 0);
-
-            var snapshot = new CombatStatsSingleton
-            {
-                EntitiesSpawnedViaEcb = ecb,
-                EntitiesSpawnedViaReuse = reuse,
-                ActiveProjectiles = activeProjectileRenderQuery.CalculateEntityCount(),
-                ActiveAoes = activeAoeRenderQuery.CalculateEntityCount(),
-                HitEventsCreated = _finalize?.LastHitEventCount ?? 0,
-                VfxEventsCreated = _vfx?.LastVfxEventCount ?? 0,
-                EntitiesDeleted = _cleanup?.LastDeletedCount ?? 0,
-            };
-
+            // Producers accumulated their counts into the blackboard earlier this frame; this
+            // system only reads it and fills in the render-active counts it owns, then displays.
+            CombatStatsSingleton snapshot = EntityManager.GetComponentData<CombatStatsSingleton>(_statsEntity);
+            snapshot.ActiveProjectiles = activeProjectileRenderQuery.CalculateEntityCount();
+            snapshot.ActiveAoes = activeAoeRenderQuery.CalculateEntityCount();
             EntityManager.SetComponentData(_statsEntity, snapshot);
 
             CombatStatsBinding binding =
                 EntityManager.GetComponentObject<CombatStatsBinding>(_statsEntity);
             binding.Display?.Apply(in snapshot);
-        }
-
-        private void CacheProducerSystems()
-        {
-            _projectiles ??= World.GetExistingSystemManaged<ProjectileSpawnApplySystem>();
-            _impactAoe ??= World.GetExistingSystemManaged<ImpactAoeSpawnApplySystem>();
-            _lingeringAoe ??= World.GetExistingSystemManaged<LingeringAoeSpawnApplySystem>();
-            _finalize ??= World.GetExistingSystemManaged<CombatApplyFinalizeSingleSystem>();
-            _vfx ??= World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
-            _cleanup ??= World.GetExistingSystemManaged<CombatPoolCleanupSystem>();
         }
     }
 }

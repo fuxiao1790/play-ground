@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using PlayGround.Common;
 using PlayGround.System.Aoe;
 using PlayGround.System.Projectile;
+using PlayGround.System.Stats;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -91,6 +92,10 @@ namespace PlayGround.System.Common
 
                 int hitCount = HitQueue.Count;
                 LastHitEventCount = hitCount;
+                if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(out RefRW<CombatStatsSingleton> stats))
+                {
+                    stats.ValueRW.HitEventsCreated += hitCount;
+                }
                 if (hitCount == 0)
                 {
                     HitQueue.Clear();

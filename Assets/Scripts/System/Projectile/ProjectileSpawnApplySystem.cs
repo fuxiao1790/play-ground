@@ -1,5 +1,6 @@
 using PlayGround.System.Aoe;
 using PlayGround.System.Common;
+using PlayGround.System.Stats;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -149,6 +150,12 @@ namespace PlayGround.System.Projectile
                 SpawnColdCreateCounter.Value = totalRequests - reuseCount;
                 LastReuseCount = reuseCount;
                 LastColdCreateCount = totalRequests - reuseCount;
+
+                if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(out RefRW<CombatStatsSingleton> stats))
+                {
+                    stats.ValueRW.EntitiesSpawnedViaReuse += LastReuseCount;
+                    stats.ValueRW.EntitiesSpawnedViaEcb += LastColdCreateCount;
+                }
             }
 
         }

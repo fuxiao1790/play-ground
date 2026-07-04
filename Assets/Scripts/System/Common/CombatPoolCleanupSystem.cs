@@ -1,5 +1,6 @@
 using PlayGround.System.Aoe;
 using PlayGround.System.Projectile;
+using PlayGround.System.Stats;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
@@ -84,6 +85,11 @@ namespace PlayGround.System.Common
             ecb.Dispose();
 
             LastDeletedCount = before - _poolQuery.CalculateEntityCount();
+
+            if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(out RefRW<CombatStatsSingleton> stats))
+            {
+                stats.ValueRW.EntitiesDeleted += LastDeletedCount;
+            }
         }
 
         [BurstCompile]

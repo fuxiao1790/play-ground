@@ -1,3 +1,4 @@
+using PlayGround.System.Stats;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -48,6 +49,11 @@ namespace PlayGround.System.Vfx
             }
 
             LastVfxEventCount = root.DrainAndDispatch(ref PendingSpawns);
+
+            if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(out RefRW<CombatStatsSingleton> stats))
+            {
+                stats.ValueRW.VfxEventsCreated += LastVfxEventCount;
+            }
         }
     }
 }
