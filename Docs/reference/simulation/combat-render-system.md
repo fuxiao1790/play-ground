@@ -107,6 +107,21 @@ Neither can do the other's job.
 
 ## Critical constraints (hard-won; do not regress)
 
+- **The `Combat/AtlasIndirectSprite` shader must be in Always Included Shaders (or
+  otherwise anchored).** `CombatRenderResourceRegistry.EnsureSharedResources` builds
+  the material at runtime with `new Material(Shader.Find("Combat/AtlasIndirectSprite"))`.
+  Unity's build stripper only ships assets reachable through the **static reference
+  graph** (a scene/prefab/`.mat`/`Resources/` referencing it by GUID). A `Shader.Find`
+  string lookup is invisible to that analysis, no `.mat` asset references this shader,
+  and it does not live in `Resources/` — so in a **player build** the shader is stripped,
+  `Shader.Find` returns `null`, `EnsureSharedResources` throws, and *the first
+  `Register(...)` call aborts skill/render setup so nothing spawns or draws*. Works fine
+  in the Editor (all assets loaded), fails only in builds. Fix: add the shader to
+  **Project Settings → Graphics → Always Included Shaders** (done — see
+  `ProjectSettings/GraphicsSettings.asset`, guid `46d20b6f7f8d4e6b9a4fdb80abf1c395`).
+  The shader is authored correctly; it is just undiscoverable by static analysis. A more
+  precise alternative is to serialize a real `.mat` asset (pins exact variants and puts
+  the shader back on the reference graph) instead of `Shader.Find`.
 - **URP 2D Renderer requires a RendererFeature + `Universal2D` LightMode.** The
   active renderer is the URP 2D Renderer (`UniversalRP.asset` → `Renderer2D.asset`).
   It only executes shader passes tagged `LightMode = Universal2D`, and it does
