@@ -181,6 +181,13 @@ ECS memory.
   `NativeList`; the instance buffer grows by doubling and never shrinks.
 - Per-instance upload is 68 bytes per active entity; static per-kind UV data is
   uploaded only when the registry changes.
+- The atlas **texture** is not per-frame traffic. Its pixels are GPU-resident once
+  Unity loads/packs the atlas, and it is bound to the material a single time at
+  registration (`SharedMaterial.mainTexture = packedSprite.texture` in
+  `CombatRenderResourceRegistry.Register`) — the shader samples `_MainTex` with no
+  per-frame texture upload. Together with the per-kind UV buffer, both static inputs
+  (atlas pixels + UV basis) are init-time only; only the `objectToWorld` matrices
+  stream each frame.
 - The ~13-24 ms idle-frame cost seen after busy scenes is **not** this system: it
   is `CompleteDependency()` syncing the non-shrinking idle simulation pool. See
   performance/idle-cost notes, not the render path.
