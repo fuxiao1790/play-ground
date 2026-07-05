@@ -12,6 +12,14 @@ using Unity.Profiling;
 
 namespace PlayGround.System.Common
 {
+    // ECS Lifecycle: singleton combat-hit dispatch queue; created by CombatApplyFinalizeSingleSystem
+    // on create, drained every simulation update by the finalize job, disposed on destroy.
+    public struct CombatHitDispatchSingleton : IComponentData
+    {
+        public NativeQueue<CombatHitEvent> HitQueue;
+        public JobHandle ProducerHandle;
+    }
+
     // Applies queued combat hit events to ECS target health and stack buffers, then
     // hands per-target results to CombatApplyBridge for presentation replay.
     //
@@ -45,49 +53,63 @@ namespace PlayGround.System.Common
         private static readonly ProfilerCounterValue<int> EntryEvictionCounter =
             new(ProfilerCategory.Scripts, "CombatApplyFinalizeSingleSystem.StackEntryEvictions", ProfilerMarkerDataUnit.Count);
 
-        internal NativeQueue<CombatHitEvent> HitQueue;
-        internal JobHandle ProducerHandle;
         internal int AccrualFrame;
         internal int LastHitEventCount;
 
         private int entryEvictions;
+        private Entity singletonEntity;
 
         protected override void OnCreate()
         {
-            HitQueue = new NativeQueue<CombatHitEvent>(Allocator.Persistent);
+            singletonEntity = EntityManager.CreateEntity(typeof(CombatHitDispatchSingleton));
+            EntityManager.SetComponentData(singletonEntity, new CombatHitDispatchSingleton
+            {
+                HitQueue = new NativeQueue<CombatHitEvent>(Allocator.Persistent)
+            });
         }
 
         protected override void OnDestroy()
         {
-            ProducerHandle.Complete();
-            if (HitQueue.IsCreated)
+            if (singletonEntity == Entity.Null
+                || !EntityManager.Exists(singletonEntity)
+                || !EntityManager.HasComponent<CombatHitDispatchSingleton>(singletonEntity))
             {
-                HitQueue.Dispose();
+                return;
+            }
+
+            CombatHitDispatchSingleton singleton =
+                EntityManager.GetComponentData<CombatHitDispatchSingleton>(singletonEntity);
+            singleton.ProducerHandle.Complete();
+            if (singleton.HitQueue.IsCreated)
+            {
+                singleton.HitQueue.Dispose();
             }
         }
-
-        internal NativeQueue<CombatHitEvent>.ParallelWriter AsParallelWriter() =>
-            HitQueue.AsParallelWriter();
 
         protected override void OnUpdate()
         {
             using (Marker.Auto())
             {
+                RefRW<CombatHitDispatchSingleton> hitDispatch =
+                    SystemAPI.GetSingletonRW<CombatHitDispatchSingleton>();
+                ref CombatHitDispatchSingleton singleton = ref hitDispatch.ValueRW;
+
                 using (CompleteProducersMarker.Auto())
                 {
-                    ProducerHandle.Complete();
-                    ProducerHandle = default;
+                    singleton.ProducerHandle.Complete();
+                    singleton.ProducerHandle = default;
                 }
 
                 AccrualFrame++;
 
+                // Intentional managed lookup: CombatApplyBridge is presentation handoff, not a native container lane.
                 CombatApplyBridge bridge = World.GetExistingSystemManaged<CombatApplyBridge>();
                 using (DisposePreviousMarker.Auto())
                 {
                     bridge?.DisposeFinalizedCombat();
                 }
 
-                int hitCount = HitQueue.Count;
+                int hitCount = singleton.HitQueue.Count;
                 LastHitEventCount = hitCount;
                 if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(out RefRW<CombatStatsSingleton> stats))
                 {
@@ -95,7 +117,7 @@ namespace PlayGround.System.Common
                 }
                 if (hitCount == 0)
                 {
-                    HitQueue.Clear();
+                    singleton.HitQueue.Clear();
                     return;
                 }
 
@@ -105,7 +127,7 @@ namespace PlayGround.System.Common
 
                 Dependency = new FinalizeCombatSingleJob
                 {
-                    HitQueue = HitQueue,
+                    HitQueue = singleton.HitQueue,
                     HealthLookup = GetComponentLookup<TargetHealth>(),
                     StackBuffers = GetBufferLookup<TargetStackEntry>(),
                     Results = resultsList,

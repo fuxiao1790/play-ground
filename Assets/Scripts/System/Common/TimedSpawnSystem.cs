@@ -17,10 +17,24 @@ namespace PlayGround.System.Common
     {
         public void OnUpdate(ref SystemState state)
         {
-            var projectileExpansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
-            var impactAoeExpansion = state.World.GetExistingSystemManaged<ImpactAoeSpawnExpansionSystem>();
-            var lingeringAoeExpansion = state.World.GetExistingSystemManaged<LingeringAoeSpawnExpansionSystem>();
-            if (projectileExpansion == null && impactAoeExpansion == null && lingeringAoeExpansion == null)
+            bool hasProjectileEvents = SystemAPI.TryGetSingletonRW<ProjectileSpawnEventSingleton>(
+                out RefRW<ProjectileSpawnEventSingleton> projectileLane);
+            NativeQueue<ProjectileSpawnEvent> projectileEventQueue =
+                hasProjectileEvents ? projectileLane.ValueRO.EventQueue : default;
+            hasProjectileEvents = hasProjectileEvents && projectileEventQueue.IsCreated;
+
+            bool hasImpactAoeEvents = SystemAPI.TryGetSingletonRW<ImpactAoeSpawnEventSingleton>(
+                out RefRW<ImpactAoeSpawnEventSingleton> impactAoeLane);
+            NativeQueue<ImpactAoeSpawnEvent> impactAoeEventQueue =
+                hasImpactAoeEvents ? impactAoeLane.ValueRO.EventQueue : default;
+            hasImpactAoeEvents = hasImpactAoeEvents && impactAoeEventQueue.IsCreated;
+
+            bool hasLingeringAoeEvents = SystemAPI.TryGetSingletonRW<LingeringAoeSpawnEventSingleton>(
+                out RefRW<LingeringAoeSpawnEventSingleton> lingeringAoeLane);
+            NativeQueue<LingeringAoeSpawnEvent> lingeringAoeEventQueue =
+                hasLingeringAoeEvents ? lingeringAoeLane.ValueRO.EventQueue : default;
+            hasLingeringAoeEvents = hasLingeringAoeEvents && lingeringAoeEventQueue.IsCreated;
+            if (!hasProjectileEvents && !hasImpactAoeEvents && !hasLingeringAoeEvents)
             {
                 return;
             }
@@ -28,38 +42,38 @@ namespace PlayGround.System.Common
             JobHandle handle = new TimedSpawnJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
-                ProjectileEventQueue = projectileExpansion != null
-                    ? projectileExpansion.EventQueue.AsParallelWriter()
+                ProjectileEventQueue = hasProjectileEvents
+                    ? projectileEventQueue.AsParallelWriter()
                     : default,
-                ImpactAoeEventQueue = impactAoeExpansion != null
-                    ? impactAoeExpansion.EventQueue.AsParallelWriter()
+                ImpactAoeEventQueue = hasImpactAoeEvents
+                    ? impactAoeEventQueue.AsParallelWriter()
                     : default,
-                LingeringAoeEventQueue = lingeringAoeExpansion != null
-                    ? lingeringAoeExpansion.EventQueue.AsParallelWriter()
+                LingeringAoeEventQueue = hasLingeringAoeEvents
+                    ? lingeringAoeEventQueue.AsParallelWriter()
                     : default,
-                HasProjectileEventQueue = projectileExpansion != null,
-                HasImpactAoeEventQueue = impactAoeExpansion != null,
-                HasLingeringAoeEventQueue = lingeringAoeExpansion != null
+                HasProjectileEventQueue = hasProjectileEvents,
+                HasImpactAoeEventQueue = hasImpactAoeEvents,
+                HasLingeringAoeEventQueue = hasLingeringAoeEvents
             }.ScheduleParallel(state.Dependency);
 
             state.Dependency = handle;
 
-            if (projectileExpansion != null)
+            if (hasProjectileEvents)
             {
-                projectileExpansion.ProducerHandle =
-                    JobHandle.CombineDependencies(projectileExpansion.ProducerHandle, handle);
+                projectileLane.ValueRW.ProducerHandle =
+                    JobHandle.CombineDependencies(projectileLane.ValueRW.ProducerHandle, handle);
             }
 
-            if (impactAoeExpansion != null)
+            if (hasImpactAoeEvents)
             {
-                impactAoeExpansion.ProducerHandle =
-                    JobHandle.CombineDependencies(impactAoeExpansion.ProducerHandle, handle);
+                impactAoeLane.ValueRW.ProducerHandle =
+                    JobHandle.CombineDependencies(impactAoeLane.ValueRW.ProducerHandle, handle);
             }
 
-            if (lingeringAoeExpansion != null)
+            if (hasLingeringAoeEvents)
             {
-                lingeringAoeExpansion.ProducerHandle =
-                    JobHandle.CombineDependencies(lingeringAoeExpansion.ProducerHandle, handle);
+                lingeringAoeLane.ValueRW.ProducerHandle =
+                    JobHandle.CombineDependencies(lingeringAoeLane.ValueRW.ProducerHandle, handle);
             }
         }
 

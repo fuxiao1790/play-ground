@@ -78,13 +78,13 @@ namespace PlayGround.System.Projectile
             NativeArray<ProjectileSpawnCommand> commands = default;
             using (DrainCommandsMarker.Auto())
             {
-                var expansionSys = World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
-                if (expansionSys != null)
+                if (SystemAPI.TryGetSingleton<ProjectileSpawnEventSingleton>(
+                    out ProjectileSpawnEventSingleton projectileLane))
                 {
-                    expansionSys.PendingHandle.Complete();
-                    if (expansionSys.ProjectileCommands.IsCreated)
+                    projectileLane.PendingHandle.Complete();
+                    if (projectileLane.Commands.IsCreated)
                     {
-                        commands = expansionSys.ProjectileCommands.AsArray();
+                        commands = projectileLane.Commands.AsArray();
                         totalRequests = commands.Length;
                     }
                 }

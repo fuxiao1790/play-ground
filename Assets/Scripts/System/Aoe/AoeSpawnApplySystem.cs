@@ -56,15 +56,15 @@ namespace PlayGround.System.Aoe
         {
             Dependency.Complete();
 
-            var expansionSys = World.GetExistingSystemManaged<ImpactAoeSpawnExpansionSystem>();
             NativeArray<AoeSpawnCommand> commands = default;
             int totalRequests = 0;
-            if (expansionSys != null)
+            if (SystemAPI.TryGetSingleton<ImpactAoeSpawnEventSingleton>(
+                out ImpactAoeSpawnEventSingleton impactLane))
             {
-                expansionSys.PendingHandle.Complete();
-                if (expansionSys.ImpactCommands.IsCreated)
+                impactLane.PendingHandle.Complete();
+                if (impactLane.Commands.IsCreated)
                 {
-                    commands = expansionSys.ImpactCommands.AsArray();
+                    commands = impactLane.Commands.AsArray();
                     totalRequests = commands.Length;
                 }
             }
@@ -270,15 +270,15 @@ namespace PlayGround.System.Aoe
         {
             Dependency.Complete();
 
-            var expansionSys = World.GetExistingSystemManaged<LingeringAoeSpawnExpansionSystem>();
             NativeArray<AoeSpawnCommand> commands = default;
             int totalRequests = 0;
-            if (expansionSys != null)
+            if (SystemAPI.TryGetSingleton<LingeringAoeSpawnEventSingleton>(
+                out LingeringAoeSpawnEventSingleton lingeringLane))
             {
-                expansionSys.PendingHandle.Complete();
-                if (expansionSys.LingeringCommands.IsCreated)
+                lingeringLane.PendingHandle.Complete();
+                if (lingeringLane.Commands.IsCreated)
                 {
-                    commands = expansionSys.LingeringCommands.AsArray();
+                    commands = lingeringLane.Commands.AsArray();
                     totalRequests = commands.Length;
                 }
             }

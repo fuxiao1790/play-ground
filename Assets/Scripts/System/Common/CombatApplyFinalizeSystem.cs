@@ -90,6 +90,7 @@ namespace PlayGround.System.Common
 
                 AccrualFrame++;
 
+                // Intentional managed lookup: CombatApplyBridge is presentation handoff, not a native container lane.
                 CombatApplyBridge bridge = World.GetExistingSystemManaged<CombatApplyBridge>();
                 using (DisposePreviousMarker.Auto())
                 {

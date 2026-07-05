@@ -7,6 +7,18 @@ using Unity.Mathematics;
 
 namespace PlayGround.System.Projectile
 {
+    // ECS Lifecycle: singleton projectile spawn lane; EventQueue + Commands created by
+    // ProjectileSpawnExpansionSystem on create. EventQueue is filled by producers each frame and
+    // drained by the expansion system; Commands is allocated per frame by the expansion job and
+    // consumed by ProjectileSpawnApplySystem. Disposed by ProjectileSpawnExpansionSystem on destroy.
+    public struct ProjectileSpawnEventSingleton : IComponentData
+    {
+        public NativeQueue<ProjectileSpawnEvent> EventQueue;
+        public NativeList<ProjectileSpawnCommand> Commands;
+        public JobHandle ProducerHandle;
+        public JobHandle PendingHandle;
+    }
+
     // Drains thin ProjectileSpawnEvent values, dereferences command-shaped templates,
     // stamps per-instance frame data, fans out by Count/Spread/Jitter, and writes
     // fully-resolved ProjectileSpawnCommand into apply-system containers.
@@ -21,15 +33,16 @@ namespace PlayGround.System.Projectile
     public partial class ProjectileSpawnExpansionSystem : SystemBase
     {
         private EntityQuery _scopeQuery;
-
-        internal NativeQueue<ProjectileSpawnEvent> EventQueue;
-        internal NativeList<ProjectileSpawnCommand> ProjectileCommands;
-        internal JobHandle PendingHandle;
-        internal JobHandle ProducerHandle;
+        private Entity singletonEntity;
 
         protected override void OnCreate()
         {
-            EventQueue = new NativeQueue<ProjectileSpawnEvent>(Allocator.Persistent);
+            singletonEntity = EntityManager.CreateEntity(typeof(ProjectileSpawnEventSingleton));
+            EntityManager.SetComponentData(singletonEntity, new ProjectileSpawnEventSingleton
+            {
+                EventQueue = new NativeQueue<ProjectileSpawnEvent>(Allocator.Persistent)
+            });
+
             _scopeQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CombatScope>(),
                 ComponentType.ReadWrite<ProjectileSpawnEvent>());
@@ -37,28 +50,46 @@ namespace PlayGround.System.Projectile
 
         protected override void OnDestroy()
         {
-            PendingHandle.Complete();
-            if (ProjectileCommands.IsCreated)
+            if (singletonEntity == Entity.Null
+                || !EntityManager.Exists(singletonEntity)
+                || !EntityManager.HasComponent<ProjectileSpawnEventSingleton>(singletonEntity))
             {
-                ProjectileCommands.Dispose();
+                return;
             }
 
-            EventQueue.Dispose();
+            ProjectileSpawnEventSingleton singleton =
+                EntityManager.GetComponentData<ProjectileSpawnEventSingleton>(singletonEntity);
+            singleton.PendingHandle.Complete();
+            singleton.ProducerHandle.Complete();
+            if (singleton.Commands.IsCreated)
+            {
+                singleton.Commands.Dispose();
+            }
+
+            if (singleton.EventQueue.IsCreated)
+            {
+                singleton.EventQueue.Dispose();
+            }
         }
 
         protected override void OnUpdate()
         {
-            PendingHandle.Complete();
-            if (ProjectileCommands.IsCreated)
+            RefRW<ProjectileSpawnEventSingleton> projectileLane =
+                SystemAPI.GetSingletonRW<ProjectileSpawnEventSingleton>();
+            ref ProjectileSpawnEventSingleton singleton = ref projectileLane.ValueRW;
+
+            singleton.PendingHandle.Complete();
+            if (singleton.Commands.IsCreated)
             {
-                ProjectileCommands.Dispose();
+                singleton.Commands.Dispose();
+                singleton.Commands = default;
             }
 
             Dependency.Complete();
-            ProducerHandle.Complete();
-            ProducerHandle = default;
+            singleton.ProducerHandle.Complete();
+            singleton.ProducerHandle = default;
 
-            int queueCount = EventQueue.Count;
+            int queueCount = singleton.EventQueue.Count;
             using NativeArray<Entity> scopes = _scopeQuery.ToEntityArray(Allocator.Temp);
             int bufferCount = 0;
             for (int s = 0; s < scopes.Length; s++)
@@ -69,7 +100,7 @@ namespace PlayGround.System.Projectile
             int totalEvents = queueCount + bufferCount;
             if (totalEvents == 0)
             {
-                PendingHandle = default;
+                singleton.PendingHandle = default;
                 return;
             }
 
@@ -78,11 +109,11 @@ namespace PlayGround.System.Projectile
 
             if (queueCount > 0)
             {
-                NativeArray<ProjectileSpawnEvent> queued = EventQueue.ToArray(Allocator.Temp);
+                NativeArray<ProjectileSpawnEvent> queued = singleton.EventQueue.ToArray(Allocator.Temp);
                 NativeArray<ProjectileSpawnEvent>.Copy(queued, 0, events, offset, queued.Length);
                 offset += queued.Length;
                 queued.Dispose();
-                EventQueue.Clear();
+                singleton.EventQueue.Clear();
             }
 
             for (int s = 0; s < scopes.Length; s++)
@@ -98,22 +129,24 @@ namespace PlayGround.System.Projectile
 
             if (!SystemAPI.TryGetSingleton(out ProjectileSpawnTemplate templates))
             {
-                PendingHandle = events.Dispose(Dependency);
-                Dependency = PendingHandle;
+                singleton.PendingHandle = events.Dispose(Dependency);
+                Dependency = singleton.PendingHandle;
                 return;
             }
 
-            ProjectileCommands = new NativeList<ProjectileSpawnCommand>(events.Length, Allocator.TempJob);
+            NativeList<ProjectileSpawnCommand> commands =
+                new(events.Length, Allocator.TempJob);
 
             Dependency = new ProjectileExpansionJob
             {
                 Events = events,
                 Templates = templates.Map,
-                Commands = ProjectileCommands
+                Commands = commands
             }.Schedule(Dependency);
 
             Dependency = events.Dispose(Dependency);
-            PendingHandle = Dependency;
+            singleton.Commands = commands;
+            singleton.PendingHandle = Dependency;
         }
 
         [BurstCompile]

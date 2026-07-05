@@ -200,6 +200,18 @@ For event queues and native containers:
 - Schedule jobs against `singleton.Queue`, not the component
 - Unity's singleton functions are designed for this to avoid sync points while chaining jobs
 
+Canonical combat-lane examples:
+- `CombatVfxDispatchSingleton`
+- `CombatHitDispatchSingleton`
+- `ProjectileSpawnEventSingleton`
+- `ImpactAoeSpawnEventSingleton`
+- `LingeringAoeSpawnEventSingleton`
+
+These hold the lane's native queue/list plus explicit `JobHandle` fields. Producers use
+`SystemAPI.TryGetSingletonRW<T>()` and combine their scheduled job handle into the
+singleton on the main thread; sinks complete the stored handles before draining and dispose
+the native containers during their own teardown.
+
 Benefits:
 - No `GetExistingSystemManaged` reaching into fields; dependencies are compiler-visible
 - Job dependency chains work correctly through native container ownership

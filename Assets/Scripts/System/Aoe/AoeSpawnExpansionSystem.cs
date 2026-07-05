@@ -132,6 +132,28 @@ namespace PlayGround.System.Aoe
         }
     }
 
+    // ECS Lifecycle: singleton impact-AOE spawn lane; EventQueue + Commands created by
+    // ImpactAoeSpawnExpansionSystem on create, drained/produced each simulation update,
+    // consumed by ImpactAoeSpawnApplySystem, disposed by ImpactAoeSpawnExpansionSystem on destroy.
+    public struct ImpactAoeSpawnEventSingleton : IComponentData
+    {
+        public NativeQueue<ImpactAoeSpawnEvent> EventQueue;
+        public NativeList<AoeSpawnCommand> Commands;
+        public JobHandle ProducerHandle;
+        public JobHandle PendingHandle;
+    }
+
+    // ECS Lifecycle: singleton lingering-AOE spawn lane; EventQueue + Commands created by
+    // LingeringAoeSpawnExpansionSystem on create, drained/produced each simulation update,
+    // consumed by LingeringAoeSpawnApplySystem, disposed by LingeringAoeSpawnExpansionSystem on destroy.
+    public struct LingeringAoeSpawnEventSingleton : IComponentData
+    {
+        public NativeQueue<LingeringAoeSpawnEvent> EventQueue;
+        public NativeList<AoeSpawnCommand> Commands;
+        public JobHandle ProducerHandle;
+        public JobHandle PendingHandle;
+    }
+
     // Drains impact AOE spawn intent and writes impact AoeSpawnCommand values for apply.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(TimedSpawnSystem))]
@@ -145,15 +167,16 @@ namespace PlayGround.System.Aoe
     public partial class ImpactAoeSpawnExpansionSystem : SystemBase
     {
         private EntityQuery _scopeQuery;
-
-        internal NativeQueue<ImpactAoeSpawnEvent> EventQueue;
-        internal NativeList<AoeSpawnCommand> ImpactCommands;
-        internal JobHandle PendingHandle;
-        internal JobHandle ProducerHandle;
+        private Entity singletonEntity;
 
         protected override void OnCreate()
         {
-            EventQueue = new NativeQueue<ImpactAoeSpawnEvent>(Allocator.Persistent);
+            singletonEntity = EntityManager.CreateEntity(typeof(ImpactAoeSpawnEventSingleton));
+            EntityManager.SetComponentData(singletonEntity, new ImpactAoeSpawnEventSingleton
+            {
+                EventQueue = new NativeQueue<ImpactAoeSpawnEvent>(Allocator.Persistent)
+            });
+
             _scopeQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CombatScope>(),
                 ComponentType.ReadWrite<ImpactAoeSpawnEvent>());
@@ -161,28 +184,46 @@ namespace PlayGround.System.Aoe
 
         protected override void OnDestroy()
         {
-            PendingHandle.Complete();
-            if (ImpactCommands.IsCreated)
+            if (singletonEntity == Entity.Null
+                || !EntityManager.Exists(singletonEntity)
+                || !EntityManager.HasComponent<ImpactAoeSpawnEventSingleton>(singletonEntity))
             {
-                ImpactCommands.Dispose();
+                return;
             }
 
-            EventQueue.Dispose();
+            ImpactAoeSpawnEventSingleton singleton =
+                EntityManager.GetComponentData<ImpactAoeSpawnEventSingleton>(singletonEntity);
+            singleton.PendingHandle.Complete();
+            singleton.ProducerHandle.Complete();
+            if (singleton.Commands.IsCreated)
+            {
+                singleton.Commands.Dispose();
+            }
+
+            if (singleton.EventQueue.IsCreated)
+            {
+                singleton.EventQueue.Dispose();
+            }
         }
 
         protected override void OnUpdate()
         {
-            PendingHandle.Complete();
-            if (ImpactCommands.IsCreated)
+            RefRW<ImpactAoeSpawnEventSingleton> impactLane =
+                SystemAPI.GetSingletonRW<ImpactAoeSpawnEventSingleton>();
+            ref ImpactAoeSpawnEventSingleton singleton = ref impactLane.ValueRW;
+
+            singleton.PendingHandle.Complete();
+            if (singleton.Commands.IsCreated)
             {
-                ImpactCommands.Dispose();
+                singleton.Commands.Dispose();
+                singleton.Commands = default;
             }
 
             Dependency.Complete();
-            ProducerHandle.Complete();
-            ProducerHandle = default;
+            singleton.ProducerHandle.Complete();
+            singleton.ProducerHandle = default;
 
-            int queueCount = EventQueue.Count;
+            int queueCount = singleton.EventQueue.Count;
             using NativeArray<Entity> scopes = _scopeQuery.ToEntityArray(Allocator.Temp);
             int bufferCount = 0;
             for (int s = 0; s < scopes.Length; s++)
@@ -193,14 +234,14 @@ namespace PlayGround.System.Aoe
             int totalEvents = queueCount + bufferCount;
             if (totalEvents == 0)
             {
-                PendingHandle = default;
+                singleton.PendingHandle = default;
                 return;
             }
 
             var events = new NativeArray<ImpactAoeSpawnEvent>(totalEvents, Allocator.TempJob);
             int offset = 0;
 
-            while (EventQueue.TryDequeue(out ImpactAoeSpawnEvent evt))
+            while (singleton.EventQueue.TryDequeue(out ImpactAoeSpawnEvent evt))
             {
                 events[offset++] = evt;
             }
@@ -219,37 +260,41 @@ namespace PlayGround.System.Aoe
             if (!SystemAPI.TryGetSingleton(out AoeSpawnTemplate templates))
             {
                 Dependency = events.Dispose(Dependency);
-                PendingHandle = Dependency;
+                singleton.PendingHandle = Dependency;
                 return;
             }
 
-            var vfx = World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
-            bool hasVfx = vfx != null && vfx.HasQueue;
+            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatVfxDispatchSingleton>(
+                out RefRW<CombatVfxDispatchSingleton> vfx);
+            NativeQueue<VfxPendingSpawn> vfxQueue = hasVfx ? vfx.ValueRO.PendingSpawns : default;
+            hasVfx = hasVfx && vfxQueue.IsCreated;
 
-            ImpactCommands = new NativeList<AoeSpawnCommand>(events.Length, Allocator.TempJob);
+            NativeList<AoeSpawnCommand> commands =
+                new(events.Length, Allocator.TempJob);
 
             JobHandle expansionInput = Dependency;
             if (hasVfx)
             {
-                expansionInput = JobHandle.CombineDependencies(expansionInput, vfx.ProducerHandle);
+                expansionInput = JobHandle.CombineDependencies(expansionInput, vfx.ValueRO.ProducerHandle);
             }
 
             Dependency = new ImpactAoeExpansionJob
             {
                 Events = events,
                 Templates = templates.Map,
-                Commands = ImpactCommands,
-                VfxPending = hasVfx ? vfx.AsParallelWriter() : default,
+                Commands = commands,
+                VfxPending = hasVfx ? vfxQueue.AsParallelWriter() : default,
                 HasVfxWriter = hasVfx
             }.Schedule(expansionInput);
 
             if (hasVfx)
             {
-                vfx.ProducerHandle = Dependency;
+                vfx.ValueRW.ProducerHandle = Dependency;
             }
 
             Dependency = events.Dispose(Dependency);
-            PendingHandle = Dependency;
+            singleton.Commands = commands;
+            singleton.PendingHandle = Dependency;
         }
 
         [BurstCompile]
@@ -299,15 +344,16 @@ namespace PlayGround.System.Aoe
     public partial class LingeringAoeSpawnExpansionSystem : SystemBase
     {
         private EntityQuery _scopeQuery;
-
-        internal NativeQueue<LingeringAoeSpawnEvent> EventQueue;
-        internal NativeList<AoeSpawnCommand> LingeringCommands;
-        internal JobHandle PendingHandle;
-        internal JobHandle ProducerHandle;
+        private Entity singletonEntity;
 
         protected override void OnCreate()
         {
-            EventQueue = new NativeQueue<LingeringAoeSpawnEvent>(Allocator.Persistent);
+            singletonEntity = EntityManager.CreateEntity(typeof(LingeringAoeSpawnEventSingleton));
+            EntityManager.SetComponentData(singletonEntity, new LingeringAoeSpawnEventSingleton
+            {
+                EventQueue = new NativeQueue<LingeringAoeSpawnEvent>(Allocator.Persistent)
+            });
+
             _scopeQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CombatScope>(),
                 ComponentType.ReadWrite<LingeringAoeSpawnEvent>());
@@ -315,28 +361,46 @@ namespace PlayGround.System.Aoe
 
         protected override void OnDestroy()
         {
-            PendingHandle.Complete();
-            if (LingeringCommands.IsCreated)
+            if (singletonEntity == Entity.Null
+                || !EntityManager.Exists(singletonEntity)
+                || !EntityManager.HasComponent<LingeringAoeSpawnEventSingleton>(singletonEntity))
             {
-                LingeringCommands.Dispose();
+                return;
             }
 
-            EventQueue.Dispose();
+            LingeringAoeSpawnEventSingleton singleton =
+                EntityManager.GetComponentData<LingeringAoeSpawnEventSingleton>(singletonEntity);
+            singleton.PendingHandle.Complete();
+            singleton.ProducerHandle.Complete();
+            if (singleton.Commands.IsCreated)
+            {
+                singleton.Commands.Dispose();
+            }
+
+            if (singleton.EventQueue.IsCreated)
+            {
+                singleton.EventQueue.Dispose();
+            }
         }
 
         protected override void OnUpdate()
         {
-            PendingHandle.Complete();
-            if (LingeringCommands.IsCreated)
+            RefRW<LingeringAoeSpawnEventSingleton> lingeringLane =
+                SystemAPI.GetSingletonRW<LingeringAoeSpawnEventSingleton>();
+            ref LingeringAoeSpawnEventSingleton singleton = ref lingeringLane.ValueRW;
+
+            singleton.PendingHandle.Complete();
+            if (singleton.Commands.IsCreated)
             {
-                LingeringCommands.Dispose();
+                singleton.Commands.Dispose();
+                singleton.Commands = default;
             }
 
             Dependency.Complete();
-            ProducerHandle.Complete();
-            ProducerHandle = default;
+            singleton.ProducerHandle.Complete();
+            singleton.ProducerHandle = default;
 
-            int queueCount = EventQueue.Count;
+            int queueCount = singleton.EventQueue.Count;
             using NativeArray<Entity> scopes = _scopeQuery.ToEntityArray(Allocator.Temp);
             int bufferCount = 0;
             for (int s = 0; s < scopes.Length; s++)
@@ -347,14 +411,14 @@ namespace PlayGround.System.Aoe
             int totalEvents = queueCount + bufferCount;
             if (totalEvents == 0)
             {
-                PendingHandle = default;
+                singleton.PendingHandle = default;
                 return;
             }
 
             var events = new NativeArray<LingeringAoeSpawnEvent>(totalEvents, Allocator.TempJob);
             int offset = 0;
 
-            while (EventQueue.TryDequeue(out LingeringAoeSpawnEvent evt))
+            while (singleton.EventQueue.TryDequeue(out LingeringAoeSpawnEvent evt))
             {
                 events[offset++] = evt;
             }
@@ -374,37 +438,41 @@ namespace PlayGround.System.Aoe
             if (!SystemAPI.TryGetSingleton(out AoeSpawnTemplate templates))
             {
                 Dependency = events.Dispose(Dependency);
-                PendingHandle = Dependency;
+                singleton.PendingHandle = Dependency;
                 return;
             }
 
-            var vfx = World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
-            bool hasVfx = vfx != null && vfx.HasQueue;
+            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatVfxDispatchSingleton>(
+                out RefRW<CombatVfxDispatchSingleton> vfx);
+            NativeQueue<VfxPendingSpawn> vfxQueue = hasVfx ? vfx.ValueRO.PendingSpawns : default;
+            hasVfx = hasVfx && vfxQueue.IsCreated;
 
-            LingeringCommands = new NativeList<AoeSpawnCommand>(events.Length, Allocator.TempJob);
+            NativeList<AoeSpawnCommand> commands =
+                new(events.Length, Allocator.TempJob);
 
             JobHandle expansionInput = Dependency;
             if (hasVfx)
             {
-                expansionInput = JobHandle.CombineDependencies(expansionInput, vfx.ProducerHandle);
+                expansionInput = JobHandle.CombineDependencies(expansionInput, vfx.ValueRO.ProducerHandle);
             }
 
             Dependency = new LingeringAoeExpansionJob
             {
                 Events = events,
                 Templates = templates.Map,
-                Commands = LingeringCommands,
-                VfxPending = hasVfx ? vfx.AsParallelWriter() : default,
+                Commands = commands,
+                VfxPending = hasVfx ? vfxQueue.AsParallelWriter() : default,
                 HasVfxWriter = hasVfx
             }.Schedule(expansionInput);
 
             if (hasVfx)
             {
-                vfx.ProducerHandle = Dependency;
+                vfx.ValueRW.ProducerHandle = Dependency;
             }
 
             Dependency = events.Dispose(Dependency);
-            PendingHandle = Dependency;
+            singleton.Commands = commands;
+            singleton.PendingHandle = Dependency;
         }
 
         [BurstCompile]

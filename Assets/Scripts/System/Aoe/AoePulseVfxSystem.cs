@@ -14,10 +14,12 @@ namespace PlayGround.System.Aoe
     {
         public void OnUpdate(ref SystemState state)
         {
-            var vfx = state.World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
-            bool hasVfx = vfx != null && vfx.HasQueue;
+            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatVfxDispatchSingleton>(
+                out RefRW<CombatVfxDispatchSingleton> vfx);
+            NativeQueue<VfxPendingSpawn> vfxQueue = hasVfx ? vfx.ValueRO.PendingSpawns : default;
+            hasVfx = hasVfx && vfxQueue.IsCreated;
             NativeQueue<VfxPendingSpawn>.ParallelWriter vfxWriter = hasVfx
-                ? vfx.AsParallelWriter()
+                ? vfxQueue.AsParallelWriter()
                 : default;
 
             JobHandle pulseHandle = new AoePulseVfxJob
@@ -29,7 +31,8 @@ namespace PlayGround.System.Aoe
 
             if (hasVfx)
             {
-                vfx.ProducerHandle = JobHandle.CombineDependencies(vfx.ProducerHandle, pulseHandle);
+                vfx.ValueRW.ProducerHandle =
+                    JobHandle.CombineDependencies(vfx.ValueRW.ProducerHandle, pulseHandle);
             }
 
             state.Dependency = pulseHandle;

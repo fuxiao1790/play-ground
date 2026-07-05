@@ -41,11 +41,33 @@ namespace PlayGround.System.Aoe
             var hash = SystemAPI.GetSingleton<TargetSpatialHashSingleton>();
             state.Dependency = JobHandle.CombineDependencies(state.Dependency, hash.BuildHandle);
 
-            var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
-            var impactAoeExpansion = state.World.GetExistingSystemManaged<ImpactAoeSpawnExpansionSystem>();
-            var lingeringAoeExpansion = state.World.GetExistingSystemManaged<LingeringAoeSpawnExpansionSystem>();
-            var hitApply = state.World.GetExistingSystemManaged<CombatApplyFinalizeSingleSystem>();
-            var vfx = state.World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
+            bool hasProjectileEvents = SystemAPI.TryGetSingletonRW<ProjectileSpawnEventSingleton>(
+                out RefRW<ProjectileSpawnEventSingleton> projectileLane);
+            NativeQueue<ProjectileSpawnEvent> projectileEventQueue =
+                hasProjectileEvents ? projectileLane.ValueRO.EventQueue : default;
+            hasProjectileEvents = hasProjectileEvents && projectileEventQueue.IsCreated;
+
+            bool hasImpactAoeEvents = SystemAPI.TryGetSingletonRW<ImpactAoeSpawnEventSingleton>(
+                out RefRW<ImpactAoeSpawnEventSingleton> impactAoeLane);
+            NativeQueue<ImpactAoeSpawnEvent> impactAoeEventQueue =
+                hasImpactAoeEvents ? impactAoeLane.ValueRO.EventQueue : default;
+            hasImpactAoeEvents = hasImpactAoeEvents && impactAoeEventQueue.IsCreated;
+
+            bool hasLingeringAoeEvents = SystemAPI.TryGetSingletonRW<LingeringAoeSpawnEventSingleton>(
+                out RefRW<LingeringAoeSpawnEventSingleton> lingeringAoeLane);
+            NativeQueue<LingeringAoeSpawnEvent> lingeringAoeEventQueue =
+                hasLingeringAoeEvents ? lingeringAoeLane.ValueRO.EventQueue : default;
+            hasLingeringAoeEvents = hasLingeringAoeEvents && lingeringAoeEventQueue.IsCreated;
+
+            bool hasHit = SystemAPI.TryGetSingletonRW<CombatHitDispatchSingleton>(
+                out RefRW<CombatHitDispatchSingleton> hitDispatch);
+            NativeQueue<CombatHitEvent> hitQueue = hasHit ? hitDispatch.ValueRO.HitQueue : default;
+            hasHit = hasHit && hitQueue.IsCreated;
+
+            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatVfxDispatchSingleton>(
+                out RefRW<CombatVfxDispatchSingleton> vfx);
+            NativeQueue<VfxPendingSpawn> vfxQueue = hasVfx ? vfx.ValueRO.PendingSpawns : default;
+            hasVfx = hasVfx && vfxQueue.IsCreated;
 
             var job = new ImpactAoeCollisionJob
             {
@@ -54,44 +76,44 @@ namespace PlayGround.System.Aoe
                 TargetShapes = hash.TargetShapes.AsArray(),
                 TargetFactions = hash.TargetFactions.AsArray(),
                 OccupiedTargetCells = hash.AoeOccupiedCells,
-                HitWriter = hitApply != null
-                    ? hitApply.AsParallelWriter()
+                HitWriter = hasHit
+                    ? hitQueue.AsParallelWriter()
                     : default,
-                HasHitWriter = hitApply != null && hitApply.HitQueue.IsCreated,
-                VfxPending = vfx != null
-                    ? vfx.AsParallelWriter()
+                HasHitWriter = hasHit,
+                VfxPending = hasVfx
+                    ? vfxQueue.AsParallelWriter()
                     : default,
-                HasVfxWriter = vfx != null && vfx.HasQueue,
-                ProjectileEventWriter = expansion != null
-                    ? expansion.EventQueue.AsParallelWriter()
+                HasVfxWriter = hasVfx,
+                ProjectileEventWriter = hasProjectileEvents
+                    ? projectileEventQueue.AsParallelWriter()
                     : default,
-                ImpactAoeEventWriter = impactAoeExpansion != null
-                    ? impactAoeExpansion.EventQueue.AsParallelWriter()
+                ImpactAoeEventWriter = hasImpactAoeEvents
+                    ? impactAoeEventQueue.AsParallelWriter()
                     : default,
-                LingeringAoeEventWriter = lingeringAoeExpansion != null
-                    ? lingeringAoeExpansion.EventQueue.AsParallelWriter()
+                LingeringAoeEventWriter = hasLingeringAoeEvents
+                    ? lingeringAoeEventQueue.AsParallelWriter()
                     : default,
-                HasImpactAoeEventWriter = impactAoeExpansion != null && impactAoeExpansion.EventQueue.IsCreated,
-                HasLingeringAoeEventWriter = lingeringAoeExpansion != null && lingeringAoeExpansion.EventQueue.IsCreated
+                HasImpactAoeEventWriter = hasImpactAoeEvents,
+                HasLingeringAoeEventWriter = hasLingeringAoeEvents
             };
 
             var collisionHandle = job.ScheduleParallel(impactAoeQuery, state.Dependency);
 
-            if (expansion != null)
-                expansion.ProducerHandle =
-                    JobHandle.CombineDependencies(expansion.ProducerHandle, collisionHandle);
-            if (impactAoeExpansion != null)
-                impactAoeExpansion.ProducerHandle =
-                    JobHandle.CombineDependencies(impactAoeExpansion.ProducerHandle, collisionHandle);
-            if (lingeringAoeExpansion != null)
-                lingeringAoeExpansion.ProducerHandle =
-                    JobHandle.CombineDependencies(lingeringAoeExpansion.ProducerHandle, collisionHandle);
-            if (hitApply != null)
-                hitApply.ProducerHandle =
-                    JobHandle.CombineDependencies(hitApply.ProducerHandle, collisionHandle);
-            if (vfx != null)
-                vfx.ProducerHandle =
-                    JobHandle.CombineDependencies(vfx.ProducerHandle, collisionHandle);
+            if (hasProjectileEvents)
+                projectileLane.ValueRW.ProducerHandle =
+                    JobHandle.CombineDependencies(projectileLane.ValueRW.ProducerHandle, collisionHandle);
+            if (hasImpactAoeEvents)
+                impactAoeLane.ValueRW.ProducerHandle =
+                    JobHandle.CombineDependencies(impactAoeLane.ValueRW.ProducerHandle, collisionHandle);
+            if (hasLingeringAoeEvents)
+                lingeringAoeLane.ValueRW.ProducerHandle =
+                    JobHandle.CombineDependencies(lingeringAoeLane.ValueRW.ProducerHandle, collisionHandle);
+            if (hasHit)
+                hitDispatch.ValueRW.ProducerHandle =
+                    JobHandle.CombineDependencies(hitDispatch.ValueRW.ProducerHandle, collisionHandle);
+            if (hasVfx)
+                vfx.ValueRW.ProducerHandle =
+                    JobHandle.CombineDependencies(vfx.ValueRW.ProducerHandle, collisionHandle);
 
             var rw = SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
             rw.ValueRW.ConsumerHandle =

@@ -5,38 +5,56 @@ using Unity.Jobs;
 
 namespace PlayGround.System.Vfx
 {
+    // ECS Lifecycle: singleton VFX dispatch queue; created by CombatVfxDispatchSystem on
+    // create, drained every presentation update, disposed by CombatVfxDispatchSystem on destroy.
+    public struct CombatVfxDispatchSingleton : IComponentData
+    {
+        public NativeQueue<VfxPendingSpawn> PendingSpawns;
+        public JobHandle ProducerHandle;
+    }
+
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     public partial class CombatVfxDispatchSystem : SystemBase
     {
-        internal NativeQueue<VfxPendingSpawn> PendingSpawns;
-        internal JobHandle ProducerHandle;
-        internal bool HasQueue => PendingSpawns.IsCreated;
         internal int LastVfxEventCount;
-
-        internal NativeQueue<VfxPendingSpawn>.ParallelWriter AsParallelWriter() =>
-            PendingSpawns.AsParallelWriter();
+        private Entity singletonEntity;
 
         protected override void OnCreate()
         {
-            PendingSpawns = new NativeQueue<VfxPendingSpawn>(Allocator.Persistent);
+            singletonEntity = EntityManager.CreateEntity(typeof(CombatVfxDispatchSingleton));
+            EntityManager.SetComponentData(singletonEntity, new CombatVfxDispatchSingleton
+            {
+                PendingSpawns = new NativeQueue<VfxPendingSpawn>(Allocator.Persistent)
+            });
         }
 
         protected override void OnDestroy()
         {
-            ProducerHandle.Complete();
-            if (PendingSpawns.IsCreated)
+            if (singletonEntity == Entity.Null
+                || !EntityManager.Exists(singletonEntity)
+                || !EntityManager.HasComponent<CombatVfxDispatchSingleton>(singletonEntity))
             {
-                PendingSpawns.Dispose();
+                return;
+            }
+
+            CombatVfxDispatchSingleton singleton =
+                EntityManager.GetComponentData<CombatVfxDispatchSingleton>(singletonEntity);
+            singleton.ProducerHandle.Complete();
+            if (singleton.PendingSpawns.IsCreated)
+            {
+                singleton.PendingSpawns.Dispose();
             }
         }
 
         protected override void OnUpdate()
         {
-            ProducerHandle.Complete();
-            ProducerHandle = default;
+            RefRW<CombatVfxDispatchSingleton> vfx = SystemAPI.GetSingletonRW<CombatVfxDispatchSingleton>();
+            ref CombatVfxDispatchSingleton singleton = ref vfx.ValueRW;
+            singleton.ProducerHandle.Complete();
+            singleton.ProducerHandle = default;
             LastVfxEventCount = 0;
 
-            if (PendingSpawns.Count == 0)
+            if (singleton.PendingSpawns.Count == 0)
             {
                 return;
             }
@@ -44,11 +62,11 @@ namespace PlayGround.System.Vfx
             CombatVfxRoot root = CombatVfxRoot.Instance;
             if (root == null)
             {
-                PendingSpawns.Clear();
+                singleton.PendingSpawns.Clear();
                 return;
             }
 
-            LastVfxEventCount = root.DrainAndDispatch(ref PendingSpawns);
+            LastVfxEventCount = root.DrainAndDispatch(ref singleton.PendingSpawns);
 
             if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(out RefRW<CombatStatsSingleton> stats))
             {
