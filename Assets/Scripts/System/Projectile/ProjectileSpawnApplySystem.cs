@@ -108,7 +108,7 @@ namespace PlayGround.System.Projectile
                         _deadSlotQuery.ToArchetypeChunkArray(Allocator.TempJob);
                     using var reused = new NativeReference<int>(Allocator.TempJob);
 
-                    JobHandle spawnHandle = new ProjectileSpawnJob
+                    new ProjectileSpawnJob
                     {
                         Commands = commands,
                         Chunks = chunks,
@@ -128,9 +128,8 @@ namespace PlayGround.System.Projectile
                         ContactGateHandle = GetBufferTypeHandle<ProjectileContactGateElement>(false),
                         TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
                         TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
-                    }.Schedule(default);
+                    }.Schedule(default).Complete();
 
-                    spawnHandle.Complete();
                     reuseCount = reused.Value;
 
                     using (ColdCreateMarker.Auto())

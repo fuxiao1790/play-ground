@@ -39,10 +39,6 @@ namespace PlayGround.System.Common
             new("CombatApplyFinalizeSingleSystem.CompleteProducers");
         private static readonly ProfilerMarker DisposePreviousMarker =
             new("CombatApplyFinalizeSingleSystem.DisposePrevious");
-        private static readonly ProfilerMarker FlattenHitsMarker =
-            new("CombatApplyFinalizeSingleSystem.FlattenHits");
-        private static readonly ProfilerMarker FinalizeMarker =
-            new("CombatApplyFinalizeSingleSystem.Finalize");
         private static readonly ProfilerMarker PublishResultsMarker =
             new("CombatApplyFinalizeSingleSystem.PublishResults");
         private static readonly ProfilerCounterValue<int> EntryEvictionCounter =
@@ -102,33 +98,23 @@ namespace PlayGround.System.Common
                     return;
                 }
 
-                NativeArray<CombatHitEvent> flatHits;
-                using (FlattenHitsMarker.Auto())
-                {
-                    flatHits = HitQueue.ToArray(Allocator.TempJob);
-                    HitQueue.Clear();
-                }
-
                 var resultsList = new NativeList<CombatTickResult>(math.max(16, hitCount / 4), Allocator.TempJob);
                 var statusList = new NativeList<StatusStackSnapshot>(MaxTargetStackEntries, Allocator.TempJob);
                 var evictionRef = new NativeReference<int>(Allocator.TempJob);
 
-                using (FinalizeMarker.Auto())
+                Dependency = new FinalizeCombatSingleJob
                 {
-                    Dependency = new FinalizeCombatSingleJob
-                    {
-                        Hits = flatHits,
-                        HealthLookup = GetComponentLookup<TargetHealth>(),
-                        StackBuffers = GetBufferLookup<TargetStackEntry>(),
-                        Results = resultsList,
-                        StatusSnapshots = statusList,
-                        EvictionCount = evictionRef,
-                        AccrualFrame = AccrualFrame,
-                        FrameCount = (uint)UnityEngine.Time.frameCount
-                    }.Schedule(Dependency);
+                    HitQueue = HitQueue,
+                    HealthLookup = GetComponentLookup<TargetHealth>(),
+                    StackBuffers = GetBufferLookup<TargetStackEntry>(),
+                    Results = resultsList,
+                    StatusSnapshots = statusList,
+                    EvictionCount = evictionRef,
+                    AccrualFrame = AccrualFrame,
+                    FrameCount = (uint)UnityEngine.Time.frameCount
+                }.Schedule(Dependency);
 
-                    Dependency.Complete();
-                }
+                Dependency.Complete();
 
                 int frameEvictions = evictionRef.Value;
                 if (frameEvictions > 0)
@@ -140,7 +126,6 @@ namespace PlayGround.System.Common
                 NativeArray<CombatTickResult> results = resultsList.ToArray(Allocator.Persistent);
                 NativeArray<StatusStackSnapshot> statusSnapshots = statusList.ToArray(Allocator.Persistent);
 
-                flatHits.Dispose();
                 resultsList.Dispose();
                 statusList.Dispose();
                 evictionRef.Dispose();
@@ -163,7 +148,7 @@ namespace PlayGround.System.Common
         [BurstCompile]
         private struct FinalizeCombatSingleJob : IJob
         {
-            [ReadOnly] public NativeArray<CombatHitEvent> Hits;
+            public NativeQueue<CombatHitEvent> HitQueue;
             public ComponentLookup<TargetHealth> HealthLookup;
             public BufferLookup<TargetStackEntry> StackBuffers;
             public NativeList<CombatTickResult> Results;
@@ -175,12 +160,17 @@ namespace PlayGround.System.Common
             public void Execute()
             {
                 int evictionCount = 0;
-                var map = new NativeHashMap<Entity, int>(Hits.Length, Allocator.Temp);
+                // Bulk-copy the queue once into a single contiguous Temp array, then reset
+                // the queue in one Clear. Draining element-by-element with TryDequeue churns
+                // the queue's block pool; this is one allocation read once and freed at the end.
+                NativeArray<CombatHitEvent> hits = HitQueue.ToArray(Allocator.Temp);
+                HitQueue.Clear();
+                var map = new NativeHashMap<Entity, int>(hits.Length, Allocator.Temp);
                 var accums = new NativeList<TargetAccum>(Allocator.Temp);
 
-                for (int h = 0; h < Hits.Length; h++)
+                for (int h = 0; h < hits.Length; h++)
                 {
-                    CombatHitEvent hit = Hits[h];
+                    CombatHitEvent hit = hits[h];
                     Entity target = hit.TargetProxy;
                     if (target == Entity.Null)
                     {
@@ -275,6 +265,7 @@ namespace PlayGround.System.Common
                 }
 
                 EvictionCount.Value = evictionCount;
+                hits.Dispose();
                 accums.Dispose();
                 map.Dispose();
             }
