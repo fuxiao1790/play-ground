@@ -6,7 +6,7 @@ namespace PlayGround.System.Common
     {
         internal const float ProjectileCollisionCellSize = 1f;
         internal const float TrackingCellSize = 64f;
-        internal const float AoeCellSize = 64f;
+        internal const float AoeCellSize = 32f;
 
         internal static int2 FloorCell(float2 pos, float cellSize) =>
             new(
