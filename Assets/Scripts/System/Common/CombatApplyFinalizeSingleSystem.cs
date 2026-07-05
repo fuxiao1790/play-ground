@@ -160,17 +160,11 @@ namespace PlayGround.System.Common
             public void Execute()
             {
                 int evictionCount = 0;
-                // Bulk-copy the queue once into a single contiguous Temp array, then reset
-                // the queue in one Clear. Draining element-by-element with TryDequeue churns
-                // the queue's block pool; this is one allocation read once and freed at the end.
-                NativeArray<CombatHitEvent> hits = HitQueue.ToArray(Allocator.Temp);
-                HitQueue.Clear();
-                var map = new NativeHashMap<Entity, int>(hits.Length, Allocator.Temp);
+                var map = new NativeHashMap<Entity, int>(HitQueue.Count, Allocator.Temp);
                 var accums = new NativeList<TargetAccum>(Allocator.Temp);
 
-                for (int h = 0; h < hits.Length; h++)
+                while (HitQueue.TryDequeue(out CombatHitEvent hit))
                 {
-                    CombatHitEvent hit = hits[h];
                     Entity target = hit.TargetProxy;
                     if (target == Entity.Null)
                     {
@@ -265,7 +259,6 @@ namespace PlayGround.System.Common
                 }
 
                 EvictionCount.Value = evictionCount;
-                hits.Dispose();
                 accums.Dispose();
                 map.Dispose();
             }
