@@ -87,7 +87,8 @@ namespace PlayGround.System.Common
 
                 ownedScope = entityManager.CreateEntity(typeof(CombatScope));
                 entityManager.AddBuffer<ProjectileSpawnEvent>(ownedScope);
-                entityManager.AddBuffer<AoeSpawnEvent>(ownedScope);
+                entityManager.AddBuffer<ImpactAoeSpawnEvent>(ownedScope);
+                entityManager.AddBuffer<LingeringAoeSpawnEvent>(ownedScope);
                 entityManager.AddComponentData(ownedScope, new ProjectileSpawnTemplate { Map = ownedProjectileMap });
                 entityManager.AddComponentData(ownedScope, new AoeSpawnTemplate { Map = ownedAoeMap });
                 ownerCount = 0;

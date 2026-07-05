@@ -179,9 +179,10 @@ Docs/
   counters.
 - `Assets/Scripts/System/Aoe/AoeConfig.cs`: ScriptableObject authoring for AOE
   type definitions.
-- `Assets/Scripts/System/Aoe/AoeSpawnPipeline.cs`: `AoeSpawnEvent`,
+- `Assets/Scripts/System/Aoe/AoeSpawnPipeline.cs`: `AOE variant spawn event`,
   `AoeSpawnCommand`, and impact/on-hit AOE helpers.
-- `Assets/Scripts/System/Aoe/AoeSpawnExpansionSystem.cs`: drains AOE events and
+- `Assets/Scripts/System/Aoe/AoeSpawnExpansionSystem.cs`: contains impact and
+  lingering AOE expansion systems that drain AOE events and
   writes command stream.
 - AOE spawn apply file: impact and lingering AOE
   apply systems; reuse disabled `Active` slots before cold creation.

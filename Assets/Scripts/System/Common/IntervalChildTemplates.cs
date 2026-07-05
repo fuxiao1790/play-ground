@@ -3,7 +3,8 @@ namespace PlayGround.System.Common
     public enum IntervalChildKind
     {
         Projectile = 0,
-        Aoe = 1
+        ImpactAoe = 1,
+        LingeringAoe = 2
     }
 
     public struct OnHitSpawnRef

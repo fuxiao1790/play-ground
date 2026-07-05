@@ -19,7 +19,7 @@ Current implementation is built around these rules:
 - One player-faction root and one mob-faction root share a single ref-counted
   ECS world and a single shared `CombatScope` entity.
 - `CombatFaction` separates player-faction and mob-faction data.
-- `AoeSpawnEvent` is spawn intent.
+- `ImpactAoeSpawnEvent` and `LingeringAoeSpawnEvent` are spawn intent.
 - `AoeSpawnCommand` is one resolved AOE entity.
 - Runtime reuse is based on the generic enableable `Active` component.
 - AOE collision reads ECS target proxy entities.
@@ -43,10 +43,11 @@ Non-goals:
 
 ## Main Files
 
-- `Assets/Scripts/System/Aoe/AoeSpawnPipeline.cs`: `AoeSpawnEvent`,
-  `AoeSpawnCommand`, and impact AOE event helpers.
-- `Assets/Scripts/System/Aoe/AoeSpawnExpansionSystem.cs`: drains AOE events and
-  writes resolved commands.
+- `Assets/Scripts/System/Aoe/AoeSpawnPipeline.cs`: `ImpactAoeSpawnEvent`,
+  `LingeringAoeSpawnEvent`, `AoeSpawnCommand`, and AOE variant helpers.
+- `Assets/Scripts/System/Aoe/AoeSpawnExpansionSystem.cs`: contains
+  `ImpactAoeSpawnExpansionSystem`, `LingeringAoeSpawnExpansionSystem`, and the
+  shared `AoeExpansionCore` that drains AOE events and writes resolved commands.
 - AOE spawn apply file: contains impact and
   lingering apply systems that reuse disabled AOE entities or cold-create
   overflow.
@@ -76,8 +77,8 @@ Non-goals:
 - register `AoeConfig` and `AoeTypeDefinition`
 - validate AOE type ids and spawn geometry
 - build AOE render resources
-- append `AoeSpawnEvent` values to the shared scope buffer for managed
-  submissions
+- append `ImpactAoeSpawnEvent` or `LingeringAoeSpawnEvent` values to the shared
+  scope buffer for managed submissions
 - expose the target registry for its faction
 
 AOE ECS systems own:
@@ -115,7 +116,8 @@ destroyed proxy entities.
 
 ## Spawn Pipeline
 
-`AoeSpawnEvent` is intent. It can come from:
+`ImpactAoeSpawnEvent` and `LingeringAoeSpawnEvent` are intent. They can come
+from:
 
 - `CombatRoot.Spawn(AoeSpawnRequest)`
 - projectile impact AOE snapshots
@@ -130,10 +132,10 @@ burst snapshot.
 
 Current flow:
 
-1. Managed code appends `AoeSpawnEvent` to the shared scope buffer, or ECS
-   producers enqueue events into `AoeSpawnExpansionSystem.EventQueue`.
-2. `AoeSpawnExpansionSystem` drains the native event queue and the shared scope
-   `DynamicBuffer<AoeSpawnEvent>`.
+1. Managed code appends the variant event to the shared scope buffer, or ECS
+   producers enqueue events into the matching AOE expansion system queue.
+2. `ImpactAoeSpawnExpansionSystem` and `LingeringAoeSpawnExpansionSystem` drain
+   their native event queues and matching scope buffers.
 3. Expansion fans `EchoCount` copies, scatters each copy inside
    `ScatterRadius` using a deterministic random disk seeded by `JitterSeed`,
    computes per-copy bounds, and writes one `AoeSpawnCommand` per copy to the
@@ -149,6 +151,11 @@ Current flow:
 AOE uses the same event-to-command fan-out contract as projectiles: spawn
 events carry intent, expansion owns multiplicity and deterministic variation,
 and apply only materializes already-resolved single-entity commands.
+
+The impact-vs-lingering variant is chosen at authoring from child lifetime:
+`Lifetime > 0` means lingering AOE, otherwise impact AOE. That variant is
+carried on `IntervalChildKind` / `StackDetonationKind`, so collision, timed
+spawn, and status producers route by kind without looking up templates.
 
 ## Entity Data And Reuse
 
@@ -286,8 +293,8 @@ Important simulation ordering:
 4. `AoeContactGateSystem` expires AOE contact gates.
 5. `AoeCollisionSystem` emits damage, projectile spawn, and VFX events.
 6. `DamageFinalizeSystem` freezes the native damage queue.
-7. `ProjectileSpawnExpansionSystem` and `AoeSpawnExpansionSystem` drain events
-   and produce commands.
+7. `ProjectileSpawnExpansionSystem`, `ImpactAoeSpawnExpansionSystem`, and
+   `LingeringAoeSpawnExpansionSystem` drain events and produce commands.
 8. `ProjectileSpawnApplySystem`, `ImpactAoeSpawnApplySystem`, and
    `LingeringAoeSpawnApplySystem` reuse slots and cold-create overflow.
 9. `CombatRenderPrepareSystem` prepares render matrices.
@@ -312,7 +319,8 @@ prefabs as the authoritative path.
 
 `CombatRoot.RegisterConfig` and `CombatRoot.RegisterType` assign runtime type
 ids and build render resources. `CombatRoot.Spawn(AoeSpawnRequest)` validates
-the type id and resolved geometry before appending an `AoeSpawnEvent`.
+the type id and resolved geometry before appending an impact or lingering AOE
+spawn event.
 
 ## Stack-Triggered AOE
 

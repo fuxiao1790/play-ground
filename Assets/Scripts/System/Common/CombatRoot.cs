@@ -246,7 +246,12 @@ namespace PlayGround.System.Common
         public Hash128 RegisterTimedSpawnTemplate(in AoeSpawnCommand template) =>
             RegisterSpawnTemplate(in template);
 
-        internal int SpawnRegisteredAoe(Hash128 templateKey, Vector2 position, int count, CombatFaction faction)
+        internal int SpawnRegisteredAoe(
+            Hash128 templateKey,
+            Vector2 position,
+            int count,
+            CombatFaction faction,
+            IntervalChildKind kind)
         {
             EnsureRuntimeReady();
             if (templateKey.Equals(default(Hash128)))
@@ -257,16 +262,14 @@ namespace PlayGround.System.Common
             int aoeCount = math.max(1, count);
             int aoeId = ++nextAoeId;
             nextAoeId += aoeCount - 1;
-            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity)
-                .Add(new AoeSpawnEvent
-                {
-                    Kind = IntervalChildKind.Aoe,
-                    TemplateKey = templateKey,
-                    Position = new float2(position.x, position.y),
-                    Faction = faction,
-                    SourceId = aoeId,
-                    JitterSeed = (uint)aoeId * 2654435761u
-                });
+            AppendAoeSpawnEvent(
+                kind,
+                templateKey,
+                new float2(position.x, position.y),
+                default,
+                faction,
+                aoeId,
+                (uint)aoeId * 2654435761u);
             spawnedAoes += aoeCount;
             return aoeId;
         }
@@ -361,7 +364,7 @@ namespace PlayGround.System.Common
             int aoeId = ++nextAoeId;
             AoeSpawnCommand template = AoeCommandFor(request, aoeId);
             Hash128 templateKey = RegisterSpawnTemplate(in template);
-            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Add(AoeEventFor(templateKey, request, aoeId, faction));
+            AppendAoeEvent(AoeEventFor(templateKey, request, aoeId, faction));
             spawnedAoes++;
             return aoeId;
         }
@@ -430,11 +433,11 @@ namespace PlayGround.System.Common
             };
         }
 
-        private AoeSpawnEvent AoeEventFor(Hash128 templateKey, AoeSpawnRequest request, int aoeId, CombatFaction faction)
+        private ImpactAoeSpawnEvent AoeEventFor(Hash128 templateKey, AoeSpawnRequest request, int aoeId, CombatFaction faction)
         {
-            return new AoeSpawnEvent
+            return new ImpactAoeSpawnEvent
             {
-                Kind = IntervalChildKind.Aoe,
+                Kind = AoeVariant.AoeChildKindFor(request.LifetimeSeconds),
                 TemplateKey = templateKey,
                 Position = new float2(request.Position.x, request.Position.y),
                 Faction = faction,
@@ -695,7 +698,8 @@ namespace PlayGround.System.Common
                 return 0;
             }
 
-            int count = entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Length;
+            int count = entityManager.GetBuffer<ImpactAoeSpawnEvent>(scopeEntity).Length
+                + entityManager.GetBuffer<LingeringAoeSpawnEvent>(scopeEntity).Length;
 
             using NativeArray<Entity> entities = allAoeQuery.ToEntityArray(Allocator.Temp);
             for (int i = 0; i < entities.Length; i++)
@@ -822,6 +826,62 @@ namespace PlayGround.System.Common
             }
 
             query = default;
+        }
+
+        private void AppendAoeEvent(ImpactAoeSpawnEvent evt)
+        {
+            AppendAoeSpawnEvent(
+                evt.Kind,
+                evt.TemplateKey,
+                evt.Position,
+                evt.AimDirection,
+                evt.Faction,
+                evt.SourceId,
+                evt.JitterSeed,
+                evt.DeterministicIdTickIndex,
+                evt.ContactGateSeedTargetId);
+        }
+
+        private void AppendAoeSpawnEvent(
+            IntervalChildKind kind,
+            Hash128 templateKey,
+            float2 position,
+            float2 aimDirection,
+            CombatFaction faction,
+            int sourceId,
+            uint jitterSeed,
+            int deterministicIdTickIndex = 0,
+            int contactGateSeedTargetId = 0)
+        {
+            if (kind == IntervalChildKind.LingeringAoe)
+            {
+                entityManager.GetBuffer<LingeringAoeSpawnEvent>(scopeEntity).Add(new LingeringAoeSpawnEvent
+                {
+                    Kind = kind,
+                    TemplateKey = templateKey,
+                    Position = position,
+                    AimDirection = aimDirection,
+                    Faction = faction,
+                    SourceId = sourceId,
+                    JitterSeed = jitterSeed,
+                    DeterministicIdTickIndex = deterministicIdTickIndex,
+                    ContactGateSeedTargetId = contactGateSeedTargetId
+                });
+                return;
+            }
+
+            entityManager.GetBuffer<ImpactAoeSpawnEvent>(scopeEntity).Add(new ImpactAoeSpawnEvent
+            {
+                Kind = IntervalChildKind.ImpactAoe,
+                TemplateKey = templateKey,
+                Position = position,
+                AimDirection = aimDirection,
+                Faction = faction,
+                SourceId = sourceId,
+                JitterSeed = jitterSeed,
+                DeterministicIdTickIndex = deterministicIdTickIndex,
+                ContactGateSeedTargetId = contactGateSeedTargetId
+            });
         }
 
         [global::System.Serializable]

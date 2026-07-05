@@ -30,7 +30,7 @@ and future chained effects.
 
 ## Registry Concurrency Contract
 
-The spawn-template registry is written only by **external spawns** â€” managed
+The spawn-template registry is written only by **external spawns** â€?managed
 gameplay code running in the GameObject `Update()` lifecycle, which executes
 before the ECS simulation tick. The registry is never written from inside the
 tick: no system, job, collision, status, or timed-spawn code adds or removes
@@ -43,25 +43,25 @@ the registry is **immutable for the entire simulation tick**:
 - every simulation job may take it `[ReadOnly]` and read it concurrently with no
   safety-system conflict;
 - a stored template is fetched, copied to a local value, stamped with
-  per-instance fields, and enqueued â€” the registry entry itself is never mutated.
+  per-instance fields, and enqueued â€?the registry entry itself is never mutated.
 
 Registration, including loadout recompiles, happens in managed land before the
 next tick, so the write-only-external contract holds across equipment changes.
 On-demand registration, if ever needed, must also occur in `Update()` (external,
-pre-tick) â€” never from a job. This invariant is what makes registry reads safe in
+pre-tick) â€?never from a job. This invariant is what makes registry reads safe in
 collision and status jobs; it is load-bearing, not incidental.
 
 ## Unified Spawn Model
 
-A follow-up spawn is just a spawn. The source â€” projectile impact, AOE on-hit,
-stack detonation, interval tick â€” does not change the result: some projectiles or
+A follow-up spawn is just a spawn. The source â€?projectile impact, AOE on-hit,
+stack detonation, interval tick â€?does not change the result: some projectiles or
 AOEs are created. Every follow-up therefore reduces to one keyed spawn, not a
 bespoke per-source snapshot.
 
 A source entity carries only two fields per follow-up:
 
-- **spawn kind** â€” projectile or AOE
-- **spawn template id** â€” a `Hash128` key into the registry
+- **spawn kind** â€?projectile or AOE
+- **spawn template id** â€?a `Hash128` key into the registry
 
 The registry value is the spawn command template (the resolved spawn data). The
 source holds the key; expansion dereferences it. This replaces the embedded
@@ -87,7 +87,7 @@ registry plus the per-instance frame:
 Expansion is the single dereference-and-explode step: read the slim event, fetch
 the template by key, apply the instance frame, and emit one command per spawned
 entity. Multiplicity, spread, and jitter are template-level and read from the
-registry during expansion â€” not carried on the event. This keeps everything
+registry during expansion â€?not carried on the event. This keeps everything
 through native queues and scope buffers a tiny ref struct, with exactly one fat
 data shape (the registry template) and one materialized shape (the command).
 
@@ -114,7 +114,7 @@ These are scene-side DTOs passed to `CombatRoot.Spawn`.
 Spawn event:
 
 - `ProjectileSpawnEvent`
-- `AoeSpawnEvent`
+- `AOE variant spawn event`
 
 Events are gameplay intent. Events may carry multiplicity, spread, jitter,
 movement, hit payloads, render data, and optional `TimedSpawnComponent` data.
@@ -152,7 +152,7 @@ Collision consequence event:
 
 - `CombatHitEvent`
 - `ProjectileSpawnEvent`
-- `AoeSpawnEvent`
+- `AOE variant spawn event`
 - `VfxPendingSpawn`
 
 Finalized presentation result:
@@ -200,7 +200,7 @@ spawn; in-flight entities never read authoring assets or registries.
 
 Spawn template registries store command-shaped templates so entities that can
 spawn other entities can reference them by key. This is the shared storage for
-all follow-up spawn behavior â€” interval, on-hit, and detonation:
+all follow-up spawn behavior â€?interval, on-hit, and detonation:
 
 ```csharp
 public struct ProjectileSpawnTemplate : IComponentData
@@ -226,7 +226,7 @@ the registry key and stored on whichever source carries the follow-up slot
 
 Registry rules:
 
-- the stored value is a **command-shaped template** â€” the same struct that
+- the stored value is a **command-shaped template** â€?the same struct that
   expansion writes, with per-instance fields zeroed
 - there is no separate `TemplateData` struct
 - there is no event-to-command remap step; expansion stamps and explodes directly
@@ -300,8 +300,8 @@ The tick loop must keep these safety guards:
 
 Projectile commands and component data carry:
 
-- `ProjectileHitPayload` â€” hit payload with optional `OnHitSpawnRef (kind, key)`
-- `TimedSpawnComponent` â€” optional interval-child spawn config
+- `ProjectileHitPayload` â€?hit payload with optional `OnHitSpawnRef (kind, key)`
+- `TimedSpawnComponent` â€?optional interval-child spawn config
 
 Projectile entities carry `ProjectileHitComponent`:
 
@@ -323,7 +323,7 @@ When a projectile hit qualifies, `ProjectileCollisionSystem` may emit:
 
 - `CombatHitEvent`
 - `ProjectileSpawnEvent` (slim link) when `OnHitSpawn.Kind == Projectile`
-- `AoeSpawnEvent` (slim link) when `OnHitSpawn.Kind == Aoe`
+- `AOE variant spawn event` (slim link) when `OnHitSpawn.Kind == ImpactAoe/LingeringAoe`
 - `VfxPendingSpawn`
 
 The collision system may disable the source projectile by disabling `Active`
@@ -333,9 +333,9 @@ when pierce is consumed.
 
 AOE commands and component data carry:
 
-- `CombatHitPayload` â€” hit payload with optional stack effect
-- `OnHitSpawnRef (kind, key)` â€” optional on-hit follow-up spawn reference
-- `TimedSpawnComponent` â€” optional interval-child spawn config
+- `CombatHitPayload` â€?hit payload with optional stack effect
+- `OnHitSpawnRef (kind, key)` â€?optional on-hit follow-up spawn reference
+- `TimedSpawnComponent` â€?optional interval-child spawn config
 
 AOE entities carry `AoeHitSpawnComponent`:
 
@@ -354,7 +354,7 @@ When an AOE hit qualifies, AOE collision may emit:
 
 - `CombatHitEvent`
 - `ProjectileSpawnEvent` (slim link) when `OnHitSpawn.Kind == Projectile`
-- `AoeSpawnEvent` (slim link) when `OnHitSpawn.Kind == Aoe`
+- `AOE variant spawn event` (slim link) when `OnHitSpawn.Kind == ImpactAoe/LingeringAoe`
 - `VfxPendingSpawn`
 
 Pulse AOEs disable `Active` after their one collision pass. Lingering AOEs keep
@@ -392,7 +392,7 @@ ProjectileSpawnRequest
   -> Projectile ECS entity with snapshotted components
   -> ProjectileCollisionSystem
      -> CombatHitEvent
-     -> optional AoeSpawnEvent
+     -> optional AOE variant spawn event
      -> optional ProjectileSpawnEvent
      -> optional VfxPendingSpawn
   -> CombatApplyFinalizeSystem
@@ -404,12 +404,12 @@ ProjectileSpawnRequest
 Timed child spawns follow the same event path:
 
 ```text
-ProjectileSpawnEvent or AoeSpawnEvent
+ProjectileSpawnEvent or AOE variant spawn event
   -> CombatRoot.RegisterTimedSpawnTemplate
   -> Hash128 TemplateKey
   -> enabled TimedSpawnComponent on source entity
   -> TimedSpawnSystem
-  -> ProjectileSpawnEvent or AoeSpawnEvent
+  -> ProjectileSpawnEvent or AOE variant spawn event
   -> normal expansion/apply path
 ```
 
@@ -418,15 +418,15 @@ ProjectileSpawnEvent or AoeSpawnEvent
 ```text
 AoeSpawnRequest
   -> CombatRoot.Spawn
-  -> AoeSpawnEvent on shared scope buffer
-  -> AoeSpawnExpansionSystem
+  -> AOE variant spawn event on shared scope buffer
+  -> AOE spawn expansion systems
   -> AoeSpawnCommand
   -> ImpactAoeSpawnApplySystem or LingeringAoeSpawnApplySystem
   -> AOE ECS entity with snapshotted components
   -> AOE collision system
      -> CombatHitEvent
      -> optional ProjectileSpawnEvent
-     -> optional AoeSpawnEvent
+     -> optional AOE variant spawn event
      -> optional VfxPendingSpawn
   -> CombatApplyFinalizeSystem
   -> StatusProcessSystem
@@ -497,10 +497,10 @@ aggregate damage, hit count, crit count, health, and status ranges.
 Every follow-up spawn uses the same `(kind, Hash128)` reference into the
 registry, regardless of the source:
 
-- projectile on-hit â†’ AOE: `ProjectileHitPayload.OnHitSpawn {Kind=Aoe, key}`
-- projectile on-hit â†’ projectile: `ProjectileHitPayload.OnHitSpawn {Kind=Projectile, key}`
-- AOE on-hit â†’ projectile burst: `AoeHitSpawnComponent.OnHitSpawn {Kind=Projectile, key}`
-- AOE on-hit â†’ AOE: `AoeHitSpawnComponent.OnHitSpawn {Kind=Aoe, key}`
+- projectile on-hit â†?AOE: `ProjectileHitPayload.OnHitSpawn {Kind=Aoe, key}`
+- projectile on-hit â†?projectile: `ProjectileHitPayload.OnHitSpawn {Kind=Projectile, key}`
+- AOE on-hit â†?projectile burst: `AoeHitSpawnComponent.OnHitSpawn {Kind=Projectile, key}`
+- AOE on-hit â†?AOE: `AoeHitSpawnComponent.OnHitSpawn {Kind=Aoe, key}`
 - stack projectile detonation: `StackEffectSnapshot.DetonationKey` (Projectile kind)
 - interval child spawn: `TimedSpawnComponent.TemplateKey`
 
@@ -560,7 +560,7 @@ payloads.
   `TargetStackEntry` fizzles with no detonation.
 - Apply mixed fire-time contributions to one debuff key; confirm threshold
   detonation uses the summed contribution and clears the entry.
-- Run a lingering-AOE â†’ on-hit projectile â†’ stack detonation chain; confirm
+- Run a lingering-AOE â†?on-hit projectile â†?stack detonation chain; confirm
   three levels materialize correctly through the registry.
 - Confirm the registry count is unchanged after a simulation tick.
 - Mutate authoring data after firing; verify in-flight entities still use the

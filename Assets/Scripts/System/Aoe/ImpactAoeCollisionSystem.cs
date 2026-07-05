@@ -42,7 +42,8 @@ namespace PlayGround.System.Aoe
             state.Dependency = JobHandle.CombineDependencies(state.Dependency, hash.BuildHandle);
 
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
-            var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
+            var impactAoeExpansion = state.World.GetExistingSystemManaged<ImpactAoeSpawnExpansionSystem>();
+            var lingeringAoeExpansion = state.World.GetExistingSystemManaged<LingeringAoeSpawnExpansionSystem>();
             var hitApply = state.World.GetExistingSystemManaged<CombatApplyFinalizeSingleSystem>();
             var vfx = state.World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
 
@@ -64,10 +65,14 @@ namespace PlayGround.System.Aoe
                 ProjectileEventWriter = expansion != null
                     ? expansion.EventQueue.AsParallelWriter()
                     : default,
-                AoeEventWriter = aoeExpansion != null
-                    ? aoeExpansion.EventQueue.AsParallelWriter()
+                ImpactAoeEventWriter = impactAoeExpansion != null
+                    ? impactAoeExpansion.EventQueue.AsParallelWriter()
                     : default,
-                HasAoeEventWriter = aoeExpansion != null && aoeExpansion.EventQueue.IsCreated
+                LingeringAoeEventWriter = lingeringAoeExpansion != null
+                    ? lingeringAoeExpansion.EventQueue.AsParallelWriter()
+                    : default,
+                HasImpactAoeEventWriter = impactAoeExpansion != null && impactAoeExpansion.EventQueue.IsCreated,
+                HasLingeringAoeEventWriter = lingeringAoeExpansion != null && lingeringAoeExpansion.EventQueue.IsCreated
             };
 
             var collisionHandle = job.ScheduleParallel(impactAoeQuery, state.Dependency);
@@ -75,9 +80,12 @@ namespace PlayGround.System.Aoe
             if (expansion != null)
                 expansion.ProducerHandle =
                     JobHandle.CombineDependencies(expansion.ProducerHandle, collisionHandle);
-            if (aoeExpansion != null)
-                aoeExpansion.ProducerHandle =
-                    JobHandle.CombineDependencies(aoeExpansion.ProducerHandle, collisionHandle);
+            if (impactAoeExpansion != null)
+                impactAoeExpansion.ProducerHandle =
+                    JobHandle.CombineDependencies(impactAoeExpansion.ProducerHandle, collisionHandle);
+            if (lingeringAoeExpansion != null)
+                lingeringAoeExpansion.ProducerHandle =
+                    JobHandle.CombineDependencies(lingeringAoeExpansion.ProducerHandle, collisionHandle);
             if (hitApply != null)
                 hitApply.ProducerHandle =
                     JobHandle.CombineDependencies(hitApply.ProducerHandle, collisionHandle);
@@ -106,8 +114,10 @@ namespace PlayGround.System.Aoe
             public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
             public bool HasVfxWriter;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
-            public NativeQueue<AoeSpawnEvent>.ParallelWriter AoeEventWriter;
-            public bool HasAoeEventWriter;
+            public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
+            public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
+            public bool HasImpactAoeEventWriter;
+            public bool HasLingeringAoeEventWriter;
 
             private void Execute(
                 Entity entity,
@@ -144,8 +154,10 @@ namespace PlayGround.System.Aoe
                     VfxPending,
                     HasVfxWriter,
                     ProjectileEventWriter,
-                    AoeEventWriter,
-                    HasAoeEventWriter);
+                    ImpactAoeEventWriter,
+                    LingeringAoeEventWriter,
+                    HasImpactAoeEventWriter,
+                    HasLingeringAoeEventWriter);
             }
         }
     }

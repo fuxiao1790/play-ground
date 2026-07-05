@@ -77,7 +77,8 @@ namespace PlayGround.Tests.EditMode
         public void SpawnTemplateEvents_AreBlittableAndContentHashed()
         {
             Assert.That(UnsafeUtility.IsBlittable<ProjectileSpawnEvent>(), Is.True);
-            Assert.That(UnsafeUtility.IsBlittable<AoeSpawnEvent>(), Is.True);
+            Assert.That(UnsafeUtility.IsBlittable<ImpactAoeSpawnEvent>(), Is.True);
+            Assert.That(UnsafeUtility.IsBlittable<LingeringAoeSpawnEvent>(), Is.True);
             Assert.That(UnsafeUtility.SizeOf<AoeSpawnCommand>(), Is.LessThan(4096));
 
             var projA = new ProjectileSpawnCommand

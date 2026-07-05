@@ -5,8 +5,8 @@ using Unity.Mathematics;
 namespace PlayGround.System.Aoe
 {
     // ECS Lifecycle: transient spawn intent; enqueued by producers into the expansion queue
-    // or appended to the scope submission buffer; consumed and discarded by AoeSpawnExpansionSystem.
-    public struct AoeSpawnEvent : IBufferElementData
+    // or appended to the scope submission buffer; consumed and discarded by ImpactAoeSpawnExpansionSystem.
+    public struct ImpactAoeSpawnEvent : IBufferElementData
     {
         public IntervalChildKind Kind;
         public Unity.Entities.Hash128 TemplateKey;
@@ -17,6 +17,30 @@ namespace PlayGround.System.Aoe
         public uint JitterSeed;
         public int DeterministicIdTickIndex;
         public int ContactGateSeedTargetId;
+    }
+
+    // ECS Lifecycle: transient spawn intent; enqueued by producers into the expansion queue
+    // or appended to the scope submission buffer; consumed and discarded by LingeringAoeSpawnExpansionSystem.
+    public struct LingeringAoeSpawnEvent : IBufferElementData
+    {
+        public IntervalChildKind Kind;
+        public Unity.Entities.Hash128 TemplateKey;
+        public float2 Position;
+        public float2 AimDirection;
+        public CombatFaction Faction;
+        public int SourceId;
+        public uint JitterSeed;
+        public int DeterministicIdTickIndex;
+        public int ContactGateSeedTargetId;
+    }
+
+    public static class AoeVariant
+    {
+        public static IntervalChildKind AoeChildKindFor(float lifetimeSeconds) =>
+            lifetimeSeconds > 0f ? IntervalChildKind.LingeringAoe : IntervalChildKind.ImpactAoe;
+
+        public static StackDetonationKind AoeDetonationKindFor(float lifetimeSeconds) =>
+            lifetimeSeconds > 0f ? StackDetonationKind.LingeringAoe : StackDetonationKind.ImpactAoe;
     }
 
     // ECS Lifecycle: resolved single-entity allocation intent; produced by expansion, consumed by apply.

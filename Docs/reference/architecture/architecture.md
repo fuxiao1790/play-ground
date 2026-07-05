@@ -51,7 +51,7 @@ stay narrow and explicit.
    dead proxies in `LateUpdate()`.
 9. Managed attacks submit `ProjectileSpawnRequest` or `AoeSpawnRequest` to
    `CombatRoot`. The root converts them into `ProjectileSpawnEvent` or
-   `AoeSpawnEvent` on the shared scope buffer.
+   `AOE variant spawn event` on the shared scope buffer.
 10. ECS producers can also enqueue typed spawn events directly into expansion
     systems.
 11. Expansion systems convert spawn events into one-entity spawn commands.
@@ -113,8 +113,8 @@ stay narrow and explicit.
 
 ## AOE Ownership
 
-- `AoeSpawnPipeline`: defines `AoeSpawnEvent` and `AoeSpawnCommand`.
-- `AoeSpawnExpansionSystem`: drains event queues and scope buffers, resolves
+- `AoeSpawnPipeline`: defines `AOE variant spawn event` and `AoeSpawnCommand`.
+- `AOE spawn expansion systems`: drains event queues and scope buffers, resolves
   bounds, and writes impact or lingering command queues.
 - `ImpactAoeSpawnApplySystem`: reuses or creates lean impact AOE slots.
 - `LingeringAoeSpawnApplySystem`: reuses or creates lingering AOE slots and
@@ -165,7 +165,7 @@ Events are gameplay intent:
 
 - `ProjectileSpawnEvent` can contain count, spread, jitter, base direction,
   speed, child-spawner data, hit payload, tracking, and render data.
-- `AoeSpawnEvent` contains one AOE intent today, and future AOE scatter or
+- `AOE variant spawn event` contains one AOE intent today, and future AOE scatter or
   pattern math should still be handled by expansion.
 
 Commands are one entity:
@@ -183,7 +183,7 @@ Collision systems emit plain data:
 
 - `DamageReplayEvent` into `DamageDispatchBridge.DamageQueue`
 - `ProjectileSpawnEvent` for impact projectiles or AOE projectile bursts
-- `AoeSpawnEvent` for projectile impact AOEs
+- `AOE variant spawn event` for projectile impact AOEs
 - `VfxPendingSpawn` for hit and expire VFX
 
 `DamageFinalizeSystem` runs after projectile and AOE collision and before spawn

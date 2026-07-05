@@ -430,7 +430,7 @@ namespace PlayGround.Skills
             {
                 return new OnHitSpawnRef
                 {
-                    Kind = IntervalChildKind.Aoe,
+                    Kind = AoeVariant.AoeChildKindFor(def.ImpactAoeDefinition.LifetimeSeconds),
                     TemplateKey = def.ImpactAoeDefinition.SpawnTemplateKey
                 };
             }
@@ -458,7 +458,7 @@ namespace PlayGround.Skills
             {
                 return new OnHitSpawnRef
                 {
-                    Kind = IntervalChildKind.Aoe,
+                    Kind = AoeVariant.AoeChildKindFor(onHitAoe.LifetimeSeconds),
                     TemplateKey = onHitAoe.SpawnTemplateKey
                 };
             }
@@ -502,7 +502,7 @@ namespace PlayGround.Skills
 
             return new TimedSpawnComponent
             {
-                ChildKind = IntervalChildKind.Aoe,
+                ChildKind = AoeVariant.AoeChildKindFor(setup.ChildDefinition.LifetimeSeconds),
                 JitterSeed = setup.JitterSeed,
                 IntervalSeconds = Mathf.Max(0.01f, setup.IntervalSeconds),
                 IntervalJitterSeconds = Mathf.Max(0f, setup.IntervalJitterSeconds),
@@ -832,7 +832,7 @@ namespace PlayGround.Skills
                     AreaSize = Mathf.Max(0.01f, aoe.AreaSize) * stacksPerHit / threshold
                 },
                 Faction = CombatFaction.None,
-                DetonationKind = StackDetonationKind.Aoe,
+                DetonationKind = AoeVariant.AoeDetonationKindFor(aoe.LifetimeSeconds),
                 DetonationKey = aoe.SpawnTemplateKey
             };
         }

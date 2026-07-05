@@ -1,11 +1,11 @@
-# Skill System
+﻿# Skill System
 
 All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
 ## Concepts
 
-**Skill** — an active spell or attack. Defines what is spawned: a projectile,
+**Skill** 鈥?an active spell or attack. Defines what is spawned: a projectile,
 an AOE, a beam. Owns base visual, collision shape, base rate (attacks/casts
 per second), and behavior data. A Skill slotted alone fires with base behavior and no
 augmentation.
@@ -20,17 +20,17 @@ modifier kinds: flat base additions, increased percentages, Pre/Post
 multipliers, or behavior contexts. Only ever affects the one Skill it shares a
 set with. No cross-set influence.
 
-**Skill Set** — the unit of authoring. Contains one or more Skills and zero or
+**Skill Set** 鈥?the unit of authoring. Contains one or more Skills and zero or
 more Skill Supports. Self-contained: its Skills are only modified by its own
 Supports. Skill Sets have no knowledge of what triggers them or what they
 trigger, except that a conversion support can mark the set triggered-only.
 
-**Trigger Link** — external wiring between two Skill Sets. Owned by the
+**Trigger Link** 鈥?external wiring between two Skill Sets. Owned by the
 loadout, not by either set. Defines the source set whose events fire the
 trigger, the target set that fires when triggered, the trigger condition, and
 any trigger-specific parameters.
 
-**Player Loadout** — owns root Skill Sets (those fired by player input), all
+**Player Loadout** 鈥?owns root Skill Sets (those fired by player input), all
 Trigger Links between sets, and the input bindings for root sets.
 
 ---
@@ -48,36 +48,36 @@ docs, see
 [ecs-simulation.md](../../layers/ecs-simulation.md).
 
 ```
-┌─────────────────────────────────┐
-│  Layer 1: Equipment state       │
-│  Skill, SkillSupport,          │
-│  SkillSet, TriggerLink,         │
-│  PlayerLoadout                  │
-│                                 │
-│  Mutable. Live equipment state. │
-│  Uses Layer 1.5 to produce      │
-│  PlayerStatSnapshot on change.  │
-└────────────────┬────────────────┘
-                 │ PlayerStatSnapshot + SkillSet
-┌────────────────▼────────────────┐
-│  Layer 2 (orchestration layer)  │
-│  PlayerSkillDriver              │
-│  SkillSlotState[] (cooldowns)   │
-│  RuntimeSkillDefinition[]       │
-│                                 │
-│  Owns runtime slot state.       │
-│  Gates input → internals.       │
-│  Uses Layer 2.5 to dispatch.    │
-└────────────────┬────────────────┘
-                 │ drives
-┌────────────────▼────────────────┐
-│  Combat runtime (internal)      │
-│  CombatRoot, ECS systems,       │
-│  MonoBehaviours                 │
-└─────────────────────────────────┘
+鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹? Layer 1: Equipment state       鈹?
+鈹? Skill, SkillSupport,          鈹?
+鈹? SkillSet, TriggerLink,         鈹?
+鈹? PlayerLoadout                  鈹?
+鈹?                                鈹?
+鈹? Mutable. Live equipment state. 鈹?
+鈹? Uses Layer 1.5 to produce      鈹?
+鈹? PlayerStatSnapshot on change.  鈹?
+鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                 鈹?PlayerStatSnapshot + SkillSet
+鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈻尖攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹? Layer 2 (orchestration layer)  鈹?
+鈹? PlayerSkillDriver              鈹?
+鈹? SkillSlotState[] (cooldowns)   鈹?
+鈹? RuntimeSkillDefinition[]       鈹?
+鈹?                                鈹?
+鈹? Owns runtime slot state.       鈹?
+鈹? Gates input 鈫?internals.       鈹?
+鈹? Uses Layer 2.5 to dispatch.    鈹?
+鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                 鈹?drives
+鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈻尖攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹? Combat runtime (internal)      鈹?
+鈹? CombatRoot, ECS systems,       鈹?
+鈹? MonoBehaviours                 鈹?
+鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
 
-Layer 1.5 (PlayerStatAggregator) — stateless utility used by Layer 1. Not a chain tier.
-Layer 2.5 (SkillSpawnTranslator) — stateless utility used by Layer 2. Not a chain tier.
+Layer 1.5 (PlayerStatAggregator) 鈥?stateless utility used by Layer 1. Not a chain tier.
+Layer 2.5 (SkillSpawnTranslator) 鈥?stateless utility used by Layer 2. Not a chain tier.
 ```
 
 ### Layer 1: Equipment State
@@ -87,7 +87,7 @@ Types: `Skill`, `StatModifierSupport`, `ConversionSupport`, `SkillSet`,
 
 - Owns all stat sources: base skill stats, base rate, supports, items,
   buffs, character level
-- `PlayerLoadout` is live mutable equipment state — not just an authoring template
+- `PlayerLoadout` is live mutable equipment state 鈥?not just an authoring template
 - `Skill` SOs are immutable authored templates; `PlayerLoadout` holds mutable slot references into them
 - Save/load serializes slot references, not compiled runtime trees
 - Emits change events when equipment or stat sources change (consumed by Layer 1.5)
@@ -119,35 +119,35 @@ Baking:
 
 Types: `PlayerSkillDriver`, `SkillSlotState`, `SkillSetCompiler`
 
-- Reads the flat `PlayerStatSnapshot` from Layer 1.5 — does not compute stats
+- Reads the flat `PlayerStatSnapshot` from Layer 1.5 鈥?does not compute stats
 - Compiles `SkillSet` + snapshot into `RuntimeSkillDefinition` trees whenever stats change
 - After compile: registers `BasicAttackPrefab` templates and `AoeTypeDefinition`
   entries with the bound `CombatRoot`; stores resolved type IDs into compiled
-  definitions. Re-registration on equip change is safe — `CombatRoot` deduplicates by reference.
+  definitions. Re-registration on equip change is safe 鈥?`CombatRoot` deduplicates by reference.
 - Registers interval child spawn templates with the bound `CombatRoot`; compiled
   interval setup stores only the returned content-hash `TemplateKey` plus timer
   configuration.
 - Owns `SkillSlotState` per root slot: tracks cooldown elapsed time, gates input-driven casts
 - On player input: checks slot cooldown; if ready, calls `SkillSpawnTranslator` and resets timer
 - On Layer 1 change: recompiles affected paths, re-registers types, updates slot `recoveryTime`
-- Holds scene-side references to `CombatRoot`, `AudioManager` — internal wiring only
+- Holds scene-side references to `CombatRoot`, `AudioManager` 鈥?internal wiring only
 
 `SkillSlotState` per root slot:
-- `elapsedSinceLastFire` — ticked each frame, reset on successful fire
-- `recoveryTime` — copied from `RuntimeSkillDefinition` whenever stats change;
+- `elapsedSinceLastFire` 鈥?ticked each frame, reset on successful fire
+- `recoveryTime` 鈥?copied from `RuntimeSkillDefinition` whenever stats change;
   derived internally as `1 / rate`, not authored directly
-- `IsReady` — `elapsedSinceLastFire >= recoveryTime`
-- `CooldownProgress` — 0..1, for UI
+- `IsReady` 鈥?`elapsedSinceLastFire >= recoveryTime`
+- `CooldownProgress` 鈥?0..1, for UI
 
 ### Layer 2.5: Translation
 
 Types: `SkillSpawnTranslator`
 
-Stateless utility — not a chain tier. `CombatRoot` requires visual types to be
+Stateless utility 鈥?not a chain tier. `CombatRoot` requires visual types to be
 pre-registered before any spawn; it bakes sprite mesh, material, and VFX
 handlers at registration time and returns a type ID used in spawn commands.
 IDs are generated inside `CombatRoot`; it deduplicates (re-registering same
-definition returns the existing ID). Type ID resolution is state — it belongs
+definition returns the existing ID). Type ID resolution is state 鈥?it belongs
 in Layer 2, not here.
 
 `SkillSpawnTranslator` takes a `RuntimeSkillDefinition` with type IDs already resolved
@@ -167,7 +167,7 @@ class SkillSet : ScriptableObject {
 ```
 
 A set with no supports fires the Skill at base values. A set is fully
-self-contained — it does not reference other sets and carries no trigger data.
+self-contained 鈥?it does not reference other sets and carries no trigger data.
 
 ---
 
@@ -176,7 +176,7 @@ self-contained — it does not reference other sets and carries no trigger data.
 Skills are ScriptableObjects that carry the authored baseline for one type of
 attack. The baseline is a definition tree of plain serializable C# classes
 containing visual, collision, and behavior data. Skills do not own augmentation
-— that belongs to Supports.
+鈥?that belongs to Supports.
 
 `Skill` is abstract. Concrete types are `ProjectileSkill`, regular `AoeSkill`,
 and `LingeringAoeSkill`, each holding their typed definition inline. Regular
@@ -234,8 +234,8 @@ Current Skill types and their definition roots:
 
 ```
 ProjectileDefinition
- ├─ prefab:    BasicAttackPrefab   ← sprite, material, hitbox collider, particle effects
- └─ behavior:  speed, lifetime, damage, count, spreadDegrees, jitterDegrees,
+ 鈹溾攢 prefab:    BasicAttackPrefab   鈫?sprite, material, hitbox collider, particle effects
+ 鈹斺攢 behavior:  speed, lifetime, damage, count, spreadDegrees, jitterDegrees,
                pierceCount, repeatHitCooldown,
                trackingEnabled, trackingRange, trackingTurnSpeed,
                trackingQueryInterval, trackingInitialDelay,
@@ -244,15 +244,15 @@ ProjectileDefinition
 
 The prefab is a visual and collision preset. The runtime bakes collision shape
 and render data from it at load time, identical to current baking behavior.
-Behavior fields on the definition drive simulation — the prefab contributes
+Behavior fields on the definition drive simulation 鈥?the prefab contributes
 nothing to behavior.
 
 ### AoeDefinition
 
 ```
 AoeDefinition
- ├─ prefab:    BasicAoePrefab   ← sprite, material, hitbox collider, particle effects
- └─ behavior:  baseAreaSize, damage, echoCount, scatterRadius,
+ 鈹溾攢 prefab:    BasicAoePrefab   鈫?sprite, material, hitbox collider, particle effects
+ 鈹斺攢 behavior:  baseAreaSize, damage, echoCount, scatterRadius,
                directDamageEnabled
 ```
 
@@ -263,8 +263,8 @@ interval, and the runtime receives `0` for both timing fields.
 
 ```
 LingeringAoeDefinition
- ├─ prefab:    LingeringAoePrefab ← sprite, material, hitbox collider, particle effects
- └─ behavior:  baseAreaSize, damage, lifetimeSeconds, tickIntervalSeconds,
+ 鈹溾攢 prefab:    LingeringAoePrefab 鈫?sprite, material, hitbox collider, particle effects
+ 鈹斺攢 behavior:  baseAreaSize, damage, lifetimeSeconds, tickIntervalSeconds,
                echoCount, scatterRadius, directDamageEnabled
 ```
 
@@ -417,7 +417,7 @@ nothing and validation returns a warning.
 
 The `PlayerLoadout` is a flat ordered list of `LoadoutSlot` entries. Each slot
 is either a `SkillSetSlot` or a `TriggerLinkSlot`. Position determines
-relationship — no explicit source/target references exist.
+relationship 鈥?no explicit source/target references exist.
 
 ```csharp
 abstract class LoadoutSlot { }
@@ -441,12 +441,12 @@ At compile time, `PlayerSkillDriver` scans the slot list. At every
 `slots[i+2]` is a `SkillSetSlot`, those three form a `TriggerChain`:
 
 ```
-cause  = slots[i].skillSet       ← left: always the trigger source
-link   = slots[i+1].link         ← trigger type and parameters
-effect = slots[i+2].skillSet     ← right: always the trigger target
+cause  = slots[i].skillSet       鈫?left: always the trigger source
+link   = slots[i+1].link         鈫?trigger type and parameters
+effect = slots[i+2].skillSet     鈫?right: always the trigger target
 ```
 
-`TriggerChain` is a runtime-only struct — it is never serialized.
+`TriggerChain` is a runtime-only struct 鈥?it is never serialized.
 
 ### Root Detection
 
@@ -456,11 +456,11 @@ appear as an `effect` in any parsed chain. All other skill sets are triggered.
 ```
 slots: [SetA | ProjectileIntervalSpawn | SetB | OnImpactAoe | SetC]
 
-chains:  SetA → ProjectileIntervalSpawn → SetB
-         SetB → OnImpactAoe → SetC
+chains:  SetA 鈫?ProjectileIntervalSpawn 鈫?SetB
+         SetB 鈫?OnImpactAoe 鈫?SetC
 
 effects: {SetB, SetC}
-roots:   {SetA}         ← SetA is the only player-input slot
+roots:   {SetA}         鈫?SetA is the only player-input slot
 ```
 
 ### Trigger Types
@@ -540,7 +540,7 @@ Directionality defaults:
 - projectile child from AOE source: radial 360-degree fan from the AOE center;
   `sideSpreadDegrees` is ignored
 - AOE child from any source: spawned around the source center. Echo copies fan
-  through `AoeSpawnExpansionSystem`; each copy is placed in a deterministic
+  through `AOE spawn expansion systems`; each copy is placed in a deterministic
   random disk within the child `scatterRadius` around the center. With
   `scatterRadius = 0`, echo copies overlap at the center.
 
@@ -582,7 +582,7 @@ Compatible tags: source `Projectile` or `Aoe`, target `Projectile`.
 impact burst size is `effectDefinition.Count + spawnCount`, floored to `1`. A
 `spawnCount` of `0` means the effect set's own count alone determines the burst.
 `spreadDegrees` overrides the effect set's spread and fans the burst around the
-back-aimed impact direction. Proj→proj→proj nesting is not supported (a value-type
+back-aimed impact direction. Proj鈫抪roj鈫抪roj nesting is not supported (a value-type
 struct cannot be recursive); a nested impact-projectile chain on the effect is
 dropped with a compile warning. From an AOE source the burst is a flat
 `AoeProjectileBurstSnapshot`, so the spawned projectile's own impact AOE/projectile
@@ -653,7 +653,7 @@ class PlayerLoadout {
 ```
 
 The slot list is the single authoring surface for both skill sets and trigger
-wiring. Root sets (player-input-driven) are derived at compile time — any skill
+wiring. Root sets (player-input-driven) are derived at compile time 鈥?any skill
 set that does not appear as a trigger effect is a root. A skill set that appears
 as an effect in one chain and a cause in another is compiled as triggered-only;
 it is never fired directly by input.
@@ -745,7 +745,7 @@ After compilation, `PlayerSkillDriver` recursively walks all compiled trees:
   `RuntimeProjectileDefinition`.
 - AOE definitions: each `RuntimeAoeDefinition` is converted to an
   `AoeTypeDefinition` and registered with `CombatRoot.RegisterType`; the returned
-  `TypeId` is stored. `CombatRoot` deduplicates — re-registering the same reference
+  `TypeId` is stored. `CombatRoot` deduplicates 鈥?re-registering the same reference
   returns the existing ID.
 
 - Stacking detonations: each compiled `RuntimeStackingDetonation`
@@ -765,7 +765,7 @@ Registration re-runs via `BindAoeRoot` whenever `CombatRoot` is wired after comp
 Interval spawns store the spawn event itself as the template. The shared
 `CombatScope` entity owns one registry per child domain:
 `ProjectileSpawnTemplate` holds a `NativeHashMap<Hash128, ProjectileSpawnEvent>`
-and `AoeSpawnTemplate` holds a `NativeHashMap<Hash128, AoeSpawnEvent>`. There is
+and `AoeSpawnTemplate` holds a `NativeHashMap<Hash128, AoeSpawnCommand>`. There is
 no separate template-data shape and no template-to-event conversion step.
 
 The runtime data is split into three tiers:
@@ -785,7 +785,7 @@ The runtime data is split into three tiers:
 One `TimedSpawnSystem` processes active timed-spawning projectile and lingering
 AOE sources. When a cooldown is due, it fetches the stored event by
 `TemplateKey`, stamps the per-instance fields from the source entity, and
-enqueues the existing `ProjectileSpawnEvent` or `AoeSpawnEvent`. Children still
+enqueues the existing `ProjectileSpawnEvent` or `AOE variant spawn event`. Children still
 flow through the canonical event -> expansion -> command -> apply path.
 
 `CombatRoot.RegisterTimedSpawnTemplate` hashes the stored event content and
@@ -814,19 +814,19 @@ Mid-game changes re-compile the affected paths:
 
 ```
 player adds a Support to SetA
-→ recompile all root sets
-→ re-register all projectile and AOE types
+鈫?recompile all root sets
+鈫?re-register all projectile and AOE types
 
 player inserts a TriggerLinkSlot + SkillSetSlot after SetA's slot
-→ slot list updated
-→ recompile all root sets   // SetA now has an outgoing chain
+鈫?slot list updated
+鈫?recompile all root sets   // SetA now has an outgoing chain
 
 player swaps the SkillSet in a slot
-→ recompile all root sets
+鈫?recompile all root sets
 ```
 
 Recompile cost is proportional to the depth of the outgoing link graph from
-the changed set — typically two or three levels deep.
+the changed set 鈥?typically two or three levels deep.
 
 ---
 
@@ -904,8 +904,8 @@ changes mid-build apply per stack and stay correct across support or set swaps.
 **Burst detonation.** Accrual and threshold detonation run in separate systems,
 so a target can bank several thresholds' worth of stacks in one frame (a dense
 applicator volley, or `stacksPerHit` overshoot). `StatusProcessSystem` fires one
-detonation per full threshold banked, all in the same frame — `floor(count /
-threshold)` detonations — and keeps the sub-threshold remainder banked for the
+detonation per full threshold banked, all in the same frame 鈥?`floor(count /
+threshold)` detonations 鈥?and keeps the sub-threshold remainder banked for the
 next hit. This is capped per target per frame so detonation spawn ids stay
 bounded and unique; overflow beyond the cap rolls to the next frame.
 
@@ -929,7 +929,7 @@ the detonation set and then wire the next applicator to its own stacking set:
 
 ### Building the Slot List
 
-The `PlayerLoadout.slots` list uses `[SerializeReference]` — add entries via
+The `PlayerLoadout.slots` list uses `[SerializeReference]` 鈥?add entries via
 the Unity inspector using the managed reference picker.
 
 Each entry is a `SkillSetSlot` or a `TriggerLinkSlot`. Position determines
@@ -953,7 +953,7 @@ chain. The left skill is always the cause; the right skill is always the effect.
 [SkillSetSlot: SetB] [TriggerLinkSlot: OnImpactAoe] [SkillSetSlot: SetC]
 ```
 SetB appears as both effect (of SetA) and cause (for SetC). It is compiled as
-a triggered-only set — not player-input-driven.
+a triggered-only set 鈥?not player-input-driven.
 
 ### Equipping on the Player
 
@@ -984,7 +984,7 @@ Fires one magic bullet at base speed and damage.
 ### Augmented: modifier supports only
 
 ```
-Slots: [SetA: [MultipleProjectiles(count=5, spread=40°), Piercing(pierce=2)] + MagicBullet]
+Slots: [SetA: [MultipleProjectiles(count=5, spread=40掳), Piercing(pierce=2)] + MagicBullet]
 
 Root: SetA
 ```
@@ -1000,12 +1000,12 @@ Slots: [SetA: [MultipleProjectiles, Piercing] + MagicBullet]
        [OnImpactAoe]
        [SetB: ArcaneBurst]
 
-Parsed chain: SetA → OnImpactAoe → SetB
+Parsed chain: SetA 鈫?OnImpactAoe 鈫?SetB
 Root: SetA
 ```
 
 Each magic bullet explodes into an arcane burst on impact. SetB has no
-supports — the burst fires at its own base radius and damage, independent of
+supports 鈥?the burst fires at its own base radius and damage, independent of
 SetA.
 
 ---
@@ -1014,13 +1014,13 @@ SetA.
 
 ```
 Slots: [SetA: [MultipleProjectiles, Piercing] + MagicBullet]
-       [ProjectileIntervalSpawn(interval=0.2s, count=2, spread=45°)]
+       [ProjectileIntervalSpawn(interval=0.2s, count=2, spread=45掳)]
        [SetB: MagicBullet]
        [OnImpactAoe]
        [SetC: ArcaneBurst]
 
-Parsed chains: SetA → ProjectileIntervalSpawn → SetB
-               SetB → OnImpactAoe → SetC
+Parsed chains: SetA 鈫?ProjectileIntervalSpawn 鈫?SetB
+               SetB 鈫?OnImpactAoe 鈫?SetC
 Effects: {SetB, SetC}
 Root: SetA
 ```
@@ -1030,9 +1030,9 @@ bullets (SetB) while in flight. Each child bullet releases an arcane burst
 (SetC) on impact.
 
 SetB appears at index 2 (effect of SetA) and index 3 (cause for SetC). It is
-triggered only — never fired by player input.
+triggered only 鈥?never fired by player input.
 
-SetB's bullet has no pierce — SetA's pierce support does not carry over.
+SetB's bullet has no pierce 鈥?SetA's pierce support does not carry over.
 SetC's burst radius is its own authored value, unaffected by SetA or SetB.
 
 ---
@@ -1061,7 +1061,7 @@ the summed contribution.
 - The target set's Skill and Supports fully determine triggered behavior.
 - Stat inheritance across sets does not exist.
 - A set can appear as the effect in multiple chains (multiple causes pointing
-  to it). It is compiled independently for each — edits propagate to all
+  to it). It is compiled independently for each 鈥?edits propagate to all
   compiled instances on next recompile.
 
 ---
@@ -1069,18 +1069,18 @@ the summed contribution.
 ## Chain Depth and Trigger Scope
 
 Triggers fire strictly by **slot position**, not by skill identity. A trigger chain only
-connects the specific cause-effect pair defined by adjacent slots — no cross-chain
+connects the specific cause-effect pair defined by adjacent slots 鈥?no cross-chain
 firing, no transitive propagation beyond the authored depth.
 
 ```
-Skill1 → Trigger → Skill2
+Skill1 鈫?Trigger 鈫?Skill2
 ```
 
 Only Skill1 fires Skill2 via the trigger. Skill2 never re-fires itself through that
 trigger, even if it hits the same targets under the same conditions.
 
 ```
-Skill1 → TriggerA → Skill2 → TriggerB → Skill3
+Skill1 鈫?TriggerA 鈫?Skill2 鈫?TriggerB 鈫?Skill3
 ```
 
 Skill1 fires Skill2 via TriggerA. Skill2 fires Skill3 via TriggerB. No other
@@ -1096,7 +1096,7 @@ A SkillSet asset may appear as both cause and effect in the same chain:
 ```
 
 This is valid. SOs are configuration templates, not instances. Each slot is always an
-**independent compilation unit** — two slots that reference the same asset still produce
+**independent compilation unit** 鈥?two slots that reference the same asset still produce
 two separate `RuntimeSkillDefinition` instances, just as two slots with different assets
 would. Instance identity is determined by slot position, not asset identity.
 
@@ -1105,7 +1105,7 @@ compiles with an empty chain list. This is a **recursion guard** in the compiler
 the compiler detects it would recurse into the same SkillSet object it is already
 compiling (cause and effect share the same SO reference), it passes an empty chain list
 for that pass to prevent an infinite loop. The effect instance produced is still fully
-independent — it just carries no outgoing trigger setup.
+independent 鈥?it just carries no outgoing trigger setup.
 
 Practical use: one applicator can spawn another compiled instance of the same
 applicator set through a normal trigger. If each instance points through

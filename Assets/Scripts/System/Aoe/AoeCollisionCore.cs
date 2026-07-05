@@ -84,8 +84,10 @@ namespace PlayGround.System.Aoe
             NativeQueue<VfxPendingSpawn>.ParallelWriter vfxPendingWriter,
             bool hasVfxWriter,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
-            NativeQueue<AoeSpawnEvent>.ParallelWriter aoeEventWriter,
-            bool hasAoeEventWriter)
+            NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
+            NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter,
+            bool hasImpactAoeEventWriter,
+            bool hasLingeringAoeEventWriter)
             where TGate : struct, IContactGate
         {
             if (identity.Faction == CombatFaction.None)
@@ -162,8 +164,10 @@ namespace PlayGround.System.Aoe
                             hitWriter,
                             hasHitWriter,
                             projectileEventWriter,
-                            aoeEventWriter,
-                            hasAoeEventWriter);
+                            impactAoeEventWriter,
+                            lingeringAoeEventWriter,
+                            hasImpactAoeEventWriter,
+                            hasLingeringAoeEventWriter);
 
                         if (--remaining == 0)
                             break;
@@ -190,8 +194,10 @@ namespace PlayGround.System.Aoe
             NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
             bool hasHitWriter,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
-            NativeQueue<AoeSpawnEvent>.ParallelWriter aoeEventWriter,
-            bool hasAoeEventWriter)
+            NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
+            NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter,
+            bool hasImpactAoeEventWriter,
+            bool hasLingeringAoeEventWriter)
         {
             if (hasHitWriter && HasHitEvent(hitSpawn))
             {
@@ -228,21 +234,40 @@ namespace PlayGround.System.Aoe
                 });
             }
 
-            if (hasAoeEventWriter
-                && hitSpawn.OnHitSpawn.Enabled
-                && hitSpawn.OnHitSpawn.Kind == IntervalChildKind.Aoe)
+            if (hitSpawn.OnHitSpawn.Enabled
+                && (hitSpawn.OnHitSpawn.Kind == IntervalChildKind.ImpactAoe
+                    || hitSpawn.OnHitSpawn.Kind == IntervalChildKind.LingeringAoe))
             {
                 int aoeId = HashId(identity.AoeId, identity.TypeId, targetKey, ImpactAoeIdSalt ^ 0x13579B);
-                aoeEventWriter.Enqueue(new AoeSpawnEvent
+                if (hitSpawn.OnHitSpawn.Kind == IntervalChildKind.LingeringAoe)
                 {
-                    Kind = hitSpawn.OnHitSpawn.Kind,
-                    TemplateKey = hitSpawn.OnHitSpawn.TemplateKey,
-                    Faction = identity.Faction,
-                    Position = targetPosition.Value,
-                    SourceId = aoeId,
-                    JitterSeed = (uint)aoeId * 2654435761u,
-                    ContactGateSeedTargetId = targetKey
-                });
+                    if (hasLingeringAoeEventWriter)
+                    {
+                        lingeringAoeEventWriter.Enqueue(new LingeringAoeSpawnEvent
+                        {
+                            Kind = hitSpawn.OnHitSpawn.Kind,
+                            TemplateKey = hitSpawn.OnHitSpawn.TemplateKey,
+                            Faction = identity.Faction,
+                            Position = targetPosition.Value,
+                            SourceId = aoeId,
+                            JitterSeed = (uint)aoeId * 2654435761u,
+                            ContactGateSeedTargetId = targetKey
+                        });
+                    }
+                }
+                else if (hasImpactAoeEventWriter)
+                {
+                    impactAoeEventWriter.Enqueue(new ImpactAoeSpawnEvent
+                    {
+                        Kind = hitSpawn.OnHitSpawn.Kind,
+                        TemplateKey = hitSpawn.OnHitSpawn.TemplateKey,
+                        Faction = identity.Faction,
+                        Position = targetPosition.Value,
+                        SourceId = aoeId,
+                        JitterSeed = (uint)aoeId * 2654435761u,
+                        ContactGateSeedTargetId = targetKey
+                    });
+                }
             }
 
             if (!hitVfxEmitted && hasVfxWriter)

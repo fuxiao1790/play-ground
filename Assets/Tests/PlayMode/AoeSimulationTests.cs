@@ -20,7 +20,8 @@ namespace PlayGround.Tests.PlayMode
         private EntityManager entityManager;
         private SimulationSystemGroup simGroup;
         private PresentationSystemGroup presentationGroup;
-        private AoeSpawnExpansionSystem aoeExpansion;
+        private ImpactAoeSpawnExpansionSystem impactAoeExpansion;
+        private LingeringAoeSpawnExpansionSystem lingeringAoeExpansion;
         private ProjectileSpawnExpansionSystem projectileExpansion;
         private CombatApplyFinalizeSingleSystem hitApply;
         private StatusProcessSystem statusProcess;
@@ -39,11 +40,13 @@ namespace PlayGround.Tests.PlayMode
             testWorld = new World("AoeSimulationTest");
             entityManager = testWorld.EntityManager;
             simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
-            aoeExpansion = testWorld.GetOrCreateSystemManaged<AoeSpawnExpansionSystem>();
+            impactAoeExpansion = testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnExpansionSystem>();
+            lingeringAoeExpansion = testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnExpansionSystem>();
             projectileExpansion = testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
             hitApply = testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSingleSystem>();
             statusProcess = testWorld.GetOrCreateSystemManaged<StatusProcessSystem>();
-            simGroup.AddSystemToUpdateList(aoeExpansion);
+            simGroup.AddSystemToUpdateList(impactAoeExpansion);
+            simGroup.AddSystemToUpdateList(lingeringAoeExpansion);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoeContactGateSystem>());
@@ -65,7 +68,8 @@ namespace PlayGround.Tests.PlayMode
             presentationGroup.SortSystems();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
-            entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
+            entityManager.AddBuffer<ImpactAoeSpawnEvent>(scopeEntity);
+            entityManager.AddBuffer<LingeringAoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
 
             aoeTemplateEntity = entityManager.CreateEntity();
@@ -235,6 +239,52 @@ namespace PlayGround.Tests.PlayMode
             {
                 Assert.That(sequential[i].AoeId, Is.EqualTo(5000 + i));
             }
+        }
+
+        [Test]
+        public void AoeVariantEventsRouteToMatchingCommandListsAndEntities()
+        {
+            const int ImpactTypeId = 9140;
+            const int LingeringTypeId = 9141;
+            Hash128 impactKey = RegisterAoeTemplateForVariant(ImpactTypeId, lifetime: 0f);
+            Hash128 lingeringKey = RegisterAoeTemplateForVariant(LingeringTypeId, lifetime: 5f);
+
+            AppendAoeEvent(
+                IntervalChildKind.ImpactAoe,
+                impactKey,
+                float2.zero,
+                CombatFaction.Player,
+                sourceId: 7000);
+            AppendAoeEvent(
+                IntervalChildKind.LingeringAoe,
+                lingeringKey,
+                new float2(1f, 0f),
+                CombatFaction.Player,
+                sourceId: 8000);
+
+            impactAoeExpansion.Update();
+            lingeringAoeExpansion.Update();
+            CompletePendingHandle(impactAoeExpansion);
+            CompletePendingHandle(lingeringAoeExpansion);
+
+            NativeList<AoeSpawnCommand> impactCommands =
+                AoeCommandList(impactAoeExpansion, "ImpactCommands");
+            NativeList<AoeSpawnCommand> lingeringCommands =
+                AoeCommandList(lingeringAoeExpansion, "LingeringCommands");
+            Assert.That(impactCommands.IsCreated, Is.True);
+            Assert.That(lingeringCommands.IsCreated, Is.True);
+            Assert.That(impactCommands.Length, Is.EqualTo(1));
+            Assert.That(lingeringCommands.Length, Is.EqualTo(1));
+            Assert.That(impactCommands[0].TypeId, Is.EqualTo(ImpactTypeId));
+            Assert.That(lingeringCommands[0].TypeId, Is.EqualTo(LingeringTypeId));
+
+            testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnApplySystem>().Update();
+            testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnApplySystem>().Update();
+
+            Assert.That(ImpactAoeCount(), Is.EqualTo(1));
+            Assert.That(LingeringAoeCount(), Is.EqualTo(1));
+            Assert.That(AoeCountByType(ImpactTypeId), Is.EqualTo(1));
+            Assert.That(AoeCountByType(LingeringTypeId), Is.EqualTo(1));
         }
 
         [Test]
@@ -786,7 +836,7 @@ namespace PlayGround.Tests.PlayMode
             TickStatusPipelineOnly(0.06f);
 
             Assert.That(TryReadStackEntry(target.Proxy, 101, out _), Is.False);
-            Assert.That(AoeEventQueue().Count, Is.EqualTo(0));
+            Assert.That(ImpactAoeEventQueue().Count + LingeringAoeEventQueue().Count, Is.EqualTo(0));
         }
 
         [Test]
@@ -831,7 +881,7 @@ namespace PlayGround.Tests.PlayMode
             QueueStackHit(target.Proxy, StackEffect(debuffKey: 102, threshold: 3, lifetime: 10f, damage: 11f, area: 3f, detonationTypeId: 7));
             TickStatusPipelineOnly(0f);
 
-            Assert.That(AoeEventQueue().Count, Is.EqualTo(1));
+            Assert.That(ImpactAoeEventQueue().Count, Is.EqualTo(1));
             Assert.That(TryReadStackEntry(target.Proxy, 102, out _), Is.False);
         }
 
@@ -858,7 +908,7 @@ namespace PlayGround.Tests.PlayMode
 
             TickStatusPipelineOnly(0f);
 
-            AoeSpawnEvent detonation = DequeueSingleAoeEvent();
+            ImpactAoeSpawnEvent detonation = DequeueSingleImpactAoeEvent();
             Assert.That(detonation.Position.x, Is.EqualTo(3f).Within(0.0001f));
             Assert.That(detonation.Position.y, Is.EqualTo(-2f).Within(0.0001f));
         }
@@ -877,13 +927,13 @@ namespace PlayGround.Tests.PlayMode
             QueueStackHit(target.Proxy, stack);
             TickStatusPipelineOnly(0f);
             Assert.That(ReadStackEntry(target.Proxy, 120).Count, Is.EqualTo(2));
-            Assert.That(AoeEventQueue().Count, Is.EqualTo(0));
+            Assert.That(ImpactAoeEventQueue().Count, Is.EqualTo(0));
 
             // Hit 2 banks to 4 (>= 3): detonates in two hits, not three. One full
             // threshold is consumed and the sub-threshold remainder stays banked.
             QueueStackHit(target.Proxy, stack);
             TickStatusPipelineOnly(0f);
-            Assert.That(AoeEventQueue().Count, Is.EqualTo(1));
+            Assert.That(ImpactAoeEventQueue().Count, Is.EqualTo(1));
             Assert.That(ReadStackEntry(target.Proxy, 120).Count, Is.EqualTo(1));
         }
 
@@ -903,7 +953,7 @@ namespace PlayGround.Tests.PlayMode
 
             TickStatusPipelineOnly(0f);
 
-            Assert.That(AoeEventQueue().Count, Is.EqualTo(2));
+            Assert.That(ImpactAoeEventQueue().Count, Is.EqualTo(2));
             Assert.That(TryReadStackEntry(target.Proxy, 121, out _), Is.False);
         }
 
@@ -990,7 +1040,7 @@ namespace PlayGround.Tests.PlayMode
 
             TickStatusPipelineOnly(0f);
 
-            Assert.That(AoeEventQueue().Count, Is.EqualTo(0));
+            Assert.That(ImpactAoeEventQueue().Count + LingeringAoeEventQueue().Count, Is.EqualTo(0));
             Assert.That(ProjectileEventQueue().Count, Is.EqualTo(0));
         }
 
@@ -1042,7 +1092,7 @@ namespace PlayGround.Tests.PlayMode
             AddTarget(float2.zero, 0.25f, 1);
             SpawnCircle(
                 float2.zero, 2f, damage: 0f, lifetime: 5f, tickInterval: 100f,
-                onHitSpawn: new OnHitSpawnRef { Kind = IntervalChildKind.Aoe, TemplateKey = secondAoeKey });
+                onHitSpawn: new OnHitSpawnRef { Kind = IntervalChildKind.ImpactAoe, TemplateKey = secondAoeKey });
 
             // Tick 1: first AOE materializes, hits target, emits second AOE event.
             TickSimulationOnly(0.01f);
@@ -1185,14 +1235,12 @@ namespace PlayGround.Tests.PlayMode
             Hash128 key = SpawnTemplateHash.Of(in template);
             AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
             registry.Map.TryAdd(key, template);
-            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Add(new AoeSpawnEvent
-            {
-                Kind = IntervalChildKind.Aoe,
-                TemplateKey = key,
-                Position = position,
-                Faction = CombatFaction.Player,
-                SourceId = ++nextAoeId
-            });
+            AppendAoeEvent(
+                AoeVariant.AoeChildKindFor(lifetime),
+                key,
+                position,
+                CombatFaction.Player,
+                ++nextAoeId);
         }
 
         private void SpawnTimedCircle(float2 position, float lifetime)
@@ -1242,16 +1290,73 @@ namespace PlayGround.Tests.PlayMode
             Hash128 key = SpawnTemplateHash.Of(in template);
             AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
             registry.Map.TryAdd(key, template);
-            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Add(new AoeSpawnEvent
+            AppendAoeEvent(
+                AoeVariant.AoeChildKindFor(template.Lifetime),
+                key,
+                position,
+                CombatFaction.Player,
+                sourceId,
+                jitterSeed,
+                deterministicIdTickIndex);
+        }
+
+        private void AppendAoeEvent(
+            IntervalChildKind kind,
+            Hash128 templateKey,
+            float2 position,
+            CombatFaction faction,
+            int sourceId,
+            uint jitterSeed = 0,
+            int deterministicIdTickIndex = 0)
+        {
+            if (kind == IntervalChildKind.LingeringAoe)
             {
-                Kind = IntervalChildKind.Aoe,
-                TemplateKey = key,
+                entityManager.GetBuffer<LingeringAoeSpawnEvent>(scopeEntity).Add(new LingeringAoeSpawnEvent
+                {
+                    Kind = kind,
+                    TemplateKey = templateKey,
+                    Position = position,
+                    Faction = faction,
+                    SourceId = sourceId,
+                    JitterSeed = jitterSeed,
+                    DeterministicIdTickIndex = deterministicIdTickIndex
+                });
+                return;
+            }
+
+            entityManager.GetBuffer<ImpactAoeSpawnEvent>(scopeEntity).Add(new ImpactAoeSpawnEvent
+            {
+                Kind = IntervalChildKind.ImpactAoe,
+                TemplateKey = templateKey,
                 Position = position,
-                Faction = CombatFaction.Player,
+                Faction = faction,
                 SourceId = sourceId,
                 JitterSeed = jitterSeed,
                 DeterministicIdTickIndex = deterministicIdTickIndex
             });
+        }
+
+        private Hash128 RegisterAoeTemplateForVariant(int typeId, float lifetime)
+        {
+            var template = new AoeSpawnCommand
+            {
+                TypeId = typeId,
+                Lifetime = lifetime,
+                RepeatHitCooldownSeconds = lifetime > 0f ? 0.1f : 0f,
+                HitPayload = new CombatHitPayload
+                {
+                    DamageAmount = 1f,
+                    DirectDamageEnabled = true
+                },
+                Radius = 1f,
+                AreaSize = 1f,
+                ShapeType = CombatShapeType.Circle,
+                EchoCount = 1
+            };
+            Hash128 key = SpawnTemplateHash.Of(in template);
+            AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
+            registry.Map.TryAdd(key, template);
+            return key;
         }
 
         private void RegisterProjectileTemplate(Unity.Entities.Hash128 key, ProjectileSpawnCommand template)
@@ -1553,7 +1658,7 @@ namespace PlayGround.Tests.PlayMode
                     AreaSize = area
                 },
                 Faction = CombatFaction.Player,
-                DetonationKind = StackDetonationKind.Aoe,
+                DetonationKind = StackDetonationKind.ImpactAoe,
                 DetonationKey = new Hash128((uint)detonationTypeId, 0xAABBCCDDu, 0u, 0u)
             };
         }
@@ -1617,11 +1722,11 @@ namespace PlayGround.Tests.PlayMode
             return false;
         }
 
-        private AoeSpawnEvent DequeueSingleAoeEvent()
+        private ImpactAoeSpawnEvent DequeueSingleImpactAoeEvent()
         {
-            NativeQueue<AoeSpawnEvent> queue = AoeEventQueue();
+            NativeQueue<ImpactAoeSpawnEvent> queue = ImpactAoeEventQueue();
             Assert.That(queue.Count, Is.EqualTo(1));
-            Assert.That(queue.TryDequeue(out AoeSpawnEvent evt), Is.True);
+            Assert.That(queue.TryDequeue(out ImpactAoeSpawnEvent evt), Is.True);
             return evt;
         }
 
@@ -1699,13 +1804,42 @@ namespace PlayGround.Tests.PlayMode
             return (NativeQueue<CombatHitEvent>)field.GetValue(hitApply);
         }
 
-        private NativeQueue<AoeSpawnEvent> AoeEventQueue()
+        private static void CompletePendingHandle(object system)
         {
-            FieldInfo field = typeof(AoeSpawnExpansionSystem).GetField(
+            FieldInfo field = system.GetType().GetField(
+                "PendingHandle",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            var handle = (Unity.Jobs.JobHandle)field.GetValue(system);
+            handle.Complete();
+            field.SetValue(system, handle);
+        }
+
+        private static NativeList<AoeSpawnCommand> AoeCommandList(object system, string fieldName)
+        {
+            FieldInfo field = system.GetType().GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            return (NativeList<AoeSpawnCommand>)field.GetValue(system);
+        }
+
+        private NativeQueue<ImpactAoeSpawnEvent> ImpactAoeEventQueue()
+        {
+            FieldInfo field = typeof(ImpactAoeSpawnExpansionSystem).GetField(
                 "EventQueue",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null);
-            return (NativeQueue<AoeSpawnEvent>)field.GetValue(aoeExpansion);
+            return (NativeQueue<ImpactAoeSpawnEvent>)field.GetValue(impactAoeExpansion);
+        }
+
+        private NativeQueue<LingeringAoeSpawnEvent> LingeringAoeEventQueue()
+        {
+            FieldInfo field = typeof(LingeringAoeSpawnExpansionSystem).GetField(
+                "EventQueue",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            return (NativeQueue<LingeringAoeSpawnEvent>)field.GetValue(lingeringAoeExpansion);
         }
 
         private NativeQueue<ProjectileSpawnEvent> ProjectileEventQueue()

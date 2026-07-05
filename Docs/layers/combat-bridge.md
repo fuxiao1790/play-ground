@@ -33,7 +33,7 @@ buffers.
 
 ## Outputs
 
-- `ProjectileSpawnEvent` and `AoeSpawnEvent` values on shared scope buffers.
+- `ProjectileSpawnEvent` and `AOE variant spawn event` values on shared scope buffers.
 - Target proxy entities and target proxy updates.
 - Registered render/VFX catalog data visible to presentation systems.
 

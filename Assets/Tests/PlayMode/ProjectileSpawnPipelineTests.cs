@@ -35,7 +35,8 @@ namespace PlayGround.Tests.PlayMode
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
-            entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
+            entityManager.AddBuffer<ImpactAoeSpawnEvent>(scopeEntity);
+            entityManager.AddBuffer<LingeringAoeSpawnEvent>(scopeEntity);
 
             projectileTemplateMap = new NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnCommand>(8, Allocator.Persistent);
             entityManager.AddComponentData(scopeEntity, new ProjectileSpawnTemplate { Map = projectileTemplateMap });
@@ -118,10 +119,14 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(typeof(ProjectileSpawnEvent).GetField("JitterDegrees"), Is.Null);
             Assert.That(typeof(ProjectileSpawnEvent).GetField("BaseDirection"), Is.Null);
             Assert.That(typeof(ProjectileSpawnEvent).GetField("Speed"), Is.Null);
-            Assert.That(typeof(AoeSpawnEvent).GetField("TypeId"), Is.Null);
-            Assert.That(typeof(AoeSpawnEvent).GetField("Lifetime"), Is.Null);
-            Assert.That(typeof(AoeSpawnEvent).GetField("Count"), Is.Null);
-            Assert.That(typeof(AoeSpawnEvent).GetField("HitPayload"), Is.Null);
+            Assert.That(typeof(ImpactAoeSpawnEvent).GetField("TypeId"), Is.Null);
+            Assert.That(typeof(ImpactAoeSpawnEvent).GetField("Lifetime"), Is.Null);
+            Assert.That(typeof(ImpactAoeSpawnEvent).GetField("Count"), Is.Null);
+            Assert.That(typeof(ImpactAoeSpawnEvent).GetField("HitPayload"), Is.Null);
+            Assert.That(typeof(LingeringAoeSpawnEvent).GetField("TypeId"), Is.Null);
+            Assert.That(typeof(LingeringAoeSpawnEvent).GetField("Lifetime"), Is.Null);
+            Assert.That(typeof(LingeringAoeSpawnEvent).GetField("Count"), Is.Null);
+            Assert.That(typeof(LingeringAoeSpawnEvent).GetField("HitPayload"), Is.Null);
 
             // Command-shaped templates carry the template fields.
             Assert.That(typeof(ProjectileSpawnCommand).GetField("Count"), Is.Not.Null);

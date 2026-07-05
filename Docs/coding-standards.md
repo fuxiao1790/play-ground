@@ -149,7 +149,7 @@ entities, but only `CombatApplyBridge` may read it to call
 Damage application must stay separate from internal ECS spawn and VFX payloads.
 Keep these as distinct typed paths:
 
-- `ProjectileSpawnEvent` and `AoeSpawnEvent` carry spawn follow-up intent into
+- `ProjectileSpawnEvent` and `AOE variant spawn event` carry spawn follow-up intent into
   expansion systems.
 - `ProjectileSpawnCommand` and `AoeSpawnCommand` carry one-entity allocation
   intent into apply systems.

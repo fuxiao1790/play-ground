@@ -10,7 +10,7 @@ preparation.
 ## Owns
 
 - Projectile and AOE entities and their ECS component state.
-- `ProjectileSpawnEvent`/`AoeSpawnEvent` drain from native queues and scope
+- `ProjectileSpawnEvent`/`AOE variant spawn event` drain from native queues and scope
   buffers.
 - `ProjectileSpawnCommand`/`AoeSpawnCommand` production and consumption.
 - `Active`-based reuse and cold creation fallback.

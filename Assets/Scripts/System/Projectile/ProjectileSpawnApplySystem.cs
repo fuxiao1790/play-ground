@@ -12,7 +12,8 @@ namespace PlayGround.System.Projectile
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileSpawnExpansionSystem))]
-    [UpdateAfter(typeof(AoeSpawnExpansionSystem))]
+    [UpdateAfter(typeof(ImpactAoeSpawnExpansionSystem))]
+    [UpdateAfter(typeof(LingeringAoeSpawnExpansionSystem))]
     public sealed partial class ProjectileSpawnApplySystem : SystemBase
     {
         private static readonly ProfilerMarker SpawnMarker = new("ProjectileSpawnApplySystem");

@@ -11,14 +11,16 @@ namespace PlayGround.System.Common
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(CombatLifetimeSystem))]
     [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
-    [UpdateBefore(typeof(AoeSpawnExpansionSystem))]
+    [UpdateBefore(typeof(ImpactAoeSpawnExpansionSystem))]
+    [UpdateBefore(typeof(LingeringAoeSpawnExpansionSystem))]
     public partial struct TimedSpawnSystem : ISystem
     {
         public void OnUpdate(ref SystemState state)
         {
             var projectileExpansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
-            var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
-            if (projectileExpansion == null && aoeExpansion == null)
+            var impactAoeExpansion = state.World.GetExistingSystemManaged<ImpactAoeSpawnExpansionSystem>();
+            var lingeringAoeExpansion = state.World.GetExistingSystemManaged<LingeringAoeSpawnExpansionSystem>();
+            if (projectileExpansion == null && impactAoeExpansion == null && lingeringAoeExpansion == null)
             {
                 return;
             }
@@ -29,11 +31,15 @@ namespace PlayGround.System.Common
                 ProjectileEventQueue = projectileExpansion != null
                     ? projectileExpansion.EventQueue.AsParallelWriter()
                     : default,
-                AoeEventQueue = aoeExpansion != null
-                    ? aoeExpansion.EventQueue.AsParallelWriter()
+                ImpactAoeEventQueue = impactAoeExpansion != null
+                    ? impactAoeExpansion.EventQueue.AsParallelWriter()
+                    : default,
+                LingeringAoeEventQueue = lingeringAoeExpansion != null
+                    ? lingeringAoeExpansion.EventQueue.AsParallelWriter()
                     : default,
                 HasProjectileEventQueue = projectileExpansion != null,
-                HasAoeEventQueue = aoeExpansion != null
+                HasImpactAoeEventQueue = impactAoeExpansion != null,
+                HasLingeringAoeEventQueue = lingeringAoeExpansion != null
             }.ScheduleParallel(state.Dependency);
 
             state.Dependency = handle;
@@ -44,10 +50,16 @@ namespace PlayGround.System.Common
                     JobHandle.CombineDependencies(projectileExpansion.ProducerHandle, handle);
             }
 
-            if (aoeExpansion != null)
+            if (impactAoeExpansion != null)
             {
-                aoeExpansion.ProducerHandle =
-                    JobHandle.CombineDependencies(aoeExpansion.ProducerHandle, handle);
+                impactAoeExpansion.ProducerHandle =
+                    JobHandle.CombineDependencies(impactAoeExpansion.ProducerHandle, handle);
+            }
+
+            if (lingeringAoeExpansion != null)
+            {
+                lingeringAoeExpansion.ProducerHandle =
+                    JobHandle.CombineDependencies(lingeringAoeExpansion.ProducerHandle, handle);
             }
         }
 
@@ -57,9 +69,11 @@ namespace PlayGround.System.Common
         {
             public float DeltaTime;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventQueue;
-            public NativeQueue<AoeSpawnEvent>.ParallelWriter AoeEventQueue;
+            public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventQueue;
+            public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventQueue;
             public bool HasProjectileEventQueue;
-            public bool HasAoeEventQueue;
+            public bool HasImpactAoeEventQueue;
+            public bool HasLingeringAoeEventQueue;
 
             // Safety guards: a bad interval must advance by a positive amount and stop after a bounded catch-up.
             private const float MinIntervalSeconds = 1e-3f;
@@ -83,13 +97,30 @@ namespace PlayGround.System.Common
                 {
                     ticksThisUpdate++;
                     tickIndex++;
-                    if (spawn.ChildKind == IntervalChildKind.Aoe)
+                    if (spawn.ChildKind == IntervalChildKind.ImpactAoe)
                     {
-                        if (HasAoeEventQueue)
+                        if (HasImpactAoeEventQueue)
                         {
-                            AoeEventQueue.Enqueue(new AoeSpawnEvent
+                            ImpactAoeEventQueue.Enqueue(new ImpactAoeSpawnEvent
                             {
-                                Kind = IntervalChildKind.Aoe,
+                                Kind = IntervalChildKind.ImpactAoe,
+                                TemplateKey = spawn.TemplateKey,
+                                Position = kinematics.Position,
+                                AimDirection = default,
+                                Faction = spawn.Faction,
+                                SourceId = spawn.SourceId,
+                                JitterSeed = (uint)spawn.JitterSeed,
+                                DeterministicIdTickIndex = tickIndex
+                            });
+                        }
+                    }
+                    else if (spawn.ChildKind == IntervalChildKind.LingeringAoe)
+                    {
+                        if (HasLingeringAoeEventQueue)
+                        {
+                            LingeringAoeEventQueue.Enqueue(new LingeringAoeSpawnEvent
+                            {
+                                Kind = IntervalChildKind.LingeringAoe,
                                 TemplateKey = spawn.TemplateKey,
                                 Position = kinematics.Position,
                                 AimDirection = default,

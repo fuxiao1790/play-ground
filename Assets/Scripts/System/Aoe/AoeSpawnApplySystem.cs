@@ -11,7 +11,7 @@ using Unity.Profiling;
 namespace PlayGround.System.Aoe
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(AoeSpawnExpansionSystem))]
+    [UpdateAfter(typeof(ImpactAoeSpawnExpansionSystem))]
     [UpdateAfter(typeof(ProjectileSpawnExpansionSystem))]
     public partial class ImpactAoeSpawnApplySystem : SystemBase
     {
@@ -56,7 +56,7 @@ namespace PlayGround.System.Aoe
         {
             Dependency.Complete();
 
-            var expansionSys = World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
+            var expansionSys = World.GetExistingSystemManaged<ImpactAoeSpawnExpansionSystem>();
             NativeArray<AoeSpawnCommand> commands = default;
             int totalRequests = 0;
             if (expansionSys != null)
@@ -220,7 +220,7 @@ namespace PlayGround.System.Aoe
     }
 
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(AoeSpawnExpansionSystem))]
+    [UpdateAfter(typeof(LingeringAoeSpawnExpansionSystem))]
     [UpdateAfter(typeof(ProjectileSpawnExpansionSystem))]
     public partial class LingeringAoeSpawnApplySystem : SystemBase
     {
@@ -270,7 +270,7 @@ namespace PlayGround.System.Aoe
         {
             Dependency.Complete();
 
-            var expansionSys = World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
+            var expansionSys = World.GetExistingSystemManaged<LingeringAoeSpawnExpansionSystem>();
             NativeArray<AoeSpawnCommand> commands = default;
             int totalRequests = 0;
             if (expansionSys != null)

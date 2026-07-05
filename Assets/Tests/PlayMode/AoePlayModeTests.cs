@@ -896,7 +896,7 @@ namespace PlayGround.Tests.PlayMode
                     ProjectileCount = 0,
                     AreaSize = geometry.AreaSize / threshold
                 },
-                DetonationKind = StackDetonationKind.Aoe,
+                DetonationKind = StackDetonationKind.ImpactAoe,
                 DetonationKey = detonationKey
             };
         }

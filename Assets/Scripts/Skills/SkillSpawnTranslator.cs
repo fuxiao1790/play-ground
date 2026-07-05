@@ -1,4 +1,5 @@
 using PlayGround.Skills.Runtime;
+using PlayGround.System.Aoe;
 using PlayGround.System.Common;
 using UnityEngine;
 using Hash128 = Unity.Entities.Hash128;
@@ -47,7 +48,8 @@ namespace PlayGround.Skills
                     aoe.SpawnTemplateKey,
                     aimWorldPos,
                     Mathf.Max(1, aoe.EchoCount),
-                    faction);
+                    faction,
+                    AoeVariant.AoeChildKindFor(aoe.LifetimeSeconds));
             }
         }
 

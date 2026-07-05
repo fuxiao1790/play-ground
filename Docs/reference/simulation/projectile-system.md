@@ -208,7 +208,7 @@ cold count indicates true pool shortage for the projectile archetype.
 `TimedSpawnSystem` replaces the old child request buffer path. It queries active
 finite-lifetime entities with enabled `TimedSpawnComponent`, ticks their child
 spawn cooldown using variable `deltaTime`, catches up missed intervals, and
-enqueues `ProjectileSpawnEvent` or `AoeSpawnEvent` values directly into the
+enqueues `ProjectileSpawnEvent` or `AOE variant spawn event` values directly into the
 matching expansion queue.
 
 Child projectiles use the same projectile pool. They may carry damage, stack
@@ -251,7 +251,7 @@ Accepted hits can produce:
 
 - `DamageReplayEvent` into `DamageDispatchBridge.DamageQueue`
 - `ProjectileSpawnEvent` into projectile expansion for impact projectile bursts
-- `AoeSpawnEvent` into AOE expansion for impact AOEs
+- `AOE variant spawn event` into AOE expansion for impact AOEs
 - `VfxPendingSpawn` into the shared VFX scope buffer through a flush job
 
 Damage is finalized by `DamageFinalizeSystem` before spawn expansion. Managed
@@ -307,7 +307,7 @@ Important simulation ordering:
 8. `AoeContactGateSystem` and `AoeCollisionSystem` run after projectile
    collision.
 9. `DamageFinalizeSystem` freezes the native damage queue.
-10. `ProjectileSpawnExpansionSystem` and `AoeSpawnExpansionSystem` drain events
+10. `ProjectileSpawnExpansionSystem` and `AOE spawn expansion systems` drain events
     and produce commands.
 11. Projectile and AOE apply systems reuse disabled slots and cold-create
     overflow.

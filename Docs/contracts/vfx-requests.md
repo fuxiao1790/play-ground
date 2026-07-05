@@ -25,7 +25,7 @@ Request data:
 
 Trigger values:
 
-- `0`: spawn, emitted by `AoeSpawnExpansionSystem` for expansion-spawned AOEs
+- `0`: spawn, emitted by `AOE spawn expansion systems` for expansion-spawned AOEs
 - `1`: hit
 - `2`: expire
 - `3`: pulse

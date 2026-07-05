@@ -6,8 +6,8 @@ Trace how projectile and AOE intent becomes reusable ECS entities.
 
 ## Sequence
 
-1. Managed bridge or ECS producers create `ProjectileSpawnEvent` or
-   `AoeSpawnEvent`.
+1. Managed bridge or ECS producers create `ProjectileSpawnEvent`,
+   `ImpactAoeSpawnEvent`, or `LingeringAoeSpawnEvent`.
 2. Expansion systems drain scope buffers and native event queues after producer
    jobs complete.
 3. Expansion owns count, spread, jitter, bounds, deterministic id, and command
@@ -26,7 +26,8 @@ Trace how projectile and AOE intent becomes reusable ECS entities.
 
 ## Consumers
 
-`ProjectileSpawnExpansionSystem`, `AoeSpawnExpansionSystem`,
+`ProjectileSpawnExpansionSystem`, `ImpactAoeSpawnExpansionSystem`,
+`LingeringAoeSpawnExpansionSystem`,
 `ProjectileSpawnApplySystem`, `ImpactAoeSpawnApplySystem`, and
 `LingeringAoeSpawnApplySystem`.
 
@@ -47,6 +48,10 @@ Trace how projectile and AOE intent becomes reusable ECS entities.
 
 Expansion must wait for native event producers. Apply runs after collision.
 Commands are one entity; events are gameplay intent.
+
+AOE variant is chosen at authoring from child lifetime (`Lifetime > 0` means
+lingering, otherwise impact) and carried on the event kind. Producers route to
+the matching AOE event queue exactly like they route projectile events.
 
 ## Failure / Edge Cases
 

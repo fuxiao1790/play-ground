@@ -46,7 +46,7 @@ This document tracks implementation decisions, patterns, and current architectur
 - End-of-simulation cleanup may later destroy bounded excess disabled slots
   when frame headroom exists. Impact and lingering AOEs are evaluated as
   separate reuse pools because their archetypes differ.
-- `AoeSpawnExpansionSystem` expands `AoeSpawnEvent` into one-entity
+- `AOE spawn expansion systems` expands `AOE variant spawn event` into one-entity
   `AoeSpawnCommand` values.
 - `ImpactAoeSpawnApplySystem` queries `WithAll<AoeTag>()`,
   `WithDisabled<Active>()`, and `WithNone<CombatLifetimeComponent>()`.

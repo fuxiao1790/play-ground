@@ -21,7 +21,8 @@ systems.
 Event types:
 
 - `ProjectileSpawnEvent`
-- `AoeSpawnEvent`
+- `ImpactAoeSpawnEvent`
+- `LingeringAoeSpawnEvent`
 
 Command types:
 
@@ -42,6 +43,11 @@ into one command per spawned entity.
 
 See [spawn-template-registry.md](../reference/simulation/spawn-template-registry.md)
 for the registry concurrency contract and the `(kind, key)` model.
+
+AOE variant is decided at authoring from child lifetime and carried on
+`IntervalChildKind` / `StackDetonationKind`: `Lifetime > 0` routes to
+lingering AOE, otherwise impact AOE. Producers route by that carried kind and
+do not inspect templates at runtime.
 
 ## Guarantees
 

@@ -60,7 +60,7 @@ consequence events, and frame timing. Domain-specific details still live in
   collision consequences and projectile deactivation.
 - `Assets/Scripts/System/Aoe/AoeSpawnPipeline.cs`: AOE event/command data and
   impact/on-hit event builders.
-- `Assets/Scripts/System/Aoe/AoeSpawnExpansionSystem.cs`: AOE event drain,
+- `Assets/Scripts/System/Aoe/AoeSpawnExpansionSystem.cs`: impact and lingering AOE event drain,
   command expansion, and spawn VFX request emission.
 - AOE spawn apply file: impact and lingering AOE
   slot reuse and cold creation.
@@ -76,7 +76,7 @@ entity. The first scope acquire creates:
 
 - `CombatScope`
 - `DynamicBuffer<ProjectileSpawnEvent>`
-- `DynamicBuffer<AoeSpawnEvent>`
+- `DynamicBuffer<ImpactAoeSpawnEvent>` and `DynamicBuffer<LingeringAoeSpawnEvent>`
 - `DynamicBuffer<VfxSpawnRequestElement>`
 - `ProjectileSpawnTemplate`
 - `AoeSpawnTemplate`
@@ -97,8 +97,9 @@ root validates render resources, reserves projectile ids, builds one
 
 Managed AOE spawn uses `CombatRoot.Spawn(AoeSpawnRequest)` or
 `CombatRoot.Spawn(ProjectileAoeSpawnRequest)`. The root validates type id and
-geometry, reserves an AOE id, builds one `AoeSpawnEvent`, and appends it to the
-shared scope `DynamicBuffer<AoeSpawnEvent>`.
+geometry, reserves an AOE id, builds one `AOE variant spawn event`, and appends it to the
+shared scope `DynamicBuffer<ImpactAoeSpawnEvent>` or
+`DynamicBuffer<LingeringAoeSpawnEvent>`.
 
 Managed gameplay code should not create projectile or AOE entities directly.
 It should submit spawn intent and let ECS expansion/apply systems handle the
@@ -134,7 +135,7 @@ Spawn intent and allocation intent are separate.
 Events are gameplay intent:
 
 - `ProjectileSpawnEvent`
-- `AoeSpawnEvent`
+- `AOE variant spawn event`
 
 Commands are one-entity allocation intent:
 
@@ -148,7 +149,7 @@ Projectile flow:
 
 AOE flow:
 
-`AoeSpawnEvent` -> `AoeSpawnExpansionSystem` -> `AoeSpawnCommand` ->
+`AOE variant spawn event` -> `AOE spawn expansion systems` -> `AoeSpawnCommand` ->
 `ImpactAoeSpawnApplySystem` or `LingeringAoeSpawnApplySystem`.
 
 Do not add a direct path that creates projectile or AOE entities from managed
@@ -171,7 +172,7 @@ Current producers:
 - `StatusProcessSystem` enqueues stack detonation projectile or AOE events.
 
 These producers write to `ProjectileSpawnExpansionSystem.EventQueue` or
-`AoeSpawnExpansionSystem.EventQueue`. Producer job handles are combined into
+the matching AOE expansion system `EventQueue`. Producer job handles are combined into
 the expansion system's `ProducerHandle`, because the native queues are not
 tracked by ordinary component dependencies.
 
@@ -188,10 +189,11 @@ It expands count/spread/jitter/pattern data, resolves per-shot ids and
 velocities, computes bounds, updates render Z, and writes commands into one
 projectile command container.
 
-`AoeSpawnExpansionSystem` drains:
+`AOE spawn expansion systems` drains:
 
-- `AoeSpawnExpansionSystem.EventQueue`
-- shared scope `DynamicBuffer<AoeSpawnEvent>`
+- `ImpactAoeSpawnExpansionSystem.EventQueue` or `LingeringAoeSpawnExpansionSystem.EventQueue`
+- shared scope `DynamicBuffer<ImpactAoeSpawnEvent>` or
+  `DynamicBuffer<LingeringAoeSpawnEvent>`
 
 It computes bounds, resolves deterministic ids, emits spawn VFX requests with
 trigger `0`, and writes `AoeSpawnCommand` values into impact or lingering
@@ -266,7 +268,7 @@ Current consequence paths include:
 - hit events into `CombatApplyFinalizeSystem`
 - `ProjectileSpawnEvent` values for impact projectiles, AOE projectile bursts,
   and stack detonation projectiles
-- `AoeSpawnEvent` values for impact AOEs, on-hit AOEs, timed AOEs, and stack
+- `AOE variant spawn event` values for impact AOEs, on-hit AOEs, timed AOEs, and stack
   detonation AOEs
 - `VfxPendingSpawn` values that flush into `VfxSpawnRequestElement` buffers
 
@@ -326,7 +328,7 @@ Important ordering:
 5. `CombatApplyFinalizeSystem` applies hit events to ECS target health and
    status data.
 6. `StatusProcessSystem` emits stack detonation spawn events.
-7. `ProjectileSpawnExpansionSystem` and `AoeSpawnExpansionSystem` drain
+7. `ProjectileSpawnExpansionSystem` and `AOE spawn expansion systems` drain
    completed event producers plus managed scope buffers.
 8. Projectile and AOE apply systems reuse disabled slots or cold-create
    overflow.

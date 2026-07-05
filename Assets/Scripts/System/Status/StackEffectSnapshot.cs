@@ -3,8 +3,9 @@ namespace PlayGround.System.Common
     public enum StackDetonationKind
     {
         None = 0,
-        Aoe = 1,
-        Projectile = 2
+        ImpactAoe = 1,
+        LingeringAoe = 2,
+        Projectile = 3
     }
 
     public struct StackContribution

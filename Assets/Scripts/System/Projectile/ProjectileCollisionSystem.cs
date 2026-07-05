@@ -44,7 +44,8 @@ namespace PlayGround.System.Projectile
             state.Dependency = JobHandle.CombineDependencies(state.Dependency, hash.BuildHandle);
 
             var expansion = state.World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
-            var aoeExpansion = state.World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
+            var impactAoeExpansion = state.World.GetExistingSystemManaged<ImpactAoeSpawnExpansionSystem>();
+            var lingeringAoeExpansion = state.World.GetExistingSystemManaged<LingeringAoeSpawnExpansionSystem>();
             var hitApply = state.World.GetExistingSystemManaged<CombatApplyFinalizeSingleSystem>();
             var vfx = state.World.GetExistingSystemManaged<CombatVfxDispatchSystem>();
             var job = new ProjectileCollisionJob
@@ -67,9 +68,14 @@ namespace PlayGround.System.Projectile
                 ProjectileEventWriter = expansion != null
                     ? expansion.EventQueue.AsParallelWriter()
                     : default,
-                AoeEventWriter = aoeExpansion != null
-                    ? aoeExpansion.EventQueue.AsParallelWriter()
-                    : default
+                ImpactAoeEventWriter = impactAoeExpansion != null
+                    ? impactAoeExpansion.EventQueue.AsParallelWriter()
+                    : default,
+                LingeringAoeEventWriter = lingeringAoeExpansion != null
+                    ? lingeringAoeExpansion.EventQueue.AsParallelWriter()
+                    : default,
+                HasImpactAoeEventWriter = impactAoeExpansion != null && impactAoeExpansion.EventQueue.IsCreated,
+                HasLingeringAoeEventWriter = lingeringAoeExpansion != null && lingeringAoeExpansion.EventQueue.IsCreated
             };
 
             var collisionHandle = job.ScheduleParallel(state.Dependency);
@@ -80,9 +86,12 @@ namespace PlayGround.System.Projectile
             if (expansion != null)
                 expansion.ProducerHandle =
                     JobHandle.CombineDependencies(expansion.ProducerHandle, collisionHandle);
-            if (aoeExpansion != null)
-                aoeExpansion.ProducerHandle =
-                    JobHandle.CombineDependencies(aoeExpansion.ProducerHandle, collisionHandle);
+            if (impactAoeExpansion != null)
+                impactAoeExpansion.ProducerHandle =
+                    JobHandle.CombineDependencies(impactAoeExpansion.ProducerHandle, collisionHandle);
+            if (lingeringAoeExpansion != null)
+                lingeringAoeExpansion.ProducerHandle =
+                    JobHandle.CombineDependencies(lingeringAoeExpansion.ProducerHandle, collisionHandle);
             if (hitApply != null)
                 hitApply.ProducerHandle =
                     JobHandle.CombineDependencies(hitApply.ProducerHandle, collisionHandle);
@@ -117,7 +126,10 @@ namespace PlayGround.System.Projectile
             public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
             public bool HasVfxWriter;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
-            public NativeQueue<AoeSpawnEvent>.ParallelWriter AoeEventWriter;
+            public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
+            public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
+            public bool HasImpactAoeEventWriter;
+            public bool HasLingeringAoeEventWriter;
 
             private void Execute(
                 Entity entity,
@@ -265,23 +277,43 @@ namespace PlayGround.System.Projectile
                             }
 
                             if (projectileHit.HitPayload.OnHitSpawn.Enabled
-                                && projectileHit.HitPayload.OnHitSpawn.Kind == IntervalChildKind.Aoe)
+                                && (projectileHit.HitPayload.OnHitSpawn.Kind == IntervalChildKind.ImpactAoe
+                                    || projectileHit.HitPayload.OnHitSpawn.Kind == IntervalChildKind.LingeringAoe))
                             {
                                 int aoeId = HashId(
                                     identity.ProjectileId,
                                     identity.TypeId,
                                     targetKey,
                                     ImpactAoeIdSalt);
-                                AoeEventWriter.Enqueue(new AoeSpawnEvent
+                                if (projectileHit.HitPayload.OnHitSpawn.Kind == IntervalChildKind.LingeringAoe)
                                 {
-                                    Kind = projectileHit.HitPayload.OnHitSpawn.Kind,
-                                    TemplateKey = projectileHit.HitPayload.OnHitSpawn.TemplateKey,
-                                    Faction = identity.Faction,
-                                    Position = kinematics.Position,
-                                    SourceId = aoeId,
-                                    JitterSeed = (uint)aoeId * 2654435761u,
-                                    ContactGateSeedTargetId = targetKey
-                                });
+                                    if (HasLingeringAoeEventWriter)
+                                    {
+                                        LingeringAoeEventWriter.Enqueue(new LingeringAoeSpawnEvent
+                                        {
+                                            Kind = projectileHit.HitPayload.OnHitSpawn.Kind,
+                                            TemplateKey = projectileHit.HitPayload.OnHitSpawn.TemplateKey,
+                                            Faction = identity.Faction,
+                                            Position = kinematics.Position,
+                                            SourceId = aoeId,
+                                            JitterSeed = (uint)aoeId * 2654435761u,
+                                            ContactGateSeedTargetId = targetKey
+                                        });
+                                    }
+                                }
+                                else if (HasImpactAoeEventWriter)
+                                {
+                                    ImpactAoeEventWriter.Enqueue(new ImpactAoeSpawnEvent
+                                    {
+                                        Kind = projectileHit.HitPayload.OnHitSpawn.Kind,
+                                        TemplateKey = projectileHit.HitPayload.OnHitSpawn.TemplateKey,
+                                        Faction = identity.Faction,
+                                        Position = kinematics.Position,
+                                        SourceId = aoeId,
+                                        JitterSeed = (uint)aoeId * 2654435761u,
+                                        ContactGateSeedTargetId = targetKey
+                                    });
+                                }
                             }
 
                             if (HasVfxWriter)

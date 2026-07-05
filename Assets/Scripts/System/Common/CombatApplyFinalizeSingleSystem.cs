@@ -27,7 +27,8 @@ namespace PlayGround.System.Common
     [UpdateAfter(typeof(ProjectileCollisionSystem))]
     [UpdateAfter(typeof(LingeringAoeCollisionSystem))]
     [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
-    [UpdateBefore(typeof(AoeSpawnExpansionSystem))]
+    [UpdateBefore(typeof(ImpactAoeSpawnExpansionSystem))]
+    [UpdateBefore(typeof(LingeringAoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
     [UpdateBefore(typeof(StatusProcessSystem))]
     public partial class CombatApplyFinalizeSingleSystem : SystemBase

@@ -30,7 +30,7 @@ Non-goals:
 
 | Value | Name | Current emitters |
 |---|---|---|
-| 0 | spawn | `AoeSpawnExpansionSystem` for expansion-spawned AOEs |
+| 0 | spawn | `AOE spawn expansion systems` for expansion-spawned AOEs |
 | 1 | hit | `ProjectileCollisionSystem`, `ImpactAoeCollisionSystem`, `LingeringAoeCollisionSystem` |
 | 2 | expire | `CombatLifetimeSystem`, projectile collision deactivation |
 | 3 | pulse | `AoePulseVfxSystem` |
@@ -112,7 +112,7 @@ no per-event `Play()` fallback.
 
 ## Emitters
 
-`AoeSpawnExpansionSystem` emits:
+`AOE spawn expansion systems` emits:
 
 - trigger 0 for each expansion-spawned AOE
 
@@ -149,7 +149,7 @@ AOE VFX slots live on `BasicAoePrefab`, `LingeringAoePrefab`, and
 `AoeTypeDefinition`:
 
 ```text
-spawnEffect   -> trigger 0, emitted by AoeSpawnExpansionSystem
+spawnEffect   -> trigger 0, emitted by AOE spawn expansion systems
 hitEffect     -> trigger 1
 expireEffect  -> trigger 2
 pulseEffect   -> trigger 3
@@ -161,7 +161,7 @@ configured `CombatVfxRoot`. `CombatRoot` does not depend on `CombatVfxRoot`.
 ## Area Size
 
 Every VFX request carries an `AreaSize` value. AOE requests populate it from
-resolved AOE geometry before the event reaches ECS â€” that area value is copied
+resolved AOE geometry before the event reaches ECS â€?that area value is copied
 into VFX requests from collision, pulse, and lifetime paths. Projectile requests
 populate it from render visual scale so graphs can size impact or expire effects
 consistently.

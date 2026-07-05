@@ -19,7 +19,8 @@ namespace PlayGround.Tests.PlayMode
         private World testWorld;
         private EntityManager entityManager;
         private SimulationSystemGroup simGroup;
-        private AoeSpawnExpansionSystem aoeExpansion;
+        private ImpactAoeSpawnExpansionSystem impactAoeExpansion;
+        private LingeringAoeSpawnExpansionSystem lingeringAoeExpansion;
         private ProjectileSpawnExpansionSystem projectileExpansion;
         private Entity scopeEntity;
         private Entity aoeTemplateEntity;
@@ -33,9 +34,11 @@ namespace PlayGround.Tests.PlayMode
             testWorld = new World("SpawnCommandUnificationTest");
             entityManager = testWorld.EntityManager;
             simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
-            aoeExpansion = testWorld.GetOrCreateSystemManaged<AoeSpawnExpansionSystem>();
+            impactAoeExpansion = testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnExpansionSystem>();
+            lingeringAoeExpansion = testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnExpansionSystem>();
             projectileExpansion = testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
-            simGroup.AddSystemToUpdateList(aoeExpansion);
+            simGroup.AddSystemToUpdateList(impactAoeExpansion);
+            simGroup.AddSystemToUpdateList(lingeringAoeExpansion);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSingleSystem>());
@@ -45,7 +48,8 @@ namespace PlayGround.Tests.PlayMode
             simGroup.SortSystems();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
-            entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
+            entityManager.AddBuffer<ImpactAoeSpawnEvent>(scopeEntity);
+            entityManager.AddBuffer<LingeringAoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
 
             aoeTemplateEntity = entityManager.CreateEntity();
@@ -179,9 +183,9 @@ namespace PlayGround.Tests.PlayMode
             AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);
             registry.Map.TryAdd(key, template);
 
-            entityManager.GetBuffer<AoeSpawnEvent>(scopeEntity).Add(new AoeSpawnEvent
+            entityManager.GetBuffer<ImpactAoeSpawnEvent>(scopeEntity).Add(new ImpactAoeSpawnEvent
             {
-                Kind = IntervalChildKind.Aoe,
+                Kind = IntervalChildKind.ImpactAoe,
                 TemplateKey = key,
                 Position = float2.zero,
                 Faction = CombatFaction.Player,

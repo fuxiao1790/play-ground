@@ -18,7 +18,8 @@ namespace PlayGround.Tests.PlayMode
         private EntityManager entityManager;
         private SimulationSystemGroup simGroup;
         private ProjectileSpawnExpansionSystem projectileExpansion;
-        private AoeSpawnExpansionSystem aoeExpansion;
+        private ImpactAoeSpawnExpansionSystem impactAoeExpansion;
+        private LingeringAoeSpawnExpansionSystem lingeringAoeExpansion;
         private Entity scopeEntity;
         private Entity projectileTemplateEntity;
         private Entity aoeTemplateEntity;
@@ -34,7 +35,8 @@ namespace PlayGround.Tests.PlayMode
             entityManager = testWorld.EntityManager;
             simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
             projectileExpansion = testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
-            aoeExpansion = testWorld.GetOrCreateSystemManaged<AoeSpawnExpansionSystem>();
+            impactAoeExpansion = testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnExpansionSystem>();
+            lingeringAoeExpansion = testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnExpansionSystem>();
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContactGateSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TargetSpatialHashSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileCollisionSystem>());
@@ -42,7 +44,8 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<StatusProcessSystem>());
             simGroup.AddSystemToUpdateList(projectileExpansion);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileSpawnApplySystem>());
-            simGroup.AddSystemToUpdateList(aoeExpansion);
+            simGroup.AddSystemToUpdateList(impactAoeExpansion);
+            simGroup.AddSystemToUpdateList(lingeringAoeExpansion);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoePulseVfxSystem>());
@@ -51,7 +54,8 @@ namespace PlayGround.Tests.PlayMode
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
-            entityManager.AddBuffer<AoeSpawnEvent>(scopeEntity);
+            entityManager.AddBuffer<ImpactAoeSpawnEvent>(scopeEntity);
+            entityManager.AddBuffer<LingeringAoeSpawnEvent>(scopeEntity);
 
             projectileTemplateEntity = entityManager.CreateEntity();
             entityManager.AddComponentData(projectileTemplateEntity, new ProjectileSpawnTemplate
@@ -282,7 +286,7 @@ namespace PlayGround.Tests.PlayMode
             AddTarget(float2.zero, 0.25f);
             CreateProjectile(
                 pierceRemaining: 0,
-                onHitSpawn: new OnHitSpawnRef { Kind = IntervalChildKind.Aoe, TemplateKey = aoeKey });
+                onHitSpawn: new OnHitSpawnRef { Kind = IntervalChildKind.ImpactAoe, TemplateKey = aoeKey });
 
             TickSimulationOnly(0.01f);
 

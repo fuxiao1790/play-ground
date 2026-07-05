@@ -18,7 +18,7 @@ Trace visual-only requests from simulation to VFX Graph dispatch.
 
 ## Producers
 
-`AoeSpawnExpansionSystem`, `ProjectileCollisionSystem`,
+`AOE spawn expansion systems`, `ProjectileCollisionSystem`,
 `ImpactAoeCollisionSystem`, `LingeringAoeCollisionSystem`,
 `CombatLifetimeSystem`, and `AoePulseVfxSystem`.
 

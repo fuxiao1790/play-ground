@@ -10,7 +10,8 @@ namespace PlayGround.System.Common
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(CombatApplyFinalizeSingleSystem))]
-    [UpdateBefore(typeof(AoeSpawnExpansionSystem))]
+    [UpdateBefore(typeof(ImpactAoeSpawnExpansionSystem))]
+    [UpdateBefore(typeof(LingeringAoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
     public partial class StatusProcessSystem : SystemBase
     {
@@ -44,7 +45,10 @@ namespace PlayGround.System.Common
                 return;
             }
 
-            AoeSpawnExpansionSystem aoeExpansion = World.GetExistingSystemManaged<AoeSpawnExpansionSystem>();
+            ImpactAoeSpawnExpansionSystem impactAoeExpansion =
+                World.GetExistingSystemManaged<ImpactAoeSpawnExpansionSystem>();
+            LingeringAoeSpawnExpansionSystem lingeringAoeExpansion =
+                World.GetExistingSystemManaged<LingeringAoeSpawnExpansionSystem>();
             ProjectileSpawnExpansionSystem projectileExpansion =
                 World.GetExistingSystemManaged<ProjectileSpawnExpansionSystem>();
             CombatApplyFinalizeSingleSystem hitApply = World.GetExistingSystemManaged<CombatApplyFinalizeSingleSystem>();
@@ -58,8 +62,10 @@ namespace PlayGround.System.Common
             // not in this SystemBase's component-derived Dependency, so we must depend on them
             // explicitly or the job-safety system rejects the schedule.
             JobHandle producerDeps = Dependency;
-            if (aoeExpansion != null)
-                producerDeps = JobHandle.CombineDependencies(producerDeps, aoeExpansion.ProducerHandle);
+            if (impactAoeExpansion != null)
+                producerDeps = JobHandle.CombineDependencies(producerDeps, impactAoeExpansion.ProducerHandle);
+            if (lingeringAoeExpansion != null)
+                producerDeps = JobHandle.CombineDependencies(producerDeps, lingeringAoeExpansion.ProducerHandle);
             if (projectileExpansion != null)
                 producerDeps = JobHandle.CombineDependencies(producerDeps, projectileExpansion.ProducerHandle);
 
@@ -69,20 +75,30 @@ namespace PlayGround.System.Common
                 AccrualFrame = hitApply != null ? hitApply.AccrualFrame : 0,
                 AoeIdBase = aoeIdBase,
                 ProjectileDetonationSourceIdBase = projectileIdBase,
-                AoeEventWriter = aoeExpansion != null
-                    ? aoeExpansion.EventQueue.AsParallelWriter()
+                ImpactAoeEventWriter = impactAoeExpansion != null
+                    ? impactAoeExpansion.EventQueue.AsParallelWriter()
                     : default,
-                HasAoeEventWriter = aoeExpansion != null && aoeExpansion.EventQueue.IsCreated,
+                HasImpactAoeEventWriter = impactAoeExpansion != null && impactAoeExpansion.EventQueue.IsCreated,
+                LingeringAoeEventWriter = lingeringAoeExpansion != null
+                    ? lingeringAoeExpansion.EventQueue.AsParallelWriter()
+                    : default,
+                HasLingeringAoeEventWriter = lingeringAoeExpansion != null && lingeringAoeExpansion.EventQueue.IsCreated,
                 ProjectileEventWriter = projectileExpansion != null
                     ? projectileExpansion.EventQueue.AsParallelWriter()
                     : default,
                 HasProjectileEventWriter = projectileExpansion != null && projectileExpansion.EventQueue.IsCreated
             }.ScheduleParallel(targetStackQuery, producerDeps);
 
-            if (aoeExpansion != null)
+            if (impactAoeExpansion != null)
             {
-                aoeExpansion.ProducerHandle =
-                    JobHandle.CombineDependencies(aoeExpansion.ProducerHandle, statusHandle);
+                impactAoeExpansion.ProducerHandle =
+                    JobHandle.CombineDependencies(impactAoeExpansion.ProducerHandle, statusHandle);
+            }
+
+            if (lingeringAoeExpansion != null)
+            {
+                lingeringAoeExpansion.ProducerHandle =
+                    JobHandle.CombineDependencies(lingeringAoeExpansion.ProducerHandle, statusHandle);
             }
 
             if (projectileExpansion != null)
@@ -114,8 +130,10 @@ namespace PlayGround.System.Common
             public int AccrualFrame;
             public int AoeIdBase;
             public int ProjectileDetonationSourceIdBase;
-            public NativeQueue<AoeSpawnEvent>.ParallelWriter AoeEventWriter;
-            public bool HasAoeEventWriter;
+            public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
+            public bool HasImpactAoeEventWriter;
+            public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
+            public bool HasLingeringAoeEventWriter;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public bool HasProjectileEventWriter;
 
@@ -181,13 +199,29 @@ namespace PlayGround.System.Common
                 DetonationSnapshot snapshot = entry.Detonation;
                 switch (snapshot.Kind)
                 {
-                    case StackDetonationKind.Aoe:
-                        if (HasAoeEventWriter && snapshot.Enabled)
+                    case StackDetonationKind.ImpactAoe:
+                        if (HasImpactAoeEventWriter && snapshot.Enabled)
                         {
                             int aoeId = AoeIdBase + localId;
-                            AoeEventWriter.Enqueue(new AoeSpawnEvent
+                            ImpactAoeEventWriter.Enqueue(new ImpactAoeSpawnEvent
                             {
-                                Kind = IntervalChildKind.Aoe,
+                                Kind = IntervalChildKind.ImpactAoe,
+                                TemplateKey = snapshot.TemplateKey,
+                                Faction = snapshot.Faction,
+                                Position = position,
+                                SourceId = aoeId,
+                                JitterSeed = (uint)aoeId * 2654435761u
+                            });
+                        }
+
+                        return;
+                    case StackDetonationKind.LingeringAoe:
+                        if (HasLingeringAoeEventWriter && snapshot.Enabled)
+                        {
+                            int aoeId = AoeIdBase + localId;
+                            LingeringAoeEventWriter.Enqueue(new LingeringAoeSpawnEvent
+                            {
+                                Kind = IntervalChildKind.LingeringAoe,
                                 TemplateKey = snapshot.TemplateKey,
                                 Faction = snapshot.Faction,
                                 Position = position,

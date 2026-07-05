@@ -64,7 +64,7 @@ Simulation docs should describe:
 - frame order, pooling, despawn, and performance rules
 
 The skill system may say "an impact trigger fires an AOE when this projectile
-hits." The simulation docs say how that becomes an `AoeSpawnEvent`, how it is
+hits." The simulation docs say how that becomes an `AOE variant spawn event`, how it is
 expanded into `AoeSpawnCommand`, and when the spawned AOE can collide.
 
 ## Bridge Documents
