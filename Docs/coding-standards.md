@@ -163,6 +163,49 @@ Do not widen damage events with spawn-routing fields. Do not widen spawn events
 with target-replay-only data. Do not route internal spawn follow-ups through
 managed target callbacks.
 
+## System Encapsulation
+
+ECS systems must not reach into other systems' private fields or collections.
+
+Avoid:
+- `GetExistingSystemManaged<T>()` followed by direct field access (`.EventQueue`, `.HitQueue`, etc.)
+- Systems calling `AsParallelWriter()` on another system's owned collections
+- Cross-system field inspection for state checks (e.g., `otherSystem.Queue.IsCreated`)
+
+This pattern creates invisible coupling that balloons as systems proliferate. Each new
+event producer must be wired into every event consumer, turning the system graph into
+a brittle mesh.
+
+Preferred:
+- Use a **singleton component** that owns shared data structures (native containers, queues, etc.)
+- All systems access the singleton via `SystemAPI.GetSingleton<T>()` or
+  `SystemAPI.TryGetSingletonRW<T>()` on the main thread
+- For native containers in singletons, extract them, schedule jobs against the container
+  itself (not the component), and flow dependencies through `state.Dependency`
+
+Example pattern (see `CombatStatsSingleton`):
+- `CombatStatsSingleton` holds accumulated counters and cross-system data
+- Spawn systems, collision systems, and VFX systems all write to it:
+  ```csharp
+  if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(out RefRW<CombatStatsSingleton> stats))
+  {
+      stats.ValueRW.EntitiesSpawned += count;
+  }
+  ```
+- Stats display system reads the singleton and presents data
+
+For event queues and native containers:
+- Store `NativeQueue<T>` or similar in the singleton (e.g., `TargetSpatialHashSingleton`)
+- Extract on main thread: `var singleton = SystemAPI.GetSingleton<T>()`
+- Schedule jobs against `singleton.Queue`, not the component
+- Unity's singleton functions are designed for this to avoid sync points while chaining jobs
+
+Benefits:
+- No `GetExistingSystemManaged` reaching into fields; dependencies are compiler-visible
+- Job dependency chains work correctly through native container ownership
+- New producers don't require rewiring every consumer
+- Encapsulation enforced by the ECS type system
+
 ## ECS Lifecycle Comments
 
 ECS component, tag, buffer, and shared-component declarations that document
