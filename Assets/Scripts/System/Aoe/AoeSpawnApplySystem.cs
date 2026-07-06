@@ -546,6 +546,35 @@ namespace PlayGround.System.Aoe
         public static bool HasTimedSpawner(in AoeSpawnCommand cmd) =>
             cmd.Lifetime > 0f && cmd.HasTimedSpawner != 0;
 
+        // Single source of truth for a freshly-spawned AOE's enable-gate state
+        // (Active / collision / render / timed-spawn). Both the reuse (EnabledMask) and the
+        // cold-create (ECB) paths, for both archetypes, derive their enable bits from here, so the
+        // four materialization sites can never disagree. Any new lifecycle phase changes this one
+        // function instead of four hand-written sites.
+        internal readonly struct SpawnState
+        {
+            public readonly bool Active;
+            public readonly bool Collision;
+            public readonly bool Render;
+            public readonly bool Timed;
+
+            public SpawnState(bool active, bool collision, bool render, bool timed)
+            {
+                Active = active;
+                Collision = collision;
+                Render = render;
+                Timed = timed;
+            }
+        }
+
+        public static SpawnState SpawnStateFor(in AoeSpawnCommand cmd, bool isLingering)
+        {
+            bool collision = NeedsCollision(cmd);
+            return isLingering
+                ? new SpawnState(active: true, collision: collision, render: true, timed: HasTimedSpawner(cmd))
+                : new SpawnState(active: collision, collision: collision, render: collision, timed: false);
+        }
+
         public static TimedSpawnStateComponent InitialTimedSpawnStateFor(in AoeSpawnCommand cmd) =>
             new()
             {
