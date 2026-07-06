@@ -19,14 +19,13 @@ namespace PlayGround.System.Aoe
             lingeringAoeQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<AoeTag>()
                 .WithAll<Active>()
-                .WithAll<AoeCollisionActiveTag>()
+                .WithAll<CombatCollisionActiveTag>()
                 .WithAll<AoeIdentityComponent>()
                 .WithAll<CombatKinematicsComponent>()
                 .WithAll<CombatCollisionComponent>()
                 .WithAllRW<AoeHitGateComponent>()
                 .WithAll<AoeHitSpawnComponent>()
                 .WithAll<AoeAreaComponent>()
-                .WithAllRW<CombatRenderActiveTag>()
                 .WithAll<LingeringAoeTag>()
                 .Build(ref state);
         }
@@ -121,7 +120,7 @@ namespace PlayGround.System.Aoe
         }
 
         [BurstCompile]
-        [WithAll(typeof(AoeTag), typeof(Active), typeof(AoeCollisionActiveTag))]
+        [WithAll(typeof(AoeTag), typeof(Active), typeof(CombatCollisionActiveTag))]
         private partial struct LingeringAoeCollisionJob : IJobEntity
         {
             [ReadOnly] public NativeArray<Entity> TargetEntities;
@@ -149,8 +148,7 @@ namespace PlayGround.System.Aoe
                 in AoeHitSpawnComponent hitSpawn,
                 in AoeAreaComponent area,
                 EnabledRefRW<Active> active,
-                EnabledRefRW<AoeCollisionActiveTag> collisionActive,
-                EnabledRefRW<CombatRenderActiveTag> renderActive)
+                EnabledRefRW<CombatCollisionActiveTag> collisionActive)
             {
                 hitGate.Remaining -= DeltaTime;
                 if (hitGate.Remaining > 0f)
@@ -171,7 +169,6 @@ namespace PlayGround.System.Aoe
                     false,
                     active,
                     collisionActive,
-                    renderActive,
                     TargetEntities,
                     TargetPositions,
                     TargetShapes,

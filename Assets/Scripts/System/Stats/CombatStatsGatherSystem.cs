@@ -23,13 +23,13 @@ namespace PlayGround.System.Stats
 
             activeProjectileRenderQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CombatRenderComponent>()
-                .WithAll<CombatRenderActiveTag>()
+                .WithAll<Active>()
                 .WithAll<ProjectileTag>()
                 .Build(this);
 
             activeAoeRenderQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CombatRenderComponent>()
-                .WithAll<CombatRenderActiveTag>()
+                .WithAll<Active>()
                 .WithAll<AoeTag>()
                 .Build(this);
         }

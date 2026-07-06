@@ -70,15 +70,13 @@ namespace PlayGround.System.Common
                 in CombatKinematicsComponent kinematics,
                 in CombatRenderAuthoring authoring,
                 ref CombatLifetimeComponent lifetime,
-                EnabledRefRW<Active> active,
-                EnabledRefRW<CombatRenderActiveTag> renderActive)
+                EnabledRefRW<Active> active)
             {
                 lifetime.Remaining -= DeltaTime;
                 if (lifetime.Remaining <= 0f)
                 {
                     lifetime.Remaining = 0f;
                     active.ValueRW = false;
-                    renderActive.ValueRW = false;
                     if (HasVfxWriter)
                     {
                         VfxPending.Enqueue(new VfxPendingSpawn
@@ -107,8 +105,7 @@ namespace PlayGround.System.Common
                 in CombatRenderAuthoring authoring,
                 ref CombatLifetimeComponent lifetime,
                 EnabledRefRW<Active> active,
-                EnabledRefRW<AoeCollisionActiveTag> collisionActive,
-                EnabledRefRW<CombatRenderActiveTag> renderActive)
+                EnabledRefRW<CombatCollisionActiveTag> collisionActive)
             {
                 lifetime.Remaining -= DeltaTime;
                 if (lifetime.Remaining <= 0f)
@@ -116,7 +113,6 @@ namespace PlayGround.System.Common
                     lifetime.Remaining = 0f;
                     active.ValueRW = false;
                     collisionActive.ValueRW = false;
-                    renderActive.ValueRW = false;
                     if (HasVfxWriter)
                     {
                         VfxPending.Enqueue(new VfxPendingSpawn

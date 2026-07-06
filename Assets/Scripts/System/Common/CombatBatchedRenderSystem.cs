@@ -51,7 +51,7 @@ namespace PlayGround.System.Common
 
             renderQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CombatRenderComponent>()
-                .WithAll<CombatRenderActiveTag>()
+                .WithAll<Active>()
                 .WithAny<ProjectileTag, AoeTag>()
                 .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
                 .Build(this);

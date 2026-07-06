@@ -21,11 +21,6 @@ namespace PlayGround.System.Aoe
         public int TypeId;
     }
 
-    // ECS Lifecycle: enableable AOE tag; added at entity creation; kept until root teardown; enabled when the AOE produces collision effects (damage, stack, projectile burst); disabled for visual-only or despawned AOEs so collision jobs skip them entirely.
-    public struct AoeCollisionActiveTag : IComponentData, IEnableableComponent
-    {
-    }
-
     // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse.
     // RepeatHitCooldownSeconds is the lingering tick interval; Remaining counts down to the next collision pass and is seeded to 0 so first tick fires immediately.
     public struct AoeHitGateComponent : IComponentData

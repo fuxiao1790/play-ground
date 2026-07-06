@@ -848,7 +848,7 @@ namespace PlayGround.Tests.PlayMode
                 ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<CombatRenderKindId>(),
                 ComponentType.ReadOnly<CombatRenderComponent>(),
-                ComponentType.ReadOnly<CombatRenderActiveTag>());
+                ComponentType.ReadOnly<Active>());
             using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
             int count = 0;
             for (int i = 0; i < entities.Length; i++)

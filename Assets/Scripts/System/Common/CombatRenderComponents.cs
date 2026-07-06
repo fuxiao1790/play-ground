@@ -96,11 +96,6 @@ namespace PlayGround.System.Common
         }
     }
 
-    // ECS Lifecycle: common render enable tag; owned by renderable domain entities; enabled/disabled with the owning domain active tag.
-    public struct CombatRenderActiveTag : IComponentData, IEnableableComponent
-    {
-    }
-
     // ECS Lifecycle: common render component; per-entity render resource id copied from spawn commands; identifies which registered sprite kind this entity uses.
     public struct CombatRenderKindId : IComponentData
     {

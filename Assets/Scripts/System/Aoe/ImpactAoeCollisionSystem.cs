@@ -20,14 +20,13 @@ namespace PlayGround.System.Aoe
             impactAoeQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<AoeTag>()
                 .WithAll<Active>()
-                .WithAll<AoeCollisionActiveTag>()
+                .WithAll<CombatCollisionActiveTag>()
                 .WithAll<AoeIdentityComponent>()
                 .WithAll<CombatKinematicsComponent>()
                 .WithAll<CombatCollisionComponent>()
                 .WithAll<AoeHitGateComponent>()
                 .WithAll<AoeHitSpawnComponent>()
                 .WithAll<AoeAreaComponent>()
-                .WithAllRW<CombatRenderActiveTag>()
                 .WithNone<LingeringAoeTag>()
                 .Build(ref state);
         }
@@ -121,7 +120,7 @@ namespace PlayGround.System.Aoe
         }
 
         [BurstCompile]
-        [WithAll(typeof(AoeTag), typeof(Active), typeof(AoeCollisionActiveTag))]
+        [WithAll(typeof(AoeTag), typeof(Active), typeof(CombatCollisionActiveTag))]
         [WithNone(typeof(LingeringAoeTag))]
         private partial struct ImpactAoeCollisionJob : IJobEntity
         {
@@ -148,8 +147,7 @@ namespace PlayGround.System.Aoe
                 in AoeHitSpawnComponent hitSpawn,
                 in AoeAreaComponent area,
                 EnabledRefRW<Active> active,
-                EnabledRefRW<AoeCollisionActiveTag> collisionActive,
-                EnabledRefRW<CombatRenderActiveTag> renderActive)
+                EnabledRefRW<CombatCollisionActiveTag> collisionActive)
             {
                 AoeCollisionCore.RunCollision(
                     identity,
@@ -160,7 +158,6 @@ namespace PlayGround.System.Aoe
                     true,
                     active,
                     collisionActive,
-                    renderActive,
                     TargetEntities,
                     TargetPositions,
                     TargetShapes,

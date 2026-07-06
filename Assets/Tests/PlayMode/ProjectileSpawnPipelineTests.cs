@@ -462,16 +462,14 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatRenderAuthoring),
                 typeof(CombatRenderKindId),
                 typeof(Active),
-                typeof(ProjectileCollisionActiveTag),
-                typeof(CombatRenderActiveTag),
+                typeof(CombatCollisionActiveTag),
                 typeof(ProjectileContactGateElement),
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
 
             entityManager.SetComponentData(entity, new CombatRenderKindId { Value = 1 });
             entityManager.SetComponentEnabled<Active>(entity, false);
-            entityManager.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, false);
-            entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, false);
+            entityManager.SetComponentEnabled<CombatCollisionActiveTag>(entity, false);
             entityManager.SetComponentEnabled<ProjectileTrackingComponent>(entity, false);
             entityManager.SetComponentEnabled<TimedSpawnComponent>(entity, childSpawner);
             return entity;
@@ -491,8 +489,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatRenderAuthoring),
                 typeof(CombatRenderKindId),
                 typeof(Active),
-                typeof(ProjectileCollisionActiveTag),
-                typeof(CombatRenderActiveTag),
+                typeof(CombatCollisionActiveTag),
                 typeof(ProjectileContactGateElement),
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
@@ -530,8 +527,7 @@ namespace PlayGround.Tests.PlayMode
                 TickIndex = 0
             });
             entityManager.SetComponentEnabled<Active>(entity, true);
-            entityManager.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, true);
-            entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
+            entityManager.SetComponentEnabled<CombatCollisionActiveTag>(entity, true);
             entityManager.SetComponentEnabled<ProjectileTrackingComponent>(entity, false);
             entityManager.SetComponentEnabled<TimedSpawnComponent>(entity, true);
         }

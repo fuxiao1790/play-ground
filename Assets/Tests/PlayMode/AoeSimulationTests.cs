@@ -529,8 +529,7 @@ namespace PlayGround.Tests.PlayMode
 
             Entity impact = FirstImpactAoeEntity();
             Assert.That(entityManager.IsComponentEnabled<Active>(impact), Is.False);
-            Assert.That(entityManager.IsComponentEnabled<AoeCollisionActiveTag>(impact), Is.False);
-            Assert.That(entityManager.IsComponentEnabled<CombatRenderActiveTag>(impact), Is.False);
+            Assert.That(entityManager.IsComponentEnabled<CombatCollisionActiveTag>(impact), Is.False);
             Assert.That(ActiveAoeCount(), Is.EqualTo(0));
             Assert.That(TotalAoeCount(), Is.EqualTo(1));
         }
@@ -1460,12 +1459,10 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
                 typeof(Active),
-                typeof(AoeCollisionActiveTag),
-                typeof(CombatRenderActiveTag));
+                typeof(CombatCollisionActiveTag));
 
             entityManager.SetComponentEnabled<Active>(entity, false);
-            entityManager.SetComponentEnabled<AoeCollisionActiveTag>(entity, false);
-            entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, false);
+            entityManager.SetComponentEnabled<CombatCollisionActiveTag>(entity, false);
             return entity;
         }
 
@@ -1485,14 +1482,12 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
                 typeof(Active),
-                typeof(AoeCollisionActiveTag),
-                typeof(CombatRenderActiveTag),
+                typeof(CombatCollisionActiveTag),
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
 
             entityManager.SetComponentEnabled<Active>(entity, false);
-            entityManager.SetComponentEnabled<AoeCollisionActiveTag>(entity, false);
-            entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, false);
+            entityManager.SetComponentEnabled<CombatCollisionActiveTag>(entity, false);
             entityManager.SetComponentEnabled<TimedSpawnComponent>(entity, timedSpawnEnabled);
             return entity;
         }
@@ -1507,8 +1502,7 @@ namespace PlayGround.Tests.PlayMode
             for (int i = 0; i < entities.Length; i++)
             {
                 entityManager.SetComponentEnabled<Active>(entities[i], false);
-                entityManager.SetComponentEnabled<AoeCollisionActiveTag>(entities[i], false);
-                entityManager.SetComponentEnabled<CombatRenderActiveTag>(entities[i], false);
+                entityManager.SetComponentEnabled<CombatCollisionActiveTag>(entities[i], false);
             }
         }
 

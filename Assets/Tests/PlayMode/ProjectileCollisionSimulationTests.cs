@@ -385,8 +385,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatLifetimeComponent),
                 typeof(ProjectileHitComponent),
                 typeof(Active),
-                typeof(ProjectileCollisionActiveTag),
-                typeof(CombatRenderActiveTag),
+                typeof(CombatCollisionActiveTag),
                 typeof(ProjectileContactGateElement));
 
             float radius = 1f;

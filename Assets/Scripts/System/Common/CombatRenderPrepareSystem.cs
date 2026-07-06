@@ -15,7 +15,7 @@ namespace PlayGround.System.Common
         private ComponentTypeHandle<CombatKinematicsComponent> kinematicsHandle;
         private ComponentTypeHandle<CombatRenderAuthoring> authoringHandle;
         private ComponentTypeHandle<CombatRenderComponent> renderHandle;
-        private ComponentTypeHandle<CombatRenderActiveTag> renderActiveHandle;
+        private ComponentTypeHandle<Active> activeHandle;
 
         protected override void OnCreate()
         {
@@ -25,14 +25,14 @@ namespace PlayGround.System.Common
                 .WithAll<CombatKinematicsComponent>()
                 .WithAll<CombatRenderComponent>()
                 .WithAll<CombatRenderAuthoring>()
-                .WithAll<CombatRenderActiveTag>()
+                .WithAll<Active>()
                 .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
                 .Build(this);
 
             kinematicsHandle = GetComponentTypeHandle<CombatKinematicsComponent>(true);
             authoringHandle = GetComponentTypeHandle<CombatRenderAuthoring>(true);
             renderHandle = GetComponentTypeHandle<CombatRenderComponent>(false);
-            renderActiveHandle = GetComponentTypeHandle<CombatRenderActiveTag>(true);
+            activeHandle = GetComponentTypeHandle<Active>(true);
         }
 
         protected override void OnUpdate()
@@ -40,14 +40,14 @@ namespace PlayGround.System.Common
             kinematicsHandle.Update(this);
             authoringHandle.Update(this);
             renderHandle.Update(this);
-            renderActiveHandle.Update(this);
+            activeHandle.Update(this);
 
             Dependency = new RenderPrepareJob
             {
                 Kinematics = kinematicsHandle,
                 Authoring = authoringHandle,
                 RenderComponents = renderHandle,
-                RenderActive = renderActiveHandle
+                Active = activeHandle
             }.ScheduleParallel(renderPrepareQuery, Dependency);
         }
 
@@ -57,7 +57,7 @@ namespace PlayGround.System.Common
             [ReadOnly] public ComponentTypeHandle<CombatKinematicsComponent> Kinematics;
             [ReadOnly] public ComponentTypeHandle<CombatRenderAuthoring> Authoring;
             public ComponentTypeHandle<CombatRenderComponent> RenderComponents;
-            [ReadOnly] public ComponentTypeHandle<CombatRenderActiveTag> RenderActive;
+            [ReadOnly] public ComponentTypeHandle<Active> Active;
 
             public void Execute(
                 in ArchetypeChunk chunk,
@@ -68,7 +68,7 @@ namespace PlayGround.System.Common
                 NativeArray<CombatKinematicsComponent> kin = chunk.GetNativeArray(ref Kinematics);
                 NativeArray<CombatRenderAuthoring> auth = chunk.GetNativeArray(ref Authoring);
                 NativeArray<CombatRenderComponent> rend = chunk.GetNativeArray(ref RenderComponents);
-                EnabledMask activeMask = chunk.GetEnabledMask(ref RenderActive);
+                EnabledMask activeMask = chunk.GetEnabledMask(ref Active);
 
                 for (int i = 0; i < chunk.Count; i++)
                 {

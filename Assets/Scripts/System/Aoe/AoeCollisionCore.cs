@@ -20,8 +20,7 @@ namespace PlayGround.System.Aoe
             in AoeAreaComponent area,
             bool deactivateAfterPass,
             EnabledRefRW<Active> active,
-            EnabledRefRW<AoeCollisionActiveTag> collisionActive,
-            EnabledRefRW<CombatRenderActiveTag> renderActive,
+            EnabledRefRW<CombatCollisionActiveTag> collisionActive,
             NativeArray<Entity> targetEntities,
             NativeArray<TargetPosition> targetPositions,
             NativeArray<TargetCollisionShape> targetShapes,
@@ -39,7 +38,7 @@ namespace PlayGround.System.Aoe
         {
             if (identity.Faction == CombatFaction.None)
             {
-                Deactivate(active, collisionActive, renderActive);
+                Deactivate(active, collisionActive);
                 return;
             }
 
@@ -125,7 +124,7 @@ namespace PlayGround.System.Aoe
             }
 
             if (deactivateAfterPass)
-                Deactivate(active, collisionActive, renderActive);
+                Deactivate(active, collisionActive);
         }
 
         internal static void EmitHit(
@@ -233,12 +232,10 @@ namespace PlayGround.System.Aoe
 
         internal static void Deactivate(
             EnabledRefRW<Active> active,
-            EnabledRefRW<AoeCollisionActiveTag> collisionActive,
-            EnabledRefRW<CombatRenderActiveTag> renderActive)
+            EnabledRefRW<CombatCollisionActiveTag> collisionActive)
         {
             active.ValueRW = false;
             collisionActive.ValueRW = false;
-            renderActive.ValueRW = false;
         }
 
         internal static bool HasHitEvent(in AoeHitSpawnComponent hitSpawn) =>

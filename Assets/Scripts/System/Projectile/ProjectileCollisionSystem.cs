@@ -21,14 +21,13 @@ namespace PlayGround.System.Projectile
             activeProjectileQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
                 ComponentType.ReadOnly<Active>(),
-                ComponentType.ReadOnly<ProjectileCollisionActiveTag>(),
+                ComponentType.ReadOnly<CombatCollisionActiveTag>(),
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
                 ComponentType.ReadOnly<CombatKinematicsComponent>(),
                 ComponentType.ReadOnly<CombatCollisionComponent>(),
                 ComponentType.ReadOnly<CombatRenderAuthoring>(),
                 ComponentType.ReadWrite<CombatLifetimeComponent>(),
                 ComponentType.ReadWrite<ProjectileHitComponent>(),
-                ComponentType.ReadWrite<CombatRenderActiveTag>(),
                 ComponentType.ReadWrite<ProjectileContactGateElement>());
         }
 
@@ -130,7 +129,7 @@ namespace PlayGround.System.Projectile
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileTag), typeof(Active), typeof(ProjectileCollisionActiveTag))]
+        [WithAll(typeof(ProjectileTag), typeof(Active), typeof(CombatCollisionActiveTag))]
         private partial struct ProjectileCollisionJob : IJobEntity
         {
             private const int ImpactAoeIdSalt = 0x5F1A0E;
@@ -163,26 +162,25 @@ namespace PlayGround.System.Projectile
                 ref CombatLifetimeComponent lifetime,
                 ref ProjectileHitComponent projectileHit,
                 EnabledRefRW<Active> active,
-                EnabledRefRW<CombatRenderActiveTag> renderActive,
                 DynamicBuffer<ProjectileContactGateElement> contactGates)
             {
                 float areaSize = math.max(authoring.VisualScale.x, authoring.VisualScale.y);
                 if (identity.Faction == CombatFaction.None)
                 {
-                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, VfxPending, HasVfxWriter);
+                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, VfxPending, HasVfxWriter);
                     return;
                 }
 
                 if (lifetime.Remaining <= 0f)
                 {
-                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, VfxPending, HasVfxWriter);
+                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, VfxPending, HasVfxWriter);
                     return;
                 }
 
                 // Pierce is the projectile's hit cap. It may still hit at 0; below zero is exhausted.
                 if (projectileHit.PierceRemaining < 0)
                 {
-                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, VfxPending, HasVfxWriter);
+                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, VfxPending, HasVfxWriter);
                     return;
                 }
 
@@ -357,7 +355,7 @@ namespace PlayGround.System.Projectile
                             projectileHit.PierceRemaining--;
                             if (projectileHit.PierceRemaining < 0)
                             {
-                                Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, renderActive, VfxPending, HasVfxWriter);
+                                Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, VfxPending, HasVfxWriter);
                                 return;
                             }
                         }
@@ -372,13 +370,11 @@ namespace PlayGround.System.Projectile
                 float areaSize,
                 ref CombatLifetimeComponent lifetime,
                 EnabledRefRW<Active> active,
-                EnabledRefRW<CombatRenderActiveTag> renderActive,
                 NativeQueue<VfxPendingSpawn>.ParallelWriter vfxPending,
                 bool hasVfxWriter)
             {
                 lifetime.Remaining = 0f;
                 active.ValueRW = false;
-                renderActive.ValueRW = false;
                 if (hasVfxWriter)
                 {
                     vfxPending.Enqueue(new VfxPendingSpawn

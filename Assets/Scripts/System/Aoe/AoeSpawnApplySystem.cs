@@ -42,8 +42,7 @@ namespace PlayGround.System.Aoe
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
                 typeof(Active),
-                typeof(AoeCollisionActiveTag),
-                typeof(CombatRenderActiveTag));
+                typeof(CombatCollisionActiveTag));
 
             _deadSlotQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<AoeTag>()
@@ -94,8 +93,7 @@ namespace PlayGround.System.Aoe
                         Chunks = chunks,
                         ReuseCount = reused,
                         ActiveHandle = GetComponentTypeHandle<Active>(false),
-                        CollisionActiveHandle = GetComponentTypeHandle<AoeCollisionActiveTag>(false),
-                        RenderActiveHandle = GetComponentTypeHandle<CombatRenderActiveTag>(false),
+                        CollisionActiveHandle = GetComponentTypeHandle<CombatCollisionActiveTag>(false),
                         IdentityHandle = GetComponentTypeHandle<AoeIdentityComponent>(false),
                         KinematicsHandle = GetComponentTypeHandle<CombatKinematicsComponent>(false),
                         CollisionHandle = GetComponentTypeHandle<CombatCollisionComponent>(false),
@@ -143,8 +141,7 @@ namespace PlayGround.System.Aoe
             public NativeReference<int> ReuseCount;
 
             public ComponentTypeHandle<Active> ActiveHandle;
-            public ComponentTypeHandle<AoeCollisionActiveTag> CollisionActiveHandle;
-            public ComponentTypeHandle<CombatRenderActiveTag> RenderActiveHandle;
+            public ComponentTypeHandle<CombatCollisionActiveTag> CollisionActiveHandle;
             public ComponentTypeHandle<AoeIdentityComponent> IdentityHandle;
             public ComponentTypeHandle<CombatKinematicsComponent> KinematicsHandle;
             public ComponentTypeHandle<CombatCollisionComponent> CollisionHandle;
@@ -166,7 +163,6 @@ namespace PlayGround.System.Aoe
                     ArchetypeChunk chunk = Chunks[chunkIndex];
                     EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
                     EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
-                    EnabledMask renderActiveMask = chunk.GetEnabledMask(ref RenderActiveHandle);
 
                     NativeArray<AoeIdentityComponent> identities =
                         chunk.GetNativeArray(ref IdentityHandle);
@@ -210,7 +206,6 @@ namespace PlayGround.System.Aoe
                         bool collisionEnabled = AoeSpawnApplyUtility.NeedsCollision(cfg);
                         activeMask[i] = collisionEnabled;
                         collisionActiveMask[i] = collisionEnabled;
-                        renderActiveMask[i] = collisionEnabled;
                     }
                 }
 
@@ -254,8 +249,7 @@ namespace PlayGround.System.Aoe
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
                 typeof(Active),
-                typeof(AoeCollisionActiveTag),
-                typeof(CombatRenderActiveTag),
+                typeof(CombatCollisionActiveTag),
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
 
@@ -308,8 +302,7 @@ namespace PlayGround.System.Aoe
                         Chunks = chunks,
                         ReuseCount = reused,
                         ActiveHandle = GetComponentTypeHandle<Active>(false),
-                        CollisionActiveHandle = GetComponentTypeHandle<AoeCollisionActiveTag>(false),
-                        RenderActiveHandle = GetComponentTypeHandle<CombatRenderActiveTag>(false),
+                        CollisionActiveHandle = GetComponentTypeHandle<CombatCollisionActiveTag>(false),
                         IdentityHandle = GetComponentTypeHandle<AoeIdentityComponent>(false),
                         KinematicsHandle = GetComponentTypeHandle<CombatKinematicsComponent>(false),
                         CollisionHandle = GetComponentTypeHandle<CombatCollisionComponent>(false),
@@ -361,8 +354,7 @@ namespace PlayGround.System.Aoe
             public NativeReference<int> ReuseCount;
 
             public ComponentTypeHandle<Active> ActiveHandle;
-            public ComponentTypeHandle<AoeCollisionActiveTag> CollisionActiveHandle;
-            public ComponentTypeHandle<CombatRenderActiveTag> RenderActiveHandle;
+            public ComponentTypeHandle<CombatCollisionActiveTag> CollisionActiveHandle;
             public ComponentTypeHandle<AoeIdentityComponent> IdentityHandle;
             public ComponentTypeHandle<CombatKinematicsComponent> KinematicsHandle;
             public ComponentTypeHandle<CombatCollisionComponent> CollisionHandle;
@@ -388,7 +380,6 @@ namespace PlayGround.System.Aoe
                     ArchetypeChunk chunk = Chunks[chunkIndex];
                     EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
                     EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
-                    EnabledMask renderActiveMask = chunk.GetEnabledMask(ref RenderActiveHandle);
                     EnabledMask timedSpawnMask = chunk.GetEnabledMask(ref TimedSpawnHandle);
 
                     NativeArray<AoeIdentityComponent> identities =
@@ -451,7 +442,6 @@ namespace PlayGround.System.Aoe
                         bool collisionEnabled = AoeSpawnApplyUtility.NeedsCollision(cfg);
                         activeMask[i] = true;
                         collisionActiveMask[i] = collisionEnabled;
-                        renderActiveMask[i] = true;
                     }
                 }
 
@@ -480,8 +470,7 @@ namespace PlayGround.System.Aoe
             ecb.SetComponent(entity, new CombatRenderKindId { Value = cmd.RenderTypeId });
             bool collisionEnabled = NeedsCollision(cmd);
             ecb.SetComponentEnabled<Active>(entity, collisionEnabled);
-            ecb.SetComponentEnabled<AoeCollisionActiveTag>(entity, collisionEnabled);
-            ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, collisionEnabled);
+            ecb.SetComponentEnabled<CombatCollisionActiveTag>(entity, collisionEnabled);
         }
 
         public static void RecordLingeringReset(
@@ -508,8 +497,7 @@ namespace PlayGround.System.Aoe
             ecb.SetComponent(entity, new CombatRenderKindId { Value = cmd.RenderTypeId });
             bool collisionEnabled = NeedsCollision(cmd);
             ecb.SetComponentEnabled<Active>(entity, true);
-            ecb.SetComponentEnabled<AoeCollisionActiveTag>(entity, collisionEnabled);
-            ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
+            ecb.SetComponentEnabled<CombatCollisionActiveTag>(entity, collisionEnabled);
         }
 
         public static void WriteCommon(
@@ -547,22 +535,20 @@ namespace PlayGround.System.Aoe
             cmd.Lifetime > 0f && cmd.HasTimedSpawner != 0;
 
         // Single source of truth for a freshly-spawned AOE's enable-gate state
-        // (Active / collision / render / timed-spawn). Both the reuse (EnabledMask) and the
+        // (Active / collision / timed-spawn). Both the reuse (EnabledMask) and the
         // cold-create (ECB) paths, for both archetypes, derive their enable bits from here, so the
-        // four materialization sites can never disagree. Any new lifecycle phase changes this one
+        // materialization sites can never disagree. Any new lifecycle phase changes this one
         // function instead of four hand-written sites.
         internal readonly struct SpawnState
         {
             public readonly bool Active;
             public readonly bool Collision;
-            public readonly bool Render;
             public readonly bool Timed;
 
-            public SpawnState(bool active, bool collision, bool render, bool timed)
+            public SpawnState(bool active, bool collision, bool timed)
             {
                 Active = active;
                 Collision = collision;
-                Render = render;
                 Timed = timed;
             }
         }
@@ -571,8 +557,8 @@ namespace PlayGround.System.Aoe
         {
             bool collision = NeedsCollision(cmd);
             return isLingering
-                ? new SpawnState(active: true, collision: collision, render: true, timed: HasTimedSpawner(cmd))
-                : new SpawnState(active: collision, collision: collision, render: collision, timed: false);
+                ? new SpawnState(active: true, collision: collision, timed: HasTimedSpawner(cmd))
+                : new SpawnState(active: collision, collision: collision, timed: false);
         }
 
         public static TimedSpawnStateComponent InitialTimedSpawnStateFor(in AoeSpawnCommand cmd) =>

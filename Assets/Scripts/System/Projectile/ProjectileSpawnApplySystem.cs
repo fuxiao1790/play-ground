@@ -50,8 +50,7 @@ namespace PlayGround.System.Projectile
                 typeof(CombatRenderAuthoring),
                 typeof(CombatRenderKindId),
                 typeof(Active),
-                typeof(ProjectileCollisionActiveTag),
-                typeof(CombatRenderActiveTag),
+                typeof(CombatCollisionActiveTag),
                 typeof(ProjectileContactGateElement),
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
@@ -115,8 +114,7 @@ namespace PlayGround.System.Projectile
                         Chunks = chunks,
                         ReuseCount = reused,
                         ActiveHandle = GetComponentTypeHandle<Active>(false),
-                        CollisionActiveHandle = GetComponentTypeHandle<ProjectileCollisionActiveTag>(false),
-                        RenderActiveHandle = GetComponentTypeHandle<CombatRenderActiveTag>(false),
+                        CollisionActiveHandle = GetComponentTypeHandle<CombatCollisionActiveTag>(false),
                         IdentityHandle = GetComponentTypeHandle<ProjectileIdentityComponent>(false),
                         KinematicsHandle = GetComponentTypeHandle<CombatKinematicsComponent>(false),
                         CollisionHandle = GetComponentTypeHandle<CombatCollisionComponent>(false),
@@ -218,8 +216,7 @@ namespace PlayGround.System.Projectile
             }
 
             ecb.SetComponentEnabled<Active>(entity, true);
-            ecb.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, NeedsCollision(cmd.HitPayload));
-            ecb.SetComponentEnabled<CombatRenderActiveTag>(entity, true);
+            ecb.SetComponentEnabled<CombatCollisionActiveTag>(entity, NeedsCollision(cmd.HitPayload));
         }
 
         private static void RecordTimedSpawnReset(
@@ -290,8 +287,7 @@ namespace PlayGround.System.Projectile
             public NativeReference<int> ReuseCount;
 
             public ComponentTypeHandle<Active> ActiveHandle;
-            public ComponentTypeHandle<ProjectileCollisionActiveTag> CollisionActiveHandle;
-            public ComponentTypeHandle<CombatRenderActiveTag> RenderActiveHandle;
+            public ComponentTypeHandle<CombatCollisionActiveTag> CollisionActiveHandle;
             public ComponentTypeHandle<ProjectileIdentityComponent> IdentityHandle;
             public ComponentTypeHandle<CombatKinematicsComponent> KinematicsHandle;
             public ComponentTypeHandle<CombatCollisionComponent> CollisionHandle;
@@ -316,7 +312,6 @@ namespace PlayGround.System.Projectile
                     ArchetypeChunk chunk = Chunks[chunkIndex];
                     EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
                     EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
-                    EnabledMask renderActiveMask = chunk.GetEnabledMask(ref RenderActiveHandle);
                     EnabledMask trackingMask = chunk.GetEnabledMask(ref TrackingHandle);
                     EnabledMask timedSpawnMask = chunk.GetEnabledMask(ref TimedSpawnHandle);
 
@@ -404,7 +399,6 @@ namespace PlayGround.System.Projectile
 
                         activeMask[i] = true;
                         collisionActiveMask[i] = NeedsCollision(cfg.HitPayload);
-                        renderActiveMask[i] = true;
                     }
                 }
 

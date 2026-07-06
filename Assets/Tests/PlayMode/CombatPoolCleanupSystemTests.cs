@@ -268,8 +268,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatRenderAuthoring),
                 typeof(CombatRenderKindId),
                 typeof(Active),
-                typeof(ProjectileCollisionActiveTag),
-                typeof(CombatRenderActiveTag),
+                typeof(CombatCollisionActiveTag),
                 typeof(ProjectileContactGateElement),
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
@@ -283,8 +282,7 @@ namespace PlayGround.Tests.PlayMode
             });
             entityManager.SetComponentData(entity, new CombatLifetimeComponent { Remaining = 10f });
             entityManager.SetComponentEnabled<Active>(entity, active);
-            entityManager.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, active);
-            entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, active);
+            entityManager.SetComponentEnabled<CombatCollisionActiveTag>(entity, active);
             entityManager.SetComponentEnabled<ProjectileTrackingComponent>(entity, false);
             entityManager.SetComponentEnabled<TimedSpawnComponent>(entity, false);
             return entity;
@@ -304,13 +302,11 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
                 typeof(Active),
-                typeof(AoeCollisionActiveTag),
-                typeof(CombatRenderActiveTag));
+                typeof(CombatCollisionActiveTag));
 
             entityManager.SetComponentData(entity, new CombatRenderKindId { Value = 2 });
             entityManager.SetComponentEnabled<Active>(entity, active);
-            entityManager.SetComponentEnabled<AoeCollisionActiveTag>(entity, active);
-            entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, active);
+            entityManager.SetComponentEnabled<CombatCollisionActiveTag>(entity, active);
             return entity;
         }
 

@@ -18,8 +18,8 @@ namespace PlayGround.System.Stats
     //   lingering AOE spawn-apply systems from their per-frame cold-create counts.
     // - EntitiesSpawnedViaReuse: reuse total, summed (+=) by those same spawn-apply systems from
     //   the disabled Active slots they reclaimed.
-    // - ActiveProjectiles / ActiveAoes: written by CombatStatsGatherSystem from its render-active
-    //   entity queries (WithAll<CombatRenderActiveTag> per tag).
+    // - ActiveProjectiles / ActiveAoes: written by CombatStatsGatherSystem from its Active
+    //   entity queries per domain tag.
     // - HitEventsCreated: added by CombatApplyFinalizeSingleSystem from HitQueue.Count before the
     //   queue is flattened or cleared.
     // - VfxEventsCreated: added by CombatVfxDispatchSystem after the VFX root drains PendingSpawns.

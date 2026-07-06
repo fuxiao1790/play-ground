@@ -191,6 +191,11 @@ namespace PlayGround.System.Common
     {
     }
 
+    // ECS Lifecycle: enableable common collision gate; added to reusable combat entities at creation; enabled when the entity produces collision effects; disabled for visual-only or despawned entities so collision jobs skip them.
+    public struct CombatCollisionActiveTag : IComponentData, IEnableableComponent
+    {
+    }
+
     // ECS Lifecycle: enableable timed-spawn data; present on projectiles and lingering AOEs; absent from impact AOEs.
     // Enabled only while interval children should emit; lifetime remains plain timer data on the same source entity.
     public struct TimedSpawnComponent : IComponentData, IEnableableComponent
