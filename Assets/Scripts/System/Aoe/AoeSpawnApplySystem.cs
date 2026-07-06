@@ -255,7 +255,6 @@ namespace PlayGround.System.Aoe
                 typeof(Active),
                 typeof(AoeCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
-                typeof(AoeContactGateElement),
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
 
@@ -321,7 +320,6 @@ namespace PlayGround.System.Aoe
                         RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
                         AuthoringHandle = GetComponentTypeHandle<CombatRenderAuthoring>(false),
                         RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderKindId>(false),
-                        ContactGateHandle = GetBufferTypeHandle<AoeContactGateElement>(false),
                         TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
                         TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
                     }.Schedule(default).Complete();
@@ -375,7 +373,6 @@ namespace PlayGround.System.Aoe
             public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
             public ComponentTypeHandle<CombatRenderAuthoring> AuthoringHandle;
             public ComponentTypeHandle<CombatRenderKindId> RenderBatchIdHandle;
-            public BufferTypeHandle<AoeContactGateElement> ContactGateHandle;
             public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
             public ComponentTypeHandle<TimedSpawnStateComponent> TimedSpawnStateHandle;
 
@@ -415,8 +412,6 @@ namespace PlayGround.System.Aoe
                         chunk.GetNativeArray(ref AuthoringHandle);
                     NativeArray<CombatRenderKindId> batchIds =
                         chunk.GetNativeArray(ref RenderBatchIdHandle);
-                    BufferAccessor<AoeContactGateElement> gates =
-                        chunk.GetBufferAccessor(ref ContactGateHandle);
                     NativeArray<TimedSpawnComponent> timedSpawns =
                         chunk.GetNativeArray(ref TimedSpawnHandle);
                     NativeArray<TimedSpawnStateComponent> timedSpawnStates =
@@ -446,7 +441,6 @@ namespace PlayGround.System.Aoe
                         lifetimes[i] = new CombatLifetimeComponent { Remaining = cfg.Lifetime };
                         lifetimeMask[i] = true;
                         pulseVfxs[i] = AoeSpawnApplyUtility.PulseVfxFor(cfg);
-                        gates[i].Clear();
 
                         bool hasTimedSpawner = AoeSpawnApplyUtility.HasTimedSpawner(cfg);
                         timedSpawns[i] = hasTimedSpawner ? cfg.TimedSpawn : default;
@@ -589,7 +583,7 @@ namespace PlayGround.System.Aoe
             };
 
         private static AoeHitGateComponent HitGateFor(in AoeSpawnCommand cmd) =>
-            new() { RepeatHitCooldownSeconds = cmd.RepeatHitCooldownSeconds };
+            new() { RepeatHitCooldownSeconds = cmd.RepeatHitCooldownSeconds, Remaining = 0f };
 
         private static AoeHitSpawnComponent HitSpawnFor(in AoeSpawnCommand cmd) =>
             new()

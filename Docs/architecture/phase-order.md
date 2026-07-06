@@ -10,7 +10,7 @@ ECS simulation groups, and ECS presentation systems.
 3. Player and mob roots push target proxy position and shape in `Update()`.
 4. ECS simulation expires lifetime and emits timed child spawn events.
 5. Projectile tracking, movement, contact gates, and collision run.
-6. AOE pulse VFX, contact gates, and collision run.
+6. AOE pulse VFX and collision run.
 7. Combat apply/finalize consumes hit events, updates ECS health/status, and
    freezes presentation-ready results.
 8. Status processing may emit stack detonation projectile or AOE spawn events.

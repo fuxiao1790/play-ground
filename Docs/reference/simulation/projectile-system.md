@@ -304,8 +304,7 @@ Important simulation ordering:
 5. `ProjectileMovementSystem` moves projectiles and refreshes bounds.
 6. `ProjectileContactGateSystem` expires projectile contact gates.
 7. `ProjectileCollisionSystem` emits damage, spawn, and VFX events.
-8. `AoeContactGateSystem` and `AoeCollisionSystem` run after projectile
-   collision.
+8. AOE collision systems run after projectile collision.
 9. `DamageFinalizeSystem` freezes the native damage queue.
 10. `ProjectileSpawnExpansionSystem` and `AOE spawn expansion systems` drain events
     and produce commands.

@@ -11,7 +11,7 @@ Show the cross-layer order for one gameplay frame.
 3. ECS lifetime systems expire old projectile/AOE entities.
 4. Timed spawn systems enqueue child projectile/AOE events.
 5. Projectile systems track, move, expire contact gates, and collide.
-6. AOE systems emit pulse VFX, expire contact gates, and collide.
+6. AOE systems emit pulse VFX and collide on their tick intervals.
 7. Combat apply/finalize aggregates hit data into ECS health/status and freezes
    compact results.
 8. Status processing may enqueue detonation spawn events.

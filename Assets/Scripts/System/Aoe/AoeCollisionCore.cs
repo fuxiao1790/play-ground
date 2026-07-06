@@ -7,73 +7,21 @@ using Unity.Mathematics;
 
 namespace PlayGround.System.Aoe
 {
-    internal interface IContactGate
-    {
-        int IndexOf(int targetKey);
-        void Add(int targetKey, float cooldown);
-    }
-
-    internal struct BufferGate : IContactGate
-    {
-        public DynamicBuffer<AoeContactGateElement> ContactGates;
-
-        public int IndexOf(int targetKey)
-        {
-            for (int i = 0; i < ContactGates.Length; i++)
-            {
-                if (ContactGates[i].TargetId == targetKey)
-                    return i;
-            }
-            return -1;
-        }
-
-        public void Add(int targetKey, float cooldown)
-        {
-            ContactGates.Add(new AoeContactGateElement
-            {
-                TargetId = targetKey,
-                CooldownRemaining = cooldown
-            });
-        }
-    }
-
-    internal struct ScratchGate : IContactGate
-    {
-        public FixedList512Bytes<int> Seen;
-
-        public int IndexOf(int targetKey)
-        {
-            for (int i = 0; i < Seen.Length; i++)
-            {
-                if (Seen[i] == targetKey)
-                    return i;
-            }
-            return -1;
-        }
-
-        public void Add(int targetKey, float cooldown)
-        {
-            Seen.Add(targetKey);
-        }
-    }
-
     internal static class AoeCollisionCore
     {
         private const int ImpactAoeIdSalt = 0x5F1A0E;
         private const int ProjectileBurstIdSalt = 0x7AB025;
 
-        internal static void RunCollision<TGate>(
+        internal static void RunCollision(
             in AoeIdentityComponent identity,
             in CombatKinematicsComponent kinematics,
             in CombatCollisionComponent collision,
             in AoeHitSpawnComponent hitSpawn,
             in AoeAreaComponent area,
-            float cooldown,
             bool deactivateAfterPass,
             EnabledRefRW<Active> active,
             EnabledRefRW<AoeCollisionActiveTag> collisionActive,
             EnabledRefRW<CombatRenderActiveTag> renderActive,
-            ref TGate gate,
             NativeArray<Entity> targetEntities,
             NativeArray<TargetPosition> targetPositions,
             NativeArray<TargetCollisionShape> targetShapes,
@@ -88,7 +36,6 @@ namespace PlayGround.System.Aoe
             NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter,
             bool hasImpactAoeEventWriter,
             bool hasLingeringAoeEventWriter)
-            where TGate : struct, IContactGate
         {
             if (identity.Faction == CombatFaction.None)
             {
@@ -97,10 +44,11 @@ namespace PlayGround.System.Aoe
             }
 
             // Bounded, allocation-free broadphase: walk cells inline, narrow-phase
-            // each candidate, de-dup via the contact gate, stop at the hard cap.
+            // each candidate, de-dup within this pass, stop at the hard cap.
             // Overflow keeps first-N in cell-scan order, not nearest-N.
             int remaining = CollisionConstants.MaxAoeTargetsPerTick;
             bool hitVfxEmitted = false;
+            FixedList512Bytes<int> seen = default;
 
             int2 min = CombatSpatialHash.MinCell(collision.BoundsMin, CombatSpatialHash.AoeCellSize);
             int2 max = CombatSpatialHash.MaxCell(collision.BoundsMax, CombatSpatialHash.AoeCellSize);
@@ -123,7 +71,7 @@ namespace PlayGround.System.Aoe
                         Entity targetEntity = targetEntities[i];
                         int targetKey = TargetKey(targetEntity);
 
-                        if (gate.IndexOf(targetKey) >= 0)
+                        if (seen.IndexOf(targetKey) >= 0)
                             continue;
 
                         TargetPosition targetPosition = targetPositions[i];
@@ -149,7 +97,7 @@ namespace PlayGround.System.Aoe
                                 target.ShapeType))
                             continue;
 
-                        gate.Add(targetKey, cooldown);
+                        seen.Add(targetKey);
                         EmitHit(
                             identity,
                             kinematics,

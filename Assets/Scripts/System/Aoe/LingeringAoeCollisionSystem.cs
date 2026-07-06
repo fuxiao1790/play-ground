@@ -9,7 +9,6 @@ using Unity.Jobs;
 namespace PlayGround.System.Aoe
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(AoeContactGateSystem))]
     [UpdateBefore(typeof(CombatApplyFinalizeSingleSystem))]
     public partial struct LingeringAoeCollisionSystem : ISystem
     {
@@ -24,11 +23,10 @@ namespace PlayGround.System.Aoe
                 .WithAll<AoeIdentityComponent>()
                 .WithAll<CombatKinematicsComponent>()
                 .WithAll<CombatCollisionComponent>()
-                .WithAll<AoeHitGateComponent>()
+                .WithAllRW<AoeHitGateComponent>()
                 .WithAll<AoeHitSpawnComponent>()
                 .WithAll<AoeAreaComponent>()
                 .WithAllRW<CombatRenderActiveTag>()
-                .WithAllRW<AoeContactGateElement>()
                 .WithPresent<CombatLifetimeComponent>()
                 .Build(ref state);
         }
@@ -71,6 +69,7 @@ namespace PlayGround.System.Aoe
 
             var job = new LingeringAoeCollisionJob
             {
+                DeltaTime = SystemAPI.Time.DeltaTime,
                 TargetEntities = hash.TargetEntities.AsArray(),
                 TargetPositions = hash.TargetPositions.AsArray(),
                 TargetShapes = hash.TargetShapes.AsArray(),
@@ -140,6 +139,7 @@ namespace PlayGround.System.Aoe
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
+            public float DeltaTime;
             public bool HasImpactAoeEventWriter;
             public bool HasLingeringAoeEventWriter;
 
@@ -149,28 +149,37 @@ namespace PlayGround.System.Aoe
                 in CombatKinematicsComponent kinematics,
                 in CombatCollisionComponent collision,
                 EnabledRefRO<CombatLifetimeComponent> lifetimeEnabled,
-                in AoeHitGateComponent hitGate,
+                ref AoeHitGateComponent hitGate,
                 in AoeHitSpawnComponent hitSpawn,
                 in AoeAreaComponent area,
                 EnabledRefRW<Active> active,
                 EnabledRefRW<AoeCollisionActiveTag> collisionActive,
-                EnabledRefRW<CombatRenderActiveTag> renderActive,
-                DynamicBuffer<AoeContactGateElement> contactGates)
+                EnabledRefRW<CombatRenderActiveTag> renderActive)
             {
-                var gate = new BufferGate { ContactGates = contactGates };
                 bool enabledLifetime = lifetimeEnabled.ValueRO;
+                if (enabledLifetime)
+                {
+                    hitGate.Remaining -= DeltaTime;
+                    if (hitGate.Remaining > 0f)
+                    {
+                        return;
+                    }
+
+                    hitGate.Remaining = hitGate.RepeatHitCooldownSeconds > 0f
+                        ? hitGate.Remaining + hitGate.RepeatHitCooldownSeconds
+                        : 0f;
+                }
+
                 AoeCollisionCore.RunCollision(
                     identity,
                     kinematics,
                     collision,
                     hitSpawn,
                     area,
-                    enabledLifetime ? hitGate.RepeatHitCooldownSeconds : 0f,
                     !enabledLifetime,
                     active,
                     collisionActive,
                     renderActive,
-                    ref gate,
                     TargetEntities,
                     TargetPositions,
                     TargetShapes,

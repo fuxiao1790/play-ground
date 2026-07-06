@@ -119,11 +119,11 @@ stay narrow and explicit.
 - `ImpactAoeSpawnApplySystem`: reuses or creates lean impact AOE slots.
 - `LingeringAoeSpawnApplySystem`: reuses or creates lingering AOE slots and
   toggles timed spawn through enabled `TimedSpawnComponent`.
-- `AoeContactGateSystem`: lingering AOE repeat-hit gate expiry.
 - `AoePulseVfxSystem`: interval pulse VFX for lingering AOEs.
-- `AoeCollisionSystem`: target proxy broad phase, narrow-phase hit checks,
-  contact gates, pulse deactivation, and damage/projectile-burst/VFX event
-  output.
+- `ImpactAoeCollisionSystem`: target proxy broad phase, narrow-phase hit checks,
+  impact deactivation, and damage/spawn/VFX event output.
+- `LingeringAoeCollisionSystem`: lingering tick interval countdown, target proxy
+  collision, and damage/spawn/VFX event output.
 
 ## ECS Boundary Rules
 

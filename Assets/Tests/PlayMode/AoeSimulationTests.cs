@@ -49,7 +49,6 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(lingeringAoeExpansion);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnApplySystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoeContactGateSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<CombatLifetimeSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoePulseVfxSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TargetSpatialHashSystem>());
@@ -368,7 +367,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void LingeringTargetIsNotRehitUntilGateCooldownExpires()
+        public void LingeringTargetIsNotRehitUntilTickIntervalExpires()
         {
             AddTarget(float2.zero, 0.25f, 1);
             SpawnCircle(float2.zero, 1f, 2f, lifetime: 10f, tickInterval: 0.05f);
@@ -400,7 +399,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void LingeringReentryRespectsCooldown()
+        public void LingeringReentryWaitsForNextTickInterval()
         {
             int targetId = ++nextTargetId;
             AddTargetById(float2.zero, 0.25f, 1, targetId);
@@ -509,11 +508,9 @@ namespace PlayGround.Tests.PlayMode
             Entity lingering = FirstLingeringAoeEntity();
 
             Assert.That(entityManager.HasComponent<CombatLifetimeComponent>(impact), Is.False);
-            Assert.That(entityManager.HasComponent<AoeContactGateElement>(impact), Is.False);
             Assert.That(entityManager.HasComponent<AoePulseVfxComponent>(impact), Is.False);
             Assert.That(entityManager.HasComponent<TimedSpawnComponent>(impact), Is.False);
             Assert.That(entityManager.HasComponent<CombatLifetimeComponent>(lingering), Is.True);
-            Assert.That(entityManager.HasComponent<AoeContactGateElement>(lingering), Is.True);
             Assert.That(entityManager.HasComponent<AoePulseVfxComponent>(lingering), Is.True);
             Assert.That(entityManager.HasComponent<TimedSpawnComponent>(lingering), Is.True);
             Assert.That(entityManager.IsComponentEnabled<CombatLifetimeComponent>(lingering), Is.True);
@@ -632,7 +629,6 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(ReadInternalInt(lingeringApply, "LastColdCreateCount"), Is.EqualTo(3));
             Assert.That(LingeringAoeCount(), Is.EqualTo(4));
             Assert.That(entityManager.IsComponentEnabled<TimedSpawnComponent>(disabledTimedSlot), Is.False);
-            Assert.That(entityManager.GetBuffer<AoeContactGateElement>(disabledTimedSlot).Length, Is.EqualTo(0));
         }
 
         [Test]
@@ -798,28 +794,6 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(kinematics.Position.x, Is.EqualTo(1f));
             Assert.That(kinematics.Position.y, Is.EqualTo(2f));
             entityManager.DestroyEntity(alien);
-        }
-
-        [Test]
-        public void ContactGateSystemSkipsCollisionInactiveAoeSlots()
-        {
-            Entity disabledAoe = entityManager.CreateEntity(
-                typeof(AoeTag),
-                typeof(AoeCollisionActiveTag),
-                typeof(AoeContactGateElement));
-            DynamicBuffer<AoeContactGateElement> gates = entityManager.GetBuffer<AoeContactGateElement>(disabledAoe);
-            gates.Add(new AoeContactGateElement
-            {
-                TargetId = 1,
-                CooldownRemaining = 1f
-            });
-            entityManager.SetComponentEnabled<AoeCollisionActiveTag>(disabledAoe, false);
-
-            TickSimulationOnly(0.25f);
-
-            gates = entityManager.GetBuffer<AoeContactGateElement>(disabledAoe);
-            Assert.That(gates.Length, Is.EqualTo(1));
-            Assert.That(gates[0].CooldownRemaining, Is.EqualTo(1f).Within(0.0001f));
         }
 
         [Test]
@@ -1515,12 +1489,9 @@ namespace PlayGround.Tests.PlayMode
                 typeof(Active),
                 typeof(AoeCollisionActiveTag),
                 typeof(CombatRenderActiveTag),
-                typeof(AoeContactGateElement),
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
 
-            DynamicBuffer<AoeContactGateElement> gates = entityManager.GetBuffer<AoeContactGateElement>(entity);
-            gates.Add(new AoeContactGateElement { TargetId = 123, CooldownRemaining = 1f });
             entityManager.SetComponentEnabled<Active>(entity, false);
             entityManager.SetComponentEnabled<AoeCollisionActiveTag>(entity, false);
             entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, false);

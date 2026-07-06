@@ -9,7 +9,6 @@ using Unity.Jobs;
 namespace PlayGround.System.Aoe
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(AoeContactGateSystem))]
     [UpdateAfter(typeof(LingeringAoeCollisionSystem))]
     [UpdateBefore(typeof(CombatApplyFinalizeSingleSystem))]
     public partial struct ImpactAoeCollisionSystem : ISystem
@@ -146,26 +145,22 @@ namespace PlayGround.System.Aoe
                 in AoeIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
                 in CombatCollisionComponent collision,
-                in AoeHitGateComponent hitGate,
                 in AoeHitSpawnComponent hitSpawn,
                 in AoeAreaComponent area,
                 EnabledRefRW<Active> active,
                 EnabledRefRW<AoeCollisionActiveTag> collisionActive,
                 EnabledRefRW<CombatRenderActiveTag> renderActive)
             {
-                var gate = new ScratchGate { Seen = default };
                 AoeCollisionCore.RunCollision(
                     identity,
                     kinematics,
                     collision,
                     hitSpawn,
                     area,
-                    0f,
                     true,
                     active,
                     collisionActive,
                     renderActive,
-                    ref gate,
                     TargetEntities,
                     TargetPositions,
                     TargetShapes,

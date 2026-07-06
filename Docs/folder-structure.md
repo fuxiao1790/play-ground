@@ -186,11 +186,10 @@ Docs/
   writes command stream.
 - AOE spawn apply file: impact and lingering AOE
   apply systems; reuse disabled `Active` slots before cold creation.
-- `Assets/Scripts/System/Aoe/AoeContactGateSystem.cs`: lingering AOE repeat-hit
-  gate expiry.
-- `Assets/Scripts/System/Aoe/AoeCollisionSystem.cs`: target proxy collision,
-  hit/projectile-burst/VFX event emission, contact gates, and pulse
-  deactivation.
+- `Assets/Scripts/System/Aoe/ImpactAoeCollisionSystem.cs`: impact AOE target
+  proxy collision, hit/spawn/VFX event emission, and deactivation.
+- `Assets/Scripts/System/Aoe/LingeringAoeCollisionSystem.cs`: lingering AOE
+  interval collision and hit/spawn/VFX event emission.
 - `Assets/Scripts/System/Aoe/AoePulseVfxSystem.cs`: interval pulse VFX for
   lingering AOEs.
 - `Assets/Scripts/System/Aoe/AoeTypeRegistry.cs`: runtime AOE type lookup.

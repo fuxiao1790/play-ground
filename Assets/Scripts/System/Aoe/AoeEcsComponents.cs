@@ -16,15 +16,17 @@ namespace PlayGround.System.Aoe
         public int TypeId;
     }
 
-    // ECS Lifecycle: enableable AOE tag; added at entity creation; kept until root teardown; enabled when the AOE produces collision effects (damage, stack, projectile burst); disabled for visual-only or despawned AOEs so collision and contact-gate jobs skip them entirely.
+    // ECS Lifecycle: enableable AOE tag; added at entity creation; kept until root teardown; enabled when the AOE produces collision effects (damage, stack, projectile burst); disabled for visual-only or despawned AOEs so collision jobs skip them entirely.
     public struct AoeCollisionActiveTag : IComponentData, IEnableableComponent
     {
     }
 
     // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse.
+    // RepeatHitCooldownSeconds is the lingering tick interval; Remaining counts down to the next collision pass and is seeded to 0 so first tick fires immediately.
     public struct AoeHitGateComponent : IComponentData
     {
         public float RepeatHitCooldownSeconds;
+        public float Remaining;
     }
 
     // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse; carries fire-time hit-spawn template reference data.
@@ -39,15 +41,6 @@ namespace PlayGround.System.Aoe
     {
         public float Size;
     }
-
-    // ECS Lifecycle: lingering-only AOE buffer; added by lingering spawn materialization; kept until root teardown; cooldown entries tick down while AoeCollisionActiveTag is enabled and are cleared on reuse.
-    [InternalBufferCapacity(CollisionConstants.MaxAoeTargetsPerTick)] // = 32
-    public struct AoeContactGateElement : IBufferElementData
-    {
-        public int TargetId;
-        public float CooldownRemaining;
-    }
-
 
     // ECS Lifecycle: lingering-only AOE component; added at entity creation; kept until root teardown; reset on reuse; used by AoePulseVfxSystem for pulse VFX ticks on lingering AOEs.
     public struct AoePulseVfxComponent : IComponentData

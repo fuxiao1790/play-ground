@@ -357,8 +357,8 @@ When an AOE hit qualifies, AOE collision may emit:
 - `AOE variant spawn event` (slim link) when `OnHitSpawn.Kind == ImpactAoe/LingeringAoe`
 - `VfxPendingSpawn`
 
-Pulse AOEs disable `Active` after their one collision pass. Lingering AOEs keep
-per-target contact gates and expire through `CombatLifetimeSystem`.
+Pulse AOEs disable `Active` after their one collision pass. Lingering AOEs tick
+from their own interval state and expire through `CombatLifetimeSystem`.
 
 ## Target Snapshot Model
 

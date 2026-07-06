@@ -17,7 +17,6 @@ namespace PlayGround.System.Common
     [UpdateBefore(typeof(ProjectileMovementSystem))]
     [UpdateBefore(typeof(ProjectileContactGateSystem))]
     [UpdateBefore(typeof(ProjectileCollisionSystem))]
-    [UpdateBefore(typeof(AoeContactGateSystem))]
     [UpdateBefore(typeof(LingeringAoeCollisionSystem))]
     public partial struct CombatLifetimeSystem : ISystem
     {

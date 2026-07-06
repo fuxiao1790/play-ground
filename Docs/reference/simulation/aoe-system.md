@@ -31,7 +31,7 @@ Primary uses:
 - mob AOEs hitting the player
 - projectile impact explosions
 - stack-triggered explosions
-- lingering fields with per-target repeat gates
+- lingering fields with per-AOE tick intervals
 - AOE projectile bursts
 - batched AOE rendering and VFX
 
@@ -51,16 +51,15 @@ Non-goals:
 - AOE spawn apply file: contains impact and
   lingering apply systems that reuse disabled AOE entities or cold-create
   overflow.
-- `Assets/Scripts/System/Aoe/AoeCollisionSystem.cs`: target proxy broad phase,
-  narrow-phase collision, contact gates, damage events, projectile burst events,
-  VFX events, and pulse deactivation.
-- `Assets/Scripts/System/Aoe/AoeContactGateSystem.cs`: per-target repeat-hit
-  gate expiry.
+- `Assets/Scripts/System/Aoe/ImpactAoeCollisionSystem.cs`: target proxy broad
+  phase, narrow-phase collision, damage events, child spawn events, VFX events,
+  and impact deactivation.
+- `Assets/Scripts/System/Aoe/LingeringAoeCollisionSystem.cs`: lingering AOE
+  tick interval countdown plus target proxy collision and consequence events.
 - `Assets/Scripts/System/Aoe/AoePulseVfxSystem.cs`: periodic pulse VFX for
   lingering AOEs.
 - `Assets/Scripts/System/Aoe/AoeEcsComponents.cs`: AOE identity, collision
-  active tag, hit gate, hit-spawn snapshot, area, contact gate, and pulse VFX
-  data.
+  active tag, hit interval state, hit-spawn snapshot, area, and pulse VFX data.
 - `Assets/Scripts/System/Aoe/AoeConfig.cs`: ScriptableObject authoring for AOE
   type definitions.
 - `Assets/Scripts/System/Aoe/AoeRuntimeEvents.cs`: managed AOE spawn request and
@@ -86,7 +85,7 @@ AOE ECS systems own:
 - spawn event expansion
 - slot reuse and cold creation
 - lifetime expiry
-- contact gate maintenance
+- per-AOE hit interval maintenance
 - collision and consequence event emission
 - batched render matrix preparation
 
@@ -162,10 +161,9 @@ spawn, and status producers route by kind without looking up templates.
 There are two AOE archetypes:
 
 - Impact AOE: lean one-shot area, no `CombatLifetimeComponent`, no
-  `AoeContactGateElement`, no `AoePulseVfxComponent`, and no timed-spawn data.
+  `AoePulseVfxComponent`, and no timed-spawn data.
 - Lingering AOE: finite-lifetime area with `CombatLifetimeComponent`,
-  `AoeContactGateElement`, `AoePulseVfxComponent`, `TimedSpawnComponent`, and
-  `TimedSpawnStateComponent`.
+  `AoePulseVfxComponent`, `TimedSpawnComponent`, and `TimedSpawnStateComponent`.
 
 All AOE entities carry:
 
@@ -208,19 +206,19 @@ Lingering AOE:
 - `CombatLifetimeComponent` is enabled with remaining lifetime.
 - `CombatLifetimeSystem` expires it when remaining time reaches zero.
 - Collision can hit immediately.
-- Per-target repeat gates prevent repeated hits until their cooldown expires.
+- `AoeHitGateComponent.Remaining` prevents another collision pass until the
+  AOE tick interval expires.
 
-There is no global AOE tick. Repeat timing belongs to each AOE-target contact
-gate.
+There is no global AOE tick. Repeat timing belongs to each lingering AOE.
 
 ## Collision And Consequences
 
-`AoeCollisionSystem` owns hit qualification and pulse source state. It may:
+AOE collision systems own hit qualification and consequence emission. They may:
 
 - query target proxy data
 - build occupied target cells keyed by `TargetFaction`
 - perform bounds and narrow-phase checks
-- create per-target contact gates
+- de-dup targets within one collision pass
 - disable pulse AOEs after their one collision pass
 - emit plain data events for damage, projectile bursts, and VFX
 
@@ -243,7 +241,7 @@ replay runs later in `DamageDispatchBridge` during `PresentationSystemGroup`.
 ## Projectile Burst From AOE
 
 AOEs can carry an `AoeProjectileBurstSnapshot` in `AoeHitSpawnComponent`.
-On an accepted AOE hit, `AoeCollisionSystem` converts that snapshot into a
+On an accepted AOE hit, the AOE collision systems convert that snapshot into a
 `ProjectileSpawnEvent` by calling `ProjectileSpawnPipeline.BuildBurstEvent`.
 The projectile expansion and apply systems then handle volley expansion, reuse,
 and cold creation.
@@ -290,8 +288,7 @@ Important simulation ordering:
 1. `CombatLifetimeSystem` expires projectile and AOE lifetime.
 2. `AoePulseVfxSystem` emits periodic pulse VFX for lingering AOEs.
 3. Projectile tracking, movement, contact gates, and collision run.
-4. `AoeContactGateSystem` expires AOE contact gates.
-5. `AoeCollisionSystem` emits damage, projectile spawn, and VFX events.
+4. AOE collision systems emit damage, projectile spawn, AOE spawn, and VFX events.
 6. `DamageFinalizeSystem` freezes the native damage queue.
 7. `ProjectileSpawnExpansionSystem`, `ImpactAoeSpawnExpansionSystem`, and
    `LingeringAoeSpawnExpansionSystem` drain events and produce commands.

@@ -324,7 +324,7 @@ Important ordering:
 1. `CombatLifetimeSystem` expires existing projectiles and AOEs.
 2. `TimedSpawnSystem` emits interval spawn events.
 3. Projectile tracking, movement, contact gates, and collision run.
-4. AOE contact gates and AOE collision run.
+4. AOE pulse VFX and collision run.
 5. `CombatApplyFinalizeSystem` applies hit events to ECS target health and
    status data.
 6. `StatusProcessSystem` emits stack detonation spawn events.

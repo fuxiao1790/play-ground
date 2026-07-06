@@ -11,7 +11,6 @@ namespace PlayGround.System.Projectile
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileContactGateSystem))]
-    [UpdateBefore(typeof(PlayGround.System.Aoe.AoeContactGateSystem))]
     [UpdateBefore(typeof(CombatApplyFinalizeSingleSystem))]
     public partial struct ProjectileCollisionSystem : ISystem
     {
