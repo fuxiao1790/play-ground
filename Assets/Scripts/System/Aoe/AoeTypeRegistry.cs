@@ -87,6 +87,7 @@ namespace PlayGround.System.Aoe
         [SerializeField] private VisualEffectAsset hitEffect;
         [SerializeField] private VisualEffectAsset expireEffect;
         [SerializeField] private VisualEffectAsset pulseEffect;
+        [SerializeField] private VisualEffectAsset armingEffect;
 
         public GameObject VisualPrefab => visualPrefab;
         public Collider2D CollisionShape => collisionShape;
@@ -96,6 +97,7 @@ namespace PlayGround.System.Aoe
         public VisualEffectAsset HitEffect => hitEffect;
         public VisualEffectAsset ExpireEffect => expireEffect;
         public VisualEffectAsset PulseEffect => pulseEffect;
+        public VisualEffectAsset ArmingEffect => armingEffect;
 
         public void Configure(
             GameObject visualPrefab,
@@ -105,7 +107,8 @@ namespace PlayGround.System.Aoe
             VisualEffectAsset spawnEffect = null,
             VisualEffectAsset hitEffect = null,
             VisualEffectAsset expireEffect = null,
-            VisualEffectAsset pulseEffect = null)
+            VisualEffectAsset pulseEffect = null,
+            VisualEffectAsset armingEffect = null)
         {
             this.visualPrefab = visualPrefab;
             this.collisionShape = collisionShape;
@@ -115,6 +118,7 @@ namespace PlayGround.System.Aoe
             this.hitEffect = hitEffect;
             this.expireEffect = expireEffect;
             this.pulseEffect = pulseEffect;
+            this.armingEffect = armingEffect;
         }
     }
 }

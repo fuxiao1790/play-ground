@@ -11,12 +11,14 @@ namespace PlayGround.Skills
         [SerializeField] private VisualEffectAsset spawnEffect;
         [SerializeField] private VisualEffectAsset hitEffect;
         [SerializeField] private VisualEffectAsset expireEffect;
+        [SerializeField] private VisualEffectAsset armingEffect;
 
         public SpriteRenderer SpriteRenderer => spriteRenderer;
         public Collider2D Hurtbox => hurtbox;
         public VisualEffectAsset SpawnEffect => spawnEffect;
         public VisualEffectAsset HitEffect => hitEffect;
         public VisualEffectAsset ExpireEffect => expireEffect;
+        public VisualEffectAsset ArmingEffect => armingEffect;
         public Sprite Sprite => spriteRenderer != null ? spriteRenderer.sprite : null;
         public Material Material => spriteRenderer != null ? spriteRenderer.sharedMaterial : null;
         public float VisualRotationDegrees => spriteRenderer != null ? spriteRenderer.transform.eulerAngles.z : 0f;
@@ -37,13 +39,15 @@ namespace PlayGround.Skills
             Collider2D hurtboxShape,
             VisualEffectAsset spawnVisualEffect = null,
             VisualEffectAsset hitVisualEffect = null,
-            VisualEffectAsset expireVisualEffect = null)
+            VisualEffectAsset expireVisualEffect = null,
+            VisualEffectAsset armingVisualEffect = null)
         {
             spriteRenderer = renderer;
             hurtbox = hurtboxShape;
             spawnEffect = spawnVisualEffect;
             hitEffect = hitVisualEffect;
             expireEffect = expireVisualEffect;
+            armingEffect = armingVisualEffect;
         }
 
         public bool IsValidTemplate(out string reason)

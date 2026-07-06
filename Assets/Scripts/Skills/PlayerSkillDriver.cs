@@ -207,6 +207,7 @@ namespace PlayGround.Skills
                     vfxRoot.Register(projDef.TypeId, 0, projDef.Prefab.SpawnEffect);
                     vfxRoot.Register(projDef.TypeId, 1, projDef.Prefab.HitEffect);
                     vfxRoot.Register(projDef.TypeId, 2, projDef.Prefab.ExpireEffect);
+                    vfxRoot.Register(projDef.TypeId, 4, projDef.Prefab.ArmingEffect);
                 }
             }
 
@@ -579,6 +580,7 @@ namespace PlayGround.Skills
                 vfxRoot.Register(aoeDef.TypeId, 1, definition.HitEffect, requireAreaSizeContract: true);
                 vfxRoot.Register(aoeDef.TypeId, 2, definition.ExpireEffect, requireAreaSizeContract: true);
                 vfxRoot.Register(aoeDef.TypeId, 3, definition.PulseEffect, requireAreaSizeContract: true);
+                vfxRoot.Register(aoeDef.TypeId, 4, definition.ArmingEffect, requireAreaSizeContract: true);
             }
         }
 

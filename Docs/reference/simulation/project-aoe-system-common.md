@@ -268,12 +268,26 @@ normal armed gate values as usual, then additionally enables `ArmingTag` and set
 
 - While `ArmingTag` is enabled the entity is live and reuse-protected (`Active`
   stays enabled) but frozen: movement, both lifetime jobs, all three collision
-  jobs, timed-spawn, and tracking exclude it via `WithDisabled<ArmingTag>`, and
-  render prepare degenerates it to an invisible instance. Only a telegraph VFX
-  (`VfxPendingSpawn.Trigger = 4`) plays.
-- `CombatArmingSystem` (runs before `CombatLifetimeSystem`) counts `Remaining`
+  jobs, timed-spawn, tracking, and the AOE pulse-VFX tick exclude it via
+  `WithDisabled<ArmingTag>`, and render prepare degenerates it to an invisible
+  instance. Only the telegraph VFX (`VfxPendingSpawn.Trigger = 4`) plays.
+- `CombatArmingSystem` (runs before `CombatLifetimeSystem`, split into a
+  projectile job and an AOE job like `CombatLifetimeSystem`) counts `Remaining`
   down and disables `ArmingTag` at zero. The entity then resumes with its
   already-correct gate values — no gate rewrite.
+
+### Arming VFX
+
+- **Telegraph (Trigger 4):** emitted once at spawn (both expansion systems) when
+  `ArmSeconds > 0`. It is a dedicated per-type `ArmingEffect` `VisualEffectAsset`,
+  authored on the prefab and registered under `(typeId, 4)` alongside
+  spawn/hit/expire/pulse in `PlayerSkillDriver`.
+- **Spawn burst (Trigger 0):** for an arming AOE the spawn burst is deferred to
+  arm completion — the AOE arming job emits it when it clears `ArmingTag`, so the
+  burst reads as "the AOE going live," not "the slot being materialized." A
+  non-arming AOE still emits Trigger 0 at spawn. (Projectiles have no Trigger 0.)
+- **Pulse (Trigger 3):** the lingering pulse only ticks while armed; its interval
+  does not advance during arming.
 - `ArmSeconds` is a plain `float` on `ProjectileSpawnCommand` / `AoeSpawnCommand`,
   authored on the skill definitions and threaded through the runtime definitions.
 - The two components are split (`ArmingTag` enableable + plain

@@ -257,6 +257,7 @@ namespace PlayGround.Skills
                     HitEffect = a.HitEffect,
                     ExpireEffect = a.ExpireEffect,
                     PulseEffect = a.PulseEffect,
+                    ArmingEffect = a.ArmingEffect,
                     Damage = Mathf.Max(0f, modifiers.Resolve(SkillStat.Damage, a.damage)),
                     LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds),
                     TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds),

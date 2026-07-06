@@ -54,7 +54,8 @@ namespace PlayGround.System.Aoe
                 basicPrefab != null ? basicPrefab.SpawnEffect : null,
                 basicPrefab != null ? basicPrefab.HitEffect : null,
                 basicPrefab != null ? basicPrefab.ExpireEffect : null,
-                PulseEffect);
+                PulseEffect,
+                basicPrefab != null ? basicPrefab.ArmingEffect : null);
             return definition;
         }
 

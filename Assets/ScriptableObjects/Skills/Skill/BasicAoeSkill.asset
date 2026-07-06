@@ -18,6 +18,6 @@ MonoBehaviour:
     damage: 18
     echoCount: 1
     scatterRadius: 0
-    armSeconds: 1
+    armSeconds: 0.3
     directDamageEnabled: 1
     prefab: {fileID: 1003000000000000002, guid: b30d55f9f7c24d568ec80663b19f8c55, type: 3}

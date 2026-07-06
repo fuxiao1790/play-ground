@@ -58,6 +58,7 @@ namespace PlayGround.Skills
         public abstract VisualEffectAsset HitEffect { get; }
         public abstract VisualEffectAsset ExpireEffect { get; }
         public abstract VisualEffectAsset PulseEffect { get; }
+        public abstract VisualEffectAsset ArmingEffect { get; }
     }
 
     [Serializable]
@@ -72,6 +73,7 @@ namespace PlayGround.Skills
         public override VisualEffectAsset HitEffect => prefab != null ? prefab.HitEffect : null;
         public override VisualEffectAsset ExpireEffect => prefab != null ? prefab.ExpireEffect : null;
         public override VisualEffectAsset PulseEffect => null;
+        public override VisualEffectAsset ArmingEffect => prefab != null ? prefab.ArmingEffect : null;
 
         public override SkillDefinition DeepCopy() => (AoeDefinition)MemberwiseClone();
     }
@@ -90,6 +92,7 @@ namespace PlayGround.Skills
         public override VisualEffectAsset HitEffect => prefab != null ? prefab.HitEffect : null;
         public override VisualEffectAsset ExpireEffect => prefab != null ? prefab.ExpireEffect : null;
         public override VisualEffectAsset PulseEffect => prefab != null ? prefab.PulseEffect : null;
+        public override VisualEffectAsset ArmingEffect => prefab != null ? prefab.ArmingEffect : null;
 
         public override SkillDefinition DeepCopy() => (LingeringAoeDefinition)MemberwiseClone();
     }

@@ -18,8 +18,8 @@ MonoBehaviour:
     damage: 4
     echoCount: 1
     scatterRadius: 0
-    armSeconds: 1
+    armSeconds: 0.3
     directDamageEnabled: 1
     prefab: {fileID: 1037899157007725660, guid: 41d5eb1328725cb43ac0a062223fbacd, type: 3}
-    lifetimeSeconds: 3
+    lifetimeSeconds: 3.5
     tickIntervalSeconds: 0.2

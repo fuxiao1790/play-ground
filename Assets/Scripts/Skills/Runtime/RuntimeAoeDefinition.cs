@@ -16,6 +16,7 @@ namespace PlayGround.Skills.Runtime
         public VisualEffectAsset HitEffect { get; set; }
         public VisualEffectAsset ExpireEffect { get; set; }
         public VisualEffectAsset PulseEffect { get; set; }
+        public VisualEffectAsset ArmingEffect { get; set; }
         public float LifetimeSeconds { get; set; }
         public float TickIntervalSeconds { get; set; }
         public float ArmSeconds { get; set; }
@@ -60,7 +61,8 @@ namespace PlayGround.Skills.Runtime
                 SpawnEffect,
                 HitEffect,
                 ExpireEffect,
-                PulseEffect);
+                PulseEffect,
+                ArmingEffect);
             return def;
         }
     }
