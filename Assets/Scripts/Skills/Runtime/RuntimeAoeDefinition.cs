@@ -18,6 +18,7 @@ namespace PlayGround.Skills.Runtime
         public VisualEffectAsset PulseEffect { get; set; }
         public float LifetimeSeconds { get; set; }
         public float TickIntervalSeconds { get; set; }
+        public float ArmSeconds { get; set; }
         public int EchoCount { get; set; } = 1;
         public float ScatterRadius { get; set; }
         public bool DirectDamageEnabled { get; set; } = true;

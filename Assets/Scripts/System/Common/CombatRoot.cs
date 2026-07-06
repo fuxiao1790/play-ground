@@ -414,6 +414,7 @@ namespace PlayGround.System.Common
                 SeedContactGateTargetId = seedContactGateTargetId,
                 RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds,
                 Lifetime = request.Lifetime,
+                ArmSeconds = 0f,
                 Radius = request.Radius,
                 RotationRadians = request.RotationRadians,
                 Position = position,
@@ -464,6 +465,7 @@ namespace PlayGround.System.Common
                 TypeId = request.TypeId,
                 RenderTypeId = renderId,
                 Lifetime = request.LifetimeSeconds,
+                ArmSeconds = 0f,
                 RepeatHitCooldownSeconds = request.TickIntervalSeconds,
                 HitPayload = new CombatHitPayload
                 {

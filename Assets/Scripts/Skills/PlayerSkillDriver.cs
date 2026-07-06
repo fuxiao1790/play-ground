@@ -637,6 +637,8 @@ namespace PlayGround.Skills
                 PierceRemaining = child.PierceCount,
                 RepeatHitCooldownSeconds = child.RepeatHitCooldown,
                 Lifetime = child.Lifetime,
+                // Child templates use their own authored arm time; parent arm time is not inherited.
+                ArmSeconds = Mathf.Max(0f, child.ArmSeconds),
                 Radius = prefab.Radius,
                 RotationRadians = prefab.RotationRadians,
                 HalfExtents = new Unity.Mathematics.float2(prefab.HalfExtents.x, prefab.HalfExtents.y),
@@ -697,6 +699,8 @@ namespace PlayGround.Skills
                 TypeId = child.TypeId,
                 RenderTypeId = child.RenderId,
                 Lifetime = child.LifetimeSeconds,
+                // Child templates use their own authored arm time; parent arm time is not inherited.
+                ArmSeconds = Mathf.Max(0f, child.ArmSeconds),
                 RepeatHitCooldownSeconds = child.TickIntervalSeconds,
                 HitPayload = new CombatHitPayload
                 {

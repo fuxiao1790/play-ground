@@ -25,6 +25,7 @@ namespace PlayGround.Skills
         public float jitterDegrees;
         public int pierceCount;
         public float repeatHitCooldown;
+        [Min(0f)] public float armSeconds;
         public bool directDamageEnabled = true;
         public bool trackingEnabled;
         public float trackingTurnSpeedDegrees;
@@ -47,6 +48,7 @@ namespace PlayGround.Skills
         [FormerlySerializedAs("count")]
         [Min(1)] public int echoCount = 1;
         [Min(0f)] public float scatterRadius = 0f;
+        [Min(0f)] public float armSeconds;
         public bool directDamageEnabled = true;
 
         public abstract GameObject VisualPrefab { get; }
