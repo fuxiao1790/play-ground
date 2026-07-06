@@ -218,9 +218,14 @@ not the AOE discriminator. It does not key by `CombatRenderKindId`; that value
 is ordinary render component data on master, and spawn reuse overwrites it when a
 slot is claimed.
 
-Future AOE windup should attach through dedicated `AoeWindupComponent` /
-`AoeWindupTag` state, orthogonal to both `LingeringAoeTag` routing and lifetime
-countdown.
+Initial-delay / windup is implemented as common arming state: `ArmingTag`
+(enableable) + `CombatArmingComponent { Remaining }`, on every combat archetype and
+orthogonal to both `LingeringAoeTag` routing and lifetime countdown. It is a pause
+overlay — spawn sets the normal armed gates, and consumers exclude arming entities
+via `WithDisabled<ArmingTag>` until `CombatArmingSystem` clears the tag. See Arming
+in [project-aoe-system-common.md](./project-aoe-system-common.md). Note: a job that
+takes `EnabledRefRW<ArmingTag>` and schedules with an explicit `EntityQuery` must
+list `ArmingTag` in that query, or scheduling throws.
 
 A Burst `IJobChunk` (scheduled parallel) counts enabled `Active` entities per
 chunk. When that count is below `ChunkActiveThreshold`, every disabled entity in

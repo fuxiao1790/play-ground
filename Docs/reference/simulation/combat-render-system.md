@@ -176,8 +176,9 @@ Graphics / BatchRendererGroup earlier.
 
 Adding indirect rendering added no ECS component to entities beyond the existing
 render components and changed no spawn/despawn/reuse structural behavior. Pool
-reuse/despawn still only flips the enableable `CombatRenderActiveTag` and rewrites
-value components. The per-frame instance/args GPU buffers are owned by
+reuse/despawn still only flips the enableable `Active` (sprite visibility derives
+from it, and from `ArmingTag` during arming — there is no separate render gate) and
+rewrites value components. The per-frame instance/args GPU buffers are owned by
 `CombatBatchedRenderSystem`; the static per-kind UV buffer is owned by
 `CombatRenderResourceRegistry`. They are disposed by their owners and reference no
 ECS memory.

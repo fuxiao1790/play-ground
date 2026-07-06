@@ -174,7 +174,9 @@ All AOE entities carry:
 - generic `Active`
 - `CombatKinematicsComponent`
 - `CombatCollisionComponent`
-- `AoeCollisionActiveTag`
+- `CombatCollisionActiveTag`
+- `ArmingTag`
+- `CombatArmingComponent`
 - `AoeHitGateComponent`
 - `AoeHitSpawnComponent`
 - `AoeAreaComponent`
@@ -184,11 +186,20 @@ All AOE entities carry:
 enableable bit on lingering AOEs only. This removes the former non-timed vs
 timed-lingering archetype split while keeping impact chunks small.
 
-Runtime despawn disables `Active` and `CombatRenderActiveTag`. Entities remain
-available for reuse until the owning `CombatRoot` tears down its faction data.
+Runtime despawn disables `Active` through the shared `CombatDeathUtility.Kill`
+helper; sprite visibility derives from `Active`, so there is no separate render
+gate. Entities remain available for reuse until the owning `CombatRoot` tears down
+its faction data.
 
-`AoeCollisionActiveTag` is separate from `Active`. It lets visual-only AOEs stay
-active/renderable while collision skips them.
+`CombatCollisionActiveTag` is separate from `Active`. It lets visual-only AOEs stay
+active/rendered while collision skips them. It is the same generic collision gate
+projectiles use; the AOE collision queries discriminate via `AoeTag`.
+
+`ArmingTag` + `CombatArmingComponent` provide the optional `ArmSeconds`
+initial-delay pause (see Arming in
+[project-aoe-system-common.md](./project-aoe-system-common.md)). Impact AOEs, which
+have no lifetime and die only via their one-shot collision pass, simply telegraph
+during arming and perform that pass on the armed frame.
 
 AOE reuse is single-cursor and deterministic per pool. Impact and lingering
 reuse jobs scan disabled chunks in query order, consume commands in command-list
@@ -254,8 +265,9 @@ This keeps AOE collision as an event producer, not an entity allocator.
 ## Lifetime And Pulse VFX
 
 `CombatLifetimeSystem` handles lingering AOE expiry with the same common
-`CombatLifetimeComponent` used by projectiles. When lifetime expires, it
-disables `Active`, disables `CombatRenderActiveTag`, and emits expire VFX.
+`CombatLifetimeComponent` used by projectiles. When lifetime expires, it calls
+`CombatDeathUtility.Kill` to disable `Active` (and `CombatCollisionActiveTag`) and
+emit expire VFX.
 
 `AoePulseVfxSystem` handles interval-based pulse VFX for active lingering AOEs.
 It is separate from hit qualification and from lifetime expiry.

@@ -183,20 +183,28 @@ Projectiles carry:
 - `CombatCollisionComponent`
 - `ProjectileHitComponent`
 - `ProjectileTrackingComponent`
-- `ProjectileCollisionActiveTag`
+- `CombatCollisionActiveTag`
+- `ArmingTag`
+- `CombatArmingComponent`
 - `ProjectileContactGateElement`
 - `TimedSpawnComponent`
 - `TimedSpawnStateComponent`
 - common render components
+
+`CombatCollisionActiveTag` is the single generic collision gate shared with AOEs
+(the collision query still filters by `ProjectileTag`). `ArmingTag` +
+`CombatArmingComponent` provide the optional `ArmSeconds` initial-delay pause; see
+Arming in [project-aoe-system-common.md](./project-aoe-system-common.md).
 
 There is one projectile archetype. Timed child spawning is selected by enabled
 `TimedSpawnComponent`; non-timed projectiles still carry the component, but it
 is disabled. This removes the former basic vs timed projectile archetype
 split at a small chunk-width cost.
 
-Runtime despawn disables `Active` and `CombatRenderActiveTag`. It does not
-destroy the entity during normal churn. Cold-created entities are kept until
-their owning `CombatRoot` is destroyed.
+Runtime despawn disables `Active` through the shared `CombatDeathUtility.Kill`
+helper; sprite visibility derives from `Active`, so there is no separate render
+gate to clear. It does not destroy the entity during normal churn. Cold-created
+entities are kept until their owning `CombatRoot` is destroyed.
 
 Projectile reuse is single-cursor and deterministic. The reuse job scans
 disabled chunks in query order, consumes commands in command-list order, and
@@ -236,7 +244,7 @@ It may:
 - perform target bounds and narrow-phase checks
 - check and refresh per-projectile contact gates
 - decrement pierce count
-- disable `Active` and render active state when the source projectile is
+- disable `Active` (via `CombatDeathUtility.Kill`) when the source projectile is
   consumed
 - emit plain data events for damage, impact projectiles, impact AOEs, and VFX
 
@@ -260,8 +268,8 @@ replay runs later in `DamageDispatchBridge` during `PresentationSystemGroup`.
 ## Lifetime
 
 Projectile lifetime uses the shared `CombatLifetimeSystem`. The projectile job
-ticks `CombatLifetimeComponent.Remaining`, disables `Active`, disables
-`CombatRenderActiveTag`, and emits expire VFX when time reaches zero.
+ticks `CombatLifetimeComponent.Remaining`, then calls `CombatDeathUtility.Kill`
+to disable `Active` and emit expire VFX when time reaches zero.
 
 Projectile collision can also deactivate a projectile immediately when a valid
 hit consumes the source.

@@ -12,8 +12,10 @@ component operations cause structural changes and sync points.
 ## Decision
 
 Keep reusable projectile/AOE archetypes stable and despawn by disabling
-enableable state such as `Active`, collision-active tags, render-active tags,
-timed spawn, and lifetime where appropriate.
+enableable state such as `Active`, the generic `CombatCollisionActiveTag`, and
+timed spawn where appropriate. (There is no render-active tag: sprite visibility
+derives from `Active`. `ArmingTag` is an additional enableable pause gate for the
+optional `ArmSeconds` initial delay.)
 
 ## Consequences
 

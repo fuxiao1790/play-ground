@@ -45,7 +45,7 @@ consequence events, and frame timing. Domain-specific details still live in
 - `Assets/Scripts/System/Common/TimedSpawnSystem.cs`: shared timed-spawn
   producer for projectile and AOE child events.
 - `Assets/Scripts/System/Common/CombatRenderComponents.cs`: common render data,
-  render active tag, faction/type shared components, and render matrix prep.
+  faction/type shared components, and render matrix prep.
 - `Assets/Scripts/System/Common/CombatBatchedRenderSystem.cs`: shared batched
   render submission.
 - `Assets/Scripts/System/Vfx/CombatVfxDispatchSystem.cs`: shared VFX request
@@ -233,30 +233,57 @@ Shared occupancy:
 
 - `Active`
 
-Domain/render enableable state:
+Domain enableable state:
 
-- `ProjectileCollisionActiveTag`
-- `AoeCollisionActiveTag`
-- `CombatRenderActiveTag`
+- `CombatCollisionActiveTag` — one generic collision gate shared by projectiles
+  and both AOE archetypes; collision queries still discriminate domain via
+  `ProjectileTag` / `AoeTag`.
+- `ArmingTag` — pause overlay while `CombatArmingComponent.Remaining` counts down
+  (see Arming below).
 - `ProjectileTrackingComponent`
 
-Projectile despawn paths:
+Sprite visibility is **not** a separate enableable gate. There is no
+`CombatRenderActiveTag`; the render prepare job derives visibility from `Active`
+(and suppresses arming entities via the `ArmingTag` mask), so liveness/visibility
+and pool reuse all key on the single `Active` bit.
 
-- `CombatLifetimeSystem` disables `Active` and `CombatRenderActiveTag` on
-  lifetime expiry.
-- `ProjectileCollisionSystem` disables `Active` and `CombatRenderActiveTag`
-  when the source projectile is invalid, expired, or consumed by pierce.
+Despawn routes through the shared `CombatDeathUtility.Kill` helper, which disables
+`Active` (plus `CombatCollisionActiveTag` / `ArmingTag` where the entity carries
+them) and emits expire VFX from one place:
 
-AOE despawn paths:
-
-- `CombatLifetimeSystem` disables `Active`, `AoeCollisionActiveTag`, and
-  `CombatRenderActiveTag` on lingering AOE lifetime expiry.
-- `AoeCollisionCore` disables `Active`, `AoeCollisionActiveTag`, and
-  `CombatRenderActiveTag` for invalid AOEs and impact AOEs after their collision
-  pass.
+- `CombatLifetimeSystem` kills projectiles and lingering AOEs on lifetime expiry.
+- `ProjectileCollisionSystem` kills the source projectile when it is invalid,
+  expired, or consumed by pierce.
+- `AoeCollisionCore` kills invalid AOEs and impact AOEs after their collision pass.
 
 This pattern keeps entities in stable archetypes and avoids structural churn on
 hot combat paths.
+
+## Arming (initial delay)
+
+Projectiles and AOEs may spawn with an authored `ArmSeconds > 0` initial delay.
+Arming is a **pause overlay**, not a separate lifecycle phase: spawn apply sets the
+normal armed gate values as usual, then additionally enables `ArmingTag` and sets
+`CombatArmingComponent.Remaining = ArmSeconds`.
+
+- While `ArmingTag` is enabled the entity is live and reuse-protected (`Active`
+  stays enabled) but frozen: movement, both lifetime jobs, all three collision
+  jobs, timed-spawn, and tracking exclude it via `WithDisabled<ArmingTag>`, and
+  render prepare degenerates it to an invisible instance. Only a telegraph VFX
+  (`VfxPendingSpawn.Trigger = 4`) plays.
+- `CombatArmingSystem` (runs before `CombatLifetimeSystem`) counts `Remaining`
+  down and disables `ArmingTag` at zero. The entity then resumes with its
+  already-correct gate values — no gate rewrite.
+- `ArmSeconds` is a plain `float` on `ProjectileSpawnCommand` / `AoeSpawnCommand`,
+  authored on the skill definitions and threaded through the runtime definitions.
+- The two components are split (`ArmingTag` enableable + plain
+  `CombatArmingComponent`) so the arming job never takes one component as both
+  `ref` data and `EnabledRefRW`.
+
+> Any `IJobEntity` that reads the arming bit via `EnabledRefRW<ArmingTag>` and is
+> scheduled with an **explicit** `EntityQuery` must include `ArmingTag`
+> (`WithDisabled<ArmingTag>()`) in that query, or scheduling throws — the
+> `[WithDisabled]` attribute is ignored for explicitly-scheduled jobs.
 
 ## Consequence Events
 
@@ -281,9 +308,10 @@ Projectile and AOE visuals share the sprite-atlas render path.
 Runtime entities carry common render data:
 
 - `CombatRenderComponent`
-- `CombatRenderElement`
-- `CombatRenderActiveTag`
 - `CombatRenderKindId`
+
+Sprite visibility derives from `Active` (and `ArmingTag`); there is no separate
+render-active gate.
 
 `CombatRenderKindId` is a plain kind identifier; the atlas UV rect itself
 lives on `CombatRenderComponent.UvRect`, computed once by the shared

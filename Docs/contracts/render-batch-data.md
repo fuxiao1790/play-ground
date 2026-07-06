@@ -23,8 +23,9 @@ Current render data includes:
   align-to-velocity in bit 31)
 - `CombatRenderAuthoring` (CPU-only base visual scale/sin/cos, stride 16; seeded
   by spawn and read by render preparation)
-- `CombatRenderActiveTag`
 - `CombatRenderKindId`
+  (there is no `CombatRenderActiveTag`: render prepare derives visibility from the
+  `Active` mask, degenerating dead and arming entities to an invisible instance)
 - `CombatInstanceData` - the per-instance GPU record (`Rotation` + `Position` +
   `RenderMeta`, stride 32), copied directly from `CombatRenderComponent` with
   `AddRange` and uploaded to `_InstanceData`

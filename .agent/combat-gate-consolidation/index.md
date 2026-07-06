@@ -1,5 +1,9 @@
 # Combat Gate Consolidation (pre-refactor)
 
+> **STATUS: IMPLEMENTED + verified (2026-07-06).** Both subtasks landed; the old
+> three tags are gone and `CombatCollisionActiveTag` is live. Followed by the
+> arming work in `../common-combat-lifecycle/`.
+
 ## Summary
 
 Reduce the enableable "active gate" set on combat entities before the arming

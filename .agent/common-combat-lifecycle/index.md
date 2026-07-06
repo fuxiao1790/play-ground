@@ -1,5 +1,12 @@
 # Combat Arming (initial delay for projectiles + AOEs)
 
+> **STATUS: IMPLEMENTED (2026-07-06).** All four subtasks landed and verified in
+> PlayMode. Project docs updated (aoe/projectile/render/ecs-notes + adr-005 +
+> render-batch-data). One post-implementation bug fixed: the two AOE collision
+> systems schedule with explicit queries, which must include `WithDisabled<ArmingTag>()`
+> because their jobs take `EnabledRefRW<ArmingTag>` — see
+> [[reference_ijobentity_explicit_query_enableable]].
+
 > Supersedes the earlier armed-delta / two-phase-death draft of this file. That
 > model was dropped in design review: on the Arming→Armed crossing the entity
 > simply flips to armed and starts fresh (no per-entity armed-delta, no
