@@ -234,8 +234,7 @@ namespace PlayGround.System.Aoe
             EnabledRefRW<Active> active,
             EnabledRefRW<CombatCollisionActiveTag> collisionActive)
         {
-            active.ValueRW = false;
-            collisionActive.ValueRW = false;
+            CombatDeathUtility.Kill(active, collisionActive);
         }
 
         internal static bool HasHitEvent(in AoeHitSpawnComponent hitSpawn) =>

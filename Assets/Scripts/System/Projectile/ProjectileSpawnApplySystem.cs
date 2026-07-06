@@ -201,7 +201,6 @@ namespace PlayGround.System.Projectile
                 HitPayload = HitPayloadFor(in cmd, faction)
             });
             ecb.SetComponent(entity, cmd.Tracking);
-            ecb.SetComponentEnabled<ProjectileTrackingComponent>(entity, cmd.Tracking.TrackingEnabled);
             ecb.SetComponent(entity, cmd.Render);
             ecb.SetComponent(entity, cmd.Authoring);
             ecb.SetComponent(entity, new CombatRenderKindId { Value = cmd.RenderTypeId });
@@ -215,8 +214,10 @@ namespace PlayGround.System.Projectile
                 });
             }
 
-            ecb.SetComponentEnabled<Active>(entity, true);
-            ecb.SetComponentEnabled<CombatCollisionActiveTag>(entity, NeedsCollision(cmd.HitPayload));
+            SpawnState spawnState = SpawnStateFor(cmd);
+            ecb.SetComponentEnabled<Active>(entity, spawnState.Active);
+            ecb.SetComponentEnabled<CombatCollisionActiveTag>(entity, spawnState.Collision);
+            ecb.SetComponentEnabled<ProjectileTrackingComponent>(entity, spawnState.Tracking);
         }
 
         private static void RecordTimedSpawnReset(
@@ -224,16 +225,40 @@ namespace PlayGround.System.Projectile
             Entity entity,
             in ProjectileSpawnCommand cmd)
         {
-            bool hasTimedSpawner = cmd.HasTimedSpawner != 0;
+            SpawnState spawnState = SpawnStateFor(cmd);
+            bool hasTimedSpawner = spawnState.Timed;
             ecb.SetComponent(entity, hasTimedSpawner ? cmd.TimedSpawn : default);
             ecb.SetComponent(entity, hasTimedSpawner ? InitialTimedSpawnStateFor(cmd) : default);
-            ecb.SetComponentEnabled<TimedSpawnComponent>(entity, hasTimedSpawner);
+            ecb.SetComponentEnabled<TimedSpawnComponent>(entity, spawnState.Timed);
         }
 
         private static bool NeedsCollision(in ProjectileHitPayload payload) =>
             payload.DirectDamageEnabled
             || payload.StackEffect.Enabled
             || payload.OnHitSpawn.Enabled;
+
+        private readonly struct SpawnState
+        {
+            public readonly bool Active;
+            public readonly bool Collision;
+            public readonly bool Tracking;
+            public readonly bool Timed;
+
+            public SpawnState(bool active, bool collision, bool tracking, bool timed)
+            {
+                Active = active;
+                Collision = collision;
+                Tracking = tracking;
+                Timed = timed;
+            }
+        }
+
+        private static SpawnState SpawnStateFor(in ProjectileSpawnCommand cmd) =>
+            new(
+                active: true,
+                collision: NeedsCollision(cmd.HitPayload),
+                tracking: cmd.Tracking.TrackingEnabled,
+                timed: cmd.HasTimedSpawner != 0);
 
         internal static ProjectileHitPayload HitPayloadFor(in ProjectileSpawnCommand cmd, CombatFaction faction)
         {
@@ -376,7 +401,6 @@ namespace PlayGround.System.Projectile
                             HitPayload = HitPayloadFor(in cfg, cfg.Faction)
                         };
                         tracking[i] = cfg.Tracking;
-                        trackingMask[i] = cfg.Tracking.TrackingEnabled;
                         renders[i] = cfg.Render;
                         authorings[i] = cfg.Authoring;
                         batchIds[i] = new CombatRenderKindId { Value = cfg.RenderTypeId };
@@ -392,13 +416,15 @@ namespace PlayGround.System.Projectile
                             });
                         }
 
-                        bool hasTimedSpawner = cfg.HasTimedSpawner != 0;
+                        SpawnState spawnState = SpawnStateFor(cfg);
+                        bool hasTimedSpawner = spawnState.Timed;
                         timedSpawns[i] = hasTimedSpawner ? cfg.TimedSpawn : default;
                         timedSpawnStates[i] = hasTimedSpawner ? InitialTimedSpawnStateFor(cfg) : default;
-                        timedSpawnMask[i] = hasTimedSpawner;
+                        timedSpawnMask[i] = spawnState.Timed;
 
-                        activeMask[i] = true;
-                        collisionActiveMask[i] = NeedsCollision(cfg.HitPayload);
+                        activeMask[i] = spawnState.Active;
+                        collisionActiveMask[i] = spawnState.Collision;
+                        trackingMask[i] = spawnState.Tracking;
                     }
                 }
 

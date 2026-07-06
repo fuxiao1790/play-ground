@@ -76,17 +76,13 @@ namespace PlayGround.System.Common
                 if (lifetime.Remaining <= 0f)
                 {
                     lifetime.Remaining = 0f;
-                    active.ValueRW = false;
-                    if (HasVfxWriter)
-                    {
-                        VfxPending.Enqueue(new VfxPendingSpawn
-                        {
-                            TypeId = identity.TypeId,
-                            Trigger = 2,
-                            Position = kinematics.Position,
-                            AreaSize = math.max(authoring.VisualScale.x, authoring.VisualScale.y)
-                        });
-                    }
+                    CombatDeathUtility.Kill(
+                        active,
+                        VfxPending,
+                        HasVfxWriter,
+                        identity.TypeId,
+                        kinematics.Position,
+                        math.max(authoring.VisualScale.x, authoring.VisualScale.y));
                 }
             }
         }
@@ -111,18 +107,14 @@ namespace PlayGround.System.Common
                 if (lifetime.Remaining <= 0f)
                 {
                     lifetime.Remaining = 0f;
-                    active.ValueRW = false;
-                    collisionActive.ValueRW = false;
-                    if (HasVfxWriter)
-                    {
-                        VfxPending.Enqueue(new VfxPendingSpawn
-                        {
-                            TypeId = identity.TypeId,
-                            Trigger = 2,
-                            Position = kinematics.Position,
-                            AreaSize = math.max(authoring.VisualScale.x, authoring.VisualScale.y)
-                        });
-                    }
+                    CombatDeathUtility.Kill(
+                        active,
+                        collisionActive,
+                        VfxPending,
+                        HasVfxWriter,
+                        identity.TypeId,
+                        kinematics.Position,
+                        math.max(authoring.VisualScale.x, authoring.VisualScale.y));
                 }
             }
         }

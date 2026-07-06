@@ -374,17 +374,13 @@ namespace PlayGround.System.Projectile
                 bool hasVfxWriter)
             {
                 lifetime.Remaining = 0f;
-                active.ValueRW = false;
-                if (hasVfxWriter)
-                {
-                    vfxPending.Enqueue(new VfxPendingSpawn
-                    {
-                        TypeId = identity.TypeId,
-                        Trigger = 2,
-                        Position = position,
-                        AreaSize = areaSize
-                    });
-                }
+                CombatDeathUtility.Kill(
+                    active,
+                    vfxPending,
+                    hasVfxWriter,
+                    identity.TypeId,
+                    position,
+                    areaSize);
             }
 
             private static bool IsGated(DynamicBuffer<ProjectileContactGateElement> contactGates, int targetId)
