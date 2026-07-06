@@ -45,6 +45,7 @@ namespace PlayGround.Tests.PlayMode
             projectileExpansion = testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
             hitApply = testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSingleSystem>();
             statusProcess = testWorld.GetOrCreateSystemManaged<StatusProcessSystem>();
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<CombatArmingSystem>());
             simGroup.AddSystemToUpdateList(impactAoeExpansion);
             simGroup.AddSystemToUpdateList(lingeringAoeExpansion);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnApplySystem>());
@@ -238,6 +239,28 @@ namespace PlayGround.Tests.PlayMode
             {
                 Assert.That(sequential[i].AoeId, Is.EqualTo(5000 + i));
             }
+        }
+
+        [Test]
+        public void ImpactAoeArmSecondsDelaysOneShotCollisionUntilArmed()
+        {
+            AddTarget(float2.zero, radius: 0.25f, targetMask: 0);
+            SpawnCircle(float2.zero, radius: 1f, damage: 2f, armSeconds: 0.05f);
+
+            TickSimulationOnly(0.01f);
+
+            Entity impact = FirstImpactAoeEntity();
+            Assert.That(entityManager.IsComponentEnabled<Active>(impact), Is.True);
+            Assert.That(entityManager.IsComponentEnabled<ArmingTag>(impact), Is.True);
+
+            TickSimulationOnly(0.01f);
+            Assert.That(ReadHitCount(), Is.EqualTo(0));
+            Assert.That(entityManager.IsComponentEnabled<Active>(impact), Is.True);
+
+            TickSimulationOnly(0.05f);
+            Assert.That(entityManager.IsComponentEnabled<ArmingTag>(impact), Is.False);
+            Assert.That(ReadHitCount(), Is.EqualTo(1));
+            Assert.That(entityManager.IsComponentEnabled<Active>(impact), Is.False);
         }
 
         [Test]
@@ -1180,13 +1203,15 @@ namespace PlayGround.Tests.PlayMode
             int renderTypeId = 1,
             TimedSpawnComponent timedSpawn = default,
             bool hasTimedSpawner = false,
-            int echoCount = 1)
+            int echoCount = 1,
+            float armSeconds = 0f)
         {
             var template = new AoeSpawnCommand
             {
                 TypeId = 1,
                 RenderTypeId = renderTypeId,
                 Lifetime = lifetime,
+                ArmSeconds = armSeconds,
                 RepeatHitCooldownSeconds = tickInterval,
                 HitPayload = new CombatHitPayload
                 {
@@ -1459,10 +1484,13 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
                 typeof(Active),
-                typeof(CombatCollisionActiveTag));
+                typeof(CombatCollisionActiveTag),
+                typeof(ArmingTag),
+                typeof(CombatArmingComponent));
 
             entityManager.SetComponentEnabled<Active>(entity, false);
             entityManager.SetComponentEnabled<CombatCollisionActiveTag>(entity, false);
+            entityManager.SetComponentEnabled<ArmingTag>(entity, false);
             return entity;
         }
 
@@ -1483,11 +1511,14 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatCollisionComponent),
                 typeof(Active),
                 typeof(CombatCollisionActiveTag),
+                typeof(ArmingTag),
+                typeof(CombatArmingComponent),
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
 
             entityManager.SetComponentEnabled<Active>(entity, false);
             entityManager.SetComponentEnabled<CombatCollisionActiveTag>(entity, false);
+            entityManager.SetComponentEnabled<ArmingTag>(entity, false);
             entityManager.SetComponentEnabled<TimedSpawnComponent>(entity, timedSpawnEnabled);
             return entity;
         }

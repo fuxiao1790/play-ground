@@ -8,7 +8,7 @@ namespace PlayGround.System.Vfx
     public struct VfxPendingSpawn
     {
         public int TypeId;
-        public byte Trigger;   // 0=spawn 1=hit 2=expire 3=pulse
+        public byte Trigger;   // 0=spawn 1=hit 2=expire 3=pulse 4=arming
         public float2 Position;
         public float AreaSize;
     }

@@ -51,6 +51,8 @@ namespace PlayGround.System.Projectile
                 typeof(CombatRenderKindId),
                 typeof(Active),
                 typeof(CombatCollisionActiveTag),
+                typeof(ArmingTag),
+                typeof(CombatArmingComponent),
                 typeof(ProjectileContactGateElement),
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
@@ -125,6 +127,8 @@ namespace PlayGround.System.Projectile
                         AuthoringHandle = GetComponentTypeHandle<CombatRenderAuthoring>(false),
                         RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderKindId>(false),
                         ContactGateHandle = GetBufferTypeHandle<ProjectileContactGateElement>(false),
+                        ArmingHandle = GetComponentTypeHandle<CombatArmingComponent>(false),
+                        ArmingTagHandle = GetComponentTypeHandle<ArmingTag>(false),
                         TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
                         TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
                     }.Schedule(default).Complete();
@@ -218,6 +222,8 @@ namespace PlayGround.System.Projectile
             ecb.SetComponentEnabled<Active>(entity, spawnState.Active);
             ecb.SetComponentEnabled<CombatCollisionActiveTag>(entity, spawnState.Collision);
             ecb.SetComponentEnabled<ProjectileTrackingComponent>(entity, spawnState.Tracking);
+            ecb.SetComponent(entity, ArmingFor(cmd));
+            ecb.SetComponentEnabled<ArmingTag>(entity, IsArming(cmd));
         }
 
         private static void RecordTimedSpawnReset(
@@ -259,6 +265,11 @@ namespace PlayGround.System.Projectile
                 collision: NeedsCollision(cmd.HitPayload),
                 tracking: cmd.Tracking.TrackingEnabled,
                 timed: cmd.HasTimedSpawner != 0);
+
+        private static CombatArmingComponent ArmingFor(in ProjectileSpawnCommand cmd) =>
+            new() { Remaining = cmd.ArmSeconds };
+
+        private static bool IsArming(in ProjectileSpawnCommand cmd) => cmd.ArmSeconds > 0f;
 
         internal static ProjectileHitPayload HitPayloadFor(in ProjectileSpawnCommand cmd, CombatFaction faction)
         {
@@ -323,6 +334,8 @@ namespace PlayGround.System.Projectile
             public ComponentTypeHandle<CombatRenderAuthoring> AuthoringHandle;
             public ComponentTypeHandle<CombatRenderKindId> RenderBatchIdHandle;
             public BufferTypeHandle<ProjectileContactGateElement> ContactGateHandle;
+            public ComponentTypeHandle<CombatArmingComponent> ArmingHandle;
+            public ComponentTypeHandle<ArmingTag> ArmingTagHandle;
             public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
             public ComponentTypeHandle<TimedSpawnStateComponent> TimedSpawnStateHandle;
 
@@ -338,6 +351,7 @@ namespace PlayGround.System.Projectile
                     EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
                     EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
                     EnabledMask trackingMask = chunk.GetEnabledMask(ref TrackingHandle);
+                    EnabledMask armingMask = chunk.GetEnabledMask(ref ArmingTagHandle);
                     EnabledMask timedSpawnMask = chunk.GetEnabledMask(ref TimedSpawnHandle);
 
                     NativeArray<ProjectileIdentityComponent> identities =
@@ -359,6 +373,8 @@ namespace PlayGround.System.Projectile
                         chunk.GetNativeArray(ref RenderBatchIdHandle);
                     BufferAccessor<ProjectileContactGateElement> gates =
                         chunk.GetBufferAccessor(ref ContactGateHandle);
+                    NativeArray<CombatArmingComponent> armings =
+                        chunk.GetNativeArray(ref ArmingHandle);
                     NativeArray<TimedSpawnComponent> timedSpawns =
                         chunk.GetNativeArray(ref TimedSpawnHandle);
                     NativeArray<TimedSpawnStateComponent> timedSpawnStates =
@@ -425,6 +441,8 @@ namespace PlayGround.System.Projectile
                         activeMask[i] = spawnState.Active;
                         collisionActiveMask[i] = spawnState.Collision;
                         trackingMask[i] = spawnState.Tracking;
+                        armings[i] = ArmingFor(cfg);
+                        armingMask[i] = IsArming(cfg);
                     }
                 }
 

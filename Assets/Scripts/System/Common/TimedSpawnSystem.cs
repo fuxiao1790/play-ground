@@ -79,6 +79,7 @@ namespace PlayGround.System.Common
 
         [BurstCompile]
         [WithAll(typeof(Active), typeof(CombatLifetimeComponent), typeof(TimedSpawnComponent))]
+        [WithDisabled(typeof(ArmingTag))]
         private partial struct TimedSpawnJob : IJobEntity
         {
             public float DeltaTime;

@@ -54,6 +54,7 @@ namespace PlayGround.System.Aoe
         // from the behavior TypeId). Drives the CombatRenderKindId / registry lookup.
         public int RenderTypeId;
         public float Lifetime;
+        public float ArmSeconds;
         public float RepeatHitCooldownSeconds;
         public CombatHitPayload HitPayload;
         public float AreaSize;

@@ -14,10 +14,40 @@ namespace PlayGround.System.Common
 
         public static void Kill(
             EnabledRefRW<Active> active,
+            EnabledRefRW<ArmingTag> arming)
+        {
+            Kill(active);
+            arming.ValueRW = false;
+        }
+
+        public static void Kill(
+            EnabledRefRW<Active> active,
             EnabledRefRW<CombatCollisionActiveTag> collisionActive)
         {
             Kill(active);
             collisionActive.ValueRW = false;
+        }
+
+        public static void Kill(
+            EnabledRefRW<Active> active,
+            EnabledRefRW<CombatCollisionActiveTag> collisionActive,
+            EnabledRefRW<ArmingTag> arming)
+        {
+            Kill(active, collisionActive);
+            arming.ValueRW = false;
+        }
+
+        public static void Kill(
+            EnabledRefRW<Active> active,
+            EnabledRefRW<ArmingTag> arming,
+            NativeQueue<VfxPendingSpawn>.ParallelWriter vfxPending,
+            bool hasVfxWriter,
+            int typeId,
+            float2 position,
+            float areaSize)
+        {
+            Kill(active, arming);
+            EnqueueExpireVfx(vfxPending, hasVfxWriter, typeId, position, areaSize);
         }
 
         public static void Kill(
@@ -29,6 +59,20 @@ namespace PlayGround.System.Common
             float areaSize)
         {
             Kill(active);
+            EnqueueExpireVfx(vfxPending, hasVfxWriter, typeId, position, areaSize);
+        }
+
+        public static void Kill(
+            EnabledRefRW<Active> active,
+            EnabledRefRW<CombatCollisionActiveTag> collisionActive,
+            EnabledRefRW<ArmingTag> arming,
+            NativeQueue<VfxPendingSpawn>.ParallelWriter vfxPending,
+            bool hasVfxWriter,
+            int typeId,
+            float2 position,
+            float areaSize)
+        {
+            Kill(active, collisionActive, arming);
             EnqueueExpireVfx(vfxPending, hasVfxWriter, typeId, position, areaSize);
         }
 

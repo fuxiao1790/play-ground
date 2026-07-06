@@ -92,6 +92,17 @@ namespace PlayGround.System.Aoe
                         Position = pos,
                         AreaSize = command.AreaSize
                     });
+
+                    if (spawned.ArmSeconds > 0f)
+                    {
+                        vfxPending.Enqueue(new VfxPendingSpawn
+                        {
+                            TypeId = spawned.TypeId,
+                            Trigger = 4,
+                            Position = pos,
+                            AreaSize = spawned.AreaSize
+                        });
+                    }
                 }
             }
         }

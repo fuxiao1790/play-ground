@@ -16,6 +16,7 @@ namespace PlayGround.System.Common
         private ComponentTypeHandle<CombatRenderAuthoring> authoringHandle;
         private ComponentTypeHandle<CombatRenderComponent> renderHandle;
         private ComponentTypeHandle<Active> activeHandle;
+        private ComponentTypeHandle<ArmingTag> armingHandle;
 
         protected override void OnCreate()
         {
@@ -33,6 +34,7 @@ namespace PlayGround.System.Common
             authoringHandle = GetComponentTypeHandle<CombatRenderAuthoring>(true);
             renderHandle = GetComponentTypeHandle<CombatRenderComponent>(false);
             activeHandle = GetComponentTypeHandle<Active>(true);
+            armingHandle = GetComponentTypeHandle<ArmingTag>(true);
         }
 
         protected override void OnUpdate()
@@ -41,13 +43,15 @@ namespace PlayGround.System.Common
             authoringHandle.Update(this);
             renderHandle.Update(this);
             activeHandle.Update(this);
+            armingHandle.Update(this);
 
             Dependency = new RenderPrepareJob
             {
                 Kinematics = kinematicsHandle,
                 Authoring = authoringHandle,
                 RenderComponents = renderHandle,
-                Active = activeHandle
+                Active = activeHandle,
+                Arming = armingHandle
             }.ScheduleParallel(renderPrepareQuery, Dependency);
         }
 
@@ -58,6 +62,7 @@ namespace PlayGround.System.Common
             [ReadOnly] public ComponentTypeHandle<CombatRenderAuthoring> Authoring;
             public ComponentTypeHandle<CombatRenderComponent> RenderComponents;
             [ReadOnly] public ComponentTypeHandle<Active> Active;
+            [ReadOnly] public ComponentTypeHandle<ArmingTag> Arming;
 
             public void Execute(
                 in ArchetypeChunk chunk,
@@ -69,11 +74,14 @@ namespace PlayGround.System.Common
                 NativeArray<CombatRenderAuthoring> auth = chunk.GetNativeArray(ref Authoring);
                 NativeArray<CombatRenderComponent> rend = chunk.GetNativeArray(ref RenderComponents);
                 EnabledMask activeMask = chunk.GetEnabledMask(ref Active);
+                bool hasArming = chunk.Has(ref Arming);
+                EnabledMask armingMask = hasArming ? chunk.GetEnabledMask(ref Arming) : default;
 
                 for (int i = 0; i < chunk.Count; i++)
                 {
                     CombatRenderComponent component = rend[i];
-                    rend[i] = activeMask[i]
+                    bool visible = activeMask[i] && (!hasArming || !armingMask[i]);
+                    rend[i] = visible
                         ? CombatRenderMatrixUtility.ElementFor(kin[i], auth[i], component)
                         : CombatRenderMatrixUtility.DegenerateInstance(component);
                 }

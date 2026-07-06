@@ -42,7 +42,9 @@ namespace PlayGround.System.Aoe
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
                 typeof(Active),
-                typeof(CombatCollisionActiveTag));
+                typeof(CombatCollisionActiveTag),
+                typeof(ArmingTag),
+                typeof(CombatArmingComponent));
 
             _deadSlotQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<AoeTag>()
@@ -103,6 +105,8 @@ namespace PlayGround.System.Aoe
                         RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
                         AuthoringHandle = GetComponentTypeHandle<CombatRenderAuthoring>(false),
                         RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderKindId>(false),
+                        ArmingHandle = GetComponentTypeHandle<CombatArmingComponent>(false),
+                        ArmingTagHandle = GetComponentTypeHandle<ArmingTag>(false),
                     }.Schedule(default).Complete();
 
                     reuseCount = reused.Value;
@@ -151,6 +155,8 @@ namespace PlayGround.System.Aoe
             public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
             public ComponentTypeHandle<CombatRenderAuthoring> AuthoringHandle;
             public ComponentTypeHandle<CombatRenderKindId> RenderBatchIdHandle;
+            public ComponentTypeHandle<CombatArmingComponent> ArmingHandle;
+            public ComponentTypeHandle<ArmingTag> ArmingTagHandle;
 
             public void Execute()
             {
@@ -163,6 +169,7 @@ namespace PlayGround.System.Aoe
                     ArchetypeChunk chunk = Chunks[chunkIndex];
                     EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
                     EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
+                    EnabledMask armingMask = chunk.GetEnabledMask(ref ArmingTagHandle);
 
                     NativeArray<AoeIdentityComponent> identities =
                         chunk.GetNativeArray(ref IdentityHandle);
@@ -181,6 +188,8 @@ namespace PlayGround.System.Aoe
                         chunk.GetNativeArray(ref AuthoringHandle);
                     NativeArray<CombatRenderKindId> batchIds =
                         chunk.GetNativeArray(ref RenderBatchIdHandle);
+                    NativeArray<CombatArmingComponent> armings =
+                        chunk.GetNativeArray(ref ArmingHandle);
 
                     for (int i = 0; i < chunk.Count && commandIndex < Configs.Length; i++)
                     {
@@ -203,9 +212,12 @@ namespace PlayGround.System.Aoe
                             batchIds,
                             i);
 
-                        bool collisionEnabled = AoeSpawnApplyUtility.NeedsCollision(cfg);
-                        activeMask[i] = collisionEnabled;
-                        collisionActiveMask[i] = collisionEnabled;
+                        AoeSpawnApplyUtility.SpawnState spawnState =
+                            AoeSpawnApplyUtility.SpawnStateFor(cfg, isLingering: false);
+                        activeMask[i] = spawnState.Active;
+                        collisionActiveMask[i] = spawnState.Collision;
+                        armings[i] = AoeSpawnApplyUtility.ArmingFor(cfg);
+                        armingMask[i] = AoeSpawnApplyUtility.IsArming(cfg);
                     }
                 }
 
@@ -250,6 +262,8 @@ namespace PlayGround.System.Aoe
                 typeof(CombatCollisionComponent),
                 typeof(Active),
                 typeof(CombatCollisionActiveTag),
+                typeof(ArmingTag),
+                typeof(CombatArmingComponent),
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
 
@@ -314,6 +328,8 @@ namespace PlayGround.System.Aoe
                         RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
                         AuthoringHandle = GetComponentTypeHandle<CombatRenderAuthoring>(false),
                         RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderKindId>(false),
+                        ArmingHandle = GetComponentTypeHandle<CombatArmingComponent>(false),
+                        ArmingTagHandle = GetComponentTypeHandle<ArmingTag>(false),
                         TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
                         TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
                     }.Schedule(default).Complete();
@@ -366,6 +382,8 @@ namespace PlayGround.System.Aoe
             public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
             public ComponentTypeHandle<CombatRenderAuthoring> AuthoringHandle;
             public ComponentTypeHandle<CombatRenderKindId> RenderBatchIdHandle;
+            public ComponentTypeHandle<CombatArmingComponent> ArmingHandle;
+            public ComponentTypeHandle<ArmingTag> ArmingTagHandle;
             public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
             public ComponentTypeHandle<TimedSpawnStateComponent> TimedSpawnStateHandle;
 
@@ -380,6 +398,7 @@ namespace PlayGround.System.Aoe
                     ArchetypeChunk chunk = Chunks[chunkIndex];
                     EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
                     EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
+                    EnabledMask armingMask = chunk.GetEnabledMask(ref ArmingTagHandle);
                     EnabledMask timedSpawnMask = chunk.GetEnabledMask(ref TimedSpawnHandle);
 
                     NativeArray<AoeIdentityComponent> identities =
@@ -403,6 +422,8 @@ namespace PlayGround.System.Aoe
                         chunk.GetNativeArray(ref AuthoringHandle);
                     NativeArray<CombatRenderKindId> batchIds =
                         chunk.GetNativeArray(ref RenderBatchIdHandle);
+                    NativeArray<CombatArmingComponent> armings =
+                        chunk.GetNativeArray(ref ArmingHandle);
                     NativeArray<TimedSpawnComponent> timedSpawns =
                         chunk.GetNativeArray(ref TimedSpawnHandle);
                     NativeArray<TimedSpawnStateComponent> timedSpawnStates =
@@ -432,16 +453,19 @@ namespace PlayGround.System.Aoe
                         lifetimes[i] = new CombatLifetimeComponent { Remaining = cfg.Lifetime };
                         pulseVfxs[i] = AoeSpawnApplyUtility.PulseVfxFor(cfg);
 
-                        bool hasTimedSpawner = AoeSpawnApplyUtility.HasTimedSpawner(cfg);
+                        AoeSpawnApplyUtility.SpawnState spawnState =
+                            AoeSpawnApplyUtility.SpawnStateFor(cfg, isLingering: true);
+                        bool hasTimedSpawner = spawnState.Timed;
                         timedSpawns[i] = hasTimedSpawner ? cfg.TimedSpawn : default;
                         timedSpawnStates[i] = hasTimedSpawner
                             ? AoeSpawnApplyUtility.InitialTimedSpawnStateFor(cfg)
                             : default;
-                        timedSpawnMask[i] = hasTimedSpawner;
+                        timedSpawnMask[i] = spawnState.Timed;
 
-                        bool collisionEnabled = AoeSpawnApplyUtility.NeedsCollision(cfg);
-                        activeMask[i] = true;
-                        collisionActiveMask[i] = collisionEnabled;
+                        activeMask[i] = spawnState.Active;
+                        collisionActiveMask[i] = spawnState.Collision;
+                        armings[i] = AoeSpawnApplyUtility.ArmingFor(cfg);
+                        armingMask[i] = AoeSpawnApplyUtility.IsArming(cfg);
                     }
                 }
 
@@ -468,9 +492,11 @@ namespace PlayGround.System.Aoe
             ecb.SetComponent(entity, render);
             ecb.SetComponent(entity, cmd.Authoring);
             ecb.SetComponent(entity, new CombatRenderKindId { Value = cmd.RenderTypeId });
-            bool collisionEnabled = NeedsCollision(cmd);
-            ecb.SetComponentEnabled<Active>(entity, collisionEnabled);
-            ecb.SetComponentEnabled<CombatCollisionActiveTag>(entity, collisionEnabled);
+            SpawnState spawnState = SpawnStateFor(cmd, isLingering: false);
+            ecb.SetComponentEnabled<Active>(entity, spawnState.Active);
+            ecb.SetComponentEnabled<CombatCollisionActiveTag>(entity, spawnState.Collision);
+            ecb.SetComponent(entity, ArmingFor(cmd));
+            ecb.SetComponentEnabled<ArmingTag>(entity, IsArming(cmd));
         }
 
         public static void RecordLingeringReset(
@@ -495,9 +521,11 @@ namespace PlayGround.System.Aoe
             ecb.SetComponent(entity, render);
             ecb.SetComponent(entity, cmd.Authoring);
             ecb.SetComponent(entity, new CombatRenderKindId { Value = cmd.RenderTypeId });
-            bool collisionEnabled = NeedsCollision(cmd);
-            ecb.SetComponentEnabled<Active>(entity, true);
-            ecb.SetComponentEnabled<CombatCollisionActiveTag>(entity, collisionEnabled);
+            SpawnState spawnState = SpawnStateFor(cmd, isLingering: true);
+            ecb.SetComponentEnabled<Active>(entity, spawnState.Active);
+            ecb.SetComponentEnabled<CombatCollisionActiveTag>(entity, spawnState.Collision);
+            ecb.SetComponent(entity, ArmingFor(cmd));
+            ecb.SetComponentEnabled<ArmingTag>(entity, IsArming(cmd));
         }
 
         public static void WriteCommon(
@@ -533,6 +561,11 @@ namespace PlayGround.System.Aoe
 
         public static bool HasTimedSpawner(in AoeSpawnCommand cmd) =>
             cmd.Lifetime > 0f && cmd.HasTimedSpawner != 0;
+
+        public static CombatArmingComponent ArmingFor(in AoeSpawnCommand cmd) =>
+            new() { Remaining = cmd.ArmSeconds };
+
+        public static bool IsArming(in AoeSpawnCommand cmd) => cmd.ArmSeconds > 0f;
 
         // Single source of truth for a freshly-spawned AOE's enable-gate state
         // (Active / collision / timed-spawn). Both the reuse (EnabledMask) and the

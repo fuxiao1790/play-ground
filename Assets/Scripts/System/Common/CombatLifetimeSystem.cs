@@ -59,6 +59,7 @@ namespace PlayGround.System.Common
 
         [BurstCompile]
         [WithAll(typeof(ProjectileTag), typeof(Active), typeof(CombatLifetimeComponent))]
+        [WithDisabled(typeof(ArmingTag))]
         private partial struct ProjectileLifetimeJob : IJobEntity
         {
             public float DeltaTime;
@@ -70,7 +71,8 @@ namespace PlayGround.System.Common
                 in CombatKinematicsComponent kinematics,
                 in CombatRenderAuthoring authoring,
                 ref CombatLifetimeComponent lifetime,
-                EnabledRefRW<Active> active)
+                EnabledRefRW<Active> active,
+                EnabledRefRW<ArmingTag> arming)
             {
                 lifetime.Remaining -= DeltaTime;
                 if (lifetime.Remaining <= 0f)
@@ -78,6 +80,7 @@ namespace PlayGround.System.Common
                     lifetime.Remaining = 0f;
                     CombatDeathUtility.Kill(
                         active,
+                        arming,
                         VfxPending,
                         HasVfxWriter,
                         identity.TypeId,
@@ -89,6 +92,7 @@ namespace PlayGround.System.Common
 
         [BurstCompile]
         [WithAll(typeof(AoeTag), typeof(Active), typeof(CombatLifetimeComponent))]
+        [WithDisabled(typeof(ArmingTag))]
         private partial struct AoeLifetimeJob : IJobEntity
         {
             public float DeltaTime;
@@ -101,7 +105,8 @@ namespace PlayGround.System.Common
                 in CombatRenderAuthoring authoring,
                 ref CombatLifetimeComponent lifetime,
                 EnabledRefRW<Active> active,
-                EnabledRefRW<CombatCollisionActiveTag> collisionActive)
+                EnabledRefRW<CombatCollisionActiveTag> collisionActive,
+                EnabledRefRW<ArmingTag> arming)
             {
                 lifetime.Remaining -= DeltaTime;
                 if (lifetime.Remaining <= 0f)
@@ -110,6 +115,7 @@ namespace PlayGround.System.Common
                     CombatDeathUtility.Kill(
                         active,
                         collisionActive,
+                        arming,
                         VfxPending,
                         HasVfxWriter,
                         identity.TypeId,

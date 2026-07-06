@@ -386,6 +386,8 @@ namespace PlayGround.Tests.PlayMode
                 typeof(ProjectileHitComponent),
                 typeof(Active),
                 typeof(CombatCollisionActiveTag),
+                typeof(ArmingTag),
+                typeof(CombatArmingComponent),
                 typeof(ProjectileContactGateElement));
 
             float radius = 1f;
@@ -431,6 +433,7 @@ namespace PlayGround.Tests.PlayMode
                     },
                     onHitSpawn: onHitSpawn)
             });
+            entityManager.SetComponentEnabled<ArmingTag>(entity, false);
 
             return entity;
         }

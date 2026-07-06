@@ -42,6 +42,7 @@ namespace PlayGround.System.Projectile
         public float RepeatHitCooldownSeconds;
         public int SeedContactGateTargetId;
         public float Lifetime;
+        public float ArmSeconds;
         public float Radius;
         public float RotationRadians;
         public float2 Position;

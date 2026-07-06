@@ -1,4 +1,5 @@
 using PlayGround.System.Common;
+using PlayGround.System.Vfx;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -134,15 +135,33 @@ namespace PlayGround.System.Projectile
                 return;
             }
 
+            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatVfxDispatchSingleton>(
+                out RefRW<CombatVfxDispatchSingleton> vfx);
+            NativeQueue<VfxPendingSpawn> vfxQueue = hasVfx ? vfx.ValueRO.PendingSpawns : default;
+            hasVfx = hasVfx && vfxQueue.IsCreated;
+
             NativeList<ProjectileSpawnCommand> commands =
                 new(events.Length, Allocator.TempJob);
+
+            JobHandle expansionInput = Dependency;
+            if (hasVfx)
+            {
+                expansionInput = JobHandle.CombineDependencies(expansionInput, vfx.ValueRO.ProducerHandle);
+            }
 
             Dependency = new ProjectileExpansionJob
             {
                 Events = events,
                 Templates = templates.Map,
-                Commands = commands
-            }.Schedule(Dependency);
+                Commands = commands,
+                VfxPending = hasVfx ? vfxQueue.AsParallelWriter() : default,
+                HasVfxWriter = hasVfx
+            }.Schedule(expansionInput);
+
+            if (hasVfx)
+            {
+                vfx.ValueRW.ProducerHandle = Dependency;
+            }
 
             Dependency = events.Dispose(Dependency);
             singleton.Commands = commands;
@@ -155,6 +174,8 @@ namespace PlayGround.System.Projectile
             [ReadOnly] public NativeArray<ProjectileSpawnEvent> Events;
             [ReadOnly] public NativeHashMap<Hash128, ProjectileSpawnCommand> Templates;
             public NativeList<ProjectileSpawnCommand> Commands;
+            public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
+            public bool HasVfxWriter;
 
             public void Execute()
             {
@@ -253,6 +274,17 @@ namespace PlayGround.System.Projectile
                 command.TimedSpawn = timedSpawn;
 
                 Commands.Add(command);
+
+                if (HasVfxWriter && command.ArmSeconds > 0f)
+                {
+                    VfxPending.Enqueue(new VfxPendingSpawn
+                    {
+                        TypeId = command.TypeId,
+                        Trigger = 4,
+                        Position = command.Position,
+                        AreaSize = math.max(command.Authoring.VisualScale.x, command.Authoring.VisualScale.y)
+                    });
+                }
             }
 
             private static float SpreadAngle(float spread, int i, int count) =>

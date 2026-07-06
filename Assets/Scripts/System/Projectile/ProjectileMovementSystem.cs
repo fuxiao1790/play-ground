@@ -23,6 +23,7 @@ namespace PlayGround.System.Projectile
 
         [BurstCompile]
         [WithAll(typeof(ProjectileTag), typeof(Active))]
+        [WithDisabled(typeof(ArmingTag))]
         private partial struct ProjectileMovementJob : IJobEntity
         {
             public float DeltaTime;

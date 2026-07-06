@@ -26,6 +26,7 @@ namespace PlayGround.Tests.PlayMode
             testWorld = new World("ProjectileSpawnPipelineTest");
             entityManager = testWorld.EntityManager;
             simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<CombatArmingSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<CombatLifetimeSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileMovementSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TimedSpawnSystem>());
@@ -108,6 +109,45 @@ namespace PlayGround.Tests.PlayMode
 
             Assert.That(kinematics.Velocity.x, Is.EqualTo(dir.x * speed).Within(0.001f));
             Assert.That(kinematics.Velocity.y, Is.EqualTo(dir.y * speed).Within(0.001f));
+        }
+
+        [Test]
+        public void ProjectileArmSecondsHoldsMovementLifetimeAndTimedSpawnUntilArmed()
+        {
+            const int ParentId = 9100;
+            EnqueueEvent(MakeEvent(
+                position: float2.zero,
+                speed: 10f,
+                lifetime: 5f,
+                hasTimedSpawner: true,
+                baseProjectileId: ParentId,
+                armSeconds: 0.05f,
+                timedIntervalSeconds: 0.001f));
+
+            Tick(0.01f);
+
+            Entity parent = ProjectileById(ParentId);
+            Assert.That(entityManager.IsComponentEnabled<Active>(parent), Is.True);
+            Assert.That(entityManager.IsComponentEnabled<ArmingTag>(parent), Is.True);
+            Assert.That(entityManager.GetComponentData<CombatLifetimeComponent>(parent).Remaining, Is.EqualTo(5f));
+
+            Tick(0.01f);
+
+            CombatKinematicsComponent heldKinematics =
+                entityManager.GetComponentData<CombatKinematicsComponent>(parent);
+            Assert.That(heldKinematics.Position.x, Is.EqualTo(0f).Within(0.0001f));
+            Assert.That(heldKinematics.Position.y, Is.EqualTo(0f).Within(0.0001f));
+            Assert.That(entityManager.GetComponentData<CombatLifetimeComponent>(parent).Remaining, Is.EqualTo(5f));
+            Assert.That(TotalProjectileCount(), Is.EqualTo(1));
+
+            Tick(0.05f);
+
+            CombatKinematicsComponent armedKinematics =
+                entityManager.GetComponentData<CombatKinematicsComponent>(parent);
+            Assert.That(entityManager.IsComponentEnabled<ArmingTag>(parent), Is.False);
+            Assert.That(armedKinematics.Position.x, Is.GreaterThan(0f));
+            Assert.That(entityManager.GetComponentData<CombatLifetimeComponent>(parent).Remaining, Is.LessThan(5f));
+            Assert.That(TotalProjectileCount(), Is.GreaterThan(1));
         }
 
         [Test]
@@ -367,7 +407,9 @@ namespace PlayGround.Tests.PlayMode
             int baseProjectileId = 1,
             uint jitterSeed = 0u,
             int deterministicIdTickIndex = 0,
-            ProjectileChildSpawnPatternType spawnPatternType = ProjectileChildSpawnPatternType.Forward)
+            ProjectileChildSpawnPatternType spawnPatternType = ProjectileChildSpawnPatternType.Forward,
+            float armSeconds = 0f,
+            float timedIntervalSeconds = 1f)
         {
             if (math.lengthsq(baseDirection) < 0.0001f)
                 baseDirection = new float2(1f, 0f);
@@ -382,6 +424,7 @@ namespace PlayGround.Tests.PlayMode
                 SpreadDegrees = spreadDegrees,
                 SpawnPatternType = spawnPatternType,
                 Lifetime = lifetime,
+                ArmSeconds = armSeconds,
                 Radius = 0.25f,
                 HalfExtents = float2.zero,
                 ShapeType = CombatShapeType.Circle,
@@ -395,8 +438,8 @@ namespace PlayGround.Tests.PlayMode
                     {
                         ChildKind = IntervalChildKind.Projectile,
                         JitterSeed = 1,
-                        IntervalSeconds = 1f,
-                        TemplateKey = default
+                        IntervalSeconds = timedIntervalSeconds,
+                        TemplateKey = childProjectileTemplateKey
                     }
                     : default
             };
@@ -448,6 +491,24 @@ namespace PlayGround.Tests.PlayMode
             return key;
         }
 
+        private Entity ProjectileById(int projectileId)
+        {
+            using EntityQuery q = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileIdentityComponent>());
+            using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
+            for (int i = 0; i < entities.Length; i++)
+            {
+                ProjectileIdentityComponent identity =
+                    entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]);
+                if (identity.ProjectileId == projectileId)
+                {
+                    return entities[i];
+                }
+            }
+
+            Assert.Fail($"Projectile {projectileId} was not spawned.");
+            return Entity.Null;
+        }
+
         private Entity CreateDisabledProjectileSlot(bool childSpawner)
         {
             Entity entity = entityManager.CreateEntity(
@@ -463,6 +524,8 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatRenderKindId),
                 typeof(Active),
                 typeof(CombatCollisionActiveTag),
+                typeof(ArmingTag),
+                typeof(CombatArmingComponent),
                 typeof(ProjectileContactGateElement),
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
@@ -470,6 +533,7 @@ namespace PlayGround.Tests.PlayMode
             entityManager.SetComponentData(entity, new CombatRenderKindId { Value = 1 });
             entityManager.SetComponentEnabled<Active>(entity, false);
             entityManager.SetComponentEnabled<CombatCollisionActiveTag>(entity, false);
+            entityManager.SetComponentEnabled<ArmingTag>(entity, false);
             entityManager.SetComponentEnabled<ProjectileTrackingComponent>(entity, false);
             entityManager.SetComponentEnabled<TimedSpawnComponent>(entity, childSpawner);
             return entity;
@@ -490,6 +554,8 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatRenderKindId),
                 typeof(Active),
                 typeof(CombatCollisionActiveTag),
+                typeof(ArmingTag),
+                typeof(CombatArmingComponent),
                 typeof(ProjectileContactGateElement),
                 typeof(TimedSpawnComponent),
                 typeof(TimedSpawnStateComponent));
@@ -528,6 +594,7 @@ namespace PlayGround.Tests.PlayMode
             });
             entityManager.SetComponentEnabled<Active>(entity, true);
             entityManager.SetComponentEnabled<CombatCollisionActiveTag>(entity, true);
+            entityManager.SetComponentEnabled<ArmingTag>(entity, false);
             entityManager.SetComponentEnabled<ProjectileTrackingComponent>(entity, false);
             entityManager.SetComponentEnabled<TimedSpawnComponent>(entity, true);
         }

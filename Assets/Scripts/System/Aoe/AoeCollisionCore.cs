@@ -21,6 +21,7 @@ namespace PlayGround.System.Aoe
             bool deactivateAfterPass,
             EnabledRefRW<Active> active,
             EnabledRefRW<CombatCollisionActiveTag> collisionActive,
+            EnabledRefRW<ArmingTag> arming,
             NativeArray<Entity> targetEntities,
             NativeArray<TargetPosition> targetPositions,
             NativeArray<TargetCollisionShape> targetShapes,
@@ -38,7 +39,7 @@ namespace PlayGround.System.Aoe
         {
             if (identity.Faction == CombatFaction.None)
             {
-                Deactivate(active, collisionActive);
+                Deactivate(active, collisionActive, arming);
                 return;
             }
 
@@ -124,7 +125,7 @@ namespace PlayGround.System.Aoe
             }
 
             if (deactivateAfterPass)
-                Deactivate(active, collisionActive);
+                Deactivate(active, collisionActive, arming);
         }
 
         internal static void EmitHit(
@@ -232,9 +233,10 @@ namespace PlayGround.System.Aoe
 
         internal static void Deactivate(
             EnabledRefRW<Active> active,
-            EnabledRefRW<CombatCollisionActiveTag> collisionActive)
+            EnabledRefRW<CombatCollisionActiveTag> collisionActive,
+            EnabledRefRW<ArmingTag> arming)
         {
-            CombatDeathUtility.Kill(active, collisionActive);
+            CombatDeathUtility.Kill(active, collisionActive, arming);
         }
 
         internal static bool HasHitEvent(in AoeHitSpawnComponent hitSpawn) =>

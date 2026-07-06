@@ -26,6 +26,7 @@ namespace PlayGround.System.Aoe
                 .WithAllRW<AoeHitGateComponent>()
                 .WithAll<AoeHitSpawnComponent>()
                 .WithAll<AoeAreaComponent>()
+                .WithDisabled<ArmingTag>()
                 .WithAll<LingeringAoeTag>()
                 .Build(ref state);
         }
@@ -121,6 +122,7 @@ namespace PlayGround.System.Aoe
 
         [BurstCompile]
         [WithAll(typeof(AoeTag), typeof(Active), typeof(CombatCollisionActiveTag))]
+        [WithDisabled(typeof(ArmingTag))]
         private partial struct LingeringAoeCollisionJob : IJobEntity
         {
             [ReadOnly] public NativeArray<Entity> TargetEntities;
@@ -148,7 +150,8 @@ namespace PlayGround.System.Aoe
                 in AoeHitSpawnComponent hitSpawn,
                 in AoeAreaComponent area,
                 EnabledRefRW<Active> active,
-                EnabledRefRW<CombatCollisionActiveTag> collisionActive)
+                EnabledRefRW<CombatCollisionActiveTag> collisionActive,
+                EnabledRefRW<ArmingTag> arming)
             {
                 hitGate.Remaining -= DeltaTime;
                 if (hitGate.Remaining > 0f)
@@ -169,6 +172,7 @@ namespace PlayGround.System.Aoe
                     false,
                     active,
                     collisionActive,
+                    arming,
                     TargetEntities,
                     TargetPositions,
                     TargetShapes,

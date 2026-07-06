@@ -196,6 +196,17 @@ namespace PlayGround.System.Common
     {
     }
 
+    // ECS Lifecycle: enableable common arming pause flag; added to reusable combat entities at creation; enabled on spawn while ArmSeconds counts down, disabled when armed or despawned.
+    public struct ArmingTag : IComponentData, IEnableableComponent
+    {
+    }
+
+    // ECS Lifecycle: common arming timer; present on reusable combat entities; reset on spawn and counted down only while ArmingTag is enabled.
+    public struct CombatArmingComponent : IComponentData
+    {
+        public float Remaining;
+    }
+
     // ECS Lifecycle: enableable timed-spawn data; present on projectiles and lingering AOEs; absent from impact AOEs.
     // Enabled only while interval children should emit; lifetime remains plain timer data on the same source entity.
     public struct TimedSpawnComponent : IComponentData, IEnableableComponent

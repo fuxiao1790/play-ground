@@ -312,6 +312,8 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatLifetimeComponent),
                 typeof(ProjectileHitComponent),
                 typeof(ProjectileTrackingComponent),
+                typeof(ArmingTag),
+                typeof(CombatArmingComponent),
                 typeof(Active));
             entityManager.SetComponentData(projectileEntity, new ProjectileIdentityComponent
             {
@@ -332,6 +334,7 @@ namespace PlayGround.Tests.PlayMode
                 BoundsMax = position + 0.25f
             });
             entityManager.SetComponentData(projectileEntity, new CombatLifetimeComponent { Remaining = 10f });
+            entityManager.SetComponentEnabled<ArmingTag>(projectileEntity, false);
             entityManager.SetComponentData(projectileEntity, new ProjectileHitComponent
             {
                 HitPayload = new ProjectileHitPayload(new CombatHitPayload
