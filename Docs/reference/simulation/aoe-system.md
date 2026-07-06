@@ -160,9 +160,11 @@ spawn, and status producers route by kind without looking up templates.
 
 There are two AOE archetypes:
 
-- Impact AOE: lean one-shot area, no `CombatLifetimeComponent`, no
+- Impact AOE: lean one-shot area, no `LingeringAoeTag`, no
+  `CombatLifetimeComponent`, no
   `AoePulseVfxComponent`, and no timed-spawn data.
-- Lingering AOE: finite-lifetime area with `CombatLifetimeComponent`,
+- Lingering AOE: finite-lifetime area with `LingeringAoeTag`,
+  `CombatLifetimeComponent`,
   `AoePulseVfxComponent`, `TimedSpawnComponent`, and `TimedSpawnStateComponent`.
 
 All AOE entities carry:
@@ -178,9 +180,9 @@ All AOE entities carry:
 - `AoeAreaComponent`
 - common render components
 
-`CombatLifetimeComponent` presence is the impact-vs-lingering discriminator.
-Timed spawn is an enableable bit on lingering AOEs only. This removes the former
-non-timed vs timed-lingering archetype split while keeping impact chunks small.
+`LingeringAoeTag` is the impact-vs-lingering discriminator. Timed spawn is an
+enableable bit on lingering AOEs only. This removes the former non-timed vs
+timed-lingering archetype split while keeping impact chunks small.
 
 Runtime despawn disables `Active` and `CombatRenderActiveTag`. Entities remain
 available for reuse until the owning `CombatRoot` tears down its faction data.
@@ -197,13 +199,14 @@ suffix, so cold count indicates true pool shortage for that AOE archetype.
 
 Impact AOE:
 
-- `CombatLifetimeComponent` is absent.
+- `LingeringAoeTag` and `CombatLifetimeComponent` are absent.
 - Collision runs once.
 - The AOE deactivates after that collision pass.
 
 Lingering AOE:
 
-- `CombatLifetimeComponent` is enabled with remaining lifetime.
+- `LingeringAoeTag` is present.
+- `CombatLifetimeComponent` stores remaining lifetime.
 - `CombatLifetimeSystem` expires it when remaining time reaches zero.
 - Collision can hit immediately.
 - `AoeHitGateComponent.Remaining` prevents another collision pass until the
@@ -219,7 +222,7 @@ AOE collision systems own hit qualification and consequence emission. They may:
 - build occupied target cells keyed by `TargetFaction`
 - perform bounds and narrow-phase checks
 - de-dup targets within one collision pass
-- disable pulse AOEs after their one collision pass
+- disable impact AOEs after their one collision pass
 - emit plain data events for damage, projectile bursts, and VFX
 
 It may not:

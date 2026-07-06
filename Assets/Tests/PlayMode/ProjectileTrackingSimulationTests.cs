@@ -332,7 +332,6 @@ namespace PlayGround.Tests.PlayMode
                 BoundsMax = position + 0.25f
             });
             entityManager.SetComponentData(projectileEntity, new CombatLifetimeComponent { Remaining = 10f });
-            entityManager.SetComponentEnabled<CombatLifetimeComponent>(projectileEntity, true);
             entityManager.SetComponentData(projectileEntity, new ProjectileHitComponent
             {
                 HitPayload = new ProjectileHitPayload(new CombatHitPayload

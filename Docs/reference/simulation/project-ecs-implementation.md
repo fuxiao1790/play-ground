@@ -39,9 +39,10 @@ This document tracks implementation decisions, patterns, and current architectur
   `CombatFaction`.
 - `CombatScope` is shared across domains and factions, so it does not imply
   domain by itself. AOE entities carry `AoeTag` plus common
-  `CombatKinematicsComponent`, `CombatCollisionComponent`,
-  `CombatLifetimeComponent`, and generic `Active`. AOE systems must query
-  `AoeTag`, never common combat components or scope membership alone.
+  `CombatKinematicsComponent`, `CombatCollisionComponent`, and generic
+  `Active`; lingering AOEs also carry `LingeringAoeTag` and
+  `CombatLifetimeComponent`. AOE systems must query `AoeTag`, never common
+  combat components or scope membership alone.
 - Runtime despawn disables `Active`.
 - End-of-simulation cleanup may later destroy bounded excess disabled slots
   when frame headroom exists. Impact and lingering AOEs are evaluated as
@@ -49,10 +50,11 @@ This document tracks implementation decisions, patterns, and current architectur
 - `AOE spawn expansion systems` expands `AOE variant spawn event` into one-entity
   `AoeSpawnCommand` values.
 - `ImpactAoeSpawnApplySystem` queries `WithAll<AoeTag>()`,
-  `WithDisabled<Active>()`, and `WithNone<CombatLifetimeComponent>()`.
+  `WithDisabled<Active>()`, and `WithNone<LingeringAoeTag>()`.
 - `LingeringAoeSpawnApplySystem` queries `WithAll<AoeTag>()`,
-  `WithDisabled<Active>()`, and present `CombatLifetimeComponent`.
+  `WithDisabled<Active>()`, and `WithAll<LingeringAoeTag>()`.
 - Impact AOE stays lifetime/timed-spawn absent. Lingering AOE carries
+  `LingeringAoeTag`, `CombatLifetimeComponent`,
   `TimedSpawnComponent` and `TimedSpawnStateComponent`; timed vs non-timed
   lingering reuse crosses through the enableable timed-spawn bit.
 - AOE counters track active, spawned, despawned/reused, hit events, active

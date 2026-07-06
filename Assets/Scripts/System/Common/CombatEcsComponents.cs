@@ -192,7 +192,7 @@ namespace PlayGround.System.Common
     }
 
     // ECS Lifecycle: enableable timed-spawn data; present on projectiles and lingering AOEs; absent from impact AOEs.
-    // Enabled only while interval children should emit. Enabling this requires enabled CombatLifetimeComponent.
+    // Enabled only while interval children should emit; lifetime remains plain timer data on the same source entity.
     public struct TimedSpawnComponent : IComponentData, IEnableableComponent
     {
         public CombatFaction Faction;
@@ -211,9 +211,8 @@ namespace PlayGround.System.Common
         public int TickIndex;
     }
 
-    // ECS Lifecycle: enableable common lifetime component; present and enabled on projectiles and lingering AOEs; absent from impact AOEs.
-    // Presence is the impact-vs-lingering AOE discriminator. CombatLifetimeSystem counts it down and disables Active on expiry.
-    public struct CombatLifetimeComponent : IComponentData, IEnableableComponent
+    // ECS Lifecycle: common lifetime timer; present on projectiles and lingering AOEs; absent from impact AOEs. CombatLifetimeSystem counts Remaining down and disables Active on expiry.
+    public struct CombatLifetimeComponent : IComponentData
     {
         public float Remaining;
     }

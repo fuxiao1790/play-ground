@@ -507,13 +507,12 @@ namespace PlayGround.Tests.PlayMode
             Tick(0.01f);
             Entity lingering = FirstLingeringAoeEntity();
 
-            Assert.That(entityManager.HasComponent<CombatLifetimeComponent>(impact), Is.False);
+            Assert.That(entityManager.HasComponent<LingeringAoeTag>(impact), Is.False);
             Assert.That(entityManager.HasComponent<AoePulseVfxComponent>(impact), Is.False);
             Assert.That(entityManager.HasComponent<TimedSpawnComponent>(impact), Is.False);
-            Assert.That(entityManager.HasComponent<CombatLifetimeComponent>(lingering), Is.True);
+            Assert.That(entityManager.HasComponent<LingeringAoeTag>(lingering), Is.True);
             Assert.That(entityManager.HasComponent<AoePulseVfxComponent>(lingering), Is.True);
             Assert.That(entityManager.HasComponent<TimedSpawnComponent>(lingering), Is.True);
-            Assert.That(entityManager.IsComponentEnabled<CombatLifetimeComponent>(lingering), Is.True);
             Assert.That(entityManager.IsComponentEnabled<TimedSpawnComponent>(lingering), Is.False);
 
             int impactCapacity = entityManager.GetChunk(impact).Capacity;
@@ -580,7 +579,6 @@ namespace PlayGround.Tests.PlayMode
             Tick(0.01f);
             Entity reusedAsTimed = FirstLingeringAoeEntity();
             Assert.That(reusedAsTimed, Is.EqualTo(firstLingering));
-            Assert.That(entityManager.IsComponentEnabled<CombatLifetimeComponent>(reusedAsTimed), Is.True);
             Assert.That(entityManager.IsComponentEnabled<TimedSpawnComponent>(reusedAsTimed), Is.True);
 
             Tick(0.01f);
@@ -589,7 +587,6 @@ namespace PlayGround.Tests.PlayMode
             Entity reusedAsNonTimed = FirstLingeringAoeEntity();
 
             Assert.That(reusedAsNonTimed, Is.EqualTo(firstLingering));
-            Assert.That(entityManager.IsComponentEnabled<CombatLifetimeComponent>(reusedAsNonTimed), Is.True);
             Assert.That(entityManager.IsComponentEnabled<TimedSpawnComponent>(reusedAsNonTimed), Is.False);
             Assert.That(TotalAoeCount(), Is.EqualTo(1));
         }
@@ -1436,7 +1433,7 @@ namespace PlayGround.Tests.PlayMode
         {
             using EntityQuery q = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<AoeTag>()
-                .WithNone<CombatLifetimeComponent>()
+                .WithNone<LingeringAoeTag>()
                 .Build(entityManager);
             return q.CalculateEntityCount();
         }
@@ -1445,7 +1442,7 @@ namespace PlayGround.Tests.PlayMode
         {
             using EntityQuery q = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<AoeTag>()
-                .WithAll<CombatLifetimeComponent>()
+                .WithAll<LingeringAoeTag>()
                 .Build(entityManager);
             return q.CalculateEntityCount();
         }
@@ -1476,6 +1473,7 @@ namespace PlayGround.Tests.PlayMode
         {
             Entity entity = entityManager.CreateEntity(
                 typeof(AoeTag),
+                typeof(LingeringAoeTag),
                 typeof(AoeIdentityComponent),
                 typeof(CombatLifetimeComponent),
                 typeof(AoeHitGateComponent),
@@ -1495,7 +1493,6 @@ namespace PlayGround.Tests.PlayMode
             entityManager.SetComponentEnabled<Active>(entity, false);
             entityManager.SetComponentEnabled<AoeCollisionActiveTag>(entity, false);
             entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, false);
-            entityManager.SetComponentEnabled<CombatLifetimeComponent>(entity, true);
             entityManager.SetComponentEnabled<TimedSpawnComponent>(entity, timedSpawnEnabled);
             return entity;
         }
@@ -1504,7 +1501,7 @@ namespace PlayGround.Tests.PlayMode
         {
             using EntityQuery q = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<AoeTag>()
-                .WithNone<CombatLifetimeComponent>()
+                .WithNone<LingeringAoeTag>()
                 .Build(entityManager);
             using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
             for (int i = 0; i < entities.Length; i++)
@@ -1527,7 +1524,7 @@ namespace PlayGround.Tests.PlayMode
         {
             using EntityQuery q = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<AoeTag>()
-                .WithNone<CombatLifetimeComponent>()
+                .WithNone<LingeringAoeTag>()
                 .Build(entityManager);
             using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
             Assert.That(entities.Length, Is.GreaterThan(0), "No impact AOE entities found.");
@@ -1538,7 +1535,7 @@ namespace PlayGround.Tests.PlayMode
         {
             using EntityQuery q = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<AoeTag>()
-                .WithAll<CombatLifetimeComponent>()
+                .WithAll<LingeringAoeTag>()
                 .Build(entityManager);
             using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
             Assert.That(entities.Length, Is.GreaterThan(0), "No lingering AOE entities found.");

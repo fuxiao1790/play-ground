@@ -28,7 +28,7 @@ namespace PlayGround.System.Aoe
                 .WithAll<AoeHitSpawnComponent>()
                 .WithAll<AoeAreaComponent>()
                 .WithAllRW<CombatRenderActiveTag>()
-                .WithNone<CombatLifetimeComponent>()
+                .WithNone<LingeringAoeTag>()
                 .Build(ref state);
         }
 
@@ -122,7 +122,7 @@ namespace PlayGround.System.Aoe
 
         [BurstCompile]
         [WithAll(typeof(AoeTag), typeof(Active), typeof(AoeCollisionActiveTag))]
-        [WithNone(typeof(CombatLifetimeComponent))]
+        [WithNone(typeof(LingeringAoeTag))]
         private partial struct ImpactAoeCollisionJob : IJobEntity
         {
             [ReadOnly] public NativeArray<Entity> TargetEntities;

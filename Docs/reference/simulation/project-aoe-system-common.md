@@ -211,9 +211,10 @@ projectiles reuse across the same pool; `TimedSpawnComponent` is enabled or
 disabled during reset.
 
 AOE apply is split by pool. Impact AOEs reuse slots without
-`CombatLifetimeComponent`. Lingering AOEs reuse slots with
-`CombatLifetimeComponent`. Timed vs non-timed lingering AOEs reuse across the
-same lingering pool; `TimedSpawnComponent` is enabled or disabled during reset.
+`LingeringAoeTag`. Lingering AOEs reuse slots with `LingeringAoeTag` and plain
+`CombatLifetimeComponent` timer data. Timed vs non-timed lingering AOEs reuse
+across the same lingering pool; `TimedSpawnComponent` is enabled or disabled
+during reset.
 
 Reusable slots are found with `WithDisabled<Active>()`. Each apply system runs
 one single-threaded Burst reuse job that resets all per-instance data and
@@ -237,7 +238,6 @@ Domain/render enableable state:
 - `ProjectileCollisionActiveTag`
 - `AoeCollisionActiveTag`
 - `CombatRenderActiveTag`
-- `CombatLifetimeComponent`
 - `ProjectileTrackingComponent`
 
 Projectile despawn paths:
@@ -252,7 +252,7 @@ AOE despawn paths:
 - `CombatLifetimeSystem` disables `Active`, `AoeCollisionActiveTag`, and
   `CombatRenderActiveTag` on lingering AOE lifetime expiry.
 - `AoeCollisionCore` disables `Active`, `AoeCollisionActiveTag`, and
-  `CombatRenderActiveTag` for invalid AOEs and pulse AOEs after their collision
+  `CombatRenderActiveTag` for invalid AOEs and impact AOEs after their collision
   pass.
 
 This pattern keeps entities in stable archetypes and avoids structural churn on

@@ -48,7 +48,7 @@ namespace PlayGround.System.Aoe
             _deadSlotQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<AoeTag>()
                 .WithDisabled<Active>()
-                .WithNone<CombatLifetimeComponent>()
+                .WithNone<LingeringAoeTag>()
                 .Build(this);
         }
 
@@ -241,6 +241,7 @@ namespace PlayGround.System.Aoe
         {
             _lingeringArchetype = EntityManager.CreateArchetype(
                 typeof(AoeTag),
+                typeof(LingeringAoeTag),
                 typeof(AoeIdentityComponent),
                 typeof(CombatLifetimeComponent),
                 typeof(AoeHitGateComponent),
@@ -260,7 +261,7 @@ namespace PlayGround.System.Aoe
 
             _deadSlotQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<AoeTag>()
-                .WithAll<CombatLifetimeComponent>()
+                .WithAll<LingeringAoeTag>()
                 .WithDisabled<Active>()
                 .Build(this);
         }
@@ -388,7 +389,6 @@ namespace PlayGround.System.Aoe
                     EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
                     EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
                     EnabledMask renderActiveMask = chunk.GetEnabledMask(ref RenderActiveHandle);
-                    EnabledMask lifetimeMask = chunk.GetEnabledMask(ref LifetimeHandle);
                     EnabledMask timedSpawnMask = chunk.GetEnabledMask(ref TimedSpawnHandle);
 
                     NativeArray<AoeIdentityComponent> identities =
@@ -439,7 +439,6 @@ namespace PlayGround.System.Aoe
                             i);
 
                         lifetimes[i] = new CombatLifetimeComponent { Remaining = cfg.Lifetime };
-                        lifetimeMask[i] = true;
                         pulseVfxs[i] = AoeSpawnApplyUtility.PulseVfxFor(cfg);
 
                         bool hasTimedSpawner = AoeSpawnApplyUtility.HasTimedSpawner(cfg);
@@ -499,7 +498,6 @@ namespace PlayGround.System.Aoe
             ecb.SetComponent(entity, HitSpawnFor(cmd));
             ecb.SetComponent(entity, AreaFor(cmd));
             ecb.SetComponent(entity, new CombatLifetimeComponent { Remaining = cmd.Lifetime });
-            ecb.SetComponentEnabled<CombatLifetimeComponent>(entity, true);
             ecb.SetComponent(entity, PulseVfxFor(cmd));
             bool hasTimedSpawner = HasTimedSpawner(cmd);
             ecb.SetComponent(entity, hasTimedSpawner ? cmd.TimedSpawn : default);

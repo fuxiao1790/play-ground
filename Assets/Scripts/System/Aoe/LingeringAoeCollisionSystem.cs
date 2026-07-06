@@ -27,7 +27,7 @@ namespace PlayGround.System.Aoe
                 .WithAll<AoeHitSpawnComponent>()
                 .WithAll<AoeAreaComponent>()
                 .WithAllRW<CombatRenderActiveTag>()
-                .WithPresent<CombatLifetimeComponent>()
+                .WithAll<LingeringAoeTag>()
                 .Build(ref state);
         }
 
@@ -122,9 +122,6 @@ namespace PlayGround.System.Aoe
 
         [BurstCompile]
         [WithAll(typeof(AoeTag), typeof(Active), typeof(AoeCollisionActiveTag))]
-        // Pulse AOEs have CombatLifetimeComponent DISABLED (not absent). WithPresent
-        // includes them so the job can deactivate them after a single pass.
-        [WithPresent(typeof(CombatLifetimeComponent))]
         private partial struct LingeringAoeCollisionJob : IJobEntity
         {
             [ReadOnly] public NativeArray<Entity> TargetEntities;
@@ -148,7 +145,6 @@ namespace PlayGround.System.Aoe
                 in AoeIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
                 in CombatCollisionComponent collision,
-                EnabledRefRO<CombatLifetimeComponent> lifetimeEnabled,
                 ref AoeHitGateComponent hitGate,
                 in AoeHitSpawnComponent hitSpawn,
                 in AoeAreaComponent area,
@@ -156,19 +152,15 @@ namespace PlayGround.System.Aoe
                 EnabledRefRW<AoeCollisionActiveTag> collisionActive,
                 EnabledRefRW<CombatRenderActiveTag> renderActive)
             {
-                bool enabledLifetime = lifetimeEnabled.ValueRO;
-                if (enabledLifetime)
+                hitGate.Remaining -= DeltaTime;
+                if (hitGate.Remaining > 0f)
                 {
-                    hitGate.Remaining -= DeltaTime;
-                    if (hitGate.Remaining > 0f)
-                    {
-                        return;
-                    }
-
-                    hitGate.Remaining = hitGate.RepeatHitCooldownSeconds > 0f
-                        ? hitGate.Remaining + hitGate.RepeatHitCooldownSeconds
-                        : 0f;
+                    return;
                 }
+
+                hitGate.Remaining = hitGate.RepeatHitCooldownSeconds > 0f
+                    ? hitGate.Remaining + hitGate.RepeatHitCooldownSeconds
+                    : 0f;
 
                 AoeCollisionCore.RunCollision(
                     identity,
@@ -176,7 +168,7 @@ namespace PlayGround.System.Aoe
                     collision,
                     hitSpawn,
                     area,
-                    !enabledLifetime,
+                    false,
                     active,
                     collisionActive,
                     renderActive,

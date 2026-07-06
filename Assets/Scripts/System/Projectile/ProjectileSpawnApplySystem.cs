@@ -196,7 +196,6 @@ namespace PlayGround.System.Projectile
                 BoundsMax = cmd.BoundsMax
             });
             ecb.SetComponent(entity, new CombatLifetimeComponent { Remaining = cmd.Lifetime });
-            ecb.SetComponentEnabled<CombatLifetimeComponent>(entity, true);
             ecb.SetComponent(entity, new ProjectileHitComponent
             {
                 PierceRemaining = cmd.PierceRemaining,
@@ -319,7 +318,6 @@ namespace PlayGround.System.Projectile
                     EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
                     EnabledMask renderActiveMask = chunk.GetEnabledMask(ref RenderActiveHandle);
                     EnabledMask trackingMask = chunk.GetEnabledMask(ref TrackingHandle);
-                    EnabledMask lifetimeMask = chunk.GetEnabledMask(ref LifetimeHandle);
                     EnabledMask timedSpawnMask = chunk.GetEnabledMask(ref TimedSpawnHandle);
 
                     NativeArray<ProjectileIdentityComponent> identities =
@@ -376,7 +374,6 @@ namespace PlayGround.System.Projectile
                             BoundsMax = cfg.BoundsMax
                         };
                         lifetimes[i] = new CombatLifetimeComponent { Remaining = cfg.Lifetime };
-                        lifetimeMask[i] = true;
                         hits[i] = new ProjectileHitComponent
                         {
                             PierceRemaining = cfg.PierceRemaining,

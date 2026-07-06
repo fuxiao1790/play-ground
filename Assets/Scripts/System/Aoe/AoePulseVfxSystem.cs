@@ -50,11 +50,9 @@ namespace PlayGround.System.Aoe
                 in AoeIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
                 in AoeAreaComponent area,
-                EnabledRefRO<CombatLifetimeComponent> lifetimeEnabled,
                 ref AoePulseVfxComponent pulseVfx)
             {
-                // pulse one-shots have CombatLifetimeComponent disabled — skip periodic pulse VFX for them
-                if (pulseVfx.Interval <= 0f || !lifetimeEnabled.ValueRO)
+                if (pulseVfx.Interval <= 0f)
                 {
                     return;
                 }

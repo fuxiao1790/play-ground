@@ -392,7 +392,7 @@ namespace PlayGround.Tests.PlayMode
             return new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<AoeTag>()
                 .WithAll<Active>()
-                .WithNone<CombatLifetimeComponent>()
+                .WithNone<LingeringAoeTag>()
                 .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
                 .Build(entityManager);
         }

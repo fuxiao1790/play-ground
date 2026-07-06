@@ -472,7 +472,6 @@ namespace PlayGround.Tests.PlayMode
             entityManager.SetComponentEnabled<Active>(entity, false);
             entityManager.SetComponentEnabled<ProjectileCollisionActiveTag>(entity, false);
             entityManager.SetComponentEnabled<CombatRenderActiveTag>(entity, false);
-            entityManager.SetComponentEnabled<CombatLifetimeComponent>(entity, true);
             entityManager.SetComponentEnabled<ProjectileTrackingComponent>(entity, false);
             entityManager.SetComponentEnabled<TimedSpawnComponent>(entity, childSpawner);
             return entity;
@@ -516,7 +515,6 @@ namespace PlayGround.Tests.PlayMode
                 Radius = 0.25f
             });
             entityManager.SetComponentData(entity, new CombatLifetimeComponent { Remaining = 100f });
-            entityManager.SetComponentEnabled<CombatLifetimeComponent>(entity, true);
             entityManager.SetComponentData(entity, new TimedSpawnComponent
             {
                 Faction = CombatFaction.Player,

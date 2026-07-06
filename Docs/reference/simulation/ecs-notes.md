@@ -211,8 +211,16 @@ Projectile and AOE entities use disable-in-place pooling on the hot path:
    permanently destroys disabled slots that sit in sparse chunks.
 
 Cleanup mirrors the current reuse pools: projectile, impact AOE, and lingering
-AOE. It does not key by `CombatRenderKindId`; that value is ordinary render
-component data on master, and spawn reuse overwrites it when a slot is claimed.
+AOE. Impact and lingering AOE pools are distinguished by `LingeringAoeTag`:
+the tag is present only on lingering AOEs, while impact AOEs omit it.
+`CombatLifetimeComponent` is plain timer data on projectiles and lingering AOEs,
+not the AOE discriminator. It does not key by `CombatRenderKindId`; that value
+is ordinary render component data on master, and spawn reuse overwrites it when a
+slot is claimed.
+
+Future AOE windup should attach through dedicated `AoeWindupComponent` /
+`AoeWindupTag` state, orthogonal to both `LingeringAoeTag` routing and lifetime
+countdown.
 
 A Burst `IJobChunk` (scheduled parallel) counts enabled `Active` entities per
 chunk. When that count is below `ChunkActiveThreshold`, every disabled entity in

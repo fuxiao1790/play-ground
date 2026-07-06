@@ -8,6 +8,11 @@ namespace PlayGround.System.Aoe
     {
     }
 
+    // ECS Lifecycle: lingering-AOE discriminator tag; added at entity creation; kept until root teardown; present only on lingering AOEs (duration-based, repeat-hit). Absence marks an impact AOE (single contact pass).
+    public struct LingeringAoeTag : IComponentData
+    {
+    }
+
     // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse.
     public struct AoeIdentityComponent : IComponentData
     {
