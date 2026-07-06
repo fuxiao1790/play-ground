@@ -13,11 +13,13 @@ namespace PlayGround.Skills.Modifiers
 
         public int Count
         {
+            get => projectile.count;
             set => projectile.count = value;
         }
 
         public float SpreadDegrees
         {
+            get => projectile.spreadDegrees;
             set => projectile.spreadDegrees = value;
         }
 
@@ -55,11 +57,13 @@ namespace PlayGround.Skills.Modifiers
 
         public int EchoCount
         {
+            get => aoe.echoCount;
             set => aoe.echoCount = value;
         }
 
         public float ScatterRadius
         {
+            get => aoe.scatterRadius;
             set => aoe.scatterRadius = value;
         }
 

@@ -60,7 +60,7 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void MultipleAoesSupportSetsEchoAndScatter()
+        public void MultipleAoesSupportAddsEchoAndScatter()
         {
             AoeSkill skill = CreateAoeSkill("AOE Skill");
             MultipleAoesSupport support = CreateAsset<MultipleAoesSupport>("Multiple AOEs");
@@ -70,8 +70,44 @@ namespace PlayGround.Tests.EditMode
 
             var runtime = (RuntimeAoeDefinition)Compile(set);
 
-            Assert.That(runtime.EchoCount, Is.EqualTo(4));
+            Assert.That(runtime.EchoCount, Is.EqualTo(5));
             Assert.That(runtime.ScatterRadius, Is.EqualTo(2.25f).Within(0.0001f));
+        }
+
+        [Test]
+        public void MultipleAoesSupportsStackByAddingBehaviorValues()
+        {
+            AoeSkill skill = CreateAoeSkill("AOE Skill");
+            MultipleAoesSupport first = CreateAsset<MultipleAoesSupport>("First Multiple AOEs");
+            SetField(first, "echoCount", 4);
+            SetField(first, "scatterRadius", 2.25f);
+            MultipleAoesSupport second = CreateAsset<MultipleAoesSupport>("Second Multiple AOEs");
+            SetField(second, "echoCount", 6);
+            SetField(second, "scatterRadius", 3.5f);
+            SkillSet set = CreateSkillSet("Set", skill, first, second);
+
+            var runtime = (RuntimeAoeDefinition)Compile(set);
+
+            Assert.That(runtime.EchoCount, Is.EqualTo(11));
+            Assert.That(runtime.ScatterRadius, Is.EqualTo(5.75f).Within(0.0001f));
+        }
+
+        [Test]
+        public void MultipleProjectilesSupportsStackByAddingBehaviorValues()
+        {
+            ProjectileSkill skill = CreateProjectileSkill("Projectile Skill");
+            MultipleProjectilesSupport first = CreateAsset<MultipleProjectilesSupport>("First Multiple Projectiles");
+            SetField(first, "count", 3);
+            SetField(first, "spreadDegrees", 20f);
+            MultipleProjectilesSupport second = CreateAsset<MultipleProjectilesSupport>("Second Multiple Projectiles");
+            SetField(second, "count", 5);
+            SetField(second, "spreadDegrees", 35f);
+            SkillSet set = CreateSkillSet("Set", skill, first, second);
+
+            var runtime = (RuntimeProjectileDefinition)Compile(set);
+
+            Assert.That(runtime.Count, Is.EqualTo(9));
+            Assert.That(runtime.SpreadDegrees, Is.EqualTo(55f).Within(0.0001f));
         }
 
         [Test]

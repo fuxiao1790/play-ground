@@ -384,8 +384,8 @@ Current augment supports:
 
 | Support | Kind interface(s) | Stat / behavior contribution |
 |---|---|---|
-| Multiple Projectiles | `IProjectileBehaviorModifier` | Sets projectile `count`, `spreadDegrees` |
-| Multiple AOEs | `IAoeBehaviorModifier` | Sets AOE `echoCount`, `scatterRadius` |
+| Multiple Projectiles | `IProjectileBehaviorModifier` | Adds projectile `count`, `spreadDegrees` |
+| Multiple AOEs | `IAoeBehaviorModifier` | Adds AOE `echoCount`, `scatterRadius` |
 | Piercing | `IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `PierceCount`; sets projectile `repeatHitCooldown` |
 | Homing | `IProjectileBehaviorModifier` | Enables tracking and sets turn speed/query interval |
 | Concentrated Effect | `IMultiplierModifier` | Post multiplier on `AreaSize` only |

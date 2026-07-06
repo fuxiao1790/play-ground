@@ -13,8 +13,8 @@ namespace PlayGround.Skills
 
         public void ApplyToProjectile(ProjectileBehaviorContext ctx)
         {
-            ctx.Count = count;
-            ctx.SpreadDegrees = spreadDegrees;
+            ctx.Count += count;
+            ctx.SpreadDegrees += spreadDegrees;
         }
     }
 }

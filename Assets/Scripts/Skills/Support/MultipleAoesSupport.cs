@@ -13,8 +13,8 @@ namespace PlayGround.Skills
 
         public void ApplyToAoe(AoeBehaviorContext ctx)
         {
-            ctx.EchoCount = echoCount;
-            ctx.ScatterRadius = scatterRadius;
+            ctx.EchoCount += echoCount;
+            ctx.ScatterRadius += scatterRadius;
         }
     }
 }
