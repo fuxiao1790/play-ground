@@ -12,17 +12,6 @@ namespace PlayGround.System.Common
         public float2 Value;
     }
 
-    public struct TargetCollisionShape : IComponentData
-    {
-        public CombatShapeType ShapeType;
-        public float Radius;
-        public float2 HalfExtents;
-        public float RotationRadians;
-        public float2 BoundsMin;
-        public float2 BoundsMax;
-        public int Mask;
-    }
-
     public struct TargetFaction : IComponentData
     {
         public CombatFaction Value;

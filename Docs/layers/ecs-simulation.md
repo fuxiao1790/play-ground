@@ -63,6 +63,7 @@ preparation.
 
 - `Assets/Scripts/System/Projectile/`
 - `Assets/Scripts/System/Aoe/`
+- `Assets/Scripts/System/Collision/`
 - `Assets/Scripts/System/Status/`
 - `Assets/Scripts/System/Common/CombatApplyFinalizeSingleSystem.cs`
 - `Assets/Scripts/System/Common/CombatLifetimeSystem.cs`

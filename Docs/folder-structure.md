@@ -83,7 +83,9 @@ Docs/
 - `Assets/Scripts/Skills/`: skill definitions, runtime skill compilation,
   supports, triggers, validators
 - `Assets/Scripts/System/Common/`: shared combat ECS bridge, target proxies,
-  combat apply/finalize, lifetime, shape/collision math, render data
+  combat apply/finalize, lifetime, and domain-neutral combat data
+- `Assets/Scripts/System/Collision/`: shared combat collision data, shape math,
+  target spatial hashing, and collider shape helpers
 - `Assets/Scripts/System/Projectile/`: projectile ECS runtime
 - `Assets/Scripts/System/Aoe/`: AOE ECS runtime
 - `Assets/Scripts/System/Status/`: ECS status processing
@@ -131,7 +133,7 @@ Docs/
 - `Assets/Scripts/System/Common/CombatScope.cs`: shared `CombatScope` tag and
   `CombatFaction`.
 - `Assets/Scripts/System/Common/CombatEcsComponents.cs`: shared scope owner,
-  spawn buffers, template registries, common kinematics/collision/lifetime,
+  spawn buffers, template registries, common kinematics/lifetime,
   generic `Active`, and target proxy data.
 - `Assets/Scripts/System/Common/CombatTargetProxy.cs`: ECS target proxy entity
   creation, shape push, health/status seed data, and deletion.
@@ -142,8 +144,12 @@ Docs/
   and `CombatApplyBridge` presentation replay.
 - `Assets/Scripts/System/Common/CombatLifetimeSystem.cs`: shared projectile and
   AOE lifetime expiry.
-- `Assets/Scripts/System/Common/CombatCollisionMath.cs`: shared bounds and
+- `Assets/Scripts/System/Collision/CombatCollisionComponents.cs`: shared
+  collision components, enableable collision gate, and collision target buffer.
+- `Assets/Scripts/System/Collision/CombatCollisionMath.cs`: shared bounds and
   narrow-phase collision math.
+- `Assets/Scripts/System/Collision/TargetSpatialHashSystem.cs`: shared target
+  proxy spatial hashes for projectile, tracking, and AOE collision.
 - `Assets/Scripts/System/Rendering/CombatRenderComponents.cs`: shared batched
   sprite render components and matrix preparation.
 - `Assets/Scripts/System/Common/CombatBatchedRenderSystem.cs`: instanced render

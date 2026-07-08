@@ -32,7 +32,11 @@ consequence events, and frame timing. Domain-specific details still live in
   ECS world/scope acquire and release, and per-faction teardown.
 - `Assets/Scripts/System/Common/CombatEcsComponents.cs`: shared combat world
   owner, shared scope owner, projectile/AOE spawn buffers, template registries,
-  `Active`, common lifetime, common kinematics, and common collision data.
+  `Active`, common lifetime, and common kinematics.
+- `Assets/Scripts/System/Collision/CombatCollisionComponents.cs`: common
+  collision components, collision active gate, and target snapshot buffer.
+- `Assets/Scripts/System/Collision/TargetSpatialHashSystem.cs`: target proxy
+  spatial hashes used by projectile, tracking, and AOE collision.
 - `Assets/Scripts/System/Common/CombatScope.cs`: shared `CombatScope` tag and
   `CombatFaction`.
 - `Assets/Scripts/System/Common/CombatTargetProxy.cs`: ECS target proxy create,
