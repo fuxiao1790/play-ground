@@ -24,10 +24,10 @@ namespace PlayGround.Skills.Runtime
         public float ScatterRadius { get; set; }
         public bool DirectDamageEnabled { get; set; } = true;
 
-        // Compiled from ProjectileIntervalSpawnTrigger on lingering AOEs; null if none.
+        // Compiled from IntervalSpawnTrigger on lingering AOEs when the child is a projectile; null if none.
         public RuntimeChildSpawnSetup ChildSpawnSetup { get; set; }
 
-        // Compiled from AoeIntervalSpawnTrigger on lingering AOEs; null if none.
+        // Compiled from IntervalSpawnTrigger on lingering AOEs when the child is an AOE; null if none.
         public RuntimeAoeIntervalSpawnSetup AoeIntervalSpawnSetup { get; set; }
 
         // Compiled from OnAoeHitSpawnTrigger; null if none. Chain depth is bounded

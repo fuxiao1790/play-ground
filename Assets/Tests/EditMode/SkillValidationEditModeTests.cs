@@ -39,62 +39,13 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void ValidatorWarnsWhenProjectileIntervalTargetsAoeSkill()
-        {
-            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
-            AoeSkill targetSkill = CreateAsset<AoeSkill>("Aoe Skill");
-            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
-            SkillSet targetSet = CreateSkillSet("Aoe Set", targetSkill);
-            ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
-
-            SkillValidationWarning[] warnings = Validate(
-                new SkillSetSlot { skillSet = sourceSet },
-                new TriggerLinkSlot { link = trigger },
-                new SkillSetSlot { skillSet = targetSet });
-
-            Assert.That(warnings, Has.Length.EqualTo(1));
-            Assert.That(warnings[0].Code, Is.EqualTo(SkillValidationWarningCode.UnsupportedTriggerTarget));
-            Assert.That(warnings[0].Message, Does.Contain("will do nothing"));
-        }
-
-        [Test]
-        public void CompilerIgnoresProjectileIntervalTargetAoeSkill()
-        {
-            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
-            AoeSkill targetSkill = CreateAsset<AoeSkill>("Aoe Skill");
-            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
-            SkillSet targetSet = CreateSkillSet("Aoe Set", targetSkill);
-            ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
-            var chains = new[]
-            {
-                new TriggerChain
-                {
-                    causeIndex = 0,
-                    link = trigger,
-                    effectIndex = 2,
-                },
-            };
-            var slots = new LoadoutSlot[]
-            {
-                new SkillSetSlot { skillSet = sourceSet },
-                new TriggerLinkSlot { link = trigger },
-                new SkillSetSlot { skillSet = targetSet },
-            };
-
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
-
-            Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
-            Assert.That(((RuntimeProjectileDefinition)runtime).ChildSpawnSetup, Is.Null);
-        }
-
-        [Test]
         public void CompilerConvertsProjectileIntervalJitterPercentToSeconds()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
             ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Child Projectile Skill");
             SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
-            ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
+            IntervalSpawnTrigger trigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
             trigger.intervalSeconds = 2f;
             trigger.intervalJitterPercent = 25f;
             var chains = new[]
@@ -129,7 +80,7 @@ namespace PlayGround.Tests.EditMode
             AoeSkill targetSkill = CreateAsset<AoeSkill>("AOE Skill");
             SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
-            AoeIntervalSpawnTrigger trigger = CreateAsset<AoeIntervalSpawnTrigger>("AOE Interval Spawn");
+            IntervalSpawnTrigger trigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
             trigger.intervalSeconds = 1.5f;
             trigger.intervalJitterPercent = 10f;
             trigger.spawnCount = 2;
@@ -168,7 +119,7 @@ namespace PlayGround.Tests.EditMode
             ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
             SkillSet sourceSet = CreateSkillSet("Lingering AOE Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("Projectile Set", targetSkill);
-            ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
+            IntervalSpawnTrigger trigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
             var chains = new[]
             {
                 new TriggerChain
@@ -201,7 +152,7 @@ namespace PlayGround.Tests.EditMode
             AoeSkill targetSkill = CreateAsset<AoeSkill>("AOE Skill");
             SkillSet sourceSet = CreateSkillSet("Lingering AOE Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
-            AoeIntervalSpawnTrigger trigger = CreateAsset<AoeIntervalSpawnTrigger>("AOE Interval Spawn");
+            IntervalSpawnTrigger trigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
             var chains = new[]
             {
                 new TriggerChain
@@ -234,7 +185,7 @@ namespace PlayGround.Tests.EditMode
             ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
             SkillSet sourceSet = CreateSkillSet("Pulse AOE Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("Projectile Set", targetSkill);
-            ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
+            IntervalSpawnTrigger trigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
             var chains = new[]
             {
                 new TriggerChain
@@ -266,7 +217,7 @@ namespace PlayGround.Tests.EditMode
             ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
             SkillSet sourceSet = CreateSkillSet("Pulse AOE Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("Projectile Set", targetSkill);
-            ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
+            IntervalSpawnTrigger trigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
 
             SkillValidationWarning[] warnings = Validate(
                 new SkillSetSlot { skillSet = sourceSet },
@@ -277,13 +228,13 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void ValidatorWarnsWhenAoeIntervalSpawnSourceIsPulseAoe()
+        public void ValidatorWarnsWhenIntervalSpawnSourceIsPulseAoeWithAoeTarget()
         {
             AoeSkill sourceSkill = CreateAsset<AoeSkill>("Pulse AOE Skill");
             AoeSkill targetSkill = CreateAsset<AoeSkill>("AOE Skill");
             SkillSet sourceSet = CreateSkillSet("Pulse AOE Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
-            AoeIntervalSpawnTrigger trigger = CreateAsset<AoeIntervalSpawnTrigger>("AOE Interval Spawn");
+            IntervalSpawnTrigger trigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
 
             SkillValidationWarning[] warnings = Validate(
                 new SkillSetSlot { skillSet = sourceSet },
@@ -486,7 +437,7 @@ namespace PlayGround.Tests.EditMode
             SkillSet rootSet = CreateSkillSet("Root Projectile Set", rootSkill);
             SkillSet applicatorSet = CreateSkillSet("Applicator Projectile Set", applicatorSkill);
             SkillSet detonationSet = CreateSkillSet("Stack Detonation Set", detonationSkill, stackingSupport);
-            ProjectileIntervalSpawnTrigger childTrigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
+            IntervalSpawnTrigger childTrigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
             StackTrigger stackTrigger = CreateAsset<StackTrigger>("Stack Trigger");
             var chains = new[]
             {

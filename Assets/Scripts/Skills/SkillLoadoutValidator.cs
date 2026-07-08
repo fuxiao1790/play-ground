@@ -192,7 +192,7 @@ namespace PlayGround.Skills
         }
 
         private static bool IsIntervalSpawnTrigger(TriggerLink link) =>
-            link is ProjectileIntervalSpawnTrigger or AoeIntervalSpawnTrigger;
+            link is IntervalSpawnTrigger;
 
         private static void ValidateStackingSupportReachability(
             SkillSetSlot slot,
