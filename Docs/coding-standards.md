@@ -130,11 +130,13 @@ Use data-oriented runtime worlds for high-count combat entities:
 - transient chained hit effects
 - combat VFX request streams
 
-Shared combat ECS components under `Assets/Scripts/System/Common/` must stay
-domain-neutral. Systems that consume them must also require a domain tag such as
+Shared combat ECS components under `Assets/Scripts/System/Combat/` must stay
+owned by the narrowest combat concept that explains why they exist. Systems that
+consume cross-feature components must also require a domain tag such as
 `ProjectileTag` or `AoeTag`. There is one shared `CombatScope` entity for
-combat, so scope membership and common components alone never imply domain or
-faction. Domain comes from domain tags. Faction comes from `CombatFaction`.
+combat, so scope membership and reusable lifecycle components alone never imply
+domain or faction. Domain comes from domain tags. Faction comes from
+`CombatFaction`.
 
 Player and mob movement/collision should use Unity Physics2D. Projectile and AOE
 hit simulation should use target proxy entities and baked shapes instead of

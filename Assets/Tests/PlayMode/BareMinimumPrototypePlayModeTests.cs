@@ -9,9 +9,17 @@ using PlayGround.Mob;
 using PlayGround.Player;
 using PlayGround.Game;
 using PlayGround.Spawn;
-using PlayGround.System.Aoe;
-using PlayGround.System.Common;
-using PlayGround.System.Projectile;
+using PlayGround.System.Combat.Aoes;
+using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Collision;
+using PlayGround.System.Combat.Core;
+using PlayGround.System.Combat.Lifetime;
+using PlayGround.System.Combat.Platform;
+using PlayGround.System.Combat.Rendering;
+using PlayGround.System.Combat.Spawning;
+using PlayGround.System.Combat.Status;
+using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Projectiles;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -273,7 +281,7 @@ namespace PlayGround.Tests.PlayMode
             projectileRoot.Spawn(command, CombatFaction.Player);
             yield return null;
 
-            // Both hits land on the same target in one frame â†’ one batch per unique target.
+            // Both hits land on the same target in one frame â†?one batch per unique target.
             // The probe receives one aggregate managed push for the target.
             Assert.That(probe.HitCount, Is.EqualTo(1));
             Object.Destroy(projectileObject);

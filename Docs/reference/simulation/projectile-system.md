@@ -46,43 +46,43 @@ Non-goals:
 
 ## Main Files
 
-- `Assets/Scripts/System/Common/CombatRoot.cs`: per-faction scene bridge,
+- `Assets/Scripts/System/Combat/Core/CombatRoot.cs`: per-faction scene bridge,
   template registration, spawn submission, render resources, target registry,
   ECS world/scope acquire and release.
-- `Assets/Scripts/System/Common/CombatScope.cs`: shared scope tag and
+- `Assets/Scripts/System/Combat/Core/CombatScope.cs`: shared scope tag and
   `CombatFaction`.
-- `Assets/Scripts/System/Common/CombatEcsComponents.cs`: common kinematics,
+- `Assets/Scripts/System/Combat/Lifetime/CombatLifecycleComponents.cs`: common kinematics,
   collision, hit payload, generic `Active`, common lifetime, and legacy target
   element type.
-- `Assets/Scripts/System/Common/CombatTargetProxy.cs`: ECS target proxy entity
+- `Assets/Scripts/System/Combat/Targets/CombatTargetProxy.cs`: ECS target proxy entity
   lifecycle and target shape push.
-- `Assets/Scripts/System/Common/DamageDispatchBridge.cs`: native damage queue
+- `Assets/Scripts/System/Combat/Application/CombatApplyFinalizeSingleSystem.cs`: native hit queue
   finalize plus managed replay into `ICombatTarget.ReceiveHits`.
-- `Assets/Scripts/System/Projectile/ProjectileSpawnPipeline.cs`:
+- `Assets/Scripts/System/Combat/Projectiles/ProjectileSpawnPipeline.cs`:
   `ProjectileSpawnEvent`, `ProjectileSpawnCommand`, and helpers for impact and
   burst events.
-- `Assets/Scripts/System/Projectile/ProjectileSpawnExpansionSystem.cs`: drains
+- `Assets/Scripts/System/Combat/Projectiles/ProjectileSpawnExpansionSystem.cs`: drains
   spawn events and expands volley data into one ordered command list.
-- `Assets/Scripts/System/Projectile/ProjectileSpawnApplySystem.cs`: applies
+- `Assets/Scripts/System/Combat/Projectiles/ProjectileSpawnApplySystem.cs`: applies
   basic and child-spawner projectile commands by reusing disabled entities or
   cold-creating overflow entities.
-- `Assets/Scripts/System/Projectile/TimedProjectileSpawnSystem.cs`: emits child
+- `Assets/Scripts/System/Combat/Spawning/TimedSpawnSystem.cs`: emits child
   projectile spawn events from active child-spawner projectiles.
-- `Assets/Scripts/System/Projectile/ProjectileTrackingSystem.cs`: homing target
+- `Assets/Scripts/System/Combat/Projectiles/ProjectileTrackingSystem.cs`: homing target
   refresh, acquisition, and steering.
-- `Assets/Scripts/System/Projectile/ProjectileMovementSystem.cs`: position
+- `Assets/Scripts/System/Combat/Projectiles/ProjectileMovementSystem.cs`: position
   integration and bounds refresh.
-- `Assets/Scripts/System/Projectile/ProjectileContactGateSystem.cs`: repeat-hit
+- `Assets/Scripts/System/Combat/Projectiles/ProjectileContactGateSystem.cs`: repeat-hit
   cooldown expiry.
-- `Assets/Scripts/System/Projectile/ProjectileCollisionSystem.cs`: spatial hash
+- `Assets/Scripts/System/Combat/Projectiles/ProjectileCollisionSystem.cs`: spatial hash
   target broad phase, narrow-phase collision, pierce/contact state, damage
   event emission, impact spawn event emission, VFX event emission, and source
   deactivation.
-- `Assets/Scripts/System/Common/CombatLifetimeSystem.cs`: shared projectile and
+- `Assets/Scripts/System/Combat/Lifetime/CombatLifetimeSystem.cs`: shared projectile and
   AOE lifetime expiry using `CombatLifetimeComponent` and `Active`.
-- `Assets/Scripts/System/Rendering/CombatRenderComponents.cs`: shared render data
+- `Assets/Scripts/System/Combat/Rendering/CombatRenderComponents.cs`: shared render data
   and render matrix preparation.
-- `Assets/Scripts/System/Common/CombatBatchedRenderSystem.cs`: presentation
+- `Assets/Scripts/System/Combat/Rendering/CombatBatchedRenderSystem.cs`: presentation
   submission through `Graphics.RenderMeshInstanced`.
 
 ## Runtime Ownership

@@ -1,7 +1,15 @@
 using NUnit.Framework;
-using PlayGround.System.Aoe;
-using PlayGround.System.Common;
-using PlayGround.System.Projectile;
+using PlayGround.System.Combat.Aoes;
+using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Collision;
+using PlayGround.System.Combat.Core;
+using PlayGround.System.Combat.Lifetime;
+using PlayGround.System.Combat.Platform;
+using PlayGround.System.Combat.Rendering;
+using PlayGround.System.Combat.Spawning;
+using PlayGround.System.Combat.Status;
+using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Projectiles;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
@@ -154,7 +162,7 @@ namespace PlayGround.Tests.PlayMode
             registry.Map.TryAdd(SpawnTemplateHash.Of(in t3), t3);
             int countBefore = registry.Map.Count;
 
-            Tick(0.01f); // no entities â€” all systems do nothing
+            Tick(0.01f); // no entities â€?all systems do nothing
 
             // Re-read after the tick (component is a struct; the map reference is stable).
             registry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);

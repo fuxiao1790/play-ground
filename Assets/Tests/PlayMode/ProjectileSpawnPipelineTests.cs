@@ -1,8 +1,16 @@
 using System;
 using NUnit.Framework;
-using PlayGround.System.Aoe;
-using PlayGround.System.Common;
-using PlayGround.System.Projectile;
+using PlayGround.System.Combat.Aoes;
+using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Collision;
+using PlayGround.System.Combat.Core;
+using PlayGround.System.Combat.Lifetime;
+using PlayGround.System.Combat.Platform;
+using PlayGround.System.Combat.Rendering;
+using PlayGround.System.Combat.Spawning;
+using PlayGround.System.Combat.Status;
+using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Projectiles;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
@@ -153,7 +161,7 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void SpawnEventsAreSlim_TemplateFieldsLiveOnlyInCommands()
         {
-            // Thin events carry only registry link + per-instance frame â€” no template fields.
+            // Thin events carry only registry link + per-instance frame â€?no template fields.
             Assert.That(typeof(ProjectileSpawnEvent).GetField("Count"), Is.Null);
             Assert.That(typeof(ProjectileSpawnEvent).GetField("SpreadDegrees"), Is.Null);
             Assert.That(typeof(ProjectileSpawnEvent).GetField("JitterDegrees"), Is.Null);
@@ -176,8 +184,8 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(typeof(AoeSpawnCommand).GetField("TypeId"), Is.Not.Null);
 
             // Old fat-event struct names must not exist.
-            Assert.That(Type.GetType("PlayGround.System.Projectile.ProjectileSpawnCommandData, PlayGround.Runtime"), Is.Null);
-            Assert.That(Type.GetType("PlayGround.System.Aoe.AoeSpawnCommandData, PlayGround.Runtime"), Is.Null);
+            Assert.That(Type.GetType("PlayGround.System.Combat.Projectiles.ProjectileSpawnCommandData, PlayGround.Runtime"), Is.Null);
+            Assert.That(Type.GetType("PlayGround.System.Combat.Aoes.AoeSpawnCommandData, PlayGround.Runtime"), Is.Null);
         }
 
         [Test]

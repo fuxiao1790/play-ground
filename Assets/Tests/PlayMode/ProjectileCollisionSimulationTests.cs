@@ -1,8 +1,16 @@
 using NUnit.Framework;
 using PlayGround.Common;
-using PlayGround.System.Aoe;
-using PlayGround.System.Common;
-using PlayGround.System.Projectile;
+using PlayGround.System.Combat.Aoes;
+using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Collision;
+using PlayGround.System.Combat.Core;
+using PlayGround.System.Combat.Lifetime;
+using PlayGround.System.Combat.Platform;
+using PlayGround.System.Combat.Rendering;
+using PlayGround.System.Combat.Spawning;
+using PlayGround.System.Combat.Status;
+using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Projectiles;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
@@ -140,7 +148,7 @@ namespace PlayGround.Tests.PlayMode
 
             Assert.That(ReadFinalizedHitCount(), Is.EqualTo(0));
             Assert.That(entityManager.IsComponentEnabled<Active>(projectile), Is.True,
-                "Player projectile must not hit a Player target â€” same-faction skip.");
+                "Player projectile must not hit a Player target â€?same-faction skip.");
         }
 
         [Test]

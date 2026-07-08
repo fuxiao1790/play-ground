@@ -27,50 +27,50 @@ consequence events, and frame timing. Domain-specific details still live in
 
 ## Verified Code Map
 
-- `Assets/Scripts/System/Common/CombatRoot.cs`: managed spawn submission,
+- `Assets/Scripts/System/Combat/Core/CombatRoot.cs`: managed spawn submission,
   target registry ownership, render resource ownership, faction registration,
   ECS world/scope acquire and release, and per-faction teardown.
-- `Assets/Scripts/System/Common/CombatEcsComponents.cs`: shared combat world
+- `Assets/Scripts/System/Combat/Core/CombatScopeOwner.cs`: shared combat world
   owner, shared scope owner, projectile/AOE spawn buffers, template registries,
   `Active`, common lifetime, and common kinematics.
-- `Assets/Scripts/System/Collision/CombatCollisionComponents.cs`: common
+- `Assets/Scripts/System/Combat/Collision/CombatCollisionComponents.cs`: common
   collision components, collision active gate, and target snapshot buffer.
-- `Assets/Scripts/System/Collision/TargetSpatialHashSystem.cs`: target proxy
+- `Assets/Scripts/System/Combat/Collision/TargetSpatialHashSystem.cs`: target proxy
   spatial hashes used by projectile, tracking, and AOE collision.
-- `Assets/Scripts/System/Common/CombatScope.cs`: shared `CombatScope` tag and
+- `Assets/Scripts/System/Combat/Core/CombatScope.cs`: shared `CombatScope` tag and
   `CombatFaction`.
-- `Assets/Scripts/System/Common/CombatTargetProxy.cs`: ECS target proxy create,
+- `Assets/Scripts/System/Combat/Targets/CombatTargetProxy.cs`: ECS target proxy create,
   push, and delete.
-- `Assets/Scripts/System/Common/CombatApplyFinalizeSingleSystem.cs`: single-pass
+- `Assets/Scripts/System/Combat/Application/CombatApplyFinalizeSingleSystem.cs`: single-pass
   hit finalize, ECS-owned target health/status application, and presentation
   bridge source data.
-- `Assets/Scripts/System/Common/CombatLifetimeSystem.cs`: projectile and
+- `Assets/Scripts/System/Combat/Lifetime/CombatLifetimeSystem.cs`: projectile and
   lingering-AOE lifetime expiry.
-- `Assets/Scripts/System/Common/TimedSpawnSystem.cs`: shared timed-spawn
+- `Assets/Scripts/System/Combat/Spawning/TimedSpawnSystem.cs`: shared timed-spawn
   producer for projectile and AOE child events.
-- `Assets/Scripts/System/Rendering/CombatRenderComponents.cs`: common render data,
+- `Assets/Scripts/System/Combat/Rendering/CombatRenderComponents.cs`: common render data,
   faction/type shared components, and render matrix prep.
-- `Assets/Scripts/System/Common/CombatBatchedRenderSystem.cs`: shared batched
+- `Assets/Scripts/System/Combat/Rendering/CombatBatchedRenderSystem.cs`: shared batched
   render submission.
-- `Assets/Scripts/System/Vfx/CombatVfxDispatchSystem.cs`: shared VFX request
+- `Assets/Scripts/System/Combat/Vfx/CombatVfxDispatchSystem.cs`: shared VFX request
   dispatch from scope buffers.
-- `Assets/Scripts/System/Projectile/ProjectileSpawnPipeline.cs`: projectile
+- `Assets/Scripts/System/Combat/Projectiles/ProjectileSpawnPipeline.cs`: projectile
   event/command data and impact/burst event builders.
-- `Assets/Scripts/System/Projectile/ProjectileSpawnExpansionSystem.cs`:
+- `Assets/Scripts/System/Combat/Projectiles/ProjectileSpawnExpansionSystem.cs`:
   projectile event drain and command expansion.
-- `Assets/Scripts/System/Projectile/ProjectileSpawnApplySystem.cs`: projectile
+- `Assets/Scripts/System/Combat/Projectiles/ProjectileSpawnApplySystem.cs`: projectile
   slot reuse and cold creation.
-- `Assets/Scripts/System/Projectile/ProjectileCollisionSystem.cs`: projectile
+- `Assets/Scripts/System/Combat/Projectiles/ProjectileCollisionSystem.cs`: projectile
   collision consequences and projectile deactivation.
-- `Assets/Scripts/System/Aoe/AoeSpawnPipeline.cs`: AOE event/command data and
+- `Assets/Scripts/System/Combat/Aoes/AoeSpawnPipeline.cs`: AOE event/command data and
   impact/on-hit event builders.
-- `Assets/Scripts/System/Aoe/AoeSpawnExpansionSystem.cs`: impact and lingering AOE event drain,
+- `Assets/Scripts/System/Combat/Aoes/AoeSpawnExpansionSystem.cs`: impact and lingering AOE event drain,
   command expansion, and spawn VFX request emission.
 - AOE spawn apply file: impact and lingering AOE
   slot reuse and cold creation.
-- `Assets/Scripts/System/Aoe/AoeCollisionCore.cs`: AOE collision consequences
+- `Assets/Scripts/System/Combat/Aoes/AoeCollisionCore.cs`: AOE collision consequences
   and pulse deactivation.
-- `Assets/Scripts/System/Status/StatusProcessSystem.cs`: status-stack
+- `Assets/Scripts/System/Combat/Status/StatusProcessSystem.cs`: status-stack
   detonation producer that emits projectile or AOE spawn events.
 
 ## Shared Combat Scope

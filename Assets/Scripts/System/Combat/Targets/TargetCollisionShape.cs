@@ -1,0 +1,29 @@
+using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Aoes;
+using PlayGround.System.Combat.Collision;
+using PlayGround.System.Combat.Core;
+using PlayGround.System.Combat.Lifetime;
+using PlayGround.System.Combat.Platform;
+using PlayGround.System.Combat.Projectiles;
+using PlayGround.System.Combat.Rendering;
+using PlayGround.System.Combat.Spawning;
+using PlayGround.System.Combat.Stats;
+using PlayGround.System.Combat.Status;
+using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Vfx;
+using Unity.Entities;
+using Unity.Mathematics;
+
+namespace PlayGround.System.Combat.Targets
+{
+    public struct TargetCollisionShape : IComponentData
+    {
+        public CombatShapeType ShapeType;
+        public float Radius;
+        public float2 HalfExtents;
+        public float RotationRadians;
+        public float2 BoundsMin;
+        public float2 BoundsMax;
+        public int Mask;
+    }
+}

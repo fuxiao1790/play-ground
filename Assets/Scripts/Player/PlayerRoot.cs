@@ -1,7 +1,15 @@
 using PlayGround.Common;
 using PlayGround.Common.StatusEffects;
-using PlayGround.System.Common;
-using PlayGround.System.Projectile;
+using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Collision;
+using PlayGround.System.Combat.Core;
+using PlayGround.System.Combat.Lifetime;
+using PlayGround.System.Combat.Platform;
+using PlayGround.System.Combat.Rendering;
+using PlayGround.System.Combat.Spawning;
+using PlayGround.System.Combat.Status;
+using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Projectiles;
 using System.Collections.Generic;
 using Unity.Entities;
 using UnityEngine;
@@ -253,7 +261,7 @@ namespace PlayGround.Player
         {
             if (combatTargetProxy != Entity.Null)
             {
-                PlayGround.System.Common.CombatTargetProxy.Push(this);
+                PlayGround.System.Combat.Targets.CombatTargetProxy.Push(this);
             }
         }
 
@@ -267,7 +275,7 @@ namespace PlayGround.Player
 
         private void DeleteCombatTargetProxy()
         {
-            PlayGround.System.Common.CombatTargetProxy.Delete(this);
+            PlayGround.System.Combat.Targets.CombatTargetProxy.Delete(this);
             deleteProxyInLateUpdate = false;
         }
 

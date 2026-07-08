@@ -2,9 +2,17 @@ using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using PlayGround.Common;
-using PlayGround.System.Aoe;
-using PlayGround.System.Common;
-using PlayGround.System.Projectile;
+using PlayGround.System.Combat.Aoes;
+using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Collision;
+using PlayGround.System.Combat.Core;
+using PlayGround.System.Combat.Lifetime;
+using PlayGround.System.Combat.Platform;
+using PlayGround.System.Combat.Rendering;
+using PlayGround.System.Combat.Spawning;
+using PlayGround.System.Combat.Status;
+using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Projectiles;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
@@ -480,7 +488,7 @@ namespace PlayGround.Tests.PlayMode
 
             Tick(0.01f);
             Assert.That(ReadHitCount(), Is.EqualTo(0),
-                "Player AOE must not hit a Player target â€” same-faction skip.");
+                "Player AOE must not hit a Player target â€?same-faction skip.");
         }
 
         [Test]
@@ -1155,7 +1163,7 @@ namespace PlayGround.Tests.PlayMode
             // Tick 1: AOE materializes, hits target, emits lvl-2 projectile event.
             //         Projectile expansion creates lvl-2 entity this tick (after status process).
             //         Projectile collision runs: lvl-2 projectile is contact-gated from the hit target.
-            // Ticks 2â€“10: contact gate ticks down (0.1f / 0.01f = 10 ticks to expire).
+            // Ticks 2â€?0: contact gate ticks down (0.1f / 0.01f = 10 ticks to expire).
             // Tick 11: gate expired, lvl-2 hits target, CombatHitEvent with stack queued.
             // Tick 12: hitApply processes stack (count=1 >= threshold=1);
             //          statusProcess fires lvl-3 detonation event;

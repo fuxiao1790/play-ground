@@ -3,10 +3,18 @@ using System.Collections.Generic;
 using PlayGround.Audio;
 using PlayGround.Common;
 using PlayGround.Skills.Runtime;
-using PlayGround.System.Aoe;
-using PlayGround.System.Common;
-using PlayGround.System.Projectile;
-using PlayGround.System.Vfx;
+using PlayGround.System.Combat.Aoes;
+using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Collision;
+using PlayGround.System.Combat.Core;
+using PlayGround.System.Combat.Lifetime;
+using PlayGround.System.Combat.Platform;
+using PlayGround.System.Combat.Rendering;
+using PlayGround.System.Combat.Spawning;
+using PlayGround.System.Combat.Status;
+using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Projectiles;
+using PlayGround.System.Combat.Vfx;
 using UnityEngine;
 
 namespace PlayGround.Skills

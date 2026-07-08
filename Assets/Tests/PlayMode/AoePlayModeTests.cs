@@ -5,9 +5,17 @@ using PlayGround.Common;
 using PlayGround.Skills;
 using PlayGround.Mob;
 using PlayGround.Skills.Runtime;
-using PlayGround.System.Aoe;
-using PlayGround.System.Common;
-using PlayGround.System.Projectile;
+using PlayGround.System.Combat.Aoes;
+using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Collision;
+using PlayGround.System.Combat.Core;
+using PlayGround.System.Combat.Lifetime;
+using PlayGround.System.Combat.Platform;
+using PlayGround.System.Combat.Rendering;
+using PlayGround.System.Combat.Spawning;
+using PlayGround.System.Combat.Status;
+using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Projectiles;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -1002,11 +1010,11 @@ namespace PlayGround.Tests.PlayMode
                 geometry: geometry,
                 stackEffect: stackEffect), CombatFaction.Player);
 
-            yield return null; // frame 1: initial hit â†’ 1 stack
+            yield return null; // frame 1: initial hit â†?1 stack
             Assert.That(EcsDebuffStackCount(mob, VolatileStackKey), Is.EqualTo(1),
                 "Initial AOE hit should apply 1 Volatile stack.");
 
-            yield return null; // frame 2: pulse hit (gate expired at dt=0) â†’ 2 stacks
+            yield return null; // frame 2: pulse hit (gate expired at dt=0) â†?2 stacks
             Assert.That(EcsDebuffStackCount(mob, VolatileStackKey), Is.EqualTo(2),
                 "AOE pulse hit should increment stack to 2.");
 

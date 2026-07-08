@@ -43,30 +43,30 @@ Non-goals:
 
 ## Main Files
 
-- `Assets/Scripts/System/Aoe/AoeSpawnPipeline.cs`: `ImpactAoeSpawnEvent`,
+- `Assets/Scripts/System/Combat/Aoes/AoeSpawnPipeline.cs`: `ImpactAoeSpawnEvent`,
   `LingeringAoeSpawnEvent`, `AoeSpawnCommand`, and AOE variant helpers.
-- `Assets/Scripts/System/Aoe/AoeSpawnExpansionSystem.cs`: contains
+- `Assets/Scripts/System/Combat/Aoes/AoeSpawnExpansionSystem.cs`: contains
   `ImpactAoeSpawnExpansionSystem`, `LingeringAoeSpawnExpansionSystem`, and the
   shared `AoeExpansionCore` that drains AOE events and writes resolved commands.
 - AOE spawn apply file: contains impact and
   lingering apply systems that reuse disabled AOE entities or cold-create
   overflow.
-- `Assets/Scripts/System/Aoe/ImpactAoeCollisionSystem.cs`: target proxy broad
+- `Assets/Scripts/System/Combat/Aoes/ImpactAoeCollisionSystem.cs`: target proxy broad
   phase, narrow-phase collision, damage events, child spawn events, VFX events,
   and impact deactivation.
-- `Assets/Scripts/System/Aoe/LingeringAoeCollisionSystem.cs`: lingering AOE
+- `Assets/Scripts/System/Combat/Aoes/LingeringAoeCollisionSystem.cs`: lingering AOE
   tick interval countdown plus target proxy collision and consequence events.
-- `Assets/Scripts/System/Aoe/AoePulseVfxSystem.cs`: periodic pulse VFX for
+- `Assets/Scripts/System/Combat/Aoes/AoePulseVfxSystem.cs`: periodic pulse VFX for
   lingering AOEs.
-- `Assets/Scripts/System/Aoe/AoeEcsComponents.cs`: AOE identity, collision
+- `Assets/Scripts/System/Combat/Aoes/AoeEcsComponents.cs`: AOE identity, collision
   active tag, hit interval state, hit-spawn snapshot, area, and pulse VFX data.
-- `Assets/Scripts/System/Aoe/AoeConfig.cs`: ScriptableObject authoring for AOE
+- `Assets/Scripts/System/Combat/Aoes/AoeConfig.cs`: ScriptableObject authoring for AOE
   type definitions.
-- `Assets/Scripts/System/Aoe/AoeRuntimeEvents.cs`: managed AOE spawn request and
+- `Assets/Scripts/System/Combat/Aoes/AoeRuntimeEvents.cs`: managed AOE spawn request and
   counters.
-- `Assets/Scripts/System/Common/CombatLifetimeSystem.cs`: shared projectile and
+- `Assets/Scripts/System/Combat/Lifetime/CombatLifetimeSystem.cs`: shared projectile and
   AOE lifetime expiry.
-- `Assets/Scripts/System/Common/DamageDispatchBridge.cs`: native damage queue
+- `Assets/Scripts/System/Combat/Application/CombatApplyFinalizeSingleSystem.cs`: native hit queue
   finalize plus managed replay into `ICombatTarget.ReceiveHits`.
 
 ## Runtime Ownership

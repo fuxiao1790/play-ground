@@ -1,4 +1,4 @@
-using PlayGround.System.Stats;
+using PlayGround.System.Combat.Stats;
 using Unity.Entities;
 using UnityEngine;
 using UnityEngine.UI;

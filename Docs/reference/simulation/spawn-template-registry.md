@@ -139,7 +139,7 @@ Runtime component snapshot:
 - `TimedSpawnStateComponent`
 - `CombatHitPayload`
 - impact, burst, and AOE-on-hit snapshot structs in
-  `PlayGround.System.Common`
+  `PlayGround.System.Combat.Spawning`
 
 Scope-owned spawn template registry:
 

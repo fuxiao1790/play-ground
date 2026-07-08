@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using PlayGround.Skills.Modifiers;
 using PlayGround.Skills.Runtime;
-using PlayGround.System.Projectile;
+using PlayGround.System.Combat.Projectiles;
 using UnityEngine;
 
 namespace PlayGround.Skills
@@ -31,7 +31,7 @@ namespace PlayGround.Skills
             // A stacking-detonation set wraps its spawned definition in a
             // RuntimeStackingDetonation. The wrapper itself is never spawned, so its
             // outgoing triggers (including a downstream StackTrigger) must attach to
-            // the inner detonation â€” that inner projectile/AOE is the entity that
+            // the inner detonation â€?that inner projectile/AOE is the entity that
             // spawns and hits targets, and thus the applicator for the next link.
             RuntimeSkillDefinition triggerHost = runtime is RuntimeStackingDetonation stackingHost
                 ? stackingHost.Detonation
