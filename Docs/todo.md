@@ -1,7 +1,6 @@
 minor performance related refacor
 - collision system writing into event queue instead of native stream, reader must free every element per read. (not sure if this is even problematic)
 
-
 - collision system use aabb tree instead of spatial hash. aabb tree is more simd friendly.
 
 new feature
