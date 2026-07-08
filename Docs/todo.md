@@ -7,3 +7,4 @@ minor performance related refacor
 new feature
 - mob spawn rework
 - lingering aoe spawning other skills, rework projectile interval spawn into generic interval spawn.
+- fast projectiles, these cannot have tracking, requires tunneling check
