@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000019, type: 3}
   m_Name: MultipleProjectilesSupport
   m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:MultipleProjectilesSupport
-  count: 10
-  spreadDegrees: 150
+  count: 15
+  spreadDegrees: 45

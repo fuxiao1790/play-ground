@@ -69,7 +69,7 @@ MonoBehaviour:
     - rid: 2535078140426584140
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
-        skillSet: {fileID: 11400000, guid: b2000000000000000000000000000009, type: 2}
+        skillSet: {fileID: 11400000, guid: a2000000000000000000000000000008, type: 2}
     - rid: 3401312228092149846
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:

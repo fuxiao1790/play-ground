@@ -387,7 +387,9 @@ namespace PlayGround.Skills
                     setup.Behavior,
                     combatRoot,
                     stackEffect,
-                    BuildOnHitSpawnRef(child));
+                    BuildOnHitSpawnRef(child),
+                    ProjectileTimedSpawnFromDefinition(child),
+                    child.JitterDegrees);
 
             setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in template);
         }
@@ -407,6 +409,7 @@ namespace PlayGround.Skills
                     combatRoot,
                     stackEffect,
                     BuildOnHitSpawnRef(child),
+                    AoeTimedSpawnFromDefinition(child),
                     scatterRadiusOverride: setup.ScatterRadius);
 
             setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in template);

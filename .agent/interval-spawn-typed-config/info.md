@@ -86,6 +86,33 @@ caller to supply scatter.
   the GUID and update fields (`spawnCount` -> `echoCount`, `sideSpreadDegrees` ->
   `scatterRadius`). Neither asset is referenced by any loadout (orphaned fixtures).
 
+## Nested interval gap (core bug, surfaced during this rework)
+Multi-level interval chains don't fire the second level. Example:
+`SetA(proj) → projInterval → SetB(proj) → aoeInterval → SetC(aoe)` — SetB
+projectiles never spawn SetC AOEs.
+
+Root cause: interval-child template registration omits the child's own nested
+`TimedSpawn`.
+- `RegisterProjectileIntervalTemplate` ([PlayerSkillDriver.cs:384-390](../../Assets/Scripts/Skills/PlayerSkillDriver.cs#L384-L390))
+  and `RegisterAoeIntervalTemplate` ([:403-409](../../Assets/Scripts/Skills/PlayerSkillDriver.cs#L403-L409))
+  call the template builders **without** a `timedSpawn` arg (defaults to `default`).
+- The **top-level** registration passes it
+  (`ProjectileTimedSpawnFromDefinition` / `AoeTimedSpawnFromDefinition`,
+  [:317](../../Assets/Scripts/Skills/PlayerSkillDriver.cs#L317),
+  [:367](../../Assets/Scripts/Skills/PlayerSkillDriver.cs#L367)), so a source's
+  *top-level* template nests correctly but its *interval-child* template does not.
+- Ordering for the fix is already safe: the recursive walk
+  ([:326-346](../../Assets/Scripts/Skills/PlayerSkillDriver.cs#L326-L346)) assigns
+  the child's nested `TemplateKey`s before the interval template is built; depth is
+  bounded by `CombatRoot.MaxSpawnChainDepth` ([:255](../../Assets/Scripts/Skills/PlayerSkillDriver.cs#L255)).
+- Not the value-type recursion limit (that blocks `proj→proj→proj` impact bursts):
+  interval templates carry only a `Hash128 TemplateKey`, so nesting is
+  representable — it just isn't baked in.
+
+Fix planned as [006-nested-interval-timedspawn.md](./006-nested-interval-timedspawn.md).
+
 ## Documentation Gaps
 - None — `skill-system.md` documents both triggers; the change is field renames +
-  one new AOE field, not a structural gap.
+  one new AOE field, not a structural gap. (The nested-interval gap above is an
+  implementation bug, not a doc gap — the doc's deep-chain examples imply it
+  should work.)

@@ -15,7 +15,7 @@ MonoBehaviour:
   baseRate: 6.666667
   definition:
     prefab: {fileID: 1001001001001001004, guid: 0f2c2291f5925184e8a58537ed17abe6, type: 3}
-    speed: 15
+    speed: 10
     lifetime: 3
     damage: 10
     count: 1
@@ -23,6 +23,7 @@ MonoBehaviour:
     jitterDegrees: 10
     pierceCount: 20
     repeatHitCooldown: 1
+    armSeconds: 0
     directDamageEnabled: 1
     trackingEnabled: 0
     trackingTurnSpeedDegrees: 180

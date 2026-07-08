@@ -26,12 +26,18 @@ already consumes. See [info.md](./info.md) for the full trace.
 
 ## Constraints & Invariants
 
-- **ECS/runtime untouched.** No change to `TimedSpawnComponent`,
-  `TimedSpawnSystem`, `IntervalChildKind`, materialization, or the expansion
-  jobs. `AoeSpawnCommand.ScatterRadius` already exists and is already consumed
+- **No ECS *job* changes; one registration-layer core fix.** No change to
+  `TimedSpawnComponent`, `TimedSpawnSystem`, `IntervalChildKind`, materialization,
+  or the expansion jobs. `AoeSpawnCommand.ScatterRadius` already exists and is
+  already consumed
   ([AoeSpawnExpansionSystem.cs:53-57](../../Assets/Scripts/System/Aoe/AoeSpawnExpansionSystem.cs#L53-L57));
-  we only change the value baked into it for interval templates. Source:
-  [info.md § Unaffected layers](./info.md).
+  we only change the value baked into it for interval templates. **However**, task
+  006 fixes a pre-existing core gap in the *registration* layer: interval-child
+  templates drop the child's own nested `TimedSpawn`, so multi-level interval
+  chains (e.g. `proj → projInterval → proj → aoeInterval → aoe`) don't fire the
+  second level. That fix stays in `PlayerSkillDriver` template registration — no
+  ECS job touched. Source: [info.md § Unaffected layers](./info.md),
+  [info.md § Nested interval gap](./info.md).
 - **Shared template builder must not regress non-interval AOEs.**
   `SkillIntervalTemplateBuilder.BuildAoeTemplate` is also called by the
   top-level / on-hit AOE registration path
@@ -111,9 +117,17 @@ flip a single expression. Called out in [002](./002-runtime-setup-and-compiler.m
    the two mismatch tests.
 5. [005-update-docs.md](./005-update-docs.md) — update `skill-system.md` trigger
    field lists and additive/scatter prose.
+6. [006-nested-interval-timedspawn.md](./006-nested-interval-timedspawn.md) —
+   **core fix**: interval-child templates must bake the child's own nested
+   `TimedSpawn` so multi-level interval chains fire. Pre-existing gap surfaced
+   during this rework; independent of 001-005 and the functional priority.
 
 ## Dependencies
 
 - 001 -> 002 -> 003 form one compile-correctness unit (land together).
-- 004, 005 follow. No ECS-layer task; the change stops at the compile/register
-  layer by design.
+- 004, 005 follow.
+- 006 is independent of the field rename and can land on its own; it only
+  interacts with 003 via the shared `BuildAoeTemplate` call site (arg ordering).
+  Functionally it is the priority — 001-005 are field ergonomics, 006 makes the
+  nested chain the user reported actually work.
+- No ECS *job* task; all changes stop at the compile/register layer by design.

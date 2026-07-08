@@ -478,6 +478,75 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator ProjectileIntervalChildrenKeepNestedAoeIntervalSpawner()
+        {
+            CreateProjectileRoot(out GameObject rootObject, out CombatRoot root);
+            BasicAttackPrefab rootPrefab = CreateProjectilePrefab("NestedIntervalRootProjectileTemplate");
+            BasicAttackPrefab middlePrefab = CreateProjectilePrefab("NestedIntervalMiddleProjectileTemplate");
+            BasicAoePrefab aoePrefab = CreateAoePrefab("NestedIntervalAoeChildTemplate");
+            ProjectileSkill rootSkill = ScriptableObject.CreateInstance<ProjectileSkill>();
+            ProjectileSkill middleSkill = ScriptableObject.CreateInstance<ProjectileSkill>();
+            AoeSkill aoeSkill = ScriptableObject.CreateInstance<AoeSkill>();
+            SkillSet rootSet = ScriptableObject.CreateInstance<SkillSet>();
+            SkillSet middleSet = ScriptableObject.CreateInstance<SkillSet>();
+            SkillSet aoeSet = ScriptableObject.CreateInstance<SkillSet>();
+            ProjectileIntervalSpawnTrigger projectileTrigger = ScriptableObject.CreateInstance<ProjectileIntervalSpawnTrigger>();
+            AoeIntervalSpawnTrigger aoeTrigger = ScriptableObject.CreateInstance<AoeIntervalSpawnTrigger>();
+            PlayerLoadout loadout = ScriptableObject.CreateInstance<PlayerLoadout>();
+            GameObject driverObject = new("PlayerSkillDriverHarness");
+            driverObject.SetActive(false);
+            PlayerSkillDriver driver = driverObject.AddComponent<PlayerSkillDriver>();
+
+            ConfigureProjectile(rootSkill, rootPrefab, damage: 0f);
+            ConfigureProjectile(middleSkill, middlePrefab, damage: 0f);
+            ConfigureAoe(aoeSkill, aoePrefab, damage: 1f);
+            projectileTrigger.intervalSeconds = 0.02f;
+            aoeTrigger.intervalSeconds = 0.02f;
+            SetField(rootSet, "skill", rootSkill);
+            SetField(rootSet, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(middleSet, "skill", middleSkill);
+            SetField(middleSet, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(aoeSet, "skill", aoeSkill);
+            SetField(aoeSet, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(loadout, "slots", new global::System.Collections.Generic.List<LoadoutSlot>
+            {
+                new SkillSetSlot { skillSet = rootSet },
+                new TriggerLinkSlot { link = projectileTrigger },
+                new SkillSetSlot { skillSet = middleSet },
+                new TriggerLinkSlot { link = aoeTrigger },
+                new SkillSetSlot { skillSet = aoeSet },
+            });
+            SetField(driver, "loadout", loadout);
+            SetField(driver, "combatRoot", root);
+
+            CompileAndRegister(driver);
+            var rootRuntime = (RuntimeProjectileDefinition)CompiledRuntime(driver, 0);
+            RuntimeProjectileDefinition middleRuntime = rootRuntime.ChildSpawnSetup.ChildDefinition;
+            RuntimeAoeDefinition aoeRuntime = middleRuntime.AoeIntervalSpawnSetup.ChildDefinition;
+
+            SkillSpawnTranslator.Spawn(rootRuntime, Vector2.zero, Vector2.right, Vector2.zero, root, CombatFaction.Player);
+
+            for (int i = 0; i < 10; i++)
+                yield return new WaitForSeconds(0.02f);
+
+            Assert.That(ScopedProjectileCount(root, middleRuntime.TypeId), Is.GreaterThanOrEqualTo(1));
+            Assert.That(ScopedAoeCount(root, aoeRuntime.TypeId), Is.GreaterThanOrEqualTo(1));
+            LogAssert.NoUnexpectedReceived();
+
+            Cleanup(rootObject, rootPrefab.gameObject, middlePrefab.gameObject, aoePrefab.gameObject, driverObject);
+            CleanupObjects(
+                rootSkill,
+                middleSkill,
+                aoeSkill,
+                rootSet,
+                middleSet,
+                aoeSet,
+                projectileTrigger,
+                aoeTrigger,
+                loadout);
+        }
+
+        [UnityTest]
         public IEnumerator ProjectileImpactAoeApplicatorStackTriggerDetonatesStackSet()
         {
             CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject rootTemplateObject, out _);
