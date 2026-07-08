@@ -117,11 +117,14 @@ without needing `DrawMeshInstancedIndirect`/indirect args at all.
 - A per-vertex `slotIndex` stream (`TEXCOORD1`) so the shader can index
   `_InstanceData` without `SV_InstanceID` (which only exists for actual
   instanced/indirect draws, not a plain mesh submission).
-- A persistent `MeshFilter`/`MeshRenderer` GameObject owned by the registry,
-  configured with `sortingLayerID`/`sortingOrder`.
-- Two new serialized fields on `CombatRoot` (`combatSpriteSortingLayerID`,
-  `combatSpriteSortingOrder`), mirroring the existing `combatSpriteAtlas`
-  field/`ConfigureAtlas` pattern.
+- A persistent, scene/prefab-authored `MeshFilter`/`MeshRenderer` GameObject
+  (not created at runtime) — its Sorting Layer/Order in Layer are set directly
+  in its own Inspector and never touched by code. Referenced on `CombatRoot`
+  via one serialized `MeshRenderer` field (`combatSpriteRenderer`), mirroring
+  the existing `combatSpriteAtlas` field. (Revised after an initial runtime-
+  created-GameObject-plus-string-field version caused a stale-serialized-field
+  bug — see [003-persistent-mesh-renderer.md](003-persistent-mesh-renderer.md)'s
+  "Status" note.)
 - `Mesh.SetSubMesh(0, new SubMeshDescriptor(0, activeCount * 6), MeshUpdateFlags.DontRecalculateBounds)`
   per frame, replacing `GraphicsBuffer.IndirectDrawIndexedArgs`/`PopulateArgs`.
 - Two new Sorting Layers in `ProjectSettings/TagManager.asset`: `CombatVfx`,
@@ -209,6 +212,53 @@ producing the mesh/GameObject/shader/system it touches). 001 and 007 have no
 code dependency on the others and can happen anytime. 006 depends on 005
 being live (nothing must still publish to `CombatIndirectRenderData`). 008 is
 last.
+
+## Post-Implementation Decision: SortingGroup-as-proxy, applied project-wide
+
+Discovered during manual verification: assigning a Sorting Layer works more
+reliably as a `SortingGroup` on a shared **parent** than as per-renderer
+Inspector fields, because two of the four tiers don't have a stable
+per-instance object to author on:
+
+- Combat sprites: one persistent `MeshRenderer`, but a `SortingGroup` wrapping
+  it (rather than its own `sortingLayerID`/`sortingOrder`) was used in
+  practice — see [003](003-persistent-mesh-renderer.md)'s "SortingGroup
+  proxy" update.
+- VFX: no persistent object at all — every `VisualEffect` is built fresh at
+  runtime via `AddComponent`. A `SortingGroup` on `CombatVfxRoot`'s GameObject
+  cascades to every child VFX instance automatically — see the revised
+  [007](007-vfx-sorting-layer-authoring.md).
+- Mobs: also built fresh at runtime (`MobSpawnerRoot.RequestSpawn` →
+  `Instantiate(prefab, ..., parent)` where `parent` is a shared `spawnParent`
+  Transform, [MobSpawnerRoot.cs:138-139](../../Assets/Scripts/Spawn/MobSpawnerRoot.cs#L138-L139)).
+  A `SortingGroup` on that shared `spawnParent` covers every spawned mob the
+  same way, by user decision.
+- Player: a single scene object; a `SortingGroup` on its GameObject (or
+  whatever parent holds its visual) applied for consistency with the other
+  three tiers, by user decision.
+
+**Load-bearing correctness requirement:** the player-tier `SortingGroup` and
+the mob-tier `SortingGroup` must be set to the exact same Sorting Layer
+(`Default`) **and** the exact same Order in Layer. A `SortingGroup` fully
+overrides its members' effective `sortingLayerID`/`sortingOrder`; the Y-axis
+tie-break (`TransparencySortMode.CustomAxis`,
+[Renderer2D.asset:34-35](../../Assets/Settings/Renderer2D.asset#L34)) only
+applies to *members with an identical (layer, order) tuple*. If the two
+groups end up with different Order in Layer values, every mob will draw
+either fully in front of or fully behind every player regardless of Y
+position, silently breaking the "player/mob Y-sort must be preserved"
+invariant this plan originally locked in. This must be checked visually after
+authoring (mob passing behind/in front of player at multiple relative Y
+positions), not assumed from the Inspector values alone.
+
+One remaining code-level snag found while tracing this: `MobSpawnerRoot`'s
+debug/fallback path (`CreateRuntimeMobPrefab`, used only when no
+`MobSpawnPool` is assigned) hard-codes
+`renderer.sortingOrder = 9`
+([MobSpawnerRoot.cs:269](../../Assets/Scripts/Spawn/MobSpawnerRoot.cs#L269)).
+Once a `SortingGroup` owns that mob's GameObject, this per-renderer value is
+ignored (the group's Order in Layer wins) — harmless as dead code, but worth
+knowing so it isn't mistaken for a live knob if debugging order issues later.
 
 ## Open Questions
 

@@ -24,15 +24,14 @@ Current render data includes:
 - `CombatRenderAuthoring` (CPU-only base visual scale/sin/cos, stride 16; seeded
   by spawn and read by render preparation)
 - `CombatRenderKindId`
-  (there is no `CombatRenderActiveTag`: render prepare derives visibility from the
-  `Active` mask, degenerating dead and arming entities to an invisible instance)
 - `CombatInstanceData` - the per-instance GPU record (`Rotation` + `Position` +
   `RenderMeta`, stride 32), copied directly from `CombatRenderComponent` with
   `AddRange` and uploaded to `_InstanceData`
 - `CombatUvBasis` - the per-kind GPU record (`OriginU` + `V`, stride 32),
   uploaded by `CombatRenderResourceRegistry` to `_UvBasis` and indexed by render id
-- one shared, manually-assembled `SpriteAtlas` asset (shared unit-quad mesh +
-  shared material + a referenced, not owned, packed atlas page texture)
+- one shared, manually assembled `SpriteAtlas` asset
+- one registry-owned capacity-baked mesh, material, `MeshFilter`, and
+  `MeshRenderer`
 
 See [Combat Render System](../reference/simulation/combat-render-system.md) for
 the full submission design.
@@ -45,30 +44,25 @@ static per-kind `_UvBasis` table.
 
 ## Guarantees
 
-The combat sprite atlas is **one manually-assembled `UnityEngine.U2D.SpriteAtlas`
-asset** (each kind's `Sprite` added as a packable in the Unity Editor ahead of
-time and packed onto a single page), assigned via a serialized field on
-`CombatRoot` and threaded into `CombatRenderResourceRegistry.ConfigureAtlas(...)`.
-There is no runtime packing: `Register(...)` resolves the atlas's packed copy of
-the sprite via `SpriteAtlas.GetSprite(name)`, binds that sprite's atlas page as
-the shared material's texture, and computes each kind's **affine UV basis**
-(`UvOriginU` / `UvV`) from the packed sprite's `uv`/`vertices`, never
-`sprite.rect` (source-texture space), so a 90-degree rotated packing still samples
-correctly. The atlas is static, so the registry uploads those per-kind UV bases to
-`_UvBasis` only when the registered kind set changes. If a sprite is not a
-packable, `GetSprite` returns null and registration fails loudly. The atlas must be
-packed at runtime (`SpritePackerMode` = "Sprite Atlas V2 - Enabled"); an unpacked
-atlas resolves sprites to their source textures and corrupts rendering.
+The combat sprite atlas is one manually assembled `UnityEngine.U2D.SpriteAtlas`
+asset, assigned via a serialized field on `CombatRoot` and threaded into
+`CombatRenderResourceRegistry.ConfigureAtlas(...)`. There is no runtime packing:
+`Register(...)` resolves the atlas's packed copy of the sprite via
+`SpriteAtlas.GetSprite(name)`, binds that sprite's atlas page as the shared
+material's texture, and computes each kind's affine UV basis from the packed
+sprite's `uv`/`vertices`.
 
-Every active projectile/AOE entity across every kind draws in **one
-`DrawMeshInstancedIndirect` per update** with one shared unit-quad mesh + one
-shared material. Per-instance data (`CombatInstanceData`) is uploaded to
-`_InstanceData` and indexed by `SV_InstanceID`; per-kind UV basis data is uploaded
-to `_UvBasis` and indexed by the instance render id. There is no per-kind draw call
-and no 1023-instance cap. The draw is recorded inside a URP
-`ScriptableRendererFeature` (`Combat Indirect Render Feature` on
-`Renderer2D.asset`), because the 2D Renderer does not execute immediate-mode
-`Graphics.RenderMesh*` calls and only runs passes tagged `LightMode = Universal2D`.
+Every active projectile/AOE entity across every kind draws through one
+registry-owned `MeshRenderer` with one shared capacity-baked mesh and one shared
+material. The mesh contains repeated quads. Each quad carries its `_InstanceData`
+slot in UV1 (`TEXCOORD1.x`), and `CombatBatchedRenderSystem` controls the active
+range with `Mesh.SetSubMesh(0, activeCount * 6)`. There is no per-kind draw call
+and no 1023-instance cap.
+
+Sorting Layer order is part of the contract: combat VFX use `CombatVfx`, combat
+sprites use `CombatSprites`, and actors remain on `Default`. The combat sprite
+batch is one atomic renderer, so `CombatSprites` should not be used for content
+that expects to interleave with individual projectile/AOE sprites.
 
 ## Restrictions
 
@@ -82,22 +76,22 @@ spawn command.
 ## Lifetime
 
 Render components live on projectile/AOE reusable entities. Render resources live
-with the owning combat root and are released on root teardown. The per-kind UV
-basis GPU buffer is owned and disposed by `CombatRenderResourceRegistry`.
+with the owning combat root and are released on root teardown. The capacity mesh,
+renderer GameObject, material, and per-kind UV basis GPU buffer are owned and
+disposed by `CombatRenderResourceRegistry`. The per-frame `_InstanceData` buffer
+is owned by `CombatBatchedRenderSystem`.
 
 ## Ordering
 
 Render preparation runs after simulation/apply. Batched render submission runs in
-presentation, reads `CombatRenderComponent`, and in one active-only scatter pass
-fills a single `NativeList<CombatRenderComponent>` directly from each entity's own
-component. The registry ensures the static per-kind `_UvBasis` table is current,
-rebuilding it only when dirty. The system uploads the instance list to
-`_InstanceData`, writes the indirect args (`instanceCount` = active count), binds
-`_InstanceData` and `_UvBasis` with `Material.SetBuffer` (not
-`MaterialPropertyBlock`, which no-ops for indirect draws), and publishes the draw
-inputs to a static handoff. A `ScriptableRendererFeature` on `Renderer2D.asset`
-then issues one `DrawMeshInstancedIndirect` inside the 2D render pass. It does not
-use shared-component filters or `ToComponentDataArray`.
+presentation, reads `CombatRenderComponent`, and in one scatter pass fills a
+single `NativeList<CombatRenderComponent>` directly from each entity's own
+component. The registry ensures the static per-kind `_UvBasis` table is current
+and that the baked mesh capacity can cover the current active count. The system
+uploads the instance list to `_InstanceData`, binds `_InstanceData` and `_UvBasis`
+with `Material.SetBuffer`, and sets the mesh submesh index count to
+`activeCount * 6`. URP 2D then discovers and sorts the registry-owned
+`MeshRenderer` through its normal renderer pass.
 
 ## Related Layers
 

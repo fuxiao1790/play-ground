@@ -47,6 +47,7 @@ Shader "Combat/AtlasIndirectSprite"
                 float4 v;       // xy = V axis
             };
 
+            // Each baked quad carries its _InstanceData slot in TEXCOORD1.x.
             StructuredBuffer<CombatInstanceData> _InstanceData;
             StructuredBuffer<CombatUvBasis> _UvBasis;
 
@@ -57,7 +58,7 @@ Shader "Combat/AtlasIndirectSprite"
             {
                 float4 positionOS : POSITION;
                 float2 uv : TEXCOORD0;
-                uint instanceID : SV_InstanceID;
+                float2 slotIndex : TEXCOORD1;
             };
 
             struct Varyings
@@ -69,7 +70,8 @@ Shader "Combat/AtlasIndirectSprite"
             Varyings vert(Attributes IN)
             {
                 Varyings OUT = (Varyings)0;
-                CombatInstanceData inst = _InstanceData[IN.instanceID];
+                uint slot = (uint)round(IN.slotIndex.x);
+                CombatInstanceData inst = _InstanceData[slot];
                 uint renderId = inst.renderMeta & 0x7FFFFFFFu;
                 CombatUvBasis basis = _UvBasis[renderId];
 

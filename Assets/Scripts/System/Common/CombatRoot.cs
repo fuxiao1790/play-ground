@@ -35,6 +35,11 @@ namespace PlayGround.System.Common
             "(Window > 2D > Sprite Atlas), skills register themselves against it, and registration " +
             "throws if a sprite is not part of it.")]
         [SerializeField] private SpriteAtlas combatSpriteAtlas;
+        [Tooltip("Persistent scene/prefab MeshRenderer the combat sprite batch draws through. " +
+            "Its Sorting Layer / Order in Layer are configured directly in this Renderer's " +
+            "Inspector — CombatRoot only assigns the shared mesh/material onto it, it never " +
+            "touches sorting.")]
+        [SerializeField] private MeshRenderer combatSpriteRenderer;
 
         [Header("Projectile visuals")]
         [SerializeField] private Sprite projectileSprite;
@@ -93,6 +98,7 @@ namespace PlayGround.System.Common
             if (_renderRegistry == null)
                 Debug.LogWarning("[CombatRoot] CombatRenderResourceRegistry singleton not found; render registry will not be populated.");
             ConfigureRenderRegistryAtlas();
+            ConfigureRenderRegistryRenderer();
             BuildProjectileRenderResources();
             runtimeReady = true;
         }
@@ -124,6 +130,7 @@ namespace PlayGround.System.Common
         {
             combatSpriteAtlas = atlas;
             ConfigureRenderRegistryAtlas();
+            ConfigureRenderRegistryRenderer();
         }
 
         // ---- Projectile API ----
@@ -611,6 +618,7 @@ namespace PlayGround.System.Common
         {
             _renderRegistry?.Unregister();
             ConfigureRenderRegistryAtlas();
+            ConfigureRenderRegistryRenderer();
             projectileRenderIdByType.Clear();
             aoeRenderIdByType.Clear();
             templateTypeIds.Clear();
@@ -663,6 +671,7 @@ namespace PlayGround.System.Common
             if (!typeRegistry.TryGetVisual(typeId, out AoeVisualDefinition visual))
                 return;
             ConfigureRenderRegistryAtlas();
+            ConfigureRenderRegistryRenderer();
             aoeRenderIdByType[typeId] = _renderRegistry?.Register(
                 visual.Sprite, visual.VisualScale, visual.VisualRotationDegrees, gameObject.layer) ?? 0;
         }
@@ -670,6 +679,24 @@ namespace PlayGround.System.Common
         private void ConfigureRenderRegistryAtlas()
         {
             _renderRegistry?.ConfigureAtlas(combatSpriteAtlas);
+        }
+
+        private void ConfigureRenderRegistryRenderer()
+        {
+            if (combatSpriteRenderer == null)
+            {
+                Debug.LogWarning("[CombatRoot] Combat Sprite Renderer is not assigned; combat sprites will not draw.");
+                return;
+            }
+
+            MeshFilter meshFilter = combatSpriteRenderer.GetComponent<MeshFilter>();
+            if (meshFilter == null)
+            {
+                Debug.LogError("[CombatRoot] Combat Sprite Renderer has no MeshFilter.");
+                return;
+            }
+
+            _renderRegistry?.AttachRenderer(meshFilter, combatSpriteRenderer);
         }
 
         // ---- World / scope ----

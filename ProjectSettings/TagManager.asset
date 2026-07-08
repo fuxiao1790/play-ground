@@ -25,7 +25,7 @@ TagManager:
   - MobProjectile
   - MobAoe
   - Environment
-  - 
+  - CombatSprites
   - 
   - 
   - 
@@ -41,6 +41,12 @@ TagManager:
   - 
   - 
   m_SortingLayers:
+  - name: CombatVfx
+    uniqueID: 1307555867
+    locked: 0
+  - name: CombatSprites
+    uniqueID: 3682561187
+    locked: 0
   - name: Default
     uniqueID: 0
     locked: 0

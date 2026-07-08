@@ -24,7 +24,6 @@ namespace PlayGround.System.Common
         private EntityQuery renderQuery;
         private ComponentTypeHandle<CombatRenderComponent> renderComponentHandle;
         private GraphicsBuffer _instanceBuffer;
-        private GraphicsBuffer _argsBuffer;
         private int _instanceCapacity;
         private NativeList<CombatRenderComponent> _instanceData;
 
@@ -34,18 +33,6 @@ namespace PlayGround.System.Common
             EntityManager.AddComponentObject(registryEntity, new CombatRenderResourceRegistry());
 
             Assert.AreEqual(InstanceDataStride, UnsafeUtility.SizeOf<CombatRenderComponent>());
-
-            if (!SystemInfo.supportsIndirectArgumentsBuffer)
-            {
-                Debug.LogError("Combat indirect rendering requires supportsIndirectArgumentsBuffer; CombatBatchedRenderSystem disabled.");
-                Enabled = false;
-                return;
-            }
-
-            _argsBuffer = new GraphicsBuffer(
-                GraphicsBuffer.Target.IndirectArguments,
-                1,
-                GraphicsBuffer.IndirectDrawIndexedArgs.size);
 
             _instanceData = new NativeList<CombatRenderComponent>(Allocator.Persistent);
 
@@ -59,10 +46,8 @@ namespace PlayGround.System.Common
 
         protected override void OnDestroy()
         {
-            CombatIndirectRenderData.Clear();
             if (_instanceData.IsCreated) _instanceData.Dispose();
             _instanceBuffer?.Dispose();
-            _argsBuffer?.Dispose();
         }
 
         protected override void OnUpdate()
@@ -72,20 +57,20 @@ namespace PlayGround.System.Common
             var registry = SystemAPI.ManagedAPI.GetSingleton<CombatRenderResourceRegistry>();
             if (registry.SharedMesh == null)
             {
-                CombatIndirectRenderData.Clear();
                 return;
             }
 
             int entityCount = renderQuery.CalculateEntityCount();
             if (entityCount == 0)
             {
-                CombatIndirectRenderData.Clear();
+                registry.SetActiveInstanceCount(0);
                 return;
             }
             GraphicsBuffer uvBasisBuffer = registry.EnsureUvBasisBuffer();
 
             _instanceData.Clear();
             EnsureInstanceCapacity(entityCount);
+            registry.EnsureMeshCapacity(entityCount);
 
             renderComponentHandle = GetComponentTypeHandle<CombatRenderComponent>(true);
             using (WriteDirectMarker.Auto())
@@ -99,8 +84,8 @@ namespace PlayGround.System.Common
 
             _instanceBuffer.SetData(_instanceData.AsArray(), 0, 0, _instanceData.Length);
 
-            PopulateArgs(registry, entityCount);
             Submit(registry, uvBasisBuffer);
+            registry.SetActiveInstanceCount(entityCount);
         }
 
         [BurstCompile]
@@ -133,24 +118,10 @@ namespace PlayGround.System.Common
             _instanceCapacity = newCapacity;
         }
 
-        private void PopulateArgs(CombatRenderResourceRegistry registry, int activeCount)
-        {
-            var args = new GraphicsBuffer.IndirectDrawIndexedArgs
-            {
-                indexCountPerInstance = registry.SharedMesh.GetIndexCount(0),
-                instanceCount = (uint)activeCount,
-                startIndex = registry.SharedMesh.GetIndexStart(0),
-                baseVertexIndex = registry.SharedMesh.GetBaseVertex(0),
-                startInstance = 0
-            };
-            _argsBuffer.SetData(new[] { args });
-        }
-
         private void Submit(CombatRenderResourceRegistry registry, GraphicsBuffer uvBasisBuffer)
         {
             registry.SharedMaterial.SetBuffer(InstanceDataProperty, _instanceBuffer);
             registry.SharedMaterial.SetBuffer(UvBasisProperty, uvBasisBuffer);
-            CombatIndirectRenderData.Publish(registry.SharedMesh, registry.SharedMaterial, _argsBuffer);
         }
     }
 }
