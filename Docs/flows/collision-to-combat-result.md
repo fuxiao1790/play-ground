@@ -11,8 +11,8 @@ presentation results.
 2. Collision systems qualify hits with broad phase, narrow phase, faction, and
    repeat-hit gates.
 3. Accepted hits emit plain data hit events and optional spawn/VFX consequences.
-4. `CombatApplyFinalizeSystem` buckets hits by target proxy, rolls crits, sums
-   damage, updates `TargetHealth`, accrues `TargetStackEntry`, and freezes
+4. `CombatApplyFinalizeSingleSystem` groups hits by target proxy, rolls crits,
+   sums damage, updates `TargetHealth`, accrues `TargetStackEntry`, and freezes
    `CombatTickResult`.
 5. `StatusProcessSystem` processes stacks and may enqueue detonation spawns.
 6. Presentation bridge resolves `TargetCompanion` and calls managed target
@@ -24,7 +24,7 @@ presentation results.
 
 ## Consumers
 
-`CombatApplyFinalizeSystem`, `StatusProcessSystem`, presentation bridge,
+`CombatApplyFinalizeSingleSystem`, `StatusProcessSystem`, presentation bridge,
 actor roots, and spawn expansion systems for follow-up events.
 
 ## Contracts Used
@@ -59,5 +59,5 @@ paths or dedicated semantic events.
 
 Older reference docs still mention `DamageReplayEvent` and
 `DamageDispatchBridge` in places. TODO: verify every old name against current
-`CombatApplyFinalizeSystem`/`CombatApplyBridge` code before deleting legacy
+`CombatApplyFinalizeSingleSystem`/`CombatApplyBridge` code before deleting legacy
 wording.

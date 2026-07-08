@@ -37,14 +37,14 @@ consequence events, and frame timing. Domain-specific details still live in
   `CombatFaction`.
 - `Assets/Scripts/System/Common/CombatTargetProxy.cs`: ECS target proxy create,
   push, and delete.
-- `Assets/Scripts/System/Common/CombatApplyFinalizeSystem.cs`: target-bucketed
+- `Assets/Scripts/System/Common/CombatApplyFinalizeSingleSystem.cs`: single-pass
   hit finalize, ECS-owned target health/status application, and presentation
   bridge source data.
 - `Assets/Scripts/System/Common/CombatLifetimeSystem.cs`: projectile and
   lingering-AOE lifetime expiry.
 - `Assets/Scripts/System/Common/TimedSpawnSystem.cs`: shared timed-spawn
   producer for projectile and AOE child events.
-- `Assets/Scripts/System/Common/CombatRenderComponents.cs`: common render data,
+- `Assets/Scripts/System/Rendering/CombatRenderComponents.cs`: common render data,
   faction/type shared components, and render matrix prep.
 - `Assets/Scripts/System/Common/CombatBatchedRenderSystem.cs`: shared batched
   render submission.
@@ -306,7 +306,7 @@ call managed target callbacks and do not allocate follow-up entities directly.
 
 Current consequence paths include:
 
-- hit events into `CombatApplyFinalizeSystem`
+- hit events into `CombatApplyFinalizeSingleSystem`
 - `ProjectileSpawnEvent` values for impact projectiles, AOE projectile bursts,
   and stack detonation projectiles
 - `AOE variant spawn event` values for impact AOEs, on-hit AOEs, timed AOEs, and stack
@@ -367,7 +367,7 @@ Important ordering:
 2. `TimedSpawnSystem` emits interval spawn events.
 3. Projectile tracking, movement, contact gates, and collision run.
 4. AOE pulse VFX and collision run.
-5. `CombatApplyFinalizeSystem` applies hit events to ECS target health and
+5. `CombatApplyFinalizeSingleSystem` applies hit events to ECS target health and
    status data.
 6. `StatusProcessSystem` emits stack detonation spawn events.
 7. `ProjectileSpawnExpansionSystem` and `AOE spawn expansion systems` drain

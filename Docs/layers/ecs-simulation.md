@@ -64,10 +64,10 @@ preparation.
 - `Assets/Scripts/System/Projectile/`
 - `Assets/Scripts/System/Aoe/`
 - `Assets/Scripts/System/Status/`
-- `Assets/Scripts/System/Common/CombatApplyFinalizeSystem.cs`
+- `Assets/Scripts/System/Common/CombatApplyFinalizeSingleSystem.cs`
 - `Assets/Scripts/System/Common/CombatLifetimeSystem.cs`
 - `Assets/Scripts/System/Common/TimedSpawnSystem.cs`
-- `Assets/Scripts/System/Common/CombatRenderComponents.cs`
+- `Assets/Scripts/System/Rendering/CombatRenderComponents.cs`
 
 ## Related Contracts
 

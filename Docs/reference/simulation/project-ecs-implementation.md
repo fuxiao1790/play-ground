@@ -134,7 +134,7 @@ Per-frame combat work is explicit in ECS systems and actor roots:
   instances through tag-scoped queries (`ProjectileTag`/`AoeTag`), drawing
   every registered kind together via the registry's shared atlas
   mesh/material instead of one batch per kind.
-- `CombatApplyFinalizeSystem` (`SimulationSystemGroup`) applies target-bucketed
+- `CombatApplyFinalizeSingleSystem` (`SimulationSystemGroup`) applies grouped
   `CombatHitEvent` values to ECS-owned `TargetHealth`, accrues status stacks,
   and freezes one `CombatTickResult` per hit target after collision and before
   spawn expansion.
@@ -159,21 +159,17 @@ Per-hit count and crit count are preserved on `CombatTickResult` for feedback.
 ## Collision Event Dispatch
 
 Current projectile and AOE collision systems write one `CombatHitEvent` per hit
-into a target-bucketed native map. The bucket key is the target proxy entity, so
-per-target grouping is available without sorting. This removed the old
-single-threaded drain/sort bottleneck, but it intentionally does not condense
-multiple hits into one damage aggregate yet.
+into the combat hit dispatch singleton queue. Finalize groups those hits by
+target proxy inside one Burst job and emits one aggregate result per hit target.
 
 ### Implemented Shape
 
-- Collision jobs enqueue hits through the unbounded `CombatApplyFinalizeSystem`
-  hit queue. Finalize buckets those hits by target proxy with
-  `NativeParallelMultiHashMap` and `GetUniqueKeyArray`; it does not sort before
-  applying damage.
-- `CombatApplyFinalizeSystem` completes producers, iterates unique target keys
-  in a parallel job, rolls crits with deterministic `Unity.Mathematics.Random`,
-  sums damage per target, subtracts from `TargetHealth.Current`, and freezes one
-  `CombatTickResult` for the presentation bridge.
+- Collision jobs enqueue hits through `CombatHitDispatchSingleton.HitQueue`.
+  `CombatApplyFinalizeSingleSystem` completes producers and drains the queue.
+- `CombatApplyFinalizeSingleSystem` groups hits by target proxy, rolls crits
+  with deterministic `Unity.Mathematics.Random`, sums damage per target,
+  subtracts from `TargetHealth.Current`, and freezes one `CombatTickResult` for
+  the presentation bridge.
 - Stack accrual happens in the same finalize job against each target proxy's
   `TargetStackEntry` buffer. Each target key is owned by one job index, so buffer
   writes do not alias.

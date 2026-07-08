@@ -137,14 +137,14 @@ Docs/
   creation, shape push, health/status seed data, and deletion.
 - `Assets/Scripts/System/Common/CombatTargetRegistry.cs`: managed target
   registry that creates proxy entities for registered `ICombatTarget` objects.
-- `Assets/Scripts/System/Common/CombatApplyFinalizeSystem.cs`: target-bucketed
+- `Assets/Scripts/System/Common/CombatApplyFinalizeSingleSystem.cs`: single-pass
   hit finalize, ECS health/status application, `CombatTickResult` production,
   and `CombatApplyBridge` presentation replay.
 - `Assets/Scripts/System/Common/CombatLifetimeSystem.cs`: shared projectile and
   AOE lifetime expiry.
 - `Assets/Scripts/System/Common/CombatCollisionMath.cs`: shared bounds and
   narrow-phase collision math.
-- `Assets/Scripts/System/Common/CombatRenderComponents.cs`: shared batched
+- `Assets/Scripts/System/Rendering/CombatRenderComponents.cs`: shared batched
   sprite render components and matrix preparation.
 - `Assets/Scripts/System/Common/CombatBatchedRenderSystem.cs`: instanced render
   submission in `PresentationSystemGroup`.

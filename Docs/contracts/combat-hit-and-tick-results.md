@@ -67,4 +67,4 @@ expansion. Presentation bridge runs after finalize.
 ## Notes / TODOs
 
 TODO: reconcile old proposed combat-state redesign wording with current
-`CombatApplyFinalizeSystem` implementation notes.
+`CombatApplyFinalizeSingleSystem` implementation notes.

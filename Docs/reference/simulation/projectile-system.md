@@ -80,7 +80,7 @@ Non-goals:
   deactivation.
 - `Assets/Scripts/System/Common/CombatLifetimeSystem.cs`: shared projectile and
   AOE lifetime expiry using `CombatLifetimeComponent` and `Active`.
-- `Assets/Scripts/System/Common/CombatRenderComponents.cs`: shared render data
+- `Assets/Scripts/System/Rendering/CombatRenderComponents.cs`: shared render data
   and render matrix preparation.
 - `Assets/Scripts/System/Common/CombatBatchedRenderSystem.cs`: presentation
   submission through `Graphics.RenderMeshInstanced`.
