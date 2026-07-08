@@ -229,27 +229,32 @@ per-instance object to author on:
   cascades to every child VFX instance automatically — see the revised
   [007](007-vfx-sorting-layer-authoring.md).
 - Mobs: also built fresh at runtime (`MobSpawnerRoot.RequestSpawn` →
-  `Instantiate(prefab, ..., parent)` where `parent` is a shared `spawnParent`
-  Transform, [MobSpawnerRoot.cs:138-139](../../Assets/Scripts/Spawn/MobSpawnerRoot.cs#L138-L139)).
-  A `SortingGroup` on that shared `spawnParent` covers every spawned mob the
-  same way, by user decision.
-- Player: a single scene object; a `SortingGroup` on its GameObject (or
-  whatever parent holds its visual) applied for consistency with the other
-  three tiers, by user decision.
+  `Instantiate(prefab, ..., parent)` where `parent` is `MobSpawnerRoot`'s
+  `spawnParent` field if assigned, else `transform.parent`,
+  [MobSpawnerRoot.cs:138-139](../../Assets/Scripts/Spawn/MobSpawnerRoot.cs#L138-L139)).
+  A `SortingGroup` must live on whatever GameObject `spawnParent` actually
+  resolves to — **not** on `MobSpawnerRoot`'s own GameObject, since spawned
+  mobs are never parented under the spawner script itself. `spawnParent` is
+  now assigned to a dedicated container GameObject carrying the
+  `SortingGroup` (targeting the `Mobs` Sorting Layer), so every spawned mob
+  becomes its child and inherits sorting the same way VFX does under
+  `CombatVfxRoot`.
+- Player: a single scene object (`Player.prefab`'s root); a `SortingGroup` on
+  it, targeting a `Players` Sorting Layer.
 
-**Load-bearing correctness requirement:** the player-tier `SortingGroup` and
-the mob-tier `SortingGroup` must be set to the exact same Sorting Layer
-(`Default`) **and** the exact same Order in Layer. A `SortingGroup` fully
-overrides its members' effective `sortingLayerID`/`sortingOrder`; the Y-axis
-tie-break (`TransparencySortMode.CustomAxis`,
-[Renderer2D.asset:34-35](../../Assets/Settings/Renderer2D.asset#L34)) only
-applies to *members with an identical (layer, order) tuple*. If the two
-groups end up with different Order in Layer values, every mob will draw
-either fully in front of or fully behind every player regardless of Y
-position, silently breaking the "player/mob Y-sort must be preserved"
-invariant this plan originally locked in. This must be checked visually after
-authoring (mob passing behind/in front of player at multiple relative Y
-positions), not assumed from the Inspector values alone.
+## Superseded decision: Player and Mobs use separate Sorting Layers
+
+The original plan (and an earlier revision of this section) required player
+and mob to share one Sorting Layer so `TransparencySortMode.CustomAxis`
+Y-position sort continued to interleave them. **Per user decision, this is
+now intentionally abandoned**: `Players` and `Mobs` are two distinct Sorting
+Layers (`TagManager.asset`, `Players` then `Mobs`, both between
+`CombatSprites` and `Default`). A `SortingGroup` fully overrides its
+members' effective `sortingLayerID`/`sortingOrder`, and different Sorting
+Layers are compared by layer order only — not Y position — so mobs now
+always draw in front of (or behind, per layer order) the player regardless
+of vertical position, on purpose. If Y-interleaving between player and mobs
+is ever wanted again, merge them back onto one shared Sorting Layer + Order.
 
 One remaining code-level snag found while tracing this: `MobSpawnerRoot`'s
 debug/fallback path (`CreateRuntimeMobPrefab`, used only when no

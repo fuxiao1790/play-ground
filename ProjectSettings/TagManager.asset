@@ -47,6 +47,12 @@ TagManager:
   - name: CombatSprites
     uniqueID: 3682561187
     locked: 0
+  - name: Players
+    uniqueID: 85618847
+    locked: 0
+  - name: Mobs
+    uniqueID: 2638627237
+    locked: 0
   - name: Default
     uniqueID: 0
     locked: 0
