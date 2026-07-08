@@ -276,7 +276,7 @@ MonoBehaviour:
   spriteRenderer: {fileID: 227430868430504257}
   target: {fileID: 0}
   speed: 0.9375
-  maxHealth: 800000
+  maxHealth: 250000
   targetRadius: 0.5
   wanderMinDuration: 0.7
   wanderMaxDuration: 2
