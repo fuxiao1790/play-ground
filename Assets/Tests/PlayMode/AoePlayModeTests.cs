@@ -303,8 +303,8 @@ namespace PlayGround.Tests.PlayMode
             SkillSet rootSetA = ScriptableObject.CreateInstance<SkillSet>();
             SkillSet rootSetB = ScriptableObject.CreateInstance<SkillSet>();
             SkillSet childSet = ScriptableObject.CreateInstance<SkillSet>();
-            IntervalSpawnTrigger triggerA = ScriptableObject.CreateInstance<IntervalSpawnTrigger>();
-            IntervalSpawnTrigger triggerB = ScriptableObject.CreateInstance<IntervalSpawnTrigger>();
+            ProjectileIntervalSpawnTrigger triggerA = ScriptableObject.CreateInstance<ProjectileIntervalSpawnTrigger>();
+            ProjectileIntervalSpawnTrigger triggerB = ScriptableObject.CreateInstance<ProjectileIntervalSpawnTrigger>();
             PlayerLoadout loadout = ScriptableObject.CreateInstance<PlayerLoadout>();
             GameObject driverObject = new("PlayerSkillDriverHarness");
             driverObject.SetActive(false);
@@ -315,8 +315,8 @@ namespace PlayGround.Tests.PlayMode
             ConfigureProjectile(childSkill, childPrefab, damage: 3f);
             triggerA.intervalSeconds = 0.25f;
             triggerB.intervalSeconds = 0.25f;
-            triggerA.spawnCount = 1;
-            triggerB.spawnCount = 1;
+            triggerA.projectileCount = 1;
+            triggerB.projectileCount = 1;
             SetField(rootSetA, "skill", rootSkillA);
             SetField(rootSetA, "supports", global::System.Array.Empty<SkillSupport>());
             SetField(rootSetB, "skill", rootSkillB);
@@ -349,7 +349,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(registry.Map.ContainsKey(firstSetup.TemplateKey), Is.True);
             Assert.That(registry.Map.Count, Is.LessThanOrEqualTo(projectileStartCount + 1));
 
-            triggerB.spawnCount = 2;
+            triggerB.projectileCount = 2;
             CompileAndRegister(driver);
             first = (RuntimeProjectileDefinition)CompiledRuntime(driver, 0);
             second = (RuntimeProjectileDefinition)CompiledRuntime(driver, 1);
@@ -362,7 +362,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(registry.Map.ContainsKey(changedCountKey), Is.True);
             Assert.That(registry.Map.Count, Is.LessThanOrEqualTo(projectileStartCount + 2));
 
-            triggerB.spawnCount = 1;
+            triggerB.projectileCount = 1;
             CompileAndRegister(driver);
             second = (RuntimeProjectileDefinition)CompiledRuntime(driver, 1);
 
@@ -397,8 +397,8 @@ namespace PlayGround.Tests.PlayMode
             SkillSet aoeSourceSet = ScriptableObject.CreateInstance<SkillSet>();
             SkillSet projectileChildSet = ScriptableObject.CreateInstance<SkillSet>();
             SkillSet aoeChildSet = ScriptableObject.CreateInstance<SkillSet>();
-            IntervalSpawnTrigger projectileTrigger = ScriptableObject.CreateInstance<IntervalSpawnTrigger>();
-            IntervalSpawnTrigger aoeTrigger = ScriptableObject.CreateInstance<IntervalSpawnTrigger>();
+            ProjectileIntervalSpawnTrigger projectileTrigger = ScriptableObject.CreateInstance<ProjectileIntervalSpawnTrigger>();
+            AoeIntervalSpawnTrigger aoeTrigger = ScriptableObject.CreateInstance<AoeIntervalSpawnTrigger>();
             PlayerLoadout loadout = ScriptableObject.CreateInstance<PlayerLoadout>();
             GameObject driverObject = new("PlayerSkillDriverHarness");
             driverObject.SetActive(false);
@@ -409,9 +409,9 @@ namespace PlayGround.Tests.PlayMode
             ConfigureProjectile(projectileChildSkill, projectileChildPrefab, damage: 1f);
             ConfigureAoe(aoeChildSkill, aoeChildPrefab, damage: 1f);
             projectileTrigger.intervalSeconds = 0.02f;
-            projectileTrigger.spawnCount = 1;
+            projectileTrigger.projectileCount = 1;
             aoeTrigger.intervalSeconds = 0.02f;
-            aoeTrigger.spawnCount = 1;
+            aoeTrigger.echoCount = 1;
             SetField(projectileSourceSet, "skill", projectileSourceSkill);
             SetField(projectileSourceSet, "supports", global::System.Array.Empty<SkillSupport>());
             SetField(aoeSourceSet, "skill", aoeSourceSkill);

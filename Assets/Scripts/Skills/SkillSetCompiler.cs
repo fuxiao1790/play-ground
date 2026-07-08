@@ -43,9 +43,15 @@ namespace PlayGround.Skills
             {
                 if (chain == null || chain.causeIndex != slotIndex || chain.link == null) continue;
 
-                if (chain.link is IntervalSpawnTrigger intervalTrigger)
+                if (chain.link is ProjectileIntervalSpawnTrigger childTrigger)
                 {
-                    ApplyIntervalSpawn(triggerHost, intervalTrigger, slots, chain.effectIndex, allChains, snapshot);
+                    ApplyChildSpawn(triggerHost, childTrigger, slots, chain.effectIndex, allChains, snapshot);
+                    continue;
+                }
+
+                if (chain.link is AoeIntervalSpawnTrigger aoeIntervalTrigger)
+                {
+                    ApplyAoeIntervalSpawn(triggerHost, aoeIntervalTrigger, slots, chain.effectIndex, allChains, snapshot);
                     continue;
                 }
 
@@ -289,9 +295,9 @@ namespace PlayGround.Skills
             }
         }
 
-        private static void ApplyIntervalSpawn(
+        private static void ApplyChildSpawn(
             RuntimeSkillDefinition parent,
-            IntervalSpawnTrigger trigger,
+            ProjectileIntervalSpawnTrigger trigger,
             IReadOnlyList<LoadoutSlot> slots,
             int effectIndex,
             TriggerChain[] allChains,
@@ -304,49 +310,59 @@ namespace PlayGround.Skills
                 return;
 
             RuntimeSkillDefinition compiledChild = Compile(slots, effectIndex, allChains, snapshot);
+            if (compiledChild is not RuntimeProjectileDefinition childDef) return;
+
             float intervalSeconds = Mathf.Max(0.01f, trigger.intervalSeconds);
-            float intervalJitterSeconds =
-                intervalSeconds * Mathf.Clamp(trigger.intervalJitterPercent, 0f, 100f) * 0.01f;
-
-            if (compiledChild is RuntimeProjectileDefinition projectileChild)
+            var setup = new RuntimeChildSpawnSetup
             {
-                var setup = new RuntimeChildSpawnSetup
-                {
-                    JitterSeed = ++nextChildJitterSeed,
-                    ChildDefinition = projectileChild,
-                    IntervalSeconds = intervalSeconds,
-                    IntervalJitterSeconds = intervalJitterSeconds,
-                    Behavior = new ProjectileChildSpawnBehavior(
-                        Mathf.Max(1, projectileChild.Count + trigger.spawnCount),
-                        ProjectileChildSpawnPatternType.SideSpray,
-                        trigger.sideSpreadDegrees),
-                };
+                JitterSeed = ++nextChildJitterSeed,
+                ChildDefinition = childDef,
+                IntervalSeconds = intervalSeconds,
+                IntervalJitterSeconds = intervalSeconds * Mathf.Clamp(trigger.intervalJitterPercent, 0f, 100f) * 0.01f,
+                Behavior = new ProjectileChildSpawnBehavior(
+                    Mathf.Max(1, childDef.Count + trigger.projectileCount),
+                    ProjectileChildSpawnPatternType.SideSpray,
+                    trigger.sideSpreadDegrees),
+            };
 
-                if (parent is RuntimeProjectileDefinition projectileParent)
-                    projectileParent.ChildSpawnSetup = setup;
-                else if (parent is RuntimeAoeDefinition aoeParent)
-                    aoeParent.ChildSpawnSetup = setup;
+            if (parent is RuntimeProjectileDefinition projectileParent)
+                projectileParent.ChildSpawnSetup = setup;
+            else if (parent is RuntimeAoeDefinition aoeParent)
+                aoeParent.ChildSpawnSetup = setup;
+        }
 
+        private static void ApplyAoeIntervalSpawn(
+            RuntimeSkillDefinition parent,
+            AoeIntervalSpawnTrigger trigger,
+            IReadOnlyList<LoadoutSlot> slots,
+            int effectIndex,
+            TriggerChain[] allChains,
+            PlayerStatSnapshot snapshot)
+        {
+            if (parent is not RuntimeProjectileDefinition and not RuntimeAoeDefinition)
                 return;
-            }
 
-            if (compiledChild is RuntimeAoeDefinition aoeChild)
+            if (parent is RuntimeAoeDefinition { LifetimeSeconds: <= 0f })
+                return;
+
+            RuntimeSkillDefinition compiledChild = Compile(slots, effectIndex, allChains, snapshot);
+            if (compiledChild is not RuntimeAoeDefinition childDef) return;
+
+            float intervalSeconds = Mathf.Max(0.01f, trigger.intervalSeconds);
+            var setup = new RuntimeAoeIntervalSpawnSetup
             {
-                var setup = new RuntimeAoeIntervalSpawnSetup
-                {
-                    JitterSeed = ++nextChildJitterSeed,
-                    ChildDefinition = aoeChild,
-                    IntervalSeconds = intervalSeconds,
-                    IntervalJitterSeconds = intervalJitterSeconds,
-                    Count = Mathf.Max(1, aoeChild.EchoCount + trigger.spawnCount),
-                    SideSpreadDegrees = trigger.sideSpreadDegrees,
-                };
+                JitterSeed = ++nextChildJitterSeed,
+                ChildDefinition = childDef,
+                IntervalSeconds = intervalSeconds,
+                IntervalJitterSeconds = intervalSeconds * Mathf.Clamp(trigger.intervalJitterPercent, 0f, 100f) * 0.01f,
+                Count = Mathf.Max(1, childDef.EchoCount + trigger.echoCount),
+                ScatterRadius = Mathf.Max(0f, trigger.scatterRadius),
+            };
 
-                if (parent is RuntimeProjectileDefinition projectileParent)
-                    projectileParent.AoeIntervalSpawnSetup = setup;
-                else if (parent is RuntimeAoeDefinition aoeParent)
-                    aoeParent.AoeIntervalSpawnSetup = setup;
-            }
+            if (parent is RuntimeProjectileDefinition projectileParent)
+                projectileParent.AoeIntervalSpawnSetup = setup;
+            else if (parent is RuntimeAoeDefinition aoeParent)
+                aoeParent.AoeIntervalSpawnSetup = setup;
         }
 
         private static SkillSet GetSkillSet(IReadOnlyList<LoadoutSlot> slots, int slotIndex)

@@ -406,7 +406,8 @@ namespace PlayGround.Skills
                     Mathf.Max(1, setup.Count),
                     combatRoot,
                     stackEffect,
-                    BuildOnHitSpawnRef(child));
+                    BuildOnHitSpawnRef(child),
+                    scatterRadiusOverride: setup.ScatterRadius);
 
             setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in template);
         }
@@ -679,7 +680,8 @@ namespace PlayGround.Skills
             CombatRoot root,
             StackEffectSnapshot stackEffect,
             OnHitSpawnRef onHitSpawn = default,
-            TimedSpawnComponent timedSpawn = default)
+            TimedSpawnComponent timedSpawn = default,
+            float? scatterRadiusOverride = null)
         {
             AoeSpawnGeometry geometry = child.CreateSpawnGeometry();
             bool hasTimedSpawner = IsTimedSpawnEnabled(timedSpawn);
@@ -719,7 +721,7 @@ namespace PlayGround.Skills
                 HalfExtents = new Unity.Mathematics.float2(geometry.HalfExtents.x, geometry.HalfExtents.y),
                 ShapeType = geometry.ShapeType,
                 EchoCount = Mathf.Max(1, echoCount),
-                ScatterRadius = child.ScatterRadius,
+                ScatterRadius = Mathf.Max(0f, scatterRadiusOverride ?? child.ScatterRadius),
                 Render = render,
                 Authoring = authoring,
                 OnHitSpawn = onHitSpawn,

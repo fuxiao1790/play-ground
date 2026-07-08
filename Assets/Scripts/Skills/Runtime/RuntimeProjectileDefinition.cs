@@ -23,7 +23,7 @@ namespace PlayGround.Skills.Runtime
         public float IntervalJitterSeconds { get; set; }
         // Per-tick burst count; maps to the child AOE echo count when building templates.
         public int Count { get; set; }
-        public float SideSpreadDegrees { get; set; }
+        public float ScatterRadius { get; set; }
         public Hash128 TemplateKey { get; set; }
     }
 
@@ -41,10 +41,10 @@ namespace PlayGround.Skills.Runtime
         public bool DirectDamageEnabled { get; set; } = true;
         public ProjectileTrackingConfig Tracking { get; set; }
 
-        // Compiled from IntervalSpawnTrigger when the child is a projectile; null if none.
+        // Compiled from ProjectileIntervalSpawnTrigger; null if none.
         public RuntimeChildSpawnSetup ChildSpawnSetup { get; set; }
 
-        // Compiled from IntervalSpawnTrigger when the child is an AOE; null if none.
+        // Compiled from AoeIntervalSpawnTrigger; null if none.
         public RuntimeAoeIntervalSpawnSetup AoeIntervalSpawnSetup { get; set; }
 
         // Compiled from OnImpactAoeTrigger; null if none.
