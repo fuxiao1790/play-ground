@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using PlayGround.Audio;
 using PlayGround.Common;
+using PlayGround.Common.Stats;
 using PlayGround.Skills.Runtime;
 using PlayGround.System.Combat.Aoes;
 using PlayGround.System.Combat.Application;
@@ -25,6 +26,7 @@ namespace PlayGround.Skills
         [SerializeField] private CombatRoot combatRoot;
         [SerializeField] private CombatVfxRoot vfxRoot;
         [SerializeField] private AudioManager audioManager;
+        [SerializeField] private UnitStatSheet statSheet;
         [SerializeField] private CombatFaction faction = CombatFaction.Player;
         [SerializeField] private string fallbackCombatRootTag = GameplayTags.PlayerProjectileRoot;
 
@@ -98,7 +100,7 @@ namespace PlayGround.Skills
 
             var warnings = new List<SkillValidationWarning>(SkillLoadoutValidator.Validate(loadout));
 
-            SkillStatSnapshot snapshot = SkillStatAggregator.Aggregate(loadout);
+            SkillStatSnapshot snapshot = SkillStatAggregator.Aggregate(loadout, statSheet);
             IReadOnlyList<LoadoutSlot> slots = loadout.Slots;
 
             TriggerChain[] chains = ParseChains(slots);

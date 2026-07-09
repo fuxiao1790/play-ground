@@ -1,4 +1,5 @@
 using PlayGround.Common;
+using PlayGround.Common.Stats;
 using PlayGround.Common.StatusEffects;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
@@ -26,14 +27,13 @@ namespace PlayGround.Player
         [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField] private Animator animator;
         [SerializeField] private Camera worldCamera;
-        [SerializeField] private float moveSpeed = 7f;
+        [SerializeField] private UnitStatSheet statSheet;
         [SerializeField] private float stopThreshold = 0.1f;
         [SerializeField] private float accelerationMultiplier = 8f;
         [SerializeField] private float frictionMultiplier = 6f;
         [SerializeField] private float dashSpeed = 14f;
         [SerializeField] private float dashDuration = 0.16f;
         [SerializeField] private float dashCooldown = 0.45f;
-        [SerializeField] private float maxHealth = 500f;
         [SerializeField] private float hurtFlashSeconds = 0.08f;
         [SerializeField] private float targetRadius = 0.45f;
 
@@ -73,7 +73,7 @@ namespace PlayGround.Player
         public float CombatTargetRotationRadians => ProjectileTargetShapeUtility.RotationRadians(hurtbox);
         public CombatShapeType CombatTargetShapeType => ProjectileTargetShapeUtility.ShapeType(hurtbox);
         public int CombatTargetMask => 1 << hurtbox.gameObject.layer;
-        public float CombatMaxHealth => health?.MaxHealth ?? maxHealth;
+        public float CombatMaxHealth => statSheet.MaxHealth;
         public bool IsCombatTargetActive => isActiveAndEnabled && health != null && health.IsAlive;
         public float CurrentHealth => health?.CurrentHealth ?? 0f;
         public int EquippedAttackCount => skillDriver?.SlotCount ?? 0;
@@ -99,6 +99,9 @@ namespace PlayGround.Player
             if (worldCamera == null)
                 throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} needs a world camera.");
 
+            if (statSheet == null)
+                throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} needs a {nameof(UnitStatSheet)}.");
+
             playerMap = inputActions.FindActionMap("Player", true);
             moveAction = playerMap.FindAction("Move", true);
             lookAction = playerMap.FindAction("Look", false);
@@ -112,7 +115,7 @@ namespace PlayGround.Player
             animatorDriver = new PlayerAnimatorDriver(animator, spriteRenderer);
             movement = new PlayerMovement(
                 body,
-                moveSpeed,
+                statSheet.MoveSpeed,
                 stopThreshold,
                 accelerationMultiplier,
                 frictionMultiplier,
@@ -121,7 +124,7 @@ namespace PlayGround.Player
                 dashCooldown);
             facing = new PlayerFacing(transform, spriteRenderer);
             stateDriver = new PlayerStateDriver(movement, animatorDriver);
-            health = new PlayerHealth(body, bodyCollider, hurtbox, spriteRenderer, animatorDriver, maxHealth, hurtFlashSeconds);
+            health = new PlayerHealth(body, bodyCollider, hurtbox, spriteRenderer, animatorDriver, statSheet.MaxHealth, hurtFlashSeconds);
             skillDriver = GetComponent<PlayGround.Skills.SkillDriver>();
 
             if (skillDriver == null)

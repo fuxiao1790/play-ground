@@ -207,8 +207,7 @@ MonoBehaviour:
   hurtbox: {fileID: 7847322830427622094}
   spriteRenderer: {fileID: 2512589881837285637}
   target: {fileID: 0}
-  speed: 1.40625
-  maxHealth: 400000
+  statSheet: {fileID: 11400000, guid: 4f1fe3388cd7fef42b7f7bd6e5bc3cc2, type: 2}
   targetRadius: 0.45
   wanderMinDuration: 0.7
   wanderMaxDuration: 2

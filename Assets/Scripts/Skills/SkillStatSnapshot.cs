@@ -1,3 +1,5 @@
+using PlayGround.Common.Stats;
+
 namespace PlayGround.Skills
 {
     public readonly struct SkillStatSnapshot
@@ -27,8 +29,14 @@ namespace PlayGround.Skills
 
     public static class SkillStatAggregator
     {
-        // Stub: returns identity until real stat sources (CharacterStats, items, buffs) exist.
-        public static SkillStatSnapshot Aggregate(SkillLoadout loadout) =>
-            SkillStatSnapshot.Identity;
+        public static SkillStatSnapshot Aggregate(SkillLoadout loadout, UnitStatSheet sheet) =>
+            sheet == null
+                ? SkillStatSnapshot.Identity
+                : new SkillStatSnapshot(
+                    sheet.IncreasedRatePercent,
+                    sheet.DamageMultiplier,
+                    sheet.CritChance,
+                    sheet.CritMultiplier,
+                    sheet.AreaSizeMultiplier);
     }
 }

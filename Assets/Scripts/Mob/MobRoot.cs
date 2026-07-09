@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using PlayGround.Common;
+using PlayGround.Common.Stats;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
@@ -22,8 +23,7 @@ namespace PlayGround.Mob
         [SerializeField] private Collider2D hurtbox;
         [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField] private Transform target;
-        [SerializeField] private float speed = 2.5f;
-        [SerializeField] private float maxHealth = 35f;
+        [SerializeField] private UnitStatSheet statSheet;
         [SerializeField] private float targetRadius = 0.5f;
         [SerializeField, Min(0.05f)] private float wanderMinDuration = 0.7f;
         [SerializeField, Min(0.05f)] private float wanderMaxDuration = 2f;
@@ -45,9 +45,9 @@ namespace PlayGround.Mob
 
         public event Action<MobRoot> SoftDied;
 
-        public float Speed => speed;
+        public float Speed => statSheet.MoveSpeed;
         public float CurrentHealth { get; private set; }
-        public float MaxHealth => maxHealth;
+        public float MaxHealth => statSheet.MaxHealth;
         public IReadOnlyList<StatusStackSnapshot> StatusSnapshots => statusSnapshots;
         public Transform Target => target;
         public int TargetId => targetId;
@@ -64,7 +64,7 @@ namespace PlayGround.Mob
         public float CombatTargetRotationRadians => CombatTargetShapeUtility.RotationRadians(hurtbox);
         public CombatShapeType CombatTargetShapeType => CombatTargetShapeUtility.ShapeType(hurtbox);
         public int CombatTargetMask => 1 << hurtbox.gameObject.layer;
-        public float CombatMaxHealth => MaxHealth;
+        public float CombatMaxHealth => statSheet.MaxHealth;
         public bool IsCombatTargetActive => isActiveAndEnabled && isAlive && CurrentHealth > 0f;
 
         protected virtual void Awake()
@@ -72,7 +72,7 @@ namespace PlayGround.Mob
             ValidateReferences();
 
             targetId = ++nextTargetId;
-            CurrentHealth = Mathf.Max(1f, maxHealth);
+            CurrentHealth = Mathf.Max(1f, statSheet.MaxHealth);
             int seed = randomSeed != 0 ? randomSeed : unchecked(Environment.TickCount ^ targetId);
             random = new global::System.Random(seed);
             PickNewWanderVelocity();
@@ -122,8 +122,8 @@ namespace PlayGround.Mob
 
         public void ConfigureAuthoring(float health, float moveSpeed, float radius)
         {
-            maxHealth = health;
-            speed = moveSpeed;
+            statSheet = ScriptableObject.CreateInstance<UnitStatSheet>();
+            statSheet.SetRuntimeValues(health, moveSpeed);
             targetRadius = radius;
         }
 
@@ -304,6 +304,11 @@ namespace PlayGround.Mob
             {
                 throw new MissingReferenceException($"{nameof(MobRoot)} on {name} needs a SpriteRenderer.");
             }
+
+            if (statSheet == null)
+            {
+                throw new MissingReferenceException($"{nameof(MobRoot)} on {name} needs a {nameof(UnitStatSheet)}.");
+            }
         }
 
         private void TickWander(float deltaTime)
@@ -328,7 +333,7 @@ namespace PlayGround.Mob
             }
 
             float angle = NextRandom01() * Mathf.PI * 2f;
-            wanderVelocity = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * speed;
+            wanderVelocity = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * Speed;
         }
 
         private float NextRandom01()
