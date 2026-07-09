@@ -254,7 +254,7 @@ Important counters:
 
 - `PlayerMovement`
 - `PlayerFacing`
-- `PlayerSkillDriver`
+- `SkillDriver`
 - `PlayerHealth`
 - `PlayerStateDriver`
 - `PlayerAnimatorDriver`

@@ -41,7 +41,7 @@ namespace PlayGround.Tests.EditMode
         {
             ProjectileSkill skill = CreateAsset<ProjectileSkill>("Projectile Skill");
             SkillSet set = CreateSkillSet("Set", skill);
-            var snapshot = new PlayerStatSnapshot(0f, 1f, critChance: 0.3f, critMultiplier: 2.5f);
+            var snapshot = new SkillStatSnapshot(0f, 1f, critChance: 0.3f, critMultiplier: 2.5f);
 
             RuntimeSkillDefinition result = SkillSetCompiler.Compile(
                 Slots(set),
@@ -59,7 +59,7 @@ namespace PlayGround.Tests.EditMode
         {
             AoeSkill skill = CreateAsset<AoeSkill>("Aoe Skill");
             SkillSet set = CreateSkillSet("Set", skill);
-            var snapshot = new PlayerStatSnapshot(0f, 1f, critChance: 0.15f, critMultiplier: 3f);
+            var snapshot = new SkillStatSnapshot(0f, 1f, critChance: 0.15f, critMultiplier: 3f);
 
             RuntimeSkillDefinition result = SkillSetCompiler.Compile(
                 Slots(set),
@@ -78,7 +78,7 @@ namespace PlayGround.Tests.EditMode
             AoeSkill skill = CreateAsset<AoeSkill>("Aoe Skill");
             ((AoeDefinition)skill.Definition).baseAreaSize = 1.25f;
             SkillSet set = CreateSkillSet("Set", skill);
-            var snapshot = new PlayerStatSnapshot(0f, 1f, critChance: 0f, critMultiplier: 1.5f, areaSizeMultiplier: 2f);
+            var snapshot = new SkillStatSnapshot(0f, 1f, critChance: 0f, critMultiplier: 1.5f, areaSizeMultiplier: 2f);
 
             RuntimeSkillDefinition result = SkillSetCompiler.Compile(
                 Slots(set),
@@ -103,7 +103,7 @@ namespace PlayGround.Tests.EditMode
                 Slots(set),
                 0,
                 global::System.Array.Empty<TriggerChain>(),
-                PlayerStatSnapshot.Identity);
+                SkillStatSnapshot.Identity);
 
             Assert.That(result, Is.TypeOf<RuntimeAoeDefinition>());
             Assert.That(((RuntimeAoeDefinition)result).AreaSize, Is.EqualTo(26f).Within(0.0001f));
@@ -120,7 +120,7 @@ namespace PlayGround.Tests.EditMode
                 Slots(set),
                 0,
                 global::System.Array.Empty<TriggerChain>(),
-                PlayerStatSnapshot.Identity);
+                SkillStatSnapshot.Identity);
 
             Assert.That(result.RecoveryTime, Is.EqualTo(0.2f).Within(0.0001f));
         }
@@ -138,7 +138,7 @@ namespace PlayGround.Tests.EditMode
                 Slots(set),
                 0,
                 global::System.Array.Empty<TriggerChain>(),
-                PlayerStatSnapshot.Identity);
+                SkillStatSnapshot.Identity);
 
             Assert.That(result.RecoveryTime, Is.EqualTo(0.1f).Within(0.0001f));
         }

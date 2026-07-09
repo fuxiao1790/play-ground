@@ -112,8 +112,8 @@ namespace PlayGround.Game
         {
             if (player != null && combatRoot != null)
             {
-                PlayGround.Skills.PlayerSkillDriver driver =
-                    player.GetComponent<PlayGround.Skills.PlayerSkillDriver>();
+                PlayGround.Skills.SkillDriver driver =
+                    player.GetComponent<PlayGround.Skills.SkillDriver>();
                 driver?.BindCombatRoot(combatRoot);
             }
         }

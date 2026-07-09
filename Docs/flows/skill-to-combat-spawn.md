@@ -11,7 +11,7 @@ Trace how authored skills become plain-data combat spawn requests.
 2. Game logic compiles equipped sets into runtime skill definitions.
 3. `SkillSpawnTranslator` turns runtime definitions into projectile or AOE
    spawn request data.
-4. `PlayerSkillDriver` or mob attack code submits the request to `CombatRoot`.
+4. `SkillDriver` or mob attack code submits the request to `CombatRoot`.
 5. `CombatRoot` validates registered resources and appends a spawn event to the
    shared scope buffer.
 6. ECS expansion/apply materializes entities later through the normal spawn
@@ -20,7 +20,7 @@ Trace how authored skills become plain-data combat spawn requests.
 ## Producers
 
 Skill authoring assets, `SkillSetCompiler`, `SkillSpawnTranslator`,
-`PlayerSkillDriver`, and mob attack code.
+`SkillDriver`, and mob attack code.
 
 ## Consumers
 

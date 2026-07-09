@@ -19,7 +19,7 @@ namespace PlayGround.Skills
         public override RuntimeSkillDefinition Compile(
             SkillDefinition definition,
             RuntimeSkillDefinition runtime,
-            PlayerStatSnapshot snapshot)
+            SkillStatSnapshot snapshot)
         {
             if (runtime == null || runtime is RuntimeStackingDetonation)
                 return runtime;

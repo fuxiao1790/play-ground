@@ -155,13 +155,13 @@ expireEffect  -> trigger 2
 pulseEffect   -> trigger 3
 ```
 
-`PlayerSkillDriver` and `MobProjectileAttack` register VFX slots against the
+`SkillDriver` and `MobProjectileAttack` register VFX slots against the
 configured `CombatVfxRoot`. `CombatRoot` does not depend on `CombatVfxRoot`.
 
 ## Area Size
 
 Every VFX request carries an `AreaSize` value. AOE requests populate it from
-resolved AOE geometry before the event reaches ECS â€?that area value is copied
+resolved AOE geometry before the event reaches ECS ï¿½?that area value is copied
 into VFX requests from collision, pulse, and lifetime paths. Projectile requests
 populate it from render visual scale so graphs can size impact or expire effects
 consistently.

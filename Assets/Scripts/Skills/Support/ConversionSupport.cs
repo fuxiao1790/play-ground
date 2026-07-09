@@ -9,7 +9,7 @@ namespace PlayGround.Skills
         public virtual RuntimeSkillDefinition Compile(
             SkillDefinition definition,
             RuntimeSkillDefinition runtime,
-            PlayerStatSnapshot snapshot)
+            SkillStatSnapshot snapshot)
         {
             return runtime;
         }

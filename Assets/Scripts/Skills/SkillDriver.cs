@@ -19,12 +19,14 @@ using UnityEngine;
 
 namespace PlayGround.Skills
 {
-    public sealed class PlayerSkillDriver : MonoBehaviour
+    public sealed class SkillDriver : MonoBehaviour
     {
-        [SerializeField] private PlayerLoadout loadout;
+        [SerializeField] private SkillLoadout loadout;
         [SerializeField] private CombatRoot combatRoot;
         [SerializeField] private CombatVfxRoot vfxRoot;
         [SerializeField] private AudioManager audioManager;
+        [SerializeField] private CombatFaction faction = CombatFaction.Player;
+        [SerializeField] private string fallbackCombatRootTag = GameplayTags.PlayerProjectileRoot;
 
         private RuntimeSkillDefinition[] compiledSlots;
         private SkillSlotState[] slotStates;
@@ -39,7 +41,7 @@ namespace PlayGround.Skills
         private void Awake()
         {
             if (combatRoot == null)
-                combatRoot = FindRootByTag<CombatRoot>(GameplayTags.PlayerProjectileRoot);
+                combatRoot = FindRootByTag<CombatRoot>(CombatRootTag);
 
             audioManager ??= AudioManager.Instance ?? FindAnyObjectByType<AudioManager>();
         }
@@ -49,14 +51,14 @@ namespace PlayGround.Skills
             CompileAndRegister();
         }
 
-        public void Tick(bool attackHeld, Vector2 aimDir, Vector2 aimWorldPos)
+        public void Tick(bool fireHeld, Vector2 aimDir, Vector2 aimWorldPos)
         {
             if (compiledSlots == null) return;
 
             for (int i = 0; i < activeSlotCount; i++)
                 slotStates[i].Tick(Time.deltaTime);
 
-            if (!attackHeld) return;
+            if (!fireHeld) return;
 
             for (int i = 0; i < activeSlotCount; i++)
             {
@@ -68,7 +70,7 @@ namespace PlayGround.Skills
                     aimDir,
                     aimWorldPos,
                     combatRoot,
-                    CombatFaction.Player);
+                    faction);
 
                 slotStates[i].ResetOnFire();
             }
@@ -85,13 +87,18 @@ namespace PlayGround.Skills
 
         // --- private ---
 
+        private string CombatRootTag =>
+            string.IsNullOrEmpty(fallbackCombatRootTag)
+                ? GameplayTags.PlayerProjectileRoot
+                : fallbackCombatRootTag;
+
         private void CompileAndRegister()
         {
             if (loadout == null) return;
 
             var warnings = new List<SkillValidationWarning>(SkillLoadoutValidator.Validate(loadout));
 
-            PlayerStatSnapshot snapshot = PlayerStatAggregator.Aggregate(loadout);
+            SkillStatSnapshot snapshot = SkillStatAggregator.Aggregate(loadout);
             IReadOnlyList<LoadoutSlot> slots = loadout.Slots;
 
             TriggerChain[] chains = ParseChains(slots);

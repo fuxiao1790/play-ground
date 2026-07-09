@@ -13,7 +13,7 @@ namespace PlayGround.Skills
 {
     public static class SkillLoadoutValidator
     {
-        public static SkillValidationWarning[] Validate(PlayerLoadout loadout)
+        public static SkillValidationWarning[] Validate(SkillLoadout loadout)
         {
             if (loadout == null) return global::System.Array.Empty<SkillValidationWarning>();
 

@@ -313,10 +313,10 @@ namespace PlayGround.Tests.PlayMode
             SkillSet childSet = ScriptableObject.CreateInstance<SkillSet>();
             ProjectileIntervalSpawnTrigger triggerA = ScriptableObject.CreateInstance<ProjectileIntervalSpawnTrigger>();
             ProjectileIntervalSpawnTrigger triggerB = ScriptableObject.CreateInstance<ProjectileIntervalSpawnTrigger>();
-            PlayerLoadout loadout = ScriptableObject.CreateInstance<PlayerLoadout>();
-            GameObject driverObject = new("PlayerSkillDriverHarness");
+            SkillLoadout loadout = ScriptableObject.CreateInstance<SkillLoadout>();
+            GameObject driverObject = new("SkillDriverHarness");
             driverObject.SetActive(false);
-            PlayerSkillDriver driver = driverObject.AddComponent<PlayerSkillDriver>();
+            SkillDriver driver = driverObject.AddComponent<SkillDriver>();
 
             ConfigureProjectile(rootSkillA, rootPrefab, damage: 0f);
             ConfigureProjectile(rootSkillB, rootPrefab, damage: 0f);
@@ -407,10 +407,10 @@ namespace PlayGround.Tests.PlayMode
             SkillSet aoeChildSet = ScriptableObject.CreateInstance<SkillSet>();
             ProjectileIntervalSpawnTrigger projectileTrigger = ScriptableObject.CreateInstance<ProjectileIntervalSpawnTrigger>();
             AoeIntervalSpawnTrigger aoeTrigger = ScriptableObject.CreateInstance<AoeIntervalSpawnTrigger>();
-            PlayerLoadout loadout = ScriptableObject.CreateInstance<PlayerLoadout>();
-            GameObject driverObject = new("PlayerSkillDriverHarness");
+            SkillLoadout loadout = ScriptableObject.CreateInstance<SkillLoadout>();
+            GameObject driverObject = new("SkillDriverHarness");
             driverObject.SetActive(false);
-            PlayerSkillDriver driver = driverObject.AddComponent<PlayerSkillDriver>();
+            SkillDriver driver = driverObject.AddComponent<SkillDriver>();
 
             ConfigureLingeringAoe(projectileSourceSkill, projectileSourcePrefab, damage: 0f, lifetime: 0.07f);
             ConfigureLingeringAoe(aoeSourceSkill, aoeSourcePrefab, damage: 0f, lifetime: 0.07f);
@@ -500,10 +500,10 @@ namespace PlayGround.Tests.PlayMode
             SkillSet aoeSet = ScriptableObject.CreateInstance<SkillSet>();
             ProjectileIntervalSpawnTrigger projectileTrigger = ScriptableObject.CreateInstance<ProjectileIntervalSpawnTrigger>();
             AoeIntervalSpawnTrigger aoeTrigger = ScriptableObject.CreateInstance<AoeIntervalSpawnTrigger>();
-            PlayerLoadout loadout = ScriptableObject.CreateInstance<PlayerLoadout>();
-            GameObject driverObject = new("PlayerSkillDriverHarness");
+            SkillLoadout loadout = ScriptableObject.CreateInstance<SkillLoadout>();
+            GameObject driverObject = new("SkillDriverHarness");
             driverObject.SetActive(false);
-            PlayerSkillDriver driver = driverObject.AddComponent<PlayerSkillDriver>();
+            SkillDriver driver = driverObject.AddComponent<SkillDriver>();
 
             ConfigureProjectile(rootSkill, rootPrefab, damage: 0f);
             ConfigureProjectile(middleSkill, middlePrefab, damage: 0f);
@@ -570,10 +570,10 @@ namespace PlayGround.Tests.PlayMode
             SkillSet detonationSet = ScriptableObject.CreateInstance<SkillSet>();
             OnImpactAoeTrigger impactTrigger = ScriptableObject.CreateInstance<OnImpactAoeTrigger>();
             StackTrigger stackTrigger = ScriptableObject.CreateInstance<StackTrigger>();
-            PlayerLoadout loadout = ScriptableObject.CreateInstance<PlayerLoadout>();
-            GameObject driverObject = new("PlayerSkillDriverHarness");
+            SkillLoadout loadout = ScriptableObject.CreateInstance<SkillLoadout>();
+            GameObject driverObject = new("SkillDriverHarness");
             driverObject.SetActive(false);
-            PlayerSkillDriver driver = driverObject.AddComponent<PlayerSkillDriver>();
+            SkillDriver driver = driverObject.AddComponent<SkillDriver>();
 
             ConfigureProjectile(rootSkill, projectilePrefab, damage: 0f);
             ConfigureAoe(applicatorSkill, applicatorPrefab, damage: 0f);
@@ -890,23 +890,23 @@ namespace PlayGround.Tests.PlayMode
 
         private static CombatFaction Faction(CombatRoot root) => CombatFaction.Player;
 
-        private static void CompileAndRegister(PlayerSkillDriver driver)
+        private static void CompileAndRegister(SkillDriver driver)
         {
-            MethodInfo method = typeof(PlayerSkillDriver).GetMethod(
+            MethodInfo method = typeof(SkillDriver).GetMethod(
                 "CompileAndRegister",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null);
             method.Invoke(driver, null);
         }
 
-        private static RuntimeSkillDefinition FirstCompiledRuntime(PlayerSkillDriver driver)
+        private static RuntimeSkillDefinition FirstCompiledRuntime(SkillDriver driver)
         {
             return CompiledRuntime(driver, 0);
         }
 
-        private static RuntimeSkillDefinition CompiledRuntime(PlayerSkillDriver driver, int index)
+        private static RuntimeSkillDefinition CompiledRuntime(SkillDriver driver, int index)
         {
-            FieldInfo field = typeof(PlayerSkillDriver).GetField(
+            FieldInfo field = typeof(SkillDriver).GetField(
                 "compiledSlots",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null);
@@ -1010,11 +1010,11 @@ namespace PlayGround.Tests.PlayMode
                 geometry: geometry,
                 stackEffect: stackEffect), CombatFaction.Player);
 
-            yield return null; // frame 1: initial hit â†?1 stack
+            yield return null; // frame 1: initial hit, 1 stack
             Assert.That(EcsDebuffStackCount(mob, VolatileStackKey), Is.EqualTo(1),
                 "Initial AOE hit should apply 1 Volatile stack.");
 
-            yield return null; // frame 2: pulse hit (gate expired at dt=0) â†?2 stacks
+            yield return null; // frame 2: pulse hit (gate expired at dt=0), 2 stacks
             Assert.That(EcsDebuffStackCount(mob, VolatileStackKey), Is.EqualTo(2),
                 "AOE pulse hit should increment stack to 2.");
 

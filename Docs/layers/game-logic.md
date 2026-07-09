@@ -10,7 +10,7 @@ meaning before data is snapshotted for simulation.
 
 - Skill definitions, supports, trigger graphs, loadout slots, validators, and
   runtime skill compilation.
-- `PlayerSkillDriver`, `PlayerLoadout`, `SkillSetCompiler`, and
+- `SkillDriver`, `SkillLoadout`, `SkillSetCompiler`, and
   `SkillSpawnTranslator`.
 - Mob behavior state machines, triggers, event queues, and low-count AI choices.
 - Spawn cap and spawn point rules before mobs become live actors.

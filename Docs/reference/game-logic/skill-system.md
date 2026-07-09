@@ -1,4 +1,4 @@
-﻿# Skill System
+# Skill System
 
 All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
@@ -30,7 +30,7 @@ loadout, not by either set. Defines the source set whose events fire the
 trigger, the target set that fires when triggered, the trigger condition, and
 any trigger-specific parameters.
 
-**Player Loadout** 鈥?owns root Skill Sets (those fired by player input), all
+**Skill Loadout** 鈥?owns root Skill Sets (those fired by player input), all
 Trigger Links between sets, and the input bindings for root sets.
 
 ---
@@ -52,16 +52,16 @@ docs, see
 鈹? Layer 1: Equipment state       鈹?
 鈹? Skill, SkillSupport,          鈹?
 鈹? SkillSet, TriggerLink,         鈹?
-鈹? PlayerLoadout                  鈹?
+鈹? SkillLoadout                  鈹?
 鈹?                                鈹?
 鈹? Mutable. Live equipment state. 鈹?
 鈹? Uses Layer 1.5 to produce      鈹?
-鈹? PlayerStatSnapshot on change.  鈹?
+鈹? SkillStatSnapshot on change.  鈹?
 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
-                 鈹?PlayerStatSnapshot + SkillSet
+                 鈹?SkillStatSnapshot + SkillSet
 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈻尖攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
 鈹? Layer 2 (orchestration layer)  鈹?
-鈹? PlayerSkillDriver              鈹?
+鈹? SkillDriver              鈹?
 鈹? SkillSlotState[] (cooldowns)   鈹?
 鈹? RuntimeSkillDefinition[]       鈹?
 鈹?                                鈹?
@@ -76,26 +76,26 @@ docs, see
 鈹? MonoBehaviours                 鈹?
 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
 
-Layer 1.5 (PlayerStatAggregator) 鈥?stateless utility used by Layer 1. Not a chain tier.
+Layer 1.5 (SkillStatAggregator) 鈥?stateless utility used by Layer 1. Not a chain tier.
 Layer 2.5 (SkillSpawnTranslator) 鈥?stateless utility used by Layer 2. Not a chain tier.
 ```
 
 ### Layer 1: Equipment State
 
 Types: `Skill`, `StatModifierSupport`, `ConversionSupport`, `SkillSet`,
-`TriggerLink`, `PlayerLoadout`
+`TriggerLink`, `SkillLoadout`
 
 - Owns all stat sources: base skill stats, base rate, supports, items,
   buffs, character level
-- `PlayerLoadout` is live mutable equipment state 鈥?not just an authoring template
-- `Skill` SOs are immutable authored templates; `PlayerLoadout` holds mutable slot references into them
+- `SkillLoadout` is live mutable equipment state 鈥?not just an authoring template
+- `Skill` SOs are immutable authored templates; `SkillLoadout` holds mutable slot references into them
 - Save/load serializes slot references, not compiled runtime trees
 - Emits change events when equipment or stat sources change (consumed by Layer 1.5)
 - No per-frame stat math; scaling is rebaked on equipment swaps, buff changes, level up, etc.
 
 ### Layer 1.5: Stat Resolution
 
-Types: `PlayerStatSnapshot`, `PlayerStatAggregator`
+Types: `SkillStatSnapshot`, `SkillStatAggregator`
 
 Stateless utility - not a chain tier. Pure aggregation function: inputs in, flat snapshot
 out, no stored state. Collapses player-level Layer 1 stat sources into a flat
@@ -104,7 +104,7 @@ supports: Post multipliers where applicable, and increased percentages where the
 stat is authored as increased scaling. Owns no data - all sources come from
 Layer 1.
 
-`PlayerStatSnapshot` fields:
+`SkillStatSnapshot` fields:
 - `increasedRatePercent`
 - `damageMultiplier`
 - `areaSizeMultiplier`
@@ -117,9 +117,9 @@ Baking:
 
 ### Layer 2: Orchestration
 
-Types: `PlayerSkillDriver`, `SkillSlotState`, `SkillSetCompiler`
+Types: `SkillDriver`, `SkillSlotState`, `SkillSetCompiler`
 
-- Reads the flat `PlayerStatSnapshot` from Layer 1.5 鈥?does not compute stats
+- Reads the flat `SkillStatSnapshot` from Layer 1.5 鈥?does not compute stats
 - Compiles `SkillSet` + snapshot into `RuntimeSkillDefinition` trees whenever stats change
 - After compile: registers `BasicAttackPrefab` templates and `AoeTypeDefinition`
   entries with the bound `CombatRoot`; stores resolved type IDs into compiled
@@ -349,7 +349,7 @@ abstract class ConversionSupport : SkillSupport {
     public abstract RuntimeSkillDefinition Compile(
         SkillDefinition definition,
         RuntimeSkillDefinition runtime,
-        PlayerStatSnapshot snapshot);
+        SkillStatSnapshot snapshot);
 }
 ```
 
@@ -415,7 +415,7 @@ nothing and validation returns a warning.
 
 ## Loadout Slots
 
-The `PlayerLoadout` is a flat ordered list of `LoadoutSlot` entries. Each slot
+The `SkillLoadout` is a flat ordered list of `LoadoutSlot` entries. Each slot
 is either a `SkillSetSlot` or a `TriggerLinkSlot`. Position determines
 relationship 鈥?no explicit source/target references exist.
 
@@ -431,12 +431,12 @@ class TriggerLinkSlot : LoadoutSlot {
 }
 ```
 
-`PlayerLoadout.slots` uses `[SerializeReference]` so polymorphic `TriggerLink`
+`SkillLoadout.slots` uses `[SerializeReference]` so polymorphic `TriggerLink`
 instances inside `TriggerLinkSlot` serialize correctly in Unity.
 
 ### Parsing Rule
 
-At compile time, `PlayerSkillDriver` scans the slot list. At every
+At compile time, `SkillDriver` scans the slot list. At every
 `SkillSetSlot` at index `i`, if `slots[i+1]` is a `TriggerLinkSlot` and
 `slots[i+2]` is a `SkillSetSlot`, those three form a `TriggerChain`:
 
@@ -632,7 +632,7 @@ warning.
 Validation is non-blocking. It reports authored combinations that compile to
 no-ops without throwing setup errors. The current runtime exposes warnings as
 `SkillValidationWarning[]` from `SkillLoadoutValidator.Validate(...)`, and
-`PlayerSkillDriver.ValidationWarnings` stores the latest compile warnings for
+`SkillDriver.ValidationWarnings` stores the latest compile warnings for
 future UI.
 
 Current warning cases:
@@ -650,10 +650,10 @@ Current warning cases:
 
 ---
 
-## Player Loadout
+## Skill Loadout
 
 ```csharp
-class PlayerLoadout {
+class SkillLoadout {
     [SerializeReference] List<LoadoutSlot> slots;   // ordered; position encodes wiring
     int maxRootSets;
 }
@@ -669,7 +669,7 @@ it is never fired directly by input.
 
 ## Compilation
 
-At equip time (`PlayerSkillDriver.Start`) the loadout compiles each root set
+At equip time (`SkillDriver.Start`) the loadout compiles each root set
 into a `RuntimeSkillDefinition` tree via `SkillSetCompiler`. Compilation
 traverses the chain graph to build the full tree. It does not run per frame.
 
@@ -725,8 +725,8 @@ compile(SkillSet set, allChains, snapshot) -> RuntimeSkillDefinition:
             set runtime.StackingDetonation
     return runtime
 
-compileLoadout(PlayerLoadout loadout):
-    snapshot = PlayerStatAggregator.Aggregate(loadout)
+compileLoadout(SkillLoadout loadout):
+    snapshot = SkillStatAggregator.Aggregate(loadout)
     chains = parseChains(loadout.slots)
     effects = { chain.effect for each chain }
     rootSets = [ slot.skillSet for each SkillSetSlot in slots
@@ -746,7 +746,7 @@ skill system above them.
 
 ### Type Registration
 
-After compilation, `PlayerSkillDriver` recursively walks all compiled trees:
+After compilation, `SkillDriver` recursively walks all compiled trees:
 - Projectile prefabs: each unique `BasicAttackPrefab` is registered once with
   `CombatRoot.RegisterTemplate`; the returned `TypeId` is stored on the
   `RuntimeProjectileDefinition`.
@@ -853,7 +853,7 @@ editors, skill slot UIs, or player save data:
 | `SkillSetSlot` | Slot entry wrapping a `SkillSet` in the loadout list |
 | `TriggerLinkSlot` | Slot entry wrapping a `TriggerLink` in the loadout list |
 | `TriggerLink` | Trigger condition and parameters; no source/target references |
-| `PlayerLoadout` | Ordered slot list; live equipment state |
+| `SkillLoadout` | Ordered slot list; live equipment state |
 
 Internal runtime types (`CombatRoot`, ECS systems) are not exposed to the
 player-facing authoring surface.
@@ -937,7 +937,7 @@ the detonation set and then wire the next applicator to its own stacking set:
 
 ### Building the Slot List
 
-The `PlayerLoadout.slots` list uses `[SerializeReference]` 鈥?add entries via
+The `SkillLoadout.slots` list uses `[SerializeReference]` 鈥?add entries via
 the Unity inspector using the managed reference picker.
 
 Each entry is a `SkillSetSlot` or a `TriggerLinkSlot`. Position determines
@@ -965,10 +965,10 @@ a triggered-only set 鈥?not player-input-driven.
 
 ### Equipping on the Player
 
-1. Create a `PlayerLoadout` SO (`Assets > Create > PlayGround > Skills > Player Loadout`).
+1. Create a `SkillLoadout` SO (`Assets > Create > PlayGround > Skills > Skill Loadout`).
 2. Add `SkillSetSlot` and `TriggerLinkSlot` entries to `slots` in order.
 3. Confirm `maxRootSets` covers the number of independent root skills.
-4. Assign the `PlayerLoadout` SO to `PlayerSkillDriver.loadout` on the player prefab.
+4. Assign the `SkillLoadout` SO to `SkillDriver.loadout` on the player prefab.
 
 ---
 

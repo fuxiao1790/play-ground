@@ -14,7 +14,7 @@ namespace PlayGround.Skills
             IReadOnlyList<LoadoutSlot> slots,
             int slotIndex,
             TriggerChain[] allChains,
-            PlayerStatSnapshot snapshot)
+            SkillStatSnapshot snapshot)
         {
             SkillSet set = GetSkillSet(slots, slotIndex);
             if (set == null || set.Skill == null) return null;
@@ -31,7 +31,7 @@ namespace PlayGround.Skills
             // A stacking-detonation set wraps its spawned definition in a
             // RuntimeStackingDetonation. The wrapper itself is never spawned, so its
             // outgoing triggers (including a downstream StackTrigger) must attach to
-            // the inner detonation â€?that inner projectile/AOE is the entity that
+            // the inner detonation. That inner projectile/AOE is the entity that
             // spawns and hits targets, and thus the applicator for the next link.
             RuntimeSkillDefinition triggerHost = runtime is RuntimeStackingDetonation stackingHost
                 ? stackingHost.Detonation
@@ -110,7 +110,7 @@ namespace PlayGround.Skills
         private static CompileDefinitionResult CompileDefinition(
             SkillDefinition definition,
             IReadOnlyList<SkillSupport> supports,
-            PlayerStatSnapshot snapshot)
+            SkillStatSnapshot snapshot)
         {
             if (definition == null)
                 return default;
@@ -184,7 +184,7 @@ namespace PlayGround.Skills
             SkillDefinition definition,
             RuntimeSkillDefinition runtime,
             IReadOnlyList<SkillSupport> supports,
-            PlayerStatSnapshot snapshot)
+            SkillStatSnapshot snapshot)
         {
             if (runtime == null || supports == null)
                 return runtime;
@@ -214,7 +214,7 @@ namespace PlayGround.Skills
         private static RuntimeSkillDefinition BuildRuntime(
             SkillDefinition def,
             StatModifierAccumulator modifiers,
-            PlayerStatSnapshot snapshot)
+            SkillStatSnapshot snapshot)
         {
             if (def is ProjectileDefinition p)
             {
@@ -287,7 +287,7 @@ namespace PlayGround.Skills
 
         private static class SnapshotModifiers
         {
-            public static void Contribute(StatModifierAccumulator modifiers, PlayerStatSnapshot snapshot)
+            public static void Contribute(StatModifierAccumulator modifiers, SkillStatSnapshot snapshot)
             {
                 modifiers.AddIncreased(SkillStat.Rate, snapshot.IncreasedRatePercent);
                 modifiers.AddMultiplier(SkillStat.Damage, snapshot.DamageMultiplier, MultiplierTiming.Post);
@@ -301,7 +301,7 @@ namespace PlayGround.Skills
             IReadOnlyList<LoadoutSlot> slots,
             int effectIndex,
             TriggerChain[] allChains,
-            PlayerStatSnapshot snapshot)
+            SkillStatSnapshot snapshot)
         {
             if (parent is not RuntimeProjectileDefinition and not RuntimeAoeDefinition)
                 return;
@@ -337,7 +337,7 @@ namespace PlayGround.Skills
             IReadOnlyList<LoadoutSlot> slots,
             int effectIndex,
             TriggerChain[] allChains,
-            PlayerStatSnapshot snapshot)
+            SkillStatSnapshot snapshot)
         {
             if (parent is not RuntimeProjectileDefinition and not RuntimeAoeDefinition)
                 return;

@@ -89,7 +89,7 @@ namespace PlayGround.Tests.EditMode
                 new SkillSetSlot { skillSet = targetSet },
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             Assert.That(((RuntimeProjectileDefinition)runtime).ChildSpawnSetup, Is.Null);
@@ -121,7 +121,7 @@ namespace PlayGround.Tests.EditMode
                 new SkillSetSlot { skillSet = targetSet },
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             RuntimeChildSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).ChildSpawnSetup;
@@ -157,7 +157,7 @@ namespace PlayGround.Tests.EditMode
                 new SkillSetSlot { skillSet = targetSet },
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             var projectile = (RuntimeProjectileDefinition)runtime;
@@ -195,7 +195,7 @@ namespace PlayGround.Tests.EditMode
                 new SkillSetSlot { skillSet = targetSet },
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             RuntimeAoeIntervalSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).AoeIntervalSpawnSetup;
@@ -227,7 +227,7 @@ namespace PlayGround.Tests.EditMode
                 new SkillSetSlot { skillSet = targetSet },
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
             var aoe = (RuntimeAoeDefinition)runtime;
@@ -260,7 +260,7 @@ namespace PlayGround.Tests.EditMode
                 new SkillSetSlot { skillSet = targetSet },
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
             var aoe = (RuntimeAoeDefinition)runtime;
@@ -293,7 +293,7 @@ namespace PlayGround.Tests.EditMode
                 new SkillSetSlot { skillSet = targetSet },
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
             var aoe = (RuntimeAoeDefinition)runtime;
@@ -345,7 +345,7 @@ namespace PlayGround.Tests.EditMode
                 new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
                 0,
                 global::System.Array.Empty<TriggerChain>(),
-                PlayerStatSnapshot.Identity);
+                SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
             var aoe = (RuntimeAoeDefinition)runtime;
@@ -364,7 +364,7 @@ namespace PlayGround.Tests.EditMode
                 new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
                 0,
                 global::System.Array.Empty<TriggerChain>(),
-                PlayerStatSnapshot.Identity);
+                SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             Assert.That(support.WasCompiled, Is.True);
@@ -386,7 +386,7 @@ namespace PlayGround.Tests.EditMode
                 new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
                 0,
                 global::System.Array.Empty<TriggerChain>(),
-                PlayerStatSnapshot.Identity);
+                SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeStackingDetonation>());
             var stacking = (RuntimeStackingDetonation)runtime;
@@ -412,7 +412,7 @@ namespace PlayGround.Tests.EditMode
                 new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
                 0,
                 global::System.Array.Empty<TriggerChain>(),
-                PlayerStatSnapshot.Identity);
+                SkillStatSnapshot.Identity);
 
             var stacking = (RuntimeStackingDetonation)runtime;
             Assert.That(((RuntimeAoeDefinition)stacking.Detonation).Damage, Is.EqualTo(15f).Within(0.0001f));
@@ -431,7 +431,7 @@ namespace PlayGround.Tests.EditMode
                 new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
                 0,
                 global::System.Array.Empty<TriggerChain>(),
-                PlayerStatSnapshot.Identity);
+                SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
             var aoe = (RuntimeAoeDefinition)runtime;
@@ -510,7 +510,7 @@ namespace PlayGround.Tests.EditMode
                 new SkillSetSlot { skillSet = targetSet },
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             var projectile = (RuntimeProjectileDefinition)runtime;
@@ -554,7 +554,7 @@ namespace PlayGround.Tests.EditMode
                 new SkillSetSlot { skillSet = detonationSet },
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             var rootProjectile = (RuntimeProjectileDefinition)runtime;
@@ -621,8 +621,8 @@ namespace PlayGround.Tests.EditMode
                 new SkillSetSlot { skillSet = secondDetonationSet },
             };
 
-            RuntimeSkillDefinition impactAoeRuntime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
-            RuntimeSkillDefinition impactProjectileRuntime = SkillSetCompiler.Compile(slots, 5, chains, PlayerStatSnapshot.Identity);
+            RuntimeSkillDefinition impactAoeRuntime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
+            RuntimeSkillDefinition impactProjectileRuntime = SkillSetCompiler.Compile(slots, 5, chains, SkillStatSnapshot.Identity);
 
             Assert.That(impactAoeRuntime, Is.TypeOf<RuntimeProjectileDefinition>());
             Assert.That(((RuntimeProjectileDefinition)impactAoeRuntime).ImpactAoeDefinition, Is.Not.Null);
@@ -669,7 +669,7 @@ namespace PlayGround.Tests.EditMode
                 new SkillSetSlot { skillSet = secondDetonationSet },
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, PlayerStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
             var applicator = (RuntimeAoeDefinition)runtime;
@@ -690,10 +690,10 @@ namespace PlayGround.Tests.EditMode
             AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
             StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
             SkillSet set = CreateSkillSet("Stacking Set", skill, stackingSupport);
-            PlayerLoadout loadout = CreateLoadout("Loadout", new SkillSetSlot { skillSet = set });
+            SkillLoadout loadout = CreateLoadout("Loadout", new SkillSetSlot { skillSet = set });
             var gameObject = new GameObject("Player Skill Driver Test");
             createdObjects.Add(gameObject);
-            PlayerSkillDriver driver = gameObject.AddComponent<PlayerSkillDriver>();
+            SkillDriver driver = gameObject.AddComponent<SkillDriver>();
             SetField(driver, "loadout", loadout);
 
             CompileAndRegister(driver);
@@ -760,9 +760,9 @@ namespace PlayGround.Tests.EditMode
             return warnings.ToArray();
         }
 
-        private PlayerLoadout CreateLoadout(string name, params LoadoutSlot[] slots)
+        private SkillLoadout CreateLoadout(string name, params LoadoutSlot[] slots)
         {
-            PlayerLoadout loadout = CreateAsset<PlayerLoadout>(name);
+            SkillLoadout loadout = CreateAsset<SkillLoadout>(name);
             SetField(loadout, "slots", new List<LoadoutSlot>(slots));
             return loadout;
         }
@@ -811,16 +811,16 @@ namespace PlayGround.Tests.EditMode
 
         private static void AssignStackingDetonationDebuffKey(RuntimeStackingDetonation definition)
         {
-            MethodInfo method = typeof(PlayerSkillDriver).GetMethod(
+            MethodInfo method = typeof(SkillDriver).GetMethod(
                 "EnsureStackingDetonationDebuffKey",
                 BindingFlags.Static | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null);
             method.Invoke(null, new object[] { definition });
         }
 
-        private static void CompileAndRegister(PlayerSkillDriver driver)
+        private static void CompileAndRegister(SkillDriver driver)
         {
-            MethodInfo method = typeof(PlayerSkillDriver).GetMethod(
+            MethodInfo method = typeof(SkillDriver).GetMethod(
                 "CompileAndRegister",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null);
@@ -838,7 +838,7 @@ namespace PlayGround.Tests.EditMode
             public override RuntimeSkillDefinition Compile(
                 SkillDefinition definition,
                 RuntimeSkillDefinition runtime,
-                PlayerStatSnapshot snapshot)
+                SkillStatSnapshot snapshot)
             {
                 WasCompiled = true;
                 DefinitionSeen = definition;

@@ -4,8 +4,8 @@ using UnityEngine;
 
 namespace PlayGround.Editor.Skills
 {
-    [CustomEditor(typeof(PlayerLoadout))]
-    public sealed class PlayerLoadoutEditor : UnityEditor.Editor
+    [CustomEditor(typeof(SkillLoadout))]
+    public sealed class SkillLoadoutEditor : UnityEditor.Editor
     {
         private SerializedProperty _slots;
         private SerializedProperty _maxRootSets;

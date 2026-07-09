@@ -153,7 +153,7 @@ namespace PlayGround.Tests.EditMode
             IncreasedRateSupport support = CreateAsset<IncreasedRateSupport>("Increased Rate");
             SetField(support, "increasedRatePercent", 0.5f);
             SkillSet set = CreateSkillSet("Set", skill, support);
-            var snapshot = new PlayerStatSnapshot(
+            var snapshot = new SkillStatSnapshot(
                 increasedRatePercent: 0.5f,
                 damageMultiplier: 1f,
                 critChance: 0f,
@@ -212,7 +212,7 @@ namespace PlayGround.Tests.EditMode
                 Slots(set),
                 0,
                 global::System.Array.Empty<TriggerChain>(),
-                PlayerStatSnapshot.Identity);
+                SkillStatSnapshot.Identity);
 
         private AoeSkill CreateAoeSkill(string name, float areaSize = 1f, float damage = 10f)
         {

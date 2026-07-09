@@ -285,7 +285,7 @@ normal armed gate values as usual, then additionally enables `ArmingTag` and set
 - **Telegraph (Trigger 4):** emitted once at spawn (both expansion systems) when
   `ArmSeconds > 0`. It is a dedicated per-type `ArmingEffect` `VisualEffectAsset`,
   authored on the prefab and registered under `(typeId, 4)` alongside
-  spawn/hit/expire/pulse in `PlayerSkillDriver`.
+  spawn/hit/expire/pulse in `SkillDriver`.
 - **Spawn burst (Trigger 0):** for an arming AOE the spawn burst is deferred to
   arm completion — the AOE arming job emits it when it clears `ArmingTag`, so the
   burst reads as "the AOE going live," not "the slot being materialized." A

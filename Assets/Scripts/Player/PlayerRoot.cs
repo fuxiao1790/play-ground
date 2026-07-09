@@ -45,7 +45,7 @@ namespace PlayGround.Player
         private InputActionMap playerMap;
         private PlayerMovement movement;
         private PlayerFacing facing;
-        private PlayGround.Skills.PlayerSkillDriver skillDriver;
+        private PlayGround.Skills.SkillDriver skillDriver;
         private PlayerAnimatorDriver animatorDriver;
         private PlayerStateDriver stateDriver;
         private PlayerHealth health;
@@ -122,10 +122,10 @@ namespace PlayGround.Player
             facing = new PlayerFacing(transform, spriteRenderer);
             stateDriver = new PlayerStateDriver(movement, animatorDriver);
             health = new PlayerHealth(body, bodyCollider, hurtbox, spriteRenderer, animatorDriver, maxHealth, hurtFlashSeconds);
-            skillDriver = GetComponent<PlayGround.Skills.PlayerSkillDriver>();
+            skillDriver = GetComponent<PlayGround.Skills.SkillDriver>();
 
             if (skillDriver == null)
-                throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} requires a {nameof(PlayGround.Skills.PlayerSkillDriver)} component.");
+                throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} requires a {nameof(PlayGround.Skills.SkillDriver)} component.");
 
             StatusEffects = GetComponent<StatusEffects>();
             StatusEffects?.Initialize(d => health.TakeDamage(d), () => health.IsAlive);
