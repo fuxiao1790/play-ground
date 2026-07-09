@@ -8,6 +8,6 @@ new feature
 - cast on crit and other conditions.
 - fast projectiles, these cannot have tracking, requires tunneling check
 - unit related, these have dependency on each other 
-    - unit stats
+    - unit stat sheet
     - mob skills (mob should also use the same skill loadout for player, player skill loadout should be generic)
     - player summons (these should just be mobs but with different faction)
