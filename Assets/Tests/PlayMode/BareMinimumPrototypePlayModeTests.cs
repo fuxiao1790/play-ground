@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 using PlayGround.Skills;
@@ -8,7 +7,6 @@ using PlayGround.Common;
 using PlayGround.Mob;
 using PlayGround.Player;
 using PlayGround.Game;
-using PlayGround.Spawn;
 using PlayGround.System.Combat.Aoes;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
@@ -281,7 +279,7 @@ namespace PlayGround.Tests.PlayMode
             projectileRoot.Spawn(command, CombatFaction.Player);
             yield return null;
 
-            // Both hits land on the same target in one frame â†?one batch per unique target.
+            // Both hits land on the same target in one frame; one batch per unique target.
             // The probe receives one aggregate managed push for the target.
             Assert.That(probe.HitCount, Is.EqualTo(1));
             Object.Destroy(projectileObject);
@@ -593,124 +591,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void SpawnerUsesPoolAndEnforcesGlobalCap()
-        {
-            CreateSpawnFixture(1, 0, out GameObject spawnerObject, out MobSpawnerRoot spawner, out SpawnPoint point, out GameObject prefabObject, out MobSpawnPool pool);
-
-            MobRoot first = spawner.RequestSpawn(point);
-            MobRoot second = spawner.RequestSpawn(point);
-
-            Assert.That(first, Is.Not.Null);
-            Assert.That(second, Is.Null);
-            Assert.That(spawner.ActiveMobCount(), Is.EqualTo(1));
-            Object.Destroy(spawnerObject);
-            Object.Destroy(prefabObject);
-            Object.Destroy(pool);
-        }
-
-        [Test]
-        public void SpawnPointLocalCapReopensAfterSoftDeath()
-        {
-            CreateSpawnFixture(4, 1, out GameObject spawnerObject, out MobSpawnerRoot spawner, out SpawnPoint point, out GameObject prefabObject, out MobSpawnPool pool);
-
-            MobRoot first = spawner.RequestSpawn(point);
-            MobRoot blocked = spawner.RequestSpawn(point);
-            first.SoftDie();
-            MobRoot second = spawner.RequestSpawn(point);
-
-            Assert.That(blocked, Is.Null);
-            Assert.That(second, Is.Not.Null);
-            Assert.That(point.ActiveLocalMobCount, Is.EqualTo(1));
-            Object.Destroy(spawnerObject);
-            Object.Destroy(prefabObject);
-            Object.Destroy(pool);
-        }
-
-        [Test]
-        public void SpawnerGlobalCapReopensAfterSoftDeath()
-        {
-            CreateSpawnFixture(1, 0, out GameObject spawnerObject, out MobSpawnerRoot spawner, out SpawnPoint point, out GameObject prefabObject, out MobSpawnPool pool);
-
-            MobRoot first = spawner.RequestSpawn(point);
-            MobRoot blocked = spawner.RequestSpawn(point);
-            first.SoftDie();
-            MobRoot second = spawner.RequestSpawn(point);
-
-            Assert.That(blocked, Is.Null);
-            Assert.That(spawner.ActiveMobCount(), Is.EqualTo(1));
-            Assert.That(second, Is.Not.Null);
-            Object.Destroy(spawnerObject);
-            Object.Destroy(prefabObject);
-            Object.Destroy(pool);
-        }
-
-        [UnityTest]
-        public IEnumerator MobSoftDeathSchedulesHardCleanup()
-        {
-            CreateSpawnFixture(1, 1, out GameObject spawnerObject, out MobSpawnerRoot spawner, out SpawnPoint point, out GameObject prefabObject, out MobSpawnPool pool);
-
-            MobRoot mob = spawner.RequestSpawn(point);
-            mob.SoftDie();
-            yield return null;
-
-            Assert.That(mob == null, Is.True);
-            Assert.That(spawner.ActiveMobCount(), Is.EqualTo(0));
-            Assert.That(point.ActiveLocalMobCount, Is.EqualTo(0));
-            Object.Destroy(spawnerObject);
-            Object.Destroy(prefabObject);
-            Object.Destroy(pool);
-        }
-
-        [Test]
-        public void SpawnerDespawnAllClearsActiveAndLocalCaps()
-        {
-            CreateSpawnFixture(2, 2, out GameObject spawnerObject, out MobSpawnerRoot spawner, out SpawnPoint point, out GameObject prefabObject, out MobSpawnPool pool);
-
-            spawner.RequestSpawn(point);
-            spawner.RequestSpawn(point);
-            spawner.DespawnAll();
-
-            Assert.That(spawner.ActiveMobCount(), Is.EqualTo(0));
-            Assert.That(point.ActiveLocalMobCount, Is.EqualTo(0));
-            Object.Destroy(spawnerObject);
-            Object.Destroy(prefabObject);
-            Object.Destroy(pool);
-        }
-
-        [Test]
-        public void SpawnerActivatesMobsClonedFromInactivePrefab()
-        {
-            CreateSpawnFixture(1, 0, out GameObject spawnerObject, out MobSpawnerRoot spawner, out SpawnPoint point, out GameObject prefabObject, out MobSpawnPool pool);
-            prefabObject.SetActive(false);
-
-            MobRoot mob = spawner.RequestSpawn(point);
-
-            Assert.That(mob, Is.Not.Null);
-            Assert.That(mob.gameObject.activeSelf, Is.True);
-            Assert.That(mob.IsCombatTargetActive, Is.True);
-            Object.Destroy(spawnerObject);
-            Object.Destroy(prefabObject);
-            Object.Destroy(pool);
-        }
-
-        [Test]
-        public void SpawnPointStartsWithRandomTimerWithinSpawnInterval()
-        {
-            UnityEngine.Random.InitState(12345);
-            float expectedTimer = UnityEngine.Random.Range(0f, 10f);
-            UnityEngine.Random.InitState(12345);
-            CreateSpawnFixture(1, 0, out GameObject spawnerObject, out MobSpawnerRoot spawner, out SpawnPoint point, out GameObject prefabObject, out MobSpawnPool pool);
-
-            float timer = ReadSpawnPointTimer(point);
-
-            Assert.That(timer, Is.EqualTo(expectedTimer));
-            Object.Destroy(spawnerObject);
-            Object.Destroy(prefabObject);
-            Object.Destroy(pool);
-        }
-
-        [Test]
-        public void GameRootAcceptsAuthoredSpawnerWhenNoSceneMobsAreAuthored()
+        public void GameRootAcceptsNoSceneMobsAfterSpawnerReset()
         {
             GameObject projectileObject = new("CombatRoot");
             projectileObject.SetActive(false);
@@ -719,18 +600,14 @@ namespace PlayGround.Tests.PlayMode
             projectileRoot.ConfigureAtlas(CombatAtlasTestFixture.Atlas);
             projectileObject.SetActive(true);
 
-            GameObject spawnerObject = new("MobSpawnerRoot");
-            spawnerObject.AddComponent<MobSpawnerRoot>();
-
             GameObject gameRootObject = new("GameRoot");
             gameRootObject.SetActive(false);
             GameRoot gameRoot = gameRootObject.AddComponent<GameRoot>();
             gameRoot.Configure(projectileRoot, null, new MobRoot[0]);
             gameRootObject.SetActive(true);
 
-            Assert.That(Object.FindAnyObjectByType<MobSpawnerRoot>(), Is.Not.Null);
+            Assert.That(gameRootObject.activeSelf, Is.True);
             Object.Destroy(gameRootObject);
-            Object.Destroy(spawnerObject);
             Object.Destroy(projectileObject);
         }
 
@@ -979,56 +856,6 @@ namespace PlayGround.Tests.PlayMode
             }
 
             return count;
-        }
-
-        private static void CreateSpawnFixture(
-            int globalCap,
-            int localCap,
-            out GameObject spawnerObject,
-            out MobSpawnerRoot spawner,
-            out SpawnPoint point,
-            out GameObject prefabObject,
-            out MobSpawnPool pool)
-        {
-            prefabObject = CreateMobPrefab("SpawnedMobPrefab", out MobRoot prefab);
-            pool = ScriptableObject.CreateInstance<MobSpawnPool>();
-            pool.Configure(new[] { prefab });
-
-            spawnerObject = new GameObject("Spawner");
-            spawnerObject.SetActive(false);
-            spawner = spawnerObject.AddComponent<MobSpawnerRoot>();
-            GameObject pointObject = new("SpawnPoint");
-            pointObject.transform.SetParent(spawnerObject.transform, false);
-            point = pointObject.AddComponent<SpawnPoint>();
-            point.Configure(pool, 10f, localCap);
-            spawner.Configure(pool, globalCap, points: new[] { point });
-            spawnerObject.SetActive(true);
-        }
-
-        private static float ReadSpawnPointTimer(SpawnPoint point)
-        {
-            const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            var timerField = typeof(SpawnPoint).GetField("timer", Flags);
-            return (float)timerField.GetValue(point);
-        }
-
-        private static GameObject CreateMobPrefab(string name, out MobRoot mob)
-        {
-            GameObject mobObject = new(name);
-            mobObject.SetActive(false);
-            Rigidbody2D body = mobObject.AddComponent<Rigidbody2D>();
-            body.gravityScale = 0f;
-            CircleCollider2D bodyCollider = mobObject.AddComponent<CircleCollider2D>();
-            GameObject hurtboxObject = new("Hurtbox");
-            hurtboxObject.transform.SetParent(mobObject.transform, false);
-            CircleCollider2D hurtbox = hurtboxObject.AddComponent<CircleCollider2D>();
-            hurtbox.isTrigger = true;
-            SpriteRenderer renderer = mobObject.AddComponent<SpriteRenderer>();
-            mob = mobObject.AddComponent<MobRoot>();
-            mob.Configure(body, bodyCollider, hurtbox, renderer, null);
-            mob.ConfigureAuthoring(10f, 0f, 0.5f);
-            mobObject.SetActive(true);
-            return mobObject;
         }
 
         private static int nextCritProbeId = 5000;

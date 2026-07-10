@@ -2,7 +2,6 @@ using PlayGround.CameraSystem;
 using PlayGround.Common;
 using PlayGround.Level;
 using PlayGround.Mob;
-using PlayGround.Spawn;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
@@ -19,7 +18,6 @@ namespace PlayGround.Game
     public sealed class GameRoot : MonoBehaviour
     {
         [SerializeField] private CombatRoot combatRoot;
-        [SerializeField] private MobSpawnerRoot mobSpawner;
         [SerializeField] private MobRoot[] mobs;
         [SerializeField] private PlayGround.Player.PlayerRoot player;
         [SerializeField] private GameplayCamera gameplayCamera;
@@ -45,23 +43,9 @@ namespace PlayGround.Game
                     ?? FindAnyObjectByType<PlayGround.Player.PlayerRoot>();
             }
 
-            if (mobSpawner == null)
-            {
-                mobSpawner = FindAnyObjectByType<MobSpawnerRoot>();
-            }
-
-            if (mobSpawner != null)
-            {
-                mobSpawner.BindCombatRoot(combatRoot);
-            }
-
-            if ((mobs == null || mobs.Length == 0) && mobSpawner == null)
+            if (mobs == null || mobs.Length == 0)
             {
                 mobs = FindTaggedComponents<MobRoot>(GameplayTags.Mob);
-                if (mobs.Length == 0)
-                {
-                    throw new MissingReferenceException($"{nameof(GameRoot)} needs mobs or a {nameof(MobSpawnerRoot)}.");
-                }
             }
 
             if (mobs != null)
@@ -133,17 +117,6 @@ namespace PlayGround.Game
             combatRoot = combat;
             player = playerRoot;
             mobs = mobRoots;
-        }
-
-        public void Configure(
-            CombatRoot combat,
-            PlayGround.Player.PlayerRoot playerRoot,
-            MobSpawnerRoot spawner)
-        {
-            combatRoot = combat;
-            player = playerRoot;
-            mobSpawner = spawner;
-            mobs = null;
         }
 
         private static T FindTaggedComponent<T>(string tag)

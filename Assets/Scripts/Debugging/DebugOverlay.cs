@@ -16,9 +16,5 @@ namespace PlayGround.Debugging
         public void Configure(CombatRoot root, global::PlayGround.Mob.MobRoot[] mobRoots)
         {
         }
-
-        public void Configure(CombatRoot root, global::PlayGround.Spawn.MobSpawnerRoot spawner)
-        {
-        }
     }
 }

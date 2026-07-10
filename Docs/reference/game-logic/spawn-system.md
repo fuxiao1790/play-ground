@@ -5,40 +5,21 @@ final decisions, and should be revisited in detail before implementation locks i
 
 ## Current Shape
 
-`Assets/Scenes/Main.unity` owns a separate editable `MobSpawnerRoot` scene object.
-It is not created by `GameRoot`.
+The previous mob spawning implementation has been removed. There is currently no
+runtime `Assets/Scripts/Spawn/` implementation, no spawn-point scene objects, and
+no spawn-pool ScriptableObject contract.
 
-Current scene composition:
-
-- `MobSpawnerRoot`: owns global mob cap, final mob instantiation, target binding,
-  projectile target registration, and fallback mob authoring while real prefabs
-  are still being built.
-- `SpawnPoint_East`, `SpawnPoint_West`, `SpawnPoint_North`, `SpawnPoint_South`:
-  scene-authored child points that can be moved in the editor.
-- `SpawnPoint`: owns local timer, randomized first-spawn offset, spawn radius,
-  local cap, spacing checks, and optional point-specific pool/config override.
-- `MobSpawnPool`: ScriptableObject weighted prefab selection.
-- `SpawnConfig`: ScriptableObject reusable point timing/radius/local-cap data.
-- `SpawnCoordinator`: optional hook for higher-level spawn rules.
+Mobs themselves remain authored under `Assets/Scripts/Mob/` and
+`Assets/Prefabs/Mobs/`.
 
 ## Runtime Rules
 
-- Spawner enforces `maxMobs` against alive spawned mobs.
-- Spawn points can enforce `maxLocalMobs`.
-- Spawn points choose pool in this order: point pool, point config pool, spawner
-  fallback pool.
-- Spawned mobs are activated after instantiate, registered with the player
-  projectile target registry, and targeted at the player transform when assigned.
-- Soft-dead mobs stop counting toward caps. Hard-destroyed mobs are also removed
-  from tracking.
-- Spawn points draw selected gizmo radius in the scene view.
+- Replacement spawning rules are not yet defined.
+- Future spawn code should continue to create low-count Unity `MobRoot` actors,
+  then bind them to combat target registration through the existing mob root
+  path.
 
 ## Temporary Fallback
 
-Until authored mob prefabs and spawn pools are created, `MobSpawnerRoot` creates a
-runtime fallback mob prefab using the assigned `runtimeMobSprite`. This exists so
-the scene can spawn real `MobRoot` objects without relying on `GameRoot` or the
-removed target dummy.
-
-Replace this fallback by assigning real mob prefabs through `MobSpawnPool` assets
-under `Assets/ScriptableObjects/Spawn/`.
+The runtime fallback mob prefab path has been deleted with the old spawning
+system. Use real mob prefabs when the replacement spawner is introduced.

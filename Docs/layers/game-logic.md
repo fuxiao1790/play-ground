@@ -13,7 +13,7 @@ meaning before data is snapshotted for simulation.
 - `SkillDriver`, `SkillLoadout`, `SkillSetCompiler`, and
   `SkillSpawnTranslator`.
 - Mob behavior state machines, triggers, event queues, and low-count AI choices.
-- Spawn cap and spawn point rules before mobs become live actors.
+- Mob spawn rules once the replacement spawning system is authored.
 - Player-facing meaning of damage, crit, stacks, detonations, and triggers.
 
 ## Does Not Own
@@ -26,7 +26,7 @@ meaning before data is snapshotted for simulation.
 ## Inputs
 
 - Authored ScriptableObjects and prefab templates.
-- Actor state, cooldown state, player input intent, mob events, and spawn
+- Actor state, cooldown state, player input intent, mob events, and authored
   configuration.
 - Runtime stats from equipped sets and supports.
 
@@ -35,7 +35,7 @@ meaning before data is snapshotted for simulation.
 - Runtime skill definitions and plain-data spawn snapshots.
 - `ProjectileSpawnRequest`, `AoeSpawnRequest`, and
   `ProjectileAoeSpawnRequest`.
-- Mob movement/behavior intent and spawn requests for scene actors.
+- Mob movement/behavior intent.
 
 ## Allowed Dependencies
 
@@ -56,7 +56,6 @@ meaning before data is snapshotted for simulation.
 
 - `Assets/Scripts/Skills/`
 - `Assets/Scripts/Mob/`
-- `Assets/Scripts/Spawn/`
 - `Assets/Scripts/Common/StatusEffects/`
 
 ## Related Contracts

@@ -40,7 +40,7 @@ stay narrow and explicit.
 2. `GameRoot` binds scene-level services and registries.
 3. `PlayerRoot` samples movement, dash, facing, animation, health, and skill
    loadout helpers.
-4. `MobSpawnerRoot` asks spawn points for spawn requests and enforces caps.
+4. Future mob spawning code creates low-count mob scene actors.
 5. `MobRoot` updates behavior through triggers, local event queues, and behavior
    selection.
 6. Each `CombatRoot` represents one firing faction. The player root and mob root
@@ -69,8 +69,7 @@ stay narrow and explicit.
   push/delete, and `ICombatTarget` implementation.
 - `MobRoot`: mob health, behavior, projectile attack, status stacks, death
   cleanup, target proxy push/delete, and `ICombatTarget` implementation.
-- `MobSpawnerRoot`: global spawn cap and mob instantiation.
-- `SpawnPoint`: local spawn timing, overlap checks, and optional spawn pool.
+- Mob spawning: reset; replacement ownership is not yet defined.
 - `CombatRoot`: per-faction combat bridge. Owns target registry, projectile/AOE
   type registration, render resources, managed spawn submission, and faction
   registration. Shares ECS world and scope through ref-counted owners.

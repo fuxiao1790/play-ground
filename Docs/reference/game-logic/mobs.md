@@ -104,19 +104,9 @@ Target:
 
 ## Spawn Integration
 
-`MobSpawnerRoot`:
-
-- enforces global `maxMobs`
-- instantiates mob prefab from spawn point or shared config
-- tracks active spawned mobs and death/despawn accounting
-- frees spawn cap when mob soft-dies
-
-`SpawnPoint`:
-
-- owns timer
-- owns local overlap checks
-- references optional mob prefab list or shared spawn config
-- falls back to root-level list if no local list exists
+The previous mob spawning implementation has been removed. The replacement
+spawner should instantiate authored `MobRoot` prefabs and then use the existing
+mob setup, target binding, and combat-root binding paths.
 
 ## Damage And Death
 

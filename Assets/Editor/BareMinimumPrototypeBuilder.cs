@@ -6,7 +6,6 @@ using PlayGround.Game;
 using PlayGround.Level;
 using PlayGround.Mob;
 using PlayGround.Player;
-using PlayGround.Spawn;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
@@ -66,10 +65,7 @@ namespace PlayGround.Editor
             projectileRoot.Configure(projectileSprite);
 
             GameObject player = CreatePlayer(playerSprite, inputActions);
-            MobRoot[] mobPrefabs = CreateMobPrefabAssets(mobSprite);
-            MobSpawnPool spawnPool = EnsureSpawnPoolAsset("Assets/ScriptableObjects/Spawn/StarterMobPool.asset", mobPrefabs);
-            GameObject spawnerObject = CreateSpawner(spawnPool, player.transform, projectileRoot);
-            MobSpawnerRoot spawner = spawnerObject.GetComponent<MobSpawnerRoot>();
+            CreateMobPrefabAssets(mobSprite);
             GameObject cameraObject = CreateCamera(player.transform);
             Camera worldCamera = cameraObject.GetComponent<Camera>();
             player.GetComponent<PlayerRoot>().Configure(
@@ -79,7 +75,7 @@ namespace PlayGround.Editor
                 player.GetComponentInChildren<SpriteRenderer>(),
                 worldCamera);
 
-            gameRoot.Configure(projectileRoot, player.GetComponent<PlayerRoot>(), spawner);
+            gameRoot.Configure(projectileRoot, player.GetComponent<PlayerRoot>(), null);
 
             GameObject level = CreateLevel(groundSprite);
             level.GetComponent<PlayAreaRoot>().BuildRuntimeWalls();
@@ -190,34 +186,6 @@ namespace PlayGround.Editor
             return mob;
         }
 
-        private static GameObject CreateSpawner(
-            MobSpawnPool pool,
-            Transform target,
-            CombatRoot playerProjectileRoot)
-        {
-            GameObject spawnerObject = new("MobSpawnerRoot");
-            MobSpawnerRoot spawner = spawnerObject.AddComponent<MobSpawnerRoot>();
-            SpawnPoint[] points =
-            {
-                CreateSpawnPoint(spawnerObject.transform, pool, "SpawnPoint_SouthEast", new Vector3(5f, -2f, 0f), 1.0f),
-                CreateSpawnPoint(spawnerObject.transform, pool, "SpawnPoint_East", new Vector3(6f, 0f, 0f), 1.4f),
-                CreateSpawnPoint(spawnerObject.transform, pool, "SpawnPoint_NorthEast", new Vector3(5f, 2f, 0f), 1.8f)
-            };
-            spawner.Configure(pool, 20, target, playerProjectileRoot, points);
-            return spawnerObject;
-        }
-
-        private static SpawnPoint CreateSpawnPoint(Transform parent, MobSpawnPool pool, string name, Vector3 position, float interval)
-        {
-            GameObject pointObject = new(name);
-            pointObject.transform.SetParent(parent, false);
-            pointObject.transform.position = position;
-            SpawnPoint point = pointObject.AddComponent<SpawnPoint>();
-            pointObject.transform.localScale = Vector3.one * 1.25f;
-            point.Configure(pool, interval, 4);
-            return point;
-        }
-
         private static GameObject CreateCamera(Transform target)
         {
             GameObject cameraObject = new("GameplayCamera");
@@ -289,9 +257,7 @@ namespace PlayGround.Editor
                 "Assets/Prefabs",
                 "Assets/Prefabs/Player",
                 "Assets/Prefabs/Mobs",
-                "Assets/Prefabs/Projectiles",
-                "Assets/ScriptableObjects",
-                "Assets/ScriptableObjects/Spawn"
+                "Assets/Prefabs/Projectiles"
             };
 
             foreach (string folder in folders)
@@ -324,20 +290,6 @@ namespace PlayGround.Editor
             }
 
             tagManager.ApplyModifiedProperties();
-        }
-
-        private static MobSpawnPool EnsureSpawnPoolAsset(string path, MobRoot[] prefabs)
-        {
-            MobSpawnPool pool = AssetDatabase.LoadAssetAtPath<MobSpawnPool>(path);
-            if (pool == null)
-            {
-                pool = ScriptableObject.CreateInstance<MobSpawnPool>();
-                AssetDatabase.CreateAsset(pool, path);
-            }
-
-            pool.Configure(prefabs);
-            EditorUtility.SetDirty(pool);
-            return pool;
         }
 
         private static float WorldUnits(float oldPixels)

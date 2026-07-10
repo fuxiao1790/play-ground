@@ -5,21 +5,24 @@
 Trace low-count mob spawning and behavior before mobs participate in ECS combat
 through target proxies.
 
+Current status: the previous mob spawning implementation was removed so the next
+spawning pass can start clean. Mob behavior and target proxy participation remain
+owned by `MobRoot`.
+
 ## Sequence
 
-1. `MobSpawnerRoot` coordinates global spawn cap and spawn point requests.
-2. `SpawnPoint` checks timing, overlap, and local spawn rules.
-3. Mob prefab is instantiated or reused from a pool.
-4. `MobRoot` validates Unity references and binds behavior, animation, health,
+1. A future mob spawning system chooses when and where to create low-count mob
+   scene actors.
+2. `MobRoot` validates Unity references and binds behavior, animation, health,
    status, and projectile attack helpers.
-5. Mob behavior triggers update local events and selected movement/attack state.
-6. Mob root registers as a combat target and pushes target proxy data.
-7. Mob attacks submit projectile/AOE spawn requests through combat roots.
-8. Presentation results update hurt/death feedback and target cleanup.
+3. Mob behavior triggers update local events and selected movement/attack state.
+4. Mob root registers as a combat target and pushes target proxy data.
+5. Mob attacks submit projectile/AOE spawn requests through combat roots.
+6. Presentation results update hurt/death feedback and target cleanup.
 
 ## Producers
 
-`MobSpawnerRoot`, `SpawnPoint`, mob behavior triggers, `MobRoot`, and
+Future mob spawning code, mob behavior triggers, `MobRoot`, and
 `MobProjectileAttack`.
 
 ## Consumers
@@ -49,8 +52,9 @@ target proxies pushed before simulation.
 
 ## Failure / Edge Cases
 
-Spawn overlap checks and caps prevent invalid overpopulation. Death presentation
-must wait until target proxy cleanup is safe for current-frame result replay.
+Future spawn overlap checks and caps should prevent invalid overpopulation.
+Death presentation must wait until target proxy cleanup is safe for
+current-frame result replay.
 
 ## Related Decisions
 

@@ -8,8 +8,8 @@ and authored presentation setup.
 
 ## Owns
 
-- `GameRoot`, `PlayerRoot`, `MobRoot`, `MobSpawnerRoot`, `SpawnPoint`,
-  `GameplayCamera`, `PlayAreaRoot`, `DebugOverlay`, and authored scene roots.
+- `GameRoot`, `PlayerRoot`, `MobRoot`, `GameplayCamera`, `PlayAreaRoot`,
+  `DebugOverlay`, and authored scene roots.
 - Player and mob Transforms, Rigidbody2D, Colliders, Animator, SpriteRenderer,
   GameObject lifetime, and low-count body/environment collision.
 - ScriptableObjects and prefabs used as authoring templates.
@@ -54,8 +54,6 @@ and authored presentation setup.
 - `Assets/Scripts/Game/GameRoot.cs`
 - `Assets/Scripts/Player/PlayerRoot.cs`
 - `Assets/Scripts/Mob/MobRoot.cs`
-- `Assets/Scripts/Spawn/MobSpawnerRoot.cs`
-- `Assets/Scripts/Spawn/SpawnPoint.cs`
 - `Assets/Scripts/Camera/GameplayCamera.cs`
 - `Assets/Scripts/Level/PlayAreaRoot.cs`
 
