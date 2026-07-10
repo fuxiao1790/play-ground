@@ -11,6 +11,7 @@ using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Vfx;
 using UnityEngine;
 
 namespace PlayGround.Spawn
@@ -24,6 +25,7 @@ namespace PlayGround.Spawn
         [SerializeField] private Transform spawnParent;
         [SerializeField] private Transform target;
         [SerializeField] private CombatRoot combatRoot;
+        [SerializeField] private CombatVfxRoot vfxRoot;
         [SerializeField] private Sprite runtimeMobSprite;
         [SerializeField] private int randomSeed;
 
@@ -58,7 +60,7 @@ namespace PlayGround.Spawn
                     throw new MissingReferenceException($"{nameof(MobSpawnerRoot)} on {name} spawn point slot {i} is empty.");
                 }
 
-                spawnPoints[i].Bind(this);
+                spawnPoints[i].Bind(this, combatRoot, vfxRoot);
             }
         }
 
@@ -67,13 +69,16 @@ namespace PlayGround.Spawn
             int mobCap,
             Transform targetTransform = null,
             CombatRoot combat = null,
+            CombatVfxRoot vfx = null,
             SpawnPoint[] points = null)
         {
             fallbackPool = pool;
             maxMobs = Mathf.Max(0, mobCap);
             target = targetTransform;
             combatRoot = combat;
+            vfxRoot = vfx;
             spawnPoints = points ?? spawnPoints;
+            BindSpawnPoints();
         }
 
         public void ConfigureRuntimeVisual(Sprite mobSprite)
@@ -84,6 +89,19 @@ namespace PlayGround.Spawn
         public void BindCombatRoot(CombatRoot root)
         {
             combatRoot = root;
+            BindSpawnPoints();
+            ApplyRootsToSpawnedMobs();
+        }
+
+        public void BindVfxRoot(CombatVfxRoot root)
+        {
+            vfxRoot = root;
+            BindSpawnPoints();
+            ApplyRootsToSpawnedMobs();
+        }
+
+        private void ApplyRootsToSpawnedMobs()
+        {
             for (int i = 0; i < spawnedMobs.Count; i++)
             {
                 MobRoot mob = spawnedMobs[i];
@@ -92,17 +110,13 @@ namespace PlayGround.Spawn
                     continue;
                 }
 
-                if (combatRoot != null)
-                {
-                    mob.Register(combatRoot.TargetRegistry);
-                    mob.BindCombatRoot(combatRoot);
-                }
+                ApplySpawnPointRoots(spawnPointByMob.TryGetValue(mob, out SpawnPoint spawnPoint) ? spawnPoint : null, mob);
             }
         }
 
         public void BindSpawnPointForRuntime(SpawnPoint spawnPoint)
         {
-            spawnPoint.Bind(this);
+            spawnPoint.Bind(this, combatRoot, vfxRoot);
         }
 
         public bool CanSpawn(SpawnPoint spawnPoint)
@@ -196,13 +210,46 @@ namespace PlayGround.Spawn
                 mob.SetTarget(target);
             }
 
-            if (combatRoot != null)
-            {
-                mob.Register(combatRoot.TargetRegistry);
-                mob.BindCombatRoot(combatRoot);
-            }
+            ApplySpawnPointRoots(spawnPoint, mob);
 
             coordinator?.OnSpawned(spawnPoint, mob);
+        }
+
+        private void ApplySpawnPointRoots(SpawnPoint spawnPoint, MobRoot mob)
+        {
+            if (mob == null)
+            {
+                return;
+            }
+
+            CombatVfxRoot spawnVfxRoot = spawnPoint != null && spawnPoint.VfxRoot != null
+                ? spawnPoint.VfxRoot
+                : vfxRoot;
+            mob.BindVfxRoot(spawnVfxRoot);
+
+            CombatRoot spawnCombatRoot = spawnPoint != null
+                ? spawnPoint.CombatRoot ?? combatRoot
+                : combatRoot;
+            if (spawnCombatRoot == null)
+            {
+                return;
+            }
+
+            mob.Register(spawnCombatRoot.TargetRegistry);
+            mob.BindCombatRoot(spawnCombatRoot);
+        }
+
+        private void BindSpawnPoints()
+        {
+            if (spawnPoints == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < spawnPoints.Length; i++)
+            {
+                spawnPoints[i]?.Bind(this, combatRoot, vfxRoot);
+            }
         }
 
         private void OnMobSoftDied(MobRoot mob)

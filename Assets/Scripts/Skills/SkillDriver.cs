@@ -87,6 +87,14 @@ namespace PlayGround.Skills
             RegisterSpawnTemplates();
         }
 
+        public void BindVfxRoot(CombatVfxRoot root)
+        {
+            if (vfxRoot == root) return;
+            vfxRoot = root;
+            RegisterProjectileTypes();
+            RegisterAoeTypes();
+        }
+
         // --- private ---
 
         private string CombatRootTag =>
@@ -185,7 +193,7 @@ namespace PlayGround.Skills
 
         private void RegisterProjectileTypes()
         {
-            if (combatRoot == null || compiledSlots == null) return;
+            if (compiledSlots == null) return;
             for (int i = 0; i < activeSlotCount; i++)
                 RegisterProjectileTypesRecursive(compiledSlots[i]);
         }
@@ -215,17 +223,15 @@ namespace PlayGround.Skills
                     RegisterProjectileTypesRecursive(aoeDef.StackingDetonation);
             }
 
-            if (def is RuntimeProjectileDefinition projDef && projDef.Prefab != null && projDef.TypeId < 0)
+            if (def is RuntimeProjectileDefinition projDef && projDef.Prefab != null)
             {
-                projDef.TypeId = combatRoot.RegisterTemplate(projDef.Prefab);
-                projDef.RenderId = combatRoot.ProjectileRenderId(projDef.TypeId);
-                if (vfxRoot != null)
+                if (combatRoot != null && projDef.TypeId < 0)
                 {
-                    vfxRoot.Register(projDef.TypeId, 0, projDef.Prefab.SpawnEffect);
-                    vfxRoot.Register(projDef.TypeId, 1, projDef.Prefab.HitEffect);
-                    vfxRoot.Register(projDef.TypeId, 2, projDef.Prefab.ExpireEffect);
-                    vfxRoot.Register(projDef.TypeId, 4, projDef.Prefab.ArmingEffect);
+                    projDef.TypeId = combatRoot.RegisterTemplate(projDef.Prefab);
+                    projDef.RenderId = combatRoot.ProjectileRenderId(projDef.TypeId);
                 }
+
+                RegisterProjectileVfx(projDef);
             }
 
             if (def is RuntimeProjectileDefinition p)
@@ -248,7 +254,7 @@ namespace PlayGround.Skills
 
         private void RegisterAoeTypes()
         {
-            if (combatRoot == null || compiledSlots == null) return;
+            if (compiledSlots == null) return;
             for (int i = 0; i < activeSlotCount; i++)
                 RegisterAoeTypesRecursive(compiledSlots[i]);
         }
@@ -591,18 +597,38 @@ namespace PlayGround.Skills
 
         private void RegisterAoeTypeDefinition(RuntimeAoeDefinition aoeDef)
         {
-            if (aoeDef == null || combatRoot == null || aoeDef.TypeId >= 0) return;
+            if (aoeDef == null) return;
             AoeTypeDefinition definition = aoeDef.CreateTypeDefinition();
-            aoeDef.TypeId = combatRoot.RegisterType(definition);
-            aoeDef.RenderId = combatRoot.AoeRenderId(aoeDef.TypeId);
-            if (vfxRoot != null)
+            if (combatRoot != null && aoeDef.TypeId < 0)
             {
-                vfxRoot.Register(aoeDef.TypeId, 0, definition.SpawnEffect, requireAreaSizeContract: true);
-                vfxRoot.Register(aoeDef.TypeId, 1, definition.HitEffect, requireAreaSizeContract: true);
-                vfxRoot.Register(aoeDef.TypeId, 2, definition.ExpireEffect, requireAreaSizeContract: true);
-                vfxRoot.Register(aoeDef.TypeId, 3, definition.PulseEffect, requireAreaSizeContract: true);
-                vfxRoot.Register(aoeDef.TypeId, 4, definition.ArmingEffect, requireAreaSizeContract: true);
+                aoeDef.TypeId = combatRoot.RegisterType(definition);
+                aoeDef.RenderId = combatRoot.AoeRenderId(aoeDef.TypeId);
             }
+
+            RegisterAoeVfx(aoeDef, definition);
+        }
+
+        private void RegisterProjectileVfx(RuntimeProjectileDefinition projDef)
+        {
+            if (vfxRoot == null || projDef?.Prefab == null || projDef.TypeId < 0)
+                return;
+
+            vfxRoot.Register(projDef.TypeId, 0, projDef.Prefab.SpawnEffect);
+            vfxRoot.Register(projDef.TypeId, 1, projDef.Prefab.HitEffect);
+            vfxRoot.Register(projDef.TypeId, 2, projDef.Prefab.ExpireEffect);
+            vfxRoot.Register(projDef.TypeId, 4, projDef.Prefab.ArmingEffect);
+        }
+
+        private void RegisterAoeVfx(RuntimeAoeDefinition aoeDef, AoeTypeDefinition definition)
+        {
+            if (vfxRoot == null || aoeDef == null || aoeDef.TypeId < 0)
+                return;
+
+            vfxRoot.Register(aoeDef.TypeId, 0, definition.SpawnEffect, requireAreaSizeContract: true);
+            vfxRoot.Register(aoeDef.TypeId, 1, definition.HitEffect, requireAreaSizeContract: true);
+            vfxRoot.Register(aoeDef.TypeId, 2, definition.ExpireEffect, requireAreaSizeContract: true);
+            vfxRoot.Register(aoeDef.TypeId, 3, definition.PulseEffect, requireAreaSizeContract: true);
+            vfxRoot.Register(aoeDef.TypeId, 4, definition.ArmingEffect, requireAreaSizeContract: true);
         }
 
         private static T FindRootByTag<T>(string tag) where T : Component

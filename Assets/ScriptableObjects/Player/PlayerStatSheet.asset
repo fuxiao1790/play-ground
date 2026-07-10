@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c154e0fcff4f4854b898bae7a65797bb, type: 3}
   m_Name: PlayerStatSheet
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Common.Stats.UnitStatSheet
-  maxHealth: 100000
+  maxHealth: 10000000
   moveSpeed: 20
   increasedRatePercent: 0
   damageMultiplier: 1

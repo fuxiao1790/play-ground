@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using PlayGround.Mob;
+using PlayGround.System.Combat.Core;
+using PlayGround.System.Combat.Vfx;
 using UnityEngine;
 
 namespace PlayGround.Spawn
@@ -16,6 +18,8 @@ namespace PlayGround.Spawn
 
         private readonly List<MobRoot> localMobs = new();
         private MobSpawnerRoot root;
+        private CombatRoot combatRoot;
+        private CombatVfxRoot vfxRoot;
         private float timer;
         private bool running;
 
@@ -63,9 +67,11 @@ namespace PlayGround.Spawn
             useConfigTiming = false;
         }
 
-        public void Bind(MobSpawnerRoot spawnerRoot)
+        public void Bind(MobSpawnerRoot spawnerRoot, CombatRoot combat, CombatVfxRoot vfx)
         {
             root = spawnerRoot;
+            combatRoot = combat;
+            vfxRoot = vfx;
         }
 
         public void Tick(float deltaTime)
@@ -111,6 +117,9 @@ namespace PlayGround.Spawn
 
             return fallback;
         }
+
+        public CombatRoot CombatRoot => combatRoot;
+        public CombatVfxRoot VfxRoot => vfxRoot;
 
         public bool TryFindSpawnPosition(out Vector2 position)
         {

@@ -171,6 +171,7 @@ GameObject:
   - component: {fileID: 9150876510746367444}
   - component: {fileID: 4056045694063569842}
   - component: {fileID: 3357404410216037366}
+  - component: {fileID: 7770000000000001003}
   m_Layer: 12
   m_Name: Slime
   m_TagString: Mob
@@ -281,3 +282,22 @@ MonoBehaviour:
   wanderMaxDuration: 2
   wanderPauseChance: 0.15
   randomSeed: 0
+--- !u!114 &7770000000000001003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6597991707308015085}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a100000000000000000000000000000d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillDriver
+  loadout: {fileID: 11400000, guid: a2000000000000000000000000000005, type: 2}
+  combatRoot: {fileID: 0}
+  vfxRoot: {fileID: 0}
+  audioManager: {fileID: 0}
+  statSheet: {fileID: 11400000, guid: 4f1fe3388cd7fef42b7f7bd6e5bc3cc2, type: 2}
+  faction: 2
+  fallbackCombatRootTag: PlayerProjectileRoot

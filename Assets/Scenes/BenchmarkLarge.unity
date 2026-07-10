@@ -170,6 +170,8 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 135
   useConfigTiming: 0
+  combatRoot: {fileID: 0}
+  vfxRoot: {fileID: 0}
 --- !u!1 &30243553
 GameObject:
   m_ObjectHideFlags: 0
@@ -221,6 +223,8 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 135
   useConfigTiming: 0
+  combatRoot: {fileID: 0}
+  vfxRoot: {fileID: 0}
 --- !u!1 &151502259
 GameObject:
   m_ObjectHideFlags: 0
@@ -426,6 +430,8 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 135
   useConfigTiming: 0
+  combatRoot: {fileID: 0}
+  vfxRoot: {fileID: 0}
 --- !u!1 &225537358 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 954641363838781461, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
@@ -482,6 +488,8 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 135
   useConfigTiming: 0
+  combatRoot: {fileID: 0}
+  vfxRoot: {fileID: 0}
 --- !u!1 &529810934
 GameObject:
   m_ObjectHideFlags: 0
@@ -583,6 +591,8 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 135
   useConfigTiming: 0
+  combatRoot: {fileID: 0}
+  vfxRoot: {fileID: 0}
 --- !u!1 &717142518
 GameObject:
   m_ObjectHideFlags: 0
@@ -634,6 +644,8 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 135
   useConfigTiming: 0
+  combatRoot: {fileID: 0}
+  vfxRoot: {fileID: 0}
 --- !u!1001 &830174275
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -676,11 +688,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4817022546720873754, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: m_LocalScale.x
-      value: 2
+      value: 1.7
       objectReference: {fileID: 0}
     - target: {fileID: 4817022546720873754, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: m_LocalScale.y
-      value: 2
+      value: 1.7
       objectReference: {fileID: 0}
     - target: {fileID: 4817022546720873754, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: m_LocalPosition.x
@@ -734,6 +746,10 @@ PrefabInstance:
       propertyPath: vfxRoot
       value: 
       objectReference: {fileID: 1019222040}
+    - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+      propertyPath: statSheet
+      value: 
+      objectReference: {fileID: 11400000, guid: 0d55074d8dea09e4fb663e5a4bc3cc4c, type: 2}
     - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: aoeVfxRoot
       value: 
@@ -1071,6 +1087,8 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 135
   useConfigTiming: 0
+  combatRoot: {fileID: 0}
+  vfxRoot: {fileID: 0}
 --- !u!1 &1456521014
 GameObject:
   m_ObjectHideFlags: 0
@@ -1122,6 +1140,8 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 135
   useConfigTiming: 0
+  combatRoot: {fileID: 0}
+  vfxRoot: {fileID: 0}
 --- !u!4 &1534015920 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4817022546720873754, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
@@ -1359,6 +1379,8 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 135
   useConfigTiming: 0
+  combatRoot: {fileID: 0}
+  vfxRoot: {fileID: 0}
 --- !u!1 &1807457112
 GameObject:
   m_ObjectHideFlags: 0
@@ -1582,11 +1604,18 @@ MonoBehaviour:
   coordinator: {fileID: 0}
   spawnPoints:
   - {fileID: 2000001013}
-  - {fileID: 2000001023}
-  - {fileID: 2000001033}
+  - {fileID: 2119651886}
+  - {fileID: 350279796}
+  - {fileID: 2080561762}
+  - {fileID: 717142520}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
   spawnParent: {fileID: 0}
   target: {fileID: 0}
-  combatRoot: {fileID: 0}
+  combatRoot: {fileID: 529810935}
   runtimeMobSprite: {fileID: 0}
   randomSeed: 0
 --- !u!210 &2000001004
@@ -1653,6 +1682,8 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 135
   useConfigTiming: 0
+  combatRoot: {fileID: 0}
+  vfxRoot: {fileID: 0}
 --- !u!1 &2000001020
 GameObject:
   m_ObjectHideFlags: 0
@@ -1704,6 +1735,8 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 135
   useConfigTiming: 0
+  combatRoot: {fileID: 0}
+  vfxRoot: {fileID: 0}
 --- !u!1 &2000001030
 GameObject:
   m_ObjectHideFlags: 0
@@ -1755,6 +1788,8 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 135
   useConfigTiming: 0
+  combatRoot: {fileID: 0}
+  vfxRoot: {fileID: 0}
 --- !u!1 &2080561760
 GameObject:
   m_ObjectHideFlags: 0
@@ -1806,6 +1841,8 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 135
   useConfigTiming: 0
+  combatRoot: {fileID: 0}
+  vfxRoot: {fileID: 0}
 --- !u!1 &2119651884
 GameObject:
   m_ObjectHideFlags: 0
@@ -1857,6 +1894,8 @@ MonoBehaviour:
   mobClearanceRadius: 0.5
   maxLocalMobs: 135
   useConfigTiming: 0
+  combatRoot: {fileID: 0}
+  vfxRoot: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

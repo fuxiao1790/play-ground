@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using PlayGround.Common;
 using PlayGround.Common.Stats;
+using PlayGround.Skills;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
@@ -11,6 +12,7 @@ using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Vfx;
 using Unity.Entities;
 using UnityEngine;
 
@@ -35,6 +37,7 @@ namespace PlayGround.Mob
         private readonly List<CombatTargetRegistry<ICombatTarget>> registries = new();
         private CombatTargetSet combatTargetSet;
         private Entity combatTargetProxy;
+        private SkillDriver skillDriver;
         private global::System.Random random;
         private Vector2 wanderVelocity;
         private float wanderTimer;
@@ -71,6 +74,7 @@ namespace PlayGround.Mob
         {
             ValidateReferences();
 
+            skillDriver = GetComponent<SkillDriver>();
             targetId = ++nextTargetId;
             CurrentHealth = Mathf.Max(1f, statSheet.MaxHealth);
             int seed = randomSeed != 0 ? randomSeed : unchecked(Environment.TickCount ^ targetId);
@@ -90,6 +94,7 @@ namespace PlayGround.Mob
             float deltaTime = Time.deltaTime;
             TickWander(deltaTime);
             body.linearVelocity = wanderVelocity;
+            DriveSkills();
         }
 
         protected virtual void LateUpdate()
@@ -137,6 +142,12 @@ namespace PlayGround.Mob
 
         public void BindCombatRoot(CombatRoot root)
         {
+            skillDriver?.BindCombatRoot(root);
+        }
+
+        public void BindVfxRoot(CombatVfxRoot root)
+        {
+            skillDriver?.BindVfxRoot(root);
         }
 
         public void Register(CombatTargetRegistry<ICombatTarget> targetRegistry)
@@ -320,6 +331,54 @@ namespace PlayGround.Mob
             }
 
             PickNewWanderVelocity();
+        }
+
+        private void DriveSkills()
+        {
+            if (skillDriver == null)
+            {
+                return;
+            }
+
+            if (TryAcquireEnemyTarget(out ICombatTarget enemy))
+            {
+                Vector2 targetPosition = enemy.CombatTargetPosition;
+                Vector2 toTarget = targetPosition - (Vector2)transform.position;
+                Vector2 aimDirection = toTarget.sqrMagnitude > 0.0001f ? toTarget.normalized : Vector2.right;
+                spriteRenderer.flipX = aimDirection.x < 0f;
+                skillDriver.Tick(true, aimDirection, targetPosition);
+                return;
+            }
+
+            skillDriver.Tick(false, Vector2.zero, (Vector2)transform.position);
+        }
+
+        private bool TryAcquireEnemyTarget(out ICombatTarget enemy)
+        {
+            for (int registryIndex = 0; registryIndex < registries.Count; registryIndex++)
+            {
+                CombatTargetRegistry<ICombatTarget> registry = registries[registryIndex];
+                if (registry == null)
+                {
+                    continue;
+                }
+
+                IReadOnlyList<ICombatTarget> targets = registry.Targets;
+                for (int targetIndex = 0; targetIndex < targets.Count; targetIndex++)
+                {
+                    ICombatTarget targetCandidate = targets[targetIndex];
+                    if (targetCandidate != null
+                        && targetCandidate.IsCombatTargetActive
+                        && targetCandidate.CombatFaction != CombatFaction)
+                    {
+                        enemy = targetCandidate;
+                        return true;
+                    }
+                }
+            }
+
+            enemy = null;
+            return false;
         }
 
         private void PickNewWanderVelocity()

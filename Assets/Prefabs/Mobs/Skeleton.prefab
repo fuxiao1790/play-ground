@@ -103,6 +103,7 @@ GameObject:
   - component: {fileID: 7766169224047534337}
   - component: {fileID: 4966450451524827615}
   - component: {fileID: 1289112836052260575}
+  - component: {fileID: 7770000000000001002}
   m_Layer: 12
   m_Name: Skeleton
   m_TagString: Mob
@@ -213,6 +214,25 @@ MonoBehaviour:
   wanderMaxDuration: 2
   wanderPauseChance: 0.15
   randomSeed: 0
+--- !u!114 &7770000000000001002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8817476376606870662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a100000000000000000000000000000d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillDriver
+  loadout: {fileID: 11400000, guid: a2000000000000000000000000000005, type: 2}
+  combatRoot: {fileID: 0}
+  vfxRoot: {fileID: 0}
+  audioManager: {fileID: 0}
+  statSheet: {fileID: 11400000, guid: 4f1fe3388cd7fef42b7f7bd6e5bc3cc2, type: 2}
+  faction: 2
+  fallbackCombatRootTag: PlayerProjectileRoot
 --- !u!1 &8864187499859037423
 GameObject:
   m_ObjectHideFlags: 0
