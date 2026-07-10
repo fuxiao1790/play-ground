@@ -24,6 +24,7 @@ order, and the public API. It should not own all gameplay decisions directly.
 ## Root Component Should Do
 
 - keep serialized references to required child objects and config assets
+- strongly prefer dependency injection through the Unity Inspector over resolving dependencies in lifecycle methods
 - validate required references in `Awake()` or `OnValidate()`
 - construct or bind focused helper classes
 - wire events between subsystems
