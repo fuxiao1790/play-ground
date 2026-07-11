@@ -6,7 +6,6 @@ minor performance related refacor
 - clean up job can fire during busy scene. 
 
 new feature
-- on impact trigger cool down
 - cast on crit and other conditions.
 - fast projectiles, these cannot have tracking, requires tunneling check
 - unit related, these have dependency on each other 
