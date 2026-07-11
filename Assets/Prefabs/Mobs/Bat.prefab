@@ -200,9 +200,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 6480988526549104490}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 48480cee5fb6d9d45a5d39fdb812ef91, type: 3}
+  m_Script: {fileID: 11500000, guid: adaf6ee03eaafe540b3cc2e563991ce7, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Mob.BatRoot
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Mob.MobRoot
   body: {fileID: 8923829354222721971}
   bodyCollider: {fileID: 2619201609600954481}
   hurtbox: {fileID: 9078445515691224455}

@@ -125,9 +125,9 @@ namespace PlayGround.Editor
 
         private static MobRoot[] CreateMobPrefabAssets(Sprite sprite)
         {
-            GameObject slime = CreateMob<SlimeRoot>("Slime", sprite, Vector3.zero, null, WorldUnits(30f), 35f, 0.5f);
-            GameObject skeleton = CreateMob<SkeletonRoot>("Skeleton", sprite, Vector3.zero, null, WorldUnits(45f), 30f, 0.45f);
-            GameObject bat = CreateMob<BatRoot>("Bat", sprite, Vector3.zero, null, WorldUnits(60f), 20f, 0.35f);
+            GameObject slime = CreateMob("Slime", sprite, Vector3.zero, null, WorldUnits(30f), 35f, 0.5f);
+            GameObject skeleton = CreateMob("Skeleton", sprite, Vector3.zero, null, WorldUnits(45f), 30f, 0.45f);
+            GameObject bat = CreateMob("Bat", sprite, Vector3.zero, null, WorldUnits(60f), 20f, 0.35f);
 
             GameObject slimePrefab = PrefabUtility.SaveAsPrefabAsset(slime, "Assets/Prefabs/Mobs/Slime.prefab");
             GameObject skeletonPrefab = PrefabUtility.SaveAsPrefabAsset(skeleton, "Assets/Prefabs/Mobs/Skeleton.prefab");
@@ -145,7 +145,7 @@ namespace PlayGround.Editor
             };
         }
 
-        private static GameObject CreateMob<T>(
+        private static GameObject CreateMob(
             string name,
             Sprite sprite,
             Vector3 position,
@@ -153,7 +153,6 @@ namespace PlayGround.Editor
             float speed,
             float health,
             float radius)
-            where T : MobRoot
         {
             GameObject mob = new(name);
             mob.layer = GameplayLayers.RequiredLayer(GameplayLayers.MobBody);
@@ -179,7 +178,7 @@ namespace PlayGround.Editor
             renderer.sprite = sprite;
             renderer.sortingOrder = 9;
 
-            T root = mob.AddComponent<T>();
+            MobRoot root = mob.AddComponent<MobRoot>();
             root.Configure(body, bodyCollider, hurtbox, renderer, target);
             root.ConfigureAuthoring(health, speed, radius);
 

@@ -2,6 +2,7 @@ using PlayGround.CameraSystem;
 using PlayGround.Common;
 using PlayGround.Level;
 using PlayGround.Mob;
+using PlayGround.Spawn;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
@@ -22,6 +23,7 @@ namespace PlayGround.Game
         [SerializeField] private PlayGround.Player.PlayerRoot player;
         [SerializeField] private GameplayCamera gameplayCamera;
         [SerializeField] private PlayAreaRoot playArea;
+        [SerializeField] private SpawnController spawnController;
 
         private void Awake()
         {
@@ -46,6 +48,11 @@ namespace PlayGround.Game
             if (mobs == null || mobs.Length == 0)
             {
                 mobs = FindTaggedComponents<MobRoot>(GameplayTags.Mob);
+            }
+
+            if (spawnController == null)
+            {
+                spawnController = FindAnyObjectByType<SpawnController>();
             }
 
             if (mobs != null)
@@ -100,6 +107,8 @@ namespace PlayGround.Game
                     player.GetComponent<PlayGround.Skills.SkillDriver>();
                 driver?.BindCombatRoot(combatRoot);
             }
+
+            spawnController?.Bind(combatRoot, player != null ? player.transform : null);
         }
 
         private static void ConfigureFramePacing()

@@ -69,6 +69,7 @@ namespace PlayGround.Mob
         public int CombatTargetMask => 1 << hurtbox.gameObject.layer;
         public float CombatMaxHealth => statSheet.MaxHealth;
         public bool IsCombatTargetActive => isActiveAndEnabled && isAlive && CurrentHealth > 0f;
+        public bool IsAlive => isAlive;
 
         protected virtual void Awake()
         {
@@ -76,10 +77,9 @@ namespace PlayGround.Mob
 
             skillDriver = GetComponent<SkillDriver>();
             targetId = ++nextTargetId;
-            CurrentHealth = Mathf.Max(1f, statSheet.MaxHealth);
             int seed = randomSeed != 0 ? randomSeed : unchecked(Environment.TickCount ^ targetId);
             random = new global::System.Random(seed);
-            PickNewWanderVelocity();
+            InitializeForSpawn();
         }
 
         protected virtual void Update()
@@ -170,6 +170,39 @@ namespace PlayGround.Mob
         public void SetTarget(Transform targetTransform)
         {
             target = targetTransform;
+        }
+
+        public void InitializeForSpawn()
+        {
+            isAlive = true;
+            softDeathNotified = false;
+            deleteProxyInLateUpdate = false;
+            CurrentHealth = Mathf.Max(1f, statSheet.MaxHealth);
+            statusSnapshots.Clear();
+
+            if (bodyCollider != null)
+            {
+                bodyCollider.enabled = true;
+            }
+
+            if (hurtbox != null)
+            {
+                hurtbox.enabled = true;
+            }
+
+            if (spriteRenderer != null)
+            {
+                spriteRenderer.enabled = true;
+            }
+
+            if (body != null)
+            {
+                body.simulated = true;
+                body.linearVelocity = Vector2.zero;
+            }
+
+            wanderVelocity = Vector2.zero;
+            PickNewWanderVelocity();
         }
 
         public void ReceiveHit(in CombatHitData hit)
@@ -283,10 +316,6 @@ namespace PlayGround.Mob
         {
             PlayGround.System.Combat.Targets.CombatTargetProxy.Delete(this);
             deleteProxyInLateUpdate = false;
-            if (softDeathNotified && this != null)
-            {
-                Destroy(gameObject);
-            }
         }
 
         private void ValidateReferences()
