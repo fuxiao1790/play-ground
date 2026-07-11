@@ -3,7 +3,10 @@ minor performance related refacor
 
 - collision system use aabb tree instead of spatial hash. aabb tree is more simd friendly.
 
+- clean up job can fire during busy scene. 
+
 new feature
+- on impact trigger cool down
 - cast on crit and other conditions.
 - fast projectiles, these cannot have tracking, requires tunneling check
 - unit related, these have dependency on each other 
