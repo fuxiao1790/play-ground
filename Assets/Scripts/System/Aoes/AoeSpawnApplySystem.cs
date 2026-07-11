@@ -87,7 +87,7 @@ namespace PlayGround.System.Combat.Aoes
 
             using (SpawnMarker.Auto())
             {
-                using var createEcb = new EntityCommandBuffer(Allocator.Temp);
+                using var createEcb = new EntityCommandBuffer(Allocator.TempJob);
                 int reuseCount = 0;
                 int coldCreateCount = 0;
 
@@ -102,6 +102,8 @@ namespace PlayGround.System.Combat.Aoes
                         Configs = commands,
                         Chunks = chunks,
                         ReuseCount = reused,
+                        Ecb = createEcb,
+                        Archetype = _impactArchetype,
                         ActiveHandle = GetComponentTypeHandle<Active>(false),
                         CollisionActiveHandle = GetComponentTypeHandle<CombatCollisionActiveTag>(false),
                         IdentityHandle = GetComponentTypeHandle<AoeIdentityComponent>(false),
@@ -118,12 +120,7 @@ namespace PlayGround.System.Combat.Aoes
                     }.Schedule(default).Complete();
 
                     reuseCount = reused.Value;
-                    for (int i = reuseCount; i < commands.Length; i++)
-                    {
-                        Entity entity = createEcb.CreateEntity(_impactArchetype);
-                        AoeSpawnApplyUtility.RecordImpactReset(createEcb, entity, commands[i]);
-                        coldCreateCount++;
-                    }
+                    coldCreateCount = commands.Length - reuseCount;
                 }
 
                 if (coldCreateCount > 0)
@@ -151,6 +148,8 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeArray<AoeSpawnCommand> Configs;
             [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
             public NativeReference<int> ReuseCount;
+            public EntityCommandBuffer Ecb;
+            public EntityArchetype Archetype;
 
             public ComponentTypeHandle<Active> ActiveHandle;
             public ComponentTypeHandle<CombatCollisionActiveTag> CollisionActiveHandle;
@@ -227,6 +226,12 @@ namespace PlayGround.System.Combat.Aoes
                         armings[i] = AoeSpawnApplyUtility.ArmingFor(cfg);
                         armingMask[i] = AoeSpawnApplyUtility.IsArming(cfg);
                     }
+                }
+
+                for (int i = commandIndex; i < Configs.Length; i++)
+                {
+                    Entity entity = Ecb.CreateEntity(Archetype);
+                    AoeSpawnApplyUtility.RecordImpactReset(Ecb, entity, Configs[i]);
                 }
 
                 ReuseCount.Value = commandIndex;
@@ -308,7 +313,7 @@ namespace PlayGround.System.Combat.Aoes
 
             using (SpawnMarker.Auto())
             {
-                using var createEcb = new EntityCommandBuffer(Allocator.Temp);
+                using var createEcb = new EntityCommandBuffer(Allocator.TempJob);
                 int reuseCount = 0;
                 int coldCreateCount = 0;
 
@@ -323,6 +328,8 @@ namespace PlayGround.System.Combat.Aoes
                         Configs = commands,
                         Chunks = chunks,
                         ReuseCount = reused,
+                        Ecb = createEcb,
+                        Archetype = _lingeringArchetype,
                         ActiveHandle = GetComponentTypeHandle<Active>(false),
                         CollisionActiveHandle = GetComponentTypeHandle<CombatCollisionActiveTag>(false),
                         IdentityHandle = GetComponentTypeHandle<AoeIdentityComponent>(false),
@@ -343,12 +350,7 @@ namespace PlayGround.System.Combat.Aoes
                     }.Schedule(default).Complete();
 
                     reuseCount = reused.Value;
-                    for (int i = reuseCount; i < commands.Length; i++)
-                    {
-                        Entity entity = createEcb.CreateEntity(_lingeringArchetype);
-                        AoeSpawnApplyUtility.RecordLingeringReset(createEcb, entity, commands[i]);
-                        coldCreateCount++;
-                    }
+                    coldCreateCount = commands.Length - reuseCount;
                 }
 
                 if (coldCreateCount > 0)
@@ -376,6 +378,8 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeArray<AoeSpawnCommand> Configs;
             [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
             public NativeReference<int> ReuseCount;
+            public EntityCommandBuffer Ecb;
+            public EntityArchetype Archetype;
 
             public ComponentTypeHandle<Active> ActiveHandle;
             public ComponentTypeHandle<CombatCollisionActiveTag> CollisionActiveHandle;
@@ -475,6 +479,12 @@ namespace PlayGround.System.Combat.Aoes
                         armings[i] = AoeSpawnApplyUtility.ArmingFor(cfg);
                         armingMask[i] = AoeSpawnApplyUtility.IsArming(cfg);
                     }
+                }
+
+                for (int i = commandIndex; i < Configs.Length; i++)
+                {
+                    Entity entity = Ecb.CreateEntity(Archetype);
+                    AoeSpawnApplyUtility.RecordLingeringReset(Ecb, entity, Configs[i]);
                 }
 
                 ReuseCount.Value = commandIndex;

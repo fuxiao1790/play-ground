@@ -31,8 +31,6 @@ namespace PlayGround.System.Combat.Projectiles
             new("ProjectileSpawnApplySystem.DrainCommands");
         private static readonly ProfilerMarker ReuseJobMarker =
             new("ProjectileSpawnApplySystem.ReuseJob");
-        private static readonly ProfilerMarker ColdCreateMarker =
-            new("ProjectileSpawnApplySystem.ColdCreate");
         private static readonly ProfilerCounterValue<int> SpawnColdCreateCounter =
             new(ProfilerCategory.Scripts, "ProjectileSpawnApplySystem.Cold", ProfilerMarkerDataUnit.Count);
         private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
@@ -108,7 +106,7 @@ namespace PlayGround.System.Combat.Projectiles
 
             using (SpawnMarker.Auto())
             {
-                using var createEcb = new EntityCommandBuffer(Allocator.Temp);
+                using var createEcb = new EntityCommandBuffer(Allocator.TempJob);
                 int reuseCount = 0;
                 int coldCreateCount = 0;
 
@@ -123,6 +121,8 @@ namespace PlayGround.System.Combat.Projectiles
                         Commands = commands,
                         Chunks = chunks,
                         ReuseCount = reused,
+                        Ecb = createEcb,
+                        Archetype = _archetype,
                         ActiveHandle = GetComponentTypeHandle<Active>(false),
                         CollisionActiveHandle = GetComponentTypeHandle<CombatCollisionActiveTag>(false),
                         IdentityHandle = GetComponentTypeHandle<ProjectileIdentityComponent>(false),
@@ -142,15 +142,7 @@ namespace PlayGround.System.Combat.Projectiles
                     }.Schedule(default).Complete();
 
                     reuseCount = reused.Value;
-
-                    using (ColdCreateMarker.Auto())
-                    {
-                        for (int i = reuseCount; i < commands.Length; i++)
-                        {
-                            CreateProjectileEntity(commands[i], createEcb);
-                            coldCreateCount++;
-                        }
-                    }
+                    coldCreateCount = commands.Length - reuseCount;
                 }
 
                 if (coldCreateCount > 0)
@@ -170,13 +162,6 @@ namespace PlayGround.System.Combat.Projectiles
                 }
             }
 
-        }
-
-        private void CreateProjectileEntity(ProjectileSpawnCommand cmd, EntityCommandBuffer ecb)
-        {
-            Entity entity = ecb.CreateEntity(_archetype);
-            RecordCommonProjectileReset(ecb, entity, cmd.Faction, cmd);
-            RecordTimedSpawnReset(ecb, entity, cmd);
         }
 
         private static void RecordCommonProjectileReset(
@@ -329,6 +314,8 @@ namespace PlayGround.System.Combat.Projectiles
             [ReadOnly] public NativeArray<ProjectileSpawnCommand> Commands;
             [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
             public NativeReference<int> ReuseCount;
+            public EntityCommandBuffer Ecb;
+            public EntityArchetype Archetype;
 
             public ComponentTypeHandle<Active> ActiveHandle;
             public ComponentTypeHandle<CombatCollisionActiveTag> CollisionActiveHandle;
@@ -452,6 +439,14 @@ namespace PlayGround.System.Combat.Projectiles
                         armings[i] = ArmingFor(cfg);
                         armingMask[i] = IsArming(cfg);
                     }
+                }
+
+                for (int i = commandIndex; i < Commands.Length; i++)
+                {
+                    ProjectileSpawnCommand cmd = Commands[i];
+                    Entity entity = Ecb.CreateEntity(Archetype);
+                    RecordCommonProjectileReset(Ecb, entity, cmd.Faction, cmd);
+                    RecordTimedSpawnReset(Ecb, entity, cmd);
                 }
 
                 ReuseCount.Value = commandIndex;
