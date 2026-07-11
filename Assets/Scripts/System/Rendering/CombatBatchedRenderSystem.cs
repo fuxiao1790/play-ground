@@ -120,11 +120,16 @@ namespace PlayGround.System.Combat.Rendering
             while (newCapacity < count)
                 newCapacity *= 2;
 
-            _instanceBuffer?.Dispose(); 
+            _instanceBuffer?.Dispose();
+            // Written via SetData, not LockBufferForWrite/UnlockBufferAfterWrite. A
+            // LockBufferForWrite buffer uses a transient/rotating GPU allocation, so a
+            // Material.SetBuffer binding goes stale across frames; on idle frames (which
+            // still draw a 0-index submesh through the never-culled renderer) the SRV
+            // reads as unbound -> "requires a buffer _InstanceData ... none provided".
+            // A plain structured buffer keeps a stable allocation the binding survives on.
             _instanceBuffer = new GraphicsBuffer(
-                GraphicsBuffer.Target.Structured, 
-                GraphicsBuffer.UsageFlags.LockBufferForWrite,
-                newCapacity, 
+                GraphicsBuffer.Target.Structured,
+                newCapacity,
                 InstanceDataStride);
             _instanceCapacity = newCapacity;
         }
