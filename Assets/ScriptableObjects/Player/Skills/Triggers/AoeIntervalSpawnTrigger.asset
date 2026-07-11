@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 963edcf1cd09aa84e92b45418222855c, type: 3}
   m_Name: AoeIntervalSpawnTrigger
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.AoeIntervalSpawnTrigger
-  intervalSeconds: 0.25
+  intervalSeconds: 0.15
   intervalJitterPercent: 41.3
   echoCount: 5
   scatterRadius: 10
