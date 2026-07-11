@@ -26,9 +26,17 @@ namespace PlayGround.System.Combat.Lifetime
         // defrag / smaller reuse buffer (e.g., 50 means keep pool only if 50%+ entities are active).
         public float ChunkActiveThresholdPercent;
 
+        // Global busy gate (0-100). When the combined active projectile + AOE count is at or above
+        // this percentage of the total pool (active + disabled), the entire cleanup is skipped for
+        // the frame (no job, no ECB, no sync point). A storm keeps utilization high (freed slots are
+        // reused at once), so this defers reclaim until a fight winds down and the pool fills with
+        // idle slots. Mirrors ChunkActiveThresholdPercent but at whole-pool scope.
+        public float SceneActiveThresholdPercent;
+
         public static CombatPoolCleanupConfig Default => new CombatPoolCleanupConfig
         {
-            ChunkActiveThresholdPercent = 10f
+            ChunkActiveThresholdPercent = 10f,
+            SceneActiveThresholdPercent = 20f
         };
     }
 
@@ -73,12 +81,27 @@ namespace PlayGround.System.Combat.Lifetime
 
             CombatPoolCleanupConfig cfg = SystemAPI.GetSingleton<CombatPoolCleanupConfig>();
 
+            // Only disabled entities are destroyed and nothing else mutates the pool mid-update,
+            // so the drop in total pool count equals the number deleted. Computed here (a cheap
+            // chunk-header sum) up front so the busy gate below can reuse it as the denominator.
+            int before = _poolQuery.CalculateEntityCount();
+
+            // Global busy gate. Uses the active projectile + AOE counts the stats system already
+            // computed (one frame stale, harmless) as a percentage of the total pool. A storm keeps
+            // utilization high, so this skips the whole job/ECB/sync point until the pool fills with
+            // idle slots. `before` is guaranteed >= 1 by the IsEmpty early-out, so no divide worry.
+            if (SystemAPI.TryGetSingleton(out CombatStatsSingleton loadStats))
+            {
+                int activeLoad = loadStats.ActiveProjectiles + loadStats.ActiveAoes;
+                int busyThreshold = (int)(before * cfg.SceneActiveThresholdPercent / 100f);
+                if (activeLoad >= busyThreshold)
+                {
+                    return;
+                }
+            }
+
             _entityHandle.Update(this);
             _activeHandle.Update(this);
-
-            // Only disabled entities are destroyed and nothing else mutates the pool mid-update,
-            // so the drop in total pool count equals the number deleted.
-            int before = _poolQuery.CalculateEntityCount();
 
             EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.TempJob);
 
