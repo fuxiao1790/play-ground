@@ -57,12 +57,9 @@ namespace PlayGround.System.Combat.Application
             new("CombatApplyFinalizeSingleSystem.CompleteProducers");
         private static readonly ProfilerMarker ClearResultsMarker =
             new("CombatApplyFinalizeSingleSystem.ClearResults");
-        private static readonly ProfilerCounterValue<int> EntryEvictionCounter =
-            new(ProfilerCategory.Scripts, "CombatApplyFinalizeSingleSystem.StackEntryEvictions", ProfilerMarkerDataUnit.Count);
 
         internal int LastHitEventCount;
 
-        private int entryEvictions;
         private Entity singletonEntity;
         private Entity resultEntity;
 
@@ -78,7 +75,8 @@ namespace PlayGround.System.Combat.Application
             EntityManager.SetComponentData(resultEntity, new CombatApplyResultSingleton
             {
                 Results = new NativeList<CombatTickResult>(Allocator.Persistent),
-                StatusSnapshots = new NativeList<StatusStackSnapshot>(Allocator.Persistent)
+                StatusSnapshots = new NativeList<StatusStackSnapshot>(Allocator.Persistent),
+                DropCount = new NativeReference<int>(Allocator.Persistent)
             });
         }
 
@@ -127,6 +125,11 @@ namespace PlayGround.System.Combat.Application
             {
                 results.StatusSnapshots.Dispose();
             }
+
+            if (results.DropCount.IsCreated)
+            {
+                results.DropCount.Dispose();
+            }
         }
 
         protected override void OnUpdate()
@@ -168,7 +171,6 @@ namespace PlayGround.System.Combat.Application
                 applyResults.EnsureCapacity(
                     math.max(16, hitCount / 4),
                     MaxTargetStackEntries);
-                var evictionRef = new NativeReference<int>(Allocator.TempJob);
 
                 Dependency = new FinalizeCombatSingleJob
                 {
@@ -177,23 +179,11 @@ namespace PlayGround.System.Combat.Application
                     StackBuffers = GetBufferLookup<TargetStackEntry>(),
                     Results = applyResults.Results,
                     StatusSnapshots = applyResults.StatusSnapshots,
-                    EvictionCount = evictionRef,
+                    DropCount = applyResults.DropCount,
                     Now = SystemAPI.Time.ElapsedTime,
                     FrameCount = (uint)UnityEngine.Time.frameCount
                 }.Schedule(Dependency);
                 applyResults.ProducerHandle = Dependency;
-
-                Dependency.Complete();
-                applyResults.ProducerHandle = default;
-
-                int frameEvictions = evictionRef.Value;
-                if (frameEvictions > 0)
-                {
-                    entryEvictions += frameEvictions;
-                    EntryEvictionCounter.Value = entryEvictions;
-                }
-
-                evictionRef.Dispose();
             }
         }
 
@@ -205,13 +195,13 @@ namespace PlayGround.System.Combat.Application
             public BufferLookup<TargetStackEntry> StackBuffers;
             public NativeList<CombatTickResult> Results;
             public NativeList<StatusStackSnapshot> StatusSnapshots;
-            public NativeReference<int> EvictionCount;
+            public NativeReference<int> DropCount;
             public double Now;
             public uint FrameCount;
 
             public void Execute()
             {
-                int evictionCount = 0;
+                int dropCount = 0;
                 var map = new NativeHashMap<Entity, int>(HitQueue.Count, Allocator.Temp);
                 var accums = new NativeList<TargetAccum>(Allocator.Temp);
 
@@ -239,8 +229,10 @@ namespace PlayGround.System.Combat.Application
                     if (hit.StackEffect.Enabled && acc.HasStackBuffer == 1)
                     {
                         DynamicBuffer<TargetStackEntry> buffer = StackBuffers[target];
-                        AccrueStack(buffer, hit.StackEffect, Now, ref evictionCount);
-                        acc.StackChanged = 1;
+                        if (AccrueStack(buffer, hit.StackEffect, Now, ref dropCount))
+                        {
+                            acc.StackChanged = 1;
+                        }
                     }
 
                     if (hit.DirectDamageEnabled)
@@ -310,7 +302,7 @@ namespace PlayGround.System.Combat.Application
                     Results.Add(result);
                 }
 
-                EvictionCount.Value = evictionCount;
+                DropCount.Value = dropCount;
                 accums.Dispose();
                 map.Dispose();
             }
@@ -326,16 +318,20 @@ namespace PlayGround.System.Combat.Application
                 public byte HasStackBuffer;
             }
 
-            private static void AccrueStack(
+            private static bool AccrueStack(
                 DynamicBuffer<TargetStackEntry> stackEntries,
                 in StackEffectSnapshot stack,
                 double now,
-                ref int evictionCount)
+                ref int dropCount)
             {
                 int entryIndex = FindEntryIndex(stackEntries, stack.DebuffKey);
                 if (entryIndex < 0)
                 {
-                    entryIndex = AddEntry(stackEntries, stack, now, ref evictionCount);
+                    entryIndex = AddEntry(stackEntries, stack, now, ref dropCount);
+                    if (entryIndex < 0)
+                    {
+                        return false;
+                    }
                 }
 
                 TargetStackEntry entry = stackEntries[entryIndex];
@@ -347,18 +343,19 @@ namespace PlayGround.System.Combat.Application
                 entry.ExpiryTime = now + math.max(0f, stack.Lifetime);
                 entry.Detonation = DetonationFor(in stack);
                 stackEntries[entryIndex] = entry;
+                return true;
             }
 
             private static int AddEntry(
                 DynamicBuffer<TargetStackEntry> stackEntries,
                 in StackEffectSnapshot stack,
                 double now,
-                ref int evictionCount)
+                ref int dropCount)
             {
                 if (stackEntries.Length >= MaxTargetStackEntries)
                 {
-                    stackEntries.RemoveAt(EarliestExpiryIndex(stackEntries));
-                    evictionCount++;
+                    dropCount++;
+                    return -1;
                 }
 
                 stackEntries.Add(new TargetStackEntry
@@ -395,23 +392,6 @@ namespace PlayGround.System.Combat.Application
                 }
 
                 return -1;
-            }
-
-            private static int EarliestExpiryIndex(DynamicBuffer<TargetStackEntry> stackEntries)
-            {
-                int index = 0;
-                double earliest = stackEntries[0].ExpiryTime;
-                for (int i = 1; i < stackEntries.Length; i++)
-                {
-                    double expiry = stackEntries[i].ExpiryTime;
-                    if (expiry < earliest)
-                    {
-                        earliest = expiry;
-                        index = i;
-                    }
-                }
-
-                return index;
             }
         }
     }

@@ -31,6 +31,8 @@ namespace PlayGround.System.Combat.Projectiles
             new("ProjectileSpawnApplySystem.DrainCommands");
         private static readonly ProfilerMarker ReuseJobMarker =
             new("ProjectileSpawnApplySystem.ReuseJob");
+        private static readonly ProfilerMarker CreateSlotsMarker =
+            new("ProjectileSpawnApplySystem.CreateSlots");
         private static readonly ProfilerCounterValue<int> SpawnTopUpCounter =
             new(ProfilerCategory.Scripts, "ProjectileSpawnApplySystem.TopUp", ProfilerMarkerDataUnit.Count);
         private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
@@ -110,7 +112,8 @@ namespace PlayGround.System.Combat.Projectiles
                     EntityManager,
                     _archetype,
                     _deadSlotQuery,
-                    totalRequests);
+                    totalRequests,
+                    CreateSlotsMarker);
                 int reuseCount = 0;
 
                 using (ReuseJobMarker.Auto())

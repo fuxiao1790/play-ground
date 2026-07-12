@@ -1,6 +1,7 @@
 using PlayGround.System.Combat.Lifetime;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Profiling;
 
 namespace PlayGround.System.Combat.Spawning
 {
@@ -15,7 +16,8 @@ namespace PlayGround.System.Combat.Spawning
             EntityManager entityManager,
             EntityArchetype archetype,
             EntityQuery disabledSlotQuery,
-            int demand)
+            int demand,
+            ProfilerMarker createSlotsMarker)
         {
             int have = disabledSlotQuery.CalculateEntityCount();
             int deficit = demand - have;
@@ -24,14 +26,17 @@ namespace PlayGround.System.Combat.Spawning
                 return 0;
             }
 
-            NativeArray<Entity> created =
-                entityManager.CreateEntity(archetype, deficit, Allocator.Temp);
-            for (int i = 0; i < created.Length; i++)
+            using (createSlotsMarker.Auto())
             {
-                entityManager.SetComponentEnabled<Active>(created[i], false);
-            }
+                NativeArray<Entity> created =
+                    entityManager.CreateEntity(archetype, deficit, Allocator.Temp);
+                for (int i = 0; i < created.Length; i++)
+                {
+                    entityManager.SetComponentEnabled<Active>(created[i], false);
+                }
 
-            created.Dispose();
+                created.Dispose();
+            }
             return deficit;
         }
     }

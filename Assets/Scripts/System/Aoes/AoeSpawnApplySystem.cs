@@ -25,6 +25,7 @@ namespace PlayGround.System.Combat.Aoes
     {
         private static readonly ProfilerMarker SpawnMarker = new("ImpactAoeSpawnApplySystem");
         private static readonly ProfilerMarker ReuseJobMarker = new("ImpactAoeSpawnApplySystem.ReuseJob");
+        private static readonly ProfilerMarker CreateSlotsMarker = new("ImpactAoeSpawnApplySystem.CreateSlots");
         private static readonly ProfilerCounterValue<int> SpawnTopUpCounter =
             new(ProfilerCategory.Scripts, "ImpactAoeSpawnApplySystem.TopUp", ProfilerMarkerDataUnit.Count);
         private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
@@ -91,7 +92,8 @@ namespace PlayGround.System.Combat.Aoes
                     EntityManager,
                     _impactArchetype,
                     _deadSlotQuery,
-                    totalRequests);
+                    totalRequests,
+                    CreateSlotsMarker);
                 int reuseCount = 0;
 
                 using (ReuseJobMarker.Auto())
@@ -233,6 +235,7 @@ namespace PlayGround.System.Combat.Aoes
     {
         private static readonly ProfilerMarker SpawnMarker = new("LingeringAoeSpawnApplySystem");
         private static readonly ProfilerMarker ReuseJobMarker = new("LingeringAoeSpawnApplySystem.ReuseJob");
+        private static readonly ProfilerMarker CreateSlotsMarker = new("LingeringAoeSpawnApplySystem.CreateSlots");
         private static readonly ProfilerCounterValue<int> SpawnTopUpCounter =
             new(ProfilerCategory.Scripts, "LingeringAoeSpawnApplySystem.TopUp", ProfilerMarkerDataUnit.Count);
         private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
@@ -304,7 +307,8 @@ namespace PlayGround.System.Combat.Aoes
                     EntityManager,
                     _lingeringArchetype,
                     _deadSlotQuery,
-                    totalRequests);
+                    totalRequests,
+                    CreateSlotsMarker);
                 int reuseCount = 0;
 
                 using (ReuseJobMarker.Auto())

@@ -14,8 +14,11 @@ namespace PlayGround.System.Combat.Application
         private static readonly ProfilerMarker Marker = new("CombatApplyBridge");
         private static readonly ProfilerMarker<int> TickReplayMarker =
             new("CombatApplyBridge.TickReplay", "Combat Tick Results");
+        private static readonly ProfilerCounterValue<int> EntryDropCounter =
+            new(ProfilerCategory.Scripts, "CombatApplyFinalizeSingleSystem.StackEntryDrops", ProfilerMarkerDataUnit.Count);
 
         private static readonly List<StatusStackSnapshot> statusScratch = new();
+        private int entryDrops;
 
         protected override void OnUpdate()
         {
@@ -29,6 +32,7 @@ namespace PlayGround.System.Combat.Application
             ref CombatApplyResultSingleton lane = ref resultLane.ValueRW;
             lane.ProducerHandle.Complete();
             lane.ProducerHandle = default;
+            PublishDropCount(lane);
 
             if (!lane.Results.IsCreated)
             {
@@ -52,6 +56,23 @@ namespace PlayGround.System.Combat.Application
             }
 
             lane.Clear();
+        }
+
+        private void PublishDropCount(in CombatApplyResultSingleton lane)
+        {
+            if (!lane.DropCount.IsCreated)
+            {
+                return;
+            }
+
+            int frameDrops = lane.DropCount.Value;
+            if (frameDrops <= 0)
+            {
+                return;
+            }
+
+            entryDrops += frameDrops;
+            EntryDropCounter.Value = entryDrops;
         }
 
         private static void ReplayCombat(

@@ -963,6 +963,85 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void StackAccrualDropsNewDebuffWhenStackBufferIsFull()
+        {
+            const int MaxStacks = 32;
+            const int FirstDebuffKey = 2000;
+            const int OverflowDebuffKey = 9999;
+            AddTarget(float2.zero, 0.25f, 1);
+            TestCombatTarget target = targetsById[nextTargetId];
+
+            for (int i = 0; i < MaxStacks; i++)
+            {
+                QueueStackHit(target.Proxy, StackEffect(
+                    debuffKey: FirstDebuffKey + i,
+                    threshold: 100,
+                    lifetime: 10f,
+                    damage: 1f,
+                    area: 1f,
+                    detonationTypeId: 7));
+            }
+
+            TickStatusPipelineOnly(0f);
+            DynamicBuffer<TargetStackEntry> entries = entityManager.GetBuffer<TargetStackEntry>(target.Proxy);
+            Assert.That(entries.Length, Is.EqualTo(MaxStacks));
+
+            QueueStackHit(target.Proxy, StackEffect(
+                debuffKey: OverflowDebuffKey,
+                threshold: 100,
+                lifetime: 10f,
+                damage: 1f,
+                area: 1f,
+                detonationTypeId: 7));
+
+            TickStatusPipelineOnly(0f);
+
+            entries = entityManager.GetBuffer<TargetStackEntry>(target.Proxy);
+            Assert.That(entries.Length, Is.EqualTo(MaxStacks));
+            Assert.That(TryReadStackEntry(target.Proxy, OverflowDebuffKey, out _), Is.False);
+            Assert.That(ReadStackEntry(target.Proxy, FirstDebuffKey).Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void StackAccrualRefreshesExistingDebuffWhenStackBufferIsFull()
+        {
+            const int MaxStacks = 32;
+            const int FirstDebuffKey = 3000;
+            AddTarget(float2.zero, 0.25f, 1);
+            TestCombatTarget target = targetsById[nextTargetId];
+
+            for (int i = 0; i < MaxStacks; i++)
+            {
+                QueueStackHit(target.Proxy, StackEffect(
+                    debuffKey: FirstDebuffKey + i,
+                    threshold: 100,
+                    lifetime: 10f,
+                    damage: 1f,
+                    area: 1f,
+                    detonationTypeId: 7));
+            }
+
+            TickStatusPipelineOnly(0f);
+
+            QueueStackHit(target.Proxy, StackEffect(
+                debuffKey: FirstDebuffKey,
+                threshold: 100,
+                lifetime: 20f,
+                damage: 4f,
+                area: 2f,
+                detonationTypeId: 7));
+
+            TickStatusPipelineOnly(0f);
+
+            DynamicBuffer<TargetStackEntry> entries = entityManager.GetBuffer<TargetStackEntry>(target.Proxy);
+            TargetStackEntry refreshed = ReadStackEntry(target.Proxy, FirstDebuffKey);
+            Assert.That(entries.Length, Is.EqualTo(MaxStacks));
+            Assert.That(refreshed.Count, Is.EqualTo(2));
+            Assert.That(refreshed.SummedDamage, Is.EqualTo(5f).Within(0.0001f));
+            Assert.That(refreshed.SummedArea, Is.EqualTo(3f).Within(0.0001f));
+        }
+
+        [Test]
         public void StatusPushFiresOnlyWhenStackChanges()
         {
             AddTarget(float2.zero, 0.25f, 1);

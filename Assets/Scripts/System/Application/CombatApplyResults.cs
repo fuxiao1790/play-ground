@@ -12,6 +12,7 @@ namespace PlayGround.System.Combat.Application
     {
         public NativeList<CombatTickResult> Results;
         public NativeList<StatusStackSnapshot> StatusSnapshots;
+        public NativeReference<int> DropCount;
         public JobHandle ProducerHandle;
 
         public void Clear()
@@ -24,6 +25,11 @@ namespace PlayGround.System.Combat.Application
             if (StatusSnapshots.IsCreated)
             {
                 StatusSnapshots.Clear();
+            }
+
+            if (DropCount.IsCreated)
+            {
+                DropCount.Value = 0;
             }
         }
 
