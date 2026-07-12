@@ -5,6 +5,9 @@ minor performance related refacor
 
 - clean up job can fire during busy scene. 
 
+rework
+- vfx system to support vfx graphs that need different set of graphics buffers
+
 new feature
 - cast on crit and other conditions.
 - fast projectiles, these cannot have tracking, requires tunneling check
