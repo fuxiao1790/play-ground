@@ -73,8 +73,6 @@ namespace PlayGround.System.Combat.Status
             NativeQueue<ProjectileSpawnEvent> projectileEventQueue =
                 hasProjectileEvents ? projectileLane.ValueRO.EventQueue : default;
             hasProjectileEvents = hasProjectileEvents && projectileEventQueue.IsCreated;
-            // Intentional managed lookup: AccrualFrame is finalize-system state, not a native container lane.
-            CombatApplyFinalizeSingleSystem hitApply = World.GetExistingSystemManaged<CombatApplyFinalizeSingleSystem>();
 
             int aoeIdBase = ReserveIdBlock(ref nextAoeId, entityCount);
             int projectileIdBase = ReserveIdBlock(ref nextProjectileDetonationSourceId, entityCount);
@@ -94,8 +92,7 @@ namespace PlayGround.System.Combat.Status
 
             JobHandle statusHandle = new StatusProcessJob
             {
-                DeltaTime = math.max(0f, SystemAPI.Time.DeltaTime),
-                AccrualFrame = hitApply != null ? hitApply.AccrualFrame : 0,
+                Now = SystemAPI.Time.ElapsedTime,
                 AoeIdBase = aoeIdBase,
                 ProjectileDetonationSourceIdBase = projectileIdBase,
                 ImpactAoeEventWriter = hasImpactAoeEvents
@@ -149,8 +146,7 @@ namespace PlayGround.System.Combat.Status
         [BurstCompile]
         private partial struct StatusProcessJob : IJobEntity
         {
-            public float DeltaTime;
-            public int AccrualFrame;
+            public double Now;
             public int AoeIdBase;
             public int ProjectileDetonationSourceIdBase;
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
@@ -171,12 +167,11 @@ namespace PlayGround.System.Combat.Status
                 for (int i = stackEntries.Length - 1; i >= 0; i--)
                 {
                     TargetStackEntry entry = stackEntries[i];
-                    if (DeltaTime > 0f && entry.LastAccruedFrame != AccrualFrame)
-                    {
-                        entry.LifetimeRemaining = math.max(0f, entry.LifetimeRemaining - DeltaTime);
-                    }
-
-                    if (entry.LifetimeRemaining <= 0f)
+                    // Expiry is a pure read of the absolute deadline written at accrual.
+                    // No decrement here: a stack refreshed this frame has ExpiryTime > Now,
+                    // so it can never be expired on the same frame it was refreshed,
+                    // regardless of whether Finalize or this system ran first.
+                    if (Now >= entry.ExpiryTime)
                     {
                         stackEntries.RemoveAt(i);
                         continue;
@@ -275,7 +270,7 @@ namespace PlayGround.System.Combat.Status
                                 DeterministicIdTickIndex = 1,
                                 // Gate the nova against the detonation target so its projectiles
                                 // spread outward instead of instantly re-hitting the target they
-                                // spawn on top of â€?matches impact-projectile spawns
+                                // spawn on top of ï¿½?matches impact-projectile spawns
                                 // (ProjectileCollisionSystem) and AOE-hit projectile bursts.
                                 ContactGateSeedTargetId = targetKey
                             });

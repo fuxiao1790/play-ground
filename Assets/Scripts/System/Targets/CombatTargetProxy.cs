@@ -44,11 +44,15 @@ namespace PlayGround.System.Combat.Targets
         public int DebuffKey;
         public int Threshold;
         public int Count;
-        public int LastAccruedFrame;
         public float SummedDamage;
         public int SummedProjectileCount;
         public float SummedArea;
-        public float LifetimeRemaining;
+        // Absolute expiry deadline in world ElapsedTime seconds. Written only on accrual
+        // (CombatApplyFinalizeSingleSystem); StatusProcessSystem only reads it to test
+        // expiry. Storing a deadline instead of a decrementing remaining-time means the
+        // two systems no longer both write this field, so they need no shared frame token
+        // and their execution order no longer matters for lifetime.
+        public double ExpiryTime;
         public DetonationSnapshot Detonation;
     }
 

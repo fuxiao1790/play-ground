@@ -63,7 +63,6 @@ namespace PlayGround.System.Combat.Application
         private static readonly ProfilerCounterValue<int> EntryEvictionCounter =
             new(ProfilerCategory.Scripts, "CombatApplyFinalizeSingleSystem.StackEntryEvictions", ProfilerMarkerDataUnit.Count);
 
-        internal int AccrualFrame;
         internal int LastHitEventCount;
 
         private int entryEvictions;
@@ -110,8 +109,6 @@ namespace PlayGround.System.Combat.Application
                     singleton.ProducerHandle = default;
                 }
 
-                AccrualFrame++;
-
                 // Intentional managed lookup: CombatApplyBridge is presentation handoff, not a native container lane.
                 CombatApplyBridge bridge = World.GetExistingSystemManaged<CombatApplyBridge>();
                 using (DisposePreviousMarker.Auto())
@@ -143,7 +140,7 @@ namespace PlayGround.System.Combat.Application
                     Results = resultsList,
                     StatusSnapshots = statusList,
                     EvictionCount = evictionRef,
-                    AccrualFrame = AccrualFrame,
+                    Now = SystemAPI.Time.ElapsedTime,
                     FrameCount = (uint)UnityEngine.Time.frameCount
                 }.Schedule(Dependency);
 
@@ -187,7 +184,7 @@ namespace PlayGround.System.Combat.Application
             public NativeList<CombatTickResult> Results;
             public NativeList<StatusStackSnapshot> StatusSnapshots;
             public NativeReference<int> EvictionCount;
-            public int AccrualFrame;
+            public double Now;
             public uint FrameCount;
 
             public void Execute()
@@ -220,7 +217,7 @@ namespace PlayGround.System.Combat.Application
                     if (hit.StackEffect.Enabled && acc.HasStackBuffer == 1)
                     {
                         DynamicBuffer<TargetStackEntry> buffer = StackBuffers[target];
-                        AccrueStack(buffer, hit.StackEffect, AccrualFrame, ref evictionCount);
+                        AccrueStack(buffer, hit.StackEffect, Now, ref evictionCount);
                         acc.StackChanged = 1;
                     }
 
@@ -273,7 +270,7 @@ namespace PlayGround.System.Combat.Application
                             StatusSnapshots.Add(new StatusStackSnapshot(
                                 entry.DebuffKey,
                                 entry.Count,
-                                entry.LifetimeRemaining));
+                                (float)math.max(0.0, entry.ExpiryTime - Now)));
                         }
 
                         result.StatusStart = statusStart;
@@ -310,23 +307,22 @@ namespace PlayGround.System.Combat.Application
             private static void AccrueStack(
                 DynamicBuffer<TargetStackEntry> stackEntries,
                 in StackEffectSnapshot stack,
-                int accrualFrame,
+                double now,
                 ref int evictionCount)
             {
                 int entryIndex = FindEntryIndex(stackEntries, stack.DebuffKey);
                 if (entryIndex < 0)
                 {
-                    entryIndex = AddEntry(stackEntries, stack, accrualFrame, ref evictionCount);
+                    entryIndex = AddEntry(stackEntries, stack, now, ref evictionCount);
                 }
 
                 TargetStackEntry entry = stackEntries[entryIndex];
                 entry.Threshold = math.max(1, stack.Threshold);
                 entry.Count += math.max(1, stack.StacksPerHit);
-                entry.LastAccruedFrame = accrualFrame;
                 entry.SummedDamage += stack.Contribution.Damage;
                 entry.SummedProjectileCount += stack.Contribution.ProjectileCount;
                 entry.SummedArea += stack.Contribution.AreaSize;
-                entry.LifetimeRemaining = math.max(0f, stack.Lifetime);
+                entry.ExpiryTime = now + math.max(0f, stack.Lifetime);
                 entry.Detonation = DetonationFor(in stack);
                 stackEntries[entryIndex] = entry;
             }
@@ -334,12 +330,12 @@ namespace PlayGround.System.Combat.Application
             private static int AddEntry(
                 DynamicBuffer<TargetStackEntry> stackEntries,
                 in StackEffectSnapshot stack,
-                int accrualFrame,
+                double now,
                 ref int evictionCount)
             {
                 if (stackEntries.Length >= MaxTargetStackEntries)
                 {
-                    stackEntries.RemoveAt(LeastLifetimeRemainingIndex(stackEntries));
+                    stackEntries.RemoveAt(EarliestExpiryIndex(stackEntries));
                     evictionCount++;
                 }
 
@@ -348,11 +344,10 @@ namespace PlayGround.System.Combat.Application
                     DebuffKey = stack.DebuffKey,
                     Threshold = math.max(1, stack.Threshold),
                     Count = 0,
-                    LastAccruedFrame = accrualFrame,
                     SummedDamage = 0f,
                     SummedProjectileCount = 0,
                     SummedArea = 0f,
-                    LifetimeRemaining = math.max(0f, stack.Lifetime),
+                    ExpiryTime = now + math.max(0f, stack.Lifetime),
                     Detonation = DetonationFor(in stack)
                 });
 
@@ -380,16 +375,16 @@ namespace PlayGround.System.Combat.Application
                 return -1;
             }
 
-            private static int LeastLifetimeRemainingIndex(DynamicBuffer<TargetStackEntry> stackEntries)
+            private static int EarliestExpiryIndex(DynamicBuffer<TargetStackEntry> stackEntries)
             {
                 int index = 0;
-                float leastLifetime = stackEntries[0].LifetimeRemaining;
+                double earliest = stackEntries[0].ExpiryTime;
                 for (int i = 1; i < stackEntries.Length; i++)
                 {
-                    float lifetime = stackEntries[i].LifetimeRemaining;
-                    if (lifetime < leastLifetime)
+                    double expiry = stackEntries[i].ExpiryTime;
+                    if (expiry < earliest)
                     {
-                        leastLifetime = lifetime;
+                        earliest = expiry;
                         index = i;
                     }
                 }
