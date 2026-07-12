@@ -27,8 +27,8 @@ namespace PlayGround.System.Combat.Stats
     //   its own render-active queries.
     //
     // Field producers:
-    // - EntitiesSpawnedViaEcb: cold-create total, summed (+=) by the projectile, impact AOE, and
-    //   lingering AOE spawn-apply systems from their per-frame cold-create counts.
+    // - EntitiesSpawnedViaEcb: top-up create total, summed (+=) by the projectile, impact AOE,
+    //   and lingering AOE spawn-apply systems from their per-frame pool-growth counts.
     // - EntitiesSpawnedViaReuse: reuse total, summed (+=) by those same spawn-apply systems from
     //   the disabled Active slots they reclaimed.
     // - ActiveProjectiles / ActiveAoes: written by CombatStatsGatherSystem from its Active

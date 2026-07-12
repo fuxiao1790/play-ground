@@ -91,22 +91,23 @@ Import-Csv ProfilerCaptures\play-ground_2026-06-10_10-09-36.csv |
 
 ## Spawn Apply Counters
 
-Projectile and AOE apply use one single-threaded Burst reuse job per domain,
-then cold-create the unreused command suffix through ECB. Read these counters
+Projectile and AOE apply top up the disabled-slot pool to command demand, then
+use one single-threaded Burst reuse job per domain. Read these counters
 together:
 
 - `ProjectileSpawnApplySystem.Reuse`
-- `ProjectileSpawnApplySystem.Cold`
+- `ProjectileSpawnApplySystem.TopUp`
 - `ImpactAoeSpawnApplySystem.Reuse`
-- `ImpactAoeSpawnApplySystem.Cold`
+- `ImpactAoeSpawnApplySystem.TopUp`
 - `LingeringAoeSpawnApplySystem.Reuse`
-- `LingeringAoeSpawnApplySystem.Cold`
+- `LingeringAoeSpawnApplySystem.TopUp`
 
-For each domain, reuse plus cold should equal the command count for that apply
-tick. Repeated stress frames should converge toward more reuse after the
-resident pool grows. If cold stays high, the matching archetype lacks enough
-disabled slots for that tick; check despawn timing and pool warmup before
-optimizing the dead-slot scan.
+For each domain, reuse should equal the command count for that apply tick.
+TopUp reports how many disabled slots were created before the fill. Repeated
+stress frames should converge toward `TopUp == 0` after the resident pool grows.
+If TopUp stays high, the matching archetype lacks enough disabled slots for
+that tick; check despawn timing and pool warmup before optimizing the dead-slot
+scan.
 
 ## Grep Approach
 

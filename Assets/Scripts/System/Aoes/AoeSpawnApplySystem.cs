@@ -25,8 +25,8 @@ namespace PlayGround.System.Combat.Aoes
     {
         private static readonly ProfilerMarker SpawnMarker = new("ImpactAoeSpawnApplySystem");
         private static readonly ProfilerMarker ReuseJobMarker = new("ImpactAoeSpawnApplySystem.ReuseJob");
-        private static readonly ProfilerCounterValue<int> SpawnColdCreateCounter =
-            new(ProfilerCategory.Scripts, "ImpactAoeSpawnApplySystem.Cold", ProfilerMarkerDataUnit.Count);
+        private static readonly ProfilerCounterValue<int> SpawnTopUpCounter =
+            new(ProfilerCategory.Scripts, "ImpactAoeSpawnApplySystem.TopUp", ProfilerMarkerDataUnit.Count);
         private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
             new(ProfilerCategory.Scripts, "ImpactAoeSpawnApplySystem.Reuse", ProfilerMarkerDataUnit.Count);
 
@@ -87,9 +87,12 @@ namespace PlayGround.System.Combat.Aoes
 
             using (SpawnMarker.Auto())
             {
-                using var createEcb = new EntityCommandBuffer(Allocator.TempJob);
+                int created = SpawnPoolTopUp.EnsureDisabledSlots(
+                    EntityManager,
+                    _impactArchetype,
+                    _deadSlotQuery,
+                    totalRequests);
                 int reuseCount = 0;
-                int coldCreateCount = 0;
 
                 using (ReuseJobMarker.Auto())
                 {
@@ -102,8 +105,6 @@ namespace PlayGround.System.Combat.Aoes
                         Configs = commands,
                         Chunks = chunks,
                         ReuseCount = reused,
-                        Ecb = createEcb,
-                        Archetype = _impactArchetype,
                         ActiveHandle = GetComponentTypeHandle<Active>(false),
                         CollisionActiveHandle = GetComponentTypeHandle<CombatCollisionActiveTag>(false),
                         IdentityHandle = GetComponentTypeHandle<AoeIdentityComponent>(false),
@@ -120,18 +121,12 @@ namespace PlayGround.System.Combat.Aoes
                     }.Schedule(default).Complete();
 
                     reuseCount = reused.Value;
-                    coldCreateCount = commands.Length - reuseCount;
-                }
-
-                if (coldCreateCount > 0)
-                {
-                    createEcb.Playback(EntityManager);
                 }
 
                 SpawnReuseCounter.Value = reuseCount;
-                SpawnColdCreateCounter.Value = totalRequests - reuseCount;
+                SpawnTopUpCounter.Value = created;
                 LastReuseCount = reuseCount;
-                LastColdCreateCount = totalRequests - reuseCount;
+                LastColdCreateCount = created;
 
                 if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(out RefRW<CombatStatsSingleton> stats))
                 {
@@ -148,8 +143,6 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeArray<AoeSpawnCommand> Configs;
             [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
             public NativeReference<int> ReuseCount;
-            public EntityCommandBuffer Ecb;
-            public EntityArchetype Archetype;
 
             public ComponentTypeHandle<Active> ActiveHandle;
             public ComponentTypeHandle<CombatCollisionActiveTag> CollisionActiveHandle;
@@ -228,12 +221,6 @@ namespace PlayGround.System.Combat.Aoes
                     }
                 }
 
-                for (int i = commandIndex; i < Configs.Length; i++)
-                {
-                    Entity entity = Ecb.CreateEntity(Archetype);
-                    AoeSpawnApplyUtility.RecordImpactReset(Ecb, entity, Configs[i]);
-                }
-
                 ReuseCount.Value = commandIndex;
             }
         }
@@ -246,8 +233,8 @@ namespace PlayGround.System.Combat.Aoes
     {
         private static readonly ProfilerMarker SpawnMarker = new("LingeringAoeSpawnApplySystem");
         private static readonly ProfilerMarker ReuseJobMarker = new("LingeringAoeSpawnApplySystem.ReuseJob");
-        private static readonly ProfilerCounterValue<int> SpawnColdCreateCounter =
-            new(ProfilerCategory.Scripts, "LingeringAoeSpawnApplySystem.Cold", ProfilerMarkerDataUnit.Count);
+        private static readonly ProfilerCounterValue<int> SpawnTopUpCounter =
+            new(ProfilerCategory.Scripts, "LingeringAoeSpawnApplySystem.TopUp", ProfilerMarkerDataUnit.Count);
         private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
             new(ProfilerCategory.Scripts, "LingeringAoeSpawnApplySystem.Reuse", ProfilerMarkerDataUnit.Count);
 
@@ -313,9 +300,12 @@ namespace PlayGround.System.Combat.Aoes
 
             using (SpawnMarker.Auto())
             {
-                using var createEcb = new EntityCommandBuffer(Allocator.TempJob);
+                int created = SpawnPoolTopUp.EnsureDisabledSlots(
+                    EntityManager,
+                    _lingeringArchetype,
+                    _deadSlotQuery,
+                    totalRequests);
                 int reuseCount = 0;
-                int coldCreateCount = 0;
 
                 using (ReuseJobMarker.Auto())
                 {
@@ -328,8 +318,6 @@ namespace PlayGround.System.Combat.Aoes
                         Configs = commands,
                         Chunks = chunks,
                         ReuseCount = reused,
-                        Ecb = createEcb,
-                        Archetype = _lingeringArchetype,
                         ActiveHandle = GetComponentTypeHandle<Active>(false),
                         CollisionActiveHandle = GetComponentTypeHandle<CombatCollisionActiveTag>(false),
                         IdentityHandle = GetComponentTypeHandle<AoeIdentityComponent>(false),
@@ -350,18 +338,12 @@ namespace PlayGround.System.Combat.Aoes
                     }.Schedule(default).Complete();
 
                     reuseCount = reused.Value;
-                    coldCreateCount = commands.Length - reuseCount;
-                }
-
-                if (coldCreateCount > 0)
-                {
-                    createEcb.Playback(EntityManager);
                 }
 
                 SpawnReuseCounter.Value = reuseCount;
-                SpawnColdCreateCounter.Value = totalRequests - reuseCount;
+                SpawnTopUpCounter.Value = created;
                 LastReuseCount = reuseCount;
-                LastColdCreateCount = totalRequests - reuseCount;
+                LastColdCreateCount = created;
 
                 if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(out RefRW<CombatStatsSingleton> stats))
                 {
@@ -378,8 +360,6 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeArray<AoeSpawnCommand> Configs;
             [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
             public NativeReference<int> ReuseCount;
-            public EntityCommandBuffer Ecb;
-            public EntityArchetype Archetype;
 
             public ComponentTypeHandle<Active> ActiveHandle;
             public ComponentTypeHandle<CombatCollisionActiveTag> CollisionActiveHandle;
@@ -481,12 +461,6 @@ namespace PlayGround.System.Combat.Aoes
                     }
                 }
 
-                for (int i = commandIndex; i < Configs.Length; i++)
-                {
-                    Entity entity = Ecb.CreateEntity(Archetype);
-                    AoeSpawnApplyUtility.RecordLingeringReset(Ecb, entity, Configs[i]);
-                }
-
                 ReuseCount.Value = commandIndex;
             }
         }
@@ -494,58 +468,6 @@ namespace PlayGround.System.Combat.Aoes
 
     internal static class AoeSpawnApplyUtility
     {
-        public static void RecordImpactReset(
-            EntityCommandBuffer ecb,
-            Entity entity,
-            in AoeSpawnCommand cmd)
-        {
-            CombatKinematicsComponent kinematics = KinematicsFor(cmd);
-            CombatRenderComponent render = cmd.Render;
-            ecb.SetComponent(entity, IdentityFor(cmd));
-            ecb.SetComponent(entity, kinematics);
-            ecb.SetComponent(entity, CollisionFor(cmd));
-            ecb.SetComponent(entity, HitGateFor(cmd));
-            ecb.SetComponent(entity, HitSpawnFor(cmd));
-            ecb.SetComponent(entity, AreaFor(cmd));
-            ecb.SetComponent(entity, render);
-            ecb.SetComponent(entity, cmd.Authoring);
-            ecb.SetComponent(entity, new CombatRenderKindId { Value = cmd.RenderTypeId });
-            SpawnState spawnState = SpawnStateFor(cmd, isLingering: false);
-            ecb.SetComponentEnabled<Active>(entity, spawnState.Active);
-            ecb.SetComponentEnabled<CombatCollisionActiveTag>(entity, spawnState.Collision);
-            ecb.SetComponent(entity, ArmingFor(cmd));
-            ecb.SetComponentEnabled<ArmingTag>(entity, IsArming(cmd));
-        }
-
-        public static void RecordLingeringReset(
-            EntityCommandBuffer ecb,
-            Entity entity,
-            in AoeSpawnCommand cmd)
-        {
-            CombatKinematicsComponent kinematics = KinematicsFor(cmd);
-            CombatRenderComponent render = cmd.Render;
-            ecb.SetComponent(entity, IdentityFor(cmd));
-            ecb.SetComponent(entity, kinematics);
-            ecb.SetComponent(entity, CollisionFor(cmd));
-            ecb.SetComponent(entity, HitGateFor(cmd));
-            ecb.SetComponent(entity, HitSpawnFor(cmd));
-            ecb.SetComponent(entity, AreaFor(cmd));
-            ecb.SetComponent(entity, new CombatLifetimeComponent { Remaining = cmd.Lifetime });
-            ecb.SetComponent(entity, PulseVfxFor(cmd));
-            bool hasTimedSpawner = HasTimedSpawner(cmd);
-            ecb.SetComponent(entity, hasTimedSpawner ? cmd.TimedSpawn : default);
-            ecb.SetComponent(entity, hasTimedSpawner ? InitialTimedSpawnStateFor(cmd) : default);
-            ecb.SetComponentEnabled<TimedSpawnComponent>(entity, hasTimedSpawner);
-            ecb.SetComponent(entity, render);
-            ecb.SetComponent(entity, cmd.Authoring);
-            ecb.SetComponent(entity, new CombatRenderKindId { Value = cmd.RenderTypeId });
-            SpawnState spawnState = SpawnStateFor(cmd, isLingering: true);
-            ecb.SetComponentEnabled<Active>(entity, spawnState.Active);
-            ecb.SetComponentEnabled<CombatCollisionActiveTag>(entity, spawnState.Collision);
-            ecb.SetComponent(entity, ArmingFor(cmd));
-            ecb.SetComponentEnabled<ArmingTag>(entity, IsArming(cmd));
-        }
-
         public static void WriteCommon(
             in AoeSpawnCommand cfg,
             NativeArray<AoeIdentityComponent> identities,
@@ -586,10 +508,9 @@ namespace PlayGround.System.Combat.Aoes
         public static bool IsArming(in AoeSpawnCommand cmd) => cmd.ArmSeconds > 0f;
 
         // Single source of truth for a freshly-spawned AOE's enable-gate state
-        // (Active / collision / timed-spawn). Both the reuse (EnabledMask) and the
-        // cold-create (ECB) paths, for both archetypes, derive their enable bits from here, so the
-        // materialization sites can never disagree. Any new lifecycle phase changes this one
-        // function instead of four hand-written sites.
+        // (Active / collision / timed-spawn). The reuse fill derives both AOE
+        // archetypes' enable bits here, so any new lifecycle phase changes this
+        // one function instead of duplicated materialization sites.
         internal readonly struct SpawnState
         {
             public readonly bool Active;
