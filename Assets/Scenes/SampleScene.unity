@@ -418,7 +418,7 @@ GameObject:
   - component: {fileID: 1849630937}
   - component: {fileID: 1849630936}
   m_Layer: 0
-  m_Name: BasicColorBlobVfx
+  m_Name: VfxContainer
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -503,7 +503,7 @@ VisualEffect:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1849630935}
   m_Enabled: 1
-  m_Asset: {fileID: 8926484042661614526, guid: 23195e83f5f771947b4dd371108b1231, type: 3}
+  m_Asset: {fileID: 8926484042661614526, guid: 388478dd928f3bf418bc4d588965065f, type: 3}
   m_InitialEventName: OnPlay
   m_InitialEventNameOverriden: 0
   m_StartSeed: 0

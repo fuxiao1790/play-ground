@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 1003000000000000001}
   - component: {fileID: 1037899157007725660}
   m_Layer: 11
-  m_Name: BasicLingeringAoe
+  m_Name: Vortex
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -48,10 +48,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.LingeringAoePrefab
   spriteRenderer: {fileID: 1003000000000000202}
   hurtbox: {fileID: 1003000000000000102}
-  spawnEffect: {fileID: 8926484042661614526, guid: 48ba0531b510df84eb2206bab7a176a0, type: 3}
+  spawnEffect: {fileID: 8926484042661614526, guid: 388478dd928f3bf418bc4d588965065f, type: 3}
   hitEffect: {fileID: 0}
   expireEffect: {fileID: 0}
-  pulseEffect: {fileID: 8926484042661614526, guid: 23195e83f5f771947b4dd371108b1231, type: 3}
+  pulseEffect: {fileID: 8926484042661614526, guid: 388478dd928f3bf418bc4d588965065f, type: 3}
   armingEffect: {fileID: 8926484042661614526, guid: 7a9e0d70614a86a4282315052223d73a, type: 3}
 --- !u!1 &1003000000000000100
 GameObject:
