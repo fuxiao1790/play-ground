@@ -11,7 +11,6 @@ using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Vfx;
-using System.Collections.Generic;
 using PlayGround.Common;
 using Unity.Burst;
 using Unity.Collections;
@@ -31,7 +30,7 @@ namespace PlayGround.System.Combat.Application
     }
 
     // Applies queued combat hit events to ECS target health and stack buffers, then
-    // hands per-target results to CombatApplyBridge for presentation replay.
+    // writes compact native results for presentation systems to replay later.
     //
     // The finalize work runs in a single Burst IJob over one pass of the hit array:
     //   - no bucketing job / multihashmap
@@ -56,10 +55,8 @@ namespace PlayGround.System.Combat.Application
         private static readonly ProfilerMarker Marker = new("CombatApplyFinalizeSingleSystem");
         private static readonly ProfilerMarker CompleteProducersMarker =
             new("CombatApplyFinalizeSingleSystem.CompleteProducers");
-        private static readonly ProfilerMarker DisposePreviousMarker =
-            new("CombatApplyFinalizeSingleSystem.DisposePrevious");
-        private static readonly ProfilerMarker PublishResultsMarker =
-            new("CombatApplyFinalizeSingleSystem.PublishResults");
+        private static readonly ProfilerMarker ClearResultsMarker =
+            new("CombatApplyFinalizeSingleSystem.ClearResults");
         private static readonly ProfilerCounterValue<int> EntryEvictionCounter =
             new(ProfilerCategory.Scripts, "CombatApplyFinalizeSingleSystem.StackEntryEvictions", ProfilerMarkerDataUnit.Count);
 
@@ -67,6 +64,7 @@ namespace PlayGround.System.Combat.Application
 
         private int entryEvictions;
         private Entity singletonEntity;
+        private Entity resultEntity;
 
         protected override void OnCreate()
         {
@@ -75,9 +73,22 @@ namespace PlayGround.System.Combat.Application
             {
                 HitQueue = new NativeQueue<CombatHitEvent>(Allocator.Persistent)
             });
+
+            resultEntity = EntityManager.CreateEntity(typeof(CombatApplyResultSingleton));
+            EntityManager.SetComponentData(resultEntity, new CombatApplyResultSingleton
+            {
+                Results = new NativeList<CombatTickResult>(Allocator.Persistent),
+                StatusSnapshots = new NativeList<StatusStackSnapshot>(Allocator.Persistent)
+            });
         }
 
         protected override void OnDestroy()
+        {
+            DisposeHitDispatch();
+            DisposeApplyResults();
+        }
+
+        private void DisposeHitDispatch()
         {
             if (singletonEntity == Entity.Null
                 || !EntityManager.Exists(singletonEntity)
@@ -95,6 +106,29 @@ namespace PlayGround.System.Combat.Application
             }
         }
 
+        private void DisposeApplyResults()
+        {
+            if (resultEntity == Entity.Null
+                || !EntityManager.Exists(resultEntity)
+                || !EntityManager.HasComponent<CombatApplyResultSingleton>(resultEntity))
+            {
+                return;
+            }
+
+            CombatApplyResultSingleton results =
+                EntityManager.GetComponentData<CombatApplyResultSingleton>(resultEntity);
+            results.ProducerHandle.Complete();
+            if (results.Results.IsCreated)
+            {
+                results.Results.Dispose();
+            }
+
+            if (results.StatusSnapshots.IsCreated)
+            {
+                results.StatusSnapshots.Dispose();
+            }
+        }
+
         protected override void OnUpdate()
         {
             using (Marker.Auto())
@@ -102,18 +136,21 @@ namespace PlayGround.System.Combat.Application
                 RefRW<CombatHitDispatchSingleton> hitDispatch =
                     SystemAPI.GetSingletonRW<CombatHitDispatchSingleton>();
                 ref CombatHitDispatchSingleton singleton = ref hitDispatch.ValueRW;
+                RefRW<CombatApplyResultSingleton> resultDispatch =
+                    SystemAPI.GetSingletonRW<CombatApplyResultSingleton>();
+                ref CombatApplyResultSingleton applyResults = ref resultDispatch.ValueRW;
 
                 using (CompleteProducersMarker.Auto())
                 {
                     singleton.ProducerHandle.Complete();
                     singleton.ProducerHandle = default;
+                    applyResults.ProducerHandle.Complete();
+                    applyResults.ProducerHandle = default;
                 }
 
-                // Intentional managed lookup: CombatApplyBridge is presentation handoff, not a native container lane.
-                CombatApplyBridge bridge = World.GetExistingSystemManaged<CombatApplyBridge>();
-                using (DisposePreviousMarker.Auto())
+                using (ClearResultsMarker.Auto())
                 {
-                    bridge?.DisposeFinalizedCombat();
+                    applyResults.Clear();
                 }
 
                 int hitCount = singleton.HitQueue.Count;
@@ -128,8 +165,9 @@ namespace PlayGround.System.Combat.Application
                     return;
                 }
 
-                var resultsList = new NativeList<CombatTickResult>(math.max(16, hitCount / 4), Allocator.TempJob);
-                var statusList = new NativeList<StatusStackSnapshot>(MaxTargetStackEntries, Allocator.TempJob);
+                applyResults.EnsureCapacity(
+                    math.max(16, hitCount / 4),
+                    MaxTargetStackEntries);
                 var evictionRef = new NativeReference<int>(Allocator.TempJob);
 
                 Dependency = new FinalizeCombatSingleJob
@@ -137,14 +175,16 @@ namespace PlayGround.System.Combat.Application
                     HitQueue = singleton.HitQueue,
                     HealthLookup = GetComponentLookup<TargetHealth>(),
                     StackBuffers = GetBufferLookup<TargetStackEntry>(),
-                    Results = resultsList,
-                    StatusSnapshots = statusList,
+                    Results = applyResults.Results,
+                    StatusSnapshots = applyResults.StatusSnapshots,
                     EvictionCount = evictionRef,
                     Now = SystemAPI.Time.ElapsedTime,
                     FrameCount = (uint)UnityEngine.Time.frameCount
                 }.Schedule(Dependency);
+                applyResults.ProducerHandle = Dependency;
 
                 Dependency.Complete();
+                applyResults.ProducerHandle = default;
 
                 int frameEvictions = evictionRef.Value;
                 if (frameEvictions > 0)
@@ -153,25 +193,7 @@ namespace PlayGround.System.Combat.Application
                     EntryEvictionCounter.Value = entryEvictions;
                 }
 
-                NativeArray<CombatTickResult> results = resultsList.ToArray(Allocator.Persistent);
-                NativeArray<StatusStackSnapshot> statusSnapshots = statusList.ToArray(Allocator.Persistent);
-
-                resultsList.Dispose();
-                statusList.Dispose();
                 evictionRef.Dispose();
-
-                using (PublishResultsMarker.Auto())
-                {
-                    if (bridge != null)
-                    {
-                        bridge.SetFinalizedCombat(results, statusSnapshots);
-                    }
-                    else
-                    {
-                        results.Dispose();
-                        statusSnapshots.Dispose();
-                    }
-                }
             }
         }
 
@@ -392,157 +414,5 @@ namespace PlayGround.System.Combat.Application
                 return index;
             }
         }
-    }
-
-    [UpdateInGroup(typeof(PresentationSystemGroup))]
-    [UpdateBefore(typeof(CombatBatchedRenderSystem))]
-    public partial class CombatApplyBridge : SystemBase
-    {
-        private static readonly ProfilerMarker Marker = new("CombatApplyBridge");
-        private static readonly ProfilerMarker<int> TickReplayMarker =
-            new("CombatApplyBridge.TickReplay", "Combat Tick Results");
-
-        private static readonly List<StatusStackSnapshot> statusScratch = new();
-
-        private NativeArray<CombatTickResult> finalizedResults;
-        private NativeArray<StatusStackSnapshot> finalizedStatusSnapshots;
-
-        protected override void OnDestroy()
-        {
-            DisposeFinalizedCombat();
-        }
-
-        internal void SetFinalizedCombat(
-            NativeArray<CombatTickResult> results,
-            NativeArray<StatusStackSnapshot> statusSnapshots)
-        {
-            DisposeFinalizedCombat();
-            finalizedResults = results;
-            finalizedStatusSnapshots = statusSnapshots;
-        }
-
-        internal void DisposeFinalizedCombat()
-        {
-            if (finalizedResults.IsCreated)
-            {
-                finalizedResults.Dispose();
-            }
-
-            if (finalizedStatusSnapshots.IsCreated)
-            {
-                finalizedStatusSnapshots.Dispose();
-            }
-        }
-
-        protected override void OnUpdate()
-        {
-            CompleteDependency();
-            if (!finalizedResults.IsCreated)
-            {
-                DisposeFinalizedCombat();
-                return;
-            }
-
-            bool hasStatusSnapshots = HasAnyStatusRange(finalizedResults);
-            if (finalizedResults.Length == 0 && !hasStatusSnapshots)
-            {
-                DisposeFinalizedCombat();
-                return;
-            }
-
-            try
-            {
-                using (Marker.Auto())
-                using (TickReplayMarker.Auto(finalizedResults.Length))
-                {
-                    ReplayCombat(
-                        finalizedResults,
-                        finalizedStatusSnapshots,
-                        EntityManager);
-                }
-            }
-            finally
-            {
-                DisposeFinalizedCombat();
-            }
-        }
-
-        private static void ReplayCombat(
-            NativeArray<CombatTickResult> results,
-            NativeArray<StatusStackSnapshot> statusSnapshots,
-            EntityManager entityManager)
-        {
-            for (int resultIndex = 0; resultIndex < results.Length; resultIndex++)
-            {
-                CombatTickResult result = results[resultIndex];
-                if (result.HitCount <= 0 && result.StatusCount <= 0)
-                {
-                    continue;
-                }
-
-                ICombatTarget target = ResolveTarget(entityManager, result.TargetProxy);
-                if (!IsTargetUsable(target))
-                {
-                    continue;
-                }
-
-                statusScratch.Clear();
-                for (int i = 0; i < result.StatusCount; i++)
-                {
-                    statusScratch.Add(statusSnapshots[result.StatusStart + i]);
-                }
-
-                target.ReceiveCombatTick(in result, statusScratch);
-            }
-
-            statusScratch.Clear();
-        }
-
-        private static bool HasAnyStatusRange(NativeArray<CombatTickResult> results)
-        {
-            if (!results.IsCreated)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < results.Length; i++)
-            {
-                if (results[i].StatusCount > 0)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static ICombatTarget ResolveTarget(EntityManager entityManager, Entity targetProxy)
-        {
-            if (targetProxy == Entity.Null
-                || !entityManager.Exists(targetProxy)
-                || !entityManager.HasComponent<TargetCompanion>(targetProxy))
-            {
-                return null;
-            }
-
-            TargetCompanion companion = entityManager.GetComponentObject<TargetCompanion>(targetProxy);
-            return companion?.Target;
-        }
-
-        private static bool IsTargetUsable(ICombatTarget target) =>
-            target != null
-            && (target is not UnityEngine.Object unityObject || unityObject != null)
-            && target.IsCombatTargetActive;
-    }
-
-    public struct CombatTickResult
-    {
-        public Entity TargetProxy;
-        public float Health;
-        public float DamageTaken;
-        public int HitCount;
-        public int CritCount;
-        public int StatusStart;
-        public int StatusCount;
     }
 }

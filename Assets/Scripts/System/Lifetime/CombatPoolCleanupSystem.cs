@@ -35,8 +35,8 @@ namespace PlayGround.System.Combat.Lifetime
 
         public static CombatPoolCleanupConfig Default => new CombatPoolCleanupConfig
         {
-            ChunkActiveThresholdPercent = 10f,
-            SceneActiveThresholdPercent = 20f
+            ChunkActiveThresholdPercent = 5f,
+            SceneActiveThresholdPercent = 5f
         };
     }
 

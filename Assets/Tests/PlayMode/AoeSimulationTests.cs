@@ -1601,13 +1601,16 @@ namespace PlayGround.Tests.PlayMode
 
         private CombatTickResult[] ReadFinalizedCombatResults()
         {
-            CombatApplyBridge bridge = testWorld.GetExistingSystemManaged<CombatApplyBridge>();
-            const global::System.Reflection.BindingFlags Flags =
-                global::System.Reflection.BindingFlags.Instance |
-                global::System.Reflection.BindingFlags.NonPublic;
-            var resultsField = typeof(CombatApplyBridge).GetField("finalizedResults", Flags);
-            Assert.That(resultsField, Is.Not.Null);
-            var results = (NativeArray<CombatTickResult>)resultsField.GetValue(bridge);
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<CombatApplyResultSingleton>());
+            if (query.IsEmptyIgnoreFilter)
+            {
+                return global::System.Array.Empty<CombatTickResult>();
+            }
+
+            CombatApplyResultSingleton lane = query.GetSingleton<CombatApplyResultSingleton>();
+            lane.ProducerHandle.Complete();
+            NativeList<CombatTickResult> results = lane.Results;
             if (!results.IsCreated)
             {
                 return global::System.Array.Empty<CombatTickResult>();
@@ -1811,11 +1814,12 @@ namespace PlayGround.Tests.PlayMode
 
         private NativeQueue<CombatHitEvent> HitQueue()
         {
-            FieldInfo field = typeof(CombatApplyFinalizeSingleSystem).GetField(
-                "HitQueue",
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(field, Is.Not.Null);
-            return (NativeQueue<CombatHitEvent>)field.GetValue(hitApply);
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<CombatHitDispatchSingleton>());
+            Assert.That(query.IsEmptyIgnoreFilter, Is.False);
+            CombatHitDispatchSingleton lane = query.GetSingleton<CombatHitDispatchSingleton>();
+            lane.ProducerHandle.Complete();
+            return lane.HitQueue;
         }
 
         private static void CompletePendingHandle(object system)

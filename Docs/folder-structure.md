@@ -83,8 +83,10 @@ Docs/
 - `Assets/Scripts/Skills/`: skill definitions, runtime skill compilation,
   supports, triggers, validators
 - `Assets/Scripts/System/Combat/`: combat ECS runtime, organized by ownership
-- `Assets/Scripts/System/Combat/Application/`: hit application, finalization,
-  and presentation replay handoff
+- `Assets/Scripts/System/Application/`: hit application, finalization,
+  and compact native combat result data
+- `Assets/Scripts/System/Presentation/`: presentation bridge systems that
+  resolve managed target feedback from finalized combat result data
 - `Assets/Scripts/System/Combat/Targets/`: target proxy, target registry,
   target interfaces, and target-owned shape state
 - `Assets/Scripts/System/Combat/Projectiles/`: projectile ECS runtime
@@ -153,9 +155,12 @@ Docs/
   creation, shape push, health/status seed data, and deletion.
 - `Assets/Scripts/System/Combat/Targets/CombatTargetRegistry.cs`: managed target
   registry that creates proxy entities for registered `ICombatTarget` objects.
-- `Assets/Scripts/System/Combat/Application/CombatApplyFinalizeSingleSystem.cs`: single-pass
-  hit finalize, ECS health/status application, `CombatTickResult` production,
-  and `CombatApplyBridge` presentation replay.
+- `Assets/Scripts/System/Application/CombatApplyFinalizeSingleSystem.cs`: single-pass
+  hit finalize, ECS health/status application, and compact result lane writes.
+- `Assets/Scripts/System/Application/CombatApplyResults.cs`: compact
+  combat result lane and `CombatTickResult` contract data.
+- `Assets/Scripts/System/Presentation/CombatApplyBridge.cs`: presentation
+  bridge that resolves `TargetCompanion` and replays finalized combat feedback.
 - `Assets/Scripts/System/Combat/Lifetime/CombatLifecycleComponents.cs`: shared
   transient entity active, kinematics, arming, and lifetime data.
 - `Assets/Scripts/System/Combat/Lifetime/CombatLifetimeSystem.cs`: shared projectile and

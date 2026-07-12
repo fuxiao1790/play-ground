@@ -19,7 +19,7 @@ using UnityEngine;
 namespace PlayGround.System.Combat.Application
 {
     // ECS Lifecycle: transient native hit payload; not added to entities; enqueued during collision,
-    // grouped and aggregated by CombatApplyFinalizeSingleSystem, then handed to CombatApplyBridge.
+    // grouped and aggregated by CombatApplyFinalizeSingleSystem into CombatApplyResultSingleton.
     public struct CombatHitEvent
     {
         public Entity TargetProxy;

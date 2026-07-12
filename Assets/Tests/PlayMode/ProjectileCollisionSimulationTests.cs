@@ -565,13 +565,16 @@ namespace PlayGround.Tests.PlayMode
 
         private CombatTickResult[] ReadFinalizedCombatResults()
         {
-            CombatApplyBridge bridge = testWorld.GetExistingSystemManaged<CombatApplyBridge>();
-            const global::System.Reflection.BindingFlags Flags =
-                global::System.Reflection.BindingFlags.Instance |
-                global::System.Reflection.BindingFlags.NonPublic;
-            var resultsField = typeof(CombatApplyBridge).GetField("finalizedResults", Flags);
-            Assert.That(resultsField, Is.Not.Null);
-            var results = (NativeArray<CombatTickResult>)resultsField.GetValue(bridge);
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<CombatApplyResultSingleton>());
+            if (query.IsEmptyIgnoreFilter)
+            {
+                return global::System.Array.Empty<CombatTickResult>();
+            }
+
+            CombatApplyResultSingleton lane = query.GetSingleton<CombatApplyResultSingleton>();
+            lane.ProducerHandle.Complete();
+            NativeList<CombatTickResult> results = lane.Results;
             if (!results.IsCreated)
             {
                 return global::System.Array.Empty<CombatTickResult>();
