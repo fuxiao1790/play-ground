@@ -488,7 +488,7 @@ namespace PlayGround.Tests.PlayMode
 
             Tick(0.01f);
             Assert.That(ReadHitCount(), Is.EqualTo(0),
-                "Player AOE must not hit a Player target â€?same-faction skip.");
+                "Player AOE must not hit a Player target ï¿½?same-faction skip.");
         }
 
         [Test]
@@ -880,7 +880,8 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(partial.SummedArea, Is.EqualTo(3f).Within(0.0001f));
 
             QueueStackHit(target.Proxy, StackEffect(debuffKey: 102, threshold: 3, lifetime: 10f, damage: 11f, area: 3f, detonationTypeId: 7));
-            TickStatusPipelineOnly(0f);
+            TickStatusPipelineOnly(0f); // Finalize accrues to threshold (Status ran first this tick)
+            TickStatusPipelineOnly(0f); // Status detonates the banked stack on the following tick
 
             Assert.That(ImpactAoeEventQueue().Count, Is.EqualTo(1));
             Assert.That(TryReadStackEntry(target.Proxy, 102, out _), Is.False);
@@ -907,7 +908,8 @@ namespace PlayGround.Tests.PlayMode
                 area: 4f,
                 detonationTypeId: 77));
 
-            TickStatusPipelineOnly(0f);
+            TickStatusPipelineOnly(0f); // Finalize accrues to threshold
+            TickStatusPipelineOnly(0f); // Status detonates on the following tick
 
             ImpactAoeSpawnEvent detonation = DequeueSingleImpactAoeEvent();
             Assert.That(detonation.Position.x, Is.EqualTo(3f).Within(0.0001f));
@@ -933,26 +935,28 @@ namespace PlayGround.Tests.PlayMode
             // Hit 2 banks to 4 (>= 3): detonates in two hits, not three. One full
             // threshold is consumed and the sub-threshold remainder stays banked.
             QueueStackHit(target.Proxy, stack);
-            TickStatusPipelineOnly(0f);
+            TickStatusPipelineOnly(0f); // Finalize banks to 4; Status ran first, so no detonation yet
+            TickStatusPipelineOnly(0f); // Status detonates one threshold, remainder stays banked
             Assert.That(ImpactAoeEventQueue().Count, Is.EqualTo(1));
             Assert.That(ReadStackEntry(target.Proxy, 120).Count, Is.EqualTo(1));
         }
 
         [Test]
-        public void StatusProcessBurstFiresOneDetonationPerThresholdSameFrame()
+        public void StatusProcessBurstFiresOneDetonationPerThreshold()
         {
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
 
-            // Four applicator hits land in one frame at threshold 2 => two full
-            // detonations fire the same frame instead of one with the overflow lost.
+            // Four applicator hits land in one tick at threshold 2 => once Status processes
+            // the banked stack it fires two full detonations, not one with the overflow lost.
             for (int i = 0; i < 4; i++)
             {
                 QueueStackHit(target.Proxy, StackEffect(
                     debuffKey: 121, threshold: 2, lifetime: 10f, damage: 2f, area: 1f, detonationTypeId: 7));
             }
 
-            TickStatusPipelineOnly(0f);
+            TickStatusPipelineOnly(0f); // Finalize banks all four (Status ran first)
+            TickStatusPipelineOnly(0f); // Status fires both detonations on the following tick
 
             Assert.That(ImpactAoeEventQueue().Count, Is.EqualTo(2));
             Assert.That(TryReadStackEntry(target.Proxy, 121, out _), Is.False);
@@ -1012,6 +1016,9 @@ namespace PlayGround.Tests.PlayMode
                     damage: 12f,
                     projectileCount: ProjectileCount));
 
+            // Tick 1: AOE materializes, hits target, Finalize banks the stack (Status ran first).
+            // Tick 2: Status detonates the banked stack; projectile expansion materializes the nova.
+            TickSimulationOnly(0.01f);
             TickSimulationOnly(0.01f);
 
             Assert.That(ProjectileCountByTypeId(DetonationTypeId), Is.EqualTo(ProjectileCount));
@@ -1039,7 +1046,8 @@ namespace PlayGround.Tests.PlayMode
                 DetonationKey = new Hash128(1u, 0u, 0u, 0u)
             });
 
-            TickStatusPipelineOnly(0f);
+            TickStatusPipelineOnly(0f); // Finalize accrues to threshold
+            TickStatusPipelineOnly(0f); // Status reaches the detonation switch; unhandled kind enqueues nothing
 
             Assert.That(ImpactAoeEventQueue().Count + LingeringAoeEventQueue().Count, Is.EqualTo(0));
             Assert.That(ProjectileEventQueue().Count, Is.EqualTo(0));
@@ -1163,13 +1171,15 @@ namespace PlayGround.Tests.PlayMode
             // Tick 1: AOE materializes, hits target, emits lvl-2 projectile event.
             //         Projectile expansion creates lvl-2 entity this tick (after status process).
             //         Projectile collision runs: lvl-2 projectile is contact-gated from the hit target.
-            // Ticks 2â€?0: contact gate ticks down (0.1f / 0.01f = 10 ticks to expire).
+            // Ticks 2ï¿½?0: contact gate ticks down (0.1f / 0.01f = 10 ticks to expire).
             // Tick 11: gate expired, lvl-2 hits target, CombatHitEvent with stack queued.
             // Tick 12: hitApply processes stack (count=1 >= threshold=1);
             //          statusProcess fires lvl-3 detonation event;
             //          projectile expansion creates lvl-3 entities.
             const int TicksToExpireGate = 11;
-            const int TicksAfterGate = 2;
+            // Status now runs before Finalize, so the threshold-reaching hit is accrued one
+            // tick before Status can detonate it -- one extra tick of margin over the old order.
+            const int TicksAfterGate = 3;
             for (int i = 0; i < TicksToExpireGate + TicksAfterGate; i++)
                 TickSimulationOnly(0.01f);
 
@@ -1189,8 +1199,11 @@ namespace PlayGround.Tests.PlayMode
         {
             elapsedTime += dt;
             testWorld.SetTime(new TimeData(elapsedTime, dt));
-            hitApply.Update();
+            // Mirror the production sim-group order: StatusProcess runs before Finalize, so a
+            // hit queued for this tick is accrued by Finalize (second) and only detonated by
+            // Status on the following tick. Detonation therefore lags accrual by one tick.
             statusProcess.Update();
+            hitApply.Update();
         }
 
         private void TickSimulationOnly(float dt)

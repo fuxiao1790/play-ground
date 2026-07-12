@@ -20,7 +20,7 @@ using Unity.Mathematics;
 namespace PlayGround.System.Combat.Status
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(CombatApplyFinalizeSingleSystem))]
+    [UpdateBefore(typeof(CombatApplyFinalizeSingleSystem))]
     [UpdateBefore(typeof(ImpactAoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(LingeringAoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
@@ -77,11 +77,13 @@ namespace PlayGround.System.Combat.Status
             int aoeIdBase = ReserveIdBlock(ref nextAoeId, entityCount);
             int projectileIdBase = ReserveIdBlock(ref nextProjectileDetonationSourceId, entityCount);
 
-            // This job writes the expansion EventQueues via ParallelWriter, the same queues
-            // other producers (TimedSpawnSystem, collision systems) already wrote
-            // this frame. Those writes are tracked in each expansion system's ProducerHandle,
-            // not in this SystemBase's component-derived Dependency, so we must depend on them
-            // explicitly or the job-safety system rejects the schedule.
+            // Runs single-threaded in place (.Run) on the main thread. The job enqueues into
+            // the expansion EventQueues, the same queues other producers (TimedSpawnSystem,
+            // collision systems) already wrote this frame. Those in-flight writes are tracked
+            // in each expansion system's ProducerHandle, not in this SystemBase's
+            // component-derived Dependency, and .Run only completes the ECS component deps it
+            // can see. So we must complete the producer handles by hand before writing the
+            // queues synchronously ourselves, or the job-safety system rejects the access.
             JobHandle producerDeps = Dependency;
             if (hasImpactAoeEvents)
                 producerDeps = JobHandle.CombineDependencies(producerDeps, impactAoeLane.ValueRO.ProducerHandle);
@@ -89,8 +91,9 @@ namespace PlayGround.System.Combat.Status
                 producerDeps = JobHandle.CombineDependencies(producerDeps, lingeringAoeLane.ValueRO.ProducerHandle);
             if (hasProjectileEvents)
                 producerDeps = JobHandle.CombineDependencies(producerDeps, projectileLane.ValueRO.ProducerHandle);
+            producerDeps.Complete();
 
-            JobHandle statusHandle = new StatusProcessJob
+            new StatusProcessJob
             {
                 Now = SystemAPI.Time.ElapsedTime,
                 AoeIdBase = aoeIdBase,
@@ -107,27 +110,11 @@ namespace PlayGround.System.Combat.Status
                     ? projectileEventQueue.AsParallelWriter()
                     : default,
                 HasProjectileEventWriter = hasProjectileEvents
-            }.ScheduleParallel(targetStackQuery, producerDeps);
+            }.Run(targetStackQuery);
 
-            if (hasImpactAoeEvents)
-            {
-                impactAoeLane.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(impactAoeLane.ValueRW.ProducerHandle, statusHandle);
-            }
-
-            if (hasLingeringAoeEvents)
-            {
-                lingeringAoeLane.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(lingeringAoeLane.ValueRW.ProducerHandle, statusHandle);
-            }
-
-            if (hasProjectileEvents)
-            {
-                projectileLane.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(projectileLane.ValueRW.ProducerHandle, statusHandle);
-            }
-
-            Dependency = statusHandle;
+            // The job enqueued synchronously on the main thread, so the queues are already
+            // populated with no pending producer job to publish; downstream expansion systems
+            // read them directly. The producer handles stay as-is (completed above).
         }
 
         private static int ReserveIdBlock(ref int nextId, int entityCount)

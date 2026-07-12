@@ -48,7 +48,7 @@ namespace PlayGround.System.Combat.Application
     [UpdateBefore(typeof(ImpactAoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(LingeringAoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
-    [UpdateBefore(typeof(StatusProcessSystem))]
+    [UpdateAfter(typeof(StatusProcessSystem))]
     public partial class CombatApplyFinalizeSingleSystem : SystemBase
     {
         private const int MaxTargetStackEntries = 32;
