@@ -1,6 +1,7 @@
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Aoes;
 using PlayGround.System.Combat.Collision;
+using PlayGround.System.Combat.Collision.Narrowphase;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
 using PlayGround.System.Combat.Platform;
@@ -18,7 +19,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Profiling;
 
-namespace PlayGround.System.Combat.Collision
+namespace PlayGround.System.Combat.Collision.Broadphase
 {
     // ECS Lifecycle: singleton target spatial hash data; created by TargetSpatialHashSystem on create,
     // rebuilt every simulation update, and disposed by TargetSpatialHashSystem on destroy.

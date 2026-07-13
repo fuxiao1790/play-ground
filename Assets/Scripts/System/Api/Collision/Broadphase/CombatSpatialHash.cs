@@ -13,7 +13,7 @@ using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Vfx;
 using Unity.Mathematics;
 
-namespace PlayGround.System.Combat.Collision
+namespace PlayGround.System.Combat.Collision.Broadphase
 {
     internal static class CombatSpatialHash
     {

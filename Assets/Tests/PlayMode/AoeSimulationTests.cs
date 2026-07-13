@@ -5,6 +5,8 @@ using PlayGround.Common;
 using PlayGround.System.Combat.Aoes;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
+using PlayGround.System.Combat.Collision.Broadphase;
+using PlayGround.System.Combat.Collision.Narrowphase;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
 using PlayGround.System.Combat.Platform;
