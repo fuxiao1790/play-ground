@@ -3853,7 +3853,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: UnityEngine.Vector3, UnityEngine.CoreModule, Version=0.0.0.0,
           Culture=neutral, PublicKeyToken=null
-      m_SerializableObject: '{"x":0.6212856769561768,"y":0.0,"z":2.0}'
+      m_SerializableObject: '{"x":0.0,"y":0.5823550820350647,"z":1.335078477859497}'
     m_Space: -1
   m_Property:
     name: B

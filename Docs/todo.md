@@ -9,6 +9,8 @@ rework
 - vfx system to support vfx graphs that need different set of graphics buffers
 
 new feature
+- ui
+- damage number vfx graph
 - cast on crit and other conditions.
 - fast projectiles, these cannot have tracking, requires tunneling check
 - unit related, these have dependency on each other 
