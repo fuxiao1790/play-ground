@@ -15,4 +15,4 @@ MonoBehaviour:
   intervalSeconds: 0.3
   intervalJitterPercent: 41.3
   echoCount: 4
-  scatterRadius: 5
+  scatterRadius: 20
