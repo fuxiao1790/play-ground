@@ -13,6 +13,8 @@ using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Vfx;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Profiling;
+using UnityEngine;
 
 namespace PlayGround.System.Combat.Targets
 {
@@ -63,6 +65,13 @@ namespace PlayGround.System.Combat.Targets
 
     public static class CombatTargetProxy
     {
+        private static readonly ProfilerMarker PushResolveMarker = new("CombatTargetProxy.Push.Resolve");
+        private static readonly ProfilerMarker PushApplyMarker = new("CombatTargetProxy.Push.Apply");
+        private static readonly ProfilerMarker TryGetEntityManagerMarker = new("CombatTargetProxy.TryGetEntityManager");
+        private static readonly ProfilerMarker ExistsMarker = new("CombatTargetProxy.Exists");
+        private static readonly ProfilerMarker BuildPositionMarker = new("CombatTargetProxy.BuildPosition");
+        private static readonly ProfilerMarker BuildShapeMarker = new("CombatTargetProxy.BuildShape");
+        private static readonly ProfilerMarker SetComponentDataMarker = new("CombatTargetProxy.SetComponentData");
         private static World cachedWorld;
         private static EntityArchetype cachedArchetype;
 
@@ -117,46 +126,69 @@ namespace PlayGround.System.Combat.Targets
 
         public static bool Push(ICombatTarget target)
         {
-            if (target == null || target.CombatTargetProxy == Entity.Null || !TryGetEntityManager(out EntityManager entityManager))
+            using (PushResolveMarker.Auto())
             {
-                return false;
-            }
+                if (target == null || target.CombatTargetProxy == Entity.Null || !TryGetEntityManager(out EntityManager entityManager))
+                {
+                    return false;
+                }
 
-            return Push(entityManager, target.CombatTargetProxy, target);
+                return Push(entityManager, target.CombatTargetProxy, target);
+            }
         }
 
         public static bool Push(EntityManager entityManager, Entity entity, ICombatTarget target)
         {
-            if (target == null || !target.IsCombatTargetActive || !Exists(entityManager, entity))
+            using (PushApplyMarker.Auto())
             {
-                return false;
-            }
+                if (target == null || !target.IsCombatTargetActive || !Exists(entityManager, entity))
+                {
+                    return false;
+                }
 
-            TargetPosition position = BuildPosition(target);
-            TargetCollisionShape shape = BuildShape(target, position.Value);
-            entityManager.SetComponentData(entity, position);
-            entityManager.SetComponentData(entity, shape);
-            return true;
+                TargetPosition position;
+                using (BuildPositionMarker.Auto())
+                {
+                    position = BuildPosition(target);
+                }
+
+                TargetCollisionShape shape;
+                using (BuildShapeMarker.Auto())
+                {
+                    shape = BuildShape(target, position.Value);
+                }
+
+                using (SetComponentDataMarker.Auto())
+                {
+                    entityManager.SetComponentData(entity, position);
+                    entityManager.SetComponentData(entity, shape);
+                }
+
+                return true;
+            }
         }
 
         public static bool Exists(EntityManager entityManager, Entity entity)
         {
-            if (entity == Entity.Null || entityManager == default)
+            using (ExistsMarker.Auto())
             {
-                return false;
-            }
+                if (entity == Entity.Null || entityManager == default)
+                {
+                    return false;
+                }
 
-            try
-            {
-                return entityManager.Exists(entity);
-            }
-            catch (global::System.InvalidOperationException)
-            {
-                return false;
-            }
-            catch (global::System.NullReferenceException)
-            {
-                return false;
+                try
+                {
+                    return entityManager.Exists(entity);
+                }
+                catch (global::System.InvalidOperationException)
+                {
+                    return false;
+                }
+                catch (global::System.NullReferenceException)
+                {
+                    return false;
+                }
             }
         }
 
@@ -178,25 +210,30 @@ namespace PlayGround.System.Combat.Targets
 
         private static TargetCollisionShape BuildShape(ICombatTarget target, float2 position)
         {
-            float2 halfExtents = new(target.CombatTargetHalfExtents.x, target.CombatTargetHalfExtents.y);
+            float radius = target.CombatTargetRadius;
+            Vector2 targetHalfExtents = target.CombatTargetHalfExtents;
+            float2 halfExtents = new(targetHalfExtents.x, targetHalfExtents.y);
+            float rotationRadians = target.CombatTargetRotationRadians;
+            CombatShapeType shapeType = target.CombatTargetShapeType;
+            int mask = target.CombatTargetMask;
             CombatCollisionMath.ComputeWorldBounds(
                 position,
-                target.CombatTargetRadius,
+                radius,
                 halfExtents,
-                target.CombatTargetRotationRadians,
-                target.CombatTargetShapeType,
+                rotationRadians,
+                shapeType,
                 out float2 boundsMin,
                 out float2 boundsMax);
 
             return new TargetCollisionShape
             {
-                ShapeType = target.CombatTargetShapeType,
-                Radius = target.CombatTargetRadius,
+                ShapeType = shapeType,
+                Radius = radius,
                 HalfExtents = halfExtents,
-                RotationRadians = target.CombatTargetRotationRadians,
+                RotationRadians = rotationRadians,
                 BoundsMin = boundsMin,
                 BoundsMax = boundsMax,
-                Mask = target.CombatTargetMask
+                Mask = mask
             };
         }
 
@@ -222,15 +259,18 @@ namespace PlayGround.System.Combat.Targets
 
         private static bool TryGetEntityManager(out EntityManager entityManager)
         {
-            World world = World.DefaultGameObjectInjectionWorld;
-            if (world == null || !world.IsCreated)
+            using (TryGetEntityManagerMarker.Auto())
             {
-                entityManager = default;
-                return false;
-            }
+                World world = World.DefaultGameObjectInjectionWorld;
+                if (world == null || !world.IsCreated)
+                {
+                    entityManager = default;
+                    return false;
+                }
 
-            entityManager = world.EntityManager;
-            return true;
+                entityManager = world.EntityManager;
+                return true;
+            }
         }
     }
 }

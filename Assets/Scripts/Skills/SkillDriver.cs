@@ -16,6 +16,7 @@ using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Projectiles;
 using PlayGround.System.Combat.Vfx;
+using Unity.Profiling;
 using UnityEngine;
 
 namespace PlayGround.Skills
@@ -33,6 +34,10 @@ namespace PlayGround.Skills
         private RuntimeSkillDefinition[] compiledSlots;
         private SkillSlotState[] slotStates;
         private SkillValidationWarning[] validationWarnings = Array.Empty<SkillValidationWarning>();
+        private static readonly ProfilerMarker TickMarker = new("SkillDriver.Tick");
+        private static readonly ProfilerMarker CooldownsMarker = new("SkillDriver.Tick.Cooldowns");
+        private static readonly ProfilerMarker SpawnReadySlotsMarker = new("SkillDriver.Tick.SpawnReadySlots");
+        private static readonly ProfilerMarker SpawnMarker = new("SkillDriver.Tick.Spawn");
         private static int nextStackingDebuffKey;
         private int activeSlotCount;
 
@@ -55,26 +60,38 @@ namespace PlayGround.Skills
 
         public void Tick(bool fireHeld, Vector2 aimDir, Vector2 aimWorldPos)
         {
-            if (compiledSlots == null) return;
-
-            for (int i = 0; i < activeSlotCount; i++)
-                slotStates[i].Tick(Time.deltaTime);
-
-            if (!fireHeld) return;
-
-            for (int i = 0; i < activeSlotCount; i++)
+            using (TickMarker.Auto())
             {
-                if (!slotStates[i].IsReady) continue;
-                
-                SkillSpawnTranslator.Spawn(
-                    compiledSlots[i],
-                    transform.position,
-                    aimDir,
-                    aimWorldPos,
-                    combatRoot,
-                    faction);
+                if (compiledSlots == null) return;
 
-                slotStates[i].ResetOnFire();
+                using (CooldownsMarker.Auto())
+                {
+                    for (int i = 0; i < activeSlotCount; i++)
+                        slotStates[i].Tick(Time.deltaTime);
+                }
+
+                if (!fireHeld) return;
+
+                using (SpawnReadySlotsMarker.Auto())
+                {
+                    for (int i = 0; i < activeSlotCount; i++)
+                    {
+                        if (!slotStates[i].IsReady) continue;
+
+                        using (SpawnMarker.Auto())
+                        {
+                            SkillSpawnTranslator.Spawn(
+                                compiledSlots[i],
+                                transform.position,
+                                aimDir,
+                                aimWorldPos,
+                                combatRoot,
+                                faction);
+                        }
+
+                        slotStates[i].ResetOnFire();
+                    }
+                }
             }
         }
 

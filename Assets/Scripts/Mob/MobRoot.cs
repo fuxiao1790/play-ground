@@ -14,6 +14,7 @@ using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Vfx;
 using Unity.Entities;
+using Unity.Profiling;
 using UnityEngine;
 
 namespace PlayGround.Mob
@@ -32,6 +33,15 @@ namespace PlayGround.Mob
         [SerializeField, Range(0f, 1f)] private float wanderPauseChance = 0.15f;
         [SerializeField] private int randomSeed;
 
+        private static readonly ProfilerMarker UpdateMarker = new("MobRoot.Update");
+        private static readonly ProfilerMarker PushCombatTargetProxyMarker = new("MobRoot.PushCombatTargetProxy");
+        private static readonly ProfilerMarker TickWanderMarker = new("MobRoot.TickWander");
+        private static readonly ProfilerMarker ApplyVelocityMarker = new("MobRoot.ApplyVelocity");
+        private static readonly ProfilerMarker DriveSkillsMarker = new("MobRoot.DriveSkills");
+        private static readonly ProfilerMarker AcquireEnemyTargetMarker = new("MobRoot.TryAcquireEnemyTarget");
+        private static readonly ProfilerMarker AimTargetMarker = new("MobRoot.AimTarget");
+        private static readonly ProfilerMarker SkillTickMarker = new("MobRoot.SkillDriver.Tick");
+
         private static int nextTargetId;
         private readonly List<StatusStackSnapshot> statusSnapshots = new();
         private readonly List<CombatTargetRegistry<ICombatTarget>> registries = new();
@@ -41,6 +51,13 @@ namespace PlayGround.Mob
         private global::System.Random random;
         private Vector2 wanderVelocity;
         private float wanderTimer;
+        private Vector2 cachedCombatTargetLocalOffset;
+        private float cachedCombatTargetRadius;
+        private Vector2 cachedCombatTargetHalfExtents;
+        private float cachedCombatTargetRotationRadians;
+        private CombatShapeType cachedCombatTargetShapeType;
+        private int cachedCombatTargetMask;
+        private bool combatTargetShapeCached;
         private bool deleteProxyInLateUpdate;
         private int targetId;
         private bool isAlive = true;
@@ -61,12 +78,24 @@ namespace PlayGround.Mob
         }
         public CombatFaction CombatFaction => CombatFaction.Mob;
         public EntityId ProjectileHitNodeId => gameObject.GetEntityId();
-        public Vector2 CombatTargetPosition => CombatTargetShapeUtility.Position(hurtbox, transform);
-        public float CombatTargetRadius => CombatTargetShapeUtility.Radius(hurtbox, targetRadius);
-        public Vector2 CombatTargetHalfExtents => CombatTargetShapeUtility.HalfExtents(hurtbox, targetRadius);
-        public float CombatTargetRotationRadians => CombatTargetShapeUtility.RotationRadians(hurtbox);
-        public CombatShapeType CombatTargetShapeType => CombatTargetShapeUtility.ShapeType(hurtbox);
-        public int CombatTargetMask => 1 << hurtbox.gameObject.layer;
+        public Vector2 CombatTargetPosition => combatTargetShapeCached
+            ? (Vector2)transform.TransformPoint(cachedCombatTargetLocalOffset)
+            : CombatTargetShapeUtility.Position(hurtbox, transform);
+        public float CombatTargetRadius => combatTargetShapeCached
+            ? cachedCombatTargetRadius
+            : CombatTargetShapeUtility.Radius(hurtbox, targetRadius);
+        public Vector2 CombatTargetHalfExtents => combatTargetShapeCached
+            ? cachedCombatTargetHalfExtents
+            : CombatTargetShapeUtility.HalfExtents(hurtbox, targetRadius);
+        public float CombatTargetRotationRadians => combatTargetShapeCached
+            ? cachedCombatTargetRotationRadians
+            : CombatTargetShapeUtility.RotationRadians(hurtbox);
+        public CombatShapeType CombatTargetShapeType => combatTargetShapeCached
+            ? cachedCombatTargetShapeType
+            : CombatTargetShapeUtility.ShapeType(hurtbox);
+        public int CombatTargetMask => combatTargetShapeCached
+            ? cachedCombatTargetMask
+            : 1 << hurtbox.gameObject.layer;
         public float CombatMaxHealth => statSheet.MaxHealth;
         public bool IsCombatTargetActive => isActiveAndEnabled && isAlive && CurrentHealth > 0f;
         public bool IsAlive => isAlive;
@@ -84,17 +113,24 @@ namespace PlayGround.Mob
 
         protected virtual void Update()
         {
-            if (!isAlive)
+            using (UpdateMarker.Auto())
             {
-                QueueCombatTargetProxyDelete();
-                return;
-            }
+                if (!isAlive)
+                {
+                    QueueCombatTargetProxyDelete();
+                    return;
+                }
 
-            PushCombatTargetProxy();
-            float deltaTime = Time.deltaTime;
-            TickWander(deltaTime);
-            body.linearVelocity = wanderVelocity;
-            DriveSkills();
+                PushCombatTargetProxy();
+                float deltaTime = Time.deltaTime;
+                TickWander(deltaTime);
+                using (ApplyVelocityMarker.Auto())
+                {
+                    body.linearVelocity = wanderVelocity;
+                }
+
+                DriveSkills();
+            }
         }
 
         protected virtual void LateUpdate()
@@ -123,6 +159,7 @@ namespace PlayGround.Mob
             hurtbox = mobHurtbox;
             spriteRenderer = renderer;
             target = targetTransform;
+            TryCacheCombatTargetShape();
         }
 
         public void ConfigureAuthoring(float health, float moveSpeed, float radius)
@@ -130,6 +167,7 @@ namespace PlayGround.Mob
             statSheet = ScriptableObject.CreateInstance<UnitStatSheet>();
             statSheet.SetRuntimeValues(health, moveSpeed);
             targetRadius = radius;
+            TryCacheCombatTargetShape();
         }
 
         public void ConfigureWander(float minDuration, float maxDuration, float pauseChance, int seed = 0)
@@ -179,6 +217,7 @@ namespace PlayGround.Mob
             deleteProxyInLateUpdate = false;
             CurrentHealth = Mathf.Max(1f, statSheet.MaxHealth);
             statusSnapshots.Clear();
+            CacheCombatTargetShape();
 
             if (bodyCollider != null)
             {
@@ -300,7 +339,10 @@ namespace PlayGround.Mob
         {
             if (combatTargetProxy != Entity.Null)
             {
-                PlayGround.System.Combat.Targets.CombatTargetProxy.Push(this);
+                using (PushCombatTargetProxyMarker.Auto())
+                {
+                    PlayGround.System.Combat.Targets.CombatTargetProxy.Push(this);
+                }
             }
         }
 
@@ -351,63 +393,108 @@ namespace PlayGround.Mob
             }
         }
 
-        private void TickWander(float deltaTime)
+        private void TryCacheCombatTargetShape()
         {
-            wanderTimer -= deltaTime;
-            if (wanderTimer > 0f)
+            if (hurtbox == null)
             {
+                combatTargetShapeCached = false;
                 return;
             }
 
-            PickNewWanderVelocity();
+            CacheCombatTargetShape();
+        }
+
+        private void CacheCombatTargetShape()
+        {
+            Vector2 worldPosition = CombatTargetShapeUtility.Position(hurtbox, transform);
+            cachedCombatTargetLocalOffset = transform.InverseTransformPoint(worldPosition);
+            cachedCombatTargetRadius = CombatTargetShapeUtility.Radius(hurtbox, targetRadius);
+            cachedCombatTargetHalfExtents = CombatTargetShapeUtility.HalfExtents(hurtbox, targetRadius);
+            cachedCombatTargetRotationRadians = CombatTargetShapeUtility.RotationRadians(hurtbox);
+            cachedCombatTargetShapeType = CombatTargetShapeUtility.ShapeType(hurtbox);
+            cachedCombatTargetMask = 1 << hurtbox.gameObject.layer;
+            combatTargetShapeCached = true;
+        }
+
+        private void TickWander(float deltaTime)
+        {
+            using (TickWanderMarker.Auto())
+            {
+                wanderTimer -= deltaTime;
+                if (wanderTimer > 0f)
+                {
+                    return;
+                }
+
+                PickNewWanderVelocity();
+            }
         }
 
         private void DriveSkills()
         {
-            if (skillDriver == null)
+            using (DriveSkillsMarker.Auto())
             {
-                return;
-            }
+                if (skillDriver == null)
+                {
+                    return;
+                }
 
-            if (TryAcquireEnemyTarget(out ICombatTarget enemy))
-            {
-                Vector2 targetPosition = enemy.CombatTargetPosition;
-                Vector2 toTarget = targetPosition - (Vector2)transform.position;
-                Vector2 aimDirection = toTarget.sqrMagnitude > 0.0001f ? toTarget.normalized : Vector2.right;
-                spriteRenderer.flipX = aimDirection.x < 0f;
-                skillDriver.Tick(true, aimDirection, targetPosition);
-                return;
-            }
+                if (TryAcquireEnemyTarget(out ICombatTarget enemy))
+                {
+                    Vector2 targetPosition;
+                    Vector2 aimDirection;
+                    using (AimTargetMarker.Auto())
+                    {
+                        targetPosition = enemy.CombatTargetPosition;
+                        Vector2 toTarget = targetPosition - (Vector2)transform.position;
+                        aimDirection = toTarget.sqrMagnitude > 0.0001f ? toTarget.normalized : Vector2.right;
+                        spriteRenderer.flipX = aimDirection.x < 0f;
+                    }
 
-            skillDriver.Tick(false, Vector2.zero, (Vector2)transform.position);
+                    using (SkillTickMarker.Auto())
+                    {
+                        skillDriver.Tick(true, aimDirection, targetPosition);
+                    }
+
+                    return;
+                }
+
+                using (SkillTickMarker.Auto())
+                {
+                    skillDriver.Tick(false, Vector2.zero, (Vector2)transform.position);
+                }
+            }
         }
 
         private bool TryAcquireEnemyTarget(out ICombatTarget enemy)
         {
-            for (int registryIndex = 0; registryIndex < registries.Count; registryIndex++)
+            using (AcquireEnemyTargetMarker.Auto())
             {
-                CombatTargetRegistry<ICombatTarget> registry = registries[registryIndex];
-                if (registry == null)
+                for (int registryIndex = 0; registryIndex < registries.Count; registryIndex++)
                 {
-                    continue;
-                }
-
-                IReadOnlyList<ICombatTarget> targets = registry.Targets;
-                for (int targetIndex = 0; targetIndex < targets.Count; targetIndex++)
-                {
-                    ICombatTarget targetCandidate = targets[targetIndex];
-                    if (targetCandidate != null
-                        && targetCandidate.IsCombatTargetActive
-                        && targetCandidate.CombatFaction != CombatFaction)
+                    CombatTargetRegistry<ICombatTarget> registry = registries[registryIndex];
+                    if (registry == null)
                     {
-                        enemy = targetCandidate;
-                        return true;
+                        continue;
+                    }
+
+                    IReadOnlyList<ICombatTarget> targets = registry.Targets;
+                    for (int targetIndex = 0; targetIndex < targets.Count; targetIndex++)
+                    {
+                        ICombatTarget targetCandidate = targets[targetIndex];
+                        if (targetCandidate != null
+                            && targetCandidate.IsCombatTargetActive
+                            && targetCandidate.CombatFaction != CombatFaction)
+                        {
+                            enemy = targetCandidate;
+                            return true;
+                        }
                     }
                 }
-            }
 
-            enemy = null;
-            return false;
+                enemy = null;
+                return false;
+            }
         }
 
         private void PickNewWanderVelocity()

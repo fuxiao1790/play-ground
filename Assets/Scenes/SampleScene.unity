@@ -503,7 +503,7 @@ VisualEffect:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1849630935}
   m_Enabled: 1
-  m_Asset: {fileID: 8926484042661614526, guid: 388478dd928f3bf418bc4d588965065f, type: 3}
+  m_Asset: {fileID: 8926484042661614526, guid: 48ba0531b510df84eb2206bab7a176a0, type: 3}
   m_InitialEventName: OnPlay
   m_InitialEventNameOverriden: 0
   m_StartSeed: 0
