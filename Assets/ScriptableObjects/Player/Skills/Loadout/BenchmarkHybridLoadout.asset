@@ -69,7 +69,7 @@ MonoBehaviour:
     - rid: 2535078140426584140
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
-        skillSet: {fileID: 11400000, guid: a86dacf66b90050479250ca3d66c0049, type: 2}
+        skillSet: {fileID: 11400000, guid: caac79f8dd4a1a94aab6b3b1b3015a7c, type: 2}
     - rid: 3401312228092149846
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
@@ -101,7 +101,7 @@ MonoBehaviour:
     - rid: 3401312232701689933
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
-        skillSet: {fileID: 11400000, guid: 87d367d0ace319048bd6aa49246b9f99, type: 2}
+        skillSet: {fileID: 11400000, guid: 4df1199445ec2254fb0c1826642c1b74, type: 2}
     - rid: 3401312296732721281
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
@@ -121,7 +121,7 @@ MonoBehaviour:
     - rid: 3401312322639102026
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
-        skillSet: {fileID: 11400000, guid: c2000000000000000000000000000001, type: 2}
+        skillSet: {fileID: 11400000, guid: 4df1199445ec2254fb0c1826642c1b74, type: 2}
     - rid: 3401312387152740504
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:

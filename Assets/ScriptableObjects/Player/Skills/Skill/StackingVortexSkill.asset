@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 96d9854370791424b9d8c6ce4070bffb, type: 3}
-  m_Name: LingeringAoeSkillLarge
-  m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:LingeringAoeSkill
-  baseRate: 20
+  m_Name: StackingVortexSkill
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.LingeringAoeSkill
+  baseRate: 4
   definition:
-    baseAreaSize: 10
+    baseAreaSize: 2.5
     damage: 4
     echoCount: 1
     scatterRadius: 0

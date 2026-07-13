@@ -10,12 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000003, type: 3}
-  m_Name: StackingAoeDetonationSkill
+  m_Name: ArcaneBlastSkill
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.AoeSkill
-  baseRate: 20
+  baseRate: 2.222222
   definition:
-    baseAreaSize: 3
-    damage: 120
-    count: 1
+    baseAreaSize: 2.3
+    damage: 18
+    echoCount: 1
+    scatterRadius: 0
+    armSeconds: 0.3
     directDamageEnabled: 1
     prefab: {fileID: 1003000000000000002, guid: b30d55f9f7c24d568ec80663b19f8c55, type: 3}

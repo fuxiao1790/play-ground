@@ -10,16 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 96d9854370791424b9d8c6ce4070bffb, type: 3}
-  m_Name: LingeringAoeStackingAoeSkill
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.LingeringAoeSkill
+  m_Name: MagicCircleSkill
+  m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:LingeringAoeSkill
   baseRate: 4
   definition:
-    baseAreaSize: 2.5
+    baseAreaSize: 3
     damage: 4
     echoCount: 1
     scatterRadius: 0
     armSeconds: 0.3
     directDamageEnabled: 1
-    prefab: {fileID: 1037899157007725660, guid: e4b99e89657a29846b967bfd8cb4e1ee, type: 3}
+    prefab: {fileID: 1037899157007725660, guid: f8387e53bc1080f45b089cbd77570694, type: 3}
     lifetimeSeconds: 2
     tickIntervalSeconds: 0.3
