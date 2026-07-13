@@ -51,7 +51,7 @@ MonoBehaviour:
   spawnEffect: {fileID: 8926484042661614526, guid: 5d59119edd3a9714eb51dc3af75dd222, type: 3}
   hitEffect: {fileID: 0}
   expireEffect: {fileID: 0}
-  armingEffect: {fileID: 8926484042661614526, guid: 7a9e0d70614a86a4282315052223d73a, type: 3}
+  armingEffect: {fileID: 0}
 --- !u!1 &1003000000000000100
 GameObject:
   m_ObjectHideFlags: 0
