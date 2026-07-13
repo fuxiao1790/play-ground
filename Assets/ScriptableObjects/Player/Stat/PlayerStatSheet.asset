@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Common.Stats.UnitStatSheet
   maxHealth: 10000000
   moveSpeed: 20
-  increasedRatePercent: 25
+  increasedRatePercent: 15
   damageMultiplier: 1
   critChance: 0.418
   critMultiplier: 2.5

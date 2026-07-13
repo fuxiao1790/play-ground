@@ -192,6 +192,61 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void AoeEchoScatterChangesByDeterministicTickIndex()
+        {
+            const int TypeA = 9113;
+            const int TypeB = 9114;
+            const int TypeC = 9115;
+            const int EchoCount = 4;
+            const int SourceId = 3300;
+            const uint JitterSeed = 1001u;
+            float2 center = new(-4f, -6f);
+
+            SpawnEchoAoe(
+                TypeA,
+                center,
+                EchoCount,
+                scatterRadius: 2.5f,
+                JitterSeed,
+                SourceId,
+                deterministicIdTickIndex: 7);
+            SpawnEchoAoe(
+                TypeB,
+                center,
+                EchoCount,
+                scatterRadius: 2.5f,
+                JitterSeed,
+                SourceId,
+                deterministicIdTickIndex: 7);
+            SpawnEchoAoe(
+                TypeC,
+                center,
+                EchoCount,
+                scatterRadius: 2.5f,
+                JitterSeed,
+                SourceId,
+                deterministicIdTickIndex: 8);
+            TickSimulationOnly(0.01f);
+
+            AoeSpawnSnapshot[] firstTick = ReadAoeSnapshotsByType(TypeA);
+            AoeSpawnSnapshot[] sameTick = ReadAoeSnapshotsByType(TypeB);
+            AoeSpawnSnapshot[] nextTick = ReadAoeSnapshotsByType(TypeC);
+
+            Assert.That(firstTick, Has.Length.EqualTo(EchoCount));
+            Assert.That(sameTick, Has.Length.EqualTo(EchoCount));
+            Assert.That(nextTick, Has.Length.EqualTo(EchoCount));
+
+            bool anyTickDifference = false;
+            for (int i = 0; i < EchoCount; i++)
+            {
+                AssertFloat2(sameTick[i].Position, firstTick[i].Position);
+                anyTickDifference |= math.lengthsq(nextTick[i].Position - firstTick[i].Position) > 0.000001f;
+            }
+
+            Assert.That(anyTickDifference, Is.True);
+        }
+
+        [Test]
         public void AoeEchoScatterBoundsMatchScatteredPosition()
         {
             const int TypeId = 9120;

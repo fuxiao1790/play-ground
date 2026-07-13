@@ -53,7 +53,7 @@ namespace PlayGround.System.Combat.Aoes
 
             bool lingering = expectedKind == IntervalChildKind.LingeringAoe;
             int echoCount = math.max(1, command.EchoCount);
-            var rng = new Random(command.JitterSeed != 0 ? command.JitterSeed : 1u);
+            var rng = new Random(ScatterSeedFor(in command));
             for (int i = 0; i < echoCount; i++)
             {
                 AoeSpawnCommand spawned = command;
@@ -152,6 +152,24 @@ namespace PlayGround.System.Combat.Aoes
                 hash = (hash * 397) ^ index;
                 hash &= int.MaxValue;
                 return hash == 0 ? 1 : hash;
+            }
+        }
+
+        private static uint ScatterSeedFor(in AoeSpawnCommand command)
+        {
+            if (command.DeterministicIdTickIndex <= 0)
+            {
+                return command.JitterSeed != 0 ? command.JitterSeed : 1u;
+            }
+
+            unchecked
+            {
+                uint hash = (uint)command.AoeId;
+                hash = (hash * 397u) ^ command.JitterSeed;
+                hash = (hash * 397u) ^ (uint)command.DeterministicIdTickIndex;
+                hash *= 0x9E3779B9u;
+                hash ^= hash >> 16;
+                return hash != 0 ? hash : 1u;
             }
         }
     }
