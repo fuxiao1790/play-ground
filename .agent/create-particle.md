@@ -1,6 +1,6 @@
-Generate a 64 * 64 RGBA PNG particle texture for a 2D pixel game.
+Generate a 64 * 64 RGBA PNG particle texture for a top-down 2D pixel game.
 
-Effect: arcane explosion
+Effect: arcane explosion VFX used from an overhead camera angle.
 
 Style: crisp low-resolution pixel-art, clean silhouette, limited palette, chunky game-friendly forms; no soft realistic detail.
 
