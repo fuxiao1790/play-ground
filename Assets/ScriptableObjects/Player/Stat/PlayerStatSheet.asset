@@ -18,4 +18,4 @@ MonoBehaviour:
   damageMultiplier: 1
   critChance: 0.418
   critMultiplier: 2.5
-  areaSizeMultiplier: 1.5
+  areaSizeMultiplier: 1

@@ -15,4 +15,4 @@ MonoBehaviour:
   intervalSeconds: 0.3
   intervalJitterPercent: 51.2
   projectileCount: 4
-  sideSpreadDegrees: 143
+  sideSpreadDegrees: 180
