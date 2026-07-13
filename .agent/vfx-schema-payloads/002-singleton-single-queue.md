@@ -1,33 +1,54 @@
-# 002 — Collapse dispatch singleton to one generic queue
+# 002 — Dispatch singleton: per-type queues + authored-type lookup
 
 ## Goal
-Hold a single `NativeQueue<VfxEvent>` in the dispatch singleton (no per-type queue),
-keeping the existing create/complete/drain/dispose lifecycle intact.
+Hold one `NativeQueue` per `VfxDataType` plus the registration-published
+`(typeId,trigger) → VfxDataType` lookup that producers switch on, keeping the existing
+create/complete/drain/dispose lifecycle.
 
 ## Files
 - `Assets/Scripts/System/Vfx/CombatVfxDispatchSystem.cs`
 
 ## Changes
-- `CombatVfxDispatchSingleton`:
+```csharp
+public struct CombatVfxDispatchSingleton : IComponentData
+{
+    public NativeQueue<VfxPointPayload> PointEvents;
+    public NativeQueue<VfxAreaPayload> AreaEvents;
+    public NativeQueue<VfxAreaTimedPayload> TimedEvents;
+
+    // Authored VfxDataType per effect, indexed by VfxKey.FlatIndex(typeId, trigger).
+    // Grown at registration (task 005); read-only in producers (task 004). Default slot = None.
+    public NativeList<VfxDataType> DataTypeByKey;
+
+    public JobHandle ProducerHandle;
+}
+```
+- `OnCreate` — create the three queues (`Allocator.Persistent`) and
+  `DataTypeByKey = new NativeList<VfxDataType>(Allocator.Persistent)` (empty; grows on registration).
+- `OnDestroy` — `ProducerHandle.Complete()`; dispose the three queues + `DataTypeByKey` if created.
+- `OnUpdate` — unchanged flow: `Complete()` + reset handle; early-out when all three queues are
+  empty; else `root.DrainAndDispatch(ref singleton)` (passes the whole singleton — task 003);
+  keep the `CombatStatsSingleton.VfxEventsCreated` accumulation from the returned accepted count.
+- Add a public helper for registration to publish types (task 005 calls it on the main thread):
   ```csharp
-  public struct CombatVfxDispatchSingleton : IComponentData
+  public void SetEffectDataType(int typeId, VfxTrigger trigger, VfxDataType type)
   {
-      public NativeQueue<VfxEvent> Events;   // was PendingSpawns (VfxPendingSpawn)
-      public JobHandle ProducerHandle;
+      int i = VfxKey.FlatIndex(typeId, trigger);
+      ref var s = ref SystemAPI.GetSingletonRW<CombatVfxDispatchSingleton>().ValueRW; // or cached
+      if (s.DataTypeByKey.Length <= i) s.DataTypeByKey.Resize(i + 1, NativeArrayOptions.ClearMemory); // fills None
+      s.DataTypeByKey[i] = type;
   }
   ```
-- `OnCreate` — create `Events = new NativeQueue<VfxEvent>(Allocator.Persistent)`.
-- `OnDestroy` — `ProducerHandle.Complete()`; dispose `Events` if created (unchanged shape).
-- `OnUpdate` — unchanged flow: `Complete()` + reset handle, early-out when `Events.Count == 0`,
-  else `root.DrainAndDispatch(ref singleton.Events)`; keep the `CombatStatsSingleton.VfxEventsCreated`
-  accumulation from the returned accepted count.
 
 ## Notes / constraints
-- One queue + one `ProducerHandle` preserves the current job-safety model exactly; no producer
-  chaining change (see task 004 + `reference_shared_queue_producer_chaining`).
+- One shared `ProducerHandle` still covers all three queues (a producer may enqueue into any of
+  them); conservative + correct, preserving today's job-safety model (task 004 threads it).
+- `DataTypeByKey` is written only at registration (main thread, no jobs in flight) and read-only
+  during simulation → no job-safety conflict.
 
 ## Acceptance
-- Compiles; singleton exposes `Events`; lifecycle (create/complete/drain/dispose) unchanged.
+- Compiles; singleton exposes three typed queues + `DataTypeByKey`; lifecycle unchanged.
+- `SetEffectDataType` grows the list (filling gaps with `None`) and sets the slot.
 
 ## Depends on
-- 001 (`VfxEvent`).
+- 001.
