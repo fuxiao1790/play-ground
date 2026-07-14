@@ -89,10 +89,10 @@ Preferred:
 - explicit registries
 - target proxy entities for combat collision
 - cached component references
-- layer masks for broad Unity filtering
 
 Reflection is only for editor tooling, tests, or diagnostics. Do not use
 reflection or string-built method lookup for gameplay decisions.
+Do not use `unsafe` code in gameplay or shared runtime systems.
 
 ## Update Timing
 
