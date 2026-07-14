@@ -32,7 +32,7 @@ namespace PlayGround.System.Combat.Aoes
             int contactGateSeedTargetId,
             NativeHashMap<Hash128, AoeSpawnCommand> templates,
             NativeList<AoeSpawnCommand> commands,
-            NativeQueue<VfxPendingSpawn>.ParallelWriter vfxPending,
+            NativeQueue<AoeVfxSpawnRequest>.ParallelWriter vfxPending,
             bool hasVfxWriter)
         {
             if (eventKind != expectedKind
@@ -98,20 +98,20 @@ namespace PlayGround.System.Combat.Aoes
                     // burst is deferred to arm completion in CombatArmingSystem.
                     if (spawned.ArmSeconds > 0f)
                     {
-                        vfxPending.Enqueue(new VfxPendingSpawn
+                        vfxPending.Enqueue(new AoeVfxSpawnRequest
                         {
                             TypeId = spawned.TypeId,
-                            Trigger = CombatVfxTrigger.Arming,
+                            Trigger = AoeVfxTrigger.Arming,
                             Position = pos,
                             AreaSize = spawned.AreaSize
                         });
                     }
                     else
                     {
-                        vfxPending.Enqueue(new VfxPendingSpawn
+                        vfxPending.Enqueue(new AoeVfxSpawnRequest
                         {
                             TypeId = command.TypeId,
-                            Trigger = CombatVfxTrigger.Spawn,
+                            Trigger = AoeVfxTrigger.Spawn,
                             Position = pos,
                             AreaSize = command.AreaSize
                         });
@@ -306,9 +306,9 @@ namespace PlayGround.System.Combat.Aoes
                 return;
             }
 
-            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatVfxDispatchSingleton>(
-                out RefRW<CombatVfxDispatchSingleton> vfx);
-            NativeQueue<VfxPendingSpawn> vfxQueue = hasVfx ? vfx.ValueRO.PendingSpawns : default;
+            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatAoeVfxDispatchSingleton>(
+                out RefRW<CombatAoeVfxDispatchSingleton> vfx);
+            NativeQueue<AoeVfxSpawnRequest> vfxQueue = hasVfx ? vfx.ValueRO.PendingAoeSpawns : default;
             hasVfx = hasVfx && vfxQueue.IsCreated;
 
             NativeList<AoeSpawnCommand> commands =
@@ -345,7 +345,7 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeArray<ImpactAoeSpawnEvent> Events;
             [ReadOnly] public NativeHashMap<Hash128, AoeSpawnCommand> Templates;
             public NativeList<AoeSpawnCommand> Commands;
-            public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
+            public NativeQueue<AoeVfxSpawnRequest>.ParallelWriter VfxPending;
             public bool HasVfxWriter;
 
             public void Execute()
@@ -484,9 +484,9 @@ namespace PlayGround.System.Combat.Aoes
                 return;
             }
 
-            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatVfxDispatchSingleton>(
-                out RefRW<CombatVfxDispatchSingleton> vfx);
-            NativeQueue<VfxPendingSpawn> vfxQueue = hasVfx ? vfx.ValueRO.PendingSpawns : default;
+            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatAoeVfxDispatchSingleton>(
+                out RefRW<CombatAoeVfxDispatchSingleton> vfx);
+            NativeQueue<AoeVfxSpawnRequest> vfxQueue = hasVfx ? vfx.ValueRO.PendingAoeSpawns : default;
             hasVfx = hasVfx && vfxQueue.IsCreated;
 
             NativeList<AoeSpawnCommand> commands =
@@ -523,7 +523,7 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeArray<LingeringAoeSpawnEvent> Events;
             [ReadOnly] public NativeHashMap<Hash128, AoeSpawnCommand> Templates;
             public NativeList<AoeSpawnCommand> Commands;
-            public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
+            public NativeQueue<AoeVfxSpawnRequest>.ParallelWriter VfxPending;
             public bool HasVfxWriter;
 
             public void Execute()

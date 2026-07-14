@@ -16,7 +16,7 @@ using Unity.Entities;
 namespace PlayGround.System.Combat.Stats
 {
     [UpdateInGroup(typeof(PresentationSystemGroup))]
-    [UpdateAfter(typeof(CombatVfxDispatchSystem))]
+    [UpdateAfter(typeof(CombatAoeVfxDispatchSystem))]
     public partial class CombatStatsGatherSystem : SystemBase
     {
         private Entity _statsEntity;

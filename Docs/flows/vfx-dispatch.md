@@ -1,4 +1,4 @@
-# VFX Dispatch
+# AOE VFX Dispatch
 
 ## Purpose
 
@@ -6,25 +6,26 @@ Trace visual-only requests from simulation to VFX Graph dispatch.
 
 ## Sequence
 
-1. Collision, lifetime, pulse, or spawn systems create `VfxPendingSpawn`.
+1. AOE collision, AOE lifetime, pulse, or AOE spawn systems create
+   `AoeVfxSpawnRequest`.
 2. Producer jobs enqueue requests into the shared
-   `NativeQueue<VfxPendingSpawn>` owned by `CombatVfxDispatchSystem`, using
+   `NativeQueue<AoeVfxSpawnRequest>` owned by `CombatAoeVfxDispatchSystem`, using
    `AsParallelWriter()`, and combine their job handles into `ProducerHandle`.
-3. `CombatVfxDispatchSystem` runs in presentation, completes `ProducerHandle`,
+3. `CombatAoeVfxDispatchSystem` runs in presentation, completes `ProducerHandle`,
    and resolves the single `CombatVfxRoot.Instance`.
 4. `CombatVfxRoot` drains the queue on the main thread.
-5. `CombatVfxDispatcher` stages requests by `(typeId, CombatVfxTrigger)`, caps count,
+5. `CombatAoeVfxDispatcher` stages requests by `(typeId, AoeVfxTrigger)`, caps count,
    uploads GPU buffers, and sends VFX Graph events.
 
 ## Producers
 
-`AOE spawn expansion systems`, `ProjectileCollisionSystem`,
-`ImpactAoeCollisionSystem`, `LingeringAoeCollisionSystem`,
-`CombatLifetimeSystem`, and `AoePulseVfxSystem`.
+`AOE spawn expansion systems`, `ImpactAoeCollisionSystem`,
+`LingeringAoeCollisionSystem`, `CombatLifetimeSystem`, and
+`AoePulseVfxSystem`.
 
 ## Consumers
 
-`CombatVfxDispatchSystem`, `CombatVfxRoot`, `CombatVfxDispatcher`, and
+`CombatAoeVfxDispatchSystem`, `CombatVfxRoot`, `CombatAoeVfxDispatcher`, and
 Visual Effect Graph assets.
 
 ## Contracts Used

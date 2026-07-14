@@ -159,7 +159,7 @@ Keep these as distinct typed paths:
 - `CombatHitEvent` carries raw hit data into ECS finalization.
 - `CombatTickResult` carries aggregate damage/status presentation data through
   `CombatApplyBridge`.
-- `VfxPendingSpawn` and `VfxSpawnRequestElement` carry visual-only requests into
+- `AoeVfxSpawnRequest` and `AoeVfxSpawnRequestElement` carry visual-only requests into
   VFX dispatch.
 
 Do not widen damage events with spawn-routing fields. Do not widen spawn events
@@ -204,7 +204,7 @@ For event queues and native containers:
 - Unity's singleton functions are designed for this to avoid sync points while chaining jobs
 
 Canonical combat-lane examples:
-- `CombatVfxDispatchSingleton`
+- `CombatAoeVfxDispatchSingleton`
 - `CombatHitDispatchSingleton`
 - `ProjectileSpawnEventSingleton`
 - `ImpactAoeSpawnEventSingleton`

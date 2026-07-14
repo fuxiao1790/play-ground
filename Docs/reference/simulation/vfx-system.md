@@ -12,10 +12,13 @@ The VFX system dispatches batched Visual Effect Graph events from ECS simulation
 data. Simulation jobs emit plain native VFX requests. A presentation system
 stages those requests into GPU buffers and fires VFX Graph events.
 
+The current runtime only supports AOE-shaped VFX requests: each request carries
+one position plus one area size, and every graph receives both buffers. The
+`AoeVfx*` type names make that limitation explicit. Projectile systems do not
+emit, request, or register AOE VFX.
+
 Primary uses:
 
-- projectile hit sparks and impact flashes
-- projectile expire/despawn trails
 - AOE hit pulses
 - lingering AOE interval pulses
 - AOE lifetime expire bursts
@@ -28,45 +31,44 @@ Non-goals:
 
 ## Trigger Values
 
-Runtime code uses `CombatVfxTrigger` instead of raw numeric trigger ids. The
+Runtime code uses `AoeVfxTrigger` instead of raw numeric trigger ids. The
 enum is byte-backed so existing graph registration keys keep the same values.
 
 | Enum | Value | Current emitters |
 |---|---|---|
-| `CombatVfxTrigger.Spawn` | 0 | `AOE spawn expansion systems` for expansion-spawned AOEs, `CombatArmingSystem` when an arming AOE goes live |
-| `CombatVfxTrigger.Hit` | 1 | `ProjectileCollisionSystem`, `ImpactAoeCollisionSystem`, `LingeringAoeCollisionSystem` |
-| `CombatVfxTrigger.Expire` | 2 | `CombatLifetimeSystem`, projectile collision deactivation |
-| `CombatVfxTrigger.Pulse` | 3 | `AoePulseVfxSystem` |
-| `CombatVfxTrigger.Arming` | 4 | projectile and AOE spawn expansion systems for arming telegraphs |
+| `AoeVfxTrigger.Spawn` | 0 | `AOE spawn expansion systems` for expansion-spawned AOEs, `CombatArmingSystem` when an arming AOE goes live |
+| `AoeVfxTrigger.Hit` | 1 | `ImpactAoeCollisionSystem`, `LingeringAoeCollisionSystem` |
+| `AoeVfxTrigger.Expire` | 2 | `CombatLifetimeSystem` for lingering AOEs |
+| `AoeVfxTrigger.Pulse` | 3 | `AoePulseVfxSystem` |
+| `AoeVfxTrigger.Arming` | 4 | AOE spawn expansion systems for arming telegraphs |
 
-Authoring can register `CombatVfxTrigger.Spawn` assets today. The current ECS
-runtime emits spawn VFX for expansion-spawned AOEs; projectile spawn VFX is
-still registered but not emitted by the projectile spawn apply path.
+Authoring can register `AoeVfxTrigger.Spawn` assets today. The ECS runtime emits
+spawn VFX for expansion-spawned AOEs.
 
 ## Data Flow
 
 ```text
 Simulation producer job
-  -> VfxPendingSpawn enqueued into the shared NativeQueue<VfxPendingSpawn>
-     owned by CombatVfxDispatchSystem via AsParallelWriter()
-  -> producer job handle combined into CombatVfxDispatchSystem.ProducerHandle
-  -> CombatVfxDispatchSystem in PresentationSystemGroup
+  -> AoeVfxSpawnRequest enqueued into the shared NativeQueue<AoeVfxSpawnRequest>
+     owned by CombatAoeVfxDispatchSystem via AsParallelWriter()
+  -> producer job handle combined into CombatAoeVfxDispatchSystem.ProducerHandle
+  -> CombatAoeVfxDispatchSystem in PresentationSystemGroup
   -> ProducerHandle.Complete()
   -> CombatVfxRoot.DrainAndDispatch(ref queue) on the main thread
-  -> CombatVfxDispatcher.StageSpawn
-  -> CombatVfxDispatcher.Dispatch
+  -> CombatAoeVfxDispatcher.StageAoeSpawn
+  -> CombatAoeVfxDispatcher.Dispatch
   -> GraphicsBuffer.SetData (Positions + AreaSizes)
   -> VisualEffect.SetGraphicsBuffer / SetInt / SendEvent
 ```
 
-`VfxPendingSpawn` carries:
+`AoeVfxSpawnRequest` carries:
 
 - `int TypeId`
-- `CombatVfxTrigger Trigger`
+- `AoeVfxTrigger Trigger`
 - `float2 Position`
 - `float AreaSize`
 
-`VfxPendingSpawn` is the single VFX request payload. Like batched sprite
+`AoeVfxSpawnRequest` is the single VFX request payload. Like batched sprite
 rendering, VFX dispatch is faction-agnostic; its presentation system owns the
 shared native queue that bridges simulation producers to main-thread dispatch.
 
@@ -74,22 +76,22 @@ shared native queue that bridges simulation producers to main-thread dispatch.
 
 `CombatVfxRoot`:
 
-- scene-object owner for one `CombatVfxDispatcher`
+- scene-object owner for one `CombatAoeVfxDispatcher`
 - static `Instance` set in `Awake` for ECS presentation lookup
-- `Register(typeId, CombatVfxTrigger trigger, asset, maxPerFrame, requireAreaSizeContract)`
+- `Register(typeId, AoeVfxTrigger trigger, asset, maxPerFrame, requireAreaSizeContract)`
 - `DrainAndDispatch(ref queue)` dequeues events, stages them, and dispatches
 
-`CombatVfxDispatchSystem`:
+`CombatAoeVfxDispatchSystem`:
 
 - `PresentationSystemGroup`
-- owns the persistent shared `NativeQueue<VfxPendingSpawn>`
+- owns the persistent shared `NativeQueue<AoeVfxSpawnRequest>`
 - exposes `AsParallelWriter()` and `ProducerHandle` for simulation producers
 - completes producers and drains the queue through `CombatVfxRoot.Instance`
   each frame
 
-`CombatVfxDispatcher`:
+`CombatAoeVfxDispatcher`:
 
-- owns one VFX instance per `(typeId, CombatVfxTrigger)` pair
+- owns one VFX instance per `(typeId, AoeVfxTrigger)` pair
 - owns `GraphicsBuffer` and staging `NativeList` data for both `Positions` and `AreaSizes`
 - caps staged events by `maxPerFrame`
 - always uploads both `Positions` and `AreaSizes` buffers on every dispatch
@@ -118,63 +120,46 @@ no per-event `Play()` fallback.
 
 `AOE spawn expansion systems` emits:
 
-- `CombatVfxTrigger.Spawn` for each expansion-spawned AOE
-
-`ProjectileCollisionSystem` emits:
-
-- `CombatVfxTrigger.Hit` on each confirmed projectile-target hit
-- `CombatVfxTrigger.Expire` when collision deactivates the projectile
+- `AoeVfxTrigger.Spawn` for each expansion-spawned AOE
 
 `CombatLifetimeSystem` emits:
 
-- `CombatVfxTrigger.Expire` when projectile lifetime expires
-- `CombatVfxTrigger.Expire` when lingering AOE lifetime expires
+- `AoeVfxTrigger.Expire` when lingering AOE lifetime expires
 
 `ImpactAoeCollisionSystem` and `LingeringAoeCollisionSystem` emit:
 
-- `CombatVfxTrigger.Hit` for confirmed AOE-target hits
+- `AoeVfxTrigger.Hit` for confirmed AOE-target hits
 
 `AoePulseVfxSystem` emits:
 
-- `CombatVfxTrigger.Pulse` when `AoePulseVfxComponent.RemainingInterval` reaches zero on an
+- `AoeVfxTrigger.Pulse` when `AoePulseVfxComponent.RemainingInterval` reaches zero on an
   active lingering AOE
 
-Projectile and AOE spawn expansion systems emit:
+AOE spawn expansion systems emit:
 
-- `CombatVfxTrigger.Arming` when `ArmSeconds > 0`
+- `AoeVfxTrigger.Arming` when `ArmSeconds > 0`
 
 ## Authoring
-
-Projectile VFX slots live on `BasicAttackPrefab`:
-
-```text
-spawnEffect   -> CombatVfxTrigger.Spawn, registered but not emitted by current projectile runtime
-hitEffect     -> CombatVfxTrigger.Hit
-expireEffect  -> CombatVfxTrigger.Expire
-armingEffect  -> CombatVfxTrigger.Arming
-```
 
 AOE VFX slots live on `BasicAoePrefab`, `LingeringAoePrefab`, and
 `AoeTypeDefinition`:
 
 ```text
-spawnEffect   -> CombatVfxTrigger.Spawn, emitted by AOE spawn expansion systems
-hitEffect     -> CombatVfxTrigger.Hit
-expireEffect  -> CombatVfxTrigger.Expire
-pulseEffect   -> CombatVfxTrigger.Pulse
-armingEffect  -> CombatVfxTrigger.Arming
+spawnEffect   -> AoeVfxTrigger.Spawn, emitted by AOE spawn expansion systems
+hitEffect     -> AoeVfxTrigger.Hit
+expireEffect  -> AoeVfxTrigger.Expire
+pulseEffect   -> AoeVfxTrigger.Pulse
+armingEffect  -> AoeVfxTrigger.Arming
 ```
 
-`SkillDriver` and `MobProjectileAttack` register VFX slots against the
-configured `CombatVfxRoot`. `CombatRoot` does not depend on `CombatVfxRoot`.
+`SkillDriver` registers AOE VFX slots against the configured `CombatVfxRoot`.
+`CombatRoot` does not depend on `CombatVfxRoot`.
 
 ## Area Size
 
 Every VFX request carries an `AreaSize` value. AOE requests populate it from
-resolved AOE geometry before the event reaches ECS �?that area value is copied
-into VFX requests from collision, pulse, and lifetime paths. Projectile requests
-populate it from render visual scale so graphs can size impact or expire effects
-consistently.
+resolved AOE geometry before the event reaches ECS; that area value is copied
+into VFX requests from collision, pulse, and lifetime paths.
 
 The `AreaSizes` buffer is always uploaded on every dispatch. Graphs that do not
 need to scale by area size can expose the buffer and ignore it.
@@ -193,7 +178,7 @@ bounds.
 
 - Dispatch cost should scale with registered effect type count plus staged event
   upload cost, not with one managed call per event.
-- `maxPerFrame` defaults to `2048` per `(typeId, CombatVfxTrigger)` pair.
+- `maxPerFrame` defaults to `2048` per `(typeId, AoeVfxTrigger)` pair.
 - Dropping low-priority events after the cap is acceptable for visual-only
   effects.
 - Keep gameplay decisions out of VFX graphs. VFX requests are visual-only.

@@ -25,11 +25,11 @@ namespace PlayGround.System.Combat.Lifetime
     {
         public void OnUpdate(ref SystemState state)
         {
-            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatVfxDispatchSingleton>(
-                out RefRW<CombatVfxDispatchSingleton> vfx);
-            NativeQueue<VfxPendingSpawn> vfxQueue = hasVfx ? vfx.ValueRO.PendingSpawns : default;
+            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatAoeVfxDispatchSingleton>(
+                out RefRW<CombatAoeVfxDispatchSingleton> vfx);
+            NativeQueue<AoeVfxSpawnRequest> vfxQueue = hasVfx ? vfx.ValueRO.PendingAoeSpawns : default;
             hasVfx = hasVfx && vfxQueue.IsCreated;
-            NativeQueue<VfxPendingSpawn>.ParallelWriter vfxWriter = hasVfx
+            NativeQueue<AoeVfxSpawnRequest>.ParallelWriter vfxWriter = hasVfx
                 ? vfxQueue.AsParallelWriter()
                 : default;
 
@@ -82,7 +82,7 @@ namespace PlayGround.System.Combat.Lifetime
         private partial struct AoeArmingJob : IJobEntity
         {
             public float DeltaTime;
-            public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
+            public NativeQueue<AoeVfxSpawnRequest>.ParallelWriter VfxPending;
             public bool HasVfxWriter;
 
             private void Execute(
@@ -106,10 +106,10 @@ namespace PlayGround.System.Combat.Lifetime
                 // shows its spawn burst once armed.
                 if (HasVfxWriter)
                 {
-                    VfxPending.Enqueue(new VfxPendingSpawn
+                    VfxPending.Enqueue(new AoeVfxSpawnRequest
                     {
                         TypeId = identity.TypeId,
-                        Trigger = CombatVfxTrigger.Spawn,
+                        Trigger = AoeVfxTrigger.Spawn,
                         Position = kinematics.Position,
                         AreaSize = area.Size
                     });

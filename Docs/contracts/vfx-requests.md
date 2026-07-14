@@ -1,9 +1,14 @@
-# VFX Requests
+# AOE VFX Requests
 
 ## Purpose
 
 Define visual-only event data passed from simulation producers to VFX Graph
 dispatch.
+
+The current payload is AOE-shaped: every request carries one world position and
+one area size, and the dispatcher uploads `Positions` and `AreaSizes` for every
+effect. Projectile systems do not emit these requests; the payload is reserved
+for AOE-shaped visuals.
 
 ## Produced By
 
@@ -17,19 +22,19 @@ dispatch.
 
 Request data:
 
-- `VfxPendingSpawn`
+- `AoeVfxSpawnRequest`
 - `int TypeId`
-- `CombatVfxTrigger Trigger`
+- `AoeVfxTrigger Trigger`
 - `float2 Position`
 - `float AreaSize`
 
 Trigger values:
 
-- `CombatVfxTrigger.Spawn` (`0`): spawn, emitted by `AOE spawn expansion systems` for expansion-spawned AOEs
-- `CombatVfxTrigger.Hit` (`1`): hit
-- `CombatVfxTrigger.Expire` (`2`): expire
-- `CombatVfxTrigger.Pulse` (`3`): pulse
-- `CombatVfxTrigger.Arming` (`4`): arming telegraph
+- `AoeVfxTrigger.Spawn` (`0`): AOE spawn or arming AOE activation
+- `AoeVfxTrigger.Hit` (`1`): confirmed AOE hit
+- `AoeVfxTrigger.Expire` (`2`): lingering AOE lifetime expire
+- `AoeVfxTrigger.Pulse` (`3`): lingering AOE pulse
+- `AoeVfxTrigger.Arming` (`4`): AOE arming telegraph
 
 ## Guarantees
 
@@ -43,14 +48,14 @@ call managed VFX objects directly.
 
 ## Lifetime
 
-Requests live in the persistent shared `NativeQueue<VfxPendingSpawn>` owned by
-`CombatVfxDispatchSystem` until presentation completes producers and drains the
+Requests live in the persistent shared `NativeQueue<AoeVfxSpawnRequest>` owned by
+`CombatAoeVfxDispatchSystem` until presentation completes producers and drains the
 queue on the main thread.
 
 ## Ordering
 
 Producer jobs enqueue during simulation. Presentation completes
-`CombatVfxDispatchSystem.ProducerHandle` before draining and dispatching.
+`CombatAoeVfxDispatchSystem.ProducerHandle` before draining and dispatching.
 
 ## Related Layers
 

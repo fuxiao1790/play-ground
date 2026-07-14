@@ -35,7 +35,6 @@ Primary uses:
 - timed child projectiles
 - impact projectile bursts
 - impact AOEs
-- projectile hit VFX
 - batched projectile rendering
 
 Non-goals:
@@ -76,7 +75,7 @@ Non-goals:
   cooldown expiry.
 - `Assets/Scripts/System/Combat/Projectiles/ProjectileCollisionSystem.cs`: spatial hash
   target broad phase, narrow-phase collision, pierce/contact state, damage
-  event emission, impact spawn event emission, VFX event emission, and source
+  event emission, impact spawn event emission, and source
   deactivation.
 - `Assets/Scripts/System/Combat/Lifetime/CombatLifetimeSystem.cs`: shared projectile and
   AOE lifetime expiry using `CombatLifetimeComponent` and `Active`.
@@ -99,7 +98,7 @@ Physics2D. They operate on:
 - target proxy entities
 - native event queues
 - common ECS components
-- render and VFX request buffers
+- render buffers
 
 The current scope model is important: there is one shared `CombatScope` entity,
 not one scope entity per faction. Faction is carried explicitly on:
@@ -109,7 +108,6 @@ not one scope entity per faction. Faction is carried explicitly on:
 - `ProjectileIdentityComponent`
 - `TargetFaction`
 - `DamageReplayEvent` source metadata through identity values
-- `VfxPendingSpawn`
 - per-entity render batch data
 
 Projectile systems must query `ProjectileTag` plus the generic components they
@@ -246,7 +244,7 @@ It may:
 - decrement pierce count
 - disable `Active` (via `CombatDeathUtility.Kill`) when the source projectile is
   consumed
-- emit plain data events for damage, impact projectiles, impact AOEs, and VFX
+- emit plain data events for damage, impact projectiles, and impact AOEs
 
 It may not:
 
@@ -260,7 +258,6 @@ Accepted hits can produce:
 - `DamageReplayEvent` into `DamageDispatchBridge.DamageQueue`
 - `ProjectileSpawnEvent` into projectile expansion for impact projectile bursts
 - `AOE variant spawn event` into AOE expansion for impact AOEs
-- `VfxPendingSpawn` into the shared VFX scope buffer through a flush job
 
 Damage is finalized by `DamageFinalizeSystem` before spawn expansion. Managed
 replay runs later in `DamageDispatchBridge` during `PresentationSystemGroup`.
@@ -269,12 +266,12 @@ replay runs later in `DamageDispatchBridge` during `PresentationSystemGroup`.
 
 Projectile lifetime uses the shared `CombatLifetimeSystem`. The projectile job
 ticks `CombatLifetimeComponent.Remaining`, then calls `CombatDeathUtility.Kill`
-to disable `Active` and emit expire VFX when time reaches zero.
+to disable `Active` when time reaches zero.
 
 Projectile collision can also deactivate a projectile immediately when a valid
 hit consumes the source.
 
-## Rendering And VFX
+## Rendering
 
 Projectile visuals draw through one shared, manually-assembled `SpriteAtlas`
 asset (each kind's `Sprite` added as a packable in the editor ahead of time
@@ -295,10 +292,8 @@ entity's own `CombatRenderComponent.UvRect` directly (no per-frame lookup),
 then submits `Graphics.RenderMeshInstanced` against the registry's shared
 mesh/material, chunked at the 1023-instance cap.
 
-Gameplay VFX requests are plain ECS/native data until presentation. Projectile
-collision and lifetime produce `VfxPendingSpawn`; flush jobs append
-`VfxSpawnRequestElement` to the shared scope buffer; `CombatVfxDispatchSystem`
-dispatches through `CombatVfxRoot`.
+Projectiles do not emit AOE VFX requests. Their presentation path is the
+batched sprite renderer described above.
 
 ## Current Frame Order
 
@@ -311,7 +306,7 @@ Important simulation ordering:
 4. `ProjectileTrackingSystem` updates homing data.
 5. `ProjectileMovementSystem` moves projectiles and refreshes bounds.
 6. `ProjectileContactGateSystem` expires projectile contact gates.
-7. `ProjectileCollisionSystem` emits damage, spawn, and VFX events.
+7. `ProjectileCollisionSystem` emits damage and spawn events.
 8. AOE collision systems run after projectile collision.
 9. `DamageFinalizeSystem` freezes the native damage queue.
 10. `ProjectileSpawnExpansionSystem` and `AOE spawn expansion systems` drain events

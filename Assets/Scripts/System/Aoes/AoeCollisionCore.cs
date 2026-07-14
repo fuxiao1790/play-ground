@@ -39,7 +39,7 @@ namespace PlayGround.System.Combat.Aoes
             NativeParallelMultiHashMap<long, int> occupiedTargetCells,
             NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
             bool hasHitWriter,
-            NativeQueue<VfxPendingSpawn>.ParallelWriter vfxPendingWriter,
+            NativeQueue<AoeVfxSpawnRequest>.ParallelWriter vfxPendingWriter,
             bool hasVfxWriter,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
             NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
@@ -146,7 +146,7 @@ namespace PlayGround.System.Combat.Aoes
             Entity targetEntity,
             TargetPosition targetPosition,
             int targetKey,
-            NativeQueue<VfxPendingSpawn>.ParallelWriter vfxPending,
+            NativeQueue<AoeVfxSpawnRequest>.ParallelWriter vfxPending,
             bool hasVfxWriter,
             ref bool hitVfxEmitted,
             NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
@@ -230,10 +230,10 @@ namespace PlayGround.System.Combat.Aoes
 
             if (!hitVfxEmitted && hasVfxWriter)
             {
-                vfxPending.Enqueue(new VfxPendingSpawn
+                vfxPending.Enqueue(new AoeVfxSpawnRequest
                 {
                     TypeId = identity.TypeId,
-                    Trigger = CombatVfxTrigger.Hit,
+                    Trigger = AoeVfxTrigger.Hit,
                     Position = kinematics.Position,
                     AreaSize = area.Size
                 });

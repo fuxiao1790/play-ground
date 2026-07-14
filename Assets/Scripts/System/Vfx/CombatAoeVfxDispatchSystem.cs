@@ -17,26 +17,26 @@ using Unity.Jobs;
 
 namespace PlayGround.System.Combat.Vfx
 {
-    // ECS Lifecycle: singleton VFX dispatch queue; created by CombatVfxDispatchSystem on
-    // create, drained every presentation update, disposed by CombatVfxDispatchSystem on destroy.
-    public struct CombatVfxDispatchSingleton : IComponentData
+    // ECS Lifecycle: singleton VFX dispatch queue; created by CombatAoeVfxDispatchSystem on
+    // create, drained every presentation update, disposed by CombatAoeVfxDispatchSystem on destroy.
+    public struct CombatAoeVfxDispatchSingleton : IComponentData
     {
-        public NativeQueue<VfxPendingSpawn> PendingSpawns;
+        public NativeQueue<AoeVfxSpawnRequest> PendingAoeSpawns;
         public JobHandle ProducerHandle;
     }
 
     [UpdateInGroup(typeof(PresentationSystemGroup))]
-    public partial class CombatVfxDispatchSystem : SystemBase
+    public partial class CombatAoeVfxDispatchSystem : SystemBase
     {
         internal int LastVfxEventCount;
         private Entity singletonEntity;
 
         protected override void OnCreate()
         {
-            singletonEntity = EntityManager.CreateEntity(typeof(CombatVfxDispatchSingleton));
-            EntityManager.SetComponentData(singletonEntity, new CombatVfxDispatchSingleton
+            singletonEntity = EntityManager.CreateEntity(typeof(CombatAoeVfxDispatchSingleton));
+            EntityManager.SetComponentData(singletonEntity, new CombatAoeVfxDispatchSingleton
             {
-                PendingSpawns = new NativeQueue<VfxPendingSpawn>(Allocator.Persistent)
+                PendingAoeSpawns = new NativeQueue<AoeVfxSpawnRequest>(Allocator.Persistent)
             });
         }
 
@@ -44,29 +44,29 @@ namespace PlayGround.System.Combat.Vfx
         {
             if (singletonEntity == Entity.Null
                 || !EntityManager.Exists(singletonEntity)
-                || !EntityManager.HasComponent<CombatVfxDispatchSingleton>(singletonEntity))
+                || !EntityManager.HasComponent<CombatAoeVfxDispatchSingleton>(singletonEntity))
             {
                 return;
             }
 
-            CombatVfxDispatchSingleton singleton =
-                EntityManager.GetComponentData<CombatVfxDispatchSingleton>(singletonEntity);
+            CombatAoeVfxDispatchSingleton singleton =
+                EntityManager.GetComponentData<CombatAoeVfxDispatchSingleton>(singletonEntity);
             singleton.ProducerHandle.Complete();
-            if (singleton.PendingSpawns.IsCreated)
+            if (singleton.PendingAoeSpawns.IsCreated)
             {
-                singleton.PendingSpawns.Dispose();
+                singleton.PendingAoeSpawns.Dispose();
             }
         }
 
         protected override void OnUpdate()
         {
-            RefRW<CombatVfxDispatchSingleton> vfx = SystemAPI.GetSingletonRW<CombatVfxDispatchSingleton>();
-            ref CombatVfxDispatchSingleton singleton = ref vfx.ValueRW;
+            RefRW<CombatAoeVfxDispatchSingleton> vfx = SystemAPI.GetSingletonRW<CombatAoeVfxDispatchSingleton>();
+            ref CombatAoeVfxDispatchSingleton singleton = ref vfx.ValueRW;
             singleton.ProducerHandle.Complete();
             singleton.ProducerHandle = default;
             LastVfxEventCount = 0;
 
-            if (singleton.PendingSpawns.Count == 0)
+            if (singleton.PendingAoeSpawns.Count == 0)
             {
                 return;
             }
@@ -74,11 +74,11 @@ namespace PlayGround.System.Combat.Vfx
             CombatVfxRoot root = CombatVfxRoot.Instance;
             if (root == null)
             {
-                singleton.PendingSpawns.Clear();
+                singleton.PendingAoeSpawns.Clear();
                 return;
             }
 
-            LastVfxEventCount = root.DrainAndDispatch(ref singleton.PendingSpawns);
+            LastVfxEventCount = root.DrainAndDispatch(ref singleton.PendingAoeSpawns);
 
             if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(out RefRW<CombatStatsSingleton> stats))
             {

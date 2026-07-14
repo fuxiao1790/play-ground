@@ -248,7 +248,6 @@ namespace PlayGround.Skills
                     projDef.RenderId = combatRoot.ProjectileRenderId(projDef.TypeId);
                 }
 
-                RegisterProjectileVfx(projDef);
             }
 
             if (def is RuntimeProjectileDefinition p)
@@ -625,27 +624,16 @@ namespace PlayGround.Skills
             RegisterAoeVfx(aoeDef, definition);
         }
 
-        private void RegisterProjectileVfx(RuntimeProjectileDefinition projDef)
-        {
-            if (vfxRoot == null || projDef?.Prefab == null || projDef.TypeId < 0)
-                return;
-
-            vfxRoot.Register(projDef.TypeId, CombatVfxTrigger.Spawn, projDef.Prefab.SpawnEffect);
-            vfxRoot.Register(projDef.TypeId, CombatVfxTrigger.Hit, projDef.Prefab.HitEffect);
-            vfxRoot.Register(projDef.TypeId, CombatVfxTrigger.Expire, projDef.Prefab.ExpireEffect);
-            vfxRoot.Register(projDef.TypeId, CombatVfxTrigger.Arming, projDef.Prefab.ArmingEffect);
-        }
-
         private void RegisterAoeVfx(RuntimeAoeDefinition aoeDef, AoeTypeDefinition definition)
         {
             if (vfxRoot == null || aoeDef == null || aoeDef.TypeId < 0)
                 return;
 
-            vfxRoot.Register(aoeDef.TypeId, CombatVfxTrigger.Spawn, definition.SpawnEffect, requireAreaSizeContract: true);
-            vfxRoot.Register(aoeDef.TypeId, CombatVfxTrigger.Hit, definition.HitEffect, requireAreaSizeContract: true);
-            vfxRoot.Register(aoeDef.TypeId, CombatVfxTrigger.Expire, definition.ExpireEffect, requireAreaSizeContract: true);
-            vfxRoot.Register(aoeDef.TypeId, CombatVfxTrigger.Pulse, definition.PulseEffect, requireAreaSizeContract: true);
-            vfxRoot.Register(aoeDef.TypeId, CombatVfxTrigger.Arming, definition.ArmingEffect, requireAreaSizeContract: true);
+            vfxRoot.Register(aoeDef.TypeId, AoeVfxTrigger.Spawn, definition.SpawnEffect, requireAreaSizeContract: true);
+            vfxRoot.Register(aoeDef.TypeId, AoeVfxTrigger.Hit, definition.HitEffect, requireAreaSizeContract: true);
+            vfxRoot.Register(aoeDef.TypeId, AoeVfxTrigger.Expire, definition.ExpireEffect, requireAreaSizeContract: true);
+            vfxRoot.Register(aoeDef.TypeId, AoeVfxTrigger.Pulse, definition.PulseEffect, requireAreaSizeContract: true);
+            vfxRoot.Register(aoeDef.TypeId, AoeVfxTrigger.Arming, definition.ArmingEffect, requireAreaSizeContract: true);
         }
 
         private static T FindRootByTag<T>(string tag) where T : Component

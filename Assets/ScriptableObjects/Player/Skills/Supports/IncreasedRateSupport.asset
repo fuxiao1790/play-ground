@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 31c042cd8b79ebd4ab1eaf71da885001, type: 3}
   m_Name: IncreasedRateSupport
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.IncreasedRateSupport
-  increasedRatePercent: 0.5
+  increasedRatePercent: 0.15

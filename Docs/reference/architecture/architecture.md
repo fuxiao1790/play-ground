@@ -90,7 +90,7 @@ stay narrow and explicit.
   renderables.
 - `CombatBatchedRenderSystem`: submits instanced sprite batches in
   `PresentationSystemGroup`.
-- `CombatVfxRoot` and `CombatVfxDispatchSystem`: own VFX resources and dispatch
+- `CombatVfxRoot` and `CombatAoeVfxDispatchSystem`: own VFX resources and dispatch
   buffered VFX requests.
 
 ## Projectile Ownership
@@ -107,7 +107,7 @@ stay narrow and explicit.
 - `ProjectileMovementSystem`: position integration and bounds refresh.
 - `ProjectileContactGateSystem`: repeat-hit gate expiry.
 - `ProjectileCollisionSystem`: target proxy broad phase, narrow-phase hit
-  checks, contact gates, pierce, source deactivation, and damage/spawn/VFX event
+  checks, contact gates, pierce, source deactivation, and damage/spawn event
   output.
 
 ## AOE Ownership
@@ -183,7 +183,7 @@ Collision systems emit plain data:
 - `DamageReplayEvent` into `DamageDispatchBridge.DamageQueue`
 - `ProjectileSpawnEvent` for impact projectiles or AOE projectile bursts
 - `AOE variant spawn event` for projectile impact AOEs
-- `VfxPendingSpawn` for hit and expire VFX
+- `AoeVfxSpawnRequest` for AOE-shaped VFX
 
 `DamageFinalizeSystem` runs after projectile and AOE collision and before spawn
 expansion. It completes producers, drains the native damage queue into a frozen

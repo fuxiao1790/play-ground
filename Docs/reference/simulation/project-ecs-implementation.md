@@ -142,7 +142,7 @@ Per-frame combat work is explicit in ECS systems and actor roots:
   `TargetCompanion` references and pushes one
   `ICombatTarget.ReceiveCombatTick` per target with the aggregate damage result
   and changed status snapshots.
-- `CombatVfxDispatchSystem` (`PresentationSystemGroup`) resolves each scope's
+- `CombatAoeVfxDispatchSystem` (`PresentationSystemGroup`) resolves each scope's
   `CombatVfxRoot` by static int key and drains/dispatches VFX requests.
 
 **Design**: ECS owns simulation state, event buffers, and render/VFX request

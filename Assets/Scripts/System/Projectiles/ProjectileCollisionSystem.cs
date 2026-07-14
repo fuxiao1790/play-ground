@@ -10,7 +10,6 @@ using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
-using PlayGround.System.Combat.Vfx;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -35,7 +34,6 @@ namespace PlayGround.System.Combat.Projectiles
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
                 ComponentType.ReadOnly<CombatKinematicsComponent>(),
                 ComponentType.ReadOnly<CombatCollisionComponent>(),
-                ComponentType.ReadOnly<CombatRenderAuthoring>(),
                 ComponentType.ReadWrite<CombatLifetimeComponent>(),
                 ComponentType.ReadWrite<ProjectileHitComponent>(),
                 ComponentType.ReadWrite<ProjectileContactGateElement>());
@@ -74,10 +72,6 @@ namespace PlayGround.System.Combat.Projectiles
             NativeQueue<CombatHitEvent> hitQueue = hasHit ? hitDispatch.ValueRO.HitQueue : default;
             hasHit = hasHit && hitQueue.IsCreated;
 
-            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatVfxDispatchSingleton>(
-                out RefRW<CombatVfxDispatchSingleton> vfx);
-            NativeQueue<VfxPendingSpawn> vfxQueue = hasVfx ? vfx.ValueRO.PendingSpawns : default;
-            hasVfx = hasVfx && vfxQueue.IsCreated;
             var job = new ProjectileCollisionJob
             {
                 TargetEntities = hash.TargetEntities.AsArray(),
@@ -91,10 +85,6 @@ namespace PlayGround.System.Combat.Projectiles
                     ? hitQueue.AsParallelWriter()
                     : default,
                 HasHitWriter = hasHit,
-                VfxPending = hasVfx
-                    ? vfxQueue.AsParallelWriter()
-                    : default,
-                HasVfxWriter = hasVfx,
                 ProjectileEventWriter = hasProjectileEvents
                     ? projectileEventQueue.AsParallelWriter()
                     : default,
@@ -126,10 +116,6 @@ namespace PlayGround.System.Combat.Projectiles
             if (hasHit)
                 hitDispatch.ValueRW.ProducerHandle =
                     JobHandle.CombineDependencies(hitDispatch.ValueRW.ProducerHandle, collisionHandle);
-            if (hasVfx)
-                vfx.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(vfx.ValueRW.ProducerHandle, collisionHandle);
-
             RefRW<TargetSpatialHashSingleton> hashRw = SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
             hashRw.ValueRW.ConsumerHandle = JobHandle.CombineDependencies(
                 hashRw.ValueRW.ConsumerHandle,
@@ -155,8 +141,6 @@ namespace PlayGround.System.Combat.Projectiles
             [ReadOnly] public NativeReference<float> MaxTargetRadius;
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
             public bool HasHitWriter;
-            public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
-            public bool HasVfxWriter;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public bool HasProjectileEventWriter;
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
@@ -169,30 +153,28 @@ namespace PlayGround.System.Combat.Projectiles
                 in ProjectileIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
                 in CombatCollisionComponent collision,
-                in CombatRenderAuthoring authoring,
                 ref CombatLifetimeComponent lifetime,
                 ref ProjectileHitComponent projectileHit,
                 EnabledRefRW<Active> active,
                 EnabledRefRW<ArmingTag> arming,
                 DynamicBuffer<ProjectileContactGateElement> contactGates)
             {
-                float areaSize = math.max(authoring.VisualScale.x, authoring.VisualScale.y);
                 if (identity.Faction == CombatFaction.None)
                 {
-                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, arming, VfxPending, HasVfxWriter);
+                    Deactivate(ref lifetime, active, arming);
                     return;
                 }
 
                 if (lifetime.Remaining <= 0f)
                 {
-                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, arming, VfxPending, HasVfxWriter);
+                    Deactivate(ref lifetime, active, arming);
                     return;
                 }
 
                 // Pierce is the projectile's hit cap. It may still hit at 0; below zero is exhausted.
                 if (projectileHit.PierceRemaining < 0)
                 {
-                    Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, arming, VfxPending, HasVfxWriter);
+                    Deactivate(ref lifetime, active, arming);
                     return;
                 }
 
@@ -350,24 +332,13 @@ namespace PlayGround.System.Combat.Projectiles
                                 }
                             }
 
-                            if (HasVfxWriter)
-                            {
-                                VfxPending.Enqueue(new VfxPendingSpawn
-                                {
-                                    TypeId = identity.TypeId,
-                                    Trigger = CombatVfxTrigger.Hit,
-                                    Position = kinematics.Position,
-                                    AreaSize = areaSize
-                                });
-                            }
-
                             AddOrRefreshGate(contactGates, targetKey,
                                 projectileHit.RepeatHitCooldownSeconds);
 
                             projectileHit.PierceRemaining--;
                             if (projectileHit.PierceRemaining < 0)
                             {
-                                Deactivate(identity, kinematics.Position, areaSize, ref lifetime, active, arming, VfxPending, HasVfxWriter);
+                                Deactivate(ref lifetime, active, arming);
                                 return;
                             }
                         }
@@ -376,25 +347,13 @@ namespace PlayGround.System.Combat.Projectiles
                 }
             }
 
-            private void Deactivate(
-                ProjectileIdentityComponent identity,
-                float2 position,
-                float areaSize,
+            private static void Deactivate(
                 ref CombatLifetimeComponent lifetime,
                 EnabledRefRW<Active> active,
-                EnabledRefRW<ArmingTag> arming,
-                NativeQueue<VfxPendingSpawn>.ParallelWriter vfxPending,
-                bool hasVfxWriter)
+                EnabledRefRW<ArmingTag> arming)
             {
                 lifetime.Remaining = 0f;
-                CombatDeathUtility.Kill(
-                    active,
-                    arming,
-                    vfxPending,
-                    hasVfxWriter,
-                    identity.TypeId,
-                    position,
-                    areaSize);
+                CombatDeathUtility.Kill(active, arming);
             }
 
             private static bool IsGated(DynamicBuffer<ProjectileContactGateElement> contactGates, int targetId)

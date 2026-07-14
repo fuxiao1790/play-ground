@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000002, type: 3}
   m_Name: StarParentSkill
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileSkill
-  baseRate: 6.666667
+  baseRate: 1
   definition:
     prefab: {fileID: 1001001001001001004, guid: 0f2c2291f5925184e8a58537ed17abe6, type: 3}
     speed: 10

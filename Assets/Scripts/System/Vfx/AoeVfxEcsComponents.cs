@@ -15,7 +15,7 @@ using Unity.Mathematics;
 
 namespace PlayGround.System.Combat.Vfx
 {
-    public enum CombatVfxTrigger : byte
+    public enum AoeVfxTrigger : byte
     {
         Spawn = 0,
         Hit = 1,
@@ -25,12 +25,12 @@ namespace PlayGround.System.Combat.Vfx
     }
 
     // ECS Lifecycle: transient native payload; not added to entities; queued by
-    // simulation jobs into the shared NativeQueue<VfxPendingSpawn> owned by
-    // CombatVfxDispatchSystem, drained in presentation.
-    public struct VfxPendingSpawn
+    // simulation jobs into the shared NativeQueue<AoeVfxSpawnRequest> owned by
+    // CombatAoeVfxDispatchSystem, drained in presentation.
+    public struct AoeVfxSpawnRequest
     {
         public int TypeId;
-        public CombatVfxTrigger Trigger;
+        public AoeVfxTrigger Trigger;
         public float2 Position;
         public float AreaSize;
     }

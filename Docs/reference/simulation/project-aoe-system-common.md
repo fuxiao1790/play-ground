@@ -52,7 +52,7 @@ consequence events, and frame timing. Domain-specific details still live in
   faction/type shared components, and render matrix prep.
 - `Assets/Scripts/System/Combat/Rendering/CombatBatchedRenderSystem.cs`: shared batched
   render submission.
-- `Assets/Scripts/System/Combat/Vfx/CombatVfxDispatchSystem.cs`: shared VFX request
+- `Assets/Scripts/System/Combat/Vfx/CombatAoeVfxDispatchSystem.cs`: shared VFX request
   dispatch from scope buffers.
 - `Assets/Scripts/System/Combat/Projectiles/ProjectileSpawnPipeline.cs`: projectile
   event/command data and impact/burst event builders.
@@ -81,7 +81,7 @@ entity. The first scope acquire creates:
 - `CombatScope`
 - `DynamicBuffer<ProjectileSpawnEvent>`
 - `DynamicBuffer<ImpactAoeSpawnEvent>` and `DynamicBuffer<LingeringAoeSpawnEvent>`
-- `DynamicBuffer<VfxSpawnRequestElement>`
+- `DynamicBuffer<AoeVfxSpawnRequestElement>`
 - `ProjectileSpawnTemplate`
 - `AoeSpawnTemplate`
 
@@ -200,7 +200,7 @@ projectile command container.
   `DynamicBuffer<LingeringAoeSpawnEvent>`
 
 It computes bounds, resolves deterministic ids, emits spawn VFX requests with
-`CombatVfxTrigger.Spawn`, and writes `AoeSpawnCommand` values into impact or lingering
+`AoeVfxTrigger.Spawn`, and writes `AoeSpawnCommand` values into impact or lingering
 command containers.
 
 Apply systems should not interpret volley, scatter, jitter, or pattern math.
@@ -239,10 +239,10 @@ Shared occupancy:
 
 Domain enableable state:
 
-- `CombatCollisionActiveTag` â€” one generic collision gate shared by projectiles
+- `CombatCollisionActiveTag` â€?one generic collision gate shared by projectiles
   and both AOE archetypes; collision queries still discriminate domain via
   `ProjectileTag` / `AoeTag`.
-- `ArmingTag` â€” pause overlay while `CombatArmingComponent.Remaining` counts down
+- `ArmingTag` â€?pause overlay while `CombatArmingComponent.Remaining` counts down
   (see Arming below).
 - `ProjectileTrackingComponent`
 
@@ -274,24 +274,24 @@ normal armed gate values as usual, then additionally enables `ArmingTag` and set
   stays enabled) but frozen: movement, both lifetime jobs, all three collision
   jobs, timed-spawn, tracking, and the AOE pulse-VFX tick exclude it via
   `WithDisabled<ArmingTag>`, and render prepare degenerates it to an invisible
-  instance. Only the telegraph VFX (`CombatVfxTrigger.Arming`) plays.
+  instance. Only the telegraph VFX (`AoeVfxTrigger.Arming`) plays.
 - `CombatArmingSystem` (runs before `CombatLifetimeSystem`, split into a
   projectile job and an AOE job like `CombatLifetimeSystem`) counts `Remaining`
   down and disables `ArmingTag` at zero. The entity then resumes with its
-  already-correct gate values â€” no gate rewrite.
+  already-correct gate values â€?no gate rewrite.
 
 ### Arming VFX
 
-- **Telegraph (`CombatVfxTrigger.Arming`):** emitted once at spawn (both expansion systems) when
+- **Telegraph (`AoeVfxTrigger.Arming`):** emitted once at spawn (both expansion systems) when
   `ArmSeconds > 0`. It is a dedicated per-type `ArmingEffect` `VisualEffectAsset`,
-  authored on the prefab and registered under `(typeId, CombatVfxTrigger.Arming)` alongside
+  authored on the prefab and registered under `(typeId, AoeVfxTrigger.Arming)` alongside
   spawn/hit/expire/pulse in `SkillDriver`.
-- **Spawn burst (`CombatVfxTrigger.Spawn`):** for an arming AOE the spawn burst is deferred to
-  arm completion â€” the AOE arming job emits it when it clears `ArmingTag`, so the
+- **Spawn burst (`AoeVfxTrigger.Spawn`):** for an arming AOE the spawn burst is deferred to
+  arm completion â€?the AOE arming job emits it when it clears `ArmingTag`, so the
   burst reads as "the AOE going live," not "the slot being materialized." A
-  non-arming AOE still emits `CombatVfxTrigger.Spawn` at spawn. (Projectiles have
-  no `CombatVfxTrigger.Spawn` emission.)
-- **Pulse (`CombatVfxTrigger.Pulse`):** the lingering pulse only ticks while armed; its interval
+  non-arming AOE still emits `AoeVfxTrigger.Spawn` at spawn. (Projectiles have
+  no `AoeVfxTrigger.Spawn` emission.)
+- **Pulse (`AoeVfxTrigger.Pulse`):** the lingering pulse only ticks while armed; its interval
   does not advance during arming.
 - `ArmSeconds` is a plain `float` on `ProjectileSpawnCommand` / `AoeSpawnCommand`,
   authored on the skill definitions and threaded through the runtime definitions.
@@ -301,7 +301,7 @@ normal armed gate values as usual, then additionally enables `ArmingTag` and set
 
 > Any `IJobEntity` that reads the arming bit via `EnabledRefRW<ArmingTag>` and is
 > scheduled with an **explicit** `EntityQuery` must include `ArmingTag`
-> (`WithDisabled<ArmingTag>()`) in that query, or scheduling throws â€” the
+> (`WithDisabled<ArmingTag>()`) in that query, or scheduling throws â€?the
 > `[WithDisabled]` attribute is ignored for explicitly-scheduled jobs.
 
 ## Consequence Events
@@ -316,7 +316,7 @@ Current consequence paths include:
   and stack detonation projectiles
 - `AOE variant spawn event` values for impact AOEs, on-hit AOEs, timed AOEs, and stack
   detonation AOEs
-- `VfxPendingSpawn` values that flush into `VfxSpawnRequestElement` buffers
+- `AoeVfxSpawnRequest` values that flush into `AoeVfxSpawnRequestElement` buffers
 
 Follow-up spawns stay in ECS event flow and return to expansion/apply.
 
@@ -346,7 +346,7 @@ mesh/material in as few `Graphics.RenderMeshInstanced` calls as the
 
 VFX requests are data until presentation. Collision, lifetime, pulse, and spawn
 systems write VFX request data into native queues/streams or scope buffers.
-`CombatVfxDispatchSystem` drains `VfxSpawnRequestElement` buffers and dispatches
+`CombatAoeVfxDispatchSystem` drains `AoeVfxSpawnRequestElement` buffers and dispatches
 through `CombatVfxRoot`.
 
 ## Teardown Exceptions

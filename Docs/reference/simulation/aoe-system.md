@@ -247,7 +247,7 @@ Accepted hits can produce:
 
 - `DamageReplayEvent` into `DamageDispatchBridge.DamageQueue`
 - `ProjectileSpawnEvent` into projectile expansion for AOE projectile bursts
-- `VfxPendingSpawn` into the shared VFX scope buffer through a flush job
+- `AoeVfxSpawnRequest` into the shared VFX scope buffer through a flush job
 
 Damage is finalized by `DamageFinalizeSystem` before spawn expansion. Managed
 replay runs later in `DamageDispatchBridge` during `PresentationSystemGroup`.
@@ -291,9 +291,9 @@ AOE gameplay does not depend on live visual GameObjects.
 
 VFX requests flow as data:
 
-- collision and lifetime produce `VfxPendingSpawn`
-- flush jobs append `VfxSpawnRequestElement` to the shared scope
-- `CombatVfxDispatchSystem` drains the scope buffer and dispatches through
+- collision and lifetime produce `AoeVfxSpawnRequest`
+- flush jobs append `AoeVfxSpawnRequestElement` to the shared scope
+- `CombatAoeVfxDispatchSystem` drains the scope buffer and dispatches through
   `CombatVfxRoot`
 
 ## Current Frame Order

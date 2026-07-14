@@ -56,7 +56,7 @@ jobs read live Unity objects.
 Key contract:
 [Target Proxy](../contracts/target-proxy.md).
 
-## VFX Dispatch
+## AOE VFX Dispatch
 
 [VFX Dispatch](../flows/vfx-dispatch.md) carries visual-only VFX requests from
 simulation jobs through scope buffers to presentation-time VFX Graph dispatch.

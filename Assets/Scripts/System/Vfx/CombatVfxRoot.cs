@@ -21,11 +21,11 @@ namespace PlayGround.System.Combat.Vfx
     {
         public static CombatVfxRoot Instance { get; private set; }
 
-        private CombatVfxDispatcher dispatcher;
+        private CombatAoeVfxDispatcher dispatcher;
 
         private void Awake()
         {
-            dispatcher = new CombatVfxDispatcher(transform);
+            dispatcher = new CombatAoeVfxDispatcher(transform);
             Instance = this;
         }
 
@@ -40,7 +40,7 @@ namespace PlayGround.System.Combat.Vfx
             dispatcher = null;
         }
 
-        public void Register(int typeId, CombatVfxTrigger trigger, VisualEffectAsset asset, int maxPerFrame = 2048, bool requireAreaSizeContract = false)
+        public void Register(int typeId, AoeVfxTrigger trigger, VisualEffectAsset asset, int maxPerFrame = 2048, bool requireAreaSizeContract = false)
         {
             dispatcher?.Register(typeId, trigger, asset, maxPerFrame, requireAreaSizeContract);
         }
@@ -48,10 +48,10 @@ namespace PlayGround.System.Combat.Vfx
         public void ResetDispatcher()
         {
             dispatcher?.Dispose();
-            dispatcher = new CombatVfxDispatcher(transform);
+            dispatcher = new CombatAoeVfxDispatcher(transform);
         }
 
-        internal int DrainAndDispatch(ref NativeQueue<VfxPendingSpawn> queue)
+        internal int DrainAndDispatch(ref NativeQueue<AoeVfxSpawnRequest> queue)
         {
             if (dispatcher == null)
             {
@@ -59,9 +59,9 @@ namespace PlayGround.System.Combat.Vfx
             }
 
             int acceptedSpawnCount = 0;
-            while (queue.TryDequeue(out VfxPendingSpawn p))
+            while (queue.TryDequeue(out AoeVfxSpawnRequest p))
             {
-                if (dispatcher.StageSpawn(p.TypeId, p.Trigger, p.Position, p.AreaSize))
+                if (dispatcher.StageAoeSpawn(p.TypeId, p.Trigger, p.Position, p.AreaSize))
                 {
                     acceptedSpawnCount++;
                 }

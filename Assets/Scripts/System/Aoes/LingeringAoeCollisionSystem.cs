@@ -71,9 +71,9 @@ namespace PlayGround.System.Combat.Aoes
             NativeQueue<CombatHitEvent> hitQueue = hasHit ? hitDispatch.ValueRO.HitQueue : default;
             hasHit = hasHit && hitQueue.IsCreated;
 
-            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatVfxDispatchSingleton>(
-                out RefRW<CombatVfxDispatchSingleton> vfx);
-            NativeQueue<VfxPendingSpawn> vfxQueue = hasVfx ? vfx.ValueRO.PendingSpawns : default;
+            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatAoeVfxDispatchSingleton>(
+                out RefRW<CombatAoeVfxDispatchSingleton> vfx);
+            NativeQueue<AoeVfxSpawnRequest> vfxQueue = hasVfx ? vfx.ValueRO.PendingAoeSpawns : default;
             hasVfx = hasVfx && vfxQueue.IsCreated;
 
             var job = new LingeringAoeCollisionJob
@@ -141,7 +141,7 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeParallelMultiHashMap<long, int> OccupiedTargetCells;
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
             public bool HasHitWriter;
-            public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
+            public NativeQueue<AoeVfxSpawnRequest>.ParallelWriter VfxPending;
             public bool HasVfxWriter;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;

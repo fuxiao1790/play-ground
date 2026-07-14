@@ -198,7 +198,7 @@ Docs/
 - `Assets/Scripts/System/Combat/Projectiles/ProjectileContactGateSystem.cs`: repeat-hit
   contact gate expiry.
 - `Assets/Scripts/System/Combat/Projectiles/ProjectileCollisionSystem.cs`: spatial hash
-  collision, hit/spawn/VFX event emission, pierce, gates, and deactivation.
+  collision, hit/spawn event emission, pierce, gates, and deactivation.
 
 ## Current AOE Runtime Map
 
@@ -223,14 +223,14 @@ Docs/
 
 ## Current VFX Runtime Map
 
-- `Assets/Scripts/System/Combat/Vfx/VfxEcsComponents.cs`: VFX request data and ECS
+- `Assets/Scripts/System/Combat/Vfx/AoeVfxEcsComponents.cs`: VFX request data and ECS
   catalog key.
 - `Assets/Scripts/System/Combat/Vfx/VfxFlushJob.cs`: Burst job flushing native VFX
   events into scope buffers.
-- `Assets/Scripts/System/Combat/Vfx/CombatVfxDispatcher.cs`: GPU resource and dispatch
+- `Assets/Scripts/System/Combat/Vfx/CombatAoeVfxDispatcher.cs`: GPU resource and dispatch
   owner.
 - `Assets/Scripts/System/Combat/Vfx/CombatVfxRoot.cs`: scene-object VFX root and static
   registry.
-- `Assets/Scripts/System/Combat/Vfx/CombatVfxDispatchSystem.cs`: presentation system
-  that drains `VfxSpawnRequestElement` buffers and dispatches through the
+- `Assets/Scripts/System/Combat/Vfx/CombatAoeVfxDispatchSystem.cs`: presentation system
+  that drains `AoeVfxSpawnRequestElement` buffers and dispatches through the
   matching `CombatVfxRoot`.

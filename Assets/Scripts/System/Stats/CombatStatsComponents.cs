@@ -35,8 +35,8 @@ namespace PlayGround.System.Combat.Stats
     //   entity queries per domain tag.
     // - HitEventsCreated: added by CombatApplyFinalizeSingleSystem from HitQueue.Count before the
     //   queue is flattened or cleared.
-    // - VfxEventsCreated: added by CombatVfxDispatchSystem after the VFX root drains PendingSpawns.
-    //   Counts only requests accepted by CombatVfxDispatcher.StageSpawn (a VFX resource registered
+    // - VfxEventsCreated: added by CombatAoeVfxDispatchSystem after the VFX root drains PendingAoeSpawns.
+    //   Counts only requests accepted by CombatAoeVfxDispatcher.StageAoeSpawn (a VFX resource registered
     //   for (typeId, trigger), still under its max-per-frame cap); blindly queued requests with no
     //   registered visual do not contribute.
     // - EntitiesDeleted: added by CombatPoolCleanupSystem from the pool entities its trimmer

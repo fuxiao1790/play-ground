@@ -11,7 +11,7 @@ submission, debug text, and visual budgets.
 - `CombatApplyBridge`/presentation bridge behavior that resolves
   `TargetCompanion`.
 - `ICombatTarget.ReceiveCombatTick` calls from compact combat results.
-- `CombatVfxRoot`, `CombatVfxDispatcher`, VFX Graph buffers, and VFX dispatch
+- `CombatVfxRoot`, `CombatAoeVfxDispatcher`, VFX Graph buffers, and VFX dispatch
   caps.
 - `CombatBatchedRenderSystem` submission through render resources owned by
   combat roots.
@@ -28,7 +28,7 @@ submission, debug text, and visual budgets.
 ## Inputs
 
 - `CombatTickResult` presentation data.
-- `VfxSpawnRequestElement` buffer on the VFX singleton entity.
+- `AoeVfxSpawnRequestElement` buffer on the VFX singleton entity.
 - Prepared render matrices and per-entity render batch ids.
 - Actor target companion references during presentation only.
 
@@ -58,9 +58,9 @@ submission, debug text, and visual budgets.
 
 - `Assets/Scripts/System/Presentation/CombatApplyBridge.cs`
 - `Assets/Scripts/System/Combat/Rendering/CombatBatchedRenderSystem.cs`
-- `Assets/Scripts/System/Combat/Vfx/CombatVfxDispatchSystem.cs`
+- `Assets/Scripts/System/Combat/Vfx/CombatAoeVfxDispatchSystem.cs`
 - `Assets/Scripts/System/Combat/Vfx/CombatVfxRoot.cs`
-- `Assets/Scripts/System/Combat/Vfx/CombatVfxDispatcher.cs`
+- `Assets/Scripts/System/Combat/Vfx/CombatAoeVfxDispatcher.cs`
 - `Assets/Scripts/Debugging/DebugOverlay.cs`
 
 ## Related Contracts

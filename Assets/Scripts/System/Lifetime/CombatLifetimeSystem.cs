@@ -33,19 +33,17 @@ namespace PlayGround.System.Combat.Lifetime
         public void OnUpdate(ref SystemState state)
         {
             float deltaTime = SystemAPI.Time.DeltaTime;
-            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatVfxDispatchSingleton>(
-                out RefRW<CombatVfxDispatchSingleton> vfx);
-            NativeQueue<VfxPendingSpawn> vfxQueue = hasVfx ? vfx.ValueRO.PendingSpawns : default;
+            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatAoeVfxDispatchSingleton>(
+                out RefRW<CombatAoeVfxDispatchSingleton> vfx);
+            NativeQueue<AoeVfxSpawnRequest> vfxQueue = hasVfx ? vfx.ValueRO.PendingAoeSpawns : default;
             hasVfx = hasVfx && vfxQueue.IsCreated;
-            NativeQueue<VfxPendingSpawn>.ParallelWriter vfxWriter = hasVfx
+            NativeQueue<AoeVfxSpawnRequest>.ParallelWriter vfxWriter = hasVfx
                 ? vfxQueue.AsParallelWriter()
                 : default;
 
             var projectileJob = new ProjectileLifetimeJob
             {
-                DeltaTime = deltaTime,
-                VfxPending = vfxWriter,
-                HasVfxWriter = hasVfx
+                DeltaTime = deltaTime
             };
             var aoeJob = new AoeLifetimeJob
             {
@@ -54,7 +52,6 @@ namespace PlayGround.System.Combat.Lifetime
                 HasVfxWriter = hasVfx
             };
 
-            // AOE job chains after projectile job because both write to the same VFX queue writer.
             JobHandle projectileHandle = projectileJob.ScheduleParallel(state.Dependency);
             JobHandle aoeHandle = aoeJob.ScheduleParallel(projectileHandle);
 
@@ -73,13 +70,8 @@ namespace PlayGround.System.Combat.Lifetime
         private partial struct ProjectileLifetimeJob : IJobEntity
         {
             public float DeltaTime;
-            public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
-            public bool HasVfxWriter;
 
             private void Execute(
-                in ProjectileIdentityComponent identity,
-                in CombatKinematicsComponent kinematics,
-                in CombatRenderAuthoring authoring,
                 ref CombatLifetimeComponent lifetime,
                 EnabledRefRW<Active> active,
                 EnabledRefRW<ArmingTag> arming)
@@ -88,14 +80,7 @@ namespace PlayGround.System.Combat.Lifetime
                 if (lifetime.Remaining <= 0f)
                 {
                     lifetime.Remaining = 0f;
-                    CombatDeathUtility.Kill(
-                        active,
-                        arming,
-                        VfxPending,
-                        HasVfxWriter,
-                        identity.TypeId,
-                        kinematics.Position,
-                        math.max(authoring.VisualScale.x, authoring.VisualScale.y));
+                    CombatDeathUtility.Kill(active, arming);
                 }
             }
         }
@@ -106,7 +91,7 @@ namespace PlayGround.System.Combat.Lifetime
         private partial struct AoeLifetimeJob : IJobEntity
         {
             public float DeltaTime;
-            public NativeQueue<VfxPendingSpawn>.ParallelWriter VfxPending;
+            public NativeQueue<AoeVfxSpawnRequest>.ParallelWriter VfxPending;
             public bool HasVfxWriter;
 
             private void Execute(

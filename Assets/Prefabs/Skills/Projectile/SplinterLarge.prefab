@@ -139,9 +139,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.BasicAttackPrefab
   spriteRenderer: {fileID: 6416970736168755285}
   hurtbox: {fileID: 7071106864287183157}
-  spawnEffect: {fileID: 0}
-  hitEffect: {fileID: 0}
-  expireEffect: {fileID: 0}
 --- !u!1 &7079102651487229076
 GameObject:
   m_ObjectHideFlags: 0
