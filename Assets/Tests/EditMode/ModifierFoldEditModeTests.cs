@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
+using PlayGround.Common.Stats;
 using PlayGround.Skills;
 using PlayGround.Skills.Modifiers;
 using PlayGround.Skills.Runtime;
@@ -166,6 +167,29 @@ namespace PlayGround.Tests.EditMode
                 snapshot);
 
             Assert.That(runtime.RecoveryTime, Is.EqualTo(0.2f).Within(0.0001f));
+        }
+
+        [Test]
+        public void UnitStatSheetRateIncreaseUsesAuthoredPercentPoints()
+        {
+            UnitStatSheet sheet = CreateAsset<UnitStatSheet>("Player Stats");
+            SetField(sheet, "increasedRatePercent", 15f);
+            SkillStatSnapshot snapshot = SkillStatAggregator.Aggregate(null, sheet);
+
+            ProjectileSkill skill = CreateProjectileSkill("Projectile Skill");
+            SetField(skill, "baseRate", 1f);
+            IncreasedRateSupport support = CreateAsset<IncreasedRateSupport>("Increased Rate");
+            SetField(support, "increasedRatePercent", 0.15f);
+            SkillSet set = CreateSkillSet("Set", skill, support);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                Slots(set),
+                0,
+                global::System.Array.Empty<TriggerChain>(),
+                snapshot);
+
+            Assert.That(snapshot.IncreasedRatePercent, Is.EqualTo(0.15f).Within(0.0001f));
+            Assert.That(runtime.RecoveryTime, Is.EqualTo(1f / 1.3f).Within(0.0001f));
         }
 
         [Test]
