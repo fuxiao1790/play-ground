@@ -78,7 +78,7 @@ namespace PlayGround.System.Combat.Aoes
                     VfxPending.Enqueue(new VfxPendingSpawn
                     {
                         TypeId = identity.TypeId,
-                        Trigger = 3,
+                        Trigger = CombatVfxTrigger.Pulse,
                         Position = kinematics.Position,
                         AreaSize = area.Size
                     });

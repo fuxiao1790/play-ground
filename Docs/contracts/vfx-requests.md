@@ -19,16 +19,17 @@ Request data:
 
 - `VfxPendingSpawn`
 - `int TypeId`
-- `byte Trigger`
+- `CombatVfxTrigger Trigger`
 - `float2 Position`
 - `float AreaSize`
 
 Trigger values:
 
-- `0`: spawn, emitted by `AOE spawn expansion systems` for expansion-spawned AOEs
-- `1`: hit
-- `2`: expire
-- `3`: pulse
+- `CombatVfxTrigger.Spawn` (`0`): spawn, emitted by `AOE spawn expansion systems` for expansion-spawned AOEs
+- `CombatVfxTrigger.Hit` (`1`): hit
+- `CombatVfxTrigger.Expire` (`2`): expire
+- `CombatVfxTrigger.Pulse` (`3`): pulse
+- `CombatVfxTrigger.Arming` (`4`): arming telegraph
 
 ## Guarantees
 

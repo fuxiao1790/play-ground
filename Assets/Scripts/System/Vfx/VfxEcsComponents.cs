@@ -15,13 +15,22 @@ using Unity.Mathematics;
 
 namespace PlayGround.System.Combat.Vfx
 {
+    public enum CombatVfxTrigger : byte
+    {
+        Spawn = 0,
+        Hit = 1,
+        Expire = 2,
+        Pulse = 3,
+        Arming = 4
+    }
+
     // ECS Lifecycle: transient native payload; not added to entities; queued by
     // simulation jobs into the shared NativeQueue<VfxPendingSpawn> owned by
     // CombatVfxDispatchSystem, drained in presentation.
     public struct VfxPendingSpawn
     {
         public int TypeId;
-        public byte Trigger;   // 0=spawn 1=hit 2=expire 3=pulse 4=arming
+        public CombatVfxTrigger Trigger;
         public float2 Position;
         public float AreaSize;
     }

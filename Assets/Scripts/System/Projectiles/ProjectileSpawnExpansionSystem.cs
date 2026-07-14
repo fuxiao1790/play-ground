@@ -288,7 +288,7 @@ namespace PlayGround.System.Combat.Projectiles
                     VfxPending.Enqueue(new VfxPendingSpawn
                     {
                         TypeId = command.TypeId,
-                        Trigger = 4,
+                        Trigger = CombatVfxTrigger.Arming,
                         Position = command.Position,
                         AreaSize = math.max(command.Authoring.VisualScale.x, command.Authoring.VisualScale.y)
                     });

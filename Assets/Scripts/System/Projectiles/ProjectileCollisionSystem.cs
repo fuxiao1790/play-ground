@@ -355,7 +355,7 @@ namespace PlayGround.System.Combat.Projectiles
                                 VfxPending.Enqueue(new VfxPendingSpawn
                                 {
                                     TypeId = identity.TypeId,
-                                    Trigger = 1,
+                                    Trigger = CombatVfxTrigger.Hit,
                                     Position = kinematics.Position,
                                     AreaSize = areaSize
                                 });

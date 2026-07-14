@@ -13,7 +13,7 @@ Trace visual-only requests from simulation to VFX Graph dispatch.
 3. `CombatVfxDispatchSystem` runs in presentation, completes `ProducerHandle`,
    and resolves the single `CombatVfxRoot.Instance`.
 4. `CombatVfxRoot` drains the queue on the main thread.
-5. `CombatVfxDispatcher` stages requests by `(typeId, trigger)`, caps count,
+5. `CombatVfxDispatcher` stages requests by `(typeId, CombatVfxTrigger)`, caps count,
    uploads GPU buffers, and sends VFX Graph events.
 
 ## Producers

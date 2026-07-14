@@ -116,7 +116,7 @@ namespace PlayGround.System.Combat.Lifetime
             vfxPending.Enqueue(new VfxPendingSpawn
             {
                 TypeId = typeId,
-                Trigger = 2,
+                Trigger = CombatVfxTrigger.Expire,
                 Position = position,
                 AreaSize = areaSize
             });

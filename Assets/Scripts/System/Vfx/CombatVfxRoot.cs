@@ -40,7 +40,7 @@ namespace PlayGround.System.Combat.Vfx
             dispatcher = null;
         }
 
-        public void Register(int typeId, byte trigger, VisualEffectAsset asset, int maxPerFrame = 2048, bool requireAreaSizeContract = false)
+        public void Register(int typeId, CombatVfxTrigger trigger, VisualEffectAsset asset, int maxPerFrame = 2048, bool requireAreaSizeContract = false)
         {
             dispatcher?.Register(typeId, trigger, asset, maxPerFrame, requireAreaSizeContract);
         }

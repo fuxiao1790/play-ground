@@ -233,7 +233,7 @@ namespace PlayGround.System.Combat.Aoes
                 vfxPending.Enqueue(new VfxPendingSpawn
                 {
                     TypeId = identity.TypeId,
-                    Trigger = 1,
+                    Trigger = CombatVfxTrigger.Hit,
                     Position = kinematics.Position,
                     AreaSize = area.Size
                 });

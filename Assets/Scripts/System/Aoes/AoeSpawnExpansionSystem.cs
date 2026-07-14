@@ -94,14 +94,14 @@ namespace PlayGround.System.Combat.Aoes
 
                 if (hasVfxWriter)
                 {
-                    // While arming, only the telegraph (Trigger 4) plays here; the spawn
-                    // burst (Trigger 0) is deferred to arm completion in CombatArmingSystem.
+                    // While arming, only the telegraph plays here; the spawn
+                    // burst is deferred to arm completion in CombatArmingSystem.
                     if (spawned.ArmSeconds > 0f)
                     {
                         vfxPending.Enqueue(new VfxPendingSpawn
                         {
                             TypeId = spawned.TypeId,
-                            Trigger = 4,
+                            Trigger = CombatVfxTrigger.Arming,
                             Position = pos,
                             AreaSize = spawned.AreaSize
                         });
@@ -111,7 +111,7 @@ namespace PlayGround.System.Combat.Aoes
                         vfxPending.Enqueue(new VfxPendingSpawn
                         {
                             TypeId = command.TypeId,
-                            Trigger = 0,
+                            Trigger = CombatVfxTrigger.Spawn,
                             Position = pos,
                             AreaSize = command.AreaSize
                         });

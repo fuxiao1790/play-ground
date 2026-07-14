@@ -57,10 +57,10 @@ namespace PlayGround.System.Combat.Vfx
         private const string AreaSizePropertyName = "AreaSizes";
         private const string SpawnCountPropertyName = "SpawnCount";
         private const string SpawnEventName = "OnSpawn";
+        private const int TriggerKeyStride = 256;
 
         private static readonly List<VfxTypeResources> LiveResources = new();
 
-        // key = typeId * 256 + trigger
         private readonly Dictionary<int, VfxTypeResources> resources = new();
         private readonly Transform parent;
 
@@ -72,7 +72,7 @@ namespace PlayGround.System.Combat.Vfx
         // asset == null means no visual for this trigger; nothing is registered and no memory is allocated.
         public void Register(
             int typeId,
-            byte trigger,
+            CombatVfxTrigger trigger,
             VisualEffectAsset asset,
             int maxPerFrame,
             bool requireAreaSizeContract = false)
@@ -82,7 +82,7 @@ namespace PlayGround.System.Combat.Vfx
                 return;
             }
 
-            int key = typeId * 256 + trigger;
+            int key = KeyFor(typeId, trigger);
             if (resources.ContainsKey(key))
             {
                 return;
@@ -160,9 +160,9 @@ namespace PlayGround.System.Combat.Vfx
             return count;
         }
 
-        public bool StageSpawn(int typeId, int trigger, float2 position, float areaSize = 1f)
+        public bool StageSpawn(int typeId, CombatVfxTrigger trigger, float2 position, float areaSize = 1f)
         {
-            int key = typeId * 256 + trigger;
+            int key = KeyFor(typeId, trigger);
             if (!resources.TryGetValue(key, out VfxTypeResources res))
             {
                 return false;
@@ -176,6 +176,11 @@ namespace PlayGround.System.Combat.Vfx
             res.Staging.Add(position);
             res.AreaSizeStaging.Add(math.max(0.01f, areaSize));
             return true;
+        }
+
+        private static int KeyFor(int typeId, CombatVfxTrigger trigger)
+        {
+            return typeId * TriggerKeyStride + (byte)trigger;
         }
 
         public void Dispatch()
