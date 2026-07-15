@@ -215,11 +215,9 @@ namespace PlayGround.System.Combat.Application
                         continue;
                     }
 
-                    if (!PayloadLookup.HasComponent(hit.Source))
-                    {
-                        continue;
-                    }
-
+                    // Producers only enqueue source archetypes carrying this component.
+                    // Spawn-apply dependency completion prevents same-frame reuse until
+                    // this read-only lookup job finishes.
                     CombatHitPayload payload = PayloadLookup[hit.Source];
 
                     if (!map.TryGetValue(target, out int idx))

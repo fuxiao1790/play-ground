@@ -10,7 +10,7 @@ Promote `CombatHitPayload` to an indexable component on projectile, impact AOE, 
 - `Assets/Scripts/System/Application/CombatHitPayload.cs`
 - `Assets/Scripts/System/Projectiles/ProjectileEcsComponents.cs`
 - `Assets/Scripts/System/Aoes/AoeEcsComponents.cs`
-- `Assets/Scripts/System/Combat/Core/CombatRoot.cs`
+- `Assets/Scripts/System/Core/CombatRoot.cs`
 - `Assets/Scripts/System/Projectiles/ProjectileSpawnApplySystem.cs`
 - `Assets/Scripts/System/Aoes/AoeSpawnApplySystem.cs`
 - Direct compile fixes caused by this task.

@@ -21,8 +21,10 @@ it with one `ComponentLookup<CombatHitPayload>[Source]`.
    remove `CombatHitPayload HitPayload`. Result: `{ OnHitSpawnRef OnHitSpawn; }`.
 
 4. **Archetypes**: add `CombatHitPayload` to the projectile, impact-AOE, and
-   lingering-AOE archetypes wherever those entities are created/pooled (CombatRoot
-   archetype/pool setup). Required so materialization's `SetComponentData` resolves.
+   lingering-AOE archetypes where those entities are created/pooled:
+   `ProjectileSpawnApplySystem`, `ImpactAoeSpawnApplySystem`, and
+   `LingeringAoeSpawnApplySystem`. Required so materialization's component writes
+   resolve.
 
 5. **Materialization writers** — set the new component from the config's payload:
    - `ProjectileSpawnApplySystem` ([:336-341](../../Assets/Scripts/System/Projectiles/ProjectileSpawnApplySystem.cs#L336-L341)):

@@ -4,11 +4,15 @@
 - Promote existing `CombatHitPayload` to a standalone `IComponentData` on all hit source entities.
 - Keep `ProjectileHitPayload` as an authoring/config DTO.
 - Slim `CombatHitEvent` to `{ Source, Target }`.
-- Finalize resolves damage/crit/stack from `ComponentLookup<CombatHitPayload>[hit.Source]`.
+- Finalize resolves damage/crit/stack directly from
+  `ComponentLookup<CombatHitPayload>[hit.Source]`; missing/stale sources violate
+  the contract and fail fast.
 
 ## Global Invariants
 - Projectile, impact AOE, and lingering AOE entities must all carry `CombatHitPayload`.
-- Payload must remain valid until finalize runs; spawn apply/reuse happens after finalize.
+- Payload must remain valid until the finalize job completes. Spawn apply may
+  reuse a source later in the same frame, so its ECS dependency completion must
+  wait for finalize before overwriting `CombatHitPayload`.
 - Empty payload hits stay gated out at producers.
 
 ## Ownership Boundaries
@@ -65,7 +69,7 @@
 - `Assets/Scripts/System/Aoes/AoeCollisionCore.cs`
 - `Assets/Scripts/System/Aoes/ImpactAoeCollisionSystem.cs`
 - `Assets/Scripts/System/Aoes/LingeringAoeCollisionSystem.cs`
-- `Assets/Scripts/System/Combat/Core/CombatRoot.cs`
+- `Assets/Scripts/System/Core/CombatRoot.cs`
 - `Assets/Tests/PlayMode/AoeSimulationTests.cs`
 - `Assets/Tests/PlayMode/ProjectileCollisionSimulationTests.cs`
 - `Assets/Tests/PlayMode/ProjectileTrackingSimulationTests.cs`

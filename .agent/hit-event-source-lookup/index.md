@@ -1,5 +1,10 @@
 # Hit Event Source Lookup
 
+## Status
+
+Implemented. Compile validation passed; the PlayMode profiling comparison under
+"Open risk to validate" remains outstanding.
+
 Caveman: hit event carry big copy of damage every hit. Waste. Source entity
 already hold damage. Make hit event tiny — just source + target. Finalize grab
 source entity, jump straight to its damage component, apply. One jump. No copy.
@@ -24,17 +29,16 @@ CombatHitPayload payload = PayloadLookup[hit.Source];   // ComponentLookup<Comba
 
 ## Why this needs a source-side change first
 
-The event copy is redundant because the payload already lives on the source
-entity — **but not as one indexable component**. Today the identical
-`CombatHitPayload` is *nested inside two different components*:
+Before this refactor, the event copy was redundant because the payload already
+lived on the source entity — **but not as one indexable component**. The identical
+`CombatHitPayload` was *nested inside two different components*:
 
-- Projectile: `ProjectileHitComponent.HitPayload` (via the `ProjectileHitPayload` wrapper)
-  — [ProjectileEcsComponents.cs:29-34](../../Assets/Scripts/System/Projectiles/ProjectileEcsComponents.cs#L29-L34)
-- AOE (impact + lingering): `AoeHitSpawnComponent.HitPayload`
-  — [AoeEcsComponents.cs:41-45](../../Assets/Scripts/System/Aoes/AoeEcsComponents.cs#L41-L45)
+- Projectile: `ProjectileHitComponent.HitPayload` (via the
+  `ProjectileHitPayload` wrapper).
+- AOE (impact + lingering): `AoeHitSpawnComponent.HitPayload`.
 
 A single `ComponentLookup<T>[Source]` needs `T` to be the **same component on
-both archetypes**. It isn't. So the enabling refactor is to **promote the shared
+both archetypes**. It was not, so the enabling refactor **promoted the shared
 `CombatHitPayload` to a standalone `IComponentData` carried by both projectile
 and AOE entities.** This is not a new concept — it is the exact type both already
 embed (verified identical: same 6 fields, both even paired with the same
@@ -68,13 +72,13 @@ churn to the entity boundary and keeps every authoring call site as-is.
 
 ### Finalize
 
-`FinalizeCombatSingleJob` drops the payload fields it read off the event and
-gains one read-only `ComponentLookup<CombatHitPayload>`. Per dequeued hit:
+`FinalizeCombatSingleJob` dropped the payload fields it read off the event and
+gained one read-only `ComponentLookup<CombatHitPayload>`. Per dequeued hit:
 `payload = PayloadLookup[hit.Source]`, then the **unchanged** crit-roll /
 damage-accrue / stack-accrue logic. No `Kind` field, no `HasComponent` branch —
-both archetypes carry the same component, so it is always one direct index. If a
-source were somehow missing the component, `HasComponent` guards a skip (defensive
-only).
+both archetypes carry the same component, so it is always one direct index. A
+missing or stale source violates the producer/lifetime contract and fails fast
+instead of silently dropping damage.
 
 ## Constraints & invariants (with source)
 
@@ -85,10 +89,14 @@ only).
      ([CombatApplyFinalizeSingleSystem.cs:43-50](../../Assets/Scripts/System/Application/CombatApplyFinalizeSingleSystem.cs#L43-L50)).
    - Expansion `[UpdateBefore]` the apply systems
      ([ProjectileSpawnExpansionSystem.cs:38-40](../../Assets/Scripts/System/Projectiles/ProjectileSpawnExpansionSystem.cs#L38-L40)).
-   - Pool reuse — the only writer of the payload component (ProjectileSpawnApplySystem,
-     AoeSpawnApplySystem) — runs in the apply systems, **after** finalize. A
-     projectile that deactivates mid-collision keeps its component data until it is
-     reused next frame at earliest. → **Holds from ordering alone; no question needed.**
+   - Pool reuse — the only writer of the payload component
+     (`ProjectileSpawnApplySystem`, `ImpactAoeSpawnApplySystem`, and
+     `LingeringAoeSpawnApplySystem`) — runs after finalize is scheduled. A source
+     may be reused later in the **same frame**, so system ordering alone is not
+     sufficient. Each spawn-apply system completes its ECS `Dependency` before
+     overwriting pooled component data. Because finalize registered a read-only
+     `CombatHitPayload` dependency, this waits for `FinalizeCombatSingleJob` to
+     finish before reuse. This dependency edge is required by the lifetime contract.
 
 2. **Job safety** — finalize is a single-threaded `IJob` on `Dependency` after the
    collision jobs complete (`ProducerHandle.Complete()`). A RO `ComponentLookup<CombatHitPayload>`
@@ -98,8 +106,9 @@ only).
 
 3. **Same component on both archetypes** — projectile + both AOE kinds carry the
    promoted `CombatHitPayload`, so a single lookup covers every source. Add it to
-   every archetype where these entities are created/pooled (CombatRoot archetype
-   setup) or materialization's `SetComponentData` will throw.
+   every archetype where these entities are created/pooled
+   (`ProjectileSpawnApplySystem`, `ImpactAoeSpawnApplySystem`, and
+   `LingeringAoeSpawnApplySystem`) or materialization's component writes will fail.
 
 4. **Gate stays at the producer** — collision still enqueues only when the payload
    deals damage or applies a stack (`DirectDamageEnabled || StackEffect.Enabled`),
@@ -120,7 +129,7 @@ only).
 
 | Invariant | Result |
 |---|---|
-| Payload valid at finalize | ✓ ordering guarantees no reuse before finalize |
+| Payload valid at finalize | ✓ spawn-apply dependency completion prevents overwrite before the finalize job finishes |
 | Job safety | ✓ RO lookup; finalize depends on collision completion |
 | One component on both archetypes | ✓ promoted `CombatHitPayload` added to all three archetypes |
 | Gate behavior unchanged | ✓ gate stays at producer, reads local payload |
@@ -151,16 +160,16 @@ Unity. Per [[feedback_plan_then_verify_ecs]], **validate with a user-run PlayMod
 profiling pass** (busy projectile scene) comparing the `CombatApplyFinalizeSingleSystem`
 + collision markers before/after.
 
-## Tasks
+## Completed tasks
 
-- [001-promote-payload-component.md](001-promote-payload-component.md) — promote `CombatHitPayload` to a shared `IComponentData`; slim `ProjectileHitComponent`/`AoeHitSpawnComponent`; add to archetypes; update the two materialization writers.
-- [002-reshape-hit-event.md](002-reshape-hit-event.md) — `CombatHitEvent` → `{ Entity Source; Entity Target; }`.
-- [003-producers-set-source.md](003-producers-set-source.md) — collision reads its own `CombatHitPayload` for the gate, enqueues `{Source, Target}`; thread source `entity` + payload through `AoeCollisionCore`/`EmitHit`.
-- [004-finalize-source-lookup.md](004-finalize-source-lookup.md) — finalize adds `ComponentLookup<CombatHitPayload>`, reads `PayloadLookup[hit.Source]`, same accrue logic.
-- [005-tests-and-doc.md](005-tests-and-doc.md) — update entity-constructing tests + direct `CombatHitEvent` enqueues; refresh the contract doc.
+- [x] [001-promote-payload-component.md](001-promote-payload-component.md) — promoted `CombatHitPayload` to a shared `IComponentData`; slimmed hit components; added it to archetypes; updated materialization writers.
+- [x] [002-reshape-hit-event.md](002-reshape-hit-event.md) — changed `CombatHitEvent` to `{ Entity Source; Entity Target; }`.
+- [x] [003-producers-set-source.md](003-producers-set-source.md) — collision reads its own payload for the gate and enqueues `{Source, Target}`.
+- [x] [004-finalize-source-lookup.md](004-finalize-source-lookup.md) — finalize reads `PayloadLookup[hit.Source]` with the same accrue logic.
+- [x] [005-tests-and-doc.md](005-tests-and-doc.md) — updated tests and the contract doc.
 
-001–004 must land in one compiling commit (the struct/component changes are
-breaking). 005 follows immediately.
+001–005 landed together because 001–004 contain breaking component/event shape
+changes.
 
 ## Open questions / considerations
 

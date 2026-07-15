@@ -19,7 +19,6 @@ from the source entity with one direct index.
    ```csharp
    Entity target = hit.Target;
    if (target == Entity.Null) continue;
-   if (!PayloadLookup.HasComponent(hit.Source)) continue;   // defensive
    CombatHitPayload payload = PayloadLookup[hit.Source];
    // …bucket by target (unchanged)…
    if (payload.StackEffect.Enabled && acc.HasStackBuffer == 1) { … AccrueStack(buffer, payload.StackEffect, …) }
@@ -31,10 +30,14 @@ from the source entity with one direct index.
    + per-target hit index — unchanged and order-independent.
 
 ## Notes
-- Single lookup, no `Kind` branch: both archetypes carry `CombatHitPayload` (001).
-  `HasComponent` is a defensive skip only, not a projectile/AOE discriminator.
+- Single lookup, no `Kind` or `HasComponent` branch: both archetypes carry
+  `CombatHitPayload` (001). A missing/stale source violates the producer and
+  lifetime contract and fails fast instead of silently dropping damage.
 - The lookup is RO and finalize depends on the completed collision jobs, so there is
   no aliasing with the collision `in` reads. Burst-compatible.
+- Spawn apply can reuse a disabled source later in the same frame. Its ECS
+  dependency completion must wait for this lookup job before overwriting the
+  pooled `CombatHitPayload`; system ordering alone is not a sufficient guarantee.
 - Behavior parity: the crit/damage/stack math is unchanged; only the payload's
   source moved from the event to the component.
 
