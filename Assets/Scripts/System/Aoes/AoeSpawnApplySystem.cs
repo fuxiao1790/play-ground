@@ -44,6 +44,7 @@ namespace PlayGround.System.Combat.Aoes
                 typeof(AoeIdentityComponent),
                 typeof(AoeHitGateComponent),
                 typeof(AoeHitSpawnComponent),
+                typeof(CombatHitPayload),
                 typeof(AoeAreaComponent),
                 typeof(CombatRenderComponent),
                 typeof(CombatRenderAuthoring),
@@ -114,6 +115,7 @@ namespace PlayGround.System.Combat.Aoes
                         CollisionHandle = GetComponentTypeHandle<CombatCollisionComponent>(false),
                         HitGateHandle = GetComponentTypeHandle<AoeHitGateComponent>(false),
                         HitSpawnHandle = GetComponentTypeHandle<AoeHitSpawnComponent>(false),
+                        HitPayloadHandle = GetComponentTypeHandle<CombatHitPayload>(false),
                         AreaHandle = GetComponentTypeHandle<AoeAreaComponent>(false),
                         RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
                         AuthoringHandle = GetComponentTypeHandle<CombatRenderAuthoring>(false),
@@ -153,6 +155,7 @@ namespace PlayGround.System.Combat.Aoes
             public ComponentTypeHandle<CombatCollisionComponent> CollisionHandle;
             public ComponentTypeHandle<AoeHitGateComponent> HitGateHandle;
             public ComponentTypeHandle<AoeHitSpawnComponent> HitSpawnHandle;
+            public ComponentTypeHandle<CombatHitPayload> HitPayloadHandle;
             public ComponentTypeHandle<AoeAreaComponent> AreaHandle;
             public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
             public ComponentTypeHandle<CombatRenderAuthoring> AuthoringHandle;
@@ -183,6 +186,8 @@ namespace PlayGround.System.Combat.Aoes
                         chunk.GetNativeArray(ref HitGateHandle);
                     NativeArray<AoeHitSpawnComponent> hitSpawns =
                         chunk.GetNativeArray(ref HitSpawnHandle);
+                    NativeArray<CombatHitPayload> hitPayloads =
+                        chunk.GetNativeArray(ref HitPayloadHandle);
                     NativeArray<AoeAreaComponent> areas = chunk.GetNativeArray(ref AreaHandle);
                     NativeArray<CombatRenderComponent> renders =
                         chunk.GetNativeArray(ref RenderHandle);
@@ -208,6 +213,7 @@ namespace PlayGround.System.Combat.Aoes
                             collisions,
                             hitGates,
                             hitSpawns,
+                            hitPayloads,
                             areas,
                             renders,
                             authorings,
@@ -256,6 +262,7 @@ namespace PlayGround.System.Combat.Aoes
                 typeof(CombatLifetimeComponent),
                 typeof(AoeHitGateComponent),
                 typeof(AoeHitSpawnComponent),
+                typeof(CombatHitPayload),
                 typeof(AoeAreaComponent),
                 typeof(AoePulseVfxComponent),
                 typeof(CombatRenderComponent),
@@ -330,6 +337,7 @@ namespace PlayGround.System.Combat.Aoes
                         LifetimeHandle = GetComponentTypeHandle<CombatLifetimeComponent>(false),
                         HitGateHandle = GetComponentTypeHandle<AoeHitGateComponent>(false),
                         HitSpawnHandle = GetComponentTypeHandle<AoeHitSpawnComponent>(false),
+                        HitPayloadHandle = GetComponentTypeHandle<CombatHitPayload>(false),
                         AreaHandle = GetComponentTypeHandle<AoeAreaComponent>(false),
                         PulseVfxHandle = GetComponentTypeHandle<AoePulseVfxComponent>(false),
                         RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
@@ -373,6 +381,7 @@ namespace PlayGround.System.Combat.Aoes
             public ComponentTypeHandle<CombatLifetimeComponent> LifetimeHandle;
             public ComponentTypeHandle<AoeHitGateComponent> HitGateHandle;
             public ComponentTypeHandle<AoeHitSpawnComponent> HitSpawnHandle;
+            public ComponentTypeHandle<CombatHitPayload> HitPayloadHandle;
             public ComponentTypeHandle<AoeAreaComponent> AreaHandle;
             public ComponentTypeHandle<AoePulseVfxComponent> PulseVfxHandle;
             public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
@@ -409,6 +418,8 @@ namespace PlayGround.System.Combat.Aoes
                         chunk.GetNativeArray(ref HitGateHandle);
                     NativeArray<AoeHitSpawnComponent> hitSpawns =
                         chunk.GetNativeArray(ref HitSpawnHandle);
+                    NativeArray<CombatHitPayload> hitPayloads =
+                        chunk.GetNativeArray(ref HitPayloadHandle);
                     NativeArray<AoeAreaComponent> areas = chunk.GetNativeArray(ref AreaHandle);
                     NativeArray<AoePulseVfxComponent> pulseVfxs =
                         chunk.GetNativeArray(ref PulseVfxHandle);
@@ -440,6 +451,7 @@ namespace PlayGround.System.Combat.Aoes
                             collisions,
                             hitGates,
                             hitSpawns,
+                            hitPayloads,
                             areas,
                             renders,
                             authorings,
@@ -479,6 +491,7 @@ namespace PlayGround.System.Combat.Aoes
             NativeArray<CombatCollisionComponent> collisions,
             NativeArray<AoeHitGateComponent> hitGates,
             NativeArray<AoeHitSpawnComponent> hitSpawns,
+            NativeArray<CombatHitPayload> hitPayloads,
             NativeArray<AoeAreaComponent> areas,
             NativeArray<CombatRenderComponent> renders,
             NativeArray<CombatRenderAuthoring> authorings,
@@ -492,6 +505,7 @@ namespace PlayGround.System.Combat.Aoes
             collisions[index] = CollisionFor(cfg);
             hitGates[index] = HitGateFor(cfg);
             hitSpawns[index] = HitSpawnFor(cfg);
+            hitPayloads[index] = HitPayloadFor(cfg.HitPayload, cfg.Faction);
             areas[index] = AreaFor(cfg);
             renders[index] = render;
             authorings[index] = cfg.Authoring;
@@ -577,7 +591,6 @@ namespace PlayGround.System.Combat.Aoes
         private static AoeHitSpawnComponent HitSpawnFor(in AoeSpawnCommand cmd) =>
             new()
             {
-                HitPayload = HitPayloadFor(cmd.HitPayload, cmd.Faction),
                 OnHitSpawn = cmd.OnHitSpawn
             };
 

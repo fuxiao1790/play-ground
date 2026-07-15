@@ -34,6 +34,7 @@ namespace PlayGround.System.Combat.Aoes
                 .WithAll<CombatCollisionComponent>()
                 .WithAllRW<AoeHitGateComponent>()
                 .WithAll<AoeHitSpawnComponent>()
+                .WithAll<CombatHitPayload>()
                 .WithAll<AoeAreaComponent>()
                 .WithDisabled<ArmingTag>()
                 .WithAll<LingeringAoeTag>()
@@ -153,6 +154,7 @@ namespace PlayGround.System.Combat.Aoes
             private void Execute(
                 Entity entity,
                 in AoeIdentityComponent identity,
+                in CombatHitPayload payload,
                 in CombatKinematicsComponent kinematics,
                 in CombatCollisionComponent collision,
                 ref AoeHitGateComponent hitGate,
@@ -173,7 +175,9 @@ namespace PlayGround.System.Combat.Aoes
                     : 0f;
 
                 AoeCollisionCore.RunCollision(
+                    entity,
                     identity,
+                    payload,
                     kinematics,
                     collision,
                     hitSpawn,

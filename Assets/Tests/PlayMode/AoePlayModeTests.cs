@@ -1199,13 +1199,13 @@ namespace PlayGround.Tests.PlayMode
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AoeIdentityComponent>(),
-                ComponentType.ReadOnly<AoeHitSpawnComponent>());
+                ComponentType.ReadOnly<CombatHitPayload>());
             using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
             for (int i = 0; i < entities.Length; i++)
             {
                 AoeIdentityComponent identity = entityManager.GetComponentData<AoeIdentityComponent>(entities[i]);
                 if (identity.Faction == faction && identity.TypeId == typeId)
-                    return entityManager.GetComponentData<AoeHitSpawnComponent>(entities[i]).HitPayload;
+                    return entityManager.GetComponentData<CombatHitPayload>(entities[i]);
             }
 
             Assert.Fail("No matching AOE hit payload found.");

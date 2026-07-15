@@ -20,13 +20,13 @@ expansion, and [Presentation And Feedback](../layers/presentation-and-feedback.m
 
 Current key data:
 
-- `CombatHitEvent`
-- `CombatHitPayload`
+- `CombatHitEvent`: `{ Source, Target }`, where `Source` is the projectile/AOE
+  entity that produced the hit and `Target` is the target proxy entity.
+- `CombatHitPayload`: source-side ECS component carrying damage amount, crit
+  chance, crit multiplier, direct-damage flag, source node id, and stack effect.
 - `TargetHealth`
 - `TargetStackEntry`
 - `CombatTickResult`
-- source node/type/id metadata
-- damage amount, crit chance, crit multiplier, direct-damage flag
 - hit count, crit count, aggregate damage, final health, and changed status
   ranges
 
@@ -37,6 +37,10 @@ TODO: verify remaining legacy names against current code before removing them.
 
 Plain damage and status can be aggregated by target in ECS. Managed presentation
 receives compact target results, not one plain-damage callback per raw hit.
+
+Every hit source archetype that can enqueue `CombatHitEvent` carries
+`CombatHitPayload`, so finalize can resolve payload data through one read-only
+`ComponentLookup<CombatHitPayload>` indexed by `CombatHitEvent.Source`.
 
 ## Restrictions
 

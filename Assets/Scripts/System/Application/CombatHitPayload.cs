@@ -12,12 +12,14 @@ using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Vfx;
 using PlayGround.Common;
+using Unity.Entities;
 using UnityEngine;
 
 namespace PlayGround.System.Combat.Application
 {
+    // ECS Lifecycle: base hit-source component; added by projectile/AOE spawn materialization; kept until root teardown; reset on reuse.
     // Fire-time hit snapshot shared by all combat domains (projectile, AOE). Carries damage, crit, and stack data snapshotted at spawn time.
-    public struct CombatHitPayload
+    public struct CombatHitPayload : IComponentData
     {
         public float DamageAmount;
         public float CritChance;

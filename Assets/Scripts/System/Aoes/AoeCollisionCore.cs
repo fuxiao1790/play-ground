@@ -23,7 +23,9 @@ namespace PlayGround.System.Combat.Aoes
         private const int ProjectileBurstIdSalt = 0x7AB025;
 
         internal static void RunCollision(
+            Entity sourceEntity,
             in AoeIdentityComponent identity,
+            in CombatHitPayload payload,
             in CombatKinematicsComponent kinematics,
             in CombatCollisionComponent collision,
             in AoeHitSpawnComponent hitSpawn,
@@ -121,6 +123,8 @@ namespace PlayGround.System.Combat.Aoes
                             ref hitVfxEmitted,
                             hitWriter,
                             hasHitWriter,
+                            sourceEntity,
+                            in payload,
                             projectileEventWriter,
                             impactAoeEventWriter,
                             lingeringAoeEventWriter,
@@ -151,27 +155,20 @@ namespace PlayGround.System.Combat.Aoes
             ref bool hitVfxEmitted,
             NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
             bool hasHitWriter,
+            Entity sourceEntity,
+            in CombatHitPayload payload,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
             NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
             NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter,
             bool hasImpactAoeEventWriter,
             bool hasLingeringAoeEventWriter)
         {
-            if (hasHitWriter && HasHitEvent(hitSpawn))
+            if (hasHitWriter && HasHitEvent(payload))
             {
                 hitWriter.Enqueue(new CombatHitEvent
                 {
-                    TargetProxy = targetEntity,
-                    HitPosition = kinematics.Position,
-                    Kind = CombatHitKind.Aoe,
-                    DamageAmount = hitSpawn.HitPayload.DamageAmount,
-                    CritChance = hitSpawn.HitPayload.CritChance,
-                    CritMultiplier = hitSpawn.HitPayload.CritMultiplier,
-                    DirectDamageEnabled = hitSpawn.HitPayload.DirectDamageEnabled,
-                    SourceNodeId = hitSpawn.HitPayload.SourceNodeId,
-                    SourceId = identity.AoeId,
-                    TypeId = identity.TypeId,
-                    StackEffect = hitSpawn.HitPayload.StackEffect
+                    Source = sourceEntity,
+                    Target = targetEntity
                 });
             }
 
@@ -249,8 +246,8 @@ namespace PlayGround.System.Combat.Aoes
             CombatDeathUtility.Kill(active, collisionActive, arming);
         }
 
-        internal static bool HasHitEvent(in AoeHitSpawnComponent hitSpawn) =>
-            hitSpawn.HitPayload.DirectDamageEnabled || hitSpawn.HitPayload.StackEffect.Enabled;
+        internal static bool HasHitEvent(in CombatHitPayload payload) =>
+            payload.DirectDamageEnabled || payload.StackEffect.Enabled;
 
         internal static int TargetKey(Entity entity)
         {

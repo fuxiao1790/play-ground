@@ -175,6 +175,7 @@ namespace PlayGround.System.Combat.Application
                 Dependency = new FinalizeCombatSingleJob
                 {
                     HitQueue = singleton.HitQueue,
+                    PayloadLookup = GetComponentLookup<CombatHitPayload>(isReadOnly: true),
                     HealthLookup = GetComponentLookup<TargetHealth>(),
                     StackBuffers = GetBufferLookup<TargetStackEntry>(),
                     Results = applyResults.Results,
@@ -191,6 +192,7 @@ namespace PlayGround.System.Combat.Application
         private struct FinalizeCombatSingleJob : IJob
         {
             public NativeQueue<CombatHitEvent> HitQueue;
+            [ReadOnly] public ComponentLookup<CombatHitPayload> PayloadLookup;
             public ComponentLookup<TargetHealth> HealthLookup;
             public BufferLookup<TargetStackEntry> StackBuffers;
             public NativeList<CombatTickResult> Results;
@@ -207,11 +209,18 @@ namespace PlayGround.System.Combat.Application
 
                 while (HitQueue.TryDequeue(out CombatHitEvent hit))
                 {
-                    Entity target = hit.TargetProxy;
+                    Entity target = hit.Target;
                     if (target == Entity.Null)
                     {
                         continue;
                     }
+
+                    if (!PayloadLookup.HasComponent(hit.Source))
+                    {
+                        continue;
+                    }
+
+                    CombatHitPayload payload = PayloadLookup[hit.Source];
 
                     if (!map.TryGetValue(target, out int idx))
                     {
@@ -226,16 +235,16 @@ namespace PlayGround.System.Combat.Application
 
                     TargetAccum acc = accums[idx];
 
-                    if (hit.StackEffect.Enabled && acc.HasStackBuffer == 1)
+                    if (payload.StackEffect.Enabled && acc.HasStackBuffer == 1)
                     {
                         DynamicBuffer<TargetStackEntry> buffer = StackBuffers[target];
-                        if (AccrueStack(buffer, hit.StackEffect, Now, ref dropCount))
+                        if (AccrueStack(buffer, payload.StackEffect, Now, ref dropCount))
                         {
                             acc.StackChanged = 1;
                         }
                     }
 
-                    if (hit.DirectDamageEnabled)
+                    if (payload.DirectDamageEnabled)
                     {
                         // Crit seed uses target entity, frame, and per-target hit index.
                         // Hit order is unspecified, but damage is per-hit and order-independent.
@@ -246,9 +255,9 @@ namespace PlayGround.System.Combat.Application
                         }
 
                         var random = new Unity.Mathematics.Random(seed);
-                        float baseAmount = math.max(0f, hit.DamageAmount);
-                        bool isCrit = random.NextFloat() < hit.CritChance;
-                        float rolledAmount = math.max(0f, isCrit ? baseAmount * hit.CritMultiplier : baseAmount);
+                        float baseAmount = math.max(0f, payload.DamageAmount);
+                        bool isCrit = random.NextFloat() < payload.CritChance;
+                        float rolledAmount = math.max(0f, isCrit ? baseAmount * payload.CritMultiplier : baseAmount);
 
                         acc.DamageTaken += rolledAmount;
                         acc.HitCount++;
