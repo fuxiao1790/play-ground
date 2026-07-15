@@ -1635,6 +1635,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(AoeIdentityComponent),
                 typeof(AoeHitGateComponent),
                 typeof(AoeHitSpawnComponent),
+                typeof(CombatHitPayload),
                 typeof(AoeAreaComponent),
                 typeof(CombatRenderComponent),
                 typeof(CombatRenderKindId),
@@ -1660,6 +1661,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatLifetimeComponent),
                 typeof(AoeHitGateComponent),
                 typeof(AoeHitSpawnComponent),
+                typeof(CombatHitPayload),
                 typeof(AoeAreaComponent),
                 typeof(AoePulseVfxComponent),
                 typeof(CombatRenderComponent),
@@ -1763,13 +1765,16 @@ namespace PlayGround.Tests.PlayMode
 
         private void QueueStackHit(Entity target, StackEffectSnapshot stackEffect)
         {
+            Entity source = CreateHitSource(new CombatHitPayload
+            {
+                DirectDamageEnabled = false,
+                StackEffect = stackEffect
+            });
             NativeQueue<CombatHitEvent> hitQueue = HitQueue();
             hitQueue.Enqueue(new CombatHitEvent
             {
-                TargetProxy = target,
-                Kind = CombatHitKind.Aoe,
-                DirectDamageEnabled = false,
-                StackEffect = stackEffect
+                Source = source,
+                Target = target
             });
         }
 
@@ -1779,17 +1784,26 @@ namespace PlayGround.Tests.PlayMode
             float critChance = 0f,
             float critMultiplier = 1f)
         {
-            NativeQueue<CombatHitEvent> hitQueue = HitQueue();
-            hitQueue.Enqueue(new CombatHitEvent
+            Entity source = CreateHitSource(new CombatHitPayload
             {
-                TargetProxy = target,
-                Kind = CombatHitKind.Aoe,
                 DamageAmount = damage,
                 CritChance = critChance,
                 CritMultiplier = critMultiplier,
-                DirectDamageEnabled = true,
-                HitPosition = float2.zero
+                DirectDamageEnabled = true
             });
+            NativeQueue<CombatHitEvent> hitQueue = HitQueue();
+            hitQueue.Enqueue(new CombatHitEvent
+            {
+                Source = source,
+                Target = target
+            });
+        }
+
+        private Entity CreateHitSource(CombatHitPayload payload)
+        {
+            Entity source = entityManager.CreateEntity(typeof(CombatHitPayload));
+            entityManager.SetComponentData(source, payload);
+            return source;
         }
 
         private static StackEffectSnapshot StackEffect(

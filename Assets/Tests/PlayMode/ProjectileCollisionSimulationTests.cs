@@ -393,6 +393,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatRenderKindId),
                 typeof(CombatLifetimeComponent),
                 typeof(ProjectileHitComponent),
+                typeof(CombatHitPayload),
                 typeof(Active),
                 typeof(CombatCollisionActiveTag),
                 typeof(ArmingTag),
@@ -432,15 +433,14 @@ namespace PlayGround.Tests.PlayMode
             entityManager.SetComponentData(entity, new ProjectileHitComponent
             {
                 PierceRemaining = pierceRemaining,
-                HitPayload = new ProjectileHitPayload(
-                    new CombatHitPayload
-                    {
-                        DamageAmount = 1f,
-                        CritMultiplier = 1f,
-                        DirectDamageEnabled = true,
-                        StackEffect = stackEffect
-                    },
-                    onHitSpawn: onHitSpawn)
+                OnHitSpawn = onHitSpawn
+            });
+            entityManager.SetComponentData(entity, new CombatHitPayload
+            {
+                DamageAmount = 1f,
+                CritMultiplier = 1f,
+                DirectDamageEnabled = true,
+                StackEffect = stackEffect
             });
             entityManager.SetComponentEnabled<ArmingTag>(entity, false);
 

@@ -53,6 +53,7 @@ namespace PlayGround.System.Combat.Projectiles
                 typeof(CombatCollisionComponent),
                 typeof(CombatLifetimeComponent),
                 typeof(ProjectileHitComponent),
+                typeof(CombatHitPayload),
                 typeof(ProjectileTrackingComponent),
                 typeof(CombatRenderComponent),
                 typeof(CombatRenderAuthoring),
@@ -134,6 +135,7 @@ namespace PlayGround.System.Combat.Projectiles
                         CollisionHandle = GetComponentTypeHandle<CombatCollisionComponent>(false),
                         LifetimeHandle = GetComponentTypeHandle<CombatLifetimeComponent>(false),
                         HitHandle = GetComponentTypeHandle<ProjectileHitComponent>(false),
+                        HitPayloadHandle = GetComponentTypeHandle<CombatHitPayload>(false),
                         TrackingHandle = GetComponentTypeHandle<ProjectileTrackingComponent>(false),
                         RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
                         AuthoringHandle = GetComponentTypeHandle<CombatRenderAuthoring>(false),
@@ -194,13 +196,13 @@ namespace PlayGround.System.Combat.Projectiles
 
         private static bool IsArming(in ProjectileSpawnCommand cmd) => cmd.ArmSeconds > 0f;
 
-        internal static ProjectileHitPayload HitPayloadFor(in ProjectileSpawnCommand cmd, CombatFaction faction)
+        internal static CombatHitPayload HitPayloadFor(in ProjectileSpawnCommand cmd, CombatFaction faction)
         {
             CombatHitPayload hitPayload = cmd.HitPayload.HitPayload;
             StackEffectSnapshot stack = hitPayload.StackEffect;
             stack.Faction = faction;
             hitPayload.StackEffect = stack;
-            return new ProjectileHitPayload(hitPayload, cmd.HitPayload.OnHitSpawn);
+            return hitPayload;
         }
 
         private static TimedSpawnStateComponent InitialTimedSpawnStateFor(in ProjectileSpawnCommand cmd)
@@ -252,6 +254,7 @@ namespace PlayGround.System.Combat.Projectiles
             public ComponentTypeHandle<CombatCollisionComponent> CollisionHandle;
             public ComponentTypeHandle<CombatLifetimeComponent> LifetimeHandle;
             public ComponentTypeHandle<ProjectileHitComponent> HitHandle;
+            public ComponentTypeHandle<CombatHitPayload> HitPayloadHandle;
             public ComponentTypeHandle<ProjectileTrackingComponent> TrackingHandle;
             public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
             public ComponentTypeHandle<CombatRenderAuthoring> AuthoringHandle;
@@ -286,6 +289,8 @@ namespace PlayGround.System.Combat.Projectiles
                     NativeArray<CombatLifetimeComponent> lifetimes =
                         chunk.GetNativeArray(ref LifetimeHandle);
                     NativeArray<ProjectileHitComponent> hits = chunk.GetNativeArray(ref HitHandle);
+                    NativeArray<CombatHitPayload> hitPayloads =
+                        chunk.GetNativeArray(ref HitPayloadHandle);
                     NativeArray<ProjectileTrackingComponent> tracking =
                         chunk.GetNativeArray(ref TrackingHandle);
                     NativeArray<CombatRenderComponent> renders =
@@ -337,8 +342,9 @@ namespace PlayGround.System.Combat.Projectiles
                         {
                             PierceRemaining = cfg.PierceRemaining,
                             RepeatHitCooldownSeconds = cfg.RepeatHitCooldownSeconds,
-                            HitPayload = HitPayloadFor(in cfg, cfg.Faction)
+                            OnHitSpawn = cfg.HitPayload.OnHitSpawn
                         };
+                        hitPayloads[i] = HitPayloadFor(in cfg, cfg.Faction);
                         tracking[i] = cfg.Tracking;
                         renders[i] = cfg.Render;
                         authorings[i] = cfg.Authoring;

@@ -18,20 +18,11 @@ using UnityEngine;
 
 namespace PlayGround.System.Combat.Application
 {
-    // ECS Lifecycle: transient native hit payload; not added to entities; enqueued during collision,
+    // ECS Lifecycle: transient native hit event; not added to entities; enqueued during collision,
     // grouped and aggregated by CombatApplyFinalizeSingleSystem into CombatApplyResultSingleton.
     public struct CombatHitEvent
     {
-        public Entity TargetProxy;
-        public CombatHitKind Kind;
-        public float DamageAmount;
-        public float CritChance;
-        public float CritMultiplier;
-        public bool DirectDamageEnabled;
-        public float2 HitPosition;
-        public EntityId SourceNodeId;
-        public int SourceId;
-        public int TypeId;
-        public StackEffectSnapshot StackEffect;
+        public Entity Source;
+        public Entity Target;
     }
 }

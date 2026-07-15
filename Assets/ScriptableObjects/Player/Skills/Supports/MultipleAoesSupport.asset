@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9b74e2c0d2c747f4a9ee2f165a15e0a3, type: 3}
   m_Name: MultipleAoesSupport
   m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:MultipleAoesSupport
-  echoCount: 5
-  scatterRadius: 15
+  echoCount: 3
+  scatterRadius: 9

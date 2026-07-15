@@ -221,6 +221,33 @@ Benefits:
 - New producers don't require rewiring every consumer
 - Encapsulation enforced by the ECS type system
 
+### Why NativeQueue for These Sinks (Not Ordering)
+
+These lane sinks use `NativeQueue<T>` for its *shape*, not its FIFO ordering.
+`NativeQueue`'s cross-element ordering guarantee is meaningless here: every
+producer writes through `.AsParallelWriter()` from a `ScheduleParallel` job, so
+enqueue order is decided by which worker thread claims which block when. Nothing
+downstream may rely on element order — sinks drain with `while (TryDequeue(...))`
+and must treat the contents as an unordered set. Do not reach for `NativeQueue`
+expecting a meaningful order under parallel writes.
+
+The reason these are queues is that each sink is a **single container that many
+independent systems append to across one frame**, drained once by the owner. A
+single lane's queue is written by several disjoint producer systems (collision,
+status, timed spawn, expansion) and chained through the singleton's
+`ProducerHandle`.
+
+`NativeStream` is **not** a drop-in replacement for that shape. A stream fixes
+its lane count at allocation and each lane may `BeginForEachIndex` only once, so
+several separate systems writing one shared stream would have to carve
+lane ranges per system per thread — most lanes empty — and thread that
+partition everywhere. `NativeStream` only wins over `NativeQueue` for the
+classic pattern where one job produces in parallel and the very next step
+drains it (block-local writes, no atomic global linkage); none of these
+cross-system sinks are that pattern. Performance of the queue path is not a
+concern regardless: `.ParallelWriter.Enqueue` only takes an atomic to claim a
+block slot, then writes block-local, so contention stays negligible.
+
 ## ECS Lifecycle Comments
 
 ECS component, tag, buffer, and shared-component declarations that document

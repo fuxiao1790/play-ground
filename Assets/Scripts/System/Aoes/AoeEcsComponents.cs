@@ -40,7 +40,6 @@ namespace PlayGround.System.Combat.Aoes
     // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse; carries fire-time hit-spawn template reference data.
     public struct AoeHitSpawnComponent : IComponentData
     {
-        public CombatHitPayload HitPayload;
         public OnHitSpawnRef OnHitSpawn;
     }
 

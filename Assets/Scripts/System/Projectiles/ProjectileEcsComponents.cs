@@ -30,7 +30,7 @@ namespace PlayGround.System.Combat.Projectiles
     {
         public int PierceRemaining;
         public float RepeatHitCooldownSeconds;
-        public ProjectileHitPayload HitPayload;
+        public OnHitSpawnRef OnHitSpawn;
     }
 
     // ECS Lifecycle: enableable base projectile component; added by spawn materialization; kept until root teardown; reset and enabled only for homing projectiles on reuse.

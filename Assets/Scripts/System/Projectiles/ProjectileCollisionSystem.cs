@@ -32,6 +32,7 @@ namespace PlayGround.System.Combat.Projectiles
                 ComponentType.ReadOnly<Active>(),
                 ComponentType.ReadOnly<CombatCollisionActiveTag>(),
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
+                ComponentType.ReadOnly<CombatHitPayload>(),
                 ComponentType.ReadOnly<CombatKinematicsComponent>(),
                 ComponentType.ReadOnly<CombatCollisionComponent>(),
                 ComponentType.ReadWrite<CombatLifetimeComponent>(),
@@ -151,6 +152,7 @@ namespace PlayGround.System.Combat.Projectiles
             private void Execute(
                 Entity entity,
                 in ProjectileIdentityComponent identity,
+                in CombatHitPayload payload,
                 in CombatKinematicsComponent kinematics,
                 in CombatCollisionComponent collision,
                 ref CombatLifetimeComponent lifetime,
@@ -249,27 +251,18 @@ namespace PlayGround.System.Combat.Projectiles
                                 continue;
                             }
 
-                            if (HasHitWriter && HasHitEvent(projectileHit.HitPayload))
+                            if (HasHitWriter && HasHitEvent(payload))
                             {
                                 HitWriter.Enqueue(new CombatHitEvent
                                 {
-                                    TargetProxy = targetEntity,
-                                    HitPosition = kinematics.Position,
-                                    Kind = CombatHitKind.Projectile,
-                                    DamageAmount = projectileHit.HitPayload.DamageAmount,
-                                    CritChance = projectileHit.HitPayload.CritChance,
-                                    CritMultiplier = projectileHit.HitPayload.CritMultiplier,
-                                    DirectDamageEnabled = projectileHit.HitPayload.DirectDamageEnabled,
-                                    SourceNodeId = projectileHit.HitPayload.SourceNodeId,
-                                    SourceId = identity.ProjectileId,
-                                    TypeId = identity.TypeId,
-                                    StackEffect = projectileHit.HitPayload.StackEffect
+                                    Source = entity,
+                                    Target = targetEntity
                                 });
                             }
 
                             if (HasProjectileEventWriter
-                                && projectileHit.HitPayload.OnHitSpawn.Enabled
-                                && projectileHit.HitPayload.OnHitSpawn.Kind == IntervalChildKind.Projectile)
+                                && projectileHit.OnHitSpawn.Enabled
+                                && projectileHit.OnHitSpawn.Kind == IntervalChildKind.Projectile)
                             {
                                 int baseId = HashId(
                                     identity.ProjectileId,
@@ -278,8 +271,8 @@ namespace PlayGround.System.Combat.Projectiles
                                     ImpactProjectileIdSalt);
                                 ProjectileEventWriter.Enqueue(new ProjectileSpawnEvent
                                 {
-                                    Kind = projectileHit.HitPayload.OnHitSpawn.Kind,
-                                    TemplateKey = projectileHit.HitPayload.OnHitSpawn.TemplateKey,
+                                    Kind = projectileHit.OnHitSpawn.Kind,
+                                    TemplateKey = projectileHit.OnHitSpawn.TemplateKey,
                                     Faction = identity.Faction,
                                     Position = kinematics.Position,
                                     AimDirection = DirectionFromTo(
@@ -292,23 +285,23 @@ namespace PlayGround.System.Combat.Projectiles
                                 });
                             }
 
-                            if (projectileHit.HitPayload.OnHitSpawn.Enabled
-                                && (projectileHit.HitPayload.OnHitSpawn.Kind == IntervalChildKind.ImpactAoe
-                                    || projectileHit.HitPayload.OnHitSpawn.Kind == IntervalChildKind.LingeringAoe))
+                            if (projectileHit.OnHitSpawn.Enabled
+                                && (projectileHit.OnHitSpawn.Kind == IntervalChildKind.ImpactAoe
+                                    || projectileHit.OnHitSpawn.Kind == IntervalChildKind.LingeringAoe))
                             {
                                 int aoeId = HashId(
                                     identity.ProjectileId,
                                     identity.TypeId,
                                     targetKey,
                                     ImpactAoeIdSalt);
-                                if (projectileHit.HitPayload.OnHitSpawn.Kind == IntervalChildKind.LingeringAoe)
+                                if (projectileHit.OnHitSpawn.Kind == IntervalChildKind.LingeringAoe)
                                 {
                                     if (HasLingeringAoeEventWriter)
                                     {
                                         LingeringAoeEventWriter.Enqueue(new LingeringAoeSpawnEvent
                                         {
-                                            Kind = projectileHit.HitPayload.OnHitSpawn.Kind,
-                                            TemplateKey = projectileHit.HitPayload.OnHitSpawn.TemplateKey,
+                                            Kind = projectileHit.OnHitSpawn.Kind,
+                                            TemplateKey = projectileHit.OnHitSpawn.TemplateKey,
                                             Faction = identity.Faction,
                                             Position = kinematics.Position,
                                             SourceId = aoeId,
@@ -321,8 +314,8 @@ namespace PlayGround.System.Combat.Projectiles
                                 {
                                     ImpactAoeEventWriter.Enqueue(new ImpactAoeSpawnEvent
                                     {
-                                        Kind = projectileHit.HitPayload.OnHitSpawn.Kind,
-                                        TemplateKey = projectileHit.HitPayload.OnHitSpawn.TemplateKey,
+                                        Kind = projectileHit.OnHitSpawn.Kind,
+                                        TemplateKey = projectileHit.OnHitSpawn.TemplateKey,
                                         Faction = identity.Faction,
                                         Position = kinematics.Position,
                                         SourceId = aoeId,
@@ -399,7 +392,7 @@ namespace PlayGround.System.Combat.Projectiles
                 });
             }
 
-            private static bool HasHitEvent(in ProjectileHitPayload payload) =>
+            private static bool HasHitEvent(in CombatHitPayload payload) =>
                 payload.DirectDamageEnabled || payload.StackEffect.Enabled;
 
             private static int TargetKey(Entity entity)

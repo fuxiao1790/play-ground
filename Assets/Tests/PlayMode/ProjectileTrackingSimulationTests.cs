@@ -320,6 +320,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatCollisionComponent),
                 typeof(CombatLifetimeComponent),
                 typeof(ProjectileHitComponent),
+                typeof(CombatHitPayload),
                 typeof(ProjectileTrackingComponent),
                 typeof(ArmingTag),
                 typeof(CombatArmingComponent),
@@ -344,13 +345,11 @@ namespace PlayGround.Tests.PlayMode
             });
             entityManager.SetComponentData(projectileEntity, new CombatLifetimeComponent { Remaining = 10f });
             entityManager.SetComponentEnabled<ArmingTag>(projectileEntity, false);
-            entityManager.SetComponentData(projectileEntity, new ProjectileHitComponent
+            entityManager.SetComponentData(projectileEntity, new ProjectileHitComponent());
+            entityManager.SetComponentData(projectileEntity, new CombatHitPayload
             {
-                HitPayload = new ProjectileHitPayload(new CombatHitPayload
-                {
-                    DamageAmount = 1f,
-                    DirectDamageEnabled = true
-                })
+                DamageAmount = 1f,
+                DirectDamageEnabled = true
             });
             entityManager.SetComponentData(projectileEntity, new ProjectileTrackingComponent
             {
