@@ -43,9 +43,14 @@ applies. Deleting the drop check is safe as-is.
    only on an unrouted key from 001), so the accepted-count/stats path is unchanged.
 5. `Dispatch()`, before `SetData` for an endpoint with `Staging.Length > BufferCapacity`:
    - compute `newCapacity = RoundUpToMultiple(Staging.Length, GrowthChunk)`;
-   - `Release()` the old `PositionBuffer` and `AreaSizeBuffer`;
-   - allocate new buffers at `newCapacity`;
-   - set `BufferCapacity = newCapacity`;
+   - allocate both replacement buffers into local variables while the old pair remains live;
+   - if either allocation fails, release any partial replacement, keep the old pair bound and
+     owned, log the allocation failure, discard this endpoint's staged batch, and continue. The
+     endpoint remains usable on later frames within its previous capacity;
+   - after both allocations succeed, swap and bind the pair as one transaction. If rebinding
+     throws, restore the old pair/bindings and release both replacements;
+   - only after successful rebinding, set `BufferCapacity = newCapacity` and `Release()` the old
+     pair. No live handle is destroyed before its replacement is known-good;
    - **rebind**: the `VisualEffect` holds a reference to the old buffer, so
      `SetGraphicsBuffer(...)` must be called with the new instances. `Dispatch()` already calls
      `SetGraphicsBuffer` every frame (`:199`, `:201`), so rebinding is automatic — but this must
@@ -58,9 +63,9 @@ applies. Deleting the drop check is safe as-is.
   allocates nothing. A realloc fires only on the frame that first crosses a chunk boundary at
   that level, then never again. This is strictly the same amortization the fixed buffer had, with
   the ceiling removed.
-- **GPU handle ownership** (`Docs/coding-standards.md:292-313`): the old buffer is `Release()`d
-  before the new one is assigned; `Dispose` and the `Register` rollback still cover the current
-  buffers. Growth must not leak the previous allocation.
+- **GPU handle ownership** (`Docs/coding-standards.md:292-313`): growth is a two-phase swap.
+  Partial replacements are released on failure; the old pair remains valid until both replacements
+  are allocated and bound; `Dispose` and the `Register` rollback still cover the current buffers.
 - **No unsafe** (`:95`): still typed `SetData<T>`.
 
 ## What honestly remains a ceiling
@@ -73,16 +78,33 @@ After this change the only limits are real ones, and neither is ours to invent:
 If a deliberate spawn budget is ever wanted, it becomes an explicit, named, logged decision —
 not a silent side effect of a buffer size.
 
+### Accepted temporary debt: unbounded high-water mark
+
+Per user decision, this task intentionally ships without an application-level VFX event or byte
+budget. The permanent high-water allocation for an endpoint is therefore determined by the
+largest number of events routed to that endpoint in any one tick. A pathological tick can retain a
+large staging capacity and GPU buffer pair for the rest of the endpoint's lifetime.
+
+This is accepted for now so the accidental 2048-event drop can be removed. Follow-up work must add
+an explicit event/byte budget, fallback policy, and dropped-event diagnostics before content stress
+or release hardening. That later budget must be independent of growth chunk size. Allocation
+failure remains an honest emergency fallback: keep the previous buffers and drop only the batch
+that cannot fit.
+
 ## Acceptance criteria
 
-- Staging more than 2048 events for one endpoint in a frame drops **nothing**; all of them
-  upload and spawn (subject only to the graph's own authored Capacity).
+- When replacement allocation succeeds, staging more than 2048 events for one endpoint in a frame
+  drops **nothing**; all of them upload and spawn (subject only to the graph's authored Capacity).
 - The buffer grows to the next multiple of 2048 and **stays** there; a later quiet frame does not
   shrink or realloc.
 - A steady-state frame under the high-water mark performs **zero** GPU allocations — verify no
   per-frame `GraphicsBuffer` construction in the profiler.
 - No leak: after growth, the previous `GraphicsBuffer` is released. Play-mode enter/exit cycles
   do not accumulate GPU buffers.
+- Forced replacement-allocation failure leaves the old buffers usable and releases every partial
+  replacement; it never leaves an endpoint bound to a released handle.
+- The documented high-water mark matches the maximum per-endpoint event count observed in one
+  tick and never shrinks during that endpoint's lifetime.
 - `maxPerFrame` is gone from `CombatVfxRoot.Register` and `CombatAoeVfxDispatcher.Register`
   signatures; no call site breaks.
 - `Docs/reference/simulation/vfx-system.md` (`:181-183`), `Docs/contracts/vfx-requests.md`

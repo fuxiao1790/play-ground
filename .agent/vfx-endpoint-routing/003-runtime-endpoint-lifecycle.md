@@ -24,21 +24,29 @@ not an entity (see index rationale).
 1. **`endpointId` is stable and never reused within a session.** `endpoints` stays dense;
    removed slots hold a tombstone (`null`) rather than compacting, so no live `endpointId`
    changes meaning. `endpointIdByKey` entries pointing at a tombstone resolve to "no visual".
-2. **Runtime creation**: expose `int EnsureEndpoint(VisualEffectAsset asset)` on
-   `CombatVfxRoot`. Idempotent — returns the existing `endpointId` if the asset already has one,
-   otherwise builds it (validate contract, GameObject, buffers, staging) and returns the new id.
-   `Register(typeId, trigger, asset)` becomes `EnsureEndpoint` + `endpointIdByKey[key] = id`.
-   Startup registration therefore goes through the same path as runtime registration — one code
-   path, not two.
+2. **Runtime creation and routing**: expose
+   `int EnsureRoute(int typeId, AoeVfxTrigger trigger, VisualEffectAsset asset,
+   bool requireAreaSizeContract = false)` on `CombatVfxRoot`. It validates this route's requested
+   contract, idempotently resolves or creates the asset endpoint, binds the `(typeId, trigger)`
+   route, and returns its `endpointId`. The existing `Register(...)` API becomes a compatibility
+   wrapper over `EnsureRoute`, so startup and runtime registration use one complete path.
+
+   Keep `EnsureEndpoint(asset, requiredContract)` as a private dispatcher helper only. Endpoint
+   creation by itself is not a public success state because requests carry route keys, not endpoint
+   ids. First-registration-wins for an already-bound route remains the 001 behavior: `EnsureRoute`
+   returns that route's existing endpoint id and does not create or remap the newly supplied asset.
 3. **Staged removal**: `RemoveEndpoint(int endpointId)` must not free resources while a drain
    could still stage into them. Order:
    - drop every `endpointIdByKey` entry resolving to it (new requests stop routing there);
    - flush or discard its staged events;
    - tombstone the slot and remove from `endpointByAsset` + `LiveResources`;
    - dispose staging lists, release buffers, destroy the GameObject.
-   Removal is **main-thread only and must not run between `ProducerHandle.Complete()` and the end
-   of `DrainAndDispatch`**. Simplest safe placement: a pending-removal list applied at the top of
-   `CombatAoeVfxDispatchSystem.OnUpdate`, before the drain.
+   `RemoveEndpoint` is **main-thread only** and queues the id in a managed pending-removal list; it
+   does not release resources immediately. `CombatAoeVfxDispatchSystem.OnUpdate` calls
+   `CombatVfxRoot.ApplyPendingRemovals()` immediately after `ProducerHandle.Complete()` and before
+   both the queue-empty early return and `DrainAndDispatch`. This guarantees removal progresses on
+   quiet frames and cannot run during the drain. `OnDestroy` may dispose all remaining endpoints
+   immediately after dispatch ownership has ended.
 4. **Resource swap**: because callers hold only an `endpointId`, an endpoint's buffers/list/
    `VisualEffect` can be replaced without touching any caller. 002's growth is already an instance
    of this; keep the record's internals private so that stays true.
@@ -50,9 +58,9 @@ not an entity (see index rationale).
 - **Native/GPU handle ownership** (`Docs/coding-standards.md:292-313`): removal disposes staging
   and releases buffers on every path; tombstones must not leak. Full `Dispose()` must skip
   tombstones without double-releasing.
-- **Hot path** (`:282`): `EnsureEndpoint` is setup work, not per-frame. Do not call it from the
-  drain. This is also the existing rule that expensive setup must not hide inside repeated runtime
-  calls (`Docs/coding-standards.md:113-115`).
+- **Hot path** (`:282`): `EnsureRoute` and its private `EnsureEndpoint` helper are setup work, not
+  per-frame. Do not call either from the drain. This is also the existing rule that expensive setup
+  must not hide inside repeated runtime calls (`Docs/coding-standards.md:113-115`).
 - **No structural ECS changes**: endpoints are presentation-side records; no ECS component is
   added or removed on any combat entity.
 
@@ -65,8 +73,10 @@ not an entity (see index rationale).
 
 ## Acceptance criteria
 
-- `EnsureEndpoint` called twice with the same asset returns the same id and allocates once.
-- A graph registered mid-session receives events on the next dispatch cycle with no reset.
+- `EnsureRoute` called twice for routes using the same asset returns the same endpoint id and
+  allocates once.
+- A route registered mid-session receives matching `(typeId, trigger)` events on the next dispatch
+  cycle with no reset.
 - `RemoveEndpoint` frees the GameObject and both buffers; the child disappears from under
   `CombatVfxRoot`; no leaked GPU handles across repeated add/remove cycles.
 - Requests routed to a removed endpoint are discarded cleanly (`StageAoeSpawn` returns `false`),
@@ -80,8 +90,8 @@ not an entity (see index rationale).
 Harness cannot run Unity. User-run play-mode verification:
 
 1. Enter play mode; confirm startup-registered effects behave exactly as after 001.
-2. Call `EnsureEndpoint` at runtime with a new asset; confirm the child appears and the effect
-   fires without a dispatcher reset.
+2. Call `EnsureRoute` at runtime with a new route and asset; enqueue a matching request and confirm
+   the child appears and the effect fires without a dispatcher reset.
 3. Call `RemoveEndpoint` on a live endpoint mid-combat; confirm the child disappears, no
    exception fires, and other effects keep working.
 4. Repeat add/remove ~50 times; confirm child count and GPU memory return to baseline.

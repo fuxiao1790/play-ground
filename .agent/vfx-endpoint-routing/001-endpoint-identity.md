@@ -33,8 +33,13 @@ dense `endpointId`.
      Absent = no visual for that slot.
 3. `Register(typeId, trigger, asset, ...)`:
    - `asset == null` -> return (unchanged: no visual, no allocation).
+   - If `endpointIdByKey` already contains `key` -> return before inspecting `asset`. This
+     preserves today's first-registration-wins behavior and prevents a repeated compile from
+     silently rerouting a live slot or orphaning its previous endpoint.
    - If `endpointByAsset` already has `asset` -> **do not** create a GameObject or buffers;
-     just map `endpointIdByKey[key] = existingId` and return.
+     validate the asset against this call's requested contract, then map
+     `endpointIdByKey[key] = existingId` and return. A stronger later contract must not inherit a
+     weaker first registration without validation.
    - Otherwise create the endpoint exactly as today (GameObject, validate contract, buffers,
      staging), append to `endpoints`, and record both maps.
    - Keep the existing try/catch partial-alloc rollback (`:126-137`) and the `LiveResources`
@@ -53,16 +58,21 @@ dense `endpointId`.
 - No change to `AoeVfxSpawnRequest`, the queue, `ProducerHandle`, or any producer system.
 - No change to `maxPerFrame` behavior (002).
 - No `endpointId` in the request payload and no ECS-side table yet (004 adds one only if needed).
+- The 001-003 main-thread route lookup is deliberately the managed `Dictionary<int, int>` above.
+  A native flat lookup table is only an optional cache introduced by measurement-gated 004.
 - No shared components, no new ECS components, no structural changes anywhere.
 
 ## Conflict note
 
-If two slots register the **same asset** with **different** `maxPerFrame` or different
-`requireAreaSizeContract`, the endpoint is shared and the first registration wins. Today every
-call site passes the default `2048` and `requireAreaSizeContract: true`
-(`SkillDriver.cs:632-636`, `CombatVfxRoot.cs:43`), so this is unobservable. Log a warning if a
-later registration requests a *different* `maxPerFrame` for an already-created endpoint, so the
-case is visible rather than silent. 002 removes the field and the ambiguity entirely.
+If two slots register the **same asset** with different `maxPerFrame`, the endpoint is shared and
+the first capacity wins. Today every call site passes the default `2048`. Log a warning if a later
+registration requests a different value; 002 removes the field and ambiguity entirely.
+
+`requireAreaSizeContract` does **not** use first-endpoint-creation-wins. Every newly bound route
+must validate the asset against its own requested contract, including when the endpoint already
+exists. If a later route requires `AreaSizes` and the shared asset does not expose it, that route
+remains unmapped and logs the normal validation error; existing weaker routes remain valid. A
+repeated call for an already-bound key remains a no-op under first-registration-wins.
 
 ## Acceptance criteria
 
@@ -75,6 +85,9 @@ case is visible rather than silent. 002 removes the field and the ambiguity enti
   `Positions` upload and one `SendEvent`.
 - Slots with a `null` asset still allocate nothing and still cause `StageAoeSpawn` to return
   `false`.
+- Re-registering an existing `(typeId, trigger)` with a different asset leaves the original route
+  unchanged and does not allocate an orphan endpoint.
+- Reusing an endpoint never bypasses a later route's stronger graph-contract validation.
 - A graph failing `ValidateGraphContract` still logs, destroys its GameObject, and registers no
   endpoint; other slots pointing at that asset resolve to no endpoint.
 - No duplicate `Dispose` / double `Release` on teardown when an asset is shared by many slots.
