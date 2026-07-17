@@ -36,6 +36,7 @@ namespace PlayGround.System.Combat.Aoes
                 .WithAll<AoeHitSpawnComponent>()
                 .WithAll<CombatHitPayload>()
                 .WithAll<AoeAreaComponent>()
+                .WithAll<AoeVfxIds>()
                 .WithDisabled<ArmingTag>()
                 .WithAll<LingeringAoeTag>()
                 .Build(ref state);
