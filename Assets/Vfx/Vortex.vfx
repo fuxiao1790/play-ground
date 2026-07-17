@@ -274,7 +274,7 @@ MonoBehaviour:
   useSoftParticle: 0
   vfxSystemSortPriority: 1000
   sort: 0
-  sortMode: 1
+  sortMode: 0
   revertSorting: 0
   indirectDraw: 0
   computeCulling: 0
