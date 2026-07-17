@@ -400,6 +400,14 @@ PrefabInstance:
       propertyPath: m_LocalScale.y
       value: 1.6
       objectReference: {fileID: 0}
+    - target: {fileID: 1003000000000000202, guid: ac271f0a41236b748a545b47a78cc5e3, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 787009315388669023, guid: 918e1da6b794a6748a32fb587473c4b5, type: 3}
+    - target: {fileID: 1003000000000000202, guid: ac271f0a41236b748a545b47a78cc5e3, type: 3}
+      propertyPath: m_WasSpriteAssigned
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -503,7 +511,7 @@ VisualEffect:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1849630935}
   m_Enabled: 1
-  m_Asset: {fileID: 8926484042661614526, guid: 48ba0531b510df84eb2206bab7a176a0, type: 3}
+  m_Asset: {fileID: 8926484042661614526, guid: 388478dd928f3bf418bc4d588965065f, type: 3}
   m_InitialEventName: OnPlay
   m_InitialEventNameOverriden: 0
   m_StartSeed: 0
