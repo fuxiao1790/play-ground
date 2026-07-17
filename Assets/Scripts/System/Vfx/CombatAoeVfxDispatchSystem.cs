@@ -71,6 +71,8 @@ namespace PlayGround.System.Combat.Vfx
                 return;
             }
 
+            // todo: this is not the correct way to reach the game obj.
+            // use singleton entitiy with game obj binding.
             CombatVfxRoot root = CombatVfxRoot.Instance;
             if (root == null)
             {

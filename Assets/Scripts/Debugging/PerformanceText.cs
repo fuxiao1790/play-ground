@@ -1,4 +1,5 @@
 using PlayGround.System.Combat.Stats;
+using PlayGround.System.Combat.Vfx;
 using Unity.Entities;
 using UnityEngine;
 using UnityEngine.UI;
@@ -7,7 +8,7 @@ public class PerformanceText : MonoBehaviour
 {
     [SerializeField] private Text text;
     [SerializeField] private Vector2 padding = new(12f, 12f);
-    [SerializeField] private Vector2 size = new(360f, 156f);
+    [SerializeField] private Vector2 size = new(360f, 180f);
     [SerializeField] private int fontSize = 18;
 
     private CombatStatsGatherSystem statsSystem;
@@ -65,7 +66,8 @@ public class PerformanceText : MonoBehaviour
             $"Projectiles:  {stats.ActiveProjectiles}\n" +
             $"AOEs:         {stats.ActiveAoes}\n" +
             $"Hit events:   {stats.HitEventsCreated}\n" +
-            $"VFX events:   {stats.VfxEventsCreated}\n";
+            $"VFX events:   {stats.VfxEventsCreated}\n" +
+            $"VFX particles: {CombatVfxRoot.AliveParticleCount(false)}\n";
     }
 
     private void EnsureOverlayText()
