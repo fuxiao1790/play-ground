@@ -25,8 +25,8 @@ namespace PlayGround.Tests.EditMode
             VisualEffectAsset asset = LoadVfxAsset();
             CombatVfxRoot root = CreateRoot();
 
-            int first = root.Register(asset, requireAreaSizeContract: true);
-            int second = root.Register(asset, requireAreaSizeContract: true);
+            int first = root.Register(asset, VfxDataShape.Basic);
+            int second = root.Register(asset, VfxDataShape.Basic);
 
             Assert.That(first, Is.GreaterThan(0));
             Assert.That(second, Is.EqualTo(first));
@@ -38,7 +38,7 @@ namespace PlayGround.Tests.EditMode
         {
             CombatVfxRoot root = CreateRoot();
 
-            int id = root.Register(null, requireAreaSizeContract: true);
+            int id = root.Register(null, VfxDataShape.Basic);
 
             Assert.That(id, Is.Zero);
             Assert.That(root.transform.childCount, Is.Zero);

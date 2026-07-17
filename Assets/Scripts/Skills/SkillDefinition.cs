@@ -9,6 +9,7 @@ using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Projectiles;
+using PlayGround.System.Combat.Vfx;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.VFX;
@@ -67,6 +68,11 @@ namespace PlayGround.Skills
         public abstract VisualEffectAsset ExpireEffect { get; }
         public abstract VisualEffectAsset PulseEffect { get; }
         public abstract VisualEffectAsset ArmingEffect { get; }
+        public abstract VfxDataShape SpawnEffectShape { get; }
+        public abstract VfxDataShape HitEffectShape { get; }
+        public abstract VfxDataShape ExpireEffectShape { get; }
+        public abstract VfxDataShape PulseEffectShape { get; }
+        public abstract VfxDataShape ArmingEffectShape { get; }
     }
 
     [Serializable]
@@ -82,6 +88,11 @@ namespace PlayGround.Skills
         public override VisualEffectAsset ExpireEffect => prefab != null ? prefab.ExpireEffect : null;
         public override VisualEffectAsset PulseEffect => null;
         public override VisualEffectAsset ArmingEffect => prefab != null ? prefab.ArmingEffect : null;
+        public override VfxDataShape SpawnEffectShape => prefab != null ? prefab.SpawnEffectShape : VfxDataShape.Basic;
+        public override VfxDataShape HitEffectShape => prefab != null ? prefab.HitEffectShape : VfxDataShape.Basic;
+        public override VfxDataShape ExpireEffectShape => prefab != null ? prefab.ExpireEffectShape : VfxDataShape.Basic;
+        public override VfxDataShape PulseEffectShape => VfxDataShape.Basic;
+        public override VfxDataShape ArmingEffectShape => prefab != null ? prefab.ArmingEffectShape : VfxDataShape.Basic;
 
         public override SkillDefinition DeepCopy() => (AoeDefinition)MemberwiseClone();
     }
@@ -101,6 +112,11 @@ namespace PlayGround.Skills
         public override VisualEffectAsset ExpireEffect => prefab != null ? prefab.ExpireEffect : null;
         public override VisualEffectAsset PulseEffect => prefab != null ? prefab.PulseEffect : null;
         public override VisualEffectAsset ArmingEffect => prefab != null ? prefab.ArmingEffect : null;
+        public override VfxDataShape SpawnEffectShape => prefab != null ? prefab.SpawnEffectShape : VfxDataShape.Basic;
+        public override VfxDataShape HitEffectShape => prefab != null ? prefab.HitEffectShape : VfxDataShape.Basic;
+        public override VfxDataShape ExpireEffectShape => prefab != null ? prefab.ExpireEffectShape : VfxDataShape.Basic;
+        public override VfxDataShape PulseEffectShape => prefab != null ? prefab.PulseEffectShape : VfxDataShape.Basic;
+        public override VfxDataShape ArmingEffectShape => prefab != null ? prefab.ArmingEffectShape : VfxDataShape.Basic;
 
         public override SkillDefinition DeepCopy() => (LingeringAoeDefinition)MemberwiseClone();
     }

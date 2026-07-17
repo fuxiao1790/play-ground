@@ -1,16 +1,3 @@
-using PlayGround.System.Combat.Application;
-using PlayGround.System.Combat.Aoes;
-using PlayGround.System.Combat.Collision;
-using PlayGround.System.Combat.Core;
-using PlayGround.System.Combat.Lifetime;
-using PlayGround.System.Combat.Platform;
-using PlayGround.System.Combat.Projectiles;
-using PlayGround.System.Combat.Rendering;
-using PlayGround.System.Combat.Spawning;
-using PlayGround.System.Combat.Stats;
-using PlayGround.System.Combat.Status;
-using PlayGround.System.Combat.Targets;
-using PlayGround.System.Combat.Vfx;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -26,10 +13,12 @@ namespace PlayGround.System.Combat.Vfx
         public const int InitialBufferCapacity = 2048;
 
         public VisualEffect Instance;
+        public VfxDataShape Shape;
         public GraphicsBuffer PositionBuffer;
         public GraphicsBuffer AreaSizeBuffer;
+        public GraphicsBuffer DurationBuffer;
+        public GraphicsBuffer TickIntervalBuffer;
         public int BufferCapacity;
-        public bool RequireAreaSizeContract;
 
         public void EnsureBufferCapacity(int requiredCapacity)
         {
@@ -46,6 +35,8 @@ namespace PlayGround.System.Combat.Vfx
 
             GraphicsBuffer newPositionBuffer = null;
             GraphicsBuffer newAreaSizeBuffer = null;
+            GraphicsBuffer newDurationBuffer = null;
+            GraphicsBuffer newTickIntervalBuffer = null;
             try
             {
                 newPositionBuffer = new GraphicsBuffer(
@@ -56,18 +47,36 @@ namespace PlayGround.System.Combat.Vfx
                     GraphicsBuffer.Target.Structured,
                     newCapacity,
                     sizeof(float));
+
+                if (Shape == VfxDataShape.Timed)
+                {
+                    newDurationBuffer = new GraphicsBuffer(
+                        GraphicsBuffer.Target.Structured,
+                        newCapacity,
+                        sizeof(float));
+                    newTickIntervalBuffer = new GraphicsBuffer(
+                        GraphicsBuffer.Target.Structured,
+                        newCapacity,
+                        sizeof(float));
+                }
             }
             catch
             {
                 newPositionBuffer?.Release();
                 newAreaSizeBuffer?.Release();
+                newDurationBuffer?.Release();
+                newTickIntervalBuffer?.Release();
                 throw;
             }
 
             PositionBuffer?.Release();
             AreaSizeBuffer?.Release();
+            DurationBuffer?.Release();
+            TickIntervalBuffer?.Release();
             PositionBuffer = newPositionBuffer;
             AreaSizeBuffer = newAreaSizeBuffer;
+            DurationBuffer = newDurationBuffer;
+            TickIntervalBuffer = newTickIntervalBuffer;
             BufferCapacity = newCapacity;
         }
 
@@ -77,6 +86,10 @@ namespace PlayGround.System.Combat.Vfx
             PositionBuffer = null;
             AreaSizeBuffer?.Release();
             AreaSizeBuffer = null;
+            DurationBuffer?.Release();
+            DurationBuffer = null;
+            TickIntervalBuffer?.Release();
+            TickIntervalBuffer = null;
             if (Instance != null)
             {
                 Object.Destroy(Instance.gameObject);
@@ -85,65 +98,133 @@ namespace PlayGround.System.Combat.Vfx
         }
     }
 
-    // Owns the VFX graph protocol and nothing else: the exposed-property names, whether a given
-    // graph speaks them, and how one staged batch reaches the GPU. Holds no state and no
-    // resources — CombatVfxRoot creates, stages, and disposes every AoeVfxTypeResources.
+    // Owns the VFX graph protocol and nothing else: validation and upload. Holds no state and
+    // no resources; CombatVfxRoot creates, stages, and disposes every AoeVfxTypeResources.
     public sealed class CombatAoeVfxDispatcher
     {
-        private const string PositionsPropertyName = "Positions";
-        private const string AreaSizePropertyName = "AreaSizes";
-        private const string SpawnCountPropertyName = "SpawnCount";
-        private const string SpawnEventName = "OnSpawn";
-
         public void Dispatch(AoeVfxTypeResources res, NativeArray<float2> positions, NativeArray<float> areaSizes)
+        {
+            DispatchBasic(res, positions, areaSizes);
+        }
+
+        public void DispatchBasic(
+            AoeVfxTypeResources res,
+            NativeArray<float2> positions,
+            NativeArray<float> areaSizes)
+        {
+            UploadCommon(res, positions, areaSizes);
+            res.Instance.SendEvent(VfxDataShapeTable.SpawnEventName);
+        }
+
+        public void DispatchTimed(
+            AoeVfxTypeResources res,
+            NativeArray<float2> positions,
+            NativeArray<float> areaSizes,
+            NativeArray<float> durations,
+            NativeArray<float> tickIntervals)
+        {
+            int count = positions.Length;
+            UploadCommon(res, positions, areaSizes);
+            res.DurationBuffer.SetData(durations, 0, 0, count);
+            res.Instance.SetGraphicsBuffer(VfxDataShapeTable.DurationsPropertyName, res.DurationBuffer);
+            res.TickIntervalBuffer.SetData(tickIntervals, 0, 0, count);
+            res.Instance.SetGraphicsBuffer(VfxDataShapeTable.TickIntervalsPropertyName, res.TickIntervalBuffer);
+            res.Instance.SendEvent(VfxDataShapeTable.SpawnEventName);
+        }
+
+        public bool ValidateGraphContract(
+            VisualEffectAsset asset,
+            VfxDataShape shape,
+            out string reason)
+        {
+            var props = new List<VFXExposedProperty>();
+            asset.GetExposedProperties(props);
+
+            IReadOnlyList<VfxDataShapeBuffer> expected = VfxDataShapeTable.BuffersFor(shape);
+            var expectedNames = new HashSet<string>();
+            for (int i = 0; i < expected.Count; i++)
+            {
+                expectedNames.Add(expected[i].Name);
+                if (!TryFindProperty(props, expected[i].Name, out VFXExposedProperty property))
+                {
+                    reason = ContractFailure(asset, shape, $"missing GraphicsBuffer '{expected[i].Name}'");
+                    return false;
+                }
+
+                if (property.type != expected[i].Type)
+                {
+                    reason = ContractFailure(
+                        asset,
+                        shape,
+                        $"property '{expected[i].Name}' has type '{property.type.Name}', expected '{expected[i].Type.Name}'");
+                    return false;
+                }
+            }
+
+            if (!TryFindProperty(props, VfxDataShapeTable.SpawnCountPropertyName, out VFXExposedProperty spawnCount))
+            {
+                reason = ContractFailure(asset, shape, $"missing int '{VfxDataShapeTable.SpawnCountPropertyName}'");
+                return false;
+            }
+
+            if (spawnCount.type != typeof(int))
+            {
+                reason = ContractFailure(
+                    asset,
+                    shape,
+                    $"property '{VfxDataShapeTable.SpawnCountPropertyName}' has type '{spawnCount.type.Name}', expected 'Int32'");
+                return false;
+            }
+
+            foreach (VFXExposedProperty p in props)
+            {
+                if (p.type == typeof(GraphicsBuffer) && !expectedNames.Contains(p.name))
+                {
+                    reason = ContractFailure(asset, shape, $"unexpected GraphicsBuffer '{p.name}'");
+                    return false;
+                }
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+
+        private static void UploadCommon(
+            AoeVfxTypeResources res,
+            NativeArray<float2> positions,
+            NativeArray<float> areaSizes)
         {
             int count = positions.Length;
             res.EnsureBufferCapacity(count);
             Vector3 worldPosition = new(0f, 0f, res.Instance.transform.position.z);
             res.Instance.transform.position = worldPosition;
             res.PositionBuffer.SetData(positions, 0, 0, count);
-            res.Instance.SetGraphicsBuffer(PositionsPropertyName, res.PositionBuffer);
+            res.Instance.SetGraphicsBuffer(VfxDataShapeTable.PositionsPropertyName, res.PositionBuffer);
             res.AreaSizeBuffer.SetData(areaSizes, 0, 0, count);
-            res.Instance.SetGraphicsBuffer(AreaSizePropertyName, res.AreaSizeBuffer);
-            res.Instance.SetInt(SpawnCountPropertyName, count);
-            res.Instance.SendEvent(SpawnEventName);
+            res.Instance.SetGraphicsBuffer(VfxDataShapeTable.AreaSizesPropertyName, res.AreaSizeBuffer);
+            res.Instance.SetInt(VfxDataShapeTable.SpawnCountPropertyName, count);
         }
 
-        public bool ValidateGraphContract(
-            VisualEffectAsset asset,
-            bool requireAreaSizeContract,
-            out string reason)
+        private static bool TryFindProperty(
+            List<VFXExposedProperty> props,
+            string propertyName,
+            out VFXExposedProperty property)
         {
-            var props = new List<VFXExposedProperty>();
-            asset.GetExposedProperties(props);
-
-            bool hasPositions = false;
-            bool hasSpawnCount = false;
-            bool hasAreaSize = false;
-            foreach (VFXExposedProperty p in props)
+            for (int i = 0; i < props.Count; i++)
             {
-                if (p.name == PositionsPropertyName) hasPositions = p.type == typeof(GraphicsBuffer);
-                if (p.name == SpawnCountPropertyName) hasSpawnCount = p.type == typeof(int);
-                if (p.name == AreaSizePropertyName) hasAreaSize = p.type == typeof(GraphicsBuffer);
+                if (props[i].name == propertyName)
+                {
+                    property = props[i];
+                    return true;
+                }
             }
 
-            if (!hasPositions || !hasSpawnCount)
-            {
-                reason = $"{nameof(CombatAoeVfxDispatcher)} cannot register VFX asset '{asset.name}'. "
-                    + $"Graph must expose GraphicsBuffer '{PositionsPropertyName}', int '{SpawnCountPropertyName}', "
-                    + $"and event '{SpawnEventName}'.";
-                return false;
-            }
-
-            if (requireAreaSizeContract && !hasAreaSize)
-            {
-                reason = $"{nameof(CombatAoeVfxDispatcher)} cannot register AOE VFX asset '{asset.name}'. "
-                    + $"Graph must expose GraphicsBuffer '{AreaSizePropertyName}'.";
-                return false;
-            }
-
-            reason = string.Empty;
-            return true;
+            property = default;
+            return false;
         }
+
+        private static string ContractFailure(VisualEffectAsset asset, VfxDataShape shape, string issue) =>
+            $"{nameof(CombatAoeVfxDispatcher)} cannot register VFX asset '{asset.name}' as {shape}. "
+            + $"Graph contract failure: {issue}. Required event: '{VfxDataShapeTable.SpawnEventName}'.";
     }
 }

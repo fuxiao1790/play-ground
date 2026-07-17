@@ -26,6 +26,11 @@ namespace PlayGround.Skills.Runtime
         public VisualEffectAsset ExpireEffect { get; set; }
         public VisualEffectAsset PulseEffect { get; set; }
         public VisualEffectAsset ArmingEffect { get; set; }
+        public VfxDataShape SpawnEffectShape { get; set; } = VfxDataShape.Basic;
+        public VfxDataShape HitEffectShape { get; set; } = VfxDataShape.Basic;
+        public VfxDataShape ExpireEffectShape { get; set; } = VfxDataShape.Basic;
+        public VfxDataShape PulseEffectShape { get; set; } = VfxDataShape.Basic;
+        public VfxDataShape ArmingEffectShape { get; set; } = VfxDataShape.Basic;
         public AoeVfxIds VfxIds { get; set; }
         public float LifetimeSeconds { get; set; }
         public float TickIntervalSeconds { get; set; }

@@ -123,7 +123,7 @@ namespace PlayGround.System.Combat.Core
             }
             else if (scopeEntity != Entity.Null)
             {
-                CombatScopeOwner.ReleaseAfterWorldDispose(scopeEntity);
+                CombatScopeOwner.ReleaseAfterWorldDispose(entityWorld, scopeEntity);
             }
 
             runtimeReady = false;

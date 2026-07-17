@@ -7,6 +7,7 @@ using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Vfx;
 using UnityEngine;
 using UnityEngine.VFX;
 
@@ -17,16 +18,24 @@ namespace PlayGround.Skills
         [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField] private Collider2D hurtbox;
         [SerializeField] private VisualEffectAsset spawnEffect;
+        [SerializeField] private VfxDataShape spawnEffectShape = VfxDataShape.Basic;
         [SerializeField] private VisualEffectAsset hitEffect;
+        [SerializeField] private VfxDataShape hitEffectShape = VfxDataShape.Basic;
         [SerializeField] private VisualEffectAsset expireEffect;
+        [SerializeField] private VfxDataShape expireEffectShape = VfxDataShape.Basic;
         [SerializeField] private VisualEffectAsset armingEffect;
+        [SerializeField] private VfxDataShape armingEffectShape = VfxDataShape.Basic;
 
         public SpriteRenderer SpriteRenderer => spriteRenderer;
         public Collider2D Hurtbox => hurtbox;
         public VisualEffectAsset SpawnEffect => spawnEffect;
+        public VfxDataShape SpawnEffectShape => spawnEffectShape;
         public VisualEffectAsset HitEffect => hitEffect;
+        public VfxDataShape HitEffectShape => hitEffectShape;
         public VisualEffectAsset ExpireEffect => expireEffect;
+        public VfxDataShape ExpireEffectShape => expireEffectShape;
         public VisualEffectAsset ArmingEffect => armingEffect;
+        public VfxDataShape ArmingEffectShape => armingEffectShape;
         public Sprite Sprite => spriteRenderer != null ? spriteRenderer.sprite : null;
         public Material Material => spriteRenderer != null ? spriteRenderer.sharedMaterial : null;
         public float VisualRotationDegrees => spriteRenderer != null ? spriteRenderer.transform.eulerAngles.z : 0f;
@@ -48,14 +57,22 @@ namespace PlayGround.Skills
             VisualEffectAsset spawnVisualEffect = null,
             VisualEffectAsset hitVisualEffect = null,
             VisualEffectAsset expireVisualEffect = null,
-            VisualEffectAsset armingVisualEffect = null)
+            VisualEffectAsset armingVisualEffect = null,
+            VfxDataShape spawnShape = VfxDataShape.Basic,
+            VfxDataShape hitShape = VfxDataShape.Basic,
+            VfxDataShape expireShape = VfxDataShape.Basic,
+            VfxDataShape armingShape = VfxDataShape.Basic)
         {
             spriteRenderer = renderer;
             hurtbox = hurtboxShape;
             spawnEffect = spawnVisualEffect;
+            spawnEffectShape = spawnShape;
             hitEffect = hitVisualEffect;
+            hitEffectShape = hitShape;
             expireEffect = expireVisualEffect;
+            expireEffectShape = expireShape;
             armingEffect = armingVisualEffect;
+            armingEffectShape = armingShape;
         }
 
         public bool IsValidTemplate(out string reason)

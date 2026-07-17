@@ -8,134 +8,137 @@ simulation overview and aspect map.
 
 ## Summary
 
-The VFX system dispatches batched Visual Effect Graph events from ECS simulation
-data. Simulation jobs emit plain native VFX requests. A presentation system
-stages those requests into GPU buffers and fires VFX Graph events.
+Combat VFX dispatch is ECS-owned and data-shape based. Simulation jobs emit
+plain native requests into typed queues. `CombatAoeVfxDispatchSystem` completes
+the shared producer handle once in `PresentationSystemGroup`, buckets each
+shape by graph id, and dispatches through the single scene `CombatVfxRoot` and
+its `CombatAoeVfxDispatcher`.
 
-The current runtime only supports AOE-shaped VFX requests: each request carries
-one graph-kind id, one position, and one area size. One VFX Graph instance
-represents every event of that graph kind on screen, and every graph receives
-both buffers. The `AoeVfx*` type names make the AOE-shaped payload limitation
-explicit. Projectile systems do not emit, request, or register AOE VFX.
+There is no impact-vs-lingering category split in presentation. A graph is bound
+to one `VfxDataShape` at registration, and the returned `VfxId` encodes that
+shape plus a dense per-shape local index. Emitters only carry the five `int`
+slots in `AoeVfxIds`; jobs recover the shape from the id with
+`VfxDataShapeTable.DecodeShape`.
 
 The runtime treats VFX graphs as fire-and-forget renderers. CPU-side request
-buffers are spawn-event payloads only: the presentation path uploads the current
-batch, sends `OnSpawn`, and then the graph must copy any per-instance values it
-needs into particle attributes during `Initialize Particles`. After spawn, the
-GPU owns lifetime, animation, and rendering for those particles.
-
-Primary uses:
-
-- AOE hit pulses
-- lingering AOE interval pulses
-- AOE lifetime expire bursts
-
-Non-goals:
-
-- per-projectile or per-AOE particle-system GameObjects
-- VFX Graph evaluation driven by per-entity ECS components every frame
-- managed VFX calls from collision jobs
-
-## VFX Identity
-
-`VfxId` identifies the registered VFX graph kind. It must not be derived from
-event cause, and it should not imply player, mob, faction, or individual AOE
-instance ownership. Event timing decides when a request is emitted; it does not
-make a separate visual resource.
-
-Examples:
-
-- poison cloud VFX graph -> one `VfxId` for every poison cloud event on screen
-- fire burst VFX graph -> one `VfxId` for every fire burst event on screen
-- repeated AOE types using the same graph -> same `VfxId`
+buffers are spawn-event payloads only: presentation uploads the current batch,
+sends `OnSpawn`, and the graph must copy any per-instance values it needs into
+particle attributes during `Initialize Particles`. After spawn, the GPU owns
+lifetime, animation, and rendering for those particles.
 
 ## Data Flow
 
 ```text
 Simulation producer job
-  -> AoeVfxSpawnRequest enqueued into the shared NativeQueue<AoeVfxSpawnRequest>
-     owned by CombatAoeVfxDispatchSystem via AsParallelWriter()
-  -> producer job handle combined into CombatAoeVfxDispatchSystem.ProducerHandle
+  -> VfxEmit.Enqueue(vfxId, position, areaSize, timing, ...)
+  -> request enters PendingBasicSpawns or PendingTimedSpawns
+  -> producer job handle combines into CombatAoeVfxDispatchSingleton.ProducerHandle
   -> CombatAoeVfxDispatchSystem in PresentationSystemGroup
-  -> ProducerHandle.Complete()
-  -> CombatVfxRoot.DrainAndDispatch(ref queue) on the main thread
-  -> CombatAoeVfxDispatcher.StageAoeSpawn
-  -> CombatAoeVfxDispatcher.Dispatch
-  -> GraphicsBuffer.SetData (Positions + AreaSizes)
-  -> VisualEffect.SetGraphicsBuffer / SetInt / SendEvent
+  -> ProducerHandle.Complete() once
+  -> per-shape counting-sort bucketing by DecodeLocalIndex(VfxId)
+  -> CombatVfxRoot.DrainAndDispatchBasic / DrainAndDispatchTimed
+  -> CombatAoeVfxDispatcher uploads shape buffers
+  -> VisualEffect.SetGraphicsBuffer / SetInt / SendEvent("OnSpawn")
   -> graph Initialize Particles copies spawn payload into particle attributes
-  -> graph Update/Output animates alive particles from particle attributes,
-     age/lifetime, random values, and curves
+  -> graph Update/Output animates alive particles from particle attributes
 ```
 
-`AoeVfxSpawnRequest` carries:
+`CombatAoeVfxDispatchSingleton` owns one persistent `NativeQueue<T>` per shape
+and one shared `ProducerHandle`. Producers write through `AsParallelWriter()`;
+the presentation consumer completes the handle before reading any shape queue.
 
-- `int VfxId`
-- `float2 Position`
-- `float AreaSize`
+## Data Shapes
 
-`AoeVfxSpawnRequest` is the single VFX request payload. Like batched sprite
-rendering, VFX dispatch is faction-agnostic; its presentation system owns the
-shared native queue that bridges simulation producers to main-thread dispatch.
-Event cause is not carried as a separate field.
+`VfxDataShapeTable` is the single source of truth for shape contracts, id
+encoding helpers, and property names used by validation, allocation, and
+dispatch.
+
+`Basic`:
+
+- `VfxSpawnRequest { VfxId, Position, AreaSize }`
+- buffers: `Positions(float2)`, `AreaSizes(float)`
+
+`Timed`:
+
+- `TimedVfxSpawnRequest { VfxId, Position, AreaSize, Duration, TickInterval }`
+- buffers: `Positions(float2)`, `AreaSizes(float)`, `Durations(float)`,
+  `TickIntervals(float)`
+
+All shapes also use common `SpawnCount(int)` and `OnSpawn`.
+
+## VFX Identity
+
+`VfxId` identifies a registered graph plus its shape. `0` is the no-VFX
+sentinel. Nonzero ids encode:
+
+```text
+high bits: VfxDataShape ordinal
+low bits:  1-based local graph index within that shape
+```
+
+`CombatVfxRoot` is the sole id allocator. The same asset reference returns the
+first registered id; if a later registration requests a different shape, the
+root logs a conflict and keeps the original shape/id.
 
 ## Key Classes
 
 `CombatVfxRoot`:
 
-- scene-object owner for one `CombatAoeVfxDispatcher`
-- static `Instance` set in `Awake` for ECS presentation lookup; a second active root is rejected
-  (logged and disabled) rather than silently replacing `Instance`, because queued ids are root-local
-- `Register(asset, requireAreaSizeContract) -> VfxId`: the sole graph-kind id allocator.
-  Same asset reference always returns the same nonzero id without allocating again; a `null` asset
-  returns `0`; distinct assets always get distinct ids. The first successful registration owns that
-  graph's contract options - a later call with conflicting options logs an error and keeps the
-  original settings rather than creating a second identity.
-- names each effect's scene object `{asset.name}_{vfxId}` for diagnostics only; the name never
-  defines identity
-- `DrainAndDispatch(ref queue)` dequeues events, stages them, and dispatches
-- ids are stable only for the root's lifetime, not persisted across sessions or scene rebuilds
+- owns all VFX GameObjects and `AoeVfxTypeResources`
+- registers assets with `Register(asset, shape)`
+- validates graph contracts before allocating
+- keeps per-shape owner lists addressed by decoded local index
+- drains Basic and Timed buckets through one dispatcher
 
 `CombatAoeVfxDispatchSystem`:
 
-- `PresentationSystemGroup`
-- owns the persistent shared `NativeQueue<AoeVfxSpawnRequest>`
-- exposes `AsParallelWriter()` and `ProducerHandle` for simulation producers
-- completes producers and drains the queue through `CombatVfxRoot.Instance`
-  each frame
+- runs in `PresentationSystemGroup`
+- owns per-shape queues and grow-only scratch lists
+- completes the single producer handle once
+- buckets Basic and Timed queues separately
+- adds dispatched request count to combat stats
 
 `CombatAoeVfxDispatcher`:
 
-- owns one VFX instance per registered graph-kind id
-- owns `GraphicsBuffer` and staging `NativeList` data for both `Positions` and `AreaSizes`
-- always uploads both `Positions` and `AreaSizes` buffers on every dispatch
-- sends the graph event
-- disposes native/GPU resources on teardown
+- validates exposed graph properties against `VfxDataShapeTable`
+- owns upload logic for Basic and Timed buffers
+- grows each graph resource's buffers by doubling
+- sends `OnSpawn` after setting buffers and `SpawnCount`
 
 ## VFX Graph Contract
 
-Each registered `VisualEffectAsset` must expose:
+Each registered `VisualEffectAsset` must match exactly the shape it is bound to.
+Missing required buffers, wrong buffer types, wrong `SpawnCount` type, or an
+unexpected extra `GraphicsBuffer` property fail registration and return id `0`.
 
-- `GraphicsBuffer` named `Positions`, with one `float2` world position per
-  spawn event
-- `GraphicsBuffer` named `AreaSizes`, with one `float` area size per spawn event
-- `int` named `SpawnCount`
-- event named `OnSpawn`
+Required properties:
 
-The runtime always uploads both `Positions` and `AreaSizes` buffers on every
-dispatch, regardless of VFX type. `requireAreaSizeContract: true` at
-registration only enables upfront validation that the graph exposes `AreaSizes`;
-omitting it skips the check but the buffer is still sent.
+- `Basic`: `GraphicsBuffer Positions`, `GraphicsBuffer AreaSizes`, `int SpawnCount`
+- `Timed`: `GraphicsBuffer Positions`, `GraphicsBuffer AreaSizes`,
+  `GraphicsBuffer Durations`, `GraphicsBuffer TickIntervals`, `int SpawnCount`
+- event: `OnSpawn`
 
 Graphs that cannot satisfy the contract are invalid for this runtime. There is
 no per-event `Play()` fallback.
 
-### Spawn Payload Buffer Lifetime
+## Timed Authoring
 
-`Positions`, `AreaSizes`, and `SpawnCount` are transient spawn payloads for the
-current dispatch batch. They are shared by the one `VisualEffect` instance that
-represents a graph kind, and they are overwritten on later dispatches for that
-same graph kind. They are not persistent per-particle storage.
+A Timed graph is emitted once for the selected slot and receives `Duration` and
+`TickInterval` from authored AOE timing (`lifetimeSeconds` and
+`tickIntervalSeconds`, carried at runtime as `VfxTimingData`). The graph should
+self-drive any internal pulses over that duration.
+
+Timed values are transient spawn payloads just like position and area size. The
+graph must sample `Durations` and `TickIntervals` in `Initialize Particles` and
+copy them to particle attributes. Existing particles must not read request
+buffers from `Update Particle` or `Output Particle`.
+
+## Spawn Payload Buffer Lifetime
+
+Shape buffers and `SpawnCount` are transient payloads for the current dispatch
+batch. They are shared by the one `VisualEffect` instance for a graph and are
+overwritten on later dispatches for that same graph. They are not persistent
+per-particle storage.
 
 Graph authoring must follow this rule:
 
@@ -144,78 +147,47 @@ request buffers -> Initialize Particles -> particle attributes
 particle attributes + age/lifetime/random/curves -> Update/Output
 ```
 
-Values that describe one spawned VFX instance, such as position, area size,
-initial color, initial rotation, seed, or other event payload values, must be
-sampled from request buffers in `Initialize Particles` and stored on particle
-attributes. Existing particles must not read request buffers from `Update
-Particle` or `Output Particle` to recover per-instance values.
-
-`Initialize Particles` runs only for particles created by the spawn event, so it
-is the handoff from CPU spawn payload to GPU-owned particle state. `Output
-Particle` runs for alive particles when they render, so a buffer read there sees
-the currently bound buffer contents, not the contents from that particle's spawn
-event.
-
-Failure mode: if `AreaSizes[spawnIndex]` is read in `Output Particle`, an old
-particle keeps its original `spawnIndex` but indexes into the latest uploaded
-`AreaSizes` batch. When two skill sets use the same graph with different area
-sizes, alive particles can briefly render at another batch's size. This looks
-like a one-frame size shrink/grow even though particle age and lifetime did not
-reset.
+Failure mode: if a particle reads `AreaSizes[spawnIndex]` in `Output Particle`,
+an old particle can index into the latest uploaded batch instead of the batch
+that spawned it.
 
 ## Emitters
 
-AOE simulation producers emit requests when gameplay timing says a visual should
-appear:
+AOE simulation producers call `VfxEmit.Enqueue`, which decodes shape from the
+slot id and writes the correct concrete request to the correct queue.
 
-- AOE spawn expansion systems for expansion-spawned AOEs and arming telegraphs
+Current AOE emitters:
+
+- AOE spawn expansion systems for spawn bursts and arming telegraphs
 - `CombatArmingSystem` when an arming AOE goes live
 - `CombatLifetimeSystem` when lingering AOEs expire
-- `ImpactAoeCollisionSystem` and `LingeringAoeCollisionSystem` on confirmed AOE hits
+- impact and lingering AOE collision systems on confirmed AOE hits
 - `AoePulseVfxSystem` on lingering AOE pulse intervals
+
+No emitter branches on `LingeringAoeTag` to choose VFX shape, and no emitter
+uses `CombatLifetimeComponent.Remaining` as a duration source.
 
 ## Authoring
 
-AOE VFX authoring is graph-kind scoped. A registered VFX graph kind represents
-all events of that kind on screen, regardless of which AOE type, actor faction,
-or producer emitted the request.
+AOE prefab roots expose a `VfxDataShape` selector beside each VFX graph slot:
+spawn, hit, expire, arming, and lingering pulse. All selectors default to
+`Basic`, so existing content keeps the previous behavior.
 
-`SkillDriver` registers each AOE definition's authored graph slots against the
-configured `CombatVfxRoot` and stores the returned ids as an `AoeVfxIds`
-snapshot. Simulation producers select `SpawnId`, `HitId`, `ExpireId`, `PulseId`,
-or `ArmingId` from that snapshot; none of them derive a VFX id from
-`AoeIdentityComponent.TypeId` or an event-cause enum.
+`SkillSetCompiler` copies the selectors into `RuntimeAoeDefinition`.
+`SkillDriver` registers each effect asset with its corresponding shape, and the
+returned encoded ids are stored in `AoeVfxIds`.
 
-## Area Size
-
-Every VFX request carries an `AreaSize` value. AOE requests populate it from
-resolved AOE geometry before the event reaches ECS; that area value is copied
-into VFX requests from collision, pulse, and lifetime paths.
-
-The `AreaSizes` buffer is always uploaded on every dispatch. Graphs that do not
-need to scale by area size can expose the buffer and ignore it.
-
-Graphs that use `AreaSize` must treat it as an initial per-instance value.
-Sample `AreaSizes` in `Initialize Particles`, write it into a particle-owned
-size or custom attribute, and drive over-life animation in `Output Particle`
-from that stored value. Do not sample `AreaSizes` directly from `Output
-Particle`.
-
-## Render Layering
-
-Combat VFX scene objects inherit the Unity GameObject layer from their owning
-`CombatVfxRoot`. Camera culling should therefore follow the root setup.
-
-SpriteRenderer sorting layers do not automatically order Visual Effect Graph
-outputs. VFX Graph outputs must set their own render ordering through output
-settings such as render queue, VFX sorting priority, depth test, and graph
-bounds.
+The pulse slot, `AoePulseVfxComponent`, and `AoePulseVfxSystem` remain available.
+Timed-shaped slots are an opt-in alternative for graphs that can self-drive
+their whole-duration visuals from one emission.
 
 ## Performance Notes
 
-- Dispatch cost should scale with registered graph-kind count plus staged event
-  upload cost, not with one managed call per event.
-- Request buffers are staging/upload memory. If a future visual budget drops or
-  prioritizes requests, it must do so before dispatch and must not change
-  already alive particles.
-- Keep gameplay decisions out of VFX graphs. VFX requests are visual-only.
+- `Basic` is the hot path and carries only id, position, and area size.
+- `Timed` uploads the two extra timing buffers only for graphs registered as
+  Timed.
+- Dispatch cost scales with graph count plus staged upload cost.
+- The runtime still sends at most one `OnSpawn` event per graph per frame.
+- Request buffers are staging/upload memory; prioritization or culling must
+  happen before dispatch and must not mutate already alive particles.
+- Gameplay decisions stay out of VFX graphs. VFX requests are visual-only.

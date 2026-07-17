@@ -24,17 +24,19 @@ namespace PlayGround.System.Combat.Aoes
         {
             bool hasVfx = SystemAPI.TryGetSingletonRW<CombatAoeVfxDispatchSingleton>(
                 out RefRW<CombatAoeVfxDispatchSingleton> vfx);
-            NativeQueue<AoeVfxSpawnRequest> vfxQueue = hasVfx ? vfx.ValueRO.PendingAoeSpawns : default;
-            hasVfx = hasVfx && vfxQueue.IsCreated;
-            NativeQueue<AoeVfxSpawnRequest>.ParallelWriter vfxWriter = hasVfx
-                ? vfxQueue.AsParallelWriter()
-                : default;
+            NativeQueue<VfxSpawnRequest> basicVfxQueue = hasVfx ? vfx.ValueRO.PendingBasicSpawns : default;
+            NativeQueue<TimedVfxSpawnRequest> timedVfxQueue = hasVfx ? vfx.ValueRO.PendingTimedSpawns : default;
+            bool hasBasicVfx = hasVfx && basicVfxQueue.IsCreated;
+            bool hasTimedVfx = hasVfx && timedVfxQueue.IsCreated;
+            hasVfx = hasBasicVfx || hasTimedVfx;
 
             JobHandle pulseHandle = new AoePulseVfxJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
-                VfxPending = vfxWriter,
-                HasVfxWriter = hasVfx
+                BasicVfxPending = hasBasicVfx ? basicVfxQueue.AsParallelWriter() : default,
+                HasBasicVfxWriter = hasBasicVfx,
+                TimedVfxPending = hasTimedVfx ? timedVfxQueue.AsParallelWriter() : default,
+                HasTimedVfxWriter = hasTimedVfx
             }.ScheduleParallel(state.Dependency);
 
             if (hasVfx)
@@ -52,13 +54,16 @@ namespace PlayGround.System.Combat.Aoes
         private partial struct AoePulseVfxJob : IJobEntity
         {
             public float DeltaTime;
-            public NativeQueue<AoeVfxSpawnRequest>.ParallelWriter VfxPending;
-            public bool HasVfxWriter;
+            public NativeQueue<VfxSpawnRequest>.ParallelWriter BasicVfxPending;
+            public bool HasBasicVfxWriter;
+            public NativeQueue<TimedVfxSpawnRequest>.ParallelWriter TimedVfxPending;
+            public bool HasTimedVfxWriter;
 
             private void Execute(
                 in AoeVfxIds vfxIds,
                 in CombatKinematicsComponent kinematics,
                 in AoeAreaComponent area,
+                in VfxTimingData timing,
                 ref AoePulseVfxComponent pulseVfx)
             {
                 if (pulseVfx.Interval <= 0f)
@@ -73,15 +78,15 @@ namespace PlayGround.System.Combat.Aoes
                 }
 
                 pulseVfx.RemainingInterval = pulseVfx.Interval;
-                if (HasVfxWriter && vfxIds.PulseId > 0)
-                {
-                    VfxPending.Enqueue(new AoeVfxSpawnRequest
-                    {
-                        VfxId = vfxIds.PulseId,
-                        Position = kinematics.Position,
-                        AreaSize = area.Size
-                    });
-                }
+                VfxEmit.Enqueue(
+                    vfxIds.PulseId,
+                    kinematics.Position,
+                    area.Size,
+                    timing,
+                    BasicVfxPending,
+                    HasBasicVfxWriter,
+                    TimedVfxPending,
+                    HasTimedVfxWriter);
             }
         }
     }

@@ -53,34 +53,25 @@ namespace PlayGround.System.Combat.Lifetime
             EnabledRefRW<Active> active,
             EnabledRefRW<CombatCollisionActiveTag> collisionActive,
             EnabledRefRW<ArmingTag> arming,
-            NativeQueue<AoeVfxSpawnRequest>.ParallelWriter vfxPending,
-            bool hasVfxWriter,
+            NativeQueue<VfxSpawnRequest>.ParallelWriter basicVfxPending,
+            bool hasBasicVfxWriter,
+            NativeQueue<TimedVfxSpawnRequest>.ParallelWriter timedVfxPending,
+            bool hasTimedVfxWriter,
             int expireVfxId,
             float2 position,
-            float areaSize)
+            float areaSize,
+            in VfxTimingData timing)
         {
             Kill(active, collisionActive, arming);
-            EnqueueExpireVfx(vfxPending, hasVfxWriter, expireVfxId, position, areaSize);
-        }
-
-        private static void EnqueueExpireVfx(
-            NativeQueue<AoeVfxSpawnRequest>.ParallelWriter vfxPending,
-            bool hasVfxWriter,
-            int expireVfxId,
-            float2 position,
-            float areaSize)
-        {
-            if (!hasVfxWriter || expireVfxId <= 0)
-            {
-                return;
-            }
-
-            vfxPending.Enqueue(new AoeVfxSpawnRequest
-            {
-                VfxId = expireVfxId,
-                Position = position,
-                AreaSize = areaSize
-            });
+            VfxEmit.Enqueue(
+                expireVfxId,
+                position,
+                areaSize,
+                timing,
+                basicVfxPending,
+                hasBasicVfxWriter,
+                timedVfxPending,
+                hasTimedVfxWriter);
         }
     }
 }

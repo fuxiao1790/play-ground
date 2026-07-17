@@ -25,13 +25,11 @@ namespace PlayGround.System.Combat.Vfx
         public int ArmingId;
     }
 
-    // ECS Lifecycle: transient native payload; not added to entities; queued by
-    // simulation jobs into the shared NativeQueue<AoeVfxSpawnRequest> owned by
-    // CombatAoeVfxDispatchSystem, drained in presentation.
-    public struct AoeVfxSpawnRequest
+    // ECS Lifecycle: authored per-instance VFX timing; added to AOE entities at
+    // creation, reset on reuse, and consumed only by Timed-shaped VFX emits.
+    public struct VfxTimingData : IComponentData
     {
-        public int VfxId;
-        public float2 Position;
-        public float AreaSize;
+        public float Duration;
+        public float TickInterval;
     }
 }

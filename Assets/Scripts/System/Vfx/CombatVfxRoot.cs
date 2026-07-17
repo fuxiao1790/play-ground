@@ -1,16 +1,3 @@
-using PlayGround.System.Combat.Application;
-using PlayGround.System.Combat.Aoes;
-using PlayGround.System.Combat.Collision;
-using PlayGround.System.Combat.Core;
-using PlayGround.System.Combat.Lifetime;
-using PlayGround.System.Combat.Platform;
-using PlayGround.System.Combat.Projectiles;
-using PlayGround.System.Combat.Rendering;
-using PlayGround.System.Combat.Spawning;
-using PlayGround.System.Combat.Stats;
-using PlayGround.System.Combat.Status;
-using PlayGround.System.Combat.Targets;
-using PlayGround.System.Combat.Vfx;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -19,18 +6,19 @@ using UnityEngine.VFX;
 
 namespace PlayGround.System.Combat.Vfx
 {
-    // Manager for every combat VFX resource: owns each AoeVfxTypeResources (GameObject,
-    // VisualEffect, GraphicsBuffers, staging lists), the effect-id table onto them, and
-    // their teardown. CombatAoeVfxDispatcher owns none of that - it only knows the graph protocol.
+    // Manager for every combat VFX resource: owns each AoeVfxTypeResources, the encoded
+    // effect-id table onto them, and their teardown. CombatAoeVfxDispatcher owns none of that.
     public sealed class CombatVfxRoot : MonoBehaviour
     {
         public static CombatVfxRoot Instance { get; private set; }
 
-        public int RegisteredVfxCount => owners.Count;
+        public int RegisteredVfxCount => RegisteredCountFor(VfxDataShape.Basic);
 
-        // Sole owner and dispatch/teardown set. Append-only for the root lifetime; VfxId is
-        // (index + 1) so 0 stays a safe no-VFX sentinel that can never address a resource.
-        private readonly List<AoeVfxTypeResources> owners = new();
+        private readonly List<AoeVfxTypeResources>[] ownersByShape =
+        {
+            new(),
+            new()
+        };
         private readonly Dictionary<VisualEffectAsset, int> idsByAsset = new();
         private CombatAoeVfxDispatcher dispatcher;
 
@@ -60,12 +48,7 @@ namespace PlayGround.System.Combat.Vfx
             dispatcher = null;
         }
 
-        // asset == null means no visual for this graph kind; nothing is registered and no memory
-        // is allocated. Re-registering an already-known asset returns its existing id without
-        // allocating; the first successful registration owns the graph's contract options.
-        public int Register(
-            VisualEffectAsset asset,
-            bool requireAreaSizeContract = false)
+        public int Register(VisualEffectAsset asset, VfxDataShape shape = VfxDataShape.Basic)
         {
             if (asset == null || dispatcher == null)
             {
@@ -74,18 +57,18 @@ namespace PlayGround.System.Combat.Vfx
 
             if (idsByAsset.TryGetValue(asset, out int existingId))
             {
-                AoeVfxTypeResources existing = owners[existingId - 1];
-                if (existing.RequireAreaSizeContract != requireAreaSizeContract)
+                AoeVfxTypeResources existing = ResourceForId(existingId);
+                if (existing != null && existing.Shape != shape)
                 {
                     Debug.LogError(
                         $"{nameof(CombatVfxRoot)} re-registered VFX asset '{asset.name}' (id {existingId}) "
-                        + "with a conflicting contract; the graph keeps its original contract.");
+                        + "with a conflicting shape; the graph keeps its original shape.");
                 }
 
                 return existingId;
             }
 
-            if (!dispatcher.ValidateGraphContract(asset, requireAreaSizeContract, out string reason))
+            if (!dispatcher.ValidateGraphContract(asset, shape, out string reason))
             {
                 Debug.LogError(reason);
                 return 0;
@@ -93,7 +76,9 @@ namespace PlayGround.System.Combat.Vfx
 
             GameObject go = null;
             AoeVfxTypeResources res = null;
-            int newId = owners.Count + 1;
+            List<AoeVfxTypeResources> owners = OwnersFor(shape);
+            int localIndex = owners.Count + 1;
+            int newId = VfxDataShapeTable.EncodeId(shape, localIndex);
             try
             {
                 go = new GameObject($"{asset.name}_{newId}");
@@ -104,18 +89,10 @@ namespace PlayGround.System.Combat.Vfx
 
                 res = new AoeVfxTypeResources
                 {
-                    BufferCapacity = AoeVfxTypeResources.InitialBufferCapacity,
-                    RequireAreaSizeContract = requireAreaSizeContract,
                     Instance = vfx,
+                    Shape = shape
                 };
-                res.PositionBuffer = new GraphicsBuffer(
-                    GraphicsBuffer.Target.Structured,
-                    AoeVfxTypeResources.InitialBufferCapacity,
-                    sizeof(float) * 2);
-                res.AreaSizeBuffer = new GraphicsBuffer(
-                    GraphicsBuffer.Target.Structured,
-                    AoeVfxTypeResources.InitialBufferCapacity,
-                    sizeof(float));
+                res.EnsureBufferCapacity(AoeVfxTypeResources.InitialBufferCapacity);
 
                 owners.Add(res);
                 idsByAsset[asset] = newId;
@@ -141,10 +118,15 @@ namespace PlayGround.System.Combat.Vfx
             dispatcher = new CombatAoeVfxDispatcher();
         }
 
-        // sortedPositions/sortedAreaSizes are already grouped by VfxId; bucketOffsets[id] is the
-        // start index and bucketOffsets[id + 1] the end index of that VfxId's slice. Both arrays
-        // and the offsets are produced by CombatAoeVfxDispatchSystem's Burst bucketing job.
+        public int RegisteredCountFor(VfxDataShape shape) => OwnersFor(shape).Count;
+
         internal int DrainAndDispatch(
+            NativeArray<float2> sortedPositions,
+            NativeArray<float> sortedAreaSizes,
+            NativeArray<int> bucketOffsets) =>
+            DrainAndDispatchBasic(sortedPositions, sortedAreaSizes, bucketOffsets);
+
+        internal int DrainAndDispatchBasic(
             NativeArray<float2> sortedPositions,
             NativeArray<float> sortedAreaSizes,
             NativeArray<int> bucketOffsets)
@@ -154,25 +136,65 @@ namespace PlayGround.System.Combat.Vfx
                 return 0;
             }
 
-            for (int vfxId = 1; vfxId <= owners.Count; vfxId++)
+            List<AoeVfxTypeResources> owners = OwnersFor(VfxDataShape.Basic);
+            for (int localIndex = 1; localIndex <= owners.Count; localIndex++)
             {
-                int start = bucketOffsets[vfxId];
-                int count = bucketOffsets[vfxId + 1] - start;
+                int start = bucketOffsets[localIndex];
+                int count = bucketOffsets[localIndex + 1] - start;
                 if (count == 0)
                 {
                     continue;
                 }
 
-                AoeVfxTypeResources res = owners[vfxId - 1];
+                AoeVfxTypeResources res = owners[localIndex - 1];
                 if (res == null)
                 {
                     continue;
                 }
 
-                dispatcher.Dispatch(
+                dispatcher.DispatchBasic(
                     res,
                     sortedPositions.GetSubArray(start, count),
                     sortedAreaSizes.GetSubArray(start, count));
+            }
+
+            return sortedPositions.Length;
+        }
+
+        internal int DrainAndDispatchTimed(
+            NativeArray<float2> sortedPositions,
+            NativeArray<float> sortedAreaSizes,
+            NativeArray<float> sortedDurations,
+            NativeArray<float> sortedTickIntervals,
+            NativeArray<int> bucketOffsets)
+        {
+            if (dispatcher == null)
+            {
+                return 0;
+            }
+
+            List<AoeVfxTypeResources> owners = OwnersFor(VfxDataShape.Timed);
+            for (int localIndex = 1; localIndex <= owners.Count; localIndex++)
+            {
+                int start = bucketOffsets[localIndex];
+                int count = bucketOffsets[localIndex + 1] - start;
+                if (count == 0)
+                {
+                    continue;
+                }
+
+                AoeVfxTypeResources res = owners[localIndex - 1];
+                if (res == null)
+                {
+                    continue;
+                }
+
+                dispatcher.DispatchTimed(
+                    res,
+                    sortedPositions.GetSubArray(start, count),
+                    sortedAreaSizes.GetSubArray(start, count),
+                    sortedDurations.GetSubArray(start, count),
+                    sortedTickIntervals.GetSubArray(start, count));
             }
 
             return sortedPositions.Length;
@@ -186,19 +208,22 @@ namespace PlayGround.System.Combat.Vfx
                 return count;
             }
 
-            foreach (AoeVfxTypeResources res in Instance.owners)
+            foreach (List<AoeVfxTypeResources> owners in Instance.ownersByShape)
             {
-                if (res == null || res.Instance == null)
+                foreach (AoeVfxTypeResources res in owners)
                 {
-                    continue;
-                }
+                    if (res == null || res.Instance == null)
+                    {
+                        continue;
+                    }
 
-                if (visibleOnly && res.Instance.culled)
-                {
-                    continue;
-                }
+                    if (visibleOnly && res.Instance.culled)
+                    {
+                        continue;
+                    }
 
-                count += Mathf.Max(0, res.Instance.aliveParticleCount);
+                    count += Mathf.Max(0, res.Instance.aliveParticleCount);
+                }
             }
 
             return count;
@@ -206,13 +231,29 @@ namespace PlayGround.System.Combat.Vfx
 
         private void DisposeResources()
         {
-            foreach (AoeVfxTypeResources res in owners)
+            foreach (List<AoeVfxTypeResources> owners in ownersByShape)
             {
-                res.Dispose();
+                foreach (AoeVfxTypeResources res in owners)
+                {
+                    res.Dispose();
+                }
+
+                owners.Clear();
             }
 
-            owners.Clear();
             idsByAsset.Clear();
+        }
+
+        private List<AoeVfxTypeResources> OwnersFor(VfxDataShape shape) =>
+            ownersByShape[(int)shape];
+
+        private AoeVfxTypeResources ResourceForId(int id)
+        {
+            VfxDataShape shape = VfxDataShapeTable.DecodeShape(id);
+            int localIndex = VfxDataShapeTable.DecodeLocalIndex(id);
+            List<AoeVfxTypeResources> owners = OwnersFor(shape);
+            int listIndex = localIndex - 1;
+            return listIndex >= 0 && listIndex < owners.Count ? owners[listIndex] : null;
         }
     }
 }

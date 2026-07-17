@@ -30,6 +30,7 @@ namespace PlayGround.System.Combat.Aoes
             in CombatCollisionComponent collision,
             in AoeHitSpawnComponent hitSpawn,
             in AoeVfxIds vfxIds,
+            in VfxTimingData timing,
             in AoeAreaComponent area,
             bool deactivateAfterPass,
             EnabledRefRW<Active> active,
@@ -42,8 +43,10 @@ namespace PlayGround.System.Combat.Aoes
             NativeParallelMultiHashMap<long, int> occupiedTargetCells,
             NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
             bool hasHitWriter,
-            NativeQueue<AoeVfxSpawnRequest>.ParallelWriter vfxPendingWriter,
-            bool hasVfxWriter,
+            NativeQueue<VfxSpawnRequest>.ParallelWriter basicVfxPendingWriter,
+            bool hasBasicVfxWriter,
+            NativeQueue<TimedVfxSpawnRequest>.ParallelWriter timedVfxPendingWriter,
+            bool hasTimedVfxWriter,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
             NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
             NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter,
@@ -116,12 +119,15 @@ namespace PlayGround.System.Combat.Aoes
                             kinematics,
                             hitSpawn,
                             vfxIds,
+                            timing,
                             area,
                             targetEntity,
                             targetPosition,
                             targetKey,
-                            vfxPendingWriter,
-                            hasVfxWriter,
+                            basicVfxPendingWriter,
+                            hasBasicVfxWriter,
+                            timedVfxPendingWriter,
+                            hasTimedVfxWriter,
                             ref hitVfxEmitted,
                             hitWriter,
                             hasHitWriter,
@@ -149,12 +155,15 @@ namespace PlayGround.System.Combat.Aoes
             CombatKinematicsComponent kinematics,
             AoeHitSpawnComponent hitSpawn,
             AoeVfxIds vfxIds,
+            VfxTimingData timing,
             AoeAreaComponent area,
             Entity targetEntity,
             TargetPosition targetPosition,
             int targetKey,
-            NativeQueue<AoeVfxSpawnRequest>.ParallelWriter vfxPending,
-            bool hasVfxWriter,
+            NativeQueue<VfxSpawnRequest>.ParallelWriter basicVfxPending,
+            bool hasBasicVfxWriter,
+            NativeQueue<TimedVfxSpawnRequest>.ParallelWriter timedVfxPending,
+            bool hasTimedVfxWriter,
             ref bool hitVfxEmitted,
             NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
             bool hasHitWriter,
@@ -228,14 +237,19 @@ namespace PlayGround.System.Combat.Aoes
                 }
             }
 
-            if (!hitVfxEmitted && hasVfxWriter && vfxIds.HitId > 0)
+            if (!hitVfxEmitted
+                && vfxIds.HitId > 0
+                && (hasBasicVfxWriter || hasTimedVfxWriter))
             {
-                vfxPending.Enqueue(new AoeVfxSpawnRequest
-                {
-                    VfxId = vfxIds.HitId,
-                    Position = kinematics.Position,
-                    AreaSize = area.Size
-                });
+                VfxEmit.Enqueue(
+                    vfxIds.HitId,
+                    kinematics.Position,
+                    area.Size,
+                    timing,
+                    basicVfxPending,
+                    hasBasicVfxWriter,
+                    timedVfxPending,
+                    hasTimedVfxWriter);
                 hitVfxEmitted = true;
             }
         }

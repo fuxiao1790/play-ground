@@ -26,12 +26,22 @@ namespace PlayGround.System.Combat.Core
         private const int InitialTemplateRegistryCapacity = 64;
 
         private static Entity ownedScope;
+        private static World ownedWorld;
         private static int ownerCount;
         private static NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnCommand> ownedProjectileMap;
         private static NativeHashMap<Unity.Entities.Hash128, AoeSpawnCommand> ownedAoeMap;
 
         public static Entity Acquire(EntityManager entityManager)
         {
+            World world = entityManager.World;
+            if (ownedWorld != world)
+            {
+                DisposeMaps();
+                ownedScope = Entity.Null;
+                ownedWorld = world;
+                ownerCount = 0;
+            }
+
             if (ownedScope == Entity.Null || !entityManager.Exists(ownedScope))
             {
                 ownedProjectileMap = new NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnCommand>(
@@ -45,6 +55,7 @@ namespace PlayGround.System.Combat.Core
                 entityManager.AddBuffer<LingeringAoeSpawnEvent>(ownedScope);
                 entityManager.AddComponentData(ownedScope, new ProjectileSpawnTemplate { Map = ownedProjectileMap });
                 entityManager.AddComponentData(ownedScope, new AoeSpawnTemplate { Map = ownedAoeMap });
+                ownedWorld = world;
                 ownerCount = 0;
             }
 
@@ -54,7 +65,7 @@ namespace PlayGround.System.Combat.Core
 
         public static void Release(EntityManager entityManager, Entity scope)
         {
-            if (scope == Entity.Null || scope != ownedScope)
+            if (scope == Entity.Null || scope != ownedScope || entityManager.World != ownedWorld)
             {
                 return;
             }
@@ -67,19 +78,20 @@ namespace PlayGround.System.Combat.Core
 
             DisposeMaps();
 
-            if (entityManager.Exists(ownedScope))
+            if (ownedWorld != null && ownedWorld.IsCreated && entityManager.Exists(ownedScope))
             {
                 entityManager.DestroyEntity(ownedScope);
             }
 
             ownedScope = Entity.Null;
+            ownedWorld = null;
         }
 
         // Called when the world is already disposed and entity access is not possible.
         // The maps are tracked as static refs so they can still be freed.
-        public static void ReleaseAfterWorldDispose(Entity scope)
+        public static void ReleaseAfterWorldDispose(World world, Entity scope)
         {
-            if (scope == Entity.Null || scope != ownedScope)
+            if (scope == Entity.Null || scope != ownedScope || world != ownedWorld)
             {
                 return;
             }
@@ -92,6 +104,7 @@ namespace PlayGround.System.Combat.Core
 
             DisposeMaps();
             ownedScope = Entity.Null;
+            ownedWorld = null;
         }
 
         private static void DisposeMaps()

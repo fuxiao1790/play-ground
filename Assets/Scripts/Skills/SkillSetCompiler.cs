@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using PlayGround.Skills.Modifiers;
 using PlayGround.Skills.Runtime;
 using PlayGround.System.Combat.Projectiles;
+using PlayGround.System.Combat.Vfx;
 using UnityEngine;
 
 namespace PlayGround.Skills
@@ -258,6 +259,11 @@ namespace PlayGround.Skills
                     ExpireEffect = a.ExpireEffect,
                     PulseEffect = a.PulseEffect,
                     ArmingEffect = a.ArmingEffect,
+                    SpawnEffectShape = a.SpawnEffectShape,
+                    HitEffectShape = a.HitEffectShape,
+                    ExpireEffectShape = a.ExpireEffectShape,
+                    PulseEffectShape = a.PulseEffectShape,
+                    ArmingEffectShape = a.ArmingEffectShape,
                     Damage = Mathf.Max(0f, modifiers.Resolve(SkillStat.Damage, a.damage)),
                     LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds),
                     TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds),

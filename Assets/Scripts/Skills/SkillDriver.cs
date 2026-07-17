@@ -637,11 +637,11 @@ namespace PlayGround.Skills
             {
                 vfxIds = new AoeVfxIds
                 {
-                    SpawnId = vfxRoot.Register(definition.SpawnEffect, requireAreaSizeContract: true),
-                    HitId = vfxRoot.Register(definition.HitEffect, requireAreaSizeContract: true),
-                    ExpireId = vfxRoot.Register(definition.ExpireEffect, requireAreaSizeContract: true),
-                    PulseId = vfxRoot.Register(definition.PulseEffect, requireAreaSizeContract: true),
-                    ArmingId = vfxRoot.Register(definition.ArmingEffect, requireAreaSizeContract: true)
+                    SpawnId = vfxRoot.Register(definition.SpawnEffect, aoeDef.SpawnEffectShape),
+                    HitId = vfxRoot.Register(definition.HitEffect, aoeDef.HitEffectShape),
+                    ExpireId = vfxRoot.Register(definition.ExpireEffect, aoeDef.ExpireEffectShape),
+                    PulseId = vfxRoot.Register(definition.PulseEffect, aoeDef.PulseEffectShape),
+                    ArmingId = vfxRoot.Register(definition.ArmingEffect, aoeDef.ArmingEffectShape)
                 };
             }
 

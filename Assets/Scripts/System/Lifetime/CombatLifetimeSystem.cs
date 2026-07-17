@@ -35,11 +35,11 @@ namespace PlayGround.System.Combat.Lifetime
             float deltaTime = SystemAPI.Time.DeltaTime;
             bool hasVfx = SystemAPI.TryGetSingletonRW<CombatAoeVfxDispatchSingleton>(
                 out RefRW<CombatAoeVfxDispatchSingleton> vfx);
-            NativeQueue<AoeVfxSpawnRequest> vfxQueue = hasVfx ? vfx.ValueRO.PendingAoeSpawns : default;
-            hasVfx = hasVfx && vfxQueue.IsCreated;
-            NativeQueue<AoeVfxSpawnRequest>.ParallelWriter vfxWriter = hasVfx
-                ? vfxQueue.AsParallelWriter()
-                : default;
+            NativeQueue<VfxSpawnRequest> basicVfxQueue = hasVfx ? vfx.ValueRO.PendingBasicSpawns : default;
+            NativeQueue<TimedVfxSpawnRequest> timedVfxQueue = hasVfx ? vfx.ValueRO.PendingTimedSpawns : default;
+            bool hasBasicVfx = hasVfx && basicVfxQueue.IsCreated;
+            bool hasTimedVfx = hasVfx && timedVfxQueue.IsCreated;
+            hasVfx = hasBasicVfx || hasTimedVfx;
 
             var projectileJob = new ProjectileLifetimeJob
             {
@@ -48,8 +48,10 @@ namespace PlayGround.System.Combat.Lifetime
             var aoeJob = new AoeLifetimeJob
             {
                 DeltaTime = deltaTime,
-                VfxPending = vfxWriter,
-                HasVfxWriter = hasVfx
+                BasicVfxPending = hasBasicVfx ? basicVfxQueue.AsParallelWriter() : default,
+                HasBasicVfxWriter = hasBasicVfx,
+                TimedVfxPending = hasTimedVfx ? timedVfxQueue.AsParallelWriter() : default,
+                HasTimedVfxWriter = hasTimedVfx
             };
 
             JobHandle projectileHandle = projectileJob.ScheduleParallel(state.Dependency);
@@ -91,13 +93,16 @@ namespace PlayGround.System.Combat.Lifetime
         private partial struct AoeLifetimeJob : IJobEntity
         {
             public float DeltaTime;
-            public NativeQueue<AoeVfxSpawnRequest>.ParallelWriter VfxPending;
-            public bool HasVfxWriter;
+            public NativeQueue<VfxSpawnRequest>.ParallelWriter BasicVfxPending;
+            public bool HasBasicVfxWriter;
+            public NativeQueue<TimedVfxSpawnRequest>.ParallelWriter TimedVfxPending;
+            public bool HasTimedVfxWriter;
 
             private void Execute(
                 in AoeVfxIds vfxIds,
                 in CombatKinematicsComponent kinematics,
                 in CombatRenderAuthoring authoring,
+                in VfxTimingData timing,
                 ref CombatLifetimeComponent lifetime,
                 EnabledRefRW<Active> active,
                 EnabledRefRW<CombatCollisionActiveTag> collisionActive,
@@ -111,11 +116,14 @@ namespace PlayGround.System.Combat.Lifetime
                         active,
                         collisionActive,
                         arming,
-                        VfxPending,
-                        HasVfxWriter,
+                        BasicVfxPending,
+                        HasBasicVfxWriter,
+                        TimedVfxPending,
+                        HasTimedVfxWriter,
                         vfxIds.ExpireId,
                         kinematics.Position,
-                        math.max(authoring.VisualScale.x, authoring.VisualScale.y));
+                        math.max(authoring.VisualScale.x, authoring.VisualScale.y),
+                        timing);
                 }
             }
         }

@@ -37,6 +37,7 @@ namespace PlayGround.System.Combat.Aoes
                 .WithAll<CombatHitPayload>()
                 .WithAll<AoeAreaComponent>()
                 .WithAll<AoeVfxIds>()
+                .WithAll<VfxTimingData>()
                 .WithDisabled<ArmingTag>()
                 .WithAll<LingeringAoeTag>()
                 .Build(ref state);
@@ -75,8 +76,11 @@ namespace PlayGround.System.Combat.Aoes
 
             bool hasVfx = SystemAPI.TryGetSingletonRW<CombatAoeVfxDispatchSingleton>(
                 out RefRW<CombatAoeVfxDispatchSingleton> vfx);
-            NativeQueue<AoeVfxSpawnRequest> vfxQueue = hasVfx ? vfx.ValueRO.PendingAoeSpawns : default;
-            hasVfx = hasVfx && vfxQueue.IsCreated;
+            NativeQueue<VfxSpawnRequest> basicVfxQueue = hasVfx ? vfx.ValueRO.PendingBasicSpawns : default;
+            NativeQueue<TimedVfxSpawnRequest> timedVfxQueue = hasVfx ? vfx.ValueRO.PendingTimedSpawns : default;
+            bool hasBasicVfx = hasVfx && basicVfxQueue.IsCreated;
+            bool hasTimedVfx = hasVfx && timedVfxQueue.IsCreated;
+            hasVfx = hasBasicVfx || hasTimedVfx;
 
             var job = new LingeringAoeCollisionJob
             {
@@ -90,10 +94,14 @@ namespace PlayGround.System.Combat.Aoes
                     ? hitQueue.AsParallelWriter()
                     : default,
                 HasHitWriter = hasHit,
-                VfxPending = hasVfx
-                    ? vfxQueue.AsParallelWriter()
+                BasicVfxPending = hasBasicVfx
+                    ? basicVfxQueue.AsParallelWriter()
                     : default,
-                HasVfxWriter = hasVfx,
+                HasBasicVfxWriter = hasBasicVfx,
+                TimedVfxPending = hasTimedVfx
+                    ? timedVfxQueue.AsParallelWriter()
+                    : default,
+                HasTimedVfxWriter = hasTimedVfx,
                 ProjectileEventWriter = hasProjectileEvents
                     ? projectileEventQueue.AsParallelWriter()
                     : default,
@@ -143,8 +151,10 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeParallelMultiHashMap<long, int> OccupiedTargetCells;
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
             public bool HasHitWriter;
-            public NativeQueue<AoeVfxSpawnRequest>.ParallelWriter VfxPending;
-            public bool HasVfxWriter;
+            public NativeQueue<VfxSpawnRequest>.ParallelWriter BasicVfxPending;
+            public bool HasBasicVfxWriter;
+            public NativeQueue<TimedVfxSpawnRequest>.ParallelWriter TimedVfxPending;
+            public bool HasTimedVfxWriter;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
@@ -161,6 +171,7 @@ namespace PlayGround.System.Combat.Aoes
                 ref AoeHitGateComponent hitGate,
                 in AoeHitSpawnComponent hitSpawn,
                 in AoeVfxIds vfxIds,
+                in VfxTimingData timing,
                 in AoeAreaComponent area,
                 EnabledRefRW<Active> active,
                 EnabledRefRW<CombatCollisionActiveTag> collisionActive,
@@ -184,6 +195,7 @@ namespace PlayGround.System.Combat.Aoes
                     collision,
                     hitSpawn,
                     vfxIds,
+                    timing,
                     area,
                     false,
                     active,
@@ -196,8 +208,10 @@ namespace PlayGround.System.Combat.Aoes
                     OccupiedTargetCells,
                     HitWriter,
                     HasHitWriter,
-                    VfxPending,
-                    HasVfxWriter,
+                    BasicVfxPending,
+                    HasBasicVfxWriter,
+                    TimedVfxPending,
+                    HasTimedVfxWriter,
                     ProjectileEventWriter,
                     ImpactAoeEventWriter,
                     LingeringAoeEventWriter,
