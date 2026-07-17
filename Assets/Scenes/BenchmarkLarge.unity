@@ -333,7 +333,7 @@ MonoBehaviour:
   spawnPoints: []
   cap: 500
   combatRoot: {fileID: 529810935}
-  vfxRoot: {fileID: 1019222040}
+  vfxRoot: {fileID: 0}
   target: {fileID: 0}
   prewarm: 30
   randomSeed: 0
