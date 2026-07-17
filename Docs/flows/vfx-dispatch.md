@@ -14,8 +14,12 @@ Trace visual-only requests from simulation to VFX Graph dispatch.
 3. `CombatAoeVfxDispatchSystem` runs in presentation, completes `ProducerHandle`,
    and resolves the single `CombatVfxRoot.Instance`.
 4. `CombatVfxRoot` drains the queue on the main thread.
-5. `CombatAoeVfxDispatcher` stages requests by `(typeId, AoeVfxTrigger)`, caps count,
-   uploads GPU buffers, and sends VFX Graph events.
+5. `CombatAoeVfxDispatcher` stages requests by graph-kind id, uploads GPU
+   buffers, and sends VFX Graph events.
+6. The graph reads `Positions`, `AreaSizes`, and `SpawnCount` as spawn payloads
+   in `Initialize Particles` and copies needed per-instance values into
+   particle attributes. Alive particles must not reread these request buffers
+   from `Update Particle` or `Output Particle`.
 
 ## Producers
 
@@ -40,12 +44,15 @@ Visual Effect Graph assets.
 ## Ordering / Timing Requirements
 
 VFX dispatch runs after simulation producers complete. VFX requests are
-visual-only and may be capped without changing gameplay.
+visual-only. Any future visual-budget dropping or prioritization must happen
+before dispatch and must not change gameplay.
 
 ## Failure / Edge Cases
 
 Missing VFX Graph contract fields make a graph invalid for this runtime. Events
-past `maxPerFrame` can be dropped for visual budget control.
+that fail validation are not dispatched. A graph that reads request buffers from
+`Output Particle` can make existing particles render with data from a later
+dispatch batch for the same graph kind.
 
 ## Related Decisions
 

@@ -50,6 +50,14 @@ namespace PlayGround.System.Combat.Aoes
             return visualsById.TryGetValue(typeId, out visual);
         }
 
+        public void SetVfxIds(int typeId, AoeVfxIds vfxIds)
+        {
+            if (definitionsById.TryGetValue(typeId, out AoeTypeDefinition definition))
+            {
+                definition.SetVfxIds(vfxIds);
+            }
+        }
+
         private static bool TryBakeVisual(AoeTypeDefinition definition, out AoeVisualDefinition visual)
         {
             visual = default;
@@ -111,6 +119,7 @@ namespace PlayGround.System.Combat.Aoes
         public VisualEffectAsset ExpireEffect => expireEffect;
         public VisualEffectAsset PulseEffect => pulseEffect;
         public VisualEffectAsset ArmingEffect => armingEffect;
+        public AoeVfxIds VfxIds { get; private set; }
 
         public void Configure(
             GameObject visualPrefab,
@@ -132,6 +141,11 @@ namespace PlayGround.System.Combat.Aoes
             this.expireEffect = expireEffect;
             this.pulseEffect = pulseEffect;
             this.armingEffect = armingEffect;
+        }
+
+        public void SetVfxIds(AoeVfxIds vfxIds)
+        {
+            VfxIds = vfxIds;
         }
     }
 }

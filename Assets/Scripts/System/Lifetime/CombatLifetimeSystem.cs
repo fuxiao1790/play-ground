@@ -95,7 +95,7 @@ namespace PlayGround.System.Combat.Lifetime
             public bool HasVfxWriter;
 
             private void Execute(
-                in AoeIdentityComponent identity,
+                in AoeVfxIds vfxIds,
                 in CombatKinematicsComponent kinematics,
                 in CombatRenderAuthoring authoring,
                 ref CombatLifetimeComponent lifetime,
@@ -113,7 +113,7 @@ namespace PlayGround.System.Combat.Lifetime
                         arming,
                         VfxPending,
                         HasVfxWriter,
-                        identity.TypeId,
+                        vfxIds.ExpireId,
                         kinematics.Position,
                         math.max(authoring.VisualScale.x, authoring.VisualScale.y));
                 }

@@ -56,7 +56,7 @@ namespace PlayGround.System.Combat.Aoes
             public bool HasVfxWriter;
 
             private void Execute(
-                in AoeIdentityComponent identity,
+                in AoeVfxIds vfxIds,
                 in CombatKinematicsComponent kinematics,
                 in AoeAreaComponent area,
                 ref AoePulseVfxComponent pulseVfx)
@@ -73,12 +73,11 @@ namespace PlayGround.System.Combat.Aoes
                 }
 
                 pulseVfx.RemainingInterval = pulseVfx.Interval;
-                if (HasVfxWriter)
+                if (HasVfxWriter && vfxIds.PulseId > 0)
                 {
                     VfxPending.Enqueue(new AoeVfxSpawnRequest
                     {
-                        TypeId = identity.TypeId,
-                        Trigger = AoeVfxTrigger.Pulse,
+                        VfxId = vfxIds.PulseId,
                         Position = kinematics.Position,
                         AreaSize = area.Size
                     });

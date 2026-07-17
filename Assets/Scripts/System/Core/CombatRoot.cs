@@ -480,6 +480,7 @@ namespace PlayGround.System.Combat.Core
                 Faction = CombatFaction.None,
                 AoeId = aoeId,
                 TypeId = request.TypeId,
+                VfxIds = VfxIdsFor(request.TypeId),
                 RenderTypeId = renderId,
                 Lifetime = request.LifetimeSeconds,
                 ArmSeconds = 0f,
@@ -548,6 +549,13 @@ namespace PlayGround.System.Combat.Core
             timedSpawn.JitterSeed > 0
             && timedSpawn.IntervalSeconds > 0f
             && !timedSpawn.TemplateKey.Equals(default(Hash128));
+
+        private AoeVfxIds VfxIdsFor(int typeId)
+        {
+            return typeRegistry.TryGetDefinition(typeId, out AoeTypeDefinition definition)
+                ? definition.VfxIds
+                : default;
+        }
 
         private static ProjectileSpawnCommand SpawnTemplateFor(in ProjectileSpawnCommand command)
         {
@@ -623,6 +631,11 @@ namespace PlayGround.System.Combat.Core
         // Render id for an AOE behavior type id (0 when the type has no visual).
         internal int AoeRenderId(int aoeTypeId) =>
             aoeRenderIdByType.TryGetValue(aoeTypeId, out int renderId) ? renderId : 0;
+
+        internal void SetAoeVfxIds(int aoeTypeId, AoeVfxIds vfxIds)
+        {
+            typeRegistry.SetVfxIds(aoeTypeId, vfxIds);
+        }
 
         private void BuildProjectileRenderResources()
         {

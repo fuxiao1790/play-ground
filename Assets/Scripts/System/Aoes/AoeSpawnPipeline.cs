@@ -7,6 +7,7 @@ using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Vfx;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -58,6 +59,7 @@ namespace PlayGround.System.Combat.Aoes
         public CombatFaction Faction;
         public int AoeId;
         public int TypeId;
+        public AoeVfxIds VfxIds;
         // Render identity, allocated from the unified render-resource id space (decoupled
         // from the behavior TypeId). Drives the CombatRenderKindId / registry lookup.
         public int RenderTypeId;

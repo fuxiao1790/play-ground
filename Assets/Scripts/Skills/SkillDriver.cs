@@ -615,25 +615,38 @@ namespace PlayGround.Skills
         {
             if (aoeDef == null) return;
             AoeTypeDefinition definition = aoeDef.CreateTypeDefinition();
+            RegisterAoeVfx(aoeDef, definition);
             if (combatRoot != null && aoeDef.TypeId < 0)
             {
                 aoeDef.TypeId = combatRoot.RegisterType(definition);
                 aoeDef.RenderId = combatRoot.AoeRenderId(aoeDef.TypeId);
             }
-
-            RegisterAoeVfx(aoeDef, definition);
+            else if (combatRoot != null && aoeDef.TypeId >= 0)
+            {
+                combatRoot.SetAoeVfxIds(aoeDef.TypeId, aoeDef.VfxIds);
+            }
         }
 
         private void RegisterAoeVfx(RuntimeAoeDefinition aoeDef, AoeTypeDefinition definition)
         {
-            if (vfxRoot == null || aoeDef == null || aoeDef.TypeId < 0)
+            if (aoeDef == null || definition == null)
                 return;
 
-            vfxRoot.Register(aoeDef.TypeId, AoeVfxTrigger.Spawn, definition.SpawnEffect, requireAreaSizeContract: true);
-            vfxRoot.Register(aoeDef.TypeId, AoeVfxTrigger.Hit, definition.HitEffect, requireAreaSizeContract: true);
-            vfxRoot.Register(aoeDef.TypeId, AoeVfxTrigger.Expire, definition.ExpireEffect, requireAreaSizeContract: true);
-            vfxRoot.Register(aoeDef.TypeId, AoeVfxTrigger.Pulse, definition.PulseEffect, requireAreaSizeContract: true);
-            vfxRoot.Register(aoeDef.TypeId, AoeVfxTrigger.Arming, definition.ArmingEffect, requireAreaSizeContract: true);
+            AoeVfxIds vfxIds = default;
+            if (vfxRoot != null)
+            {
+                vfxIds = new AoeVfxIds
+                {
+                    SpawnId = vfxRoot.Register(definition.SpawnEffect, requireAreaSizeContract: true),
+                    HitId = vfxRoot.Register(definition.HitEffect, requireAreaSizeContract: true),
+                    ExpireId = vfxRoot.Register(definition.ExpireEffect, requireAreaSizeContract: true),
+                    PulseId = vfxRoot.Register(definition.PulseEffect, requireAreaSizeContract: true),
+                    ArmingId = vfxRoot.Register(definition.ArmingEffect, requireAreaSizeContract: true)
+                };
+            }
+
+            aoeDef.VfxIds = vfxIds;
+            definition.SetVfxIds(vfxIds);
         }
 
         private static T FindRootByTag<T>(string tag) where T : Component
@@ -752,6 +765,7 @@ namespace PlayGround.Skills
             return new AoeSpawnCommand
             {
                 TypeId = child.TypeId,
+                VfxIds = child.VfxIds,
                 RenderTypeId = child.RenderId,
                 Lifetime = child.LifetimeSeconds,
                 // Child templates use their own authored arm time; parent arm time is not inherited.

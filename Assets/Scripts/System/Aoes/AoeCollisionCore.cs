@@ -29,6 +29,7 @@ namespace PlayGround.System.Combat.Aoes
             in CombatKinematicsComponent kinematics,
             in CombatCollisionComponent collision,
             in AoeHitSpawnComponent hitSpawn,
+            in AoeVfxIds vfxIds,
             in AoeAreaComponent area,
             bool deactivateAfterPass,
             EnabledRefRW<Active> active,
@@ -114,6 +115,7 @@ namespace PlayGround.System.Combat.Aoes
                             identity,
                             kinematics,
                             hitSpawn,
+                            vfxIds,
                             area,
                             targetEntity,
                             targetPosition,
@@ -146,6 +148,7 @@ namespace PlayGround.System.Combat.Aoes
             AoeIdentityComponent identity,
             CombatKinematicsComponent kinematics,
             AoeHitSpawnComponent hitSpawn,
+            AoeVfxIds vfxIds,
             AoeAreaComponent area,
             Entity targetEntity,
             TargetPosition targetPosition,
@@ -225,12 +228,11 @@ namespace PlayGround.System.Combat.Aoes
                 }
             }
 
-            if (!hitVfxEmitted && hasVfxWriter)
+            if (!hitVfxEmitted && hasVfxWriter && vfxIds.HitId > 0)
             {
                 vfxPending.Enqueue(new AoeVfxSpawnRequest
                 {
-                    TypeId = identity.TypeId,
-                    Trigger = AoeVfxTrigger.Hit,
+                    VfxId = vfxIds.HitId,
                     Position = kinematics.Position,
                     AreaSize = area.Size
                 });

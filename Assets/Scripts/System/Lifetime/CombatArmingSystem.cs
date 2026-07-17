@@ -86,7 +86,7 @@ namespace PlayGround.System.Combat.Lifetime
             public bool HasVfxWriter;
 
             private void Execute(
-                in AoeIdentityComponent identity,
+                in AoeVfxIds vfxIds,
                 in CombatKinematicsComponent kinematics,
                 in AoeAreaComponent area,
                 ref CombatArmingComponent arming,
@@ -104,12 +104,11 @@ namespace PlayGround.System.Combat.Lifetime
                 // The spawn VFX plays at the moment the AOE goes live, not when the
                 // entity was materialized, so an arming AOE telegraphs first and only
                 // shows its spawn burst once armed.
-                if (HasVfxWriter)
+                if (HasVfxWriter && vfxIds.SpawnId > 0)
                 {
                     VfxPending.Enqueue(new AoeVfxSpawnRequest
                     {
-                        TypeId = identity.TypeId,
-                        Trigger = AoeVfxTrigger.Spawn,
+                        VfxId = vfxIds.SpawnId,
                         Position = kinematics.Position,
                         AreaSize = area.Size
                     });

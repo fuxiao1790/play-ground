@@ -23,12 +23,69 @@ namespace PlayGround.System.Combat.Vfx
     // CombatVfxRoot; CombatAoeVfxDispatcher only reads one to push it to the GPU.
     public sealed class AoeVfxTypeResources : global::System.IDisposable
     {
+        public const int InitialBufferCapacity = 2048;
+
         public VisualEffect Instance;
         public GraphicsBuffer PositionBuffer;
         public GraphicsBuffer AreaSizeBuffer;
         public NativeList<float2> Staging;
         public NativeList<float> AreaSizeStaging;
-        public int MaxPerFrame;
+        public int BufferCapacity;
+        public bool RequireAreaSizeContract;
+
+        // Adds paired position/area-size entries in one step so the staging lists stay aligned.
+        public bool TryStage(float2 position, float areaSize)
+        {
+            Staging.Add(position);
+            AreaSizeStaging.Add(areaSize);
+            return true;
+        }
+
+        public void EnsureBufferCapacity(int requiredCapacity)
+        {
+            if (requiredCapacity <= BufferCapacity)
+            {
+                return;
+            }
+
+            int newCapacity = math.max(InitialBufferCapacity, BufferCapacity);
+            while (newCapacity < requiredCapacity)
+            {
+                newCapacity = checked(newCapacity * 2);
+            }
+
+            GraphicsBuffer newPositionBuffer = null;
+            GraphicsBuffer newAreaSizeBuffer = null;
+            try
+            {
+                newPositionBuffer = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Structured,
+                    newCapacity,
+                    sizeof(float) * 2);
+                newAreaSizeBuffer = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Structured,
+                    newCapacity,
+                    sizeof(float));
+            }
+            catch
+            {
+                newPositionBuffer?.Release();
+                newAreaSizeBuffer?.Release();
+                throw;
+            }
+
+            PositionBuffer?.Release();
+            AreaSizeBuffer?.Release();
+            PositionBuffer = newPositionBuffer;
+            AreaSizeBuffer = newAreaSizeBuffer;
+            BufferCapacity = newCapacity;
+        }
+
+        public void ClearStaging()
+        {
+            Staging.Clear();
+            AreaSizeStaging.Clear();
+        }
 
         public void Dispose()
         {
@@ -66,6 +123,7 @@ namespace PlayGround.System.Combat.Vfx
         // Caller is responsible for clearing staging afterwards.
         public void Dispatch(AoeVfxTypeResources res)
         {
+            res.EnsureBufferCapacity(res.Staging.Length);
             Vector3 worldPosition = new(0f, 0f, res.Instance.transform.position.z);
             res.Instance.transform.position = worldPosition;
             res.PositionBuffer.SetData(res.Staging.AsArray(), 0, 0, res.Staging.Length);

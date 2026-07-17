@@ -171,6 +171,7 @@ MonoBehaviour:
   - {fileID: 8926484042661618463}
   - {fileID: 8926484042661618125}
   - {fileID: 8926484042661618504}
+  - {fileID: 8926484042661618168}
   - {fileID: 8926484042661618466}
   m_UIPosition: {x: 1643, y: -911}
   m_UICollapsed: 0
@@ -237,7 +238,6 @@ MonoBehaviour:
   - {fileID: 8926484042661617150}
   - {fileID: 8926484042661618154}
   - {fileID: 8926484042661618495}
-  - {fileID: 8926484042661618168}
   - {fileID: 8926484042661618501}
   m_UIPosition: {x: 1643, y: 26}
   m_UICollapsed: 0
@@ -1481,7 +1481,7 @@ MonoBehaviour:
   m_Disabled: 0
   m_ActivationSlot: {fileID: 8926484042661618156}
   attribute: size
-  Composition: 0
+  Composition: 2
   AlphaComposition: 0
   SampleMode: 0
   Mode: 1
@@ -1568,7 +1568,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.VisualEffectGraph.Editor::UnityEditor.VFX.Block.SetAttribute
   m_UIIgnoredErrors: []
-  m_Parent: {fileID: 8926484042661617113}
+  m_Parent: {fileID: 8926484042661616975}
   m_Children: []
   m_UIPosition: {x: 0, y: 0}
   m_UICollapsed: 0
@@ -3453,7 +3453,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
           PublicKeyToken=b77a5c561934e089
-      m_SerializableObject: 0.5
+      m_SerializableObject: 1.5
     m_Space: -1
   m_Property:
     name: _Lifetime

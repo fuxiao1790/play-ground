@@ -9,6 +9,7 @@ using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Projectiles;
 using PlayGround.System.Combat.Stats;
+using PlayGround.System.Combat.Vfx;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -44,6 +45,7 @@ namespace PlayGround.System.Combat.Aoes
                 typeof(AoeIdentityComponent),
                 typeof(AoeHitGateComponent),
                 typeof(AoeHitSpawnComponent),
+                typeof(AoeVfxIds),
                 typeof(CombatHitPayload),
                 typeof(AoeAreaComponent),
                 typeof(CombatRenderComponent),
@@ -115,6 +117,7 @@ namespace PlayGround.System.Combat.Aoes
                         CollisionHandle = GetComponentTypeHandle<CombatCollisionComponent>(false),
                         HitGateHandle = GetComponentTypeHandle<AoeHitGateComponent>(false),
                         HitSpawnHandle = GetComponentTypeHandle<AoeHitSpawnComponent>(false),
+                        VfxIdsHandle = GetComponentTypeHandle<AoeVfxIds>(false),
                         HitPayloadHandle = GetComponentTypeHandle<CombatHitPayload>(false),
                         AreaHandle = GetComponentTypeHandle<AoeAreaComponent>(false),
                         RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
@@ -155,6 +158,7 @@ namespace PlayGround.System.Combat.Aoes
             public ComponentTypeHandle<CombatCollisionComponent> CollisionHandle;
             public ComponentTypeHandle<AoeHitGateComponent> HitGateHandle;
             public ComponentTypeHandle<AoeHitSpawnComponent> HitSpawnHandle;
+            public ComponentTypeHandle<AoeVfxIds> VfxIdsHandle;
             public ComponentTypeHandle<CombatHitPayload> HitPayloadHandle;
             public ComponentTypeHandle<AoeAreaComponent> AreaHandle;
             public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
@@ -186,6 +190,7 @@ namespace PlayGround.System.Combat.Aoes
                         chunk.GetNativeArray(ref HitGateHandle);
                     NativeArray<AoeHitSpawnComponent> hitSpawns =
                         chunk.GetNativeArray(ref HitSpawnHandle);
+                    NativeArray<AoeVfxIds> vfxIds = chunk.GetNativeArray(ref VfxIdsHandle);
                     NativeArray<CombatHitPayload> hitPayloads =
                         chunk.GetNativeArray(ref HitPayloadHandle);
                     NativeArray<AoeAreaComponent> areas = chunk.GetNativeArray(ref AreaHandle);
@@ -213,6 +218,7 @@ namespace PlayGround.System.Combat.Aoes
                             collisions,
                             hitGates,
                             hitSpawns,
+                            vfxIds,
                             hitPayloads,
                             areas,
                             renders,
@@ -262,6 +268,7 @@ namespace PlayGround.System.Combat.Aoes
                 typeof(CombatLifetimeComponent),
                 typeof(AoeHitGateComponent),
                 typeof(AoeHitSpawnComponent),
+                typeof(AoeVfxIds),
                 typeof(CombatHitPayload),
                 typeof(AoeAreaComponent),
                 typeof(AoePulseVfxComponent),
@@ -337,6 +344,7 @@ namespace PlayGround.System.Combat.Aoes
                         LifetimeHandle = GetComponentTypeHandle<CombatLifetimeComponent>(false),
                         HitGateHandle = GetComponentTypeHandle<AoeHitGateComponent>(false),
                         HitSpawnHandle = GetComponentTypeHandle<AoeHitSpawnComponent>(false),
+                        VfxIdsHandle = GetComponentTypeHandle<AoeVfxIds>(false),
                         HitPayloadHandle = GetComponentTypeHandle<CombatHitPayload>(false),
                         AreaHandle = GetComponentTypeHandle<AoeAreaComponent>(false),
                         PulseVfxHandle = GetComponentTypeHandle<AoePulseVfxComponent>(false),
@@ -381,6 +389,7 @@ namespace PlayGround.System.Combat.Aoes
             public ComponentTypeHandle<CombatLifetimeComponent> LifetimeHandle;
             public ComponentTypeHandle<AoeHitGateComponent> HitGateHandle;
             public ComponentTypeHandle<AoeHitSpawnComponent> HitSpawnHandle;
+            public ComponentTypeHandle<AoeVfxIds> VfxIdsHandle;
             public ComponentTypeHandle<CombatHitPayload> HitPayloadHandle;
             public ComponentTypeHandle<AoeAreaComponent> AreaHandle;
             public ComponentTypeHandle<AoePulseVfxComponent> PulseVfxHandle;
@@ -418,6 +427,7 @@ namespace PlayGround.System.Combat.Aoes
                         chunk.GetNativeArray(ref HitGateHandle);
                     NativeArray<AoeHitSpawnComponent> hitSpawns =
                         chunk.GetNativeArray(ref HitSpawnHandle);
+                    NativeArray<AoeVfxIds> vfxIds = chunk.GetNativeArray(ref VfxIdsHandle);
                     NativeArray<CombatHitPayload> hitPayloads =
                         chunk.GetNativeArray(ref HitPayloadHandle);
                     NativeArray<AoeAreaComponent> areas = chunk.GetNativeArray(ref AreaHandle);
@@ -451,6 +461,7 @@ namespace PlayGround.System.Combat.Aoes
                             collisions,
                             hitGates,
                             hitSpawns,
+                            vfxIds,
                             hitPayloads,
                             areas,
                             renders,
@@ -491,6 +502,7 @@ namespace PlayGround.System.Combat.Aoes
             NativeArray<CombatCollisionComponent> collisions,
             NativeArray<AoeHitGateComponent> hitGates,
             NativeArray<AoeHitSpawnComponent> hitSpawns,
+            NativeArray<AoeVfxIds> vfxIds,
             NativeArray<CombatHitPayload> hitPayloads,
             NativeArray<AoeAreaComponent> areas,
             NativeArray<CombatRenderComponent> renders,
@@ -505,6 +517,7 @@ namespace PlayGround.System.Combat.Aoes
             collisions[index] = CollisionFor(cfg);
             hitGates[index] = HitGateFor(cfg);
             hitSpawns[index] = HitSpawnFor(cfg);
+            vfxIds[index] = cfg.VfxIds;
             hitPayloads[index] = HitPayloadFor(cfg.HitPayload, cfg.Faction);
             areas[index] = AreaFor(cfg);
             renders[index] = render;

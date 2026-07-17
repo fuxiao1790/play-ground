@@ -7,6 +7,7 @@ using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Vfx;
 using Unity.Entities;
 
 namespace PlayGround.System.Combat.Aoes

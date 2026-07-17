@@ -5,10 +5,10 @@
 Define visual-only event data passed from simulation producers to VFX Graph
 dispatch.
 
-The current payload is AOE-shaped: every request carries one world position and
-one area size, and the dispatcher uploads `Positions` and `AreaSizes` for every
-effect. Projectile systems do not emit these requests; the payload is reserved
-for AOE-shaped visuals.
+The current payload is AOE-shaped: every request carries one graph-kind id, one
+world position, and one area size. The dispatcher uploads `Positions` and
+`AreaSizes` for every graph kind. Projectile systems do not emit these requests;
+the payload is reserved for AOE-shaped visuals.
 
 ## Produced By
 
@@ -23,23 +23,30 @@ for AOE-shaped visuals.
 Request data:
 
 - `AoeVfxSpawnRequest`
-- `int TypeId`
-- `AoeVfxTrigger Trigger`
+- `int VfxId`
 - `float2 Position`
 - `float AreaSize`
 
-Trigger values:
-
-- `AoeVfxTrigger.Spawn` (`0`): AOE spawn or arming AOE activation
-- `AoeVfxTrigger.Hit` (`1`): confirmed AOE hit
-- `AoeVfxTrigger.Expire` (`2`): lingering AOE lifetime expire
-- `AoeVfxTrigger.Pulse` (`3`): lingering AOE pulse
-- `AoeVfxTrigger.Arming` (`4`): AOE arming telegraph
+`VfxId` identifies the registered VFX graph kind, not the AOE type and not the
+reason the event was emitted. One graph represents every VFX event of that kind
+on screen, so all producers that want the same graph must use the same `VfxId`.
+Event-specific differences belong in payload data such as `Position` and
+`AreaSize`, or in future payload fields if the graph needs them.
 
 ## Guarantees
 
-Requests are visual-only. Dropping requests after a budget cap does not change
-gameplay authority.
+Requests are visual-only. If a visual budget later drops or prioritizes
+requests before dispatch, that must not change gameplay authority.
+
+Dispatch keys on `VfxId` alone. Spawn, hit, expire, pulse, and arming are not
+part of VFX identity.
+
+`Positions`, `AreaSizes`, and `SpawnCount` are spawn payloads for the current
+dispatch batch. They are not stable per-particle storage. A VFX graph must copy
+per-instance request data from these buffers in `Initialize Particles` and then
+animate/render from particle attributes. Reading request buffers from `Update
+Particle` or `Output Particle` can make alive particles use data from a later
+batch for the same graph kind.
 
 ## Restrictions
 

@@ -9,6 +9,7 @@ using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Vfx;
 using UnityEngine;
 using UnityEngine.VFX;
 
@@ -25,6 +26,7 @@ namespace PlayGround.Skills.Runtime
         public VisualEffectAsset ExpireEffect { get; set; }
         public VisualEffectAsset PulseEffect { get; set; }
         public VisualEffectAsset ArmingEffect { get; set; }
+        public AoeVfxIds VfxIds { get; set; }
         public float LifetimeSeconds { get; set; }
         public float TickIntervalSeconds { get; set; }
         public float ArmSeconds { get; set; }

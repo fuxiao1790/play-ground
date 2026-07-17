@@ -55,30 +55,29 @@ namespace PlayGround.System.Combat.Lifetime
             EnabledRefRW<ArmingTag> arming,
             NativeQueue<AoeVfxSpawnRequest>.ParallelWriter vfxPending,
             bool hasVfxWriter,
-            int typeId,
+            int expireVfxId,
             float2 position,
             float areaSize)
         {
             Kill(active, collisionActive, arming);
-            EnqueueExpireVfx(vfxPending, hasVfxWriter, typeId, position, areaSize);
+            EnqueueExpireVfx(vfxPending, hasVfxWriter, expireVfxId, position, areaSize);
         }
 
         private static void EnqueueExpireVfx(
             NativeQueue<AoeVfxSpawnRequest>.ParallelWriter vfxPending,
             bool hasVfxWriter,
-            int typeId,
+            int expireVfxId,
             float2 position,
             float areaSize)
         {
-            if (!hasVfxWriter)
+            if (!hasVfxWriter || expireVfxId <= 0)
             {
                 return;
             }
 
             vfxPending.Enqueue(new AoeVfxSpawnRequest
             {
-                TypeId = typeId,
-                Trigger = AoeVfxTrigger.Expire,
+                VfxId = expireVfxId,
                 Position = position,
                 AreaSize = areaSize
             });

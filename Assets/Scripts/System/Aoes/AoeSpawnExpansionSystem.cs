@@ -96,12 +96,19 @@ namespace PlayGround.System.Combat.Aoes
                 {
                     // While arming, only the telegraph plays here; the spawn
                     // burst is deferred to arm completion in CombatArmingSystem.
+                    int vfxId = spawned.ArmSeconds > 0f
+                        ? spawned.VfxIds.ArmingId
+                        : spawned.VfxIds.SpawnId;
+                    if (vfxId <= 0)
+                    {
+                        continue;
+                    }
+
                     if (spawned.ArmSeconds > 0f)
                     {
                         vfxPending.Enqueue(new AoeVfxSpawnRequest
                         {
-                            TypeId = spawned.TypeId,
-                            Trigger = AoeVfxTrigger.Arming,
+                            VfxId = vfxId,
                             Position = pos,
                             AreaSize = spawned.AreaSize
                         });
@@ -110,10 +117,9 @@ namespace PlayGround.System.Combat.Aoes
                     {
                         vfxPending.Enqueue(new AoeVfxSpawnRequest
                         {
-                            TypeId = command.TypeId,
-                            Trigger = AoeVfxTrigger.Spawn,
+                            VfxId = vfxId,
                             Position = pos,
-                            AreaSize = command.AreaSize
+                            AreaSize = spawned.AreaSize
                         });
                     }
                 }

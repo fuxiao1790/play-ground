@@ -20,21 +20,29 @@ using UnityEngine.VFX;
 namespace PlayGround.System.Combat.Vfx
 {
     // Manager for every combat VFX resource: owns each AoeVfxTypeResources (GameObject,
-    // VisualEffect, GraphicsBuffers, staging lists), the (typeId, trigger) table onto them, and
-    // their teardown. CombatAoeVfxDispatcher owns none of that — it only knows the graph protocol.
+    // VisualEffect, GraphicsBuffers, staging lists), the effect-id table onto them, and
+    // their teardown. CombatAoeVfxDispatcher owns none of that - it only knows the graph protocol.
     public sealed class CombatVfxRoot : MonoBehaviour
     {
         public static CombatVfxRoot Instance { get; private set; }
 
-        private const int TriggerKeyStride = 256;
-
-        private static readonly List<AoeVfxTypeResources> LiveResources = new();
-
-        private readonly Dictionary<int, AoeVfxTypeResources> resources = new();
+        // Sole owner and dispatch/teardown set. Append-only for the root lifetime; VfxId is
+        // (index + 1) so 0 stays a safe no-VFX sentinel that can never address a resource.
+        private readonly List<AoeVfxTypeResources> owners = new();
+        private readonly Dictionary<VisualEffectAsset, int> idsByAsset = new();
         private CombatAoeVfxDispatcher dispatcher;
 
         private void Awake()
         {
+            if (Instance != null && Instance != this)
+            {
+                Debug.LogError(
+                    $"{nameof(CombatVfxRoot)} on '{name}' rejected: '{Instance.name}' is already the "
+                    + "active combat VFX root.");
+                enabled = false;
+                return;
+            }
+
             dispatcher = new CombatAoeVfxDispatcher();
             Instance = this;
         }
@@ -50,59 +58,72 @@ namespace PlayGround.System.Combat.Vfx
             dispatcher = null;
         }
 
-        // asset == null means no visual for this trigger; nothing is registered and no memory is allocated.
-        public void Register(
-            int typeId,
-            AoeVfxTrigger trigger,
+        // asset == null means no visual for this graph kind; nothing is registered and no memory
+        // is allocated. Re-registering an already-known asset returns its existing id without
+        // allocating; the first successful registration owns the graph's contract options.
+        public int Register(
             VisualEffectAsset asset,
-            int maxPerFrame = 2048,
             bool requireAreaSizeContract = false)
         {
             if (asset == null || dispatcher == null)
             {
-                return;
+                return 0;
             }
 
-            int key = KeyFor(typeId, trigger);
-            if (resources.ContainsKey(key))
+            if (idsByAsset.TryGetValue(asset, out int existingId))
             {
-                return;
+                AoeVfxTypeResources existing = owners[existingId - 1];
+                if (existing.RequireAreaSizeContract != requireAreaSizeContract)
+                {
+                    Debug.LogError(
+                        $"{nameof(CombatVfxRoot)} re-registered VFX asset '{asset.name}' (id {existingId}) "
+                        + "with a conflicting contract; the graph keeps its original contract.");
+                }
+
+                return existingId;
+            }
+
+            if (!dispatcher.ValidateGraphContract(asset, requireAreaSizeContract, out string reason))
+            {
+                Debug.LogError(reason);
+                return 0;
             }
 
             GameObject go = null;
             AoeVfxTypeResources res = null;
+            int newId = owners.Count + 1;
             try
             {
-                go = new GameObject($"Vfx_{typeId}_{trigger}");
+                go = new GameObject($"{asset.name}_{newId}");
                 go.layer = gameObject.layer;
                 go.transform.SetParent(transform, false);
                 VisualEffect vfx = go.AddComponent<VisualEffect>();
                 vfx.visualEffectAsset = asset;
-                if (!dispatcher.ValidateGraphContract(asset, requireAreaSizeContract, out string reason))
-                {
-                    Debug.LogError(reason);
-                    Destroy(go);
-                    return;
-                }
 
                 res = new AoeVfxTypeResources
                 {
-                    MaxPerFrame = maxPerFrame,
+                    BufferCapacity = AoeVfxTypeResources.InitialBufferCapacity,
+                    RequireAreaSizeContract = requireAreaSizeContract,
                     Instance = vfx,
                 };
                 res.PositionBuffer = new GraphicsBuffer(
                     GraphicsBuffer.Target.Structured,
-                    maxPerFrame,
+                    AoeVfxTypeResources.InitialBufferCapacity,
                     sizeof(float) * 2);
-                res.Staging = new NativeList<float2>(maxPerFrame, Allocator.Persistent);
+                res.Staging = new NativeList<float2>(
+                    AoeVfxTypeResources.InitialBufferCapacity,
+                    Allocator.Persistent);
                 res.AreaSizeBuffer = new GraphicsBuffer(
                     GraphicsBuffer.Target.Structured,
-                    maxPerFrame,
+                    AoeVfxTypeResources.InitialBufferCapacity,
                     sizeof(float));
-                res.AreaSizeStaging = new NativeList<float>(maxPerFrame, Allocator.Persistent);
+                res.AreaSizeStaging = new NativeList<float>(
+                    AoeVfxTypeResources.InitialBufferCapacity,
+                    Allocator.Persistent);
 
-                resources[key] = res;
-                LiveResources.Add(res);
+                owners.Add(res);
+                idsByAsset[asset] = newId;
+                return newId;
             }
             catch (global::System.Exception ex)
             {
@@ -113,8 +134,8 @@ namespace PlayGround.System.Combat.Vfx
                 }
 
                 Debug.LogError(
-                    $"{nameof(CombatVfxRoot)} failed to register VFX asset '{asset.name}' "
-                    + $"for type {typeId}, trigger {trigger}: {ex.Message}");
+                    $"{nameof(CombatVfxRoot)} failed to register VFX asset '{asset.name}': {ex.Message}");
+                return 0;
             }
         }
 
@@ -134,23 +155,21 @@ namespace PlayGround.System.Combat.Vfx
             int acceptedSpawnCount = 0;
             while (queue.TryDequeue(out AoeVfxSpawnRequest p))
             {
-                if (StageAoeSpawn(p.TypeId, p.Trigger, p.Position, p.AreaSize))
+                if (StageAoeSpawn(p.VfxId, p.Position, p.AreaSize))
                 {
                     acceptedSpawnCount++;
                 }
             }
 
-            foreach (KeyValuePair<int, AoeVfxTypeResources> pair in resources)
+            foreach (AoeVfxTypeResources res in owners)
             {
-                AoeVfxTypeResources res = pair.Value;
                 if (res.Staging.Length == 0)
                 {
                     continue;
                 }
 
                 dispatcher.Dispatch(res);
-                res.Staging.Clear();
-                res.AreaSizeStaging.Clear();
+                res.ClearStaging();
             }
 
             return acceptedSpawnCount;
@@ -159,12 +178,15 @@ namespace PlayGround.System.Combat.Vfx
         public static int AliveParticleCount(bool visibleOnly = true)
         {
             int count = 0;
-            for (int i = LiveResources.Count - 1; i >= 0; i--)
+            if (Instance == null)
             {
-                AoeVfxTypeResources res = LiveResources[i];
+                return count;
+            }
+
+            foreach (AoeVfxTypeResources res in Instance.owners)
+            {
                 if (res == null || res.Instance == null)
                 {
-                    LiveResources.RemoveAt(i);
                     continue;
                 }
 
@@ -179,37 +201,31 @@ namespace PlayGround.System.Combat.Vfx
             return count;
         }
 
-        private bool StageAoeSpawn(int typeId, AoeVfxTrigger trigger, float2 position, float areaSize)
+        private bool StageAoeSpawn(int vfxId, float2 position, float areaSize)
         {
-            int key = KeyFor(typeId, trigger);
-            if (!resources.TryGetValue(key, out AoeVfxTypeResources res))
+            if (vfxId <= 0 || vfxId > owners.Count)
             {
                 return false;
             }
 
-            if (res.Staging.Length >= res.MaxPerFrame)
+            AoeVfxTypeResources res = owners[vfxId - 1];
+            if (res == null)
             {
                 return false;
             }
 
-            res.Staging.Add(position);
-            res.AreaSizeStaging.Add(math.max(0.01f, areaSize));
-            return true;
-        }
-
-        private static int KeyFor(int typeId, AoeVfxTrigger trigger)
-        {
-            return typeId * TriggerKeyStride + (byte)trigger;
+            return res.TryStage(position, math.max(0.01f, areaSize));
         }
 
         private void DisposeResources()
         {
-            foreach (AoeVfxTypeResources res in resources.Values)
+            foreach (AoeVfxTypeResources res in owners)
             {
-                LiveResources.Remove(res);
                 res.Dispose();
             }
-            resources.Clear();
+
+            owners.Clear();
+            idsByAsset.Clear();
         }
     }
 }

@@ -11,17 +11,18 @@ using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Vfx;
+using Unity.Entities;
 using Unity.Mathematics;
 
 namespace PlayGround.System.Combat.Vfx
 {
-    public enum AoeVfxTrigger : byte
+    public struct AoeVfxIds : IComponentData
     {
-        Spawn = 0,
-        Hit = 1,
-        Expire = 2,
-        Pulse = 3,
-        Arming = 4
+        public int SpawnId;
+        public int HitId;
+        public int ExpireId;
+        public int PulseId;
+        public int ArmingId;
     }
 
     // ECS Lifecycle: transient native payload; not added to entities; queued by
@@ -29,8 +30,7 @@ namespace PlayGround.System.Combat.Vfx
     // CombatAoeVfxDispatchSystem, drained in presentation.
     public struct AoeVfxSpawnRequest
     {
-        public int TypeId;
-        public AoeVfxTrigger Trigger;
+        public int VfxId;
         public float2 Position;
         public float AreaSize;
     }
