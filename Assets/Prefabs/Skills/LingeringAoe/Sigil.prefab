@@ -51,7 +51,7 @@ MonoBehaviour:
   spawnEffect: {fileID: 8926484042661614526, guid: c9992cf7e6229f648a2aea674b651255, type: 3}
   hitEffect: {fileID: 0}
   expireEffect: {fileID: 0}
-  pulseEffect: {fileID: 8926484042661614526, guid: c9992cf7e6229f648a2aea674b651255, type: 3}
+  pulseEffect: {fileID: 0}
   armingEffect: {fileID: 8926484042661614526, guid: 7a9e0d70614a86a4282315052223d73a, type: 3}
 --- !u!1 &1003000000000000100
 GameObject:

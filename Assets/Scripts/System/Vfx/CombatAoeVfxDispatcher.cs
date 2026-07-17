@@ -28,18 +28,8 @@ namespace PlayGround.System.Combat.Vfx
         public VisualEffect Instance;
         public GraphicsBuffer PositionBuffer;
         public GraphicsBuffer AreaSizeBuffer;
-        public NativeList<float2> Staging;
-        public NativeList<float> AreaSizeStaging;
         public int BufferCapacity;
         public bool RequireAreaSizeContract;
-
-        // Adds paired position/area-size entries in one step so the staging lists stay aligned.
-        public bool TryStage(float2 position, float areaSize)
-        {
-            Staging.Add(position);
-            AreaSizeStaging.Add(areaSize);
-            return true;
-        }
 
         public void EnsureBufferCapacity(int requiredCapacity)
         {
@@ -81,23 +71,8 @@ namespace PlayGround.System.Combat.Vfx
             BufferCapacity = newCapacity;
         }
 
-        public void ClearStaging()
-        {
-            Staging.Clear();
-            AreaSizeStaging.Clear();
-        }
-
         public void Dispose()
         {
-            // Dispose native memory first so it's freed even if GPU/scene teardown throws.
-            if (Staging.IsCreated)
-            {
-                Staging.Dispose();
-            }
-            if (AreaSizeStaging.IsCreated)
-            {
-                AreaSizeStaging.Dispose();
-            }
             PositionBuffer?.Release();
             PositionBuffer = null;
             AreaSizeBuffer?.Release();
@@ -120,17 +95,17 @@ namespace PlayGround.System.Combat.Vfx
         private const string SpawnCountPropertyName = "SpawnCount";
         private const string SpawnEventName = "OnSpawn";
 
-        // Caller is responsible for clearing staging afterwards.
-        public void Dispatch(AoeVfxTypeResources res)
+        public void Dispatch(AoeVfxTypeResources res, NativeArray<float2> positions, NativeArray<float> areaSizes)
         {
-            res.EnsureBufferCapacity(res.Staging.Length);
+            int count = positions.Length;
+            res.EnsureBufferCapacity(count);
             Vector3 worldPosition = new(0f, 0f, res.Instance.transform.position.z);
             res.Instance.transform.position = worldPosition;
-            res.PositionBuffer.SetData(res.Staging.AsArray(), 0, 0, res.Staging.Length);
+            res.PositionBuffer.SetData(positions, 0, 0, count);
             res.Instance.SetGraphicsBuffer(PositionsPropertyName, res.PositionBuffer);
-            res.AreaSizeBuffer.SetData(res.AreaSizeStaging.AsArray(), 0, 0, res.AreaSizeStaging.Length);
+            res.AreaSizeBuffer.SetData(areaSizes, 0, 0, count);
             res.Instance.SetGraphicsBuffer(AreaSizePropertyName, res.AreaSizeBuffer);
-            res.Instance.SetInt(SpawnCountPropertyName, res.Staging.Length);
+            res.Instance.SetInt(SpawnCountPropertyName, count);
             res.Instance.SendEvent(SpawnEventName);
         }
 

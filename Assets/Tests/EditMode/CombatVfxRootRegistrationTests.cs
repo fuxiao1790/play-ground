@@ -1,6 +1,5 @@
 using NUnit.Framework;
 using PlayGround.System.Combat.Vfx;
-using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.VFX;
@@ -46,31 +45,18 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void StagingBeyondInitialCapacity_GrowsBuffersWithoutDroppingRequests()
+        public void EnsureBufferCapacity_BeyondInitialCapacity_GrowsWithoutShrinking()
         {
             var res = new AoeVfxTypeResources
             {
-                BufferCapacity = AoeVfxTypeResources.InitialBufferCapacity,
-                Staging = new Unity.Collections.NativeList<float2>(
-                    AoeVfxTypeResources.InitialBufferCapacity,
-                    Unity.Collections.Allocator.Persistent),
-                AreaSizeStaging = new Unity.Collections.NativeList<float>(
-                    AoeVfxTypeResources.InitialBufferCapacity,
-                    Unity.Collections.Allocator.Persistent)
+                BufferCapacity = AoeVfxTypeResources.InitialBufferCapacity
             };
 
             try
             {
                 int count = AoeVfxTypeResources.InitialBufferCapacity + 1;
-                for (int i = 0; i < count; i++)
-                {
-                    Assert.That(res.TryStage(new float2(i, i), 1f), Is.True);
-                }
-
                 res.EnsureBufferCapacity(count);
 
-                Assert.That(res.Staging.Length, Is.EqualTo(count));
-                Assert.That(res.AreaSizeStaging.Length, Is.EqualTo(count));
                 Assert.That(res.BufferCapacity, Is.GreaterThanOrEqualTo(count));
             }
             finally

@@ -26,6 +26,8 @@ namespace PlayGround.System.Combat.Vfx
     {
         public static CombatVfxRoot Instance { get; private set; }
 
+        public int RegisteredVfxCount => owners.Count;
+
         // Sole owner and dispatch/teardown set. Append-only for the root lifetime; VfxId is
         // (index + 1) so 0 stays a safe no-VFX sentinel that can never address a resource.
         private readonly List<AoeVfxTypeResources> owners = new();
@@ -110,16 +112,10 @@ namespace PlayGround.System.Combat.Vfx
                     GraphicsBuffer.Target.Structured,
                     AoeVfxTypeResources.InitialBufferCapacity,
                     sizeof(float) * 2);
-                res.Staging = new NativeList<float2>(
-                    AoeVfxTypeResources.InitialBufferCapacity,
-                    Allocator.Persistent);
                 res.AreaSizeBuffer = new GraphicsBuffer(
                     GraphicsBuffer.Target.Structured,
                     AoeVfxTypeResources.InitialBufferCapacity,
                     sizeof(float));
-                res.AreaSizeStaging = new NativeList<float>(
-                    AoeVfxTypeResources.InitialBufferCapacity,
-                    Allocator.Persistent);
 
                 owners.Add(res);
                 idsByAsset[asset] = newId;
@@ -145,34 +141,41 @@ namespace PlayGround.System.Combat.Vfx
             dispatcher = new CombatAoeVfxDispatcher();
         }
 
-        internal int DrainAndDispatch(ref NativeQueue<AoeVfxSpawnRequest> queue)
+        // sortedPositions/sortedAreaSizes are already grouped by VfxId; bucketOffsets[id] is the
+        // start index and bucketOffsets[id + 1] the end index of that VfxId's slice. Both arrays
+        // and the offsets are produced by CombatAoeVfxDispatchSystem's Burst bucketing job.
+        internal int DrainAndDispatch(
+            NativeArray<float2> sortedPositions,
+            NativeArray<float> sortedAreaSizes,
+            NativeArray<int> bucketOffsets)
         {
             if (dispatcher == null)
             {
                 return 0;
             }
 
-            int acceptedSpawnCount = 0;
-            while (queue.TryDequeue(out AoeVfxSpawnRequest p))
+            for (int vfxId = 1; vfxId <= owners.Count; vfxId++)
             {
-                if (StageAoeSpawn(p.VfxId, p.Position, p.AreaSize))
-                {
-                    acceptedSpawnCount++;
-                }
-            }
-
-            foreach (AoeVfxTypeResources res in owners)
-            {
-                if (res.Staging.Length == 0)
+                int start = bucketOffsets[vfxId];
+                int count = bucketOffsets[vfxId + 1] - start;
+                if (count == 0)
                 {
                     continue;
                 }
 
-                dispatcher.Dispatch(res);
-                res.ClearStaging();
+                AoeVfxTypeResources res = owners[vfxId - 1];
+                if (res == null)
+                {
+                    continue;
+                }
+
+                dispatcher.Dispatch(
+                    res,
+                    sortedPositions.GetSubArray(start, count),
+                    sortedAreaSizes.GetSubArray(start, count));
             }
 
-            return acceptedSpawnCount;
+            return sortedPositions.Length;
         }
 
         public static int AliveParticleCount(bool visibleOnly = true)
@@ -199,22 +202,6 @@ namespace PlayGround.System.Combat.Vfx
             }
 
             return count;
-        }
-
-        private bool StageAoeSpawn(int vfxId, float2 position, float areaSize)
-        {
-            if (vfxId <= 0 || vfxId > owners.Count)
-            {
-                return false;
-            }
-
-            AoeVfxTypeResources res = owners[vfxId - 1];
-            if (res == null)
-            {
-                return false;
-            }
-
-            return res.TryStage(position, math.max(0.01f, areaSize));
         }
 
         private void DisposeResources()
