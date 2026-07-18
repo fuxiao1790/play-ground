@@ -122,6 +122,11 @@ Two different rotations live in two different spaces and must not be confused:
   have local `z == 0`, so the shader only needs m00, m01, m10, m11, world x/y,
   and RenderZ.
 - **UVs come from `sprite.uv` and `sprite.vertices`, never `sprite.rect`.**
+- **Registered sprites must have mesh vertices at their rect corners.** Import
+  them as Full Rect, or ensure the art fills the rect. `ComputeUvBasis` treats
+  the extreme vertices as rect corners; a Tight mesh with transparent margins
+  produces a wrong basis and visibly distorted sprites. See
+  [combat-atlas-tight-mesh-uv-distortion.md](./combat-atlas-tight-mesh-uv-distortion.md).
 - **The atlas must be packed at runtime.** `SpriteAtlas.GetSprite(...)` must
   return sprites from the atlas page.
 - **Single page is required.** One draw call binds one atlas texture.
@@ -166,6 +171,7 @@ no ECS memory.
 ## Related
 
 - [Render Batch Data contract](../../contracts/render-batch-data.md)
+- [Tight-mesh UV distortion pitfall](./combat-atlas-tight-mesh-uv-distortion.md)
 - [VFX System](./vfx-system.md)
 - [Presentation And Feedback layer](../../layers/presentation-and-feedback.md)
 - [Runtime Frame flow](../../flows/runtime-frame.md)
