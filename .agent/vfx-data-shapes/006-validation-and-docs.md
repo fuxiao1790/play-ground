@@ -14,6 +14,20 @@ so future work checks against it.
   The message names the shape and the offending property; the id is `0`.
 - Verify a null asset still returns id `0` and allocates nothing.
 - Verify a valid registration returns an id that decodes to the registered shape.
+- **Validation gap** (`vfx-shared-graph-area-size-corruption.md`): name/type
+  validation cannot prove where the graph samples request buffers, so it cannot
+  prevent shared-graph corruption. Do not present passing registration as such proof;
+  the mixed-value regression test below is the actual guard.
+
+### Regression coverage — extend the shared-graph area-size test to timing buffers
+Per `vfx-shared-graph-area-size-corruption.md` ("Required Regression Test"), every
+per-request buffer must be tested with old particles alive while later batches carry
+different values. This refactor adds `Durations`/`TickIntervals`, so:
+- Cover a single `Timed` graph asset shared by two AOEs with different
+  `Duration`/`TickInterval` (and different `AreaSize`), old particles alive, alternating
+  batches and varied request order.
+- Verify alive particles keep their birth-batch `Duration`/`TickInterval` (sampled in
+  `Initialize Particles`) and do not re-read later batches.
 
 ### `Docs/reference/simulation/vfx-system.md`
 Rewrite to the shipped model (the doc is also stale on the current bucketing — fix
@@ -28,9 +42,21 @@ that while here):
 - **VFX Graph Contract:** per-shape contract; `Timed` graphs additionally expose
   `Durations`/`TickIntervals`; all shapes expose `Positions`/`AreaSizes`/
   `SpawnCount`/`OnSpawn`.
+- **Graph-authoring rule (general):** state up front that every exposed input
+  property (`Positions`, `AreaSizes`, `Durations`, `TickIntervals`, any future shape
+  buffer) may **only** be wired into the `Initialize Particle` context and copied to a
+  persistent particle attribute; wiring any into `Update`/`Output` corrupts alive
+  particles because one `VisualEffect` per asset reuses the buffers across batches.
+  This is a graph-authoring invariant the C# side cannot enforce. Link
+  `vfx-shared-graph-area-size-corruption.md` as authoritative.
 - **Timed authoring:** a `Timed`-shaped graph is emitted **once** and must self-drive
-  its pulses over `Duration` at `TickInterval`, sampled in `Initialize Particles` →
-  particle attributes (same transient-buffer rule as `AreaSizes`).
+  its pulses over `Duration` at `TickInterval` from the attributes it stored in
+  `Initialize Particles` (age/lifetime/random only in `Update`/`Output`), obeying the
+  Initialize-only rule above.
+- **Keep the corruption doc consistent:** `vfx-shared-graph-area-size-corruption.md`
+  already references `VfxDataShapes.cs` and the `Basic`/`Timed` payloads (created in
+  task 001) — verify its "Current Code Anchors" and payload/buffer names still match
+  the shipped code after this refactor; fix any drift.
 - **No category split:** impact vs lingering is a per-graph shape choice, not a
   system/lane split; emit routes by `DecodeShape(vfxId)`.
 - **VfxId encoding:** the id encodes `(shape, per-shape localIndex)`, so `AoeVfxIds`

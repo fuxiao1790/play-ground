@@ -6,6 +6,10 @@ final decisions, and should be checked against code before implementation work.
 This is the detailed VFX ECS dispatch doc. Use [index.md](./index.md) for the
 simulation overview and aspect map.
 
+The recurring cross-skill area-size corruption, its confirmed reproduction, and
+the mandatory mixed-size graph test are documented separately in
+[Shared VFX Graph Area-Size Corruption](./vfx-shared-graph-area-size-corruption.md).
+
 ## Summary
 
 Combat VFX dispatch is ECS-owned and data-shape based. Simulation jobs emit
@@ -133,7 +137,7 @@ graph must sample `Durations` and `TickIntervals` in `Initialize Particles` and
 copy them to particle attributes. Existing particles must not read request
 buffers from `Update Particle` or `Output Particle`.
 
-## Spawn Payload Buffer Lifetime
+## Shared Upload Buffer Semantics
 
 Shape buffers and `SpawnCount` are transient payloads for the current dispatch
 batch. They are shared by the one `VisualEffect` instance for a graph and are
@@ -150,6 +154,11 @@ particle attributes + age/lifetime/random/curves -> Update/Output
 Failure mode: if a particle reads `AreaSizes[spawnIndex]` in `Output Particle`,
 an old particle can index into the latest uploaded batch instead of the batch
 that spawned it.
+
+See
+[Shared VFX Graph Area-Size Corruption](./vfx-shared-graph-area-size-corruption.md)
+for the exact same-graph/different-skill-size mechanism and required regression
+matrix.
 
 ## Emitters
 

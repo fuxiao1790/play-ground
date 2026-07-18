@@ -6,11 +6,11 @@ Trace visual-only requests from simulation to VFX Graph dispatch.
 
 ## Sequence
 
-1. AOE collision, AOE lifetime, pulse, or AOE spawn systems create
-   `AoeVfxSpawnRequest`.
-2. Producer jobs enqueue requests into the shared
-   `NativeQueue<AoeVfxSpawnRequest>` owned by `CombatAoeVfxDispatchSystem`, using
-   `AsParallelWriter()`, and combine their job handles into `ProducerHandle`.
+1. AOE collision, AOE lifetime, pulse, or AOE spawn systems create Basic or
+   Timed VFX requests through `VfxEmit`.
+2. Producer jobs enqueue requests into the corresponding shared native queue
+   owned by `CombatAoeVfxDispatchSystem`, using `AsParallelWriter()`, and combine
+   their job handles into `ProducerHandle`.
 3. `CombatAoeVfxDispatchSystem` runs in presentation, completes `ProducerHandle`,
    and resolves the single `CombatVfxRoot.Instance`.
 4. `CombatVfxRoot` drains the queue on the main thread.
@@ -53,6 +53,11 @@ Missing VFX Graph contract fields make a graph invalid for this runtime. Events
 that fail validation are not dispatched. A graph that reads request buffers from
 `Output Particle` can make existing particles render with data from a later
 dispatch batch for the same graph kind.
+
+See
+[Shared VFX Graph Area-Size Corruption](../reference/simulation/vfx-shared-graph-area-size-corruption.md)
+for the confirmed reproduction, false leads, correct graph pattern, and review
+checklist.
 
 ## Related Decisions
 

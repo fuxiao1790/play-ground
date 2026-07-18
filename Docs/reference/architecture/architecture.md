@@ -183,7 +183,7 @@ Collision systems emit plain data:
 - `DamageReplayEvent` into `DamageDispatchBridge.DamageQueue`
 - `ProjectileSpawnEvent` for impact projectiles or AOE projectile bursts
 - `AOE variant spawn event` for projectile impact AOEs
-- `AoeVfxSpawnRequest` for AOE-shaped VFX
+- `VfxSpawnRequest` or `TimedVfxSpawnRequest` for AOE VFX (Basic/Timed data shapes, via `VfxEmit`)
 
 `DamageFinalizeSystem` runs after projectile and AOE collision and before spawn
 expansion. It completes producers, drains the native damage queue into a frozen

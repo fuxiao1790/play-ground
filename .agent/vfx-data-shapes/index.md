@@ -81,11 +81,20 @@ shape (opt-in), not by removing the pulse path.
    registration owns the contract options (incl. the bound shape). The id now encodes
    `(shape, per-shape localIndex)` so shape is derivable from id; resources are held
    in a per-shape `owners` list keyed by that local index.
-4. **Transient spawn-payload buffers** (doc: "Spawn Payload Buffer Lifetime"). Every
-   shape's buffers (incl. `Durations`/`TickIntervals`) are per-dispatch payloads
-   shared by the one `VisualEffect` per graph, overwritten on later dispatches;
-   graphs must sample them in `Initialize Particles` → particle attributes, never
-   read them from `Output Particle`.
+4. **Exposed input properties are Initialize-only — a graph-authoring invariant**
+   (docs: "Spawn Payload Buffer Lifetime" and `vfx-shared-graph-area-size-corruption.md`).
+   This is the real root cause and it lives in *how the graph is authored*, not in the
+   C# dispatch. One `VisualEffect` instance per graph asset reuses its exposed buffers
+   across every batch, overwriting them on the next non-empty dispatch, and
+   `spawnIndex` is a batch-local index, not a stable instance id. Therefore **every
+   exposed request-buffer input property — `Positions`, `AreaSizes`, `Durations`,
+   `TickIntervals`, and any future shape buffer — may only be wired into the
+   `Initialize Particle` context**, where each particle copies its value into a
+   persistent particle attribute. Wiring *any* of them into `Update`/`Output` corrupts
+   alive particles. This rule is identical for `Basic` and `Timed`; **the data-shape
+   split does NOT isolate two skill sets that share one graph asset**, and no C#
+   change here can enforce or substitute for the authoring rule (see the validation
+   gap, constraint 8 / task 002).
 5. **Grow-only native scratch & GPU buffers** (code: singleton comment,
    `EnsureBufferCapacity`). Each shape's scratch lists and each graph's buffers grow
    by doubling, never shrink.
@@ -169,8 +178,9 @@ allocation, and dispatch) so there is no second description of a shape to drift.
 - **(3)** id encodes its shape; a request's id only ever addresses a graph of the
   decoded shape (author-bound + validated), so a shape's queue only ever holds ids of
   that shape and each bucketing pass is self-contained. ✔
-- **(4)** `Durations`/`TickIntervals` documented with the same Initialize-Particles
-  handoff rule. ✔
+- **(4)** the Initialize-only authoring rule is documented as general to all exposed
+  input properties (incl. `Durations`/`TickIntervals`); the refactor adds no path that
+  reads request buffers outside `Initialize Particles`. ✔
 - **(5)** per-shape scratch + per-graph buffers grow by doubling. ✔
 - **(6)** `Basic` payload/upload byte-identical to today; extra buffers only for
   `Timed` graphs; still one `SendEvent`/graph/frame. ✔
@@ -217,3 +227,10 @@ allocation, and dispatch) so there is no second description of a shape to drift.
 - **Same asset, two shapes.** If one asset is bound to different shapes by two AOEs,
   first registration wins; task 002 logs a conflict (mirrors the existing
   contract-conflict log).
+- **Shared-graph corruption is orthogonal, not solved here.** Per
+  `vfx-shared-graph-area-size-corruption.md`, one asset shared by multiple skill sets
+  with different `AreaSize` (or now different `Duration`/`TickInterval`) corrupts alive
+  particles if the graph samples request buffers after `Initialize Particles`. Neither
+  the shape split nor duplicating/splitting graph assets fixes the broken authoring
+  pattern — it only hides it. This plan preserves the correct pattern and adds the
+  buffers to its regression coverage (task 006); it does not claim to fix the aliasing.

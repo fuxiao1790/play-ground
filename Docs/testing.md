@@ -116,3 +116,14 @@ Write assertions:
 - run enough frames
 - assert the real expected result
 - fail clearly when result is wrong
+
+## VFX Graph Regression Tests
+
+VFX graph tests must keep an old particle from one skill set alive while another
+skill set using the same graph dispatches a different area size. Alternate the
+two sizes and vary batch counts.
+
+A same-value stress test is insufficient: a graph can read the wrong current
+buffer entry without a visible artifact when all entries are equal. The full
+reproduction and acceptance criteria are documented in
+[Shared VFX Graph Area-Size Corruption](./reference/simulation/vfx-shared-graph-area-size-corruption.md).

@@ -22,6 +22,11 @@ dispatcher, one root, one id space (partitioned by shape in the id bits).
     every listed buffer present with correct type, `SpawnCount:int`, `OnSpawn`, **and
     no unexpected extra `GraphicsBuffer`-typed exposed property** beyond the shape's
     set. `reason` names the shape and the offending property.
+    Note the **validation gap** (`vfx-shared-graph-area-size-corruption.md`): this
+    checks only exposed names/types; it cannot prove *where* the graph samples
+    `AreaSizes`/`Durations`/`TickIntervals`. Passing registration does not prove the
+    graph copies them in `Initialize Particles`. Do not add code that treats a passing
+    registration as proof against shared-graph corruption.
   - `Dispatch(res, ...)` per shape. Factor the shared upload core (Positions,
     AreaSizes, SpawnCount, `SendEvent(OnSpawn)`) into a private helper; the `Timed`
     path also uploads `Durations`/`TickIntervals`. No duplication.

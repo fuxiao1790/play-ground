@@ -64,3 +64,6 @@ Authority rules:
 Detailed pre-reorganization notes are preserved under
 [../reference/](../reference/). Treat the layered architecture docs as
 authoritative when a reference note repeats an ownership rule.
+
+Critical shared-VFX area-size constraint:
+[Shared VFX Graph Area-Size Corruption](../reference/simulation/vfx-shared-graph-area-size-corruption.md).

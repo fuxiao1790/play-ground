@@ -153,7 +153,7 @@ Collision consequence event:
 - `CombatHitEvent`
 - `ProjectileSpawnEvent`
 - `AOE variant spawn event`
-- `AoeVfxSpawnRequest` for AOE-shaped VFX
+- `VfxSpawnRequest` / `TimedVfxSpawnRequest` for AOE VFX (via `VfxEmit`)
 
 Finalized presentation result:
 
@@ -354,7 +354,7 @@ When an AOE hit qualifies, AOE collision may emit:
 - `CombatHitEvent`
 - `ProjectileSpawnEvent` (slim link) when `OnHitSpawn.Kind == Projectile`
 - `AOE variant spawn event` (slim link) when `OnHitSpawn.Kind == ImpactAoe/LingeringAoe`
-- `AoeVfxSpawnRequest`
+- `VfxSpawnRequest` / `TimedVfxSpawnRequest` (via `VfxEmit`)
 
 Pulse AOEs disable `Active` after their one collision pass. Lingering AOEs tick
 from their own interval state and expire through `CombatLifetimeSystem`.
@@ -425,7 +425,7 @@ AoeSpawnRequest
      -> CombatHitEvent
      -> optional ProjectileSpawnEvent
      -> optional AOE variant spawn event
-     -> optional AoeVfxSpawnRequest
+     -> optional VfxSpawnRequest / TimedVfxSpawnRequest
   -> CombatApplyFinalizeSystem
   -> StatusProcessSystem
   -> CombatApplyBridge

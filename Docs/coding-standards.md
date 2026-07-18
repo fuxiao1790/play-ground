@@ -159,12 +159,30 @@ Keep these as distinct typed paths:
 - `CombatHitEvent` carries raw hit data into ECS finalization.
 - `CombatTickResult` carries aggregate damage/status presentation data through
   `CombatApplyBridge`.
-- `AoeVfxSpawnRequest` and `AoeVfxSpawnRequestElement` carry visual-only requests into
+- `VfxSpawnRequest` and `TimedVfxSpawnRequest` carry visual-only requests into
   VFX dispatch.
 
 Do not widen damage events with spawn-routing fields. Do not widen spawn events
 with target-replay-only data. Do not route internal spawn follow-ups through
 managed target callbacks.
+
+## Shared VFX Area-Size Isolation
+
+When multiple skill sets share one VFX graph but emit different area sizes,
+each particle must retain the area size from the request that created it.
+Graphs must sample `AreaSizes` in `Initialize Particles` and copy the value into
+a particle attribute. `Update Particle` and `Output Particle` must not sample
+`AreaSizes`, because later skill requests overwrite the shared upload buffer.
+
+Every graph must be tested with older particles alive while another skill set
+using the same graph emits a different area size. High same-size load does not
+validate this contract because wrong buffer reads can remain visually
+identical.
+
+See
+[Shared VFX Graph Area-Size Corruption](./reference/simulation/vfx-shared-graph-area-size-corruption.md)
+for the confirmed one-frame corruption incident, exact mechanism, false leads,
+correct graph pattern, and review checklist.
 
 ## System Encapsulation
 

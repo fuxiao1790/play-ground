@@ -28,7 +28,7 @@ submission, debug text, and visual budgets.
 ## Inputs
 
 - `CombatTickResult` presentation data.
-- `AoeVfxSpawnRequestElement` buffer on the VFX singleton entity.
+- Basic and Timed native VFX request queues on the VFX dispatch singleton.
 - Prepared render matrices and per-entity render batch ids.
 - Actor target companion references during presentation only.
 
@@ -80,3 +80,5 @@ submission, debug text, and visual budgets.
 
 - Detailed VFX reference:
   [vfx-system.md](../reference/simulation/vfx-system.md).
+- Recurring shared-graph area-size corruption:
+  [vfx-shared-graph-area-size-corruption.md](../reference/simulation/vfx-shared-graph-area-size-corruption.md).

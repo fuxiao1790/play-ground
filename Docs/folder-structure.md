@@ -223,14 +223,17 @@ Docs/
 
 ## Current VFX Runtime Map
 
-- `Assets/Scripts/System/Combat/Vfx/AoeVfxEcsComponents.cs`: VFX request data and ECS
-  catalog key.
-- `Assets/Scripts/System/Combat/Vfx/VfxFlushJob.cs`: Burst job flushing native VFX
-  events into scope buffers.
+- `Assets/Scripts/System/Combat/Vfx/AoeVfxEcsComponents.cs`: `AoeVfxIds` slots and
+  `VfxTimingData` ECS components.
+- `Assets/Scripts/System/Combat/Vfx/VfxDataShapes.cs`: `VfxDataShape` enum, per-shape
+  request structs (`VfxSpawnRequest`, `TimedVfxSpawnRequest`), and the
+  `VfxDataShapeTable` (buffer contracts + id encode/decode).
+- `Assets/Scripts/System/Combat/Vfx/VfxEmit.cs`: Burst helper that decodes shape from
+  the id and enqueues the concrete request to the matching per-shape queue.
 - `Assets/Scripts/System/Combat/Vfx/CombatAoeVfxDispatcher.cs`: GPU resource and dispatch
   owner.
 - `Assets/Scripts/System/Combat/Vfx/CombatVfxRoot.cs`: scene-object VFX root and static
   registry.
 - `Assets/Scripts/System/Combat/Vfx/CombatAoeVfxDispatchSystem.cs`: presentation system
-  that drains `AoeVfxSpawnRequestElement` buffers and dispatches through the
-  matching `CombatVfxRoot`.
+  that completes producers, buckets each shape's queue by graph id, and dispatches
+  through the matching `CombatVfxRoot`.

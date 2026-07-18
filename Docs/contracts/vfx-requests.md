@@ -5,10 +5,11 @@
 Define visual-only event data passed from simulation producers to VFX Graph
 dispatch.
 
-The current payload is AOE-shaped: every request carries one graph-kind id, one
-world position, and one area size. The dispatcher uploads `Positions` and
-`AreaSizes` for every graph kind. Projectile systems do not emit these requests;
-the payload is reserved for AOE-shaped visuals.
+The current payloads are AOE-shaped. `VfxSpawnRequest` carries graph id, world
+position, and area size. `TimedVfxSpawnRequest` adds duration and tick interval.
+The dispatcher routes them through the Basic and Timed data shapes. Projectile
+systems do not emit these requests; the payloads are reserved for AOE-shaped
+visuals.
 
 ## Produced By
 
@@ -22,10 +23,12 @@ the payload is reserved for AOE-shaped visuals.
 
 Request data:
 
-- `AoeVfxSpawnRequest`
+- `VfxSpawnRequest` or `TimedVfxSpawnRequest`
 - `int VfxId`
 - `float2 Position`
 - `float AreaSize`
+- Timed only: `float Duration`
+- Timed only: `float TickInterval`
 
 `VfxId` identifies the registered VFX graph kind, not the AOE type and not the
 reason the event was emitted. One graph represents every VFX event of that kind
@@ -48,6 +51,11 @@ animate/render from particle attributes. Reading request buffers from `Update
 Particle` or `Output Particle` can make alive particles use data from a later
 batch for the same graph kind.
 
+Detailed failure mechanics for two skill sets sharing one graph with different
+area sizes, the confirmed one-frame corruption incident, and the required
+mixed-size test are in
+[Shared VFX Graph Area-Size Corruption](../reference/simulation/vfx-shared-graph-area-size-corruption.md).
+
 ## Restrictions
 
 VFX requests must not carry damage/status authority. Simulation jobs must not
@@ -55,9 +63,9 @@ call managed VFX objects directly.
 
 ## Lifetime
 
-Requests live in the persistent shared `NativeQueue<AoeVfxSpawnRequest>` owned by
-`CombatAoeVfxDispatchSystem` until presentation completes producers and drains the
-queue on the main thread.
+Requests live in the persistent Basic or Timed native queue owned by
+`CombatAoeVfxDispatchSystem` until presentation completes producers, drains the
+queues, and buckets requests by graph id.
 
 ## Ordering
 
