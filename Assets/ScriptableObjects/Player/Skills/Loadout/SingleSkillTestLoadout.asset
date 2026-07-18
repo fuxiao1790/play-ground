@@ -13,12 +13,32 @@ MonoBehaviour:
   m_Name: SingleSkillTestLoadout
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillLoadout
   slots:
-  - rid: 2535078374287868046
+  - rid: 2535078417110925387
+  - rid: 2535078417110925388
+  - rid: 2535078417110925389
+  - rid: 2535078417110925390
+  - rid: 2535078417110925391
   maxRootSets: 8
   references:
     version: 2
     RefIds:
-    - rid: 2535078374287868046
+    - rid: 2535078417110925387
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        skillSet: {fileID: 11400000, guid: 35c4ded4cb7814f41971e4708227afae, type: 2}
+    - rid: 2535078417110925388
+      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        link: {fileID: 11400000, guid: 72106f578633ced47afdee80a7dc84db, type: 2}
+    - rid: 2535078417110925389
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        skillSet: {fileID: 11400000, guid: bc173011206ec884db5a31c03fffdf42, type: 2}
+    - rid: 2535078417110925390
+      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      data:
+        link: {fileID: 11400000, guid: 502349cdbd8fc624f8dd28ba7b2eebbb, type: 2}
+    - rid: 2535078417110925391
       type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
       data:
         skillSet: {fileID: 11400000, guid: a2000000000000000000000000000008, type: 2}
