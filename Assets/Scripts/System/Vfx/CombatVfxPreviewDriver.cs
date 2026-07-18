@@ -11,6 +11,7 @@ using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Vfx;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.VFX;
@@ -22,18 +23,15 @@ namespace PlayGround.System.Combat.Vfx
     [RequireComponent(typeof(VisualEffect))]
     public sealed class CombatVfxPreviewDriver : MonoBehaviour
     {
-        private const string PositionsPropertyName = "Positions";
-        private const string AreaSizePropertyName = "AreaSizes";
-        private const string SpawnCountPropertyName = "SpawnCount";
-        private const string SpawnEventName = "OnSpawn";
-
+        [SerializeField] private VfxDataShape dataShape = VfxDataShape.Basic;
         [SerializeField, Min(1)] private int spawnCount = 32;
         [SerializeField, Min(1)] private int bufferCapacity = 2048;
         [SerializeField, Min(0.02f)] private float intervalSeconds = 0.5f;
         [SerializeField] private bool emitOnEnable = true;
         [SerializeField] private bool emitContinuously = true;
-        [SerializeField] private bool provideAreaSize;
         [SerializeField, Min(0.01f)] private float areaSize = 1f;
+        [SerializeField, Min(0.01f)] private float durationSeconds = 1f;
+        [SerializeField, Min(0.01f)] private float tickIntervalSeconds = 0.25f;
         [SerializeField] private PreviewPattern pattern = PreviewPattern.Point;
         [SerializeField] private Vector2 centerOffset;
         [SerializeField, Min(0f)] private float radius = 1f;
@@ -43,8 +41,12 @@ namespace PlayGround.System.Combat.Vfx
         private VisualEffect visualEffect;
         private GraphicsBuffer positionsBuffer;
         private GraphicsBuffer areaSizeBuffer;
+        private GraphicsBuffer durationBuffer;
+        private GraphicsBuffer tickIntervalBuffer;
         private Vector2[] positions;
         private float[] areaSizes;
+        private float[] durations;
+        private float[] tickIntervals;
         private double nextEmitTime;
         private bool missingContractLogged;
 
@@ -103,9 +105,12 @@ namespace PlayGround.System.Combat.Vfx
             bufferCapacity = Mathf.Max(1, bufferCapacity);
             intervalSeconds = Mathf.Max(0.02f, intervalSeconds);
             areaSize = Mathf.Max(0.01f, areaSize);
+            durationSeconds = Mathf.Max(0.01f, durationSeconds);
+            tickIntervalSeconds = Mathf.Max(0.01f, tickIntervalSeconds);
             radius = Mathf.Max(0f, radius);
             rectangleSize = new Vector2(Mathf.Max(0f, rectangleSize.x), Mathf.Max(0f, rectangleSize.y));
             nextEmitTime = 0d;
+            ReleaseBuffers();
             RequestEditorUpdate();
         }
 
@@ -128,17 +133,23 @@ namespace PlayGround.System.Combat.Vfx
             }
 
             positionsBuffer.SetData(positions, 0, 0, count);
-            visualEffect.SetGraphicsBuffer(PositionsPropertyName, positionsBuffer);
+            visualEffect.SetGraphicsBuffer(VfxDataShapeTable.PositionsPropertyName, positionsBuffer);
 
-            if (provideAreaSize)
+            FillAreaSize(count);
+            areaSizeBuffer.SetData(areaSizes, 0, 0, count);
+            visualEffect.SetGraphicsBuffer(VfxDataShapeTable.AreaSizesPropertyName, areaSizeBuffer);
+
+            if (dataShape == VfxDataShape.Timed)
             {
-                FillAreaSize(count);
-                areaSizeBuffer.SetData(areaSizes, 0, 0, count);
-                visualEffect.SetGraphicsBuffer(AreaSizePropertyName, areaSizeBuffer);
+                FillTimedData(count);
+                durationBuffer.SetData(durations, 0, 0, count);
+                visualEffect.SetGraphicsBuffer(VfxDataShapeTable.DurationsPropertyName, durationBuffer);
+                tickIntervalBuffer.SetData(tickIntervals, 0, 0, count);
+                visualEffect.SetGraphicsBuffer(VfxDataShapeTable.TickIntervalsPropertyName, tickIntervalBuffer);
             }
 
-            visualEffect.SetInt(SpawnCountPropertyName, count);
-            visualEffect.SendEvent(SpawnEventName);
+            visualEffect.SetInt(VfxDataShapeTable.SpawnCountPropertyName, count);
+            visualEffect.SendEvent(VfxDataShapeTable.SpawnEventName);
         }
 
         private void BindVisualEffect()
@@ -153,10 +164,14 @@ namespace PlayGround.System.Combat.Vfx
         {
             int capacity = Mathf.Max(1, bufferCapacity);
             bool positionsReady = positionsBuffer != null && positionsBuffer.count == capacity;
-            bool areaSizesReady = provideAreaSize
-                ? areaSizeBuffer != null && areaSizeBuffer.count == capacity
-                : areaSizeBuffer == null;
-            if (positionsReady && areaSizesReady)
+            bool areaSizesReady = areaSizeBuffer != null && areaSizeBuffer.count == capacity;
+            bool timedBuffersReady = dataShape == VfxDataShape.Timed
+                ? durationBuffer != null
+                    && durationBuffer.count == capacity
+                    && tickIntervalBuffer != null
+                    && tickIntervalBuffer.count == capacity
+                : durationBuffer == null && tickIntervalBuffer == null;
+            if (positionsReady && areaSizesReady && timedBuffersReady)
             {
                 return;
             }
@@ -168,10 +183,21 @@ namespace PlayGround.System.Combat.Vfx
                 capacity,
                 sizeof(float) * 2);
 
-            if (provideAreaSize)
+            areaSizes = new float[capacity];
+            areaSizeBuffer = new GraphicsBuffer(
+                GraphicsBuffer.Target.Structured,
+                capacity,
+                sizeof(float));
+
+            if (dataShape == VfxDataShape.Timed)
             {
-                areaSizes = new float[capacity];
-                areaSizeBuffer = new GraphicsBuffer(
+                durations = new float[capacity];
+                tickIntervals = new float[capacity];
+                durationBuffer = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Structured,
+                    capacity,
+                    sizeof(float));
+                tickIntervalBuffer = new GraphicsBuffer(
                     GraphicsBuffer.Target.Structured,
                     capacity,
                     sizeof(float));
@@ -184,16 +210,29 @@ namespace PlayGround.System.Combat.Vfx
             positionsBuffer = null;
             areaSizeBuffer?.Release();
             areaSizeBuffer = null;
+            durationBuffer?.Release();
+            durationBuffer = null;
+            tickIntervalBuffer?.Release();
+            tickIntervalBuffer = null;
             positions = null;
             areaSizes = null;
+            durations = null;
+            tickIntervals = null;
         }
 
         private bool ValidateGraphContract()
         {
-            bool hasPositions = visualEffect.HasGraphicsBuffer(PositionsPropertyName);
-            bool hasSpawnCount = visualEffect.HasInt(SpawnCountPropertyName);
-            bool hasAreaSize = !provideAreaSize || visualEffect.HasGraphicsBuffer(AreaSizePropertyName);
-            if (hasPositions && hasSpawnCount && hasAreaSize)
+            IReadOnlyList<VfxDataShapeBuffer> buffers = VfxDataShapeTable.BuffersFor(dataShape);
+            bool[] hasBuffers = new bool[buffers.Count];
+            bool hasAllBuffers = true;
+            for (int i = 0; i < buffers.Count; i++)
+            {
+                hasBuffers[i] = visualEffect.HasGraphicsBuffer(buffers[i].Name);
+                hasAllBuffers &= hasBuffers[i];
+            }
+
+            bool hasSpawnCount = visualEffect.HasInt(VfxDataShapeTable.SpawnCountPropertyName);
+            if (hasAllBuffers && hasSpawnCount)
             {
                 missingContractLogged = false;
                 return true;
@@ -201,11 +240,11 @@ namespace PlayGround.System.Combat.Vfx
 
             if (!missingContractLogged)
             {
-                string missingProperties = MissingPropertiesMessage(hasPositions, hasSpawnCount, hasAreaSize);
+                string missingProperties = MissingPropertiesMessage(buffers, hasBuffers, hasSpawnCount);
                 Debug.LogError(
-                    $"{nameof(CombatVfxPreviewDriver)} on {name} cannot preview this VFX graph. "
+                    $"{nameof(CombatVfxPreviewDriver)} on {name} cannot preview this {dataShape} VFX graph. "
                     + $"Missing exposed properties: {missingProperties}. "
-                    + $"Required event: '{SpawnEventName}'.",
+                    + $"Required event: '{VfxDataShapeTable.SpawnEventName}'.",
                     this);
                 missingContractLogged = true;
             }
@@ -213,12 +252,18 @@ namespace PlayGround.System.Combat.Vfx
             return false;
         }
 
-        private static string MissingPropertiesMessage(bool hasPositions, bool hasSpawnCount, bool hasAreaSize)
+        private static string MissingPropertiesMessage(
+            IReadOnlyList<VfxDataShapeBuffer> buffers,
+            bool[] hasBuffers,
+            bool hasSpawnCount)
         {
             StringBuilder builder = new();
-            AppendMissing(builder, hasPositions, $"GraphicsBuffer '{PositionsPropertyName}'");
-            AppendMissing(builder, hasSpawnCount, $"int '{SpawnCountPropertyName}'");
-            AppendMissing(builder, hasAreaSize, $"GraphicsBuffer '{AreaSizePropertyName}'");
+            for (int i = 0; i < buffers.Count; i++)
+            {
+                AppendMissing(builder, hasBuffers[i], $"GraphicsBuffer '{buffers[i].Name}'");
+            }
+
+            AppendMissing(builder, hasSpawnCount, $"int '{VfxDataShapeTable.SpawnCountPropertyName}'");
             return builder.ToString();
         }
 
@@ -323,6 +368,17 @@ namespace PlayGround.System.Combat.Vfx
             for (int i = 0; i < count; i++)
             {
                 areaSizes[i] = safeAreaSize;
+            }
+        }
+
+        private void FillTimedData(int count)
+        {
+            float safeDuration = Mathf.Max(0.01f, durationSeconds);
+            float safeTickInterval = Mathf.Max(0.01f, tickIntervalSeconds);
+            for (int i = 0; i < count; i++)
+            {
+                durations[i] = safeDuration;
+                tickIntervals[i] = safeTickInterval;
             }
         }
 

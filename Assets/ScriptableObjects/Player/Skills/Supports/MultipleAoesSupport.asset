@@ -13,4 +13,4 @@ MonoBehaviour:
   m_Name: MultipleAoesSupport
   m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:MultipleAoesSupport
   echoCount: 5
-  scatterRadius: 10
+  scatterRadius: 20
