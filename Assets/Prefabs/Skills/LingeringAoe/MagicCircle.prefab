@@ -56,7 +56,7 @@ MonoBehaviour:
   expireEffectShape: 0
   pulseEffect: {fileID: 0}
   pulseEffectShape: 0
-  armingEffect: {fileID: 8926484042661614526, guid: 7a9e0d70614a86a4282315052223d73a, type: 3}
+  armingEffect: {fileID: 8926484042661614526, guid: 7bcdd344de3f4ef488735af502f912d2, type: 3}
   armingEffectShape: 0
 --- !u!1 &1003000000000000100
 GameObject:

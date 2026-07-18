@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: ProjectileIntervalSpawnTrigger
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileIntervalSpawnTrigger
   intervalSeconds: 0.3
-  intervalJitterPercent: 51.2
+  intervalJitterPercent: 50
   projectileCount: 4
-  sideSpreadDegrees: 180
+  sideSpreadDegrees: 90

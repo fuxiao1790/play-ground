@@ -49,9 +49,13 @@ MonoBehaviour:
   spriteRenderer: {fileID: 1003000000000000202}
   hurtbox: {fileID: 1003000000000000102}
   spawnEffect: {fileID: 8926484042661614526, guid: 5d59119edd3a9714eb51dc3af75dd222, type: 3}
+  spawnEffectShape: 0
   hitEffect: {fileID: 0}
+  hitEffectShape: 0
   expireEffect: {fileID: 0}
-  armingEffect: {fileID: 0}
+  expireEffectShape: 0
+  armingEffect: {fileID: 8926484042661614526, guid: 7bcdd344de3f4ef488735af502f912d2, type: 3}
+  armingEffectShape: 0
 --- !u!1 &1003000000000000100
 GameObject:
   m_ObjectHideFlags: 0
