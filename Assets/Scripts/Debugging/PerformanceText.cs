@@ -62,6 +62,7 @@ public class PerformanceText : MonoBehaviour
             $"FPS:          {fps:0}\n" +
             $"Spawn reuse:  {stats.EntitiesSpawnedViaReuse}\n" +
             $"Create ECB:   {stats.EntitiesSpawnedViaEcb}\n" +
+            $"Despawned:    {stats.EntitiesDespawned}\n" +
             $"Delete ECB:   {stats.EntitiesDeleted}\n" +
             $"Projectiles:  {stats.ActiveProjectiles}\n" +
             $"AOEs:         {stats.ActiveAoes}\n" +

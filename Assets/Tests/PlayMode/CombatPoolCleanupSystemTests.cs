@@ -7,6 +7,7 @@ using PlayGround.System.Combat.Lifetime;
 using PlayGround.System.Combat.Platform;
 using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
+using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Projectiles;
@@ -24,6 +25,7 @@ namespace PlayGround.Tests.PlayMode
         private CombatPoolCleanupSystem cleanupSystem;
         private NativeHashMap<Hash128, ProjectileSpawnCommand> projectileTemplateMap;
         private Entity scopeEntity;
+        private Entity statsEntity;
         private double elapsedTime;
 
         [SetUp]
@@ -101,6 +103,64 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void CalmGateSkipsTrimWhileSpawnsOutpaceDespawns()
+        {
+            SetCalmGateConfig();
+            CreateActiveProjectiles(count: 3);
+            CreateDisabledProjectiles(count: 8);
+
+            int activeLoad = 0;
+            for (int i = 0; i < 10; i++)
+            {
+                activeLoad += 100;
+                SetStats(activeProjectiles: activeLoad, spawnedViaReuse: 100);
+                TickCleanup(1f / 60f);
+            }
+
+            Assert.That(DisabledProjectileCount(), Is.EqualTo(8),
+                "A climbing scene (spawns ahead of despawns) never trims.");
+        }
+
+        [Test]
+        public void CalmGateSkipsTrimAtBusyEquilibrium()
+        {
+            SetCalmGateConfig();
+            CreateActiveProjectiles(count: 3);
+            CreateDisabledProjectiles(count: 8);
+
+            for (int i = 0; i < 30; i++)
+            {
+                SetStats(activeProjectiles: 1000, spawnedViaReuse: 100);
+                TickCleanup(1f / 60f);
+            }
+
+            Assert.That(DisabledProjectileCount(), Is.EqualTo(8),
+                "Busy equilibrium (spawn rate ~= despawn rate) keeps the gate closed.");
+        }
+
+        [Test]
+        public void CalmGateOpensDuringWindDownAndTrims()
+        {
+            SetCalmGateConfig();
+            CreateActiveProjectiles(count: 3);
+            CreateDisabledProjectiles(count: 8);
+
+            int activeLoad = 1000;
+            SetStats(activeProjectiles: activeLoad, spawnedViaReuse: 0);
+            TickCleanup(1f / 60f);
+            for (int i = 0; i < 5; i++)
+            {
+                activeLoad -= 100;
+                SetStats(activeProjectiles: activeLoad, spawnedViaReuse: 0);
+                TickCleanup(1f / 60f);
+            }
+
+            Assert.That(DisabledProjectileCount(), Is.EqualTo(0),
+                "Despawns pulling ahead of spawns opens the gate while the scene is still winding down.");
+            Assert.That(ActiveProjectileEntities().Length, Is.EqualTo(3));
+        }
+
+        [Test]
         public void ReuseClaimsDisabledSlotsBeforeCleanupDeletesExcess()
         {
             Entity[] originalSlots = CreateDisabledProjectiles(count: 10);
@@ -139,6 +199,37 @@ namespace PlayGround.Tests.PlayMode
         private void RunCleanup()
         {
             cleanupSystem.Update();
+        }
+
+        private void TickCleanup(float dt)
+        {
+            elapsedTime += dt;
+            testWorld.SetTime(new TimeData(elapsedTime, dt));
+            cleanupSystem.Update();
+        }
+
+        private void SetCalmGateConfig()
+        {
+            SetConfig(new CombatPoolCleanupConfig
+            {
+                ChunkActiveThresholdPercent = 40f,
+                DespawnOverSpawnMargin = 1.25f,
+                RateSmoothingTime = 0.5f
+            });
+        }
+
+        private void SetStats(int activeProjectiles, int spawnedViaReuse)
+        {
+            if (statsEntity == Entity.Null)
+            {
+                statsEntity = entityManager.CreateEntity(typeof(CombatStatsSingleton));
+            }
+
+            entityManager.SetComponentData(statsEntity, new CombatStatsSingleton
+            {
+                ActiveProjectiles = activeProjectiles,
+                EntitiesSpawnedViaReuse = spawnedViaReuse
+            });
         }
 
         private void TickMovement(float dt)

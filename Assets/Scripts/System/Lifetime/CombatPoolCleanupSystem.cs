@@ -15,6 +15,7 @@ using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 
 namespace PlayGround.System.Combat.Lifetime
 {
@@ -26,17 +27,21 @@ namespace PlayGround.System.Combat.Lifetime
         // defrag / smaller reuse buffer (e.g., 50 means keep pool only if 50%+ entities are active).
         public float ChunkActiveThresholdPercent;
 
-        // Global busy gate (0-100). When the combined active projectile + AOE count is at or above
-        // this percentage of the total pool (active + disabled), the entire cleanup is skipped for
-        // the frame (no job, no ECB, no sync point). A storm keeps utilization high (freed slots are
-        // reused at once), so this defers reclaim until a fight winds down and the pool fills with
-        // idle slots. Mirrors ChunkActiveThresholdPercent but at whole-pool scope.
-        public float SceneActiveThresholdPercent;
+        // Scene calm-down gate. Cleanup runs only while the smoothed despawn rate exceeds the
+        // smoothed spawn rate by this factor (e.g., 1.25 = despawns must beat spawns by 25%).
+        // A climbing scene (spawns ahead) and a busy equilibrium (rates roughly equal) never
+        // trim; trimming happens during the wind-down, while the scene is still calming.
+        public float DespawnOverSpawnMargin;
+
+        // Time constant in seconds for the exponential smoothing of both rates. Larger = steadier
+        // gate that ignores bursty spawn patterns but reacts slower to a real wind-down.
+        public float RateSmoothingTime;
 
         public static CombatPoolCleanupConfig Default => new CombatPoolCleanupConfig
         {
             ChunkActiveThresholdPercent = 5f,
-            SceneActiveThresholdPercent = 5f
+            DespawnOverSpawnMargin = 1.25f,
+            RateSmoothingTime = 0.5f
         };
     }
 
@@ -46,6 +51,17 @@ namespace PlayGround.System.Combat.Lifetime
         private EntityQuery _poolQuery;
         private EntityTypeHandle _entityHandle;
         private ComponentTypeHandle<Active> _activeHandle;
+
+        // Smoothed despawns/frame must also clear this absolute floor before the gate opens, so
+        // zero-vs-zero rate noise in a dead-calm scene cannot trigger trim passes.
+        private const float CalmDespawnFloor = 0.5f;
+
+        // Calm-down gate state: EMA-smoothed spawn/despawn rates (entities per frame) plus the
+        // previous frame's raw readings the conservation math needs.
+        private float _spawnRateEma;
+        private float _despawnRateEma;
+        private int _prevActiveLoad;
+        private int _prevSpawns;
 
         // Pool entities destroyed on the last update; pulled by CombatStatsGatherSystem for the overlay.
         internal int LastDeletedCount;
@@ -74,31 +90,47 @@ namespace PlayGround.System.Combat.Lifetime
         {
             LastDeletedCount = 0;
 
+            CombatPoolCleanupConfig cfg = SystemAPI.GetSingleton<CombatPoolCleanupConfig>();
+
+            // Scene calm-down gate, evaluated before any query work so a gated frame costs one
+            // singleton lookup and a few float ops. Spawns/frame come straight from the stats
+            // singleton (spawn-apply systems finished accumulating earlier this frame). Despawns
+            // are never counted anywhere; conservation derives them — only spawns and despawns
+            // move the active count (cleanup destroys already-disabled slots only):
+            //   despawns = spawns - (active - prevActive)
+            // Active counts are gathered in Presentation and read one frame stale here, so the
+            // derivation is aligned to the previous frame via _prevSpawns; the residual skew
+            // washes out in the EMAs. Worlds without the stats singleton (tests, stripped worlds)
+            // skip the gate and trim unconditionally, same as the old busy-gate fallback.
+            if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(out RefRW<CombatStatsSingleton> loadStats))
+            {
+                int activeLoad = loadStats.ValueRO.ActiveProjectiles + loadStats.ValueRO.ActiveAoes;
+                int spawns = loadStats.ValueRO.EntitiesSpawnedViaEcb + loadStats.ValueRO.EntitiesSpawnedViaReuse;
+                int despawns = math.max(0, _prevSpawns - (activeLoad - _prevActiveLoad));
+                loadStats.ValueRW.EntitiesDespawned += despawns;
+
+                float alpha = 1f - math.exp(-SystemAPI.Time.DeltaTime / math.max(cfg.RateSmoothingTime, 1e-3f));
+                _spawnRateEma = math.lerp(_spawnRateEma, _prevSpawns, alpha);
+                _despawnRateEma = math.lerp(_despawnRateEma, despawns, alpha);
+                _prevActiveLoad = activeLoad;
+                _prevSpawns = spawns;
+
+                // Climbing (spawns ahead) and busy equilibrium (rates roughly equal) keep the gate
+                // closed; only a wind-down — despawns clearly ahead of spawns — opens it.
+                if (_despawnRateEma <= _spawnRateEma * cfg.DespawnOverSpawnMargin + CalmDespawnFloor)
+                {
+                    return;
+                }
+            }
+
             if (_poolQuery.IsEmpty)
             {
                 return;
             }
 
-            CombatPoolCleanupConfig cfg = SystemAPI.GetSingleton<CombatPoolCleanupConfig>();
-
             // Only disabled entities are destroyed and nothing else mutates the pool mid-update,
-            // so the drop in total pool count equals the number deleted. Computed here (a cheap
-            // chunk-header sum) up front so the busy gate below can reuse it as the denominator.
+            // so the drop in total pool count equals the number deleted.
             int before = _poolQuery.CalculateEntityCount();
-
-            // Global busy gate. Uses the active projectile + AOE counts the stats system already
-            // computed (one frame stale, harmless) as a percentage of the total pool. A storm keeps
-            // utilization high, so this skips the whole job/ECB/sync point until the pool fills with
-            // idle slots. `before` is guaranteed >= 1 by the IsEmpty early-out, so no divide worry.
-            if (SystemAPI.TryGetSingleton(out CombatStatsSingleton loadStats))
-            {
-                int activeLoad = loadStats.ActiveProjectiles + loadStats.ActiveAoes;
-                int busyThreshold = (int)(before * cfg.SceneActiveThresholdPercent / 100f);
-                if (activeLoad >= busyThreshold)
-                {
-                    return;
-                }
-            }
 
             _entityHandle.Update(this);
             _activeHandle.Update(this);

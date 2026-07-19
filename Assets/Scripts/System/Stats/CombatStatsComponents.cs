@@ -17,8 +17,9 @@ namespace PlayGround.System.Combat.Stats
     // created once by CombatStatsGatherSystem.OnCreate and never removed (dies with the world).
     //
     // Data flow (nobody reaches into another system for these values):
-    // - CombatStatsResetSystem (InitializationSystemGroup) zeroes this singleton at the start
-    //   of every frame.
+    // - CombatStatsResetSystem (InitializationSystemGroup) zeroes the per-frame accumulators at
+    //   the start of every frame. ActiveProjectiles/ActiveAoes are level stats and survive the
+    //   reset; mid-frame readers see last frame's values until gather overwrites them.
     // - Each producing system accumulates its own contribution into the relevant field via
     //   SystemAPI.TryGetSingletonRW during simulation/presentation, so idle frames add nothing
     //   and never show stale counts.
@@ -32,13 +33,18 @@ namespace PlayGround.System.Combat.Stats
     // - EntitiesSpawnedViaReuse: reuse total, summed (+=) by those same spawn-apply systems from
     //   the disabled Active slots they reclaimed.
     // - ActiveProjectiles / ActiveAoes: written by CombatStatsGatherSystem from its Active
-    //   entity queries per domain tag.
+    //   entity queries per domain tag. Preserved by the frame reset (level stats, not
+    //   accumulators); CombatPoolCleanupSystem's calm-down gate reads them one frame stale.
     // - HitEventsCreated: added by CombatApplyFinalizeSingleSystem from HitQueue.Count before the
     //   queue is flattened or cleared.
     // - VfxEventsCreated: added by CombatAoeVfxDispatchSystem after the VFX root drains PendingBasicSpawns.
     //   Counts only requests accepted by CombatAoeVfxDispatcher.StageAoeSpawn (a VFX resource registered
     //   for (typeId, trigger), still under its max-per-frame cap); blindly queued requests with no
     //   registered visual do not contribute.
+    // - EntitiesDespawned: added by CombatPoolCleanupSystem; no expiry/collision system counts
+    //   despawns directly. Derived by conservation from the spawn counters and the change in the
+    //   gathered active counts (despawns = spawns - delta active), so the value runs one frame
+    //   behind the other counters. Feeds the cleanup calm-down gate and the overlay.
     // - EntitiesDeleted: added by CombatPoolCleanupSystem from the pool entities its trimmer
     //   destroyed this frame.
     public struct CombatStatsSingleton : Unity.Entities.IComponentData
@@ -49,6 +55,7 @@ namespace PlayGround.System.Combat.Stats
         public int ActiveAoes;
         public int HitEventsCreated;
         public int VfxEventsCreated;
+        public int EntitiesDespawned;
         public int EntitiesDeleted;
     }
 

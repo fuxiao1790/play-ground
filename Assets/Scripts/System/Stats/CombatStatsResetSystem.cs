@@ -15,11 +15,16 @@ using Unity.Entities;
 
 namespace PlayGround.System.Combat.Stats
 {
-    // Zeroes the shared stats blackboard at the start of every frame, before any producer
-    // writes to it. Producers accumulate their per-frame contributions into
-    // CombatStatsSingleton during simulation/presentation; CombatStatsGatherSystem reads the
-    // built-up snapshot at the end of the frame. Running here (InitializationSystemGroup)
-    // guarantees the reset happens before those producers each frame.
+    // Zeroes the per-frame accumulators in the shared stats blackboard at the start of every
+    // frame, before any producer writes to it. Producers accumulate their per-frame
+    // contributions into CombatStatsSingleton during simulation/presentation;
+    // CombatStatsGatherSystem reads the built-up snapshot at the end of the frame. Running here
+    // (InitializationSystemGroup) guarantees the reset happens before those producers each frame.
+    //
+    // ActiveProjectiles/ActiveAoes are deliberately preserved: they are level stats, not
+    // accumulators. Gather overwrites them each Presentation, and CombatPoolCleanupSystem reads
+    // them mid-frame (LateSimulation) as last frame's values for its calm-down gate — zeroing
+    // them here would hand that gate a phantom activeLoad of 0 every frame.
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     public partial class CombatStatsResetSystem : SystemBase
     {
@@ -27,7 +32,11 @@ namespace PlayGround.System.Combat.Stats
         {
             if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(out RefRW<CombatStatsSingleton> stats))
             {
-                stats.ValueRW = default;
+                stats.ValueRW = new CombatStatsSingleton
+                {
+                    ActiveProjectiles = stats.ValueRO.ActiveProjectiles,
+                    ActiveAoes = stats.ValueRO.ActiveAoes
+                };
             }
         }
     }

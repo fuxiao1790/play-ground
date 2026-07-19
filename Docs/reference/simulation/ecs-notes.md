@@ -236,8 +236,22 @@ trim chunk when activeCount < ChunkActiveThreshold
 ```
 
 Chunks at or above the threshold keep their disabled entities as a warm reuse
-buffer. There is no frame-time gate, retention floor, or per-frame delete cap:
-trimming starts the moment a chunk falls below the threshold, so a huge idle pool
+buffer.
+
+A scene-level calm-down gate runs before any query work, so a gated frame costs
+one singleton lookup plus a few float ops. Spawns/frame come from
+`CombatStatsSingleton`; despawns/frame are never counted directly — conservation
+derives them (`despawns = spawns − Δactive`, one frame behind because gathered
+active counts are stale by one frame). Both rates are EMA-smoothed
+(`RateSmoothingTime`), and trimming is allowed only while the smoothed despawn
+rate exceeds the smoothed spawn rate by `DespawnOverSpawnMargin` plus a small
+absolute floor. A climbing scene (spawns ahead) and a busy equilibrium
+(spawn ≈ despawn) never trim; the trim happens during wind-down, while the scene
+is still calming. Worlds without the stats singleton (tests, stripped worlds)
+skip the gate and trim unconditionally.
+
+There is no retention floor or per-frame delete cap: once the gate opens, every
+chunk below the threshold sheds all its disabled entities, so a huge idle pool
 can drain in a single (potentially hitchy) command-buffer playback.
 
 ---
