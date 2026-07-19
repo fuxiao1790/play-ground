@@ -4,6 +4,7 @@ minor performance related refacor
 - collision system use aabb tree instead of spatial hash. aabb tree is more simd friendly.
 
 new feature
+- interval spawn direction (only side spray is supported currently.)
 - ui
 - damage number vfx graph
 - cast on crit and other conditions.
