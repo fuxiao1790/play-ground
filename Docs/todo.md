@@ -3,8 +3,6 @@ minor performance related refacor
 
 - collision system use aabb tree instead of spatial hash. aabb tree is more simd friendly.
 
-- clean up job can fire during busy scene. 
-
 new feature
 - ui
 - damage number vfx graph
