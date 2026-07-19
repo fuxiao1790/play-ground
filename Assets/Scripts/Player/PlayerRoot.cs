@@ -28,6 +28,7 @@ namespace PlayGround.Player
         [SerializeField] private Animator animator;
         [SerializeField] private Camera worldCamera;
         [SerializeField] private UnitStatSheet statSheet;
+        [SerializeField] private SpriteFacingSet facingSet;
         [SerializeField] private float stopThreshold = 0.1f;
         [SerializeField] private float accelerationMultiplier = 8f;
         [SerializeField] private float frictionMultiplier = 6f;
@@ -102,6 +103,9 @@ namespace PlayGround.Player
             if (statSheet == null)
                 throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} needs a {nameof(UnitStatSheet)}.");
 
+            if (facingSet == null || !facingSet.HasAllSprites)
+                throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} needs a fully assigned {nameof(SpriteFacingSet)}.");
+
             playerMap = inputActions.FindActionMap("Player", true);
             moveAction = playerMap.FindAction("Move", true);
             lookAction = playerMap.FindAction("Look", false);
@@ -122,7 +126,7 @@ namespace PlayGround.Player
                 dashSpeed,
                 dashDuration,
                 dashCooldown);
-            facing = new PlayerFacing(transform, spriteRenderer);
+            facing = new PlayerFacing(transform, spriteRenderer, facingSet);
             stateDriver = new PlayerStateDriver(movement, animatorDriver);
             health = new PlayerHealth(body, bodyCollider, hurtbox, spriteRenderer, animatorDriver, statSheet.MaxHealth, hurtFlashSeconds);
             skillDriver = GetComponent<PlayGround.Skills.SkillDriver>();
