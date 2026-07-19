@@ -4,10 +4,12 @@ minor performance related refacor
 - collision system use aabb tree instead of spatial hash. aabb tree is more simd friendly.
 
 new feature
-- interval spawn direction (only side spray is supported currently.)
 - ui
+- interval spawn direction (only side spray is supported currently.)
 - damage number vfx graph
 - cast on crit and other conditions.
 - fast projectiles, these cannot have tracking, requires tunneling check
+- targeted skills. no physics, just hits at an interval.
+- skills react to other skills through debuffs
 - unit related, these have dependency on each other 
     - player summons (these should just be mobs but with different faction)

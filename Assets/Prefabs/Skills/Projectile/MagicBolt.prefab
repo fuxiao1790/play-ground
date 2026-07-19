@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2593184631872514307}
   - component: {fileID: 6416970736168755285}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Visual
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -27,7 +27,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0.4, y: 0.35, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 8126269937979373232}
@@ -58,7 +58,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: f5bb667fc8cd43948a59f5bd9dbc9e02, type: 2}
+  - {fileID: 2100000, guid: d2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -81,12 +81,12 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 9
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 2216962988415778236, guid: 602295fb8353c1f449981f941d64d7a6, type: 3}
+  m_Sprite: {fileID: 21300000, guid: d2918684db798e643a1507b270d6ad62, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 0.71875, y: 0.46875}
+  m_Size: {x: 0.64, y: 0.64}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
@@ -100,13 +100,10 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8126269937979373232}
-  - component: {fileID: 8923829354222721971}
-  - component: {fileID: 2619201609600954481}
-  - component: {fileID: 6524352425051473047}
-  - component: {fileID: 7770000000000001001}
-  m_Layer: 12
-  m_Name: Bat
-  m_TagString: Mob
+  - component: {fileID: 1001001001001001004}
+  m_Layer: 10
+  m_Name: MagicBolt
+  m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -120,49 +117,68 @@ Transform:
   m_GameObject: {fileID: 6480988526549104490}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 4, y: 1.5, z: 0}
-  m_LocalScale: {x: 1.5, y: 1.5, z: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 5, y: 5, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6150559438662261112}
   - {fileID: 2593184631872514307}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!50 &8923829354222721971
-Rigidbody2D:
-  serializedVersion: 5
+--- !u!114 &1001001001001001004
+MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6480988526549104490}
-  m_BodyType: 0
-  m_Simulated: 1
-  m_UseFullKinematicContacts: 0
-  m_UseAutoMass: 0
-  m_Mass: 1
-  m_LinearDamping: 0
-  m_AngularDamping: 0.05
-  m_GravityScale: 0
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_Interpolate: 0
-  m_SleepingMode: 1
-  m_CollisionDetection: 0
-  m_Constraints: 4
---- !u!58 &2619201609600954481
-CircleCollider2D:
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b546a681e8dd41b4a9789b69c4dbf0d1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.BasicAttackPrefab
+  spriteRenderer: {fileID: 6416970736168755285}
+  hurtbox: {fileID: 1469189744092702574}
+--- !u!1 &7079102651487229076
+GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6480988526549104490}
-  m_Enabled: 0
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6150559438662261112}
+  - component: {fileID: 1469189744092702574}
+  m_Layer: 10
+  m_Name: Hurtbox
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6150559438662261112
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7079102651487229076}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 0.5, y: 1.2, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8126269937979373232}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 90}
+--- !u!70 &1469189744092702574
+CapsuleCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7079102651487229076}
+  m_Enabled: 1
   serializedVersion: 3
   m_Density: 1
   m_Material: {fileID: 0}
@@ -190,114 +206,5 @@ CircleCollider2D:
   m_CompositeOperation: 0
   m_CompositeOrder: 0
   m_Offset: {x: 0, y: 0}
-  m_Radius: 0.35
---- !u!114 &6524352425051473047
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6480988526549104490}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: adaf6ee03eaafe540b3cc2e563991ce7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Mob.MobRoot
-  body: {fileID: 8923829354222721971}
-  bodyCollider: {fileID: 2619201609600954481}
-  hurtbox: {fileID: 9078445515691224455}
-  spriteRenderer: {fileID: 6416970736168755285}
-  target: {fileID: 0}
-  statSheet: {fileID: 11400000, guid: 4f1fe3388cd7fef42b7f7bd6e5bc3cc2, type: 2}
-  targetRadius: 0.35
-  wanderMinDuration: 0.7
-  wanderMaxDuration: 2
-  wanderPauseChance: 0.15
-  randomSeed: 0
---- !u!114 &7770000000000001001
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6480988526549104490}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a100000000000000000000000000000d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillDriver
-  loadout: {fileID: 11400000, guid: c9ceda56222b8674fbc8b503b88cc106, type: 2}
-  combatRoot: {fileID: 0}
-  vfxRoot: {fileID: 0}
-  audioManager: {fileID: 0}
-  statSheet: {fileID: 11400000, guid: 4f1fe3388cd7fef42b7f7bd6e5bc3cc2, type: 2}
-  faction: 2
-  fallbackCombatRootTag: PlayerProjectileRoot
---- !u!1 &7079102651487229076
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 6150559438662261112}
-  - component: {fileID: 9078445515691224455}
-  m_Layer: 13
-  m_Name: Hurtbox
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &6150559438662261112
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7079102651487229076}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 8126269937979373232}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!58 &9078445515691224455
-CircleCollider2D:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7079102651487229076}
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Density: 1
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_ForceSendLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_ForceReceiveLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_ContactCaptureLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_CallbackLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_IsTrigger: 1
-  m_UsedByEffector: 0
-  m_CompositeOperation: 0
-  m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 0}
-  m_Radius: 0.35
+  m_Size: {x: 0.1, y: 0.15}
+  m_Direction: 0
