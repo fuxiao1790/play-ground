@@ -331,11 +331,11 @@ MonoBehaviour:
   behaviour: {fileID: 11400000, guid: 4aac8482a8fe9094d89631645450595f, type: 2}
   placement: {fileID: 11400000, guid: 8f4a425140a0d5449bb2fb80385b00e0, type: 2}
   spawnPoints: []
-  cap: 100
+  cap: 400
   combatRoot: {fileID: 529810935}
   vfxRoot: {fileID: 0}
   target: {fileID: 0}
-  prewarm: 30
+  prewarm: 100
   randomSeed: 0
 --- !u!1 &225537358 stripped
 GameObject:
@@ -2090,7 +2090,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86d95e319c5b4c16bcaa094037e53c22, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: PlayGround.SkillUi::PlayGround.Skills.PlayerSaveController
   playerRoot: {fileID: 830174276}
   skillDriver: {fileID: 1534015925}
