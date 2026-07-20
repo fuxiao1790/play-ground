@@ -26,6 +26,15 @@ Key contracts:
 [Spawn Requests](../contracts/spawn-requests.md),
 [Combat Root API](../contracts/combat-root-api.md).
 
+## Skill Loadout Edit
+
+[Skill Loadout Edit](../flows/skill-loadout-edit.md) keeps runtime equipment in
+Game Logic: UI Toolkit issues a command, `SkillDriver` validates, stages, and
+atomically swaps a runtime loadout clone. Future casts use its compiled roots;
+existing combat entities keep copied snapshots.
+
+Key contract: [Skill Loadout Editing](../contracts/skill-loadout-editing.md).
+
 ## Spawn Event To Entity
 
 [Spawn Event To Entity](../flows/spawn-event-to-entity.md) keeps gameplay intent

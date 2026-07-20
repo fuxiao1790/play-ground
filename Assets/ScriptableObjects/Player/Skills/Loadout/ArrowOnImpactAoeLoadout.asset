@@ -12,6 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000007, type: 3}
   m_Name: ArrowOnImpactAoeLoadout
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillLoadout
+  nodes:
+  - skillSet: {fileID: 11400000, guid: a2000000000000000000000000000020, type: 2}
+    triggerToNext: {fileID: 11400000, guid: 502349cdbd8fc624f8dd28ba7b2eebbb, type: 2}
+  - skillSet: {fileID: 11400000, guid: a2000000000000000000000000000008, type: 2}
+    triggerToNext: {fileID: 0}
   slots:
   - rid: 1
   - rid: 2

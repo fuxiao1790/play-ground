@@ -3,6 +3,10 @@ minor performance related refacor
 
 - collision system use aabb tree instead of spatial hash. aabb tree is more simd friendly.
 
+minor fixes
+- multiple aoe should have 1 aoe aimed at where the cursor is.
+- multiple projectile should also have 1 projectile aimed at where the cursor is.
+
 new feature
 - ui
 - interval spawn direction (only side spray is supported currently.)

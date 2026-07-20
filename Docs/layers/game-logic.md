@@ -8,8 +8,8 @@ meaning before data is snapshotted for simulation.
 
 ## Owns
 
-- Skill definitions, supports, trigger graphs, loadout slots, validators, and
-  runtime skill compilation.
+- Skill definitions, supports, normalized loadout nodes, trigger graphs,
+  validators, runtime skill compilation, and runtime edit commit.
 - `SkillDriver`, `SkillLoadout`, `SkillSetCompiler`, and
   `SkillSpawnTranslator`.
 - Mob behavior state machines, triggers, event queues, and low-count AI choices.
@@ -61,12 +61,14 @@ meaning before data is snapshotted for simulation.
 ## Related Contracts
 
 - [Skill Runtime Snapshots](../contracts/skill-runtime-snapshots.md)
+- [Skill Loadout Editing](../contracts/skill-loadout-editing.md)
 - [Spawn Requests](../contracts/spawn-requests.md)
 - [Combat Root API](../contracts/combat-root-api.md)
 
 ## Related Flows
 
 - [Skill To Combat Spawn](../flows/skill-to-combat-spawn.md)
+- [Skill Loadout Edit](../flows/skill-loadout-edit.md)
 - [Mob Spawn And Behaviour](../flows/mob-spawn-and-behaviour.md)
 - [Collision To Combat Result](../flows/collision-to-combat-result.md)
 

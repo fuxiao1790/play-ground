@@ -3,6 +3,18 @@
 All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
+## Current Loadout Editing Authority
+
+The target runtime loadout uses normalized ordered nodes (`skillSet` plus
+`triggerToNext`), not alternating managed-reference slot entries. The mutable
+session clone belongs to `SkillDriver`; UI sends commands and never owns
+equipment state. See the authoritative
+[Skill Loadout Editing contract](../../contracts/skill-loadout-editing.md),
+[Skill Loadout Edit flow](../../flows/skill-loadout-edit.md), and
+[Player Skill UI](../design/player-skill-ui.md). The later alternating-slot
+sections are historical migration notes only and must not be used for new
+authoring or implementation.
+
 ## Concepts
 
 **Skill** 鈥?an active spell or attack. Defines what is spawned: a projectile,
@@ -413,7 +425,7 @@ nothing and validation returns a warning.
 
 ---
 
-## Loadout Slots
+## Legacy Alternating Slot Model (Historical)
 
 The `SkillLoadout` is a flat ordered list of `LoadoutSlot` entries. Each slot
 is either a `SkillSetSlot` or a `TriggerLinkSlot`. Position determines
@@ -650,7 +662,7 @@ Current warning cases:
 
 ---
 
-## Skill Loadout
+## Legacy Skill Loadout Shape (Historical)
 
 ```csharp
 class SkillLoadout {
@@ -667,7 +679,7 @@ it is never fired directly by input.
 
 ---
 
-## Compilation
+## Legacy Compilation Description (Historical)
 
 At equip time (`SkillDriver.Start`) the loadout compiles each root set
 into a `RuntimeSkillDefinition` tree via `SkillSetCompiler`. Compilation
@@ -813,7 +825,7 @@ a bounded number of child events in one update, so it cannot freeze the editor.
 
 ---
 
-## Runtime Modification
+## Legacy Runtime Modification (Historical)
 
 The compiled tree is a mutable runtime instance. SO templates are never
 touched after compilation.
@@ -838,7 +850,7 @@ the changed set 鈥?typically two or three levels deep.
 
 ---
 
-## Authoring
+## Legacy Authoring Guide (Historical)
 
 Player-facing types only - these are the only types that appear in loadout
 editors, skill slot UIs, or player save data:

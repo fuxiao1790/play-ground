@@ -11,13 +11,28 @@ namespace PlayGround.Skills
     {
         private static int nextChildJitterSeed;
 
+        // Temporary test-fixture compatibility while the existing EditMode cases
+        // move from managed-reference slots to normalized nodes.
+        [global::System.Obsolete("Tests must use SkillLoadoutNode lists.")]
         public static RuntimeSkillDefinition Compile(
             IReadOnlyList<LoadoutSlot> slots,
             int slotIndex,
-            TriggerChain[] allChains,
+            TriggerChain[] ignoredChains,
             SkillStatSnapshot snapshot)
         {
-            SkillSet set = GetSkillSet(slots, slotIndex);
+            int nodeIndex = 0;
+            for (int i = 0; i < slotIndex && i < slots.Count; i++)
+                if (slots[i] is SkillSetSlot) nodeIndex++;
+
+            return Compile(CreateNodesFromLegacySlots(slots), nodeIndex, snapshot);
+        }
+
+        public static RuntimeSkillDefinition Compile(
+            IReadOnlyList<SkillLoadoutNode> nodes,
+            int nodeIndex,
+            SkillStatSnapshot snapshot)
+        {
+            SkillSet set = GetSkillSet(nodes, nodeIndex);
             if (set == null || set.Skill == null) return null;
 
             CompileDefinitionResult compiled = CompileDefinition(set.Skill.Definition, set.Supports, snapshot);
@@ -38,27 +53,26 @@ namespace PlayGround.Skills
                 ? stackingHost.Detonation
                 : runtime;
 
-            // Adjacency is forward-only (i -> i+2); recursion terminates by strictly
-            // increasing slot index. No cycle is possible, so no recursion guard is needed.
-            foreach (TriggerChain chain in allChains)
+            // Adjacency is forward-only (i -> i + 1); recursion terminates by
+            // strictly increasing node index. No cycle is possible.
+            TriggerLink link = nodeIndex >= 0 && nodeIndex < nodes.Count
+                ? nodes[nodeIndex]?.TriggerToNext
+                : null;
+            int targetNodeIndex = nodeIndex + 1;
+            if (link != null && targetNodeIndex < nodes.Count)
             {
-                if (chain == null || chain.causeIndex != slotIndex || chain.link == null) continue;
 
-                if (chain.link is ProjectileIntervalSpawnTrigger childTrigger)
+                if (link is ProjectileIntervalSpawnTrigger childTrigger)
                 {
-                    ApplyChildSpawn(triggerHost, childTrigger, slots, chain.effectIndex, allChains, snapshot);
-                    continue;
+                    ApplyChildSpawn(triggerHost, childTrigger, nodes, targetNodeIndex, snapshot);
                 }
-
-                if (chain.link is AoeIntervalSpawnTrigger aoeIntervalTrigger)
+                else if (link is AoeIntervalSpawnTrigger aoeIntervalTrigger)
                 {
-                    ApplyAoeIntervalSpawn(triggerHost, aoeIntervalTrigger, slots, chain.effectIndex, allChains, snapshot);
-                    continue;
+                    ApplyAoeIntervalSpawn(triggerHost, aoeIntervalTrigger, nodes, targetNodeIndex, snapshot);
                 }
-
-                if (chain.link is OnImpactAoeTrigger)
+                else if (link is OnImpactAoeTrigger)
                 {
-                    RuntimeSkillDefinition compiledTarget = Compile(slots, chain.effectIndex, allChains, snapshot);
+                    RuntimeSkillDefinition compiledTarget = Compile(nodes, targetNodeIndex, snapshot);
                     if (compiledTarget is RuntimeAoeDefinition aoeTarget)
                     {
                         if (triggerHost is RuntimeProjectileDefinition projDef)
@@ -66,12 +80,10 @@ namespace PlayGround.Skills
                         else if (triggerHost is RuntimeAoeDefinition sourceAoeDef)
                             sourceAoeDef.OnHitAoeSpawnDefinition = aoeTarget;
                     }
-                    continue;
                 }
-
-                if (chain.link is OnImpactProjectileTrigger impactProjTrigger)
+                else if (link is OnImpactProjectileTrigger impactProjTrigger)
                 {
-                    RuntimeSkillDefinition compiledTarget = Compile(slots, chain.effectIndex, allChains, snapshot);
+                    RuntimeSkillDefinition compiledTarget = Compile(nodes, targetNodeIndex, snapshot);
                     if (compiledTarget is RuntimeProjectileDefinition impactProjDef)
                     {
                         impactProjDef.Count = Mathf.Max(1, impactProjDef.Count + impactProjTrigger.spawnCount);
@@ -82,26 +94,23 @@ namespace PlayGround.Skills
                         else if (triggerHost is RuntimeAoeDefinition aoeSourceDef)
                             aoeSourceDef.OnHitProjectileSpawnDefinition = impactProjDef;
                     }
-                    continue;
                 }
-
-                if (chain.link is OnAoeHitSpawnTrigger)
+                else if (link is OnAoeHitSpawnTrigger)
                 {
-                    RuntimeSkillDefinition compiledTarget = Compile(slots, chain.effectIndex, allChains, snapshot);
+                    RuntimeSkillDefinition compiledTarget = Compile(nodes, targetNodeIndex, snapshot);
                     if (triggerHost is RuntimeAoeDefinition aoeDef)
                         aoeDef.OnHitAoeSpawnDefinition = compiledTarget;
                 }
-
-                if (chain.link is StackTrigger)
+                else if (link is StackTrigger)
                 {
-                    RuntimeSkillDefinition compiledTarget = Compile(slots, chain.effectIndex, allChains, snapshot);
-                    if (compiledTarget is not RuntimeStackingDetonation stackingDetonation)
-                        continue;
-
-                    if (triggerHost is RuntimeProjectileDefinition projDef)
-                        projDef.StackingDetonation = stackingDetonation;
-                    else if (triggerHost is RuntimeAoeDefinition aoeDef)
-                        aoeDef.StackingDetonation = stackingDetonation;
+                    RuntimeSkillDefinition compiledTarget = Compile(nodes, targetNodeIndex, snapshot);
+                    if (compiledTarget is RuntimeStackingDetonation stackingDetonation)
+                    {
+                        if (triggerHost is RuntimeProjectileDefinition projDef)
+                            projDef.StackingDetonation = stackingDetonation;
+                        else if (triggerHost is RuntimeAoeDefinition aoeDef)
+                            aoeDef.StackingDetonation = stackingDetonation;
+                    }
                 }
             }
 
@@ -304,9 +313,8 @@ namespace PlayGround.Skills
         private static void ApplyChildSpawn(
             RuntimeSkillDefinition parent,
             ProjectileIntervalSpawnTrigger trigger,
-            IReadOnlyList<LoadoutSlot> slots,
-            int effectIndex,
-            TriggerChain[] allChains,
+            IReadOnlyList<SkillLoadoutNode> nodes,
+            int targetNodeIndex,
             SkillStatSnapshot snapshot)
         {
             if (parent is not RuntimeProjectileDefinition and not RuntimeAoeDefinition)
@@ -315,7 +323,7 @@ namespace PlayGround.Skills
             if (parent is RuntimeAoeDefinition { LifetimeSeconds: <= 0f })
                 return;
 
-            RuntimeSkillDefinition compiledChild = Compile(slots, effectIndex, allChains, snapshot);
+            RuntimeSkillDefinition compiledChild = Compile(nodes, targetNodeIndex, snapshot);
             if (compiledChild is not RuntimeProjectileDefinition childDef) return;
 
             float intervalSeconds = Mathf.Max(0.01f, trigger.intervalSeconds);
@@ -340,9 +348,8 @@ namespace PlayGround.Skills
         private static void ApplyAoeIntervalSpawn(
             RuntimeSkillDefinition parent,
             AoeIntervalSpawnTrigger trigger,
-            IReadOnlyList<LoadoutSlot> slots,
-            int effectIndex,
-            TriggerChain[] allChains,
+            IReadOnlyList<SkillLoadoutNode> nodes,
+            int targetNodeIndex,
             SkillStatSnapshot snapshot)
         {
             if (parent is not RuntimeProjectileDefinition and not RuntimeAoeDefinition)
@@ -351,7 +358,7 @@ namespace PlayGround.Skills
             if (parent is RuntimeAoeDefinition { LifetimeSeconds: <= 0f })
                 return;
 
-            RuntimeSkillDefinition compiledChild = Compile(slots, effectIndex, allChains, snapshot);
+            RuntimeSkillDefinition compiledChild = Compile(nodes, targetNodeIndex, snapshot);
             if (compiledChild is not RuntimeAoeDefinition childDef) return;
 
             float intervalSeconds = Mathf.Max(0.01f, trigger.intervalSeconds);
@@ -371,12 +378,32 @@ namespace PlayGround.Skills
                 aoeParent.AoeIntervalSpawnSetup = setup;
         }
 
-        private static SkillSet GetSkillSet(IReadOnlyList<LoadoutSlot> slots, int slotIndex)
+        private static SkillSet GetSkillSet(IReadOnlyList<SkillLoadoutNode> nodes, int nodeIndex)
         {
-            if (slots == null || slotIndex < 0 || slotIndex >= slots.Count)
+            if (nodes == null || nodeIndex < 0 || nodeIndex >= nodes.Count)
                 return null;
 
-            return slots[slotIndex] is SkillSetSlot slot ? slot.skillSet : null;
+            return nodes[nodeIndex]?.SkillSet;
+        }
+
+        private static List<SkillLoadoutNode> CreateNodesFromLegacySlots(IReadOnlyList<LoadoutSlot> slots)
+        {
+            var nodes = new List<SkillLoadoutNode>();
+            if (slots == null) return nodes;
+
+            for (int i = 0; i < slots.Count; i++)
+            {
+                if (slots[i] is not SkillSetSlot skillSlot) continue;
+
+                TriggerLink trigger = i + 2 < slots.Count
+                    && slots[i + 1] is TriggerLinkSlot triggerSlot
+                    && slots[i + 2] is SkillSetSlot
+                    ? triggerSlot.link
+                    : null;
+                nodes.Add(new SkillLoadoutNode(skillSlot.skillSet, trigger));
+            }
+
+            return nodes;
         }
     }
 }

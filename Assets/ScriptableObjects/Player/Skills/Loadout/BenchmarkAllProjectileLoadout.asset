@@ -12,6 +12,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000007, type: 3}
   m_Name: BenchmarkAllProjectileLoadout
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillLoadout
+  nodes:
+  - skillSet: {fileID: 11400000, guid: a2000000000000000000000000000021, type: 2}
+    triggerToNext: {fileID: 11400000, guid: 72106f578633ced47afdee80a7dc84db, type: 2}
+  - skillSet: {fileID: 11400000, guid: a2000000000000000000000000000020, type: 2}
+    triggerToNext: {fileID: 11400000, guid: c4000000000000000000000000000001, type: 2}
+  - skillSet: {fileID: 11400000, guid: 43b8286bc0645a140abfdd0873c3d13e, type: 2}
+    triggerToNext: {fileID: 0}
+  - skillSet: {fileID: 11400000, guid: 9165cada373b6f74c8fd9179ffb66c74, type: 2}
+    triggerToNext: {fileID: 11400000, guid: 1a2b3c4d5e6f708192a3b4c5d6e7f801, type: 2}
+  - skillSet: {fileID: 11400000, guid: a2000000000000000000000000000026, type: 2}
+    triggerToNext: {fileID: 11400000, guid: 72106f578633ced47afdee80a7dc84db, type: 2}
+  - skillSet: {fileID: 11400000, guid: a2000000000000000000000000000022, type: 2}
+    triggerToNext: {fileID: 0}
   slots:
   - rid: 2535078034259050573
   - rid: 2535078034259050575

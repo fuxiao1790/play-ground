@@ -12,6 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000007, type: 3}
   m_Name: AoeIntervalSpawnLoadout
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillLoadout
+  nodes:
+  - skillSet: {fileID: 11400000, guid: f14acefd7514d8c48bed5b67d8ec1c9f, type: 2}
+    triggerToNext: {fileID: 11400000, guid: c4000000000000000000000000000001, type: 2}
+  - skillSet: {fileID: 11400000, guid: b2000000000000000000000000000009, type: 2}
+    triggerToNext: {fileID: 11400000, guid: 4f6fe4b46eb54b9c8ff4e4c04b05f7e7, type: 2}
+  - skillSet: {fileID: 11400000, guid: a2000000000000000000000000000008, type: 2}
+    triggerToNext: {fileID: 0}
   slots:
   - rid: 2535078192961290313
   - rid: 2535078192961290316

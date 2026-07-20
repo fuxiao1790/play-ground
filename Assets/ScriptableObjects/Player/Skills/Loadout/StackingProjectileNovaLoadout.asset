@@ -12,6 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000007, type: 3}
   m_Name: StackingProjectileNovaLoadout
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillLoadout
+  nodes:
+  - skillSet: {fileID: 11400000, guid: 9165cada373b6f74c8fd9179ffb66c74, type: 2}
+    triggerToNext: {fileID: 11400000, guid: c4000000000000000000000000000001, type: 2}
+  - skillSet: {fileID: 11400000, guid: fee38ad26287dd74ba41fed727d3458b, type: 2}
+    triggerToNext: {fileID: 0}
   slots:
   - rid: 2535078078029758555
   - rid: 2535078078029758556

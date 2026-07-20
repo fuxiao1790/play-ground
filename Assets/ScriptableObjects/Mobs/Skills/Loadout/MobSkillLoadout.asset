@@ -12,6 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000007, type: 3}
   m_Name: MobSkillLoadout
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillLoadout
+  nodes:
+  - skillSet: {fileID: 11400000, guid: 426b20a06f75a66449e7ab489c3e106c, type: 2}
+    triggerToNext: {fileID: 0}
   slots:
   - rid: 2535078192961290312
   maxRootSets: 8

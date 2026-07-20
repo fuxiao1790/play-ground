@@ -33,6 +33,8 @@ namespace PlayGround.Skills
 
         private RuntimeSkillDefinition[] compiledSlots;
         private SkillSlotState[] slotStates;
+        private int[] rootNodeIndices;
+        private SkillLoadout runtimeLoadout;
         private SkillValidationWarning[] validationWarnings = Array.Empty<SkillValidationWarning>();
         private static readonly ProfilerMarker TickMarker = new("SkillDriver.Tick");
         private static readonly ProfilerMarker CooldownsMarker = new("SkillDriver.Tick.Cooldowns");
@@ -40,10 +42,18 @@ namespace PlayGround.Skills
         private static readonly ProfilerMarker SpawnMarker = new("SkillDriver.Tick.Spawn");
         private static int nextStackingDebuffKey;
         private int activeSlotCount;
+        private ulong revision;
+        private bool hasPendingEdit;
+        private SkillLoadoutEditCommand pendingEdit;
+        private int configuredInitialRuntimeNodeCount;
 
         public int SlotCount => activeSlotCount;
+        public ulong Revision => revision;
+        public IReadOnlyList<SkillLoadoutNode> RuntimeNodes => runtimeLoadout?.Nodes;
         public IReadOnlyList<SkillValidationWarning> ValidationWarnings => validationWarnings;
         public SkillSlotState GetSlotState(int index) => slotStates?[index];
+        public event Action<ulong> LoadoutChanged;
+        public event Action<SkillLoadoutEditResult> EditResolved;
 
         private void Awake()
         {
@@ -55,6 +65,8 @@ namespace PlayGround.Skills
 
         private void Start()
         {
+            runtimeLoadout = loadout == null ? SkillLoadout.CreateEmptyRuntime() : loadout.CreateRuntimeClone();
+            runtimeLoadout.EnsureRuntimeNodeCount(configuredInitialRuntimeNodeCount);
             CompileAndRegister();
         }
 
@@ -62,6 +74,7 @@ namespace PlayGround.Skills
         {
             using (TickMarker.Auto())
             {
+                ProcessPendingEdit();
                 if (compiledSlots == null) return;
 
                 using (CooldownsMarker.Auto())
@@ -121,45 +134,46 @@ namespace PlayGround.Skills
 
         private void CompileAndRegister()
         {
-            if (loadout == null) return;
+            if (runtimeLoadout == null) return;
 
-            var warnings = new List<SkillValidationWarning>(SkillLoadoutValidator.Validate(loadout));
+            var warnings = new List<SkillValidationWarning>(SkillLoadoutValidator.Validate(runtimeLoadout));
 
-            SkillStatSnapshot snapshot = SkillStatAggregator.Aggregate(loadout, statSheet);
-            IReadOnlyList<LoadoutSlot> slots = loadout.Slots;
+            SkillStatSnapshot snapshot = SkillStatAggregator.Aggregate(runtimeLoadout, statSheet);
+            IReadOnlyList<SkillLoadoutNode> nodes = runtimeLoadout.Nodes;
 
-            TriggerChain[] chains = ParseChains(slots);
-
-            var effectIndices = new HashSet<int>();
-            foreach (TriggerChain chain in chains)
-                effectIndices.Add(chain.effectIndex);
-
-            var rootSlotIndices = new List<int>();
-            for (int i = 0; i < slots.Count; i++)
+            var rootNodeIndices = new List<int>();
+            for (int i = 0; i < nodes.Count; i++)
             {
-                if (slots[i] is not SkillSetSlot skillSlot || skillSlot.skillSet == null) continue;
-                if (!effectIndices.Contains(i))
+                SkillSet skillSet = nodes[i]?.SkillSet;
+                if (skillSet == null) continue;
+
+                bool hasIncomingTrigger = i > 0
+                    && nodes[i - 1]?.SkillSet != null
+                    && nodes[i - 1]?.TriggerToNext != null;
+                if (!hasIncomingTrigger)
                 {
-                    if (HasTriggeredOnlyConversionSupport(skillSlot.skillSet))
+                    if (HasTriggeredOnlyConversionSupport(skillSet))
                         continue;
 
-                    rootSlotIndices.Add(i);
+                    rootNodeIndices.Add(i);
                 }
             }
 
-            int maxSlots = Mathf.Min(rootSlotIndices.Count, loadout.MaxRootSets);
+            int maxSlots = Mathf.Min(rootNodeIndices.Count, runtimeLoadout.MaxRootSets);
             compiledSlots = new RuntimeSkillDefinition[maxSlots];
             slotStates = new SkillSlotState[maxSlots];
+            this.rootNodeIndices = new int[maxSlots];
             activeSlotCount = 0;
 
             for (int i = 0; i < maxSlots; i++)
             {
-                RuntimeSkillDefinition def = SkillSetCompiler.Compile(slots, rootSlotIndices[i], chains, snapshot);
+                RuntimeSkillDefinition def = SkillSetCompiler.Compile(nodes, rootNodeIndices[i], snapshot);
                 if (def == null) continue;
 
                 compiledSlots[activeSlotCount] = def;
                 slotStates[activeSlotCount] = new SkillSlotState();
                 slotStates[activeSlotCount].SetRecoveryTime(def.RecoveryTime);
+                this.rootNodeIndices[activeSlotCount] = rootNodeIndices[i];
                 activeSlotCount++;
             }
 
@@ -169,25 +183,118 @@ namespace PlayGround.Skills
             validationWarnings = warnings.ToArray();
         }
 
-        private static TriggerChain[] ParseChains(IReadOnlyList<LoadoutSlot> slots)
+        // UI configuration requests the initial empty-node count before Start.
+        // The driver does not serialize or own a UI capacity policy.
+        public void ConfigureInitialRuntimeNodeCount(int nodeCount)
         {
-            var chains = new List<TriggerChain>();
-            for (int i = 0; i < slots.Count; i++)
+            configuredInitialRuntimeNodeCount = Mathf.Max(0, nodeCount);
+        }
+
+        private void ProcessPendingEdit()
+        {
+            if (!hasPendingEdit) return;
+
+            SkillLoadoutEditCommand command = pendingEdit;
+            hasPendingEdit = false;
+            if (command.ExpectedRevision != revision)
             {
-                if (slots[i] is not SkillSetSlot causeSlot || causeSlot.skillSet == null) continue;
-                if (i + 2 < slots.Count
-                    && slots[i + 1] is TriggerLinkSlot triggerSlot && triggerSlot.link != null
-                    && slots[i + 2] is SkillSetSlot effectSlot && effectSlot.skillSet != null)
-                {
-                    chains.Add(new TriggerChain
-                    {
-                        causeIndex = i,
-                        link = triggerSlot.link,
-                        effectIndex = i + 2,
-                    });
-                }
+                EditResolved?.Invoke(new SkillLoadoutEditResult(false, revision, "Loadout changed. Reopen the picker."));
+                return;
             }
-            return chains.ToArray();
+
+            if (IsCooldownBlocked(command))
+            {
+                EditResolved?.Invoke(new SkillLoadoutEditResult(false, revision, "This direct-cast skill is on cooldown."));
+                return;
+            }
+
+            SkillLoadout candidate = runtimeLoadout.CreateRuntimeClone();
+            if (!TryApplyEdit(candidate, command, out string rejectionReason))
+            {
+                EditResolved?.Invoke(new SkillLoadoutEditResult(false, revision, rejectionReason));
+                return;
+            }
+
+            runtimeLoadout = candidate;
+            CompileAndRegister();
+            revision++;
+            LoadoutChanged?.Invoke(revision);
+            EditResolved?.Invoke(new SkillLoadoutEditResult(true, revision, null));
+        }
+
+        private bool IsCooldownBlocked(SkillLoadoutEditCommand command)
+        {
+            if (command.Kind is not (SkillLoadoutEditKind.SetSkill or SkillLoadoutEditKind.ClearSkill
+                or SkillLoadoutEditKind.SetSupport or SkillLoadoutEditKind.ClearSupport))
+                return false;
+
+            int rootIndex = FindRootSlotForNode(command.NodeIndex);
+            return rootIndex >= 0 && slotStates[rootIndex] != null && !slotStates[rootIndex].IsReady;
+        }
+
+        private bool TryApplyEdit(SkillLoadout candidate, SkillLoadoutEditCommand command, out string rejectionReason)
+        {
+            if (command.NodeIndex < 0)
+            {
+                rejectionReason = "That skill position no longer exists.";
+                return false;
+            }
+
+            if (command.Kind == SkillLoadoutEditKind.SetSkill)
+                candidate.EnsureRuntimeNodeCount(command.NodeIndex + 1);
+
+            IReadOnlyList<SkillLoadoutNode> nodes = candidate.Nodes;
+            if (command.NodeIndex >= nodes.Count || nodes[command.NodeIndex] == null)
+            {
+                rejectionReason = "Choose a skill before editing this position.";
+                return false;
+            }
+
+            SkillLoadoutNode node = nodes[command.NodeIndex];
+            switch (command.Kind)
+            {
+                case SkillLoadoutEditKind.SetSkill:
+                    if (command.Skill == null) { rejectionReason = "Choose a skill."; return false; }
+                    var set = ScriptableObject.CreateInstance<SkillSet>();
+                    set.hideFlags = HideFlags.DontSave;
+                    set.name = $"{command.Skill.name} (Runtime)";
+                    set.SetSkill(command.Skill);
+                    node.SetSkillSet(set);
+                    break;
+                case SkillLoadoutEditKind.ClearSkill:
+                    if (node.SkillSet?.Supports.Length > 0 || node.TriggerToNext != null
+                        || (command.NodeIndex > 0 && nodes[command.NodeIndex - 1]?.TriggerToNext != null))
+                    { rejectionReason = "Clear supports and adjacent triggers first."; return false; }
+                    node.SetSkillSet(null);
+                    break;
+                case SkillLoadoutEditKind.SetSupport:
+                case SkillLoadoutEditKind.ClearSupport:
+                    if (node.SkillSet == null || command.SupportIndex < 0)
+                    { rejectionReason = "Choose a skill before editing supports."; return false; }
+                    node.SkillSet.SetSupport(command.SupportIndex, command.Kind == SkillLoadoutEditKind.SetSupport ? command.Support : null);
+                    break;
+                case SkillLoadoutEditKind.SetTrigger:
+                    if (command.Trigger == null) { rejectionReason = "Choose a trigger."; return false; }
+                    node.SetTriggerToNext(command.Trigger);
+                    break;
+                case SkillLoadoutEditKind.ClearTrigger:
+                    node.SetTriggerToNext(null);
+                    break;
+                default:
+                    rejectionReason = "Unknown loadout edit.";
+                    return false;
+            }
+
+            rejectionReason = null;
+            return true;
+        }
+
+        private int FindRootSlotForNode(int nodeIndex)
+        {
+            if (rootNodeIndices == null) return -1;
+            for (int i = 0; i < activeSlotCount; i++)
+                if (rootNodeIndices[i] == nodeIndex) return i;
+            return -1;
         }
 
         private static bool HasTriggeredOnlyConversionSupport(SkillSet set)
@@ -625,6 +732,40 @@ namespace PlayGround.Skills
             {
                 combatRoot.SetAoeVfxIds(aoeDef.TypeId, aoeDef.VfxIds);
             }
+        }
+
+        public bool TryQueueEdit(SkillLoadoutEditCommand command, out string rejectionReason)
+        {
+            if (runtimeLoadout == null)
+            {
+                rejectionReason = "No runtime loadout is available.";
+                return false;
+            }
+
+            if (hasPendingEdit)
+            {
+                rejectionReason = "Another loadout edit is pending.";
+                return false;
+            }
+
+            if (command.ExpectedRevision != revision)
+            {
+                rejectionReason = "Loadout changed. Reopen the picker.";
+                return false;
+            }
+
+            hasPendingEdit = true;
+            pendingEdit = command;
+            rejectionReason = null;
+            return true;
+        }
+
+        public float GetCooldownProgressForNode(int nodeIndex)
+        {
+            int rootIndex = FindRootSlotForNode(nodeIndex);
+            return rootIndex >= 0 && slotStates?[rootIndex] != null
+                ? slotStates[rootIndex].CooldownProgress
+                : 0f;
         }
 
         private void RegisterAoeVfx(RuntimeAoeDefinition aoeDef, AoeTypeDefinition definition)

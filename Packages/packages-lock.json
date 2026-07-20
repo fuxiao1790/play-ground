@@ -1,5 +1,13 @@
 {
   "dependencies": {
+    "com.playground.skill-ui": {
+      "version": "file:com.playground.skill-ui",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.inputsystem": "1.19.0"
+      }
+    },
     "com.unity.2d.animation": {
       "version": "14.0.4",
       "depth": 0,

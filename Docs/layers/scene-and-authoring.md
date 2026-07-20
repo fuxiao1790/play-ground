@@ -14,6 +14,10 @@ and authored presentation setup.
   GameObject lifetime, and low-count body/environment collision.
 - ScriptableObjects and prefabs used as authoring templates.
 - Scene-level references and setup validation.
+- `UIDocument`, UI Toolkit presentation roots, and UI input routing.
+
+UI implementation lives in `Packages/com.playground.skill-ui/` and may depend
+on Game Logic. Game Logic and ECS Simulation must not depend on that package.
 
 ## Does Not Own
 
@@ -62,6 +66,7 @@ and authored presentation setup.
 - [Combat Root API](../contracts/combat-root-api.md)
 - [Spawn Requests](../contracts/spawn-requests.md)
 - [Target Proxy](../contracts/target-proxy.md)
+- [Skill Loadout Editing](../contracts/skill-loadout-editing.md)
 
 ## Related Flows
 
@@ -69,6 +74,7 @@ and authored presentation setup.
 - [Target Proxy Lifecycle](../flows/target-proxy-lifecycle.md)
 - [Mob Spawn And Behaviour](../flows/mob-spawn-and-behaviour.md)
 - [Skill To Combat Spawn](../flows/skill-to-combat-spawn.md)
+- [Skill Loadout Edit](../flows/skill-loadout-edit.md)
 
 ## Notes / TODOs
 

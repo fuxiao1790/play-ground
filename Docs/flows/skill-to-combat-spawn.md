@@ -6,7 +6,7 @@ Trace how authored skills become plain-data combat spawn requests.
 
 ## Sequence
 
-1. Authoring defines skills, supports, triggers, loadout slots, and validator
+1. Authoring defines skills, supports, triggers, normalized loadout nodes, and validator
    prefab requirements.
 2. Game logic compiles equipped sets into runtime skill definitions.
 3. `SkillSpawnTranslator` turns runtime definitions into projectile or AOE
@@ -61,3 +61,7 @@ use event-template keys instead of managed nested references.
 
 Detailed reference:
 [skill-system.md](../reference/game-logic/skill-system.md).
+
+Runtime edit authority is documented in
+[Skill Loadout Editing](../contracts/skill-loadout-editing.md) and
+[Skill Loadout Edit](./skill-loadout-edit.md).

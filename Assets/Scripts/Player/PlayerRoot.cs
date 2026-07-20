@@ -57,6 +57,8 @@ namespace PlayGround.Player
         private Entity combatTargetProxy;
         private bool deleteProxyInLateUpdate;
         private int targetId;
+        private bool gameplayInputBlocked;
+        private bool pointerOverSkillUi;
         public StatusEffects StatusEffects { get; private set; }
 
         public Vector2 AimDirection => facing?.AimDirection ?? Vector2.right;
@@ -79,6 +81,12 @@ namespace PlayGround.Player
         public float CurrentHealth => health?.CurrentHealth ?? 0f;
         public int EquippedAttackCount => skillDriver?.SlotCount ?? 0;
         public IReadOnlyList<StatusStackSnapshot> StatusSnapshots => statusSnapshots;
+
+        public void SetGameplayInputGate(bool modalOpen, bool pointerOverUi)
+        {
+            gameplayInputBlocked = modalOpen;
+            pointerOverSkillUi = pointerOverUi;
+        }
 
         private void Awake()
         {
@@ -287,13 +295,13 @@ namespace PlayGround.Player
         }
 
         private Vector2 ReadMoveInput() =>
-            Vector2.ClampMagnitude(moveAction.ReadValue<Vector2>(), 1f);
+            gameplayInputBlocked ? Vector2.zero : Vector2.ClampMagnitude(moveAction.ReadValue<Vector2>(), 1f);
 
         private bool ReadAttackHeld() =>
-            attackAction.IsPressed();
+            !gameplayInputBlocked && !pointerOverSkillUi && attackAction.IsPressed();
 
         private bool ReadDashPressedThisFrame() =>
-            dashAction.WasPressedThisFrame();
+            !gameplayInputBlocked && dashAction.WasPressedThisFrame();
 
         private Vector2 ReadAimWorldPosition()
         {

@@ -13,69 +13,89 @@ namespace PlayGround.Skills
 {
     public static class SkillLoadoutValidator
     {
+        // Temporary test-fixture compatibility while the existing EditMode cases
+        // move from managed-reference slots to normalized nodes.
+        [global::System.Obsolete("Tests must use SkillLoadoutNode lists.")]
+        public static void Validate(
+            IReadOnlyList<LoadoutSlot> slots,
+            List<SkillValidationWarning> warnings)
+        {
+            var nodes = new List<SkillLoadoutNode>();
+            if (slots != null)
+            {
+                for (int i = 0; i < slots.Count; i++)
+                {
+                    if (slots[i] is not SkillSetSlot skillSlot) continue;
+                    TriggerLink trigger = i + 2 < slots.Count
+                        && slots[i + 1] is TriggerLinkSlot triggerSlot
+                        && slots[i + 2] is SkillSetSlot
+                        ? triggerSlot.link
+                        : null;
+                    nodes.Add(new SkillLoadoutNode(skillSlot.skillSet, trigger));
+                }
+            }
+
+            Validate(nodes, warnings);
+        }
+
         public static SkillValidationWarning[] Validate(SkillLoadout loadout)
         {
             if (loadout == null) return global::System.Array.Empty<SkillValidationWarning>();
 
             var warnings = new List<SkillValidationWarning>();
-            Validate(loadout.Slots, warnings);
+            Validate(loadout.Nodes, warnings);
             return warnings.ToArray();
         }
 
         public static void Validate(
-            IReadOnlyList<LoadoutSlot> slots,
+            IReadOnlyList<SkillLoadoutNode> nodes,
             List<SkillValidationWarning> warnings)
         {
-            if (slots == null || warnings == null) return;
+            if (nodes == null || warnings == null) return;
 
             var stackTriggerEffectIndices = new HashSet<int>();
-            for (int i = 1; i + 1 < slots.Count; i++)
+            for (int i = 0; i + 1 < nodes.Count; i++)
             {
-                if (slots[i] is TriggerLinkSlot { link: StackTrigger }
-                    && slots[i - 1] is SkillSetSlot { skillSet: not null }
-                    && slots[i + 1] is SkillSetSlot { skillSet: not null })
+                if (nodes[i]?.TriggerToNext is StackTrigger
+                    && nodes[i]?.SkillSet != null
+                    && nodes[i + 1]?.SkillSet != null)
                 {
                     stackTriggerEffectIndices.Add(i + 1);
                 }
             }
 
-            for (int i = 0; i < slots.Count; i++)
+            for (int i = 0; i < nodes.Count; i++)
             {
-                if (slots[i] is SkillSetSlot skillSlot)
-                {
-                    ValidateSkillSetSlot(skillSlot, i, warnings);
-                    ValidateStackingSupportReachability(skillSlot, i, stackTriggerEffectIndices, warnings);
-                    continue;
-                }
-
-                if (slots[i] is TriggerLinkSlot triggerSlot)
-                    ValidateTriggerLinkSlot(slots, triggerSlot, i, warnings);
+                SkillLoadoutNode node = nodes[i];
+                ValidateSkillSet(node?.SkillSet, i, warnings);
+                ValidateStackingSupportReachability(node?.SkillSet, i, stackTriggerEffectIndices, warnings);
+                if (node?.TriggerToNext != null)
+                    ValidateTriggerLink(nodes, node.TriggerToNext, i, warnings);
             }
-
         }
 
-        private static void ValidateSkillSetSlot(
-            SkillSetSlot slot,
+        private static void ValidateSkillSet(
+            SkillSet skillSet,
             int slotIndex,
             List<SkillValidationWarning> warnings)
         {
-            if (slot.skillSet == null)
+            if (skillSet == null)
             {
                 AddWarning(warnings, SkillValidationWarningCode.MissingSkillSet, slotIndex,
                     $"Skill slot {slotIndex} has no skill set.");
                 return;
             }
 
-            Skill skill = slot.skillSet.Skill;
+            Skill skill = skillSet.Skill;
             if (skill == null)
             {
                 AddWarning(warnings, SkillValidationWarningCode.MissingSkill, slotIndex,
-                    $"Skill set '{slot.skillSet.name}' has no skill.");
+                    $"Skill set '{skillSet.name}' has no skill.");
                 return;
             }
 
             SkillDefinitionTags skillTags = skill.Tags;
-            SkillSupport[] supports = slot.skillSet.Supports;
+            SkillSupport[] supports = skillSet.Supports;
             for (int i = 0; i < supports.Length; i++)
             {
                 if (supports[i] is not StatModifierSupport support)
@@ -85,83 +105,76 @@ namespace PlayGround.Skills
                     continue;
 
                 AddWarning(warnings, SkillValidationWarningCode.UnsupportedSupportForSkill, slotIndex,
-                    $"Support '{support.name}' on skill set '{slot.skillSet.name}' supports {SkillDefinitionTagUtility.Format(support.SupportedSkillTags)}, but skill '{skill.name}' is {SkillDefinitionTagUtility.Format(skillTags)}. Support will be ignored.");
+                    $"Support '{support.name}' on skill set '{skillSet.name}' supports {SkillDefinitionTagUtility.Format(support.SupportedSkillTags)}, but skill '{skill.name}' is {SkillDefinitionTagUtility.Format(skillTags)}. Support will be ignored.");
             }
         }
 
-        private static void ValidateTriggerLinkSlot(
-            IReadOnlyList<LoadoutSlot> slots,
-            TriggerLinkSlot slot,
+        private static void ValidateTriggerLink(
+            IReadOnlyList<SkillLoadoutNode> nodes,
+            TriggerLink link,
             int slotIndex,
             List<SkillValidationWarning> warnings)
         {
-            if (slot.link == null)
+            if (slotIndex + 1 >= nodes.Count
+                || nodes[slotIndex]?.SkillSet == null
+                || nodes[slotIndex + 1]?.SkillSet == null)
             {
                 AddWarning(warnings, SkillValidationWarningCode.DanglingTriggerLink, slotIndex,
-                    $"Trigger slot {slotIndex} has no trigger link.");
+                    $"Trigger '{link.name}' at node {slotIndex} is not between two valid skill sets. Link will be ignored.");
                 return;
             }
 
-            if (slotIndex <= 0 || slotIndex + 1 >= slots.Count
-                || slots[slotIndex - 1] is not SkillSetSlot causeSlot
-                || slots[slotIndex + 1] is not SkillSetSlot effectSlot
-                || causeSlot.skillSet == null
-                || effectSlot.skillSet == null)
-            {
-                AddWarning(warnings, SkillValidationWarningCode.DanglingTriggerLink, slotIndex,
-                    $"Trigger '{slot.link.name}' at slot {slotIndex} is not between two valid skill sets. Link will be ignored.");
-                return;
-            }
-
-            Skill causeSkill = causeSlot.skillSet.Skill;
-            Skill effectSkill = effectSlot.skillSet.Skill;
+            SkillSet causeSet = nodes[slotIndex].SkillSet;
+            SkillSet effectSet = nodes[slotIndex + 1].SkillSet;
+            Skill causeSkill = causeSet.Skill;
+            Skill effectSkill = effectSet.Skill;
             if (causeSkill == null || effectSkill == null)
                 return;
 
-            if (slot.link is StackTrigger)
+            if (link is StackTrigger)
             {
-                ValidateStackTriggerTarget(slot, slotIndex, effectSlot.skillSet, warnings);
+                ValidateStackTriggerTarget(link, slotIndex, effectSet, warnings);
                 return;
             }
 
-            if (HasStackingSupport(effectSlot.skillSet))
+            if (HasStackingSupport(effectSet))
             {
                 AddWarning(warnings, SkillValidationWarningCode.UnsupportedStackingDetonation, slotIndex,
-                    $"Trigger '{slot.link.name}' targets stacking set '{effectSlot.skillSet.name}' but is not a StackTrigger. Link will do nothing.");
+                    $"Trigger '{link.name}' targets stacking set '{effectSet.name}' but is not a StackTrigger. Link will do nothing.");
             }
 
-            if (slot.link.SourceSkillTags == SkillDefinitionTags.None
-                || slot.link.TargetSkillTags == SkillDefinitionTags.None)
+            if (link.SourceSkillTags == SkillDefinitionTags.None
+                || link.TargetSkillTags == SkillDefinitionTags.None)
             {
                 AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerLink, slotIndex,
-                    $"Trigger '{slot.link.name}' has no runtime-compatible skill tags. Link will be ignored.");
+                    $"Trigger '{link.name}' has no runtime-compatible skill tags. Link will be ignored.");
                 return;
             }
 
-            if (slot.link is OnAoeHitSpawnTrigger)
+            if (link is OnAoeHitSpawnTrigger)
             {
-                ValidateAoeHitSpawnLink(slot, slotIndex, causeSkill, effectSkill, warnings);
+                ValidateAoeHitSpawnLink(link, slotIndex, causeSkill, effectSkill, warnings);
                 return;
             }
 
-            if (IsIntervalSpawnTrigger(slot.link))
-                ValidateIntervalSpawnSource(slot, slotIndex, causeSkill, warnings);
+            if (IsIntervalSpawnTrigger(link))
+                ValidateIntervalSpawnSource(link, slotIndex, causeSkill, warnings);
 
-            if (!SkillDefinitionTagUtility.HasAny(causeSkill.Tags, slot.link.SourceSkillTags))
+            if (!SkillDefinitionTagUtility.HasAny(causeSkill.Tags, link.SourceSkillTags))
             {
                 AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerSource, slotIndex,
-                    $"Trigger '{slot.link.name}' expects {SkillDefinitionTagUtility.Format(slot.link.SourceSkillTags)} source, but source skill '{causeSkill.name}' is {SkillDefinitionTagUtility.Format(causeSkill.Tags)}. Link will do nothing.");
+                    $"Trigger '{link.name}' expects {SkillDefinitionTagUtility.Format(link.SourceSkillTags)} source, but source skill '{causeSkill.name}' is {SkillDefinitionTagUtility.Format(causeSkill.Tags)}. Link will do nothing.");
             }
 
-            if (!SkillDefinitionTagUtility.HasAny(effectSkill.Tags, slot.link.TargetSkillTags))
+            if (!SkillDefinitionTagUtility.HasAny(effectSkill.Tags, link.TargetSkillTags))
             {
                 AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerTarget, slotIndex,
-                    $"Trigger '{slot.link.name}' expects {SkillDefinitionTagUtility.Format(slot.link.TargetSkillTags)} target, but target skill '{effectSkill.name}' is {SkillDefinitionTagUtility.Format(effectSkill.Tags)}. Link will do nothing.");
+                    $"Trigger '{link.name}' expects {SkillDefinitionTagUtility.Format(link.TargetSkillTags)} target, but target skill '{effectSkill.name}' is {SkillDefinitionTagUtility.Format(effectSkill.Tags)}. Link will do nothing.");
             }
         }
 
         private static void ValidateAoeHitSpawnLink(
-            TriggerLinkSlot slot,
+            TriggerLink link,
             int slotIndex,
             Skill causeSkill,
             Skill effectSkill,
@@ -170,13 +183,13 @@ namespace PlayGround.Skills
             if (!CanSourceAoeHitSpawn(causeSkill.Definition))
             {
                 AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerSource, slotIndex,
-                    $"Trigger '{slot.link.name}' expects an AOE source, but source skill '{causeSkill.name}' is {SkillDefinitionTagUtility.Format(causeSkill.Tags)}. Link will do nothing.");
+                    $"Trigger '{link.name}' expects an AOE source, but source skill '{causeSkill.name}' is {SkillDefinitionTagUtility.Format(causeSkill.Tags)}. Link will do nothing.");
             }
 
             if (!CanTargetAoeHitSpawn(effectSkill.Definition))
             {
                 AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerTarget, slotIndex,
-                    $"Trigger '{slot.link.name}' expects an AOE target, but target skill '{effectSkill.name}' is {SkillDefinitionTagUtility.Format(effectSkill.Tags)}. Link will do nothing.");
+                    $"Trigger '{link.name}' expects an AOE target, but target skill '{effectSkill.name}' is {SkillDefinitionTagUtility.Format(effectSkill.Tags)}. Link will do nothing.");
             }
         }
 
@@ -187,7 +200,7 @@ namespace PlayGround.Skills
             definition is AoeDefinitionBase;
 
         private static void ValidateIntervalSpawnSource(
-            TriggerLinkSlot slot,
+            TriggerLink link,
             int slotIndex,
             Skill causeSkill,
             List<SkillValidationWarning> warnings)
@@ -195,7 +208,7 @@ namespace PlayGround.Skills
             if (causeSkill.Definition is AoeDefinitionBase and not LingeringAoeDefinition)
             {
                 AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerSource, slotIndex,
-                    $"Trigger '{slot.link.name}' uses AOE source skill '{causeSkill.name}', but interval spawn sources must be projectiles or lingering AOEs. Pulse AOEs have no duration to tick, so this link will do nothing.");
+                    $"Trigger '{link.name}' uses AOE source skill '{causeSkill.name}', but interval spawn sources must be projectiles or lingering AOEs. Pulse AOEs have no duration to tick, so this link will do nothing.");
             }
         }
 
@@ -203,23 +216,23 @@ namespace PlayGround.Skills
             link is ProjectileIntervalSpawnTrigger or AoeIntervalSpawnTrigger;
 
         private static void ValidateStackingSupportReachability(
-            SkillSetSlot slot,
+            SkillSet skillSet,
             int slotIndex,
             HashSet<int> stackTriggerEffectIndices,
             List<SkillValidationWarning> warnings)
         {
-            if (slot.skillSet == null || !HasStackingSupport(slot.skillSet))
+            if (skillSet == null || !HasStackingSupport(skillSet))
                 return;
 
             if (stackTriggerEffectIndices.Contains(slotIndex))
                 return;
 
             AddWarning(warnings, SkillValidationWarningCode.UnsupportedStackingDetonation, slotIndex,
-                $"Stacking set '{slot.skillSet.name}' is not the effect of a StackTrigger. Set will never fire.");
+                $"Stacking set '{skillSet.name}' is not the effect of a StackTrigger. Set will never fire.");
         }
 
         private static void ValidateStackTriggerTarget(
-            TriggerLinkSlot slot,
+            TriggerLink link,
             int slotIndex,
             SkillSet effectSet,
             List<SkillValidationWarning> warnings)
@@ -228,7 +241,7 @@ namespace PlayGround.Skills
                 return;
 
             AddWarning(warnings, SkillValidationWarningCode.UnsupportedStackingDetonation, slotIndex,
-                $"StackTrigger '{slot.link.name}' targets skill set '{effectSet.name}' with no StackingSupport. Nothing will be baked.");
+                $"StackTrigger '{link.name}' targets skill set '{effectSet.name}' with no StackingSupport. Nothing will be baked.");
         }
 
         private static bool HasStackingSupport(SkillSet set)

@@ -37,6 +37,7 @@ Authority rules:
 - [Collision To Combat Result](../flows/collision-to-combat-result.md)
 - [Target Proxy Lifecycle](../flows/target-proxy-lifecycle.md)
 - [VFX Dispatch](../flows/vfx-dispatch.md)
+- [Skill Loadout Edit](../flows/skill-loadout-edit.md)
 - [Mob Spawn And Behaviour](../flows/mob-spawn-and-behaviour.md)
 
 ## Major Contracts
@@ -47,6 +48,7 @@ Authority rules:
 - [Target Proxy](../contracts/target-proxy.md)
 - [Combat Hit And Tick Results](../contracts/combat-hit-and-tick-results.md)
 - [Skill Runtime Snapshots](../contracts/skill-runtime-snapshots.md)
+- [Skill Loadout Editing](../contracts/skill-loadout-editing.md)
 - [VFX Requests](../contracts/vfx-requests.md)
 - [Render Batch Data](../contracts/render-batch-data.md)
 

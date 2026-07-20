@@ -1,0 +1,10 @@
+{
+  "name": "com.playground.skill-ui",
+  "displayName": "PlayGround Skill UI",
+  "version": "0.1.0",
+  "unity": "6000.0",
+  "description": "UI Toolkit presentation and catalog for runtime player skill editing.",
+  "dependencies": {
+    "com.unity.inputsystem": "1.19.0"
+  }
+}

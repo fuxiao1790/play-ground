@@ -331,7 +331,7 @@ MonoBehaviour:
   behaviour: {fileID: 11400000, guid: 4aac8482a8fe9094d89631645450595f, type: 2}
   placement: {fileID: 11400000, guid: 8f4a425140a0d5449bb2fb80385b00e0, type: 2}
   spawnPoints: []
-  cap: 500
+  cap: 100
   combatRoot: {fileID: 529810935}
   vfxRoot: {fileID: 0}
   target: {fileID: 0}
@@ -723,7 +723,7 @@ PrefabInstance:
     - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: loadout
       value: 
-      objectReference: {fileID: 11400000, guid: a3000000000000000000000000000008, type: 2}
+      objectReference: {fileID: 11400000, guid: 745b048b884690240a4472aed61c2e33, type: 2}
     - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: vfxRoot
       value: 
@@ -1529,6 +1529,17 @@ SortingGroup:
   m_SortingOrder: 0
   m_SortAtRoot: 0
   m_Sort3DAs2D: 0
+--- !u!114 &1534015925 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+  m_PrefabInstance: {fileID: 830174275}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 225537358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a100000000000000000000000000000d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillDriver
 --- !u!1 &1554334968
 GameObject:
   m_ObjectHideFlags: 0
@@ -1996,6 +2007,78 @@ CapsuleCollider2D:
   m_Offset: {x: -0.1, y: 0}
   m_Size: {x: 1, y: 2}
   m_Direction: 0
+--- !u!1 &1983018953
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1983018955}
+  - component: {fileID: 1983018954}
+  - component: {fileID: 1983018956}
+  m_Layer: 0
+  m_Name: GameUI
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1983018954
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1983018953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
+  m_PanelSettings: {fileID: 11400000, guid: 45f8cd9a58aba3d4c814c066531dd3aa, type: 2}
+  m_ParentUI: {fileID: 0}
+  sourceAsset: {fileID: 0}
+  m_SortingOrder: 0
+  m_Position: 0
+  m_WorldSpaceSizeMode: 1
+  m_WorldSpaceWidth: 1920
+  m_WorldSpaceHeight: 1080
+  m_PivotReferenceSize: 0
+  m_Pivot: 0
+  m_WorldSpaceCollider: {fileID: 0}
+--- !u!4 &1983018955
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1983018953}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2.63069, y: -0.08017, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1983018956
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1983018953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 14f58db2ed082d648b03b9baaf79d898, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillLoadoutUi
+  skillDriver: {fileID: 1534015925}
+  catalog: {fileID: 11400000, guid: 8c2ac3dd8ca03c044a86edf6d4298796, type: 2}
+  playerRoot: {fileID: 830174276}
+  initialNodeCount: 3
 --- !u!1 &2131619987
 GameObject:
   m_ObjectHideFlags: 0
@@ -2205,3 +2288,4 @@ SceneRoots:
   - {fileID: 529810936}
   - {fileID: 151502262}
   - {fileID: 178213209}
+  - {fileID: 1983018955}
