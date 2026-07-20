@@ -4,7 +4,7 @@
 
 Replace the placeholder player sprite (`Assets/Shooter/Players/Tiles/tile_0000.png`) with the blue (top) row of `Assets/Sprite/Actors/wizard.png` and support 4 intercardinal facings (up-left, up-right, down-left, down-right). Facing stays aim-driven (mouse cursor); only the bucketing changes from 2 sides (`flipX`) to 4 diagonal quadrants with per-direction sprites. One frame per direction → sprite-swap only, no Animator (none exists in the project; `PlayerAnimatorDriver` is a null-guarded no-op).
 
-Sheet facts: 1254×1254, 4×4 grid (~313.5px cells, transparent gutters). Rows top→bottom: blue, red, green, purple variants. Columns 1-2 back views (up diagonals), 3-4 front views (down diagonals). Left/right frames hand-drawn distinct — real frames, no mirroring.
+Sheet facts (updated 2026-07-19): the original 4×4 `wizard.png` was split by the user into one file per color row — `wizard-blue.png`, `wizard-red.png`, `wizard-green.png`, `wizard-purple.png` under `Assets/Sprite/Actors/`. Each is a 4-frame horizontal strip: frames 1-2 back views (up diagonals), 3-4 front views (down diagonals), hand-drawn distinct — real frames, no mirroring. User already sliced `wizard-blue.png` in the Sprite Editor: `wizard-blue_0..3`, 293×384 cells, pivot bottom-center (alignment 7), PPU still 100 at time of writing.
 
 Division of labor: Claude writes code (001-003); the user performs all Unity-editor work (004).
 
@@ -47,14 +47,14 @@ Division of labor: Claude writes code (001-003); the user performs all Unity-edi
 
 ## Direction mapping (working guess — verified in Play mode, 004-D)
 
-| sprite (blue row) | view | direction |
+| sprite | view | direction |
 |---|---|---|
-| wizard_0 (col 1) | back | up-right |
-| wizard_1 (col 2) | back | up-left |
-| wizard_2 (col 3) | front | **down-right (default)** |
-| wizard_3 (col 4) | front | down-left |
+| wizard-blue_0 (frame 1) | back | up-right |
+| wizard-blue_1 (frame 2) | back | up-left |
+| wizard-blue_2 (frame 3) | front | **down-right (default)** |
+| wizard-blue_3 (frame 4) | front | down-left |
 
-If left/right prove swapped: swap `upLeft`↔`upRight` and `downLeft`↔`downRight` in the SO asset inspector and set the prefab default sprite to `wizard_3`. Data-only fix.
+If left/right prove swapped: swap `upLeft`↔`upRight` and `downLeft`↔`downRight` in the SO asset inspector and set the prefab default sprite to `wizard-blue_3`. Data-only fix.
 
 ## Tasks
 
