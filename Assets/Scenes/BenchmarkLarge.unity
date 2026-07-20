@@ -2018,6 +2018,7 @@ GameObject:
   - component: {fileID: 1983018955}
   - component: {fileID: 1983018954}
   - component: {fileID: 1983018956}
+  - component: {fileID: 1983018957}
   m_Layer: 0
   m_Name: GameUI
   m_TagString: Untagged
@@ -2079,6 +2080,22 @@ MonoBehaviour:
   catalog: {fileID: 11400000, guid: 8c2ac3dd8ca03c044a86edf6d4298796, type: 2}
   playerRoot: {fileID: 830174276}
   initialNodeCount: 3
+--- !u!114 &1983018957
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1983018953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86d95e319c5b4c16bcaa094037e53c22, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: PlayGround.SkillUi::PlayGround.Skills.PlayerSaveController
+  playerRoot: {fileID: 830174276}
+  skillDriver: {fileID: 1534015925}
+  catalog: {fileID: 11400000, guid: 8c2ac3dd8ca03c044a86edf6d4298796, type: 2}
+  autosaveSeconds: 30
 --- !u!1 &2131619987
 GameObject:
   m_ObjectHideFlags: 0

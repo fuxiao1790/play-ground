@@ -8,7 +8,7 @@ minor fixes
 - multiple projectile should also have 1 projectile aimed at where the cursor is.
 
 new feature
-- ui
+- ui  improvements
 - interval spawn direction (only side spray is supported currently.)
 - damage number vfx graph
 - cast on crit and other conditions.

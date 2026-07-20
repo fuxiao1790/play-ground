@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000002, type: 3}
   m_Name: MagicBolt
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileSkill
+  assetGuid: 2845951cae608d943a8b55c1765dade3
   baseRate: 5
   definition:
     prefab: {fileID: 1001001001001001004, guid: 9bbb2791febb5cd44a3d8fbb50dc1451, type: 3}

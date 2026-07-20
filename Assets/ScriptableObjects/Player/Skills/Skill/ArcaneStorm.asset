@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 96d9854370791424b9d8c6ce4070bffb, type: 3}
   m_Name: ArcaneStorm
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.LingeringAoeSkill
+  assetGuid: cbb1570f850ec9f4bb2198f064de5ffb
   baseRate: 5
   definition:
     baseAreaSize: 1

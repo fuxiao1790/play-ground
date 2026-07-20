@@ -12,5 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a100000000000000000000000000001a, type: 3}
   m_Name: PiercingSupport
   m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:PiercingSupport
+  assetGuid: e79cf38ef9f7b3f41bb7856217f5d3db
   pierceCount: 5
   repeatHitCooldown: 0.5

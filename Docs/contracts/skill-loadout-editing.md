@@ -123,11 +123,11 @@ loadout and shows `rejectionReason`.
   is running. Trigger changes are still allowed.
 - Invalid state never commits and no command auto-clears a different slot.
 
-## Save DTO (Design Only)
+## Save DTO
 
-Persistence is not implemented by this feature. A future versioned DTO maps the
-normalized topology to stable catalog IDs and must not serialize runtime clones,
-compiled definitions, cooldown state, or Unity object references:
+Persistence maps the normalized topology to baked Unity asset GUID strings and
+does not serialize runtime clones, compiled definitions, cooldown state, or
+Unity object references:
 
 ```csharp
 sealed class PlayerSkillLoadoutSaveV1
@@ -137,18 +137,18 @@ sealed class PlayerSkillLoadoutSaveV1
 
     sealed class Node
     {
-        public int skillId;
-        public List<int> supportIds;
-        public int triggerToNextId;
+        public string skillAssetGuid;
+        public List<string> supportAssetGuids;
+        public string triggerToNextAssetGuid;
     }
 }
 ```
 
-`0` encodes an empty field. The catalog derives auto-increment IDs from its
-deterministic authored order; IDs are never manually authored or serialized.
-Load must resolve IDs through the catalog and validate before a session runtime
-clone is created. This section is a
-format design, not a persistence feature or migration promise.
+An empty string encodes an empty field. GUIDs are baked from Unity's asset
+database into `Skill`, `SkillSupport`, and `TriggerLink` assets so catalog
+reordering does not alter save identity. Load resolves GUIDs from the authored
+default loadout and catalog, then validates before session runtime clones are
+created. See [Player Save Data](./player-save-data.md).
 
 ## Related Documents
 

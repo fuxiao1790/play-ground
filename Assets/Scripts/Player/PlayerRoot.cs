@@ -1,6 +1,7 @@
 using PlayGround.Common;
 using PlayGround.Common.Stats;
 using PlayGround.Common.StatusEffects;
+using PlayGround.Persistence;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
@@ -77,6 +78,7 @@ namespace PlayGround.Player
         public CombatShapeType CombatTargetShapeType => ProjectileTargetShapeUtility.ShapeType(hurtbox);
         public int CombatTargetMask => 1 << hurtbox.gameObject.layer;
         public float CombatMaxHealth => statSheet.MaxHealth;
+        public float CombatCurrentHealth => CurrentHealth;
         public bool IsCombatTargetActive => isActiveAndEnabled && health != null && health.IsAlive;
         public float CurrentHealth => health?.CurrentHealth ?? 0f;
         public int EquippedAttackCount => skillDriver?.SlotCount ?? 0;
@@ -270,6 +272,34 @@ namespace PlayGround.Player
             {
                 statusSnapshots.Add(stacks[i]);
             }
+        }
+
+        public PlayerStateSaveData CapturePersistentState()
+        {
+            Vector2 position = body != null ? body.position : (Vector2)transform.position;
+            return new PlayerStateSaveData
+            {
+                positionX = position.x,
+                positionY = position.y,
+                currentHealth = CurrentHealth
+            };
+        }
+
+        public bool RestorePersistentState(PlayerStateSaveData savedState)
+        {
+            if (savedState == null || !savedState.IsValid() || health == null)
+            {
+                return false;
+            }
+
+            Vector2 position = new(savedState.positionX, savedState.positionY);
+            body.position = position;
+            transform.position = new Vector3(position.x, position.y, transform.position.z);
+            health.Restore(savedState.currentHealth);
+            deleteProxyInLateUpdate = false;
+            PlayGround.System.Combat.Targets.CombatTargetProxy.SetHealth(this, health.CurrentHealth);
+            PushCombatTargetProxy();
+            return true;
         }
 
         private void PushCombatTargetProxy()

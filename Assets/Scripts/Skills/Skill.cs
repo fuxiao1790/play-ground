@@ -1,8 +1,9 @@
+using PlayGround.Common;
 using UnityEngine;
 
 namespace PlayGround.Skills
 {
-    public abstract class Skill : ScriptableObject
+    public abstract class Skill : PersistentScriptableObject
     {
         [SerializeField, Min(0.01f)] private float baseRate = 5f;
 

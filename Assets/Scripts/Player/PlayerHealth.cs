@@ -66,6 +66,26 @@ namespace PlayGround.Player
             }
         }
 
+        public void Restore(float currentHealth)
+        {
+            CurrentHealth = currentHealth <= 0f
+                ? MaxHealth
+                : Mathf.Clamp(currentHealth, 1f, MaxHealth);
+            body.linearVelocity = Vector2.zero;
+            body.simulated = true;
+            if (bodyCollider != null)
+            {
+                bodyCollider.enabled = true;
+            }
+
+            if (hurtbox != null)
+            {
+                hurtbox.enabled = true;
+            }
+
+            spriteRenderer.enabled = true;
+        }
+
         private void SoftDie()
         {
             body.linearVelocity = Vector2.zero;

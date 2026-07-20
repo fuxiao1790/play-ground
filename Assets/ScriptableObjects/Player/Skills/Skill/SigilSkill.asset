@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 96d9854370791424b9d8c6ce4070bffb, type: 3}
   m_Name: SigilSkill
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.LingeringAoeSkill
+  assetGuid: 6539f094aa736534781901f6238c9723
   baseRate: 1
   definition:
     baseAreaSize: 2.2

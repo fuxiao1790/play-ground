@@ -57,45 +57,11 @@ namespace PlayGround.Skills
         public IReadOnlyList<SupportEntry> Supports => supports;
         public IReadOnlyList<TriggerEntry> Triggers => triggers;
 
-        // IDs are derived from the current catalog order. They are never authored or serialized.
-        public int GetGeneratedId(SkillEntry entry) => GetGeneratedId(skills, entry, 0);
-        public int GetGeneratedId(SupportEntry entry) => GetGeneratedId(supports, entry, CountEntries(skills));
-        public int GetGeneratedId(TriggerEntry entry) => GetGeneratedId(triggers, entry, CountEntries(skills) + CountEntries(supports));
-
         private void OnValidate()
         {
             ValidateEntries(skills, entry => entry.Definition, "skill");
             ValidateEntries(supports, entry => entry.Definition, "support");
             ValidateEntries(triggers, entry => entry.Definition, "trigger");
-        }
-
-        private static int GetGeneratedId<TEntry>(List<TEntry> entries, TEntry entry, int offset)
-            where TEntry : class
-        {
-            for (int i = 0; i < entries.Count; i++)
-            {
-                if (entries[i] == null)
-                    continue;
-
-                offset++;
-                if (ReferenceEquals(entries[i], entry))
-                    return offset;
-            }
-
-            return 0;
-        }
-
-        private static int CountEntries<TEntry>(List<TEntry> entries)
-            where TEntry : class
-        {
-            int count = 0;
-            for (int i = 0; i < entries.Count; i++)
-            {
-                if (entries[i] != null)
-                    count++;
-            }
-
-            return count;
         }
 
         private void ValidateEntries<TEntry, TDefinition>(

@@ -80,6 +80,7 @@ namespace PlayGround.System.Combat.Targets
         CombatShapeType CombatTargetShapeType { get; }
         int CombatTargetMask { get; }
         float CombatMaxHealth => 1f;
+        float CombatCurrentHealth => CombatMaxHealth;
         bool IsCombatTargetActive { get; }
         void ReceiveHit(in CombatHitData hit);
 

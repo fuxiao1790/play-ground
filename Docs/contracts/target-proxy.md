@@ -43,8 +43,9 @@ target snapshot buffers.
 
 ## Lifetime
 
-Actor registration creates the proxy. Actor updates push shape/position.
-Actor teardown queues deletion after current-frame proxy users are safe.
+Actor registration creates the proxy and seeds its current/maximum health from
+the actor. Actor updates push shape/position. Actor teardown queues deletion
+after current-frame proxy users are safe.
 
 ## Ordering
 

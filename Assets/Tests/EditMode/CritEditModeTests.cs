@@ -44,9 +44,8 @@ namespace PlayGround.Tests.EditMode
             var snapshot = new SkillStatSnapshot(0f, 1f, critChance: 0.3f, critMultiplier: 2.5f);
 
             RuntimeSkillDefinition result = SkillSetCompiler.Compile(
-                Slots(set),
+                Nodes(set),
                 0,
-                global::System.Array.Empty<TriggerChain>(),
                 snapshot);
 
             Assert.That(result, Is.TypeOf<RuntimeProjectileDefinition>());
@@ -62,9 +61,8 @@ namespace PlayGround.Tests.EditMode
             var snapshot = new SkillStatSnapshot(0f, 1f, critChance: 0.15f, critMultiplier: 3f);
 
             RuntimeSkillDefinition result = SkillSetCompiler.Compile(
-                Slots(set),
+                Nodes(set),
                 0,
-                global::System.Array.Empty<TriggerChain>(),
                 snapshot);
 
             Assert.That(result, Is.TypeOf<RuntimeAoeDefinition>());
@@ -81,9 +79,8 @@ namespace PlayGround.Tests.EditMode
             var snapshot = new SkillStatSnapshot(0f, 1f, critChance: 0f, critMultiplier: 1.5f, areaSizeMultiplier: 2f);
 
             RuntimeSkillDefinition result = SkillSetCompiler.Compile(
-                Slots(set),
+                Nodes(set),
                 0,
-                global::System.Array.Empty<TriggerChain>(),
                 snapshot);
 
             Assert.That(result, Is.TypeOf<RuntimeAoeDefinition>());
@@ -100,9 +97,8 @@ namespace PlayGround.Tests.EditMode
             SkillSet set = CreateSkillSet("Set", skill, support, support);
 
             RuntimeSkillDefinition result = SkillSetCompiler.Compile(
-                Slots(set),
+                Nodes(set),
                 0,
-                global::System.Array.Empty<TriggerChain>(),
                 SkillStatSnapshot.Identity);
 
             Assert.That(result, Is.TypeOf<RuntimeAoeDefinition>());
@@ -117,9 +113,8 @@ namespace PlayGround.Tests.EditMode
             SkillSet set = CreateSkillSet("Set", skill);
 
             RuntimeSkillDefinition result = SkillSetCompiler.Compile(
-                Slots(set),
+                Nodes(set),
                 0,
-                global::System.Array.Empty<TriggerChain>(),
                 SkillStatSnapshot.Identity);
 
             Assert.That(result.RecoveryTime, Is.EqualTo(0.2f).Within(0.0001f));
@@ -135,9 +130,8 @@ namespace PlayGround.Tests.EditMode
             SkillSet set = CreateSkillSet("Set", skill, support, support);
 
             RuntimeSkillDefinition result = SkillSetCompiler.Compile(
-                Slots(set),
+                Nodes(set),
                 0,
-                global::System.Array.Empty<TriggerChain>(),
                 SkillStatSnapshot.Identity);
 
             Assert.That(result.RecoveryTime, Is.EqualTo(0.1f).Within(0.0001f));
@@ -151,9 +145,9 @@ namespace PlayGround.Tests.EditMode
             return set;
         }
 
-        private static LoadoutSlot[] Slots(SkillSet set)
+        private static SkillLoadoutNode[] Nodes(SkillSet set)
         {
-            return new LoadoutSlot[] { new SkillSetSlot { skillSet = set } };
+            return new[] { new SkillLoadoutNode(set) };
         }
 
         private T CreateAsset<T>(string name) where T : ScriptableObject

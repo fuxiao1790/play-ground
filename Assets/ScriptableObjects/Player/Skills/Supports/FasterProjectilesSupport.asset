@@ -12,5 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a100000000000000000000000000001c, type: 3}
   m_Name: FasterProjectilesSupport
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.FasterProjectilesSupport
+  assetGuid: c61a962b5989ef64bae7848c2ff286aa
   speedMultiplier: 1.75
   lifetimeMultiplier: 1.2

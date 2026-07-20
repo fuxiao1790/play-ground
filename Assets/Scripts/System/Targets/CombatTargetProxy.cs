@@ -94,8 +94,9 @@ namespace PlayGround.System.Combat.Targets
             target.CombatTargetProxy = entity;
             entityManager.SetComponentData(entity, new TargetFaction { Value = faction });
             entityManager.SetComponentData(entity, new TargetCompanion { Target = target });
-            float maxHealth = target.CombatMaxHealth;
-            entityManager.SetComponentData(entity, new TargetHealth { Current = maxHealth, Max = maxHealth });
+            float maxHealth = math.max(1f, target.CombatMaxHealth);
+            float currentHealth = math.clamp(target.CombatCurrentHealth, 0f, maxHealth);
+            entityManager.SetComponentData(entity, new TargetHealth { Current = currentHealth, Max = maxHealth });
             Push(entityManager, entity, target);
             return entity;
         }
@@ -167,6 +168,27 @@ namespace PlayGround.System.Combat.Targets
 
                 return true;
             }
+        }
+
+        public static bool SetHealth(ICombatTarget target, float currentHealth)
+        {
+            if (target == null
+                || target.CombatTargetProxy == Entity.Null
+                || !TryGetEntityManager(out EntityManager entityManager)
+                || !Exists(entityManager, target.CombatTargetProxy))
+            {
+                return false;
+            }
+
+            float maxHealth = math.max(1f, target.CombatMaxHealth);
+            entityManager.SetComponentData(
+                target.CombatTargetProxy,
+                new TargetHealth
+                {
+                    Current = math.clamp(currentHealth, 0f, maxHealth),
+                    Max = maxHealth
+                });
+            return true;
         }
 
         public static bool Exists(EntityManager entityManager, Entity entity)

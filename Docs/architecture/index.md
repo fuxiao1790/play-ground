@@ -49,6 +49,7 @@ Authority rules:
 - [Combat Hit And Tick Results](../contracts/combat-hit-and-tick-results.md)
 - [Skill Runtime Snapshots](../contracts/skill-runtime-snapshots.md)
 - [Skill Loadout Editing](../contracts/skill-loadout-editing.md)
+- [Player Save Data](../contracts/player-save-data.md)
 - [VFX Requests](../contracts/vfx-requests.md)
 - [Render Batch Data](../contracts/render-batch-data.md)
 

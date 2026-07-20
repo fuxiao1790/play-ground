@@ -1,4 +1,5 @@
 using System;
+using PlayGround.Common;
 using UnityEngine;
 
 namespace PlayGround.Skills
@@ -26,7 +27,7 @@ namespace PlayGround.Skills
         public TriggerLink link;
     }
 
-    public abstract class TriggerLink : ScriptableObject
+    public abstract class TriggerLink : PersistentScriptableObject
     {
         public abstract SkillDefinitionTags SourceSkillTags { get; }
         public abstract SkillDefinitionTags TargetSkillTags { get; }

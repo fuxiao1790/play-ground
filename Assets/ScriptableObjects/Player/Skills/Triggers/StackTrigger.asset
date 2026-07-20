@@ -12,3 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9180de4c19e45f9b312fa61190d9306, type: 3}
   m_Name: StackTrigger
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.StackTrigger
+  assetGuid: c4000000000000000000000000000001

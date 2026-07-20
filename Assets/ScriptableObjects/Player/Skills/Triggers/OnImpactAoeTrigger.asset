@@ -12,3 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000013, type: 3}
   m_Name: OnImpactAoeTrigger
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.OnImpactAoeTrigger
+  assetGuid: 502349cdbd8fc624f8dd28ba7b2eebbb

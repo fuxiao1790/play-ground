@@ -190,6 +190,92 @@ namespace PlayGround.Skills
             configuredInitialRuntimeNodeCount = Mathf.Max(0, nodeCount);
         }
 
+        public bool TryRestoreRuntimeLoadout(
+            IReadOnlyList<SkillLoadoutRestoreNode> restoredNodes,
+            out string rejectionReason)
+        {
+            const int maxRestoredNodes = 256;
+            const int maxRestoredSupportsPerNode = 64;
+            if (runtimeLoadout == null)
+            {
+                rejectionReason = "No runtime loadout is available.";
+                return false;
+            }
+
+            if (hasPendingEdit)
+            {
+                rejectionReason = "A loadout edit is pending.";
+                return false;
+            }
+
+            if (restoredNodes == null || restoredNodes.Count > maxRestoredNodes)
+            {
+                rejectionReason = "Saved loadout has an invalid node count.";
+                return false;
+            }
+
+            var replacement = new List<SkillLoadoutNode>(restoredNodes.Count);
+            for (int nodeIndex = 0; nodeIndex < restoredNodes.Count; nodeIndex++)
+            {
+                SkillLoadoutRestoreNode restored = restoredNodes[nodeIndex];
+                if (restored == null)
+                {
+                    rejectionReason = $"Saved loadout node {nodeIndex} is missing.";
+                    return false;
+                }
+
+                if (restored.Supports.Count > maxRestoredSupportsPerNode)
+                {
+                    rejectionReason = $"Saved loadout node {nodeIndex} has too many support slots.";
+                    return false;
+                }
+
+                if (restored.Skill == null)
+                {
+                    if (restored.Supports.Count > 0 || restored.TriggerToNext != null)
+                    {
+                        rejectionReason = $"Saved loadout node {nodeIndex} has dependencies but no skill.";
+                        return false;
+                    }
+
+                    replacement.Add(new SkillLoadoutNode(null));
+                    continue;
+                }
+
+                var set = ScriptableObject.CreateInstance<SkillSet>();
+                set.hideFlags = HideFlags.DontSave;
+                set.name = $"{restored.Skill.name} (Restored Runtime)";
+                set.SetSkill(restored.Skill);
+                for (int supportIndex = 0; supportIndex < restored.Supports.Count; supportIndex++)
+                {
+                    set.SetSupport(supportIndex, restored.Supports[supportIndex]);
+                }
+
+                replacement.Add(new SkillLoadoutNode(set, restored.TriggerToNext));
+            }
+
+            SkillLoadout previous = runtimeLoadout;
+            SkillLoadout candidate = runtimeLoadout.CreateRuntimeClone();
+            candidate.ReplaceRuntimeNodes(replacement);
+            try
+            {
+                runtimeLoadout = candidate;
+                CompileAndRegister();
+            }
+            catch (Exception exception)
+            {
+                runtimeLoadout = previous;
+                CompileAndRegister();
+                rejectionReason = $"Saved loadout could not compile: {exception.Message}";
+                return false;
+            }
+
+            revision++;
+            LoadoutChanged?.Invoke(revision);
+            rejectionReason = null;
+            return true;
+        }
+
         private void ProcessPendingEdit()
         {
             if (!hasPendingEdit) return;

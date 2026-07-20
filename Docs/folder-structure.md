@@ -78,6 +78,7 @@ Docs/
 - `Assets/Scripts/`: runtime C# code
 - `Assets/Scripts/Common/`: shared non-ECS gameplay helpers
 - `Assets/Scripts/Player/`: player root, movement, facing, animation, health
+- `Assets/Scripts/Persistence/`: versioned player save DTOs and JSON file store
 - `Assets/Scripts/Mob/`: mob root, behavior, triggers, attacks, status handling
 - `Assets/Scripts/Spawn/`: spawn root, spawn points, spawn config
 - `Assets/Scripts/Skills/`: skill definitions, runtime skill compilation,

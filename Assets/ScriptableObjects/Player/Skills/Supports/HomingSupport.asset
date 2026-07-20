@@ -12,5 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a100000000000000000000000000001b, type: 3}
   m_Name: HomingSupport
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.HomingSupport
+  assetGuid: d07c2ec4b643bfd4e953fc934c2ea674
   trackingTurnSpeedDegrees: 180
   trackingQueryIntervalSeconds: 0.15

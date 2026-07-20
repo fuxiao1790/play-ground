@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000002, type: 3}
   m_Name: MobArrowSkill
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileSkill
+  assetGuid: dc832525f70d0c049955a42de1d0a6fd
   baseRate: 1
   definition:
     prefab: {fileID: 1001001001001001004, guid: 43056b62790d3794e9c1ae2a8bdea1bf, type: 3}
