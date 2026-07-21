@@ -36,7 +36,8 @@ not serialized.
    health so a shutdown after death cannot create a dead-on-load loop.
 3. Resolve asset GUIDs from the authored default loadout plus the UI catalog.
 4. Ask `SkillDriver` to rebuild runtime `SkillSet` clones and compile the
-   restored loadout.
+   restored loadout. Each resolved skill asset supplies its authored maximum
+   support count, so that value does not need a separate save field.
 5. If the file is missing, corrupt, from an unsupported version, or references
    removed content, keep authored defaults and report a warning.
 

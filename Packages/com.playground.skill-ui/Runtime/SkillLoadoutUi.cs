@@ -7,8 +7,6 @@ namespace PlayGround.Skills
     [RequireComponent(typeof(UIDocument))]
     public sealed class SkillLoadoutUi : MonoBehaviour
     {
-        private const int VisibleSupports = 3;
-
         [SerializeField] private SkillDriver skillDriver;
         [SerializeField] private SkillUiCatalog catalog;
         [SerializeField] private PlayerRoot playerRoot;
@@ -103,7 +101,11 @@ namespace PlayGround.Skills
         {
             var column = new VisualElement { style = { flexDirection = FlexDirection.Column, alignItems = Align.Center } };
             var supports = new VisualElement { style = { flexDirection = FlexDirection.Row } };
-            for (int supportIndex = 0; supportIndex < VisibleSupports; supportIndex++)
+            var runtimeNodes = skillDriver.RuntimeNodes;
+            int maxSupportCount = runtimeNodes != null && nodeIndex < runtimeNodes.Count
+                ? runtimeNodes[nodeIndex]?.SkillSet?.MaxSupportCount ?? 0
+                : 0;
+            for (int supportIndex = 0; supportIndex < maxSupportCount; supportIndex++)
             {
                 int captured = supportIndex;
                 var support = new Button(() => OpenPicker(new PickerTarget(PickerKind.Support, nodeIndex, captured))) { text = SupportLabel(nodeIndex, supportIndex) };

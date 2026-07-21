@@ -580,49 +580,18 @@ namespace PlayGround.Tests.EditMode
             OnImpactProjectileTrigger impactProjectileTrigger = CreateAsset<OnImpactProjectileTrigger>("Impact Projectile");
             StackTrigger firstStackTrigger = CreateAsset<StackTrigger>("First Stack Trigger");
             StackTrigger secondStackTrigger = CreateAsset<StackTrigger>("Second Stack Trigger");
-            var chains = new[]
+            var nodes = new SkillLoadoutNode[]
             {
-                new TriggerChain
-                {
-                    causeIndex = 0,
-                    link = impactAoeTrigger,
-                    effectIndex = 2,
-                },
-                new TriggerChain
-                {
-                    causeIndex = 2,
-                    link = firstStackTrigger,
-                    effectIndex = 4,
-                },
-                new TriggerChain
-                {
-                    causeIndex = 5,
-                    link = impactProjectileTrigger,
-                    effectIndex = 7,
-                },
-                new TriggerChain
-                {
-                    causeIndex = 7,
-                    link = secondStackTrigger,
-                    effectIndex = 9,
-                },
-            };
-            var slots = new LoadoutSlot[]
-            {
-                new SkillSetSlot { skillSet = rootSet },
-                new TriggerLinkSlot { link = impactAoeTrigger },
-                new SkillSetSlot { skillSet = aoeApplicatorSet },
-                new TriggerLinkSlot { link = firstStackTrigger },
-                new SkillSetSlot { skillSet = firstDetonationSet },
-                new SkillSetSlot { skillSet = rootSet },
-                new TriggerLinkSlot { link = impactProjectileTrigger },
-                new SkillSetSlot { skillSet = projectileApplicatorSet },
-                new TriggerLinkSlot { link = secondStackTrigger },
-                new SkillSetSlot { skillSet = secondDetonationSet },
+                new(rootSet, impactAoeTrigger),
+                new(aoeApplicatorSet, firstStackTrigger),
+                new(firstDetonationSet),
+                new(rootSet, impactProjectileTrigger),
+                new(projectileApplicatorSet, secondStackTrigger),
+                new(secondDetonationSet),
             };
 
-            RuntimeSkillDefinition impactAoeRuntime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
-            RuntimeSkillDefinition impactProjectileRuntime = SkillSetCompiler.Compile(slots, 5, chains, SkillStatSnapshot.Identity);
+            RuntimeSkillDefinition impactAoeRuntime = SkillSetCompiler.Compile(nodes, 0, SkillStatSnapshot.Identity);
+            RuntimeSkillDefinition impactProjectileRuntime = SkillSetCompiler.Compile(nodes, 3, SkillStatSnapshot.Identity);
 
             Assert.That(impactAoeRuntime, Is.TypeOf<RuntimeProjectileDefinition>());
             Assert.That(((RuntimeProjectileDefinition)impactAoeRuntime).ImpactAoeDefinition, Is.Not.Null);

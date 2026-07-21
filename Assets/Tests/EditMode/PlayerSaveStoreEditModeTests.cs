@@ -125,5 +125,75 @@ namespace PlayGround.Tests.EditMode
                 UnityEngine.Object.DestroyImmediate(gameObject);
             }
         }
+
+        [Test]
+        public void SkillSuppliesSupportLimitToEachSkillSet()
+        {
+            ProjectileSkill firstSkill = ScriptableObject.CreateInstance<ProjectileSkill>();
+            ProjectileSkill secondSkill = ScriptableObject.CreateInstance<ProjectileSkill>();
+            SkillSet firstSet = ScriptableObject.CreateInstance<SkillSet>();
+            SkillSet secondSet = ScriptableObject.CreateInstance<SkillSet>();
+            try
+            {
+                var serializedFirst = new SerializedObject(firstSkill);
+                serializedFirst.FindProperty("maxSupportCount").intValue = 2;
+                serializedFirst.ApplyModifiedPropertiesWithoutUndo();
+
+                var serializedSecond = new SerializedObject(secondSkill);
+                serializedSecond.FindProperty("maxSupportCount").intValue = 5;
+                serializedSecond.ApplyModifiedPropertiesWithoutUndo();
+
+                var serializedFirstSet = new SerializedObject(firstSet);
+                serializedFirstSet.FindProperty("skill").objectReferenceValue = firstSkill;
+                serializedFirstSet.ApplyModifiedPropertiesWithoutUndo();
+
+                var serializedSecondSet = new SerializedObject(secondSet);
+                serializedSecondSet.FindProperty("skill").objectReferenceValue = secondSkill;
+                serializedSecondSet.ApplyModifiedPropertiesWithoutUndo();
+
+                Assert.That(firstSet.MaxSupportCount, Is.EqualTo(2));
+                Assert.That(secondSet.MaxSupportCount, Is.EqualTo(5));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(firstSet);
+                UnityEngine.Object.DestroyImmediate(secondSet);
+                UnityEngine.Object.DestroyImmediate(firstSkill);
+                UnityEngine.Object.DestroyImmediate(secondSkill);
+            }
+        }
+
+        [Test]
+        public void SkillDriverRejectsSavedSupportsBeyondNodeLimit()
+        {
+            var gameObject = new GameObject("SkillDriver saved support limit test");
+            ProjectileSkill skill = ScriptableObject.CreateInstance<ProjectileSkill>();
+            try
+            {
+                var serializedSkill = new SerializedObject(skill);
+                serializedSkill.FindProperty("maxSupportCount").intValue = 2;
+                serializedSkill.ApplyModifiedPropertiesWithoutUndo();
+
+                SkillDriver driver = gameObject.AddComponent<SkillDriver>();
+                MethodInfo start = typeof(SkillDriver).GetMethod(
+                    "Start",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(start, Is.Not.Null);
+                start.Invoke(driver, null);
+
+                var restored = new List<SkillLoadoutRestoreNode>
+                {
+                    new(skill, new SkillSupport[3], null)
+                };
+
+                Assert.That(driver.TryRestoreRuntimeLoadout(restored, out string error), Is.False);
+                Assert.That(error, Does.Contain("skill's 2-support limit"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                UnityEngine.Object.DestroyImmediate(skill);
+            }
+        }
     }
 }

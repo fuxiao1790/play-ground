@@ -13,7 +13,8 @@ implement save/load or define UI layout.
 | `Skill`, `SkillSupport`, `TriggerLink`, authored `SkillSet`, authored `SkillLoadout` | Scene And Authoring | Shared template assets. Never mutate during play. |
 | Runtime `SkillLoadout` and runtime `SkillSet` clones | `SkillDriver` in Game Logic | One mutable session equipment source. |
 | Validation, compilation, template registration, root cooldowns | `SkillDriver` and Game Logic helpers | UI cannot perform or bypass these steps. |
-| Picker, focus, pending state, visible-slot limit | UI Toolkit presenter/controller | Presentation state only. |
+| Per-skill support limit | `Skill` | Authored with the skill, exposed by every containing `SkillSet`, and enforced by `SkillDriver`. |
+| Picker, focus, pending state | UI Toolkit presenter/controller | Presentation state only. |
 | In-flight projectile/AOE values and template keys | ECS/combat runtime | Copied at cast/spawn time; not updated by loadout edits. |
 
 ## Normalized Loadout
@@ -32,8 +33,9 @@ sealed class SkillLoadoutNode
 when both neighbor nodes contain a skill set and the existing validator accepts
 the link. A node's incoming link is derived from the node before it. A node with
 an incoming link is triggered-only; a node without one is a direct-cast root.
-This is forward-only topology. Core node and support collections have no UI-size
-limit.
+This is forward-only topology. Core node and support collections remain
+unbounded data structures, but each `Skill` owns its maximum support count.
+Containing `SkillSet` instances expose that value and `SkillDriver` enforces it.
 
 The player may start with no authored loadout. In that case `SkillDriver` creates
 an empty runtime loadout; choosing a skill at a UI position grows the runtime
@@ -75,9 +77,10 @@ struct SkillLoadoutEditResult
 ```
 
 `definitionId` is resolved by a future explicit `SkillUiCatalog`, not by
-editor-only asset search. `supportIndex` is a UI slot address; the core support
-list remains unbounded. Commands include `expectedRevision` so stale picker
-state is rejected rather than overwriting a newer edit.
+editor-only asset search. `supportIndex` is bounded by the target runtime skill's
+support limit, exposed through its `SkillSet`. Commands include
+`expectedRevision` so stale picker state is rejected rather than overwriting a
+newer edit.
 
 One edit may be pending. At the start of `SkillDriver.Tick`, the driver:
 
@@ -115,6 +118,8 @@ loadout and shows `rejectionReason`.
 
 - Picker lists all catalog choices. A choice that validator rules reject is
   disabled with its reason.
+- Support edits and restored support arrays must fit the target skill's support
+  limit.
 - Duplicate support selection is a v1 UI-policy rejection; it does not cap or
   change the core support model.
 - Clearing a skill is disabled until its supports and adjacent dependent links

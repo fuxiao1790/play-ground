@@ -8,16 +8,17 @@ validation result.
 
 ## V1 Layout Policy
 
-The bottom-center bar defaults to three visible skill positions, two links
-between adjacent positions, and three support positions above each visible
-skill. `SkillLoadoutUi.initialNodeCount` serializes this initial visible/runtime
-node count in the UI package. This is only a UI policy. `SkillLoadout` node count and a `SkillSet`
-support count remain unbounded in authoring, validation, compilation, runtime,
-and future save data. V1 does not choose a player root-skill limit.
+The bottom-center bar defaults to three visible skill positions and two links
+between adjacent positions. `SkillLoadoutUi.initialNodeCount` serializes this
+initial visible/runtime node count. An equipped skill set displays up to the
+maximum support count authored on its `Skill`; an empty skill position has no
+support row. The UI does not own or override this gameplay limit. `SkillLoadout`
+and `SkillSet` collections remain unbounded data
+structures. V1 does not choose a player root-skill limit.
 
 ```text
-support  support  support        support  support  support
-             [ skill 0 ] -- link 0 -- [ skill 1 ] -- link 1 -- [ skill 2 ]
+[ supports: per set ]  [ supports: per set ]  [ supports: per set ]
+  [ skill 0 ] -- link 0 -- [ skill 1 ] -- link 1 -- [ skill 2 ]
 ```
 
 An empty skill position displays `+`. A node with an incoming trigger is gray

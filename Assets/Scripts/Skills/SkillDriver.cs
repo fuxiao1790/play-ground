@@ -246,6 +246,12 @@ namespace PlayGround.Skills
                 set.hideFlags = HideFlags.DontSave;
                 set.name = $"{restored.Skill.name} (Restored Runtime)";
                 set.SetSkill(restored.Skill);
+                if (restored.Supports.Count > set.MaxSupportCount)
+                {
+                    rejectionReason = $"Saved loadout node {nodeIndex} exceeds its skill's {set.MaxSupportCount}-support limit.";
+                    return false;
+                }
+
                 for (int supportIndex = 0; supportIndex < restored.Supports.Count; supportIndex++)
                 {
                     set.SetSupport(supportIndex, restored.Supports[supportIndex]);
@@ -357,6 +363,8 @@ namespace PlayGround.Skills
                 case SkillLoadoutEditKind.ClearSupport:
                     if (node.SkillSet == null || command.SupportIndex < 0)
                     { rejectionReason = "Choose a skill before editing supports."; return false; }
+                    if (command.SupportIndex >= node.SkillSet.MaxSupportCount)
+                    { rejectionReason = $"This skill supports at most {node.SkillSet.MaxSupportCount} supports."; return false; }
                     node.SkillSet.SetSupport(command.SupportIndex, command.Kind == SkillLoadoutEditKind.SetSupport ? command.Support : null);
                     break;
                 case SkillLoadoutEditKind.SetTrigger:

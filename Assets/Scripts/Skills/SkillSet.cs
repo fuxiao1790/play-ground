@@ -11,6 +11,7 @@ namespace PlayGround.Skills
 
         public Skill Skill => skill;
         public SkillSupport[] Supports => supports;
+        public int MaxSupportCount => skill?.MaxSupportCount ?? 0;
 
         internal SkillSet CreateRuntimeClone()
         {
@@ -26,7 +27,7 @@ namespace PlayGround.Skills
 
         internal void SetSupport(int index, SkillSupport value)
         {
-            if (index < 0) return;
+            if (index < 0 || index >= MaxSupportCount) return;
             if (index >= supports.Length)
             {
                 var expanded = new SkillSupport[index + 1];

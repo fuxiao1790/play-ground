@@ -51,9 +51,9 @@ sequenceDiagram
 
 ## Failure Rules
 
-- A stale picker revision, cooldown-blocked skill/support change, missing
-  dependency, invalid compatibility, compile failure, or registration failure
-  rejects the command without partial mutation.
+- A stale picker revision, cooldown-blocked skill/support change, out-of-range
+  support position, missing dependency, invalid compatibility, compile failure,
+  or registration failure rejects the command without partial mutation.
 - UI may explain invalid choices before submit, but driver validation is final
   authority.
 - No edit validates or compiles per frame; all such work is edit-frequency only.
