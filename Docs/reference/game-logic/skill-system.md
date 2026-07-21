@@ -60,36 +60,46 @@ docs, see
 [ecs-simulation.md](../../layers/ecs-simulation.md).
 
 ```
-鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
-鈹? Layer 1: Equipment state       鈹?
-鈹? Skill, SkillSupport,          鈹?
-鈹? SkillSet, TriggerLink,         鈹?
-鈹? SkillLoadout                  鈹?
-鈹?                                鈹?
-鈹? Mutable. Live equipment state. 鈹?
-鈹? Uses Layer 1.5 to produce      鈹?
-鈹? SkillStatSnapshot on change.  鈹?
-鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
-                 鈹?SkillStatSnapshot + SkillSet
-鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈻尖攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
-鈹? Layer 2 (orchestration layer)  鈹?
-鈹? SkillDriver              鈹?
-鈹? SkillSlotState[] (cooldowns)   鈹?
-鈹? RuntimeSkillDefinition[]       鈹?
-鈹?                                鈹?
-鈹? Owns runtime slot state.       鈹?
-鈹? Gates input 鈫?internals.       鈹?
-鈹? Uses Layer 2.5 to dispatch.    鈹?
-鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
-                 鈹?drives
-鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈻尖攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
-鈹? Combat runtime (internal)      鈹?
-鈹? CombatRoot, ECS systems,       鈹?
-鈹? MonoBehaviours                 鈹?
-鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
++----------------------------------+
+| Layer 1: Equipment state         |
+| Skill, SkillSupport,             |
+| SkillSet, TriggerLink,           |
+| SkillLoadout                     |
+|                                  |
+| Mutable. Live equipment state.   |
+| Uses Layer 1.5 to produce        |
+| SkillStatSnapshot on change.     |
++----------------------------------+
+                  |
+                  v
++----------------------------------+
+| Layer 1.5: Stat resolution       |
+| SkillStatSnapshot + SkillSet     |
++----------------------------------+
+                  |
+                  v
++----------------------------------+
+| Layer 2 (orchestration layer)    |
+| SkillDriver                      |
+| SkillSlotState[] (cooldowns)     |
+| RuntimeSkillDefinition[]         |
+|                                  |
+| Owns runtime slot state.         |
+| Gates input to internals.        |
+| Uses Layer 2.5 to dispatch.      |
++----------------------------------+
+                  |
+                drives
+                  |
+                  v
++----------------------------------+
+| Combat runtime (internal)        |
+| CombatRoot, ECS systems,         |
+| MonoBehaviours                   |
++----------------------------------+
+Layer 1.5 (SkillStatAggregator) - stateless utility used by Layer 1. Not a chain tier.
+Layer 2.5 (SkillSpawnTranslator) - stateless utility used by Layer 2. Not a chain tier.
 
-Layer 1.5 (SkillStatAggregator) 鈥?stateless utility used by Layer 1. Not a chain tier.
-Layer 2.5 (SkillSpawnTranslator) 鈥?stateless utility used by Layer 2. Not a chain tier.
 ```
 
 ### Layer 1: Equipment State
