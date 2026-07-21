@@ -95,6 +95,10 @@ MonoBehaviour:
     displayName: Projectile Interval Spawn Trigger
     description: 
     icon: {fileID: 0}
+  - definition: {fileID: 11400000, guid: 72a746e8a702b014b85cb4d1db22eb8a, type: 2}
+    displayName: Projectile Interval Spawn Trigger 2
+    description: 
+    icon: {fileID: 0}
   - definition: {fileID: 11400000, guid: c4000000000000000000000000000001, type: 2}
     displayName: Stack Trigger
     description: 
