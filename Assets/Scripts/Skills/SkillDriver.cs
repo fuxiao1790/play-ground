@@ -246,9 +246,18 @@ namespace PlayGround.Skills
                 set.hideFlags = HideFlags.DontSave;
                 set.name = $"{restored.Skill.name} (Restored Runtime)";
                 set.SetSkill(restored.Skill);
-                if (restored.Supports.Count > set.MaxSupportCount)
+                int restoredSupportSlotCount = restored.SupportSlotCount < 0
+                    ? set.MaxSupportCount
+                    : restored.SupportSlotCount;
+                if (!set.TrySetSupportSlotCount(restoredSupportSlotCount))
                 {
-                    rejectionReason = $"Saved loadout node {nodeIndex} exceeds its skill's {set.MaxSupportCount}-support limit.";
+                    rejectionReason = $"Saved loadout node {nodeIndex} has an invalid support cap.";
+                    return false;
+                }
+
+                if (restored.Supports.Count > set.SupportSlotCount)
+                {
+                    rejectionReason = $"Saved loadout node {nodeIndex} exceeds its {set.SupportSlotCount}-slot support cap.";
                     return false;
                 }
 
@@ -317,7 +326,8 @@ namespace PlayGround.Skills
         private bool IsCooldownBlocked(SkillLoadoutEditCommand command)
         {
             if (command.Kind is not (SkillLoadoutEditKind.SetSkill or SkillLoadoutEditKind.ClearSkill
-                or SkillLoadoutEditKind.SetSupport or SkillLoadoutEditKind.ClearSupport))
+                or SkillLoadoutEditKind.SetSupport or SkillLoadoutEditKind.ClearSupport
+                or SkillLoadoutEditKind.IncreaseSupportCap or SkillLoadoutEditKind.DecreaseSupportCap))
                 return false;
 
             int rootIndex = FindRootSlotForNode(command.NodeIndex);
@@ -363,9 +373,21 @@ namespace PlayGround.Skills
                 case SkillLoadoutEditKind.ClearSupport:
                     if (node.SkillSet == null || command.SupportIndex < 0)
                     { rejectionReason = "Choose a skill before editing supports."; return false; }
-                    if (command.SupportIndex >= node.SkillSet.MaxSupportCount)
-                    { rejectionReason = $"This skill supports at most {node.SkillSet.MaxSupportCount} supports."; return false; }
+                    if (command.SupportIndex >= node.SkillSet.SupportSlotCount)
+                    { rejectionReason = $"This skill set currently has {node.SkillSet.SupportSlotCount} support slots."; return false; }
                     node.SkillSet.SetSupport(command.SupportIndex, command.Kind == SkillLoadoutEditKind.SetSupport ? command.Support : null);
+                    break;
+                case SkillLoadoutEditKind.IncreaseSupportCap:
+                    if (node.SkillSet == null)
+                    { rejectionReason = "Choose a skill before increasing its support cap."; return false; }
+                    if (!node.SkillSet.TryIncreaseSupportSlotCount())
+                    { rejectionReason = $"This skill allows at most {node.SkillSet.MaxSupportCount} support slots."; return false; }
+                    break;
+                case SkillLoadoutEditKind.DecreaseSupportCap:
+                    if (node.SkillSet == null)
+                    { rejectionReason = "Choose a skill before decreasing its support cap."; return false; }
+                    if (!node.SkillSet.TryDecreaseSupportSlotCount())
+                    { rejectionReason = "This skill set has no support slots to remove."; return false; }
                     break;
                 case SkillLoadoutEditKind.SetTrigger:
                     if (command.Trigger == null) { rejectionReason = "Choose a trigger."; return false; }

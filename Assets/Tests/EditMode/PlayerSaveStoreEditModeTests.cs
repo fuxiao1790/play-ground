@@ -52,6 +52,7 @@ namespace PlayGround.Tests.EditMode
                         new()
                         {
                             skillAssetGuid = "0123456789abcdef0123456789abcdef",
+                            supportSlotCountPlusOne = 5,
                             supportAssetGuids = new List<string>
                             {
                                 "abcdef0123456789abcdef0123456789",
@@ -71,6 +72,7 @@ namespace PlayGround.Tests.EditMode
             Assert.That(loaded.player.positionY, Is.EqualTo(-4.25f));
             Assert.That(loaded.player.currentHealth, Is.EqualTo(73f));
             Assert.That(loaded.skillLoadout.nodes[0].skillAssetGuid, Is.EqualTo(data.skillLoadout.nodes[0].skillAssetGuid));
+            Assert.That(loaded.skillLoadout.nodes[0].supportSlotCountPlusOne, Is.EqualTo(5));
             Assert.That(loaded.skillLoadout.nodes[0].supportAssetGuids, Is.EqualTo(data.skillLoadout.nodes[0].supportAssetGuids));
             Assert.That(loaded.skillLoadout.nodes[0].triggerToNextAssetGuid, Is.EqualTo(data.skillLoadout.nodes[0].triggerToNextAssetGuid));
         }
@@ -187,11 +189,46 @@ namespace PlayGround.Tests.EditMode
                 };
 
                 Assert.That(driver.TryRestoreRuntimeLoadout(restored, out string error), Is.False);
-                Assert.That(error, Does.Contain("skill's 2-support limit"));
+                Assert.That(error, Does.Contain("2-slot support cap"));
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(gameObject);
+                UnityEngine.Object.DestroyImmediate(skill);
+            }
+        }
+
+        [Test]
+        public void DecreasingSupportCapDeletesSupportInRemovedSlot()
+        {
+            ProjectileSkill skill = ScriptableObject.CreateInstance<ProjectileSkill>();
+            AddedDamageSupport support = ScriptableObject.CreateInstance<AddedDamageSupport>();
+            SkillSet set = ScriptableObject.CreateInstance<SkillSet>();
+            try
+            {
+                var serializedSkill = new SerializedObject(skill);
+                serializedSkill.FindProperty("maxSupportCount").intValue = 2;
+                serializedSkill.ApplyModifiedPropertiesWithoutUndo();
+
+                var serializedSet = new SerializedObject(set);
+                serializedSet.FindProperty("skill").objectReferenceValue = skill;
+                SerializedProperty supports = serializedSet.FindProperty("supports");
+                supports.arraySize = 2;
+                supports.GetArrayElementAtIndex(1).objectReferenceValue = support;
+                serializedSet.ApplyModifiedPropertiesWithoutUndo();
+
+                MethodInfo decrease = typeof(SkillSet).GetMethod(
+                    "TryDecreaseSupportSlotCount",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(decrease, Is.Not.Null);
+                Assert.That(decrease.Invoke(set, null), Is.True);
+                Assert.That(set.SupportSlotCount, Is.EqualTo(1));
+                Assert.That(set.Supports.Length, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(set);
+                UnityEngine.Object.DestroyImmediate(support);
                 UnityEngine.Object.DestroyImmediate(skill);
             }
         }

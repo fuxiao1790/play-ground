@@ -11,7 +11,7 @@ implement save/load or define UI layout.
 | Thing | Owner | Rule |
 |---|---|---|
 | `Skill`, `SkillSupport`, `TriggerLink`, authored `SkillSet`, authored `SkillLoadout` | Scene And Authoring | Shared template assets. Never mutate during play. |
-| Runtime `SkillLoadout` and runtime `SkillSet` clones | `SkillDriver` in Game Logic | One mutable session equipment source. |
+| Runtime `SkillLoadout` and runtime `SkillSet` clones | `SkillDriver` in Game Logic | One mutable session equipment source, including each set's current support cap. |
 | Validation, compilation, template registration, root cooldowns | `SkillDriver` and Game Logic helpers | UI cannot perform or bypass these steps. |
 | Per-skill support limit | `Skill` | Authored with the skill, exposed by every containing `SkillSet`, and enforced by `SkillDriver`. |
 | Picker, focus, pending state | UI Toolkit presenter/controller | Presentation state only. |
@@ -34,8 +34,9 @@ when both neighbor nodes contain a skill set and the existing validator accepts
 the link. A node's incoming link is derived from the node before it. A node with
 an incoming link is triggered-only; a node without one is a direct-cast root.
 This is forward-only topology. Core node and support collections remain
-unbounded data structures, but each `Skill` owns its maximum support count.
-Containing `SkillSet` instances expose that value and `SkillDriver` enforces it.
+unbounded data structures, but each `Skill` owns its maximum support count. A
+runtime `SkillSet` starts at that maximum and owns its current mutable support
+cap. `SkillDriver` enforces both values.
 
 The player may start with no authored loadout. In that case `SkillDriver` creates
 an empty runtime loadout; choosing a skill at a UI position grows the runtime
@@ -56,7 +57,9 @@ UI creates `SkillLoadoutEditCommand` values only. It never changes a `SkillSet`,
 ```csharp
 enum SkillLoadoutEditKind
 {
-    SetSkill, ClearSkill, SetSupport, ClearSupport, SetTrigger, ClearTrigger
+    SetSkill, ClearSkill, SetSupport, ClearSupport,
+    IncreaseSupportCap, DecreaseSupportCap,
+    SetTrigger, ClearTrigger
 }
 
 struct SkillLoadoutEditCommand
@@ -118,8 +121,11 @@ loadout and shows `rejectionReason`.
 
 - Picker lists all catalog choices. A choice that validator rules reject is
   disabled with its reason.
-- Support edits and restored support arrays must fit the target skill's support
-  limit.
+- Each runtime `SkillSet` starts at its skill's authored support maximum. Cap
+  increase/decrease commands stay between zero and that maximum. Decreasing the
+  cap truncates removed slots and deletes any support equipped there.
+- Support edits and restored support arrays must fit the runtime skill set's
+  current support cap.
 - Duplicate support selection is a v1 UI-policy rejection; it does not cap or
   change the core support model.
 - Clearing a skill is disabled until its supports and adjacent dependent links

@@ -8,6 +8,8 @@ namespace PlayGround.Skills
         ClearSkill,
         SetSupport,
         ClearSupport,
+        IncreaseSupportCap,
+        DecreaseSupportCap,
         SetTrigger,
         ClearTrigger,
     }

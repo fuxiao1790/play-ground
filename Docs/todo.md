@@ -14,6 +14,6 @@ new feature
 - cast on crit and other conditions.
 - fast projectiles, these cannot have tracking, requires tunneling check
 - targeted skills. no physics, just hits at an interval.
-- skills react to other skills through debuffs
+- more interaction between skills instead of just a single skill that does everything. damage currently is the only axis, is there something else that can be added.
 - unit related, these have dependency on each other 
     - player summons (these should just be mobs but with different faction)

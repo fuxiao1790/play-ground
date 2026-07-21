@@ -72,13 +72,17 @@ namespace PlayGround.Persistence
         public string skillAssetGuid;
         public List<string> supportAssetGuids = new();
         public string triggerToNextAssetGuid;
+        public int supportSlotCountPlusOne;
 
         public bool IsValid()
         {
             if (!IsGuidOrEmpty(skillAssetGuid)
                 || !IsGuidOrEmpty(triggerToNextAssetGuid)
                 || supportAssetGuids == null
-                || supportAssetGuids.Count > PlayerSaveData.MaxSupportsPerNode)
+                || supportAssetGuids.Count > PlayerSaveData.MaxSupportsPerNode
+                || supportSlotCountPlusOne < 0
+                || supportSlotCountPlusOne > PlayerSaveData.MaxSupportsPerNode + 1
+                || (supportSlotCountPlusOne > 0 && supportAssetGuids.Count > supportSlotCountPlusOne - 1))
             {
                 return false;
             }

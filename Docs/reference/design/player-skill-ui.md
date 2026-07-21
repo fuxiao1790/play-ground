@@ -10,14 +10,15 @@ validation result.
 
 The bottom-center bar defaults to three visible skill positions and two links
 between adjacent positions. `SkillLoadoutUi.initialNodeCount` serializes this
-initial visible/runtime node count. An equipped skill set displays up to the
-maximum support count authored on its `Skill`; an empty skill position has no
-support row. The UI does not own or override this gameplay limit. `SkillLoadout`
-and `SkillSet` collections remain unbounded data
+initial visible/runtime node count. An equipped skill set displays its current
+support slots between minus and plus cap controls. The cap cannot exceed the
+maximum authored on its `Skill`; decreasing it deletes the removed slot and any
+equipped support. An empty skill position has no support row. The UI does not
+own or override this gameplay limit. `SkillLoadout` and `SkillSet` collections remain unbounded data
 structures. V1 does not choose a player root-skill limit.
 
 ```text
-[ supports: per set ]  [ supports: per set ]  [ supports: per set ]
+[− supports +]         [− supports +]         [− supports +]
   [ skill 0 ] -- link 0 -- [ skill 1 ] -- link 1 -- [ skill 2 ]
 ```
 

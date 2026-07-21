@@ -22,9 +22,12 @@ The top-level `PlayerSaveData` contains:
 - format version;
 - 2D player position and current health;
 - ordered skill loadout nodes;
-- asset GUID strings for each skill, support slot, and outgoing trigger.
+- asset GUID strings for each skill, support slot, and outgoing trigger;
+- the current support-slot cap for each equipped runtime skill set.
 
-Empty fields use an empty string. Support arrays preserve empty slots. Runtime
+Empty fields use an empty string. Support arrays preserve empty slots. The saved
+support cap uses a plus-one encoding so zero in an older save means “use the
+skill's authored maximum,” while one represents a real zero-slot cap. Runtime
 clones, catalog-order IDs, cooldown progress, status effects, and ECS state are
 not serialized.
 
@@ -35,9 +38,9 @@ not serialized.
 2. Restore player position and health. A saved dead player restarts at maximum
    health so a shutdown after death cannot create a dead-on-load loop.
 3. Resolve asset GUIDs from the authored default loadout plus the UI catalog.
-4. Ask `SkillDriver` to rebuild runtime `SkillSet` clones and compile the
-   restored loadout. Each resolved skill asset supplies its authored maximum
-   support count, so that value does not need a separate save field.
+4. Ask `SkillDriver` to rebuild runtime `SkillSet` clones, restore each saved
+   current support cap within the resolved skill's authored maximum, and compile
+   the restored loadout.
 5. If the file is missing, corrupt, from an unsupported version, or references
    removed content, keep authored defaults and report a warning.
 

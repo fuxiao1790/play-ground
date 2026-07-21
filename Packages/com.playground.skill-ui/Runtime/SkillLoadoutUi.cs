@@ -102,15 +102,32 @@ namespace PlayGround.Skills
             var column = new VisualElement { style = { flexDirection = FlexDirection.Column, alignItems = Align.Center } };
             var supports = new VisualElement { style = { flexDirection = FlexDirection.Row } };
             var runtimeNodes = skillDriver.RuntimeNodes;
-            int maxSupportCount = runtimeNodes != null && nodeIndex < runtimeNodes.Count
-                ? runtimeNodes[nodeIndex]?.SkillSet?.MaxSupportCount ?? 0
-                : 0;
-            for (int supportIndex = 0; supportIndex < maxSupportCount; supportIndex++)
+            SkillSet skillSet = runtimeNodes != null && nodeIndex < runtimeNodes.Count
+                ? runtimeNodes[nodeIndex]?.SkillSet
+                : null;
+            if (skillSet != null)
+            {
+                var decrease = new Button(() => QueueCapEdit(SkillLoadoutEditKind.DecreaseSupportCap, nodeIndex)) { text = "−" };
+                decrease.style.width = 28; decrease.style.height = 28;
+                decrease.SetEnabled(skillSet.SupportSlotCount > 0);
+                supports.Add(decrease);
+            }
+
+            int supportSlotCount = skillSet?.SupportSlotCount ?? 0;
+            for (int supportIndex = 0; supportIndex < supportSlotCount; supportIndex++)
             {
                 int captured = supportIndex;
                 var support = new Button(() => OpenPicker(new PickerTarget(PickerKind.Support, nodeIndex, captured))) { text = SupportLabel(nodeIndex, supportIndex) };
                 support.style.width = 34; support.style.height = 28; support.style.fontSize = 10;
                 supports.Add(support);
+            }
+
+            if (skillSet != null)
+            {
+                var increase = new Button(() => QueueCapEdit(SkillLoadoutEditKind.IncreaseSupportCap, nodeIndex)) { text = "+" };
+                increase.style.width = 28; increase.style.height = 28;
+                increase.SetEnabled(skillSet.SupportSlotCount < skillSet.MaxSupportCount);
+                supports.Add(increase);
             }
 
             var skill = new Button(() => OpenPicker(new PickerTarget(PickerKind.Skill, nodeIndex))) { text = SkillLabel(nodeIndex) };
@@ -135,6 +152,11 @@ namespace PlayGround.Skills
             trigger.style.whiteSpace = WhiteSpace.Normal;
             trigger.style.fontSize = 10;
             bar.Add(trigger);
+        }
+
+        private void QueueCapEdit(SkillLoadoutEditKind kind, int nodeIndex)
+        {
+            skillDriver.TryQueueEdit(new SkillLoadoutEditCommand(skillDriver.Revision, kind, nodeIndex), out _);
         }
 
         private string SkillLabel(int index) => skillDriver.RuntimeNodes != null && index < skillDriver.RuntimeNodes.Count && skillDriver.RuntimeNodes[index]?.SkillSet?.Skill != null

@@ -155,6 +155,7 @@ namespace PlayGround.Skills
                     }
 
                     SkillSupport[] supports = node.SkillSet.Supports;
+                    savedNode.supportSlotCountPlusOne = node.SkillSet.SupportSlotCount + 1;
                     savedNode.supportAssetGuids = new List<string>(supports.Length);
                     for (int supportIndex = 0; supportIndex < supports.Length; supportIndex++)
                     {
@@ -214,7 +215,10 @@ namespace PlayGround.Skills
                     }
                 }
 
-                restoredNodes.Add(new SkillLoadoutRestoreNode(skill, restoredSupports, trigger));
+                int supportSlotCount = savedNode.supportSlotCountPlusOne > 0
+                    ? savedNode.supportSlotCountPlusOne - 1
+                    : -1;
+                restoredNodes.Add(new SkillLoadoutRestoreNode(skill, restoredSupports, trigger, supportSlotCount));
             }
 
             error = null;
