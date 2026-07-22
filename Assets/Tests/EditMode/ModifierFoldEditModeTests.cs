@@ -161,9 +161,8 @@ namespace PlayGround.Tests.EditMode
                 critMultiplier: 1.5f);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
-                Slots(set),
+                Nodes(set),
                 0,
-                global::System.Array.Empty<TriggerChain>(),
                 snapshot);
 
             Assert.That(runtime.RecoveryTime, Is.EqualTo(0.2f).Within(0.0001f));
@@ -183,9 +182,8 @@ namespace PlayGround.Tests.EditMode
             SkillSet set = CreateSkillSet("Set", skill, support);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
-                Slots(set),
+                Nodes(set),
                 0,
-                global::System.Array.Empty<TriggerChain>(),
                 snapshot);
 
             Assert.That(snapshot.IncreasedRatePercent, Is.EqualTo(0.15f).Within(0.0001f));
@@ -233,9 +231,8 @@ namespace PlayGround.Tests.EditMode
 
         private RuntimeSkillDefinition Compile(SkillSet set) =>
             SkillSetCompiler.Compile(
-                Slots(set),
+                Nodes(set),
                 0,
-                global::System.Array.Empty<TriggerChain>(),
                 SkillStatSnapshot.Identity);
 
         private AoeSkill CreateAoeSkill(string name, float areaSize = 1f, float damage = 10f)
@@ -293,9 +290,9 @@ namespace PlayGround.Tests.EditMode
             return set;
         }
 
-        private static LoadoutSlot[] Slots(SkillSet set)
+        private static SkillLoadoutNode[] Nodes(SkillSet set)
         {
-            return new LoadoutSlot[] { new SkillSetSlot { skillSet = set } };
+            return new[] { new SkillLoadoutNode(set) };
         }
 
         private T CreateAsset<T>(string name) where T : ScriptableObject

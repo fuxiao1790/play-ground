@@ -39,7 +39,7 @@ namespace PlayGround.Tests.EditMode
             MultipleProjectilesSupport support = CreateAsset<MultipleProjectilesSupport>("Multiple Projectiles");
             SkillSet set = CreateSkillSet("Aoe Set", skill, support);
 
-            SkillValidationWarning[] warnings = Validate(new SkillSetSlot { skillSet = set });
+            SkillValidationWarning[] warnings = Validate(new SkillLoadoutNode(set));
 
             Assert.That(warnings, Has.Length.EqualTo(1));
             Assert.That(warnings[0].Code, Is.EqualTo(SkillValidationWarningCode.UnsupportedSupportForSkill));
@@ -56,9 +56,8 @@ namespace PlayGround.Tests.EditMode
             ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
 
             SkillValidationWarning[] warnings = Validate(
-                new SkillSetSlot { skillSet = sourceSet },
-                new TriggerLinkSlot { link = trigger },
-                new SkillSetSlot { skillSet = targetSet });
+                new SkillLoadoutNode(sourceSet, trigger),
+                new SkillLoadoutNode(targetSet));
 
             Assert.That(warnings, Has.Length.EqualTo(1));
             Assert.That(warnings[0].Code, Is.EqualTo(SkillValidationWarningCode.UnsupportedTriggerTarget));
@@ -73,23 +72,13 @@ namespace PlayGround.Tests.EditMode
             SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("Aoe Set", targetSkill);
             ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
-            var chains = new[]
+            var nodes = new[]
             {
-                new TriggerChain
-                {
-                    causeIndex = 0,
-                    link = trigger,
-                    effectIndex = 2,
-                },
-            };
-            var slots = new LoadoutSlot[]
-            {
-                new SkillSetSlot { skillSet = sourceSet },
-                new TriggerLinkSlot { link = trigger },
-                new SkillSetSlot { skillSet = targetSet },
+                new SkillLoadoutNode(sourceSet, trigger),
+                new SkillLoadoutNode(targetSet),
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(nodes, 0, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             Assert.That(((RuntimeProjectileDefinition)runtime).ChildSpawnSetup, Is.Null);
@@ -105,23 +94,13 @@ namespace PlayGround.Tests.EditMode
             ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
             trigger.intervalSeconds = 2f;
             trigger.intervalJitterPercent = 25f;
-            var chains = new[]
+            var nodes = new[]
             {
-                new TriggerChain
-                {
-                    causeIndex = 0,
-                    link = trigger,
-                    effectIndex = 2,
-                },
-            };
-            var slots = new LoadoutSlot[]
-            {
-                new SkillSetSlot { skillSet = sourceSet },
-                new TriggerLinkSlot { link = trigger },
-                new SkillSetSlot { skillSet = targetSet },
+                new SkillLoadoutNode(sourceSet, trigger),
+                new SkillLoadoutNode(targetSet),
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(nodes, 0, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             RuntimeChildSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).ChildSpawnSetup;
@@ -141,23 +120,13 @@ namespace PlayGround.Tests.EditMode
             trigger.intervalSeconds = 1.5f;
             trigger.intervalJitterPercent = 10f;
             trigger.echoCount = 2;
-            var chains = new[]
+            var nodes = new[]
             {
-                new TriggerChain
-                {
-                    causeIndex = 0,
-                    link = trigger,
-                    effectIndex = 2,
-                },
-            };
-            var slots = new LoadoutSlot[]
-            {
-                new SkillSetSlot { skillSet = sourceSet },
-                new TriggerLinkSlot { link = trigger },
-                new SkillSetSlot { skillSet = targetSet },
+                new SkillLoadoutNode(sourceSet, trigger),
+                new SkillLoadoutNode(targetSet),
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(nodes, 0, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             var projectile = (RuntimeProjectileDefinition)runtime;
@@ -179,23 +148,13 @@ namespace PlayGround.Tests.EditMode
             SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
             AoeIntervalSpawnTrigger trigger = CreateAsset<AoeIntervalSpawnTrigger>("AOE Interval Spawn");
             trigger.scatterRadius = 2f;
-            var chains = new[]
+            var nodes = new[]
             {
-                new TriggerChain
-                {
-                    causeIndex = 0,
-                    link = trigger,
-                    effectIndex = 2,
-                },
-            };
-            var slots = new LoadoutSlot[]
-            {
-                new SkillSetSlot { skillSet = sourceSet },
-                new TriggerLinkSlot { link = trigger },
-                new SkillSetSlot { skillSet = targetSet },
+                new SkillLoadoutNode(sourceSet, trigger),
+                new SkillLoadoutNode(targetSet),
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(nodes, 0, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             RuntimeAoeIntervalSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).AoeIntervalSpawnSetup;
@@ -211,23 +170,13 @@ namespace PlayGround.Tests.EditMode
             SkillSet sourceSet = CreateSkillSet("Lingering AOE Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("Projectile Set", targetSkill);
             ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
-            var chains = new[]
+            var nodes = new[]
             {
-                new TriggerChain
-                {
-                    causeIndex = 0,
-                    link = trigger,
-                    effectIndex = 2,
-                },
-            };
-            var slots = new LoadoutSlot[]
-            {
-                new SkillSetSlot { skillSet = sourceSet },
-                new TriggerLinkSlot { link = trigger },
-                new SkillSetSlot { skillSet = targetSet },
+                new SkillLoadoutNode(sourceSet, trigger),
+                new SkillLoadoutNode(targetSet),
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(nodes, 0, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
             var aoe = (RuntimeAoeDefinition)runtime;
@@ -244,23 +193,13 @@ namespace PlayGround.Tests.EditMode
             SkillSet sourceSet = CreateSkillSet("Lingering AOE Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
             AoeIntervalSpawnTrigger trigger = CreateAsset<AoeIntervalSpawnTrigger>("AOE Interval Spawn");
-            var chains = new[]
+            var nodes = new[]
             {
-                new TriggerChain
-                {
-                    causeIndex = 0,
-                    link = trigger,
-                    effectIndex = 2,
-                },
-            };
-            var slots = new LoadoutSlot[]
-            {
-                new SkillSetSlot { skillSet = sourceSet },
-                new TriggerLinkSlot { link = trigger },
-                new SkillSetSlot { skillSet = targetSet },
+                new SkillLoadoutNode(sourceSet, trigger),
+                new SkillLoadoutNode(targetSet),
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(nodes, 0, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
             var aoe = (RuntimeAoeDefinition)runtime;
@@ -277,23 +216,13 @@ namespace PlayGround.Tests.EditMode
             SkillSet sourceSet = CreateSkillSet("Pulse AOE Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("Projectile Set", targetSkill);
             ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
-            var chains = new[]
+            var nodes = new[]
             {
-                new TriggerChain
-                {
-                    causeIndex = 0,
-                    link = trigger,
-                    effectIndex = 2,
-                },
-            };
-            var slots = new LoadoutSlot[]
-            {
-                new SkillSetSlot { skillSet = sourceSet },
-                new TriggerLinkSlot { link = trigger },
-                new SkillSetSlot { skillSet = targetSet },
+                new SkillLoadoutNode(sourceSet, trigger),
+                new SkillLoadoutNode(targetSet),
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(nodes, 0, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
             var aoe = (RuntimeAoeDefinition)runtime;
@@ -311,11 +240,10 @@ namespace PlayGround.Tests.EditMode
             ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
 
             SkillValidationWarning[] warnings = Validate(
-                new SkillSetSlot { skillSet = sourceSet },
-                new TriggerLinkSlot { link = trigger },
-                new SkillSetSlot { skillSet = targetSet });
+                new SkillLoadoutNode(sourceSet, trigger),
+                new SkillLoadoutNode(targetSet));
 
-            Assert.That(HasWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerSource, 1, "Pulse AOEs have no duration"), Is.True);
+            Assert.That(HasWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerSource, 0, "Pulse AOEs have no duration"), Is.True);
         }
 
         [Test]
@@ -328,11 +256,10 @@ namespace PlayGround.Tests.EditMode
             AoeIntervalSpawnTrigger trigger = CreateAsset<AoeIntervalSpawnTrigger>("AOE Interval Spawn");
 
             SkillValidationWarning[] warnings = Validate(
-                new SkillSetSlot { skillSet = sourceSet },
-                new TriggerLinkSlot { link = trigger },
-                new SkillSetSlot { skillSet = targetSet });
+                new SkillLoadoutNode(sourceSet, trigger),
+                new SkillLoadoutNode(targetSet));
 
-            Assert.That(HasWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerSource, 1, "Pulse AOEs have no duration"), Is.True);
+            Assert.That(HasWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerSource, 0, "Pulse AOEs have no duration"), Is.True);
         }
 
         [Test]
@@ -342,9 +269,8 @@ namespace PlayGround.Tests.EditMode
             SkillSet set = CreateSkillSet("Regular AOE Set", skill);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
-                new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
+                new[] { new SkillLoadoutNode(set) },
                 0,
-                global::System.Array.Empty<TriggerChain>(),
                 SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
@@ -361,9 +287,8 @@ namespace PlayGround.Tests.EditMode
             SkillSet set = CreateSkillSet("Projectile Set", skill, support);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
-                new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
+                new[] { new SkillLoadoutNode(set) },
                 0,
-                global::System.Array.Empty<TriggerChain>(),
                 SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
@@ -383,9 +308,8 @@ namespace PlayGround.Tests.EditMode
             SkillSet set = CreateSkillSet("Stacking Support Set", skill, stackingSupport);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
-                new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
+                new[] { new SkillLoadoutNode(set) },
                 0,
-                global::System.Array.Empty<TriggerChain>(),
                 SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeStackingDetonation>());
@@ -409,9 +333,8 @@ namespace PlayGround.Tests.EditMode
             SkillSet set = CreateSkillSet("Stacking Support Set", skill, damageSupport, stackingSupport);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
-                new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
+                new[] { new SkillLoadoutNode(set) },
                 0,
-                global::System.Array.Empty<TriggerChain>(),
                 SkillStatSnapshot.Identity);
 
             var stacking = (RuntimeStackingDetonation)runtime;
@@ -428,9 +351,8 @@ namespace PlayGround.Tests.EditMode
             SkillSet set = CreateSkillSet("Lingering AOE Set", skill);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
-                new LoadoutSlot[] { new SkillSetSlot { skillSet = set } },
+                new[] { new SkillLoadoutNode(set) },
                 0,
-                global::System.Array.Empty<TriggerChain>(),
                 SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
@@ -478,9 +400,8 @@ namespace PlayGround.Tests.EditMode
             OnImpactAoeTrigger trigger = CreateAsset<OnImpactAoeTrigger>("Impact AOE");
 
             SkillValidationWarning[] warnings = Validate(
-                new SkillSetSlot { skillSet = sourceSet },
-                new TriggerLinkSlot { link = trigger },
-                new SkillSetSlot { skillSet = targetSet });
+                new SkillLoadoutNode(sourceSet, trigger),
+                new SkillLoadoutNode(targetSet));
 
             Assert.That(warnings, Is.Empty);
         }
@@ -494,23 +415,13 @@ namespace PlayGround.Tests.EditMode
             SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("Stack Detonation Set", targetSkill, stackingSupport);
             StackTrigger trigger = CreateAsset<StackTrigger>("Stack Trigger");
-            var chains = new[]
+            var nodes = new[]
             {
-                new TriggerChain
-                {
-                    causeIndex = 0,
-                    link = trigger,
-                    effectIndex = 2,
-                },
-            };
-            var slots = new LoadoutSlot[]
-            {
-                new SkillSetSlot { skillSet = sourceSet },
-                new TriggerLinkSlot { link = trigger },
-                new SkillSetSlot { skillSet = targetSet },
+                new SkillLoadoutNode(sourceSet, trigger),
+                new SkillLoadoutNode(targetSet),
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(nodes, 0, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             var projectile = (RuntimeProjectileDefinition)runtime;
@@ -530,31 +441,14 @@ namespace PlayGround.Tests.EditMode
             SkillSet detonationSet = CreateSkillSet("Stack Detonation Set", detonationSkill, stackingSupport);
             ProjectileIntervalSpawnTrigger childTrigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
             StackTrigger stackTrigger = CreateAsset<StackTrigger>("Stack Trigger");
-            var chains = new[]
+            var nodes = new[]
             {
-                new TriggerChain
-                {
-                    causeIndex = 0,
-                    link = childTrigger,
-                    effectIndex = 2,
-                },
-                new TriggerChain
-                {
-                    causeIndex = 2,
-                    link = stackTrigger,
-                    effectIndex = 4,
-                },
-            };
-            var slots = new LoadoutSlot[]
-            {
-                new SkillSetSlot { skillSet = rootSet },
-                new TriggerLinkSlot { link = childTrigger },
-                new SkillSetSlot { skillSet = applicatorSet },
-                new TriggerLinkSlot { link = stackTrigger },
-                new SkillSetSlot { skillSet = detonationSet },
+                new SkillLoadoutNode(rootSet, childTrigger),
+                new SkillLoadoutNode(applicatorSet, stackTrigger),
+                new SkillLoadoutNode(detonationSet),
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(nodes, 0, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             var rootProjectile = (RuntimeProjectileDefinition)runtime;
@@ -614,31 +508,14 @@ namespace PlayGround.Tests.EditMode
             SkillSet secondDetonationSet = CreateSkillSet("Stacking AOE Set", secondDetonationSkill, secondStackingSupport);
             StackTrigger firstStackTrigger = CreateAsset<StackTrigger>("First Stack Trigger");
             StackTrigger secondStackTrigger = CreateAsset<StackTrigger>("Second Stack Trigger");
-            var chains = new[]
+            var nodes = new[]
             {
-                new TriggerChain
-                {
-                    causeIndex = 0,
-                    link = firstStackTrigger,
-                    effectIndex = 2,
-                },
-                new TriggerChain
-                {
-                    causeIndex = 2,
-                    link = secondStackTrigger,
-                    effectIndex = 4,
-                },
-            };
-            var slots = new LoadoutSlot[]
-            {
-                new SkillSetSlot { skillSet = applicatorSet },
-                new TriggerLinkSlot { link = firstStackTrigger },
-                new SkillSetSlot { skillSet = firstDetonationSet },
-                new TriggerLinkSlot { link = secondStackTrigger },
-                new SkillSetSlot { skillSet = secondDetonationSet },
+                new SkillLoadoutNode(applicatorSet, firstStackTrigger),
+                new SkillLoadoutNode(firstDetonationSet, secondStackTrigger),
+                new SkillLoadoutNode(secondDetonationSet),
             };
 
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(slots, 0, chains, SkillStatSnapshot.Identity);
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(nodes, 0, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
             var applicator = (RuntimeAoeDefinition)runtime;
@@ -659,7 +536,7 @@ namespace PlayGround.Tests.EditMode
             AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
             StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
             SkillSet set = CreateSkillSet("Stacking Set", skill, stackingSupport);
-            SkillLoadout loadout = CreateLoadout("Loadout", new SkillSetSlot { skillSet = set });
+            SkillLoadout loadout = CreateLoadout("Loadout", new SkillLoadoutNode(set));
             var gameObject = new GameObject("Player Skill Driver Test");
             createdObjects.Add(gameObject);
             SkillDriver driver = gameObject.AddComponent<SkillDriver>();
@@ -677,7 +554,7 @@ namespace PlayGround.Tests.EditMode
             StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
             SkillSet set = CreateSkillSet("Stacking Set", skill, stackingSupport);
 
-            SkillValidationWarning[] warnings = Validate(new SkillSetSlot { skillSet = set });
+            SkillValidationWarning[] warnings = Validate(new SkillLoadoutNode(set));
 
             Assert.That(warnings, Has.Length.EqualTo(1));
             Assert.That(warnings[0].Code, Is.EqualTo(SkillValidationWarningCode.UnsupportedStackingDetonation));
@@ -694,9 +571,8 @@ namespace PlayGround.Tests.EditMode
             StackTrigger trigger = CreateAsset<StackTrigger>("Stack Trigger");
 
             SkillValidationWarning[] warnings = Validate(
-                new SkillSetSlot { skillSet = sourceSet },
-                new TriggerLinkSlot { link = trigger },
-                new SkillSetSlot { skillSet = targetSet });
+                new SkillLoadoutNode(sourceSet, trigger),
+                new SkillLoadoutNode(targetSet));
 
             Assert.That(warnings, Has.Length.EqualTo(1));
             Assert.That(warnings[0].Code, Is.EqualTo(SkillValidationWarningCode.UnsupportedStackingDetonation));
@@ -714,25 +590,24 @@ namespace PlayGround.Tests.EditMode
             OnImpactAoeTrigger trigger = CreateAsset<OnImpactAoeTrigger>("Impact AOE");
 
             SkillValidationWarning[] warnings = Validate(
-                new SkillSetSlot { skillSet = sourceSet },
-                new TriggerLinkSlot { link = trigger },
-                new SkillSetSlot { skillSet = targetSet });
+                new SkillLoadoutNode(sourceSet, trigger),
+                new SkillLoadoutNode(targetSet));
 
-            Assert.That(HasWarning(warnings, SkillValidationWarningCode.UnsupportedStackingDetonation, 1, "is not a StackTrigger"), Is.True);
+            Assert.That(HasWarning(warnings, SkillValidationWarningCode.UnsupportedStackingDetonation, 0, "is not a StackTrigger"), Is.True);
         }
 
-        private SkillValidationWarning[] Validate(params LoadoutSlot[] slots)
+        private SkillValidationWarning[] Validate(params SkillLoadoutNode[] nodes)
         {
-            var list = new List<LoadoutSlot>(slots);
+            var list = new List<SkillLoadoutNode>(nodes);
             var warnings = new List<SkillValidationWarning>();
             SkillLoadoutValidator.Validate(list, warnings);
             return warnings.ToArray();
         }
 
-        private SkillLoadout CreateLoadout(string name, params LoadoutSlot[] slots)
+        private SkillLoadout CreateLoadout(string name, params SkillLoadoutNode[] nodes)
         {
             SkillLoadout loadout = CreateAsset<SkillLoadout>(name);
-            SetField(loadout, "slots", new List<LoadoutSlot>(slots));
+            SetField(loadout, "nodes", new List<SkillLoadoutNode>(nodes));
             return loadout;
         }
 
