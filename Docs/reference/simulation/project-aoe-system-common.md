@@ -370,7 +370,7 @@ These are not normal combat despawn paths.
 Important ordering:
 
 1. `CombatLifetimeSystem` expires existing projectiles and AOEs.
-2. `TimedSpawnSystem` emits interval spawn events.
+2. `TimedSpawnSystem` emits energy-driven child spawn events.
 3. Projectile tracking, movement, contact gates, and collision run.
 4. AOE pulse VFX and collision run.
 5. `CombatApplyFinalizeSingleSystem` applies hit events to ECS target health and

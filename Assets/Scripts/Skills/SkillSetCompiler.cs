@@ -326,13 +326,17 @@ namespace PlayGround.Skills
             RuntimeSkillDefinition compiledChild = Compile(nodes, targetNodeIndex, snapshot);
             if (compiledChild is not RuntimeProjectileDefinition childDef) return;
 
-            float intervalSeconds = Mathf.Max(0.01f, trigger.intervalSeconds);
+            if (GetSkillSet(nodes, targetNodeIndex)?.Skill?.Definition is not ProjectileDefinition childSkillDefinition)
+                return;
+
+            float energyThreshold = Mathf.Max(1e-3f, childSkillDefinition.spawnEnergyCost);
             var setup = new RuntimeChildSpawnSetup
             {
                 JitterSeed = ++nextChildJitterSeed,
                 ChildDefinition = childDef,
-                IntervalSeconds = intervalSeconds,
-                IntervalJitterSeconds = intervalSeconds * Mathf.Clamp(trigger.intervalJitterPercent, 0f, 100f) * 0.01f,
+                EnergyPerSecond = Mathf.Max(0.01f, trigger.energyPerSecond),
+                EnergyThreshold = energyThreshold,
+                EnergyThresholdJitter = energyThreshold * Mathf.Clamp(trigger.energyJitterPercent, 0f, 100f) * 0.01f,
                 Behavior = new ProjectileChildSpawnBehavior(
                     Mathf.Max(1, childDef.Count + trigger.projectileCount),
                     ProjectileChildSpawnPatternType.SideSpray,
@@ -361,13 +365,17 @@ namespace PlayGround.Skills
             RuntimeSkillDefinition compiledChild = Compile(nodes, targetNodeIndex, snapshot);
             if (compiledChild is not RuntimeAoeDefinition childDef) return;
 
-            float intervalSeconds = Mathf.Max(0.01f, trigger.intervalSeconds);
+            if (GetSkillSet(nodes, targetNodeIndex)?.Skill?.Definition is not AoeDefinitionBase childSkillDefinition)
+                return;
+
+            float energyThreshold = Mathf.Max(1e-3f, childSkillDefinition.spawnEnergyCost);
             var setup = new RuntimeAoeIntervalSpawnSetup
             {
                 JitterSeed = ++nextChildJitterSeed,
                 ChildDefinition = childDef,
-                IntervalSeconds = intervalSeconds,
-                IntervalJitterSeconds = intervalSeconds * Mathf.Clamp(trigger.intervalJitterPercent, 0f, 100f) * 0.01f,
+                EnergyPerSecond = Mathf.Max(0.01f, trigger.energyPerSecond),
+                EnergyThreshold = energyThreshold,
+                EnergyThresholdJitter = energyThreshold * Mathf.Clamp(trigger.energyJitterPercent, 0f, 100f) * 0.01f,
                 Count = Mathf.Max(1, childDef.EchoCount + trigger.echoCount),
                 ScatterRadius = Mathf.Max(0f, trigger.scatterRadius),
             };

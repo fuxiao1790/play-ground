@@ -17,8 +17,9 @@ namespace PlayGround.Skills.Runtime
     {
         public int JitterSeed { get; set; }
         public RuntimeProjectileDefinition ChildDefinition { get; set; }
-        public float IntervalSeconds { get; set; }
-        public float IntervalJitterSeconds { get; set; }
+        public float EnergyPerSecond { get; set; }
+        public float EnergyThreshold { get; set; }
+        public float EnergyThresholdJitter { get; set; }
         public ProjectileChildSpawnBehavior Behavior { get; set; }
         public Hash128 TemplateKey { get; set; }
     }
@@ -27,8 +28,9 @@ namespace PlayGround.Skills.Runtime
     {
         public int JitterSeed { get; set; }
         public RuntimeAoeDefinition ChildDefinition { get; set; }
-        public float IntervalSeconds { get; set; }
-        public float IntervalJitterSeconds { get; set; }
+        public float EnergyPerSecond { get; set; }
+        public float EnergyThreshold { get; set; }
+        public float EnergyThresholdJitter { get; set; }
         // Per-tick burst count; maps to the child AOE echo count when building templates.
         public int Count { get; set; }
         public float ScatterRadius { get; set; }

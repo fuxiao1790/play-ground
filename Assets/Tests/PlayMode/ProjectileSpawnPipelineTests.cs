@@ -130,7 +130,7 @@ namespace PlayGround.Tests.PlayMode
                 hasTimedSpawner: true,
                 baseProjectileId: ParentId,
                 armSeconds: 0.05f,
-                timedIntervalSeconds: 0.001f));
+                energyPerSecond: 1000f));
 
             Tick(0.01f);
 
@@ -161,7 +161,7 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void SpawnEventsAreSlim_TemplateFieldsLiveOnlyInCommands()
         {
-            // Thin events carry only registry link + per-instance frame â€?no template fields.
+            // Thin events carry only registry link + per-instance frame â€” no template fields.
             Assert.That(typeof(ProjectileSpawnEvent).GetField("Count"), Is.Null);
             Assert.That(typeof(ProjectileSpawnEvent).GetField("SpreadDegrees"), Is.Null);
             Assert.That(typeof(ProjectileSpawnEvent).GetField("JitterDegrees"), Is.Null);
@@ -270,14 +270,30 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void ChildSpawn_ZeroInterval_IsBoundedByLoopGuard()
+        public void ChildSpawn_ZeroEnergyThreshold_IsBoundedByLoopGuard()
         {
-            CreateChildSpawnerEntity(intervalSeconds: 0f);
+            CreateChildSpawnerEntity(energyPerSecond: 1f, spawnEnergyCost: 0f);
 
             Tick(1f);
 
             Assert.That(TotalProjectileCount(), Is.GreaterThan(1));
             Assert.That(TotalProjectileCount(), Is.LessThanOrEqualTo(257));
+        }
+
+        [Test]
+        public void ChildSpawn_EnergyCostControlsCadence_AndZeroRateDoesNotEmit()
+        {
+            CreateChildSpawnerEntity(energyPerSecond: 10f, spawnEnergyCost: 1f, sourceId: 9999);
+            CreateChildSpawnerEntity(energyPerSecond: 10f, spawnEnergyCost: 2f, sourceId: 10000);
+            CreateChildSpawnerEntity(energyPerSecond: 0f, spawnEnergyCost: 1f, sourceId: 10001);
+
+            for (int i = 0; i < 10; i++)
+                Tick(0.1f);
+
+            Assert.That(entityManager.GetComponentData<TimedSpawnStateComponent>(ProjectileById(9999)).TickIndex, Is.EqualTo(10));
+            Assert.That(entityManager.GetComponentData<TimedSpawnStateComponent>(ProjectileById(10000)).TickIndex, Is.EqualTo(5));
+            Assert.That(entityManager.GetComponentData<TimedSpawnStateComponent>(ProjectileById(10001)).TickIndex, Is.Zero);
+            Assert.That(TotalProjectileCount(), Is.EqualTo(18));
         }
 
         [Test]
@@ -417,7 +433,8 @@ namespace PlayGround.Tests.PlayMode
             int deterministicIdTickIndex = 0,
             ProjectileChildSpawnPatternType spawnPatternType = ProjectileChildSpawnPatternType.Forward,
             float armSeconds = 0f,
-            float timedIntervalSeconds = 1f)
+            float energyPerSecond = 1f,
+            float spawnEnergyCost = 1f)
         {
             if (math.lengthsq(baseDirection) < 0.0001f)
                 baseDirection = new float2(1f, 0f);
@@ -446,7 +463,8 @@ namespace PlayGround.Tests.PlayMode
                     {
                         ChildKind = IntervalChildKind.Projectile,
                         JitterSeed = 1,
-                        IntervalSeconds = timedIntervalSeconds,
+                        EnergyPerSecond = energyPerSecond,
+                        EnergyThreshold = spawnEnergyCost,
                         TemplateKey = childProjectileTemplateKey
                     }
                     : default
@@ -548,7 +566,10 @@ namespace PlayGround.Tests.PlayMode
             return entity;
         }
 
-        private void CreateChildSpawnerEntity(float intervalSeconds = 1f)
+        private void CreateChildSpawnerEntity(
+            float energyPerSecond = 1f,
+            float spawnEnergyCost = 1f,
+            int sourceId = 9999)
         {
             Entity entity = entityManager.CreateEntity(
                 typeof(ProjectileTag),
@@ -573,7 +594,7 @@ namespace PlayGround.Tests.PlayMode
             entityManager.SetComponentData(entity, new ProjectileIdentityComponent
             {
                 Faction = CombatFaction.Player,
-                ProjectileId = 9999,
+                ProjectileId = sourceId,
                 TypeId = 1
             });
             entityManager.SetComponentData(entity, new CombatRenderKindId { Value = 1 });
@@ -591,15 +612,16 @@ namespace PlayGround.Tests.PlayMode
             entityManager.SetComponentData(entity, new TimedSpawnComponent
             {
                 Faction = CombatFaction.Player,
-                SourceId = 9999,
+                SourceId = sourceId,
                 ChildKind = IntervalChildKind.Projectile,
                 JitterSeed = 9999,
-                IntervalSeconds = intervalSeconds,
+                EnergyPerSecond = energyPerSecond,
+                EnergyThreshold = spawnEnergyCost,
                 TemplateKey = childProjectileTemplateKey
             });
             entityManager.SetComponentData(entity, new TimedSpawnStateComponent
             {
-                CooldownRemaining = 0f,
+                EnergyAccumulated = 0f,
                 TickIndex = 0
             });
             entityManager.SetComponentEnabled<Active>(entity, true);

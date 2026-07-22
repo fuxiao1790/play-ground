@@ -321,8 +321,8 @@ namespace PlayGround.Tests.PlayMode
             ConfigureProjectile(rootSkillA, rootPrefab, damage: 0f);
             ConfigureProjectile(rootSkillB, rootPrefab, damage: 0f);
             ConfigureProjectile(childSkill, childPrefab, damage: 3f);
-            triggerA.intervalSeconds = 0.25f;
-            triggerB.intervalSeconds = 0.25f;
+            triggerA.energyPerSecond = 4f;
+            triggerB.energyPerSecond = 4f;
             triggerA.projectileCount = 1;
             triggerB.projectileCount = 1;
             SetField(rootSetA, "skill", rootSkillA);
@@ -416,9 +416,9 @@ namespace PlayGround.Tests.PlayMode
             ConfigureLingeringAoe(aoeSourceSkill, aoeSourcePrefab, damage: 0f, lifetime: 0.07f);
             ConfigureProjectile(projectileChildSkill, projectileChildPrefab, damage: 1f);
             ConfigureAoe(aoeChildSkill, aoeChildPrefab, damage: 1f);
-            projectileTrigger.intervalSeconds = 0.02f;
+            projectileTrigger.energyPerSecond = 50f;
             projectileTrigger.projectileCount = 1;
-            aoeTrigger.intervalSeconds = 0.02f;
+            aoeTrigger.energyPerSecond = 50f;
             aoeTrigger.echoCount = 1;
             SetField(projectileSourceSet, "skill", projectileSourceSkill);
             SetField(projectileSourceSet, "supports", global::System.Array.Empty<SkillSupport>());
@@ -508,8 +508,8 @@ namespace PlayGround.Tests.PlayMode
             ConfigureProjectile(rootSkill, rootPrefab, damage: 0f);
             ConfigureProjectile(middleSkill, middlePrefab, damage: 0f);
             ConfigureAoe(aoeSkill, aoePrefab, damage: 1f);
-            projectileTrigger.intervalSeconds = 0.02f;
-            aoeTrigger.intervalSeconds = 0.02f;
+            projectileTrigger.energyPerSecond = 50f;
+            aoeTrigger.energyPerSecond = 50f;
             SetField(rootSet, "skill", rootSkill);
             SetField(rootSet, "supports", global::System.Array.Empty<SkillSupport>());
             SetField(middleSet, "skill", middleSkill);

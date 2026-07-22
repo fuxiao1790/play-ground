@@ -209,8 +209,9 @@ namespace PlayGround.System.Combat.Projectiles
         public ProjectileChildSpawnConfig(
             int jitterSeed,
             int typeId,
-            float intervalSeconds,
-            float intervalJitterSeconds,
+            float energyPerSecond,
+            float energyThreshold,
+            float energyThresholdJitter,
             float speed,
             float lifetime,
             float radius,
@@ -231,8 +232,9 @@ namespace PlayGround.System.Combat.Projectiles
         {
             JitterSeed = jitterSeed;
             TypeId = typeId;
-            IntervalSeconds = Mathf.Max(0f, intervalSeconds);
-            IntervalJitterSeconds = Mathf.Max(0f, intervalJitterSeconds);
+            EnergyPerSecond = Mathf.Max(0f, energyPerSecond);
+            EnergyThreshold = Mathf.Max(0f, energyThreshold);
+            EnergyThresholdJitter = Mathf.Max(0f, energyThresholdJitter);
             Speed = Mathf.Max(0f, speed);
             Lifetime = Mathf.Max(0f, lifetime);
             Radius = Mathf.Max(0f, radius);
@@ -255,8 +257,9 @@ namespace PlayGround.System.Combat.Projectiles
         public ProjectileChildSpawnConfig(
             int jitterSeed,
             int typeId,
-            float intervalSeconds,
-            float intervalJitterSeconds,
+            float energyPerSecond,
+            float energyThreshold,
+            float energyThresholdJitter,
             float speed,
             float lifetime,
             float radius,
@@ -274,8 +277,9 @@ namespace PlayGround.System.Combat.Projectiles
             : this(
                 jitterSeed,
                 typeId,
-                intervalSeconds,
-                intervalJitterSeconds,
+                energyPerSecond,
+                energyThreshold,
+                energyThresholdJitter,
                 speed,
                 lifetime,
                 radius,
@@ -295,8 +299,9 @@ namespace PlayGround.System.Combat.Projectiles
 
         public int JitterSeed { get; }
         public int TypeId { get; }
-        public float IntervalSeconds { get; }
-        public float IntervalJitterSeconds { get; }
+        public float EnergyPerSecond { get; }
+        public float EnergyThreshold { get; }
+        public float EnergyThresholdJitter { get; }
         public float Speed { get; }
         public float Lifetime { get; }
         public float Radius { get; }
@@ -313,6 +318,6 @@ namespace PlayGround.System.Combat.Projectiles
         public ProjectileChildSpawnBehavior Behavior { get; }
         public StackEffectSnapshot StackEffect { get; }
         public Hash128 TemplateKey { get; }
-        public bool Enabled => JitterSeed > 0 && IntervalSeconds > 0f;
+        public bool Enabled => JitterSeed > 0 && EnergyPerSecond > 0f && EnergyThreshold > 0f;
     }
 }

@@ -25,9 +25,9 @@ This document tracks implementation decisions, patterns, and current architectur
   cold creates.
 - There is one projectile archetype. `TimedSpawnComponent` and
   `TimedSpawnStateComponent` are present on all projectile slots; the component
-  enabled bit selects whether interval children emit.
+  enabled bit selects whether energy-driven children emit.
 - Root/external spawn events set `HasTimedSpawner` on the expanded command when
-  interval children should emit. Reuse can cross between timed and non-timed
+  energy-driven children should emit. Reuse can cross between timed and non-timed
   projectiles because timed spawn is reset as enableable state.
 
 ---

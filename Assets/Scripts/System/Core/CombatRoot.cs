@@ -521,8 +521,9 @@ namespace PlayGround.System.Combat.Core
                 {
                     ChildKind = IntervalChildKind.Projectile,
                     TemplateKey = request.ChildSpawn.TemplateKey,
-                    IntervalSeconds = request.ChildSpawn.IntervalSeconds,
-                    IntervalJitterSeconds = request.ChildSpawn.IntervalJitterSeconds,
+                    EnergyPerSecond = request.ChildSpawn.EnergyPerSecond,
+                    EnergyThreshold = request.ChildSpawn.EnergyThreshold,
+                    EnergyThresholdJitter = request.ChildSpawn.EnergyThresholdJitter,
                     JitterSeed = request.ChildSpawn.JitterSeed
                 };
             }
@@ -547,7 +548,8 @@ namespace PlayGround.System.Combat.Core
 
         private static bool IsTimedSpawnEnabled(TimedSpawnComponent timedSpawn) =>
             timedSpawn.JitterSeed > 0
-            && timedSpawn.IntervalSeconds > 0f
+            && timedSpawn.EnergyPerSecond > 0f
+            && timedSpawn.EnergyThreshold > 0f
             && !timedSpawn.TemplateKey.Equals(default(Hash128));
 
         private AoeVfxIds VfxIdsFor(int typeId)

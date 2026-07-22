@@ -581,11 +581,7 @@ namespace PlayGround.System.Combat.Aoes
         public static TimedSpawnStateComponent InitialTimedSpawnStateFor(in AoeSpawnCommand cmd) =>
             new()
             {
-                CooldownRemaining = cmd.TimedSpawn.IntervalSeconds
-                    + DeterministicJitter(
-                        cmd.AoeId,
-                        cmd.TimedSpawn.JitterSeed,
-                        cmd.TimedSpawn.IntervalJitterSeconds),
+                EnergyAccumulated = 0f,
                 TickIndex = 0
             };
 
@@ -639,25 +635,5 @@ namespace PlayGround.System.Combat.Aoes
         private static AoeAreaComponent AreaFor(in AoeSpawnCommand cmd) =>
             new() { Size = cmd.AreaSize > 0f ? cmd.AreaSize : 1f };
 
-        private static float DeterministicJitter(int aoeId, int jitterSeed, float maxOffsetSeconds)
-        {
-            if (maxOffsetSeconds <= 0f)
-            {
-                return 0f;
-            }
-
-            unchecked
-            {
-                uint hash = (uint)aoeId;
-                hash = (hash * 397u) ^ (uint)jitterSeed;
-                hash *= 0x9E3779B9u;
-                hash ^= hash >> 16;
-                hash *= 0x7FEB352Du;
-                hash ^= hash >> 15;
-                hash *= 0x846CA68Bu;
-                hash ^= hash >> 16;
-                return ((hash & 0x00FFFFFFu) + 1u) / 16777217f * maxOffsetSeconds;
-            }
-        }
     }
 }

@@ -1407,7 +1407,8 @@ namespace PlayGround.Tests.PlayMode
                 {
                     ChildKind = IntervalChildKind.Projectile,
                     TemplateKey = new Hash128(0x1234u, 0x5678u, 0x9ABCu, 0xDEF0u),
-                    IntervalSeconds = 100f,
+                    EnergyPerSecond = 0.01f,
+                    EnergyThreshold = 1f,
                     JitterSeed = 7
                 },
                 hasTimedSpawner: true);

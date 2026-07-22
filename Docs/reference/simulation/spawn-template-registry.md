@@ -25,7 +25,7 @@ The flow is plain-data end to end:
 - damage and status are finalized in ECS and bridged once per hit target
 
 This rule applies to projectile -> AOE, projectile -> projectile, AOE ->
-projectile, AOE -> AOE, stack-triggered detonations, interval child spawns,
+projectile, AOE -> AOE, stack-triggered detonations, energy-driven child spawns,
 and future chained effects.
 
 ## Registry Concurrency Contract
@@ -246,7 +246,7 @@ Per-instance fields stamped by expansion:
 
 ## Timed Spawn Runtime
 
-`TimedSpawnComponent` is the slim, self-describing interval-spawn config:
+`TimedSpawnComponent` is the slim, self-describing energy-accrual config:
 
 ```csharp
 public struct TimedSpawnComponent : IComponentData, IEnableableComponent
@@ -255,8 +255,9 @@ public struct TimedSpawnComponent : IComponentData, IEnableableComponent
     public int SourceId;
     public IntervalChildKind ChildKind;
     public Hash128 TemplateKey;
-    public float IntervalSeconds;
-    public float IntervalJitterSeconds;
+    public float EnergyPerSecond;
+    public float EnergyThreshold;
+    public float EnergyThresholdJitter;
     public int JitterSeed;
 }
 ```
@@ -266,12 +267,12 @@ Hot timer state is separate:
 ```csharp
 public struct TimedSpawnStateComponent : IComponentData
 {
-    public float CooldownRemaining;
+    public float EnergyAccumulated;
     public int TickIndex;
 }
 ```
 
-`TimedSpawnComponent` enabled state marks an interval-spawning source. Projectile
+`TimedSpawnComponent` enabled state marks an energy-spawning source. Projectile
 and lingering-AOE archetypes always contain `TimedSpawnComponent` and
 `TimedSpawnStateComponent`; apply systems enable the component only when the
 command carries timed spawn. Impact AOEs do not contain timed-spawn components.
@@ -285,16 +286,18 @@ queries active entities with:
 - `TimedSpawnComponent`
 - `TimedSpawnStateComponent`
 
-The system ticks cooldown, fetches the stored event by `TemplateKey`, stamps the
-per-instance fields, and enqueues the existing event type into the projectile or
-AOE expansion queue. The only domain switch is
+The system adds `EnergyPerSecond * deltaTime` to the source's empty-on-enable
+energy accumulator. When energy reaches the next threshold, it consumes that
+threshold, fetches the stored event by `TemplateKey`, stamps the per-instance
+fields, and enqueues the existing event type into the projectile or AOE
+expansion queue. The only domain switch is
 `TimedSpawnComponent.ChildKind`, which selects the destination queue.
 
 The tick loop must keep these safety guards:
 
-- clamp interval advance to a positive minimum
-- cap catch-up ticks per update
-- stop spawning when lifetime has expired or faction is `None`
+- floor each threshold to a positive minimum
+- cap emissions per update at 256
+- stop spawning when lifetime has expired, faction is `None`, or rate is not positive
 
 ## Projectile Runtime Snapshot
 
@@ -500,7 +503,7 @@ registry, regardless of the source:
 - AOE on-hit 鈫?projectile burst: `AoeHitSpawnComponent.OnHitSpawn {Kind=Projectile, key}`
 - AOE on-hit 鈫?AOE: `AoeHitSpawnComponent.OnHitSpawn {Kind=Aoe, key}`
 - stack projectile detonation: `StackEffectSnapshot.DetonationKey` (Projectile kind)
-- interval child spawn: `TimedSpawnComponent.TemplateKey`
+- energy child spawn: `TimedSpawnComponent.TemplateKey`
 
 Collision and timed-spawn systems emit slim `SpawnEvent` links (kind + key +
 per-instance frame). The normal expansion/apply path dereferences the key,
@@ -513,10 +516,10 @@ payloads.
 
 ## Memory And Performance Guidance
 
-- Store interval-spawn behavior as deduplicated event templates keyed by
+- Store energy-driven child behavior as deduplicated event templates keyed by
   `Hash128`.
 - Keep per-source timed-spawn components slim.
-- Keep hot timer state separate from immutable interval-spawn config.
+- Keep hot energy state separate from immutable energy-spawn config.
 - Pack snapshot payloads tightly.
 - Prefer ids, enum values, and hashes over strings.
 - Resolve templates before ECS hot paths.

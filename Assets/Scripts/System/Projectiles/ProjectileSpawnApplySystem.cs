@@ -207,37 +207,11 @@ namespace PlayGround.System.Combat.Projectiles
 
         private static TimedSpawnStateComponent InitialTimedSpawnStateFor(in ProjectileSpawnCommand cmd)
         {
-            TimedSpawnComponent timedSpawn = cmd.TimedSpawn;
             return new TimedSpawnStateComponent
             {
-                CooldownRemaining = timedSpawn.IntervalSeconds
-                    + DeterministicJitter(
-                        cmd.ProjectileId,
-                        timedSpawn.JitterSeed,
-                        timedSpawn.IntervalJitterSeconds),
+                EnergyAccumulated = 0f,
                 TickIndex = 0
             };
-        }
-
-        private static float DeterministicJitter(int projectileId, int jitterSeed, float maxOffsetSeconds)
-        {
-            if (maxOffsetSeconds <= 0f)
-            {
-                return 0f;
-            }
-
-            unchecked
-            {
-                uint hash = (uint)projectileId;
-                hash = (hash * 397u) ^ (uint)jitterSeed;
-                hash *= 0x9E3779B9u;
-                hash ^= hash >> 16;
-                hash *= 0x7FEB352Du;
-                hash ^= hash >> 15;
-                hash *= 0x846CA68Bu;
-                hash ^= hash >> 16;
-                return ((hash & 0x00FFFFFFu) + 1u) / 16777217f * maxOffsetSeconds;
-            }
         }
 
         [BurstCompile]

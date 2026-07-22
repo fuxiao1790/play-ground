@@ -146,9 +146,9 @@ Types: `SkillDriver`, `SkillSlotState`, `SkillSetCompiler`
 - After compile: registers `BasicAttackPrefab` templates and `AoeTypeDefinition`
   entries with the bound `CombatRoot`; stores resolved type IDs into compiled
   definitions. Re-registration on equip change is safe 鈥?`CombatRoot` deduplicates by reference.
-- Registers interval child spawn templates with the bound `CombatRoot`; compiled
-  interval setup stores only the returned content-hash `TemplateKey` plus timer
-  configuration.
+- Registers energy-driven child-spawn templates with the bound `CombatRoot`; compiled
+  setup stores only the returned content-hash `TemplateKey` plus its per-source
+  energy configuration.
 - Owns `SkillSlotState` per root slot: tracks cooldown elapsed time, gates input-driven casts
 - On player input: checks slot cooldown; if ready, calls `SkillSpawnTranslator` and resets timer
 - On Layer 1 change: recompiles affected paths, re-registers types, updates slot `recoveryTime`
@@ -261,7 +261,7 @@ ProjectileDefinition
                pierceCount, repeatHitCooldown,
                trackingEnabled, trackingRange, trackingTurnSpeed,
                trackingQueryInterval, trackingInitialDelay,
-               directDamageEnabled
+               spawnEnergyCost, directDamageEnabled
 ```
 
 The prefab is a visual and collision preset. The runtime bakes collision shape
@@ -269,13 +269,18 @@ and render data from it at load time, identical to current baking behavior.
 Behavior fields on the definition drive simulation 鈥?the prefab contributes
 nothing to behavior.
 
+`spawnEnergyCost` belongs to every projectile or AOE child definition. It is
+the energy threshold only when that definition is spawned by a timed child
+trigger; it does not change a root cast, AOE pulse interval, tracking interval,
+or hit cooldown.
+
 ### AoeDefinition
 
 ```
 AoeDefinition
  鈹溾攢 prefab:    BasicAoePrefab   鈫?sprite, material, hitbox collider, particle effects
  鈹斺攢 behavior:  baseAreaSize, damage, echoCount, scatterRadius,
-               directDamageEnabled
+               spawnEnergyCost, directDamageEnabled
 ```
 
 Regular AOE content compiles as pulse AOE. It does not expose lifetime or tick
@@ -287,7 +292,7 @@ interval, and the runtime receives `0` for both timing fields.
 LingeringAoeDefinition
  鈹溾攢 prefab:    LingeringAoePrefab 鈫?sprite, material, hitbox collider, particle effects
  鈹斺攢 behavior:  baseAreaSize, damage, lifetimeSeconds, tickIntervalSeconds,
-               echoCount, scatterRadius, directDamageEnabled
+               echoCount, scatterRadius, spawnEnergyCost, directDamageEnabled
 ```
 
 ### StackingSupport
@@ -496,15 +501,16 @@ abstract class TriggerLink { }
 
 **ProjectileIntervalSpawnTrigger**
 
-The cause duration skill periodically spawns child projectiles from the effect
-set. Sources may be projectiles or lingering AOEs. Pulse AOEs have no lifetime
-to tick on, so they validate with a warning and compile to no interval setup.
+The cause duration skill accrues energy and spawns child projectiles from the
+effect set whenever it reaches the child cost. Sources may be projectiles or
+lingering AOEs. Pulse AOEs have no lifetime to accrue on, so they validate with
+a warning and compile to no timed-child setup.
 Effect must compile to a `RuntimeProjectileDefinition`.
 
 ```csharp
 class ProjectileIntervalSpawnTrigger : TriggerLink {
-    float intervalSeconds;
-    float intervalJitterPercent;
+    float energyPerSecond;
+    float energyJitterPercent;
     int projectileCount;
     float sideSpreadDegrees;
 }
@@ -517,15 +523,16 @@ same setup onto `RuntimeAoeDefinition.ChildSpawnSetup`.
 
 **AoeIntervalSpawnTrigger**
 
-The cause duration skill periodically spawns child AOEs from the effect set.
-Sources may be projectiles or lingering AOEs. Pulse AOEs have no lifetime to
-tick on, so they validate with a warning and compile to no interval setup.
+The cause duration skill accrues energy and spawns child AOEs from the effect
+set whenever it reaches the child cost. Sources may be projectiles or lingering
+AOEs. Pulse AOEs have no lifetime to accrue on, so they validate with a warning
+and compile to no timed-child setup.
 Effect must compile to a `RuntimeAoeDefinition`.
 
 ```csharp
 class AoeIntervalSpawnTrigger : TriggerLink {
-    float intervalSeconds;
-    float intervalJitterPercent;
+    float energyPerSecond;
+    float energyJitterPercent;
     int echoCount;
     float scatterRadius;
 }
@@ -536,7 +543,7 @@ Projectile sources compile a `RuntimeAoeIntervalSpawnSetup` onto
 `RuntimeProjectileDefinition.AoeIntervalSpawnSetup`. Lingering AOE sources
 compile the same setup onto `RuntimeAoeDefinition.AoeIntervalSpawnSetup`.
 
-Interval source/child support:
+Energy-driven source/child support:
 
 | Source / Child | Projectile child | AOE child |
 |---|---|---|
@@ -544,23 +551,30 @@ Interval source/child support:
 | Lingering AOE source | `ProjectileIntervalSpawnTrigger` | `AoeIntervalSpawnTrigger` |
 | Pulse AOE source | warning, no-op | warning, no-op |
 
-`intervalJitterPercent` is clamped from `0` to `100` and converted at compile
-time to jitter seconds using `intervalSeconds * intervalJitterPercent / 100`.
-The compiled jitter seconds are passed into the ECS interval spawner and applied
-when scheduling interval ticks.
+The trigger owns `energyPerSecond` and `energyJitterPercent`; the child skill
+owns `spawnEnergyCost`, which becomes the energy threshold. `energyJitterPercent`
+is clamped from `0` to `100` and converted at compile time to threshold jitter
+using `spawnEnergyCost * energyJitterPercent / 100`.
+
+Each source begins with empty energy. Every simulation update adds
+`energyPerSecond * deltaTime`; whenever accrued energy reaches the next
+threshold, the system emits a child event and consumes that threshold. Threshold
+jitter is evaluated from the source-id hash for each upcoming tick. Thresholds
+are floored positive, each update emits at most 256 children, and a runtime rate
+at or below zero emits none.
 
 `projectileCount` and `echoCount` are **additive** with the effect set's own
 multiplicity. For projectile children this means
 `childDefinition.Count + projectileCount`, floored to `1`. For AOE children this
 means `childDefinition.EchoCount + echoCount`, floored to `1`. These are the
-only additive interval multiplicity fields.
+only additive timed-child multiplicity fields.
 
-Interval burst geometry is authoritative on the trigger. `sideSpreadDegrees`
+Timed-child burst geometry is authoritative on the trigger. `sideSpreadDegrees`
 on `ProjectileIntervalSpawnTrigger` defines the projectile burst spread; the
-child projectile skill's own spread is not applied to interval-spawned copies.
+child projectile skill's own spread is not applied to energy-spawned copies.
 `scatterRadius` on `AoeIntervalSpawnTrigger` defines the AOE echo scatter
 radius; the child AOE skill's own `ScatterRadius` is not applied to
-interval-spawned copies.
+energy-spawned copies.
 
 Directionality defaults:
 
@@ -646,7 +660,7 @@ Compatible tags: source `Projectile` or `Aoe`, target set must have
 `StackingSupport`.
 Trigger links are also tag-validated but not blocked. A
 `ProjectileIntervalSpawnTrigger` from a projectile set to an AOE set is allowed
-in the loadout, but no interval setup is compiled and validation returns a
+in the loadout, but no timed-child setup is compiled and validation returns a
 warning.
 
 ### Validation Warnings
@@ -759,7 +773,7 @@ compileLoadout(SkillLoadout loadout):
     RegisterProjectileTypes()   // walk compiled trees; call combatRoot.RegisterTemplate per unique prefab
     RegisterAoeTypes()          // walk compiled trees; call combatRoot.RegisterType per unique AoeTypeDefinition
     AssignStackingDebuffKeys()  // mint one dedicated key per compiled RuntimeStackingDetonation
-    RegisterIntervalTemplates() // content-hash child spawn templates; store TemplateKey on interval setup
+    RegisterTimedSpawnTemplates() // content-hash child templates; store TemplateKey on timed-child setup
 ```
 
 The compiled runtime tree feeds directly into the existing spawn request and
@@ -781,7 +795,7 @@ After compilation, `SkillDriver` recursively walks all compiled trees:
   receives a dedicated debuff key during the same registration walk if it does
   not already have one. The key is per compiled instance and separate from AOE
   type registration.
-- Interval child spawn templates: each compiled `RuntimeChildSpawnSetup` or
+- Energy-driven child spawn templates: each compiled `RuntimeChildSpawnSetup` or
   `RuntimeAoeIntervalSpawnSetup` builds one unified spawn template for its
   child domain and registers it with `CombatRoot.RegisterTimedSpawnTemplate`.
   The returned `TemplateKey` is copied onto the setup; ECS spawner components
@@ -791,7 +805,7 @@ Registration re-runs via `BindAoeRoot` whenever `CombatRoot` is wired after comp
 
 ### Spawn-Template Registry
 
-Interval spawns store the spawn event itself as the template. The shared
+Energy-driven child spawns store the spawn event itself as the template. The shared
 `CombatScope` entity owns one registry per child domain:
 `ProjectileSpawnTemplate` holds a `NativeHashMap<Hash128, ProjectileSpawnEvent>`
 and `AoeSpawnTemplate` holds a `NativeHashMap<Hash128, AoeSpawnCommand>`. There is
@@ -804,25 +818,26 @@ The runtime data is split into three tiers:
   hit payload snapshots. Per-instance fields such as position, faction, source
   id, jitter seed, and deterministic tick index are left default in the stored
   event.
-- Slim timer config: per-source `TimedSpawnComponent` keeps `Faction`,
-  `SourceId`, `ChildKind`, `TemplateKey`, `IntervalSeconds`,
-  `IntervalJitterSeconds`, and `JitterSeed`.
-- Hot timer state: `TimedSpawnStateComponent` keeps mutable cooldown and tick
+- Slim energy config: per-source `TimedSpawnComponent` keeps `Faction`,
+  `SourceId`, `ChildKind`, `TemplateKey`, `EnergyPerSecond`, `EnergyThreshold`,
+  `EnergyThresholdJitter`, and `JitterSeed`.
+- Hot energy state: `TimedSpawnStateComponent` keeps accumulated energy and tick
   index. This state is reset when a timed-spawning projectile or lingering AOE
   is cold-created or reused from the pool.
 
 One `TimedSpawnSystem` processes active timed-spawning projectile and lingering
-AOE sources. When a cooldown is due, it fetches the stored event by
+AOE sources. When enough energy has accrued, it fetches the stored event by
 `TemplateKey`, stamps the per-instance fields from the source entity, and
 enqueues the existing `ProjectileSpawnEvent` or `AOE variant spawn event`. Children still
 flow through the canonical event -> expansion -> command -> apply path.
 
 `CombatRoot.RegisterTimedSpawnTemplate` hashes the stored event content and
 inserts only if the key is absent. Identical child behavior shares one registry
-entry; changing interval behavior such as `projectileCount`, `echoCount`, or
+entry; changing child template behavior such as `projectileCount`, `echoCount`, or
 `scatterRadius` creates a different key, and selecting a previous behavior
-reuses the previous key. Jitter seed is not part of the template hash because it
-belongs to the individual timer config.
+reuses the previous key. Per-source energy rate, threshold, threshold jitter,
+and jitter seed are not part of the template hash because they belong to the
+individual energy config.
 
 Registry entries are never recycled in the current implementation. This keeps
 old pooled or still-active spawners valid after loadout recompiles. A future

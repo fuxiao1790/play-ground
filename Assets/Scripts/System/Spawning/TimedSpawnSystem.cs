@@ -101,8 +101,8 @@ namespace PlayGround.System.Combat.Spawning
             public bool HasImpactAoeEventQueue;
             public bool HasLingeringAoeEventQueue;
 
-            // Safety guards: a bad interval must advance by a positive amount and stop after a bounded catch-up.
-            private const float MinIntervalSeconds = 1e-3f;
+            // Safety guards: a bad threshold stays positive and catch-up remains bounded.
+            private const float MinEnergyThreshold = 1e-3f;
             private const int MaxTicksPerUpdate = 256;
 
             private void Execute(
@@ -111,15 +111,18 @@ namespace PlayGround.System.Combat.Spawning
                 in CombatKinematicsComponent kinematics,
                 in CombatLifetimeComponent lifetime)
             {
-                if (lifetime.Remaining <= 0f || spawn.Faction == CombatFaction.None)
+                if (lifetime.Remaining <= 0f
+                    || spawn.Faction == CombatFaction.None
+                    || spawn.EnergyPerSecond <= 0f)
                 {
                     return;
                 }
 
-                float cooldown = state.CooldownRemaining - DeltaTime;
+                state.EnergyAccumulated += spawn.EnergyPerSecond * DeltaTime;
                 int tickIndex = state.TickIndex;
                 int ticksThisUpdate = 0;
-                while (cooldown <= 0f && ticksThisUpdate < MaxTicksPerUpdate)
+                float threshold = ThresholdFor(spawn, tickIndex + 1);
+                while (state.EnergyAccumulated >= threshold && ticksThisUpdate < MaxTicksPerUpdate)
                 {
                     ticksThisUpdate++;
                     tickIndex++;
@@ -175,27 +178,22 @@ namespace PlayGround.System.Combat.Spawning
                         }
                     }
 
-                    cooldown += math.max(MinIntervalSeconds, NextIntervalSeconds(
-                        spawn.SourceId,
-                        spawn.JitterSeed,
-                        tickIndex,
-                        spawn.IntervalSeconds,
-                        spawn.IntervalJitterSeconds));
+                    state.EnergyAccumulated -= threshold;
+                    threshold = ThresholdFor(spawn, tickIndex + 1);
                 }
 
-                state.CooldownRemaining = cooldown;
                 state.TickIndex = tickIndex;
             }
 
-            private static float NextIntervalSeconds(
-                int sourceId,
-                int jitterSeed,
-                int tickIndex,
-                float intervalSeconds,
-                float intervalJitterSeconds)
+            private static float ThresholdFor(in TimedSpawnComponent spawn, int tickIndex)
             {
-                return intervalSeconds
-                    + DeterministicJitter(sourceId, jitterSeed, tickIndex, intervalJitterSeconds);
+                return math.max(
+                    MinEnergyThreshold,
+                    spawn.EnergyThreshold + DeterministicJitter(
+                        spawn.SourceId,
+                        spawn.JitterSeed,
+                        tickIndex,
+                        spawn.EnergyThresholdJitter));
             }
 
             private static float DeterministicJitter(

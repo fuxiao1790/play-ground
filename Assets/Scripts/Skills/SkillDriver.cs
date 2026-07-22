@@ -756,8 +756,9 @@ namespace PlayGround.Skills
             {
                 ChildKind = IntervalChildKind.Projectile,
                 JitterSeed = setup.JitterSeed,
-                IntervalSeconds = Mathf.Max(0.01f, setup.IntervalSeconds),
-                IntervalJitterSeconds = Mathf.Max(0f, setup.IntervalJitterSeconds),
+                EnergyPerSecond = Mathf.Max(0.01f, setup.EnergyPerSecond),
+                EnergyThreshold = Mathf.Max(1e-3f, setup.EnergyThreshold),
+                EnergyThresholdJitter = Mathf.Max(0f, setup.EnergyThresholdJitter),
                 TemplateKey = setup.TemplateKey
             };
         }
@@ -771,15 +772,17 @@ namespace PlayGround.Skills
             {
                 ChildKind = AoeVariant.AoeChildKindFor(setup.ChildDefinition.LifetimeSeconds),
                 JitterSeed = setup.JitterSeed,
-                IntervalSeconds = Mathf.Max(0.01f, setup.IntervalSeconds),
-                IntervalJitterSeconds = Mathf.Max(0f, setup.IntervalJitterSeconds),
+                EnergyPerSecond = Mathf.Max(0.01f, setup.EnergyPerSecond),
+                EnergyThreshold = Mathf.Max(1e-3f, setup.EnergyThreshold),
+                EnergyThresholdJitter = Mathf.Max(0f, setup.EnergyThresholdJitter),
                 TemplateKey = setup.TemplateKey
             };
         }
 
         private static bool IsTimedSpawnEnabled(TimedSpawnComponent timedSpawn) =>
             timedSpawn.JitterSeed > 0
-            && timedSpawn.IntervalSeconds > 0f
+            && timedSpawn.EnergyPerSecond > 0f
+            && timedSpawn.EnergyThreshold > 0f
             && !IsDefault(timedSpawn.TemplateKey);
 
         private static bool IsDefault(Unity.Entities.Hash128 key) =>
@@ -1197,7 +1200,8 @@ namespace PlayGround.Skills
 
         private static bool IsTimedSpawnEnabled(TimedSpawnComponent timedSpawn) =>
             timedSpawn.JitterSeed > 0
-            && timedSpawn.IntervalSeconds > 0f
+            && timedSpawn.EnergyPerSecond > 0f
+            && timedSpawn.EnergyThreshold > 0f
             && !timedSpawn.TemplateKey.Equals(default(Unity.Entities.Hash128));
     }
 }

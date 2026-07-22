@@ -336,7 +336,7 @@ namespace PlayGround.Tests.PlayMode
                 0f,
                 new DamageSnapshot(2f),
                 CombatShapeType.Circle,
-                childSpawn: new ProjectileChildSpawnConfig(1, 0, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)),
+                childSpawn: new ProjectileChildSpawnConfig(1, 0, 1f, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)),
                 directDamageEnabled: false);
 
             projectileRoot.Spawn(command, CombatFaction.Player);
@@ -361,6 +361,7 @@ namespace PlayGround.Tests.PlayMode
             var intervalSpawn = new ProjectileChildSpawnConfig(
                 1,
                 0,
+                1f,
                 0.01f,
                 0f,
                 10f,
@@ -443,7 +444,7 @@ namespace PlayGround.Tests.PlayMode
                 0f,
                 new DamageSnapshot(2f),
                 CombatShapeType.Circle,
-                childSpawn: new ProjectileChildSpawnConfig(1, 0, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)));
+                childSpawn: new ProjectileChildSpawnConfig(1, 0, 1f, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)));
 
             projectileRoot.Spawn(command, CombatFaction.Player);
             Time.captureDeltaTime = 0.02f;
@@ -458,10 +459,10 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ProjectileIntervalSpawnerStoresIntervalJitterInEcs()
+        public IEnumerator ProjectileIntervalSpawnerStoresEnergyThresholdJitterInEcs()
         {
             CreateProjectileHitFixture(out GameObject projectileObject, out CombatRoot projectileRoot, out GameObject mobObject, out _);
-            const float IntervalJitterSeconds = 0.25f;
+            const float EnergyThresholdJitter = 0.25f;
             var command = new ProjectileSpawnRequest(
                 new Vector2(50f, 50f),
                 Vector2.right,
@@ -472,7 +473,7 @@ namespace PlayGround.Tests.PlayMode
                 0f,
                 new DamageSnapshot(2f),
                 CombatShapeType.Circle,
-                childSpawn: new ProjectileChildSpawnConfig(1, 0, 1f, IntervalJitterSeconds, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)));
+                childSpawn: new ProjectileChildSpawnConfig(1, 0, 1f, 1f, EnergyThresholdJitter, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)));
 
             projectileRoot.Spawn(command, CombatFaction.Player);
             yield return null;
@@ -481,7 +482,7 @@ namespace PlayGround.Tests.PlayMode
             TimedSpawnComponent spawner =
                 World.DefaultGameObjectInjectionWorld.EntityManager.GetComponentData<TimedSpawnComponent>(childSpawnerEntity);
 
-            Assert.That(spawner.IntervalJitterSeconds, Is.EqualTo(IntervalJitterSeconds).Within(0.0001f));
+            Assert.That(spawner.EnergyThresholdJitter, Is.EqualTo(EnergyThresholdJitter).Within(0.0001f));
             Object.Destroy(projectileObject);
             Object.Destroy(mobObject);
         }
@@ -500,7 +501,7 @@ namespace PlayGround.Tests.PlayMode
                 0f,
                 new DamageSnapshot(2f),
                 CombatShapeType.Circle,
-                childSpawn: new ProjectileChildSpawnConfig(1, 16, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)));
+                childSpawn: new ProjectileChildSpawnConfig(1, 16, 1f, 0.01f, 0f, 0f, 1f, 1f, new Vector2(1f, 1f), CombatShapeType.Circle, 0f, new DamageSnapshot(1f)));
 
             Assert.Throws<global::System.InvalidOperationException>(() => projectileRoot.Spawn(command, CombatFaction.Player));
             Object.Destroy(projectileObject);
@@ -704,10 +705,11 @@ namespace PlayGround.Tests.PlayMode
                 childSpawn: new ProjectileChildSpawnConfig(
                     1,
                     0,
+                    1f,
                     0.001f,
                     0f,
                     0f,
-                    0f,
+                    1f,
                     1f,
                     new Vector2(1f, 1f),
                     CombatShapeType.Circle,
