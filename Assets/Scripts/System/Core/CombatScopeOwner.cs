@@ -50,6 +50,7 @@ namespace PlayGround.System.Combat.Core
                     InitialTemplateRegistryCapacity, Allocator.Persistent);
 
                 ownedScope = entityManager.CreateEntity(typeof(CombatScope));
+                entityManager.AddBuffer<CombatSpawnRequest>(ownedScope);
                 entityManager.AddBuffer<ProjectileSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<ImpactAoeSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<LingeringAoeSpawnEvent>(ownedScope);

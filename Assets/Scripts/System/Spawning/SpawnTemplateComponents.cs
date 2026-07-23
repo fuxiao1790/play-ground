@@ -13,9 +13,25 @@ using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Vfx;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 
 namespace PlayGround.System.Combat.Spawning
 {
+    // ECS Lifecycle: transient managed-to-ECS spawn intent appended to the shared combat scope
+    // submission buffer before simulation and drained by SpawnIntakeSystem.
+    public struct CombatSpawnRequest : IBufferElementData
+    {
+        public IntervalChildKind Kind;
+        public Hash128 TemplateKey;
+        public float2 Position;
+        public float2 AimDirection;
+        public CombatFaction Faction;
+        public int SourceId;
+        public uint JitterSeed;
+        public int ContactGateSeedTargetId;
+        public Entity Caster;
+    }
+
     // ECS Lifecycle: singleton registry component; added to the shared combat scope entity on first CombatScopeOwner.Acquire and disposed on final CombatScopeOwner.Release.
     // Registry contract: Map stores projectile command-shaped templates keyed by content hash. CombatRoot writes templates only from managed pre-tick code; systems and jobs read this map as [ReadOnly] during the simulation tick.
     public struct ProjectileSpawnTemplate : IComponentData
