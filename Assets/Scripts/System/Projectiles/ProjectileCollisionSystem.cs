@@ -50,28 +50,17 @@ namespace PlayGround.System.Combat.Projectiles
             TargetSpatialHashSingleton hash = SystemAPI.GetSingleton<TargetSpatialHashSingleton>();
             state.Dependency = JobHandle.CombineDependencies(state.Dependency, hash.BuildHandle);
 
-            bool hasProjectileEvents = SystemAPI.TryGetSingletonRW<ProjectileSpawnEventSingleton>(
-                out RefRW<ProjectileSpawnEventSingleton> projectileLane);
-            NativeQueue<ProjectileSpawnEvent> projectileEventQueue =
-                hasProjectileEvents ? projectileLane.ValueRO.EventQueue : default;
-            hasProjectileEvents = hasProjectileEvents && projectileEventQueue.IsCreated;
-
-            bool hasImpactAoeEvents = SystemAPI.TryGetSingletonRW<ImpactAoeSpawnEventSingleton>(
-                out RefRW<ImpactAoeSpawnEventSingleton> impactAoeLane);
-            NativeQueue<ImpactAoeSpawnEvent> impactAoeEventQueue =
-                hasImpactAoeEvents ? impactAoeLane.ValueRO.EventQueue : default;
-            hasImpactAoeEvents = hasImpactAoeEvents && impactAoeEventQueue.IsCreated;
-
-            bool hasLingeringAoeEvents = SystemAPI.TryGetSingletonRW<LingeringAoeSpawnEventSingleton>(
-                out RefRW<LingeringAoeSpawnEventSingleton> lingeringAoeLane);
-            NativeQueue<LingeringAoeSpawnEvent> lingeringAoeEventQueue =
-                hasLingeringAoeEvents ? lingeringAoeLane.ValueRO.EventQueue : default;
-            hasLingeringAoeEvents = hasLingeringAoeEvents && lingeringAoeEventQueue.IsCreated;
-
-            bool hasHit = SystemAPI.TryGetSingletonRW<CombatHitDispatchSingleton>(
-                out RefRW<CombatHitDispatchSingleton> hitDispatch);
-            NativeQueue<CombatHitEvent> hitQueue = hasHit ? hitDispatch.ValueRO.HitQueue : default;
-            hasHit = hasHit && hitQueue.IsCreated;
+            // The spawn lanes and hit-dispatch lane are created unconditionally by their owning
+            // systems' OnCreate. Read them directly: a missing lane is a broken world and must
+            // throw here, not be silently skipped.
+            RefRW<ProjectileSpawnEventSingleton> projectileLane =
+                SystemAPI.GetSingletonRW<ProjectileSpawnEventSingleton>();
+            RefRW<ImpactAoeSpawnEventSingleton> impactAoeLane =
+                SystemAPI.GetSingletonRW<ImpactAoeSpawnEventSingleton>();
+            RefRW<LingeringAoeSpawnEventSingleton> lingeringAoeLane =
+                SystemAPI.GetSingletonRW<LingeringAoeSpawnEventSingleton>();
+            RefRW<CombatHitDispatchSingleton> hitDispatch =
+                SystemAPI.GetSingletonRW<CombatHitDispatchSingleton>();
 
             var job = new ProjectileCollisionJob
             {
@@ -82,22 +71,10 @@ namespace PlayGround.System.Combat.Projectiles
                 TargetCells = hash.ProjectileCollisionCells,
                 TotalTargetCount = hash.TargetCount,
                 MaxTargetRadius = hash.MaxTargetRadius,
-                HitWriter = hasHit
-                    ? hitQueue.AsParallelWriter()
-                    : default,
-                HasHitWriter = hasHit,
-                ProjectileEventWriter = hasProjectileEvents
-                    ? projectileEventQueue.AsParallelWriter()
-                    : default,
-                HasProjectileEventWriter = hasProjectileEvents,
-                ImpactAoeEventWriter = hasImpactAoeEvents
-                    ? impactAoeEventQueue.AsParallelWriter()
-                    : default,
-                LingeringAoeEventWriter = hasLingeringAoeEvents
-                    ? lingeringAoeEventQueue.AsParallelWriter()
-                    : default,
-                HasImpactAoeEventWriter = hasImpactAoeEvents,
-                HasLingeringAoeEventWriter = hasLingeringAoeEvents
+                HitWriter = hitDispatch.ValueRO.HitQueue.AsParallelWriter(),
+                ProjectileEventWriter = projectileLane.ValueRO.EventQueue.AsParallelWriter(),
+                ImpactAoeEventWriter = impactAoeLane.ValueRO.EventQueue.AsParallelWriter(),
+                LingeringAoeEventWriter = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter()
             };
 
             var collisionHandle = job.ScheduleParallel(state.Dependency);
@@ -105,18 +82,14 @@ namespace PlayGround.System.Combat.Projectiles
             // The collision job writes both expansion EventQueues via ParallelWriter. Those
             // queues are read on the main thread by the expansion systems, which only complete
             // their own component-derived dependency. Forward this write job so they wait on it.
-            if (hasProjectileEvents)
-                projectileLane.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(projectileLane.ValueRW.ProducerHandle, collisionHandle);
-            if (hasImpactAoeEvents)
-                impactAoeLane.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(impactAoeLane.ValueRW.ProducerHandle, collisionHandle);
-            if (hasLingeringAoeEvents)
-                lingeringAoeLane.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(lingeringAoeLane.ValueRW.ProducerHandle, collisionHandle);
-            if (hasHit)
-                hitDispatch.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(hitDispatch.ValueRW.ProducerHandle, collisionHandle);
+            projectileLane.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(projectileLane.ValueRW.ProducerHandle, collisionHandle);
+            impactAoeLane.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(impactAoeLane.ValueRW.ProducerHandle, collisionHandle);
+            lingeringAoeLane.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(lingeringAoeLane.ValueRW.ProducerHandle, collisionHandle);
+            hitDispatch.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(hitDispatch.ValueRW.ProducerHandle, collisionHandle);
             RefRW<TargetSpatialHashSingleton> hashRw = SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
             hashRw.ValueRW.ConsumerHandle = JobHandle.CombineDependencies(
                 hashRw.ValueRW.ConsumerHandle,
@@ -141,13 +114,9 @@ namespace PlayGround.System.Combat.Projectiles
             public int TotalTargetCount;
             [ReadOnly] public NativeReference<float> MaxTargetRadius;
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
-            public bool HasHitWriter;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
-            public bool HasProjectileEventWriter;
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
-            public bool HasImpactAoeEventWriter;
-            public bool HasLingeringAoeEventWriter;
 
             private void Execute(
                 Entity entity,
@@ -272,7 +241,7 @@ namespace PlayGround.System.Combat.Projectiles
 
             private void EnqueueHitEvent(Entity source, Entity target, in CombatHitPayload payload)
             {
-                if (!HasHitWriter || !HasHitEvent(payload))
+                if (!HasHitEvent(payload))
                 {
                     return;
                 }
@@ -291,8 +260,7 @@ namespace PlayGround.System.Combat.Projectiles
                 float2 targetPosition,
                 int targetKey)
             {
-                if (!HasProjectileEventWriter
-                    || !projectileHit.OnHitSpawn.Enabled
+                if (!projectileHit.OnHitSpawn.Enabled
                     || projectileHit.OnHitSpawn.Kind != IntervalChildKind.Projectile)
                 {
                     return;
@@ -340,11 +308,6 @@ namespace PlayGround.System.Combat.Projectiles
 
                 if (projectileHit.OnHitSpawn.Kind == IntervalChildKind.LingeringAoe)
                 {
-                    if (!HasLingeringAoeEventWriter)
-                    {
-                        return;
-                    }
-
                     LingeringAoeEventWriter.Enqueue(new LingeringAoeSpawnEvent
                     {
                         Kind = projectileHit.OnHitSpawn.Kind,
@@ -355,11 +318,6 @@ namespace PlayGround.System.Combat.Projectiles
                         JitterSeed = (uint)aoeId * 2654435761u,
                         ContactGateSeedTargetId = targetKey
                     });
-                    return;
-                }
-
-                if (!HasImpactAoeEventWriter)
-                {
                     return;
                 }
 

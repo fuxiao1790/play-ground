@@ -56,23 +56,14 @@ namespace PlayGround.System.Combat.Status
                 return;
             }
 
-            bool hasImpactAoeEvents = SystemAPI.TryGetSingletonRW<ImpactAoeSpawnEventSingleton>(
-                out RefRW<ImpactAoeSpawnEventSingleton> impactAoeLane);
-            NativeQueue<ImpactAoeSpawnEvent> impactAoeEventQueue =
-                hasImpactAoeEvents ? impactAoeLane.ValueRO.EventQueue : default;
-            hasImpactAoeEvents = hasImpactAoeEvents && impactAoeEventQueue.IsCreated;
-
-            bool hasLingeringAoeEvents = SystemAPI.TryGetSingletonRW<LingeringAoeSpawnEventSingleton>(
-                out RefRW<LingeringAoeSpawnEventSingleton> lingeringAoeLane);
-            NativeQueue<LingeringAoeSpawnEvent> lingeringAoeEventQueue =
-                hasLingeringAoeEvents ? lingeringAoeLane.ValueRO.EventQueue : default;
-            hasLingeringAoeEvents = hasLingeringAoeEvents && lingeringAoeEventQueue.IsCreated;
-
-            bool hasProjectileEvents = SystemAPI.TryGetSingletonRW<ProjectileSpawnEventSingleton>(
-                out RefRW<ProjectileSpawnEventSingleton> projectileLane);
-            NativeQueue<ProjectileSpawnEvent> projectileEventQueue =
-                hasProjectileEvents ? projectileLane.ValueRO.EventQueue : default;
-            hasProjectileEvents = hasProjectileEvents && projectileEventQueue.IsCreated;
+            // The spawn lanes are created unconditionally by their expansion systems' OnCreate.
+            // Read them directly: a missing lane is a broken world and must throw, not be skipped.
+            RefRW<ImpactAoeSpawnEventSingleton> impactAoeLane =
+                SystemAPI.GetSingletonRW<ImpactAoeSpawnEventSingleton>();
+            RefRW<LingeringAoeSpawnEventSingleton> lingeringAoeLane =
+                SystemAPI.GetSingletonRW<LingeringAoeSpawnEventSingleton>();
+            RefRW<ProjectileSpawnEventSingleton> projectileLane =
+                SystemAPI.GetSingletonRW<ProjectileSpawnEventSingleton>();
 
             int aoeIdBase = ReserveIdBlock(ref nextAoeId, entityCount);
             int projectileIdBase = ReserveIdBlock(ref nextProjectileDetonationSourceId, entityCount);
@@ -84,13 +75,9 @@ namespace PlayGround.System.Combat.Status
             // component-derived Dependency, and .Run only completes the ECS component deps it
             // can see. So we must complete the producer handles by hand before writing the
             // queues synchronously ourselves, or the job-safety system rejects the access.
-            JobHandle producerDeps = Dependency;
-            if (hasImpactAoeEvents)
-                producerDeps = JobHandle.CombineDependencies(producerDeps, impactAoeLane.ValueRO.ProducerHandle);
-            if (hasLingeringAoeEvents)
-                producerDeps = JobHandle.CombineDependencies(producerDeps, lingeringAoeLane.ValueRO.ProducerHandle);
-            if (hasProjectileEvents)
-                producerDeps = JobHandle.CombineDependencies(producerDeps, projectileLane.ValueRO.ProducerHandle);
+            JobHandle producerDeps = JobHandle.CombineDependencies(
+                Dependency, impactAoeLane.ValueRO.ProducerHandle, lingeringAoeLane.ValueRO.ProducerHandle);
+            producerDeps = JobHandle.CombineDependencies(producerDeps, projectileLane.ValueRO.ProducerHandle);
             producerDeps.Complete();
 
             new StatusProcessJob
@@ -98,18 +85,9 @@ namespace PlayGround.System.Combat.Status
                 Now = SystemAPI.Time.ElapsedTime,
                 AoeIdBase = aoeIdBase,
                 ProjectileDetonationSourceIdBase = projectileIdBase,
-                ImpactAoeEventWriter = hasImpactAoeEvents
-                    ? impactAoeEventQueue.AsParallelWriter()
-                    : default,
-                HasImpactAoeEventWriter = hasImpactAoeEvents,
-                LingeringAoeEventWriter = hasLingeringAoeEvents
-                    ? lingeringAoeEventQueue.AsParallelWriter()
-                    : default,
-                HasLingeringAoeEventWriter = hasLingeringAoeEvents,
-                ProjectileEventWriter = hasProjectileEvents
-                    ? projectileEventQueue.AsParallelWriter()
-                    : default,
-                HasProjectileEventWriter = hasProjectileEvents
+                ImpactAoeEventWriter = impactAoeLane.ValueRO.EventQueue.AsParallelWriter(),
+                LingeringAoeEventWriter = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter(),
+                ProjectileEventWriter = projectileLane.ValueRO.EventQueue.AsParallelWriter()
             }.Run(targetStackQuery);
 
             // The job enqueued synchronously on the main thread, so the queues are already
@@ -137,11 +115,8 @@ namespace PlayGround.System.Combat.Status
             public int AoeIdBase;
             public int ProjectileDetonationSourceIdBase;
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
-            public bool HasImpactAoeEventWriter;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
-            public bool HasLingeringAoeEventWriter;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
-            public bool HasProjectileEventWriter;
 
             private void Execute(
                 Entity targetEntity,
@@ -205,7 +180,7 @@ namespace PlayGround.System.Combat.Status
                 switch (snapshot.Kind)
                 {
                     case StackDetonationKind.ImpactAoe:
-                        if (HasImpactAoeEventWriter && snapshot.Enabled)
+                        if (snapshot.Enabled)
                         {
                             int aoeId = AoeIdBase + localId;
                             ImpactAoeEventWriter.Enqueue(new ImpactAoeSpawnEvent
@@ -221,7 +196,7 @@ namespace PlayGround.System.Combat.Status
 
                         return;
                     case StackDetonationKind.LingeringAoe:
-                        if (HasLingeringAoeEventWriter && snapshot.Enabled)
+                        if (snapshot.Enabled)
                         {
                             int aoeId = AoeIdBase + localId;
                             LingeringAoeEventWriter.Enqueue(new LingeringAoeSpawnEvent
@@ -237,7 +212,7 @@ namespace PlayGround.System.Combat.Status
 
                         return;
                     case StackDetonationKind.Projectile:
-                        if (HasProjectileEventWriter && snapshot.Enabled)
+                        if (snapshot.Enabled)
                         {
                             int sourceId = ProjectileDetonationSourceIdBase + localId;
                             int baseId = HashId(sourceId, entry.DebuffKey, 0, 0x7AB025);

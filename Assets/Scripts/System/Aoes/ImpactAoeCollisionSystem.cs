@@ -52,36 +52,19 @@ namespace PlayGround.System.Combat.Aoes
             var hash = SystemAPI.GetSingleton<TargetSpatialHashSingleton>();
             state.Dependency = JobHandle.CombineDependencies(state.Dependency, hash.BuildHandle);
 
-            bool hasProjectileEvents = SystemAPI.TryGetSingletonRW<ProjectileSpawnEventSingleton>(
-                out RefRW<ProjectileSpawnEventSingleton> projectileLane);
-            NativeQueue<ProjectileSpawnEvent> projectileEventQueue =
-                hasProjectileEvents ? projectileLane.ValueRO.EventQueue : default;
-            hasProjectileEvents = hasProjectileEvents && projectileEventQueue.IsCreated;
-
-            bool hasImpactAoeEvents = SystemAPI.TryGetSingletonRW<ImpactAoeSpawnEventSingleton>(
-                out RefRW<ImpactAoeSpawnEventSingleton> impactAoeLane);
-            NativeQueue<ImpactAoeSpawnEvent> impactAoeEventQueue =
-                hasImpactAoeEvents ? impactAoeLane.ValueRO.EventQueue : default;
-            hasImpactAoeEvents = hasImpactAoeEvents && impactAoeEventQueue.IsCreated;
-
-            bool hasLingeringAoeEvents = SystemAPI.TryGetSingletonRW<LingeringAoeSpawnEventSingleton>(
-                out RefRW<LingeringAoeSpawnEventSingleton> lingeringAoeLane);
-            NativeQueue<LingeringAoeSpawnEvent> lingeringAoeEventQueue =
-                hasLingeringAoeEvents ? lingeringAoeLane.ValueRO.EventQueue : default;
-            hasLingeringAoeEvents = hasLingeringAoeEvents && lingeringAoeEventQueue.IsCreated;
-
-            bool hasHit = SystemAPI.TryGetSingletonRW<CombatHitDispatchSingleton>(
-                out RefRW<CombatHitDispatchSingleton> hitDispatch);
-            NativeQueue<CombatHitEvent> hitQueue = hasHit ? hitDispatch.ValueRO.HitQueue : default;
-            hasHit = hasHit && hitQueue.IsCreated;
-
-            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatAoeVfxDispatchSingleton>(
-                out RefRW<CombatAoeVfxDispatchSingleton> vfx);
-            NativeQueue<VfxSpawnRequest> basicVfxQueue = hasVfx ? vfx.ValueRO.PendingBasicSpawns : default;
-            NativeQueue<TimedVfxSpawnRequest> timedVfxQueue = hasVfx ? vfx.ValueRO.PendingTimedSpawns : default;
-            bool hasBasicVfx = hasVfx && basicVfxQueue.IsCreated;
-            bool hasTimedVfx = hasVfx && timedVfxQueue.IsCreated;
-            hasVfx = hasBasicVfx || hasTimedVfx;
+            // Spawn lanes, hit dispatch and the VFX lane are all created unconditionally by their
+            // owning systems' OnCreate. Read them directly: a missing lane is a broken world and
+            // must throw here, not be silently skipped.
+            RefRW<ProjectileSpawnEventSingleton> projectileLane =
+                SystemAPI.GetSingletonRW<ProjectileSpawnEventSingleton>();
+            RefRW<ImpactAoeSpawnEventSingleton> impactAoeLane =
+                SystemAPI.GetSingletonRW<ImpactAoeSpawnEventSingleton>();
+            RefRW<LingeringAoeSpawnEventSingleton> lingeringAoeLane =
+                SystemAPI.GetSingletonRW<LingeringAoeSpawnEventSingleton>();
+            RefRW<CombatHitDispatchSingleton> hitDispatch =
+                SystemAPI.GetSingletonRW<CombatHitDispatchSingleton>();
+            RefRW<CombatAoeVfxDispatchSingleton> vfx =
+                SystemAPI.GetSingletonRW<CombatAoeVfxDispatchSingleton>();
 
             var job = new ImpactAoeCollisionJob
             {
@@ -90,48 +73,26 @@ namespace PlayGround.System.Combat.Aoes
                 TargetShapes = hash.TargetShapes.AsArray(),
                 TargetFactions = hash.TargetFactions.AsArray(),
                 OccupiedTargetCells = hash.AoeOccupiedCells,
-                HitWriter = hasHit
-                    ? hitQueue.AsParallelWriter()
-                    : default,
-                HasHitWriter = hasHit,
-                BasicVfxPending = hasBasicVfx
-                    ? basicVfxQueue.AsParallelWriter()
-                    : default,
-                HasBasicVfxWriter = hasBasicVfx,
-                TimedVfxPending = hasTimedVfx
-                    ? timedVfxQueue.AsParallelWriter()
-                    : default,
-                HasTimedVfxWriter = hasTimedVfx,
-                ProjectileEventWriter = hasProjectileEvents
-                    ? projectileEventQueue.AsParallelWriter()
-                    : default,
-                ImpactAoeEventWriter = hasImpactAoeEvents
-                    ? impactAoeEventQueue.AsParallelWriter()
-                    : default,
-                LingeringAoeEventWriter = hasLingeringAoeEvents
-                    ? lingeringAoeEventQueue.AsParallelWriter()
-                    : default,
-                HasImpactAoeEventWriter = hasImpactAoeEvents,
-                HasLingeringAoeEventWriter = hasLingeringAoeEvents
+                HitWriter = hitDispatch.ValueRO.HitQueue.AsParallelWriter(),
+                BasicVfxPending = vfx.ValueRO.PendingBasicSpawns.AsParallelWriter(),
+                TimedVfxPending = vfx.ValueRO.PendingTimedSpawns.AsParallelWriter(),
+                ProjectileEventWriter = projectileLane.ValueRO.EventQueue.AsParallelWriter(),
+                ImpactAoeEventWriter = impactAoeLane.ValueRO.EventQueue.AsParallelWriter(),
+                LingeringAoeEventWriter = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter()
             };
 
             var collisionHandle = job.ScheduleParallel(impactAoeQuery, state.Dependency);
 
-            if (hasProjectileEvents)
-                projectileLane.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(projectileLane.ValueRW.ProducerHandle, collisionHandle);
-            if (hasImpactAoeEvents)
-                impactAoeLane.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(impactAoeLane.ValueRW.ProducerHandle, collisionHandle);
-            if (hasLingeringAoeEvents)
-                lingeringAoeLane.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(lingeringAoeLane.ValueRW.ProducerHandle, collisionHandle);
-            if (hasHit)
-                hitDispatch.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(hitDispatch.ValueRW.ProducerHandle, collisionHandle);
-            if (hasVfx)
-                vfx.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(vfx.ValueRW.ProducerHandle, collisionHandle);
+            projectileLane.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(projectileLane.ValueRW.ProducerHandle, collisionHandle);
+            impactAoeLane.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(impactAoeLane.ValueRW.ProducerHandle, collisionHandle);
+            lingeringAoeLane.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(lingeringAoeLane.ValueRW.ProducerHandle, collisionHandle);
+            hitDispatch.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(hitDispatch.ValueRW.ProducerHandle, collisionHandle);
+            vfx.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(vfx.ValueRW.ProducerHandle, collisionHandle);
 
             var rw = SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
             rw.ValueRW.ConsumerHandle =
@@ -151,16 +112,11 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeArray<TargetFaction> TargetFactions;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> OccupiedTargetCells;
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
-            public bool HasHitWriter;
             public NativeQueue<VfxSpawnRequest>.ParallelWriter BasicVfxPending;
-            public bool HasBasicVfxWriter;
             public NativeQueue<TimedVfxSpawnRequest>.ParallelWriter TimedVfxPending;
-            public bool HasTimedVfxWriter;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
-            public bool HasImpactAoeEventWriter;
-            public bool HasLingeringAoeEventWriter;
 
             private void Execute(
                 Entity entity,
@@ -196,16 +152,11 @@ namespace PlayGround.System.Combat.Aoes
                     TargetFactions,
                     OccupiedTargetCells,
                     HitWriter,
-                    HasHitWriter,
                     BasicVfxPending,
-                    HasBasicVfxWriter,
                     TimedVfxPending,
-                    HasTimedVfxWriter,
                     ProjectileEventWriter,
                     ImpactAoeEventWriter,
-                    LingeringAoeEventWriter,
-                    HasImpactAoeEventWriter,
-                    HasLingeringAoeEventWriter);
+                    LingeringAoeEventWriter);
             }
         }
     }

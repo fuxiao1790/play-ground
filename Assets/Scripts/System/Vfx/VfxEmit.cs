@@ -11,9 +11,7 @@ namespace PlayGround.System.Combat.Vfx
             float areaSize,
             in VfxTimingData timing,
             in NativeQueue<VfxSpawnRequest>.ParallelWriter basic,
-            bool hasBasic,
-            in NativeQueue<TimedVfxSpawnRequest>.ParallelWriter timed,
-            bool hasTimed)
+            in NativeQueue<TimedVfxSpawnRequest>.ParallelWriter timed)
         {
             if (vfxId <= 0)
             {
@@ -23,28 +21,22 @@ namespace PlayGround.System.Combat.Vfx
             switch (VfxDataShapeTable.DecodeShape(vfxId))
             {
                 case VfxDataShape.Basic:
-                    if (hasBasic)
+                    basic.Enqueue(new VfxSpawnRequest
                     {
-                        basic.Enqueue(new VfxSpawnRequest
-                        {
-                            VfxId = vfxId,
-                            Position = position,
-                            AreaSize = areaSize
-                        });
-                    }
+                        VfxId = vfxId,
+                        Position = position,
+                        AreaSize = areaSize
+                    });
                     break;
                 case VfxDataShape.Timed:
-                    if (hasTimed)
+                    timed.Enqueue(new TimedVfxSpawnRequest
                     {
-                        timed.Enqueue(new TimedVfxSpawnRequest
-                        {
-                            VfxId = vfxId,
-                            Position = position,
-                            AreaSize = areaSize,
-                            Duration = timing.Duration,
-                            TickInterval = timing.TickInterval
-                        });
-                    }
+                        VfxId = vfxId,
+                        Position = position,
+                        AreaSize = areaSize,
+                        Duration = timing.Duration,
+                        TickInterval = timing.TickInterval
+                    });
                     break;
             }
         }

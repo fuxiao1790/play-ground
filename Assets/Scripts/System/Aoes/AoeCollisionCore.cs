@@ -42,16 +42,11 @@ namespace PlayGround.System.Combat.Aoes
             NativeArray<TargetFaction> targetFactions,
             NativeParallelMultiHashMap<long, int> occupiedTargetCells,
             NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
-            bool hasHitWriter,
             NativeQueue<VfxSpawnRequest>.ParallelWriter basicVfxPendingWriter,
-            bool hasBasicVfxWriter,
             NativeQueue<TimedVfxSpawnRequest>.ParallelWriter timedVfxPendingWriter,
-            bool hasTimedVfxWriter,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
             NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
-            NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter,
-            bool hasImpactAoeEventWriter,
-            bool hasLingeringAoeEventWriter)
+            NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter)
         {
             if (identity.Faction == CombatFaction.None)
             {
@@ -125,19 +120,14 @@ namespace PlayGround.System.Combat.Aoes
                             targetPosition,
                             targetKey,
                             basicVfxPendingWriter,
-                            hasBasicVfxWriter,
                             timedVfxPendingWriter,
-                            hasTimedVfxWriter,
                             ref hitVfxEmitted,
                             hitWriter,
-                            hasHitWriter,
                             sourceEntity,
                             in payload,
                             projectileEventWriter,
                             impactAoeEventWriter,
-                            lingeringAoeEventWriter,
-                            hasImpactAoeEventWriter,
-                            hasLingeringAoeEventWriter);
+                            lingeringAoeEventWriter);
 
                         if (--remaining == 0)
                             break;
@@ -161,21 +151,16 @@ namespace PlayGround.System.Combat.Aoes
             TargetPosition targetPosition,
             int targetKey,
             NativeQueue<VfxSpawnRequest>.ParallelWriter basicVfxPending,
-            bool hasBasicVfxWriter,
             NativeQueue<TimedVfxSpawnRequest>.ParallelWriter timedVfxPending,
-            bool hasTimedVfxWriter,
             ref bool hitVfxEmitted,
             NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
-            bool hasHitWriter,
             Entity sourceEntity,
             in CombatHitPayload payload,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
             NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
-            NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter,
-            bool hasImpactAoeEventWriter,
-            bool hasLingeringAoeEventWriter)
+            NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter)
         {
-            if (hasHitWriter && HasHitEvent(payload))
+            if (HasHitEvent(payload))
             {
                 hitWriter.Enqueue(new CombatHitEvent
                 {
@@ -208,21 +193,18 @@ namespace PlayGround.System.Combat.Aoes
                 int aoeId = HashId(identity.AoeId, identity.TypeId, targetKey, ImpactAoeIdSalt ^ 0x13579B);
                 if (hitSpawn.OnHitSpawn.Kind == IntervalChildKind.LingeringAoe)
                 {
-                    if (hasLingeringAoeEventWriter)
+                    lingeringAoeEventWriter.Enqueue(new LingeringAoeSpawnEvent
                     {
-                        lingeringAoeEventWriter.Enqueue(new LingeringAoeSpawnEvent
-                        {
-                            Kind = hitSpawn.OnHitSpawn.Kind,
-                            TemplateKey = hitSpawn.OnHitSpawn.TemplateKey,
-                            Faction = identity.Faction,
-                            Position = targetPosition.Value,
-                            SourceId = aoeId,
-                            JitterSeed = (uint)aoeId * 2654435761u,
-                            ContactGateSeedTargetId = targetKey
-                        });
-                    }
+                        Kind = hitSpawn.OnHitSpawn.Kind,
+                        TemplateKey = hitSpawn.OnHitSpawn.TemplateKey,
+                        Faction = identity.Faction,
+                        Position = targetPosition.Value,
+                        SourceId = aoeId,
+                        JitterSeed = (uint)aoeId * 2654435761u,
+                        ContactGateSeedTargetId = targetKey
+                    });
                 }
-                else if (hasImpactAoeEventWriter)
+                else
                 {
                     impactAoeEventWriter.Enqueue(new ImpactAoeSpawnEvent
                     {
@@ -237,9 +219,7 @@ namespace PlayGround.System.Combat.Aoes
                 }
             }
 
-            if (!hitVfxEmitted
-                && vfxIds.HitId > 0
-                && (hasBasicVfxWriter || hasTimedVfxWriter))
+            if (!hitVfxEmitted && vfxIds.HitId > 0)
             {
                 VfxEmit.Enqueue(
                     vfxIds.HitId,
@@ -247,9 +227,7 @@ namespace PlayGround.System.Combat.Aoes
                     area.Size,
                     timing,
                     basicVfxPending,
-                    hasBasicVfxWriter,
-                    timedVfxPending,
-                    hasTimedVfxWriter);
+                    timedVfxPending);
                 hitVfxEmitted = true;
             }
         }

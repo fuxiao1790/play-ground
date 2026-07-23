@@ -54,9 +54,7 @@ namespace PlayGround.System.Combat.Lifetime
             EnabledRefRW<CombatCollisionActiveTag> collisionActive,
             EnabledRefRW<ArmingTag> arming,
             NativeQueue<VfxSpawnRequest>.ParallelWriter basicVfxPending,
-            bool hasBasicVfxWriter,
             NativeQueue<TimedVfxSpawnRequest>.ParallelWriter timedVfxPending,
-            bool hasTimedVfxWriter,
             int expireVfxId,
             float2 position,
             float areaSize,
@@ -69,9 +67,7 @@ namespace PlayGround.System.Combat.Lifetime
                 areaSize,
                 timing,
                 basicVfxPending,
-                hasBasicVfxWriter,
-                timedVfxPending,
-                hasTimedVfxWriter);
+                timedVfxPending);
         }
     }
 }

@@ -11,6 +11,7 @@ using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Projectiles;
+using PlayGround.System.Combat.Vfx;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
@@ -39,7 +40,15 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileMovementSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TimedSpawnSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>());
+            // TimedSpawnSystem now reads all three spawn lanes unconditionally, so the AoE
+            // expansion systems must exist to create their lane singletons on world init.
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnExpansionSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnExpansionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileSpawnApplySystem>());
+            // Arming/lifetime/expansion now write the VFX lane unconditionally, so its owning
+            // system must exist (to create the lane singleton) and tick (to drain it). It no-ops
+            // without a VfxRoot.
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatAoeVfxDispatchSystem>());
             simGroup.SortSystems();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));

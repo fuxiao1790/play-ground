@@ -15,6 +15,7 @@ using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Projectiles;
+using PlayGround.System.Combat.Vfx;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
@@ -71,6 +72,10 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContactGateSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileCollisionSystem>());
+            // Collision/arming/lifetime/expansion now write the VFX lane unconditionally, so its
+            // owning system must exist (to create the lane singleton) and tick (to drain it). Added
+            // to simGroup so it drains on TickSimulationOnly too; it no-ops without a VfxRoot.
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatAoeVfxDispatchSystem>());
             simGroup.SortSystems();
 
             presentationGroup = testWorld.GetOrCreateSystemManaged<PresentationSystemGroup>();

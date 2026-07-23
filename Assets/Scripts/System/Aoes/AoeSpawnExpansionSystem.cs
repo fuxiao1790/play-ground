@@ -33,9 +33,7 @@ namespace PlayGround.System.Combat.Aoes
             NativeHashMap<Hash128, AoeSpawnCommand> templates,
             NativeList<AoeSpawnCommand> commands,
             NativeQueue<VfxSpawnRequest>.ParallelWriter basicVfxPending,
-            bool hasBasicVfxWriter,
-            NativeQueue<TimedVfxSpawnRequest>.ParallelWriter timedVfxPending,
-            bool hasTimedVfxWriter)
+            NativeQueue<TimedVfxSpawnRequest>.ParallelWriter timedVfxPending)
         {
             if (eventKind != expectedKind
                 || !templates.TryGetValue(templateKey, out AoeSpawnCommand command))
@@ -94,24 +92,19 @@ namespace PlayGround.System.Combat.Aoes
 
                 commands.Add(spawned);
 
-                if (hasBasicVfxWriter || hasTimedVfxWriter)
-                {
-                    // While arming, only the telegraph plays here; the spawn
-                    // burst is deferred to arm completion in CombatArmingSystem.
-                    int vfxId = spawned.ArmSeconds > 0f
-                        ? spawned.VfxIds.ArmingId
-                        : spawned.VfxIds.SpawnId;
-                    VfxTimingData timing = AoeSpawnApplyUtility.VfxTimingFor(spawned);
-                    VfxEmit.Enqueue(
-                        vfxId,
-                        pos,
-                        spawned.AreaSize,
-                        timing,
-                        basicVfxPending,
-                        hasBasicVfxWriter,
-                        timedVfxPending,
-                        hasTimedVfxWriter);
-                }
+                // While arming, only the telegraph plays here; the spawn
+                // burst is deferred to arm completion in CombatArmingSystem.
+                int vfxId = spawned.ArmSeconds > 0f
+                    ? spawned.VfxIds.ArmingId
+                    : spawned.VfxIds.SpawnId;
+                VfxTimingData timing = AoeSpawnApplyUtility.VfxTimingFor(spawned);
+                VfxEmit.Enqueue(
+                    vfxId,
+                    pos,
+                    spawned.AreaSize,
+                    timing,
+                    basicVfxPending,
+                    timedVfxPending);
             }
         }
 
@@ -301,38 +294,27 @@ namespace PlayGround.System.Combat.Aoes
                 return;
             }
 
-            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatAoeVfxDispatchSingleton>(
-                out RefRW<CombatAoeVfxDispatchSingleton> vfx);
-            NativeQueue<VfxSpawnRequest> basicVfxQueue = hasVfx ? vfx.ValueRO.PendingBasicSpawns : default;
-            NativeQueue<TimedVfxSpawnRequest> timedVfxQueue = hasVfx ? vfx.ValueRO.PendingTimedSpawns : default;
-            bool hasBasicVfx = hasVfx && basicVfxQueue.IsCreated;
-            bool hasTimedVfx = hasVfx && timedVfxQueue.IsCreated;
-            hasVfx = hasBasicVfx || hasTimedVfx;
+            // The VFX lane is created unconditionally by CombatAoeVfxDispatchSystem's OnCreate.
+            // Read it directly: a missing lane is a broken world and must throw, not be skipped.
+            RefRW<CombatAoeVfxDispatchSingleton> vfx =
+                SystemAPI.GetSingletonRW<CombatAoeVfxDispatchSingleton>();
 
             NativeList<AoeSpawnCommand> commands =
                 new(events.Length, Allocator.TempJob);
 
-            JobHandle expansionInput = Dependency;
-            if (hasVfx)
-            {
-                expansionInput = JobHandle.CombineDependencies(expansionInput, vfx.ValueRO.ProducerHandle);
-            }
+            JobHandle expansionInput =
+                JobHandle.CombineDependencies(Dependency, vfx.ValueRO.ProducerHandle);
 
             Dependency = new ImpactAoeExpansionJob
             {
                 Events = events,
                 Templates = templates.Map,
                 Commands = commands,
-                BasicVfxPending = hasBasicVfx ? basicVfxQueue.AsParallelWriter() : default,
-                HasBasicVfxWriter = hasBasicVfx,
-                TimedVfxPending = hasTimedVfx ? timedVfxQueue.AsParallelWriter() : default,
-                HasTimedVfxWriter = hasTimedVfx
+                BasicVfxPending = vfx.ValueRO.PendingBasicSpawns.AsParallelWriter(),
+                TimedVfxPending = vfx.ValueRO.PendingTimedSpawns.AsParallelWriter()
             }.Schedule(expansionInput);
 
-            if (hasVfx)
-            {
-                vfx.ValueRW.ProducerHandle = Dependency;
-            }
+            vfx.ValueRW.ProducerHandle = Dependency;
 
             Dependency = events.Dispose(Dependency);
             singleton.Commands = commands;
@@ -346,9 +328,7 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeHashMap<Hash128, AoeSpawnCommand> Templates;
             public NativeList<AoeSpawnCommand> Commands;
             public NativeQueue<VfxSpawnRequest>.ParallelWriter BasicVfxPending;
-            public bool HasBasicVfxWriter;
             public NativeQueue<TimedVfxSpawnRequest>.ParallelWriter TimedVfxPending;
-            public bool HasTimedVfxWriter;
 
             public void Execute()
             {
@@ -369,9 +349,7 @@ namespace PlayGround.System.Combat.Aoes
                         Templates,
                         Commands,
                         BasicVfxPending,
-                        HasBasicVfxWriter,
-                        TimedVfxPending,
-                        HasTimedVfxWriter);
+                        TimedVfxPending);
                 }
             }
         }
@@ -488,38 +466,27 @@ namespace PlayGround.System.Combat.Aoes
                 return;
             }
 
-            bool hasVfx = SystemAPI.TryGetSingletonRW<CombatAoeVfxDispatchSingleton>(
-                out RefRW<CombatAoeVfxDispatchSingleton> vfx);
-            NativeQueue<VfxSpawnRequest> basicVfxQueue = hasVfx ? vfx.ValueRO.PendingBasicSpawns : default;
-            NativeQueue<TimedVfxSpawnRequest> timedVfxQueue = hasVfx ? vfx.ValueRO.PendingTimedSpawns : default;
-            bool hasBasicVfx = hasVfx && basicVfxQueue.IsCreated;
-            bool hasTimedVfx = hasVfx && timedVfxQueue.IsCreated;
-            hasVfx = hasBasicVfx || hasTimedVfx;
+            // The VFX lane is created unconditionally by CombatAoeVfxDispatchSystem's OnCreate.
+            // Read it directly: a missing lane is a broken world and must throw, not be skipped.
+            RefRW<CombatAoeVfxDispatchSingleton> vfx =
+                SystemAPI.GetSingletonRW<CombatAoeVfxDispatchSingleton>();
 
             NativeList<AoeSpawnCommand> commands =
                 new(events.Length, Allocator.TempJob);
 
-            JobHandle expansionInput = Dependency;
-            if (hasVfx)
-            {
-                expansionInput = JobHandle.CombineDependencies(expansionInput, vfx.ValueRO.ProducerHandle);
-            }
+            JobHandle expansionInput =
+                JobHandle.CombineDependencies(Dependency, vfx.ValueRO.ProducerHandle);
 
             Dependency = new LingeringAoeExpansionJob
             {
                 Events = events,
                 Templates = templates.Map,
                 Commands = commands,
-                BasicVfxPending = hasBasicVfx ? basicVfxQueue.AsParallelWriter() : default,
-                HasBasicVfxWriter = hasBasicVfx,
-                TimedVfxPending = hasTimedVfx ? timedVfxQueue.AsParallelWriter() : default,
-                HasTimedVfxWriter = hasTimedVfx
+                BasicVfxPending = vfx.ValueRO.PendingBasicSpawns.AsParallelWriter(),
+                TimedVfxPending = vfx.ValueRO.PendingTimedSpawns.AsParallelWriter()
             }.Schedule(expansionInput);
 
-            if (hasVfx)
-            {
-                vfx.ValueRW.ProducerHandle = Dependency;
-            }
+            vfx.ValueRW.ProducerHandle = Dependency;
 
             Dependency = events.Dispose(Dependency);
             singleton.Commands = commands;
@@ -533,9 +500,7 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeHashMap<Hash128, AoeSpawnCommand> Templates;
             public NativeList<AoeSpawnCommand> Commands;
             public NativeQueue<VfxSpawnRequest>.ParallelWriter BasicVfxPending;
-            public bool HasBasicVfxWriter;
             public NativeQueue<TimedVfxSpawnRequest>.ParallelWriter TimedVfxPending;
-            public bool HasTimedVfxWriter;
 
             public void Execute()
             {
@@ -556,9 +521,7 @@ namespace PlayGround.System.Combat.Aoes
                         Templates,
                         Commands,
                         BasicVfxPending,
-                        HasBasicVfxWriter,
-                        TimedVfxPending,
-                        HasTimedVfxWriter);
+                        TimedVfxPending);
                 }
             }
         }

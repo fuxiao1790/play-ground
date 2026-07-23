@@ -28,64 +28,31 @@ namespace PlayGround.System.Combat.Spawning
     {
         public void OnUpdate(ref SystemState state)
         {
-            bool hasProjectileEvents = SystemAPI.TryGetSingletonRW<ProjectileSpawnEventSingleton>(
-                out RefRW<ProjectileSpawnEventSingleton> projectileLane);
-            NativeQueue<ProjectileSpawnEvent> projectileEventQueue =
-                hasProjectileEvents ? projectileLane.ValueRO.EventQueue : default;
-            hasProjectileEvents = hasProjectileEvents && projectileEventQueue.IsCreated;
-
-            bool hasImpactAoeEvents = SystemAPI.TryGetSingletonRW<ImpactAoeSpawnEventSingleton>(
-                out RefRW<ImpactAoeSpawnEventSingleton> impactAoeLane);
-            NativeQueue<ImpactAoeSpawnEvent> impactAoeEventQueue =
-                hasImpactAoeEvents ? impactAoeLane.ValueRO.EventQueue : default;
-            hasImpactAoeEvents = hasImpactAoeEvents && impactAoeEventQueue.IsCreated;
-
-            bool hasLingeringAoeEvents = SystemAPI.TryGetSingletonRW<LingeringAoeSpawnEventSingleton>(
-                out RefRW<LingeringAoeSpawnEventSingleton> lingeringAoeLane);
-            NativeQueue<LingeringAoeSpawnEvent> lingeringAoeEventQueue =
-                hasLingeringAoeEvents ? lingeringAoeLane.ValueRO.EventQueue : default;
-            hasLingeringAoeEvents = hasLingeringAoeEvents && lingeringAoeEventQueue.IsCreated;
-            if (!hasProjectileEvents && !hasImpactAoeEvents && !hasLingeringAoeEvents)
-            {
-                return;
-            }
+            // The spawn lanes are created unconditionally by their expansion systems' OnCreate.
+            // Read them directly: a missing lane is a broken world and must throw, not be skipped.
+            RefRW<ProjectileSpawnEventSingleton> projectileLane =
+                SystemAPI.GetSingletonRW<ProjectileSpawnEventSingleton>();
+            RefRW<ImpactAoeSpawnEventSingleton> impactAoeLane =
+                SystemAPI.GetSingletonRW<ImpactAoeSpawnEventSingleton>();
+            RefRW<LingeringAoeSpawnEventSingleton> lingeringAoeLane =
+                SystemAPI.GetSingletonRW<LingeringAoeSpawnEventSingleton>();
 
             JobHandle handle = new TimedSpawnJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
-                ProjectileEventQueue = hasProjectileEvents
-                    ? projectileEventQueue.AsParallelWriter()
-                    : default,
-                ImpactAoeEventQueue = hasImpactAoeEvents
-                    ? impactAoeEventQueue.AsParallelWriter()
-                    : default,
-                LingeringAoeEventQueue = hasLingeringAoeEvents
-                    ? lingeringAoeEventQueue.AsParallelWriter()
-                    : default,
-                HasProjectileEventQueue = hasProjectileEvents,
-                HasImpactAoeEventQueue = hasImpactAoeEvents,
-                HasLingeringAoeEventQueue = hasLingeringAoeEvents
+                ProjectileEventQueue = projectileLane.ValueRO.EventQueue.AsParallelWriter(),
+                ImpactAoeEventQueue = impactAoeLane.ValueRO.EventQueue.AsParallelWriter(),
+                LingeringAoeEventQueue = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter()
             }.ScheduleParallel(state.Dependency);
 
             state.Dependency = handle;
 
-            if (hasProjectileEvents)
-            {
-                projectileLane.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(projectileLane.ValueRW.ProducerHandle, handle);
-            }
-
-            if (hasImpactAoeEvents)
-            {
-                impactAoeLane.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(impactAoeLane.ValueRW.ProducerHandle, handle);
-            }
-
-            if (hasLingeringAoeEvents)
-            {
-                lingeringAoeLane.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(lingeringAoeLane.ValueRW.ProducerHandle, handle);
-            }
+            projectileLane.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(projectileLane.ValueRW.ProducerHandle, handle);
+            impactAoeLane.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(impactAoeLane.ValueRW.ProducerHandle, handle);
+            lingeringAoeLane.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(lingeringAoeLane.ValueRW.ProducerHandle, handle);
         }
 
         [BurstCompile]
@@ -97,9 +64,6 @@ namespace PlayGround.System.Combat.Spawning
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventQueue;
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventQueue;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventQueue;
-            public bool HasProjectileEventQueue;
-            public bool HasImpactAoeEventQueue;
-            public bool HasLingeringAoeEventQueue;
 
             // Safety guards: a bad threshold stays positive and catch-up remains bounded.
             private const float MinEnergyThreshold = 1e-3f;
@@ -128,54 +92,45 @@ namespace PlayGround.System.Combat.Spawning
                     tickIndex++;
                     if (spawn.ChildKind == IntervalChildKind.ImpactAoe)
                     {
-                        if (HasImpactAoeEventQueue)
+                        ImpactAoeEventQueue.Enqueue(new ImpactAoeSpawnEvent
                         {
-                            ImpactAoeEventQueue.Enqueue(new ImpactAoeSpawnEvent
-                            {
-                                Kind = IntervalChildKind.ImpactAoe,
-                                TemplateKey = spawn.TemplateKey,
-                                Position = kinematics.Position,
-                                AimDirection = default,
-                                Faction = spawn.Faction,
-                                SourceId = spawn.SourceId,
-                                JitterSeed = (uint)spawn.JitterSeed,
-                                DeterministicIdTickIndex = tickIndex
-                            });
-                        }
+                            Kind = IntervalChildKind.ImpactAoe,
+                            TemplateKey = spawn.TemplateKey,
+                            Position = kinematics.Position,
+                            AimDirection = default,
+                            Faction = spawn.Faction,
+                            SourceId = spawn.SourceId,
+                            JitterSeed = (uint)spawn.JitterSeed,
+                            DeterministicIdTickIndex = tickIndex
+                        });
                     }
                     else if (spawn.ChildKind == IntervalChildKind.LingeringAoe)
                     {
-                        if (HasLingeringAoeEventQueue)
+                        LingeringAoeEventQueue.Enqueue(new LingeringAoeSpawnEvent
                         {
-                            LingeringAoeEventQueue.Enqueue(new LingeringAoeSpawnEvent
-                            {
-                                Kind = IntervalChildKind.LingeringAoe,
-                                TemplateKey = spawn.TemplateKey,
-                                Position = kinematics.Position,
-                                AimDirection = default,
-                                Faction = spawn.Faction,
-                                SourceId = spawn.SourceId,
-                                JitterSeed = (uint)spawn.JitterSeed,
-                                DeterministicIdTickIndex = tickIndex
-                            });
-                        }
+                            Kind = IntervalChildKind.LingeringAoe,
+                            TemplateKey = spawn.TemplateKey,
+                            Position = kinematics.Position,
+                            AimDirection = default,
+                            Faction = spawn.Faction,
+                            SourceId = spawn.SourceId,
+                            JitterSeed = (uint)spawn.JitterSeed,
+                            DeterministicIdTickIndex = tickIndex
+                        });
                     }
                     else
                     {
-                        if (HasProjectileEventQueue)
+                        ProjectileEventQueue.Enqueue(new ProjectileSpawnEvent
                         {
-                            ProjectileEventQueue.Enqueue(new ProjectileSpawnEvent
-                            {
-                                Kind = IntervalChildKind.Projectile,
-                                TemplateKey = spawn.TemplateKey,
-                                Position = kinematics.Position,
-                                AimDirection = default,
-                                Faction = spawn.Faction,
-                                SourceId = spawn.SourceId,
-                                JitterSeed = (uint)spawn.JitterSeed,
-                                DeterministicIdTickIndex = tickIndex
-                            });
-                        }
+                            Kind = IntervalChildKind.Projectile,
+                            TemplateKey = spawn.TemplateKey,
+                            Position = kinematics.Position,
+                            AimDirection = default,
+                            Faction = spawn.Faction,
+                            SourceId = spawn.SourceId,
+                            JitterSeed = (uint)spawn.JitterSeed,
+                            DeterministicIdTickIndex = tickIndex
+                        });
                     }
 
                     state.EnergyAccumulated -= threshold;

@@ -10,6 +10,7 @@ using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Projectiles;
+using PlayGround.System.Combat.Vfx;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
@@ -53,6 +54,9 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<StatusProcessSystem>());
             simGroup.AddSystemToUpdateList(projectileExpansion);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileSpawnApplySystem>());
+            // The AoE expansion systems now read the VFX lane unconditionally, so its owning system
+            // must exist (to create the lane singleton) and tick (to drain it). It no-ops without a VfxRoot.
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatAoeVfxDispatchSystem>());
             simGroup.SortSystems();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
@@ -162,7 +166,7 @@ namespace PlayGround.Tests.PlayMode
             registry.Map.TryAdd(SpawnTemplateHash.Of(in t3), t3);
             int countBefore = registry.Map.Count;
 
-            Tick(0.01f); // no entities â€?all systems do nothing
+            Tick(0.01f); // no entities ï¿½?all systems do nothing
 
             // Re-read after the tick (component is a struct; the map reference is stable).
             registry = entityManager.GetComponentData<AoeSpawnTemplate>(aoeTemplateEntity);

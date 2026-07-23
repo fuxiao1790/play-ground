@@ -12,6 +12,7 @@ using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Projectiles;
+using PlayGround.System.Combat.Vfx;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
@@ -58,6 +59,9 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<AoePulseVfxSystem>());
+            // Producers now write the VFX lane unconditionally, so its owning system must exist
+            // (to create the lane singleton) and tick (to drain it). It no-ops without a VfxRoot.
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatAoeVfxDispatchSystem>());
             simGroup.SortSystems();
             testWorld.GetOrCreateSystemManaged<CombatApplyBridge>();
 
@@ -149,7 +153,7 @@ namespace PlayGround.Tests.PlayMode
 
             Assert.That(ReadFinalizedHitCount(), Is.EqualTo(0));
             Assert.That(entityManager.IsComponentEnabled<Active>(projectile), Is.True,
-                "Player projectile must not hit a Player target â€?same-faction skip.");
+                "Player projectile must not hit a Player target ï¿½?same-faction skip.");
         }
 
         [Test]
