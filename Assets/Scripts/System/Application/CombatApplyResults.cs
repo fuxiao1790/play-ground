@@ -7,8 +7,8 @@ namespace PlayGround.System.Combat.Application
 {
     public struct CombatSpawnResult
     {
-        // Mana adds outcome, assigned-id, and cost fields later.
-        public Entity Caster;
+        // the even owner that created the spawn intent
+        public Entity Source;
     }
 
     // ECS Lifecycle: singleton spawn result lane; created and disposed by SpawnIntakeSystem,
