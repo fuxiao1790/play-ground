@@ -1,0 +1,13 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="column" class="node-column">
+        <!-- Support row: #decrease, then C#-cloned support buttons, then #increase.
+             Caps are hidden (via .hidden) when the node has no skill set. -->
+        <ui:VisualElement name="supports" class="support-row">
+            <ui:Button name="decrease" text="−" class="cap-button" />
+            <ui:Button name="increase" text="+" class="cap-button" />
+        </ui:VisualElement>
+        <ui:Button name="skill" class="skill-button">
+            <ui:Label name="cooldown" class="cooldown-label" />
+        </ui:Button>
+    </ui:VisualElement>
+</ui:UXML>

@@ -1,0 +1,4 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <!-- Text set by C# (choice label). Cloned once per choice. -->
+    <ui:Button name="choice" class="picker-choice" />
+</ui:UXML>

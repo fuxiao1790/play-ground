@@ -1,0 +1,102 @@
+/*
+ * SkillLoadoutUi styling.
+ * Every rule here is a 1:1 transcription of an inline style previously set in
+ * SkillLoadoutUi.cs. No new visual values are introduced.
+ *
+ * Color conversion (Unity Color 0-1 floats -> USS rgba 0-255 channels, 0-1 alpha):
+ *   bar   Color(0.03, 0.04, 0.08, 0.88) -> rgba(8, 10, 20, 0.88)
+ *   modal Color(0.04, 0.05, 0.10, 0.96) -> rgba(10, 13, 26, 0.96)
+ */
+
+/* BuildBar() */
+.skill-bar {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    translate: -50% 0;
+    flex-direction: row;
+    align-items: flex-end;
+    background-color: rgba(8, 10, 20, 0.88);
+    padding: 10px 12px;
+}
+
+/* AddNodeColumn() column */
+.node-column {
+    flex-direction: column;
+    align-items: center;
+}
+
+/* AddNodeColumn() supports row */
+.support-row {
+    flex-direction: row;
+}
+
+/* AddNodeColumn() decrease / increase support-cap buttons */
+.cap-button {
+    width: 28px;
+    height: 28px;
+}
+
+/* AddNodeColumn() support slot buttons */
+.support-button {
+    width: 34px;
+    height: 28px;
+    font-size: 10px;
+}
+
+/* AddNodeColumn() skill button */
+.skill-button {
+    width: 112px;
+    height: 70px;
+    white-space: normal;
+}
+
+/* AddNodeColumn(): applied when the node has an incoming trigger (was style.opacity = 0.45f) */
+.skill-button--triggered {
+    opacity: 0.45;
+}
+
+/* AddNodeColumn() per-node cooldown label */
+.cooldown-label {
+    position: absolute;
+    right: 8px;
+    bottom: 4px;
+    color: white;
+}
+
+/* AddTriggerButton() */
+.trigger-button {
+    width: 112px;
+    height: 38px;
+    margin-bottom: 15px;
+    white-space: normal;
+    font-size: 10px;
+}
+
+/* Utility: caps are absent when a node has no skill set (was: buttons not created). */
+.hidden {
+    display: none;
+}
+
+/* OpenPicker() modal */
+.picker-modal {
+    position: absolute;
+    top: 24px;
+    left: 50%;
+    translate: -50% 0;
+    width: 560px;
+    background-color: rgba(10, 13, 26, 0.96);
+    padding: 12px 16px;
+}
+
+/* OpenPicker() choices container */
+.picker-choices {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+/* AddChoice() choice buttons */
+.picker-choice {
+    margin-right: 6px;
+    margin-bottom: 6px;
+}

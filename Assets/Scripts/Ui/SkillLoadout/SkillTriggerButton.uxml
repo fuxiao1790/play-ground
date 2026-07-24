@@ -1,0 +1,4 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <!-- Text set by C# (TriggerDisplayName). Cloned once between adjacent nodes. -->
+    <ui:Button name="trigger" class="trigger-button" />
+</ui:UXML>

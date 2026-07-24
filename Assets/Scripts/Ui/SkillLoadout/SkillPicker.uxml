@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="picker" class="picker-modal">
+        <!-- #title text set by C# ("Select {Kind}"). #choices filled with cloned
+             choice buttons (Clear + catalog entries). -->
+        <ui:Label name="title" />
+        <ui:VisualElement name="choices" class="picker-choices" />
+        <ui:Button name="cancel" text="Cancel" />
+    </ui:VisualElement>
+</ui:UXML>

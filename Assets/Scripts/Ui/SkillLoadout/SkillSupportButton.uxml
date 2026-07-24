@@ -1,0 +1,4 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <!-- Text set by C# (SupportLabel). Cloned once per support slot. -->
+    <ui:Button name="support" class="support-button" />
+</ui:UXML>

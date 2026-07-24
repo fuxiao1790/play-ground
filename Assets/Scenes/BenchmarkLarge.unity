@@ -752,6 +752,10 @@ PrefabInstance:
       propertyPath: projectileVfxRoot
       value: 
       objectReference: {fileID: 1019222040}
+    - target: {fileID: 7777777777777777777, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+      propertyPath: fallbackCombatRootTag
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 8145524006374604802, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: aoeRoot
       value: 
@@ -2040,7 +2044,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
   m_PanelSettings: {fileID: 11400000, guid: 45f8cd9a58aba3d4c814c066531dd3aa, type: 2}
   m_ParentUI: {fileID: 0}
-  sourceAsset: {fileID: 0}
+  sourceAsset: {fileID: 9197481963319205126, guid: fa59a93ceeaacf04da355ce7974f0785, type: 3}
   m_SortingOrder: 0
   m_Position: 0
   m_WorldSpaceSizeMode: 1
@@ -2080,6 +2084,11 @@ MonoBehaviour:
   catalog: {fileID: 11400000, guid: 8c2ac3dd8ca03c044a86edf6d4298796, type: 2}
   playerRoot: {fileID: 830174276}
   initialNodeCount: 3
+  nodeColumnTemplate: {fileID: 9197481963319205126, guid: 707e9a4867132d244867fa216fcc4cb4, type: 3}
+  supportButtonTemplate: {fileID: 9197481963319205126, guid: 8d79d196e75c9bc48bb17585cd55a266, type: 3}
+  triggerButtonTemplate: {fileID: 9197481963319205126, guid: 66fa4f154002c1740ad5389adbb51725, type: 3}
+  pickerTemplate: {fileID: 9197481963319205126, guid: e0ab1cebbe2e2bd46bc9ab86e0aeaf59, type: 3}
+  pickerChoiceTemplate: {fileID: 9197481963319205126, guid: f6b6353aee6018b49bb4e8e4839f78cd, type: 3}
 --- !u!114 &1983018957
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="SkillLoadoutUi.uss" />
+    <!-- C# fills #bar with cloned node columns and trigger buttons so the count
+         stays driven by initialNodeCount. -->
+    <ui:VisualElement name="bar" class="skill-bar" />
+</ui:UXML>

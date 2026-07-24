@@ -1,9 +1,13 @@
+using System;
 using PlayGround.Player;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace PlayGround.Skills
 {
+    // Runs after UIDocument so document.rootVisualElement is already populated
+    // from the source UXML when OnEnable queries #bar.
+    [DefaultExecutionOrder(1000)]
     [RequireComponent(typeof(UIDocument))]
     public sealed class SkillLoadoutUi : MonoBehaviour
     {
@@ -11,6 +15,13 @@ namespace PlayGround.Skills
         [SerializeField] private SkillUiCatalog catalog;
         [SerializeField] private PlayerRoot playerRoot;
         [SerializeField, Min(1)] private int initialNodeCount = 3;
+
+        [Header("UXML Templates")]
+        [SerializeField] private VisualTreeAsset nodeColumnTemplate;
+        [SerializeField] private VisualTreeAsset supportButtonTemplate;
+        [SerializeField] private VisualTreeAsset triggerButtonTemplate;
+        [SerializeField] private VisualTreeAsset pickerTemplate;
+        [SerializeField] private VisualTreeAsset pickerChoiceTemplate;
 
         private UIDocument document;
         private VisualElement root;
@@ -40,15 +51,20 @@ namespace PlayGround.Skills
             document = GetComponent<UIDocument>();
             if (skillDriver == null) skillDriver = FindAnyObjectByType<SkillDriver>();
             if (playerRoot == null) playerRoot = FindAnyObjectByType<PlayerRoot>();
+            ValidateSetup();
             cooldownLabels = new Label[initialNodeCount];
-            skillDriver?.ConfigureInitialRuntimeNodeCount(initialNodeCount);
+            skillDriver.ConfigureInitialRuntimeNodeCount(initialNodeCount);
         }
 
         private void OnEnable()
         {
             root = document.rootVisualElement;
-            root.Clear();
-            BuildBar();
+            bar = root.Q<VisualElement>("bar");
+            if (bar == null)
+                throw new InvalidOperationException(
+                    $"{nameof(SkillLoadoutUi)} could not find the '#bar' element. Assign SkillLoadoutUi.uxml as the UIDocument Source Asset.");
+
+            RefreshBar();
             skillDriver.LoadoutChanged += OnLoadoutChanged;
             skillDriver.EditResolved += OnEditResolved;
         }
@@ -74,22 +90,21 @@ namespace PlayGround.Skills
             }
         }
 
-        private void BuildBar()
+        private void ValidateSetup()
         {
-            bar = new VisualElement();
-            bar.style.position = Position.Absolute;
-            bar.style.bottom = 24;
-            bar.style.left = new StyleLength(new Length(50, LengthUnit.Percent));
-            bar.style.translate = new Translate(new Length(-50, LengthUnit.Percent), 0);
-            bar.style.flexDirection = FlexDirection.Row;
-            bar.style.alignItems = Align.FlexEnd;
-            bar.style.backgroundColor = new Color(0.03f, 0.04f, 0.08f, 0.88f);
-            bar.style.paddingLeft = 12;
-            bar.style.paddingRight = 12;
-            bar.style.paddingTop = 10;
-            bar.style.paddingBottom = 10;
-            root.Add(bar);
+            if (document == null)
+                throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} requires a {nameof(UIDocument)} component.");
+            if (skillDriver == null)
+                throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} could not resolve a {nameof(SkillDriver)}.");
+            if (nodeColumnTemplate == null || supportButtonTemplate == null || triggerButtonTemplate == null
+                || pickerTemplate == null || pickerChoiceTemplate == null)
+                throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} is missing one or more UXML template references.");
+        }
 
+        private void RefreshBar()
+        {
+            ClosePicker();
+            bar.Clear();
             for (int nodeIndex = 0; nodeIndex < initialNodeCount; nodeIndex++)
             {
                 AddNodeColumn(nodeIndex);
@@ -99,64 +114,71 @@ namespace PlayGround.Skills
 
         private void AddNodeColumn(int nodeIndex)
         {
-            var column = new VisualElement { style = { flexDirection = FlexDirection.Column, alignItems = Align.Center } };
-            var supports = new VisualElement { style = { flexDirection = FlexDirection.Row } };
-            var runtimeNodes = skillDriver.RuntimeNodes;
-            SkillSet skillSet = runtimeNodes != null && nodeIndex < runtimeNodes.Count
-                ? runtimeNodes[nodeIndex]?.SkillSet
-                : null;
+            var column = nodeColumnTemplate.Instantiate().Q<VisualElement>("column");
+            var supports = column.Q<VisualElement>("supports");
+            var decrease = column.Q<Button>("decrease");
+            var increase = column.Q<Button>("increase");
+            var skill = column.Q<Button>("skill");
+            var cooldown = column.Q<Label>("cooldown");
+
+            SkillSet skillSet = GetSkillSet(nodeIndex);
             if (skillSet != null)
             {
-                var decrease = new Button(() => QueueCapEdit(SkillLoadoutEditKind.DecreaseSupportCap, nodeIndex)) { text = "−" };
-                decrease.style.width = 28; decrease.style.height = 28;
                 decrease.SetEnabled(skillSet.SupportSlotCount > 0);
-                supports.Add(decrease);
-            }
-
-            int supportSlotCount = skillSet?.SupportSlotCount ?? 0;
-            for (int supportIndex = 0; supportIndex < supportSlotCount; supportIndex++)
-            {
-                int captured = supportIndex;
-                var support = new Button(() => OpenPicker(new PickerTarget(PickerKind.Support, nodeIndex, captured))) { text = SupportLabel(nodeIndex, supportIndex) };
-                support.style.width = 34; support.style.height = 28; support.style.fontSize = 10;
-                supports.Add(support);
-            }
-
-            if (skillSet != null)
-            {
-                var increase = new Button(() => QueueCapEdit(SkillLoadoutEditKind.IncreaseSupportCap, nodeIndex)) { text = "+" };
-                increase.style.width = 28; increase.style.height = 28;
+                decrease.clicked += () => QueueCapEdit(SkillLoadoutEditKind.DecreaseSupportCap, nodeIndex);
                 increase.SetEnabled(skillSet.SupportSlotCount < skillSet.MaxSupportCount);
-                supports.Add(increase);
+                increase.clicked += () => QueueCapEdit(SkillLoadoutEditKind.IncreaseSupportCap, nodeIndex);
+
+                int supportSlotCount = skillSet.SupportSlotCount;
+                for (int supportIndex = 0; supportIndex < supportSlotCount; supportIndex++)
+                {
+                    int captured = supportIndex;
+                    var support = supportButtonTemplate.Instantiate().Q<Button>("support");
+                    support.text = SupportLabel(nodeIndex, supportIndex);
+                    support.clicked += () => OpenPicker(new PickerTarget(PickerKind.Support, nodeIndex, captured));
+                    supports.Insert(supports.IndexOf(increase), support);
+                }
+            }
+            else
+            {
+                decrease.AddToClassList("hidden");
+                increase.AddToClassList("hidden");
             }
 
-            var skill = new Button(() => OpenPicker(new PickerTarget(PickerKind.Skill, nodeIndex))) { text = SkillLabel(nodeIndex) };
-            skill.style.width = 112; skill.style.height = 70; skill.style.whiteSpace = WhiteSpace.Normal;
-            var nodes = skillDriver.RuntimeNodes;
-            bool triggered = nodeIndex > 0
-                && nodes != null
-                && nodeIndex - 1 < nodes.Count
-                && nodes[nodeIndex - 1]?.TriggerToNext != null;
-            if (triggered) skill.style.opacity = 0.45f;
-            cooldownLabels[nodeIndex] = new Label { style = { position = Position.Absolute, right = 8, bottom = 4, color = Color.white } };
-            skill.Add(cooldownLabels[nodeIndex]);
-            column.Add(supports);
-            column.Add(skill);
+            skill.text = SkillLabel(nodeIndex);
+            skill.clicked += () => OpenPicker(new PickerTarget(PickerKind.Skill, nodeIndex));
+            if (IsTriggered(nodeIndex)) skill.AddToClassList("skill-button--triggered");
+
+            cooldownLabels[nodeIndex] = cooldown;
             bar.Add(column);
         }
 
         private void AddTriggerButton(int nodeIndex)
         {
-            var trigger = new Button(() => OpenPicker(new PickerTarget(PickerKind.Trigger, nodeIndex))) { text = TriggerDisplayName(nodeIndex) };
-            trigger.style.width = 112; trigger.style.height = 38; trigger.style.marginBottom = 15;
-            trigger.style.whiteSpace = WhiteSpace.Normal;
-            trigger.style.fontSize = 10;
+            var trigger = triggerButtonTemplate.Instantiate().Q<Button>("trigger");
+            trigger.text = TriggerDisplayName(nodeIndex);
+            trigger.clicked += () => OpenPicker(new PickerTarget(PickerKind.Trigger, nodeIndex));
             bar.Add(trigger);
         }
 
         private void QueueCapEdit(SkillLoadoutEditKind kind, int nodeIndex)
         {
             skillDriver.TryQueueEdit(new SkillLoadoutEditCommand(skillDriver.Revision, kind, nodeIndex), out _);
+        }
+
+        private SkillSet GetSkillSet(int nodeIndex)
+        {
+            var nodes = skillDriver.RuntimeNodes;
+            return nodes != null && nodeIndex < nodes.Count ? nodes[nodeIndex]?.SkillSet : null;
+        }
+
+        private bool IsTriggered(int nodeIndex)
+        {
+            var nodes = skillDriver.RuntimeNodes;
+            return nodeIndex > 0
+                && nodes != null
+                && nodeIndex - 1 < nodes.Count
+                && nodes[nodeIndex - 1]?.TriggerToNext != null;
         }
 
         private string SkillLabel(int index) => skillDriver.RuntimeNodes != null && index < skillDriver.RuntimeNodes.Count && skillDriver.RuntimeNodes[index]?.SkillSet?.Skill != null
@@ -191,15 +213,9 @@ namespace PlayGround.Skills
         {
             pickerTarget = target;
             ClosePicker();
-            modal = new VisualElement();
-            modal.style.position = Position.Absolute; modal.style.top = 24;
-            modal.style.left = new StyleLength(new Length(50, LengthUnit.Percent));
-            modal.style.translate = new Translate(new Length(-50, LengthUnit.Percent), 0);
-            modal.style.width = 560; modal.style.backgroundColor = new Color(0.04f, 0.05f, 0.1f, 0.96f);
-            modal.style.paddingLeft = 16; modal.style.paddingRight = 16; modal.style.paddingTop = 12; modal.style.paddingBottom = 12;
-            modal.Add(new Label($"Select {target.Kind}"));
-            var choices = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap } };
-            modal.Add(choices);
+            modal = pickerTemplate.Instantiate().Q<VisualElement>("picker");
+            modal.Q<Label>("title").text = $"Select {target.Kind}";
+            var choices = modal.Q<VisualElement>("choices");
             AddClear(choices);
             if (catalog != null)
             {
@@ -207,7 +223,7 @@ namespace PlayGround.Skills
                 if (target.Kind == PickerKind.Support) foreach (var entry in catalog.Supports) AddChoice(choices, entry.DisplayName, new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetSupport, target.NodeIndex, target.SupportIndex, support: entry.Definition));
                 if (target.Kind == PickerKind.Trigger) foreach (var entry in catalog.Triggers) AddChoice(choices, entry.DisplayName, new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetTrigger, target.NodeIndex, trigger: entry.Definition));
             }
-            var cancel = new Button(ClosePicker) { text = "Cancel" }; modal.Add(cancel);
+            modal.Q<Button>("cancel").clicked += ClosePicker;
             root.Add(modal);
             playerRoot?.SetGameplayInputGate(true, true);
         }
@@ -220,8 +236,10 @@ namespace PlayGround.Skills
 
         private void AddChoice(VisualElement parent, string label, SkillLoadoutEditCommand command)
         {
-            var choice = new Button(() => { if (skillDriver.TryQueueEdit(command, out _)) ClosePicker(); }) { text = string.IsNullOrWhiteSpace(label) ? "Unnamed" : label };
-            choice.style.marginRight = 6; choice.style.marginBottom = 6; parent.Add(choice);
+            var choice = pickerChoiceTemplate.Instantiate().Q<Button>("choice");
+            choice.text = string.IsNullOrWhiteSpace(label) ? "Unnamed" : label;
+            choice.clicked += () => { if (skillDriver.TryQueueEdit(command, out _)) ClosePicker(); };
+            parent.Add(choice);
         }
 
         private void ClosePicker()
@@ -230,7 +248,7 @@ namespace PlayGround.Skills
             playerRoot?.SetGameplayInputGate(false, false);
         }
 
-        private void OnLoadoutChanged(ulong _) { root.Clear(); BuildBar(); }
+        private void OnLoadoutChanged(ulong _) => RefreshBar();
         private void OnEditResolved(SkillLoadoutEditResult result) { if (!result.Accepted) ClosePicker(); }
     }
 }
