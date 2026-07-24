@@ -10,7 +10,7 @@ using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Projectiles;
 using UnityEngine;
 
-namespace PlayGround.Skills
+namespace PlayGround.System.Combat.Authoring
 {
     public sealed class BasicAttackPrefab : MonoBehaviour
     {

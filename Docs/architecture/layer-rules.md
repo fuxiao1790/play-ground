@@ -28,6 +28,19 @@ uses its data contract.
 Allowed dependencies must be explicit in the layer doc. Forbidden dependencies
 must stay forbidden even when they seem convenient for tests or prototypes.
 
+## Package Boundary
+
+Core runtime code is split into asmdefs under `Assets/Scripts/` with one-way references:
+
+```text
+PlayGround.SkillUi -> PlayGround.GameLogic -> PlayGround.Sim
+```
+
+`PlayGround.Sim` (`Assets/Scripts/System/`) must not reference game logic, UI, or Debugging. The combat
+bridge and ECS-serving presentation components live in Sim with the ECS runtime.
+`PlayGround.Debugging` (`Assets/Scripts/Debugging/`) is an exempt leaf: it may reference core assemblies, but no
+core assembly may reference it.
+
 ## Boundary Data
 
 Data that crosses layers must be plain and documented as a contract when it is

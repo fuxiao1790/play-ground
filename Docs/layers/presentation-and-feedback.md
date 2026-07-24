@@ -57,10 +57,10 @@ submission, debug text, and visual budgets.
 ## Main Systems / Modules
 
 - `Assets/Scripts/System/Presentation/CombatApplyBridge.cs`
-- `Assets/Scripts/System/Combat/Rendering/CombatBatchedRenderSystem.cs`
-- `Assets/Scripts/System/Combat/Vfx/CombatAoeVfxDispatchSystem.cs`
-- `Assets/Scripts/System/Combat/Vfx/CombatVfxRoot.cs`
-- `Assets/Scripts/System/Combat/Vfx/CombatAoeVfxDispatcher.cs`
+- `Assets/Scripts/System/Rendering/CombatBatchedRenderSystem.cs`
+- `Assets/Scripts/System/Vfx/CombatAoeVfxDispatchSystem.cs`
+- `Assets/Scripts/System/Vfx/CombatVfxRoot.cs`
+- `Assets/Scripts/System/Vfx/CombatAoeVfxDispatcher.cs`
 - `Assets/Scripts/Debugging/DebugOverlay.cs`
 
 ## Related Contracts

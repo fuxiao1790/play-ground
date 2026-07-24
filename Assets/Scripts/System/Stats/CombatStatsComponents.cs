@@ -24,8 +24,9 @@ namespace PlayGround.System.Combat.Stats
     //   SystemAPI.TryGetSingletonRW during simulation/presentation, so idle frames add nothing
     //   and never show stale counts.
     // - CombatStatsGatherSystem (PresentationSystemGroup, after all producers) reads the built-up
-    //   snapshot and pushes it to the overlay; it also fills ActiveProjectiles/ActiveAoes from
-    //   its own render-active queries.
+    //   snapshot and writes it to CombatStatsSingleton; it also fills ActiveProjectiles/ActiveAoes
+    //   from its own render-active queries. The debug overlay pulls the singleton from the world
+    //   (no push), so the simulation holds no reference to any Debugging type.
     //
     // Field producers:
     // - EntitiesSpawnedViaEcb: top-up create total, summed (+=) by the projectile, impact AOE,
@@ -57,12 +58,5 @@ namespace PlayGround.System.Combat.Stats
         public int VfxEventsCreated;
         public int EntitiesDespawned;
         public int EntitiesDeleted;
-    }
-
-    // ECS Lifecycle: managed singleton binding; created with the singleton entity;
-    // Display is set/cleared by PerformanceText via CombatStatsGatherSystem.Bind/Unbind.
-    public sealed class CombatStatsBinding : Unity.Entities.IComponentData
-    {
-        public global::PerformanceText Display;
     }
 }

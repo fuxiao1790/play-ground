@@ -25,10 +25,10 @@ MonoBehaviour:
     version: 2
     RefIds:
     - rid: 1
-      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.GameLogic}
       data:
         skillSet: {fileID: 11400000, guid: a2000000000000000000000000000026, type: 2}
     - rid: 2
-      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.GameLogic}
       data:
         skillSet: {fileID: 11400000, guid: a2000000000000000000000000000020, type: 2}

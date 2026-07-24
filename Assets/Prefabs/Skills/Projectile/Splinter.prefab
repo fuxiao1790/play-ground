@@ -136,7 +136,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b546a681e8dd41b4a9789b69c4dbf0d1, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Attack.BasicAttackPrefab
+  m_EditorClassIdentifier: PlayGround.Sim::PlayGround.System.Combat.Authoring.BasicAttackPrefab
   spriteRenderer: {fileID: 6416970736168755285}
   hurtbox: {fileID: 7071106864287183157}
 --- !u!1 &7079102651487229076

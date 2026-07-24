@@ -1,4 +1,4 @@
-using PlayGround.System.Combat.Aoes;
+using PlayGround.Skills;
 using UnityEngine;
 
 namespace PlayGround.Common.StatusEffects

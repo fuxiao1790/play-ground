@@ -27,7 +27,6 @@ namespace PlayGround.System.Combat.Stats
         {
             _statsEntity = EntityManager.CreateEntity();
             EntityManager.AddComponentData(_statsEntity, new CombatStatsSingleton());
-            EntityManager.AddComponentObject(_statsEntity, new CombatStatsBinding());
 
             activeProjectileRenderQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CombatRenderComponent>()
@@ -42,39 +41,16 @@ namespace PlayGround.System.Combat.Stats
                 .Build(this);
         }
 
-        internal void Bind(global::PerformanceText display)
-        {
-            if (_statsEntity != Entity.Null && EntityManager.Exists(_statsEntity))
-            {
-                EntityManager.GetComponentObject<CombatStatsBinding>(_statsEntity).Display = display;
-            }
-        }
-
-        internal void Unbind(global::PerformanceText display)
-        {
-            if (_statsEntity != Entity.Null && EntityManager.Exists(_statsEntity))
-            {
-                CombatStatsBinding binding =
-                    EntityManager.GetComponentObject<CombatStatsBinding>(_statsEntity);
-                if (binding.Display == display)
-                {
-                    binding.Display = null;
-                }
-            }
-        }
-
         protected override void OnUpdate()
         {
             // Producers accumulated their counts into the blackboard earlier this frame; this
-            // system only reads it and fills in the render-active counts it owns, then displays.
+            // system only reads it and fills in the render-active counts it owns, then writes the
+            // snapshot to CombatStatsSingleton. Readers (e.g. the debug overlay) pull it from the
+            // world; the simulation no longer pushes to any Debugging type.
             CombatStatsSingleton snapshot = EntityManager.GetComponentData<CombatStatsSingleton>(_statsEntity);
             snapshot.ActiveProjectiles = activeProjectileRenderQuery.CalculateEntityCount();
             snapshot.ActiveAoes = activeAoeRenderQuery.CalculateEntityCount();
             EntityManager.SetComponentData(_statsEntity, snapshot);
-
-            CombatStatsBinding binding =
-                EntityManager.GetComponentObject<CombatStatsBinding>(_statsEntity);
-            binding.Display?.Apply(in snapshot);
         }
     }
 }

@@ -75,43 +75,20 @@ Docs/
 
 - `Assets/`: Unity assets, scenes, prefabs, scripts, art, audio, settings
 - `Assets/Scenes/`: Unity scene files
-- `Assets/Scripts/`: runtime C# code
-- `Assets/Scripts/Common/`: shared non-ECS gameplay helpers
-- `Assets/Scripts/Player/`: player root, movement, facing, animation, health
-- `Assets/Scripts/Persistence/`: versioned player save DTOs and JSON file store
-- `Assets/Scripts/Mob/`: mob root, behavior, triggers, attacks, status handling
-- `Assets/Scripts/Spawn/`: spawn root, spawn points, spawn config
-- `Assets/Scripts/Skills/`: skill definitions, runtime skill compilation,
-  supports, triggers, validators
-- `Assets/Scripts/System/Combat/`: combat ECS runtime, organized by ownership
-- `Assets/Scripts/System/Application/`: hit application, finalization,
-  and compact native combat result data
-- `Assets/Scripts/System/Presentation/`: presentation bridge systems that
-  resolve managed target feedback from finalized combat result data
-- `Assets/Scripts/System/Combat/Targets/`: target proxy, target registry,
-  target interfaces, and target-owned shape state
-- `Assets/Scripts/System/Combat/Projectiles/`: projectile ECS runtime
-- `Assets/Scripts/System/Combat/Aoes/`: AOE ECS runtime
-- `Assets/Scripts/System/Combat/Collision/`: shared collision math,
-  shape primitives, and target broadphase infrastructure
-- `Assets/Scripts/System/Combat/Spawning/`: cross-feature spawn templates,
-  timed child spawning, and interval child contracts
-- `Assets/Scripts/System/Combat/Lifetime/`: transient combat entity lifetime,
-  arming, active state, death utility, and pool cleanup
-- `Assets/Scripts/System/Combat/Rendering/`: combat sprite render data,
-  matrix preparation, and batched submission
-- `Assets/Scripts/System/Combat/Vfx/`: combat VFX dispatch runtime
-- `Assets/Scripts/System/Combat/Status/`: ECS status processing
-- `Assets/Scripts/System/Combat/Stats/`: combat stats and diagnostics
-- `Assets/Scripts/System/Combat/Core/`: combat root, scope, faction, and
-  bootstrap-level scope ownership
-- `Assets/Scripts/System/Combat/Platform/`: Unity ECS world integration
+- `Assets/Scripts/PlayGround.GameLogic.asmdef`: `PlayGround.GameLogic`; the root
+  assembly for skills, actors, spawning, persistence, authoring, stats, and status.
+- `Assets/Scripts/System/PlayGround.Sim.asmdef`: `PlayGround.Sim`; ECS runtime plus
+  combat bridge, ECS-serving presentation roots, `System/Authoring/` prefab
+  components, and `System/Shared/` primitives.
+- `Assets/Scripts/SkillUi/PlayGround.SkillUi.asmdef`: `PlayGround.SkillUi`;
+  skill-loadout UI.
+- `Assets/Scripts/Debugging/PlayGround.Debugging.asmdef`: exempt Debugging leaf.
 - `Assets/Prefabs/`: authored runtime prefabs
 - `Assets/ScriptableObjects/`: authored reusable data
 - `Assets/Tests/EditMode/`: editor and pure tests
 - `Assets/Tests/PlayMode/`: scene/runtime tests
 - `Docs/`: design and implementation docs
-- `Packages/`: Unity package manifest and lock files
+- `Packages/`: Unity package manifest and lock files; no PlayGround embedded package.
 - `ProjectSettings/`: Unity project settings
 
 ## Good First Places To Look

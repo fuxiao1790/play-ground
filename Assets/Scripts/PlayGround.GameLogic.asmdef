@@ -1,0 +1,21 @@
+{
+  "name": "PlayGround.GameLogic",
+  "references": [
+    "PlayGround.Sim",
+    "Unity.Collections",
+    "Unity.Entities",
+    "Unity.InputSystem",
+    "Unity.Mathematics",
+    "Unity.Profiling.Core",
+    "Unity.VisualEffectGraph.Runtime"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

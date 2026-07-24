@@ -2,7 +2,8 @@
     "name": "PlayGround.Tests.EditMode",
     "rootNamespace": "",
     "references": [
-        "PlayGround.Runtime",
+        "PlayGround.Sim",
+        "PlayGround.GameLogic",
         "Unity.Collections",
         "Unity.Entities",
         "Unity.Mathematics"

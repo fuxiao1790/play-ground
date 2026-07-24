@@ -33,26 +33,26 @@ MonoBehaviour:
     version: 2
     RefIds:
     - rid: 3401311866238796024
-      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.GameLogic}
       data:
         skillSet: {fileID: 11400000, guid: a2000000000000000000000000000003, type: 2}
     - rid: 3401311866238796025
-      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.GameLogic}
       data:
         link: {fileID: 11400000, guid: 72106f578633ced47afdee80a7dc84db, type: 2}
     - rid: 3401311866238796028
-      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.GameLogic}
       data:
         skillSet: {fileID: 11400000, guid: a2000000000000000000000000000004, type: 2}
     - rid: 3401311924791803978
-      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.GameLogic}
       data:
         skillSet: {fileID: 11400000, guid: b2000000000000000000000000000003, type: 2}
     - rid: 3401311924791803979
-      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      type: {class: TriggerLinkSlot, ns: PlayGround.Skills, asm: PlayGround.GameLogic}
       data:
         link: {fileID: 11400000, guid: c4000000000000000000000000000001, type: 2}
     - rid: 3401311924791803980
-      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.GameLogic}
       data:
         skillSet: {fileID: 11400000, guid: 4df1199445ec2254fb0c1826642c1b74, type: 2}

@@ -55,11 +55,11 @@ buffers.
 
 ## Main Systems / Modules
 
-- `Assets/Scripts/System/Combat/Core/CombatRoot.cs`
-- `Assets/Scripts/System/Combat/Core/CombatScopeOwner.cs`
-- `Assets/Scripts/System/Combat/Core/CombatScope.cs`
-- `Assets/Scripts/System/Combat/Targets/CombatTargetRegistry.cs`
-- `Assets/Scripts/System/Combat/Targets/CombatTargetProxy.cs`
+- `Assets/Scripts/System/Core/CombatRoot.cs`
+- `Assets/Scripts/System/Core/CombatScopeOwner.cs`
+- `Assets/Scripts/System/Core/CombatScope.cs`
+- `Assets/Scripts/System/Targets/CombatTargetRegistry.cs`
+- `Assets/Scripts/System/Targets/CombatTargetProxy.cs`
 
 ## Related Contracts
 

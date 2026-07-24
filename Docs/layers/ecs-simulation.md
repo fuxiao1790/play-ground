@@ -61,14 +61,14 @@ preparation.
 
 ## Main Systems / Modules
 
-- `Assets/Scripts/System/Combat/Projectiles/`
-- `Assets/Scripts/System/Combat/Aoes/`
-- `Assets/Scripts/System/Combat/Collision/`
-- `Assets/Scripts/System/Combat/Status/`
-- `Assets/Scripts/System/Combat/Application/CombatApplyFinalizeSingleSystem.cs`
-- `Assets/Scripts/System/Combat/Lifetime/CombatLifetimeSystem.cs`
-- `Assets/Scripts/System/Combat/Spawning/TimedSpawnSystem.cs`
-- `Assets/Scripts/System/Combat/Rendering/CombatRenderComponents.cs`
+- `Assets/Scripts/System/Projectiles/`
+- `Assets/Scripts/System/Aoes/`
+- `Assets/Scripts/System/Api/Collision/`
+- `Assets/Scripts/System/Status/`
+- `Assets/Scripts/System/Application/CombatApplyFinalizeSingleSystem.cs`
+- `Assets/Scripts/System/Lifetime/CombatLifetimeSystem.cs`
+- `Assets/Scripts/System/Spawning/TimedSpawnSystem.cs`
+- `Assets/Scripts/System/Rendering/CombatRenderComponents.cs`
 
 ## Related Contracts
 

@@ -21,6 +21,9 @@ Key API surface:
 - projectile template/type registration
 - AOE config/type registration
 - timed spawn template registration returning `Hash128`
+- registered projectile/AOE template spawning
+- projectile/AOE render id and render-template lookup
+- AOE VFX-id assignment
 - target registry access for actor registration
 - `Spawn(ProjectileSpawnRequest, CombatFaction)`
 - `Spawn(AoeSpawnRequest, CombatFaction)`

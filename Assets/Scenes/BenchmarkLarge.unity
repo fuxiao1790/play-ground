@@ -2075,7 +2075,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 14f58db2ed082d648b03b9baaf79d898, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillLoadoutUi
+  m_EditorClassIdentifier: PlayGround.SkillUi::PlayGround.Skills.SkillLoadoutUi
   skillDriver: {fileID: 1534015925}
   catalog: {fileID: 11400000, guid: 8c2ac3dd8ca03c044a86edf6d4298796, type: 2}
   playerRoot: {fileID: 830174276}

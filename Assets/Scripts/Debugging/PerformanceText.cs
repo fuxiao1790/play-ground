@@ -11,43 +11,12 @@ public class PerformanceText : MonoBehaviour
     [SerializeField] private Vector2 size = new(360f, 180f);
     [SerializeField] private int fontSize = 18;
 
-    private CombatStatsGatherSystem statsSystem;
-    private CombatStatsSingleton stats;
-    private bool boundToStats;
     private float smoothedDeltaTime;
 
     private void Awake()
     {
         EnsureOverlayText();
     }
-
-    private void OnEnable()
-    {
-        World world = World.DefaultGameObjectInjectionWorld;
-        statsSystem = world?.GetExistingSystemManaged<CombatStatsGatherSystem>();
-        if (statsSystem == null)
-        {
-            Debug.LogWarning(
-                "[PerformanceText] CombatStatsGatherSystem not found; ECS stats will not display.");
-            return;
-        }
-
-        statsSystem.Bind(this);
-        boundToStats = true;
-    }
-
-    private void OnDisable()
-    {
-        if (boundToStats)
-        {
-            statsSystem?.Unbind(this);
-        }
-
-        boundToStats = false;
-        statsSystem = null;
-    }
-
-    internal void Apply(in CombatStatsSingleton snapshot) => stats = snapshot;
 
     private void Update()
     {
@@ -58,6 +27,10 @@ public class PerformanceText : MonoBehaviour
 
         smoothedDeltaTime += (Time.unscaledDeltaTime - smoothedDeltaTime) * 0.1f;
         float fps = smoothedDeltaTime > 0f ? 1f / smoothedDeltaTime : 0f;
+
+        // Pull the shared stats straight from the ECS world instead of the simulation
+        // pushing them here — keeps the sim assembly free of any Debugging reference.
+        CombatStatsSingleton stats = ReadCombatStats();
         text.text =
             $"FPS:          {fps:0}\n" +
             $"Spawn reuse:  {stats.EntitiesSpawnedViaReuse}\n" +
@@ -69,6 +42,21 @@ public class PerformanceText : MonoBehaviour
             $"Hit events:   {stats.HitEventsCreated}\n" +
             $"VFX events:   {stats.VfxEventsCreated}\n" +
             $"VFX particles: {CombatVfxRoot.AliveParticleCount(false)}\n";
+    }
+
+    // Read-only pull of the simulation's per-frame stats singleton. The gather system
+    // publishes it to the ECS world each frame; the overlay queries the world for it here.
+    private static CombatStatsSingleton ReadCombatStats()
+    {
+        World world = World.DefaultGameObjectInjectionWorld;
+        if (world == null || !world.IsCreated)
+        {
+            return default;
+        }
+
+        EntityQuery query = world.EntityManager.CreateEntityQuery(
+            ComponentType.ReadOnly<CombatStatsSingleton>());
+        return query.TryGetSingleton(out CombatStatsSingleton stats) ? stats : default;
     }
 
     private void EnsureOverlayText()

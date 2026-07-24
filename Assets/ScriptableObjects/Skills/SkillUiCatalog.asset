@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 37b563012b797124fbcf658643842a51, type: 3}
   m_Name: SkillUiCatalog
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillUiCatalog
+  m_EditorClassIdentifier: PlayGround.SkillUi::PlayGround.Skills.SkillUiCatalog
   skills:
   - definition: {fileID: 11400000, guid: a2000000000000000000000000000007, type: 2}
     displayName: Arcane Blast

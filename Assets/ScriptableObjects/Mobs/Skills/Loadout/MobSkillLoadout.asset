@@ -22,6 +22,6 @@ MonoBehaviour:
     version: 2
     RefIds:
     - rid: 2535078192961290312
-      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.Runtime}
+      type: {class: SkillSetSlot, ns: PlayGround.Skills, asm: PlayGround.GameLogic}
       data:
         skillSet: {fileID: 11400000, guid: 426b20a06f75a66449e7ab489c3e106c, type: 2}

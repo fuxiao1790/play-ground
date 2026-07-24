@@ -1,4 +1,5 @@
 using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Authoring;
 using PlayGround.System.Combat.Aoes;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
@@ -13,7 +14,6 @@ using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Vfx;
 using System.Collections.Generic;
 using PlayGround.Common;
-using PlayGround.Skills;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -36,8 +36,8 @@ namespace PlayGround.System.Combat.Core
         internal const float ProjectileRenderZ = -0.25f;
         internal const float ProjectileRenderZStep = 0.000001f;
         internal const int ProjectileRenderZSlots = 1_000_000;
-        internal const float AoeRenderZ = 0.5f;
-        internal const int MaxSpawnChainDepth = SpawnTemplateLimits.MaxSpawnChainDepth;
+        public const float AoeRenderZ = 0.5f;
+        public const int MaxSpawnChainDepth = SpawnTemplateLimits.MaxSpawnChainDepth;
 
         [Header("Render Atlas")]
         [Tooltip("Single-page Sprite Atlas that every combat sprite kind's Sprite must be a member " +
@@ -70,7 +70,6 @@ namespace PlayGround.System.Combat.Core
         private int nextTemplateTypeId = 1;
 
         // AOE state.
-        private readonly Dictionary<AoeConfig, int> configTypeIds = new();
         private readonly Dictionary<AoeTypeDefinition, int> definitionTypeIds = new();
         private AoeTypeRegistry typeRegistry = new();
         private int spawnedAoes;
@@ -205,7 +204,7 @@ namespace PlayGround.System.Combat.Core
         public Hash128 RegisterTimedSpawnTemplate(in ProjectileSpawnCommand template) =>
             RegisterSpawnTemplate(in template);
 
-        internal int SpawnRegisteredProjectile(
+        public int SpawnRegisteredProjectile(
             Hash128 templateKey,
             Vector2 position,
             Vector2 direction,
@@ -263,7 +262,7 @@ namespace PlayGround.System.Combat.Core
         public Hash128 RegisterTimedSpawnTemplate(in AoeSpawnCommand template) =>
             RegisterSpawnTemplate(in template);
 
-        internal int SpawnRegisteredAoe(
+        public int SpawnRegisteredAoe(
             Hash128 templateKey,
             Vector2 position,
             int count,
@@ -291,49 +290,30 @@ namespace PlayGround.System.Combat.Core
             return aoeId;
         }
 
-        internal CombatRenderComponent ProjectileTemplateRenderComponent(int renderId)
+        public CombatRenderComponent ProjectileTemplateRenderComponent(int renderId)
         {
             if (_renderRegistry == null) return default;
             return _renderRegistry.GetProjectileRenderComponent(renderId, 0, out _);
         }
 
-        internal CombatRenderAuthoring ProjectileTemplateAuthoring(int renderId)
+        public CombatRenderAuthoring ProjectileTemplateAuthoring(int renderId)
         {
             if (_renderRegistry == null) return default;
             _renderRegistry.GetProjectileRenderComponent(renderId, 0, out CombatRenderAuthoring authoring);
             return authoring;
         }
 
-        internal CombatRenderComponent AoeTemplateRenderComponent(int renderId, AoeSpawnGeometry geometry)
+        public CombatRenderComponent AoeTemplateRenderComponent(int renderId, AoeSpawnGeometry geometry)
         {
             if (_renderRegistry == null) return default;
             return _renderRegistry.GetAoeRenderComponent(renderId, geometry, out _);
         }
 
-        internal CombatRenderAuthoring AoeTemplateAuthoring(int renderId, AoeSpawnGeometry geometry)
+        public CombatRenderAuthoring AoeTemplateAuthoring(int renderId, AoeSpawnGeometry geometry)
         {
             if (_renderRegistry == null) return default;
             _renderRegistry.GetAoeRenderComponent(renderId, geometry, out CombatRenderAuthoring authoring);
             return authoring;
-        }
-
-        public int RegisterConfig(AoeConfig config)
-        {
-            if (config == null)
-            {
-                throw new global::System.ArgumentNullException(nameof(config));
-            }
-
-            if (configTypeIds.TryGetValue(config, out int existing))
-            {
-                return existing;
-            }
-
-            int typeId = nextTypeId++;
-            configTypeIds[config] = typeId;
-            typeRegistry.Register(typeId, config.CreateTypeDefinition());
-            TryBuildAoeRenderResource(typeId);
-            return typeId;
         }
 
         public int RegisterType(AoeTypeDefinition definition)
@@ -627,14 +607,14 @@ namespace PlayGround.System.Combat.Core
         // ---- Render resources ----
 
         // Render id for a projectile behavior type id (0 when the type has no visual).
-        internal int ProjectileRenderId(int projectileTypeId) =>
+        public int ProjectileRenderId(int projectileTypeId) =>
             projectileRenderIdByType.TryGetValue(projectileTypeId, out int renderId) ? renderId : 0;
 
         // Render id for an AOE behavior type id (0 when the type has no visual).
-        internal int AoeRenderId(int aoeTypeId) =>
+        public int AoeRenderId(int aoeTypeId) =>
             aoeRenderIdByType.TryGetValue(aoeTypeId, out int renderId) ? renderId : 0;
 
-        internal void SetAoeVfxIds(int aoeTypeId, AoeVfxIds vfxIds)
+        public void SetAoeVfxIds(int aoeTypeId, AoeVfxIds vfxIds)
         {
             typeRegistry.SetVfxIds(aoeTypeId, vfxIds);
         }

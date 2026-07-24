@@ -2,7 +2,8 @@
     "name": "PlayGround.Editor",
     "rootNamespace": "",
     "references": [
-        "PlayGround.Runtime",
+        "PlayGround.Sim",
+        "PlayGround.GameLogic",
         "Unity.InputSystem"
     ],
     "includePlatforms": [

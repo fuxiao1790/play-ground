@@ -1,9 +1,12 @@
 {
-  "name": "PlayGround.SkillUi",
-  "rootNamespace": "PlayGround.SkillUi",
+  "name": "PlayGround.Debugging",
   "references": [
-    "PlayGround.Runtime",
-    "Unity.InputSystem"
+    "PlayGround.Sim",
+    "PlayGround.GameLogic",
+    "Unity.Collections",
+    "Unity.Entities",
+    "UnityEngine.UI",
+    "Unity.VisualEffectGraph.Runtime"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
