@@ -176,7 +176,7 @@ namespace PlayGround.System.Combat.Application
                 {
                     HitQueue = singleton.HitQueue,
                     PayloadLookup = GetComponentLookup<CombatHitPayload>(isReadOnly: true),
-                    HealthLookup = GetComponentLookup<TargetHealth>(),
+                    HealthLookup = GetComponentLookup<Health>(),
                     StackBuffers = GetBufferLookup<TargetStackEntry>(),
                     Results = applyResults.Results,
                     StatusSnapshots = applyResults.StatusSnapshots,
@@ -193,7 +193,7 @@ namespace PlayGround.System.Combat.Application
         {
             public NativeQueue<CombatHitEvent> HitQueue;
             [ReadOnly] public ComponentLookup<CombatHitPayload> PayloadLookup;
-            public ComponentLookup<TargetHealth> HealthLookup;
+            public ComponentLookup<Health> HealthLookup;
             public BufferLookup<TargetStackEntry> StackBuffers;
             public NativeList<CombatTickResult> Results;
             public NativeList<StatusStackSnapshot> StatusSnapshots;
@@ -300,7 +300,7 @@ namespace PlayGround.System.Combat.Application
 
                     if (HealthLookup.HasComponent(acc.Target))
                     {
-                        TargetHealth health = HealthLookup[acc.Target];
+                        Health health = HealthLookup[acc.Target];
                         health.Current -= acc.DamageTaken;
                         HealthLookup[acc.Target] = health;
                         result.Health = health.Current;

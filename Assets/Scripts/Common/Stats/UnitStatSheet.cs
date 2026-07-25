@@ -8,6 +8,8 @@ namespace PlayGround.Common.Stats
         [Header("Vitals")]
         [SerializeField] private float maxHealth = 100f;
         [SerializeField] private float maxMana = 100f;
+        [SerializeField, Min(0f)] private float healthRegenPerSecond;
+        [SerializeField, Min(0f)] private float manaRegenPerSecond = 5f;
 
         [Header("Movement")]
         [SerializeField] private float moveSpeed = 5f;
@@ -22,6 +24,8 @@ namespace PlayGround.Common.Stats
 
         public float MaxHealth => Mathf.Max(1f, maxHealth);
         public float MaxMana => Mathf.Max(0f, maxMana);
+        public float HealthRegenPerSecond => Mathf.Max(0f, healthRegenPerSecond);
+        public float ManaRegenPerSecond => Mathf.Max(0f, manaRegenPerSecond);
         public float MoveSpeed => Mathf.Max(0f, moveSpeed);
         public float IncreasedRatePercent => Mathf.Max(0f, increasedRatePercent) * 0.01f;
         public float DamageMultiplier => Mathf.Max(0f, damageMultiplier);
@@ -29,10 +33,18 @@ namespace PlayGround.Common.Stats
         public float CritMultiplier => Mathf.Max(1f, critMultiplier);
         public float AreaSizeMultiplier => Mathf.Max(0f, areaSizeMultiplier);
 
-        internal void SetRuntimeValues(float maxHealth, float moveSpeed)
+        internal void SetRuntimeValues(
+            float maxHealth,
+            float moveSpeed,
+            float maxMana = 0f,
+            float healthRegenPerSecond = 0f,
+            float manaRegenPerSecond = 0f)
         {
             this.maxHealth = maxHealth;
             this.moveSpeed = moveSpeed;
+            this.maxMana = maxMana;
+            this.healthRegenPerSecond = healthRegenPerSecond;
+            this.manaRegenPerSecond = manaRegenPerSecond;
         }
     }
 }

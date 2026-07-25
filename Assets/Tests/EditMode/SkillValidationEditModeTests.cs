@@ -178,7 +178,7 @@ namespace PlayGround.Tests.EditMode
             SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
             ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
-            trigger.manaToEnergyRatio = 2f;
+            trigger.manaToEnergyCostMultiplier = 2f;
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
                 new[]

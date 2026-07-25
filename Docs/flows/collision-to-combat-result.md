@@ -12,7 +12,7 @@ presentation results.
    repeat-hit gates.
 3. Accepted hits emit plain data hit events and optional spawn/VFX consequences.
 4. `CombatApplyFinalizeSingleSystem` groups hits by target proxy, rolls crits,
-   sums damage, updates `TargetHealth`, accrues `TargetStackEntry`, and freezes
+   sums damage, updates `Health`, accrues `TargetStackEntry`, and freezes
    `CombatTickResult`.
 5. `StatusProcessSystem` processes stacks and may enqueue detonation spawns.
 6. Presentation bridge resolves `TargetCompanion` and calls managed target

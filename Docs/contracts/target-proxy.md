@@ -24,7 +24,8 @@ Current proxy data includes:
 - `TargetPosition`
 - `TargetCollisionShape`
 - `TargetFaction` — the target's **own** allegiance (`Player`, `Mob`, etc.); collision and tracking skip same-faction candidates (`self.Faction == target.Faction`)
-- `TargetHealth`
+- `Health`
+- `Mana`
 - `TargetStackEntry` buffer
 - managed `TargetCompanion`
 - compatibility `CombatTargetElement` in older code paths
@@ -43,9 +44,12 @@ target snapshot buffers.
 
 ## Lifetime
 
-Actor registration creates the proxy and seeds its current/maximum health from
-the actor. Actor updates push shape/position. Actor teardown queues deletion
-after current-frame proxy users are safe.
+Actor registration creates the proxy and seeds `Health`/`Mana` Current, Max, and
+RegenPerSecond from the root's `Resource` values. The root owns initial values,
+Max, and regen-rate; ECS owns runtime Current (damage, spending, and regen).
+Roots push Max/regen changes without resetting Current, then mirror Current back
+for presentation. Actor updates also push shape/position. Actor teardown queues
+deletion after current-frame proxy users are safe.
 
 ## Ordering
 

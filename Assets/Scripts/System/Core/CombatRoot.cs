@@ -47,7 +47,7 @@ namespace PlayGround.System.Combat.Core
         [SerializeField] private SpriteAtlas combatSpriteAtlas;
         [Tooltip("Persistent scene/prefab MeshRenderer the combat sprite batch draws through. " +
             "Its Sorting Layer / Order in Layer are configured directly in this Renderer's " +
-            "Inspector â€?CombatRoot only assigns the shared mesh/material onto it, it never " +
+            "Inspector ï¿½?CombatRoot only assigns the shared mesh/material onto it, it never " +
             "touches sorting.")]
         [SerializeField] private MeshRenderer combatSpriteRenderer;
 
@@ -59,7 +59,7 @@ namespace PlayGround.System.Combat.Core
 
         private readonly CombatTargetRegistry<ICombatTarget> targetRegistry = new();
 
-        // Per-domain typeId â†?renderId maps. The registry owns the render-id counter
+        // Per-domain typeId ï¿½?renderId maps. The registry owns the render-id counter
         // and GPU resources; these maps translate a behavior type id to its render id.
         private readonly Dictionary<int, int> projectileRenderIdByType = new();
         private readonly Dictionary<int, int> aoeRenderIdByType = new();
@@ -241,6 +241,46 @@ namespace PlayGround.System.Combat.Core
             return baseProjectileId;
         }
 
+        public int SpawnRegisteredProjectile(
+            Hash128 templateKey,
+            Vector2 position,
+            Vector2 direction,
+            int count,
+            CombatFaction faction,
+            Entity caster,
+            float manaCost,
+            int castToken,
+            int seedContactGateTargetId = 0)
+        {
+            EnsureRuntimeReady();
+            if (templateKey.Equals(default(Hash128)))
+            {
+                return 0;
+            }
+
+            int projectileCount = math.max(1, count);
+            int baseProjectileId = nextProjectileId + 1;
+            nextProjectileId += projectileCount;
+            float2 aim = direction.sqrMagnitude > 0f
+                ? new float2(direction.normalized.x, direction.normalized.y)
+                : new float2(1f, 0f);
+            entityManager.GetBuffer<ExternalSpawnRequest>(scopeEntity).Add(new ExternalSpawnRequest
+            {
+                Kind = IntervalChildKind.Projectile,
+                TemplateKey = templateKey,
+                Caster = caster,
+                ManaCost = math.max(0f, manaCost),
+                Position = new float2(position.x, position.y),
+                AimDirection = aim,
+                Faction = faction,
+                SourceId = baseProjectileId,
+                JitterSeed = (uint)baseProjectileId * 2654435761u,
+                ContactGateSeedTargetId = seedContactGateTargetId,
+                CastToken = castToken
+            });
+            return baseProjectileId;
+        }
+
         // ---- AOE API ----
 
         public Hash128 RegisterSpawnTemplate(in AoeSpawnCommand template)
@@ -286,6 +326,42 @@ namespace PlayGround.System.Combat.Core
                 faction,
                 aoeId,
                 (uint)aoeId * 2654435761u);
+            spawnedAoes += aoeCount;
+            return aoeId;
+        }
+
+        public int SpawnRegisteredAoe(
+            Hash128 templateKey,
+            Vector2 position,
+            int count,
+            CombatFaction faction,
+            IntervalChildKind kind,
+            Entity caster,
+            float manaCost,
+            int castToken)
+        {
+            EnsureRuntimeReady();
+            if (templateKey.Equals(default(Hash128)))
+            {
+                return 0;
+            }
+
+            int aoeCount = math.max(1, count);
+            int aoeId = ++nextAoeId;
+            nextAoeId += aoeCount - 1;
+            entityManager.GetBuffer<ExternalSpawnRequest>(scopeEntity).Add(new ExternalSpawnRequest
+            {
+                Kind = kind,
+                TemplateKey = templateKey,
+                Caster = caster,
+                ManaCost = math.max(0f, manaCost),
+                Position = new float2(position.x, position.y),
+                AimDirection = default,
+                Faction = faction,
+                SourceId = aoeId,
+                JitterSeed = (uint)aoeId * 2654435761u,
+                CastToken = castToken
+            });
             spawnedAoes += aoeCount;
             return aoeId;
         }

@@ -135,7 +135,7 @@ Per-frame combat work is explicit in ECS systems and actor roots:
   every registered kind together via the registry's shared atlas
   mesh/material instead of one batch per kind.
 - `CombatApplyFinalizeSingleSystem` (`SimulationSystemGroup`) applies grouped
-  `CombatHitEvent` values to ECS-owned `TargetHealth`, accrues status stacks,
+  `CombatHitEvent` values to ECS-owned `Health`, accrues status stacks,
   and freezes one `CombatTickResult` per hit target after collision and before
   spawn expansion.
 - `CombatApplyBridge` (`PresentationSystemGroup`) is the only reader of managed
@@ -168,7 +168,7 @@ target proxy inside one Burst job and emits one aggregate result per hit target.
   `CombatApplyFinalizeSingleSystem` completes producers and drains the queue.
 - `CombatApplyFinalizeSingleSystem` groups hits by target proxy, rolls crits
   with deterministic `Unity.Mathematics.Random`, sums damage per target,
-  subtracts from `TargetHealth.Current`, and freezes one `CombatTickResult` for
+  subtracts from `Health.Current`, and freezes one `CombatTickResult` for
   the presentation bridge.
 - Stack accrual happens in the same finalize job against each target proxy's
   `TargetStackEntry` buffer. Each target key is owned by one job index, so buffer
@@ -179,7 +179,7 @@ target proxy inside one Burst job and emits one aggregate result per hit target.
 - `CombatApplyBridge` keeps the managed push on the main thread. It resolves
   `TargetCompanion` and calls `ICombatTarget.ReceiveCombatTick` once per target
   that received direct damage or changed status.
-- ECS owns target HP in `TargetHealth`, seeded once at proxy creation from
+- ECS owns target HP in `Health`, seeded once at proxy creation from
   `ICombatTarget.CombatMaxHealth`. ECS subtracts damage and may push negative HP;
   actor roots mirror that pushed value, clamp for local health display, decide
   death, and own GameObject lifetime.

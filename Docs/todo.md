@@ -9,11 +9,10 @@ minor fixes
 
 changes to existing gameplay 
 
-- [done] skills have a folded mana cost converted to an energy threshold by the
-  interval trigger link. Additional projectiles, piercing, homing, and multiple
-  AOEs can add mana cost, which scales that threshold.
-- [follow-up] decide and implement mana consumption/restoration and cast or spawn
-  gating. Mana now exists on the stat sheet and target proxy, but is not spent.
+- [done] skills have folded mana cost converted to an interval energy threshold.
+  Supports can add mana cost, which scales the child cadence.
+- [done] health and mana use shared managed `Resource` mirrors, ECS-owned Current,
+  bounded ECS regen, and serial root-cast mana spending with rejection cooldown refund.
 
 new feature
 - ui  improvements

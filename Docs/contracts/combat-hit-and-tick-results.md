@@ -24,7 +24,7 @@ Current key data:
   entity that produced the hit and `Target` is the target proxy entity.
 - `CombatHitPayload`: source-side ECS component carrying damage amount, crit
   chance, crit multiplier, direct-damage flag, source node id, and stack effect.
-- `TargetHealth`
+- `Health`
 - `TargetStackEntry`
 - `CombatTickResult`
 - hit count, crit count, aggregate damage, final health, and changed status

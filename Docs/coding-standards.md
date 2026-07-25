@@ -144,8 +144,9 @@ hit simulation should use target proxy entities and baked shapes instead of
 thousands of live trigger objects.
 
 Managed target references are restricted. `TargetCompanion` may exist on proxy
-entities, but only `CombatApplyBridge` may read it to call
-`ICombatTarget.ReceiveCombatTick`.
+entities, but only presentation bridges may read it: `CombatApplyBridge` calls
+`ICombatTarget.ReceiveCombatTick`, and `SpawnRejectionBridge` returns rejected
+root-cast tokens to `SkillDriver` through the target.
 
 ## Combat Event Separation
 

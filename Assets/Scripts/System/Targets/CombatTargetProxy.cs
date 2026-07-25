@@ -33,21 +33,6 @@ namespace PlayGround.System.Combat.Targets
         public CombatFaction Value;
     }
 
-    // ECS Lifecycle: target-proxy health; seeded once when the proxy is created, then owned by ECS until the proxy is destroyed.
-    public struct TargetHealth : IComponentData
-    {
-        public float Current;
-        public float Max;
-    }
-
-    // ECS Lifecycle: target-proxy mana; seeded once when the proxy is created,
-    // then owned by ECS until the proxy is destroyed. Mirrors TargetHealth.
-    public struct TargetMana : IComponentData
-    {
-        public float Current;
-        public float Max;
-    }
-
     // ECS Lifecycle: target-proxy stack buffer; added empty when the proxy is created, destroyed with the proxy. CombatApplyFinalizeSingleSystem accrues entries, then StatusProcessSystem fizzles or detonates them.
     [InternalBufferCapacity(8)]
     public struct TargetStackEntry : IBufferElementData
@@ -104,10 +89,20 @@ namespace PlayGround.System.Combat.Targets
             entityManager.SetComponentData(entity, new TargetCompanion { Target = target });
             float maxHealth = math.max(1f, target.CombatMaxHealth);
             float currentHealth = math.clamp(target.CombatCurrentHealth, 0f, maxHealth);
-            entityManager.SetComponentData(entity, new TargetHealth { Current = currentHealth, Max = maxHealth });
+            entityManager.SetComponentData(entity, new Health
+            {
+                Current = currentHealth,
+                Max = maxHealth,
+                RegenPerSecond = math.max(0f, target.CombatHealthRegenPerSecond)
+            });
             float maxMana = math.max(0f, target.CombatMaxMana);
             float currentMana = math.clamp(target.CombatCurrentMana, 0f, maxMana);
-            entityManager.SetComponentData(entity, new TargetMana { Current = currentMana, Max = maxMana });
+            entityManager.SetComponentData(entity, new Mana
+            {
+                Current = currentMana,
+                Max = maxMana,
+                RegenPerSecond = math.max(0f, target.CombatManaRegenPerSecond)
+            });
             Push(entityManager, entity, target);
             return entity;
         }
@@ -191,14 +186,10 @@ namespace PlayGround.System.Combat.Targets
                 return false;
             }
 
-            float maxHealth = math.max(1f, target.CombatMaxHealth);
-            entityManager.SetComponentData(
-                target.CombatTargetProxy,
-                new TargetHealth
-                {
-                    Current = math.clamp(currentHealth, 0f, maxHealth),
-                    Max = maxHealth
-                });
+            PushResourceMaxes(entityManager, target.CombatTargetProxy, target);
+            Health health = entityManager.GetComponentData<Health>(target.CombatTargetProxy);
+            health.Current = math.clamp(currentHealth, 0f, health.Max);
+            entityManager.SetComponentData(target.CombatTargetProxy, health);
             return true;
         }
 
@@ -212,14 +203,66 @@ namespace PlayGround.System.Combat.Targets
                 return false;
             }
 
-            float maxMana = math.max(0f, target.CombatMaxMana);
-            entityManager.SetComponentData(
-                target.CombatTargetProxy,
-                new TargetMana
-                {
-                    Current = math.clamp(currentMana, 0f, maxMana),
-                    Max = maxMana
-                });
+            PushResourceMaxes(entityManager, target.CombatTargetProxy, target);
+            Mana mana = entityManager.GetComponentData<Mana>(target.CombatTargetProxy);
+            mana.Current = math.clamp(currentMana, 0f, mana.Max);
+            entityManager.SetComponentData(target.CombatTargetProxy, mana);
+            return true;
+        }
+
+        public static bool PushResourceMaxes(ICombatTarget target)
+        {
+            if (target == null
+                || target.CombatTargetProxy == Entity.Null
+                || !TryGetEntityManager(out EntityManager entityManager)
+                || !Exists(entityManager, target.CombatTargetProxy))
+            {
+                return false;
+            }
+
+            return PushResourceMaxes(entityManager, target.CombatTargetProxy, target);
+        }
+
+        public static bool PushResourceMaxes(EntityManager entityManager, Entity entity, ICombatTarget target)
+        {
+            if (target == null
+                || !Exists(entityManager, entity)
+                || !entityManager.HasComponent<Health>(entity)
+                || !entityManager.HasComponent<Mana>(entity))
+            {
+                return false;
+            }
+
+            Health health = entityManager.GetComponentData<Health>(entity);
+            health.Max = math.max(1f, target.CombatMaxHealth);
+            health.RegenPerSecond = math.max(0f, target.CombatHealthRegenPerSecond);
+            health.Current = math.min(health.Current, health.Max);
+            entityManager.SetComponentData(entity, health);
+
+            Mana mana = entityManager.GetComponentData<Mana>(entity);
+            mana.Max = math.max(0f, target.CombatMaxMana);
+            mana.RegenPerSecond = math.max(0f, target.CombatManaRegenPerSecond);
+            mana.Current = math.min(mana.Current, mana.Max);
+            entityManager.SetComponentData(entity, mana);
+            return true;
+        }
+
+        public static bool TryReadResources(ICombatTarget target, out Health health, out Mana mana)
+        {
+            health = default;
+            mana = default;
+            if (target == null
+                || target.CombatTargetProxy == Entity.Null
+                || !TryGetEntityManager(out EntityManager entityManager)
+                || !Exists(entityManager, target.CombatTargetProxy)
+                || !entityManager.HasComponent<Health>(target.CombatTargetProxy)
+                || !entityManager.HasComponent<Mana>(target.CombatTargetProxy))
+            {
+                return false;
+            }
+
+            health = entityManager.GetComponentData<Health>(target.CombatTargetProxy);
+            mana = entityManager.GetComponentData<Mana>(target.CombatTargetProxy);
             return true;
         }
 
@@ -306,8 +349,8 @@ namespace PlayGround.System.Combat.Targets
                 typeof(TargetPosition),
                 typeof(TargetCollisionShape),
                 typeof(TargetFaction),
-                typeof(TargetHealth),
-                typeof(TargetMana),
+                typeof(Health),
+                typeof(Mana),
                 typeof(TargetStackEntry),
                 typeof(TargetCompanion));
             return cachedArchetype;

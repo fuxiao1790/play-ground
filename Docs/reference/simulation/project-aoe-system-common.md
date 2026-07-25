@@ -119,7 +119,7 @@ Target proxies carry:
 - `TargetPosition`
 - `TargetCollisionShape`
 - `TargetFaction`
-- `TargetHealth`
+- `Health`
 - `TargetStackEntry`
 - managed `TargetCompanion`
 

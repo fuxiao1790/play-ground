@@ -761,7 +761,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(finalized[0].TargetProxy, Is.EqualTo(proxy));
             Assert.That(finalized[0].HitCount, Is.EqualTo(1));
             Assert.That(finalized[0].DamageTaken, Is.EqualTo(2f).Within(0.0001f));
-            Assert.That(entityManager.GetComponentData<TargetHealth>(proxy).Current, Is.EqualTo(finalized[0].Health).Within(0.0001f));
+            Assert.That(entityManager.GetComponentData<Health>(proxy).Current, Is.EqualTo(finalized[0].Health).Within(0.0001f));
 
             presentationGroup.Update();
             Assert.That(TotalHitCount(), Is.EqualTo(1));
@@ -788,7 +788,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(finalized[0].HitCount, Is.EqualTo(3));
             Assert.That(finalized[0].DamageTaken, Is.EqualTo(TotalDamage).Within(0.0001f));
             Assert.That(finalized[0].Health, Is.EqualTo(SeedHealth - TotalDamage).Within(0.0001f));
-            Assert.That(entityManager.GetComponentData<TargetHealth>(target.Proxy).Current, Is.EqualTo(SeedHealth - TotalDamage).Within(0.0001f));
+            Assert.That(entityManager.GetComponentData<Health>(target.Proxy).Current, Is.EqualTo(SeedHealth - TotalDamage).Within(0.0001f));
             Assert.That(target.Hits, Has.Count.EqualTo(1));
             Assert.That(SummedHitDamage(target.Hits), Is.EqualTo(TotalDamage).Within(0.0001f));
         }
@@ -835,7 +835,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(finalized[0].HitCount, Is.EqualTo(2));
             Assert.That(finalized[0].DamageTaken, Is.EqualTo(TotalDamage).Within(0.0001f));
             Assert.That(finalized[0].Health, Is.EqualTo(SeedHealth - TotalDamage).Within(0.0001f));
-            Assert.That(entityManager.GetComponentData<TargetHealth>(target.Proxy).Current, Is.EqualTo(SeedHealth - TotalDamage).Within(0.0001f));
+            Assert.That(entityManager.GetComponentData<Health>(target.Proxy).Current, Is.EqualTo(SeedHealth - TotalDamage).Within(0.0001f));
             Assert.That(target.Hits, Has.Count.EqualTo(1));
             Assert.That(target.LastPreClampHealth, Is.EqualTo(SeedHealth - TotalDamage).Within(0.0001f));
             Assert.That(target.Health, Is.EqualTo(0f).Within(0.0001f));

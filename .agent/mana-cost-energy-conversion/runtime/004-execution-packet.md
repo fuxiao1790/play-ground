@@ -1,33 +1,28 @@
 # Task Execution Packet
 
 ## Task
-004-player-mana-ecs-resource.md
+004-unified-ecs-resource-components.md
 
 ## Goal
-Author player max mana, seed ECS `TargetMana` with target proxy, and create the managed `PlayerMana` mirror.
+Replace `TargetHealth` and `TargetMana` with typed neutral `Health` and `Mana` components carrying Current, Max, and RegenPerSecond.
 
 ## Files Allowed To Modify
-- Assets/Scripts/Common/Stats/UnitStatSheet.cs
-- Assets/Scripts/System/Targets/ICombatTarget.cs
-- Assets/Scripts/System/Targets/CombatTargetProxy.cs
-- Assets/Scripts/Player/PlayerMana.cs (new)
-- Assets/Scripts/Player/PlayerRoot.cs
-- Directly affected PlayMode tests.
+- Target proxy/interface, combat apply, direct tests and resource references in docs.
 
-## Relevant Global Context
-- Copy `TargetHealth` seed/ownership and `PlayerHealth` holder patterns exactly.
-- `TargetMana` belongs to every target proxy; interface defaults keep mobs at zero.
-- Do not add consumption or ECS-to-MB update code yet.
+## Files Allowed To Create
+- Neutral resource component source and meta file.
+
+## Behavior To Preserve
+- Direct health `ComponentLookup` hit mutation, initial proxy seed, and save/restore setters.
+
+## Behavior To Change
+- GameObject max/regen pushes do not overwrite ECS Current; component names are neutral.
 
 ## Dependencies Confirmed
-- None.
+- Existing proxy has target health/mana seed and direct hit lookup.
 
 ## Acceptance Criteria
-- Player proxy has max/current mana from stat sheet.
-- Existing health path stays unchanged.
+- No old component identifiers remain, seeded max/regen/current are correct, and Max push preserves Current.
 
 ## Validation Required
-- Focused PlayMode proxy test when project lock permits; static check otherwise.
-
-## Hard Boundaries
-- No drain, regeneration, or spawning gate.
+- Targeted static search, resource proxy tests, diff check; record Unity test blockers exactly.

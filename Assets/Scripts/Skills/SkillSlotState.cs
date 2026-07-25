@@ -27,5 +27,10 @@ namespace PlayGround.Skills
         {
             elapsedSinceLastFire = 0f;
         }
+
+        public void RefundFire()
+        {
+            elapsedSinceLastFire = recoveryTime;
+        }
     }
 }

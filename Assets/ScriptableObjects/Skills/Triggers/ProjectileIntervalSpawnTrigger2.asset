@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: ProjectileIntervalSpawnTrigger2
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileIntervalSpawnTrigger
   assetGuid: 72a746e8a702b014b85cb4d1db22eb8a
-  intervalSeconds: 0.2
-  intervalJitterPercent: 50
+  energyPerSecond: 10
+  energyJitterPercent: 0
+  manaToEnergyCostMultiplier: 1
   projectileCount: 2
   sideSpreadDegrees: 90

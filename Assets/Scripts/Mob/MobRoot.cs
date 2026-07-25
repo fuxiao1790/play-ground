@@ -62,12 +62,15 @@ namespace PlayGround.Mob
         private int targetId;
         private bool isAlive = true;
         private bool softDeathNotified;
+        private Resource health;
+        private Resource mana;
 
         public event Action<MobRoot> SoftDied;
 
         public float Speed => statSheet.MoveSpeed;
-        public float CurrentHealth { get; private set; }
-        public float MaxHealth => statSheet.MaxHealth;
+        public float CurrentHealth => health?.Current ?? 0f;
+        public float MaxHealth => health?.Max ?? statSheet.MaxHealth;
+        public float CurrentMana => mana?.Current ?? 0f;
         public IReadOnlyList<StatusStackSnapshot> StatusSnapshots => statusSnapshots;
         public Transform Target => target;
         public int TargetId => targetId;
@@ -96,7 +99,12 @@ namespace PlayGround.Mob
         public int CombatTargetMask => combatTargetShapeCached
             ? cachedCombatTargetMask
             : 1 << hurtbox.gameObject.layer;
-        public float CombatMaxHealth => statSheet.MaxHealth;
+        public float CombatMaxHealth => health?.Max ?? statSheet.MaxHealth;
+        public float CombatCurrentHealth => CurrentHealth;
+        public float CombatHealthRegenPerSecond => health?.RegenPerSecond ?? statSheet.HealthRegenPerSecond;
+        public float CombatMaxMana => mana?.Max ?? statSheet.MaxMana;
+        public float CombatCurrentMana => CurrentMana;
+        public float CombatManaRegenPerSecond => mana?.RegenPerSecond ?? statSheet.ManaRegenPerSecond;
         public bool IsCombatTargetActive => isActiveAndEnabled && isAlive && CurrentHealth > 0f;
         public bool IsAlive => isAlive;
 
@@ -115,6 +123,8 @@ namespace PlayGround.Mob
         {
             using (UpdateMarker.Auto())
             {
+                SyncResourceAuthoring();
+                MirrorResourcesFromProxy();
                 if (!isAlive)
                 {
                     QueueCombatTargetProxyDelete();
@@ -197,6 +207,7 @@ namespace PlayGround.Mob
 
             registries.Add(targetRegistry);
             targetRegistry.Register(this);
+            skillDriver?.BindCaster(combatTargetProxy);
         }
 
         public void Register(CombatTargetSet targetSet)
@@ -215,7 +226,24 @@ namespace PlayGround.Mob
             isAlive = true;
             softDeathNotified = false;
             deleteProxyInLateUpdate = false;
-            CurrentHealth = Mathf.Max(1f, statSheet.MaxHealth);
+            if (health == null)
+            {
+                health = new Resource(statSheet.MaxHealth, statSheet.HealthRegenPerSecond);
+                health.Depleted += HandleHealthDepleted;
+            }
+            else
+            {
+                health.Reset(statSheet.MaxHealth, statSheet.HealthRegenPerSecond);
+            }
+
+            if (mana == null)
+            {
+                mana = new Resource(statSheet.MaxMana, statSheet.ManaRegenPerSecond);
+            }
+            else
+            {
+                mana.Reset(statSheet.MaxMana, statSheet.ManaRegenPerSecond);
+            }
             statusSnapshots.Clear();
             CacheCombatTargetShape();
 
@@ -256,7 +284,7 @@ namespace PlayGround.Mob
         {
             if (result.HitCount > 0)
             {
-                ApplyCombatHealth(result.Health);
+                health.MirrorCurrent(result.Health);
             }
 
             if (result.StatusCount > 0)
@@ -284,21 +312,6 @@ namespace PlayGround.Mob
             return true;
         }
 
-        private void ApplyCombatHealth(float health)
-        {
-            if (!isAlive)
-            {
-                return;
-            }
-
-            CurrentHealth = health;
-            if (CurrentHealth <= 0f)
-            {
-                SoftDie();
-                return;
-            }
-        }
-
         public void SoftDie()
         {
             if (softDeathNotified)
@@ -306,8 +319,13 @@ namespace PlayGround.Mob
                 return;
             }
 
+            if (health != null && !health.IsDepleted)
+            {
+                health.MirrorCurrent(0f);
+                return;
+            }
+
             isAlive = false;
-            CurrentHealth = 0f;
             body.linearVelocity = Vector2.zero;
             wanderVelocity = Vector2.zero;
             body.simulated = false;
@@ -322,6 +340,11 @@ namespace PlayGround.Mob
             UnregisterTargets();
             softDeathNotified = true;
             SoftDied?.Invoke(this);
+        }
+
+        private void HandleHealthDepleted()
+        {
+            SoftDie();
         }
 
         private void UnregisterTargets()
@@ -343,6 +366,30 @@ namespace PlayGround.Mob
                 {
                     PlayGround.System.Combat.Targets.CombatTargetProxy.Push(this);
                 }
+            }
+        }
+
+        private void SyncResourceAuthoring()
+        {
+            bool changed = health.UpdateAuthoring(statSheet.MaxHealth, statSheet.HealthRegenPerSecond);
+            changed |= mana.UpdateAuthoring(statSheet.MaxMana, statSheet.ManaRegenPerSecond);
+            if (changed)
+            {
+                PlayGround.System.Combat.Targets.CombatTargetProxy.PushResourceMaxes(this);
+            }
+        }
+
+        public void ReceiveSpawnRejected(int castToken)
+        {
+            skillDriver?.ReceiveSpawnRejected(castToken);
+        }
+
+        private void MirrorResourcesFromProxy()
+        {
+            if (PlayGround.System.Combat.Targets.CombatTargetProxy.TryReadResources(this, out Health ecsHealth, out Mana ecsMana))
+            {
+                health.MirrorCurrent(ecsHealth.Current);
+                mana.MirrorCurrent(ecsMana.Current);
             }
         }
 

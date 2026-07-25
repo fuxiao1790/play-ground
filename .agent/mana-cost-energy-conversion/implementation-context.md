@@ -1,39 +1,43 @@
 # Implementation Context
 
 ## Architectural Decisions
-- `spawnEnergyCost` becomes one folded `manaCost` source. No duplicate field.
-- Interval trigger link converts folded child mana into a plain `EnergyThreshold`.
-- Player mana is seeded into ECS like health. Consumption and gating are deferred.
+- Folded skill `manaCost` and interval-link mana-to-energy conversion are complete.
+- Health and mana use one managed `Resource` class, but retain direct typed ECS components: `Health` and `Mana`.
+- GameObjects seed initial current value and own Max/regen; ECS owns runtime Current, damage, spending, and regen.
+- Root casts enter ECS as external requests and are accepted or rejected by a serial mana gate. Internal interval/impact child spawns bypass it.
 
 ## Global Invariants
-- Fold skill stats at compile time in `SkillSetCompiler.BuildRuntime`, never per frame.
-- Burst timed-spawn jobs only read a baked float threshold.
-- Preserve serialized asset values with `FormerlySerializedAs`.
+- Preserve serialized skill values with `FormerlySerializedAs`.
+- Fold skill stats only at compile time; timed jobs read baked thresholds.
+- Direct hit application must retain `ComponentLookup<Health>` access; no keyed resource buffers.
+- Resource max updates may clamp Current down but must not reset it.
 
 ## Ownership Boundaries
-- `UnitStatSheet` authors player maximum mana.
-- `TargetMana` is seeded at target proxy creation and owned by ECS until destruction.
-- `PlayerMana` is the managed mirror.
+- `UnitStatSheet` authors max and regen values.
+- `CombatTargetProxy` creates neutral resource components and pushes only Max/regen changes.
+- ECS owns runtime Current. Roots mirror it for reactions and presentation.
+- `Resource` owns no ECS writes; roots own death/hurt reactions.
 
 ## Data Flow
-- Authored mana cost -> stat modifier fold -> runtime definition mana cost -> trigger conversion -> timed spawn threshold.
+- Authoring mana -> folded runtime mana -> interval trigger energy threshold.
+- Unit sheet -> root resource -> target proxy seed/push -> ECS current/damage/spend/regen -> root mirror.
+- Root cast -> external request -> serial gate -> internal spawn or rejection -> driver cooldown refund.
 
 ## ECS / Job / Threading Constraints
-- Do not add per-frame stat folding or cross-entity mana writes to the parallel timed-spawn job.
-- `TargetMana` shares the target-proxy lifecycle of `TargetHealth`.
+- Timed spawn jobs never write shared resources.
+- Regen runs after combat apply and must not revive depleted health.
+- Spawn gating is serial before expansion to avoid concurrent writes to one caster's Mana.
+- Use existing scope-buffer and singleton lane ownership patterns; complete producer handles before draining.
 
 ## Reused Mechanisms
-- `SkillStat`, `StatModifierAccumulator`, and support modifier interfaces.
-- `TargetHealth` and `PlayerHealth` lifecycle/mirror patterns.
+- Combat target proxy lifecycle, combat apply/result bridge, scope spawn buffers, template registries, and `TargetCompanion`.
 
 ## Introduced Mechanisms
-- `IntervalSpawnTrigger` owns the mana-to-energy conversion.
-- `TargetMana` and `PlayerMana`.
+- `Health`/`Mana` typed ECS resources, resource regen system, shared managed `Resource`, external spawn gate, rejection result lane/bridge.
 
 ## Validation Requirements
-- Run relevant Unity EditMode/PlayMode tests after each task when available.
-- Preserve old serialized values and verify no non-historical documentation references to `spawnEnergyCost` remain.
+- Task-focused ECS/PlayMode tests where possible; static searches and `git diff --check` always.
+- If Unity is locked or package compilation fails, record exact blocker without claiming tests pass.
 
 ## Files / Systems Mentioned By The Plan
-- Skills definitions, runtime definitions, compiler, supports, interval triggers, validation tests.
-- Unit stat sheet, combat target proxy/interface, player root, player health analogue.
+- Target proxy/interface, combat apply, player/mob roots, unit stats, skill driver/translator, combat root, spawn expansion, presentation bridges, tests, and architecture docs.

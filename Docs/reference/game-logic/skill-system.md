@@ -296,14 +296,19 @@ LingeringAoeDefinition
                echoCount, scatterRadius, manaCost, directDamageEnabled
 ```
 
-### Player Mana Resource
+### Unit Resources and Root Casts
 
-`UnitStatSheet.maxMana` authors the player's maximum mana. At combat target
-proxy creation, `CombatTargetProxy` seeds `TargetMana { Current, Max }` from
-the player's `ICombatTarget` values, then ECS owns that component until proxy
-destruction, just like `TargetHealth`. `PlayerMana` is the managed-side mirror.
-Mana consumption, restoration, and spawn/cast gating are intentionally not wired
-yet; the current resource is scaffolding for that later decision.
+`UnitStatSheet` authors maximum and regen values for health and mana. Every unit
+root holds the same managed `Resource` mirror; it seeds `Health` and `Mana` at
+proxy creation, pushes only Max/regen changes, and reads ECS-owned `Current` back
+for presentation. `ResourceRegenSystem` regenerates live ECS resources after
+combat application. Health does not regenerate a depleted unit back to life.
+
+Root casts submit an `ExternalSpawnRequest` carrying the compiled root skill's
+`ManaCost`, caster proxy, and cast token. The serial `ExternalSpawnGateSystem`
+deducts `Mana` then emits the usual internal spawn event, or emits a rejection.
+`SkillDriver` refunds the matching cooldown on rejection. Interval, impact, and
+other ECS child spawns remain energy-funded and never spend mana.
 
 ### StackingSupport
 

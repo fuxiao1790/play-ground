@@ -33,6 +33,7 @@ Authority rules:
 
 - [Runtime Frame](../flows/runtime-frame.md)
 - [Skill To Combat Spawn](../flows/skill-to-combat-spawn.md)
+- [Resource Spend Gate](../flows/resource-spend-gate.md)
 - [Spawn Event To Entity](../flows/spawn-event-to-entity.md)
 - [Collision To Combat Result](../flows/collision-to-combat-result.md)
 - [Target Proxy Lifecycle](../flows/target-proxy-lifecycle.md)

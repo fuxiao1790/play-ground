@@ -254,7 +254,7 @@ Important counters:
 - `PlayerMovement`
 - `PlayerFacing`
 - `SkillDriver`
-- `PlayerHealth`
+- shared managed `Resource` mirrors for health and mana
 - `PlayerStateDriver`
 - `PlayerAnimatorDriver`
 - `StatusEffects`

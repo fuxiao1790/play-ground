@@ -168,7 +168,9 @@ Finalized presentation result:
 - Collision systems must never call into authoring objects or managed target
   callbacks.
 - Damage, status, spawn follow-ups, and VFX must stay on separate typed paths.
-- Only `CombatApplyBridge` may read managed `TargetCompanion` references.
+- Only presentation bridges may read managed `TargetCompanion` references:
+  `CombatApplyBridge` for combat results and `SpawnRejectionBridge` for rejected
+  root-cast tokens.
 - Follow-up spawns stay in ECS as typed spawn events and flow through normal
   expansion and apply.
 - Timed spawn must use stored spawn events as templates. Do not add separate
@@ -370,7 +372,7 @@ Targets are represented by proxy entities:
 - `TargetPosition`
 - `TargetCollisionShape`
 - `TargetFaction`
-- `TargetHealth`
+- `Health`
 - `TargetCompanion`
 - `TargetStackEntry` buffer
 
@@ -453,7 +455,7 @@ Current stacking direction:
    hit path by emitting `CombatHitEvent` with target proxy, direct-damage data,
    source metadata, and stack snapshot.
 4. `CombatApplyFinalizeSystem` buckets hits by target proxy, rolls crits,
-   subtracts ECS-owned `TargetHealth`, writes `TargetStackEntry` buffers, and
+   subtracts ECS-owned `Health`, writes `TargetStackEntry` buffers, and
    freezes one `CombatTickResult` per hit target.
 5. `StatusProcessSystem` runs after finalize and before spawn expansion. It
    processes target stack buffers, decays or fizzles entries, and queues
@@ -482,7 +484,7 @@ Collision jobs enqueue `CombatHitEvent` into
 
 `CombatApplyFinalizeSystem` runs after collision and before spawn expansion. It
 completes producers, buckets hits by target proxy, rolls crits with deterministic
-random state, sums damage per target, subtracts ECS-owned `TargetHealth`, accrues
+random state, sums damage per target, subtracts ECS-owned `Health`, accrues
 status stacks, and freezes one `CombatTickResult` per hit target.
 
 `CombatApplyBridge` runs in `PresentationSystemGroup`. It resolves
@@ -567,4 +569,4 @@ payloads.
 - Mutate authoring data after firing; verify in-flight entities still use the
   original snapshot.
 - Confirm simulation jobs do not read managed companions.
-- Confirm `TargetCompanion` is resolved only in `CombatApplyBridge`.
+- Confirm `TargetCompanion` is resolved only by presentation bridges.

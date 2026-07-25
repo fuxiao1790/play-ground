@@ -4,6 +4,7 @@ using NUnit.Framework;
 using UnityEngine.TestTools;
 using PlayGround.Skills;
 using PlayGround.Common;
+using PlayGround.Common.Stats;
 using PlayGround.Mob;
 using PlayGround.Player;
 using PlayGround.Game;
@@ -62,7 +63,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void PlayerHealthSoftDeathDisablesBodyAndHurtbox()
+        public void ResourceDepletionCanDrivePlayerSoftDeathPresentation()
         {
             GameObject player = new("PlayerHealthTest");
             Rigidbody2D body = player.AddComponent<Rigidbody2D>();
@@ -71,12 +72,18 @@ namespace PlayGround.Tests.PlayMode
             hurtboxObject.transform.SetParent(player.transform, false);
             CircleCollider2D hurtbox = hurtboxObject.AddComponent<CircleCollider2D>();
             SpriteRenderer renderer = player.AddComponent<SpriteRenderer>();
-            var animatorDriver = new PlayerAnimatorDriver(null, renderer);
-            var health = new PlayerHealth(body, bodyCollider, hurtbox, renderer, animatorDriver, 5f, 0.08f);
+            var health = new Resource(5f, 0f);
+            health.Depleted += () =>
+            {
+                body.simulated = false;
+                bodyCollider.enabled = false;
+                hurtbox.enabled = false;
+                renderer.enabled = false;
+            };
 
-            health.TakeDamage(new DamageSnapshot(5f));
+            health.MirrorCurrent(0f);
 
-            Assert.That(health.IsAlive, Is.False);
+            Assert.That(health.IsDepleted, Is.True);
             Assert.That(body.simulated, Is.False);
             Assert.That(bodyCollider.enabled, Is.False);
             Assert.That(hurtbox.enabled, Is.False);

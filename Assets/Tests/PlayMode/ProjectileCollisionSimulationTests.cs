@@ -30,6 +30,7 @@ namespace PlayGround.Tests.PlayMode
         private ProjectileSpawnExpansionSystem projectileExpansion;
         private ImpactAoeSpawnExpansionSystem impactAoeExpansion;
         private LingeringAoeSpawnExpansionSystem lingeringAoeExpansion;
+        private ExternalSpawnGateSystem externalSpawnGate;
         private Entity scopeEntity;
         private Entity projectileTemplateEntity;
         private Entity aoeTemplateEntity;
@@ -47,10 +48,12 @@ namespace PlayGround.Tests.PlayMode
             projectileExpansion = testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
             impactAoeExpansion = testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnExpansionSystem>();
             lingeringAoeExpansion = testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnExpansionSystem>();
+            externalSpawnGate = testWorld.GetOrCreateSystemManaged<ExternalSpawnGateSystem>();
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContactGateSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TargetSpatialHashSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileCollisionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSingleSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ResourceRegenSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<StatusProcessSystem>());
             simGroup.AddSystemToUpdateList(projectileExpansion);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileSpawnApplySystem>());
@@ -66,6 +69,7 @@ namespace PlayGround.Tests.PlayMode
             testWorld.GetOrCreateSystemManaged<CombatApplyBridge>();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
+            entityManager.AddBuffer<ExternalSpawnRequest>(scopeEntity);
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<ImpactAoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<LingeringAoeSpawnEvent>(scopeEntity);
@@ -86,12 +90,103 @@ namespace PlayGround.Tests.PlayMode
         [Test]
         public void CombatTargetProxySeedsManaFromCombatTarget()
         {
-            var target = new TestCombatTarget(++nextTargetId, float2.zero, 1f, 50f, 12f);
+            var target = new TestCombatTarget(++nextTargetId, float2.zero, 1f, 50f, 12f, 3f);
             Entity proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
 
-            TargetMana mana = entityManager.GetComponentData<TargetMana>(proxy);
+            Mana mana = entityManager.GetComponentData<Mana>(proxy);
             Assert.That(mana.Max, Is.EqualTo(50f).Within(0.0001f));
             Assert.That(mana.Current, Is.EqualTo(12f).Within(0.0001f));
+            Assert.That(mana.RegenPerSecond, Is.EqualTo(3f).Within(0.0001f));
+        }
+
+        [Test]
+        public void CombatTargetProxyPushResourceMaxesPreservesEcsCurrent()
+        {
+            var target = new TestCombatTarget(++nextTargetId, float2.zero, 1f, 50f, 12f, 3f);
+            Entity proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
+            entityManager.SetComponentData(proxy, new Mana { Current = 7f, Max = 50f, RegenPerSecond = 3f });
+
+            target.SetManaValues(80f, 5f);
+            Assert.That(CombatTargetProxy.PushResourceMaxes(entityManager, proxy, target), Is.True);
+
+            Mana mana = entityManager.GetComponentData<Mana>(proxy);
+            Assert.That(mana.Current, Is.EqualTo(7f).Within(0.0001f));
+            Assert.That(mana.Max, Is.EqualTo(80f).Within(0.0001f));
+            Assert.That(mana.RegenPerSecond, Is.EqualTo(5f).Within(0.0001f));
+        }
+
+        [Test]
+        public void ResourceRegenRaisesManaAndClampsAtMax()
+        {
+            var target = new TestCombatTarget(++nextTargetId, float2.zero, 1f, 10f, 5f, 4f);
+            Entity proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
+
+            TickSimulationOnly(1f);
+            Assert.That(entityManager.GetComponentData<Mana>(proxy).Current, Is.EqualTo(9f).Within(0.0001f));
+
+            TickSimulationOnly(1f);
+            Assert.That(entityManager.GetComponentData<Mana>(proxy).Current, Is.EqualTo(10f).Within(0.0001f));
+        }
+
+        [Test]
+        public void ResourceRegenDoesNotReviveDepletedHealth()
+        {
+            var target = new TestCombatTarget(++nextTargetId, float2.zero, 1f, healthCurrent: 0f, healthRegenPerSecond: 4f);
+            Entity proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
+
+            TickSimulationOnly(1f);
+            Assert.That(entityManager.GetComponentData<Health>(proxy).Current, Is.EqualTo(0f).Within(0.0001f));
+        }
+
+        [Test]
+        public void ResourceRegenRunsAfterCombatDamage()
+        {
+            var target = new TestCombatTarget(++nextTargetId, float2.zero, 0.25f, healthCurrent: 5f, healthRegenPerSecond: 2f);
+            Entity proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
+            CreateProjectile(pierceRemaining: 0);
+
+            TickSimulationOnly(0.5f);
+
+            Assert.That(entityManager.GetComponentData<Health>(proxy).Current, Is.EqualTo(5f).Within(0.0001f));
+        }
+
+        [Test]
+        public void ExternalSpawnGateSpendsOnlyTheRequestCastersMana()
+        {
+            Entity firstCaster = entityManager.CreateEntity(typeof(Mana));
+            Entity secondCaster = entityManager.CreateEntity(typeof(Mana));
+            entityManager.SetComponentData(firstCaster, new Mana { Current = 10f, Max = 10f });
+            entityManager.SetComponentData(secondCaster, new Mana { Current = 3f, Max = 3f });
+            DynamicBuffer<ExternalSpawnRequest> requests = entityManager.GetBuffer<ExternalSpawnRequest>(scopeEntity);
+            requests.Add(ExternalProjectileRequest(firstCaster, 4f, 100));
+            requests.Add(ExternalProjectileRequest(secondCaster, 2f, 101));
+
+            externalSpawnGate.Update();
+
+            Assert.That(entityManager.GetComponentData<Mana>(firstCaster).Current, Is.EqualTo(6f).Within(0.0001f));
+            Assert.That(entityManager.GetComponentData<Mana>(secondCaster).Current, Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(entityManager.GetBuffer<ProjectileSpawnEvent>(scopeEntity).Length, Is.EqualTo(2));
+            Assert.That(ReadSpawnRejections(), Is.Empty);
+        }
+
+        [Test]
+        public void ExternalSpawnGateRejectsWithoutSpendingAndAcceptsMissingMana()
+        {
+            Entity caster = entityManager.CreateEntity(typeof(Mana));
+            Entity missingManaCaster = entityManager.CreateEntity();
+            entityManager.SetComponentData(caster, new Mana { Current = 1f, Max = 10f });
+            DynamicBuffer<ExternalSpawnRequest> requests = entityManager.GetBuffer<ExternalSpawnRequest>(scopeEntity);
+            requests.Add(ExternalProjectileRequest(caster, 2f, 200));
+            requests.Add(ExternalProjectileRequest(missingManaCaster, 9f, 201));
+
+            externalSpawnGate.Update();
+
+            Assert.That(entityManager.GetComponentData<Mana>(caster).Current, Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(entityManager.GetBuffer<ProjectileSpawnEvent>(scopeEntity).Length, Is.EqualTo(1));
+            SpawnRejectedEvent[] rejections = ReadSpawnRejections();
+            Assert.That(rejections, Has.Length.EqualTo(1));
+            Assert.That(rejections[0].Caster, Is.EqualTo(caster));
+            Assert.That(rejections[0].CastToken, Is.EqualTo(200));
         }
 
         [TearDown]
@@ -122,7 +217,7 @@ namespace PlayGround.Tests.PlayMode
             TickSimulationOnly(0.01f);
 
             Assert.That(ReadFinalizedHitCount(), Is.EqualTo(1));
-            Assert.That(entityManager.GetComponentData<TargetHealth>(target).Current, Is.EqualTo(TestTargetHealth - 1f).Within(0.0001f));
+            Assert.That(entityManager.GetComponentData<Health>(target).Current, Is.EqualTo(TestTargetHealth - 1f).Within(0.0001f));
             Assert.That(entityManager.IsComponentEnabled<Active>(projectile), Is.False);
             Assert.That(entityManager.GetComponentData<ProjectileHitComponent>(projectile).PierceRemaining, Is.EqualTo(-1));
         }
@@ -393,6 +488,36 @@ namespace PlayGround.Tests.PlayMode
             simGroup.Update();
         }
 
+        private ExternalSpawnRequest ExternalProjectileRequest(Entity caster, float manaCost, int castToken)
+        {
+            return new ExternalSpawnRequest
+            {
+                Kind = IntervalChildKind.Projectile,
+                TemplateKey = new Hash128(1u, 2u, 3u, (uint)castToken),
+                Caster = caster,
+                ManaCost = manaCost,
+                Position = float2.zero,
+                AimDirection = new float2(1f, 0f),
+                Faction = CombatFaction.Player,
+                SourceId = castToken,
+                JitterSeed = (uint)castToken,
+                CastToken = castToken
+            };
+        }
+
+        private SpawnRejectedEvent[] ReadSpawnRejections()
+        {
+            using EntityQuery query = entityManager.CreateEntityQuery(ComponentType.ReadOnly<SpawnRejectedSingleton>());
+            SpawnRejectedSingleton lane = query.GetSingleton<SpawnRejectedSingleton>();
+            var copy = new SpawnRejectedEvent[lane.Events.Length];
+            for (int i = 0; i < copy.Length; i++)
+            {
+                copy[i] = lane.Events[i];
+            }
+
+            return copy;
+        }
+
         private Entity CreateProjectile(
             int pierceRemaining,
             StackEffectSnapshot stackEffect = default,
@@ -610,21 +735,33 @@ namespace PlayGround.Tests.PlayMode
             private readonly float2 position;
             private readonly float radius;
 
-            private readonly float maxMana;
-            private readonly float currentMana;
+            private float maxMana;
+            private float currentMana;
+            private float manaRegenPerSecond;
+            private readonly float maxHealth;
+            private readonly float currentHealth;
+            private readonly float healthRegenPerSecond;
 
             public TestCombatTarget(
                 int targetId,
                 float2 position,
                 float radius,
                 float maxMana = 0f,
-                float currentMana = 0f)
+                float currentMana = 0f,
+                float manaRegenPerSecond = 0f,
+                float maxHealth = TestTargetHealth,
+                float healthCurrent = TestTargetHealth,
+                float healthRegenPerSecond = 0f)
             {
                 TargetId = targetId;
                 this.position = position;
                 this.radius = radius;
                 this.maxMana = maxMana;
                 this.currentMana = currentMana;
+                this.manaRegenPerSecond = manaRegenPerSecond;
+                this.maxHealth = maxHealth;
+                this.currentHealth = healthCurrent;
+                this.healthRegenPerSecond = healthRegenPerSecond;
             }
 
             public int TargetId { get; }
@@ -635,9 +772,17 @@ namespace PlayGround.Tests.PlayMode
             public float CombatTargetRotationRadians => 0f;
             public CombatShapeType CombatTargetShapeType => CombatShapeType.Circle;
             public int CombatTargetMask => ~0;
-            public float CombatMaxHealth => TestTargetHealth;
+            public float CombatMaxHealth => maxHealth;
+            public float CombatCurrentHealth => currentHealth;
+            public float CombatHealthRegenPerSecond => healthRegenPerSecond;
             public float CombatMaxMana => maxMana;
             public float CombatCurrentMana => currentMana;
+            public float CombatManaRegenPerSecond => manaRegenPerSecond;
+            public void SetManaValues(float max, float regenPerSecond)
+            {
+                maxMana = max;
+                manaRegenPerSecond = regenPerSecond;
+            }
             public bool IsCombatTargetActive => true;
             public void ReceiveHit(in CombatHitData hit)
             {

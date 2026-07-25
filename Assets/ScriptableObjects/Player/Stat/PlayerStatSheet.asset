@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: PlayerStatSheet
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Common.Stats.UnitStatSheet
   maxHealth: 10000000
+  maxMana: 500
+  healthRegenPerSecond: 0
+  manaRegenPerSecond: 100
   moveSpeed: 20
   increasedRatePercent: 200
   damageMultiplier: 1

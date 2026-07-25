@@ -15,7 +15,7 @@ preparation.
 - `ProjectileSpawnCommand`/`AoeSpawnCommand` production and consumption.
 - `Active`-based reuse and cold creation fallback.
 - `CombatHitEvent` production and ECS-owned `CombatTickResult` finalization.
-- `TargetHealth`, `TargetStackEntry`, and status processing.
+- `Health`, `Mana`, `TargetStackEntry`, and status processing.
 - VFX request production as data.
 - Render matrix preparation.
 

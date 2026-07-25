@@ -18,6 +18,7 @@ using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Projectiles;
 using PlayGround.System.Combat.Vfx;
 using Unity.Profiling;
+using Unity.Entities;
 using UnityEngine;
 
 namespace PlayGround.Skills
@@ -47,6 +48,9 @@ namespace PlayGround.Skills
         private bool hasPendingEdit;
         private SkillLoadoutEditCommand pendingEdit;
         private int configuredInitialRuntimeNodeCount;
+        private Entity casterProxy;
+        private int[] firedCastTokens;
+        private int nextCastToken;
 
         public int SlotCount => activeSlotCount;
         public ulong Revision => revision;
@@ -94,13 +98,17 @@ namespace PlayGround.Skills
 
                         using (SpawnMarker.Auto())
                         {
+                            int castToken = NextCastToken();
                             SkillSpawnTranslator.Spawn(
                                 compiledSlots[i],
                                 transform.position,
                                 aimDir,
                                 aimWorldPos,
                                 combatRoot,
-                                faction);
+                                faction,
+                                casterProxy,
+                                castToken);
+                            firedCastTokens[i] = castToken;
                         }
 
                         slotStates[i].ResetOnFire();
@@ -126,12 +134,48 @@ namespace PlayGround.Skills
             RegisterAoeTypes();
         }
 
+        public void BindCaster(Entity proxy)
+        {
+            casterProxy = proxy;
+        }
+
+        public void ReceiveSpawnRejected(int castToken)
+        {
+            if (castToken <= 0 || slotStates == null || firedCastTokens == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < activeSlotCount; i++)
+            {
+                if (firedCastTokens[i] != castToken)
+                {
+                    continue;
+                }
+
+                slotStates[i].RefundFire();
+                firedCastTokens[i] = 0;
+                return;
+            }
+        }
+
         // --- private ---
 
         private string CombatRootTag =>
             string.IsNullOrEmpty(fallbackCombatRootTag)
                 ? GameplayTags.PlayerProjectileRoot
                 : fallbackCombatRootTag;
+
+        private int NextCastToken()
+        {
+            nextCastToken++;
+            if (nextCastToken <= 0)
+            {
+                nextCastToken = 1;
+            }
+
+            return nextCastToken;
+        }
 
         private void CompileAndRegister()
         {
@@ -163,6 +207,7 @@ namespace PlayGround.Skills
             int maxSlots = Mathf.Min(rootNodeIndices.Count, runtimeLoadout.MaxRootSets);
             compiledSlots = new RuntimeSkillDefinition[maxSlots];
             slotStates = new SkillSlotState[maxSlots];
+            firedCastTokens = new int[maxSlots];
             this.rootNodeIndices = new int[maxSlots];
             activeSlotCount = 0;
 

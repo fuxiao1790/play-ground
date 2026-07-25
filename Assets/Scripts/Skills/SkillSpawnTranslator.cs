@@ -10,6 +10,7 @@ using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using UnityEngine;
+using Unity.Entities;
 using Hash128 = Unity.Entities.Hash128;
 
 namespace PlayGround.Skills
@@ -22,7 +23,9 @@ namespace PlayGround.Skills
             Vector2 aimDir,
             Vector2 aimWorldPos,
             CombatRoot combatRoot,
-            CombatFaction faction)
+            CombatFaction faction,
+            Entity caster = default,
+            int castToken = 0)
         {
             if (def == null || combatRoot == null || IsDefault(def.SpawnTemplateKey))
             {
@@ -41,7 +44,10 @@ namespace PlayGround.Skills
                     origin,
                     aimDir,
                     Mathf.Max(1, projectile.Count),
-                    faction);
+                    faction,
+                    caster,
+                    Mathf.Max(0f, projectile.ManaCost),
+                    castToken);
                 return;
             }
 
@@ -57,7 +63,10 @@ namespace PlayGround.Skills
                     aimWorldPos,
                     Mathf.Max(1, aoe.EchoCount),
                     faction,
-                    AoeVariant.AoeChildKindFor(aoe.LifetimeSeconds));
+                    AoeVariant.AoeChildKindFor(aoe.LifetimeSeconds),
+                    caster,
+                    Mathf.Max(0f, aoe.ManaCost),
+                    castToken);
             }
         }
 

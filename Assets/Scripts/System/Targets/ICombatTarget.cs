@@ -81,8 +81,10 @@ namespace PlayGround.System.Combat.Targets
         int CombatTargetMask { get; }
         float CombatMaxHealth => 1f;
         float CombatCurrentHealth => CombatMaxHealth;
+        float CombatHealthRegenPerSecond => 0f;
         float CombatMaxMana => 0f;
         float CombatCurrentMana => CombatMaxMana;
+        float CombatManaRegenPerSecond => 0f;
         bool IsCombatTargetActive { get; }
         void ReceiveHit(in CombatHitData hit);
 
@@ -115,6 +117,10 @@ namespace PlayGround.System.Combat.Targets
         }
 
         void ReceiveStatus(IReadOnlyList<StatusStackSnapshot> stacks)
+        {
+        }
+
+        void ReceiveSpawnRejected(int castToken)
         {
         }
 

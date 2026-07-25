@@ -51,6 +51,7 @@ namespace PlayGround.System.Combat.Core
 
                 ownedScope = entityManager.CreateEntity(typeof(CombatScope));
                 entityManager.AddBuffer<CombatSpawnRequest>(ownedScope);
+                entityManager.AddBuffer<ExternalSpawnRequest>(ownedScope);
                 entityManager.AddBuffer<ProjectileSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<ImpactAoeSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<LingeringAoeSpawnEvent>(ownedScope);

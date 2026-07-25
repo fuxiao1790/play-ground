@@ -49,8 +49,10 @@ namespace PlayGround.Player
         private PlayGround.Skills.SkillDriver skillDriver;
         private PlayerAnimatorDriver animatorDriver;
         private PlayerStateDriver stateDriver;
-        private PlayerHealth health;
-        private PlayerMana mana;
+        private Resource health;
+        private Resource mana;
+        private bool requestHurtOnHealthChanged;
+        private bool deathHandled;
         private static int nextTargetId;
         private readonly List<StatusStackSnapshot> statusSnapshots = new();
         private readonly List<CombatTargetRegistry<ICombatTarget>> registries = new();
@@ -77,13 +79,15 @@ namespace PlayGround.Player
         public float CombatTargetRotationRadians => ProjectileTargetShapeUtility.RotationRadians(hurtbox);
         public CombatShapeType CombatTargetShapeType => ProjectileTargetShapeUtility.ShapeType(hurtbox);
         public int CombatTargetMask => 1 << hurtbox.gameObject.layer;
-        public float CombatMaxHealth => statSheet.MaxHealth;
+        public float CombatMaxHealth => health?.Max ?? statSheet.MaxHealth;
         public float CombatCurrentHealth => CurrentHealth;
-        public float CombatMaxMana => statSheet.MaxMana;
+        public float CombatHealthRegenPerSecond => health?.RegenPerSecond ?? statSheet.HealthRegenPerSecond;
+        public float CombatMaxMana => mana?.Max ?? statSheet.MaxMana;
         public float CombatCurrentMana => CurrentMana;
-        public bool IsCombatTargetActive => isActiveAndEnabled && health != null && health.IsAlive;
-        public float CurrentHealth => health?.CurrentHealth ?? 0f;
-        public float CurrentMana => mana?.CurrentMana ?? 0f;
+        public float CombatManaRegenPerSecond => mana?.RegenPerSecond ?? statSheet.ManaRegenPerSecond;
+        public bool IsCombatTargetActive => isActiveAndEnabled && health != null && !health.IsDepleted;
+        public float CurrentHealth => health?.Current ?? 0f;
+        public float CurrentMana => mana?.Current ?? 0f;
         public int EquippedAttackCount => skillDriver?.SlotCount ?? 0;
         public IReadOnlyList<StatusStackSnapshot> StatusSnapshots => statusSnapshots;
 
@@ -145,15 +149,17 @@ namespace PlayGround.Player
                 dashCooldown);
             facing = new PlayerFacing(transform, spriteRenderer, facingSet);
             stateDriver = new PlayerStateDriver(movement, animatorDriver);
-            health = new PlayerHealth(body, bodyCollider, hurtbox, spriteRenderer, animatorDriver, statSheet.MaxHealth, hurtFlashSeconds);
-            mana = new PlayerMana(statSheet.MaxMana);
+            health = new Resource(statSheet.MaxHealth, statSheet.HealthRegenPerSecond);
+            mana = new Resource(statSheet.MaxMana, statSheet.ManaRegenPerSecond);
+            health.Depleted += HandleHealthDepleted;
+            health.Changed += HandleHealthChanged;
             skillDriver = GetComponent<PlayGround.Skills.SkillDriver>();
 
             if (skillDriver == null)
                 throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} requires a {nameof(PlayGround.Skills.SkillDriver)} component.");
 
             StatusEffects = GetComponent<StatusEffects>();
-            StatusEffects?.Initialize(d => health.TakeDamage(d), () => health.IsAlive);
+            StatusEffects?.Initialize(damage => RequestHurt(damage), () => !health.IsDepleted);
         }
 
         private void OnEnable()
@@ -186,7 +192,9 @@ namespace PlayGround.Player
 
         private void Update()
         {
-            if (!health.IsAlive)
+            SyncResourceAuthoring();
+            MirrorResourcesFromProxy();
+            if (health.IsDepleted)
             {
                 QueueCombatTargetProxyDelete();
                 return;
@@ -217,7 +225,7 @@ namespace PlayGround.Player
 
         private void FixedUpdate()
         {
-            if (!health.IsAlive)
+            if (health.IsDepleted)
                 return;
 
             movement.FixedTick();
@@ -243,6 +251,7 @@ namespace PlayGround.Player
 
             registries.Add(targetRegistry);
             targetRegistry.Register(this);
+            skillDriver?.BindCaster(combatTargetProxy);
         }
 
         public void Register(CombatTargetSet targetSet)
@@ -255,11 +264,7 @@ namespace PlayGround.Player
         {
             if (hit.DirectDamageEnabled)
             {
-                health.TakeDamage(hit.Damage);
-                if (!health.IsAlive)
-                {
-                    QueueCombatTargetProxyDelete();
-                }
+                RequestHurt(hit.Damage);
             }
         }
 
@@ -269,11 +274,9 @@ namespace PlayGround.Player
         {
             if (result.HitCount > 0)
             {
-                health.MirrorCombatHealth(result.Health, result.DamageTaken > 0f);
-                if (!health.IsAlive)
-                {
-                    QueueCombatTargetProxyDelete();
-                }
+                requestHurtOnHealthChanged = result.DamageTaken > 0f;
+                health.MirrorCurrent(result.Health);
+                requestHurtOnHealthChanged = false;
             }
 
             if (result.StatusCount > 0)
@@ -312,9 +315,11 @@ namespace PlayGround.Player
             Vector2 position = new(savedState.positionX, savedState.positionY);
             body.position = position;
             transform.position = new Vector3(position.x, position.y, transform.position.z);
-            health.Restore(savedState.currentHealth);
+            deathHandled = false;
+            health.MirrorCurrent(savedState.currentHealth <= 0f ? health.Max : savedState.currentHealth);
+            RestorePresentationAfterLoad();
             deleteProxyInLateUpdate = false;
-            PlayGround.System.Combat.Targets.CombatTargetProxy.SetHealth(this, health.CurrentHealth);
+            PlayGround.System.Combat.Targets.CombatTargetProxy.SetHealth(this, health.Current);
             PushCombatTargetProxy();
             return true;
         }
@@ -325,6 +330,90 @@ namespace PlayGround.Player
             {
                 PlayGround.System.Combat.Targets.CombatTargetProxy.Push(this);
             }
+        }
+
+        private void SyncResourceAuthoring()
+        {
+            bool changed = health.UpdateAuthoring(statSheet.MaxHealth, statSheet.HealthRegenPerSecond);
+            changed |= mana.UpdateAuthoring(statSheet.MaxMana, statSheet.ManaRegenPerSecond);
+            if (changed)
+            {
+                PlayGround.System.Combat.Targets.CombatTargetProxy.PushResourceMaxes(this);
+            }
+        }
+
+        public void ReceiveSpawnRejected(int castToken)
+        {
+            skillDriver?.ReceiveSpawnRejected(castToken);
+        }
+
+        private void MirrorResourcesFromProxy()
+        {
+            if (PlayGround.System.Combat.Targets.CombatTargetProxy.TryReadResources(this, out Health ecsHealth, out Mana ecsMana))
+            {
+                health.MirrorCurrent(ecsHealth.Current);
+                mana.MirrorCurrent(ecsMana.Current);
+            }
+        }
+
+        private bool RequestHurt(DamageSnapshot damage)
+        {
+            if (health.IsDepleted || damage.Amount <= 0f)
+            {
+                return false;
+            }
+
+            animatorDriver.RequestHurt(hurtFlashSeconds);
+            return true;
+        }
+
+        private void HandleHealthChanged()
+        {
+            if (requestHurtOnHealthChanged && !health.IsDepleted)
+            {
+                animatorDriver.RequestHurt(hurtFlashSeconds);
+            }
+        }
+
+        private void HandleHealthDepleted()
+        {
+            if (deathHandled)
+            {
+                return;
+            }
+
+            deathHandled = true;
+            body.linearVelocity = Vector2.zero;
+            body.simulated = false;
+            if (bodyCollider != null)
+            {
+                bodyCollider.enabled = false;
+            }
+
+            if (hurtbox != null)
+            {
+                hurtbox.enabled = false;
+            }
+
+            spriteRenderer.enabled = false;
+            QueueCombatTargetProxyDelete();
+        }
+
+        private void RestorePresentationAfterLoad()
+        {
+            body.linearVelocity = Vector2.zero;
+            body.simulated = true;
+            if (bodyCollider != null)
+            {
+                bodyCollider.enabled = true;
+            }
+
+            if (hurtbox != null)
+            {
+                hurtbox.enabled = true;
+            }
+
+            spriteRenderer.enabled = true;
         }
 
         private void QueueCombatTargetProxyDelete()
