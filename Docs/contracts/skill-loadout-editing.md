@@ -126,8 +126,8 @@ loadout and shows `rejectionReason`.
   cap truncates removed slots and deletes any support equipped there.
 - Support edits and restored support arrays must fit the runtime skill set's
   current support cap.
-- Duplicate support selection is a v1 UI-policy rejection; it does not cap or
-  change the core support model.
+- Duplicate support selection is allowed. The same support definition may occupy
+  multiple support slots; this does not cap or change the core support model.
 - Clearing a skill is disabled until its supports and adjacent dependent links
   are cleared.
 - Skill/support changes to a direct root are disabled while that root's cooldown

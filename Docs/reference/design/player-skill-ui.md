@@ -39,11 +39,13 @@ loadout revision.
 ## Input And Time
 
 The picker never changes `Time.timeScale`. CPU simulation, ECS combat, and GPU
-VFX continue. While the modal is open, `PlayerRoot` blocks gameplay actions but
-keeps UI input active. When the pointer is over the skill bar or picker,
-`PlayerRoot` suppresses Attack for that frame so a UI click cannot cast. This is
-an input-routing gate, not a second input owner. Keyboard/gamepad structure is
-kept focus-based, but full gamepad and touch acceptance are out of scope.
+VFX continue. While the modal is open, `PlayerRoot` suspends gameplay actions
+but keeps UI input active. Pointer input uses UI Toolkit layering: the top UI
+layer consumes its own clicks or deliberately allows them to pass through, and
+the bottom `GameplayInputSurface` receives pass-through clicks as click-to-fire
+input. This removes the need for pointer-position checks in gameplay code.
+Keyboard/gamepad structure is kept focus-based, but full gamepad and touch
+acceptance are out of scope.
 
 ## Edit Feedback
 

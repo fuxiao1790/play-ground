@@ -99,7 +99,8 @@ UI Toolkit picking decides whether a click reaches the world surface:
 
 - Normal controls use position picking and consume their own clicks.
 - The world surface sits behind the controls.
-- A deliberate pass-through element may use `picking-mode: ignore`.
+- The top UI layer decides whether each element consumes a click or allows it
+  to pass through with `picking-mode: ignore`.
 - Pointer capture keeps a held click stable until release or capture loss.
 
 Opening the skill picker is a separate modal input mode. `SkillLoadoutUi` tells
@@ -176,3 +177,29 @@ A future HUD feature should follow the same projection rule: read a public
 - [Player Skill UI](./reference/design/player-skill-ui.md)
 - [Skill Loadout Editing](./contracts/skill-loadout-editing.md)
 - [Skill Loadout Edit Flow](./flows/skill-loadout-edit.md)
+
+## Known UI/Implementation Gaps (Temporary)
+
+Found during a 2026-07-25 doc-vs-implementation review. This section is a
+temporary tracking list, not part of the architectural contract. Remove each
+entry once the implementation is fixed or the referenced doc is corrected to
+match reality.
+
+- **Cooldown progress resets on unrelated edits.** `SkillDriver.CompileAndRegister`
+  allocates a fresh `SkillSlotState` for every root slot on every accepted edit,
+  resetting cooldown progress for all roots instead of only the edited one.
+  Contradicts the "unchanged roots preserve their progress" rule in
+  [Skill Loadout Editing](./contracts/skill-loadout-editing.md).
+- **Picker closes before `EditResolved`.** `SkillLoadoutUi.AddChoice` closes the
+  picker once a command is queued, not once the driver resolves it, so a later
+  rejection is never surfaced in the UI.
+- **Picker does not disable ineligible choices.** All catalog entries render as
+  always-enabled buttons; validator eligibility is not reflected before submit.
+- **No Escape key, backdrop cancel, or scrolling in the picker.** Only the
+  `#cancel` button closes the modal; the choices list has no `ScrollView` or
+  overflow handling.
+- **`SkillLoadoutEditCommand` carries object references, not `definitionId`.**
+  The documented struct shape in [Skill Loadout Editing](./contracts/skill-loadout-editing.md)
+  (a `string definitionId` resolved by a "future" `SkillUiCatalog`) is stale;
+  the catalog already exists and the command carries `Skill`/`SkillSupport`/
+  `TriggerLink` references directly.
