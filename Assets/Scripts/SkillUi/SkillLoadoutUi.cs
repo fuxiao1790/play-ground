@@ -225,7 +225,7 @@ namespace PlayGround.Skills
             }
             modal.Q<Button>("cancel").clicked += ClosePicker;
             root.Add(modal);
-            playerRoot?.SetGameplayInputGate(true, true);
+            playerRoot?.SetGameplayInputSuspended(true);
         }
 
         private void AddClear(VisualElement choices)
@@ -245,7 +245,7 @@ namespace PlayGround.Skills
         private void ClosePicker()
         {
             modal?.RemoveFromHierarchy(); modal = null;
-            playerRoot?.SetGameplayInputGate(false, false);
+            playerRoot?.SetGameplayInputSuspended(false);
         }
 
         private void OnLoadoutChanged(ulong _) => RefreshBar();

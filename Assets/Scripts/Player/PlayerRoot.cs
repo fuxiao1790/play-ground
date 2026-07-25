@@ -42,7 +42,6 @@ namespace PlayGround.Player
         private InputAction moveAction;
         private InputAction lookAction;
         private InputAction pointAction;
-        private InputAction attackAction;
         private InputAction dashAction;
         private InputActionMap playerMap;
         private PlayerMovement movement;
@@ -58,8 +57,8 @@ namespace PlayGround.Player
         private Entity combatTargetProxy;
         private bool deleteProxyInLateUpdate;
         private int targetId;
-        private bool gameplayInputBlocked;
-        private bool pointerOverSkillUi;
+        private IGameplayInputSource fireInput;
+        private bool gameplayInputSuspended;
         public StatusEffects StatusEffects { get; private set; }
 
         public Vector2 AimDirection => facing?.AimDirection ?? Vector2.right;
@@ -84,11 +83,16 @@ namespace PlayGround.Player
         public int EquippedAttackCount => skillDriver?.SlotCount ?? 0;
         public IReadOnlyList<StatusStackSnapshot> StatusSnapshots => statusSnapshots;
 
-        public void SetGameplayInputGate(bool modalOpen, bool pointerOverUi)
+        public void SetFireInput(IGameplayInputSource source) => fireInput = source;
+
+        public void ClearFireInput(IGameplayInputSource source)
         {
-            gameplayInputBlocked = modalOpen;
-            pointerOverSkillUi = pointerOverUi;
+            if (fireInput == source) fireInput = null;
         }
+
+        // Loadout editing (picker modal) freezes gameplay input.
+        public void SetGameplayInputSuspended(bool suspended) =>
+            gameplayInputSuspended = suspended;
 
         private void Awake()
         {
@@ -119,7 +123,6 @@ namespace PlayGround.Player
             playerMap = inputActions.FindActionMap("Player", true);
             moveAction = playerMap.FindAction("Move", true);
             lookAction = playerMap.FindAction("Look", false);
-            attackAction = playerMap.FindAction("Attack", true);
             dashAction = playerMap.FindAction("Jump", true);
             pointAction = inputActions.FindAction("UI/Point", false);
             playerMap.Enable();
@@ -168,6 +171,14 @@ namespace PlayGround.Player
             combatTargetSet?.Unregister(this);
         }
 
+        private void Start()
+        {
+            if (fireInput == null)
+            {
+                Debug.LogWarning($"{nameof(PlayerRoot)} on {name} has no {nameof(IGameplayInputSource)} registered; player cannot fire.");
+            }
+        }
+
         private void Update()
         {
             if (!health.IsAlive)
@@ -185,7 +196,8 @@ namespace PlayGround.Player
                 movement.TryStartDash(aimWorldPosition);
 
             facing.AimAt(aimWorldPosition);
-            skillDriver.Tick(ReadAttackHeld(), facing.AimDirection, aimWorldPosition);
+            bool fireHeld = !gameplayInputSuspended && (fireInput?.FireHeld ?? false);
+            skillDriver.Tick(fireHeld, facing.AimDirection, aimWorldPosition);
             animatorDriver.Tick(Time.deltaTime);
             stateDriver.Tick();
         }
@@ -325,13 +337,10 @@ namespace PlayGround.Player
         }
 
         private Vector2 ReadMoveInput() =>
-            gameplayInputBlocked ? Vector2.zero : Vector2.ClampMagnitude(moveAction.ReadValue<Vector2>(), 1f);
-
-        private bool ReadAttackHeld() =>
-            !gameplayInputBlocked && !pointerOverSkillUi && attackAction.IsPressed();
+            gameplayInputSuspended ? Vector2.zero : Vector2.ClampMagnitude(moveAction.ReadValue<Vector2>(), 1f);
 
         private bool ReadDashPressedThisFrame() =>
-            !gameplayInputBlocked && dashAction.WasPressedThisFrame();
+            !gameplayInputSuspended && dashAction.WasPressedThisFrame();
 
         private Vector2 ReadAimWorldPosition()
         {
