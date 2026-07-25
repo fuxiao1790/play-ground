@@ -7,6 +7,7 @@ namespace PlayGround.Common.Stats
     {
         [Header("Vitals")]
         [SerializeField] private float maxHealth = 100f;
+        [SerializeField] private float maxMana = 100f;
 
         [Header("Movement")]
         [SerializeField] private float moveSpeed = 5f;
@@ -20,6 +21,7 @@ namespace PlayGround.Common.Stats
         [SerializeField] private float areaSizeMultiplier = 1f;
 
         public float MaxHealth => Mathf.Max(1f, maxHealth);
+        public float MaxMana => Mathf.Max(0f, maxMana);
         public float MoveSpeed => Mathf.Max(0f, moveSpeed);
         public float IncreasedRatePercent => Mathf.Max(0f, increasedRatePercent) * 0.01f;
         public float DamageMultiplier => Mathf.Max(0f, damageMultiplier);

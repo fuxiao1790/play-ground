@@ -261,7 +261,7 @@ ProjectileDefinition
                pierceCount, repeatHitCooldown,
                trackingEnabled, trackingRange, trackingTurnSpeed,
                trackingQueryInterval, trackingInitialDelay,
-               spawnEnergyCost, directDamageEnabled
+               manaCost, directDamageEnabled
 ```
 
 The prefab is a visual and collision preset. The runtime bakes collision shape
@@ -269,10 +269,11 @@ and render data from it at load time, identical to current baking behavior.
 Behavior fields on the definition drive simulation 鈥?the prefab contributes
 nothing to behavior.
 
-`spawnEnergyCost` belongs to every projectile or AOE child definition. It is
-the energy threshold only when that definition is spawned by a timed child
-trigger; it does not change a root cast, AOE pulse interval, tracking interval,
-or hit cooldown.
+`manaCost` belongs to every projectile or AOE definition. It folds through
+`SkillStat.ManaCost` during runtime compilation, so compatible supports can
+modify it. It affects only timed child spawning: the interval trigger converts
+the compiled child mana cost into its energy threshold. It does not change a
+root cast, AOE pulse interval, tracking interval, or hit cooldown.
 
 ### AoeDefinition
 
@@ -280,7 +281,7 @@ or hit cooldown.
 AoeDefinition
  鈹溾攢 prefab:    BasicAoePrefab   鈫?sprite, material, hitbox collider, particle effects
  鈹斺攢 behavior:  baseAreaSize, damage, echoCount, scatterRadius,
-               spawnEnergyCost, directDamageEnabled
+               manaCost, directDamageEnabled
 ```
 
 Regular AOE content compiles as pulse AOE. It does not expose lifetime or tick
@@ -292,8 +293,17 @@ interval, and the runtime receives `0` for both timing fields.
 LingeringAoeDefinition
  鈹溾攢 prefab:    LingeringAoePrefab 鈫?sprite, material, hitbox collider, particle effects
  鈹斺攢 behavior:  baseAreaSize, damage, lifetimeSeconds, tickIntervalSeconds,
-               echoCount, scatterRadius, spawnEnergyCost, directDamageEnabled
+               echoCount, scatterRadius, manaCost, directDamageEnabled
 ```
+
+### Player Mana Resource
+
+`UnitStatSheet.maxMana` authors the player's maximum mana. At combat target
+proxy creation, `CombatTargetProxy` seeds `TargetMana { Current, Max }` from
+the player's `ICombatTarget` values, then ECS owns that component until proxy
+destruction, just like `TargetHealth`. `PlayerMana` is the managed-side mirror.
+Mana consumption, restoration, and spawn/cast gating are intentionally not wired
+yet; the current resource is scaffolding for that later decision.
 
 ### StackingSupport
 
@@ -411,14 +421,14 @@ Current augment supports:
 
 | Support | Kind interface(s) | Stat / behavior contribution |
 |---|---|---|
-| Multiple Projectiles | `IProjectileBehaviorModifier` | Adds projectile `count`, `spreadDegrees` |
-| Multiple AOEs | `IAoeBehaviorModifier` | Adds AOE `echoCount`, `scatterRadius` |
-| Piercing | `IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `PierceCount`; sets projectile `repeatHitCooldown` |
-| Homing | `IProjectileBehaviorModifier` | Enables tracking and sets turn speed/query interval |
+| Multiple Projectiles | `IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost`; adds projectile `count`, `spreadDegrees` |
+| Multiple AOEs | `IBaseValueModifier`, `IAoeBehaviorModifier` | Adds `ManaCost`; adds AOE `echoCount`, `scatterRadius` |
+| Piercing | `IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost` and `PierceCount`; sets projectile `repeatHitCooldown` |
+| Homing | `IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost`; enables tracking and sets turn speed/query interval |
 | Concentrated Effect | `IMultiplierModifier` | Post multiplier on `AreaSize` only |
 | Increased AOE Effect | `IIncreasedModifier` | Increased percent on `AreaSize` |
 | Faster Projectiles | `IMultiplierModifier` | Post multipliers on `ProjectileSpeed`, `ProjectileLifetime` |
-| Added Damage | `IBaseValueModifier` | Adds `Damage` |
+| Added Damage | `IBaseValueModifier` | Adds `Damage`; may also add `ManaCost` (default `0`) |
 | Increased Skill Speed | `IIncreasedModifier` | Increased percent on `Rate` |
 
 Supports also declare compatible skill tags:
@@ -508,9 +518,7 @@ a warning and compile to no timed-child setup.
 Effect must compile to a `RuntimeProjectileDefinition`.
 
 ```csharp
-class ProjectileIntervalSpawnTrigger : TriggerLink {
-    float energyPerSecond;
-    float energyJitterPercent;
+class ProjectileIntervalSpawnTrigger : IntervalSpawnTrigger {
     int projectileCount;
     float sideSpreadDegrees;
 }
@@ -530,9 +538,7 @@ and compile to no timed-child setup.
 Effect must compile to a `RuntimeAoeDefinition`.
 
 ```csharp
-class AoeIntervalSpawnTrigger : TriggerLink {
-    float energyPerSecond;
-    float energyJitterPercent;
+class AoeIntervalSpawnTrigger : IntervalSpawnTrigger {
     int echoCount;
     float scatterRadius;
 }
@@ -551,10 +557,13 @@ Energy-driven source/child support:
 | Lingering AOE source | `ProjectileIntervalSpawnTrigger` | `AoeIntervalSpawnTrigger` |
 | Pulse AOE source | warning, no-op | warning, no-op |
 
-The trigger owns `energyPerSecond` and `energyJitterPercent`; the child skill
-owns `spawnEnergyCost`, which becomes the energy threshold. `energyJitterPercent`
-is clamped from `0` to `100` and converted at compile time to threshold jitter
-using `spawnEnergyCost * energyJitterPercent / 100`.
+Both concrete interval triggers inherit `energyPerSecond`,
+`energyJitterPercent`, and `manaToEnergyRatio` from `IntervalSpawnTrigger`.
+The child definition owns `manaCost`; its compiled, support-folded `ManaCost` is
+converted by `IntervalSpawnTrigger.ManaToEnergyCost`. The baked threshold is
+`max(0.001, childManaCost * manaToEnergyRatio)`. `energyJitterPercent` is
+clamped from `0` to `100` and converted at compile time to threshold jitter
+using `energyThreshold * energyJitterPercent / 100`.
 
 Each source begins with empty energy. Every simulation update adds
 `energyPerSecond * deltaTime`; whenever accrued energy reaches the next

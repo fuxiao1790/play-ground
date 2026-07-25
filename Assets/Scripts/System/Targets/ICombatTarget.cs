@@ -81,6 +81,8 @@ namespace PlayGround.System.Combat.Targets
         int CombatTargetMask { get; }
         float CombatMaxHealth => 1f;
         float CombatCurrentHealth => CombatMaxHealth;
+        float CombatMaxMana => 0f;
+        float CombatCurrentMana => CombatMaxMana;
         bool IsCombatTargetActive { get; }
         void ReceiveHit(in CombatHitData hit);
 

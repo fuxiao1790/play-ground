@@ -1,14 +1,10 @@
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace PlayGround.Skills
 {
     [CreateAssetMenu(menuName = "PlayGround/Skills/Triggers/Projectile Interval Spawn", fileName = "NewProjectileIntervalSpawnTrigger")]
-    public sealed class ProjectileIntervalSpawnTrigger : TriggerLink
+    public sealed class ProjectileIntervalSpawnTrigger : IntervalSpawnTrigger
     {
-        [Min(0.01f)] public float energyPerSecond = 2f;
-        [FormerlySerializedAs("intervalJitterPercent")]
-        [Range(0f, 100f)] public float energyJitterPercent;
         [Min(0)] public int projectileCount;
         [Range(0f, 180f)] public float sideSpreadDegrees = 30f;
 

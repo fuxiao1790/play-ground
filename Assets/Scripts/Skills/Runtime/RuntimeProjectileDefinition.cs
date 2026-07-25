@@ -48,6 +48,7 @@ namespace PlayGround.Skills.Runtime
         public float JitterDegrees { get; set; }
         public int PierceCount { get; set; }
         public float RepeatHitCooldown { get; set; }
+        public float ManaCost { get; set; }
         public float ArmSeconds { get; set; }
         public bool DirectDamageEnabled { get; set; } = true;
         public ProjectileTrackingConfig Tracking { get; set; }

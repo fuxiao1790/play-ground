@@ -40,6 +40,14 @@ namespace PlayGround.System.Combat.Targets
         public float Max;
     }
 
+    // ECS Lifecycle: target-proxy mana; seeded once when the proxy is created,
+    // then owned by ECS until the proxy is destroyed. Mirrors TargetHealth.
+    public struct TargetMana : IComponentData
+    {
+        public float Current;
+        public float Max;
+    }
+
     // ECS Lifecycle: target-proxy stack buffer; added empty when the proxy is created, destroyed with the proxy. CombatApplyFinalizeSingleSystem accrues entries, then StatusProcessSystem fizzles or detonates them.
     [InternalBufferCapacity(8)]
     public struct TargetStackEntry : IBufferElementData
@@ -97,6 +105,9 @@ namespace PlayGround.System.Combat.Targets
             float maxHealth = math.max(1f, target.CombatMaxHealth);
             float currentHealth = math.clamp(target.CombatCurrentHealth, 0f, maxHealth);
             entityManager.SetComponentData(entity, new TargetHealth { Current = currentHealth, Max = maxHealth });
+            float maxMana = math.max(0f, target.CombatMaxMana);
+            float currentMana = math.clamp(target.CombatCurrentMana, 0f, maxMana);
+            entityManager.SetComponentData(entity, new TargetMana { Current = currentMana, Max = maxMana });
             Push(entityManager, entity, target);
             return entity;
         }
@@ -191,6 +202,27 @@ namespace PlayGround.System.Combat.Targets
             return true;
         }
 
+        public static bool SetMana(ICombatTarget target, float currentMana)
+        {
+            if (target == null
+                || target.CombatTargetProxy == Entity.Null
+                || !TryGetEntityManager(out EntityManager entityManager)
+                || !Exists(entityManager, target.CombatTargetProxy))
+            {
+                return false;
+            }
+
+            float maxMana = math.max(0f, target.CombatMaxMana);
+            entityManager.SetComponentData(
+                target.CombatTargetProxy,
+                new TargetMana
+                {
+                    Current = math.clamp(currentMana, 0f, maxMana),
+                    Max = maxMana
+                });
+            return true;
+        }
+
         public static bool Exists(EntityManager entityManager, Entity entity)
         {
             using (ExistsMarker.Auto())
@@ -275,6 +307,7 @@ namespace PlayGround.System.Combat.Targets
                 typeof(TargetCollisionShape),
                 typeof(TargetFaction),
                 typeof(TargetHealth),
+                typeof(TargetMana),
                 typeof(TargetStackEntry),
                 typeof(TargetCompanion));
             return cachedArchetype;

@@ -35,7 +35,8 @@ namespace PlayGround.Skills
         public float jitterDegrees;
         public int pierceCount;
         public float repeatHitCooldown;
-        [Min(0f)] public float spawnEnergyCost = 1f;
+        [FormerlySerializedAs("spawnEnergyCost")]
+        [Min(0f)] public float manaCost = 1f;
         [Min(0f)] public float armSeconds;
         public bool directDamageEnabled = true;
         public bool trackingEnabled;
@@ -59,7 +60,8 @@ namespace PlayGround.Skills
         [FormerlySerializedAs("count")]
         [Min(1)] public int echoCount = 1;
         [Min(0f)] public float scatterRadius = 0f;
-        [Min(0f)] public float spawnEnergyCost = 1f;
+        [FormerlySerializedAs("spawnEnergyCost")]
+        [Min(0f)] public float manaCost = 1f;
         [Min(0f)] public float armSeconds;
         public bool directDamageEnabled = true;
 

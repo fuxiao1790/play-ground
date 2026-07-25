@@ -239,6 +239,7 @@ namespace PlayGround.Skills
                     JitterDegrees = p.jitterDegrees,
                     PierceCount = Mathf.Max(0, Mathf.RoundToInt(modifiers.Resolve(SkillStat.PierceCount, p.pierceCount))),
                     RepeatHitCooldown = Mathf.Max(0f, p.repeatHitCooldown),
+                    ManaCost = Mathf.Max(0f, modifiers.Resolve(SkillStat.ManaCost, p.manaCost)),
                     ArmSeconds = Mathf.Max(0f, p.armSeconds),
                     DirectDamageEnabled = p.directDamageEnabled,
                     Tracking = p.GetTrackingConfig(),
@@ -276,6 +277,7 @@ namespace PlayGround.Skills
                     Damage = Mathf.Max(0f, modifiers.Resolve(SkillStat.Damage, a.damage)),
                     LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds),
                     TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds),
+                    ManaCost = Mathf.Max(0f, modifiers.Resolve(SkillStat.ManaCost, a.manaCost)),
                     ArmSeconds = Mathf.Max(0f, a.armSeconds),
                     EchoCount = Mathf.Max(1, a.echoCount),
                     ScatterRadius = Mathf.Max(0f, a.scatterRadius),
@@ -326,10 +328,7 @@ namespace PlayGround.Skills
             RuntimeSkillDefinition compiledChild = Compile(nodes, targetNodeIndex, snapshot);
             if (compiledChild is not RuntimeProjectileDefinition childDef) return;
 
-            if (GetSkillSet(nodes, targetNodeIndex)?.Skill?.Definition is not ProjectileDefinition childSkillDefinition)
-                return;
-
-            float energyThreshold = Mathf.Max(1e-3f, childSkillDefinition.spawnEnergyCost);
+            float energyThreshold = trigger.ManaToEnergyCost(childDef.ManaCost);
             var setup = new RuntimeChildSpawnSetup
             {
                 JitterSeed = ++nextChildJitterSeed,
@@ -365,10 +364,7 @@ namespace PlayGround.Skills
             RuntimeSkillDefinition compiledChild = Compile(nodes, targetNodeIndex, snapshot);
             if (compiledChild is not RuntimeAoeDefinition childDef) return;
 
-            if (GetSkillSet(nodes, targetNodeIndex)?.Skill?.Definition is not AoeDefinitionBase childSkillDefinition)
-                return;
-
-            float energyThreshold = Mathf.Max(1e-3f, childSkillDefinition.spawnEnergyCost);
+            float energyThreshold = trigger.ManaToEnergyCost(childDef.ManaCost);
             var setup = new RuntimeAoeIntervalSpawnSetup
             {
                 JitterSeed = ++nextChildJitterSeed,

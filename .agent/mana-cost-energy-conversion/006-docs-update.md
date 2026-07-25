@@ -25,13 +25,25 @@ Keep the design docs consistent with the new mana-cost model.
    `spawnEnergyCost` as the threshold source, update to "child mana cost converted
    by the trigger link."
 
-3. **New short section** (skill-system.md or a stats doc) describing player mana:
-   authored on `UnitStatSheet.maxMana`, seeded into the ECS `TargetMana` component
-   at proxy creation exactly like `TargetHealth`, owned by ECS thereafter.
-   Note that consumption/gating is not yet wired (Decision E).
+3. **New "Unit Resources" doc section** (a stats/resources doc + update
+   `Docs/contracts/target-proxy.md`): health and mana are one agnostic resource
+   concept. Document the ownership split — GameObject owns `Max`/regen-rate/initial
+   (from `UnitStatSheet`) and pushes `Max` on change; ECS owns `Current` and the
+   regen tick (`ResourceRegenSystem`); the root mirrors `Current` for presentation.
+   Note the neutral component names (`Health`/`Mana`, no `Target` prefix) and that
+   the same shared managed `Resource` type serves any unit. Note consumption/gating
+   is still deferred (index open question 1).
 
-4. **`Docs/todo.md`** — mark the "skills should have a mana cost…" bullet as in
-   progress / done as appropriate; note the deferred consumption follow-up.
+4. **Spend transaction doc** (new short flow, e.g. `Docs/flows/` + a note in
+   `skill-system.md`): using a skill emits a `ResourceSpendRequest`; the serial
+   `ResourceSpendSystem` applies it to the caster's `Mana` and emits
+   accept/reject; `ResourceSpendBridge` returns the result to the `SkillDriver`,
+   which spawns only on accept (root casts only; interval children stay
+   energy-funded). Note the ~1-frame cast latency this introduces.
+
+5. **`Docs/todo.md`** — mark the "skills should have a mana cost…" bullet as in
+   progress / done as appropriate; note that spend + regen are now implemented and
+   the resource model is unified.
 
 ## Acceptance Criteria
 - No remaining references to `spawnEnergyCost` in `Docs/` except clearly-labeled

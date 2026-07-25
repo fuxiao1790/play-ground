@@ -7,12 +7,14 @@ namespace PlayGround.Skills
     public sealed class AddedDamageSupport : StatModifierSupport, IBaseValueModifier
     {
         [SerializeField] private float addedDamage = 5f;
+        [SerializeField, Min(0f)] private float manaCostAdded;
 
         public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Any;
 
         public void CollectAdded(AddedSink sink)
         {
             sink.Add(SkillStat.Damage, addedDamage);
+            sink.Add(SkillStat.ManaCost, manaCostAdded);
         }
     }
 }

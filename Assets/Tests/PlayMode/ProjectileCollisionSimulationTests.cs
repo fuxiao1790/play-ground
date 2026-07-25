@@ -83,6 +83,17 @@ namespace PlayGround.Tests.PlayMode
             });
         }
 
+        [Test]
+        public void CombatTargetProxySeedsManaFromCombatTarget()
+        {
+            var target = new TestCombatTarget(++nextTargetId, float2.zero, 1f, 50f, 12f);
+            Entity proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
+
+            TargetMana mana = entityManager.GetComponentData<TargetMana>(proxy);
+            Assert.That(mana.Max, Is.EqualTo(50f).Within(0.0001f));
+            Assert.That(mana.Current, Is.EqualTo(12f).Within(0.0001f));
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -599,11 +610,21 @@ namespace PlayGround.Tests.PlayMode
             private readonly float2 position;
             private readonly float radius;
 
-            public TestCombatTarget(int targetId, float2 position, float radius)
+            private readonly float maxMana;
+            private readonly float currentMana;
+
+            public TestCombatTarget(
+                int targetId,
+                float2 position,
+                float radius,
+                float maxMana = 0f,
+                float currentMana = 0f)
             {
                 TargetId = targetId;
                 this.position = position;
                 this.radius = radius;
+                this.maxMana = maxMana;
+                this.currentMana = currentMana;
             }
 
             public int TargetId { get; }
@@ -615,6 +636,8 @@ namespace PlayGround.Tests.PlayMode
             public CombatShapeType CombatTargetShapeType => CombatShapeType.Circle;
             public int CombatTargetMask => ~0;
             public float CombatMaxHealth => TestTargetHealth;
+            public float CombatMaxMana => maxMana;
+            public float CombatCurrentMana => currentMana;
             public bool IsCombatTargetActive => true;
             public void ReceiveHit(in CombatHitData hit)
             {

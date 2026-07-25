@@ -94,7 +94,7 @@ namespace PlayGround.Tests.EditMode
             ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
             trigger.energyPerSecond = 2f;
             trigger.energyJitterPercent = 25f;
-            ((ProjectileDefinition)targetSkill.Definition).spawnEnergyCost = 4f;
+            ((ProjectileDefinition)targetSkill.Definition).manaCost = 4f;
             var nodes = new[]
             {
                 new SkillLoadoutNode(sourceSet, trigger),
@@ -122,7 +122,7 @@ namespace PlayGround.Tests.EditMode
             trigger.energyPerSecond = 1.5f;
             trigger.energyJitterPercent = 10f;
             trigger.echoCount = 2;
-            ((AoeDefinitionBase)targetSkill.Definition).spawnEnergyCost = 3f;
+            ((AoeDefinitionBase)targetSkill.Definition).manaCost = 3f;
             var nodes = new[]
             {
                 new SkillLoadoutNode(sourceSet, trigger),
@@ -140,6 +140,57 @@ namespace PlayGround.Tests.EditMode
             Assert.That(projectile.AoeIntervalSpawnSetup.EnergyThreshold, Is.EqualTo(3f).Within(0.0001f));
             Assert.That(projectile.AoeIntervalSpawnSetup.EnergyThresholdJitter, Is.EqualTo(0.3f).Within(0.0001f));
             Assert.That(projectile.AoeIntervalSpawnSetup.Count, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void CompilerRaisesChildEnergyThresholdForManaCostSupport()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Child Projectile Skill");
+            ((ProjectileDefinition)targetSkill.Definition).manaCost = 2f;
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet(
+                "Child Projectile Set",
+                targetSkill,
+                CreateAsset<MultipleProjectilesSupport>("Multiple Projectiles"));
+            ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(sourceSet, trigger),
+                    new SkillLoadoutNode(targetSet),
+                },
+                0,
+                SkillStatSnapshot.Identity);
+
+            RuntimeChildSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).ChildSpawnSetup;
+            Assert.That(setup.ChildDefinition.ManaCost, Is.EqualTo(6f).Within(0.0001f));
+            Assert.That(setup.EnergyThreshold, Is.EqualTo(6f).Within(0.0001f));
+        }
+
+        [Test]
+        public void CompilerAppliesIntervalManaToEnergyRatio()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Child Projectile Skill");
+            ((ProjectileDefinition)targetSkill.Definition).manaCost = 4f;
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
+            ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
+            trigger.manaToEnergyRatio = 2f;
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(sourceSet, trigger),
+                    new SkillLoadoutNode(targetSet),
+                },
+                0,
+                SkillStatSnapshot.Identity);
+
+            RuntimeChildSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).ChildSpawnSetup;
+            Assert.That(setup.EnergyThreshold, Is.EqualTo(8f).Within(0.0001f));
         }
 
         [Test]

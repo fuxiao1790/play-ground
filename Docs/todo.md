@@ -9,9 +9,11 @@ minor fixes
 
 changes to existing gameplay 
 
-- skills should have a mana cost which should be converted into energy cost with some   function when it's triggered.
-  things like additional projectiles, piercing, homing can modify the mana cost which will modify the energy cost.
-  this should make things much easier to balance.
+- [done] skills have a folded mana cost converted to an energy threshold by the
+  interval trigger link. Additional projectiles, piercing, homing, and multiple
+  AOEs can add mana cost, which scales that threshold.
+- [follow-up] decide and implement mana consumption/restoration and cast or spawn
+  gating. Mana now exists on the stat sheet and target proxy, but is not spent.
 
 new feature
 - ui  improvements

@@ -34,6 +34,7 @@ namespace PlayGround.Skills.Runtime
         public AoeVfxIds VfxIds { get; set; }
         public float LifetimeSeconds { get; set; }
         public float TickIntervalSeconds { get; set; }
+        public float ManaCost { get; set; }
         public float ArmSeconds { get; set; }
         public int EchoCount { get; set; } = 1;
         public float ScatterRadius { get; set; }

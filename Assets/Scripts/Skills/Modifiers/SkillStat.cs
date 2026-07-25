@@ -8,5 +8,6 @@ namespace PlayGround.Skills.Modifiers
         ProjectileLifetime,
         Rate,
         PierceCount,
+        ManaCost,
     }
 }

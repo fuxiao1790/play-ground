@@ -8,12 +8,14 @@ namespace PlayGround.Skills
     {
         [SerializeField, Min(0)] private int pierceCount = 2;
         [SerializeField, Min(0f)] private float repeatHitCooldown = 0.5f;
+        [SerializeField, Min(0f)] private float manaCostAdded = 3f;
 
         public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Projectile;
 
         public void CollectAdded(AddedSink sink)
         {
             sink.Add(SkillStat.PierceCount, pierceCount);
+            sink.Add(SkillStat.ManaCost, manaCostAdded);
         }
 
         public void ApplyToProjectile(ProjectileBehaviorContext ctx)

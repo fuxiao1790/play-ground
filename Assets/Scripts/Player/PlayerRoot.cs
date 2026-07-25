@@ -50,6 +50,7 @@ namespace PlayGround.Player
         private PlayerAnimatorDriver animatorDriver;
         private PlayerStateDriver stateDriver;
         private PlayerHealth health;
+        private PlayerMana mana;
         private static int nextTargetId;
         private readonly List<StatusStackSnapshot> statusSnapshots = new();
         private readonly List<CombatTargetRegistry<ICombatTarget>> registries = new();
@@ -78,8 +79,11 @@ namespace PlayGround.Player
         public int CombatTargetMask => 1 << hurtbox.gameObject.layer;
         public float CombatMaxHealth => statSheet.MaxHealth;
         public float CombatCurrentHealth => CurrentHealth;
+        public float CombatMaxMana => statSheet.MaxMana;
+        public float CombatCurrentMana => CurrentMana;
         public bool IsCombatTargetActive => isActiveAndEnabled && health != null && health.IsAlive;
         public float CurrentHealth => health?.CurrentHealth ?? 0f;
+        public float CurrentMana => mana?.CurrentMana ?? 0f;
         public int EquippedAttackCount => skillDriver?.SlotCount ?? 0;
         public IReadOnlyList<StatusStackSnapshot> StatusSnapshots => statusSnapshots;
 
@@ -142,6 +146,7 @@ namespace PlayGround.Player
             facing = new PlayerFacing(transform, spriteRenderer, facingSet);
             stateDriver = new PlayerStateDriver(movement, animatorDriver);
             health = new PlayerHealth(body, bodyCollider, hurtbox, spriteRenderer, animatorDriver, statSheet.MaxHealth, hurtFlashSeconds);
+            mana = new PlayerMana(statSheet.MaxMana);
             skillDriver = GetComponent<PlayGround.Skills.SkillDriver>();
 
             if (skillDriver == null)
