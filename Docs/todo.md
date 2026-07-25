@@ -7,12 +7,9 @@ minor fixes
 - multiple aoe should have 1 aoe aimed at where the cursor is.
 - multiple projectile should also have 1 projectile aimed at where the cursor is.
 
-changes to existing gaemplay 
-- change travel spawn to an energy based system instead of an interval based system.
-  spawner gains energy over a duration and simply spawns when threshold is reached.
-  different skills will simply need different amount of energy to spawn.
+changes to existing gameplay 
 
-- skills should have a mana cost which should be converted into energy cost with some function when it's triggered.
+- skills should have a mana cost which should be converted into energy cost with some   function when it's triggered.
   things like additional projectiles, piercing, homing can modify the mana cost which will modify the energy cost.
   this should make things much easier to balance.
 
