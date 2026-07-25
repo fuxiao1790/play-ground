@@ -16,7 +16,8 @@ Authority rules:
 
 - [Scene And Authoring](../layers/scene-and-authoring.md): Unity scenes,
   prefabs, MonoBehaviours, ScriptableObjects, Physics2D actors, camera, and
-  authored presentation.
+  authored presentation. See [UI Architecture](../ui.md) for the UI Toolkit
+  structure and input-routing rules.
 - [Game Logic](../layers/game-logic.md): skills, supports, loadouts, mob
   behavior, spawn rules, cooldowns, and player-facing combat intent.
 - [Combat Bridge](../layers/combat-bridge.md): `CombatRoot`, target registries,

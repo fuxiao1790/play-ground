@@ -22,6 +22,7 @@ section that matches the topic you need.
 
 ## Start here
 
+- [UI architecture](./ui.md)
 - [Architecture index](./architecture/index.md)
 - [Layer rules](./architecture/layer-rules.md)
 - [Data flow overview](./architecture/data-flow-overview.md)

@@ -10,6 +10,7 @@ Quick map.
 ```text
 Docs/
   project-overview.md
+  ui.md
   folder-structure.md
   coding-standards.md
   performance.md
@@ -94,6 +95,7 @@ Docs/
 ## Good First Places To Look
 
 - Project summary: [project-overview.md](./project-overview.md)
+- UI architecture: [ui.md](./ui.md)
 - Architecture entry point: [architecture/index.md](./architecture/index.md)
 - Global layer rules: [architecture/layer-rules.md](./architecture/layer-rules.md)
 - Phase order: [architecture/phase-order.md](./architecture/phase-order.md)

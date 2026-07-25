@@ -16,8 +16,9 @@ and authored presentation setup.
 - Scene-level references and setup validation.
 - `UIDocument`, UI Toolkit presentation roots, and UI input routing.
 
-UI implementation lives in `Packages/com.playground.skill-ui/` and may depend
-on Game Logic. Game Logic and ECS Simulation must not depend on that package.
+UI implementation lives in `Assets/Scripts/SkillUi/` and its UXML/USS assets
+live in `Assets/Scripts/Ui/`. It may depend on Game Logic. Game Logic and ECS
+Simulation must not depend on the UI assembly.
 
 ## Does Not Own
 
