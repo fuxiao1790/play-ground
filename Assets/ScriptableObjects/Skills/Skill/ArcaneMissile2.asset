@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileSkill
   assetGuid: b15fabd7a58d5c340a0eb781bf4dca53
   baseRate: 1
+  maxSupportCount: 6
   definition:
     prefab: {fileID: 1001001001001001004, guid: 9c419b5c13e53224c847b708eea55e25, type: 3}
     speed: 15
@@ -24,6 +25,7 @@ MonoBehaviour:
     jitterDegrees: 0
     pierceCount: 0
     repeatHitCooldown: 1
+    manaCost: 3
     armSeconds: 0
     directDamageEnabled: 1
     trackingEnabled: 0

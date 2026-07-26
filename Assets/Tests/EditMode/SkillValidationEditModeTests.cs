@@ -81,7 +81,68 @@ namespace PlayGround.Tests.EditMode
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(nodes, 0, SkillStatSnapshot.Identity);
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
-            Assert.That(((RuntimeProjectileDefinition)runtime).ChildSpawnSetup, Is.Null);
+            var projectile = (RuntimeProjectileDefinition)runtime;
+            Assert.That(projectile.ChildSpawnSetup, Is.Null);
+            Assert.That(projectile.ManaCost, Is.EqualTo(1f).Within(0.0001f));
+        }
+
+        [Test]
+        public void CompilerAddsTriggeredManaCostToActiveSkill()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            AoeSkill targetSkill = CreateAsset<AoeSkill>("AOE Skill");
+            ((ProjectileDefinition)sourceSkill.Definition).manaCost = 2f;
+            ((AoeDefinitionBase)targetSkill.Definition).manaCost = 3f;
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
+            OnImpactAoeTrigger trigger = CreateAsset<OnImpactAoeTrigger>("On Impact AOE");
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(sourceSet, trigger),
+                    new SkillLoadoutNode(targetSet),
+                },
+                0,
+                SkillStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
+            Assert.That(((RuntimeProjectileDefinition)runtime).ManaCost, Is.EqualTo(5f).Within(0.0001f));
+        }
+
+        [Test]
+        public void CompilerAddsChainedTriggeredManaCostsToActiveSkill()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            AoeSkill middleSkill = CreateAsset<AoeSkill>("AOE Skill");
+            ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Child Projectile Skill");
+            ((ProjectileDefinition)sourceSkill.Definition).manaCost = 2f;
+            ((AoeDefinitionBase)middleSkill.Definition).manaCost = 3f;
+            ((ProjectileDefinition)targetSkill.Definition).manaCost = 5f;
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet middleSet = CreateSkillSet("AOE Set", middleSkill);
+            SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
+            OnImpactAoeTrigger firstTrigger = CreateAsset<OnImpactAoeTrigger>("On Impact AOE");
+            OnImpactProjectileTrigger secondTrigger = CreateAsset<OnImpactProjectileTrigger>("On Impact Projectile");
+            firstTrigger.manaCostMultiplier = 2f;
+            secondTrigger.manaCostMultiplier = 5f;
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(sourceSet, firstTrigger),
+                    new SkillLoadoutNode(middleSet, secondTrigger),
+                    new SkillLoadoutNode(targetSet),
+                },
+                0,
+                SkillStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
+            var activeSkill = (RuntimeProjectileDefinition)runtime;
+            Assert.That(activeSkill.ManaCost, Is.EqualTo(51f).Within(0.0001f));
+            Assert.That(activeSkill.ImpactAoeDefinition.ManaCost, Is.EqualTo(3f).Within(0.0001f));
+            Assert.That(activeSkill.ImpactAoeDefinition.OnHitProjectileSpawnDefinition.ManaCost,
+                Is.EqualTo(5f).Within(0.0001f));
         }
 
         [Test]
@@ -166,7 +227,7 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void CompilerAppliesIntervalManaToEnergyRatio()
+        public void CompilerAppliesIntervalManaCostMultiplier()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
             ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Child Projectile Skill");
@@ -174,7 +235,7 @@ namespace PlayGround.Tests.EditMode
             SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
             ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
-            trigger.manaToEnergyCostMultiplier = 2f;
+            trigger.manaCostMultiplier = 2f;
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
                 new[]

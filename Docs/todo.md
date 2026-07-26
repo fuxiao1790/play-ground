@@ -10,7 +10,6 @@ minor fixes
 changes to existing gameplay 
 
 new feature
-- resource display on ui. hp, mp, etc...
 - interval spawn direction (only side spray is supported currently)
 - damage number vfx graph
 - cast on crit and other conditions.

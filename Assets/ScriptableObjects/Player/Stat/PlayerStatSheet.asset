@@ -17,7 +17,7 @@ MonoBehaviour:
   healthRegenPerSecond: 100
   manaRegenPerSecond: 200
   moveSpeed: 20
-  increasedRatePercent: 200
+  increasedRatePercent: 0
   damageMultiplier: 1
   critChance: 0.418
   critMultiplier: 2.5

@@ -15,3 +15,4 @@ MonoBehaviour:
   assetGuid: 6f2f5b802d0b4b44b9519b8a32ea54d5
   echoCount: 3
   scatterRadius: 10
+  manaCostAdded: 5

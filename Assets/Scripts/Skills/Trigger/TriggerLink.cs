@@ -1,6 +1,7 @@
 using System;
 using PlayGround.Common;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace PlayGround.Skills
 {
@@ -29,6 +30,13 @@ namespace PlayGround.Skills
 
     public abstract class TriggerLink : PersistentScriptableObject
     {
+        // One multiplier for this link: interval-child energy, the initial
+        // active skill chain cost, and this link's triggered skill cost.
+        [FormerlySerializedAs("manaToEnergyCostMultiplier")]
+        [FormerlySerializedAs("triggerLinkManaCostMultiplier")]
+        [FormerlySerializedAs("manaToEnergyRatio")]
+        [Min(0f)] public float manaCostMultiplier = 1f;
+
         public abstract SkillDefinitionTags SourceSkillTags { get; }
         public abstract SkillDefinitionTags TargetSkillTags { get; }
     }

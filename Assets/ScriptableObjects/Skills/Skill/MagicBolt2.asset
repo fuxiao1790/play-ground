@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: MagicBolt2
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileSkill
   assetGuid: 0727fad52cbf62d4d8e187866d68aac3
-  baseRate: 5
+  baseRate: 2
+  maxSupportCount: 6
   definition:
     prefab: {fileID: 1001001001001001004, guid: d0710379c8622cb4d978ec137c4f1a4b, type: 3}
     speed: 25
@@ -24,6 +25,7 @@ MonoBehaviour:
     jitterDegrees: 0
     pierceCount: 0
     repeatHitCooldown: 0
+    manaCost: 4
     armSeconds: 0
     directDamageEnabled: 1
     trackingEnabled: 0

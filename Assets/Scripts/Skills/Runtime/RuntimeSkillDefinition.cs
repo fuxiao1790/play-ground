@@ -13,5 +13,9 @@ namespace PlayGround.Skills.Runtime
         public float CritChance { get; set; }
         public float CritMultiplier { get; set; } = 1.5f;
         public Hash128 SpawnTemplateKey { get; set; }
+
+        // Set only when this definition is attached through a valid trigger link.
+        // Feeds the initial active skill's one-time mana calculation.
+        public float IncomingManaCostMultiplier { get; set; } = 1f;
     }
 }

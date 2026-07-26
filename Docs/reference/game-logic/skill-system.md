@@ -271,9 +271,22 @@ nothing to behavior.
 
 `manaCost` belongs to every projectile or AOE definition. It folds through
 `SkillStat.ManaCost` during runtime compilation, so compatible supports can
-modify it. It affects only timed child spawning: the interval trigger converts
-the compiled child mana cost into its energy threshold. It does not change a
-root cast, AOE pulse interval, tracking interval, or hit cooldown.
+modify it. A player-cast skill spends once, using the complete valid trigger
+chain. Every `TriggerLink` has one `manaCostMultiplier`. The same value
+is used for the interval child-energy threshold, the initial active skill chain
+cost, and that link's triggered skill cost.
+
+For active skill `A` and two triggered skills `T1`, `T2`, the cost is:
+
+```text
+(A * multiplier1 * multiplier2)
++ (T1 * multiplier1)
++ (T2 * multiplier2)
+```
+
+Internal triggered spawns never spend mana again. Interval triggers still
+convert the child skill's own resolved mana cost into an energy threshold, so
+chain-cost aggregation does not alter interval timing.
 
 ### AoeDefinition
 
@@ -562,8 +575,8 @@ Energy-driven source/child support:
 | Lingering AOE source | `ProjectileIntervalSpawnTrigger` | `AoeIntervalSpawnTrigger` |
 | Pulse AOE source | warning, no-op | warning, no-op |
 
-Both concrete interval triggers inherit `energyPerSecond` and
-`manaToEnergyRatio` from `IntervalSpawnTrigger`.
+Both concrete interval triggers inherit `energyPerSecond` from
+`IntervalSpawnTrigger` and `manaCostMultiplier` from `TriggerLink`.
 The child definition owns `manaCost`; its compiled, support-folded `ManaCost` is
 converted by `IntervalSpawnTrigger.ManaToEnergyCost`. The baked threshold is
 `max(0.001, childManaCost * manaToEnergyRatio)`.

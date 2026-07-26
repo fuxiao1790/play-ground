@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: MultipleProjectilesSupport
   m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:MultipleProjectilesSupport
   assetGuid: 7d0cc39fd2349e849a97c91eb66cf04f
-  count: 4
-  spreadDegrees: 45
+  count: 2
+  spreadDegrees: 15
   manaCostAdded: 4

@@ -74,6 +74,10 @@ MonoBehaviour:
     displayName: Increased Aoe
     description: 
     icon: {fileID: 0}
+  - definition: {fileID: 11400000, guid: c61a962b5989ef64bae7848c2ff286aa, type: 2}
+    displayName: Faster Projectile Support
+    description: 
+    icon: {fileID: 0}
   triggers:
   - definition: {fileID: 11400000, guid: 4f6fe4b46eb54b9c8ff4e4c04b05f7e7, type: 2}
     displayName: Aoe Interval Spawn Trigger
