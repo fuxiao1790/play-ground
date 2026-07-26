@@ -79,6 +79,10 @@ MonoBehaviour:
     displayName: Aoe Interval Spawn Trigger
     description: 
     icon: {fileID: 0}
+  - definition: {fileID: 11400000, guid: db15faed11f2e8d4d86c5b856a6d270b, type: 2}
+    displayName: Aoe Interval Spawn Trigger 2
+    description: 
+    icon: {fileID: 0}
   - definition: {fileID: 11400000, guid: 8a0e8f4655664c4ca5fd11198d90f001, type: 2}
     displayName: On Aoe Hit Spawn Trigger
     description: 

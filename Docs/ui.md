@@ -185,25 +185,6 @@ temporary tracking list, not part of the architectural contract. Remove each
 entry once the implementation is fixed or the referenced doc is corrected to
 match reality.
 
-- **Cooldown progress resets on unrelated edits.** `SkillDriver.CompileAndRegister`
-  allocates a fresh `SkillSlotState` for every root slot on every accepted edit,
-  resetting cooldown progress for all roots instead of only the edited one.
-  Contradicts the "unchanged roots preserve their progress" rule in
-  [Skill Loadout Editing](./contracts/skill-loadout-editing.md).
-
-  slots should be disabled for editing (both the main skill and the support)
-
-- **Picker closes before `EditResolved`.** `SkillLoadoutUi.AddChoice` closes the
-  picker once a command is queued, not once the driver resolves it, so a later
-  rejection is never surfaced in the UI.
-
-  picker should wait, there is no checks currently but validation will be implemented later.
-
-- **Picker does not disable ineligible choices.** All catalog entries render as
-  always-enabled buttons; validator eligibility is not reflected before submit.
-
-   picker should only show valid choices. there should be a tag system. skills should have tags and only supports sharing a tag with the skill should be shown.
-
 - **No Escape key, backdrop cancel, or scrolling in the picker.** Only the
   `#cancel` button closes the modal; the choices list has no `ScrollView` or
   overflow handling.

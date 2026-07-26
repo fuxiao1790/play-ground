@@ -98,8 +98,8 @@ namespace PlayGround.Skills
             SkillSupport[] supports = skillSet.Supports;
             for (int i = 0; i < supports.Length; i++)
             {
-                if (supports[i] is not StatModifierSupport support)
-                    continue;
+                SkillSupport support = supports[i];
+                if (support == null) continue;
 
                 if (SkillDefinitionTagUtility.HasAny(skillTags, support.SupportedSkillTags))
                     continue;

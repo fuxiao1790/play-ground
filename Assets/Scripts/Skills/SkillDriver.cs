@@ -47,6 +47,8 @@ namespace PlayGround.Skills
         private ulong revision;
         private bool hasPendingEdit;
         private SkillLoadoutEditCommand pendingEdit;
+        private bool preserveCooldownState;
+        private int cooldownResetNodeIndex = -1;
         private int configuredInitialRuntimeNodeCount;
         private Entity casterProxy;
         private int[] firedCastTokens;
@@ -181,6 +183,12 @@ namespace PlayGround.Skills
         {
             if (runtimeLoadout == null) return;
 
+            SkillSlotState[] previousStates = preserveCooldownState ? slotStates : null;
+            int[] previousNodeIndices = preserveCooldownState ? this.rootNodeIndices : null;
+            int resetNodeIndex = cooldownResetNodeIndex;
+            preserveCooldownState = false;
+            cooldownResetNodeIndex = -1;
+
             var warnings = new List<SkillValidationWarning>(SkillLoadoutValidator.Validate(runtimeLoadout));
 
             SkillStatSnapshot snapshot = SkillStatAggregator.Aggregate(runtimeLoadout, statSheet);
@@ -217,9 +225,14 @@ namespace PlayGround.Skills
                 if (def == null) continue;
 
                 compiledSlots[activeSlotCount] = def;
-                slotStates[activeSlotCount] = new SkillSlotState();
-                slotStates[activeSlotCount].SetRecoveryTime(def.RecoveryTime);
-                this.rootNodeIndices[activeSlotCount] = rootNodeIndices[i];
+                int nodeIndex = rootNodeIndices[i];
+                SkillSlotState state = nodeIndex != resetNodeIndex
+                    ? FindPreservedState(previousStates, previousNodeIndices, nodeIndex)
+                    : null;
+                state ??= new SkillSlotState();
+                state.SetRecoveryTime(def.RecoveryTime);
+                slotStates[activeSlotCount] = state;
+                this.rootNodeIndices[activeSlotCount] = nodeIndex;
                 activeSlotCount++;
             }
 
@@ -227,6 +240,17 @@ namespace PlayGround.Skills
             RegisterAoeTypes();
             RegisterSpawnTemplates(warnings);
             validationWarnings = warnings.ToArray();
+        }
+
+        private static SkillSlotState FindPreservedState(
+            SkillSlotState[] states,
+            int[] nodeIndices,
+            int nodeIndex)
+        {
+            if (states == null || nodeIndices == null) return null;
+            for (int i = 0; i < nodeIndices.Length; i++)
+                if (nodeIndices[i] == nodeIndex) return states[i];
+            return null;
         }
 
         // UI configuration requests the initial empty-node count before Start.
@@ -363,20 +387,25 @@ namespace PlayGround.Skills
             }
 
             runtimeLoadout = candidate;
+            preserveCooldownState = true;
+            cooldownResetNodeIndex = AffectsRootCooldown(command.Kind) ? command.NodeIndex : -1;
             CompileAndRegister();
             revision++;
             LoadoutChanged?.Invoke(revision);
             EditResolved?.Invoke(new SkillLoadoutEditResult(true, revision, null));
         }
 
-        private bool IsCooldownBlocked(SkillLoadoutEditCommand command)
-        {
-            if (command.Kind is not (SkillLoadoutEditKind.SetSkill or SkillLoadoutEditKind.ClearSkill
+        private static bool AffectsRootCooldown(SkillLoadoutEditKind kind) =>
+            kind is SkillLoadoutEditKind.SetSkill or SkillLoadoutEditKind.ClearSkill
                 or SkillLoadoutEditKind.SetSupport or SkillLoadoutEditKind.ClearSupport
-                or SkillLoadoutEditKind.IncreaseSupportCap or SkillLoadoutEditKind.DecreaseSupportCap))
-                return false;
+                or SkillLoadoutEditKind.IncreaseSupportCap or SkillLoadoutEditKind.DecreaseSupportCap;
 
-            int rootIndex = FindRootSlotForNode(command.NodeIndex);
+        private bool IsCooldownBlocked(SkillLoadoutEditCommand command) =>
+            AffectsRootCooldown(command.Kind) && IsRootNodeOnCooldown(command.NodeIndex);
+
+        private bool IsRootNodeOnCooldown(int nodeIndex)
+        {
+            int rootIndex = FindRootSlotForNode(nodeIndex);
             return rootIndex >= 0 && slotStates[rootIndex] != null && !slotStates[rootIndex].IsReady;
         }
 
@@ -932,6 +961,8 @@ namespace PlayGround.Skills
                 ? slotStates[rootIndex].CooldownProgress
                 : 0f;
         }
+
+        public bool IsRootOnCooldown(int nodeIndex) => IsRootNodeOnCooldown(nodeIndex);
 
         private void RegisterAoeVfx(RuntimeAoeDefinition aoeDef, AoeTypeDefinition definition)
         {

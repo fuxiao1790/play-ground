@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using PlayGround.Player;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -28,6 +29,10 @@ namespace PlayGround.Skills
         private VisualElement bar;
         private VisualElement modal;
         private Label[] cooldownLabels;
+        private Button[] skillButtons;
+        private Button[] increaseButtons;
+        private Button[] decreaseButtons;
+        private List<Button>[] supportButtonsByNode;
         private PickerTarget pickerTarget;
 
         private enum PickerKind { Skill, Support, Trigger }
@@ -53,6 +58,10 @@ namespace PlayGround.Skills
             if (playerRoot == null) playerRoot = FindAnyObjectByType<PlayerRoot>();
             ValidateSetup();
             cooldownLabels = new Label[initialNodeCount];
+            skillButtons = new Button[initialNodeCount];
+            increaseButtons = new Button[initialNodeCount];
+            decreaseButtons = new Button[initialNodeCount];
+            supportButtonsByNode = new List<Button>[initialNodeCount];
             skillDriver.ConfigureInitialRuntimeNodeCount(initialNodeCount);
         }
 
@@ -87,6 +96,16 @@ namespace PlayGround.Skills
                 if (cooldownLabels[i] == null) continue;
                 float progress = skillDriver.GetCooldownProgressForNode(i);
                 cooldownLabels[i].text = progress > 0f && progress < 1f ? $"{Mathf.CeilToInt((1f - progress) * 10f) / 10f:0.0}" : string.Empty;
+
+                bool locked = skillDriver.IsRootOnCooldown(i);
+                skillButtons[i]?.SetEnabled(!locked);
+                increaseButtons[i]?.SetEnabled(!locked && CanIncreaseSupportCap(i));
+                decreaseButtons[i]?.SetEnabled(!locked && CanDecreaseSupportCap(i));
+
+                List<Button> supports = supportButtonsByNode[i];
+                if (supports == null) continue;
+                for (int s = 0; s < supports.Count; s++)
+                    supports[s].SetEnabled(!locked);
             }
         }
 
@@ -124,18 +143,22 @@ namespace PlayGround.Skills
             SkillSet skillSet = GetSkillSet(nodeIndex);
             if (skillSet != null)
             {
-                decrease.SetEnabled(skillSet.SupportSlotCount > 0);
+                decrease.SetEnabled(CanDecreaseSupportCap(nodeIndex));
                 decrease.clicked += () => QueueCapEdit(SkillLoadoutEditKind.DecreaseSupportCap, nodeIndex);
-                increase.SetEnabled(skillSet.SupportSlotCount < skillSet.MaxSupportCount);
+                increase.SetEnabled(CanIncreaseSupportCap(nodeIndex));
                 increase.clicked += () => QueueCapEdit(SkillLoadoutEditKind.IncreaseSupportCap, nodeIndex);
 
                 int supportSlotCount = skillSet.SupportSlotCount;
+                increaseButtons[nodeIndex] = increase;
+                decreaseButtons[nodeIndex] = decrease;
+                supportButtonsByNode[nodeIndex] = new List<Button>(supportSlotCount);
                 for (int supportIndex = 0; supportIndex < supportSlotCount; supportIndex++)
                 {
                     int captured = supportIndex;
                     var support = supportButtonTemplate.Instantiate().Q<Button>("support");
                     support.text = SupportLabel(nodeIndex, supportIndex);
                     support.clicked += () => OpenPicker(new PickerTarget(PickerKind.Support, nodeIndex, captured));
+                    supportButtonsByNode[nodeIndex].Add(support);
                     supports.Insert(supports.IndexOf(increase), support);
                 }
             }
@@ -143,6 +166,9 @@ namespace PlayGround.Skills
             {
                 decrease.AddToClassList("hidden");
                 increase.AddToClassList("hidden");
+                increaseButtons[nodeIndex] = null;
+                decreaseButtons[nodeIndex] = null;
+                supportButtonsByNode[nodeIndex] = null;
             }
 
             skill.text = SkillLabel(nodeIndex);
@@ -150,6 +176,7 @@ namespace PlayGround.Skills
             if (IsTriggered(nodeIndex)) skill.AddToClassList("skill-button--triggered");
 
             cooldownLabels[nodeIndex] = cooldown;
+            skillButtons[nodeIndex] = skill;
             bar.Add(column);
         }
 
@@ -170,6 +197,18 @@ namespace PlayGround.Skills
         {
             var nodes = skillDriver.RuntimeNodes;
             return nodes != null && nodeIndex < nodes.Count ? nodes[nodeIndex]?.SkillSet : null;
+        }
+
+        private bool CanIncreaseSupportCap(int nodeIndex)
+        {
+            SkillSet set = GetSkillSet(nodeIndex);
+            return set != null && set.SupportSlotCount < set.MaxSupportCount;
+        }
+
+        private bool CanDecreaseSupportCap(int nodeIndex)
+        {
+            SkillSet set = GetSkillSet(nodeIndex);
+            return set != null && set.SupportSlotCount > 0;
         }
 
         private bool IsTriggered(int nodeIndex)
@@ -220,7 +259,19 @@ namespace PlayGround.Skills
             if (catalog != null)
             {
                 if (target.Kind == PickerKind.Skill) foreach (var entry in catalog.Skills) AddChoice(choices, entry.DisplayName, new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetSkill, target.NodeIndex, skill: entry.Definition));
-                if (target.Kind == PickerKind.Support) foreach (var entry in catalog.Supports) AddChoice(choices, entry.DisplayName, new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetSupport, target.NodeIndex, target.SupportIndex, support: entry.Definition));
+                if (target.Kind == PickerKind.Support)
+                {
+                    SkillDefinitionTags skillTags = GetSkillSet(target.NodeIndex)?.Skill?.Tags ?? SkillDefinitionTags.None;
+                    foreach (var entry in catalog.Supports)
+                    {
+                        if (!SkillDefinitionTagUtility.HasAny(skillTags, entry.Definition.SupportedSkillTags))
+                            continue;
+
+                        AddChoice(choices, entry.DisplayName,
+                            new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetSupport,
+                                target.NodeIndex, target.SupportIndex, support: entry.Definition));
+                    }
+                }
                 if (target.Kind == PickerKind.Trigger) foreach (var entry in catalog.Triggers) AddChoice(choices, entry.DisplayName, new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetTrigger, target.NodeIndex, trigger: entry.Definition));
             }
             modal.Q<Button>("cancel").clicked += ClosePicker;
@@ -238,8 +289,30 @@ namespace PlayGround.Skills
         {
             var choice = pickerChoiceTemplate.Instantiate().Q<Button>("choice");
             choice.text = string.IsNullOrWhiteSpace(label) ? "Unnamed" : label;
-            choice.clicked += () => { if (skillDriver.TryQueueEdit(command, out _)) ClosePicker(); };
+            choice.clicked += () => SubmitChoice(command);
             parent.Add(choice);
+        }
+
+        private void SubmitChoice(SkillLoadoutEditCommand command)
+        {
+            if (!skillDriver.TryQueueEdit(command, out string rejectionReason))
+            {
+                ShowPickerStatus(rejectionReason);
+                return;
+            }
+
+            SetPickerPending(true);
+        }
+
+        private void SetPickerPending(bool pending)
+        {
+            modal?.SetEnabled(!pending);
+        }
+
+        private void ShowPickerStatus(string message)
+        {
+            Label title = modal?.Q<Label>("title");
+            if (title != null) title.text = message;
         }
 
         private void ClosePicker()
@@ -249,6 +322,11 @@ namespace PlayGround.Skills
         }
 
         private void OnLoadoutChanged(ulong _) => RefreshBar();
-        private void OnEditResolved(SkillLoadoutEditResult result) { if (!result.Accepted) ClosePicker(); }
+        private void OnEditResolved(SkillLoadoutEditResult result)
+        {
+            if (result.Accepted) return;
+            SetPickerPending(false);
+            ShowPickerStatus(result.RejectionReason);
+        }
     }
 }

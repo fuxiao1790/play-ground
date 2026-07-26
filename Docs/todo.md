@@ -5,14 +5,10 @@ minor performance related refacor
 
 minor fixes
 - multiple aoe should have 1 aoe aimed at where the cursor is.
-- multiple projectile should also have 1 projectile aimed at where the cursor is.
+- multiple projectile should also have 1 projectile aimed at where the cursor is.'
+- separate stats intended to be used by game objs and stats intended to be used by ecs. (clean up job requires stats and forces data wipe. it should use some internal stats instead of sharing the same entitiy that is intended to be pulled by game objs)
 
 changes to existing gameplay 
-
-- [done] skills have folded mana cost converted to an interval energy threshold.
-  Supports can add mana cost, which scales the child cadence.
-- [done] health and mana use shared managed `Resource` mirrors, ECS-owned Current,
-  bounded ECS regen, and serial root-cast mana spending with rejection cooldown refund.
 
 new feature
 - ui  improvements
