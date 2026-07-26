@@ -7,8 +7,6 @@ namespace PlayGround.Skills
     {
         // Energy gained per second by a duration source (projectile / lingering AOE).
         [Min(0.01f)] public float energyPerSecond = 2f;
-        [FormerlySerializedAs("intervalJitterPercent")]
-        [Range(0f, 100f)] public float energyJitterPercent;
         // Child spawn energy cost = child manaCost * this multiplier. Mana cost is not
         // deducted for interval spawns (internal spawns ignore cost); it only scales
         // the per-child energy threshold here.

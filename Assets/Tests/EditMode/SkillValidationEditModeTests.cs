@@ -85,7 +85,7 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void CompilerMapsProjectileEnergyRateCostAndThresholdJitter()
+        public void CompilerMapsProjectileEnergyRateAndCost()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
             ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Child Projectile Skill");
@@ -93,7 +93,6 @@ namespace PlayGround.Tests.EditMode
             SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
             ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
             trigger.energyPerSecond = 2f;
-            trigger.energyJitterPercent = 25f;
             ((ProjectileDefinition)targetSkill.Definition).manaCost = 4f;
             var nodes = new[]
             {
@@ -108,11 +107,10 @@ namespace PlayGround.Tests.EditMode
             Assert.That(setup, Is.Not.Null);
             Assert.That(setup.EnergyPerSecond, Is.EqualTo(2f).Within(0.0001f));
             Assert.That(setup.EnergyThreshold, Is.EqualTo(4f).Within(0.0001f));
-            Assert.That(setup.EnergyThresholdJitter, Is.EqualTo(1f).Within(0.0001f));
         }
 
         [Test]
-        public void CompilerMapsAoeEnergyRateCostAndThresholdJitter()
+        public void CompilerMapsAoeEnergyRateAndCost()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
             AoeSkill targetSkill = CreateAsset<AoeSkill>("AOE Skill");
@@ -120,7 +118,6 @@ namespace PlayGround.Tests.EditMode
             SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
             AoeIntervalSpawnTrigger trigger = CreateAsset<AoeIntervalSpawnTrigger>("AOE Interval Spawn");
             trigger.energyPerSecond = 1.5f;
-            trigger.energyJitterPercent = 10f;
             trigger.echoCount = 2;
             ((AoeDefinitionBase)targetSkill.Definition).manaCost = 3f;
             var nodes = new[]
@@ -138,7 +135,6 @@ namespace PlayGround.Tests.EditMode
             Assert.That(projectile.AoeIntervalSpawnSetup.ChildDefinition, Is.TypeOf<RuntimeAoeDefinition>());
             Assert.That(projectile.AoeIntervalSpawnSetup.EnergyPerSecond, Is.EqualTo(1.5f).Within(0.0001f));
             Assert.That(projectile.AoeIntervalSpawnSetup.EnergyThreshold, Is.EqualTo(3f).Within(0.0001f));
-            Assert.That(projectile.AoeIntervalSpawnSetup.EnergyThresholdJitter, Is.EqualTo(0.3f).Within(0.0001f));
             Assert.That(projectile.AoeIntervalSpawnSetup.Count, Is.EqualTo(3));
         }
 

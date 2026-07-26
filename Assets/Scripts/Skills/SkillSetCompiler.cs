@@ -335,7 +335,6 @@ namespace PlayGround.Skills
                 ChildDefinition = childDef,
                 EnergyPerSecond = Mathf.Max(0.01f, trigger.energyPerSecond),
                 EnergyThreshold = energyThreshold,
-                EnergyThresholdJitter = energyThreshold * Mathf.Clamp(trigger.energyJitterPercent, 0f, 100f) * 0.01f,
                 Behavior = new ProjectileChildSpawnBehavior(
                     Mathf.Max(1, childDef.Count + trigger.projectileCount),
                     ProjectileChildSpawnPatternType.SideSpray,
@@ -371,7 +370,6 @@ namespace PlayGround.Skills
                 ChildDefinition = childDef,
                 EnergyPerSecond = Mathf.Max(0.01f, trigger.energyPerSecond),
                 EnergyThreshold = energyThreshold,
-                EnergyThresholdJitter = energyThreshold * Mathf.Clamp(trigger.energyJitterPercent, 0f, 100f) * 0.01f,
                 Count = Mathf.Max(1, childDef.EchoCount + trigger.echoCount),
                 ScatterRadius = Mathf.Max(0f, trigger.scatterRadius),
             };

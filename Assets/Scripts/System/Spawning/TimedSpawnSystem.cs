@@ -85,7 +85,7 @@ namespace PlayGround.System.Combat.Spawning
                 state.EnergyAccumulated += spawn.EnergyPerSecond * DeltaTime;
                 int tickIndex = state.TickIndex;
                 int ticksThisUpdate = 0;
-                float threshold = ThresholdFor(spawn, tickIndex + 1);
+                float threshold = math.max(MinEnergyThreshold, spawn.EnergyThreshold);
                 while (state.EnergyAccumulated >= threshold && ticksThisUpdate < MaxTicksPerUpdate)
                 {
                     ticksThisUpdate++;
@@ -125,7 +125,7 @@ namespace PlayGround.System.Combat.Spawning
                             Kind = IntervalChildKind.Projectile,
                             TemplateKey = spawn.TemplateKey,
                             Position = kinematics.Position,
-                            AimDirection = default,
+                            AimDirection = AimDirectionFor(kinematics, spawn.SourceId, spawn.JitterSeed, tickIndex),
                             Faction = spawn.Faction,
                             SourceId = spawn.SourceId,
                             JitterSeed = (uint)spawn.JitterSeed,
@@ -134,32 +134,23 @@ namespace PlayGround.System.Combat.Spawning
                     }
 
                     state.EnergyAccumulated -= threshold;
-                    threshold = ThresholdFor(spawn, tickIndex + 1);
                 }
 
                 state.TickIndex = tickIndex;
             }
 
-            private static float ThresholdFor(in TimedSpawnComponent spawn, int tickIndex)
-            {
-                return math.max(
-                    MinEnergyThreshold,
-                    spawn.EnergyThreshold + DeterministicJitter(
-                        spawn.SourceId,
-                        spawn.JitterSeed,
-                        tickIndex,
-                        spawn.EnergyThresholdJitter));
-            }
-
-            private static float DeterministicJitter(
+            // Moving sources (projectiles) spray relative to their current travel direction.
+            // Stationary sources (AOEs) have no inherent direction, so pick a well-mixed
+            // per-source, per-tick random one instead of degenerating to a fixed axis.
+            private static float2 AimDirectionFor(
+                in CombatKinematicsComponent kinematics,
                 int sourceId,
                 int jitterSeed,
-                int tickIndex,
-                float maxOffsetSeconds)
+                int tickIndex)
             {
-                if (maxOffsetSeconds <= 0f)
+                if (math.lengthsq(kinematics.Velocity) > 0.0001f)
                 {
-                    return 0f;
+                    return kinematics.Velocity;
                 }
 
                 unchecked
@@ -173,7 +164,9 @@ namespace PlayGround.System.Combat.Spawning
                     hash ^= hash >> 15;
                     hash *= 0x846CA68Bu;
                     hash ^= hash >> 16;
-                    return ((hash & 0x00FFFFFFu) + 1u) / 16777217f * maxOffsetSeconds;
+                    float angle = (hash / (float)uint.MaxValue) * (math.PI * 2f);
+                    math.sincos(angle, out float s, out float c);
+                    return new float2(c, s);
                 }
             }
         }

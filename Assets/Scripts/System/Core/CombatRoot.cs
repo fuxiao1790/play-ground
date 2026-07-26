@@ -579,7 +579,6 @@ namespace PlayGround.System.Combat.Core
                     TemplateKey = request.ChildSpawn.TemplateKey,
                     EnergyPerSecond = request.ChildSpawn.EnergyPerSecond,
                     EnergyThreshold = request.ChildSpawn.EnergyThreshold,
-                    EnergyThresholdJitter = request.ChildSpawn.EnergyThresholdJitter,
                     JitterSeed = request.ChildSpawn.JitterSeed
                 };
             }
@@ -599,6 +598,7 @@ namespace PlayGround.System.Combat.Core
 
             timedSpawn.Faction = faction;
             timedSpawn.SourceId = sourceId;
+            timedSpawn.JitterSeed = unchecked((int)((uint)sourceId * 2654435761u));
             return timedSpawn;
         }
 

@@ -14,13 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:LingeringAoeSkill
   assetGuid: f7e5c41d3e83fda428ce1761aa1d7dc6
   baseRate: 1
+  maxSupportCount: 6
   definition:
     baseAreaSize: 3
     damage: 4
     echoCount: 1
     scatterRadius: 0
+    manaCost: 4
     armSeconds: 0.3
     directDamageEnabled: 1
     prefab: {fileID: 1037899157007725660, guid: f8387e53bc1080f45b089cbd77570694, type: 3}
-    lifetimeSeconds: 2
+    lifetimeSeconds: 3
     tickIntervalSeconds: 0.2

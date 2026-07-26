@@ -562,20 +562,17 @@ Energy-driven source/child support:
 | Lingering AOE source | `ProjectileIntervalSpawnTrigger` | `AoeIntervalSpawnTrigger` |
 | Pulse AOE source | warning, no-op | warning, no-op |
 
-Both concrete interval triggers inherit `energyPerSecond`,
-`energyJitterPercent`, and `manaToEnergyRatio` from `IntervalSpawnTrigger`.
+Both concrete interval triggers inherit `energyPerSecond` and
+`manaToEnergyRatio` from `IntervalSpawnTrigger`.
 The child definition owns `manaCost`; its compiled, support-folded `ManaCost` is
 converted by `IntervalSpawnTrigger.ManaToEnergyCost`. The baked threshold is
-`max(0.001, childManaCost * manaToEnergyRatio)`. `energyJitterPercent` is
-clamped from `0` to `100` and converted at compile time to threshold jitter
-using `energyThreshold * energyJitterPercent / 100`.
+`max(0.001, childManaCost * manaToEnergyRatio)`.
 
 Each source begins with empty energy. Every simulation update adds
 `energyPerSecond * deltaTime`; whenever accrued energy reaches the next
-threshold, the system emits a child event and consumes that threshold. Threshold
-jitter is evaluated from the source-id hash for each upcoming tick. Thresholds
-are floored positive, each update emits at most 256 children, and a runtime rate
-at or below zero emits none.
+threshold, the system emits a child event and consumes that fixed threshold.
+Thresholds are floored positive, each update emits at most 256 children, and a
+runtime rate at or below zero emits none.
 
 `projectileCount` and `echoCount` are **additive** with the effect set's own
 multiplicity. For projectile children this means
@@ -834,7 +831,7 @@ The runtime data is split into three tiers:
   event.
 - Slim energy config: per-source `TimedSpawnComponent` keeps `Faction`,
   `SourceId`, `ChildKind`, `TemplateKey`, `EnergyPerSecond`, `EnergyThreshold`,
-  `EnergyThresholdJitter`, and `JitterSeed`.
+  and `JitterSeed`.
 - Hot energy state: `TimedSpawnStateComponent` keeps accumulated energy and tick
   index. This state is reset when a timed-spawning projectile or lingering AOE
   is cold-created or reused from the pool.

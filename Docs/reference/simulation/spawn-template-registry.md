@@ -259,7 +259,6 @@ public struct TimedSpawnComponent : IComponentData, IEnableableComponent
     public Hash128 TemplateKey;
     public float EnergyPerSecond;
     public float EnergyThreshold;
-    public float EnergyThresholdJitter;
     public int JitterSeed;
 }
 ```

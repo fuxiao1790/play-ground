@@ -13,7 +13,6 @@ namespace PlayGround.System.Combat.Spawning
         public Hash128 TemplateKey;
         public float EnergyPerSecond;
         public float EnergyThreshold;
-        public float EnergyThresholdJitter;
         public int JitterSeed;
     }
 

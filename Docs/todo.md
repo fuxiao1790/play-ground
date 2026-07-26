@@ -6,7 +6,6 @@ minor performance related refacor
 minor fixes
 - multiple aoe should have 1 aoe aimed at where the cursor is.
 - multiple projectile should also have 1 projectile aimed at where the cursor is.'
-- remove jitter from interval spawns and rename interval spawn since it's now working on an energy based system rather than interval, the name is confusing.
 
 changes to existing gameplay 
 

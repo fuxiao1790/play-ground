@@ -833,7 +833,6 @@ namespace PlayGround.Skills
                 JitterSeed = setup.JitterSeed,
                 EnergyPerSecond = Mathf.Max(0.01f, setup.EnergyPerSecond),
                 EnergyThreshold = Mathf.Max(1e-3f, setup.EnergyThreshold),
-                EnergyThresholdJitter = Mathf.Max(0f, setup.EnergyThresholdJitter),
                 TemplateKey = setup.TemplateKey
             };
         }
@@ -849,7 +848,6 @@ namespace PlayGround.Skills
                 JitterSeed = setup.JitterSeed,
                 EnergyPerSecond = Mathf.Max(0.01f, setup.EnergyPerSecond),
                 EnergyThreshold = Mathf.Max(1e-3f, setup.EnergyThreshold),
-                EnergyThresholdJitter = Mathf.Max(0f, setup.EnergyThresholdJitter),
                 TemplateKey = setup.TemplateKey
             };
         }
