@@ -8,12 +8,41 @@
  *   modal Color(0.04, 0.05, 0.10, 0.96) -> rgba(10, 13, 26, 0.96)
  */
 
+/* HUD structure */
+.hud-container {
+    flex-grow: 1;
+    min-height: 0;
+    flex-direction: column;
+    padding-right: 12%;
+    padding-left: 12%;
+}
+
+/* Reserved for the future target-health projection. */
+.target-hud {
+    align-self: center;
+    width: 680px;
+    height: 80px;
+    margin-top: 20px;
+}
+
+.bottom-hud {
+    margin-top: auto;
+    min-height: 128px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: 16px;
+}
+
+.hud-resource-slot {
+    width: 104px;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+}
+
 /* BuildBar() */
 .skill-bar {
-    position: absolute;
-    bottom: 24px;
-    left: 50%;
-    translate: -50% 0;
     flex-direction: row;
     align-items: flex-end;
     background-color: rgba(8, 10, 20, 0.88);

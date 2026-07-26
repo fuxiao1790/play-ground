@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="ResourceBarsUi.uss" />
+    <ui:VisualElement name="resource-bars" class="resource-bars">
+        <ui:ProgressBar name="health-bar" class="resource-bar resource-bar--health" />
+        <ui:ProgressBar name="mana-bar" class="resource-bar resource-bar--mana" />
+    </ui:VisualElement>
+</ui:UXML>

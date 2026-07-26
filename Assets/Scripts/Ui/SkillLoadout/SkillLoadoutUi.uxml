@@ -1,6 +1,25 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
     <Style src="SkillLoadoutUi.uss" />
-    <!-- C# fills #bar with cloned node columns and trigger buttons so the count
-         stays driven by initialNodeCount. -->
-    <ui:VisualElement name="bar" class="skill-bar" />
+    <Style src="../ResourceBars/ResourceBarsUi.uss" />
+    <ui:VisualElement name="hud-container" class="hud-container">
+        <!-- Reserved for a future target-health projection. -->
+        <ui:VisualElement name="target-hud" class="target-hud" />
+        <ui:VisualElement name="bottom-hud" class="bottom-hud">
+            <ui:VisualElement name="health-resource-slot" class="hud-resource-slot">
+                <ui:Label name="health-title" class="resource-orb__title" />
+                <ui:VisualElement name="health-bar" class="resource-orb resource-orb--health">
+                    <ui:VisualElement name="health-fill" class="resource-orb__fill" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <!-- C# fills #bar with cloned node columns and trigger buttons so the count
+                 stays driven by initialNodeCount. -->
+            <ui:VisualElement name="bar" class="skill-bar" />
+            <ui:VisualElement name="mana-resource-slot" class="hud-resource-slot">
+                <ui:Label name="mana-title" class="resource-orb__title" />
+                <ui:VisualElement name="mana-bar" class="resource-orb resource-orb--mana">
+                    <ui:VisualElement name="mana-fill" class="resource-orb__fill" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
 </ui:UXML>

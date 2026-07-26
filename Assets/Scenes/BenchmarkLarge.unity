@@ -2025,6 +2025,7 @@ GameObject:
   - component: {fileID: 1983018957}
   - component: {fileID: 1983018958}
   - component: {fileID: 1983018960}
+  - component: {fileID: 1983018961}
   - component: {fileID: 1983018959}
   m_Layer: 0
   m_Name: GameUI
@@ -2167,6 +2168,19 @@ MonoBehaviour:
   m_FirstSelected: {fileID: 0}
   m_sendNavigationEvents: 1
   m_DragThreshold: 10
+--- !u!114 &1983018961
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1983018953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ae79fab3554323549b5f5d13c4cd90d5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlayGround.SkillUi::PlayGround.SkillUi.ResourceBarUi
+  playerRoot: {fileID: 830174276}
 --- !u!1 &2131619987
 GameObject:
   m_ObjectHideFlags: 0

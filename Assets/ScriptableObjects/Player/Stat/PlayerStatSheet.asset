@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c154e0fcff4f4854b898bae7a65797bb, type: 3}
   m_Name: PlayerStatSheet
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Common.Stats.UnitStatSheet
-  maxHealth: 10000000
+  maxHealth: 10000
   maxMana: 500
-  healthRegenPerSecond: 0
-  manaRegenPerSecond: 100
+  healthRegenPerSecond: 100
+  manaRegenPerSecond: 200
   moveSpeed: 20
   increasedRatePercent: 200
   damageMultiplier: 1

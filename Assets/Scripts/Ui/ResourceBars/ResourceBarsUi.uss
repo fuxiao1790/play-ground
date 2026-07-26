@@ -1,0 +1,44 @@
+/*
+ * Resource bar colors use Unity Color 0-1 float values converted to USS rgba
+ * 0-255 channels with 0-1 alpha.
+ */
+
+.resource-orb {
+    width: 104px;
+    height: 104px;
+    overflow: hidden;
+    border-top-left-radius: 52px;
+    border-top-right-radius: 52px;
+    border-bottom-right-radius: 52px;
+    border-bottom-left-radius: 52px;
+    border-top-width: 3px;
+    border-right-width: 3px;
+    border-bottom-width: 3px;
+    border-left-width: 3px;
+    border-top-color: rgba(255, 255, 255, 0.3);
+    border-right-color: rgba(255, 255, 255, 0.3);
+    border-bottom-color: rgba(255, 255, 255, 0.3);
+    border-left-color: rgba(255, 255, 255, 0.3);
+    background-color: rgba(8, 10, 20, 0.88);
+}
+
+.resource-orb__fill {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+
+.resource-orb--health .resource-orb__fill {
+    background-color: rgba(196, 54, 54, 1);
+}
+
+.resource-orb--mana .resource-orb__fill {
+    background-color: rgba(52, 124, 204, 1);
+}
+
+.resource-orb__title {
+    margin-bottom: 4px;
+    color: white;
+    font-size: 14px;
+}

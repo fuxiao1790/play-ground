@@ -73,6 +73,7 @@ namespace PlayGround.Skills
                 throw new InvalidOperationException(
                     $"{nameof(SkillLoadoutUi)} could not find the '#bar' element. Assign SkillLoadoutUi.uxml as the UIDocument Source Asset.");
 
+            ConfigureHudInputLayering();
             RefreshBar();
             skillDriver.LoadoutChanged += OnLoadoutChanged;
             skillDriver.EditResolved += OnEditResolved;
@@ -118,6 +119,25 @@ namespace PlayGround.Skills
             if (nodeColumnTemplate == null || supportButtonTemplate == null || triggerButtonTemplate == null
                 || pickerTemplate == null || pickerChoiceTemplate == null)
                 throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} is missing one or more UXML template references.");
+        }
+
+        private void ConfigureHudInputLayering()
+        {
+            VisualElement hudContainer = root.Q<VisualElement>("hud-container");
+            VisualElement targetHud = root.Q<VisualElement>("target-hud");
+            VisualElement bottomHud = root.Q<VisualElement>("bottom-hud");
+            VisualElement healthSlot = root.Q<VisualElement>("health-resource-slot");
+            VisualElement manaSlot = root.Q<VisualElement>("mana-resource-slot");
+            if (hudContainer == null || targetHud == null || bottomHud == null || healthSlot == null || manaSlot == null)
+                throw new InvalidOperationException(
+                    $"{nameof(SkillLoadoutUi)} could not find the required HUD layout elements. Assign SkillLoadoutUi.uxml as the UIDocument Source Asset.");
+
+            hudContainer.pickingMode = PickingMode.Ignore;
+            targetHud.pickingMode = PickingMode.Ignore;
+            bottomHud.pickingMode = PickingMode.Ignore;
+            healthSlot.pickingMode = PickingMode.Ignore;
+            manaSlot.pickingMode = PickingMode.Ignore;
+            bar.pickingMode = PickingMode.Ignore;
         }
 
         private void RefreshBar()
