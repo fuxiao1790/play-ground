@@ -190,16 +190,30 @@ match reality.
   resetting cooldown progress for all roots instead of only the edited one.
   Contradicts the "unchanged roots preserve their progress" rule in
   [Skill Loadout Editing](./contracts/skill-loadout-editing.md).
+
+  slots should be disabled for editing (both the main skill and the support)
+
 - **Picker closes before `EditResolved`.** `SkillLoadoutUi.AddChoice` closes the
   picker once a command is queued, not once the driver resolves it, so a later
   rejection is never surfaced in the UI.
+
+  picker should wait, there is no checks currently but validation will be implemented later.
+
 - **Picker does not disable ineligible choices.** All catalog entries render as
   always-enabled buttons; validator eligibility is not reflected before submit.
+
+   picker should only show valid choices. there should be a tag system. skills should have tags and only supports sharing a tag with the skill should be shown.
+
 - **No Escape key, backdrop cancel, or scrolling in the picker.** Only the
   `#cancel` button closes the modal; the choices list has no `ScrollView` or
   overflow handling.
+
+  this is fine for now. bare bone ui is acceptable in current state.
+
 - **`SkillLoadoutEditCommand` carries object references, not `definitionId`.**
   The documented struct shape in [Skill Loadout Editing](./contracts/skill-loadout-editing.md)
   (a `string definitionId` resolved by a "future" `SkillUiCatalog`) is stale;
   the catalog already exists and the command carries `Skill`/`SkillSupport`/
   `TriggerLink` references directly.
+
+  
