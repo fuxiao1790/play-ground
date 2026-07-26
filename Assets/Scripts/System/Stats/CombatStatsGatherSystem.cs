@@ -27,6 +27,7 @@ namespace PlayGround.System.Combat.Stats
         {
             _statsEntity = EntityManager.CreateEntity();
             EntityManager.AddComponentData(_statsEntity, new CombatStatsSingleton());
+            EntityManager.AddComponentData(_statsEntity, new CombatStatsDisplaySingleton());
 
             activeProjectileRenderQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CombatRenderComponent>()
@@ -45,12 +46,27 @@ namespace PlayGround.System.Combat.Stats
         {
             // Producers accumulated their counts into the blackboard earlier this frame; this
             // system only reads it and fills in the render-active counts it owns, then writes the
-            // snapshot to CombatStatsSingleton. Readers (e.g. the debug overlay) pull it from the
+            // snapshot to CombatStatsSingleton and mirrors it to CombatStatsDisplaySingleton.
+            // Game-object readers (e.g. the debug overlay) pull the display mirror from the
             // world; the simulation no longer pushes to any Debugging type.
             CombatStatsSingleton snapshot = EntityManager.GetComponentData<CombatStatsSingleton>(_statsEntity);
             snapshot.ActiveProjectiles = activeProjectileRenderQuery.CalculateEntityCount();
             snapshot.ActiveAoes = activeAoeRenderQuery.CalculateEntityCount();
             EntityManager.SetComponentData(_statsEntity, snapshot);
+
+            // Publish a full copy to the display mirror. This is the only write this component
+            // ever receives, so game-object readers never observe a reset/mid-accumulation value.
+            EntityManager.SetComponentData(_statsEntity, new CombatStatsDisplaySingleton
+            {
+                EntitiesSpawnedViaEcb = snapshot.EntitiesSpawnedViaEcb,
+                EntitiesSpawnedViaReuse = snapshot.EntitiesSpawnedViaReuse,
+                ActiveProjectiles = snapshot.ActiveProjectiles,
+                ActiveAoes = snapshot.ActiveAoes,
+                HitEventsCreated = snapshot.HitEventsCreated,
+                VfxEventsCreated = snapshot.VfxEventsCreated,
+                EntitiesDespawned = snapshot.EntitiesDespawned,
+                EntitiesDeleted = snapshot.EntitiesDeleted
+            });
         }
     }
 }

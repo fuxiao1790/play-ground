@@ -214,7 +214,14 @@ Example pattern (see `CombatStatsSingleton`):
       stats.ValueRW.EntitiesSpawned += count;
   }
   ```
-- Stats display system reads the singleton and presents data
+- `CombatStatsSingleton` is ECS-internal: it is reset every frame and read/written
+  mid-frame by ECS systems only (e.g. the pool cleanup calm-down gate). Game-object code
+  must never read it directly — reaching into a per-frame accumulator produces zeroed
+  or partial values depending on where in the frame the read lands.
+- Game-object/display code instead reads `CombatStatsDisplaySingleton`, a separate
+  singleton that `CombatStatsGatherSystem` publishes once per frame (a full copy, after
+  all producers and the frame reset have run). It is never reset and never
+  partially written, so readers like the debug overlay always see a stable snapshot.
 
 For event queues and native containers:
 - Store `NativeQueue<T>` or similar in the singleton (e.g., `TargetSpatialHashSingleton`)

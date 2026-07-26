@@ -6,13 +6,12 @@ minor performance related refacor
 minor fixes
 - multiple aoe should have 1 aoe aimed at where the cursor is.
 - multiple projectile should also have 1 projectile aimed at where the cursor is.'
-- separate stats intended to be used by game objs and stats intended to be used by ecs. (clean up job requires stats and forces data wipe. it should use some internal stats instead of sharing the same entitiy that is intended to be pulled by game objs)
 - remove jitter from interval spawns and rename interval spawn since it's now working on an energy based system rather than interval, the name is confusing.
 
 changes to existing gameplay 
 
 new feature
-- ui  improvements
+- resource display on ui. hp, mp, etc...
 - interval spawn direction (only side spray is supported currently)
 - damage number vfx graph
 - cast on crit and other conditions.

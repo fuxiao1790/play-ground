@@ -28,9 +28,12 @@ public class PerformanceText : MonoBehaviour
         smoothedDeltaTime += (Time.unscaledDeltaTime - smoothedDeltaTime) * 0.1f;
         float fps = smoothedDeltaTime > 0f ? 1f / smoothedDeltaTime : 0f;
 
-        // Pull the shared stats straight from the ECS world instead of the simulation
-        // pushing them here — keeps the sim assembly free of any Debugging reference.
-        CombatStatsSingleton stats = ReadCombatStats();
+        // Pull the display mirror straight from the ECS world instead of the simulation
+        // pushing it here — keeps the sim assembly free of any Debugging reference. This
+        // mirror (not the internal accumulator every producer/reset system touches) is the
+        // only component game-object code is meant to read, so the overlay always sees a
+        // complete, stable snapshot instead of racing the per-frame reset.
+        CombatStatsDisplaySingleton stats = ReadCombatStats();
         text.text =
             $"FPS:          {fps:0}\n" +
             $"Spawn reuse:  {stats.EntitiesSpawnedViaReuse}\n" +
@@ -44,9 +47,10 @@ public class PerformanceText : MonoBehaviour
             $"VFX particles: {CombatVfxRoot.AliveParticleCount(false)}\n";
     }
 
-    // Read-only pull of the simulation's per-frame stats singleton. The gather system
-    // publishes it to the ECS world each frame; the overlay queries the world for it here.
-    private static CombatStatsSingleton ReadCombatStats()
+    // Read-only pull of the display mirror the gather system publishes once per frame.
+    // The overlay queries the world for it here rather than the internal accumulator, which
+    // CombatStatsResetSystem zeroes at the start of every frame.
+    private static CombatStatsDisplaySingleton ReadCombatStats()
     {
         World world = World.DefaultGameObjectInjectionWorld;
         if (world == null || !world.IsCreated)
@@ -55,8 +59,8 @@ public class PerformanceText : MonoBehaviour
         }
 
         EntityQuery query = world.EntityManager.CreateEntityQuery(
-            ComponentType.ReadOnly<CombatStatsSingleton>());
-        return query.TryGetSingleton(out CombatStatsSingleton stats) ? stats : default;
+            ComponentType.ReadOnly<CombatStatsDisplaySingleton>());
+        return query.TryGetSingleton(out CombatStatsDisplaySingleton stats) ? stats : default;
     }
 
     private void EnsureOverlayText()

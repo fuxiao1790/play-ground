@@ -25,8 +25,10 @@ namespace PlayGround.System.Combat.Stats
     //   and never show stale counts.
     // - CombatStatsGatherSystem (PresentationSystemGroup, after all producers) reads the built-up
     //   snapshot and writes it to CombatStatsSingleton; it also fills ActiveProjectiles/ActiveAoes
-    //   from its own render-active queries. The debug overlay pulls the singleton from the world
-    //   (no push), so the simulation holds no reference to any Debugging type.
+    //   from its own render-active queries. It then mirrors the full result to
+    //   CombatStatsDisplaySingleton (below), which is the only component game-object code (e.g.
+    //   the debug overlay) may read — it is never reset, so readers never see a zeroed or
+    //   partial mid-frame value. The simulation holds no reference to any Debugging type.
     //
     // Field producers:
     // - EntitiesSpawnedViaEcb: top-up create total, summed (+=) by the projectile, impact AOE,
@@ -49,6 +51,24 @@ namespace PlayGround.System.Combat.Stats
     // - EntitiesDeleted: added by CombatPoolCleanupSystem from the pool entities its trimmer
     //   destroyed this frame.
     public struct CombatStatsSingleton : Unity.Entities.IComponentData
+    {
+        public int EntitiesSpawnedViaEcb;
+        public int EntitiesSpawnedViaReuse;
+        public int ActiveProjectiles;
+        public int ActiveAoes;
+        public int HitEventsCreated;
+        public int VfxEventsCreated;
+        public int EntitiesDespawned;
+        public int EntitiesDeleted;
+    }
+
+    // ECS Lifecycle: singleton data; the GameObject-facing mirror of CombatStatsSingleton.
+    // Lives on the same stats entity for the world's lifetime. CombatStatsGatherSystem is the
+    // only writer, publishing a full copy once per frame after every producer (and the frame
+    // reset) has run. Nothing ever resets or partially writes this component, so game-object
+    // readers (e.g. PerformanceText) always see a complete, stable snapshot instead of racing
+    // CombatStatsResetSystem's mid-frame zeroing of the internal accumulator.
+    public struct CombatStatsDisplaySingleton : Unity.Entities.IComponentData
     {
         public int EntitiesSpawnedViaEcb;
         public int EntitiesSpawnedViaReuse;
