@@ -41,6 +41,11 @@ namespace PlayGround.Skills
                 throw new MissingReferenceException($"{nameof(PlayerSaveController)} on {name} needs a {nameof(SkillUiCatalog)}.");
             }
 
+            if (catalog.SupportCatalog == null || catalog.TriggerCatalog == null)
+            {
+                throw new MissingReferenceException($"{nameof(PlayerSaveController)} on {name} needs a complete {nameof(SkillUiCatalog)}.");
+            }
+
             store = new PlayerSaveStore(Path.Combine(Application.persistentDataPath, SaveFileName));
         }
 
@@ -264,14 +269,14 @@ namespace PlayGround.Skills
                 AddAsset(skills, catalog.Skills[i]);
             }
 
-            for (int i = 0; i < catalog.Supports.Count; i++)
+            for (int i = 0; i < catalog.SupportCatalog.Supports.Count; i++)
             {
-                AddAsset(supports, catalog.Supports[i]);
+                AddAsset(supports, catalog.SupportCatalog.Supports[i]);
             }
 
-            for (int i = 0; i < catalog.Triggers.Count; i++)
+            for (int i = 0; i < catalog.TriggerCatalog.Triggers.Count; i++)
             {
-                AddAsset(triggers, catalog.Triggers[i]);
+                AddAsset(triggers, catalog.TriggerCatalog.Triggers[i]);
             }
         }
 

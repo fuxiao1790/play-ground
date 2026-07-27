@@ -116,6 +116,8 @@ namespace PlayGround.Skills
                 throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} requires a {nameof(UIDocument)} component.");
             if (skillDriver == null)
                 throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} could not resolve a {nameof(SkillDriver)}.");
+            if (catalog == null || catalog.SupportCatalog == null || catalog.TriggerCatalog == null)
+                throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} needs a complete {nameof(SkillUiCatalog)}.");
             if (nodeColumnTemplate == null || supportButtonTemplate == null || triggerButtonTemplate == null
                 || pickerTemplate == null || pickerChoiceTemplate == null)
                 throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} is missing one or more UXML template references.");
@@ -267,23 +269,36 @@ namespace PlayGround.Skills
             modal.Q<Label>("title").text = $"Select {target.Kind}";
             var choices = modal.Q<VisualElement>("choices");
             AddClear(choices);
-            if (catalog != null)
+            if (target.Kind == PickerKind.Skill)
             {
-                if (target.Kind == PickerKind.Skill) foreach (var skill in catalog.Skills) AddChoice(choices, skill.DisplayName, new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetSkill, target.NodeIndex, skill: skill));
-                if (target.Kind == PickerKind.Support)
+                foreach (var skill in catalog.Skills)
                 {
-                    SkillDefinitionTags skillTags = GetSkillSet(target.NodeIndex)?.Skill?.Tags ?? SkillDefinitionTags.None;
-                    foreach (var support in catalog.Supports)
-                    {
-                        if (!SkillDefinitionTagUtility.HasAny(skillTags, support.SupportedSkillTags))
-                            continue;
-
-                        AddChoice(choices, support.DisplayName,
-                            new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetSupport,
-                                target.NodeIndex, target.SupportIndex, support: support));
-                    }
+                    AddChoice(choices, skill.DisplayName,
+                        new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetSkill,
+                            target.NodeIndex, skill: skill));
                 }
-                if (target.Kind == PickerKind.Trigger) foreach (var trigger in catalog.Triggers) AddChoice(choices, trigger.DisplayName, new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetTrigger, target.NodeIndex, trigger: trigger));
+            }
+            else if (target.Kind == PickerKind.Support)
+            {
+                SkillDefinitionTags skillTags = GetSkillSet(target.NodeIndex)?.Skill?.Tags ?? SkillDefinitionTags.None;
+                foreach (var support in catalog.SupportCatalog.Supports)
+                {
+                    if (!SkillDefinitionTagUtility.HasAny(skillTags, support.SupportedSkillTags))
+                        continue;
+
+                    AddChoice(choices, support.DisplayName,
+                        new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetSupport,
+                            target.NodeIndex, target.SupportIndex, support: support));
+                }
+            }
+            else
+            {
+                foreach (var trigger in catalog.TriggerCatalog.Triggers)
+                {
+                    AddChoice(choices, trigger.DisplayName,
+                        new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetTrigger,
+                            target.NodeIndex, trigger: trigger));
+                }
             }
             modal.Q<Button>("cancel").clicked += ClosePicker;
             root.Add(modal);

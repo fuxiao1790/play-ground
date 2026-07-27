@@ -3,20 +3,16 @@ using UnityEngine;
 
 namespace PlayGround.Skills
 {
-    [CreateAssetMenu(menuName = "PlayGround/UI/Skill UI Catalog", fileName = "SkillUiCatalog")]
-    public sealed class SkillUiCatalog : ScriptableObject
+    [CreateAssetMenu(menuName = "PlayGround/UI/Skill Support Catalog", fileName = "SkillUiSupportCatalog")]
+    public sealed class SkillUiSupportCatalog : ScriptableObject
     {
-        [SerializeField] private List<Skill> skills = new();
-        [SerializeField] private SkillUiSupportCatalog supportCatalog;
-        [SerializeField] private SkillUiTriggerCatalog triggerCatalog;
+        [SerializeField] private List<SkillSupport> supports = new();
 
-        public IReadOnlyList<Skill> Skills => skills;
-        public SkillUiSupportCatalog SupportCatalog => supportCatalog;
-        public SkillUiTriggerCatalog TriggerCatalog => triggerCatalog;
+        public IReadOnlyList<SkillSupport> Supports => supports;
 
         private void OnValidate()
         {
-            ValidateEntries(skills, "skill");
+            ValidateEntries(supports, "support");
         }
 
         private void ValidateEntries<TDefinition>(List<TDefinition> entries, string kind)
