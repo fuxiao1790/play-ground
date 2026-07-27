@@ -1675,15 +1675,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.CameraSystem.GameplayCamera
   target: {fileID: 1534015920}
-  followSpeed: 1
-  mouseBias: 0.3
-  ovalWidth: 0.15
-  ovalHeight: 0.15
+  followSpeed: 3
+  mouseBias: 0.1
+  ovalWidth: 0.1
+  ovalHeight: 0.1
   baseOrthographicSize: 9
   initialZoom: 1.5
   zoomStep: 0.1
-  minDistance: 0.5
-  maxDistance: 10
+  minDistance: 1
+  maxDistance: 2
   zoomSpeed: 0.2
   releaseLimits:
     serializedVersion: 2

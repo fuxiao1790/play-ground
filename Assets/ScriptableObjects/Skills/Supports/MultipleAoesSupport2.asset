@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9b74e2c0d2c747f4a9ee2f165a15e0a3, type: 3}
-  m_Name: MultipleAoesSupport
+  m_Name: MultipleAoesSupport2
   m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:MultipleAoesSupport
-  assetGuid: 6f2f5b802d0b4b44b9519b8a32ea54d5
-  echoCount: 1
-  scatterRadius: 5
-  manaCostAdded: 3
+  assetGuid: 1e3b98ffcd5c4f84081f70cac36f4acd
+  echoCount: 2
+  scatterRadius: 8
+  manaCostAdded: 6

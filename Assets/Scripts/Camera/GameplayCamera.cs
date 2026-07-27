@@ -7,7 +7,7 @@ namespace PlayGround.CameraSystem
     public sealed class GameplayCamera : MonoBehaviour
     {
         [SerializeField] private Transform target;
-        [SerializeField, Range(0f, 1f)] private float followSpeed = 1f;
+        [SerializeField, Range(0f, 5f)] private float followSpeed = 1f;
         [SerializeField, Range(0f, 1f)] private float mouseBias = 0.3f;
         [SerializeField, Range(0f, 1f)] private float ovalWidth = 0.15f;
         [SerializeField, Range(0f, 1f)] private float ovalHeight = 0.15f;

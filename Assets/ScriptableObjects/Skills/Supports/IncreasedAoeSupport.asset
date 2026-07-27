@@ -13,4 +13,4 @@ MonoBehaviour:
   m_Name: IncreasedAoeSupport
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.IncreasedAoeSupport
   assetGuid: 4f45b6f0e6e0705479a291cc0556a898
-  areaSizeMultiplier: 2
+  areaSizeMultiplier: 1.3

@@ -13,9 +13,7 @@ MonoBehaviour:
   m_Name: ProjectileIntervalSpawnTrigger2
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileIntervalSpawnTrigger
   assetGuid: 72a746e8a702b014b85cb4d1db22eb8a
-  triggerLinkManaCostMultiplier: 1.5
-  triggeredSkillManaCostMultiplier: 1.5
-  energyPerSecond: 15
-  manaToEnergyCostMultiplier: 1.5
-  projectileCount: 3
+  manaCostMultiplier: 1
+  energyPerSecond: 20
+  projectileCount: 2
   sideSpreadDegrees: 90

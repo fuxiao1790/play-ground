@@ -13,9 +13,7 @@ MonoBehaviour:
   m_Name: AoeIntervalSpawnTrigger2
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.AoeIntervalSpawnTrigger
   assetGuid: db15faed11f2e8d4d86c5b856a6d270b
-  triggerLinkManaCostMultiplier: 1.5
-  triggeredSkillManaCostMultiplier: 1.5
-  energyPerSecond: 15
-  manaToEnergyCostMultiplier: 2
+  manaCostMultiplier: 1
+  energyPerSecond: 20
   echoCount: 2
   scatterRadius: 10
