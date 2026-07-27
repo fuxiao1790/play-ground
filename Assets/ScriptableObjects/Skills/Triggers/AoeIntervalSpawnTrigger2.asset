@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: AoeIntervalSpawnTrigger2
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.AoeIntervalSpawnTrigger
   assetGuid: db15faed11f2e8d4d86c5b856a6d270b
+  displayName: Aoe Interval Spawn Trigger 2
+  description:
+  icon: {fileID: 0}
   manaCostMultiplier: 1
   energyPerSecond: 20
   echoCount: 2

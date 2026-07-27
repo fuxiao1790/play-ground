@@ -13,5 +13,8 @@ MonoBehaviour:
   m_Name: FasterProjectilesSupport
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.FasterProjectilesSupport
   assetGuid: c61a962b5989ef64bae7848c2ff286aa
+  displayName: Faster Projectile Support
+  description:
+  icon: {fileID: 0}
   speedMultiplier: 2
   lifetimeMultiplier: 1.2

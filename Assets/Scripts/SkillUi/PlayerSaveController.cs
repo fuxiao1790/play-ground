@@ -261,17 +261,17 @@ namespace PlayGround.Skills
         {
             for (int i = 0; i < catalog.Skills.Count; i++)
             {
-                AddAsset(skills, catalog.Skills[i]?.Definition);
+                AddAsset(skills, catalog.Skills[i]);
             }
 
             for (int i = 0; i < catalog.Supports.Count; i++)
             {
-                AddAsset(supports, catalog.Supports[i]?.Definition);
+                AddAsset(supports, catalog.Supports[i]);
             }
 
             for (int i = 0; i < catalog.Triggers.Count; i++)
             {
-                AddAsset(triggers, catalog.Triggers[i]?.Definition);
+                AddAsset(triggers, catalog.Triggers[i]);
             }
         }
 

@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: ArcaneMissile
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileSkill
   assetGuid: 77007c219666046418c6dd37745733ff
+  displayName: Arcane Missile
+  description:
+  icon: {fileID: 0}
   baseRate: 1
   maxSupportCount: 6
   definition:

@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: ArcaneBlastSkill
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.AoeSkill
   assetGuid: a2000000000000000000000000000007
+  displayName: Arcane Blast
+  description:
+  icon: {fileID: 0}
   baseRate: 1
   definition:
     baseAreaSize: 2.3

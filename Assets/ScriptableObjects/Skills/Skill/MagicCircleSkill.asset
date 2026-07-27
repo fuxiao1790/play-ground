@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: MagicCircleSkill
   m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:LingeringAoeSkill
   assetGuid: f7e5c41d3e83fda428ce1761aa1d7dc6
+  displayName: Magic Cirlce
+  description:
+  icon: {fileID: 0}
   baseRate: 1
   maxSupportCount: 6
   definition:

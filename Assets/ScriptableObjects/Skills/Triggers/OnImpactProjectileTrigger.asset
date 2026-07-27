@@ -13,5 +13,8 @@ MonoBehaviour:
   m_Name: OnImpactProjectileTrigger
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.OnImpactProjectileTrigger
   assetGuid: 1a2b3c4d5e6f708192a3b4c5d6e7f801
+  displayName: On Impact Projectile Trigger
+  description:
+  icon: {fileID: 0}
   spawnCount: 4
   spreadDegrees: 360

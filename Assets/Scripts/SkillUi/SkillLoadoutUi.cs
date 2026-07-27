@@ -241,7 +241,7 @@ namespace PlayGround.Skills
         }
 
         private string SkillLabel(int index) => skillDriver.RuntimeNodes != null && index < skillDriver.RuntimeNodes.Count && skillDriver.RuntimeNodes[index]?.SkillSet?.Skill != null
-            ? skillDriver.RuntimeNodes[index].SkillSet.Skill.name : "+";
+            ? skillDriver.RuntimeNodes[index].SkillSet.Skill.DisplayName : "+";
         private string SupportLabel(int node, int support) => skillDriver.RuntimeNodes != null && node < skillDriver.RuntimeNodes.Count && skillDriver.RuntimeNodes[node]?.SkillSet?.Supports.Length > support && skillDriver.RuntimeNodes[node].SkillSet.Supports[support] != null
             ? skillDriver.RuntimeNodes[node].SkillSet.Supports[support].name.Substring(0, 1) : "+";
         private string TriggerLabel(int index) => skillDriver.RuntimeNodes != null && index < skillDriver.RuntimeNodes.Count && skillDriver.RuntimeNodes[index]?.TriggerToNext != null
@@ -256,16 +256,7 @@ namespace PlayGround.Skills
             if (trigger == null)
                 return "+";
 
-            if (catalog != null)
-            {
-                foreach (var entry in catalog.Triggers)
-                {
-                    if (entry.Definition == trigger && !string.IsNullOrWhiteSpace(entry.DisplayName))
-                        return entry.DisplayName;
-                }
-            }
-
-            return trigger.name;
+            return trigger.DisplayName;
         }
 
         private void OpenPicker(PickerTarget target)
@@ -278,21 +269,21 @@ namespace PlayGround.Skills
             AddClear(choices);
             if (catalog != null)
             {
-                if (target.Kind == PickerKind.Skill) foreach (var entry in catalog.Skills) AddChoice(choices, entry.DisplayName, new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetSkill, target.NodeIndex, skill: entry.Definition));
+                if (target.Kind == PickerKind.Skill) foreach (var skill in catalog.Skills) AddChoice(choices, skill.DisplayName, new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetSkill, target.NodeIndex, skill: skill));
                 if (target.Kind == PickerKind.Support)
                 {
                     SkillDefinitionTags skillTags = GetSkillSet(target.NodeIndex)?.Skill?.Tags ?? SkillDefinitionTags.None;
-                    foreach (var entry in catalog.Supports)
+                    foreach (var support in catalog.Supports)
                     {
-                        if (!SkillDefinitionTagUtility.HasAny(skillTags, entry.Definition.SupportedSkillTags))
+                        if (!SkillDefinitionTagUtility.HasAny(skillTags, support.SupportedSkillTags))
                             continue;
 
-                        AddChoice(choices, entry.DisplayName,
+                        AddChoice(choices, support.DisplayName,
                             new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetSupport,
-                                target.NodeIndex, target.SupportIndex, support: entry.Definition));
+                                target.NodeIndex, target.SupportIndex, support: support));
                     }
                 }
-                if (target.Kind == PickerKind.Trigger) foreach (var entry in catalog.Triggers) AddChoice(choices, entry.DisplayName, new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetTrigger, target.NodeIndex, trigger: entry.Definition));
+                if (target.Kind == PickerKind.Trigger) foreach (var trigger in catalog.Triggers) AddChoice(choices, trigger.DisplayName, new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetTrigger, target.NodeIndex, trigger: trigger));
             }
             modal.Q<Button>("cancel").clicked += ClosePicker;
             root.Add(modal);

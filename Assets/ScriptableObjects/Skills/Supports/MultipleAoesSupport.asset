@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: MultipleAoesSupport
   m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:MultipleAoesSupport
   assetGuid: 6f2f5b802d0b4b44b9519b8a32ea54d5
+  displayName: Multiple Aoe Support
+  description:
+  icon: {fileID: 0}
   echoCount: 1
   scatterRadius: 5
   manaCostAdded: 3

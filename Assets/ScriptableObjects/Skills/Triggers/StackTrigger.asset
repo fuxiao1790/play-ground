@@ -13,3 +13,6 @@ MonoBehaviour:
   m_Name: StackTrigger
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.StackTrigger
   assetGuid: c4000000000000000000000000000001
+  displayName: Stack Trigger
+  description:
+  icon: {fileID: 0}

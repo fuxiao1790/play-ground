@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: MultipleProjectilesSupport
   m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:MultipleProjectilesSupport
   assetGuid: 7d0cc39fd2349e849a97c91eb66cf04f
+  displayName: Multiple Projectile Support
+  description:
+  icon: {fileID: 0}
   count: 1
   spreadDegrees: 15
   manaCostAdded: 3

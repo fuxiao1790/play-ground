@@ -13,5 +13,8 @@ MonoBehaviour:
   m_Name: HomingSupport
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.HomingSupport
   assetGuid: d07c2ec4b643bfd4e953fc934c2ea674
+  displayName: Homing Support
+  description:
+  icon: {fileID: 0}
   trackingTurnSpeedDegrees: 180
   trackingQueryIntervalSeconds: 0.15

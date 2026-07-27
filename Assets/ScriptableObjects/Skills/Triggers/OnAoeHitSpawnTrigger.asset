@@ -13,3 +13,6 @@ MonoBehaviour:
   m_Name: OnAoeHitSpawnTrigger
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.OnAoeHitSpawnTrigger
   assetGuid: 8a0e8f4655664c4ca5fd11198d90f001
+  displayName: On Aoe Hit Spawn Trigger
+  description:
+  icon: {fileID: 0}

@@ -13,3 +13,6 @@ MonoBehaviour:
   m_Name: OnImpactAoeTrigger
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.OnImpactAoeTrigger
   assetGuid: 502349cdbd8fc624f8dd28ba7b2eebbb
+  displayName: On Impact Aoe Trigger
+  description:
+  icon: {fileID: 0}

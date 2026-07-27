@@ -13,5 +13,8 @@ MonoBehaviour:
   m_Name: PiercingSupport
   m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:PiercingSupport
   assetGuid: e79cf38ef9f7b3f41bb7856217f5d3db
+  displayName: Piercing Support
+  description:
+  icon: {fileID: 0}
   pierceCount: 5
   repeatHitCooldown: 0.5

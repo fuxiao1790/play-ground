@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: StackingSupportLow
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.StackingSupport
   assetGuid: 98db028a9d87c7b48b8781e058d379fe
+  displayName: Stacking Support (Low)
+  description:
+  icon: {fileID: 0}
   stackThreshold: 10
   debuffLifetimeSeconds: 5
   stacksPerHit: 1

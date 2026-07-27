@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: MagicBolt2
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileSkill
   assetGuid: 0727fad52cbf62d4d8e187866d68aac3
+  displayName: Magic Bolt 2
+  description:
+  icon: {fileID: 0}
   baseRate: 2
   maxSupportCount: 6
   definition:
