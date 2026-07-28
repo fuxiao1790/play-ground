@@ -299,8 +299,8 @@ Transform:
   m_GameObject: {fileID: 178213208}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 80.4, y: -27.7, z: 0}
-  m_LocalScale: {x: 2, y: 2, z: 1}
+  m_LocalPosition: {x: 20.21, y: -6.06, z: 0}
+  m_LocalScale: {x: 0.5, y: 0.5, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1003007019}
@@ -331,7 +331,7 @@ MonoBehaviour:
   behaviour: {fileID: 11400000, guid: 4aac8482a8fe9094d89631645450595f, type: 2}
   placement: {fileID: 11400000, guid: 8f4a425140a0d5449bb2fb80385b00e0, type: 2}
   spawnPoints: []
-  cap: 300
+  cap: 50
   combatRoot: {fileID: 529810935}
   vfxRoot: {fileID: 0}
   target: {fileID: 0}

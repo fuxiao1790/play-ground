@@ -7,7 +7,8 @@ minor fixes
 - multiple aoe should have 1 aoe aimed at where the cursor is.
 - multiple projectile should also have 1 projectile aimed at where the cursor is.'
 
-changes to existing gameplay 
+changes to existing gameplay
+- give more granular control to mana cost, mana cost modifiers for supports and triggers should also have increased modifier and multiplier modifiers.
 
 new feature
 - interval spawn direction (only side spray is supported currently)

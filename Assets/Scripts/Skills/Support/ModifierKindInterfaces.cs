@@ -26,4 +26,5 @@ namespace PlayGround.Skills
     {
         void ApplyToAoe(AoeBehaviorContext ctx);
     }
+
 }
