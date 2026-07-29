@@ -126,7 +126,7 @@ namespace PlayGround.Tests.EditMode
             ProjectileSkill skill = CreateAsset<ProjectileSkill>("Projectile Skill");
             SetField(skill, "baseRate", 5f);
             IncreasedRateSupport support = CreateAsset<IncreasedRateSupport>("Increased Rate");
-            SetField(support, "increasedRatePercent", 0.5f);
+            SetField(support, "increasedRatePercent", 50f);
             SkillSet set = CreateSkillSet("Set", skill, support, support);
 
             RuntimeSkillDefinition result = SkillSetCompiler.Compile(

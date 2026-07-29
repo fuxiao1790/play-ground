@@ -2,19 +2,75 @@ using PlayGround.Skills.Modifiers;
 
 namespace PlayGround.Skills
 {
-    public interface IBaseValueModifier
+    public interface IDamageModifiers
     {
-        void CollectAdded(AddedSink sink);
+        public interface IBaseValueModifier
+        {
+            void CollectAdded(AddedSink sink);
+        }
     }
 
-    public interface IIncreasedModifier
+    public interface IAreaSizeModifiers
     {
-        void CollectIncreases(IncreasedSink sink);
+        public interface IIncreasedModifier
+        {
+            void CollectIncreases(IncreasedSink sink);
+        }
+
+        public interface IMultiplierModifier
+        {
+            void CollectMultipliers(MultiplierSink sink);
+        }
     }
 
-    public interface IMultiplierModifier
+    public interface IProjectileSpeedModifiers
     {
-        void CollectMultipliers(MultiplierSink sink);
+        public interface IMultiplierModifier
+        {
+            void CollectMultipliers(MultiplierSink sink);
+        }
+    }
+
+    public interface IProjectileLifetimeModifiers
+    {
+        public interface IMultiplierModifier
+        {
+            void CollectMultipliers(MultiplierSink sink);
+        }
+    }
+
+    public interface IRateModifiers
+    {
+        public interface IIncreasedModifier
+        {
+            void CollectIncreases(IncreasedSink sink);
+        }
+    }
+
+    public interface IPierceCountModifiers
+    {
+        public interface IBaseValueModifier
+        {
+            void CollectAdded(AddedSink sink);
+        }
+    }
+
+    public interface IManaModifiers
+    {
+        public interface IBaseValueModifier
+        {
+            void CollectAdded(AddedSink sink);
+        }
+
+        public interface IIncreasedModifier
+        {
+            void CollectIncreases(IncreasedSink sink);
+        }
+
+        public interface IMultiplierModifier
+        {
+            void CollectMultipliers(MultiplierSink sink);
+        }
     }
 
     public interface IProjectileBehaviorModifier
@@ -26,5 +82,4 @@ namespace PlayGround.Skills
     {
         void ApplyToAoe(AoeBehaviorContext ctx);
     }
-
 }

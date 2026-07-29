@@ -4,7 +4,7 @@ using UnityEngine;
 namespace PlayGround.Skills
 {
     [CreateAssetMenu(menuName = "PlayGround/Skills/Supports/Homing", fileName = "HomingSupport")]
-    public sealed class HomingSupport : StatModifierSupport, IBaseValueModifier, IProjectileBehaviorModifier
+    public sealed class HomingSupport : StatModifierSupport, IManaModifiers.IBaseValueModifier, IProjectileBehaviorModifier
     {
         [SerializeField] private float trackingTurnSpeedDegrees = 180f;
         [SerializeField] private float trackingQueryIntervalSeconds = 0.1f;

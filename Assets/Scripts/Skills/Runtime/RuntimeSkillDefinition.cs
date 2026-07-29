@@ -15,7 +15,8 @@ namespace PlayGround.Skills.Runtime
         public Hash128 SpawnTemplateKey { get; set; }
 
         // Set only when this definition is attached through a valid trigger link.
+        // Combines the link's manaCostIncreasedPercent and manaCostMultiplier.
         // Feeds the initial active skill's one-time mana calculation.
-        public float IncomingManaCostMultiplier { get; set; } = 1f;
+        public float IncomingManaCostFactor { get; set; } = 1f;
     }
 }

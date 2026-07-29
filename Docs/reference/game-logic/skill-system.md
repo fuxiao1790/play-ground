@@ -272,9 +272,12 @@ nothing to behavior.
 `manaCost` belongs to every projectile or AOE definition. It folds through
 `SkillStat.ManaCost` during runtime compilation, so compatible supports can
 modify it. A player-cast skill spends once, using the complete valid trigger
-chain. Every `TriggerLink` has one `manaCostMultiplier`. The same value
-is used for the interval child-energy threshold, the initial active skill chain
-cost, and that link's triggered skill cost.
+chain. Every `TriggerLink` has `manaCostIncreasedPercent` and
+`manaCostMultiplier`, resolved per link as
+`(1 + manaCostIncreasedPercent) * manaCostMultiplier` by
+`TriggerLink.ResolveManaCostFactor()`. The resolved factor is used for the
+interval child-energy threshold, the initial active skill chain cost, and that
+link's triggered skill cost.
 
 For active skill `A` and two triggered skills `T1`, `T2`, the cost is:
 
@@ -283,6 +286,9 @@ For active skill `A` and two triggered skills `T1`, `T2`, the cost is:
 + (T1 * multiplier1)
 + (T2 * multiplier2)
 ```
+
+Here each `multiplierN` is that link's resolved factor, not its raw
+`manaCostMultiplier` field.
 
 Internal triggered spawns never spend mana again. Interval triggers still
 convert the child skill's own resolved mana cost into an energy threshold, so
@@ -369,8 +375,8 @@ it can replace the compiled runtime shape after normal stat and behavior baking.
 `StackingSupport` is the current conversion support and marks its set
 triggered-only.
 
-The four augment kinds are composable interfaces, not mutually exclusive base
-classes:
+The stat-specific augment interfaces are composable, not mutually exclusive
+base classes:
 
 ```csharp
 abstract class SkillSupport : ScriptableObject { }
@@ -379,16 +385,58 @@ abstract class StatModifierSupport : SkillSupport {
     public abstract SkillDefinitionTags SupportedSkillTags { get; }
 }
 
-interface IBaseValueModifier {
-    void CollectAdded(AddedSink sink);              // flat added value
+interface IDamageModifiers {
+    interface IBaseValueModifier {
+        void CollectAdded(AddedSink sink);
+    }
 }
 
-interface IIncreasedModifier {
-    void CollectIncreases(IncreasedSink sink);      // summed increased percent
+interface IAreaSizeModifiers {
+    interface IIncreasedModifier {
+        void CollectIncreases(IncreasedSink sink);
+    }
+
+    interface IMultiplierModifier {
+        void CollectMultipliers(MultiplierSink sink);
+    }
 }
 
-interface IMultiplierModifier {
-    void CollectMultipliers(MultiplierSink sink);   // Pre/Post multiplier
+interface IProjectileSpeedModifiers {
+    interface IMultiplierModifier {
+        void CollectMultipliers(MultiplierSink sink);
+    }
+}
+
+interface IProjectileLifetimeModifiers {
+    interface IMultiplierModifier {
+        void CollectMultipliers(MultiplierSink sink);
+    }
+}
+
+interface IRateModifiers {
+    interface IIncreasedModifier {
+        void CollectIncreases(IncreasedSink sink);
+    }
+}
+
+interface IPierceCountModifiers {
+    interface IBaseValueModifier {
+        void CollectAdded(AddedSink sink);
+    }
+}
+
+interface IManaModifiers {
+    interface IBaseValueModifier {
+        void CollectAdded(AddedSink sink);
+    }
+
+    interface IIncreasedModifier {
+        void CollectIncreases(IncreasedSink sink);
+    }
+
+    interface IMultiplierModifier {
+        void CollectMultipliers(MultiplierSink sink);
+    }
 }
 
 interface IProjectileBehaviorModifier {
@@ -409,10 +457,13 @@ abstract class ConversionSupport : SkillSupport {
 ```
 
 A support may implement more than one kind. `PiercingSupport` is both an
-`IBaseValueModifier` for `PierceCount` and an `IProjectileBehaviorModifier` for
-`RepeatHitCooldown`. Each interface receives only its constrained sink or
-behavior context, so an increased modifier cannot write base values or multiply
-stats.
+`IPierceCountModifiers.IBaseValueModifier` for `PierceCount`, an
+`IManaModifiers.IBaseValueModifier` for `ManaCost`, and an
+`IProjectileBehaviorModifier` for `RepeatHitCooldown`. A support implementing
+two identically shaped stat interfaces must give each an explicit interface
+implementation, since one implicit method cannot serve both with different
+bodies. Each interface receives only its constrained sink or behavior context,
+so an increased modifier cannot write base values or multiply stats.
 
 Numeric stats use one fold per stat:
 
@@ -427,8 +478,9 @@ changes numeric output. Player snapshot terms feed this same fold:
 `increasedRatePercent` contributes to the summed increased term on `Rate`.
 
 Rate uses the same fold as other stats. `IncreasedRateSupport` and the player
-`increasedRatePercent` both feed the increased bucket, then cooldown is derived
-from the folded rate:
+`increasedRatePercent` are both authored as percent points (`25` means +25%)
+and both feed the increased bucket, then cooldown is derived from the folded
+rate:
 
 ```text
 rate = Resolve(Rate, baseRate)
@@ -439,15 +491,15 @@ Current augment supports:
 
 | Support | Kind interface(s) | Stat / behavior contribution |
 |---|---|---|
-| Multiple Projectiles | `IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost`; adds projectile `count`, `spreadDegrees` |
-| Multiple AOEs | `IBaseValueModifier`, `IAoeBehaviorModifier` | Adds `ManaCost`; adds AOE `echoCount`, `scatterRadius` |
-| Piercing | `IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost` and `PierceCount`; sets projectile `repeatHitCooldown` |
-| Homing | `IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost`; enables tracking and sets turn speed/query interval |
-| Concentrated Effect | `IMultiplierModifier` | Post multiplier on `AreaSize` only |
-| Increased AOE Effect | `IIncreasedModifier` | Increased percent on `AreaSize` |
-| Faster Projectiles | `IMultiplierModifier` | Post multipliers on `ProjectileSpeed`, `ProjectileLifetime` |
-| Added Damage | `IBaseValueModifier` | Adds `Damage`; may also add `ManaCost` (default `0`) |
-| Increased Skill Speed | `IIncreasedModifier` | Increased percent on `Rate` |
+| Multiple Projectiles | `IManaModifiers.IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost`; adds projectile `count`, `spreadDegrees` |
+| Multiple AOEs | `IManaModifiers.IBaseValueModifier`, `IAoeBehaviorModifier` | Adds `ManaCost`; adds AOE `echoCount`, `scatterRadius` |
+| Piercing | `IPierceCountModifiers.IBaseValueModifier`, `IManaModifiers.IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost` and `PierceCount`; sets projectile `repeatHitCooldown` |
+| Homing | `IManaModifiers.IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost`; enables tracking and sets turn speed/query interval |
+| Concentrated Effect | `IAreaSizeModifiers.IMultiplierModifier`, `IManaModifiers.IMultiplierModifier` | Post multiplier on `AreaSize`; also multiplies `ManaCost` |
+| Increased AOE Effect | `IAreaSizeModifiers.IIncreasedModifier`, `IManaModifiers.IIncreasedModifier` | Increased percent on `AreaSize`; also increases `ManaCost` |
+| Faster Projectiles | `IProjectileSpeedModifiers.IMultiplierModifier`, `IProjectileLifetimeModifiers.IMultiplierModifier`, `IManaModifiers.IMultiplierModifier` | Post multipliers on `ProjectileSpeed`, `ProjectileLifetime`; also multiplies `ManaCost` |
+| Added Damage | `IDamageModifiers.IBaseValueModifier`, `IManaModifiers.IBaseValueModifier` | Adds `Damage`; may also add `ManaCost` (default `0`) |
+| Increased Skill Speed | `IRateModifiers.IIncreasedModifier`, `IManaModifiers.IIncreasedModifier` | Increased percent on `Rate`; also increases `ManaCost` |
 
 Supports also declare compatible skill tags:
 
@@ -576,10 +628,10 @@ Energy-driven source/child support:
 | Pulse AOE source | warning, no-op | warning, no-op |
 
 Both concrete interval triggers inherit `energyPerSecond` from
-`IntervalSpawnTrigger` and `manaCostMultiplier` from `TriggerLink`.
-The child definition owns `manaCost`; its compiled, support-folded `ManaCost` is
+`IntervalSpawnTrigger` and the mana-cost fields from `TriggerLink`. The child
+definition owns `manaCost`; its compiled, support-folded `ManaCost` is
 converted by `IntervalSpawnTrigger.ManaToEnergyCost`. The baked threshold is
-`max(0.001, childManaCost * manaToEnergyRatio)`.
+`max(0.001, childManaCost * ResolveManaCostFactor())`.
 
 Each source begins with empty energy. Every simulation update adds
 `energyPerSecond * deltaTime`; whenever accrued energy reaches the next
@@ -744,11 +796,25 @@ compile(SkillSet set, allChains, snapshot) -> RuntimeSkillDefinition:
     acc = new StatModifierAccumulator()
     SnapshotModifiers.Contribute(acc, snapshot)   // damage/area snapshot multipliers as Post terms
     for each support in set.supports:
-        if support is IBaseValueModifier:
+        if support is IDamageModifiers.IBaseValueModifier:
             support.CollectAdded(new AddedSink(acc))
-        if support is IIncreasedModifier:
+        if support is IPierceCountModifiers.IBaseValueModifier:
+            support.CollectAdded(new AddedSink(acc))
+        if support is IAreaSizeModifiers.IIncreasedModifier:
             support.CollectIncreases(new IncreasedSink(acc))
-        if support is IMultiplierModifier:
+        if support is IAreaSizeModifiers.IMultiplierModifier:
+            support.CollectMultipliers(new MultiplierSink(acc))
+        if support is IProjectileSpeedModifiers.IMultiplierModifier:
+            support.CollectMultipliers(new MultiplierSink(acc))
+        if support is IProjectileLifetimeModifiers.IMultiplierModifier:
+            support.CollectMultipliers(new MultiplierSink(acc))
+        if support is IRateModifiers.IIncreasedModifier:
+            support.CollectIncreases(new IncreasedSink(acc))
+        if support is IManaModifiers.IBaseValueModifier:
+            support.CollectAdded(new AddedSink(acc))
+        if support is IManaModifiers.IIncreasedModifier:
+            support.CollectIncreases(new IncreasedSink(acc))
+        if support is IManaModifiers.IMultiplierModifier:
             support.CollectMultipliers(new MultiplierSink(acc))
         // These are independent if checks; multi-kind supports visit every matching branch.
     for each support in set.supports:

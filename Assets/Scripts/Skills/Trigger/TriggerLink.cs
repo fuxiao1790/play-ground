@@ -42,6 +42,13 @@ namespace PlayGround.Skills
         [FormerlySerializedAs("manaToEnergyRatio")]
         [Min(0f)] public float manaCostMultiplier = 1f;
 
+        // Applied before manaCostMultiplier: resolvedCost = childCost *
+        // (1 + manaCostIncreasedPercent) * manaCostMultiplier.
+        [Min(0f)] public float manaCostIncreasedPercent = 0f;
+
+        public float ResolveManaCostFactor() =>
+            (1f + manaCostIncreasedPercent) * manaCostMultiplier;
+
         public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
         public string Description => description;
         public Sprite Icon => icon;

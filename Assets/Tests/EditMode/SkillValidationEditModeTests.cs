@@ -146,6 +146,137 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void CompilerAppliesManaCostAddedAlongsideOwnStat()
+        {
+            ProjectileSkill skill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            ((ProjectileDefinition)skill.Definition).manaCost = 10f;
+            PiercingSupport support = CreateAsset<PiercingSupport>("Piercing");
+            SetField(support, "pierceCount", 2);
+            SetField(support, "manaCostAdded", 3f);
+            SkillSet set = CreateSkillSet("Projectile Set", skill, support);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[] { new SkillLoadoutNode(set) },
+                0,
+                SkillStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
+            var projectile = (RuntimeProjectileDefinition)runtime;
+            Assert.That(projectile.ManaCost, Is.EqualTo(13f).Within(0.0001f));
+            Assert.That(projectile.PierceCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void CompilerAppliesManaCostIncreasedPercentAlongsideOwnStat()
+        {
+            AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
+            var definition = (AoeDefinitionBase)skill.Definition;
+            definition.manaCost = 10f;
+            definition.baseAreaSize = 4f;
+            IncreasedAoeSupport support = CreateAsset<IncreasedAoeSupport>("Increased AOE");
+            SetField(support, "areaSizeMultiplier", 1.5f);
+            SetField(support, "manaCostIncreasedPercent", 0.5f);
+            SkillSet set = CreateSkillSet("AOE Set", skill, support);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[] { new SkillLoadoutNode(set) },
+                0,
+                SkillStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
+            var aoe = (RuntimeAoeDefinition)runtime;
+            Assert.That(aoe.ManaCost, Is.EqualTo(15f).Within(0.0001f));
+            Assert.That(aoe.AreaSize, Is.EqualTo(6f).Within(0.0001f));
+        }
+
+        [Test]
+        public void CompilerAppliesManaCostMultiplierAlongsideOwnStat()
+        {
+            AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
+            var definition = (AoeDefinitionBase)skill.Definition;
+            definition.manaCost = 10f;
+            definition.baseAreaSize = 4f;
+            ConcentratedEffectSupport support = CreateAsset<ConcentratedEffectSupport>("Concentrated Effect");
+            SetField(support, "areaSizeMultiplier", 0.75f);
+            SetField(support, "manaCostMultiplier", 1.5f);
+            SkillSet set = CreateSkillSet("AOE Set", skill, support);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[] { new SkillLoadoutNode(set) },
+                0,
+                SkillStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
+            var aoe = (RuntimeAoeDefinition)runtime;
+            Assert.That(aoe.ManaCost, Is.EqualTo(15f).Within(0.0001f));
+            Assert.That(aoe.AreaSize, Is.EqualTo(3f).Within(0.0001f));
+        }
+
+        [Test]
+        public void CompilerCombinesManaCostFoldOrderAcrossSupports()
+        {
+            AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
+            ((AoeDefinitionBase)skill.Definition).manaCost = 10f;
+            MultipleProjectilesSupport added = CreateAsset<MultipleProjectilesSupport>("Multiple Projectiles");
+            SetField(added, "manaCostAdded", 3f);
+            IncreasedAoeSupport increased = CreateAsset<IncreasedAoeSupport>("Increased AOE");
+            SetField(increased, "manaCostIncreasedPercent", 0.5f);
+            ConcentratedEffectSupport multiplier = CreateAsset<ConcentratedEffectSupport>("Concentrated Effect");
+            SetField(multiplier, "manaCostMultiplier", 1.5f);
+            SkillSet set = CreateSkillSet("AOE Set", skill, added, increased, multiplier);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[] { new SkillLoadoutNode(set) },
+                0,
+                SkillStatSnapshot.Identity);
+
+            Assert.That(((RuntimeAoeDefinition)runtime).ManaCost, Is.EqualTo(29.25f).Within(0.0001f));
+        }
+
+        [Test]
+        public void CompilerLeavesManaCostUnchangedForSupportsWithoutManaModifiers()
+        {
+            AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
+            ((AoeDefinitionBase)skill.Definition).manaCost = 10f;
+            StackingSupport support = CreateAsset<StackingSupport>("Stacking");
+            SkillSet set = CreateSkillSet("Stacking Set", skill, support);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[] { new SkillLoadoutNode(set) },
+                0,
+                SkillStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeStackingDetonation>());
+            var stacking = (RuntimeStackingDetonation)runtime;
+            Assert.That(((RuntimeAoeDefinition)stacking.Detonation).ManaCost, Is.EqualTo(10f).Within(0.0001f));
+        }
+
+        [Test]
+        public void CompilerAppliesTriggerManaCostIncreasedPercent()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            AoeSkill targetSkill = CreateAsset<AoeSkill>("AOE Skill");
+            ((ProjectileDefinition)sourceSkill.Definition).manaCost = 2f;
+            ((AoeDefinitionBase)targetSkill.Definition).manaCost = 4f;
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
+            OnImpactAoeTrigger trigger = CreateAsset<OnImpactAoeTrigger>("On Impact AOE");
+            trigger.manaCostMultiplier = 2f;
+            trigger.manaCostIncreasedPercent = 0.5f;
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(sourceSet, trigger),
+                    new SkillLoadoutNode(targetSet),
+                },
+                0,
+                SkillStatSnapshot.Identity);
+
+            Assert.That(((RuntimeProjectileDefinition)runtime).ManaCost, Is.EqualTo(14f).Within(0.0001f));
+        }
+
+        [Test]
         public void CompilerMapsProjectileEnergyRateAndCost()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
@@ -248,6 +379,31 @@ namespace PlayGround.Tests.EditMode
 
             RuntimeChildSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).ChildSpawnSetup;
             Assert.That(setup.EnergyThreshold, Is.EqualTo(8f).Within(0.0001f));
+        }
+
+        [Test]
+        public void CompilerAppliesIntervalManaCostIncreasedPercent()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Child Projectile Skill");
+            ((ProjectileDefinition)targetSkill.Definition).manaCost = 4f;
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
+            ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
+            trigger.manaCostMultiplier = 2f;
+            trigger.manaCostIncreasedPercent = 0.5f;
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(sourceSet, trigger),
+                    new SkillLoadoutNode(targetSet),
+                },
+                0,
+                SkillStatSnapshot.Identity);
+
+            RuntimeChildSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).ChildSpawnSetup;
+            Assert.That(setup.EnergyThreshold, Is.EqualTo(12f).Within(0.0001f));
         }
 
         [Test]

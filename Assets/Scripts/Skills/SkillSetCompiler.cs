@@ -190,14 +190,35 @@ namespace PlayGround.Skills
                 if (support == null)
                     continue;
 
-                if (support is IBaseValueModifier baseValue)
-                    baseValue.CollectAdded(new AddedSink(modifiers));
+                if (support is IDamageModifiers.IBaseValueModifier damageAdded)
+                    damageAdded.CollectAdded(new AddedSink(modifiers));
 
-                if (support is IIncreasedModifier increased)
-                    increased.CollectIncreases(new IncreasedSink(modifiers));
+                if (support is IPierceCountModifiers.IBaseValueModifier pierceCountAdded)
+                    pierceCountAdded.CollectAdded(new AddedSink(modifiers));
 
-                if (support is IMultiplierModifier multiplier)
-                    multiplier.CollectMultipliers(new MultiplierSink(modifiers));
+                if (support is IAreaSizeModifiers.IIncreasedModifier areaSizeIncreased)
+                    areaSizeIncreased.CollectIncreases(new IncreasedSink(modifiers));
+
+                if (support is IAreaSizeModifiers.IMultiplierModifier areaSizeMultiplier)
+                    areaSizeMultiplier.CollectMultipliers(new MultiplierSink(modifiers));
+
+                if (support is IProjectileSpeedModifiers.IMultiplierModifier speedMultiplier)
+                    speedMultiplier.CollectMultipliers(new MultiplierSink(modifiers));
+
+                if (support is IProjectileLifetimeModifiers.IMultiplierModifier lifetimeMultiplier)
+                    lifetimeMultiplier.CollectMultipliers(new MultiplierSink(modifiers));
+
+                if (support is IRateModifiers.IIncreasedModifier rateIncreased)
+                    rateIncreased.CollectIncreases(new IncreasedSink(modifiers));
+
+                if (support is IManaModifiers.IBaseValueModifier manaAdded)
+                    manaAdded.CollectAdded(new AddedSink(modifiers));
+
+                if (support is IManaModifiers.IIncreasedModifier manaIncreased)
+                    manaIncreased.CollectIncreases(new IncreasedSink(modifiers));
+
+                if (support is IManaModifiers.IMultiplierModifier manaMultiplier)
+                    manaMultiplier.CollectMultipliers(new MultiplierSink(modifiers));
             }
         }
 
@@ -451,8 +472,8 @@ namespace PlayGround.Skills
             if (triggeredDefinition == null || triggerLink == null)
                 return;
 
-            triggeredDefinition.IncomingManaCostMultiplier =
-                Mathf.Max(0f, triggerLink.manaCostMultiplier);
+            triggeredDefinition.IncomingManaCostFactor =
+                Mathf.Max(0f, triggerLink.ResolveManaCostFactor());
         }
 
         private static float GetOwnManaCost(RuntimeSkillDefinition definition)
@@ -480,14 +501,14 @@ namespace PlayGround.Skills
             if (definition is RuntimeStackingDetonation stacking)
             {
                 float stackingMultiplier = includeCurrent
-                    ? stacking.IncomingManaCostMultiplier
+                    ? stacking.IncomingManaCostFactor
                     : 1f;
                 return stackingMultiplier * GetManaCostMultiplier(
                     stacking.Detonation, includeCurrent: false);
             }
 
             float multiplier = includeCurrent
-                ? definition?.IncomingManaCostMultiplier ?? 1f
+                ? definition?.IncomingManaCostFactor ?? 1f
                 : 1f;
 
             if (definition is RuntimeProjectileDefinition projectile)
@@ -523,14 +544,14 @@ namespace PlayGround.Skills
             if (definition is RuntimeStackingDetonation stacking)
             {
                 float stackingManaCost = isTriggeredSkill
-                    ? GetOwnManaCost(stacking) * stacking.IncomingManaCostMultiplier
+                    ? GetOwnManaCost(stacking) * stacking.IncomingManaCostFactor
                     : 0f;
                 return stackingManaCost
                     + SumTriggeredSkillManaCosts(stacking.Detonation, isTriggeredSkill: false);
             }
 
             float manaCost = isTriggeredSkill
-                ? GetOwnManaCost(definition) * definition.IncomingManaCostMultiplier
+                ? GetOwnManaCost(definition) * definition.IncomingManaCostFactor
                 : 0f;
 
             if (definition is RuntimeProjectileDefinition projectile)

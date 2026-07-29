@@ -114,36 +114,27 @@ namespace PlayGround.Tests.EditMode
         [Test]
         public void AddedIncreasedAndMultiplierComposePerFormula()
         {
-            AoeSkill skill = CreateAoeSkill("AOE Skill", damage: 10f);
-            AddedDamageSupport added = CreateAsset<AddedDamageSupport>("Added Damage");
-            SetField(added, "addedDamage", 5f);
-            TestIncreasedSupport increased = CreateIncreasedSupport("Increased Damage", SkillStat.Damage, 1f);
-            TestMultiplierSupport multiplier = CreateMultiplierSupport("More Damage", SkillStat.Damage, 2f, MultiplierTiming.Post);
-            SkillSet set = CreateSkillSet("Set", skill, added, increased, multiplier);
+            var accumulator = new StatModifierAccumulator();
+            accumulator.AddAdded(SkillStat.Damage, 5f);
+            accumulator.AddIncreased(SkillStat.Damage, 1f);
+            accumulator.AddMultiplier(SkillStat.Damage, 2f, MultiplierTiming.Post);
 
-            var runtime = (RuntimeAoeDefinition)Compile(set);
-
-            Assert.That(runtime.Damage, Is.EqualTo(60f).Within(0.0001f));
+            Assert.That(accumulator.Resolve(SkillStat.Damage, 10f), Is.EqualTo(60f).Within(0.0001f));
         }
 
         [Test]
         public void PreAndPostMultipliersDifferOnlyWithFlatAdds()
         {
-            ProjectileSkill preSkill = CreateProjectileSkill("Pre Projectile Skill", damage: 5f);
-            TestAddedSupport preAdded = CreateAddedSupport("Pre Added Damage", SkillStat.Damage, 10f);
-            TestMultiplierSupport preMultiplier = CreateMultiplierSupport("Pre More Damage", SkillStat.Damage, 2f, MultiplierTiming.Pre);
-            SkillSet preSet = CreateSkillSet("Pre Set", preSkill, preAdded, preMultiplier);
+            var preAccumulator = new StatModifierAccumulator();
+            preAccumulator.AddAdded(SkillStat.Damage, 10f);
+            preAccumulator.AddMultiplier(SkillStat.Damage, 2f, MultiplierTiming.Pre);
 
-            ProjectileSkill postSkill = CreateProjectileSkill("Post Projectile Skill", damage: 5f);
-            TestAddedSupport postAdded = CreateAddedSupport("Post Added Damage", SkillStat.Damage, 10f);
-            TestMultiplierSupport postMultiplier = CreateMultiplierSupport("Post More Damage", SkillStat.Damage, 2f, MultiplierTiming.Post);
-            SkillSet postSet = CreateSkillSet("Post Set", postSkill, postAdded, postMultiplier);
+            var postAccumulator = new StatModifierAccumulator();
+            postAccumulator.AddAdded(SkillStat.Damage, 10f);
+            postAccumulator.AddMultiplier(SkillStat.Damage, 2f, MultiplierTiming.Post);
 
-            var preRuntime = (RuntimeProjectileDefinition)Compile(preSet);
-            var postRuntime = (RuntimeProjectileDefinition)Compile(postSet);
-
-            Assert.That(preRuntime.Damage, Is.EqualTo(20f).Within(0.0001f));
-            Assert.That(postRuntime.Damage, Is.EqualTo(30f).Within(0.0001f));
+            Assert.That(preAccumulator.Resolve(SkillStat.Damage, 5f), Is.EqualTo(20f).Within(0.0001f));
+            Assert.That(postAccumulator.Resolve(SkillStat.Damage, 5f), Is.EqualTo(30f).Within(0.0001f));
         }
 
         [Test]
@@ -152,7 +143,7 @@ namespace PlayGround.Tests.EditMode
             ProjectileSkill skill = CreateProjectileSkill("Projectile Skill");
             SetField(skill, "baseRate", 2.5f);
             IncreasedRateSupport support = CreateAsset<IncreasedRateSupport>("Increased Rate");
-            SetField(support, "increasedRatePercent", 0.5f);
+            SetField(support, "increasedRatePercent", 50f);
             SkillSet set = CreateSkillSet("Set", skill, support);
             var snapshot = new SkillStatSnapshot(
                 increasedRatePercent: 0.5f,
@@ -178,7 +169,7 @@ namespace PlayGround.Tests.EditMode
             ProjectileSkill skill = CreateProjectileSkill("Projectile Skill");
             SetField(skill, "baseRate", 1f);
             IncreasedRateSupport support = CreateAsset<IncreasedRateSupport>("Increased Rate");
-            SetField(support, "increasedRatePercent", 0.15f);
+            SetField(support, "increasedRatePercent", 15f);
             SkillSet set = CreateSkillSet("Set", skill, support);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
@@ -253,35 +244,6 @@ namespace PlayGround.Tests.EditMode
             return skill;
         }
 
-        private TestAddedSupport CreateAddedSupport(string name, SkillStat stat, float amount)
-        {
-            TestAddedSupport support = CreateAsset<TestAddedSupport>(name);
-            support.Stat = stat;
-            support.Amount = amount;
-            return support;
-        }
-
-        private TestIncreasedSupport CreateIncreasedSupport(string name, SkillStat stat, float percent)
-        {
-            TestIncreasedSupport support = CreateAsset<TestIncreasedSupport>(name);
-            support.Stat = stat;
-            support.Percent = percent;
-            return support;
-        }
-
-        private TestMultiplierSupport CreateMultiplierSupport(
-            string name,
-            SkillStat stat,
-            float multiplier,
-            MultiplierTiming timing)
-        {
-            TestMultiplierSupport support = CreateAsset<TestMultiplierSupport>(name);
-            support.Stat = stat;
-            support.Multiplier = multiplier;
-            support.Timing = timing;
-            return support;
-        }
-
         private SkillSet CreateSkillSet(string name, Skill skill, params SkillSupport[] supports)
         {
             SkillSet set = CreateAsset<SkillSet>(name);
@@ -313,41 +275,5 @@ namespace PlayGround.Tests.EditMode
             field.SetValue(target, value);
         }
 
-        private sealed class TestAddedSupport : StatModifierSupport, IBaseValueModifier
-        {
-            public SkillStat Stat { get; set; }
-            public float Amount { get; set; }
-            public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Any;
-
-            public void CollectAdded(AddedSink sink)
-            {
-                sink.Add(Stat, Amount);
-            }
-        }
-
-        private sealed class TestIncreasedSupport : StatModifierSupport, IIncreasedModifier
-        {
-            public SkillStat Stat { get; set; }
-            public float Percent { get; set; }
-            public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Any;
-
-            public void CollectIncreases(IncreasedSink sink)
-            {
-                sink.Add(Stat, Percent);
-            }
-        }
-
-        private sealed class TestMultiplierSupport : StatModifierSupport, IMultiplierModifier
-        {
-            public SkillStat Stat { get; set; }
-            public float Multiplier { get; set; } = 1f;
-            public MultiplierTiming Timing { get; set; } = MultiplierTiming.Post;
-            public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Any;
-
-            public void CollectMultipliers(MultiplierSink sink)
-            {
-                sink.Add(Stat, Multiplier, Timing);
-            }
-        }
     }
 }

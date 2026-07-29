@@ -8,6 +8,6 @@ namespace PlayGround.Skills
         [Min(0.01f)] public float energyPerSecond = 2f;
 
         public float ManaToEnergyCost(float manaCost) =>
-            Mathf.Max(1e-3f, manaCost * manaCostMultiplier);
+            Mathf.Max(1e-3f, manaCost * ResolveManaCostFactor());
     }
 }
