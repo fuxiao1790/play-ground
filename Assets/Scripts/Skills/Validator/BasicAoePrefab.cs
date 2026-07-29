@@ -18,13 +18,13 @@ namespace PlayGround.Skills
         [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField] private Collider2D hurtbox;
         [SerializeField] private VisualEffectAsset spawnEffect;
-        [SerializeField] private VfxDataShape spawnEffectShape = VfxDataShape.Basic;
+        [SerializeField] private VfxDataShape spawnEffectShape = VfxDataShape.Circular;
         [SerializeField] private VisualEffectAsset hitEffect;
-        [SerializeField] private VfxDataShape hitEffectShape = VfxDataShape.Basic;
+        [SerializeField] private VfxDataShape hitEffectShape = VfxDataShape.Circular;
         [SerializeField] private VisualEffectAsset expireEffect;
-        [SerializeField] private VfxDataShape expireEffectShape = VfxDataShape.Basic;
+        [SerializeField] private VfxDataShape expireEffectShape = VfxDataShape.Circular;
         [SerializeField] private VisualEffectAsset armingEffect;
-        [SerializeField] private VfxDataShape armingEffectShape = VfxDataShape.Basic;
+        [SerializeField] private VfxDataShape armingEffectShape = VfxDataShape.Circular;
 
         public SpriteRenderer SpriteRenderer => spriteRenderer;
         public Collider2D Hurtbox => hurtbox;
@@ -58,10 +58,10 @@ namespace PlayGround.Skills
             VisualEffectAsset hitVisualEffect = null,
             VisualEffectAsset expireVisualEffect = null,
             VisualEffectAsset armingVisualEffect = null,
-            VfxDataShape spawnShape = VfxDataShape.Basic,
-            VfxDataShape hitShape = VfxDataShape.Basic,
-            VfxDataShape expireShape = VfxDataShape.Basic,
-            VfxDataShape armingShape = VfxDataShape.Basic)
+            VfxDataShape spawnShape = VfxDataShape.Circular,
+            VfxDataShape hitShape = VfxDataShape.Circular,
+            VfxDataShape expireShape = VfxDataShape.Circular,
+            VfxDataShape armingShape = VfxDataShape.Circular)
         {
             spriteRenderer = renderer;
             hurtbox = hurtboxShape;

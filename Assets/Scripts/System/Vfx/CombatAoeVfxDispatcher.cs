@@ -18,6 +18,9 @@ namespace PlayGround.System.Combat.Vfx
         public GraphicsBuffer AreaSizeBuffer;
         public GraphicsBuffer DurationBuffer;
         public GraphicsBuffer TickIntervalBuffer;
+        public GraphicsBuffer StartPositionBuffer;
+        public GraphicsBuffer EndPositionBuffer;
+        public GraphicsBuffer WidthBuffer;
         public int BufferCapacity;
 
         public void EnsureBufferCapacity(int requiredCapacity)
@@ -37,6 +40,9 @@ namespace PlayGround.System.Combat.Vfx
             GraphicsBuffer newAreaSizeBuffer = null;
             GraphicsBuffer newDurationBuffer = null;
             GraphicsBuffer newTickIntervalBuffer = null;
+            GraphicsBuffer newStartPositionBuffer = null;
+            GraphicsBuffer newEndPositionBuffer = null;
+            GraphicsBuffer newWidthBuffer = null;
             try
             {
                 newPositionBuffer = new GraphicsBuffer(
@@ -48,13 +54,28 @@ namespace PlayGround.System.Combat.Vfx
                     newCapacity,
                     sizeof(float));
 
-                if (Shape == VfxDataShape.Timed)
+                if (Shape == VfxDataShape.TimedCircular)
                 {
                     newDurationBuffer = new GraphicsBuffer(
                         GraphicsBuffer.Target.Structured,
                         newCapacity,
                         sizeof(float));
                     newTickIntervalBuffer = new GraphicsBuffer(
+                        GraphicsBuffer.Target.Structured,
+                        newCapacity,
+                        sizeof(float));
+                }
+                else if (Shape == VfxDataShape.LineSegment)
+                {
+                    newStartPositionBuffer = new GraphicsBuffer(
+                        GraphicsBuffer.Target.Structured,
+                        newCapacity,
+                        sizeof(float) * 2);
+                    newEndPositionBuffer = new GraphicsBuffer(
+                        GraphicsBuffer.Target.Structured,
+                        newCapacity,
+                        sizeof(float) * 2);
+                    newWidthBuffer = new GraphicsBuffer(
                         GraphicsBuffer.Target.Structured,
                         newCapacity,
                         sizeof(float));
@@ -66,6 +87,9 @@ namespace PlayGround.System.Combat.Vfx
                 newAreaSizeBuffer?.Release();
                 newDurationBuffer?.Release();
                 newTickIntervalBuffer?.Release();
+                newStartPositionBuffer?.Release();
+                newEndPositionBuffer?.Release();
+                newWidthBuffer?.Release();
                 throw;
             }
 
@@ -73,10 +97,16 @@ namespace PlayGround.System.Combat.Vfx
             AreaSizeBuffer?.Release();
             DurationBuffer?.Release();
             TickIntervalBuffer?.Release();
+            StartPositionBuffer?.Release();
+            EndPositionBuffer?.Release();
+            WidthBuffer?.Release();
             PositionBuffer = newPositionBuffer;
             AreaSizeBuffer = newAreaSizeBuffer;
             DurationBuffer = newDurationBuffer;
             TickIntervalBuffer = newTickIntervalBuffer;
+            StartPositionBuffer = newStartPositionBuffer;
+            EndPositionBuffer = newEndPositionBuffer;
+            WidthBuffer = newWidthBuffer;
             BufferCapacity = newCapacity;
         }
 
@@ -90,6 +120,12 @@ namespace PlayGround.System.Combat.Vfx
             DurationBuffer = null;
             TickIntervalBuffer?.Release();
             TickIntervalBuffer = null;
+            StartPositionBuffer?.Release();
+            StartPositionBuffer = null;
+            EndPositionBuffer?.Release();
+            EndPositionBuffer = null;
+            WidthBuffer?.Release();
+            WidthBuffer = null;
             if (Instance != null)
             {
                 Object.Destroy(Instance.gameObject);
@@ -104,10 +140,10 @@ namespace PlayGround.System.Combat.Vfx
     {
         public void Dispatch(AoeVfxTypeResources res, NativeArray<float2> positions, NativeArray<float> areaSizes)
         {
-            DispatchBasic(res, positions, areaSizes);
+            DispatchCircular(res, positions, areaSizes);
         }
 
-        public void DispatchBasic(
+        public void DispatchCircular(
             AoeVfxTypeResources res,
             NativeArray<float2> positions,
             NativeArray<float> areaSizes)
@@ -116,7 +152,7 @@ namespace PlayGround.System.Combat.Vfx
             res.Instance.SendEvent(VfxDataShapeTable.SpawnEventName);
         }
 
-        public void DispatchTimed(
+        public void DispatchTimedCircular(
             AoeVfxTypeResources res,
             NativeArray<float2> positions,
             NativeArray<float> areaSizes,
@@ -129,6 +165,25 @@ namespace PlayGround.System.Combat.Vfx
             res.Instance.SetGraphicsBuffer(VfxDataShapeTable.DurationsPropertyName, res.DurationBuffer);
             res.TickIntervalBuffer.SetData(tickIntervals, 0, 0, count);
             res.Instance.SetGraphicsBuffer(VfxDataShapeTable.TickIntervalsPropertyName, res.TickIntervalBuffer);
+            res.Instance.SendEvent(VfxDataShapeTable.SpawnEventName);
+        }
+
+        public void DispatchLineSegment(
+            AoeVfxTypeResources res,
+            NativeArray<float2> startPositions,
+            NativeArray<float2> endPositions,
+            NativeArray<float> widths)
+        {
+            int count = startPositions.Length;
+            res.EnsureBufferCapacity(count);
+            res.Instance.transform.position = new Vector3(0f, 0f, res.Instance.transform.position.z);
+            res.StartPositionBuffer.SetData(startPositions, 0, 0, count);
+            res.Instance.SetGraphicsBuffer(VfxDataShapeTable.StartPositionsPropertyName, res.StartPositionBuffer);
+            res.EndPositionBuffer.SetData(endPositions, 0, 0, count);
+            res.Instance.SetGraphicsBuffer(VfxDataShapeTable.EndPositionsPropertyName, res.EndPositionBuffer);
+            res.WidthBuffer.SetData(widths, 0, 0, count);
+            res.Instance.SetGraphicsBuffer(VfxDataShapeTable.WidthsPropertyName, res.WidthBuffer);
+            res.Instance.SetInt(VfxDataShapeTable.SpawnCountPropertyName, count);
             res.Instance.SendEvent(VfxDataShapeTable.SpawnEventName);
         }
 

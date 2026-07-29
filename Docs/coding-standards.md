@@ -160,7 +160,7 @@ Keep these as distinct typed paths:
 - `CombatHitEvent` carries raw hit data into ECS finalization.
 - `CombatTickResult` carries aggregate damage/status presentation data through
   `CombatApplyBridge`.
-- `VfxSpawnRequest` and `TimedVfxSpawnRequest` carry visual-only requests into
+- `CircularVfxSpawnRequest`, `TimedCircularVfxSpawnRequest`, and `LineSegmentVfxSpawn` carry visual-only requests into
   VFX dispatch.
 
 Do not widen damage events with spawn-routing fields. Do not widen spawn events

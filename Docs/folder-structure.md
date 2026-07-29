@@ -206,7 +206,7 @@ Docs/
 - `Assets/Scripts/System/Combat/Vfx/AoeVfxEcsComponents.cs`: `AoeVfxIds` slots and
   `VfxTimingData` ECS components.
 - `Assets/Scripts/System/Combat/Vfx/VfxDataShapes.cs`: `VfxDataShape` enum, per-shape
-  request structs (`VfxSpawnRequest`, `TimedVfxSpawnRequest`), and the
+  request structs (`CircularVfxSpawnRequest`, `TimedCircularVfxSpawnRequest`, `LineSegmentVfxSpawn`), and the
   `VfxDataShapeTable` (buffer contracts + id encode/decode).
 - `Assets/Scripts/System/Combat/Vfx/VfxEmit.cs`: Burst helper that decodes shape from
   the id and enqueues the concrete request to the matching per-shape queue.

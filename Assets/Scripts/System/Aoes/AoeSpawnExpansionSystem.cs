@@ -32,8 +32,8 @@ namespace PlayGround.System.Combat.Aoes
             int contactGateSeedTargetId,
             NativeHashMap<Hash128, AoeSpawnCommand> templates,
             NativeList<AoeSpawnCommand> commands,
-            NativeQueue<VfxSpawnRequest>.ParallelWriter basicVfxPending,
-            NativeQueue<TimedVfxSpawnRequest>.ParallelWriter timedVfxPending)
+            NativeQueue<CircularVfxSpawnRequest>.ParallelWriter circularVfxPending,
+            NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter timedCircularVfxPending)
         {
             if (eventKind != expectedKind
                 || !templates.TryGetValue(templateKey, out AoeSpawnCommand command))
@@ -103,8 +103,8 @@ namespace PlayGround.System.Combat.Aoes
                     pos,
                     spawned.AreaSize,
                     timing,
-                    basicVfxPending,
-                    timedVfxPending);
+                    circularVfxPending,
+                    timedCircularVfxPending);
             }
         }
 
@@ -310,8 +310,8 @@ namespace PlayGround.System.Combat.Aoes
                 Events = events,
                 Templates = templates.Map,
                 Commands = commands,
-                BasicVfxPending = vfx.ValueRO.PendingBasicSpawns.AsParallelWriter(),
-                TimedVfxPending = vfx.ValueRO.PendingTimedSpawns.AsParallelWriter()
+                CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
+                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter()
             }.Schedule(expansionInput);
 
             vfx.ValueRW.ProducerHandle = Dependency;
@@ -327,8 +327,8 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeArray<ImpactAoeSpawnEvent> Events;
             [ReadOnly] public NativeHashMap<Hash128, AoeSpawnCommand> Templates;
             public NativeList<AoeSpawnCommand> Commands;
-            public NativeQueue<VfxSpawnRequest>.ParallelWriter BasicVfxPending;
-            public NativeQueue<TimedVfxSpawnRequest>.ParallelWriter TimedVfxPending;
+            public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
+            public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
 
             public void Execute()
             {
@@ -348,8 +348,8 @@ namespace PlayGround.System.Combat.Aoes
                         evt.ContactGateSeedTargetId,
                         Templates,
                         Commands,
-                        BasicVfxPending,
-                        TimedVfxPending);
+                        CircularVfxPending,
+                        TimedCircularVfxPending);
                 }
             }
         }
@@ -482,8 +482,8 @@ namespace PlayGround.System.Combat.Aoes
                 Events = events,
                 Templates = templates.Map,
                 Commands = commands,
-                BasicVfxPending = vfx.ValueRO.PendingBasicSpawns.AsParallelWriter(),
-                TimedVfxPending = vfx.ValueRO.PendingTimedSpawns.AsParallelWriter()
+                CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
+                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter()
             }.Schedule(expansionInput);
 
             vfx.ValueRW.ProducerHandle = Dependency;
@@ -499,8 +499,8 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeArray<LingeringAoeSpawnEvent> Events;
             [ReadOnly] public NativeHashMap<Hash128, AoeSpawnCommand> Templates;
             public NativeList<AoeSpawnCommand> Commands;
-            public NativeQueue<VfxSpawnRequest>.ParallelWriter BasicVfxPending;
-            public NativeQueue<TimedVfxSpawnRequest>.ParallelWriter TimedVfxPending;
+            public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
+            public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
 
             public void Execute()
             {
@@ -520,8 +520,8 @@ namespace PlayGround.System.Combat.Aoes
                         evt.ContactGateSeedTargetId,
                         Templates,
                         Commands,
-                        BasicVfxPending,
-                        TimedVfxPending);
+                        CircularVfxPending,
+                        TimedCircularVfxPending);
                 }
             }
         }

@@ -46,8 +46,8 @@ namespace PlayGround.System.Combat.Lifetime
             var aoeJob = new AoeLifetimeJob
             {
                 DeltaTime = deltaTime,
-                BasicVfxPending = vfx.ValueRO.PendingBasicSpawns.AsParallelWriter(),
-                TimedVfxPending = vfx.ValueRO.PendingTimedSpawns.AsParallelWriter()
+                CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
+                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter()
             };
 
             JobHandle projectileHandle = projectileJob.ScheduleParallel(state.Dependency);
@@ -86,8 +86,8 @@ namespace PlayGround.System.Combat.Lifetime
         private partial struct AoeLifetimeJob : IJobEntity
         {
             public float DeltaTime;
-            public NativeQueue<VfxSpawnRequest>.ParallelWriter BasicVfxPending;
-            public NativeQueue<TimedVfxSpawnRequest>.ParallelWriter TimedVfxPending;
+            public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
+            public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
 
             private void Execute(
                 in AoeVfxIds vfxIds,
@@ -107,8 +107,8 @@ namespace PlayGround.System.Combat.Lifetime
                         active,
                         collisionActive,
                         arming,
-                        BasicVfxPending,
-                        TimedVfxPending,
+                        CircularVfxPending,
+                        TimedCircularVfxPending,
                         vfxIds.ExpireId,
                         kinematics.Position,
                         math.max(authoring.VisualScale.x, authoring.VisualScale.y),

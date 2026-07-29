@@ -25,8 +25,8 @@ namespace PlayGround.Tests.EditMode
             VisualEffectAsset asset = LoadVfxAsset();
             CombatVfxRoot root = CreateRoot();
 
-            int first = root.Register(asset, VfxDataShape.Basic);
-            int second = root.Register(asset, VfxDataShape.Basic);
+            int first = root.Register(asset, VfxDataShape.Circular);
+            int second = root.Register(asset, VfxDataShape.Circular);
 
             Assert.That(first, Is.GreaterThan(0));
             Assert.That(second, Is.EqualTo(first));
@@ -38,10 +38,20 @@ namespace PlayGround.Tests.EditMode
         {
             CombatVfxRoot root = CreateRoot();
 
-            int id = root.Register(null, VfxDataShape.Basic);
+            int id = root.Register(null, VfxDataShape.Circular);
 
             Assert.That(id, Is.Zero);
             Assert.That(root.transform.childCount, Is.Zero);
+        }
+
+        [Test]
+        public void LineSegmentId_RetainsShapeAndLocalIndex()
+        {
+            int id = VfxDataShapeTable.EncodeId(VfxDataShape.LineSegment, 7);
+
+            Assert.That(VfxDataShapeTable.DecodeShape(id), Is.EqualTo(VfxDataShape.LineSegment));
+            Assert.That(VfxDataShapeTable.DecodeLocalIndex(id), Is.EqualTo(7));
+            Assert.That(VfxDataShapeTable.BufferCountFor(VfxDataShape.LineSegment), Is.EqualTo(3));
         }
 
         [Test]

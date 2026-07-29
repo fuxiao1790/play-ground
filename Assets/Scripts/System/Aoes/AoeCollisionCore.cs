@@ -42,8 +42,8 @@ namespace PlayGround.System.Combat.Aoes
             NativeArray<TargetFaction> targetFactions,
             NativeParallelMultiHashMap<long, int> occupiedTargetCells,
             NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
-            NativeQueue<VfxSpawnRequest>.ParallelWriter basicVfxPendingWriter,
-            NativeQueue<TimedVfxSpawnRequest>.ParallelWriter timedVfxPendingWriter,
+            NativeQueue<CircularVfxSpawnRequest>.ParallelWriter circularVfxPendingWriter,
+            NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter timedCircularVfxPendingWriter,
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
             NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
             NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter)
@@ -119,8 +119,8 @@ namespace PlayGround.System.Combat.Aoes
                             targetEntity,
                             targetPosition,
                             targetKey,
-                            basicVfxPendingWriter,
-                            timedVfxPendingWriter,
+                            circularVfxPendingWriter,
+                            timedCircularVfxPendingWriter,
                             ref hitVfxEmitted,
                             hitWriter,
                             sourceEntity,
@@ -150,8 +150,8 @@ namespace PlayGround.System.Combat.Aoes
             Entity targetEntity,
             TargetPosition targetPosition,
             int targetKey,
-            NativeQueue<VfxSpawnRequest>.ParallelWriter basicVfxPending,
-            NativeQueue<TimedVfxSpawnRequest>.ParallelWriter timedVfxPending,
+            NativeQueue<CircularVfxSpawnRequest>.ParallelWriter circularVfxPending,
+            NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter timedCircularVfxPending,
             ref bool hitVfxEmitted,
             NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
             Entity sourceEntity,
@@ -226,8 +226,8 @@ namespace PlayGround.System.Combat.Aoes
                     kinematics.Position,
                     area.Size,
                     timing,
-                    basicVfxPending,
-                    timedVfxPending);
+                    circularVfxPending,
+                    timedCircularVfxPending);
                 hitVfxEmitted = true;
             }
         }

@@ -315,7 +315,7 @@ Current consequence paths include:
   and stack detonation projectiles
 - `AOE variant spawn event` values for impact AOEs, on-hit AOEs, timed AOEs, and stack
   detonation AOEs
-- `VfxSpawnRequest` / `TimedVfxSpawnRequest` values written to the per-shape VFX
+- `CircularVfxSpawnRequest` / `TimedCircularVfxSpawnRequest` values written to the per-shape VFX
   queues via `VfxEmit`
 
 Follow-up spawns stay in ECS event flow and return to expansion/apply.
@@ -345,7 +345,7 @@ mesh/material in as few `Graphics.RenderMeshInstanced` calls as the
 1023-instance cap requires.
 
 VFX requests are data until presentation. Collision, lifetime, pulse, and spawn
-systems call `VfxEmit.Enqueue`, writing `VfxSpawnRequest` or `TimedVfxSpawnRequest`
+systems call `VfxEmit.Enqueue`, writing `CircularVfxSpawnRequest` or `TimedCircularVfxSpawnRequest`
 into the per-shape native queues owned by `CombatAoeVfxDispatchSystem`. That system
 completes producers, buckets each shape by graph id, and dispatches through
 `CombatVfxRoot`.

@@ -34,13 +34,13 @@ lifetime, animation, and rendering for those particles.
 
 ```text
 Simulation producer job
-  -> VfxEmit.Enqueue(vfxId, position, areaSize, timing, ...)
-  -> request enters PendingBasicSpawns or PendingTimedSpawns
+  -> VfxEmit.Enqueue(...) or VfxEmit.EnqueueLineSegment(...)
+  -> request enters the queue for its registered data shape
   -> producer job handle combines into CombatAoeVfxDispatchSingleton.ProducerHandle
   -> CombatAoeVfxDispatchSystem in PresentationSystemGroup
   -> ProducerHandle.Complete() once
   -> per-shape counting-sort bucketing by DecodeLocalIndex(VfxId)
-  -> CombatVfxRoot.DrainAndDispatchBasic / DrainAndDispatchTimed
+  -> CombatVfxRoot drains and dispatches the matching data shape
   -> CombatAoeVfxDispatcher uploads shape buffers
   -> VisualEffect.SetGraphicsBuffer / SetInt / SendEvent("OnSpawn")
   -> graph Initialize Particles copies spawn payload into particle attributes
@@ -57,16 +57,22 @@ the presentation consumer completes the handle before reading any shape queue.
 encoding helpers, and property names used by validation, allocation, and
 dispatch.
 
-`Basic`:
+`Circular`:
 
-- `VfxSpawnRequest { VfxId, Position, AreaSize }`
+- `CircularVfxSpawnRequest { VfxId, Position, AreaSize }`
 - buffers: `Positions(float2)`, `AreaSizes(float)`
 
-`Timed`:
+`TimedCircular`:
 
-- `TimedVfxSpawnRequest { VfxId, Position, AreaSize, Duration, TickInterval }`
+- `TimedCircularVfxSpawnRequest { VfxId, Position, AreaSize, Duration, TickInterval }`
 - buffers: `Positions(float2)`, `AreaSizes(float)`, `Durations(float)`,
   `TickIntervals(float)`
+
+`LineSegment`:
+
+- `LineSegmentVfxSpawn { VfxId, StartPosition, EndPosition, Width }`
+- buffers: `StartPositions(float2)`, `EndPositions(float2)`, `Widths(float)`
+- directional graph placeholder; current AOE emitters do not produce this shape
 
 All shapes also use common `SpawnCount(int)` and `OnSpawn`.
 
@@ -92,20 +98,20 @@ root logs a conflict and keeps the original shape/id.
 - registers assets with `Register(asset, shape)`
 - validates graph contracts before allocating
 - keeps per-shape owner lists addressed by decoded local index
-- drains Basic and Timed buckets through one dispatcher
+- drains Circular, TimedCircular, and LineSegment buckets through one dispatcher
 
 `CombatAoeVfxDispatchSystem`:
 
 - runs in `PresentationSystemGroup`
 - owns per-shape queues and grow-only scratch lists
 - completes the single producer handle once
-- buckets Basic and Timed queues separately
+- buckets each data-shape queue separately
 - adds dispatched request count to combat stats
 
 `CombatAoeVfxDispatcher`:
 
 - validates exposed graph properties against `VfxDataShapeTable`
-- owns upload logic for Basic and Timed buffers
+- owns upload logic for all data-shape buffers
 - grows each graph resource's buffers by doubling
 - sends `OnSpawn` after setting buffers and `SpawnCount`
 
@@ -117,22 +123,24 @@ unexpected extra `GraphicsBuffer` property fail registration and return id `0`.
 
 Required properties:
 
-- `Basic`: `GraphicsBuffer Positions`, `GraphicsBuffer AreaSizes`, `int SpawnCount`
-- `Timed`: `GraphicsBuffer Positions`, `GraphicsBuffer AreaSizes`,
+- `Circular`: `GraphicsBuffer Positions`, `GraphicsBuffer AreaSizes`, `int SpawnCount`
+- `TimedCircular`: `GraphicsBuffer Positions`, `GraphicsBuffer AreaSizes`,
   `GraphicsBuffer Durations`, `GraphicsBuffer TickIntervals`, `int SpawnCount`
+- `LineSegment`: `GraphicsBuffer StartPositions`, `GraphicsBuffer EndPositions`,
+  `GraphicsBuffer Widths`, `int SpawnCount`
 - event: `OnSpawn`
 
 Graphs that cannot satisfy the contract are invalid for this runtime. There is
 no per-event `Play()` fallback.
 
-## Timed Authoring
+## TimedCircular Authoring
 
-A Timed graph is emitted once for the selected slot and receives `Duration` and
+A TimedCircular graph is emitted once for the selected slot and receives `Duration` and
 `TickInterval` from authored AOE timing (`lifetimeSeconds` and
 `tickIntervalSeconds`, carried at runtime as `VfxTimingData`). The graph should
 self-drive any internal pulses over that duration.
 
-Timed values are transient spawn payloads just like position and area size. The
+Timing values are transient spawn payloads just like position and area size. The
 graph must sample `Durations` and `TickIntervals` in `Initialize Particles` and
 copy them to particle attributes. Existing particles must not read request
 buffers from `Update Particle` or `Output Particle`.
@@ -162,8 +170,10 @@ matrix.
 
 ## Emitters
 
-AOE simulation producers call `VfxEmit.Enqueue`, which decodes shape from the
-slot id and writes the correct concrete request to the correct queue.
+AOE simulation producers call `VfxEmit.Enqueue`, which decodes the existing
+Circular or TimedCircular slot id and writes the matching concrete
+request. A future directional producer calls `VfxEmit.EnqueueLineSegment`
+with its start and end coordinates.
 
 Current AOE emitters:
 
@@ -180,21 +190,26 @@ uses `CombatLifetimeComponent.Remaining` as a duration source.
 
 AOE prefab roots expose a `VfxDataShape` selector beside each VFX graph slot:
 spawn, hit, expire, arming, and lingering pulse. All selectors default to
-`Basic`, so existing content keeps the previous behavior.
+`Circular`, so existing content keeps the previous behavior.
 
 `SkillSetCompiler` copies the selectors into `RuntimeAoeDefinition`.
 `SkillDriver` registers each effect asset with its corresponding shape, and the
 returned encoded ids are stored in `AoeVfxIds`.
 
 The pulse slot, `AoePulseVfxComponent`, and `AoePulseVfxSystem` remain available.
-Timed-shaped slots are an opt-in alternative for graphs that can self-drive
+TimedCircular slots are an opt-in alternative for graphs that can self-drive
 their whole-duration visuals from one emission.
+
+LineSegment is a directional graph placeholder. Its graph receives a start and
+end coordinate plus width per spawn. It is fully registered and dispatched, but no existing
+AOE producer emits this shape yet.
 
 ## Performance Notes
 
-- `Basic` is the hot path and carries only id, position, and area size.
-- `Timed` uploads the two extra timing buffers only for graphs registered as
-  Timed.
+- `Circular` is the hot path and carries only id, position, and area size.
+- `TimedCircular` uploads the two extra timing buffers only for graphs registered as
+  TimedCircular.
+- `LineSegment` uploads start and end coordinate buffers plus a width buffer.
 - Dispatch cost scales with graph count plus staged upload cost.
 - The runtime still sends at most one `OnSpawn` event per graph per frame.
 - Request buffers are staging/upload memory; prioritization or culling must

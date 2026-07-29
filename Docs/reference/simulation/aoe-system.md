@@ -247,7 +247,7 @@ Accepted hits can produce:
 
 - `DamageReplayEvent` into `DamageDispatchBridge.DamageQueue`
 - `ProjectileSpawnEvent` into projectile expansion for AOE projectile bursts
-- `VfxSpawnRequest` / `TimedVfxSpawnRequest` into the per-shape VFX queues via `VfxEmit`
+- `CircularVfxSpawnRequest` / `TimedCircularVfxSpawnRequest` into the per-shape VFX queues via `VfxEmit`
 
 Damage is finalized by `DamageFinalizeSystem` before spawn expansion. Managed
 replay runs later in `DamageDispatchBridge` during `PresentationSystemGroup`.
@@ -292,8 +292,8 @@ AOE gameplay does not depend on live visual GameObjects.
 VFX requests flow as data:
 
 - collision, lifetime, arming, and pulse call `VfxEmit.Enqueue`, which decodes the
-  graph's data shape from the id and writes `VfxSpawnRequest` or
-  `TimedVfxSpawnRequest` to the matching per-shape `NativeQueue`
+  graph's data shape from the id and writes `CircularVfxSpawnRequest` or
+  `TimedCircularVfxSpawnRequest` to the matching per-shape `NativeQueue`
 - `CombatAoeVfxDispatchSystem` completes producers, buckets each shape by graph id,
   and dispatches through `CombatVfxRoot`
 

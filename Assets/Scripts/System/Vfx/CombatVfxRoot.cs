@@ -12,10 +12,11 @@ namespace PlayGround.System.Combat.Vfx
     {
         public static CombatVfxRoot Instance { get; private set; }
 
-        public int RegisteredVfxCount => RegisteredCountFor(VfxDataShape.Basic);
+        public int RegisteredVfxCount => RegisteredCountFor(VfxDataShape.Circular);
 
         private readonly List<AoeVfxTypeResources>[] ownersByShape =
         {
+            new(),
             new(),
             new()
         };
@@ -48,7 +49,7 @@ namespace PlayGround.System.Combat.Vfx
             dispatcher = null;
         }
 
-        public int Register(VisualEffectAsset asset, VfxDataShape shape = VfxDataShape.Basic)
+        public int Register(VisualEffectAsset asset, VfxDataShape shape = VfxDataShape.Circular)
         {
             if (asset == null || dispatcher == null)
             {
@@ -124,9 +125,9 @@ namespace PlayGround.System.Combat.Vfx
             NativeArray<float2> sortedPositions,
             NativeArray<float> sortedAreaSizes,
             NativeArray<int> bucketOffsets) =>
-            DrainAndDispatchBasic(sortedPositions, sortedAreaSizes, bucketOffsets);
+            DrainAndDispatchCircular(sortedPositions, sortedAreaSizes, bucketOffsets);
 
-        internal int DrainAndDispatchBasic(
+        internal int DrainAndDispatchCircular(
             NativeArray<float2> sortedPositions,
             NativeArray<float> sortedAreaSizes,
             NativeArray<int> bucketOffsets)
@@ -136,7 +137,7 @@ namespace PlayGround.System.Combat.Vfx
                 return 0;
             }
 
-            List<AoeVfxTypeResources> owners = OwnersFor(VfxDataShape.Basic);
+            List<AoeVfxTypeResources> owners = OwnersFor(VfxDataShape.Circular);
             for (int localIndex = 1; localIndex <= owners.Count; localIndex++)
             {
                 int start = bucketOffsets[localIndex];
@@ -152,7 +153,7 @@ namespace PlayGround.System.Combat.Vfx
                     continue;
                 }
 
-                dispatcher.DispatchBasic(
+                dispatcher.DispatchCircular(
                     res,
                     sortedPositions.GetSubArray(start, count),
                     sortedAreaSizes.GetSubArray(start, count));
@@ -161,7 +162,7 @@ namespace PlayGround.System.Combat.Vfx
             return sortedPositions.Length;
         }
 
-        internal int DrainAndDispatchTimed(
+        internal int DrainAndDispatchTimedCircular(
             NativeArray<float2> sortedPositions,
             NativeArray<float> sortedAreaSizes,
             NativeArray<float> sortedDurations,
@@ -173,7 +174,7 @@ namespace PlayGround.System.Combat.Vfx
                 return 0;
             }
 
-            List<AoeVfxTypeResources> owners = OwnersFor(VfxDataShape.Timed);
+            List<AoeVfxTypeResources> owners = OwnersFor(VfxDataShape.TimedCircular);
             for (int localIndex = 1; localIndex <= owners.Count; localIndex++)
             {
                 int start = bucketOffsets[localIndex];
@@ -189,7 +190,7 @@ namespace PlayGround.System.Combat.Vfx
                     continue;
                 }
 
-                dispatcher.DispatchTimed(
+                dispatcher.DispatchTimedCircular(
                     res,
                     sortedPositions.GetSubArray(start, count),
                     sortedAreaSizes.GetSubArray(start, count),
@@ -198,6 +199,43 @@ namespace PlayGround.System.Combat.Vfx
             }
 
             return sortedPositions.Length;
+        }
+
+        internal int DrainAndDispatchLineSegment(
+            NativeArray<float2> sortedStartPositions,
+            NativeArray<float2> sortedEndPositions,
+            NativeArray<float> sortedWidths,
+            NativeArray<int> bucketOffsets)
+        {
+            if (dispatcher == null)
+            {
+                return 0;
+            }
+
+            List<AoeVfxTypeResources> owners = OwnersFor(VfxDataShape.LineSegment);
+            for (int localIndex = 1; localIndex <= owners.Count; localIndex++)
+            {
+                int start = bucketOffsets[localIndex];
+                int count = bucketOffsets[localIndex + 1] - start;
+                if (count == 0)
+                {
+                    continue;
+                }
+
+                AoeVfxTypeResources res = owners[localIndex - 1];
+                if (res == null)
+                {
+                    continue;
+                }
+
+                dispatcher.DispatchLineSegment(
+                    res,
+                    sortedStartPositions.GetSubArray(start, count),
+                    sortedEndPositions.GetSubArray(start, count),
+                    sortedWidths.GetSubArray(start, count));
+            }
+
+            return sortedStartPositions.Length;
         }
 
         public static int AliveParticleCount(bool visibleOnly = true)

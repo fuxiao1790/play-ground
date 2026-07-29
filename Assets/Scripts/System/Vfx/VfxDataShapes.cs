@@ -6,24 +6,38 @@ namespace PlayGround.System.Combat.Vfx
 {
     public enum VfxDataShape : byte
     {
-        Basic = 0,
-        Timed = 1
+        // Spawn payload: Position and AreaSize.
+        Circular = 0,
+
+        // Spawn payload: Position, AreaSize, Duration, and TickInterval.
+        TimedCircular = 1,
+
+        // Spawn payload: StartPosition, EndPosition, and Width.
+        LineSegment = 2
     }
 
-    public struct VfxSpawnRequest
+    public struct CircularVfxSpawnRequest
     {
         public int VfxId;
         public float2 Position;
         public float AreaSize;
     }
 
-    public struct TimedVfxSpawnRequest
+    public struct TimedCircularVfxSpawnRequest
     {
         public int VfxId;
         public float2 Position;
         public float AreaSize;
         public float Duration;
         public float TickInterval;
+    }
+
+    public struct LineSegmentVfxSpawn
+    {
+        public int VfxId;
+        public float2 StartPosition;
+        public float2 EndPosition;
+        public float Width;
     }
 
     public readonly struct VfxDataShapeBuffer
@@ -44,6 +58,9 @@ namespace PlayGround.System.Combat.Vfx
         public const string AreaSizesPropertyName = "AreaSizes";
         public const string DurationsPropertyName = "Durations";
         public const string TickIntervalsPropertyName = "TickIntervals";
+        public const string StartPositionsPropertyName = "StartPositions";
+        public const string EndPositionsPropertyName = "EndPositions";
+        public const string WidthsPropertyName = "Widths";
         public const string SpawnCountPropertyName = "SpawnCount";
         public const string SpawnEventName = "OnSpawn";
 
@@ -51,13 +68,13 @@ namespace PlayGround.System.Combat.Vfx
         public const int LocalMask = (1 << ShapeShift) - 1;
         private const int ShapeMask = 0x7;
 
-        private static readonly VfxDataShapeBuffer[] BasicBuffers =
+        private static readonly VfxDataShapeBuffer[] CircularBuffers =
         {
             new(PositionsPropertyName, typeof(GraphicsBuffer)),
             new(AreaSizesPropertyName, typeof(GraphicsBuffer))
         };
 
-        private static readonly VfxDataShapeBuffer[] TimedBuffers =
+        private static readonly VfxDataShapeBuffer[] TimedCircularBuffers =
         {
             new(PositionsPropertyName, typeof(GraphicsBuffer)),
             new(AreaSizesPropertyName, typeof(GraphicsBuffer)),
@@ -65,12 +82,20 @@ namespace PlayGround.System.Combat.Vfx
             new(TickIntervalsPropertyName, typeof(GraphicsBuffer))
         };
 
+        private static readonly VfxDataShapeBuffer[] LineSegmentBuffers =
+        {
+            new(StartPositionsPropertyName, typeof(GraphicsBuffer)),
+            new(EndPositionsPropertyName, typeof(GraphicsBuffer)),
+            new(WidthsPropertyName, typeof(GraphicsBuffer))
+        };
+
         public static IReadOnlyList<VfxDataShapeBuffer> BuffersFor(VfxDataShape shape) =>
             shape switch
             {
-                VfxDataShape.Basic => BasicBuffers,
-                VfxDataShape.Timed => TimedBuffers,
-                _ => BasicBuffers
+                VfxDataShape.Circular => CircularBuffers,
+                VfxDataShape.TimedCircular => TimedCircularBuffers,
+                VfxDataShape.LineSegment => LineSegmentBuffers,
+                _ => CircularBuffers
             };
 
         public static IEnumerable<string> BufferNamesFor(VfxDataShape shape)

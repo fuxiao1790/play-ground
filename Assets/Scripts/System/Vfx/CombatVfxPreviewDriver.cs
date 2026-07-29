@@ -23,7 +23,7 @@ namespace PlayGround.System.Combat.Vfx
     [RequireComponent(typeof(VisualEffect))]
     public sealed class CombatVfxPreviewDriver : MonoBehaviour
     {
-        [SerializeField] private VfxDataShape dataShape = VfxDataShape.Basic;
+        [SerializeField] private VfxDataShape dataShape = VfxDataShape.Circular;
         [SerializeField, Min(1)] private int spawnCount = 32;
         [SerializeField, Min(1)] private int bufferCapacity = 2048;
         [SerializeField, Min(0.02f)] private float intervalSeconds = 0.5f;
@@ -34,6 +34,8 @@ namespace PlayGround.System.Combat.Vfx
         [SerializeField, Min(0.01f)] private float tickIntervalSeconds = 0.25f;
         [SerializeField] private PreviewPattern pattern = PreviewPattern.Point;
         [SerializeField] private Vector2 centerOffset;
+        [SerializeField] private Vector2 endPointOffset = Vector2.right;
+        [SerializeField, Min(0.01f)] private float lineWidth = 1f;
         [SerializeField, Min(0f)] private float radius = 1f;
         [SerializeField] private Vector2 rectangleSize = new(2f, 2f);
         [SerializeField] private bool forceEffectWorldOrigin;
@@ -43,10 +45,15 @@ namespace PlayGround.System.Combat.Vfx
         private GraphicsBuffer areaSizeBuffer;
         private GraphicsBuffer durationBuffer;
         private GraphicsBuffer tickIntervalBuffer;
+        private GraphicsBuffer startPositionBuffer;
+        private GraphicsBuffer endPositionBuffer;
+        private GraphicsBuffer widthBuffer;
         private Vector2[] positions;
         private float[] areaSizes;
         private float[] durations;
         private float[] tickIntervals;
+        private Vector2[] endPositions;
+        private float[] widths;
         private double nextEmitTime;
         private bool missingContractLogged;
 
@@ -107,6 +114,7 @@ namespace PlayGround.System.Combat.Vfx
             areaSize = Mathf.Max(0.01f, areaSize);
             durationSeconds = Mathf.Max(0.01f, durationSeconds);
             tickIntervalSeconds = Mathf.Max(0.01f, tickIntervalSeconds);
+            lineWidth = Mathf.Max(0.01f, lineWidth);
             radius = Mathf.Max(0f, radius);
             rectangleSize = new Vector2(Mathf.Max(0f, rectangleSize.x), Mathf.Max(0f, rectangleSize.y));
             nextEmitTime = 0d;
@@ -132,20 +140,34 @@ namespace PlayGround.System.Combat.Vfx
                 visualEffect.transform.position = new Vector3(0f, 0f, visualEffect.transform.position.z);
             }
 
-            positionsBuffer.SetData(positions, 0, 0, count);
-            visualEffect.SetGraphicsBuffer(VfxDataShapeTable.PositionsPropertyName, positionsBuffer);
-
-            FillAreaSize(count);
-            areaSizeBuffer.SetData(areaSizes, 0, 0, count);
-            visualEffect.SetGraphicsBuffer(VfxDataShapeTable.AreaSizesPropertyName, areaSizeBuffer);
-
-            if (dataShape == VfxDataShape.Timed)
+            if (dataShape == VfxDataShape.LineSegment)
             {
-                FillTimedData(count);
-                durationBuffer.SetData(durations, 0, 0, count);
-                visualEffect.SetGraphicsBuffer(VfxDataShapeTable.DurationsPropertyName, durationBuffer);
-                tickIntervalBuffer.SetData(tickIntervals, 0, 0, count);
-                visualEffect.SetGraphicsBuffer(VfxDataShapeTable.TickIntervalsPropertyName, tickIntervalBuffer);
+                FillEndPositions(count);
+                startPositionBuffer.SetData(positions, 0, 0, count);
+                visualEffect.SetGraphicsBuffer(VfxDataShapeTable.StartPositionsPropertyName, startPositionBuffer);
+            endPositionBuffer.SetData(endPositions, 0, 0, count);
+            visualEffect.SetGraphicsBuffer(VfxDataShapeTable.EndPositionsPropertyName, endPositionBuffer);
+            FillLineWidths(count);
+            widthBuffer.SetData(widths, 0, 0, count);
+            visualEffect.SetGraphicsBuffer(VfxDataShapeTable.WidthsPropertyName, widthBuffer);
+            }
+            else
+            {
+                positionsBuffer.SetData(positions, 0, 0, count);
+                visualEffect.SetGraphicsBuffer(VfxDataShapeTable.PositionsPropertyName, positionsBuffer);
+
+                FillAreaSize(count);
+                areaSizeBuffer.SetData(areaSizes, 0, 0, count);
+                visualEffect.SetGraphicsBuffer(VfxDataShapeTable.AreaSizesPropertyName, areaSizeBuffer);
+
+                if (dataShape == VfxDataShape.TimedCircular)
+                {
+                    FillTimedCircularData(count);
+                    durationBuffer.SetData(durations, 0, 0, count);
+                    visualEffect.SetGraphicsBuffer(VfxDataShapeTable.DurationsPropertyName, durationBuffer);
+                    tickIntervalBuffer.SetData(tickIntervals, 0, 0, count);
+                    visualEffect.SetGraphicsBuffer(VfxDataShapeTable.TickIntervalsPropertyName, tickIntervalBuffer);
+                }
             }
 
             visualEffect.SetInt(VfxDataShapeTable.SpawnCountPropertyName, count);
@@ -165,13 +187,21 @@ namespace PlayGround.System.Combat.Vfx
             int capacity = Mathf.Max(1, bufferCapacity);
             bool positionsReady = positionsBuffer != null && positionsBuffer.count == capacity;
             bool areaSizesReady = areaSizeBuffer != null && areaSizeBuffer.count == capacity;
-            bool timedBuffersReady = dataShape == VfxDataShape.Timed
+            bool timedCircularBuffersReady = dataShape == VfxDataShape.TimedCircular
                 ? durationBuffer != null
                     && durationBuffer.count == capacity
                     && tickIntervalBuffer != null
                     && tickIntervalBuffer.count == capacity
                 : durationBuffer == null && tickIntervalBuffer == null;
-            if (positionsReady && areaSizesReady && timedBuffersReady)
+            bool lineSegmentBuffersReady = dataShape == VfxDataShape.LineSegment
+                ? startPositionBuffer != null
+                    && startPositionBuffer.count == capacity
+                    && endPositionBuffer != null
+                    && endPositionBuffer.count == capacity
+                    && widthBuffer != null
+                    && widthBuffer.count == capacity
+                : startPositionBuffer == null && endPositionBuffer == null && widthBuffer == null;
+            if (positionsReady && areaSizesReady && timedCircularBuffersReady && lineSegmentBuffersReady)
             {
                 return;
             }
@@ -189,7 +219,7 @@ namespace PlayGround.System.Combat.Vfx
                 capacity,
                 sizeof(float));
 
-            if (dataShape == VfxDataShape.Timed)
+            if (dataShape == VfxDataShape.TimedCircular)
             {
                 durations = new float[capacity];
                 tickIntervals = new float[capacity];
@@ -198,6 +228,23 @@ namespace PlayGround.System.Combat.Vfx
                     capacity,
                     sizeof(float));
                 tickIntervalBuffer = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Structured,
+                    capacity,
+                    sizeof(float));
+            }
+            else if (dataShape == VfxDataShape.LineSegment)
+            {
+                endPositions = new Vector2[capacity];
+                widths = new float[capacity];
+                startPositionBuffer = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Structured,
+                    capacity,
+                    sizeof(float) * 2);
+                endPositionBuffer = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Structured,
+                    capacity,
+                    sizeof(float) * 2);
+                widthBuffer = new GraphicsBuffer(
                     GraphicsBuffer.Target.Structured,
                     capacity,
                     sizeof(float));
@@ -214,10 +261,18 @@ namespace PlayGround.System.Combat.Vfx
             durationBuffer = null;
             tickIntervalBuffer?.Release();
             tickIntervalBuffer = null;
+            startPositionBuffer?.Release();
+            startPositionBuffer = null;
+            endPositionBuffer?.Release();
+            endPositionBuffer = null;
+            widthBuffer?.Release();
+            widthBuffer = null;
             positions = null;
             areaSizes = null;
             durations = null;
             tickIntervals = null;
+            endPositions = null;
+            widths = null;
         }
 
         private bool ValidateGraphContract()
@@ -371,7 +426,24 @@ namespace PlayGround.System.Combat.Vfx
             }
         }
 
-        private void FillTimedData(int count)
+        private void FillEndPositions(int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                endPositions[i] = positions[i] + endPointOffset;
+            }
+        }
+
+        private void FillLineWidths(int count)
+        {
+            float safeLineWidth = Mathf.Max(0.01f, lineWidth);
+            for (int i = 0; i < count; i++)
+            {
+                widths[i] = safeLineWidth;
+            }
+        }
+
+        private void FillTimedCircularData(int count)
         {
             float safeDuration = Mathf.Max(0.01f, durationSeconds);
             float safeTickInterval = Mathf.Max(0.01f, tickIntervalSeconds);

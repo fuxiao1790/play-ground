@@ -74,8 +74,8 @@ namespace PlayGround.System.Combat.Aoes
                 TargetFactions = hash.TargetFactions.AsArray(),
                 OccupiedTargetCells = hash.AoeOccupiedCells,
                 HitWriter = hitDispatch.ValueRO.HitQueue.AsParallelWriter(),
-                BasicVfxPending = vfx.ValueRO.PendingBasicSpawns.AsParallelWriter(),
-                TimedVfxPending = vfx.ValueRO.PendingTimedSpawns.AsParallelWriter(),
+                CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
+                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter(),
                 ProjectileEventWriter = projectileLane.ValueRO.EventQueue.AsParallelWriter(),
                 ImpactAoeEventWriter = impactAoeLane.ValueRO.EventQueue.AsParallelWriter(),
                 LingeringAoeEventWriter = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter()
@@ -112,8 +112,8 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeArray<TargetFaction> TargetFactions;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> OccupiedTargetCells;
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
-            public NativeQueue<VfxSpawnRequest>.ParallelWriter BasicVfxPending;
-            public NativeQueue<TimedVfxSpawnRequest>.ParallelWriter TimedVfxPending;
+            public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
+            public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
@@ -152,8 +152,8 @@ namespace PlayGround.System.Combat.Aoes
                     TargetFactions,
                     OccupiedTargetCells,
                     HitWriter,
-                    BasicVfxPending,
-                    TimedVfxPending,
+                    CircularVfxPending,
+                    TimedCircularVfxPending,
                     ProjectileEventWriter,
                     ImpactAoeEventWriter,
                     LingeringAoeEventWriter);

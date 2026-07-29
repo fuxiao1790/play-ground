@@ -26,16 +26,21 @@ namespace PlayGround.System.Combat.Vfx
     // AoeVfxTypeResources.EnsureBufferCapacity's GraphicsBuffer growth pattern.
     public struct CombatAoeVfxDispatchSingleton : IComponentData
     {
-        public NativeQueue<VfxSpawnRequest> PendingBasicSpawns;
-        public NativeList<float2> BasicSortedPositions;
-        public NativeList<float> BasicSortedAreaSizes;
-        public NativeList<int> BasicBucketOffsets;
-        public NativeQueue<TimedVfxSpawnRequest> PendingTimedSpawns;
-        public NativeList<float2> TimedSortedPositions;
-        public NativeList<float> TimedSortedAreaSizes;
-        public NativeList<float> TimedSortedDurations;
-        public NativeList<float> TimedSortedTickIntervals;
-        public NativeList<int> TimedBucketOffsets;
+        public NativeQueue<CircularVfxSpawnRequest> PendingCircularSpawns;
+        public NativeList<float2> CircularSortedPositions;
+        public NativeList<float> CircularSortedAreaSizes;
+        public NativeList<int> CircularBucketOffsets;
+        public NativeQueue<TimedCircularVfxSpawnRequest> PendingTimedCircularSpawns;
+        public NativeList<float2> TimedCircularSortedPositions;
+        public NativeList<float> TimedCircularSortedAreaSizes;
+        public NativeList<float> TimedCircularSortedDurations;
+        public NativeList<float> TimedCircularSortedTickIntervals;
+        public NativeList<int> TimedCircularBucketOffsets;
+        public NativeQueue<LineSegmentVfxSpawn> PendingLineSegmentSpawns;
+        public NativeList<float2> LineSegmentSortedStartPositions;
+        public NativeList<float2> LineSegmentSortedEndPositions;
+        public NativeList<float> LineSegmentSortedWidths;
+        public NativeList<int> LineSegmentBucketOffsets;
         public JobHandle ProducerHandle;
     }
 
@@ -50,16 +55,21 @@ namespace PlayGround.System.Combat.Vfx
             singletonEntity = EntityManager.CreateEntity(typeof(CombatAoeVfxDispatchSingleton));
             EntityManager.SetComponentData(singletonEntity, new CombatAoeVfxDispatchSingleton
             {
-                PendingBasicSpawns = new NativeQueue<VfxSpawnRequest>(Allocator.Persistent),
-                BasicSortedPositions = new NativeList<float2>(Allocator.Persistent),
-                BasicSortedAreaSizes = new NativeList<float>(Allocator.Persistent),
-                BasicBucketOffsets = new NativeList<int>(Allocator.Persistent),
-                PendingTimedSpawns = new NativeQueue<TimedVfxSpawnRequest>(Allocator.Persistent),
-                TimedSortedPositions = new NativeList<float2>(Allocator.Persistent),
-                TimedSortedAreaSizes = new NativeList<float>(Allocator.Persistent),
-                TimedSortedDurations = new NativeList<float>(Allocator.Persistent),
-                TimedSortedTickIntervals = new NativeList<float>(Allocator.Persistent),
-                TimedBucketOffsets = new NativeList<int>(Allocator.Persistent)
+                PendingCircularSpawns = new NativeQueue<CircularVfxSpawnRequest>(Allocator.Persistent),
+                CircularSortedPositions = new NativeList<float2>(Allocator.Persistent),
+                CircularSortedAreaSizes = new NativeList<float>(Allocator.Persistent),
+                CircularBucketOffsets = new NativeList<int>(Allocator.Persistent),
+                PendingTimedCircularSpawns = new NativeQueue<TimedCircularVfxSpawnRequest>(Allocator.Persistent),
+                TimedCircularSortedPositions = new NativeList<float2>(Allocator.Persistent),
+                TimedCircularSortedAreaSizes = new NativeList<float>(Allocator.Persistent),
+                TimedCircularSortedDurations = new NativeList<float>(Allocator.Persistent),
+                TimedCircularSortedTickIntervals = new NativeList<float>(Allocator.Persistent),
+                TimedCircularBucketOffsets = new NativeList<int>(Allocator.Persistent),
+                PendingLineSegmentSpawns = new NativeQueue<LineSegmentVfxSpawn>(Allocator.Persistent),
+                LineSegmentSortedStartPositions = new NativeList<float2>(Allocator.Persistent),
+                LineSegmentSortedEndPositions = new NativeList<float2>(Allocator.Persistent),
+                LineSegmentSortedWidths = new NativeList<float>(Allocator.Persistent),
+                LineSegmentBucketOffsets = new NativeList<int>(Allocator.Persistent)
             });
         }
 
@@ -75,45 +85,65 @@ namespace PlayGround.System.Combat.Vfx
             CombatAoeVfxDispatchSingleton singleton =
                 EntityManager.GetComponentData<CombatAoeVfxDispatchSingleton>(singletonEntity);
             singleton.ProducerHandle.Complete();
-            if (singleton.PendingBasicSpawns.IsCreated)
+            if (singleton.PendingCircularSpawns.IsCreated)
             {
-                singleton.PendingBasicSpawns.Dispose();
+                singleton.PendingCircularSpawns.Dispose();
             }
-            if (singleton.BasicSortedPositions.IsCreated)
+            if (singleton.CircularSortedPositions.IsCreated)
             {
-                singleton.BasicSortedPositions.Dispose();
+                singleton.CircularSortedPositions.Dispose();
             }
-            if (singleton.BasicSortedAreaSizes.IsCreated)
+            if (singleton.CircularSortedAreaSizes.IsCreated)
             {
-                singleton.BasicSortedAreaSizes.Dispose();
+                singleton.CircularSortedAreaSizes.Dispose();
             }
-            if (singleton.BasicBucketOffsets.IsCreated)
+            if (singleton.CircularBucketOffsets.IsCreated)
             {
-                singleton.BasicBucketOffsets.Dispose();
+                singleton.CircularBucketOffsets.Dispose();
             }
-            if (singleton.PendingTimedSpawns.IsCreated)
+            if (singleton.PendingTimedCircularSpawns.IsCreated)
             {
-                singleton.PendingTimedSpawns.Dispose();
+                singleton.PendingTimedCircularSpawns.Dispose();
             }
-            if (singleton.TimedSortedPositions.IsCreated)
+            if (singleton.TimedCircularSortedPositions.IsCreated)
             {
-                singleton.TimedSortedPositions.Dispose();
+                singleton.TimedCircularSortedPositions.Dispose();
             }
-            if (singleton.TimedSortedAreaSizes.IsCreated)
+            if (singleton.TimedCircularSortedAreaSizes.IsCreated)
             {
-                singleton.TimedSortedAreaSizes.Dispose();
+                singleton.TimedCircularSortedAreaSizes.Dispose();
             }
-            if (singleton.TimedSortedDurations.IsCreated)
+            if (singleton.TimedCircularSortedDurations.IsCreated)
             {
-                singleton.TimedSortedDurations.Dispose();
+                singleton.TimedCircularSortedDurations.Dispose();
             }
-            if (singleton.TimedSortedTickIntervals.IsCreated)
+            if (singleton.TimedCircularSortedTickIntervals.IsCreated)
             {
-                singleton.TimedSortedTickIntervals.Dispose();
+                singleton.TimedCircularSortedTickIntervals.Dispose();
             }
-            if (singleton.TimedBucketOffsets.IsCreated)
+            if (singleton.TimedCircularBucketOffsets.IsCreated)
             {
-                singleton.TimedBucketOffsets.Dispose();
+                singleton.TimedCircularBucketOffsets.Dispose();
+            }
+            if (singleton.PendingLineSegmentSpawns.IsCreated)
+            {
+                singleton.PendingLineSegmentSpawns.Dispose();
+            }
+            if (singleton.LineSegmentSortedStartPositions.IsCreated)
+            {
+                singleton.LineSegmentSortedStartPositions.Dispose();
+            }
+            if (singleton.LineSegmentSortedEndPositions.IsCreated)
+            {
+                singleton.LineSegmentSortedEndPositions.Dispose();
+            }
+            if (singleton.LineSegmentSortedWidths.IsCreated)
+            {
+                singleton.LineSegmentSortedWidths.Dispose();
+            }
+            if (singleton.LineSegmentBucketOffsets.IsCreated)
+            {
+                singleton.LineSegmentBucketOffsets.Dispose();
             }
         }
 
@@ -125,7 +155,9 @@ namespace PlayGround.System.Combat.Vfx
             singleton.ProducerHandle = default;
             LastVfxEventCount = 0;
 
-            if (singleton.PendingBasicSpawns.Count == 0 && singleton.PendingTimedSpawns.Count == 0)
+            if (singleton.PendingCircularSpawns.Count == 0
+                && singleton.PendingTimedCircularSpawns.Count == 0
+                && singleton.PendingLineSegmentSpawns.Count == 0)
             {
                 return;
             }
@@ -135,48 +167,68 @@ namespace PlayGround.System.Combat.Vfx
             CombatVfxRoot root = CombatVfxRoot.Instance;
             if (root == null)
             {
-                singleton.PendingBasicSpawns.Clear();
-                singleton.PendingTimedSpawns.Clear();
+                singleton.PendingCircularSpawns.Clear();
+                singleton.PendingTimedCircularSpawns.Clear();
+                singleton.PendingLineSegmentSpawns.Clear();
                 return;
             }
 
             int dispatchedCount = 0;
-            if (singleton.PendingBasicSpawns.Count > 0)
+            if (singleton.PendingCircularSpawns.Count > 0)
             {
-                new BucketBasicVfxSpawnsJob
+                new BucketCircularVfxSpawnsJob
                 {
-                    Pending = singleton.PendingBasicSpawns,
-                    BucketCount = root.RegisteredCountFor(VfxDataShape.Basic),
-                    SortedPositions = singleton.BasicSortedPositions,
-                    SortedAreaSizes = singleton.BasicSortedAreaSizes,
-                    BucketOffsets = singleton.BasicBucketOffsets
+                    Pending = singleton.PendingCircularSpawns,
+                    BucketCount = root.RegisteredCountFor(VfxDataShape.Circular),
+                    SortedPositions = singleton.CircularSortedPositions,
+                    SortedAreaSizes = singleton.CircularSortedAreaSizes,
+                    BucketOffsets = singleton.CircularBucketOffsets
                 }.Run();
 
-                dispatchedCount += root.DrainAndDispatchBasic(
-                    singleton.BasicSortedPositions.AsArray(),
-                    singleton.BasicSortedAreaSizes.AsArray(),
-                    singleton.BasicBucketOffsets.AsArray());
+                dispatchedCount += root.DrainAndDispatchCircular(
+                    singleton.CircularSortedPositions.AsArray(),
+                    singleton.CircularSortedAreaSizes.AsArray(),
+                    singleton.CircularBucketOffsets.AsArray());
             }
 
-            if (singleton.PendingTimedSpawns.Count > 0)
+            if (singleton.PendingTimedCircularSpawns.Count > 0)
             {
-                new BucketTimedVfxSpawnsJob
+                new BucketTimedCircularVfxSpawnsJob
                 {
-                    Pending = singleton.PendingTimedSpawns,
-                    BucketCount = root.RegisteredCountFor(VfxDataShape.Timed),
-                    SortedPositions = singleton.TimedSortedPositions,
-                    SortedAreaSizes = singleton.TimedSortedAreaSizes,
-                    SortedDurations = singleton.TimedSortedDurations,
-                    SortedTickIntervals = singleton.TimedSortedTickIntervals,
-                    BucketOffsets = singleton.TimedBucketOffsets
+                    Pending = singleton.PendingTimedCircularSpawns,
+                    BucketCount = root.RegisteredCountFor(VfxDataShape.TimedCircular),
+                    SortedPositions = singleton.TimedCircularSortedPositions,
+                    SortedAreaSizes = singleton.TimedCircularSortedAreaSizes,
+                    SortedDurations = singleton.TimedCircularSortedDurations,
+                    SortedTickIntervals = singleton.TimedCircularSortedTickIntervals,
+                    BucketOffsets = singleton.TimedCircularBucketOffsets
                 }.Run();
 
-                dispatchedCount += root.DrainAndDispatchTimed(
-                    singleton.TimedSortedPositions.AsArray(),
-                    singleton.TimedSortedAreaSizes.AsArray(),
-                    singleton.TimedSortedDurations.AsArray(),
-                    singleton.TimedSortedTickIntervals.AsArray(),
-                    singleton.TimedBucketOffsets.AsArray());
+                dispatchedCount += root.DrainAndDispatchTimedCircular(
+                    singleton.TimedCircularSortedPositions.AsArray(),
+                    singleton.TimedCircularSortedAreaSizes.AsArray(),
+                    singleton.TimedCircularSortedDurations.AsArray(),
+                    singleton.TimedCircularSortedTickIntervals.AsArray(),
+                    singleton.TimedCircularBucketOffsets.AsArray());
+            }
+
+            if (singleton.PendingLineSegmentSpawns.Count > 0)
+            {
+                new BucketLineSegmentVfxSpawnsJob
+                {
+                    Pending = singleton.PendingLineSegmentSpawns,
+                    BucketCount = root.RegisteredCountFor(VfxDataShape.LineSegment),
+                    SortedStartPositions = singleton.LineSegmentSortedStartPositions,
+                    SortedEndPositions = singleton.LineSegmentSortedEndPositions,
+                    SortedWidths = singleton.LineSegmentSortedWidths,
+                    BucketOffsets = singleton.LineSegmentBucketOffsets
+                }.Run();
+
+                dispatchedCount += root.DrainAndDispatchLineSegment(
+                    singleton.LineSegmentSortedStartPositions.AsArray(),
+                    singleton.LineSegmentSortedEndPositions.AsArray(),
+                    singleton.LineSegmentSortedWidths.AsArray(),
+                    singleton.LineSegmentBucketOffsets.AsArray());
             }
 
             LastVfxEventCount = dispatchedCount;
@@ -190,9 +242,9 @@ namespace PlayGround.System.Combat.Vfx
         // Buckets the shared queue by decoded local VfxId via a two-pass counting sort so the
         // root can read each graph's events as one contiguous slice.
         [BurstCompile]
-        private struct BucketBasicVfxSpawnsJob : IJob
+        private struct BucketCircularVfxSpawnsJob : IJob
         {
-            public NativeQueue<VfxSpawnRequest> Pending;
+            public NativeQueue<CircularVfxSpawnRequest> Pending;
             public int BucketCount;
             public NativeList<float2> SortedPositions;
             public NativeList<float> SortedAreaSizes;
@@ -201,7 +253,7 @@ namespace PlayGround.System.Combat.Vfx
             public void Execute()
             {
                 int pendingCount = Pending.Count;
-                NativeArray<VfxSpawnRequest> items = Pending.ToArray(Allocator.Temp);
+                NativeArray<CircularVfxSpawnRequest> items = Pending.ToArray(Allocator.Temp);
                 Pending.Clear();
 
                 var counts = new NativeArray<int>(BucketCount + 1, Allocator.Temp);
@@ -234,7 +286,7 @@ namespace PlayGround.System.Combat.Vfx
 
                 for (int i = 0; i < items.Length; i++)
                 {
-                    VfxSpawnRequest item = items[i];
+                    CircularVfxSpawnRequest item = items[i];
                     int id = VfxDataShapeTable.DecodeLocalIndex(item.VfxId);
                     if (id < 1 || id > BucketCount)
                     {
@@ -257,9 +309,9 @@ namespace PlayGround.System.Combat.Vfx
         }
 
         [BurstCompile]
-        private struct BucketTimedVfxSpawnsJob : IJob
+        private struct BucketTimedCircularVfxSpawnsJob : IJob
         {
-            public NativeQueue<TimedVfxSpawnRequest> Pending;
+            public NativeQueue<TimedCircularVfxSpawnRequest> Pending;
             public int BucketCount;
             public NativeList<float2> SortedPositions;
             public NativeList<float> SortedAreaSizes;
@@ -270,7 +322,7 @@ namespace PlayGround.System.Combat.Vfx
             public void Execute()
             {
                 int pendingCount = Pending.Count;
-                NativeArray<TimedVfxSpawnRequest> items = Pending.ToArray(Allocator.Temp);
+                NativeArray<TimedCircularVfxSpawnRequest> items = Pending.ToArray(Allocator.Temp);
                 Pending.Clear();
 
                 var counts = new NativeArray<int>(BucketCount + 1, Allocator.Temp);
@@ -305,7 +357,7 @@ namespace PlayGround.System.Combat.Vfx
 
                 for (int i = 0; i < items.Length; i++)
                 {
-                    TimedVfxSpawnRequest item = items[i];
+                    TimedCircularVfxSpawnRequest item = items[i];
                     int id = VfxDataShapeTable.DecodeLocalIndex(item.VfxId);
                     if (id < 1 || id > BucketCount)
                     {
@@ -324,6 +376,77 @@ namespace PlayGround.System.Combat.Vfx
                 SortedAreaSizes.Length = running;
                 SortedDurations.Length = running;
                 SortedTickIntervals.Length = running;
+
+                items.Dispose();
+                counts.Dispose();
+                cursor.Dispose();
+            }
+        }
+
+        [BurstCompile]
+        private struct BucketLineSegmentVfxSpawnsJob : IJob
+        {
+            public NativeQueue<LineSegmentVfxSpawn> Pending;
+            public int BucketCount;
+            public NativeList<float2> SortedStartPositions;
+            public NativeList<float2> SortedEndPositions;
+            public NativeList<float> SortedWidths;
+            public NativeList<int> BucketOffsets;
+
+            public void Execute()
+            {
+                int pendingCount = Pending.Count;
+                NativeArray<LineSegmentVfxSpawn> items = Pending.ToArray(Allocator.Temp);
+                Pending.Clear();
+
+                var counts = new NativeArray<int>(BucketCount + 1, Allocator.Temp);
+                for (int i = 0; i < items.Length; i++)
+                {
+                    int id = VfxDataShapeTable.DecodeLocalIndex(items[i].VfxId);
+                    if (id >= 1 && id <= BucketCount)
+                    {
+                        counts[id]++;
+                    }
+                }
+
+                BucketOffsets.ResizeUninitialized(BucketCount + 2);
+                int running = 0;
+                for (int id = 1; id <= BucketCount; id++)
+                {
+                    BucketOffsets[id] = running;
+                    running += counts[id];
+                }
+                BucketOffsets[BucketCount + 1] = running;
+
+                var cursor = new NativeArray<int>(BucketCount + 1, Allocator.Temp);
+                for (int id = 1; id <= BucketCount; id++)
+                {
+                    cursor[id] = BucketOffsets[id];
+                }
+
+                SortedStartPositions.ResizeUninitialized(pendingCount);
+                SortedEndPositions.ResizeUninitialized(pendingCount);
+                SortedWidths.ResizeUninitialized(pendingCount);
+
+                for (int i = 0; i < items.Length; i++)
+                {
+                    LineSegmentVfxSpawn item = items[i];
+                    int id = VfxDataShapeTable.DecodeLocalIndex(item.VfxId);
+                    if (id < 1 || id > BucketCount)
+                    {
+                        continue;
+                    }
+
+                    int dest = cursor[id];
+                    cursor[id] = dest + 1;
+                    SortedStartPositions[dest] = item.StartPosition;
+                    SortedEndPositions[dest] = item.EndPosition;
+                    SortedWidths[dest] = math.max(0.01f, item.Width);
+                }
+
+                SortedStartPositions.Length = running;
+                SortedEndPositions.Length = running;
+                SortedWidths.Length = running;
 
                 items.Dispose();
                 counts.Dispose();

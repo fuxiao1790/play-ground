@@ -26,7 +26,7 @@ namespace PlayGround.System.Combat.Vfx
     }
 
     // ECS Lifecycle: authored per-instance VFX timing; added to AOE entities at
-    // creation, reset on reuse, and consumed only by Timed-shaped VFX emits.
+    // creation, reset on reuse, and consumed only by TimedCircular VFX emits.
     public struct VfxTimingData : IComponentData
     {
         public float Duration;

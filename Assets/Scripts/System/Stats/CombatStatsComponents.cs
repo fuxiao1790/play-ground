@@ -40,7 +40,7 @@ namespace PlayGround.System.Combat.Stats
     //   accumulators); CombatPoolCleanupSystem's calm-down gate reads them one frame stale.
     // - HitEventsCreated: added by CombatApplyFinalizeSingleSystem from HitQueue.Count before the
     //   queue is flattened or cleared.
-    // - VfxEventsCreated: added by CombatAoeVfxDispatchSystem after the VFX root drains PendingBasicSpawns.
+    // - VfxEventsCreated: added by CombatAoeVfxDispatchSystem after the VFX root drains PendingCircularSpawns.
     //   Counts only requests accepted by CombatAoeVfxDispatcher.StageAoeSpawn (a VFX resource registered
     //   for (typeId, trigger), still under its max-per-frame cap); blindly queued requests with no
     //   registered visual do not contribute.

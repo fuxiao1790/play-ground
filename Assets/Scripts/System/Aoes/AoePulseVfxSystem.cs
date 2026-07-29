@@ -30,8 +30,8 @@ namespace PlayGround.System.Combat.Aoes
             JobHandle pulseHandle = new AoePulseVfxJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
-                BasicVfxPending = vfx.ValueRO.PendingBasicSpawns.AsParallelWriter(),
-                TimedVfxPending = vfx.ValueRO.PendingTimedSpawns.AsParallelWriter()
+                CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
+                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter()
             }.ScheduleParallel(state.Dependency);
 
             vfx.ValueRW.ProducerHandle =
@@ -46,8 +46,8 @@ namespace PlayGround.System.Combat.Aoes
         private partial struct AoePulseVfxJob : IJobEntity
         {
             public float DeltaTime;
-            public NativeQueue<VfxSpawnRequest>.ParallelWriter BasicVfxPending;
-            public NativeQueue<TimedVfxSpawnRequest>.ParallelWriter TimedVfxPending;
+            public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
+            public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
 
             private void Execute(
                 in AoeVfxIds vfxIds,
@@ -73,8 +73,8 @@ namespace PlayGround.System.Combat.Aoes
                     kinematics.Position,
                     area.Size,
                     timing,
-                    BasicVfxPending,
-                    TimedVfxPending);
+                    CircularVfxPending,
+                    TimedCircularVfxPending);
             }
         }
     }

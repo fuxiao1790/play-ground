@@ -5,9 +5,10 @@
 Define visual-only event data passed from simulation producers to VFX Graph
 dispatch.
 
-The current payloads are AOE-shaped. `VfxSpawnRequest` carries graph id, world
-position, and area size. `TimedVfxSpawnRequest` adds duration and tick interval.
-The dispatcher routes them through the Basic and Timed data shapes. Projectile
+The current payloads are AOE-shaped. `CircularVfxSpawnRequest` carries graph id, world
+position, and area size. `TimedCircularVfxSpawnRequest` adds duration and tick interval.
+`LineSegmentVfxSpawn` carries a directional start point, end point, and width. The dispatcher routes
+them through the Circular, TimedCircular, and LineSegment data shapes. Projectile
 systems do not emit these requests; the payloads are reserved for AOE-shaped
 visuals.
 
@@ -23,12 +24,13 @@ visuals.
 
 Request data:
 
-- `VfxSpawnRequest` or `TimedVfxSpawnRequest`
+- `CircularVfxSpawnRequest`, `TimedCircularVfxSpawnRequest`, or `LineSegmentVfxSpawn`
 - `int VfxId`
 - `float2 Position`
 - `float AreaSize`
-- Timed only: `float Duration`
-- Timed only: `float TickInterval`
+- TimedCircular only: `float Duration`
+- TimedCircular only: `float TickInterval`
+- LineSegment only: `float2 StartPosition`, `float2 EndPosition`, `float Width`
 
 `VfxId` identifies the registered VFX graph kind, not the AOE type and not the
 reason the event was emitted. One graph represents every VFX event of that kind
@@ -63,7 +65,7 @@ call managed VFX objects directly.
 
 ## Lifetime
 
-Requests live in the persistent Basic or Timed native queue owned by
+Requests live in the persistent queue for their data shape, owned by
 `CombatAoeVfxDispatchSystem` until presentation completes producers, drains the
 queues, and buckets requests by graph id.
 
