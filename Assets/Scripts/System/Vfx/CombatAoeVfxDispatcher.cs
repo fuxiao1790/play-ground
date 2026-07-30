@@ -6,22 +6,18 @@ using UnityEngine.VFX;
 
 namespace PlayGround.System.Combat.Vfx
 {
-    // One VFX instance and everything it owns. Created, staged into, and disposed only by
-    // CombatVfxRoot; CombatAoeVfxDispatcher only reads one to push it to the GPU.
-    public sealed class AoeVfxTypeResources : global::System.IDisposable
+    // Common resource lifecycle (grow-only GraphicsBuffer capacity, GameObject teardown) shared
+    // by every VFX instance. Created, staged into, and disposed only by CombatVfxRoot;
+    // CombatAoeVfxDispatcher only reads one to push it to the GPU. Concrete subtypes below own
+    // exactly the buffers their VfxDataShape needs - no shape branching at the resource level.
+    public abstract class AoeVfxResourcesBase : global::System.IDisposable
     {
         public const int InitialBufferCapacity = 2048;
 
         public VisualEffect Instance;
-        public VfxDataShape Shape;
-        public GraphicsBuffer PositionBuffer;
-        public GraphicsBuffer AreaSizeBuffer;
-        public GraphicsBuffer DurationBuffer;
-        public GraphicsBuffer TickIntervalBuffer;
-        public GraphicsBuffer StartPositionBuffer;
-        public GraphicsBuffer EndPositionBuffer;
-        public GraphicsBuffer WidthBuffer;
         public int BufferCapacity;
+
+        public abstract VfxDataShape Shape { get; }
 
         public void EnsureBufferCapacity(int requiredCapacity)
         {
@@ -36,13 +32,33 @@ namespace PlayGround.System.Combat.Vfx
                 newCapacity = checked(newCapacity * 2);
             }
 
+            GrowBuffers(newCapacity);
+            BufferCapacity = newCapacity;
+        }
+
+        protected abstract void GrowBuffers(int newCapacity);
+
+        public virtual void Dispose()
+        {
+            if (Instance != null)
+            {
+                Object.Destroy(Instance.gameObject);
+                Instance = null;
+            }
+        }
+    }
+
+    public sealed class CircularVfxResources : AoeVfxResourcesBase
+    {
+        public GraphicsBuffer PositionBuffer;
+        public GraphicsBuffer AreaSizeBuffer;
+
+        public override VfxDataShape Shape => VfxDataShape.Circular;
+
+        protected override void GrowBuffers(int newCapacity)
+        {
             GraphicsBuffer newPositionBuffer = null;
             GraphicsBuffer newAreaSizeBuffer = null;
-            GraphicsBuffer newDurationBuffer = null;
-            GraphicsBuffer newTickIntervalBuffer = null;
-            GraphicsBuffer newStartPositionBuffer = null;
-            GraphicsBuffer newEndPositionBuffer = null;
-            GraphicsBuffer newWidthBuffer = null;
             try
             {
                 newPositionBuffer = new GraphicsBuffer(
@@ -53,33 +69,63 @@ namespace PlayGround.System.Combat.Vfx
                     GraphicsBuffer.Target.Structured,
                     newCapacity,
                     sizeof(float));
+            }
+            catch
+            {
+                newPositionBuffer?.Release();
+                newAreaSizeBuffer?.Release();
+                throw;
+            }
 
-                if (Shape == VfxDataShape.TimedCircular)
-                {
-                    newDurationBuffer = new GraphicsBuffer(
-                        GraphicsBuffer.Target.Structured,
-                        newCapacity,
-                        sizeof(float));
-                    newTickIntervalBuffer = new GraphicsBuffer(
-                        GraphicsBuffer.Target.Structured,
-                        newCapacity,
-                        sizeof(float));
-                }
-                else if (Shape == VfxDataShape.LineSegment)
-                {
-                    newStartPositionBuffer = new GraphicsBuffer(
-                        GraphicsBuffer.Target.Structured,
-                        newCapacity,
-                        sizeof(float) * 2);
-                    newEndPositionBuffer = new GraphicsBuffer(
-                        GraphicsBuffer.Target.Structured,
-                        newCapacity,
-                        sizeof(float) * 2);
-                    newWidthBuffer = new GraphicsBuffer(
-                        GraphicsBuffer.Target.Structured,
-                        newCapacity,
-                        sizeof(float));
-                }
+            PositionBuffer?.Release();
+            AreaSizeBuffer?.Release();
+            PositionBuffer = newPositionBuffer;
+            AreaSizeBuffer = newAreaSizeBuffer;
+        }
+
+        public override void Dispose()
+        {
+            PositionBuffer?.Release();
+            PositionBuffer = null;
+            AreaSizeBuffer?.Release();
+            AreaSizeBuffer = null;
+            base.Dispose();
+        }
+    }
+
+    public sealed class TimedCircularVfxResources : AoeVfxResourcesBase
+    {
+        public GraphicsBuffer PositionBuffer;
+        public GraphicsBuffer AreaSizeBuffer;
+        public GraphicsBuffer DurationBuffer;
+        public GraphicsBuffer TickIntervalBuffer;
+
+        public override VfxDataShape Shape => VfxDataShape.TimedCircular;
+
+        protected override void GrowBuffers(int newCapacity)
+        {
+            GraphicsBuffer newPositionBuffer = null;
+            GraphicsBuffer newAreaSizeBuffer = null;
+            GraphicsBuffer newDurationBuffer = null;
+            GraphicsBuffer newTickIntervalBuffer = null;
+            try
+            {
+                newPositionBuffer = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Structured,
+                    newCapacity,
+                    sizeof(float) * 2);
+                newAreaSizeBuffer = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Structured,
+                    newCapacity,
+                    sizeof(float));
+                newDurationBuffer = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Structured,
+                    newCapacity,
+                    sizeof(float));
+                newTickIntervalBuffer = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Structured,
+                    newCapacity,
+                    sizeof(float));
             }
             catch
             {
@@ -87,9 +133,6 @@ namespace PlayGround.System.Combat.Vfx
                 newAreaSizeBuffer?.Release();
                 newDurationBuffer?.Release();
                 newTickIntervalBuffer?.Release();
-                newStartPositionBuffer?.Release();
-                newEndPositionBuffer?.Release();
-                newWidthBuffer?.Release();
                 throw;
             }
 
@@ -97,20 +140,13 @@ namespace PlayGround.System.Combat.Vfx
             AreaSizeBuffer?.Release();
             DurationBuffer?.Release();
             TickIntervalBuffer?.Release();
-            StartPositionBuffer?.Release();
-            EndPositionBuffer?.Release();
-            WidthBuffer?.Release();
             PositionBuffer = newPositionBuffer;
             AreaSizeBuffer = newAreaSizeBuffer;
             DurationBuffer = newDurationBuffer;
             TickIntervalBuffer = newTickIntervalBuffer;
-            StartPositionBuffer = newStartPositionBuffer;
-            EndPositionBuffer = newEndPositionBuffer;
-            WidthBuffer = newWidthBuffer;
-            BufferCapacity = newCapacity;
         }
 
-        public void Dispose()
+        public override void Dispose()
         {
             PositionBuffer?.Release();
             PositionBuffer = null;
@@ -120,56 +156,110 @@ namespace PlayGround.System.Combat.Vfx
             DurationBuffer = null;
             TickIntervalBuffer?.Release();
             TickIntervalBuffer = null;
+            base.Dispose();
+        }
+    }
+
+    public sealed class LineSegmentVfxResources : AoeVfxResourcesBase
+    {
+        public GraphicsBuffer StartPositionBuffer;
+        public GraphicsBuffer EndPositionBuffer;
+        public GraphicsBuffer WidthBuffer;
+
+        public override VfxDataShape Shape => VfxDataShape.LineSegment;
+
+        protected override void GrowBuffers(int newCapacity)
+        {
+            GraphicsBuffer newStartPositionBuffer = null;
+            GraphicsBuffer newEndPositionBuffer = null;
+            GraphicsBuffer newWidthBuffer = null;
+            try
+            {
+                newStartPositionBuffer = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Structured,
+                    newCapacity,
+                    sizeof(float) * 2);
+                newEndPositionBuffer = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Structured,
+                    newCapacity,
+                    sizeof(float) * 2);
+                newWidthBuffer = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Structured,
+                    newCapacity,
+                    sizeof(float));
+            }
+            catch
+            {
+                newStartPositionBuffer?.Release();
+                newEndPositionBuffer?.Release();
+                newWidthBuffer?.Release();
+                throw;
+            }
+
+            StartPositionBuffer?.Release();
+            EndPositionBuffer?.Release();
+            WidthBuffer?.Release();
+            StartPositionBuffer = newStartPositionBuffer;
+            EndPositionBuffer = newEndPositionBuffer;
+            WidthBuffer = newWidthBuffer;
+        }
+
+        public override void Dispose()
+        {
             StartPositionBuffer?.Release();
             StartPositionBuffer = null;
             EndPositionBuffer?.Release();
             EndPositionBuffer = null;
             WidthBuffer?.Release();
             WidthBuffer = null;
-            if (Instance != null)
-            {
-                Object.Destroy(Instance.gameObject);
-                Instance = null;
-            }
+            base.Dispose();
         }
     }
 
     // Owns the VFX graph protocol and nothing else: validation and upload. Holds no state and
-    // no resources; CombatVfxRoot creates, stages, and disposes every AoeVfxTypeResources.
+    // no resources; CombatVfxRoot creates, stages, and disposes every AoeVfxResourcesBase.
     public sealed class CombatAoeVfxDispatcher
     {
-        public void Dispatch(AoeVfxTypeResources res, NativeArray<float2> positions, NativeArray<float> areaSizes)
-        {
-            DispatchCircular(res, positions, areaSizes);
-        }
-
         public void DispatchCircular(
-            AoeVfxTypeResources res,
+            CircularVfxResources res,
             NativeArray<float2> positions,
             NativeArray<float> areaSizes)
         {
-            UploadCommon(res, positions, areaSizes);
+            int count = positions.Length;
+            res.EnsureBufferCapacity(count);
+            res.Instance.transform.position = new Vector3(0f, 0f, res.Instance.transform.position.z);
+            res.PositionBuffer.SetData(positions, 0, 0, count);
+            res.Instance.SetGraphicsBuffer(VfxDataShapeTable.PositionsPropertyName, res.PositionBuffer);
+            res.AreaSizeBuffer.SetData(areaSizes, 0, 0, count);
+            res.Instance.SetGraphicsBuffer(VfxDataShapeTable.AreaSizesPropertyName, res.AreaSizeBuffer);
+            res.Instance.SetInt(VfxDataShapeTable.SpawnCountPropertyName, count);
             res.Instance.SendEvent(VfxDataShapeTable.SpawnEventName);
         }
 
         public void DispatchTimedCircular(
-            AoeVfxTypeResources res,
+            TimedCircularVfxResources res,
             NativeArray<float2> positions,
             NativeArray<float> areaSizes,
             NativeArray<float> durations,
             NativeArray<float> tickIntervals)
         {
             int count = positions.Length;
-            UploadCommon(res, positions, areaSizes);
+            res.EnsureBufferCapacity(count);
+            res.Instance.transform.position = new Vector3(0f, 0f, res.Instance.transform.position.z);
+            res.PositionBuffer.SetData(positions, 0, 0, count);
+            res.Instance.SetGraphicsBuffer(VfxDataShapeTable.PositionsPropertyName, res.PositionBuffer);
+            res.AreaSizeBuffer.SetData(areaSizes, 0, 0, count);
+            res.Instance.SetGraphicsBuffer(VfxDataShapeTable.AreaSizesPropertyName, res.AreaSizeBuffer);
             res.DurationBuffer.SetData(durations, 0, 0, count);
             res.Instance.SetGraphicsBuffer(VfxDataShapeTable.DurationsPropertyName, res.DurationBuffer);
             res.TickIntervalBuffer.SetData(tickIntervals, 0, 0, count);
             res.Instance.SetGraphicsBuffer(VfxDataShapeTable.TickIntervalsPropertyName, res.TickIntervalBuffer);
+            res.Instance.SetInt(VfxDataShapeTable.SpawnCountPropertyName, count);
             res.Instance.SendEvent(VfxDataShapeTable.SpawnEventName);
         }
 
         public void DispatchLineSegment(
-            AoeVfxTypeResources res,
+            LineSegmentVfxResources res,
             NativeArray<float2> startPositions,
             NativeArray<float2> endPositions,
             NativeArray<float> widths)
@@ -242,22 +332,6 @@ namespace PlayGround.System.Combat.Vfx
 
             reason = string.Empty;
             return true;
-        }
-
-        private static void UploadCommon(
-            AoeVfxTypeResources res,
-            NativeArray<float2> positions,
-            NativeArray<float> areaSizes)
-        {
-            int count = positions.Length;
-            res.EnsureBufferCapacity(count);
-            Vector3 worldPosition = new(0f, 0f, res.Instance.transform.position.z);
-            res.Instance.transform.position = worldPosition;
-            res.PositionBuffer.SetData(positions, 0, 0, count);
-            res.Instance.SetGraphicsBuffer(VfxDataShapeTable.PositionsPropertyName, res.PositionBuffer);
-            res.AreaSizeBuffer.SetData(areaSizes, 0, 0, count);
-            res.Instance.SetGraphicsBuffer(VfxDataShapeTable.AreaSizesPropertyName, res.AreaSizeBuffer);
-            res.Instance.SetInt(VfxDataShapeTable.SpawnCountPropertyName, count);
         }
 
         private static bool TryFindProperty(

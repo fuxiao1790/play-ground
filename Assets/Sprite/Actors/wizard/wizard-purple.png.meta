@@ -1,10 +1,19 @@
 fileFormatVersion: 2
-guid: be3ba273526af9d41b75c7967ae7ae8c
+guid: 7492504ea8e5b4148b2a2883dd87bc62
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 251356888381255264
-    second: ChatGPT Image Jul 19, 2026, 06_18_44 PM_0
+      213: 1108302114069761489
+    second: wizard-purple_0
+  - first:
+      213: -3948330712890764603
+    second: wizard-purple_1
+  - first:
+      213: -30377282031205354
+    second: wizard-purple_2
+  - first:
+      213: 2617806232936411829
+    second: wizard-purple_3
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,23 +122,89 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: ChatGPT Image Jul 19, 2026, 06_18_44 PM_0
+      name: wizard-purple_0
       rect:
         serializedVersion: 2
-        x: 0
+        x: 33
         y: 0
-        width: 1254
-        height: 1254
-      alignment: 0
-      pivot: {x: 0, y: 0}
+        width: 293
+        height: 384
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 06eefcb12cffc7300800000000000000
-      internalID: 251356888381255264
+      spriteID: 1dd41f496ea716f00800000000000000
+      internalID: 1108302114069761489
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: wizard-purple_1
+      rect:
+        serializedVersion: 2
+        x: 317
+        y: 0
+        width: 293
+        height: 384
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5c29162c226b439c0800000000000000
+      internalID: -3948330712890764603
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: wizard-purple_2
+      rect:
+        serializedVersion: 2
+        x: 610
+        y: 0
+        width: 293
+        height: 384
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 614c94fd504149ff0800000000000000
+      internalID: -30377282031205354
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: wizard-purple_3
+      rect:
+        serializedVersion: 2
+        x: 897
+        y: 0
+        width: 293
+        height: 384
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5b27afc26e0545420800000000000000
+      internalID: 2617806232936411829
       vertices: []
       indices: 
       edges: []
@@ -138,7 +213,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 6be2f75ec6def14438b2b3e2271ada25
     internalID: 0
     vertices: []
     indices: 
@@ -146,9 +221,14 @@ TextureImporter:
     weights: []
     secondaryTextures: []
     spriteCustomMetadata:
-      entries: []
+      entries:
+      - key: SpriteEditor.SliceSettings
+        value: '{"sliceOnImport":false,"gridCellCount":{"x":4.0,"y":1.0},"gridSpriteSize":{"x":293.0,"y":384.0},"gridSpriteOffset":{"x":16.0,"y":0.0},"gridSpritePadding":{"x":16.0,"y":0.0},"pivot":{"x":0.5,"y":0.0},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":7,"pivotUnitMode":0,"slicingType":2,"keepEmptyRects":false,"isAlternate":false}'
     nameFileIdTable:
-      ChatGPT Image Jul 19, 2026, 06_18_44 PM_0: 251356888381255264
+      wizard-purple_0: 1108302114069761489
+      wizard-purple_1: -3948330712890764603
+      wizard-purple_2: -30377282031205354
+      wizard-purple_3: 2617806232936411829
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

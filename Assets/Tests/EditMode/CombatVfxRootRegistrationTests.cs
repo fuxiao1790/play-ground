@@ -57,14 +57,14 @@ namespace PlayGround.Tests.EditMode
         [Test]
         public void EnsureBufferCapacity_BeyondInitialCapacity_GrowsWithoutShrinking()
         {
-            var res = new AoeVfxTypeResources
+            var res = new CircularVfxResources
             {
-                BufferCapacity = AoeVfxTypeResources.InitialBufferCapacity
+                BufferCapacity = AoeVfxResourcesBase.InitialBufferCapacity
             };
 
             try
             {
-                int count = AoeVfxTypeResources.InitialBufferCapacity + 1;
+                int count = AoeVfxResourcesBase.InitialBufferCapacity + 1;
                 res.EnsureBufferCapacity(count);
 
                 Assert.That(res.BufferCapacity, Is.GreaterThanOrEqualTo(count));

@@ -23,7 +23,7 @@ namespace PlayGround.System.Combat.Vfx
     // create, drained every presentation update, disposed by CombatAoeVfxDispatchSystem on destroy.
     // Per-shape sorted lists and bucket offsets are grow-only scratch reused every frame by
     // bucketing jobs - never reallocated just to shrink, mirroring
-    // AoeVfxTypeResources.EnsureBufferCapacity's GraphicsBuffer growth pattern.
+    // AoeVfxResourcesBase.EnsureBufferCapacity's GraphicsBuffer growth pattern.
     public struct CombatAoeVfxDispatchSingleton : IComponentData
     {
         public NativeQueue<CircularVfxSpawnRequest> PendingCircularSpawns;
