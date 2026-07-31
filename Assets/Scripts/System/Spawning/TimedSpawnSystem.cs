@@ -125,7 +125,7 @@ namespace PlayGround.System.Combat.Spawning
                             Kind = IntervalChildKind.Projectile,
                             TemplateKey = spawn.TemplateKey,
                             Position = kinematics.Position,
-                            AimDirection = AimDirectionFor(kinematics, spawn.SourceId, spawn.JitterSeed, tickIndex),
+                            AimDirection = TravelDirectionFor(kinematics),
                             Faction = spawn.Faction,
                             SourceId = spawn.SourceId,
                             JitterSeed = (uint)spawn.JitterSeed,
@@ -139,36 +139,11 @@ namespace PlayGround.System.Combat.Spawning
                 state.TickIndex = tickIndex;
             }
 
-            // Moving sources (projectiles) spray relative to their current travel direction.
-            // Stationary sources (AOEs) have no inherent direction, so pick a well-mixed
-            // per-source, per-tick random one instead of degenerating to a fixed axis.
-            private static float2 AimDirectionFor(
-                in CombatKinematicsComponent kinematics,
-                int sourceId,
-                int jitterSeed,
-                int tickIndex)
-            {
-                if (math.lengthsq(kinematics.Velocity) > 0.0001f)
-                {
-                    return kinematics.Velocity;
-                }
-
-                unchecked
-                {
-                    uint hash = (uint)sourceId;
-                    hash = (hash * 397u) ^ (uint)jitterSeed;
-                    hash = (hash * 397u) ^ (uint)tickIndex;
-                    hash *= 0x9E3779B9u;
-                    hash ^= hash >> 16;
-                    hash *= 0x7FEB352Du;
-                    hash ^= hash >> 15;
-                    hash *= 0x846CA68Bu;
-                    hash ^= hash >> 16;
-                    float angle = (hash / (float)uint.MaxValue) * (math.PI * 2f);
-                    math.sincos(angle, out float s, out float c);
-                    return new float2(c, s);
-                }
-            }
+            // A stationary source (zero velocity) has no travel direction; the expansion
+            // system reads a zero AimDirection as "fan the interval children in a nova"
+            // instead of side-spraying relative to a direction that doesn't exist.
+            private static float2 TravelDirectionFor(in CombatKinematicsComponent kinematics) =>
+                math.lengthsq(kinematics.Velocity) > 0.0001f ? kinematics.Velocity : default;
         }
     }
 }

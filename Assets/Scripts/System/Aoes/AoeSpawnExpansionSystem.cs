@@ -81,6 +81,9 @@ namespace PlayGround.System.Combat.Aoes
                         TimedSpawnComponent timedSpawn = spawned.TimedSpawn;
                         timedSpawn.Faction = spawned.Faction;
                         timedSpawn.SourceId = spawned.AoeId;
+                        // The compiled template shares one JitterSeed across every cast of this skill;
+                        // restamp per spawner instance so each one's own interval-spawn waves diverge.
+                        timedSpawn.JitterSeed = unchecked((int)((uint)spawned.AoeId * 2654435761u));
                         spawned.TimedSpawn = timedSpawn;
                     }
                     else

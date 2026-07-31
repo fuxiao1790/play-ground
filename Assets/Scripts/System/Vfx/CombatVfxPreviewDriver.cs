@@ -456,23 +456,23 @@ namespace PlayGround.System.Combat.Vfx
 
         private static double CurrentTime()
         {
-// #if UNITY_EDITOR
-//             if (!Application.isPlaying)
-//             {
-//                 return UnityEditor.EditorApplication.timeSinceStartup;
-//             }
-// #endif
+#if UNITY_EDITOR
+            if (!UnityEngine.Application.isPlaying)
+            {
+                return UnityEditor.EditorApplication.timeSinceStartup;
+            }
+#endif
             return Time.timeAsDouble;
         }
 
         private static void RequestEditorUpdate()
         {
-// #if UNITY_EDITOR
-//             if (!Application.isPlaying)
-//             {
-//                 UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
-//             }
-// #endif
+#if UNITY_EDITOR
+            if (!UnityEngine.Application.isPlaying)
+            {
+                UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
+            }
+#endif
         }
     }
 }

@@ -654,10 +654,15 @@ energy-spawned copies.
 
 Directionality defaults:
 
-- projectile child from projectile source: velocity-relative `SideSpray` across
-  `sideSpreadDegrees`
-- projectile child from AOE source: radial 360-degree fan from the AOE center;
-  `sideSpreadDegrees` is ignored
+- projectile child from any source: `SideSpray` — half the shots fan left of a
+  forward direction and half fan right. Each shot's angle is randomized within
+  `+/-sideSpreadDegrees/2` of that side's perpendicular line (i.e. the line 90
+  degrees from forward) — not around forward itself. For a *moving* source
+  (non-zero velocity) forward is the source's travel direction; for a
+  *stationary* source (zero velocity, e.g. most AOEs) there is no inherent
+  forward, so one is rolled fresh each energy tick and side-sprayed around
+  exactly the same way. All of this is seeded per spawner instance and per
+  energy tick, so no two waves and no two spawners roll the same shots.
 - AOE child from any source: spawned around the source center. Echo copies fan
   through `AOE spawn expansion systems`; each copy is placed in a deterministic
   random disk within the trigger `scatterRadius` around the center. With

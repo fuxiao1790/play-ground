@@ -181,10 +181,20 @@ namespace PlayGround.System.Combat.Projectiles
                     if (command.DeterministicIdTickIndex > 0
                         && command.SpawnPatternType == ProjectileChildSpawnPatternType.SideSpray)
                     {
+                        var rng = new Random(IntervalWaveSeed(in command));
+                        if (math.lengthsq(evt.AimDirection) <= 0.0001f)
+                        {
+                            // Stationary source: no travel direction to spray from, so roll a
+                            // fresh one per wave and side-spray around that instead.
+                            float randomForwardAngle = rng.NextFloat(0f, 2f * math.PI);
+                            math.sincos(randomForwardAngle, out float s, out float c);
+                            command.BaseDirection = new float2(c, s);
+                        }
+
                         for (int i = 0; i < count; i++)
                         {
                             int id = ProjectileIdFor(in command, i);
-                            float2 velocity = SideSprayVelocity(in command, i, count);
+                            float2 velocity = IntervalSideSprayVelocity(in command, i, ref rng);
                             WriteCommand(in command, id, velocity);
                         }
                     }
@@ -250,6 +260,9 @@ namespace PlayGround.System.Combat.Projectiles
                 {
                     timedSpawn.Faction = template.Faction;
                     timedSpawn.SourceId = projectileId;
+                    // The compiled template shares one JitterSeed across every cast of this skill;
+                    // restamp per spawner instance so each one's own interval-spawn waves diverge.
+                    timedSpawn.JitterSeed = unchecked((int)((uint)projectileId * 2654435761u));
                 }
 
                 var command = template;
@@ -266,18 +279,26 @@ namespace PlayGround.System.Combat.Projectiles
             private static float SpreadAngle(float spread, int i, int count) =>
                 count <= 1 ? 0f : -spread * 0.5f + spread / (count - 1) * i;
 
-            private static float2 SideSprayVelocity(in ProjectileSpawnCommand command, int shotIndex, int shotCount)
+            // Seeded per spawner instance (JitterSeed) and per wave (DeterministicIdTickIndex),
+            // so no two spawners and no two waves from the same spawner roll the same shots.
+            private static uint IntervalWaveSeed(in ProjectileSpawnCommand command)
+            {
+                uint seed = command.JitterSeed;
+                seed = (seed * 397u) ^ (uint)command.DeterministicIdTickIndex;
+                return seed != 0 ? seed : 1u;
+            }
+
+            // Half the shots fan left of the spawner's travel direction, half fan right;
+            // each shot's angle is randomized within +/-SpreadDegrees/2 of that side's
+            // perpendicular line (not the travel direction itself).
+            private static float2 IntervalSideSprayVelocity(in ProjectileSpawnCommand command, int shotIndex, ref Random rng)
             {
                 float2 forward = math.normalizesafe(command.BaseDirection, new float2(1f, 0f));
                 float2 left = new float2(-forward.y, forward.x);
                 float2 right = new float2(forward.y, -forward.x);
-                bool isLeft = (shotIndex & 1) == 0;
-                int leftCount = (shotCount + 1) / 2;
-                int rightCount = shotCount / 2;
-                int sideIndex = shotIndex / 2;
-                int sideCount = isLeft ? leftCount : rightCount;
-                float2 sideDirection = isLeft ? left : right;
-                float angle = SpreadAngle(command.SpreadDegrees, sideIndex, sideCount);
+                float2 sideDirection = (shotIndex & 1) == 0 ? left : right;
+                float halfSpread = command.SpreadDegrees * 0.5f;
+                float angle = rng.NextFloat(-halfSpread, halfSpread);
                 return Rotate(sideDirection, angle) * command.Speed;
             }
 

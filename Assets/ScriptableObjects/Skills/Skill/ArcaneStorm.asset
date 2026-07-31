@@ -14,14 +14,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.LingeringAoeSkill
   assetGuid: cbb1570f850ec9f4bb2198f064de5ffb
   displayName: Arcane Storm
-  description:
+  description: 
   icon: {fileID: 0}
   baseRate: 5
+  maxSupportCount: 6
   definition:
-    baseAreaSize: 1
-    damage: 2
+    baseAreaSize: 3
+    damage: 1
     echoCount: 1
     scatterRadius: 0
+    manaCost: 2
     armSeconds: 0
     directDamageEnabled: 1
     prefab: {fileID: 1037899157007725660, guid: 97b6a23e42b43d94f949dc96f390d7b1, type: 3}
