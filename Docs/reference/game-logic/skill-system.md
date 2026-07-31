@@ -28,9 +28,10 @@ presentation config. A stacking set is triggered-only and fires only when reache
 through a `StackTrigger`.
 
 **Stat Modifier Support** - augments the Skill in the same set through typed
-modifier kinds: flat base additions, increased percentages, Pre/Post
-multipliers, or behavior contexts. Only ever affects the one Skill it shares a
-set with. No cross-set influence.
+modifier kinds: flat base additions, increased percentages, multipliers, or
+behavior contexts. Only ever affects the one Skill it shares a set with. No
+cross-set influence. See
+[skill-modifiers.md](./skill-modifiers.md) for the modifier interfaces.
 
 **Skill Set** 鈥?the unit of authoring. Contains one or more Skills and zero or
 more Skill Supports. Self-contained: its Skills are only modified by its own
@@ -121,29 +122,12 @@ Types: `SkillStatSnapshot`, `SkillStatAggregator`
 
 Stateless utility - not a chain tier. Pure aggregation function: inputs in, flat snapshot
 out, no stored state. Collapses player-level Layer 1 stat sources into a flat
-snapshot. The compiler feeds snapshot terms into the same per-stat fold used by
-supports: Post multipliers where applicable, and increased percentages where the
-stat is authored as increased scaling. Owns no data - all sources come from
-Layer 1.
-
-`SkillStatSnapshot` fields:
-- `increasedRatePercent`
-- `damageMultiplier`
-- `areaSizeMultiplier`
-- `baseEnergyGain`
-- `increasedEnergyGainPercent`
-- `energyGainMultiplier`
-
-Baking:
-- `increasedRatePercent` contributes an increased percent to the `Rate` fold
-- `damageMultiplier` contributes a Post multiplier to the `Damage` fold
-- `areaSizeMultiplier` contributes a Post multiplier to the `AreaSize` fold
-- `baseEnergyGain`, `increasedEnergyGainPercent`, and `energyGainMultiplier`
-  do not feed the per-skill `StatModifierAccumulator` fold used by Rate/
-  Damage/AreaSize. They fold directly into each interval trigger's own
-  `energyPerSecond` at compile time: an interval trigger is a per-edge concern
-  with its own base value, not a set-level stat any support can attach to.
-- `recoveryTime` is derived after folding: `recoveryTime = 1 / rate`
+snapshot that feeds the same per-stat fold used by supports. Owns no data -
+all sources come from Layer 1. See
+[skill-modifiers.md](./skill-modifiers.md#player-level-stat-resolution-layer-15)
+for `SkillStatSnapshot` fields and baking rules, and
+[numeric-modifiers.md](../architecture/numeric-modifiers.md) for the fold
+formula itself.
 
 ### Layer 2: Orchestration
 
@@ -279,13 +263,14 @@ nothing to behavior.
 
 `manaCost` belongs to every projectile or AOE definition. It folds through
 `SkillStat.ManaCost` during runtime compilation, so compatible supports can
-modify it. A player-cast skill spends once, using the complete valid trigger
-chain. Every `TriggerLink` has `manaCostIncreasedPercent` and
-`manaCostMultiplier`, resolved per link as
-`(1 + manaCostIncreasedPercent) * manaCostMultiplier` by
-`TriggerLink.ResolveManaCostFactor()`. The resolved factor is used for the
-interval child-energy threshold, the initial active skill chain cost, and that
-link's triggered skill cost.
+modify it - see [skill-modifiers.md](./skill-modifiers.md) for the fold and
+the supports that contribute to it. A player-cast skill spends once, using
+the complete valid trigger chain. Every `TriggerLink` resolves its own
+mana-cost factor from `manaCostIncreasedPercent` and `manaCostMultiplier` -
+see
+[skill-modifiers.md#mana-cost-factor-trigger-links](./skill-modifiers.md#mana-cost-factor-trigger-links).
+The resolved factor is used for the interval child-energy threshold, the
+initial active skill chain cost, and that link's triggered skill cost.
 
 For active skill `A` and two triggered skills `T1`, `T2`, the cost is:
 
@@ -378,153 +363,16 @@ instances with separate keys, so their stacks cannot collide. `debuffName` and
 
 Each support derives from `SkillSupport`. Augment supports derive from
 `StatModifierSupport`, which carries `SupportedSkillTags` for validation, and
-then implement one or more kind interfaces. `ConversionSupport` stays separate:
-it can replace the compiled runtime shape after normal stat and behavior baking.
-`StackingSupport` is the current conversion support and marks its set
-triggered-only.
+then implement one or more stat-modifier kind interfaces. `ConversionSupport`
+stays separate: it can replace the compiled runtime shape after normal stat
+and behavior baking. `StackingSupport` is the current conversion support and
+marks its set triggered-only.
 
-The stat-specific augment interfaces are composable, not mutually exclusive
-base classes:
-
-```csharp
-abstract class SkillSupport : ScriptableObject { }
-
-abstract class StatModifierSupport : SkillSupport {
-    public abstract SkillDefinitionTags SupportedSkillTags { get; }
-}
-
-interface IDamageModifiers {
-    interface IBaseValueModifier {
-        void CollectAdded(AddedSink sink);
-    }
-}
-
-interface IAreaSizeModifiers {
-    interface IIncreasedModifier {
-        void CollectIncreases(IncreasedSink sink);
-    }
-
-    interface IMultiplierModifier {
-        void CollectMultipliers(MultiplierSink sink);
-    }
-}
-
-interface IProjectileSpeedModifiers {
-    interface IMultiplierModifier {
-        void CollectMultipliers(MultiplierSink sink);
-    }
-}
-
-interface IProjectileLifetimeModifiers {
-    interface IMultiplierModifier {
-        void CollectMultipliers(MultiplierSink sink);
-    }
-}
-
-interface IRateModifiers {
-    interface IIncreasedModifier {
-        void CollectIncreases(IncreasedSink sink);
-    }
-}
-
-interface IPierceCountModifiers {
-    interface IBaseValueModifier {
-        void CollectAdded(AddedSink sink);
-    }
-}
-
-interface IManaModifiers {
-    interface IBaseValueModifier {
-        void CollectAdded(AddedSink sink);
-    }
-
-    interface IIncreasedModifier {
-        void CollectIncreases(IncreasedSink sink);
-    }
-
-    interface IMultiplierModifier {
-        void CollectMultipliers(MultiplierSink sink);
-    }
-}
-
-interface IProjectileBehaviorModifier {
-    void ApplyToProjectile(ProjectileBehaviorContext ctx);
-}
-
-interface IAoeBehaviorModifier {
-    void ApplyToAoe(AoeBehaviorContext ctx);
-}
-
-abstract class ConversionSupport : SkillSupport {
-    public abstract bool ConvertsToTriggeredOnly { get; }
-    public abstract RuntimeSkillDefinition Compile(
-        SkillDefinition definition,
-        RuntimeSkillDefinition runtime,
-        SkillStatSnapshot snapshot);
-}
-```
-
-A support may implement more than one kind. `PiercingSupport` is both an
-`IPierceCountModifiers.IBaseValueModifier` for `PierceCount`, an
-`IManaModifiers.IBaseValueModifier` for `ManaCost`, and an
-`IProjectileBehaviorModifier` for `RepeatHitCooldown`. A support implementing
-two identically shaped stat interfaces must give each an explicit interface
-implementation, since one implicit method cannot serve both with different
-bodies. Each interface receives only its constrained sink or behavior context,
-so an increased modifier cannot write base values or multiply stats.
-
-Numeric stats use one fold per stat:
-
-```text
-value = (base * preMultiplier + added) * (1 + increased) * postMultiplier
-```
-
-Increases are summed, multipliers are multiplied, and support order no longer
-changes numeric output. Player snapshot terms feed this same fold:
-`DamageMultiplier` contributes a Post multiplier to `Damage`,
-`AreaSizeMultiplier` contributes a Post multiplier to `AreaSize`, and
-`increasedRatePercent` contributes to the summed increased term on `Rate`.
-
-Rate uses the same fold as other stats. `IncreasedRateSupport` and the player
-`increasedRatePercent` are both authored as percent points (`25` means +25%)
-and both feed the increased bucket, then cooldown is derived from the folded
-rate:
-
-```text
-rate = Resolve(Rate, baseRate)
-recoveryTime = 1 / max(0.01, rate)
-```
-
-Current augment supports:
-
-| Support | Kind interface(s) | Stat / behavior contribution |
-|---|---|---|
-| Multiple Projectiles | `IManaModifiers.IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost`; adds projectile `count`, `spreadDegrees` |
-| Multiple AOEs | `IManaModifiers.IBaseValueModifier`, `IAoeBehaviorModifier` | Adds `ManaCost`; adds AOE `echoCount`, `scatterRadius` |
-| Piercing | `IPierceCountModifiers.IBaseValueModifier`, `IManaModifiers.IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost` and `PierceCount`; sets projectile `repeatHitCooldown` |
-| Homing | `IManaModifiers.IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost`; enables tracking and sets turn speed/query interval |
-| Concentrated Effect | `IAreaSizeModifiers.IMultiplierModifier`, `IManaModifiers.IMultiplierModifier` | Post multiplier on `AreaSize`; also multiplies `ManaCost` |
-| Increased AOE Effect | `IAreaSizeModifiers.IIncreasedModifier`, `IManaModifiers.IIncreasedModifier` | Increased percent on `AreaSize`; also increases `ManaCost` |
-| Faster Projectiles | `IProjectileSpeedModifiers.IMultiplierModifier`, `IProjectileLifetimeModifiers.IMultiplierModifier`, `IManaModifiers.IMultiplierModifier` | Post multipliers on `ProjectileSpeed`, `ProjectileLifetime`; also multiplies `ManaCost` |
-| Added Damage | `IDamageModifiers.IBaseValueModifier`, `IManaModifiers.IBaseValueModifier` | Adds `Damage`; may also add `ManaCost` (default `0`) |
-| Increased Skill Speed | `IRateModifiers.IIncreasedModifier`, `IManaModifiers.IIncreasedModifier` | Increased percent on `Rate`; also increases `ManaCost` |
-
-Supports also declare compatible skill tags:
-
-| Support | Compatible tags |
-|---|---|
-| Multiple Projectiles | `Projectile` |
-| Multiple AOEs | `Aoe` |
-| Piercing | `Projectile` |
-| Homing | `Projectile` |
-| Faster Projectiles | `Projectile` |
-| Added Damage | `Projectile`, `Aoe` |
-| Concentrated Effect | `Aoe` |
-| Increased AOE Effect | `Aoe` |
-| Increased Skill Speed | `Projectile`, `Aoe` |
-
-Example: putting Multiple Projectiles on an AOE skill is allowed, but it does
-nothing and validation returns a warning.
+See [skill-modifiers.md](./skill-modifiers.md) for the modifier kind
+interfaces, the current augment support roster, and their compatible skill
+tags. The numeric fold those interfaces feed is a general pattern, not a
+skill-system concept - see
+[numeric-modifiers.md](../architecture/numeric-modifiers.md).
 
 ---
 

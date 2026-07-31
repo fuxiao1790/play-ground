@@ -365,8 +365,8 @@ namespace PlayGround.Skills
             public static void Contribute(StatModifierAccumulator modifiers, SkillStatSnapshot snapshot)
             {
                 modifiers.AddIncreased(SkillStat.Rate, snapshot.IncreasedRatePercent);
-                modifiers.AddMultiplier(SkillStat.Damage, snapshot.DamageMultiplier, MultiplierTiming.Post);
-                modifiers.AddMultiplier(SkillStat.AreaSize, snapshot.AreaSizeMultiplier, MultiplierTiming.Post);
+                modifiers.AddMultiplier(SkillStat.Damage, snapshot.DamageMultiplier);
+                modifiers.AddMultiplier(SkillStat.AreaSize, snapshot.AreaSizeMultiplier);
             }
         }
 

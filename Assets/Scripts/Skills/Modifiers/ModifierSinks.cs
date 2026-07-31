@@ -39,9 +39,9 @@ namespace PlayGround.Skills.Modifiers
             this.accumulator = accumulator;
         }
 
-        public void Add(SkillStat stat, float mul, MultiplierTiming timing = MultiplierTiming.Post)
+        public void Add(SkillStat stat, float mul)
         {
-            accumulator.AddMultiplier(stat, mul, timing);
+            accumulator.AddMultiplier(stat, mul);
         }
     }
 }

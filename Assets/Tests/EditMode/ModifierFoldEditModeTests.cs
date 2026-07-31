@@ -117,24 +117,9 @@ namespace PlayGround.Tests.EditMode
             var accumulator = new StatModifierAccumulator();
             accumulator.AddAdded(SkillStat.Damage, 5f);
             accumulator.AddIncreased(SkillStat.Damage, 1f);
-            accumulator.AddMultiplier(SkillStat.Damage, 2f, MultiplierTiming.Post);
+            accumulator.AddMultiplier(SkillStat.Damage, 2f);
 
             Assert.That(accumulator.Resolve(SkillStat.Damage, 10f), Is.EqualTo(60f).Within(0.0001f));
-        }
-
-        [Test]
-        public void PreAndPostMultipliersDifferOnlyWithFlatAdds()
-        {
-            var preAccumulator = new StatModifierAccumulator();
-            preAccumulator.AddAdded(SkillStat.Damage, 10f);
-            preAccumulator.AddMultiplier(SkillStat.Damage, 2f, MultiplierTiming.Pre);
-
-            var postAccumulator = new StatModifierAccumulator();
-            postAccumulator.AddAdded(SkillStat.Damage, 10f);
-            postAccumulator.AddMultiplier(SkillStat.Damage, 2f, MultiplierTiming.Post);
-
-            Assert.That(preAccumulator.Resolve(SkillStat.Damage, 5f), Is.EqualTo(20f).Within(0.0001f));
-            Assert.That(postAccumulator.Resolve(SkillStat.Damage, 5f), Is.EqualTo(30f).Within(0.0001f));
         }
 
         [Test]

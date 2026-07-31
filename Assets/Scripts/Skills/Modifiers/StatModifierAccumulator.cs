@@ -1,26 +1,20 @@
+using PlayGround.Common.Modifiers;
+
 namespace PlayGround.Skills.Modifiers
 {
-    public enum MultiplierTiming
-    {
-        Pre,
-        Post,
-    }
-
     public sealed class StatModifierAccumulator
     {
         private static readonly int StatCount = global::System.Enum.GetValues(typeof(SkillStat)).Length;
 
         private readonly float[] added = new float[StatCount];
         private readonly float[] increased = new float[StatCount];
-        private readonly float[] preMul = new float[StatCount];
-        private readonly float[] postMul = new float[StatCount];
+        private readonly float[] mul = new float[StatCount];
 
         public StatModifierAccumulator()
         {
             for (var i = 0; i < StatCount; i++)
             {
-                preMul[i] = 1f;
-                postMul[i] = 1f;
+                mul[i] = 1f;
             }
         }
 
@@ -34,23 +28,15 @@ namespace PlayGround.Skills.Modifiers
             increased[(int)stat] += percent;
         }
 
-        public void AddMultiplier(SkillStat stat, float mul, MultiplierTiming timing)
+        public void AddMultiplier(SkillStat stat, float multiplier)
         {
-            var index = (int)stat;
-            if (timing == MultiplierTiming.Pre)
-            {
-                preMul[index] *= mul;
-                return;
-            }
-
-            postMul[index] *= mul;
+            mul[(int)stat] *= multiplier;
         }
 
         public float Resolve(SkillStat stat, float baseValue)
         {
             var index = (int)stat;
-            var effectiveBase = (baseValue * preMul[index]) + added[index];
-            return effectiveBase * (1f + increased[index]) * postMul[index];
+            return StatFold.Resolve(baseValue, added[index], increased[index], mul[index]);
         }
     }
 }

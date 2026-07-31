@@ -115,6 +115,10 @@ Docs/
   [contracts/combat-hit-and-tick-results.md](./contracts/combat-hit-and-tick-results.md)
 - Skill details:
   [reference/game-logic/skill-system.md](./reference/game-logic/skill-system.md)
+- Skill stat modifiers:
+  [reference/game-logic/skill-modifiers.md](./reference/game-logic/skill-modifiers.md)
+- General numeric modifier pattern (not skill-specific):
+  [reference/architecture/numeric-modifiers.md](./reference/architecture/numeric-modifiers.md)
 - Simulation details: [reference/simulation/index.md](./reference/simulation/index.md)
 - ECS patterns: [reference/simulation/ecs-notes.md](./reference/simulation/ecs-notes.md)
 - Coding rules: [coding-standards.md](./coding-standards.md)

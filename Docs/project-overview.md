@@ -26,12 +26,16 @@ section that matches the topic you need.
 - [Architecture index](./architecture/index.md)
 - [Layer rules](./architecture/layer-rules.md)
 - [Data flow overview](./architecture/data-flow-overview.md)
+- [Numeric modifiers](./reference/architecture/numeric-modifiers.md) - the
+  general base/added/increased/multiplier fold; read before adding any new
+  numeric stat modifier anywhere in the codebase, not just skills.
 - [Folder structure](./folder-structure.md)
 
 ## Design and reference
 
 - [Gameplay design](./reference/design/gameplay.md)
 - [Skill system](./reference/game-logic/skill-system.md)
+- [Skill stat modifiers](./reference/game-logic/skill-modifiers.md)
 - [Spawn system](./reference/game-logic/spawn-system.md)
 - [Simulation index](./reference/simulation/index.md)
 

@@ -4,18 +4,23 @@ using UnityEngine;
 namespace PlayGround.Skills
 {
     [CreateAssetMenu(menuName = "PlayGround/Skills/Supports/Multiple Projectiles", fileName = "MultipleProjectilesSupport")]
-    public sealed class MultipleProjectilesSupport : StatModifierSupport, IManaModifiers.IBaseValueModifier, IProjectileBehaviorModifier
+    public sealed class MultipleProjectilesSupport : StatModifierSupport,
+        IManaModifiers.IBaseValueModifier,
+        IManaModifiers.IIncreasedModifier,
+        IManaModifiers.IMultiplierModifier,
+        IProjectileBehaviorModifier
     {
         [SerializeField, Min(1)] private int count = 3;
         [SerializeField, Min(0f)] private float spreadDegrees = 30f;
         [SerializeField, Min(0f)] private float manaCostAdded = 4f;
+        [SerializeField] private float manaCostIncreasedPercent;
+        [SerializeField, Min(0f)] private float manaCostMultiplier = 1f;
 
         public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Projectile;
 
-        public void CollectAdded(AddedSink sink)
-        {
-            sink.Add(SkillStat.ManaCost, manaCostAdded);
-        }
+        public void CollectAdded(AddedSink sink) => sink.Add(SkillStat.ManaCost, manaCostAdded);
+        public void CollectIncreases(IncreasedSink sink) => sink.Add(SkillStat.ManaCost, manaCostIncreasedPercent);
+        public void CollectMultipliers(MultiplierSink sink) => sink.Add(SkillStat.ManaCost, manaCostMultiplier);
 
         public void ApplyToProjectile(ProjectileBehaviorContext ctx)
         {

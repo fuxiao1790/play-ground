@@ -1,5 +1,6 @@
 using System;
 using PlayGround.Common;
+using PlayGround.Common.Modifiers;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -47,7 +48,11 @@ namespace PlayGround.Skills
         [Min(0f)] public float manaCostIncreasedPercent = 0f;
 
         public float ResolveManaCostFactor() =>
-            (1f + manaCostIncreasedPercent) * manaCostMultiplier;
+            StatFold.Resolve(
+                baseValue: 1f,
+                added: 0f,
+                increasedPercent: manaCostIncreasedPercent,
+                multiplier: manaCostMultiplier);
 
         public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
         public string Description => description;
