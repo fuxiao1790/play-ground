@@ -12,10 +12,11 @@ changes to existing gameplay
 
 enhancements/addition to existing
 - interval spawn direction (only side spray is supported currently)
+- on crit trigger and others.
 
 needed for poc
 - fast projectiles, these cannot have tracking, requires tunneling check.
 - targeted skills. no physics, single hit / interval ticking.
 - damage number vfx graph.
-- cast on crit and other conditions.
+- more aoe shape kinds
 - better mob ai.
