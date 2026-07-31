@@ -16,8 +16,8 @@ MonoBehaviour:
   displayName: Projectile Interval Spawn Trigger 2
   description: 
   icon: {fileID: 0}
-  manaCostMultiplier: 1
-  manaCostIncreasedPercent: 0
-  energyPerSecond: 20
+  manaCostMultiplier: 1.1
+  manaCostIncreasedPercent: 10
+  energyPerSecond: 35
   projectileCount: 2
   sideSpreadDegrees: 15

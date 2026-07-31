@@ -13,6 +13,11 @@ MonoBehaviour:
   m_Name: MultipleAoesSupport2
   m_EditorClassIdentifier: PlayGround.Runtime:PlayGround.Skills:MultipleAoesSupport
   assetGuid: 1e3b98ffcd5c4f84081f70cac36f4acd
+  displayName: 
+  description: 
+  icon: {fileID: 0}
   echoCount: 2
-  scatterRadius: 8
-  manaCostAdded: 6
+  scatterRadius: 5
+  manaCostAdded: 3
+  manaCostIncreasedPercent: 20
+  manaCostMultiplier: 1.2

@@ -16,8 +16,8 @@ MonoBehaviour:
   displayName: Aoe Interval Spawn Trigger
   description: 
   icon: {fileID: 0}
-  manaCostMultiplier: 1
-  manaCostIncreasedPercent: 0
-  energyPerSecond: 15
+  manaCostMultiplier: 1.1
+  manaCostIncreasedPercent: 10
+  energyPerSecond: 25
   echoCount: 1
   scatterRadius: 10
