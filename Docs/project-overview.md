@@ -5,7 +5,7 @@ section that matches the topic you need.
 
 ## Working guidance
 
-- Always use caveman speech.
+- Always use caveman speech — follow [.agent/caveman.md](../.agent/caveman.md) for the rules and compression levels.
 - Use [folder-structure.md](./folder-structure.md) to quickly find files.
 - Review [architecture/index.md](./architecture/index.md) and [coding-standards.md](./coding-standards.md) before making code changes.
 - Review [reference/simulation/ecs-notes.md](./reference/simulation/ecs-notes.md) before suggesting or making code changes.
