@@ -302,6 +302,38 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void CompilerMapsProjectileEnergyRateWithStatModifiers()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Child Projectile Skill");
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
+            ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
+            trigger.energyPerSecond = 2f;
+            var snapshot = new SkillStatSnapshot(
+                increasedRatePercent: 0f,
+                damageMultiplier: 1f,
+                critChance: 0f,
+                critMultiplier: 1.5f,
+                baseEnergyGain: 1f,
+                increasedEnergyGainPercent: 0.5f,
+                energyGainMultiplier: 2f);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(sourceSet, trigger),
+                    new SkillLoadoutNode(targetSet),
+                },
+                0,
+                snapshot);
+
+            RuntimeChildSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).ChildSpawnSetup;
+            Assert.That(setup, Is.Not.Null);
+            Assert.That(setup.EnergyPerSecond, Is.EqualTo(9f).Within(0.0001f));
+        }
+
+        [Test]
         public void CompilerMapsAoeEnergyRateAndCost()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
@@ -328,6 +360,38 @@ namespace PlayGround.Tests.EditMode
             Assert.That(projectile.AoeIntervalSpawnSetup.EnergyPerSecond, Is.EqualTo(1.5f).Within(0.0001f));
             Assert.That(projectile.AoeIntervalSpawnSetup.EnergyThreshold, Is.EqualTo(3f).Within(0.0001f));
             Assert.That(projectile.AoeIntervalSpawnSetup.Count, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void CompilerMapsAoeEnergyRateWithStatModifiers()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            AoeSkill targetSkill = CreateAsset<AoeSkill>("AOE Skill");
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
+            AoeIntervalSpawnTrigger trigger = CreateAsset<AoeIntervalSpawnTrigger>("AOE Interval Spawn");
+            trigger.energyPerSecond = 1.5f;
+            var snapshot = new SkillStatSnapshot(
+                increasedRatePercent: 0f,
+                damageMultiplier: 1f,
+                critChance: 0f,
+                critMultiplier: 1.5f,
+                baseEnergyGain: 0.5f,
+                increasedEnergyGainPercent: 0.5f,
+                energyGainMultiplier: 2f);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(sourceSet, trigger),
+                    new SkillLoadoutNode(targetSet),
+                },
+                0,
+                snapshot);
+
+            RuntimeAoeIntervalSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).AoeIntervalSpawnSetup;
+            Assert.That(setup, Is.Not.Null);
+            Assert.That(setup.EnergyPerSecond, Is.EqualTo(6f).Within(0.0001f));
         }
 
         [Test]

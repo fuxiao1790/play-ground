@@ -22,6 +22,12 @@ namespace PlayGround.Common.Stats
         [SerializeField] private float critMultiplier = 1.5f;
         [SerializeField] private float areaSizeMultiplier = 1f;
 
+        [Header("Duration Skill Energy")]
+        [SerializeField, Min(0f)] private float baseEnergyGain = 0f;
+        [SerializeField, Min(0f), Tooltip("Authored as percent points. 15 means +15% energy gain.")]
+        private float increasedEnergyGainPercent = 0f;
+        [SerializeField] private float energyGainMultiplier = 1f;
+
         public float MaxHealth => Mathf.Max(1f, maxHealth);
         public float MaxMana => Mathf.Max(0f, maxMana);
         public float HealthRegenPerSecond => Mathf.Max(0f, healthRegenPerSecond);
@@ -32,6 +38,9 @@ namespace PlayGround.Common.Stats
         public float CritChance => Mathf.Clamp01(critChance);
         public float CritMultiplier => Mathf.Max(1f, critMultiplier);
         public float AreaSizeMultiplier => Mathf.Max(0f, areaSizeMultiplier);
+        public float BaseEnergyGain => Mathf.Max(0f, baseEnergyGain);
+        public float IncreasedEnergyGainPercent => Mathf.Max(0f, increasedEnergyGainPercent) * 0.01f;
+        public float EnergyGainMultiplier => Mathf.Max(0f, energyGainMultiplier);
 
         internal void SetRuntimeValues(
             float maxHealth,

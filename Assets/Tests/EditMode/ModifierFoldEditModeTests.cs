@@ -182,6 +182,42 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void UnitStatSheetEnergyGainFieldsAggregateWithNeutralDefaultMultiplier()
+        {
+            UnitStatSheet sheet = CreateAsset<UnitStatSheet>("Player Stats");
+            SetField(sheet, "increasedEnergyGainPercent", 20f);
+            SetField(sheet, "baseEnergyGain", 1.5f);
+            SetField(sheet, "energyGainMultiplier", 2f);
+
+            SkillStatSnapshot snapshot = SkillStatAggregator.Aggregate(null, sheet);
+            UnitStatSheet freshSheet = CreateAsset<UnitStatSheet>("Fresh Player Stats");
+            SkillStatSnapshot freshSnapshot = SkillStatAggregator.Aggregate(null, freshSheet);
+
+            Assert.That(snapshot.IncreasedEnergyGainPercent, Is.EqualTo(0.2f).Within(0.0001f));
+            Assert.That(snapshot.BaseEnergyGain, Is.EqualTo(1.5f).Within(0.0001f));
+            Assert.That(snapshot.EnergyGainMultiplier, Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(freshSheet.EnergyGainMultiplier, Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(freshSnapshot.EnergyGainMultiplier, Is.EqualTo(1f).Within(0.0001f));
+        }
+
+        [Test]
+        public void IntervalEnergyGainFoldAppliesBaseIncreaseAndMultiplier()
+        {
+            ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
+            trigger.energyPerSecond = 2f;
+            var snapshot = new SkillStatSnapshot(
+                increasedRatePercent: 0f,
+                damageMultiplier: 1f,
+                critChance: 0f,
+                critMultiplier: 1.5f,
+                baseEnergyGain: 1f,
+                increasedEnergyGainPercent: 0.5f,
+                energyGainMultiplier: 2f);
+
+            Assert.That(trigger.ResolveEnergyPerSecond(snapshot), Is.EqualTo(9f).Within(0.0001f));
+        }
+
+        [Test]
         public void PierceCountAddsAcrossSupports()
         {
             ProjectileSkill skill = CreateProjectileSkill("Projectile Skill", pierceCount: 1);

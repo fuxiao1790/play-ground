@@ -392,7 +392,7 @@ namespace PlayGround.Skills
             {
                 JitterSeed = ++nextChildJitterSeed,
                 ChildDefinition = childDef,
-                EnergyPerSecond = Mathf.Max(0.01f, trigger.energyPerSecond),
+                EnergyPerSecond = trigger.ResolveEnergyPerSecond(snapshot),
                 EnergyThreshold = energyThreshold,
                 Behavior = new ProjectileChildSpawnBehavior(
                     Mathf.Max(1, childDef.Count + trigger.projectileCount),
@@ -434,7 +434,7 @@ namespace PlayGround.Skills
             {
                 JitterSeed = ++nextChildJitterSeed,
                 ChildDefinition = childDef,
-                EnergyPerSecond = Mathf.Max(0.01f, trigger.energyPerSecond),
+                EnergyPerSecond = trigger.ResolveEnergyPerSecond(snapshot),
                 EnergyThreshold = energyThreshold,
                 Count = Mathf.Max(1, childDef.EchoCount + trigger.echoCount),
                 ScatterRadius = Mathf.Max(0f, trigger.scatterRadius),

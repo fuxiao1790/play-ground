@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: PlayerStatSheet
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Common.Stats.UnitStatSheet
   maxHealth: 10000
-  maxMana: 500
+  maxMana: 2000
   healthRegenPerSecond: 100
   manaRegenPerSecond: 100
   moveSpeed: 10
@@ -22,3 +22,6 @@ MonoBehaviour:
   critChance: 0.418
   critMultiplier: 2.5
   areaSizeMultiplier: 1
+  baseEnergyGain: 5
+  increasedEnergyGainPercent: 50
+  energyGainMultiplier: 1.5

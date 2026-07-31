@@ -130,11 +130,19 @@ Layer 1.
 - `increasedRatePercent`
 - `damageMultiplier`
 - `areaSizeMultiplier`
+- `baseEnergyGain`
+- `increasedEnergyGainPercent`
+- `energyGainMultiplier`
 
 Baking:
 - `increasedRatePercent` contributes an increased percent to the `Rate` fold
 - `damageMultiplier` contributes a Post multiplier to the `Damage` fold
 - `areaSizeMultiplier` contributes a Post multiplier to the `AreaSize` fold
+- `baseEnergyGain`, `increasedEnergyGainPercent`, and `energyGainMultiplier`
+  do not feed the per-skill `StatModifierAccumulator` fold used by Rate/
+  Damage/AreaSize. They fold directly into each interval trigger's own
+  `energyPerSecond` at compile time: an interval trigger is a per-edge concern
+  with its own base value, not a set-level stat any support can attach to.
 - `recoveryTime` is derived after folding: `recoveryTime = 1 / rate`
 
 ### Layer 2: Orchestration
@@ -632,6 +640,25 @@ Both concrete interval triggers inherit `energyPerSecond` from
 definition owns `manaCost`; its compiled, support-folded `ManaCost` is
 converted by `IntervalSpawnTrigger.ManaToEnergyCost`. The baked threshold is
 `max(0.001, childManaCost * ResolveManaCostFactor())`.
+
+The compiled `EnergyPerSecond` is not the trigger's raw authored value.
+`IntervalSpawnTrigger.ResolveEnergyPerSecond` folds it against the player
+stat sheet's energy-gain terms:
+
+```text
+Mathf.Max(0.01f, (energyPerSecond + snapshot.BaseEnergyGain)
+    * (1f + snapshot.IncreasedEnergyGainPercent)
+    * snapshot.EnergyGainMultiplier)
+```
+
+`baseEnergyGain`, `increasedEnergyGainPercent`, and `energyGainMultiplier`
+are authored on `UnitStatSheet` and reach every interval trigger through the
+same `SkillStatSnapshot` used for Rate/Damage/AreaSize. Unlike `TriggerLink`'s
+mana-cost factor, which only scales an already-resolved child cost with no base
+of its own, energy gain has a genuine base: the trigger's authored
+`energyPerSecond`. It follows the base/added/increased/multiplier shape, but
+is resolved locally on `IntervalSpawnTrigger` rather than through the
+per-skill accumulator.
 
 Each source begins with empty energy. Every simulation update adds
 `energyPerSecond * deltaTime`; whenever accrued energy reaches the next

@@ -11,13 +11,19 @@ namespace PlayGround.Skills
             float damageMultiplier,
             float critChance,
             float critMultiplier,
-            float areaSizeMultiplier = 1f)
+            float areaSizeMultiplier = 1f,
+            float baseEnergyGain = 0f,
+            float increasedEnergyGainPercent = 0f,
+            float energyGainMultiplier = 1f)
         {
             IncreasedRatePercent = increasedRatePercent;
             DamageMultiplier = damageMultiplier;
             CritChance = critChance;
             CritMultiplier = critMultiplier;
             AreaSizeMultiplier = areaSizeMultiplier;
+            BaseEnergyGain = baseEnergyGain;
+            IncreasedEnergyGainPercent = increasedEnergyGainPercent;
+            EnergyGainMultiplier = energyGainMultiplier;
         }
 
         public float IncreasedRatePercent { get; }
@@ -25,6 +31,9 @@ namespace PlayGround.Skills
         public float CritChance { get; }
         public float CritMultiplier { get; }
         public float AreaSizeMultiplier { get; }
+        public float BaseEnergyGain { get; }
+        public float IncreasedEnergyGainPercent { get; }
+        public float EnergyGainMultiplier { get; }
     }
 
     public static class SkillStatAggregator
@@ -37,6 +46,9 @@ namespace PlayGround.Skills
                     sheet.DamageMultiplier,
                     sheet.CritChance,
                     sheet.CritMultiplier,
-                    sheet.AreaSizeMultiplier);
+                    sheet.AreaSizeMultiplier,
+                    sheet.BaseEnergyGain,
+                    sheet.IncreasedEnergyGainPercent,
+                    sheet.EnergyGainMultiplier);
     }
 }
