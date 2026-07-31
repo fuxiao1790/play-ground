@@ -13,6 +13,7 @@ changes to existing gameplay
 enhancements/addition to existing
 - interval spawn direction (only side spray is supported currently)
 - on crit trigger and others.
+- make modifiers use the same kind of format in editor. increased is expressend in 100 + x% but multiplier is just a multiple. change increased to match multiplier.
 
 needed for poc
 - fast projectiles, these cannot have tracking, requires tunneling check.
