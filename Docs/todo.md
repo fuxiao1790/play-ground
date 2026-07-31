@@ -8,14 +8,14 @@ minor fixes
 - multiple projectile should also have 1 projectile aimed at where the cursor is.'
 
 changes to existing gameplay
-- give more granular control to mana cost, mana cost modifiers for supports and triggers should also have increased modifier and multiplier modifiers.
-
-new feature
-- interval spawn direction (only side spray is supported currently)
-- damage number vfx graph
-- cast on crit and other conditions.
-- fast projectiles, these cannot have tracking, requires tunneling check
-- targeted skills. no physics, just hits at an interval.
 - more interaction between skills instead of just a single skill that does everything. damage currently is the only axis, is there something else that can be added.
-- unit related, these have dependency on each other 
-    - player summons (these should just be mobs but with different faction)
+
+enhancements/addition to existing
+- interval spawn direction (only side spray is supported currently)
+
+needed for poc
+- fast projectiles, these cannot have tracking, requires tunneling check.
+- targeted skills. no physics, single hit / interval ticking.
+- damage number vfx graph.
+- cast on crit and other conditions.
+- better mob ai.
