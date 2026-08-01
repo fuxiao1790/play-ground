@@ -395,10 +395,11 @@ namespace PlayGround.Skills
             EditResolved?.Invoke(new SkillLoadoutEditResult(true, revision, null));
         }
 
+        // Only a skill swap is gated by and resets root cooldown. Support add/remove and
+        // support-cap changes never bypass an active cast, so there is no abuse case in
+        // letting them proceed - and preserving progress means they don't force a fresh cd.
         private static bool AffectsRootCooldown(SkillLoadoutEditKind kind) =>
-            kind is SkillLoadoutEditKind.SetSkill or SkillLoadoutEditKind.ClearSkill
-                or SkillLoadoutEditKind.SetSupport or SkillLoadoutEditKind.ClearSupport
-                or SkillLoadoutEditKind.IncreaseSupportCap or SkillLoadoutEditKind.DecreaseSupportCap;
+            kind is SkillLoadoutEditKind.SetSkill or SkillLoadoutEditKind.ClearSkill;
 
         private bool IsCooldownBlocked(SkillLoadoutEditCommand command) =>
             AffectsRootCooldown(command.Kind) && IsRootNodeOnCooldown(command.NodeIndex);

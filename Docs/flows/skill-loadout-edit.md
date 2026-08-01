@@ -51,8 +51,8 @@ sequenceDiagram
 
 ## Failure Rules
 
-- A stale picker revision, cooldown-blocked skill/support change, support-cap
-  change outside zero-to-authored-maximum bounds, out-of-range support position,
+- A stale picker revision, cooldown-blocked skill swap, support-cap change
+  outside zero-to-authored-maximum bounds, out-of-range support position,
   missing dependency, invalid compatibility, compile failure, or registration
   failure rejects the command without partial mutation.
 - UI may explain invalid choices before submit, but driver validation is final

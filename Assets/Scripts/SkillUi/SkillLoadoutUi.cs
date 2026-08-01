@@ -98,15 +98,17 @@ namespace PlayGround.Skills
                 float progress = skillDriver.GetCooldownProgressForNode(i);
                 cooldownLabels[i].text = progress > 0f && progress < 1f ? $"{Mathf.CeilToInt((1f - progress) * 10f) / 10f:0.0}" : string.Empty;
 
+                // Only a skill swap is gated by cooldown; adding/removing supports (and cap
+                // changes) never bypasses an active cast, so those controls stay enabled.
                 bool locked = skillDriver.IsRootOnCooldown(i);
                 skillButtons[i]?.SetEnabled(!locked);
-                increaseButtons[i]?.SetEnabled(!locked && CanIncreaseSupportCap(i));
-                decreaseButtons[i]?.SetEnabled(!locked && CanDecreaseSupportCap(i));
+                increaseButtons[i]?.SetEnabled(CanIncreaseSupportCap(i));
+                decreaseButtons[i]?.SetEnabled(CanDecreaseSupportCap(i));
 
                 List<Button> supports = supportButtonsByNode[i];
                 if (supports == null) continue;
                 for (int s = 0; s < supports.Count; s++)
-                    supports[s].SetEnabled(!locked);
+                    supports[s].SetEnabled(true);
             }
         }
 

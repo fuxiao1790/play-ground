@@ -46,7 +46,7 @@ node list through that position. This does not create or modify an authored
 | Node state | Stored facts | Cast/edit meaning | UI meaning |
 |---|---|---|---|
 | Empty | `skillSet == null` | No cast. Skill may be selected. | `+` skill position; support and adjacent-link actions explain dependency. |
-| Root | Skill set, no incoming link | Direct-cast. Driver owns cooldown and may reject skill/support edits during cooldown. | Normal skill treatment plus cooldown overlay. |
+| Root | Skill set, no incoming link | Direct-cast. Driver owns cooldown and may reject a skill swap during cooldown; support edits are always allowed. | Normal skill treatment plus cooldown overlay. |
 | Triggered | Skill set, incoming link | Never direct-cast. It may be edited because it has no direct-cast cooldown. | Gray triggered-only treatment; still selectable. |
 
 ## Command Boundary
@@ -98,9 +98,11 @@ One edit may be pending. At the start of `SkillDriver.Tick`, the driver:
 
 Any failure before step 6 leaves the old runtime loadout and compiled roots
 active. Candidate state is discarded. New root nodes start at zero cooldown
-progress; unchanged roots preserve their progress; an accepted skill/support
-edit on a direct root resets that root's progress. Trigger commands remain
-allowed while a root cooldown runs.
+progress; unchanged roots preserve their progress; an accepted skill swap
+(`SetSkill`/`ClearSkill`) on a direct root resets that root's progress. Support
+edits (`SetSupport`, `ClearSupport`, `IncreaseSupportCap`, `DecreaseSupportCap`)
+and trigger commands never reset or block on a root cooldown - only a skill
+swap can bypass an active cast, so only a skill swap is gated by it.
 
 ## Events
 
@@ -130,8 +132,11 @@ loadout and shows `rejectionReason`.
   multiple support slots; this does not cap or change the core support model.
 - Clearing a skill is disabled until its supports and adjacent dependent links
   are cleared.
-- Skill/support changes to a direct root are disabled while that root's cooldown
-  is running. Trigger changes are still allowed.
+- A skill swap (`SetSkill`/`ClearSkill`) on a direct root is disabled while that
+  root's cooldown is running, and resets the root's cooldown progress on
+  success. Support edits (`SetSupport`, `ClearSupport`, `IncreaseSupportCap`,
+  `DecreaseSupportCap`) and trigger changes are always allowed and never reset
+  cooldown progress - there is no abuse case in letting them proceed mid-cooldown.
 - Invalid state never commits and no command auto-clears a different slot.
 
 ## Save DTO
