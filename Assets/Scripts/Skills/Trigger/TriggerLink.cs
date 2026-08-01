@@ -44,14 +44,15 @@ namespace PlayGround.Skills
         [Min(0f)] public float manaCostMultiplier = 1f;
 
         // Applied before manaCostMultiplier: resolvedCost = childCost *
-        // (1 + manaCostIncreasedPercent) * manaCostMultiplier.
-        [Min(0f)] public float manaCostIncreasedPercent = 0f;
+        // (1 + manaCostIncreased) * manaCostMultiplier.
+        [FormerlySerializedAs("manaCostIncreasedPercent")]
+        [Min(0f)] public float manaCostIncreased = 0f;
 
         public float ResolveManaCostFactor() =>
             StatFold.Resolve(
                 baseValue: 1f,
                 added: 0f,
-                increasedPercent: manaCostIncreasedPercent,
+                increasedPercent: manaCostIncreased,
                 multiplier: manaCostMultiplier);
 
         public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;

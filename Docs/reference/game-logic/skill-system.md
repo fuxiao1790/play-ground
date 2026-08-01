@@ -266,7 +266,7 @@ nothing to behavior.
 modify it - see [skill-modifiers.md](./skill-modifiers.md) for the fold and
 the supports that contribute to it. A player-cast skill spends once, using
 the complete valid trigger chain. Every `TriggerLink` resolves its own
-mana-cost factor from `manaCostIncreasedPercent` and `manaCostMultiplier` -
+mana-cost factor from `manaCostIncreased` and `manaCostMultiplier` -
 see
 [skill-modifiers.md#mana-cost-factor-trigger-links](./skill-modifiers.md#mana-cost-factor-trigger-links).
 The resolved factor is used for the interval child-energy threshold, the

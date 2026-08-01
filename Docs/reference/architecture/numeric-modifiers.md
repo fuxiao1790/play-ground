@@ -63,7 +63,7 @@ can call `StatFold.Resolve` directly. The skill system does this for two
 per-edge trigger-link concerns that fall outside the per-skill accumulator:
 
 - `TriggerLink.ResolveManaCostFactor()` resolves a link's own mana-cost
-  factor from its `manaCostIncreasedPercent` and `manaCostMultiplier` fields
+  factor from its `manaCostIncreased` and `manaCostMultiplier` fields
   (`base = 1`, `added = 0`).
 - `IntervalSpawnTrigger.ResolveEnergyPerSecond(snapshot)` resolves the
   trigger's authored `energyPerSecond` against the player stat sheet's

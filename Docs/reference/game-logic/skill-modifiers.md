@@ -166,7 +166,7 @@ Baking:
 
 ## Mana Cost Factor (Trigger Links)
 
-Every `TriggerLink` has `manaCostIncreasedPercent` and `manaCostMultiplier`,
+Every `TriggerLink` has `manaCostIncreased` and `manaCostMultiplier`,
 resolved per link via `TriggerLink.ResolveManaCostFactor()` and
 `IntervalSpawnTrigger.ResolveEnergyPerSecond()` - the two single-source fold
 resolves documented in

@@ -1,5 +1,6 @@
 using PlayGround.Skills.Modifiers;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace PlayGround.Skills
 {
@@ -13,13 +14,14 @@ namespace PlayGround.Skills
         [SerializeField, Min(1)] private int count = 3;
         [SerializeField, Min(0f)] private float spreadDegrees = 30f;
         [SerializeField, Min(0f)] private float manaCostAdded = 4f;
-        [SerializeField] private float manaCostIncreasedPercent;
+        [SerializeField, FormerlySerializedAs("manaCostIncreasedPercent")]
+        private float manaCostIncreased;
         [SerializeField, Min(0f)] private float manaCostMultiplier = 1f;
 
         public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Projectile;
 
         public void CollectAdded(AddedSink sink) => sink.Add(SkillStat.ManaCost, manaCostAdded);
-        public void CollectIncreases(IncreasedSink sink) => sink.Add(SkillStat.ManaCost, manaCostIncreasedPercent);
+        public void CollectIncreases(IncreasedSink sink) => sink.Add(SkillStat.ManaCost, manaCostIncreased);
         public void CollectMultipliers(MultiplierSink sink) => sink.Add(SkillStat.ManaCost, manaCostMultiplier);
 
         public void ApplyToProjectile(ProjectileBehaviorContext ctx)

@@ -6,7 +6,7 @@ ECS as the runtime authority for Current values.
 1. `SkillDriver` fires optimistically, resets its cooldown, and submits an
    `ExternalSpawnRequest` with caster proxy, compiled total `ManaCost`, and
    cast token. Each valid link's resolved factor,
-   `(1 + manaCostIncreasedPercent) * manaCostMultiplier`, from
+   `(1 + manaCostIncreased) * manaCostMultiplier`, from
    `TriggerLink.ResolveManaCostFactor()` multiplies both the initial active
    skill chain cost and that link's triggered skill cost.
 2. `ExternalSpawnGateSystem` runs serially before spawn expansion. It accepts a

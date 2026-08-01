@@ -167,7 +167,7 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void CompilerAppliesManaCostIncreasedPercentAlongsideOwnStat()
+        public void CompilerAppliesManaCostIncreasedAlongsideOwnStat()
         {
             AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
             var definition = (AoeDefinitionBase)skill.Definition;
@@ -175,7 +175,7 @@ namespace PlayGround.Tests.EditMode
             definition.baseAreaSize = 4f;
             IncreasedAoeSupport support = CreateAsset<IncreasedAoeSupport>("Increased AOE");
             SetField(support, "areaSizeMultiplier", 1.5f);
-            SetField(support, "manaCostIncreasedPercent", 0.5f);
+            SetField(support, "manaCostIncreased", 0.5f);
             SkillSet set = CreateSkillSet("AOE Set", skill, support);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
@@ -220,7 +220,7 @@ namespace PlayGround.Tests.EditMode
             MultipleProjectilesSupport added = CreateAsset<MultipleProjectilesSupport>("Multiple Projectiles");
             SetField(added, "manaCostAdded", 3f);
             IncreasedAoeSupport increased = CreateAsset<IncreasedAoeSupport>("Increased AOE");
-            SetField(increased, "manaCostIncreasedPercent", 0.5f);
+            SetField(increased, "manaCostIncreased", 0.5f);
             ConcentratedEffectSupport multiplier = CreateAsset<ConcentratedEffectSupport>("Concentrated Effect");
             SetField(multiplier, "manaCostMultiplier", 1.5f);
             SkillSet set = CreateSkillSet("AOE Set", skill, added, increased, multiplier);
@@ -252,7 +252,7 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void CompilerAppliesTriggerManaCostIncreasedPercent()
+        public void CompilerAppliesTriggerManaCostIncreased()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
             AoeSkill targetSkill = CreateAsset<AoeSkill>("AOE Skill");
@@ -262,7 +262,7 @@ namespace PlayGround.Tests.EditMode
             SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
             OnImpactAoeTrigger trigger = CreateAsset<OnImpactAoeTrigger>("On Impact AOE");
             trigger.manaCostMultiplier = 2f;
-            trigger.manaCostIncreasedPercent = 0.5f;
+            trigger.manaCostIncreased = 0.5f;
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
                 new[]
@@ -446,7 +446,7 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void CompilerAppliesIntervalManaCostIncreasedPercent()
+        public void CompilerAppliesIntervalManaCostIncreased()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
             ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Child Projectile Skill");
@@ -455,7 +455,7 @@ namespace PlayGround.Tests.EditMode
             SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
             ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
             trigger.manaCostMultiplier = 2f;
-            trigger.manaCostIncreasedPercent = 0.5f;
+            trigger.manaCostIncreased = 0.5f;
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
                 new[]
