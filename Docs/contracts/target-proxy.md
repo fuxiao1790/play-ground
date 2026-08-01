@@ -44,17 +44,23 @@ target snapshot buffers.
 
 ## Lifetime
 
-Actor registration creates the proxy and seeds `Health`/`Mana` Current, Max, and
-RegenPerSecond from the root's `Resource` values. The root owns initial values,
-Max, and regen-rate; ECS owns runtime Current (damage, spending, and regen).
-Roots push Max/regen changes without resetting Current, then mirror Current back
-for presentation. Actor updates also push shape/position. Actor teardown queues
-deletion after current-frame proxy users are safe.
+Actor registration enqueues a create event that seeds `Health`/`Mana` Current,
+Max, and RegenPerSecond from the root's `Resource` values. The
+`TargetProxyCreateApplySystem` creates the proxy in a later simulation tick, so
+the actor's proxy handle resolves then rather than during registration. The root
+owns initial values, Max, and regen-rate; ECS owns runtime Current (damage,
+spending, and regen). Roots enqueue Max/regen, shape, and position updates;
+`TargetProxyUpdateApplySystem` applies them without resetting Current, then the
+root mirrors Current back for presentation. Actor teardown enqueues deletion;
+`TargetProxyDeleteApplySystem` applies it after current-frame proxy users are
+safe.
 
 ## Ordering
 
-Proxy push must happen before simulation collision/tracking reads. Proxy
-deletion should occur after current-frame hit/result replay safety.
+Create and update events apply in `SimulationSystemGroup` before
+`TargetSpatialHashSystem`, so collision and tracking read current proxy data.
+Delete events apply in `PresentationSystemGroup` after `CombatApplyBridge`,
+preserving current-frame hit/result replay safety.
 
 ## Related Layers
 

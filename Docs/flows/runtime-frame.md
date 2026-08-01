@@ -7,7 +7,11 @@ Show the cross-layer order for one gameplay frame.
 ## Sequence
 
 1. Scene actors update input, movement intent, cooldowns, and behavior.
-2. Player and mob roots push target proxy position and shape.
+2. Player and mob roots enqueue target-proxy create, position, shape, and
+   resource-update events. `TargetProxyCreateApplySystem` and
+   `TargetProxyUpdateApplySystem` consume them in `SimulationSystemGroup` before
+   `TargetSpatialHashSystem`; a registration handle resolves on a later simulation
+   tick.
 3. ECS lifetime systems expire old projectile/AOE entities.
 4. Timed spawn systems enqueue child projectile/AOE events.
 5. Projectile systems track, move, expire contact gates, and collide.
@@ -18,7 +22,9 @@ Show the cross-layer order for one gameplay frame.
 9. Spawn expansion drains managed and ECS event queues into commands.
 10. Apply systems reuse disabled slots or cold-create overflow.
 11. Render prep writes matrices.
-12. Actor roots delete queued invalid target proxies.
+12. Actor roots enqueue deletion for invalid target proxies.
+   `TargetProxyDeleteApplySystem` consumes those events in
+   `PresentationSystemGroup` after `CombatApplyBridge`.
 13. Presentation systems dispatch combat results, VFX, and render batches.
 
 ## Producers
@@ -50,9 +56,11 @@ batched render submission.
 
 ## Ordering / Timing Requirements
 
-Target proxy push must happen before collision reads proxy data. Apply runs
-after movement/collision, so newly spawned entities first simulate next frame.
-Managed companion resolution happens after combat results are finalized.
+Target-proxy create and update events apply before spatial hashing and collision
+reads proxy data. Spawn apply runs after movement/collision, so newly spawned
+entities first simulate next frame. Target-proxy delete events apply after
+`CombatApplyBridge`; managed companion resolution therefore happens before the
+proxy is deleted.
 
 ## Failure / Edge Cases
 

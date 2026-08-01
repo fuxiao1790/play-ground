@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Aoes;
 using PlayGround.System.Combat.Collision;
@@ -65,68 +66,86 @@ namespace PlayGround.System.Combat.Targets
         private static readonly ProfilerMarker ExistsMarker = new("CombatTargetProxy.Exists");
         private static readonly ProfilerMarker BuildPositionMarker = new("CombatTargetProxy.BuildPosition");
         private static readonly ProfilerMarker BuildShapeMarker = new("CombatTargetProxy.BuildShape");
-        private static readonly ProfilerMarker SetComponentDataMarker = new("CombatTargetProxy.SetComponentData");
+        private static int nextCreateToken;
+        private static readonly Dictionary<int, ICombatTarget> pendingCreates = new();
+        private static readonly Dictionary<ICombatTarget, int> pendingTokenByTarget = new();
         private static World cachedWorld;
         private static EntityArchetype cachedArchetype;
 
-        public static Entity Create(EntityManager entityManager, ICombatTarget target, CombatFaction faction)
+        public static bool Create(EntityManager entityManager, ICombatTarget target, CombatFaction faction)
         {
             if (target == null || entityManager == default)
             {
-                return Entity.Null;
+                return false;
             }
 
             Entity existing = target.CombatTargetProxy;
-            if (Exists(entityManager, existing))
+            if (existing != Entity.Null)
             {
-                Push(entityManager, existing, target);
-                return existing;
+                return Push(entityManager, existing, target);
             }
 
-            Entity entity = entityManager.CreateEntity(Archetype(entityManager));
-            target.CombatTargetProxy = entity;
-            entityManager.SetComponentData(entity, new TargetFaction { Value = faction });
-            entityManager.SetComponentData(entity, new TargetCompanion { Target = target });
+            if (pendingTokenByTarget.ContainsKey(target) || !TryGetScopeEntity(entityManager, out Entity scopeEntity))
+            {
+                return false;
+            }
+
+            int token = ++nextCreateToken;
+            pendingCreates[token] = target;
+            pendingTokenByTarget[target] = token;
+
+            TargetPosition position = BuildPosition(target);
+            TargetCollisionShape shape = BuildShape(target, position.Value);
             float maxHealth = math.max(1f, target.CombatMaxHealth);
             float currentHealth = math.clamp(target.CombatCurrentHealth, 0f, maxHealth);
-            entityManager.SetComponentData(entity, new Health
-            {
-                Current = currentHealth,
-                Max = maxHealth,
-                RegenPerSecond = math.max(0f, target.CombatHealthRegenPerSecond)
-            });
             float maxMana = math.max(0f, target.CombatMaxMana);
             float currentMana = math.clamp(target.CombatCurrentMana, 0f, maxMana);
-            entityManager.SetComponentData(entity, new Mana
+            entityManager.GetBuffer<TargetProxyCreateEvent>(scopeEntity).Add(new TargetProxyCreateEvent
             {
-                Current = currentMana,
-                Max = maxMana,
-                RegenPerSecond = math.max(0f, target.CombatManaRegenPerSecond)
+                Token = token,
+                Faction = faction,
+                Position = position,
+                Shape = shape,
+                MaxHealth = maxHealth,
+                CurrentHealth = currentHealth,
+                HealthRegenPerSecond = math.max(0f, target.CombatHealthRegenPerSecond),
+                MaxMana = maxMana,
+                CurrentMana = currentMana,
+                ManaRegenPerSecond = math.max(0f, target.CombatManaRegenPerSecond)
             });
-            Push(entityManager, entity, target);
-            return entity;
+            return true;
         }
 
         public static void Delete(EntityManager entityManager, Entity entity)
         {
-            if (!Exists(entityManager, entity))
+            if (!Exists(entityManager, entity) || !TryGetScopeEntity(entityManager, out Entity scopeEntity))
             {
                 return;
             }
 
-            entityManager.DestroyEntity(entity);
+            entityManager.GetBuffer<TargetProxyDeleteEvent>(scopeEntity).Add(new TargetProxyDeleteEvent
+            {
+                Proxy = entity
+            });
         }
 
         public static void Delete(ICombatTarget target)
         {
-            if (target == null || target.CombatTargetProxy == Entity.Null)
+            if (target == null)
             {
                 return;
             }
 
-            if (TryGetEntityManager(out EntityManager entityManager))
+            Entity entity = target.CombatTargetProxy;
+            if (pendingTokenByTarget.TryGetValue(target, out int token))
             {
-                Delete(entityManager, target.CombatTargetProxy);
+                pendingTokenByTarget.Remove(target);
+                pendingCreates.Remove(token);
+            }
+
+            if (entity != Entity.Null && TryGetEntityManager(out EntityManager entityManager))
+            {
+                Delete(entityManager, entity);
             }
 
             target.CombatTargetProxy = Entity.Null;
@@ -149,7 +168,10 @@ namespace PlayGround.System.Combat.Targets
         {
             using (PushApplyMarker.Auto())
             {
-                if (target == null || !target.IsCombatTargetActive || !Exists(entityManager, entity))
+                if (target == null
+                    || !target.IsCombatTargetActive
+                    || !Exists(entityManager, entity)
+                    || !TryGetScopeEntity(entityManager, out Entity scopeEntity))
                 {
                     return false;
                 }
@@ -166,11 +188,13 @@ namespace PlayGround.System.Combat.Targets
                     shape = BuildShape(target, position.Value);
                 }
 
-                using (SetComponentDataMarker.Auto())
+                entityManager.GetBuffer<TargetProxyUpdateEvent>(scopeEntity).Add(new TargetProxyUpdateEvent
                 {
-                    entityManager.SetComponentData(entity, position);
-                    entityManager.SetComponentData(entity, shape);
-                }
+                    Kind = TargetProxyUpdateKind.Push,
+                    Proxy = entity,
+                    Position = position,
+                    Shape = shape
+                });
 
                 return true;
             }
@@ -181,15 +205,20 @@ namespace PlayGround.System.Combat.Targets
             if (target == null
                 || target.CombatTargetProxy == Entity.Null
                 || !TryGetEntityManager(out EntityManager entityManager)
-                || !Exists(entityManager, target.CombatTargetProxy))
+                || !Exists(entityManager, target.CombatTargetProxy)
+                || !TryGetScopeEntity(entityManager, out Entity scopeEntity))
             {
                 return false;
             }
 
-            PushResourceMaxes(entityManager, target.CombatTargetProxy, target);
-            Health health = entityManager.GetComponentData<Health>(target.CombatTargetProxy);
-            health.Current = math.clamp(currentHealth, 0f, health.Max);
-            entityManager.SetComponentData(target.CombatTargetProxy, health);
+            DynamicBuffer<TargetProxyUpdateEvent> updates = entityManager.GetBuffer<TargetProxyUpdateEvent>(scopeEntity);
+            updates.Add(ResourceMaxEvent(target.CombatTargetProxy, target));
+            updates.Add(new TargetProxyUpdateEvent
+            {
+                Kind = TargetProxyUpdateKind.SetHealth,
+                Proxy = target.CombatTargetProxy,
+                CurrentValue = currentHealth
+            });
             return true;
         }
 
@@ -198,15 +227,20 @@ namespace PlayGround.System.Combat.Targets
             if (target == null
                 || target.CombatTargetProxy == Entity.Null
                 || !TryGetEntityManager(out EntityManager entityManager)
-                || !Exists(entityManager, target.CombatTargetProxy))
+                || !Exists(entityManager, target.CombatTargetProxy)
+                || !TryGetScopeEntity(entityManager, out Entity scopeEntity))
             {
                 return false;
             }
 
-            PushResourceMaxes(entityManager, target.CombatTargetProxy, target);
-            Mana mana = entityManager.GetComponentData<Mana>(target.CombatTargetProxy);
-            mana.Current = math.clamp(currentMana, 0f, mana.Max);
-            entityManager.SetComponentData(target.CombatTargetProxy, mana);
+            DynamicBuffer<TargetProxyUpdateEvent> updates = entityManager.GetBuffer<TargetProxyUpdateEvent>(scopeEntity);
+            updates.Add(ResourceMaxEvent(target.CombatTargetProxy, target));
+            updates.Add(new TargetProxyUpdateEvent
+            {
+                Kind = TargetProxyUpdateKind.SetMana,
+                Proxy = target.CombatTargetProxy,
+                CurrentValue = currentMana
+            });
             return true;
         }
 
@@ -228,24 +262,33 @@ namespace PlayGround.System.Combat.Targets
             if (target == null
                 || !Exists(entityManager, entity)
                 || !entityManager.HasComponent<Health>(entity)
-                || !entityManager.HasComponent<Mana>(entity))
+                || !entityManager.HasComponent<Mana>(entity)
+                || !TryGetScopeEntity(entityManager, out Entity scopeEntity))
             {
                 return false;
             }
 
-            Health health = entityManager.GetComponentData<Health>(entity);
-            health.Max = math.max(1f, target.CombatMaxHealth);
-            health.RegenPerSecond = math.max(0f, target.CombatHealthRegenPerSecond);
-            health.Current = math.min(health.Current, health.Max);
-            entityManager.SetComponentData(entity, health);
-
-            Mana mana = entityManager.GetComponentData<Mana>(entity);
-            mana.Max = math.max(0f, target.CombatMaxMana);
-            mana.RegenPerSecond = math.max(0f, target.CombatManaRegenPerSecond);
-            mana.Current = math.min(mana.Current, mana.Max);
-            entityManager.SetComponentData(entity, mana);
+            entityManager.GetBuffer<TargetProxyUpdateEvent>(scopeEntity).Add(ResourceMaxEvent(entity, target));
             return true;
         }
+
+        internal static bool TryTakePendingCreate(int token, out ICombatTarget target)
+        {
+            if (!pendingCreates.TryGetValue(token, out target))
+            {
+                return false;
+            }
+
+            pendingCreates.Remove(token);
+            if (pendingTokenByTarget.TryGetValue(target, out int pendingToken) && pendingToken == token)
+            {
+                pendingTokenByTarget.Remove(target);
+            }
+
+            return true;
+        }
+
+        internal static bool IsPendingCreateCancelled(int token) => !pendingCreates.ContainsKey(token);
 
         public static bool TryReadResources(ICombatTarget target, out Health health, out Mana mana)
         {
@@ -335,7 +378,20 @@ namespace PlayGround.System.Combat.Targets
             };
         }
 
-        private static EntityArchetype Archetype(EntityManager entityManager)
+        private static TargetProxyUpdateEvent ResourceMaxEvent(Entity entity, ICombatTarget target)
+        {
+            return new TargetProxyUpdateEvent
+            {
+                Kind = TargetProxyUpdateKind.PushResourceMaxes,
+                Proxy = entity,
+                MaxHealth = math.max(1f, target.CombatMaxHealth),
+                HealthRegenPerSecond = math.max(0f, target.CombatHealthRegenPerSecond),
+                MaxMana = math.max(0f, target.CombatMaxMana),
+                ManaRegenPerSecond = math.max(0f, target.CombatManaRegenPerSecond)
+            };
+        }
+
+        internal static EntityArchetype Archetype(EntityManager entityManager)
         {
             World world = entityManager.World;
             if (cachedWorld == world && cachedArchetype.Valid)
@@ -351,9 +407,30 @@ namespace PlayGround.System.Combat.Targets
                 typeof(TargetFaction),
                 typeof(Health),
                 typeof(Mana),
-                typeof(TargetStackEntry),
-                typeof(TargetCompanion));
+                typeof(TargetStackEntry));
             return cachedArchetype;
+        }
+
+        private static bool TryGetScopeEntity(EntityManager entityManager, out Entity scopeEntity)
+        {
+            scopeEntity = Entity.Null;
+            if (entityManager == default)
+            {
+                return false;
+            }
+
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<CombatScope>(),
+                ComponentType.ReadOnly<TargetProxyCreateEvent>(),
+                ComponentType.ReadOnly<TargetProxyUpdateEvent>(),
+                ComponentType.ReadOnly<TargetProxyDeleteEvent>());
+            if (query.CalculateEntityCount() != 1)
+            {
+                return false;
+            }
+
+            scopeEntity = query.GetSingletonEntity();
+            return true;
         }
 
         private static bool TryGetEntityManager(out EntityManager entityManager)

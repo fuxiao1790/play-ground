@@ -31,6 +31,8 @@ namespace PlayGround.Tests.PlayMode
         private ImpactAoeSpawnExpansionSystem impactAoeExpansion;
         private LingeringAoeSpawnExpansionSystem lingeringAoeExpansion;
         private ExternalSpawnGateSystem externalSpawnGate;
+        private TargetProxyCreateApplySystem targetProxyCreateApply;
+        private TargetProxyUpdateApplySystem targetProxyUpdateApply;
         private Entity scopeEntity;
         private Entity projectileTemplateEntity;
         private Entity aoeTemplateEntity;
@@ -49,6 +51,10 @@ namespace PlayGround.Tests.PlayMode
             impactAoeExpansion = testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnExpansionSystem>();
             lingeringAoeExpansion = testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnExpansionSystem>();
             externalSpawnGate = testWorld.GetOrCreateSystemManaged<ExternalSpawnGateSystem>();
+            targetProxyCreateApply = testWorld.GetOrCreateSystemManaged<TargetProxyCreateApplySystem>();
+            targetProxyUpdateApply = testWorld.GetOrCreateSystemManaged<TargetProxyUpdateApplySystem>();
+            simGroup.AddSystemToUpdateList(targetProxyCreateApply);
+            simGroup.AddSystemToUpdateList(targetProxyUpdateApply);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContactGateSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TargetSpatialHashSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileCollisionSystem>());
@@ -73,6 +79,9 @@ namespace PlayGround.Tests.PlayMode
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<ImpactAoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<LingeringAoeSpawnEvent>(scopeEntity);
+            entityManager.AddBuffer<TargetProxyCreateEvent>(scopeEntity);
+            entityManager.AddBuffer<TargetProxyUpdateEvent>(scopeEntity);
+            entityManager.AddBuffer<TargetProxyDeleteEvent>(scopeEntity);
 
             projectileTemplateEntity = entityManager.CreateEntity();
             entityManager.AddComponentData(projectileTemplateEntity, new ProjectileSpawnTemplate
@@ -91,7 +100,9 @@ namespace PlayGround.Tests.PlayMode
         public void CombatTargetProxySeedsManaFromCombatTarget()
         {
             var target = new TestCombatTarget(++nextTargetId, float2.zero, 1f, 50f, 12f, 3f);
-            Entity proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
+            Assert.That(CombatTargetProxy.Create(entityManager, target, CombatFaction.Player), Is.True);
+            targetProxyCreateApply.Update();
+            Entity proxy = target.CombatTargetProxy;
 
             Mana mana = entityManager.GetComponentData<Mana>(proxy);
             Assert.That(mana.Max, Is.EqualTo(50f).Within(0.0001f));
@@ -103,11 +114,14 @@ namespace PlayGround.Tests.PlayMode
         public void CombatTargetProxyPushResourceMaxesPreservesEcsCurrent()
         {
             var target = new TestCombatTarget(++nextTargetId, float2.zero, 1f, 50f, 12f, 3f);
-            Entity proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
+            Assert.That(CombatTargetProxy.Create(entityManager, target, CombatFaction.Player), Is.True);
+            targetProxyCreateApply.Update();
+            Entity proxy = target.CombatTargetProxy;
             entityManager.SetComponentData(proxy, new Mana { Current = 7f, Max = 50f, RegenPerSecond = 3f });
 
             target.SetManaValues(80f, 5f);
             Assert.That(CombatTargetProxy.PushResourceMaxes(entityManager, proxy, target), Is.True);
+            targetProxyUpdateApply.Update();
 
             Mana mana = entityManager.GetComponentData<Mana>(proxy);
             Assert.That(mana.Current, Is.EqualTo(7f).Within(0.0001f));
@@ -119,7 +133,9 @@ namespace PlayGround.Tests.PlayMode
         public void ResourceRegenRaisesManaAndClampsAtMax()
         {
             var target = new TestCombatTarget(++nextTargetId, float2.zero, 1f, 10f, 5f, 4f);
-            Entity proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
+            Assert.That(CombatTargetProxy.Create(entityManager, target, CombatFaction.Player), Is.True);
+            targetProxyCreateApply.Update();
+            Entity proxy = target.CombatTargetProxy;
 
             TickSimulationOnly(1f);
             Assert.That(entityManager.GetComponentData<Mana>(proxy).Current, Is.EqualTo(9f).Within(0.0001f));
@@ -132,7 +148,9 @@ namespace PlayGround.Tests.PlayMode
         public void ResourceRegenDoesNotReviveDepletedHealth()
         {
             var target = new TestCombatTarget(++nextTargetId, float2.zero, 1f, healthCurrent: 0f, healthRegenPerSecond: 4f);
-            Entity proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
+            Assert.That(CombatTargetProxy.Create(entityManager, target, CombatFaction.Player), Is.True);
+            targetProxyCreateApply.Update();
+            Entity proxy = target.CombatTargetProxy;
 
             TickSimulationOnly(1f);
             Assert.That(entityManager.GetComponentData<Health>(proxy).Current, Is.EqualTo(0f).Within(0.0001f));
@@ -142,7 +160,9 @@ namespace PlayGround.Tests.PlayMode
         public void ResourceRegenRunsAfterCombatDamage()
         {
             var target = new TestCombatTarget(++nextTargetId, float2.zero, 0.25f, healthCurrent: 5f, healthRegenPerSecond: 2f);
-            Entity proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
+            Assert.That(CombatTargetProxy.Create(entityManager, target, CombatFaction.Player), Is.True);
+            targetProxyCreateApply.Update();
+            Entity proxy = target.CombatTargetProxy;
             CreateProjectile(pierceRemaining: 0);
 
             TickSimulationOnly(0.5f);
@@ -590,7 +610,9 @@ namespace PlayGround.Tests.PlayMode
         private Entity AddTarget(float2 position, float radius, CombatFaction faction = CombatFaction.Mob)
         {
             var target = new TestCombatTarget(++nextTargetId, position, radius);
-            return CombatTargetProxy.Create(entityManager, target, faction);
+            Assert.That(CombatTargetProxy.Create(entityManager, target, faction), Is.True);
+            targetProxyCreateApply.Update();
+            return target.CombatTargetProxy;
         }
 
         // ---- Registry helpers ----

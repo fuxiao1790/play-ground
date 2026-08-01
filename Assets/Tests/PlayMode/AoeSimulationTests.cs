@@ -36,6 +36,9 @@ namespace PlayGround.Tests.PlayMode
         private ProjectileSpawnExpansionSystem projectileExpansion;
         private CombatApplyFinalizeSingleSystem hitApply;
         private StatusProcessSystem statusProcess;
+        private TargetProxyCreateApplySystem targetProxyCreateApply;
+        private TargetProxyUpdateApplySystem targetProxyUpdateApply;
+        private TargetProxyDeleteApplySystem targetProxyDeleteApply;
         private Entity scopeEntity;
         private Entity aoeTemplateEntity;
         private Entity projectileTemplateEntity;
@@ -56,6 +59,11 @@ namespace PlayGround.Tests.PlayMode
             projectileExpansion = testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
             hitApply = testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSingleSystem>();
             statusProcess = testWorld.GetOrCreateSystemManaged<StatusProcessSystem>();
+            targetProxyCreateApply = testWorld.GetOrCreateSystemManaged<TargetProxyCreateApplySystem>();
+            targetProxyUpdateApply = testWorld.GetOrCreateSystemManaged<TargetProxyUpdateApplySystem>();
+            targetProxyDeleteApply = testWorld.GetOrCreateSystemManaged<TargetProxyDeleteApplySystem>();
+            simGroup.AddSystemToUpdateList(targetProxyCreateApply);
+            simGroup.AddSystemToUpdateList(targetProxyUpdateApply);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<CombatArmingSystem>());
             simGroup.AddSystemToUpdateList(impactAoeExpansion);
             simGroup.AddSystemToUpdateList(lingeringAoeExpansion);
@@ -80,12 +88,16 @@ namespace PlayGround.Tests.PlayMode
 
             presentationGroup = testWorld.GetOrCreateSystemManaged<PresentationSystemGroup>();
             presentationGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatApplyBridge>());
+            presentationGroup.AddSystemToUpdateList(targetProxyDeleteApply);
             presentationGroup.SortSystems();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             entityManager.AddBuffer<ImpactAoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<LingeringAoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
+            entityManager.AddBuffer<TargetProxyCreateEvent>(scopeEntity);
+            entityManager.AddBuffer<TargetProxyUpdateEvent>(scopeEntity);
+            entityManager.AddBuffer<TargetProxyDeleteEvent>(scopeEntity);
 
             aoeTemplateEntity = entityManager.CreateEntity();
             entityManager.AddComponentData(aoeTemplateEntity, new AoeSpawnTemplate
@@ -543,7 +555,8 @@ namespace PlayGround.Tests.PlayMode
             target.Radius = 0.25f;
             target.Mask = 1;
             target.Health = 100f;
-            target.Proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Player);
+            Assert.That(CombatTargetProxy.Create(entityManager, target, CombatFaction.Player), Is.True);
+            targetProxyCreateApply.Update();
             targetsById.Add(targetId, target);
 
             SpawnCircle(float2.zero, 1f, 2f);
@@ -732,6 +745,7 @@ namespace PlayGround.Tests.PlayMode
 
             target.Position = float2.zero;
             Assert.That(CombatTargetProxy.Push(entityManager, target.Proxy, target), Is.True);
+            targetProxyUpdateApply.Update();
             TargetPosition pushed = entityManager.GetComponentData<TargetPosition>(target.Proxy);
             Assert.That(pushed.Value.x, Is.EqualTo(0f).Within(0.001f));
             Assert.That(pushed.Value.y, Is.EqualTo(0f).Within(0.001f));
@@ -741,6 +755,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(ReadHitCount(), Is.EqualTo(1));
 
             CombatTargetProxy.Delete(entityManager, target.Proxy);
+            targetProxyDeleteApply.Update();
             target.Proxy = Entity.Null;
             SpawnCircle(float2.zero, 1f, 2f);
             Tick(0.01f);
@@ -859,6 +874,7 @@ namespace PlayGround.Tests.PlayMode
                 "Target-side death should not delete the proxy during dispatch.");
 
             CombatTargetProxy.Delete(entityManager, target.Proxy);
+            targetProxyDeleteApply.Update();
             target.Proxy = Entity.Null;
             SpawnCircle(float2.zero, 1f, 2f);
             Tick(0.01f);
@@ -1554,7 +1570,8 @@ namespace PlayGround.Tests.PlayMode
             target.Radius = radius;
             target.Mask = targetMask;
             target.Health = health;
-            target.Proxy = CombatTargetProxy.Create(entityManager, target, CombatFaction.Mob);
+            Assert.That(CombatTargetProxy.Create(entityManager, target, CombatFaction.Mob), Is.True);
+            targetProxyCreateApply.Update();
         }
 
         private void ReplaceTarget(int targetId, float2 position, float radius, int targetMask)

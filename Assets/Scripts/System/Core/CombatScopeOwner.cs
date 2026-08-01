@@ -55,6 +55,9 @@ namespace PlayGround.System.Combat.Core
                 entityManager.AddBuffer<ProjectileSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<ImpactAoeSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<LingeringAoeSpawnEvent>(ownedScope);
+                entityManager.AddBuffer<TargetProxyCreateEvent>(ownedScope);
+                entityManager.AddBuffer<TargetProxyUpdateEvent>(ownedScope);
+                entityManager.AddBuffer<TargetProxyDeleteEvent>(ownedScope);
                 entityManager.AddComponentData(ownedScope, new ProjectileSpawnTemplate { Map = ownedProjectileMap });
                 entityManager.AddComponentData(ownedScope, new AoeSpawnTemplate { Map = ownedAoeMap });
                 ownedWorld = world;

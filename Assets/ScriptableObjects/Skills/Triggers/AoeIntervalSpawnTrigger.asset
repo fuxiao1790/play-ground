@@ -17,7 +17,7 @@ MonoBehaviour:
   description: 
   icon: {fileID: 0}
   manaCostMultiplier: 1.1
-  manaCostIncreasedPercent: 10
+  manaCostIncreasedPercent: 1.1
   energyPerSecond: 25
   echoCount: 1
   scatterRadius: 10

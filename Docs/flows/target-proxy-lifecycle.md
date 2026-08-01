@@ -9,14 +9,17 @@ live Unity objects.
 
 1. Actor root implements `ICombatTarget`.
 2. Actor registers with the owning combat root target registry.
-3. Registry creates an ECS target proxy entity.
-4. Actor stores the proxy entity handle.
-5. Actor pushes position, shape, faction, and health/status seed data.
+3. Registry enqueues a target-proxy create event with position, shape, faction,
+   and health/status seed data.
+4. `TargetProxyCreateApplySystem` creates the ECS target proxy on a later
+   simulation tick, then resolves the actor's proxy entity handle.
+5. Actor queues position, shape, and resource updates; `TargetProxyUpdateApplySystem`
+   applies those events on a later simulation tick before spatial hashing.
 6. Simulation reads unmanaged proxy components for tracking, collision, damage,
    and status.
 7. Presentation bridge resolves managed companion after finalize.
-8. Dead or disabled actor queues proxy deletion and deletes at the safe actor
-   frame boundary.
+8. Dead or disabled actor queues proxy deletion. `TargetProxyDeleteApplySystem`
+   applies it in Presentation after `CombatApplyBridge`.
 
 ## Producers
 
@@ -43,7 +46,9 @@ processing, and presentation bridge.
 
 ## Ordering / Timing Requirements
 
-Proxy push happens before simulation reads. Proxy deletion is delayed so hit and
+Create and update events apply in `SimulationSystemGroup` before
+`TargetSpatialHashSystem`, so simulation reads current proxy data. Delete events
+apply in `PresentationSystemGroup` after `CombatApplyBridge`, so hit and
 presentation data from the current frame can resolve safely.
 
 ## Failure / Edge Cases

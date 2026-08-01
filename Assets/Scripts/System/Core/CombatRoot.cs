@@ -91,7 +91,6 @@ namespace PlayGround.System.Combat.Core
 
         internal Entity ScopeEntity => scopeEntity;
         internal EntityManager EntityManager => entityManager;
-        internal IReadOnlyDictionary<int, ICombatTarget> TargetsById => targetRegistry.TargetsById;
 
         private void Awake()
         {

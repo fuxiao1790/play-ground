@@ -58,6 +58,7 @@ namespace PlayGround.Player
         private readonly List<CombatTargetRegistry<ICombatTarget>> registries = new();
         private CombatTargetSet combatTargetSet;
         private Entity combatTargetProxy;
+        private bool hasRegisteredProxy;
         private bool deleteProxyInLateUpdate;
         private int targetId;
         private IGameplayInputSource fireInput;
@@ -251,7 +252,8 @@ namespace PlayGround.Player
 
             registries.Add(targetRegistry);
             targetRegistry.Register(this);
-            skillDriver?.BindCaster(combatTargetProxy);
+            hasRegisteredProxy = true;
+            skillDriver?.BindCaster(this);
         }
 
         public void Register(CombatTargetSet targetSet)
@@ -418,7 +420,7 @@ namespace PlayGround.Player
 
         private void QueueCombatTargetProxyDelete()
         {
-            if (combatTargetProxy != Entity.Null)
+            if (hasRegisteredProxy)
             {
                 deleteProxyInLateUpdate = true;
             }

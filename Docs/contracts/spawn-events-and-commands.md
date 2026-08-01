@@ -73,6 +73,14 @@ until consumed by apply systems in the same spawn phase.
 Producer jobs must complete before expansion drains native queues. Apply runs
 after expansion and after current-frame collision.
 
+## Sibling Event Pipeline
+
+Target-proxy lifecycle uses a sibling scope-buffer event-to-apply pipeline:
+`TargetProxyCreateApplySystem`, `TargetProxyUpdateApplySystem`, and
+`TargetProxyDeleteApplySystem` consume proxy events instead of spawn expansion.
+See [Target Proxy](target-proxy.md) and
+[Target Proxy Lifecycle](../flows/target-proxy-lifecycle.md).
+
 ## Related Layers
 
 - [Combat Bridge](../layers/combat-bridge.md)

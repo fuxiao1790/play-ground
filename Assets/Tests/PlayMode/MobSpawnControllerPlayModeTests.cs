@@ -63,6 +63,7 @@ namespace PlayGround.Tests.PlayMode
             yield return null;
 
             controller.Spawn();
+            yield return null;
             MobRoot reused = SingleActiveMob();
             Assert.That(reused, Is.SameAs(first));
             Assert.That(reused.IsCombatTargetActive, Is.True);

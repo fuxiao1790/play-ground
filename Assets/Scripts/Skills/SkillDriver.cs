@@ -50,7 +50,7 @@ namespace PlayGround.Skills
         private bool preserveCooldownState;
         private int cooldownResetNodeIndex = -1;
         private int configuredInitialRuntimeNodeCount;
-        private Entity casterProxy;
+        private ICombatTarget casterOwner;
         private int[] firedCastTokens;
         private int nextCastToken;
 
@@ -108,7 +108,7 @@ namespace PlayGround.Skills
                                 aimWorldPos,
                                 combatRoot,
                                 faction,
-                                casterProxy,
+                                casterOwner?.CombatTargetProxy ?? Entity.Null,
                                 castToken);
                             firedCastTokens[i] = castToken;
                         }
@@ -136,9 +136,9 @@ namespace PlayGround.Skills
             RegisterAoeTypes();
         }
 
-        public void BindCaster(Entity proxy)
+        public void BindCaster(ICombatTarget owner)
         {
-            casterProxy = proxy;
+            casterOwner = owner;
         }
 
         public void ReceiveSpawnRejected(int castToken)

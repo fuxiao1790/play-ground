@@ -58,6 +58,7 @@ namespace PlayGround.Mob
         private CombatShapeType cachedCombatTargetShapeType;
         private int cachedCombatTargetMask;
         private bool combatTargetShapeCached;
+        private bool hasRegisteredProxy;
         private bool deleteProxyInLateUpdate;
         private int targetId;
         private bool isAlive = true;
@@ -207,7 +208,8 @@ namespace PlayGround.Mob
 
             registries.Add(targetRegistry);
             targetRegistry.Register(this);
-            skillDriver?.BindCaster(combatTargetProxy);
+            hasRegisteredProxy = true;
+            skillDriver?.BindCaster(this);
         }
 
         public void Register(CombatTargetSet targetSet)
@@ -395,7 +397,7 @@ namespace PlayGround.Mob
 
         private void QueueCombatTargetProxyDelete()
         {
-            if (combatTargetProxy != Entity.Null)
+            if (hasRegisteredProxy)
             {
                 deleteProxyInLateUpdate = true;
             }
