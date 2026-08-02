@@ -15,7 +15,7 @@ enhancements/addition to existing
 - on crit trigger and others.
 
 needed for poc
-- fast projectiles, these cannot have tracking, requires tunneling check.
+- rename projectiles to missiles.
 - targeted skills. no physics, single hit / interval ticking.
 - damage number vfx graph.
 - more aoe shape kinds
