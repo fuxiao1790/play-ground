@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1000000000000000000000000000002, type: 3}
+  m_Name: FireArrowSkill
+  m_EditorClassIdentifier: PlayGround.GameLogic::PlayGround.Skills.ProjectileSkill
+  assetGuid: 231b5de57bc5a0d4bae45eab4d62bf3b
+  displayName: 
+  description: 
+  icon: {fileID: 0}
+  baseRate: 3
+  maxSupportCount: 6
+  definition:
+    prefab: {fileID: 0}
+    speed: 50
+    lifetime: 1
+    damage: 3
+    count: 1
+    spreadDegrees: 0
+    jitterDegrees: 0
+    pierceCount: 0
+    repeatHitCooldown: 0
+    manaCost: 1
+    armSeconds: 0
+    directDamageEnabled: 1
+    continuousCollision: 1
+    trackingEnabled: 0
+    trackingTurnSpeedDegrees: 0
+    trackingQueryIntervalSeconds: 0
+    trackingInitialDelaySeconds: 0
