@@ -15,8 +15,7 @@ enhancements/addition to existing
 - on crit trigger and others.
 
 needed for poc
-- rename projectiles to missiles.
-- targeted skills. no physics, single hit / interval ticking.
+- targeted skills. no physics, single hit / interval ticking variation used for something like chain lightning.
 - damage number vfx graph.
 - more aoe shape kinds
 - better mob ai.
