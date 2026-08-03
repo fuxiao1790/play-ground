@@ -288,6 +288,48 @@ Design changes made after the plan was first written. Implementation is underway
 here may contradict a version of a task file you already read — check this section before
 trusting notes taken earlier.
 
+### 2026-08-02 — Lane naming: `Discrete` / `Continuous`
+
+**Tasks 010, 011, 012 (new).** No design change — vocabulary only.
+
+The lanes were named asymmetrically: one was the unnamed default
+(`ProjectileCollisionSystem`, `ProjectileSpawnApplySystem`, `Commands`) and the other the
+special case (`SweptProjectileCollisionSystem`, `SweptCommands`). That is the same
+default-plus-exception shape rejected when this design started. Both lanes now carry an
+explicit name.
+
+**The rule:** `Projectile` + `{Discrete | Continuous}` + role, for anything belonging to
+exactly one lane. **No lane word** for anything both lanes use — `ProjectileMovementSystem`,
+`ProjectileSpawnExpansionSystem`, `ProjectileContactGateSystem`, `ProjectileTag` are unchanged.
+The lane word sits *after* `Projectile` so the lane's files stay together in a folder where
+everything sorts under `P`, and so `grep Continuous` returns the lane and nothing else.
+
+| Was | Now |
+|---|---|
+| `ProjectileCollisionSystem` / `SweptProjectileCollisionSystem` | `ProjectileDiscreteCollisionSystem` / `ProjectileContinuousCollisionSystem` |
+| `ProjectileSpawnApplySystem` / `SweptProjectileSpawnApplySystem` | `ProjectileDiscreteSpawnApplySystem` / `ProjectileContinuousSpawnApplySystem` |
+| `SweptProjectileOriginSystem` | `ProjectileContinuousOriginSystem` |
+| `SweptProjectileTag` | `ProjectileContinuousTag` |
+| `ProjectileSweepComponent` | `ProjectileContinuousStepComponent` (field `Origin` unchanged) |
+| `Commands` / `SweptCommands` | `DiscreteCommands` / `ContinuousCommands` |
+| `MaxSweptHitsPerFrame` | `MaxContinuousHitsPerFrame` |
+| `sweptCollision` → `SweptCollision` chain | `continuousCollision` → `ContinuousCollision` |
+| `SweptProjectileCannotTrack` | `ContinuousCollisionCannotTrack` |
+
+`CombatSweepMath` and its members are **not** renamed. The distinction the rename encodes is
+that **`Continuous` names the lane and `Sweep` names the geometry** — swept volumes are
+standard vocabulary, the file is pure and lane-agnostic, and
+`CombatContinuousCollisionMath` beside `CombatCollisionMath` would read as *the* collision
+math with an adjective. Open question 12 records this as cheap to overrule.
+
+Symmetric names do not make the data symmetric: absence of `ProjectileContinuousTag` still
+means discrete, and the `WithNone` on the discrete dead-slot query stays. Adding a real
+`ProjectileDiscreteTag` was considered and rejected — open question 13.
+
+Note the rest of this plan still reads in the old vocabulary; task 012 does that pass, and the
+Revision Log entries below deliberately keep the old names because they describe code that no
+longer exists.
+
 ### 2026-08-02 — Corridor-only box; continuous check runs on top of discrete
 
 **Tasks 002, 007, 008.**
@@ -369,6 +411,9 @@ plus a new capture-ordering test), `009` (file list).
 | 007 | [Swept collision system](007-swept-collision-system.md) | 002, 006 |
 | 008 | [Tests](008-tests.md) | 007 |
 | 009 | [Docs update](009-docs-update.md) | 007 |
+| 010 | [Lane naming: simulation](010-lane-naming-simulation.md) | 001–009 |
+| 011 | [Lane naming: authoring chain](011-lane-naming-authoring.md) | — |
+| 012 | [Lane naming: tests and docs](012-lane-naming-tests-and-docs.md) | 010, 011 |
 
 ## Open Questions, Dependencies, Considerations
 
@@ -423,4 +468,15 @@ profiler shows it.
     stored data. Pure recomputation fails loudly if that invariant ever breaks; a cache fails
     silently. See [002](002-swept-box-geometry.md).
 11. **`Instant` (hitscan) remains reserved, not built.** Nothing here blocks adding it as a
-    third lane; the naming leaves the word free.
+    third lane; the naming leaves the word free — and the `Projectile{Lane}Role` convention
+    from task 010 extends to it directly (`ProjectileInstantCollisionSystem`).
+12. **`CombatSweepMath` keeps its name.** `Continuous` names the lane; `Sweep` names the
+    geometry. Renaming it to `CombatContinuousCollisionMath` would put an adjective on the
+    file sitting beside `CombatCollisionMath`, and "swept volume" is standard geometry
+    vocabulary rather than this codebase's lane vocabulary. Flip it by renaming one file, one
+    class, and its test file — cheap now, cheap later. See [010](010-lane-naming-simulation.md).
+13. **No `ProjectileDiscreteTag`.** The names become symmetric; the data stays asymmetric —
+    absence of `ProjectileContinuousTag` means discrete. A real discrete tag would add a
+    component to the highest-count archetype in the game, change every discrete query, and
+    change the pooled archetype (invalidating existing slots), all to remove one `WithNone`.
+    Recorded so it is not re-derived after seeing the symmetric names.

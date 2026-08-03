@@ -17,6 +17,9 @@ Complete; Unity package-cache compilation remains externally blocked.
 | 007-swept-collision-system.md | **Reopened 2026-08-02** | Continuous check must run *on top of* the discrete check, not instead of it: two `CombatCollisionMath.Hit` calls per candidate (discrete at `Position`, then corridor), and the broadphase query region becomes the union of the corridor AABB and `collision.BoundsMin/Max`. See index Revision Log. |
 | 008-tests.md | Needs update | Complete against the old 006. Two items changed: the double-integration test loses its `WithNone` rationale, and a new capture-ordering test was added (`Origin` must equal the pre-integration position). |
 | 009-docs-update.md | Unblocked 2026-08-02 | Blocking conflict was stale task text, now corrected: `CombatSweepMath` is described as swept-box geometry, and the collision entry as nearest-first ordering. No TOI language remains. |
+| 010-lane-naming-simulation.md | **Not started** | Added 2026-08-02. Pure rename to `Discrete`/`Continuous`. Drive from IDE symbol rename, not find/replace — the lane word changes position and `Commands` → `DiscreteCommands` has no `Swept` to match. |
+| 011-lane-naming-authoring.md | **Not started** | Added 2026-08-02. Independent of 010. Contains the one serialization hazard: `ProjectileDefinition.sweptCollision`. |
+| 012-lane-naming-tests-and-docs.md | **Not started** | Added 2026-08-02. Depends on 010 and 011. Includes the plan-directory rename, done last. |
 
 ## Completed Tasks
 
@@ -43,6 +46,24 @@ Complete; Unity package-cache compilation remains externally blocked.
 5. **009** — unblocked; run after the above land.
 
 Note 001, 003, 004, 005 are unaffected by both revisions.
+
+## Open Work: Lane Naming (added 2026-08-02)
+
+Tasks 010–012. Behavior-neutral rename; no design change. Sequence: 010 and 011 in either
+order, then 012.
+
+Two things make this riskier than a normal rename and are worth reading before starting:
+
+1. **Compile validation is still baseline-blocked** by `CombatTargetProxy.cs(381)`
+   (`TargetProxyUpdateEvent`). A rename is exactly the change where the compiler is the
+   safety net. Either clear that error first, or drive every rename from the IDE's symbol
+   rename, which is correct without building.
+2. **`ProjectileDefinition.sweptCollision` is a serialized field.** No `.asset` contains it
+   today — the skill assets predate the field and have not been re-serialized — so the rename
+   currently discards nothing. That stops being true the first time anyone opens a skill asset
+   in the Inspector. Do the rename before authoring continuous skills, and add
+   `[FormerlySerializedAs("sweptCollision")]` regardless. Detail in
+   [011](011-lane-naming-authoring.md).
 
 ## Validation Summary
 
