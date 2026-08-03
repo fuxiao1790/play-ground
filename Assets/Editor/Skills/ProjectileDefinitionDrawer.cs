@@ -7,8 +7,10 @@ namespace PlayGround.Editor.Skills
     [CustomPropertyDrawer(typeof(ProjectileDefinition))]
     public sealed class ProjectileDefinitionDrawer : PropertyDrawer
     {
+        private const string PrefabPropertyName = "prefab";
         private const string ContinuousCollisionPropertyName = "continuousCollision";
         private const string TrackingEnabledPropertyName = "trackingEnabled";
+        private const string MissingPrefabMessage = "Projectile Prefab is required.";
         private const string ContinuousTrackingConflictMessage =
             "Continuous Collision and Tracking Enabled cannot both be enabled.";
 
@@ -20,6 +22,7 @@ namespace PlayGround.Editor.Skills
 
             SerializedProperty child = property.Copy();
             SerializedProperty end = property.GetEndProperty();
+            bool hasMissingPrefab = HasMissingPrefab(property);
             bool hasConflict = HasContinuousTrackingConflict(property);
             bool enterChildren = true;
 
@@ -29,6 +32,10 @@ namespace PlayGround.Editor.Skills
                 enterChildren = false;
                 height += EditorGUIUtility.standardVerticalSpacing
                     + EditorGUI.GetPropertyHeight(child, true);
+
+                if (hasMissingPrefab && child.name == PrefabPropertyName)
+                    height += EditorGUIUtility.standardVerticalSpacing
+                        + EditorGUIUtility.singleLineHeight * 2f;
 
                 if (hasConflict && child.name == TrackingEnabledPropertyName)
                     height += EditorGUIUtility.standardVerticalSpacing
@@ -48,6 +55,7 @@ namespace PlayGround.Editor.Skills
             EditorGUI.indentLevel++;
             SerializedProperty child = property.Copy();
             SerializedProperty end = property.GetEndProperty();
+            bool hasMissingPrefab = HasMissingPrefab(property);
             bool hasConflict = HasContinuousTrackingConflict(property);
             bool enterChildren = true;
             float y = position.y + EditorGUIUtility.singleLineHeight;
@@ -63,6 +71,15 @@ namespace PlayGround.Editor.Skills
                 EditorGUI.PropertyField(line, child, true);
                 y += childHeight;
 
+                if (hasMissingPrefab && child.name == PrefabPropertyName)
+                {
+                    y += EditorGUIUtility.standardVerticalSpacing;
+                    line.y = y;
+                    line.height = EditorGUIUtility.singleLineHeight * 2f;
+                    EditorGUI.HelpBox(line, MissingPrefabMessage, MessageType.Error);
+                    y += line.height;
+                }
+
                 if (hasConflict && child.name == TrackingEnabledPropertyName)
                 {
                     y += EditorGUIUtility.standardVerticalSpacing;
@@ -74,6 +91,11 @@ namespace PlayGround.Editor.Skills
             }
 
             EditorGUI.indentLevel--;
+        }
+
+        private static bool HasMissingPrefab(SerializedProperty property)
+        {
+            return property.FindPropertyRelative(PrefabPropertyName).objectReferenceValue == null;
         }
 
         private static bool HasContinuousTrackingConflict(SerializedProperty property)
