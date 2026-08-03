@@ -9,7 +9,7 @@ namespace PlayGround.System.Combat.Projectiles
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateBefore(typeof(ProjectileMovementSystem))]
-    public partial struct SweptProjectileOriginSystem : ISystem
+    public partial struct ProjectileContinuousOriginSystem : ISystem
     {
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
@@ -18,15 +18,15 @@ namespace PlayGround.System.Combat.Projectiles
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileTag), typeof(SweptProjectileTag), typeof(Active))]
+        [WithAll(typeof(ProjectileTag), typeof(ProjectileContinuousTag), typeof(Active))]
         [WithDisabled(typeof(ArmingTag))]
         private partial struct CaptureOriginJob : IJobEntity
         {
             private void Execute(
                 in CombatKinematicsComponent kinematics,
-                ref ProjectileSweepComponent sweep)
+                ref ProjectileContinuousStepComponent step)
             {
-                sweep.Origin = kinematics.Position;
+                step.Origin = kinematics.Position;
             }
         }
     }

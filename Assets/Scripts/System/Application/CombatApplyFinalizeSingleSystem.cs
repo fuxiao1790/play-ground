@@ -41,7 +41,7 @@ namespace PlayGround.System.Combat.Application
     // persistent allocation) cost more than the parallel finalize ever saved. See the
     // commented-out CombatApplyFinalizeSystem for the retired multi-threaded variant.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(ProjectileCollisionSystem))]
+    [UpdateAfter(typeof(ProjectileDiscreteCollisionSystem))]
     [UpdateAfter(typeof(LingeringAoeCollisionSystem))]
     [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
     [UpdateBefore(typeof(ImpactAoeSpawnExpansionSystem))]

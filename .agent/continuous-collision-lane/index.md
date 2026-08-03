@@ -1,20 +1,20 @@
 ---
-name: swept-projectile-lane
+name: continuous-collision-lane
 description: Add a second projectile archetype/lane whose collision is resolved against the swept volume of the frame's motion, so high-speed projectiles cannot tunnel past targets. Membership is authored per skill, and is mutually exclusive with target tracking.
 ---
 
-# Swept Projectile Lane
+# Continuous Collision Lane
 
 ## Summary
 
 Projectile collision today is discrete: [ProjectileMovementSystem.cs:43](../../Assets/Scripts/System/Projectiles/ProjectileMovementSystem.cs#L43)
 integrates `Position += Velocity * dt` and rebuilds the AABB at the new position;
-[ProjectileCollisionSystem.cs:194-216](../../Assets/Scripts/System/Projectiles/ProjectileCollisionSystem.cs#L194-L216)
+[ProjectileDiscreteCollisionSystem.cs:194-216](../../Assets/Scripts/System/Projectiles/ProjectileDiscreteCollisionSystem.cs#L194-L216)
 narrowphases at that one position. Nothing tests the space the projectile crossed, so a fast
 enough projectile passes cleanly through a target.
 
 This plan adds a **second projectile archetype and lane** discriminated by
-`SweptProjectileTag`. Its collision runs the ordinary discrete test **plus** a continuous one
+`ProjectileContinuousTag`. Its collision runs the ordinary discrete test **plus** a continuous one
 against an **oriented box** covering the frame's motion: the projectile's silhouette width
 perpendicular to travel, extruded along the segment from last tick's position to this tick's.
 The box is the travel corridor only — it stops at the endpoint centres, because this tick's
@@ -23,10 +23,10 @@ either test apply nearest-first.
 
 Three things define the shape of the design:
 
-- **Membership is authored**, via a `sweptCollision` flag on `ProjectileDefinition`. It is
+- **Membership is authored**, via a `continuousCollision` flag on `ProjectileDefinition`. It is
   not derived from speed at runtime.
 - **Sweep and target tracking are mutually exclusive.** Tracking is only available on
-  discrete (slow) projectiles. This is enforced structurally — the swept archetype does not
+  discrete (slow) projectiles. This is enforced structurally — the continuous archetype does not
   carry `ProjectileTrackingComponent` at all — and resolved at skill-compile time when a
   support tries to create the combination.
 - **The box always spans the full step.** There is no distance cap and no sweep config
@@ -41,11 +41,11 @@ expansion fan-out, and the authoring chain are touched.
 
 - **Separate archetype/lane, not an enableable overlay on one archetype.** User-directed,
   and the exclusivity rule independently justifies it: with tracking excluded, the two
-  archetypes have genuinely different component sets (swept has `SweptProjectileTag` +
-  `ProjectileSweepComponent` and *lacks* `ProjectileTrackingComponent`), which is what
+  archetypes have genuinely different component sets (swept has `ProjectileContinuousTag` +
+  `ProjectileContinuousStepComponent` and *lacks* `ProjectileTrackingComponent`), which is what
   archetypes are for. An enableable overlay would have to keep the tracking component on
   swept entities and disable it — carrying ~40 bytes of dead state and leaving the
-  exclusivity rule as a convention rather than a structural fact. The swept archetype is
+  exclusivity rule as a convention rather than a structural fact. The continuous archetype is
   net *smaller* than the discrete one.
 - **The AOE lanes are the same design, already shipped.** [AoeSpawnApplySystem.cs](../../Assets/Scripts/System/Aoes/AoeSpawnApplySystem.cs)
   runs two archetypes discriminated by `LingeringAoeTag`, with two dead-slot queries
@@ -92,15 +92,15 @@ expansion fan-out, and the authoring chain are touched.
   ([CombatCollisionMath.cs:88-95](../../Assets/Scripts/System/Api/Collision/Narrowphase/CombatCollisionMath.cs#L88-L95)),
   so the overlap test adds **no new narrowphase code at all**.
 - **The box is exact, not conservative,** because both inputs are constant across a step:
-  travel direction (swept projectiles never track, and movement never writes `Velocity`) and
+  travel direction (continuous projectiles never track, and movement never writes `Velocity`) and
   shape rotation (`CombatCollisionComponent.RotationRadians` is never written after spawn).
   The only slack is squared-off end caps where the true swept hull is slanted.
 - **Hit ordering and impact position come from closest approach, not true first contact.**
   Two existing behaviors require *some* ordering and *some* impact point:
   `EnqueueOnHitProjectile`/`EnqueueOnHitAoe` spawn children at `kinematics.Position`
-  ([ProjectileCollisionSystem.cs:279](../../Assets/Scripts/System/Projectiles/ProjectileCollisionSystem.cs#L279), :316, :329),
+  ([ProjectileDiscreteCollisionSystem.cs:279](../../Assets/Scripts/System/Projectiles/ProjectileDiscreteCollisionSystem.cs#L279), :316, :329),
   which under any swept test would land far past the target hit; and `PierceRemaining--`
-  ([:230](../../Assets/Scripts/System/Projectiles/ProjectileCollisionSystem.cs#L230)) applies
+  ([:230](../../Assets/Scripts/System/Projectiles/ProjectileDiscreteCollisionSystem.cs#L230)) applies
   in hash order, so a `pierce = 1` projectile could damage the farthest of three targets and
   expire before the nearest. Closest approach is a four-op projection that satisfies both,
   where true first contact would mean reinstating the per-shape solvers. The two differ by a
@@ -112,7 +112,7 @@ expansion fan-out, and the authoring chain are touched.
   exactly when the clamp would have stopped testing. A collision feature whose coverage
   degrades under load is not a collision feature. The cost concern is real but belongs to cell
   enumeration inside the existing spatial hash, not to coverage; see the note at the end of
-  [007](007-swept-collision-system.md).
+  [007](007-continuous-collision-system.md).
 - **Bounds semantics stay identical in both lanes.** `CombatCollisionComponent.BoundsMin/Max`
   keep meaning "bounds at the current position"; the swept AABB is derived inside the
   collision job and never written back, so every other reader stays correct without knowing
@@ -135,8 +135,8 @@ expansion fan-out, and the authoring chain are touched.
 | A support can enable tracking after authoring, so exclusivity cannot be enforced at the asset alone | [BehaviorContexts.cs:41-46](../../Assets/Scripts/Skills/Modifiers/BehaviorContexts.cs#L41-L46) |
 | `IJobEntity` matches only archetypes carrying every `Execute` parameter — the mechanism that makes tracking self-exclude | [ProjectileTrackingSystem.cs:71](../../Assets/Scripts/System/Projectiles/ProjectileTrackingSystem.cs#L71), [:389](../../Assets/Scripts/System/Projectiles/ProjectileTrackingSystem.cs#L389) |
 | `TargetSpatialHashSingleton` consumers combine into `ConsumerHandle` after depending on `BuildHandle` | [TargetSpatialHashSystem.cs:88-92](../../Assets/Scripts/System/Api/Collision/Broadphase/TargetSpatialHashSystem.cs#L88-L92) |
-| Targets are inserted into `ProjectileCollisionCells` at their **center cell only**; queries must expand by `MaxTargetRadius` | [TargetSpatialHashSystem.cs:311-314](../../Assets/Scripts/System/Api/Collision/Broadphase/TargetSpatialHashSystem.cs#L311-L314) + [ProjectileCollisionSystem.cs:157-163](../../Assets/Scripts/System/Projectiles/ProjectileCollisionSystem.cs#L157-L163) |
-| Spawn and hit-dispatch lanes are created unconditionally; a missing lane must throw, not be skipped | [ProjectileCollisionSystem.cs:53-63](../../Assets/Scripts/System/Projectiles/ProjectileCollisionSystem.cs#L53-L63); memory note *fail-loud singletons* |
+| Targets are inserted into `ProjectileCollisionCells` at their **center cell only**; queries must expand by `MaxTargetRadius` | [TargetSpatialHashSystem.cs:311-314](../../Assets/Scripts/System/Api/Collision/Broadphase/TargetSpatialHashSystem.cs#L311-L314) + [ProjectileDiscreteCollisionSystem.cs:157-163](../../Assets/Scripts/System/Projectiles/ProjectileDiscreteCollisionSystem.cs#L157-L163) |
+| Spawn and hit-dispatch lanes are created unconditionally; a missing lane must throw, not be skipped | [ProjectileDiscreteCollisionSystem.cs:53-63](../../Assets/Scripts/System/Projectiles/ProjectileDiscreteCollisionSystem.cs#L53-L63); memory note *fail-loud singletons* |
 | A job taking `EnabledRefRW<ArmingTag>` scheduled with an explicit `EntityQuery` must list `ArmingTag` in that query | `Docs/reference/simulation/ecs-notes.md` (Arming section) |
 
 ## Mechanisms Reused vs. Introduced
@@ -148,7 +148,7 @@ expansion fan-out, and the authoring chain are touched.
   [AoeSpawnApplySystem.cs:555-558](../../Assets/Scripts/System/Aoes/AoeSpawnApplySystem.cs#L555-L558)
   is exactly to stop two lanes duplicating lifecycle logic.
 - `SpawnPoolTopUp.EnsureDisabledSlots` — unchanged; already parameterized by archetype and query.
-- `TargetSpatialHashSingleton.ProjectileCollisionCells` — the swept lane is one more reader of
+- `TargetSpatialHashSingleton.ProjectileCollisionCells` — the continuous lane is one more reader of
   the broadphase the discrete lane already uses. No new hash, no extra per-frame build, no
   change to `TargetSpatialHashSystem` beyond the swept job joining `ConsumerHandle`.
 - The event→command→apply pipeline (ADR-003) and the existing `ProjectileSpawnEvent` queue.
@@ -164,34 +164,34 @@ expansion fan-out, and the authoring chain are touched.
   `ProjectileTrackingSystem`.
 
 **Introduced (justified):**
-- `SweptProjectileTag` — archetype discriminator; analogue of `LingeringAoeTag`.
-- `ProjectileSweepComponent { float2 Origin; }` — swept-only. Needed because spawn apply has
+- `ProjectileContinuousTag` — archetype discriminator; analogue of `LingeringAoeTag`.
+- `ProjectileContinuousStepComponent { float2 Origin; }` — swept-only. Needed because spawn apply has
   no declared order against movement, so `Position - Velocity * dt` can name a point behind
   the muzzle on the spawn frame.
 - `CombatSweepMath` — three small pure functions (`SupportExtent`, `TryBuildTravelCorridor`,
   `ClosestApproachParam`). Geometry construction only; **no overlap code**, which stays in
   `CombatCollisionMath`.
-- `ProjectileDefinition.sweptCollision` and its chain down to `ProjectileSpawnCommand`.
-- `SweptProjectileSpawnApplySystem`, `SweptProjectileOriginSystem`,
-  `SweptProjectileCollisionSystem`. The collision system is not duplication; it is the feature.
+- `ProjectileDefinition.continuousCollision` and its chain down to `ProjectileSpawnCommand`.
+- `ProjectileContinuousSpawnApplySystem`, `ProjectileContinuousOriginSystem`,
+  `ProjectileContinuousCollisionSystem`. The collision system is not duplication; it is the feature.
   Movement is **not** duplicated — `ProjectileMovementSystem` serves both archetypes unchanged.
-- A second `NativeList<ProjectileSpawnCommand> SweptCommands` on the existing
+- A second `NativeList<ProjectileSpawnCommand> ContinuousCommands` on the existing
   `ProjectileSpawnEventSingleton` — deliberately not a second singleton, see Design Validation.
 
 ## Design Validation
 
 - **Domain-tag rule.** Every new job declares
-  `WithAll(typeof(ProjectileTag), typeof(SweptProjectileTag), ...)`. No new system keys off
+  `WithAll(typeof(ProjectileTag), typeof(ProjectileContinuousTag), ...)`. No new system keys off
   `Active`, `CombatCollisionComponent`, or scope membership alone.
-- **Exclusivity holds on both halves.** *Structurally:* the swept archetype omits
+- **Exclusivity holds on both halves.** *Structurally:* the continuous archetype omits
   `ProjectileTrackingComponent`, and both tracking jobs take it as an `Execute` parameter, so
-  `IJobEntity` cannot match swept chunks — no filter, no convention, no way to regress by
+  `IJobEntity` cannot match continuous chunks — no filter, no convention, no way to regress by
   editing a query. *At compile time:* `BuildRuntime` drops tracking when sweep is set, after
   modifiers have run, which is the only point where a support-enabled tracking flag is visible.
 - **Discrete lane does not steal swept slots.** `ProjectileTag` matches both archetypes, so
-  `ProjectileSpawnApplySystem._deadSlotQuery`
-  ([:69-72](../../Assets/Scripts/System/Projectiles/ProjectileSpawnApplySystem.cs#L69-L72))
-  **must** gain `.WithNone<SweptProjectileTag>()`. Without it the discrete job fetches a
+  `ProjectileDiscreteSpawnApplySystem._deadSlotQuery`
+  ([:69-72](../../Assets/Scripts/System/Projectiles/ProjectileDiscreteSpawnApplySystem.cs#L69-L72))
+  **must** gain `.WithNone<ProjectileContinuousTag>()`. Without it the discrete job fetches a
   `ComponentTypeHandle<ProjectileTrackingComponent>` against chunks that have no such
   component — silent corruption, not a crash. Highest-risk edit in the plan; own acceptance
   criterion in task 005, mechanical test in 008.
@@ -202,25 +202,25 @@ expansion fan-out, and the authoring chain are touched.
   Splitting at `WriteCommand` ([:248](../../Assets/Scripts/System/Projectiles/ProjectileSpawnExpansionSystem.cs#L248))
   puts it where all four spawn paths already converge. This is the one place the AOE pattern
   deliberately does not map, recorded rather than left implicit.
-- **The swept segment is exact.** Because swept projectiles never track, velocity direction is
+- **The continuous segment is exact.** Because continuous projectiles never track, velocity direction is
   constant and `Origin → Position` is precisely the ground covered. No curvature error, no
   substepping.
-- **Ordering.** `SweptProjectileCollisionSystem` carries the same attributes as the discrete
+- **Ordering.** `ProjectileContinuousCollisionSystem` carries the same attributes as the discrete
   one, so both lanes' hits land in the same finalize pass and expansion still sees this
   frame's spawn events.
-- **Job dependency correctness.** The swept collision job writes the same four lanes via
+- **Job dependency correctness.** The continuous collision job writes the same four lanes via
   `ParallelWriter` and combines its handle into each `ProducerHandle` plus
   `TargetSpatialHashSingleton.ConsumerHandle`, identical to
-  [ProjectileCollisionSystem.cs:85-96](../../Assets/Scripts/System/Projectiles/ProjectileCollisionSystem.cs#L85-L96).
+  [ProjectileDiscreteCollisionSystem.cs:85-96](../../Assets/Scripts/System/Projectiles/ProjectileDiscreteCollisionSystem.cs#L85-L96).
   Multiple collision systems writing these queues is already the established shape.
 - **Allocation rule.** The candidate list is a fixed-size stack array
-  (`CollisionConstants.MaxSweptHitsPerFrame = 16`), insertion-sorted in place. Nothing
+  (`CollisionConstants.MaxContinuousHitsPerFrame = 16`), insertion-sorted in place. Nothing
   allocated per entity or per frame.
-- **Performance budget.** The budget bounds per-entity *work* (`MaxSweptHitsPerFrame`, keeping
+- **Performance budget.** The budget bounds per-entity *work* (`MaxContinuousHitsPerFrame`, keeping
   the nearest candidates when it binds) and never swept *coverage*. This satisfies
   `Docs/coding-standards.md` (Performance Budget Rule) while avoiding the failure mode a
   distance cap would have introduced.
-- **Broadphase reuse.** The swept lane adds no broadphase of its own: it reads
+- **Broadphase reuse.** The continuous lane adds no broadphase of its own: it reads
   `TargetSpatialHashSingleton.ProjectileCollisionCells`, the same map the discrete lane
   queries, already built once per frame by `TargetSpatialHashSystem` for all consumers. Its
   query region is the union of the corridor AABB and the projectile's own bounds at
@@ -230,36 +230,36 @@ expansion fan-out, and the authoring chain are touched.
   `CombatCollisionMath.Hit` with `CombatShapeType.Rectangle`. Task 002 adds geometry
   construction only. This is the strongest form of the plan-changes reuse rule: the mechanism
   that already solves "does this rectangle overlap that shape" is used as-is rather than
-  paralleled by a swept-specific narrowphase.
+  paralleled by a continuous-specific narrowphase.
 - **Arming.** Both new jobs carry `WithDisabled(typeof(ArmingTag))`. Arming entities are
   excluded from movement, so the first unarmed frame writes `Origin = Position` naturally.
   Spawn apply also seeds `Origin = cmd.Position`, correct regardless of apply/movement order.
 
 ## Minimal/Additive vs. Refactor Comparison
 
-**Minimal/additive** (enableable `SweptCollisionTag` on the single existing archetype):
+**Minimal/additive** (enableable `ContinuousCollisionTag` on the single existing archetype):
 - *Resulting data flow:* one archetype, one pool, one expansion output; the collision job
   branches internally or a second job filters on an enabled bit.
 - *New concepts/types introduced:* one enableable tag, one `float2` on every projectile, one
   branch in the hot path.
 - *Copies/translations added:* none.
 - *Long-term cost:* every projectile carries sweep state it mostly does not use **and**
-  tracking state that swept projectiles must never use — the exclusivity rule degrades from a
+  tracking state that continuous projectiles must never use — the exclusivity rule degrades from a
   structural fact to a convention enforced by a disabled bit. The swept job walks chunks that
   are overwhelmingly discrete. One collision system accumulates two collision models.
 
 **Refactor** (chosen — second archetype and lane):
 - *Resulting data flow:* two archetypes with genuinely different component sets, two
   self-contained pools, one event queue fanned out at the single existing convergence point.
-- *Existing concepts/types changed:* `ProjectileSpawnApplySystem` gains
-  `.WithNone<SweptProjectileTag>()` and has its materialization extracted into a shared
+- *Existing concepts/types changed:* `ProjectileDiscreteSpawnApplySystem` gains
+  `.WithNone<ProjectileContinuousTag>()` and has its materialization extracted into a shared
   utility; `ProjectileSpawnEventSingleton` gains a second command list; `ProjectileDefinition`
   and its compile chain gain the flag. `ProjectileMovementSystem` is **not** changed — the
-  swept lane's extra state is captured by a separate pre-movement system instead.
+  continuous lane's extra state is captured by a separate pre-movement system instead.
 - *Copies/translations removed or avoided:* no runtime branch between collision models; no
   slot-matching logic; no dead tracking state on swept entities; exclusivity needs no runtime
   guard in the simulation at all.
-- *Long-term benefit:* the swept lane can evolve its own broadphase (a DDA segment walk is
+- *Long-term benefit:* the continuous lane can evolve its own broadphase (a DDA segment walk is
   the obvious next step) and its own per-entity state without touching the discrete path.
   Matches the shape the codebase already uses for impact vs lingering AOE.
 
@@ -277,7 +277,7 @@ If two representations or data paths describe the same domain concept, refactor 
 source of truth unless there is a concrete compatibility or migration reason not to.
 
 Applied here: sweep membership is represented **once** at each level and never mirrored —
-`ProjectileDefinition.sweptCollision` when authored, `ProjectileSpawnCommand.SweptCollision`
+`ProjectileDefinition.continuousCollision` when authored, `ProjectileSpawnCommand.ContinuousCollision`
 in flight, and the archetype tag once materialized. No per-entity "is swept" bool alongside
 the tag, no enum, no runtime derivation. Exclusivity likewise has one enforcement point per
 layer: `BuildRuntime` at compile, archetype composition at runtime.
@@ -363,7 +363,7 @@ still passed.
 
 ### 2026-08-02 — Movement is shared; origin capture is its own system
 
-**Task 006.** Renamed `006-swept-movement-system.md` → [`006-sweep-origin-capture.md`](006-sweep-origin-capture.md).
+**Task 006.** Renamed `006-swept-movement-system.md` → [`006-sweep-origin-capture.md`](006-step-origin-capture.md).
 
 Previously specified a `SweptProjectileMovementSystem` duplicating `ProjectileMovementSystem`.
 Movement is identical in both lanes — the only difference was one bookkeeping write
@@ -402,13 +402,13 @@ plus a new capture-ordering test), `009` (file list).
 
 | # | Task | Depends on |
 |---|---|---|
-| 001 | [Swept archetype types](001-swept-types.md) | — |
-| 002 | [Swept box geometry](002-swept-box-geometry.md) | 001 |
+| 001 | [Continuous archetype types](001-continuous-types.md) | — |
+| 002 | [Corridor geometry](002-corridor-geometry.md) | 001 |
 | 003 | [Authoring flag and sweep/tracking exclusivity](003-authoring-flag-and-exclusivity.md) | 001 |
 | 004 | [Expansion command fan-out](004-expansion-command-fanout.md) | 001, 003 |
 | 005 | [Spawn apply lane split](005-spawn-apply-lane-split.md) | 001, 004 |
-| 006 | [Sweep origin capture](006-sweep-origin-capture.md) | 001, 005 |
-| 007 | [Swept collision system](007-swept-collision-system.md) | 002, 006 |
+| 006 | [Step origin capture](006-step-origin-capture.md) | 001, 005 |
+| 007 | [Continuous collision system](007-continuous-collision-system.md) | 002, 006 |
 | 008 | [Tests](008-tests.md) | 007 |
 | 009 | [Docs update](009-docs-update.md) | 007 |
 | 010 | [Lane naming: simulation](010-lane-naming-simulation.md) | 001–009 |
@@ -448,7 +448,7 @@ decision — the swept lane reads `TargetSpatialHashSingleton.ProjectileCollisio
 same map the discrete lane already queries, and if the cell walk ever gets hot both remedies
 live inside that existing hash family (visit cells along the segment instead of the full AABB
 rectangle, or query the coarser `AoeOccupiedCells`). Recorded as a note at the end of
-[007](007-swept-collision-system.md); revisit only when a real fast skill exists and the
+[007](007-continuous-collision-system.md); revisit only when a real fast skill exists and the
 profiler shows it.
 
 **Decided by default** (cheap to flip now, expensive later):
@@ -466,7 +466,7 @@ profiler shows it.
     while the cost is two more fields to seed correctly on every pooled reuse — and it would
     turn "rotation never changes" from an exactness claim into a correctness dependency of
     stored data. Pure recomputation fails loudly if that invariant ever breaks; a cache fails
-    silently. See [002](002-swept-box-geometry.md).
+    silently. See [002](002-corridor-geometry.md).
 11. **`Instant` (hitscan) remains reserved, not built.** Nothing here blocks adding it as a
     third lane; the naming leaves the word free — and the `Projectile{Lane}Role` convention
     from task 010 extends to it directly (`ProjectileInstantCollisionSystem`).

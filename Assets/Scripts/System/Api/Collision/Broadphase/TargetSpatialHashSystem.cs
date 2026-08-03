@@ -41,7 +41,7 @@ namespace PlayGround.System.Combat.Collision.Broadphase
 
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateBefore(typeof(ProjectileTrackingSystem))]
-    [UpdateBefore(typeof(ProjectileCollisionSystem))]
+    [UpdateBefore(typeof(ProjectileDiscreteCollisionSystem))]
     [UpdateBefore(typeof(LingeringAoeCollisionSystem))]
     [UpdateBefore(typeof(ImpactAoeCollisionSystem))]
     public partial struct TargetSpatialHashSystem : ISystem

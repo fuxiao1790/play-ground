@@ -25,10 +25,10 @@ namespace PlayGround.System.Combat.Collision
         // this over its lifetime pays a one-time heap growth (accepted).
         public const int MaxProjectileGateCapacity = 16;
 
-        // Max time-of-impact candidates a swept projectile resolves in one frame. Mirrors
+        // Max time-of-impact candidates a continuous projectile resolves in one frame. Mirrors
         // MaxProjectileGateCapacity: a safety bound on the per-entity stack array, not a
         // gameplay knob. When the cap binds, the nearest candidates are kept.
-        public const int MaxSweptHitsPerFrame = 16;
+        public const int MaxContinuousHitsPerFrame = 16;
 
     }
 }

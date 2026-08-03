@@ -10,11 +10,11 @@ Separate discrete/swept pooled apply lanes with shared common materialization; s
 
 ## Files Allowed To Modify
 
-- `Assets/Scripts/System/Projectiles/ProjectileSpawnApplySystem.cs`
+- `Assets/Scripts/System/Projectiles/ProjectileDiscreteSpawnApplySystem.cs`
 
 ## Files Allowed To Create
 
-- `Assets/Scripts/System/Projectiles/SweptProjectileSpawnApplySystem.cs`
+- `Assets/Scripts/System/Projectiles/ProjectileContinuousSpawnApplySystem.cs`
 
 ## Files Allowed To Delete
 
@@ -41,13 +41,13 @@ Separate discrete/swept pooled apply lanes with shared common materialization; s
 
 ## Dependencies Confirmed
 
-- `SweptCommands`, `SweptProjectileTag`, and `ProjectileSweepComponent` exist.
+- `ContinuousCommands`, `ProjectileContinuousTag`, and `ProjectileContinuousStepComponent` exist.
 - Existing discrete apply system has complete archetype/pool/job/materialization pattern.
 
 ## Step-By-Step Instructions
 
 1. Extract only common materialization and listed state helpers to internal static utility; leave tracking writes/mask in discrete job.
-2. Add `.WithNone<SweptProjectileTag>()` to discrete disabled-slot query.
+2. Add `.WithNone<ProjectileContinuousTag>()` to discrete disabled-slot query.
 3. Add swept apply system copied from discrete pattern: archetype replace tracking with tag+sweep component; tag-inclusive disabled query; consume swept commands; own profiler metrics; existing stat counters.
 4. Swept job uses shared writer then writes origin; declares no tracking handle.
 5. Preserve lifecycle/cleanup/query ownership.

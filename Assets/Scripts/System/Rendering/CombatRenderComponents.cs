@@ -316,7 +316,7 @@ namespace PlayGround.System.Combat.Rendering
         {
             // The MeshFilter/MeshRenderer are scene/prefab-owned and never destroyed here.
             // The Material is also scene/prefab-owned (Inspector-assigned on the
-            // MeshRenderer) as of the material-authoring fix â€?only the code-built mesh
+            // MeshRenderer) as of the material-authoring fix ï¿½?only the code-built mesh
             // is this registry's to destroy.
             if (_meshFilter != null) _meshFilter.sharedMesh = null;
             if (SharedMesh != null) UnityEngine.Object.Destroy(SharedMesh);
@@ -364,7 +364,7 @@ namespace PlayGround.System.Combat.Rendering
                 MeshUpdateFlags.DontRecalculateBounds);
         }
 
-        // Only the capacity mesh is built here â€?its size genuinely grows at runtime.
+        // Only the capacity mesh is built here ï¿½?its size genuinely grows at runtime.
         // The Material is authored in the Inspector on the attached MeshRenderer and
         // picked up by AttachRenderer; it is never constructed here.
         private void EnsureSharedResources()

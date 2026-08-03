@@ -233,7 +233,7 @@ namespace PlayGround.System.Combat.Status
                                 // Gate the nova against the detonation target so its projectiles
                                 // spread outward instead of instantly re-hitting the target they
                                 // spawn on top of �?matches impact-projectile spawns
-                                // (ProjectileCollisionSystem) and AOE-hit projectile bursts.
+                                // (ProjectileDiscreteCollisionSystem) and AOE-hit projectile bursts.
                                 ContactGateSeedTargetId = targetKey
                             });
                         }

@@ -16,7 +16,7 @@ using Unity.Mathematics;
 
 namespace PlayGround.Tests.PlayMode
 {
-    public sealed class SweptProjectileSimulationTests
+    public sealed class ProjectileContinuousSimulationTests
     {
         private World testWorld;
         private EntityManager entityManager;
@@ -29,20 +29,20 @@ namespace PlayGround.Tests.PlayMode
         [SetUp]
         public void SetUp()
         {
-            testWorld = new World("SweptProjectileSimulationTests");
+            testWorld = new World("ProjectileContinuousSimulationTests");
             entityManager = testWorld.EntityManager;
             simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
 
-            // These producers own the singleton lanes consumed by swept collision.
+            // These producers own singleton lanes consumed by continuous collision.
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnExpansionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnExpansionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TargetSpatialHashSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileTrackingSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<SweptProjectileOriginSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContinuousOriginSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileMovementSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContactGateSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<SweptProjectileCollisionSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContinuousCollisionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSingleSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnApplySystem>());
 
@@ -68,7 +68,7 @@ namespace PlayGround.Tests.PlayMode
         public void Tunneling_LongStepHitsAndSnapsAtImpact()
         {
             Entity target = AddTarget(new float2(95f, 0f), radius: 0.25f);
-            Entity projectile = CreateSweptProjectile(new float2(0f, 0f), new float2(100f, 0f), pierce: 0);
+            Entity projectile = CreateContinuousProjectile(new float2(0f, 0f), new float2(100f, 0f), pierce: 0);
 
             Tick(1f);
 
@@ -82,7 +82,7 @@ namespace PlayGround.Tests.PlayMode
         public void EndpointOnlyHit_UsesDiscreteTestAlongsideCorridor()
         {
             Entity target = AddTarget(new float2(100.15f, 0f), radius: 0.1f);
-            CreateSweptProjectile(float2.zero, new float2(100f, 0f), pierce: 0);
+            CreateContinuousProjectile(float2.zero, new float2(100f, 0f), pierce: 0);
 
             Tick(1f);
 
@@ -106,7 +106,7 @@ namespace PlayGround.Tests.PlayMode
                 far = AddTarget(new float2(6f, 0f), 0.25f);
             }
 
-            CreateSweptProjectile(float2.zero, new float2(10f, 0f), pierce: 0);
+            CreateContinuousProjectile(float2.zero, new float2(10f, 0f), pierce: 0);
             Tick(1f);
 
             Assert.That(entityManager.GetComponentData<Health>(near).Current, Is.EqualTo(9f).Within(0.0001f));
@@ -120,7 +120,7 @@ namespace PlayGround.Tests.PlayMode
             Entity second = AddTarget(new float2(4f, 0f), 0.25f);
             Entity third = AddTarget(new float2(6f, 0f), 0.25f);
 
-            CreateSweptProjectile(float2.zero, new float2(10f, 0f), pierce: 1);
+            CreateContinuousProjectile(float2.zero, new float2(10f, 0f), pierce: 1);
             Tick(1f);
 
             Assert.That(entityManager.GetComponentData<Health>(first).Current, Is.EqualTo(9f).Within(0.0001f));
@@ -129,10 +129,10 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void SweptLaneHasNoTrackingAndMovesExactlyOnce()
+        public void ContinuousLaneHasNoTrackingAndMovesExactlyOnce()
         {
             AddTarget(new float2(0f, 8f), 0.25f);
-            Entity projectile = CreateSweptProjectile(float2.zero, new float2(4f, 0f), pierce: 1);
+            Entity projectile = CreateContinuousProjectile(float2.zero, new float2(4f, 0f), pierce: 1);
             float2 velocityBefore = entityManager.GetComponentData<CombatKinematicsComponent>(projectile).Velocity;
 
             Tick(0.5f);
@@ -142,20 +142,20 @@ namespace PlayGround.Tests.PlayMode
                 Is.EqualTo(velocityBefore));
             Assert.That(entityManager.GetComponentData<CombatKinematicsComponent>(projectile).Position,
                 Is.EqualTo(velocityBefore * 0.5f));
-            Assert.That(entityManager.GetComponentData<ProjectileSweepComponent>(projectile).Origin,
+            Assert.That(entityManager.GetComponentData<ProjectileContinuousStepComponent>(projectile).Origin,
                 Is.EqualTo(float2.zero));
 
             using EntityQuery invalid = entityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<SweptProjectileTag>(),
+                ComponentType.ReadOnly<ProjectileContinuousTag>(),
                 ComponentType.ReadOnly<ProjectileTrackingComponent>());
             Assert.That(invalid.CalculateEntityCount(), Is.Zero);
         }
 
         [Test]
-        public void ContactGatePreventsRepeatHitAcrossMultipleSweepFrames()
+        public void ContactGatePreventsRepeatHitAcrossMultipleStepFrames()
         {
             Entity target = AddTarget(float2.zero, radius: 2f);
-            CreateSweptProjectile(new float2(-1f, 0f), new float2(1f, 0f), pierce: 1, repeatHitCooldown: 5f);
+            CreateContinuousProjectile(new float2(-1f, 0f), new float2(1f, 0f), pierce: 1, repeatHitCooldown: 5f);
 
             Tick(0.5f);
             Tick(0.5f);
@@ -164,7 +164,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void SweptImpactAoeSpawnsAtImpactInsteadOfFrameEnd()
+        public void ContinuousImpactAoeSpawnsAtImpactInsteadOfFrameEnd()
         {
             var template = new AoeSpawnCommand
             {
@@ -177,7 +177,7 @@ namespace PlayGround.Tests.PlayMode
             Unity.Entities.Hash128 key = SpawnTemplateHash.Of(in template);
             aoeTemplateMap.TryAdd(key, template);
             AddTarget(new float2(8f, 0f), 0.25f);
-            CreateSweptProjectile(
+            CreateContinuousProjectile(
                 float2.zero,
                 new float2(20f, 0f),
                 pierce: 0,
@@ -195,7 +195,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(math.distance(position, new float2(20f, 0f)), Is.GreaterThan(1f));
         }
 
-        private Entity CreateSweptProjectile(
+        private Entity CreateContinuousProjectile(
             float2 position,
             float2 velocity,
             int pierce,
@@ -204,10 +204,10 @@ namespace PlayGround.Tests.PlayMode
         {
             Entity projectile = entityManager.CreateEntity(
                 typeof(ProjectileTag),
-                typeof(SweptProjectileTag),
+                typeof(ProjectileContinuousTag),
                 typeof(ProjectileIdentityComponent),
                 typeof(CombatKinematicsComponent),
-                typeof(ProjectileSweepComponent),
+                typeof(ProjectileContinuousStepComponent),
                 typeof(CombatCollisionComponent),
                 typeof(CombatLifetimeComponent),
                 typeof(ProjectileHitComponent),
@@ -227,7 +227,7 @@ namespace PlayGround.Tests.PlayMode
                 Position = position,
                 Velocity = velocity
             });
-            entityManager.SetComponentData(projectile, new ProjectileSweepComponent { Origin = position });
+            entityManager.SetComponentData(projectile, new ProjectileContinuousStepComponent { Origin = position });
             entityManager.SetComponentData(projectile, new CombatCollisionComponent
             {
                 ShapeType = CombatShapeType.Circle,

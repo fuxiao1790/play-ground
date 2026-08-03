@@ -44,7 +44,7 @@ Move swept projectiles once per frame while recording origin before integration.
 
 ## Step-By-Step Instructions
 
-1. Add `WithNone<SweptProjectileTag>` to discrete movement job.
+1. Add `WithNone<ProjectileContinuousTag>` to discrete movement job.
 2. Create swept movement system with exact listed group/order/Burst/arming/domain tags.
 3. Write origin before `Position += Velocity * DeltaTime`, rebuild normal bounds via existing helper.
 

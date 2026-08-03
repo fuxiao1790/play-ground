@@ -2,7 +2,7 @@
 
 ## Task
 
-001-swept-types.md
+001-continuous-types.md
 
 ## Goal
 
@@ -48,9 +48,9 @@ Declare swept-archetype discriminator, per-projectile sweep origin, and fixed pe
 
 ## Step-By-Step Instructions
 
-1. Add `SweptProjectileTag : IComponentData` with prescribed lifecycle/exclusivity comment.
-2. Add `ProjectileSweepComponent : IComponentData` containing `float2 Origin` and prescribed lifecycle/geometry comments.
-3. Add `CollisionConstants.MaxSweptHitsPerFrame = 16` with safety-bound comment.
+1. Add `ProjectileContinuousTag : IComponentData` with prescribed lifecycle/exclusivity comment.
+2. Add `ProjectileContinuousStepComponent : IComponentData` containing `float2 Origin` and prescribed lifecycle/geometry comments.
+3. Add `CollisionConstants.MaxContinuousHitsPerFrame = 16` with safety-bound comment.
 4. Do not add a sweep config or clamp.
 
 ## Acceptance Criteria

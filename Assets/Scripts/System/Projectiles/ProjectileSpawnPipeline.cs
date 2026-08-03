@@ -38,7 +38,7 @@ namespace PlayGround.System.Combat.Projectiles
         // from the behavior TypeId). Drives the CombatRenderKindId / registry lookup.
         public int RenderTypeId;
         public int HasTimedSpawner;
-        public int SweptCollision;
+        public int ContinuousCollision;
         public float2 BaseDirection;
         public float Speed;
         public int Count;

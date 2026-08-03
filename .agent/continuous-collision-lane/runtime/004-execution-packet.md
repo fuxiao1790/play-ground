@@ -31,7 +31,7 @@ Fan resolved projectile commands from one expansion job into discrete or swept c
 
 ## Behavior To Change
 
-- Allocate/write/dispose separate `Commands` and `SweptCommands` lists.
+- Allocate/write/dispose separate `Commands` and `ContinuousCommands` lists.
 
 ## Relevant Global Context
 
@@ -41,15 +41,15 @@ Fan resolved projectile commands from one expansion job into discrete or swept c
 
 ## Dependencies Confirmed
 
-- `ProjectileSpawnCommand.SweptCollision` exists as `int`.
+- `ProjectileSpawnCommand.ContinuousCollision` exists as `int`.
 - Existing singleton owns event queue and per-frame `Commands` list; expansion has all required cleanup/scheduling paths.
 
 ## Step-By-Step Instructions
 
-1. Add `SweptCommands` and lifecycle documentation to singleton.
+1. Add `ContinuousCommands` and lifecycle documentation to singleton.
 2. Dispose/reset it with `Commands` in previous-frame cleanup and OnDestroy.
 3. Allocate swept list before scheduling normal expansion; assign it to job and singleton.
-4. Route `command.SweptCollision != 0` into it; all other commands use discrete list.
+4. Route `command.ContinuousCollision != 0` into it; all other commands use discrete list.
 5. Ensure early exits leave both lists safely default/uncreated.
 
 ## Acceptance Criteria

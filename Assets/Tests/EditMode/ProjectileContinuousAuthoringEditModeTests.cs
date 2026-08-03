@@ -14,7 +14,7 @@ using UnityEngine.TestTools;
 
 namespace PlayGround.Tests.EditMode
 {
-    public sealed class SweptProjectileAuthoringEditModeTests
+    public sealed class ProjectileContinuousAuthoringEditModeTests
     {
         private readonly List<UnityEngine.Object> createdObjects = new();
 
@@ -31,19 +31,19 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void OnValidate_ReportsAuthoredSweptTrackingConflict()
+        public void OnValidate_ReportsAuthoredContinuousTrackingConflict()
         {
-            var definition = new ProjectileDefinition { sweptCollision = true, trackingEnabled = true };
+            var definition = new ProjectileDefinition { continuousCollision = true, trackingEnabled = true };
 
-            LogAssert.Expect(LogType.Error, "Projectile definitions cannot enable both swept collision and tracking.");
+            LogAssert.Expect(LogType.Error, "Projectile definitions cannot enable both continuous collision and tracking.");
             definition.OnValidate();
         }
 
         [Test]
-        public void Compiler_BlocksSweptProjectileWhenHomingSupportEnablesTracking()
+        public void Compiler_BlocksContinuousProjectileWhenHomingSupportEnablesTracking()
         {
             ProjectileSkill skill = CreateAsset<ProjectileSkill>();
-            ((ProjectileDefinition)skill.Definition).sweptCollision = true;
+            ((ProjectileDefinition)skill.Definition).continuousCollision = true;
             HomingSupport support = CreateAsset<HomingSupport>();
             SkillSet set = CreateSkillSet(skill, support);
 
@@ -52,7 +52,7 @@ namespace PlayGround.Tests.EditMode
 
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             var projectile = (RuntimeProjectileDefinition)runtime;
-            Assert.That(projectile.SweptCollision, Is.True);
+            Assert.That(projectile.ContinuousCollision, Is.True);
             Assert.That(projectile.Tracking.Enabled, Is.True);
             Assert.That(projectile.SpawnBlocked, Is.True,
                 "Conflict must block spawn rather than silently disabling tracking.");
@@ -62,12 +62,12 @@ namespace PlayGround.Tests.EditMode
         public void Driver_ReportsBlockedConflictAndRefundsReadySlot()
         {
             ProjectileSkill skill = CreateAsset<ProjectileSkill>();
-            ((ProjectileDefinition)skill.Definition).sweptCollision = true;
+            ((ProjectileDefinition)skill.Definition).continuousCollision = true;
             HomingSupport support = CreateAsset<HomingSupport>();
             SkillSet set = CreateSkillSet(skill, support);
             SkillLoadout loadout = CreateAsset<SkillLoadout>();
             SetField(loadout, "nodes", new List<SkillLoadoutNode> { new(set) });
-            var gameObject = new GameObject("Swept Projectile Driver Test");
+            var gameObject = new GameObject("Continuous Projectile Driver Test");
             createdObjects.Add(gameObject);
             SkillDriver driver = gameObject.AddComponent<SkillDriver>();
             SetField(driver, "loadout", loadout);
@@ -75,7 +75,7 @@ namespace PlayGround.Tests.EditMode
             InvokeCompileAndRegister(driver);
             Assert.That(ContainsWarning(
                 driver.ValidationWarnings,
-                SkillValidationWarningCode.SweptProjectileCannotTrack,
+                SkillValidationWarningCode.ContinuousCollisionCannotTrack,
                 SkillValidationSeverity.Error), Is.True);
 
             SkillSlotState state = driver.GetSlotState(0);
@@ -85,13 +85,13 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void SweepRouting_IsNotStatOrBehaviorContextModifiable()
+        public void LaneRouting_IsNotStatOrBehaviorContextModifiable()
         {
-            Assert.That(Enum.GetNames(typeof(SkillStat)), Does.Not.Contain("SweptCollision"));
+            Assert.That(Enum.GetNames(typeof(SkillStat)), Does.Not.Contain("ContinuousCollision"));
             Assert.That(typeof(ProjectileBehaviorContext).GetProperty(
-                "SweptCollision", BindingFlags.Instance | BindingFlags.Public), Is.Null);
+                "ContinuousCollision", BindingFlags.Instance | BindingFlags.Public), Is.Null);
             Assert.That(typeof(ProjectileBehaviorContext).GetMethod(
-                "EnableSweptCollision", BindingFlags.Instance | BindingFlags.Public), Is.Null);
+                "EnableContinuousCollision", BindingFlags.Instance | BindingFlags.Public), Is.Null);
         }
 
         [Test]
@@ -116,37 +116,37 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void SweptFlagReachesCommandsForDirectIntervalImpactAndStackPaths()
+        public void ContinuousFlagReachesCommandsForDirectIntervalImpactAndStackPaths()
         {
             BasicAttackPrefab prefab = CreateProjectilePrefab();
-            ProjectileSkill directSkill = CreateProjectileSkill(prefab, swept: true);
+            ProjectileSkill directSkill = CreateProjectileSkill(prefab, continuous: true);
             RuntimeProjectileDefinition direct = CompileProjectile(directSkill);
 
-            ProjectileSkill intervalRootSkill = CreateProjectileSkill(prefab, swept: false);
-            ProjectileSkill intervalChildSkill = CreateProjectileSkill(prefab, swept: true);
+            ProjectileSkill intervalRootSkill = CreateProjectileSkill(prefab, continuous: false);
+            ProjectileSkill intervalChildSkill = CreateProjectileSkill(prefab, continuous: true);
             ProjectileIntervalSpawnTrigger interval = CreateAsset<ProjectileIntervalSpawnTrigger>();
             interval.projectileCount = 1;
             RuntimeProjectileDefinition intervalRoot = CompileProjectile(
                 CreateSkillSet(intervalRootSkill), interval, CreateSkillSet(intervalChildSkill));
 
-            ProjectileSkill impactRootSkill = CreateProjectileSkill(prefab, swept: false);
-            ProjectileSkill impactChildSkill = CreateProjectileSkill(prefab, swept: true);
+            ProjectileSkill impactRootSkill = CreateProjectileSkill(prefab, continuous: false);
+            ProjectileSkill impactChildSkill = CreateProjectileSkill(prefab, continuous: true);
             RuntimeProjectileDefinition impactRoot = CompileProjectile(
                 CreateSkillSet(impactRootSkill),
                 CreateAsset<OnImpactProjectileTrigger>(),
                 CreateSkillSet(impactChildSkill));
 
-            ProjectileSkill stackRootSkill = CreateProjectileSkill(prefab, swept: false);
-            ProjectileSkill stackChildSkill = CreateProjectileSkill(prefab, swept: true);
+            ProjectileSkill stackRootSkill = CreateProjectileSkill(prefab, continuous: false);
+            ProjectileSkill stackChildSkill = CreateProjectileSkill(prefab, continuous: true);
             RuntimeProjectileDefinition stackRoot = CompileProjectile(
                 CreateSkillSet(stackRootSkill),
                 CreateAsset<StackTrigger>(),
                 CreateSkillSet(stackChildSkill, CreateAsset<StackingSupport>()));
 
-            Assert.That(BuildCommand(direct).SweptCollision, Is.EqualTo(1), "Direct cast");
-            Assert.That(BuildCommand(intervalRoot.ChildSpawnSetup.ChildDefinition).SweptCollision, Is.EqualTo(1), "Interval child");
-            Assert.That(BuildCommand(impactRoot.ImpactProjectileDefinition).SweptCollision, Is.EqualTo(1), "On-hit child");
-            Assert.That(BuildCommand((RuntimeProjectileDefinition)stackRoot.StackingDetonation.Detonation).SweptCollision,
+            Assert.That(BuildCommand(direct).ContinuousCollision, Is.EqualTo(1), "Direct cast");
+            Assert.That(BuildCommand(intervalRoot.ChildSpawnSetup.ChildDefinition).ContinuousCollision, Is.EqualTo(1), "Interval child");
+            Assert.That(BuildCommand(impactRoot.ImpactProjectileDefinition).ContinuousCollision, Is.EqualTo(1), "On-hit child");
+            Assert.That(BuildCommand((RuntimeProjectileDefinition)stackRoot.StackingDetonation.Detonation).ContinuousCollision,
                 Is.EqualTo(1), "Stack detonation");
         }
 
@@ -196,18 +196,18 @@ namespace PlayGround.Tests.EditMode
                 SkillStatSnapshot.Identity);
         }
 
-        private ProjectileSkill CreateProjectileSkill(BasicAttackPrefab prefab, bool swept)
+        private ProjectileSkill CreateProjectileSkill(BasicAttackPrefab prefab, bool continuous)
         {
             ProjectileSkill skill = CreateAsset<ProjectileSkill>();
             var definition = (ProjectileDefinition)skill.Definition;
             definition.prefab = prefab;
-            definition.sweptCollision = swept;
+            definition.continuousCollision = continuous;
             return skill;
         }
 
         private BasicAttackPrefab CreateProjectilePrefab()
         {
-            var gameObject = new GameObject("Swept Test Projectile Prefab");
+            var gameObject = new GameObject("Continuous Test Projectile Prefab");
             gameObject.SetActive(false);
             CircleCollider2D hurtbox = gameObject.AddComponent<CircleCollider2D>();
             hurtbox.radius = 0.25f;

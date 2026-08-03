@@ -279,9 +279,9 @@ namespace PlayGround.Skills
                 if (projectile.SpawnBlocked)
                 {
                     warnings.Add(new SkillValidationWarning(
-                        SkillValidationWarningCode.SweptProjectileCannotTrack,
+                        SkillValidationWarningCode.ContinuousCollisionCannotTrack,
                         slotIndex,
-                        "Projectile cannot enable both swept collision and tracking.",
+                        "Projectile cannot enable both continuous collision and tracking.",
                         SkillValidationSeverity.Error));
                 }
 
@@ -1094,7 +1094,7 @@ namespace PlayGround.Skills
                 TypeId = child.TypeId,
                 RenderTypeId = child.RenderId,
                 HasTimedSpawner = hasTimedSpawner ? 1 : 0,
-                SweptCollision = child.SweptCollision ? 1 : 0,
+                ContinuousCollision = child.ContinuousCollision ? 1 : 0,
                 Speed = child.Speed,
                 Count = Mathf.Max(1, behavior.Count),
                 SpreadDegrees = behavior.SpreadDegrees,

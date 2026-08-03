@@ -21,7 +21,7 @@ namespace PlayGround.System.Combat.Projectiles
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileContactGateSystem))]
     [UpdateBefore(typeof(CombatApplyFinalizeSingleSystem))]
-    public partial struct ProjectileCollisionSystem : ISystem
+    public partial struct ProjectileDiscreteCollisionSystem : ISystem
     {
         private EntityQuery activeProjectileQuery;
 
@@ -29,7 +29,7 @@ namespace PlayGround.System.Combat.Projectiles
         {
             activeProjectileQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
-                ComponentType.Exclude<SweptProjectileTag>(),
+                ComponentType.Exclude<ProjectileContinuousTag>(),
                 ComponentType.ReadOnly<Active>(),
                 ComponentType.ReadOnly<CombatCollisionActiveTag>(),
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
@@ -101,7 +101,7 @@ namespace PlayGround.System.Combat.Projectiles
 
         [BurstCompile]
         [WithAll(typeof(ProjectileTag), typeof(Active), typeof(CombatCollisionActiveTag))]
-        [WithNone(typeof(SweptProjectileTag))]
+        [WithNone(typeof(ProjectileContinuousTag))]
         [WithDisabled(typeof(ArmingTag))]
         private partial struct ProjectileCollisionJob : IJobEntity
         {

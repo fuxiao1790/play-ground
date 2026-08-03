@@ -302,13 +302,13 @@ namespace PlayGround.Skills
                     ManaCost = Mathf.Max(0f, modifiers.Resolve(SkillStat.ManaCost, p.manaCost)),
                     ArmSeconds = Mathf.Max(0f, p.armSeconds),
                     DirectDamageEnabled = p.directDamageEnabled,
-                    SweptCollision = p.sweptCollision,
+                    ContinuousCollision = p.continuousCollision,
                     Tracking = p.GetTrackingConfig(),
                     CritChance = snapshot.CritChance,
                     CritMultiplier = snapshot.CritMultiplier,
                 };
 
-                runtime.SpawnBlocked = runtime.SweptCollision && runtime.Tracking.Enabled;
+                runtime.SpawnBlocked = runtime.ContinuousCollision && runtime.Tracking.Enabled;
                 float alongHalf = p.prefab != null
                     ? Mathf.Min(p.prefab.HalfExtents.x, p.prefab.HalfExtents.y)
                     : 0f;

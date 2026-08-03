@@ -262,7 +262,7 @@ namespace PlayGround.Tests.PlayMode
             ProjectileTrackingComponent tracking =
                 entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
             Assert.That(tracking.TrackedTargetId, Is.EqualTo(0),
-                "Player projectile must not acquire a Player target â€?same-faction skip.");
+                "Player projectile must not acquire a Player target ï¿½?same-faction skip.");
         }
 
         [Test]

@@ -621,7 +621,7 @@ warning.
 
 ### Validation Warnings
 
-Projectile authoring has `trackingEnabled` and `sweptCollision`. Tick `sweptCollision` for
+Projectile authoring has `trackingEnabled` and `continuousCollision`. Tick `continuousCollision` for
 fast straight projectiles that must not skip targets. A standard `0.1 x 0.15` projectile can
 skip Bat-sized (`0.35`) targets after more than `0.8` units in two ticks. Existing MagicBolt
 (speed 30) remains deliberately discrete. Tracking cannot combine with sweep.
@@ -645,7 +645,7 @@ Current warning cases:
 - stacking set is not the effect of a `StackTrigger`
 - `StackTrigger` targets a set without `StackingSupport`
 - stacking set is targeted by a normal trigger link
-- `SweptProjectileCannotTrack`: error. `sweptCollision` cannot combine with tracking,
+- `ContinuousCollisionCannotTrack`: error. `continuousCollision` cannot combine with tracking,
   including tracking enabled by a support; cast is refunded and does not fire.
 - `TrackingProjectileMayTunnel`: advisory warning. A tracking projectile is fast enough to
   skip small targets; lower speed or remove tracking because sweep cannot be enabled.

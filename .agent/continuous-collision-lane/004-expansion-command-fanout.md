@@ -25,7 +25,7 @@ hand. That is where the switch goes.
 
 ```csharp
 public NativeList<ProjectileSpawnCommand> Commands;        // discrete lane
-public NativeList<ProjectileSpawnCommand> SweptCommands;   // swept lane
+public NativeList<ProjectileSpawnCommand> ContinuousCommands;   // swept lane
 ```
 
 Update the type's `ECS Lifecycle:` comment to cover both lists. `PendingHandle` still covers
@@ -36,17 +36,17 @@ both — one expansion job writes both, so one handle is correct and a second wo
 - `OnUpdate`: dispose and null **both** lists in the existing previous-frame cleanup
   ([:90-94](../../Assets/Scripts/System/Projectiles/ProjectileSpawnExpansionSystem.cs#L90-L94));
   allocate both before scheduling; assign both onto the singleton.
-- `OnDestroy`: dispose `SweptCommands` alongside `Commands`, guarded by `IsCreated`.
+- `OnDestroy`: dispose `ContinuousCommands` alongside `Commands`, guarded by `IsCreated`.
 
 ### `ProjectileExpansionJob`
 
-Add `public NativeList<ProjectileSpawnCommand> SweptCommands;`. At the end of
+Add `public NativeList<ProjectileSpawnCommand> ContinuousCommands;`. At the end of
 `WriteCommand`, replace the single `Commands.Add(command)`:
 
 ```csharp
-if (command.SweptCollision != 0)
+if (command.ContinuousCollision != 0)
 {
-    SweptCommands.Add(command);
+    ContinuousCommands.Add(command);
 }
 else
 {
@@ -64,10 +64,10 @@ authoring time and resolved at skill-compile time; expansion only dispatches on 
   no events, no template registry
   ([:138-143](../../Assets/Scripts/System/Projectiles/ProjectileSpawnExpansionSystem.cs#L138-L143)),
   and the normal path.
-- Routing reads `command.SweptCollision` only — no speed, radius, or timestep input.
-- A command whose template is swept lands in `SweptCommands` for all four spawn paths.
+- Routing reads `command.ContinuousCollision` only — no speed, radius, or timestep input.
+- A command whose template is swept lands in `ContinuousCommands` for all four spawn paths.
 
 ## Risks
 
-- **Disposal paths.** Three exits touch `Commands`. Missing `SweptCommands` on any of them
+- **Disposal paths.** Three exits touch `Commands`. Missing `ContinuousCommands` on any of them
   leaks or double-disposes. Walk all three.

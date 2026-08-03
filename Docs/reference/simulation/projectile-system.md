@@ -62,25 +62,25 @@ Non-goals:
   burst events.
 - `Assets/Scripts/System/Combat/Projectiles/ProjectileSpawnExpansionSystem.cs`: drains
   spawn events and expands volley data into one ordered command list.
-- `Assets/Scripts/System/Combat/Projectiles/ProjectileSpawnApplySystem.cs`: applies discrete
+- `Assets/Scripts/System/Combat/Projectiles/ProjectileDiscreteSpawnApplySystem.cs`: applies discrete
   projectile commands by reusing disabled entities or cold-creating overflow entities.
-- `Assets/Scripts/System/Combat/Projectiles/SweptProjectileSpawnApplySystem.cs`: applies
-  swept projectile commands into their distinct pool/archetype.
+- `Assets/Scripts/System/Combat/Projectiles/ProjectileContinuousSpawnApplySystem.cs`: applies
+  continuous projectile commands into their distinct pool/archetype.
 - `Assets/Scripts/System/Combat/Spawning/TimedSpawnSystem.cs`: emits child
   projectile spawn events from active child-spawner projectiles.
 - `Assets/Scripts/System/Combat/Projectiles/ProjectileTrackingSystem.cs`: homing target
   refresh, acquisition, and steering.
 - `Assets/Scripts/System/Combat/Projectiles/ProjectileMovementSystem.cs`: position
   integration and bounds refresh.
-- `Assets/Scripts/System/Combat/Projectiles/SweptProjectileOriginSystem.cs`: captures each
-  swept projectile's position before shared movement.
+- `Assets/Scripts/System/Combat/Projectiles/ProjectileContinuousOriginSystem.cs`: captures each
+  continuous projectile's position before shared movement.
 - `Assets/Scripts/System/Combat/Projectiles/ProjectileContactGateSystem.cs`: repeat-hit
   cooldown expiry.
-- `Assets/Scripts/System/Combat/Projectiles/ProjectileCollisionSystem.cs`: spatial hash
+- `Assets/Scripts/System/Combat/Projectiles/ProjectileDiscreteCollisionSystem.cs`: spatial hash
   target broad phase, narrow-phase collision, pierce/contact state, damage
   event emission, impact spawn event emission, and source
   deactivation.
-- `Assets/Scripts/System/Combat/Projectiles/SweptProjectileCollisionSystem.cs`: swept-lane
+- `Assets/Scripts/System/Combat/Projectiles/ProjectileContinuousCollisionSystem.cs`: continuous-lane
   discrete-plus-corridor collision and nearest-first impact handling.
 - `Assets/Scripts/System/Combat/Lifetime/CombatLifetimeSystem.cs`: shared projectile and
   AOE lifetime expiry using `CombatLifetimeComponent` and `Active`.
@@ -163,8 +163,8 @@ Current flow:
    shared scope `DynamicBuffer<ProjectileSpawnEvent>`.
 3. Expansion resolves volley math, spread, jitter, velocity, ids, bounds, and
    per-shot render Z.
-4. Expansion fans commands into discrete and swept projectile command lists using the
-   template-resolved `SweptCollision` flag.
+4. Expansion fans commands into discrete and continuous projectile command lists using the
+   template-resolved `ContinuousCollision` flag.
 5. Each projectile apply system consumes its matching list.
 6. The apply system captures disabled projectile chunks with
    `WithAll<ProjectileTag>()` and `WithDisabled<Active>()`.
@@ -200,7 +200,7 @@ Both projectile lanes carry:
 Arming in [project-aoe-system-common.md](./project-aoe-system-common.md).
 
 There are two projectile archetypes. The discrete archetype carries
-`ProjectileTrackingComponent`; the swept archetype instead carries `SweptProjectileTag` and
+`ProjectileTrackingComponent`; the continuous archetype instead carries `ProjectileContinuousTag` and
 `ProjectileSweepComponent`, and has no tracking component. Timed child spawning is selected
 by enabled `TimedSpawnComponent`; non-timed projectiles still carry it disabled.
 
@@ -234,13 +234,13 @@ runs acquisition and steering jobs. It filters by projectile faction so a
 player-faction projectile sees only targets registered to the player-faction
 combat root.
 
-Movement is shared data math. `SweptProjectileOriginSystem` captures only swept start
+Movement is shared data math. `ProjectileContinuousOriginSystem` captures only continuous step-start
 positions before `ProjectileMovementSystem` integrates both lanes and recomputes current
 world bounds through `ProjectileCollisionMath`.
 
 ## Collision And Consequences
 
-`ProjectileCollisionSystem` owns hit qualification and source projectile state.
+`ProjectileDiscreteCollisionSystem` owns hit qualification and source projectile state.
 It may:
 
 - query target proxy data
@@ -268,14 +268,14 @@ Accepted hits can produce:
 Damage is finalized by `DamageFinalizeSystem` before spawn expansion. Managed
 replay runs later in `DamageDispatchBridge` during `PresentationSystemGroup`.
 
-## Swept Projectile Lane
+## Continuous Projectile Lane
 
-`ProjectileDefinition.sweptCollision` selects the swept lane at compile time. It is authored,
-never derived from speed in simulation. Sweep and tracking cannot combine: the swept archetype
+`ProjectileDefinition.continuousCollision` selects the continuous lane at compile time. It is authored,
+never derived from speed in simulation. Sweep and tracking cannot combine: the continuous archetype
 has no `ProjectileTrackingComponent`, and a compile-time conflict (including support-enabled
 tracking) blocks the spawn and refunds the cast.
 
-Each swept tick tests the ordinary projectile footprint at current `Position` plus an oriented
+Each continuous tick tests the ordinary projectile footprint at current `Position` plus an oriented
 travel corridor from captured `Origin` to `Position`. The corridor has half-length exactly
 half the travel distance and half-width from silhouette support perpendicular to travel; it
 has no end caps because the discrete tests cover endpoints. Existing rectangle narrowphase
@@ -329,10 +329,10 @@ Important simulation ordering:
 2. `CombatLifetimeSystem` expires projectile and AOE lifetime.
 3. `TimedProjectileSpawnSystem` emits child spawn events.
 4. `ProjectileTrackingSystem` updates homing data.
-5. `SweptProjectileOriginSystem` captures swept origins; `ProjectileMovementSystem` moves
+5. `ProjectileContinuousOriginSystem` captures continuous step origins; `ProjectileMovementSystem` moves
    both lanes and refreshes bounds.
 6. `ProjectileContactGateSystem` expires projectile contact gates.
-7. Discrete and swept projectile collision systems emit damage and spawn events.
+7. Discrete and continuous projectile collision systems emit damage and spawn events.
 8. AOE collision systems run after projectile collision.
 9. `DamageFinalizeSystem` freezes the native damage queue.
 10. `ProjectileSpawnExpansionSystem` and `AOE spawn expansion systems` drain events
@@ -351,7 +351,7 @@ Projectile authoring flows through skills and spawn requests:
 
 - `ProjectileSpawnRequest` is the managed request passed to `CombatRoot.Spawn`.
 - `ProjectileConfig` and runtime skill definitions provide shape, speed,
-  lifetime, damage, count, spread, pierce, tracking, swept membership, impact AOE/projectile, and
+  lifetime, damage, count, spread, pierce, tracking, continuous membership, impact AOE/projectile, and
   child-spawn data.
 - `CombatRoot.RegisterTemplate` registers projectile visual/collision templates
   and builds render resources.
@@ -371,7 +371,7 @@ Current performance-sensitive choices:
 - `Active` enable/disable for reuse
 - one single-threaded Burst apply job per domain reuse pool
 - batched render submission
-- swept collision limits candidate work to `MaxSweptHitsPerFrame` while retaining nearest
+- continuous collision limits candidate work to `MaxContinuousHitsPerFrame` while retaining nearest
   candidates; it never clamps travel coverage
 
 Revisit only with profiling:

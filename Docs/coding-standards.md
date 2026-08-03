@@ -349,8 +349,8 @@ Examples:
 - impact sounds can be culled by same-clip and priority rules
 - damage numbers and decals can be pooled and capped
 - beams can tick damage at authored intervals rather than every rendered frame
-- swept projectile collision caps per-entity candidate work at
-  `MaxSweptHitsPerFrame`, retaining nearest candidates; it never shortens swept coverage
+- continuous projectile collision caps per-entity candidate work at
+  `MaxContinuousHitsPerFrame`, retaining nearest candidates; it never shortens continuous coverage
 
 Debug counters should exist before content stress tests become hard to explain.
 

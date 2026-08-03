@@ -34,15 +34,15 @@ ECS dependency, so it can carry most of the correctness burden cheaply.
 - Swept box overlap agrees with the discrete test for all three target shapes when the
   segment is degenerate.
 
-## EditMode — `Assets/Tests/EditMode/SweptProjectileAuthoringEditModeTests.cs` (new)
+## EditMode — `Assets/Tests/EditMode/ProjectileContinuousAuthoringEditModeTests.cs` (new)
 
 Covers task 003. Routing is authored, so these replace what would have been threshold tests.
 
 - **Sweep/tracking exclusivity, authored:** a `ProjectileDefinition` with both
-  `sweptCollision` and `trackingEnabled` fails `OnValidate`.
+  `continuousCollision` and `trackingEnabled` fails `OnValidate`.
 - **Sweep/tracking exclusivity, via support** — the case authoring review cannot catch: a
   swept skill plus a support calling `ProjectileBehaviorContext.EnableTracking` compiles to a
-  definition with `SpawnBlocked == true` and emits a `SweptProjectileCannotTrack` entry at
+  definition with `SpawnBlocked == true` and emits a `ContinuousCollisionCannotTrack` entry at
   `Error` severity. It must **not** compile to a swept-with-tracking-disabled definition —
   that is the silent-degrade behavior this replaced.
 - **The blocked slot does not fire and refunds:** `SkillDriver` skips it and the slot's fire
@@ -62,7 +62,7 @@ Covers task 003. Routing is authored, so these replace what would have been thre
   mechanical check, since the natural way to "fix" a future edge case is to sneak the math
   into the collision job.
 
-## PlayMode — `Assets/Tests/PlayMode/SweptProjectileSimulationTests.cs` (new)
+## PlayMode — `Assets/Tests/PlayMode/ProjectileContinuousSimulationTests.cs` (new)
 
 Follow the fixture style of the existing `ProjectileCollisionSimulationTests.cs`.
 
@@ -70,12 +70,12 @@ Follow the fixture style of the existing `ProjectileCollisionSimulationTests.cs`
   clearly before a target to clearly past it registers a hit. The same setup on the discrete
   lane (speed below threshold, scaled distances) also hits — proving the test is measuring
   tunneling, not geometry.
-- **The discrete test still runs on the swept lane.** A target positioned so it overlaps the
+- **The discrete test still runs on the continuous lane.** A target positioned so it overlaps the
   projectile only at its *end-of-frame* position — beside the travel corridor, not on it —
   still registers a hit. This is the guard for "continuous is on top of discrete": the
   corridor stops at the endpoint centres, so deleting the discrete branch would silently drop
   these hits while every tunneling test still passed.
-- **Slow swept projectile behaves like a discrete one.** A swept-authored projectile moving
+- **Slow continuous projectile behaves like a discrete one.** A swept-authored projectile moving
   slower than its own footprint per tick produces exactly the same hits as the same setup in
   the discrete lane. Catches the corridor over-reporting or the two tests double-counting.
 - **Nearest-first.** Two targets on the path, `pierce = 0`. The **near** target takes damage;
@@ -83,12 +83,12 @@ Follow the fixture style of the existing `ProjectileCollisionSimulationTests.cs`
   cannot come from iteration order.
 - **Pierce order.** Three targets on the path, `pierce = 1`. The two nearest are hit; the
   farthest is not.
-- **Impact position.** A swept projectile with an on-hit impact AOE spawns that AOE near the
+- **Impact position.** A continuous projectile with an on-hit impact AOE spawns that AOE near the
   target's position, not near the projectile's end-of-frame position. Assert against the
   distance between them.
-- **Expiry snap.** After a non-piercing swept projectile expires on a hit, its final
+- **Expiry snap.** After a non-piercing continuous projectile expires on a hit, its final
   `CombatKinematicsComponent.Position` is at the impact point.
-- **Contact gate.** A piercing swept projectile does not double-hit one target within the
+- **Contact gate.** A piercing continuous projectile does not double-hit one target within the
   repeat-hit cooldown, including when that target spans multiple broadphase cells.
 - **No distance clamp.** A very large step (simulate a hitch by driving one long `dt`) still
   registers a target near the *far* end of the segment. This is the guard against
@@ -99,29 +99,29 @@ Follow the fixture style of the existing `ProjectileCollisionSimulationTests.cs`
 
 Add to a new or existing spawn-pipeline test file:
 
-- **Discrete lane must not consume swept slots.** Spawn swept projectiles, let them expire so
-  their slots sit disabled, then spawn discrete projectiles. Assert every disabled swept slot
-  still carries `SweptProjectileTag` and that no entity has `SweptProjectileTag` without the
-  swept archetype's full component set. This is the `WithNone<SweptProjectileTag>` guard from
+- **Discrete lane must not consume continuous slots.** Spawn continuous projectiles, let them expire so
+  their slots sit disabled, then spawn discrete projectiles. Assert every disabled continuous slot
+  still carries `ProjectileContinuousTag` and that no entity has `ProjectileContinuousTag` without the
+  continuous archetype's full component set. This is the `WithNone<ProjectileContinuousTag>` guard from
   task 005; without it the bug is silent corruption, not a crash, so it must be caught
   mechanically.
-- **Swept archetype has no tracking component.** Assert `SweptProjectileTag` and
+- **Continuous archetype has no tracking component.** Assert `ProjectileContinuousTag` and
   `ProjectileTrackingComponent` never coexist on any entity — the structural half of the
   exclusivity rule, complementing the compile-time half above.
-- **Tracking systems skip swept projectiles.** Spawn a swept projectile in a scene with a
+- **Tracking systems skip continuous projectiles.** Spawn a continuous projectile in a scene with a
   valid target off its flight axis; assert its velocity direction is unchanged after several
   frames (no steering applied).
-- **No double integration.** A swept projectile advances exactly `Velocity * dt` per frame.
+- **No double integration.** A continuous projectile advances exactly `Velocity * dt` per frame.
   Guards against a second integrator being reintroduced alongside `ProjectileMovementSystem`
   (task 006 deletes the one an earlier draft specified).
 - **Origin is captured before movement, not after.** After one frame,
-  `ProjectileSweepComponent.Origin` equals the position *before* that frame's integration, and
+  `ProjectileContinuousStepComponent.Origin` equals the position *before* that frame's integration, and
   `Position - Origin` equals `Velocity * dt`. This is the ordering guarantee the whole swept
-  test depends on; if `SweptProjectileOriginSystem` ever lands after movement, `Origin` and
+  test depends on; if `ProjectileContinuousOriginSystem` ever lands after movement, `Origin` and
   `Position` collapse to the same point and every sweep degenerates to a discrete test that
   still passes the simpler cases.
 - **Both lanes counted.** `CombatStatsSingleton` spawn counters and
-  `CombatStatsDisplaySingleton.ActiveProjectiles` include swept projectiles. The pool-cleanup
+  `CombatStatsDisplaySingleton.ActiveProjectiles` include continuous projectiles. The pool-cleanup
   calm-down gate derives despawns from these, so an uncounted lane skews trimming.
 
 ## Existing tests to re-run and update
@@ -137,8 +137,8 @@ Add to a new or existing spawn-pipeline test file:
 ## Acceptance Criteria
 
 - The tunneling regression test fails against `main` (before this feature) and passes after.
-- The lane-isolation test fails if `WithNone<SweptProjectileTag>` is removed from
-  `ProjectileSpawnApplySystem._deadSlotQuery`. (There is no longer a movement-job exclusion to
+- The lane-isolation test fails if `WithNone<ProjectileContinuousTag>` is removed from
+  `ProjectileDiscreteSpawnApplySystem._deadSlotQuery`. (There is no longer a movement-job exclusion to
   guard — task 006 removed the need for one.)
 - Exclusivity is covered on both halves: compile-time (the combination is blocked, errors,
   and refunds) and structural (no entity carries both the tag and the tracking component).

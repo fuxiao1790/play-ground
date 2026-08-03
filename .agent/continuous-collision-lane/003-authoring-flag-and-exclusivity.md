@@ -7,7 +7,7 @@
 
 Three things, all decided at **skill-compile time** and never recomputed per spawn:
 
-1. Carry an authored `sweptCollision` flag from the skill asset to `ProjectileSpawnCommand`.
+1. Carry an authored `continuousCollision` flag from the skill asset to `ProjectileSpawnCommand`.
 2. Make sweep and tracking mutually exclusive — the combination is an **error that rejects
    the spawn**, not a silent degrade.
 3. Warn when a **tracking-capable** projectile is fast enough to tunnel, because tracking
@@ -19,15 +19,15 @@ Traced end to end; each hop needs the flag added:
 
 | Hop | File | Change |
 |---|---|---|
-| 1. Authored asset | `Skills/SkillDefinition.cs:27` `ProjectileDefinition` | add `public bool sweptCollision;` |
+| 1. Authored asset | `Skills/SkillDefinition.cs:27` `ProjectileDefinition` | add `public bool continuousCollision;` |
 | 2. Modifier pass | `Skills/Modifiers/BehaviorContexts.cs` | no new setter — sweep is not support-modifiable |
 | 3. Compile | `Skills/SkillSetCompiler.cs:288-306` `BuildRuntime` | set the flag; run the exclusivity and tunneling checks here |
-| 4. Runtime def | `Skills/Runtime/RuntimeProjectileDefinition.cs:39` | add `SweptCollision` and `SpawnBlocked` |
+| 4. Runtime def | `Skills/Runtime/RuntimeProjectileDefinition.cs:39` | add `ContinuousCollision` and `SpawnBlocked` |
 | 5. Spawn request | `System/Projectiles/ProjectileSpawnRequest.cs` | add optional ctor param + property |
 | 6. Child config | same file, `ProjectileChildSpawnConfig` | add ctor param + property, for interval children |
 | 7. Driver | `Skills/SkillDriver.cs` (incl. `:1062` child-config build) | pass through for direct, interval, and on-hit projectiles |
 | 8. Template | `System/Core/CombatRoot.cs` template compile | copy onto the `ProjectileSpawnCommand` template |
-| 9. Command | `System/Projectiles/ProjectileSpawnPipeline.cs` | add `public int SweptCollision;` |
+| 9. Command | `System/Projectiles/ProjectileSpawnPipeline.cs` | add `public int ContinuousCollision;` |
 
 **Command field type:** use `int` (0/1), matching the existing `HasTimedSpawner` convention in
 the same struct ([ProjectileSpawnPipeline.cs:43](../../Assets/Scripts/System/Projectiles/ProjectileSpawnPipeline.cs#L43)).
@@ -48,7 +48,7 @@ skill produces the conflict from two individually-valid pieces of content.
 where both final values are known:
 
 ```csharp
-if (p.sweptCollision && p.GetTrackingConfig().Enabled)
+if (p.continuousCollision && p.GetTrackingConfig().Enabled)
 {
     // blocked: emit an Error-severity validation entry and mark the definition
     runtime.SpawnBlocked = true;
@@ -103,7 +103,7 @@ if (tracking.Enabled && tooFast) { /* advisory warning */ }
 ```
 
 This is the combination with **no available fix**: tracking forbids sweep, so the author
-cannot resolve it by ticking `sweptCollision` — they must slow the projectile or drop the
+cannot resolve it by ticking `continuousCollision` — they must slow the projectile or drop the
 homing. A fast projectile *without* tracking is not warned, because its fix is trivial and
 obvious, and per the content decision on `MagicBolt`, skills will be authored for this
 deliberately rather than nudged by a linter.
@@ -134,16 +134,16 @@ the loadout UI rather than by a lookup table of which codes happen to be fatal.
 
 Two new `SkillValidationWarningCode` entries:
 
-- `SweptProjectileCannotTrack` — **Error**. Blocks the spawn.
+- `ContinuousCollisionCannotTrack` — **Error**. Blocks the spawn.
 - `TrackingProjectileMayTunnel` — **Warning**. Advisory only.
 
 Also add an `OnValidate` error on `ProjectileDefinition` for the directly-authored
-`sweptCollision && trackingEnabled` case, per `Docs/coding-standards.md` (Fail Fast
+`continuousCollision && trackingEnabled` case, per `Docs/coding-standards.md` (Fail Fast
 Validation) — that one is a plain authoring mistake and should not require entering play mode.
 
 ## Acceptance Criteria
 
-- `sweptCollision` reaches `ProjectileSpawnCommand` for **all four** spawn paths: direct cast,
+- `continuousCollision` reaches `ProjectileSpawnCommand` for **all four** spawn paths: direct cast,
   interval child, on-hit child, stack detonation.
 - Sweep + tracking produces an `Error`-severity validation entry and a rejected spawn with a
   refunded fire; it never silently drops tracking and never spawns.

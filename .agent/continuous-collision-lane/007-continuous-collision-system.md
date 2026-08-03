@@ -1,37 +1,37 @@
-# 007 — Swept Collision System
+# 007 — Continuous Collision System
 
 **Depends on:** 002, 006
 **Scope:** large (the feature)
 
 ## Goal
 
-Resolve collision for the swept lane against the volume traced this frame, applying hits
+Resolve collision for the continuous lane against the volume traced this frame, applying hits
 nearest-first with correct impact positions.
 
-Because swept projectiles never track (task 005), `Origin → Position` is the exact straight
+Because continuous projectiles never track (task 005), `Origin → Position` is the exact straight
 path travelled this frame — the segment is not an approximation of a curve, and no
 substepping or curvature correction is needed anywhere in this system.
 
 The swept box always covers the whole step. There is no distance cap and no config singleton
 to read — see task 001 for why the earlier `MaxSweepDistance` was dropped.
 
-## New system: `SweptProjectileCollisionSystem`
+## New system: `ProjectileContinuousCollisionSystem`
 
-`Assets/Scripts/System/Projectiles/SweptProjectileCollisionSystem.cs`. Structurally a
-sibling of `ProjectileCollisionSystem` — same group, same ordering attributes
+`Assets/Scripts/System/Projectiles/ProjectileContinuousCollisionSystem.cs`. Structurally a
+sibling of `ProjectileDiscreteCollisionSystem` — same group, same ordering attributes
 (`UpdateAfter(ProjectileContactGateSystem)`,
 `UpdateBefore(CombatApplyFinalizeSingleSystem)`), so both lanes' hits land in the same
 finalize pass and expansion sees this frame's spawn events.
 
 ### Singleton and dependency wiring — copy exactly
 
-Reproduce [ProjectileCollisionSystem.cs:50-98](../../Assets/Scripts/System/Projectiles/ProjectileCollisionSystem.cs#L50-L98)
+Reproduce [ProjectileDiscreteCollisionSystem.cs:50-98](../../Assets/Scripts/System/Projectiles/ProjectileDiscreteCollisionSystem.cs#L50-L98)
 verbatim in shape:
 
 - Combine `TargetSpatialHashSingleton.BuildHandle` into `state.Dependency` before scheduling.
 - Fetch the four lanes with `GetSingletonRW` (**not** `TryGet`) — a missing lane is a broken
   world and must throw. The comment at
-  [:53-55](../../Assets/Scripts/System/Projectiles/ProjectileCollisionSystem.cs#L53-L55)
+  [:53-55](../../Assets/Scripts/System/Projectiles/ProjectileDiscreteCollisionSystem.cs#L53-L55)
   states this rule; keep an equivalent one here.
 - Combine the scheduled handle into all four `ProducerHandle`s **and** into
   `TargetSpatialHashSingleton.ConsumerHandle`.
@@ -42,12 +42,12 @@ impact AOE, and lingering AOE collision all do it), so no lane needs restructuri
 ### Job shape
 
 ```csharp
-[WithAll(typeof(ProjectileTag), typeof(SweptProjectileTag), typeof(Active),
+[WithAll(typeof(ProjectileTag), typeof(ProjectileContinuousTag), typeof(Active),
          typeof(CombatCollisionActiveTag))]
 [WithDisabled(typeof(ArmingTag))]
 ```
 
-`Execute` takes what the discrete job takes, plus `in ProjectileSweepComponent sweep`, and
+`Execute` takes what the discrete job takes, plus `in ProjectileContinuousStepComponent sweep`, and
 takes `ref CombatKinematicsComponent kinematics` (**not** `in`) because the impact snap
 writes `Position`.
 
@@ -75,7 +75,7 @@ degenerate step, in which case only the discrete test runs.
 No new broadphase structure, no second hash, no extra build cost: `TargetSpatialHashSystem`
 already builds this map once per frame for all consumers
 ([TargetSpatialHashSystem.cs:130-136](../../Assets/Scripts/System/Api/Collision/Broadphase/TargetSpatialHashSystem.cs#L130-L136)),
-and the swept lane is simply one more reader of it.
+and the continuous lane is simply one more reader of it.
 
 The query region is the **union** of the corridor's AABB and the projectile's own bounds at
 its current position, because the two tests in step 3 cover different space:
@@ -95,7 +95,7 @@ if (hasCorridor)
 
 `collision.BoundsMin/Max` are already the projectile's bounds at `Position`, written by
 movement — no recomputation needed. Then expand by `MaxTargetRadius` and walk cells exactly as
-[:157-171](../../Assets/Scripts/System/Projectiles/ProjectileCollisionSystem.cs#L157-L171)
+[:157-171](../../Assets/Scripts/System/Projectiles/ProjectileDiscreteCollisionSystem.cs#L157-L171)
 does. The expansion is what preserves correctness against center-cell-only target insertion —
 do not drop it.
 
@@ -130,7 +130,7 @@ complete: this tick's discrete test covers `Position`, last tick's covered `Orig
 corridor covers everything between.
 
 On a hit, append `(CombatSweepMath.ClosestApproachParam(...), targetIdx)` to a **fixed-size
-stack array** of `CollisionConstants.MaxSweptHitsPerFrame` entries. No native container,
+stack array** of `CollisionConstants.MaxContinuousHitsPerFrame` entries. No native container,
 nothing allocated per entity.
 
 A target spanning several cells can be gathered twice — deduplicate by target index while
@@ -168,10 +168,10 @@ full end-of-frame position — it really did travel that far.
 `AddOrRefreshGate`, `HasHitEvent`, `TargetKey`, `DirectionFromTo`, and `HashId` are about to
 exist in two nearly identical copies. Extract them into a shared internal static
 (`ProjectileHitEmission`) parameterized by an explicit impact position, and have the discrete
-job pass `kinematics.Position` where the swept job passes `impactPoint`.
+job pass `kinematics.Position` where the continuous job passes `impactPoint`.
 
 Doing this makes the discrete lane's spawn position an explicit argument rather than an
-implicit one, which is the same change in meaning the swept lane needs — one definition, two
+implicit one, which is the same change in meaning the continuous lane needs — one definition, two
 callers. Skipping it leaves two copies of the on-hit spawn contract that must be kept in
 sync by hand, which is exactly the structural warning this project's decision rule names.
 
@@ -186,11 +186,11 @@ sync by hand, which is exactly the structural warning this project's decision ru
   not the corridor alone.
 - Overlap uses the existing `CombatCollisionMath.Hit` for both tests, with the corridor passed
   as a `CombatShapeType.Rectangle`. No new overlap code is added.
-- Hits apply in ascending `t` order; a `pierce = 0` swept projectile hits the **nearest**
+- Hits apply in ascending `t` order; a `pierce = 0` continuous projectile hits the **nearest**
   target on its path, never a farther one.
 - On-hit child projectiles and AOEs spawn at the impact point, not the end-of-frame position.
 - A projectile expiring mid-sweep ends at the impact point.
-- The candidate array is a fixed-size stack array; the swept path allocates nothing per
+- The candidate array is a fixed-size stack array; the continuous path allocates nothing per
   entity or per frame.
 - Duplicate candidates (target spanning cells) are deduplicated.
 - All four `ProducerHandle`s and `ConsumerHandle` receive the scheduled handle.
@@ -218,7 +218,7 @@ Two remedies exist, **both inside the existing spatial hash** — neither adds a
    ([CombatSpatialHash.cs:20-22](../../Assets/Scripts/System/Api/Collision/Broadphase/CombatSpatialHash.cs#L20-L22)).
    A long sweep is closer in size to an AOE query than to a point query. `AoeOccupiedCells`
    inserts each target into every cell its bounds touch, so a query returns duplicates — but
-   the swept job already deduplicates by target index, so it would drop in.
+   the continuous job already deduplicates by target index, so it would drop in.
 
 Either is isolated to step 2; nothing else in the job depends on how candidates are
 enumerated. Ship the rect-walk, and revisit only if a real fast skill exists and the

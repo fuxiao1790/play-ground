@@ -192,11 +192,11 @@ namespace PlayGround.System.Combat.Aoes
     [UpdateAfter(typeof(TimedSpawnSystem))]
     [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
     [UpdateAfter(typeof(LingeringAoeCollisionSystem))]
-    [UpdateAfter(typeof(PlayGround.System.Combat.Projectiles.ProjectileCollisionSystem))]
+    [UpdateAfter(typeof(PlayGround.System.Combat.Projectiles.ProjectileDiscreteCollisionSystem))]
     [UpdateAfter(typeof(StatusProcessSystem))]
     [UpdateBefore(typeof(ImpactAoeSpawnApplySystem))]
     [UpdateBefore(typeof(LingeringAoeSpawnApplySystem))]
-    [UpdateBefore(typeof(PlayGround.System.Combat.Projectiles.ProjectileSpawnApplySystem))]
+    [UpdateBefore(typeof(PlayGround.System.Combat.Projectiles.ProjectileDiscreteSpawnApplySystem))]
     public partial class ImpactAoeSpawnExpansionSystem : SystemBase
     {
         private EntityQuery _scopeQuery;
@@ -363,11 +363,11 @@ namespace PlayGround.System.Combat.Aoes
     [UpdateAfter(typeof(TimedSpawnSystem))]
     [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
     [UpdateAfter(typeof(LingeringAoeCollisionSystem))]
-    [UpdateAfter(typeof(PlayGround.System.Combat.Projectiles.ProjectileCollisionSystem))]
+    [UpdateAfter(typeof(PlayGround.System.Combat.Projectiles.ProjectileDiscreteCollisionSystem))]
     [UpdateAfter(typeof(StatusProcessSystem))]
     [UpdateBefore(typeof(ImpactAoeSpawnApplySystem))]
     [UpdateBefore(typeof(LingeringAoeSpawnApplySystem))]
-    [UpdateBefore(typeof(PlayGround.System.Combat.Projectiles.ProjectileSpawnApplySystem))]
+    [UpdateBefore(typeof(PlayGround.System.Combat.Projectiles.ProjectileDiscreteSpawnApplySystem))]
     public partial class LingeringAoeSpawnExpansionSystem : SystemBase
     {
         private EntityQuery _scopeQuery;

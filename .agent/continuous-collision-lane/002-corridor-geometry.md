@@ -55,8 +55,8 @@ The along-travel support is no longer computed.
 
 A target overlapping the projectile's spawn point but *behind* it relative to travel is not
 tested, because there is no previous tick to have discretely covered `Origin`. This is
-**identical to the discrete lane's existing behavior** — `ProjectileSpawnApplySystem` runs
-after `ProjectileCollisionSystem` in the frame, so a freshly spawned projectile's first
+**identical to the discrete lane's existing behavior** — `ProjectileDiscreteSpawnApplySystem` runs
+after `ProjectileDiscreteCollisionSystem` in the frame, so a freshly spawned projectile's first
 collision test is also at its post-move position. Not a regression, and not worth special
 handling; `SeedContactGateTargetId` already covers the on-hit-spawn case that would otherwise
 notice.
@@ -222,7 +222,7 @@ task exists to delete. Four ops beats that.
 
 It is genuinely constant for a swept projectile's whole life — direction is fixed (no
 tracking) and rotation is fixed (never written after spawn) — so it *could* be computed once
-in spawn apply and stored on `ProjectileSweepComponent`. **Don't.**
+in spawn apply and stored on `ProjectileContinuousStepComponent`. **Don't.**
 
 The saving is small: one `sincos` plus two dot products per projectile per tick, order 20–30
 cycles. At 10k concurrent swept projectiles that is well under 0.1 ms spread across workers,

@@ -22,21 +22,21 @@ namespace PlayGround.System.Combat.Projectiles
     [UpdateAfter(typeof(ProjectileSpawnExpansionSystem))]
     [UpdateAfter(typeof(ImpactAoeSpawnExpansionSystem))]
     [UpdateAfter(typeof(LingeringAoeSpawnExpansionSystem))]
-    public sealed partial class ProjectileSpawnApplySystem : SystemBase
+    public sealed partial class ProjectileDiscreteSpawnApplySystem : SystemBase
     {
-        private static readonly ProfilerMarker SpawnMarker = new("ProjectileSpawnApplySystem");
+        private static readonly ProfilerMarker SpawnMarker = new("ProjectileDiscreteSpawnApplySystem");
         private static readonly ProfilerMarker CompleteDependencyMarker =
-            new("ProjectileSpawnApplySystem.CompleteDependency");
+            new("ProjectileDiscreteSpawnApplySystem.CompleteDependency");
         private static readonly ProfilerMarker DrainCommandsMarker =
-            new("ProjectileSpawnApplySystem.DrainCommands");
+            new("ProjectileDiscreteSpawnApplySystem.DrainCommands");
         private static readonly ProfilerMarker ReuseJobMarker =
-            new("ProjectileSpawnApplySystem.ReuseJob");
+            new("ProjectileDiscreteSpawnApplySystem.ReuseJob");
         private static readonly ProfilerMarker CreateSlotsMarker =
-            new("ProjectileSpawnApplySystem.CreateSlots");
+            new("ProjectileDiscreteSpawnApplySystem.CreateSlots");
         private static readonly ProfilerCounterValue<int> SpawnTopUpCounter =
-            new(ProfilerCategory.Scripts, "ProjectileSpawnApplySystem.TopUp", ProfilerMarkerDataUnit.Count);
+            new(ProfilerCategory.Scripts, "ProjectileDiscreteSpawnApplySystem.TopUp", ProfilerMarkerDataUnit.Count);
         private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
-            new(ProfilerCategory.Scripts, "ProjectileSpawnApplySystem.Reuse", ProfilerMarkerDataUnit.Count);
+            new(ProfilerCategory.Scripts, "ProjectileDiscreteSpawnApplySystem.Reuse", ProfilerMarkerDataUnit.Count);
 
         internal int LastColdCreateCount;
         internal int LastReuseCount;
@@ -68,7 +68,7 @@ namespace PlayGround.System.Combat.Projectiles
 
             _deadSlotQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<ProjectileTag>()
-                .WithNone<SweptProjectileTag>()
+                .WithNone<ProjectileContinuousTag>()
                 .WithDisabled<Active>()
                 .Build(this);
         }
@@ -93,9 +93,9 @@ namespace PlayGround.System.Combat.Projectiles
                     out ProjectileSpawnEventSingleton projectileLane))
                 {
                     projectileLane.PendingHandle.Complete();
-                    if (projectileLane.Commands.IsCreated)
+                    if (projectileLane.DiscreteCommands.IsCreated)
                     {
-                        commands = projectileLane.Commands.AsArray();
+                        commands = projectileLane.DiscreteCommands.AsArray();
                         totalRequests = commands.Length;
                     }
                 }
@@ -274,7 +274,7 @@ namespace PlayGround.System.Combat.Projectiles
     }
 
     // Shared materialization for projectile apply lanes. Tracking state stays in the discrete
-    // lane because the swept archetype does not contain ProjectileTrackingComponent.
+    // lane because the continuous archetype does not contain ProjectileTrackingComponent.
     internal static class ProjectileSpawnApplyUtility
     {
         public static void WriteCommon(

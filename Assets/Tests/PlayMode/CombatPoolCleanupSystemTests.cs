@@ -91,14 +91,14 @@ namespace PlayGround.Tests.PlayMode
         {
             CreateActiveProjectiles(count: 2);
             CreateDisabledProjectiles(count: 6);
-            CreateDisabledSweptProjectiles(count: 6);
+            CreateDisabledContinuousProjectiles(count: 6);
             CreateActiveImpactAoes(count: 2);
             CreateDisabledImpactAoes(count: 6);
 
             RunCleanup();
 
             Assert.That(DisabledProjectileCount(), Is.EqualTo(0));
-            Assert.That(DisabledSweptProjectileCount(), Is.EqualTo(0));
+            Assert.That(DisabledContinuousProjectileCount(), Is.EqualTo(0));
             Assert.That(DisabledImpactAoeCount(), Is.EqualTo(0));
             Assert.That(ActiveProjectileEntities().Length, Is.EqualTo(2));
             Assert.That(ActiveImpactAoeCount(), Is.EqualTo(2));
@@ -247,7 +247,7 @@ namespace PlayGround.Tests.PlayMode
         private void TickSpawnApplyThenCleanup(float dt)
         {
             ProjectileSpawnExpansionSystem expansion = testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
-            ProjectileSpawnApplySystem apply = testWorld.GetOrCreateSystemManaged<ProjectileSpawnApplySystem>();
+            ProjectileDiscreteSpawnApplySystem apply = testWorld.GetOrCreateSystemManaged<ProjectileDiscreteSpawnApplySystem>();
             elapsedTime += dt;
             testWorld.SetTime(new TimeData(elapsedTime, dt));
             expansion.Update();
@@ -258,7 +258,7 @@ namespace PlayGround.Tests.PlayMode
         private void SetupProjectileSpawnPipeline()
         {
             testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
-            testWorld.GetOrCreateSystemManaged<ProjectileSpawnApplySystem>();
+            testWorld.GetOrCreateSystemManaged<ProjectileDiscreteSpawnApplySystem>();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
@@ -315,14 +315,14 @@ namespace PlayGround.Tests.PlayMode
             return entities;
         }
 
-        private void CreateDisabledSweptProjectiles(int count)
+        private void CreateDisabledContinuousProjectiles(int count)
         {
             for (int i = 0; i < count; i++)
             {
                 Entity entity = entityManager.CreateEntity(
                     typeof(ProjectileTag),
-                    typeof(SweptProjectileTag),
-                    typeof(ProjectileSweepComponent),
+                    typeof(ProjectileContinuousTag),
+                    typeof(ProjectileContinuousStepComponent),
                     typeof(Active));
                 entityManager.SetComponentEnabled<Active>(entity, false);
             }
@@ -470,9 +470,9 @@ namespace PlayGround.Tests.PlayMode
             return CountPooled(ProjectileQuery(), activeOnly: false, disabledOnly: true);
         }
 
-        private int DisabledSweptProjectileCount()
+        private int DisabledContinuousProjectileCount()
         {
-            return CountPooled(SweptProjectileQuery(), activeOnly: false, disabledOnly: true);
+            return CountPooled(ContinuousProjectileQuery(), activeOnly: false, disabledOnly: true);
         }
 
         private int CountPooled(EntityQuery query, bool activeOnly, bool disabledOnly)
@@ -520,12 +520,12 @@ namespace PlayGround.Tests.PlayMode
                 .Build(entityManager);
         }
 
-        private EntityQuery SweptProjectileQuery()
+        private EntityQuery ContinuousProjectileQuery()
         {
             return new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<ProjectileTag>()
-                .WithAll<SweptProjectileTag>()
-                .WithAll<ProjectileSweepComponent>()
+                .WithAll<ProjectileContinuousTag>()
+                .WithAll<ProjectileContinuousStepComponent>()
                 .WithAll<Active>()
                 .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
                 .Build(entityManager);

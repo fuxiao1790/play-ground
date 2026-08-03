@@ -21,7 +21,7 @@ namespace PlayGround.System.Combat.Projectiles
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileContactGateSystem))]
     [UpdateBefore(typeof(CombatApplyFinalizeSingleSystem))]
-    public partial struct SweptProjectileCollisionSystem : ISystem
+    public partial struct ProjectileContinuousCollisionSystem : ISystem
     {
         private EntityQuery activeProjectileQuery;
 
@@ -29,14 +29,14 @@ namespace PlayGround.System.Combat.Projectiles
         {
             activeProjectileQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
-                ComponentType.ReadOnly<SweptProjectileTag>(),
+                ComponentType.ReadOnly<ProjectileContinuousTag>(),
                 ComponentType.ReadOnly<Active>(),
                 ComponentType.ReadOnly<CombatCollisionActiveTag>(),
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
                 ComponentType.ReadOnly<CombatHitPayload>(),
                 ComponentType.ReadWrite<CombatKinematicsComponent>(),
                 ComponentType.ReadOnly<CombatCollisionComponent>(),
-                ComponentType.ReadOnly<ProjectileSweepComponent>(),
+                ComponentType.ReadOnly<ProjectileContinuousStepComponent>(),
                 ComponentType.ReadWrite<CombatLifetimeComponent>(),
                 ComponentType.ReadWrite<ProjectileHitComponent>(),
                 ComponentType.ReadWrite<ProjectileContactGateElement>());
@@ -64,7 +64,7 @@ namespace PlayGround.System.Combat.Projectiles
             RefRW<CombatHitDispatchSingleton> hitDispatch =
                 SystemAPI.GetSingletonRW<CombatHitDispatchSingleton>();
 
-            var job = new SweptProjectileCollisionJob
+            var job = new ProjectileContinuousCollisionJob
             {
                 TargetEntities = hash.TargetEntities.AsArray(),
                 TargetPositions = hash.TargetPositions.AsArray(),
@@ -101,10 +101,10 @@ namespace PlayGround.System.Combat.Projectiles
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileTag), typeof(SweptProjectileTag), typeof(Active),
+        [WithAll(typeof(ProjectileTag), typeof(ProjectileContinuousTag), typeof(Active),
             typeof(CombatCollisionActiveTag))]
         [WithDisabled(typeof(ArmingTag))]
-        private partial struct SweptProjectileCollisionJob : IJobEntity
+        private partial struct ProjectileContinuousCollisionJob : IJobEntity
         {
             [ReadOnly] public NativeArray<Entity> TargetEntities;
             [ReadOnly] public NativeArray<TargetPosition> TargetPositions;
@@ -118,7 +118,7 @@ namespace PlayGround.System.Combat.Projectiles
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
 
-            private struct SweptCandidate
+            private struct HitCandidate
             {
                 public float T;
                 public int TargetIndex;
@@ -130,7 +130,7 @@ namespace PlayGround.System.Combat.Projectiles
                 in CombatHitPayload payload,
                 ref CombatKinematicsComponent kinematics,
                 in CombatCollisionComponent collision,
-                in ProjectileSweepComponent sweep,
+                in ProjectileContinuousStepComponent step,
                 ref CombatLifetimeComponent lifetime,
                 ref ProjectileHitComponent projectileHit,
                 EnabledRefRW<Active> active,
@@ -161,7 +161,7 @@ namespace PlayGround.System.Combat.Projectiles
                     return;
                 }
 
-                float2 segmentStart = sweep.Origin;
+                float2 segmentStart = step.Origin;
                 float2 segmentEnd = kinematics.Position;
                 bool hasCorridor = CombatSweepMath.TryBuildTravelCorridor(
                     segmentStart,
@@ -199,7 +199,7 @@ namespace PlayGround.System.Combat.Projectiles
                 int2 cellMin = CombatSpatialHash.FloorCell(expandedQueryMin, CombatSpatialHash.ProjectileCollisionCellSize);
                 int2 cellMax = CombatSpatialHash.FloorCell(expandedQueryMax, CombatSpatialHash.ProjectileCollisionCellSize);
 
-                FixedList512Bytes<SweptCandidate> candidates = default;
+                FixedList512Bytes<HitCandidate> candidates = default;
                 for (int cy = cellMin.y; cy <= cellMax.y; cy++)
                 {
                     for (int cx = cellMin.x; cx <= cellMax.x; cx++)
@@ -266,7 +266,7 @@ namespace PlayGround.System.Combat.Projectiles
 
                             AddCandidate(
                                 ref candidates,
-                                new SweptCandidate
+                                new HitCandidate
                                 {
                                     T = CombatSweepMath.ClosestApproachParam(
                                         segmentStart,
@@ -282,7 +282,7 @@ namespace PlayGround.System.Combat.Projectiles
                 SortCandidates(ref candidates);
                 for (int i = 0; i < candidates.Length; i++)
                 {
-                    SweptCandidate candidate = candidates[i];
+                    HitCandidate candidate = candidates[i];
                     Entity targetEntity = TargetEntities[candidate.TargetIndex];
                     TargetPosition targetPosition = TargetPositions[candidate.TargetIndex];
                     int targetKey = ProjectileHitEmission.TargetKey(targetEntity);
@@ -319,8 +319,8 @@ namespace PlayGround.System.Combat.Projectiles
             }
 
             private static void AddCandidate(
-                ref FixedList512Bytes<SweptCandidate> candidates,
-                in SweptCandidate candidate)
+                ref FixedList512Bytes<HitCandidate> candidates,
+                in HitCandidate candidate)
             {
                 for (int i = 0; i < candidates.Length; i++)
                 {
@@ -330,7 +330,7 @@ namespace PlayGround.System.Combat.Projectiles
                     }
                 }
 
-                if (candidates.Length < CollisionConstants.MaxSweptHitsPerFrame)
+                if (candidates.Length < CollisionConstants.MaxContinuousHitsPerFrame)
                 {
                     candidates.Add(candidate);
                     return;
@@ -351,11 +351,11 @@ namespace PlayGround.System.Combat.Projectiles
                 }
             }
 
-            private static void SortCandidates(ref FixedList512Bytes<SweptCandidate> candidates)
+            private static void SortCandidates(ref FixedList512Bytes<HitCandidate> candidates)
             {
                 for (int i = 1; i < candidates.Length; i++)
                 {
-                    SweptCandidate candidate = candidates[i];
+                    HitCandidate candidate = candidates[i];
                     int insertIndex = i;
                     while (insertIndex > 0 && Precedes(candidate, candidates[insertIndex - 1]))
                     {
@@ -367,7 +367,7 @@ namespace PlayGround.System.Combat.Projectiles
                 }
             }
 
-            private static bool Precedes(in SweptCandidate left, in SweptCandidate right)
+            private static bool Precedes(in HitCandidate left, in HitCandidate right)
             {
                 return left.T < right.T || (left.T == right.T && left.TargetIndex < right.TargetIndex);
             }

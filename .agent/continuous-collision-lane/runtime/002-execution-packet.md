@@ -2,7 +2,7 @@
 
 ## Task
 
-002-swept-box-geometry.md
+002-corridor-geometry.md
 
 ## Goal
 
@@ -43,7 +43,7 @@ Add pure Burst-compatible geometry helpers to construct swept oriented rectangle
 
 ## Dependencies Confirmed
 
-- `SweptProjectileTag`, `ProjectileSweepComponent`, and `MaxSweptHitsPerFrame` exist from task 001.
+- `ProjectileContinuousTag`, `ProjectileContinuousStepComponent`, and `MaxContinuousHitsPerFrame` exist from task 001.
 - `CombatCollisionMath` handles rectangle/circle/capsule shapes; capsule axis is `Rotate((0, 1), rotationRadians)` and half-segment is `halfExtents.x`.
 
 ## Step-By-Step Instructions

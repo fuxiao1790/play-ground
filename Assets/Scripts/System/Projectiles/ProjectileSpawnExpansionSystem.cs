@@ -15,16 +15,16 @@ using Unity.Mathematics;
 
 namespace PlayGround.System.Combat.Projectiles
 {
-    // ECS Lifecycle: singleton projectile spawn lane; EventQueue + Commands + SweptCommands created by
+    // ECS Lifecycle: singleton projectile spawn lane; EventQueue + DiscreteCommands + ContinuousCommands created by
     // ProjectileSpawnExpansionSystem on create. EventQueue is filled by producers each frame and
-    // drained by the expansion system; Commands and SweptCommands are allocated per frame by the
-    // expansion job and consumed by their matching ProjectileSpawnApplySystem lane. Disposed by
+    // drained by the expansion system; DiscreteCommands and ContinuousCommands are allocated per frame by the
+    // expansion job and consumed by their matching ProjectileDiscreteSpawnApplySystem lane. Disposed by
     // ProjectileSpawnExpansionSystem on destroy.
     public struct ProjectileSpawnEventSingleton : IComponentData
     {
         public NativeQueue<ProjectileSpawnEvent> EventQueue;
-        public NativeList<ProjectileSpawnCommand> Commands;
-        public NativeList<ProjectileSpawnCommand> SweptCommands;
+        public NativeList<ProjectileSpawnCommand> DiscreteCommands;
+        public NativeList<ProjectileSpawnCommand> ContinuousCommands;
         public JobHandle ProducerHandle;
         public JobHandle PendingHandle;
     }
@@ -34,10 +34,10 @@ namespace PlayGround.System.Combat.Projectiles
     // fully-resolved ProjectileSpawnCommand into apply-system containers.
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(TimedSpawnSystem))]
-    [UpdateAfter(typeof(ProjectileCollisionSystem))]
+    [UpdateAfter(typeof(ProjectileDiscreteCollisionSystem))]
     [UpdateAfter(typeof(PlayGround.System.Combat.Aoes.ImpactAoeCollisionSystem))]
     [UpdateAfter(typeof(StatusProcessSystem))]
-    [UpdateBefore(typeof(ProjectileSpawnApplySystem))]
+    [UpdateBefore(typeof(ProjectileDiscreteSpawnApplySystem))]
     [UpdateBefore(typeof(PlayGround.System.Combat.Aoes.ImpactAoeSpawnApplySystem))]
     [UpdateBefore(typeof(PlayGround.System.Combat.Aoes.LingeringAoeSpawnApplySystem))]
     public partial class ProjectileSpawnExpansionSystem : SystemBase
@@ -71,14 +71,14 @@ namespace PlayGround.System.Combat.Projectiles
                 EntityManager.GetComponentData<ProjectileSpawnEventSingleton>(singletonEntity);
             singleton.PendingHandle.Complete();
             singleton.ProducerHandle.Complete();
-            if (singleton.Commands.IsCreated)
+            if (singleton.DiscreteCommands.IsCreated)
             {
-                singleton.Commands.Dispose();
+                singleton.DiscreteCommands.Dispose();
             }
 
-            if (singleton.SweptCommands.IsCreated)
+            if (singleton.ContinuousCommands.IsCreated)
             {
-                singleton.SweptCommands.Dispose();
+                singleton.ContinuousCommands.Dispose();
             }
 
             if (singleton.EventQueue.IsCreated)
@@ -94,16 +94,16 @@ namespace PlayGround.System.Combat.Projectiles
             ref ProjectileSpawnEventSingleton singleton = ref projectileLane.ValueRW;
 
             singleton.PendingHandle.Complete();
-            if (singleton.Commands.IsCreated)
+            if (singleton.DiscreteCommands.IsCreated)
             {
-                singleton.Commands.Dispose();
-                singleton.Commands = default;
+                singleton.DiscreteCommands.Dispose();
+                singleton.DiscreteCommands = default;
             }
 
-            if (singleton.SweptCommands.IsCreated)
+            if (singleton.ContinuousCommands.IsCreated)
             {
-                singleton.SweptCommands.Dispose();
-                singleton.SweptCommands = default;
+                singleton.ContinuousCommands.Dispose();
+                singleton.ContinuousCommands = default;
             }
 
             Dependency.Complete();
@@ -155,22 +155,22 @@ namespace PlayGround.System.Combat.Projectiles
                 return;
             }
 
-            NativeList<ProjectileSpawnCommand> commands =
+            NativeList<ProjectileSpawnCommand> discreteCommands =
                 new(events.Length, Allocator.TempJob);
-            NativeList<ProjectileSpawnCommand> sweptCommands =
+            NativeList<ProjectileSpawnCommand> continuousCommands =
                 new(events.Length, Allocator.TempJob);
 
             Dependency = new ProjectileExpansionJob
             {
                 Events = events,
                 Templates = templates.Map,
-                Commands = commands,
-                SweptCommands = sweptCommands
+                DiscreteCommands = discreteCommands,
+                ContinuousCommands = continuousCommands
             }.Schedule(Dependency);
 
             Dependency = events.Dispose(Dependency);
-            singleton.Commands = commands;
-            singleton.SweptCommands = sweptCommands;
+            singleton.DiscreteCommands = discreteCommands;
+            singleton.ContinuousCommands = continuousCommands;
             singleton.PendingHandle = Dependency;
         }
 
@@ -179,8 +179,8 @@ namespace PlayGround.System.Combat.Projectiles
         {
             [ReadOnly] public NativeArray<ProjectileSpawnEvent> Events;
             [ReadOnly] public NativeHashMap<Hash128, ProjectileSpawnCommand> Templates;
-            public NativeList<ProjectileSpawnCommand> Commands;
-            public NativeList<ProjectileSpawnCommand> SweptCommands;
+            public NativeList<ProjectileSpawnCommand> DiscreteCommands;
+            public NativeList<ProjectileSpawnCommand> ContinuousCommands;
 
             public void Execute()
             {
@@ -291,13 +291,13 @@ namespace PlayGround.System.Combat.Projectiles
                 command.Render = render;
                 command.TimedSpawn = timedSpawn;
 
-                if (command.SweptCollision != 0)
+                if (command.ContinuousCollision != 0)
                 {
-                    SweptCommands.Add(command);
+                    ContinuousCommands.Add(command);
                 }
                 else
                 {
-                    Commands.Add(command);
+                    DiscreteCommands.Add(command);
                 }
             }
 

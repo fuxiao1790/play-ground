@@ -49,7 +49,7 @@ namespace PlayGround.Skills.Runtime
         public float ManaCost { get; set; }
         public float ArmSeconds { get; set; }
         public bool DirectDamageEnabled { get; set; } = true;
-        public bool SweptCollision { get; set; }
+        public bool ContinuousCollision { get; set; }
         public bool SpawnBlocked { get; set; }
         public bool TrackingMayTunnel { get; set; }
         public ProjectileTrackingConfig Tracking { get; set; }

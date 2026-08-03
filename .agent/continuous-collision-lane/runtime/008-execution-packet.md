@@ -15,8 +15,8 @@ Add pure authoring/geometry tests and simulation/lane-isolation regression cover
 ## Files Allowed To Create
 
 - `Assets/Tests/EditMode/CombatSweepMathEditModeTests.cs`
-- `Assets/Tests/EditMode/SweptProjectileAuthoringEditModeTests.cs`
-- `Assets/Tests/PlayMode/SweptProjectileSimulationTests.cs`
+- `Assets/Tests/EditMode/ProjectileContinuousAuthoringEditModeTests.cs`
+- `Assets/Tests/PlayMode/ProjectileContinuousSimulationTests.cs`
 - A directly scoped projectile spawn-pipeline PlayMode test file if necessary.
 
 ## Files Allowed To Delete

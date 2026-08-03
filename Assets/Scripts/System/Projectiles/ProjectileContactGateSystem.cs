@@ -15,7 +15,7 @@ namespace PlayGround.System.Combat.Projectiles
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ProjectileMovementSystem))]
-    [UpdateBefore(typeof(ProjectileCollisionSystem))]
+    [UpdateBefore(typeof(ProjectileDiscreteCollisionSystem))]
     public partial struct ProjectileContactGateSystem : ISystem
     {
         [BurstCompile]
@@ -37,7 +37,7 @@ namespace PlayGround.System.Combat.Projectiles
 
             private void Execute(DynamicBuffer<ProjectileContactGateElement> contactGates)
             {
-                // Pass 1: subtract DeltaTime from all cooldowns (no branches â€?Burst can vectorize).
+                // Pass 1: subtract DeltaTime from all cooldowns (no branches ï¿½?Burst can vectorize).
                 for (int i = 0; i < contactGates.Length; i++)
                     contactGates.ElementAt(i).CooldownRemaining -= DeltaTime;
 

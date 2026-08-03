@@ -2,7 +2,7 @@
 
 ## Task
 
-007-swept-collision-system.md
+007-continuous-collision-system.md
 
 ## Goal
 
@@ -10,11 +10,11 @@ Add swept collision lane using full-motion oriented box, nearest-first fixed can
 
 ## Files Allowed To Modify
 
-- `Assets/Scripts/System/Projectiles/ProjectileCollisionSystem.cs`
+- `Assets/Scripts/System/Projectiles/ProjectileDiscreteCollisionSystem.cs`
 
 ## Files Allowed To Create
 
-- `Assets/Scripts/System/Projectiles/SweptProjectileCollisionSystem.cs`
+- `Assets/Scripts/System/Projectiles/ProjectileContinuousCollisionSystem.cs`
 
 ## Files Allowed To Delete
 

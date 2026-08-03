@@ -77,9 +77,9 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(hitApply);
             simGroup.AddSystemToUpdateList(statusProcess);
             simGroup.AddSystemToUpdateList(projectileExpansion);
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileSpawnApplySystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileDiscreteSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContactGateSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileCollisionSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileDiscreteCollisionSystem>());
             // Collision/arming/lifetime/expansion now write the VFX lane unconditionally, so its
             // owning system must exist (to create the lane singleton) and tick (to drain it). Added
             // to simGroup so it drains on TickSimulationOnly too; it no-ops without a VfxRoot.

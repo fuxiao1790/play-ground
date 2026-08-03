@@ -10,12 +10,12 @@ what this feature actually alters — do not restate rules that already live in 
 
 Add entries alongside the existing projectile files:
 
-- `SweptProjectileSpawnApplySystem.cs`: swept-lane apply; reuse disabled `Active` slots in
+- `ProjectileContinuousSpawnApplySystem.cs`: swept-lane apply; reuse disabled `Active` slots in
   the swept archetype before cold creation.
-- `SweptProjectileOriginSystem.cs`: records each swept projectile's step-start position before
+- `ProjectileContinuousOriginSystem.cs`: records each swept projectile's step-start position before
   `ProjectileMovementSystem` integrates. Movement itself is shared — there is no swept-lane
   movement system.
-- `SweptProjectileCollisionSystem.cs`: swept-lane collision; nearest-first ordered hits
+- `ProjectileContinuousCollisionSystem.cs`: swept-lane collision; nearest-first ordered hits
   against the oriented box covering this frame's motion.
 
 (No sweep config file — the swept box always spans the full step; there is no tunable.)
@@ -32,7 +32,7 @@ The command section currently implies one command list per domain. Amend:
 
 - Note that `ProjectileSpawnCommand` is fanned out by expansion into **two** lists on
   `ProjectileSpawnEventSingleton` — discrete and swept — switching on the authored
-  `SweptCollision` flag carried in the command.
+  `ContinuousCollision` flag carried in the command.
 - State explicitly that this splits at the **command** level, not the event level, because
   the discriminator is not known to producers (interval and on-hit children resolve speed
   from templates inside expansion). This is the one place the AOE lane pattern deliberately
@@ -44,7 +44,7 @@ The command section currently implies one command list per domain. Amend:
 
 That section enumerates the reuse pools ("projectile, impact AOE, and lingering AOE") and
 explains how they are distinguished. Update it to four pools, with the swept projectile pool
-distinguished by `SweptProjectileTag` — the same way the text already explains
+distinguished by `ProjectileContinuousTag` — the same way the text already explains
 `LingeringAoeTag`. Note that the discrete lane's dead-slot query excludes the tag, since that
 exclusion is the load-bearing invariant of the split.
 
@@ -52,7 +52,7 @@ exclusion is the load-bearing invariant of the split.
 
 Add a section covering:
 
-- The two lanes and that membership is **authored** via `ProjectileDefinition.sweptCollision`,
+- The two lanes and that membership is **authored** via `ProjectileDefinition.continuousCollision`,
   fixed at skill-compile time, never derived from speed at runtime.
 - **Sweep and tracking are mutually exclusive**, enforced structurally (the swept archetype
   has no `ProjectileTrackingComponent`, so the tracking jobs cannot match it) and at compile
@@ -84,11 +84,11 @@ Add a section covering:
 
 Content authors read this doc, not the simulation reference. Document:
 
-- `sweptCollision` as an authored projectile field alongside `trackingEnabled`.
+- `continuousCollision` as an authored projectile field alongside `trackingEnabled`.
 - That the two **cannot** be combined: the skill will not fire, the cast is refunded, and the
   loadout shows an error. Including via a homing support socketed into a swept skill.
 - The two validation codes and what each means:
-  `SweptProjectileCannotTrack` (error, blocks) and `TrackingProjectileMayTunnel` (warning,
+  `ContinuousCollisionCannotTrack` (error, blocks) and `TrackingProjectileMayTunnel` (warning,
   advisory — a homing projectile fast enough to pass through small targets, which cannot be
   fixed with sweep and needs a lower speed or no homing).
 
@@ -101,7 +101,7 @@ a behavior guarantee consumers can rely on, not just display text.
 ## `Docs/coding-standards.md` — Performance Budget Rule
 
 Add the swept lane to the list of examples, in the existing style: swept projectile collision
-caps the per-frame candidate set at `MaxSweptHitsPerFrame`, keeping the nearest candidates
+caps the per-frame candidate set at `MaxContinuousHitsPerFrame`, keeping the nearest candidates
 when the cap binds. Note explicitly that the budget bounds per-entity *work* and never the
 swept *coverage* — a collision feature whose coverage degrades under load stops doing its job
 exactly when it is needed.

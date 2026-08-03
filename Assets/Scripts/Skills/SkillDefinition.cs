@@ -39,7 +39,8 @@ namespace PlayGround.Skills
         [Min(0f)] public float manaCost = 1f;
         [Min(0f)] public float armSeconds;
         public bool directDamageEnabled = true;
-        public bool sweptCollision;
+        [FormerlySerializedAs("sweptCollision")]
+        public bool continuousCollision;
         public bool trackingEnabled;
         public float trackingTurnSpeedDegrees;
         public float trackingQueryIntervalSeconds;
@@ -51,8 +52,8 @@ namespace PlayGround.Skills
 
         public void OnValidate()
         {
-            if (sweptCollision && trackingEnabled)
-                Debug.LogError("Projectile definitions cannot enable both swept collision and tracking.");
+            if (continuousCollision && trackingEnabled)
+                Debug.LogError("Projectile definitions cannot enable both continuous collision and tracking.");
         }
 
         public override SkillDefinition DeepCopy() => (ProjectileDefinition)MemberwiseClone();

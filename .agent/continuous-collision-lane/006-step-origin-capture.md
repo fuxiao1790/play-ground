@@ -44,12 +44,12 @@ archetypes, exactly as it was before this feature existed.
 
 ### `ProjectileMovementSystem` — revert to its pre-feature state
 
-If a `[WithNone(typeof(SweptProjectileTag))]` was added to `ProjectileMovementJob`, **remove
+If a `[WithNone(typeof(ProjectileContinuousTag))]` was added to `ProjectileMovementJob`, **remove
 it**. The job should match `ProjectileTag + Active` and integrate both archetypes, with no
 knowledge that the swept lane exists.
 
-> Do not confuse this with the `WithNone<SweptProjectileTag>` on
-> `ProjectileSpawnApplySystem._deadSlotQuery` (task 005). **That one is still required** — it
+> Do not confuse this with the `WithNone<ProjectileContinuousTag>` on
+> `ProjectileDiscreteSpawnApplySystem._deadSlotQuery` (task 005). **That one is still required** — it
 > keeps the discrete lane from claiming swept pool slots. Only the movement-job exclusion goes
 > away.
 
@@ -58,15 +58,15 @@ knowledge that the swept lane exists.
 Its integration body is redundant with `ProjectileMovementSystem`, and its origin write moves
 to the new system below.
 
-### New system: `SweptProjectileOriginSystem`
+### New system: `ProjectileContinuousOriginSystem`
 
-`Assets/Scripts/System/Projectiles/SweptProjectileOriginSystem.cs`
+`Assets/Scripts/System/Projectiles/ProjectileContinuousOriginSystem.cs`
 
 ```csharp
 [BurstCompile]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateBefore(typeof(ProjectileMovementSystem))]
-public partial struct SweptProjectileOriginSystem : ISystem
+public partial struct ProjectileContinuousOriginSystem : ISystem
 {
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
@@ -75,13 +75,13 @@ public partial struct SweptProjectileOriginSystem : ISystem
     }
 
     [BurstCompile]
-    [WithAll(typeof(ProjectileTag), typeof(SweptProjectileTag), typeof(Active))]
+    [WithAll(typeof(ProjectileTag), typeof(ProjectileContinuousTag), typeof(Active))]
     [WithDisabled(typeof(ArmingTag))]
     private partial struct CaptureOriginJob : IJobEntity
     {
         private void Execute(
             in CombatKinematicsComponent kinematics,
-            ref ProjectileSweepComponent sweep) => sweep.Origin = kinematics.Position;
+            ref ProjectileContinuousStepComponent sweep) => sweep.Origin = kinematics.Position;
     }
 }
 ```
@@ -94,9 +94,9 @@ Only four things write `CombatKinematicsComponent.Position`:
 
 | Writer | When | Interaction with capture |
 |---|---|---|
-| `ProjectileSpawnApplySystem` / `SweptProjectileSpawnApplySystem` | spawn, after collision | seeds `Position`; next frame's capture reads it |
+| `ProjectileDiscreteSpawnApplySystem` / `ProjectileContinuousSpawnApplySystem` | spawn, after collision | seeds `Position`; next frame's capture reads it |
 | `ProjectileMovementSystem` | after capture | the integration capture is pairing with |
-| `SweptProjectileCollisionSystem:295` | impact snap on expiry | entity is deactivated in the same branch, so it is never captured or moved again |
+| `ProjectileContinuousCollisionSystem:295` | impact snap on expiry | entity is deactivated in the same branch, so it is never captured or moved again |
 
 `ProjectileTrackingSystem` writes `Velocity` only, never `Position`. So nothing can move a
 projectile between capture and integration.
@@ -135,11 +135,11 @@ Cheaper than the duplicated bounds recompute the old shape performed.
 ## Acceptance Criteria
 
 - `ProjectileMovementSystem` is identical to its pre-feature state — one job, no
-  `WithNone<SweptProjectileTag>`, integrating both archetypes.
+  `WithNone<ProjectileContinuousTag>`, integrating both archetypes.
 - `SweptProjectileMovementSystem.cs` is deleted.
-- `SweptProjectileOriginSystem` runs before `ProjectileMovementSystem` and writes `Origin`
+- `ProjectileContinuousOriginSystem` runs before `ProjectileMovementSystem` and writes `Origin`
   for swept, non-arming, active projectiles only.
 - A swept projectile advances exactly `Velocity * dt` per frame (no double integration).
-- `ProjectileSpawnApplySystem._deadSlotQuery` still carries `WithNone<SweptProjectileTag>` —
+- `ProjectileDiscreteSpawnApplySystem._deadSlotQuery` still carries `WithNone<ProjectileContinuousTag>` —
   that exclusion is unrelated and must not be removed alongside the movement one.
 - No integration or bounds-computation code is duplicated anywhere.

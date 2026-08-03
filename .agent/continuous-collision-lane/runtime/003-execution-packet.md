@@ -39,7 +39,7 @@ Carry authored sweep membership through all skill projectile spawn paths; reject
 
 ## Behavior To Change
 
-- `sweptCollision` becomes authored data copied to integer command routing field.
+- `continuousCollision` becomes authored data copied to integer command routing field.
 - Final tracking + sweep is an error and driver locally refunds/refuses slot fire.
 - Tracking-capable too-fast projectile creates advisory warning at compilation.
 
@@ -60,13 +60,13 @@ Carry authored sweep membership through all skill projectile spawn paths; reject
 
 ## Step-By-Step Instructions
 
-1. Add serialized `sweptCollision` to `ProjectileDefinition`; OnValidate reports directly-authored sweep + tracking error.
-2. Add `SweptCollision` and `SpawnBlocked` to runtime definition; preserve no support-modifiable sweep path.
-3. In `BuildRuntime`, after modifiers produce final tracking config, copy sweep; mark conflict blocked and emit `SweptProjectileCannotTrack` Error.
+1. Add serialized `continuousCollision` to `ProjectileDefinition`; OnValidate reports directly-authored sweep + tracking error.
+2. Add `ContinuousCollision` and `SpawnBlocked` to runtime definition; preserve no support-modifiable sweep path.
+3. In `BuildRuntime`, after modifiers produce final tracking config, copy sweep; mark conflict blocked and emit `ContinuousCollisionCannotTrack` Error.
 4. Add editor/compiler-only `SmallestExpectedTargetRadius = 0.35f`; use stated two-tick conservative minimum-extent formula only when tracking enabled; emit `TrackingProjectileMayTunnel` Warning.
 5. Add validation severity defaulting existing warnings to Warning; update warning construction/validator shape as needed.
-6. Driver rejects blocked runtime projectile using local existing refund semantics, before any spawn; propagate `SweptCollision` through all direct/child/template construction.
-7. Add optional request/child-config constructor/property field and command `int SweptCollision`; copy it through CombatRoot and template construction/hashing if command fields are explicitly normalized/hashed.
+6. Driver rejects blocked runtime projectile using local existing refund semantics, before any spawn; propagate `ContinuousCollision` through all direct/child/template construction.
+7. Add optional request/child-config constructor/property field and command `int ContinuousCollision`; copy it through CombatRoot and template construction/hashing if command fields are explicitly normalized/hashed.
 
 ## Acceptance Criteria
 

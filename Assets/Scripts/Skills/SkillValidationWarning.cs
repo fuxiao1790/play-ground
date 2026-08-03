@@ -11,7 +11,7 @@ namespace PlayGround.Skills
         UnsupportedTriggerTarget,
         UnsupportedStackingDetonation,
         SpawnChainDepthExceeded,
-        SweptProjectileCannotTrack,
+        ContinuousCollisionCannotTrack,
         TrackingProjectileMayTunnel,
     }
 
