@@ -41,6 +41,11 @@ dereferencing the event's template key against the registry, applying the
 instance frame, and exploding template-level multiplicity (count, spread, jitter)
 into one command per spawned entity.
 
+Projectile expansion fans commands into discrete and swept command lists on
+`ProjectileSpawnEventSingleton`, using authored `ProjectileSpawnCommand.SweptCollision`.
+This split is at command level, not event level: interval and on-hit producers only carry a
+template key; expansion is where the template resolves the lane discriminator.
+
 See [spawn-template-registry.md](../reference/simulation/spawn-template-registry.md)
 for the registry concurrency contract and the `(kind, key)` model.
 
@@ -94,9 +99,10 @@ See [Target Proxy](target-proxy.md) and
 
 ## Notes / TODOs
 
-Entity reuse is faction-agnostic and render-kind-agnostic. A disabled slot of
-any faction may be reused by a spawn of any other faction in the matching
-archetype. Per-entity faction is stamped from `event.Faction` at expansion time,
+Entity reuse is faction-agnostic and render-kind-agnostic within a matching
+archetype. A disabled slot of any faction may be reused by a spawn of any other
+faction in that archetype. Discrete and swept projectile pools are separate.
+Per-entity faction is stamped from `event.Faction` at expansion time,
 and per-entity `CombatRenderKindId` is overwritten from the spawn command's
 `RenderTypeId`.
 

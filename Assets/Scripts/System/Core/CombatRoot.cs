@@ -483,6 +483,7 @@ namespace PlayGround.System.Combat.Core
                 RenderTypeId = renderId,
                 PierceRemaining = request.PierceCount,
                 HasTimedSpawner = hasTimedSpawner ? 1 : 0,
+                SweptCollision = request.SweptCollision ? 1 : 0,
                 SeedContactGateTargetId = seedContactGateTargetId,
                 RepeatHitCooldownSeconds = request.RepeatHitCooldownSeconds,
                 Lifetime = request.Lifetime,

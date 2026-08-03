@@ -15,14 +15,16 @@ using Unity.Mathematics;
 
 namespace PlayGround.System.Combat.Projectiles
 {
-    // ECS Lifecycle: singleton projectile spawn lane; EventQueue + Commands created by
+    // ECS Lifecycle: singleton projectile spawn lane; EventQueue + Commands + SweptCommands created by
     // ProjectileSpawnExpansionSystem on create. EventQueue is filled by producers each frame and
-    // drained by the expansion system; Commands is allocated per frame by the expansion job and
-    // consumed by ProjectileSpawnApplySystem. Disposed by ProjectileSpawnExpansionSystem on destroy.
+    // drained by the expansion system; Commands and SweptCommands are allocated per frame by the
+    // expansion job and consumed by their matching ProjectileSpawnApplySystem lane. Disposed by
+    // ProjectileSpawnExpansionSystem on destroy.
     public struct ProjectileSpawnEventSingleton : IComponentData
     {
         public NativeQueue<ProjectileSpawnEvent> EventQueue;
         public NativeList<ProjectileSpawnCommand> Commands;
+        public NativeList<ProjectileSpawnCommand> SweptCommands;
         public JobHandle ProducerHandle;
         public JobHandle PendingHandle;
     }
@@ -74,6 +76,11 @@ namespace PlayGround.System.Combat.Projectiles
                 singleton.Commands.Dispose();
             }
 
+            if (singleton.SweptCommands.IsCreated)
+            {
+                singleton.SweptCommands.Dispose();
+            }
+
             if (singleton.EventQueue.IsCreated)
             {
                 singleton.EventQueue.Dispose();
@@ -91,6 +98,12 @@ namespace PlayGround.System.Combat.Projectiles
             {
                 singleton.Commands.Dispose();
                 singleton.Commands = default;
+            }
+
+            if (singleton.SweptCommands.IsCreated)
+            {
+                singleton.SweptCommands.Dispose();
+                singleton.SweptCommands = default;
             }
 
             Dependency.Complete();
@@ -144,16 +157,20 @@ namespace PlayGround.System.Combat.Projectiles
 
             NativeList<ProjectileSpawnCommand> commands =
                 new(events.Length, Allocator.TempJob);
+            NativeList<ProjectileSpawnCommand> sweptCommands =
+                new(events.Length, Allocator.TempJob);
 
             Dependency = new ProjectileExpansionJob
             {
                 Events = events,
                 Templates = templates.Map,
-                Commands = commands
+                Commands = commands,
+                SweptCommands = sweptCommands
             }.Schedule(Dependency);
 
             Dependency = events.Dispose(Dependency);
             singleton.Commands = commands;
+            singleton.SweptCommands = sweptCommands;
             singleton.PendingHandle = Dependency;
         }
 
@@ -163,6 +180,7 @@ namespace PlayGround.System.Combat.Projectiles
             [ReadOnly] public NativeArray<ProjectileSpawnEvent> Events;
             [ReadOnly] public NativeHashMap<Hash128, ProjectileSpawnCommand> Templates;
             public NativeList<ProjectileSpawnCommand> Commands;
+            public NativeList<ProjectileSpawnCommand> SweptCommands;
 
             public void Execute()
             {
@@ -273,7 +291,14 @@ namespace PlayGround.System.Combat.Projectiles
                 command.Render = render;
                 command.TimedSpawn = timedSpawn;
 
-                Commands.Add(command);
+                if (command.SweptCollision != 0)
+                {
+                    SweptCommands.Add(command);
+                }
+                else
+                {
+                    Commands.Add(command);
+                }
             }
 
             private static float SpreadAngle(float spread, int i, int count) =>

@@ -29,6 +29,7 @@ namespace PlayGround.System.Combat.Projectiles
         {
             activeProjectileQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<ProjectileTag>(),
+                ComponentType.Exclude<SweptProjectileTag>(),
                 ComponentType.ReadOnly<Active>(),
                 ComponentType.ReadOnly<CombatCollisionActiveTag>(),
                 ComponentType.ReadOnly<ProjectileIdentityComponent>(),
@@ -100,12 +101,10 @@ namespace PlayGround.System.Combat.Projectiles
 
         [BurstCompile]
         [WithAll(typeof(ProjectileTag), typeof(Active), typeof(CombatCollisionActiveTag))]
+        [WithNone(typeof(SweptProjectileTag))]
         [WithDisabled(typeof(ArmingTag))]
         private partial struct ProjectileCollisionJob : IJobEntity
         {
-            private const int ImpactAoeIdSalt = 0x5F1A0E;
-            private const int ImpactProjectileIdSalt = 0x2C1297;
-
             [ReadOnly] public NativeArray<Entity> TargetEntities;
             [ReadOnly] public NativeArray<TargetPosition> TargetPositions;
             [ReadOnly] public NativeArray<TargetCollisionShape> TargetShapes;
@@ -132,20 +131,20 @@ namespace PlayGround.System.Combat.Projectiles
             {
                 if (identity.Faction == CombatFaction.None)
                 {
-                    Deactivate(ref lifetime, active, arming);
+                    ProjectileHitEmission.Deactivate(ref lifetime, active, arming);
                     return;
                 }
 
                 if (lifetime.Remaining <= 0f)
                 {
-                    Deactivate(ref lifetime, active, arming);
+                    ProjectileHitEmission.Deactivate(ref lifetime, active, arming);
                     return;
                 }
 
                 // Pierce is the projectile's hit cap. It may still hit at 0; below zero is exhausted.
                 if (projectileHit.PierceRemaining < 0)
                 {
-                    Deactivate(ref lifetime, active, arming);
+                    ProjectileHitEmission.Deactivate(ref lifetime, active, arming);
                     return;
                 }
 
@@ -184,9 +183,9 @@ namespace PlayGround.System.Combat.Projectiles
                             Entity targetEntity = TargetEntities[targetIdx];
                             TargetPosition targetPosition = TargetPositions[targetIdx];
                             TargetCollisionShape target = TargetShapes[targetIdx];
-                            int targetKey = TargetKey(targetEntity);
+                            int targetKey = ProjectileHitEmission.TargetKey(targetEntity);
 
-                            if (IsGated(contactGates, targetKey))
+                            if (ProjectileHitEmission.IsGated(contactGates, targetKey))
                             {
                                 continue;
                             }
@@ -215,22 +214,29 @@ namespace PlayGround.System.Combat.Projectiles
                                 continue;
                             }
 
-                            EnqueueHitEvent(entity, targetEntity, payload);
-                            EnqueueOnHitProjectile(
+                            ProjectileHitEmission.EnqueueHitEvent(HitWriter, entity, targetEntity, payload);
+                            ProjectileHitEmission.EnqueueOnHitProjectile(
                                 identity,
                                 projectileHit,
-                                kinematics,
+                                kinematics.Position,
                                 targetPosition.Value,
-                                targetKey);
-                            EnqueueOnHitAoe(identity, projectileHit, kinematics, targetKey);
+                                targetKey,
+                                ProjectileEventWriter);
+                            ProjectileHitEmission.EnqueueOnHitAoe(
+                                identity,
+                                projectileHit,
+                                kinematics.Position,
+                                targetKey,
+                                ImpactAoeEventWriter,
+                                LingeringAoeEventWriter);
 
-                            AddOrRefreshGate(contactGates, targetKey,
+                            ProjectileHitEmission.AddOrRefreshGate(contactGates, targetKey,
                                 projectileHit.RepeatHitCooldownSeconds);
 
                             projectileHit.PierceRemaining--;
                             if (projectileHit.PierceRemaining < 0)
                             {
-                                Deactivate(ref lifetime, active, arming);
+                                ProjectileHitEmission.Deactivate(ref lifetime, active, arming);
                                 return;
                             }
                         }
@@ -239,190 +245,201 @@ namespace PlayGround.System.Combat.Projectiles
                 }
             }
 
-            private void EnqueueHitEvent(Entity source, Entity target, in CombatHitPayload payload)
-            {
-                if (!HasHitEvent(payload))
-                {
-                    return;
-                }
+        }
 
-                HitWriter.Enqueue(new CombatHitEvent
-                {
-                    Source = source,
-                    Target = target
-                });
+    }
+
+    internal static class ProjectileHitEmission
+    {
+        private const int ImpactAoeIdSalt = 0x5F1A0E;
+        private const int ImpactProjectileIdSalt = 0x2C1297;
+
+        internal static void EnqueueHitEvent(
+            NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
+            Entity source,
+            Entity target,
+            in CombatHitPayload payload)
+        {
+            if (!HasHitEvent(payload))
+            {
+                return;
             }
 
-            private void EnqueueOnHitProjectile(
-                in ProjectileIdentityComponent identity,
-                in ProjectileHitComponent projectileHit,
-                in CombatKinematicsComponent kinematics,
-                float2 targetPosition,
-                int targetKey)
+            hitWriter.Enqueue(new CombatHitEvent
             {
-                if (!projectileHit.OnHitSpawn.Enabled
-                    || projectileHit.OnHitSpawn.Kind != IntervalChildKind.Projectile)
-                {
-                    return;
-                }
+                Source = source,
+                Target = target
+            });
+        }
 
-                int baseId = HashId(
-                    identity.ProjectileId,
-                    identity.TypeId,
-                    targetKey,
-                    ImpactProjectileIdSalt);
-                ProjectileEventWriter.Enqueue(new ProjectileSpawnEvent
+        internal static void EnqueueOnHitProjectile(
+            in ProjectileIdentityComponent identity,
+            in ProjectileHitComponent projectileHit,
+            float2 impactPosition,
+            float2 targetPosition,
+            int targetKey,
+            NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter)
+        {
+            if (!projectileHit.OnHitSpawn.Enabled
+                || projectileHit.OnHitSpawn.Kind != IntervalChildKind.Projectile)
+            {
+                return;
+            }
+
+            int baseId = HashId(
+                identity.ProjectileId,
+                identity.TypeId,
+                targetKey,
+                ImpactProjectileIdSalt);
+            projectileEventWriter.Enqueue(new ProjectileSpawnEvent
+            {
+                Kind = projectileHit.OnHitSpawn.Kind,
+                TemplateKey = projectileHit.OnHitSpawn.TemplateKey,
+                Faction = identity.Faction,
+                Position = impactPosition,
+                AimDirection = DirectionFromTo(impactPosition, targetPosition, invert: true),
+                SourceId = baseId,
+                JitterSeed = (uint)baseId * 2654435761u,
+                ContactGateSeedTargetId = targetKey
+            });
+        }
+
+        internal static void EnqueueOnHitAoe(
+            in ProjectileIdentityComponent identity,
+            in ProjectileHitComponent projectileHit,
+            float2 impactPosition,
+            int targetKey,
+            NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
+            NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter)
+        {
+            if (!projectileHit.OnHitSpawn.Enabled
+                || (projectileHit.OnHitSpawn.Kind != IntervalChildKind.ImpactAoe
+                    && projectileHit.OnHitSpawn.Kind != IntervalChildKind.LingeringAoe))
+            {
+                return;
+            }
+
+            int aoeId = HashId(
+                identity.ProjectileId,
+                identity.TypeId,
+                targetKey,
+                ImpactAoeIdSalt);
+
+            if (projectileHit.OnHitSpawn.Kind == IntervalChildKind.LingeringAoe)
+            {
+                lingeringAoeEventWriter.Enqueue(new LingeringAoeSpawnEvent
                 {
                     Kind = projectileHit.OnHitSpawn.Kind,
                     TemplateKey = projectileHit.OnHitSpawn.TemplateKey,
                     Faction = identity.Faction,
-                    Position = kinematics.Position,
-                    AimDirection = DirectionFromTo(
-                        kinematics.Position,
-                        targetPosition,
-                        invert: true),
-                    SourceId = baseId,
-                    JitterSeed = (uint)baseId * 2654435761u,
-                    ContactGateSeedTargetId = targetKey
-                });
-            }
-
-            private void EnqueueOnHitAoe(
-                in ProjectileIdentityComponent identity,
-                in ProjectileHitComponent projectileHit,
-                in CombatKinematicsComponent kinematics,
-                int targetKey)
-            {
-                if (!projectileHit.OnHitSpawn.Enabled
-                    || (projectileHit.OnHitSpawn.Kind != IntervalChildKind.ImpactAoe
-                        && projectileHit.OnHitSpawn.Kind != IntervalChildKind.LingeringAoe))
-                {
-                    return;
-                }
-
-                int aoeId = HashId(
-                    identity.ProjectileId,
-                    identity.TypeId,
-                    targetKey,
-                    ImpactAoeIdSalt);
-
-                if (projectileHit.OnHitSpawn.Kind == IntervalChildKind.LingeringAoe)
-                {
-                    LingeringAoeEventWriter.Enqueue(new LingeringAoeSpawnEvent
-                    {
-                        Kind = projectileHit.OnHitSpawn.Kind,
-                        TemplateKey = projectileHit.OnHitSpawn.TemplateKey,
-                        Faction = identity.Faction,
-                        Position = kinematics.Position,
-                        SourceId = aoeId,
-                        JitterSeed = (uint)aoeId * 2654435761u,
-                        ContactGateSeedTargetId = targetKey
-                    });
-                    return;
-                }
-
-                ImpactAoeEventWriter.Enqueue(new ImpactAoeSpawnEvent
-                {
-                    Kind = projectileHit.OnHitSpawn.Kind,
-                    TemplateKey = projectileHit.OnHitSpawn.TemplateKey,
-                    Faction = identity.Faction,
-                    Position = kinematics.Position,
+                    Position = impactPosition,
                     SourceId = aoeId,
                     JitterSeed = (uint)aoeId * 2654435761u,
                     ContactGateSeedTargetId = targetKey
                 });
+                return;
             }
 
-            private static void Deactivate(
-                ref CombatLifetimeComponent lifetime,
-                EnabledRefRW<Active> active,
-                EnabledRefRW<ArmingTag> arming)
+            impactAoeEventWriter.Enqueue(new ImpactAoeSpawnEvent
             {
-                lifetime.Remaining = 0f;
-                CombatDeathUtility.Kill(active, arming);
-            }
+                Kind = projectileHit.OnHitSpawn.Kind,
+                TemplateKey = projectileHit.OnHitSpawn.TemplateKey,
+                Faction = identity.Faction,
+                Position = impactPosition,
+                SourceId = aoeId,
+                JitterSeed = (uint)aoeId * 2654435761u,
+                ContactGateSeedTargetId = targetKey
+            });
+        }
 
-            private static bool IsGated(DynamicBuffer<ProjectileContactGateElement> contactGates, int targetId)
+        internal static void Deactivate(
+            ref CombatLifetimeComponent lifetime,
+            EnabledRefRW<Active> active,
+            EnabledRefRW<ArmingTag> arming)
+        {
+            lifetime.Remaining = 0f;
+            CombatDeathUtility.Kill(active, arming);
+        }
+
+        internal static bool IsGated(DynamicBuffer<ProjectileContactGateElement> contactGates, int targetId)
+        {
+            for (int i = 0; i < contactGates.Length; i++)
             {
-                for (int i = 0; i < contactGates.Length; i++)
+                if (contactGates[i].TargetId == targetId)
                 {
-                    if (contactGates[i].TargetId == targetId)
-                    {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-
-            private static void AddOrRefreshGate(
-                DynamicBuffer<ProjectileContactGateElement> contactGates,
-                int targetId,
-                float cooldownSeconds)
-            {
-                if (cooldownSeconds <= 0f)
-                {
-                    cooldownSeconds = float.MaxValue;
-                }
-
-                for (int i = 0; i < contactGates.Length; i++)
-                {
-                    ProjectileContactGateElement gate = contactGates[i];
-                    if (gate.TargetId != targetId)
-                    {
-                        continue;
-                    }
-
-                    gate.CooldownRemaining = cooldownSeconds;
-                    contactGates[i] = gate;
-                    return;
-                }
-
-                contactGates.Add(new ProjectileContactGateElement
-                {
-                    TargetId = targetId,
-                    CooldownRemaining = cooldownSeconds
-                });
-            }
-
-            private static bool HasHitEvent(in CombatHitPayload payload) =>
-                payload.DirectDamageEnabled || payload.StackEffect.Enabled;
-
-            private static int TargetKey(Entity entity)
-            {
-                unchecked
-                {
-                    int key = ((entity.Index + 1) * 397) ^ entity.Version;
-                    key &= 0x7fffffff;
-                    return key == 0 ? 1 : key;
+                    return true;
                 }
             }
 
-            private static float2 DirectionFromTo(float2 from, float2 to, bool invert)
-            {
-                float2 toTarget = to - from;
-                if (math.lengthsq(toTarget) <= 0.0001f)
-                {
-                    return new float2(1f, 0f);
-                }
+            return false;
+        }
 
-                float2 dir = math.normalize(toTarget);
-                return invert ? -dir : dir;
+        internal static void AddOrRefreshGate(
+            DynamicBuffer<ProjectileContactGateElement> contactGates,
+            int targetId,
+            float cooldownSeconds)
+        {
+            if (cooldownSeconds <= 0f)
+            {
+                cooldownSeconds = float.MaxValue;
             }
 
-            private static int HashId(int a, int b, int c, int salt)
+            for (int i = 0; i < contactGates.Length; i++)
             {
-                unchecked
+                ProjectileContactGateElement gate = contactGates[i];
+                if (gate.TargetId != targetId)
                 {
-                    int hash = salt;
-                    hash = (hash * 397) ^ a;
-                    hash = (hash * 397) ^ b;
-                    hash = (hash * 397) ^ c;
-                    hash &= int.MaxValue;
-                    return hash == 0 ? 1 : hash;
+                    continue;
                 }
+
+                gate.CooldownRemaining = cooldownSeconds;
+                contactGates[i] = gate;
+                return;
+            }
+
+            contactGates.Add(new ProjectileContactGateElement
+            {
+                TargetId = targetId,
+                CooldownRemaining = cooldownSeconds
+            });
+        }
+
+        internal static bool HasHitEvent(in CombatHitPayload payload) =>
+            payload.DirectDamageEnabled || payload.StackEffect.Enabled;
+
+        internal static int TargetKey(Entity entity)
+        {
+            unchecked
+            {
+                int key = ((entity.Index + 1) * 397) ^ entity.Version;
+                key &= 0x7fffffff;
+                return key == 0 ? 1 : key;
             }
         }
 
+        internal static float2 DirectionFromTo(float2 from, float2 to, bool invert)
+        {
+            float2 toTarget = to - from;
+            if (math.lengthsq(toTarget) <= 0.0001f)
+            {
+                return new float2(1f, 0f);
+            }
+
+            float2 direction = math.normalize(toTarget);
+            return invert ? -direction : direction;
+        }
+
+        internal static int HashId(int a, int b, int c, int salt)
+        {
+            unchecked
+            {
+                int hash = salt;
+                hash = (hash * 397) ^ a;
+                hash = (hash * 397) ^ b;
+                hash = (hash * 397) ^ c;
+                hash &= int.MaxValue;
+                return hash == 0 ? 1 : hash;
+            }
+        }
     }
 }

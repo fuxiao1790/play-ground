@@ -173,16 +173,24 @@ Docs/
   projectile events and expands volley data into per-shape command queues.
 - `Assets/Scripts/System/Combat/Projectiles/ProjectileSpawnApplySystem.cs`: unified
   projectile apply system; reuse disabled `Active` slots before cold creation.
+- `Assets/Scripts/System/Combat/Projectiles/SweptProjectileSpawnApplySystem.cs`: swept-lane
+  apply; reuses disabled slots from the swept archetype before cold creation.
 - `Assets/Scripts/System/Combat/Spawning/TimedSpawnSystem.cs`: shared timed child spawn
   event production.
 - `Assets/Scripts/System/Combat/Projectiles/ProjectileTrackingSystem.cs`: target proxy
   acquisition and homing steering.
 - `Assets/Scripts/System/Combat/Projectiles/ProjectileMovementSystem.cs`: movement and
   projectile bounds refresh.
+- `Assets/Scripts/System/Combat/Projectiles/SweptProjectileOriginSystem.cs`: captures swept
+  step origin before shared projectile movement.
 - `Assets/Scripts/System/Combat/Projectiles/ProjectileContactGateSystem.cs`: repeat-hit
   contact gate expiry.
 - `Assets/Scripts/System/Combat/Projectiles/ProjectileCollisionSystem.cs`: spatial hash
   collision, hit/spawn event emission, pierce, gates, and deactivation.
+- `Assets/Scripts/System/Combat/Projectiles/SweptProjectileCollisionSystem.cs`: swept-lane
+  collision against current footprint plus travel corridor, nearest-first.
+- `Assets/Scripts/System/Combat/Api/Collision/Narrowphase/CombatSweepMath.cs`: swept
+  corridor geometry and closest-approach math; overlap remains in `CombatCollisionMath`.
 
 ## Current AOE Runtime Map
 

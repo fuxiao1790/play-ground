@@ -621,8 +621,14 @@ warning.
 
 ### Validation Warnings
 
-Validation is non-blocking. It reports authored combinations that compile to
-no-ops without throwing setup errors. The current runtime exposes warnings as
+Projectile authoring has `trackingEnabled` and `sweptCollision`. Tick `sweptCollision` for
+fast straight projectiles that must not skip targets. A standard `0.1 x 0.15` projectile can
+skip Bat-sized (`0.35`) targets after more than `0.8` units in two ticks. Existing MagicBolt
+(speed 30) remains deliberately discrete. Tracking cannot combine with sweep.
+
+Validation normally reports authored combinations that compile to no-ops without throwing
+setup errors. Error-severity entries block the affected spawn. The current runtime exposes
+results as
 `SkillValidationWarning[]` from `SkillLoadoutValidator.Validate(...)`, and
 `SkillDriver.ValidationWarnings` stores the latest compile warnings for
 future UI.
@@ -639,6 +645,10 @@ Current warning cases:
 - stacking set is not the effect of a `StackTrigger`
 - `StackTrigger` targets a set without `StackingSupport`
 - stacking set is targeted by a normal trigger link
+- `SweptProjectileCannotTrack`: error. `sweptCollision` cannot combine with tracking,
+  including tracking enabled by a support; cast is refunded and does not fire.
+- `TrackingProjectileMayTunnel`: advisory warning. A tracking projectile is fast enough to
+  skip small targets; lower speed or remove tracking because sweep cannot be enabled.
 
 ---
 

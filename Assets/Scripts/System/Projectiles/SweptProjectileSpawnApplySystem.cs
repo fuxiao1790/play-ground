@@ -6,14 +6,13 @@ using PlayGround.System.Combat.Lifetime;
 using PlayGround.System.Combat.Platform;
 using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
+using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
-using PlayGround.System.Combat.Stats;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
-using Unity.Mathematics;
 using Unity.Profiling;
 
 namespace PlayGround.System.Combat.Projectiles
@@ -22,21 +21,21 @@ namespace PlayGround.System.Combat.Projectiles
     [UpdateAfter(typeof(ProjectileSpawnExpansionSystem))]
     [UpdateAfter(typeof(ImpactAoeSpawnExpansionSystem))]
     [UpdateAfter(typeof(LingeringAoeSpawnExpansionSystem))]
-    public sealed partial class ProjectileSpawnApplySystem : SystemBase
+    public sealed partial class SweptProjectileSpawnApplySystem : SystemBase
     {
-        private static readonly ProfilerMarker SpawnMarker = new("ProjectileSpawnApplySystem");
+        private static readonly ProfilerMarker SpawnMarker = new("SweptProjectileSpawnApplySystem");
         private static readonly ProfilerMarker CompleteDependencyMarker =
-            new("ProjectileSpawnApplySystem.CompleteDependency");
+            new("SweptProjectileSpawnApplySystem.CompleteDependency");
         private static readonly ProfilerMarker DrainCommandsMarker =
-            new("ProjectileSpawnApplySystem.DrainCommands");
+            new("SweptProjectileSpawnApplySystem.DrainCommands");
         private static readonly ProfilerMarker ReuseJobMarker =
-            new("ProjectileSpawnApplySystem.ReuseJob");
+            new("SweptProjectileSpawnApplySystem.ReuseJob");
         private static readonly ProfilerMarker CreateSlotsMarker =
-            new("ProjectileSpawnApplySystem.CreateSlots");
+            new("SweptProjectileSpawnApplySystem.CreateSlots");
         private static readonly ProfilerCounterValue<int> SpawnTopUpCounter =
-            new(ProfilerCategory.Scripts, "ProjectileSpawnApplySystem.TopUp", ProfilerMarkerDataUnit.Count);
+            new(ProfilerCategory.Scripts, "SweptProjectileSpawnApplySystem.TopUp", ProfilerMarkerDataUnit.Count);
         private static readonly ProfilerCounterValue<int> SpawnReuseCounter =
-            new(ProfilerCategory.Scripts, "ProjectileSpawnApplySystem.Reuse", ProfilerMarkerDataUnit.Count);
+            new(ProfilerCategory.Scripts, "SweptProjectileSpawnApplySystem.Reuse", ProfilerMarkerDataUnit.Count);
 
         internal int LastColdCreateCount;
         internal int LastReuseCount;
@@ -48,13 +47,14 @@ namespace PlayGround.System.Combat.Projectiles
         {
             _archetype = EntityManager.CreateArchetype(
                 typeof(ProjectileTag),
+                typeof(SweptProjectileTag),
                 typeof(ProjectileIdentityComponent),
                 typeof(CombatKinematicsComponent),
+                typeof(ProjectileSweepComponent),
                 typeof(CombatCollisionComponent),
                 typeof(CombatLifetimeComponent),
                 typeof(ProjectileHitComponent),
                 typeof(CombatHitPayload),
-                typeof(ProjectileTrackingComponent),
                 typeof(CombatRenderComponent),
                 typeof(CombatRenderAuthoring),
                 typeof(CombatRenderKindId),
@@ -68,7 +68,7 @@ namespace PlayGround.System.Combat.Projectiles
 
             _deadSlotQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<ProjectileTag>()
-                .WithNone<SweptProjectileTag>()
+                .WithAll<SweptProjectileTag>()
                 .WithDisabled<Active>()
                 .Build(this);
         }
@@ -93,9 +93,9 @@ namespace PlayGround.System.Combat.Projectiles
                     out ProjectileSpawnEventSingleton projectileLane))
                 {
                     projectileLane.PendingHandle.Complete();
-                    if (projectileLane.Commands.IsCreated)
+                    if (projectileLane.SweptCommands.IsCreated)
                     {
-                        commands = projectileLane.Commands.AsArray();
+                        commands = projectileLane.SweptCommands.AsArray();
                         totalRequests = commands.Length;
                     }
                 }
@@ -124,7 +124,7 @@ namespace PlayGround.System.Combat.Projectiles
                         _deadSlotQuery.ToArchetypeChunkArray(Allocator.TempJob);
                     using var reused = new NativeReference<int>(Allocator.TempJob);
 
-                    new ProjectileSpawnJob
+                    new SweptProjectileSpawnJob
                     {
                         Commands = commands,
                         Chunks = chunks,
@@ -133,11 +133,11 @@ namespace PlayGround.System.Combat.Projectiles
                         CollisionActiveHandle = GetComponentTypeHandle<CombatCollisionActiveTag>(false),
                         IdentityHandle = GetComponentTypeHandle<ProjectileIdentityComponent>(false),
                         KinematicsHandle = GetComponentTypeHandle<CombatKinematicsComponent>(false),
+                        SweepHandle = GetComponentTypeHandle<ProjectileSweepComponent>(false),
                         CollisionHandle = GetComponentTypeHandle<CombatCollisionComponent>(false),
                         LifetimeHandle = GetComponentTypeHandle<CombatLifetimeComponent>(false),
                         HitHandle = GetComponentTypeHandle<ProjectileHitComponent>(false),
                         HitPayloadHandle = GetComponentTypeHandle<CombatHitPayload>(false),
-                        TrackingHandle = GetComponentTypeHandle<ProjectileTrackingComponent>(false),
                         RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
                         AuthoringHandle = GetComponentTypeHandle<CombatRenderAuthoring>(false),
                         RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderKindId>(false),
@@ -162,10 +162,10 @@ namespace PlayGround.System.Combat.Projectiles
                     stats.ValueRW.EntitiesSpawnedViaEcb += LastColdCreateCount;
                 }
             }
-
         }
+
         [BurstCompile]
-        private struct ProjectileSpawnJob : IJob
+        private struct SweptProjectileSpawnJob : IJob
         {
             [ReadOnly] public NativeArray<ProjectileSpawnCommand> Commands;
             [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
@@ -175,11 +175,11 @@ namespace PlayGround.System.Combat.Projectiles
             public ComponentTypeHandle<CombatCollisionActiveTag> CollisionActiveHandle;
             public ComponentTypeHandle<ProjectileIdentityComponent> IdentityHandle;
             public ComponentTypeHandle<CombatKinematicsComponent> KinematicsHandle;
+            public ComponentTypeHandle<ProjectileSweepComponent> SweepHandle;
             public ComponentTypeHandle<CombatCollisionComponent> CollisionHandle;
             public ComponentTypeHandle<CombatLifetimeComponent> LifetimeHandle;
             public ComponentTypeHandle<ProjectileHitComponent> HitHandle;
             public ComponentTypeHandle<CombatHitPayload> HitPayloadHandle;
-            public ComponentTypeHandle<ProjectileTrackingComponent> TrackingHandle;
             public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
             public ComponentTypeHandle<CombatRenderAuthoring> AuthoringHandle;
             public ComponentTypeHandle<CombatRenderKindId> RenderBatchIdHandle;
@@ -200,7 +200,6 @@ namespace PlayGround.System.Combat.Projectiles
                     ArchetypeChunk chunk = Chunks[chunkIndex];
                     EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
                     EnabledMask collisionActiveMask = chunk.GetEnabledMask(ref CollisionActiveHandle);
-                    EnabledMask trackingMask = chunk.GetEnabledMask(ref TrackingHandle);
                     EnabledMask armingMask = chunk.GetEnabledMask(ref ArmingTagHandle);
                     EnabledMask timedSpawnMask = chunk.GetEnabledMask(ref TimedSpawnHandle);
 
@@ -208,6 +207,8 @@ namespace PlayGround.System.Combat.Projectiles
                         chunk.GetNativeArray(ref IdentityHandle);
                     NativeArray<CombatKinematicsComponent> kinematics =
                         chunk.GetNativeArray(ref KinematicsHandle);
+                    NativeArray<ProjectileSweepComponent> sweeps =
+                        chunk.GetNativeArray(ref SweepHandle);
                     NativeArray<CombatCollisionComponent> collisions =
                         chunk.GetNativeArray(ref CollisionHandle);
                     NativeArray<CombatLifetimeComponent> lifetimes =
@@ -215,8 +216,6 @@ namespace PlayGround.System.Combat.Projectiles
                     NativeArray<ProjectileHitComponent> hits = chunk.GetNativeArray(ref HitHandle);
                     NativeArray<CombatHitPayload> hitPayloads =
                         chunk.GetNativeArray(ref HitPayloadHandle);
-                    NativeArray<ProjectileTrackingComponent> tracking =
-                        chunk.GetNativeArray(ref TrackingHandle);
                     NativeArray<CombatRenderComponent> renders =
                         chunk.GetNativeArray(ref RenderHandle);
                     NativeArray<CombatRenderAuthoring> authorings =
@@ -240,7 +239,6 @@ namespace PlayGround.System.Combat.Projectiles
                         }
 
                         ProjectileSpawnCommand cfg = Commands[commandIndex++];
-
                         ProjectileSpawnApplyUtility.WriteCommon(
                             cfg,
                             identities,
@@ -261,144 +259,12 @@ namespace PlayGround.System.Combat.Projectiles
                             armingMask,
                             timedSpawnMask,
                             i);
-                        tracking[i] = cfg.Tracking;
-                        ProjectileSpawnApplyUtility.SpawnState spawnState =
-                            ProjectileSpawnApplyUtility.SpawnStateFor(cfg);
-                        trackingMask[i] = spawnState.Tracking;
+                        sweeps[i] = new ProjectileSweepComponent { Origin = cfg.Position };
                     }
                 }
 
                 ReuseCount.Value = commandIndex;
             }
         }
-    }
-
-    // Shared materialization for projectile apply lanes. Tracking state stays in the discrete
-    // lane because the swept archetype does not contain ProjectileTrackingComponent.
-    internal static class ProjectileSpawnApplyUtility
-    {
-        public static void WriteCommon(
-            in ProjectileSpawnCommand cfg,
-            NativeArray<ProjectileIdentityComponent> identities,
-            NativeArray<CombatKinematicsComponent> kinematics,
-            NativeArray<CombatCollisionComponent> collisions,
-            NativeArray<CombatLifetimeComponent> lifetimes,
-            NativeArray<ProjectileHitComponent> hits,
-            NativeArray<CombatHitPayload> hitPayloads,
-            NativeArray<CombatRenderComponent> renders,
-            NativeArray<CombatRenderAuthoring> authorings,
-            NativeArray<CombatRenderKindId> batchIds,
-            BufferAccessor<ProjectileContactGateElement> gates,
-            NativeArray<CombatArmingComponent> armings,
-            NativeArray<TimedSpawnComponent> timedSpawns,
-            NativeArray<TimedSpawnStateComponent> timedSpawnStates,
-            EnabledMask activeMask,
-            EnabledMask collisionActiveMask,
-            EnabledMask armingMask,
-            EnabledMask timedSpawnMask,
-            int index)
-        {
-            identities[index] = new ProjectileIdentityComponent
-            {
-                Faction = cfg.Faction,
-                ProjectileId = cfg.ProjectileId,
-                TypeId = cfg.TypeId
-            };
-            kinematics[index] = new CombatKinematicsComponent
-            {
-                Position = cfg.Position,
-                Velocity = cfg.Velocity
-            };
-            collisions[index] = new CombatCollisionComponent
-            {
-                ShapeType = cfg.ShapeType,
-                Radius = cfg.Radius,
-                HalfExtents = cfg.HalfExtents,
-                RotationRadians = cfg.RotationRadians,
-                BoundsMin = cfg.BoundsMin,
-                BoundsMax = cfg.BoundsMax
-            };
-            lifetimes[index] = new CombatLifetimeComponent { Remaining = cfg.Lifetime };
-            hits[index] = new ProjectileHitComponent
-            {
-                PierceRemaining = cfg.PierceRemaining,
-                RepeatHitCooldownSeconds = cfg.RepeatHitCooldownSeconds,
-                OnHitSpawn = cfg.HitPayload.OnHitSpawn
-            };
-            hitPayloads[index] = HitPayloadFor(in cfg, cfg.Faction);
-            renders[index] = cfg.Render;
-            authorings[index] = cfg.Authoring;
-            batchIds[index] = new CombatRenderKindId { Value = cfg.RenderTypeId };
-
-            DynamicBuffer<ProjectileContactGateElement> gate = gates[index];
-            gate.Clear();
-            if (cfg.SeedContactGateTargetId > 0)
-            {
-                gate.Add(new ProjectileContactGateElement
-                {
-                    TargetId = cfg.SeedContactGateTargetId,
-                    CooldownRemaining = math.max(0.1f, cfg.RepeatHitCooldownSeconds)
-                });
-            }
-
-            SpawnState spawnState = SpawnStateFor(cfg);
-            bool hasTimedSpawner = spawnState.Timed;
-            timedSpawns[index] = hasTimedSpawner ? cfg.TimedSpawn : default;
-            timedSpawnStates[index] = hasTimedSpawner ? InitialTimedSpawnStateFor(cfg) : default;
-            timedSpawnMask[index] = spawnState.Timed;
-            activeMask[index] = spawnState.Active;
-            collisionActiveMask[index] = spawnState.Collision;
-            armings[index] = ArmingFor(cfg);
-            armingMask[index] = IsArming(cfg);
-        }
-
-        public static bool NeedsCollision(in ProjectileHitPayload payload) =>
-            payload.DirectDamageEnabled
-            || payload.StackEffect.Enabled
-            || payload.OnHitSpawn.Enabled;
-
-        public readonly struct SpawnState
-        {
-            public readonly bool Active;
-            public readonly bool Collision;
-            public readonly bool Tracking;
-            public readonly bool Timed;
-
-            public SpawnState(bool active, bool collision, bool tracking, bool timed)
-            {
-                Active = active;
-                Collision = collision;
-                Tracking = tracking;
-                Timed = timed;
-            }
-        }
-
-        public static SpawnState SpawnStateFor(in ProjectileSpawnCommand cmd) =>
-            new(
-                active: true,
-                collision: NeedsCollision(cmd.HitPayload),
-                tracking: cmd.Tracking.TrackingEnabled,
-                timed: cmd.HasTimedSpawner != 0);
-
-        public static CombatArmingComponent ArmingFor(in ProjectileSpawnCommand cmd) =>
-            new() { Remaining = cmd.ArmSeconds };
-
-        public static bool IsArming(in ProjectileSpawnCommand cmd) => cmd.ArmSeconds > 0f;
-
-        public static CombatHitPayload HitPayloadFor(in ProjectileSpawnCommand cmd, CombatFaction faction)
-        {
-            CombatHitPayload hitPayload = cmd.HitPayload.HitPayload;
-            StackEffectSnapshot stack = hitPayload.StackEffect;
-            stack.Faction = faction;
-            hitPayload.StackEffect = stack;
-            return hitPayload;
-        }
-
-        public static TimedSpawnStateComponent InitialTimedSpawnStateFor(in ProjectileSpawnCommand cmd) =>
-            new()
-            {
-                EnergyAccumulated = 0f,
-                TickIndex = 0
-            };
     }
 }

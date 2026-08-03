@@ -80,7 +80,8 @@ namespace PlayGround.System.Combat.Projectiles
             float jitterDegrees = 0f,
             TimedSpawnComponent timedSpawn = default,
             IntervalChildKind childKind = IntervalChildKind.Projectile,
-            OnHitSpawnRef onHitSpawn = default)
+            OnHitSpawnRef onHitSpawn = default,
+            bool sweptCollision = false)
         {
             Position = position;
             Direction = direction.sqrMagnitude > 0f ? direction.normalized : Vector2.right;
@@ -113,6 +114,7 @@ namespace PlayGround.System.Combat.Projectiles
             JitterDegrees = Mathf.Max(0f, jitterDegrees);
             TimedSpawn = timedSpawn;
             ChildKind = childKind;
+            SweptCollision = sweptCollision;
         }
 
         [global::System.Obsolete("Use the CombatShapeType overload.")]
@@ -174,6 +176,7 @@ namespace PlayGround.System.Combat.Projectiles
         public int Count { get; }
         public float SpreadDegrees { get; }
         public float JitterDegrees { get; }
+        public bool SweptCollision { get; }
     }
 
     public enum ProjectileChildSpawnPatternType
@@ -227,7 +230,8 @@ namespace PlayGround.System.Combat.Projectiles
             ProjectileChildSpawnBehavior behavior = default,
             StackEffectSnapshot stackEffect = default,
             Hash128 templateKey = default,
-            OnHitSpawnRef onHitSpawn = default)
+            OnHitSpawnRef onHitSpawn = default,
+            bool sweptCollision = false)
         {
             JitterSeed = jitterSeed;
             TypeId = typeId;
@@ -249,6 +253,7 @@ namespace PlayGround.System.Combat.Projectiles
             Behavior = behavior;
             StackEffect = stackEffect;
             TemplateKey = templateKey;
+            SweptCollision = sweptCollision;
         }
 
         [global::System.Obsolete("Use the CombatShapeType overload.")]
@@ -313,6 +318,7 @@ namespace PlayGround.System.Combat.Projectiles
         public ProjectileChildSpawnBehavior Behavior { get; }
         public StackEffectSnapshot StackEffect { get; }
         public Hash128 TemplateKey { get; }
+        public bool SweptCollision { get; }
         public bool Enabled => JitterSeed > 0 && EnergyPerSecond > 0f && EnergyThreshold > 0f;
     }
 }

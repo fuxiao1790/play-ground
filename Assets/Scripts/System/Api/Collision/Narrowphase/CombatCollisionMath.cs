@@ -173,7 +173,7 @@ namespace PlayGround.System.Combat.Collision.Narrowphase
             return distanceSquared <= capsuleRadius * capsuleRadius;
         }
 
-        private static void GetCapsuleSegment(float2 center, float halfSegment, float rotationRadians, out float2 a, out float2 b)
+        internal static void GetCapsuleSegment(float2 center, float halfSegment, float rotationRadians, out float2 a, out float2 b)
         {
             float2 axis = Rotate(new float2(0f, 1f), rotationRadians);
             a = center - axis * halfSegment;

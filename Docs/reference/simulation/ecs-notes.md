@@ -210,8 +210,9 @@ Projectile and AOE entities use disable-in-place pooling on the hot path:
 5. `CombatPoolCleanupSystem` runs in `LateSimulationSystemGroup` and
    permanently destroys disabled slots that sit in sparse chunks.
 
-Cleanup mirrors the current reuse pools: projectile, impact AOE, and lingering
-AOE. Impact and lingering AOE pools are distinguished by `LingeringAoeTag`:
+Cleanup mirrors the current reuse pools: discrete projectile, swept projectile, impact AOE,
+and lingering AOE. Projectile pools are distinguished by `SweptProjectileTag`; the discrete
+dead-slot query excludes that tag. Impact and lingering AOE pools are distinguished by `LingeringAoeTag`:
 the tag is present only on lingering AOEs, while impact AOEs omit it.
 `CombatLifetimeComponent` is plain timer data on projectiles and lingering AOEs,
 not the AOE discriminator. It does not key by `CombatRenderKindId`; that value

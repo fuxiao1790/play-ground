@@ -9,6 +9,7 @@ using PlayGround.System.Combat.Platform;
 using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
+using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Projectiles;
 using PlayGround.System.Combat.Vfx;
@@ -38,6 +39,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<CombatArmingSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<CombatLifetimeSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileMovementSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<SweptProjectileOriginSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TimedSpawnSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>());
             // TimedSpawnSystem now reads all three spawn lanes unconditionally, so the AoE
@@ -45,6 +47,8 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnExpansionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnExpansionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileSpawnApplySystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<SweptProjectileSpawnApplySystem>());
+            testWorld.GetOrCreateSystemManaged<CombatStatsGatherSystem>();
             // Arming/lifetime/expansion now write the VFX lane unconditionally, so its owning
             // system must exist (to create the lane singleton) and tick (to drain it). It no-ops
             // without a VfxRoot.
@@ -416,6 +420,49 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(TotalProjectileCount(), Is.EqualTo(1));
         }
 
+        [Test]
+        public void DiscreteLaneDoesNotReuseDisabledSweptSlots()
+        {
+            EnqueueEvent(MakeEvent(count: 1, sweptCollision: true, lifetime: 0.001f));
+            Tick(0.01f);
+            Tick(0.01f);
+
+            using EntityQuery sweptSlots = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<ProjectileTag>(),
+                ComponentType.ReadOnly<SweptProjectileTag>(),
+                ComponentType.ReadOnly<Active>());
+            using NativeArray<Entity> disabledSwept = sweptSlots.ToEntityArray(Allocator.Temp);
+            Assert.That(disabledSwept.Length, Is.EqualTo(1));
+            Entity sweptSlot = disabledSwept[0];
+
+            EnqueueEvent(MakeEvent(count: 1, sweptCollision: false, lifetime: 10f));
+            Tick(0.01f);
+
+            Assert.That(entityManager.IsComponentEnabled<Active>(sweptSlot), Is.False);
+            Assert.That(entityManager.HasComponent<ProjectileSweepComponent>(sweptSlot), Is.True);
+            Assert.That(entityManager.HasComponent<ProjectileTrackingComponent>(sweptSlot), Is.False);
+            using EntityQuery invalid = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<SweptProjectileTag>(),
+                ComponentType.Exclude<ProjectileSweepComponent>());
+            Assert.That(invalid.CalculateEntityCount(), Is.Zero);
+        }
+
+        [Test]
+        public void BothProjectileLanesContributeSpawnStats()
+        {
+            EnqueueEvent(MakeEvent(count: 1, sweptCollision: false));
+            EnqueueEvent(MakeEvent(count: 1, sweptCollision: true));
+            Tick(0.01f);
+
+            using EntityQuery query = entityManager.CreateEntityQuery(ComponentType.ReadOnly<CombatStatsSingleton>());
+            CombatStatsSingleton stats = query.GetSingleton<CombatStatsSingleton>();
+            Assert.That(stats.EntitiesSpawnedViaEcb + stats.EntitiesSpawnedViaReuse, Is.EqualTo(2));
+            testWorld.GetExistingSystemManaged<CombatStatsGatherSystem>().Update();
+            CombatStatsDisplaySingleton display = entityManager.GetComponentData<CombatStatsDisplaySingleton>(
+                query.GetSingletonEntity());
+            Assert.That(display.ActiveProjectiles, Is.EqualTo(2));
+        }
+
         private void Tick(float dt)
         {
             elapsedTime += dt;
@@ -443,7 +490,8 @@ namespace PlayGround.Tests.PlayMode
             ProjectileChildSpawnPatternType spawnPatternType = ProjectileChildSpawnPatternType.Forward,
             float armSeconds = 0f,
             float energyPerSecond = 1f,
-            float spawnEnergyCost = 1f)
+            float spawnEnergyCost = 1f,
+            bool sweptCollision = false)
         {
             if (math.lengthsq(baseDirection) < 0.0001f)
                 baseDirection = new float2(1f, 0f);
@@ -452,6 +500,7 @@ namespace PlayGround.Tests.PlayMode
                 TypeId = 1,
                 RenderTypeId = renderTypeId,
                 HasTimedSpawner = hasTimedSpawner ? 1 : 0,
+                SweptCollision = sweptCollision ? 1 : 0,
                 BaseDirection = baseDirection,
                 Speed = speed,
                 Count = count,

@@ -9,6 +9,8 @@ namespace PlayGround.Skills
 {
     public static class SkillSetCompiler
     {
+        private const float NominalTickSeconds = 1f / 60f;
+        private const float SmallestExpectedTargetRadius = 0.35f;
         private static int nextChildJitterSeed;
 
         // Temporary test-fixture compatibility while the existing EditMode cases
@@ -286,7 +288,7 @@ namespace PlayGround.Skills
         {
             if (def is ProjectileDefinition p)
             {
-                return new RuntimeProjectileDefinition
+                var runtime = new RuntimeProjectileDefinition
                 {
                     Prefab = p.prefab,
                     Speed = modifiers.Resolve(SkillStat.ProjectileSpeed, p.speed),
@@ -300,10 +302,20 @@ namespace PlayGround.Skills
                     ManaCost = Mathf.Max(0f, modifiers.Resolve(SkillStat.ManaCost, p.manaCost)),
                     ArmSeconds = Mathf.Max(0f, p.armSeconds),
                     DirectDamageEnabled = p.directDamageEnabled,
+                    SweptCollision = p.sweptCollision,
                     Tracking = p.GetTrackingConfig(),
                     CritChance = snapshot.CritChance,
                     CritMultiplier = snapshot.CritMultiplier,
                 };
+
+                runtime.SpawnBlocked = runtime.SweptCollision && runtime.Tracking.Enabled;
+                float alongHalf = p.prefab != null
+                    ? Mathf.Min(p.prefab.HalfExtents.x, p.prefab.HalfExtents.y)
+                    : 0f;
+                float travel = runtime.Speed * 2f * NominalTickSeconds;
+                float gapFree = 2f * (alongHalf + SmallestExpectedTargetRadius);
+                runtime.TrackingMayTunnel = runtime.Tracking.Enabled && travel > gapFree;
+                return runtime;
             }
 
             if (def is AoeDefinitionBase a)

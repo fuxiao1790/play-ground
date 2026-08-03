@@ -13,11 +13,13 @@ integrates `Position += Velocity * dt` and rebuilds the AABB at the new position
 narrowphases at that one position. Nothing tests the space the projectile crossed, so a fast
 enough projectile passes cleanly through a target.
 
-This plan adds a **second projectile archetype and lane**, discriminated by
-`SweptProjectileTag`, whose collision resolves against an **oriented box** covering the
-frame's motion: the projectile's silhouette width perpendicular to travel, extruded along the
-segment from last tick's position to this tick's, capped at each end by the shape's extent
-along travel. Hits along the box apply nearest-first.
+This plan adds a **second projectile archetype and lane** discriminated by
+`SweptProjectileTag`. Its collision runs the ordinary discrete test **plus** a continuous one
+against an **oriented box** covering the frame's motion: the projectile's silhouette width
+perpendicular to travel, extruded along the segment from last tick's position to this tick's.
+The box is the travel corridor only — it stops at the endpoint centres, because this tick's
+discrete test covers the footprint at `Position` and last tick's covered `Origin`. Hits from
+either test apply nearest-first.
 
 Three things define the shape of the design:
 
@@ -73,6 +75,12 @@ expansion fan-out, and the authoring chain are touched.
   compiled skill and produces a warning; no simulation system computes a threshold, reads a
   target-size constant, or re-evaluates anything per spawn. This is what keeps "authored, not
   derived" true in practice rather than just at the flag.
+- **The continuous check sits on top of the discrete check, not in place of it.** The corridor
+  box spans endpoint centre to endpoint centre and carries no end caps, so it covers exactly
+  the space a discrete-only test can skip — nothing more. The footprints at each end are
+  covered by that tick's own discrete test. Two consequences: the corridor never duplicates
+  coverage the discrete test already provides, and a degenerate (zero-length) step needs no
+  special case, because the discrete test is running regardless.
 - **The swept volume is an oriented box, not a swept bounding circle.** An earlier draft swept
   the projectile's bounding circle and solved analytic time-of-impact per target shape — three
   new quadratic solvers plus a documented over-report for non-circular projectiles. The box is
@@ -148,8 +156,9 @@ expansion fan-out, and the authoring chain are touched.
 - `SkillLoadoutValidator` / `SkillValidationWarning` — the project's existing channel for
   reporting content conflicts, consumed at [SkillDriver.cs:192](../../Assets/Scripts/Skills/SkillDriver.cs#L192).
 - The `int` 0/1 flag convention already used by `HasTimedSpawner` in `ProjectileSpawnCommand`.
-- `CombatCollisionMath.Hit` and `ComputeWorldBounds` — the swept box is fed to them as an
-  ordinary rectangle. The feature adds no overlap or bounds code of its own.
+- `CombatCollisionMath.Hit` and `ComputeWorldBounds` — used twice per candidate: once for the
+  ordinary discrete test, once with the corridor passed as an ordinary rectangle. The feature
+  adds no overlap or bounds code of its own.
 - Verified untouched: `CombatPoolCleanupSystem`, `CombatStatsGatherSystem`,
   `CombatRenderPrepareSystem`, `CombatLifetimeSystem`, `ProjectileContactGateSystem`,
   `ProjectileTrackingSystem`.
@@ -159,12 +168,13 @@ expansion fan-out, and the authoring chain are touched.
 - `ProjectileSweepComponent { float2 Origin; }` — swept-only. Needed because spawn apply has
   no declared order against movement, so `Position - Velocity * dt` can name a point behind
   the muzzle on the spawn frame.
-- `CombatSweepMath` — three small pure functions (`SupportExtent`, `BuildSweptBox`,
+- `CombatSweepMath` — three small pure functions (`SupportExtent`, `TryBuildTravelCorridor`,
   `ClosestApproachParam`). Geometry construction only; **no overlap code**, which stays in
   `CombatCollisionMath`.
 - `ProjectileDefinition.sweptCollision` and its chain down to `ProjectileSpawnCommand`.
-- `SweptProjectileSpawnApplySystem`, `SweptProjectileMovementSystem`,
+- `SweptProjectileSpawnApplySystem`, `SweptProjectileOriginSystem`,
   `SweptProjectileCollisionSystem`. The collision system is not duplication; it is the feature.
+  Movement is **not** duplicated — `ProjectileMovementSystem` serves both archetypes unchanged.
 - A second `NativeList<ProjectileSpawnCommand> SweptCommands` on the existing
   `ProjectileSpawnEventSingleton` — deliberately not a second singleton, see Design Validation.
 
@@ -212,10 +222,10 @@ expansion fan-out, and the authoring chain are touched.
   distance cap would have introduced.
 - **Broadphase reuse.** The swept lane adds no broadphase of its own: it reads
   `TargetSpatialHashSingleton.ProjectileCollisionCells`, the same map the discrete lane
-  queries, already built once per frame by `TargetSpatialHashSystem` for all consumers. The
-  swept query takes the box's AABB, expands by `MaxTargetRadius` exactly as the discrete path
-  does, and preserves the center-cell-insertion invariant. The only difference from the
-  discrete path is where the AABB comes from.
+  queries, already built once per frame by `TargetSpatialHashSystem` for all consumers. Its
+  query region is the union of the corridor AABB and the projectile's own bounds at
+  `Position` — matching the two tests it runs — then expanded by `MaxTargetRadius` exactly as
+  the discrete path does, preserving the center-cell-insertion invariant.
 - **Reuse over reinvention.** The swept overlap test is a call into the existing
   `CombatCollisionMath.Hit` with `CombatShapeType.Rectangle`. Task 002 adds geometry
   construction only. This is the strongest form of the plan-changes reuse rule: the mechanism
@@ -243,9 +253,9 @@ expansion fan-out, and the authoring chain are touched.
   self-contained pools, one event queue fanned out at the single existing convergence point.
 - *Existing concepts/types changed:* `ProjectileSpawnApplySystem` gains
   `.WithNone<SweptProjectileTag>()` and has its materialization extracted into a shared
-  utility; `ProjectileSpawnEventSingleton` gains a second command list;
-  `ProjectileMovementSystem` gains `.WithNone<SweptProjectileTag>()`; `ProjectileDefinition`
-  and its compile chain gain the flag.
+  utility; `ProjectileSpawnEventSingleton` gains a second command list; `ProjectileDefinition`
+  and its compile chain gain the flag. `ProjectileMovementSystem` is **not** changed — the
+  swept lane's extra state is captured by a separate pre-movement system instead.
 - *Copies/translations removed or avoided:* no runtime branch between collision models; no
   slot-matching logic; no dead tracking state on swept entities; exclusivity needs no runtime
   guard in the simulation at all.
@@ -272,6 +282,80 @@ in flight, and the archetype tag once materialized. No per-entity "is swept" boo
 the tag, no enum, no runtime derivation. Exclusivity likewise has one enforcement point per
 layer: `BuildRuntime` at compile, archetype composition at runtime.
 
+## Revision Log
+
+Design changes made after the plan was first written. Implementation is underway, so anything
+here may contradict a version of a task file you already read — check this section before
+trusting notes taken earlier.
+
+### 2026-08-02 — Corridor-only box; continuous check runs on top of discrete
+
+**Tasks 002, 007, 008.**
+
+The box was specified as extending past each endpoint by the shape's extent along travel
+(`dist/2 + alongSupport`), and as the swept lane's *only* overlap test. Both were wrong. The
+box is the **travel corridor only** — centre to centre, no end caps — and the swept lane runs
+the ordinary discrete test **in addition to** it.
+
+| Was | Now |
+|---|---|
+| `boxHalfExtents.x = dist * 0.5 + alongSupport` | `boxHalfExtents.x = dist * 0.5` |
+| `BuildSweptBox`, degenerate step → falls back to the projectile's own shape | `TryBuildTravelCorridor`, degenerate step → returns `false`, corridor skipped |
+| One overlap test per candidate (corridor only) | Two: discrete at `Position`, then corridor; hit on either |
+| Broadphase query = corridor AABB | Broadphase query = union of corridor AABB and `collision.BoundsMin/Max` |
+| `SupportExtent` called twice (along + perpendicular) | Called once (perpendicular only) |
+
+Coverage is complete across ticks without end caps: this tick's discrete test covers the
+footprint at `Position`, last tick's covered `Origin`, and the corridor covers the gap between.
+Extending the box would have duplicated coverage the discrete tests already provide and
+widened the broadphase query for nothing.
+
+Known edge, documented in 002 and not worth handling: on the spawn frame there is no previous
+tick, so a target overlapping the spawn point *behind* the travel direction is untested. This
+is identical to the discrete lane's existing behavior — spawn apply runs after collision, so a
+fresh projectile's first test is also at its post-move position.
+
+New guard in 008: a target overlapping the projectile only at its end-of-frame position, beside
+the corridor. Deleting the discrete branch would drop those hits while every tunneling test
+still passed.
+
+### 2026-08-02 — Movement is shared; origin capture is its own system
+
+**Task 006.** Renamed `006-swept-movement-system.md` → [`006-sweep-origin-capture.md`](006-sweep-origin-capture.md).
+
+Previously specified a `SweptProjectileMovementSystem` duplicating `ProjectileMovementSystem`.
+Movement is identical in both lanes — the only difference was one bookkeeping write
+(`sweep.Origin = kinematics.Position`), which is collision input, not a motion model. The old
+shape produced two files identical except for query attributes and one line, including
+duplicated ordering attributes: reorder movement in one and not the other and the lanes
+silently integrate at different points in the frame.
+
+| Was | Now |
+|---|---|
+| `SweptProjectileMovementSystem` duplicating integrate + bounds | **deleted** |
+| `ProjectileMovementJob` gains `WithNone<SweptProjectileTag>` | **reverted** — unchanged from pre-feature, serves both archetypes |
+| — | new `SweptProjectileOriginSystem`, `UpdateBefore(ProjectileMovementSystem)`, writes `Origin` only |
+
+Removes the double-integration footgun entirely — there is no exclusion left to forget. **The
+`WithNone<SweptProjectileTag>` on `ProjectileSpawnApplySystem._deadSlotQuery` (task 005) is
+unrelated and still required.**
+
+Also touched: `001` (lifecycle comment), `005` (origin-seed rationale), `008` (test rationale
+plus a new capture-ordering test), `009` (file list).
+
+### Earlier revisions
+
+| Change | Tasks touched | Why |
+|---|---|---|
+| Membership became **authored** (`sweptCollision` flag), not derived from speed | 001, 003, 004 | Speed is support-modifiable; deriving the lane would make content behavior depend on a computation authors cannot see. Removed `ProjectileSweepPolicy` and all threshold math from the runtime. |
+| Sweep and tracking made **mutually exclusive** | 003, 005 | Swept archetype drops `ProjectileTrackingComponent` entirely, so the tracking jobs cannot match it. Exclusivity is structural, not a filter. |
+| Conflict resolution: silent "sweep wins" → **error + reject the spawn** | 003 | A homing support socketed into a swept skill quietly doing nothing is worse than failing loudly. Compiler marks `SpawnBlocked`; `SkillDriver` refuses to fire and refunds. |
+| Swept volume: swept **bounding circle + time-of-impact** → **oriented box** | 002, 007 | Tighter (silhouette width, not bounding radius) and cheaper — the box is a `CombatShapeType.Rectangle`, so overlap reuses `CombatCollisionMath` and adds no narrowphase code. Deleted three quadratic solvers. |
+| Hit ordering: true first contact → **closest approach along the segment** | 002, 007 | Four-op projection instead of per-shape solvers; same near-to-far order in all but pathological cases. |
+| `MaxSweepDistance` cap **removed**, config singleton deleted | 001, 007, 009 | A hitch produces the longest step, which is when tunneling is most likely — exactly when the clamp would have stopped testing. Cost belongs to cell enumeration, not coverage. |
+| Support extents **not cached** at spawn | 002 | Lifetime-constant and cacheable, but the saving is <0.1 ms at 10k projectiles against two more fields to seed on every pooled reuse, and it would turn "rotation never changes" into a correctness dependency of stored data. |
+| Broadphase wording clarified — **existing spatial hash**, no new structure | 007, index | The swept lane reads `TargetSpatialHashSingleton.ProjectileCollisionCells`, same as the discrete lane. Dropped "swap the broadphase" as an open question; remedies (segment-walk enumeration, or the coarser `AoeOccupiedCells`) both live inside the existing hash family. |
+
 ## Task List
 
 | # | Task | Depends on |
@@ -281,7 +365,7 @@ layer: `BuildRuntime` at compile, archetype composition at runtime.
 | 003 | [Authoring flag and sweep/tracking exclusivity](003-authoring-flag-and-exclusivity.md) | 001 |
 | 004 | [Expansion command fan-out](004-expansion-command-fanout.md) | 001, 003 |
 | 005 | [Spawn apply lane split](005-spawn-apply-lane-split.md) | 001, 004 |
-| 006 | [Swept movement system](006-swept-movement-system.md) | 001, 005 |
+| 006 | [Sweep origin capture](006-sweep-origin-capture.md) | 001, 005 |
 | 007 | [Swept collision system](007-swept-collision-system.md) | 002, 006 |
 | 008 | [Tests](008-tests.md) | 007 |
 | 009 | [Docs update](009-docs-update.md) | 007 |

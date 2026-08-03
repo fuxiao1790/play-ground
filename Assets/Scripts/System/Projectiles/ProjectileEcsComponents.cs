@@ -46,6 +46,26 @@ namespace PlayGround.System.Combat.Projectiles
         public uint TrackingRandomState;
     }
 
+    // ECS Lifecycle: swept projectile archetype discriminator; added at entity creation by
+    // SweptProjectileSpawnApplySystem; never added or removed at runtime; present only on the
+    // swept archetype and absent from the discrete one. Mutually exclusive with
+    // ProjectileTrackingComponent, which the swept archetype does not carry at all.
+    public struct SweptProjectileTag : IComponentData
+    {
+    }
+
+    // ECS Lifecycle: swept-archetype-only component; added at entity creation; seeded to the
+    // spawn position on reuse and overwritten every frame by SweptProjectileOriginSystem
+    // before ProjectileMovementSystem integrates; kept until root teardown.
+    public struct ProjectileSweepComponent : IComponentData
+    {
+        // World position the projectile occupied at the start of the current frame's step.
+        // The swept collision test sweeps from here to CombatKinematicsComponent.Position.
+        // Because swept projectiles never track, this segment is the exact path travelled,
+        // not an approximation of a curve.
+        public float2 Origin;
+    }
+
     // ECS Lifecycle: projectile buffer; added by spawn materialization; kept until root teardown; cleared on reuse.
     [InternalBufferCapacity(CollisionConstants.MaxProjectileGateCapacity)] // = 16
     public struct ProjectileContactGateElement : IBufferElementData

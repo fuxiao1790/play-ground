@@ -12,16 +12,19 @@ Add entries alongside the existing projectile files:
 
 - `SweptProjectileSpawnApplySystem.cs`: swept-lane apply; reuse disabled `Active` slots in
   the swept archetype before cold creation.
-- `SweptProjectileMovementSystem.cs`: swept-lane movement; records the frame's sweep origin
-  before integrating.
-- `SweptProjectileCollisionSystem.cs`: swept-lane collision; time-of-impact ordered hits
-  against the volume traced this frame.
+- `SweptProjectileOriginSystem.cs`: records each swept projectile's step-start position before
+  `ProjectileMovementSystem` integrates. Movement itself is shared — there is no swept-lane
+  movement system.
+- `SweptProjectileCollisionSystem.cs`: swept-lane collision; nearest-first ordered hits
+  against the oriented box covering this frame's motion.
+
 (No sweep config file — the swept box always spans the full step; there is no tunable.)
 
 Under the Combat Runtime Map, add:
 
-- `Api/Collision/Narrowphase/CombatSweepMath.cs`: swept-circle time-of-impact against
-  circle/rectangle/capsule targets.
+- `Api/Collision/Narrowphase/CombatSweepMath.cs`: swept-box geometry — shape support extents,
+  swept-box construction, and closest-approach parameter. Overlap testing stays in
+  `CombatCollisionMath`; this file adds no narrowphase.
 
 ## `Docs/contracts/spawn-events-and-commands.md`
 

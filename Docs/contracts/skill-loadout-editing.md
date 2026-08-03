@@ -119,6 +119,9 @@ UI releases its pending state only after `EditResolved`. A successful refresh
 reads the new revision after `LoadoutChanged`; a failed refresh retains the old
 loadout and shows `rejectionReason`.
 
+`SkillValidationWarning` includes severity. Warning severity is advisory; error severity
+means the compiled slot will not fire until its authored/support conflict is resolved.
+
 ## Eligibility Rules
 
 - Picker lists all catalog choices. A choice that validator rules reject is

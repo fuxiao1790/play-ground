@@ -91,9 +91,11 @@ writing any swept code.
 5. **Seed the origin** — after `WriteCommon`:
    `sweeps[i] = new ProjectileSweepComponent { Origin = cfg.Position };`
 
-   This matters because spawn apply has no declared order against
-   `SweptProjectileMovementSystem`. If movement runs after, it overwrites with the same
-   value; if before, the seed is what the collision job reads. Correct either way.
+   Redundant on the normal path once `SweptProjectileOriginSystem` (task 006) runs every
+   frame before movement, but it covers the arming window: arming projectiles are excluded
+   from both capture and collision, so `Origin` would otherwise hold a previous pool
+   occupant's value until the tag clears. Cheap, and it means no path can read an
+   uninitialized origin.
 
 Give it its own `ProfilerMarker`s / `ProfilerCounterValue`s under a
 `SweptProjectileSpawnApplySystem.*` prefix so the lanes are separable in the profiler, and

@@ -56,15 +56,19 @@ Reuse the discrete job's early-out ladder unchanged: faction `None`, expired lif
 
 ### Algorithm
 
-**1. Build the swept box.** The segment is always the full step — `sweep.Origin` to
+**1. Build the travel corridor.** The segment is always the full step — `sweep.Origin` to
 `kinematics.Position`, never clamped.
 
 ```csharp
-CombatSweepMath.BuildSweptBox(
+bool hasCorridor = CombatSweepMath.TryBuildTravelCorridor(
     sweep.Origin, kinematics.Position,
     collision.Radius, collision.HalfExtents, collision.RotationRadians, collision.ShapeType,
     out float2 boxCenter, out float2 boxHalfExtents, out float boxRotation);
 ```
+
+The corridor runs centre to centre and does **not** include the projectile's footprint at
+either end — those belong to the discrete test in step 3. `hasCorridor` is false for a
+degenerate step, in which case only the discrete test runs.
 
 **2. Broadphase — the existing spatial hash, unchanged.** Read
 `TargetSpatialHashSingleton.ProjectileCollisionCells`, the same map the discrete lane queries.
@@ -73,27 +77,61 @@ already builds this map once per frame for all consumers
 ([TargetSpatialHashSystem.cs:130-136](../../Assets/Scripts/System/Api/Collision/Broadphase/TargetSpatialHashSystem.cs#L130-L136)),
 and the swept lane is simply one more reader of it.
 
-Take the box's world AABB via the existing
-`CombatCollisionMath.ComputeWorldBounds(boxCenter, 0f, boxHalfExtents, boxRotation, Rectangle, ...)`,
-expand by `MaxTargetRadius`, and walk cells exactly as
-[:157-171](../../Assets/Scripts/System/Projectiles/ProjectileCollisionSystem.cs#L157-L171)
-does. The expansion is what preserves correctness against center-cell-only target insertion —
-do not drop it. The only difference from the discrete path is that the AABB comes from the
-swept box rather than from the projectile's own bounds.
-
-**3. Gather candidates.** For each cell entry: skip same faction, skip gated targets
-(`IsGated`), AABB prefilter, then the overlap test — which is the **existing** narrowphase,
-with the swept box standing in as a rectangle:
+The query region is the **union** of the corridor's AABB and the projectile's own bounds at
+its current position, because the two tests in step 3 cover different space:
 
 ```csharp
-CombatCollisionMath.Hit(
-    boxCenter, 0f, boxHalfExtents, boxRotation, CombatShapeType.Rectangle,
-    targetPosition.Value, target.Radius, target.HalfExtents, target.RotationRadians, target.ShapeType)
+float2 queryMin = collision.BoundsMin;
+float2 queryMax = collision.BoundsMax;
+if (hasCorridor)
+{
+    CombatCollisionMath.ComputeWorldBounds(
+        boxCenter, 0f, boxHalfExtents, boxRotation, CombatShapeType.Rectangle,
+        out float2 corridorMin, out float2 corridorMax);
+    queryMin = math.min(queryMin, corridorMin);
+    queryMax = math.max(queryMax, corridorMax);
+}
 ```
 
-No new overlap code. On a hit, append `(CombatSweepMath.ClosestApproachParam(...), targetIdx)`
-to a **fixed-size stack array** of `CollisionConstants.MaxSweptHitsPerFrame` entries. No
-native container, nothing allocated per entity.
+`collision.BoundsMin/Max` are already the projectile's bounds at `Position`, written by
+movement — no recomputation needed. Then expand by `MaxTargetRadius` and walk cells exactly as
+[:157-171](../../Assets/Scripts/System/Projectiles/ProjectileCollisionSystem.cs#L157-L171)
+does. The expansion is what preserves correctness against center-cell-only target insertion —
+do not drop it.
+
+**3. Gather candidates — discrete test *plus* corridor test.** The continuous check is on top
+of the discrete one, not a replacement for it. For each cell entry: skip same faction, skip
+gated targets (`IsGated`), AABB prefilter, then:
+
+```csharp
+bool hit =
+    // (a) ordinary discrete test — the projectile's own shape at its current position,
+    //     identical to what the discrete lane does. Covers the endpoint footprint the
+    //     corridor deliberately excludes.
+    CombatCollisionMath.Hit(
+        kinematics.Position, collision.Radius, collision.HalfExtents,
+        collision.RotationRadians, collision.ShapeType,
+        targetPosition.Value, target.Radius, target.HalfExtents,
+        target.RotationRadians, target.ShapeType)
+    // (b) corridor test — the space crossed between last tick and this one.
+    || (hasCorridor && CombatCollisionMath.Hit(
+        boxCenter, 0f, boxHalfExtents, boxRotation, CombatShapeType.Rectangle,
+        targetPosition.Value, target.Radius, target.HalfExtents,
+        target.RotationRadians, target.ShapeType));
+```
+
+Both are existing calls — no new overlap code. Short-circuit `||` means the corridor test is
+skipped whenever the cheaper discrete test already hit.
+
+Why both are required: the corridor stops at the endpoint centres, so a target overlapping the
+projectile only at `Position` — beside the corridor rather than on it — is invisible to (b).
+Conversely a target in the gap between ticks is invisible to (a). Across ticks the union is
+complete: this tick's discrete test covers `Position`, last tick's covered `Origin`, and the
+corridor covers everything between.
+
+On a hit, append `(CombatSweepMath.ClosestApproachParam(...), targetIdx)` to a **fixed-size
+stack array** of `CollisionConstants.MaxSweptHitsPerFrame` entries. No native container,
+nothing allocated per entity.
 
 A target spanning several cells can be gathered twice — deduplicate by target index while
 inserting; the array is ≤16 entries so a linear scan is free.
@@ -141,8 +179,13 @@ sync by hand, which is exactly the structural warning this project's decision ru
 
 - The tested segment is **always** the full `sweep.Origin → kinematics.Position` span. No
   clamp, no config read, no distance branch anywhere in the job.
-- Overlap uses the existing `CombatCollisionMath.Hit` with the box as a
-  `CombatShapeType.Rectangle`. No new overlap code is added.
+- Each candidate gets **both** the discrete test at `Position` and the corridor test; a hit on
+  either counts. Removing the discrete test must fail a test (a target touching only the
+  endpoint footprint).
+- The broadphase query region is the union of the corridor AABB and `collision.BoundsMin/Max`,
+  not the corridor alone.
+- Overlap uses the existing `CombatCollisionMath.Hit` for both tests, with the corridor passed
+  as a `CombatShapeType.Rectangle`. No new overlap code is added.
 - Hits apply in ascending `t` order; a `pierce = 0` swept projectile hits the **nearest**
   target on its path, never a farther one.
 - On-hit child projectiles and AOEs spawn at the impact point, not the end-of-frame position.

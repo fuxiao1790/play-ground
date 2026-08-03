@@ -91,12 +91,14 @@ namespace PlayGround.Tests.PlayMode
         {
             CreateActiveProjectiles(count: 2);
             CreateDisabledProjectiles(count: 6);
+            CreateDisabledSweptProjectiles(count: 6);
             CreateActiveImpactAoes(count: 2);
             CreateDisabledImpactAoes(count: 6);
 
             RunCleanup();
 
             Assert.That(DisabledProjectileCount(), Is.EqualTo(0));
+            Assert.That(DisabledSweptProjectileCount(), Is.EqualTo(0));
             Assert.That(DisabledImpactAoeCount(), Is.EqualTo(0));
             Assert.That(ActiveProjectileEntities().Length, Is.EqualTo(2));
             Assert.That(ActiveImpactAoeCount(), Is.EqualTo(2));
@@ -313,6 +315,19 @@ namespace PlayGround.Tests.PlayMode
             return entities;
         }
 
+        private void CreateDisabledSweptProjectiles(int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                Entity entity = entityManager.CreateEntity(
+                    typeof(ProjectileTag),
+                    typeof(SweptProjectileTag),
+                    typeof(ProjectileSweepComponent),
+                    typeof(Active));
+                entityManager.SetComponentEnabled<Active>(entity, false);
+            }
+        }
+
         private void CreateActiveProjectiles(int count)
         {
             for (int i = 0; i < count; i++)
@@ -455,6 +470,11 @@ namespace PlayGround.Tests.PlayMode
             return CountPooled(ProjectileQuery(), activeOnly: false, disabledOnly: true);
         }
 
+        private int DisabledSweptProjectileCount()
+        {
+            return CountPooled(SweptProjectileQuery(), activeOnly: false, disabledOnly: true);
+        }
+
         private int CountPooled(EntityQuery query, bool activeOnly, bool disabledOnly)
         {
             using (query)
@@ -496,6 +516,17 @@ namespace PlayGround.Tests.PlayMode
                 .WithAll<AoeTag>()
                 .WithAll<Active>()
                 .WithNone<LingeringAoeTag>()
+                .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
+                .Build(entityManager);
+        }
+
+        private EntityQuery SweptProjectileQuery()
+        {
+            return new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<ProjectileTag>()
+                .WithAll<SweptProjectileTag>()
+                .WithAll<ProjectileSweepComponent>()
+                .WithAll<Active>()
                 .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
                 .Build(entityManager);
         }

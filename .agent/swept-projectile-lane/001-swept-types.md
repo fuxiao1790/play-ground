@@ -25,8 +25,8 @@ public struct SweptProjectileTag : IComponentData
 }
 
 // ECS Lifecycle: swept-archetype-only component; added at entity creation; seeded to the
-// spawn position on reuse and overwritten every frame by SweptProjectileMovementSystem
-// before integration; kept until root teardown.
+// spawn position on reuse and overwritten every frame by SweptProjectileOriginSystem
+// before movement integrates; kept until root teardown.
 public struct ProjectileSweepComponent : IComponentData
 {
     // World position the projectile occupied at the start of the current frame's step.

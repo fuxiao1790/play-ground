@@ -16,7 +16,12 @@ ECS dependency, so it can carry most of the correctness burden cheaply.
   its y-axis, and matches the hand-computed projection on a diagonal axis.
 - `SupportExtent` is invariant under `axis → −axis`.
 - A rotated rectangle's support matches the unrotated one measured on a counter-rotated axis.
-- `BuildSweptBox` for a zero-length sweep reproduces the original shape exactly.
+- `TryBuildTravelCorridor` returns `false` for a zero-length sweep and writes no box.
+- **Corridor length is exactly the travel distance:** `boxHalfExtents.x == dist * 0.5`, with no
+  along-travel extension. Guards against reintroducing end caps.
+- **Corridor alone does not cover the endpoints:** a target overlapping the projectile only at
+  `Position`, beside the corridor, is missed by `Hit(corridor, ...)`. Proves the discrete and
+  continuous tests are complementary rather than one being a superset.
 - **Tunneling regression** — the test that encodes why the feature exists: start and end both
   clearly outside a target with the target centered between them.
   `CombatCollisionMath.Hit` is false at *both* endpoints; `Hit(sweptBox, target)` is true.
@@ -65,6 +70,14 @@ Follow the fixture style of the existing `ProjectileCollisionSimulationTests.cs`
   clearly before a target to clearly past it registers a hit. The same setup on the discrete
   lane (speed below threshold, scaled distances) also hits — proving the test is measuring
   tunneling, not geometry.
+- **The discrete test still runs on the swept lane.** A target positioned so it overlaps the
+  projectile only at its *end-of-frame* position — beside the travel corridor, not on it —
+  still registers a hit. This is the guard for "continuous is on top of discrete": the
+  corridor stops at the endpoint centres, so deleting the discrete branch would silently drop
+  these hits while every tunneling test still passed.
+- **Slow swept projectile behaves like a discrete one.** A swept-authored projectile moving
+  slower than its own footprint per tick produces exactly the same hits as the same setup in
+  the discrete lane. Catches the corridor over-reporting or the two tests double-counting.
 - **Nearest-first.** Two targets on the path, `pierce = 0`. The **near** target takes damage;
   the far one does not. Run it with the targets registered in both orders so the result
   cannot come from iteration order.
@@ -98,8 +111,15 @@ Add to a new or existing spawn-pipeline test file:
 - **Tracking systems skip swept projectiles.** Spawn a swept projectile in a scene with a
   valid target off its flight axis; assert its velocity direction is unchanged after several
   frames (no steering applied).
-- **No double integration.** A swept projectile advances exactly `Velocity * dt` per frame —
-  the guard for the `WithNone` on `ProjectileMovementSystem` in task 006.
+- **No double integration.** A swept projectile advances exactly `Velocity * dt` per frame.
+  Guards against a second integrator being reintroduced alongside `ProjectileMovementSystem`
+  (task 006 deletes the one an earlier draft specified).
+- **Origin is captured before movement, not after.** After one frame,
+  `ProjectileSweepComponent.Origin` equals the position *before* that frame's integration, and
+  `Position - Origin` equals `Velocity * dt`. This is the ordering guarantee the whole swept
+  test depends on; if `SweptProjectileOriginSystem` ever lands after movement, `Origin` and
+  `Position` collapse to the same point and every sweep degenerates to a discrete test that
+  still passes the simpler cases.
 - **Both lanes counted.** `CombatStatsSingleton` spawn counters and
   `CombatStatsDisplaySingleton.ActiveProjectiles` include swept projectiles. The pool-cleanup
   calm-down gate derives despawns from these, so an uncounted lane skews trimming.
@@ -117,8 +137,9 @@ Add to a new or existing spawn-pipeline test file:
 ## Acceptance Criteria
 
 - The tunneling regression test fails against `main` (before this feature) and passes after.
-- The lane-isolation test fails if `WithNone<SweptProjectileTag>` is removed from either the
-  discrete dead-slot query or the discrete movement job.
+- The lane-isolation test fails if `WithNone<SweptProjectileTag>` is removed from
+  `ProjectileSpawnApplySystem._deadSlotQuery`. (There is no longer a movement-job exclusion to
+  guard — task 006 removed the need for one.)
 - Exclusivity is covered on both halves: compile-time (the combination is blocked, errors,
   and refunds) and structural (no entity carries both the tag and the tracking component).
 - All four spawn paths are covered for flag propagation.

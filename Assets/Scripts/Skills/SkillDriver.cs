@@ -98,6 +98,12 @@ namespace PlayGround.Skills
                     {
                         if (!slotStates[i].IsReady) continue;
 
+                        if (compiledSlots[i] is RuntimeProjectileDefinition { SpawnBlocked: true })
+                        {
+                            slotStates[i].RefundFire();
+                            continue;
+                        }
+
                         using (SpawnMarker.Auto())
                         {
                             int castToken = NextCastToken();
@@ -234,6 +240,7 @@ namespace PlayGround.Skills
                 slotStates[activeSlotCount] = state;
                 this.rootNodeIndices[activeSlotCount] = nodeIndex;
                 activeSlotCount++;
+                AppendCompilerWarnings(def, nodeIndex, warnings);
             }
 
             RegisterProjectileTypes();
@@ -251,6 +258,58 @@ namespace PlayGround.Skills
             for (int i = 0; i < nodeIndices.Length; i++)
                 if (nodeIndices[i] == nodeIndex) return states[i];
             return null;
+        }
+
+        private static void AppendCompilerWarnings(
+            RuntimeSkillDefinition def,
+            int slotIndex,
+            List<SkillValidationWarning> warnings)
+        {
+            if (def == null || warnings == null)
+                return;
+
+            if (def is RuntimeStackingDetonation stacking)
+            {
+                AppendCompilerWarnings(stacking.Detonation, slotIndex, warnings);
+                return;
+            }
+
+            if (def is RuntimeProjectileDefinition projectile)
+            {
+                if (projectile.SpawnBlocked)
+                {
+                    warnings.Add(new SkillValidationWarning(
+                        SkillValidationWarningCode.SweptProjectileCannotTrack,
+                        slotIndex,
+                        "Projectile cannot enable both swept collision and tracking.",
+                        SkillValidationSeverity.Error));
+                }
+
+                if (projectile.TrackingMayTunnel)
+                {
+                    warnings.Add(new SkillValidationWarning(
+                        SkillValidationWarningCode.TrackingProjectileMayTunnel,
+                        slotIndex,
+                        "Tracking projectile may tunnel at its compiled speed.",
+                        SkillValidationSeverity.Warning));
+                }
+
+                AppendCompilerWarnings(projectile.ChildSpawnSetup?.ChildDefinition, slotIndex, warnings);
+                AppendCompilerWarnings(projectile.AoeIntervalSpawnSetup?.ChildDefinition, slotIndex, warnings);
+                AppendCompilerWarnings(projectile.ImpactAoeDefinition, slotIndex, warnings);
+                AppendCompilerWarnings(projectile.ImpactProjectileDefinition, slotIndex, warnings);
+                AppendCompilerWarnings(projectile.StackingDetonation, slotIndex, warnings);
+                return;
+            }
+
+            if (def is RuntimeAoeDefinition aoe)
+            {
+                AppendCompilerWarnings(aoe.ChildSpawnSetup?.ChildDefinition, slotIndex, warnings);
+                AppendCompilerWarnings(aoe.AoeIntervalSpawnSetup?.ChildDefinition, slotIndex, warnings);
+                AppendCompilerWarnings(aoe.OnHitAoeSpawnDefinition, slotIndex, warnings);
+                AppendCompilerWarnings(aoe.OnHitProjectileSpawnDefinition, slotIndex, warnings);
+                AppendCompilerWarnings(aoe.StackingDetonation, slotIndex, warnings);
+            }
         }
 
         // UI configuration requests the initial empty-node count before Start.
@@ -659,6 +718,9 @@ namespace PlayGround.Skills
 
             if (def is RuntimeProjectileDefinition projDef)
             {
+                if (projDef.SpawnBlocked)
+                    return false;
+
                 if (projDef.ChildSpawnSetup?.ChildDefinition != null)
                 {
                     if (RegisterSpawnTemplatesRecursive(
@@ -1032,6 +1094,7 @@ namespace PlayGround.Skills
                 TypeId = child.TypeId,
                 RenderTypeId = child.RenderId,
                 HasTimedSpawner = hasTimedSpawner ? 1 : 0,
+                SweptCollision = child.SweptCollision ? 1 : 0,
                 Speed = child.Speed,
                 Count = Mathf.Max(1, behavior.Count),
                 SpreadDegrees = behavior.SpreadDegrees,
