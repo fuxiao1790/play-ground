@@ -323,7 +323,9 @@ public struct ProjectileHitComponent : IComponentData
 the former embedded `ProjectileImpactAoeSnapshot` and
 `ProjectileImpactProjectileSnapshot`.
 
-When a projectile hit qualifies, `ProjectileCollisionSystem` may emit:
+When a projectile hit qualifies, either projectile collision system may emit
+(both route through the shared `ProjectileHitEmission` helpers, so the lane does
+not change what is emitted):
 
 - `CombatHitEvent`
 - `ProjectileSpawnEvent` (slim link) when `OnHitSpawn.Kind == Projectile`
@@ -391,9 +393,10 @@ ProjectileSpawnRequest
   -> ProjectileSpawnEvent on shared scope buffer
   -> ProjectileSpawnExpansionSystem
   -> ProjectileSpawnCommand
-  -> ProjectileSpawnApplySystem
+  -> ProjectileDiscreteSpawnApplySystem   (ContinuousCollision == 0)
+     or ProjectileContinuousSpawnApplySystem (ContinuousCollision != 0)
   -> Projectile ECS entity with snapshotted components
-  -> ProjectileCollisionSystem
+  -> ProjectileDiscreteCollisionSystem or ProjectileContinuousCollisionSystem
      -> CombatHitEvent
      -> optional AOE variant spawn event
      -> optional ProjectileSpawnEvent

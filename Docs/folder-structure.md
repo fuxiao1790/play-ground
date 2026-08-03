@@ -126,18 +126,18 @@ Docs/
 
 ## Current Combat Runtime Map
 
-- `Assets/Scripts/System/Combat/Core/CombatRoot.cs`: per-faction scene bridge for
+- `Assets/Scripts/System/Core/CombatRoot.cs`: per-faction scene bridge for
   projectile and AOE registration, managed spawn submission, render resources,
   target registry, and ECS world/scope lifetime.
-- `Assets/Scripts/System/Combat/Core/CombatScope.cs`: shared `CombatScope` tag and
+- `Assets/Scripts/System/Core/CombatScope.cs`: shared `CombatScope` tag and
   `CombatFaction`.
-- `Assets/Scripts/System/Combat/Core/CombatScopeOwner.cs`: shared scope entity
+- `Assets/Scripts/System/Core/CombatScopeOwner.cs`: shared scope entity
   owner and cross-feature scope buffer/template registry bootstrap.
-- `Assets/Scripts/System/Combat/Platform/CombatEcsWorld.cs`: Unity ECS world
+- `Assets/Scripts/System/Platform/CombatEcsWorld.cs`: Unity ECS world
   acquire/release integration for combat runtime roots.
-- `Assets/Scripts/System/Combat/Targets/CombatTargetProxy.cs`: ECS target proxy entity
+- `Assets/Scripts/System/Targets/CombatTargetProxy.cs`: ECS target proxy entity
   creation, shape push, health/status seed data, and deletion.
-- `Assets/Scripts/System/Combat/Targets/CombatTargetRegistry.cs`: managed target
+- `Assets/Scripts/System/Targets/CombatTargetRegistry.cs`: managed target
   registry that creates proxy entities for registered `ICombatTarget` objects.
 - `Assets/Scripts/System/Application/CombatApplyFinalizeSingleSystem.cs`: single-pass
   hit finalize, ECS health/status application, and compact result lane writes.
@@ -145,87 +145,87 @@ Docs/
   combat result lane and `CombatTickResult` contract data.
 - `Assets/Scripts/System/Presentation/CombatApplyBridge.cs`: presentation
   bridge that resolves `TargetCompanion` and replays finalized combat feedback.
-- `Assets/Scripts/System/Combat/Lifetime/CombatLifecycleComponents.cs`: shared
+- `Assets/Scripts/System/Lifetime/CombatLifecycleComponents.cs`: shared
   transient entity active, kinematics, arming, and lifetime data.
-- `Assets/Scripts/System/Combat/Lifetime/CombatLifetimeSystem.cs`: shared projectile and
+- `Assets/Scripts/System/Lifetime/CombatLifetimeSystem.cs`: shared projectile and
   AOE lifetime expiry.
-- `Assets/Scripts/System/Combat/Collision/CombatCollisionComponents.cs`: shared
+- `Assets/Scripts/System/Api/Collision/CombatCollisionComponents.cs`: shared
   collision components, enableable collision gate, and collision target buffer.
-- `Assets/Scripts/System/Combat/Collision/CombatCollisionMath.cs`: shared bounds and
+- `Assets/Scripts/System/Api/Collision/Narrowphase/CombatCollisionMath.cs`: shared bounds and
   narrow-phase collision math.
-- `Assets/Scripts/System/Combat/Collision/TargetSpatialHashSystem.cs`: shared target
+- `Assets/Scripts/System/Api/Collision/Broadphase/TargetSpatialHashSystem.cs`: shared target
   proxy spatial hashes for projectile, tracking, and AOE collision.
-- `Assets/Scripts/System/Combat/Rendering/CombatRenderComponents.cs`: shared batched
+- `Assets/Scripts/System/Rendering/CombatRenderComponents.cs`: shared batched
   sprite render components and matrix preparation.
-- `Assets/Scripts/System/Combat/Rendering/CombatBatchedRenderSystem.cs`: instanced render
+- `Assets/Scripts/System/Rendering/CombatBatchedRenderSystem.cs`: instanced render
   submission in `PresentationSystemGroup`.
 
 ## Current Projectile Runtime Map
 
-- `Assets/Scripts/System/Combat/Projectiles/ProjectileRuntimeEvents.cs`: managed
+- `Assets/Scripts/System/Projectiles/ProjectileRuntimeEvents.cs`: managed
   projectile payload/counter helpers.
-- `Assets/Scripts/System/Combat/Projectiles/ProjectileSpawnRequest.cs`: managed
+- `Assets/Scripts/System/Projectiles/ProjectileSpawnRequest.cs`: managed
   projectile spawn request DTO passed to `CombatRoot`.
-- `Assets/Scripts/System/Combat/Projectiles/ProjectileSpawnPipeline.cs`:
+- `Assets/Scripts/System/Projectiles/ProjectileSpawnPipeline.cs`:
   `ProjectileSpawnEvent`, `ProjectileSpawnCommand`, and impact/burst event
   helpers.
-- `Assets/Scripts/System/Combat/Projectiles/ProjectileSpawnExpansionSystem.cs`: drains
+- `Assets/Scripts/System/Projectiles/ProjectileSpawnExpansionSystem.cs`: drains
   projectile events and expands volley data into per-shape command queues.
-- `Assets/Scripts/System/Combat/Projectiles/ProjectileDiscreteSpawnApplySystem.cs`: discrete-lane
+- `Assets/Scripts/System/Projectiles/ProjectileDiscreteSpawnApplySystem.cs`: discrete-lane
   apply; reuses disabled `Active` slots before cold creation.
-- `Assets/Scripts/System/Combat/Projectiles/ProjectileContinuousSpawnApplySystem.cs`: continuous-lane
+- `Assets/Scripts/System/Projectiles/ProjectileContinuousSpawnApplySystem.cs`: continuous-lane
   apply; reuses disabled slots from the continuous archetype before cold creation.
-- `Assets/Scripts/System/Combat/Spawning/TimedSpawnSystem.cs`: shared timed child spawn
+- `Assets/Scripts/System/Spawning/TimedSpawnSystem.cs`: shared timed child spawn
   event production.
-- `Assets/Scripts/System/Combat/Projectiles/ProjectileTrackingSystem.cs`: target proxy
+- `Assets/Scripts/System/Projectiles/ProjectileTrackingSystem.cs`: target proxy
   acquisition and homing steering.
-- `Assets/Scripts/System/Combat/Projectiles/ProjectileMovementSystem.cs`: movement and
+- `Assets/Scripts/System/Projectiles/ProjectileMovementSystem.cs`: movement and
   projectile bounds refresh.
-- `Assets/Scripts/System/Combat/Projectiles/ProjectileContinuousOriginSystem.cs`: captures continuous
+- `Assets/Scripts/System/Projectiles/ProjectileContinuousOriginSystem.cs`: captures continuous
   step origin before shared projectile movement.
-- `Assets/Scripts/System/Combat/Projectiles/ProjectileContactGateSystem.cs`: repeat-hit
+- `Assets/Scripts/System/Projectiles/ProjectileContactGateSystem.cs`: repeat-hit
   contact gate expiry.
-- `Assets/Scripts/System/Combat/Projectiles/ProjectileDiscreteCollisionSystem.cs`: spatial hash
+- `Assets/Scripts/System/Projectiles/ProjectileDiscreteCollisionSystem.cs`: spatial hash
   collision, hit/spawn event emission, pierce, gates, and deactivation.
-- `Assets/Scripts/System/Combat/Projectiles/ProjectileContinuousCollisionSystem.cs`: continuous-lane
+- `Assets/Scripts/System/Projectiles/ProjectileContinuousCollisionSystem.cs`: continuous-lane
   collision against current footprint plus travel corridor, nearest-first.
-- `Assets/Scripts/System/Combat/Api/Collision/Narrowphase/CombatSweepMath.cs`: swept
+- `Assets/Scripts/System/Api/Collision/Narrowphase/CombatSweepMath.cs`: swept
   corridor geometry and closest-approach math; overlap remains in `CombatCollisionMath`.
 
 ## Current AOE Runtime Map
 
-- `Assets/Scripts/System/Combat/Aoes/AoeRuntimeEvents.cs`: managed AOE spawn request and
+- `Assets/Scripts/System/Aoes/AoeRuntimeEvents.cs`: managed AOE spawn request and
   counters.
-- `Assets/Scripts/System/Combat/Aoes/AoeConfig.cs`: ScriptableObject authoring for AOE
+- `Assets/Scripts/Skills/Authoring/AoeConfig.cs`: ScriptableObject authoring for AOE
   type definitions.
-- `Assets/Scripts/System/Combat/Aoes/AoeSpawnPipeline.cs`: `AOE variant spawn event`,
+- `Assets/Scripts/System/Aoes/AoeSpawnPipeline.cs`: `AOE variant spawn event`,
   `AoeSpawnCommand`, and impact/on-hit AOE helpers.
-- `Assets/Scripts/System/Combat/Aoes/AoeSpawnExpansionSystem.cs`: contains impact and
+- `Assets/Scripts/System/Aoes/AoeSpawnExpansionSystem.cs`: contains impact and
   lingering AOE expansion systems that drain AOE events and
   writes command stream.
 - AOE spawn apply file: impact and lingering AOE
   apply systems; reuse disabled `Active` slots before cold creation.
-- `Assets/Scripts/System/Combat/Aoes/ImpactAoeCollisionSystem.cs`: impact AOE target
+- `Assets/Scripts/System/Aoes/ImpactAoeCollisionSystem.cs`: impact AOE target
   proxy collision, hit/spawn/VFX event emission, and deactivation.
-- `Assets/Scripts/System/Combat/Aoes/LingeringAoeCollisionSystem.cs`: lingering AOE
+- `Assets/Scripts/System/Aoes/LingeringAoeCollisionSystem.cs`: lingering AOE
   interval collision and hit/spawn/VFX event emission.
-- `Assets/Scripts/System/Combat/Aoes/AoePulseVfxSystem.cs`: interval pulse VFX for
+- `Assets/Scripts/System/Aoes/AoePulseVfxSystem.cs`: interval pulse VFX for
   lingering AOEs.
-- `Assets/Scripts/System/Combat/Aoes/AoeTypeRegistry.cs`: runtime AOE type lookup.
+- `Assets/Scripts/System/Aoes/AoeTypeRegistry.cs`: runtime AOE type lookup.
 
 ## Current VFX Runtime Map
 
-- `Assets/Scripts/System/Combat/Vfx/AoeVfxEcsComponents.cs`: `AoeVfxIds` slots and
+- `Assets/Scripts/System/Vfx/AoeVfxEcsComponents.cs`: `AoeVfxIds` slots and
   `VfxTimingData` ECS components.
-- `Assets/Scripts/System/Combat/Vfx/VfxDataShapes.cs`: `VfxDataShape` enum, per-shape
+- `Assets/Scripts/System/Vfx/VfxDataShapes.cs`: `VfxDataShape` enum, per-shape
   request structs (`CircularVfxSpawnRequest`, `TimedCircularVfxSpawnRequest`, `LineSegmentVfxSpawn`), and the
   `VfxDataShapeTable` (buffer contracts + id encode/decode).
-- `Assets/Scripts/System/Combat/Vfx/VfxEmit.cs`: Burst helper that decodes shape from
+- `Assets/Scripts/System/Vfx/VfxEmit.cs`: Burst helper that decodes shape from
   the id and enqueues the concrete request to the matching per-shape queue.
-- `Assets/Scripts/System/Combat/Vfx/CombatAoeVfxDispatcher.cs`: GPU resource and dispatch
+- `Assets/Scripts/System/Vfx/CombatAoeVfxDispatcher.cs`: GPU resource and dispatch
   owner.
-- `Assets/Scripts/System/Combat/Vfx/CombatVfxRoot.cs`: scene-object VFX root and static
+- `Assets/Scripts/System/Vfx/CombatVfxRoot.cs`: scene-object VFX root and static
   registry.
-- `Assets/Scripts/System/Combat/Vfx/CombatAoeVfxDispatchSystem.cs`: presentation system
+- `Assets/Scripts/System/Vfx/CombatAoeVfxDispatchSystem.cs`: presentation system
   that completes producers, buckets each shape's queue by graph id, and dispatches
   through the matching `CombatVfxRoot`.

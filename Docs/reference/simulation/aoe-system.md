@@ -43,30 +43,29 @@ Non-goals:
 
 ## Main Files
 
-- `Assets/Scripts/System/Combat/Aoes/AoeSpawnPipeline.cs`: `ImpactAoeSpawnEvent`,
+- `Assets/Scripts/System/Aoes/AoeSpawnPipeline.cs`: `ImpactAoeSpawnEvent`,
   `LingeringAoeSpawnEvent`, `AoeSpawnCommand`, and AOE variant helpers.
-- `Assets/Scripts/System/Combat/Aoes/AoeSpawnExpansionSystem.cs`: contains
+- `Assets/Scripts/System/Aoes/AoeSpawnExpansionSystem.cs`: contains
   `ImpactAoeSpawnExpansionSystem`, `LingeringAoeSpawnExpansionSystem`, and the
   shared `AoeExpansionCore` that drains AOE events and writes resolved commands.
-- AOE spawn apply file: contains impact and
-  lingering apply systems that reuse disabled AOE entities or cold-create
-  overflow.
-- `Assets/Scripts/System/Combat/Aoes/ImpactAoeCollisionSystem.cs`: target proxy broad
+- `Assets/Scripts/System/Aoes/AoeSpawnApplySystem.cs`: contains impact and
+  lingering apply systems that top up and reuse disabled AOE entities.
+- `Assets/Scripts/System/Aoes/ImpactAoeCollisionSystem.cs`: target proxy broad
   phase, narrow-phase collision, damage events, child spawn events, VFX events,
   and impact deactivation.
-- `Assets/Scripts/System/Combat/Aoes/LingeringAoeCollisionSystem.cs`: lingering AOE
+- `Assets/Scripts/System/Aoes/LingeringAoeCollisionSystem.cs`: lingering AOE
   tick interval countdown plus target proxy collision and consequence events.
-- `Assets/Scripts/System/Combat/Aoes/AoePulseVfxSystem.cs`: periodic pulse VFX for
+- `Assets/Scripts/System/Aoes/AoePulseVfxSystem.cs`: periodic pulse VFX for
   lingering AOEs.
-- `Assets/Scripts/System/Combat/Aoes/AoeEcsComponents.cs`: AOE identity, collision
+- `Assets/Scripts/System/Aoes/AoeEcsComponents.cs`: AOE identity, collision
   active tag, hit interval state, hit-spawn snapshot, area, and pulse VFX data.
-- `Assets/Scripts/System/Combat/Aoes/AoeConfig.cs`: ScriptableObject authoring for AOE
+- `Assets/Scripts/Skills/Authoring/AoeConfig.cs`: ScriptableObject authoring for AOE
   type definitions.
-- `Assets/Scripts/System/Combat/Aoes/AoeRuntimeEvents.cs`: managed AOE spawn request and
+- `Assets/Scripts/System/Aoes/AoeRuntimeEvents.cs`: managed AOE spawn request and
   counters.
-- `Assets/Scripts/System/Combat/Lifetime/CombatLifetimeSystem.cs`: shared projectile and
+- `Assets/Scripts/System/Lifetime/CombatLifetimeSystem.cs`: shared projectile and
   AOE lifetime expiry.
-- `Assets/Scripts/System/Combat/Application/CombatApplyFinalizeSingleSystem.cs`: native hit queue
+- `Assets/Scripts/System/Application/CombatApplyFinalizeSingleSystem.cs`: native hit queue
   finalize plus managed replay into `ICombatTarget.ReceiveHits`.
 
 ## Runtime Ownership
@@ -140,12 +139,16 @@ Current flow:
    computes per-copy bounds, and writes one `AoeSpawnCommand` per copy to the
    impact or lingering command container.
 4. `ImpactAoeSpawnApplySystem` and `LingeringAoeSpawnApplySystem` read their
-   command containers and query reusable AOE slots with `WithDisabled<Active>()`.
-5. Each apply system captures its disabled chunks and schedules one
+   command containers and count reusable AOE slots with `WithDisabled<Active>()`.
+5. If disabled slots are short of demand,
+   `SpawnPoolTopUp.EnsureDisabledSlots` cold-creates the deficit with
+   `EntityManager.CreateEntity` and disables `Active` on each. This structural
+   change runs before chunk arrays and type handles are fetched.
+6. Each apply system then captures its disabled chunks and schedules one
    single-threaded Burst reuse job with one command cursor.
-6. Reused slots are reset in query chunk order.
-7. Remaining commands cold-create entities through an
-   `EntityCommandBuffer`.
+7. Reused slots are reset in query chunk order, so on a normal frame the reuse
+   pass covers every command and the top-up count is what signals pool
+   shortage.
 
 AOE uses the same event-to-command fan-out contract as projectiles: spawn
 events carry intent, expansion owns multiplicity and deterministic variation,
@@ -202,9 +205,11 @@ have no lifetime and die only via their one-shot collision pass, simply telegrap
 during arming and perform that pass on the armed frame.
 
 AOE reuse is single-cursor and deterministic per pool. Impact and lingering
-reuse jobs scan disabled chunks in query order, consume commands in command-list
-order, and return the reused prefix length. Cold creation handles the remaining
-suffix, so cold count indicates true pool shortage for that AOE archetype.
+reuse jobs scan disabled chunks in query order and consume commands in
+command-list order. Cold creation runs before the reuse job rather than after
+it, topping the pool up to demand, so the reuse count equals the command count
+on a normal frame and the top-up count is what indicates true pool shortage for
+that AOE archetype.
 
 ## Damage Timing
 
@@ -303,13 +308,15 @@ Important simulation ordering:
 
 1. `CombatLifetimeSystem` expires projectile and AOE lifetime.
 2. `AoePulseVfxSystem` emits periodic pulse VFX for lingering AOEs.
-3. Projectile tracking, movement, contact gates, and collision run.
+3. Projectile tracking, continuous origin capture, movement, and contact gates
+   run, then both the discrete and continuous projectile collision systems.
 4. AOE collision systems emit damage, projectile spawn, AOE spawn, and VFX events.
 6. `DamageFinalizeSystem` freezes the native damage queue.
 7. `ProjectileSpawnExpansionSystem`, `ImpactAoeSpawnExpansionSystem`, and
    `LingeringAoeSpawnExpansionSystem` drain events and produce commands.
-8. `ProjectileSpawnApplySystem`, `ImpactAoeSpawnApplySystem`, and
-   `LingeringAoeSpawnApplySystem` reuse slots and cold-create overflow.
+8. `ProjectileDiscreteSpawnApplySystem`, `ProjectileContinuousSpawnApplySystem`,
+   `ImpactAoeSpawnApplySystem`, and `LingeringAoeSpawnApplySystem` top up their
+   own pool and reuse slots.
 9. `CombatRenderPrepareSystem` prepares render matrices.
 10. Presentation systems dispatch damage, VFX, and render batches.
 

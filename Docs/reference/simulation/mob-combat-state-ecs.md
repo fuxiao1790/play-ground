@@ -46,8 +46,8 @@ stay in ECS.
 Current ownership shape:
 
 - `MobRoot` owns health, status-like local combat reactions, and death cleanup.
-- `ProjectileCollisionSystem` and `AoeCollisionSystem` emit hit events for each
-  contact.
+- The projectile collision systems (discrete and continuous) and
+  `AoeCollisionSystem` emit hit events for each contact.
 - `DamageFinalizeSystem` freezes native damage events, and
   `DamageDispatchBridge` replays those hits on the managed side.
 - Plain damage, status effects, and semantic hit effects share the same replay

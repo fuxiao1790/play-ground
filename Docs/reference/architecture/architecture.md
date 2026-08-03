@@ -98,17 +98,25 @@ stay narrow and explicit.
 - `ProjectileSpawnPipeline`: defines `ProjectileSpawnEvent` and
   `ProjectileSpawnCommand`.
 - `ProjectileSpawnExpansionSystem`: drains event queues and scope buffers,
-  resolves volley math, and writes the projectile command queue.
-- `ProjectileSpawnApplySystem`: reuses or creates projectile slots and toggles
-  timed spawn through enabled `TimedSpawnComponent`.
+  resolves volley math, and writes the discrete and continuous projectile
+  command lists.
+- `ProjectileDiscreteSpawnApplySystem` / `ProjectileContinuousSpawnApplySystem`:
+  top up and reuse slots in their own lane's pool and toggle timed spawn through
+  enabled `TimedSpawnComponent`.
 - `TimedSpawnSystem`: emits child projectile or AOE events from active timed
   spawn sources.
 - `ProjectileTrackingSystem`: target proxy acquisition and homing steering.
-- `ProjectileMovementSystem`: position integration and bounds refresh.
+  Discrete lane only — the continuous archetype has no tracking component.
+- `ProjectileContinuousOriginSystem`: captures each continuous projectile's
+  step-start position before movement integrates.
+- `ProjectileMovementSystem`: position integration and bounds refresh, both lanes.
 - `ProjectileContactGateSystem`: repeat-hit gate expiry.
-- `ProjectileCollisionSystem`: target proxy broad phase, narrow-phase hit
-  checks, contact gates, pierce, source deactivation, and damage/spawn event
-  output.
+- `ProjectileDiscreteCollisionSystem`: target proxy broad phase, narrow-phase hit
+  checks against the current-position footprint, contact gates, pierce, source
+  deactivation, and damage/spawn event output.
+- `ProjectileContinuousCollisionSystem`: the same contract for the continuous
+  lane, but also tests a swept corridor from step origin to current position and
+  resolves multiple candidates nearest-first.
 
 ## AOE Ownership
 

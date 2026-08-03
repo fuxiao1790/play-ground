@@ -36,7 +36,7 @@ Use this split:
 |---|---|---|
 | Shared combat runtime | Common scope, faction, target proxy, spawn event -> command -> apply flow, reuse, despawn, rendering, VFX, and frame timing rules. | [project-aoe-system-common.md](./project-aoe-system-common.md) |
 | Spawn template registry | Spawn safety rules for managed requests, ECS events, commands, runtime component snapshots, timed-spawn templates, and consequence events. | [spawn-template-registry.md](./spawn-template-registry.md) |
-| Projectiles | High-count moving attacks, tracking, timed spawns, impact spawns, collision, lifetime, render data, and projectile-specific reuse. | [projectile-system.md](./projectile-system.md) |
+| Projectiles | High-count moving attacks split into a discrete lane (footprint-only collision, may home) and a continuous lane (footprint plus swept travel corridor, never homes), each with its own archetype, reuse pool, and collision system; plus timed spawns, impact spawns, lifetime, and render data. | [projectile-system.md](./projectile-system.md) |
 | AOEs | Pulse and lingering areas, repeat-hit gates, projectile bursts from AOE hits, lifetime, pulse VFX, and AOE-specific reuse. | [aoe-system.md](./aoe-system.md) |
 | Combat state and status | ECS-owned target health/status direction, damage aggregation, compact presentation sync, and mob GameObject presentation boundary. | [mob-combat-state-ecs.md](./mob-combat-state-ecs.md) |
 | VFX requests | Native VFX request flow from simulation jobs to presentation dispatch and Visual Effect Graph buffer contracts. | [vfx-system.md](./vfx-system.md), [shared-graph area-size corruption](./vfx-shared-graph-area-size-corruption.md) |
@@ -70,6 +70,9 @@ simulation update because apply runs after collision.
 - Keep pool cleanup bounded, after spawn apply, and keyed by reuse pool rather
   than render kind.
 - Require domain tags such as `ProjectileTag` and `AoeTag` on domain systems.
+- Keep lane membership structural. `ProjectileContinuousTag` is assigned at
+  entity creation and never toggled, so lane-specific systems discriminate by
+  query rather than by branching on a flag.
 - Do not treat `Active`, common components, or scope membership as domain or
   faction.
 - Do not read managed `TargetCompanion` from simulation jobs.

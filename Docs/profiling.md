@@ -92,11 +92,15 @@ Import-Csv ProfilerCaptures\play-ground_2026-06-10_10-09-36.csv |
 ## Spawn Apply Counters
 
 Projectile and AOE apply top up the disabled-slot pool to command demand, then
-use one single-threaded Burst reuse job per domain. Read these counters
+use one single-threaded Burst reuse job per pool. Projectiles have two
+independent pools — discrete and continuous — that never share slots, so read
+their counters separately rather than summing them. Read these counters
 together:
 
-- `ProjectileSpawnApplySystem.Reuse`
-- `ProjectileSpawnApplySystem.TopUp`
+- `ProjectileDiscreteSpawnApplySystem.Reuse`
+- `ProjectileDiscreteSpawnApplySystem.TopUp`
+- `ProjectileContinuousSpawnApplySystem.Reuse`
+- `ProjectileContinuousSpawnApplySystem.TopUp`
 - `ImpactAoeSpawnApplySystem.Reuse`
 - `ImpactAoeSpawnApplySystem.TopUp`
 - `LingeringAoeSpawnApplySystem.Reuse`
@@ -115,8 +119,9 @@ Prefer searching over reading full captures.
 
 Examples:
 
-- find rows mentioning a system: `ProjectileSpawnApplySystem`,
-  `ImpactAoeSpawnApplySystem`, or `LingeringAoeSpawnApplySystem`
+- find rows mentioning a system: `ProjectileDiscreteSpawnApplySystem`,
+  `ProjectileContinuousSpawnApplySystem`, `ImpactAoeSpawnApplySystem`, or
+  `LingeringAoeSpawnApplySystem` (or just `SpawnApplySystem` for all of them)
 - find GC allocations: `[0-9]+ [KMG]B`
 - find Burst jobs: `\(Burst\)`
 

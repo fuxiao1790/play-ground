@@ -131,7 +131,7 @@ Use data-oriented runtime worlds for high-count combat entities:
 - transient chained hit effects
 - combat VFX request streams
 
-Shared combat ECS components under `Assets/Scripts/System/Combat/` must stay
+Shared combat ECS components under `Assets/Scripts/System/` must stay
 owned by the narrowest combat concept that explains why they exist. Systems that
 consume cross-feature components must also require a domain tag such as
 `ProjectileTag` or `AoeTag`. There is one shared `CombatScope` entity for

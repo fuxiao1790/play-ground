@@ -20,7 +20,8 @@ presentation results.
 
 ## Producers
 
-`ProjectileCollisionSystem`, AOE collision systems, and status systems.
+`ProjectileDiscreteCollisionSystem`, `ProjectileContinuousCollisionSystem`, AOE
+collision systems, and status systems.
 
 ## Consumers
 

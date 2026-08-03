@@ -12,23 +12,28 @@ Trace how projectile and AOE intent becomes reusable ECS entities.
    jobs complete.
 3. Expansion owns count, spread, jitter, bounds, deterministic id, and command
    production.
-4. Expansion writes `ProjectileSpawnCommand` or `AoeSpawnCommand`.
-5. Apply systems capture disabled-slot chunks for their domain reuse pool.
-6. One single-threaded Burst reuse job per domain walks disabled chunks with one
-   command cursor and resets reusable `Active` slots.
-7. Commands after the reused prefix cold-create entities through an ECB.
-8. Spawned/reused entities join simulation on the next update.
+4. Expansion writes `ProjectileSpawnCommand` or `AoeSpawnCommand`. Projectile
+   commands are routed into a discrete or continuous list by their
+   `ContinuousCollision` flag; the two lanes are separate pools from here on.
+5. Apply systems count disabled slots in their own reuse pool and cold-create
+   the deficit up front through `SpawnPoolTopUp.EnsureDisabledSlots`, since
+   entity creation is structural.
+6. One single-threaded Burst reuse job per pool then walks the disabled chunks
+   with one command cursor and writes every command into an `Active`-disabled
+   slot.
+7. Spawned/reused entities join simulation on the next update.
 
 ## Producers
 
-`CombatRoot`, `TimedSpawnSystem`, `ProjectileCollisionSystem`,
-`AoeCollisionCore`, and `StatusProcessSystem`.
+`CombatRoot`, `TimedSpawnSystem`, `ProjectileDiscreteCollisionSystem`,
+`ProjectileContinuousCollisionSystem`, `AoeCollisionCore`, and
+`StatusProcessSystem`.
 
 ## Consumers
 
 `ProjectileSpawnExpansionSystem`, `ImpactAoeSpawnExpansionSystem`,
-`LingeringAoeSpawnExpansionSystem`,
-`ProjectileSpawnApplySystem`, `ImpactAoeSpawnApplySystem`, and
+`LingeringAoeSpawnExpansionSystem`, `ProjectileDiscreteSpawnApplySystem`,
+`ProjectileContinuousSpawnApplySystem`, `ImpactAoeSpawnApplySystem`, and
 `LingeringAoeSpawnApplySystem`.
 
 ## Contracts Used

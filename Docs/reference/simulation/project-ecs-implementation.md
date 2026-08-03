@@ -16,16 +16,24 @@ This document tracks implementation decisions, patterns, and current architectur
 - End-of-simulation cleanup may later destroy bounded excess disabled slots
   when frame headroom exists and the projectile pool is above its retention and
   active-ratio floor.
-- `CombatLifetimeSystem` and `ProjectileCollisionSystem` disable `Active` when a
-  projectile leaves play.
+- `CombatLifetimeSystem` and both projectile collision systems disable `Active`
+  when a projectile leaves play.
 - `ProjectileSpawnExpansionSystem` expands `ProjectileSpawnEvent` into
-  one-entity `ProjectileSpawnCommand` values.
-- `ProjectileSpawnApplySystem` queries disabled projectile chunks with
-  `WithAll<ProjectileTag>()` and `WithDisabled<Active>()` before materializing
-  cold creates.
-- There is one projectile archetype. `TimedSpawnComponent` and
-  `TimedSpawnStateComponent` are present on all projectile slots; the component
-  enabled bit selects whether energy-driven children emit.
+  one-entity `ProjectileSpawnCommand` values, then routes each into the discrete
+  or continuous command list by its `ContinuousCollision` flag.
+- There are two projectile archetypes and therefore two independent pools. The
+  discrete archetype carries `ProjectileTrackingComponent`; the continuous one
+  carries `ProjectileContinuousTag` plus `ProjectileContinuousStepComponent` and
+  no tracking component.
+- `ProjectileDiscreteSpawnApplySystem` queries disabled slots with
+  `WithAll<ProjectileTag>()`, `WithDisabled<Active>()`, and
+  `WithNone<ProjectileContinuousTag>()`. `ProjectileContinuousSpawnApplySystem`
+  uses the same query with `WithAll<ProjectileContinuousTag>()` instead. Slots
+  never move between the two pools, so each lane's shortage is measured on its
+  own `TopUp` counter.
+- `TimedSpawnComponent` and `TimedSpawnStateComponent` are present on all
+  projectile slots in both archetypes; the component enabled bit selects whether
+  energy-driven children emit.
 - Root/external spawn events set `HasTimedSpawner` on the expanded command when
   energy-driven children should emit. Reuse can cross between timed and non-timed
   projectiles because timed spawn is reset as enableable state.
@@ -80,7 +88,9 @@ frame.
 - The current shape keeps query/category selection in ECS queries rather than
   per-entity branch filters.
 - Same-frame cold fallback remains unchanged, so underwarmed pools still work.
-- Reuse packs disabled slots before cold-creating overflow.
+- `SpawnPoolTopUp.EnsureDisabledSlots` tops the pool up to demand first, since
+  entity creation is structural and must precede chunk/type-handle acquisition.
+  The single reuse job then packs every command into a disabled slot.
 
 ### Known Drawback
 
@@ -90,7 +100,8 @@ frame.
 - Cold creation now represents true pool shortage for the queried archetype,
   not worker-range mismatch.
 
-**Revisit if profiling shows** `ProjectileSpawnApplySystem.ReuseJob`,
+**Revisit if profiling shows** `ProjectileDiscreteSpawnApplySystem.ReuseJob`,
+`ProjectileContinuousSpawnApplySystem.ReuseJob`,
 `ImpactAoeSpawnApplySystem.ReuseJob`, `LingeringAoeSpawnApplySystem.ReuseJob`,
 or cold fallback dominates frame time. The next lever should preserve the
 single source of truth for command order and disabled-slot ownership; do not
