@@ -98,11 +98,10 @@ One edit may be pending. At the start of `SkillDriver.Tick`, the driver:
 
 Any failure before step 6 leaves the old runtime loadout and compiled roots
 active. Candidate state is discarded. New root nodes start at zero cooldown
-progress; unchanged roots preserve their progress; an accepted skill swap
-(`SetSkill`/`ClearSkill`) on a direct root resets that root's progress. Support
-edits (`SetSupport`, `ClearSupport`, `IncreaseSupportCap`, `DecreaseSupportCap`)
-and trigger commands never reset or block on a root cooldown - only a skill
-swap can bypass an active cast, so only a skill swap is gated by it.
+progress; unchanged roots preserve their progress; an accepted skill replacement
+(`SetSkill`) on a direct root resets that root's progress. Support edits
+(`SetSupport`, `ClearSupport`, `IncreaseSupportCap`, `DecreaseSupportCap`),
+skill removal, and trigger commands never reset or block on a root cooldown.
 
 ## Events
 
@@ -133,14 +132,15 @@ means the compiled slot will not fire until its authored/support conflict is res
   current support cap.
 - Duplicate support selection is allowed. The same support definition may occupy
   multiple support slots; this does not cap or change the core support model.
-- Clearing a skill is disabled until its supports and adjacent dependent links
-  are cleared.
-- A skill swap (`SetSkill`/`ClearSkill`) on a direct root is disabled while that
-  root's cooldown is running, and resets the root's cooldown progress on
-  success. Support edits (`SetSupport`, `ClearSupport`, `IncreaseSupportCap`,
+- Clearing a skill removes its equipped supports with the skill set, but keeps
+  adjacent trigger choices. It is always available because it cannot produce
+  an extra cast.
+- Replacing a skill (`SetSkill`) on a direct root is disabled while that root's
+  cooldown is running, and resets that root's cooldown progress on success.
+  Support edits (`SetSupport`, `ClearSupport`, `IncreaseSupportCap`,
   `DecreaseSupportCap`) and trigger changes are always allowed and never reset
   cooldown progress - there is no abuse case in letting them proceed mid-cooldown.
-- Invalid state never commits and no command auto-clears a different slot.
+- Invalid state never commits and no command auto-clears a trigger.
 
 ## Save DTO
 

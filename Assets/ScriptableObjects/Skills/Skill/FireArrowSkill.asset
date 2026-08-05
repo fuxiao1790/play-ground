@@ -28,7 +28,7 @@ MonoBehaviour:
     jitterDegrees: 0
     pierceCount: 0
     repeatHitCooldown: 0
-    manaCost: 1
+    manaCost: 5
     armSeconds: 0
     directDamageEnabled: 1
     continuousCollision: 1

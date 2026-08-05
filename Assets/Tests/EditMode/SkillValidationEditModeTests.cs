@@ -880,6 +880,43 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void ClearSkillKeepsItsAdjacentTriggers()
+        {
+            SkillSet previousSet = CreateAsset<SkillSet>("Previous Set");
+            SkillSet clearedSet = CreateAsset<SkillSet>("Cleared Set");
+            SkillSet nextSet = CreateAsset<SkillSet>("Next Set");
+            OnImpactAoeTrigger previousTrigger = CreateAsset<OnImpactAoeTrigger>("Previous Trigger");
+            OnImpactAoeTrigger nextTrigger = CreateAsset<OnImpactAoeTrigger>("Next Trigger");
+            SkillLoadout loadout = CreateLoadout(
+                "Loadout",
+                new SkillLoadoutNode(previousSet, previousTrigger),
+                new SkillLoadoutNode(clearedSet, nextTrigger),
+                new SkillLoadoutNode(nextSet));
+            var gameObject = new GameObject("Clear Skill Driver Test");
+            createdObjects.Add(gameObject);
+            SkillDriver driver = gameObject.AddComponent<SkillDriver>();
+
+            MethodInfo method = typeof(SkillDriver).GetMethod(
+                "TryApplyEdit",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+
+            var arguments = new object[]
+            {
+                loadout,
+                new SkillLoadoutEditCommand(0, SkillLoadoutEditKind.ClearSkill, 1),
+                null,
+            };
+            bool applied = (bool)method.Invoke(driver, arguments);
+
+            Assert.That(applied, Is.True);
+            Assert.That(arguments[2], Is.Null);
+            Assert.That(loadout.Nodes[0].TriggerToNext, Is.SameAs(previousTrigger));
+            Assert.That(loadout.Nodes[1].SkillSet, Is.Null);
+            Assert.That(loadout.Nodes[1].TriggerToNext, Is.SameAs(nextTrigger));
+        }
+
+        [Test]
         public void ValidatorWarnsWhenStackingSupportSetIsNotStackTriggerEffect()
         {
             AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");

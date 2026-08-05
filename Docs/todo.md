@@ -16,6 +16,7 @@ enhancements/addition to existing
 
 needed for poc
 - targeted skills. no physics, single hit / interval ticking variation used for something like chain lightning.
+- ecs sound
 - damage number vfx graph.
 - more aoe shape kinds
 - better mob ai.

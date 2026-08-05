@@ -454,11 +454,11 @@ namespace PlayGround.Skills
             EditResolved?.Invoke(new SkillLoadoutEditResult(true, revision, null));
         }
 
-        // Only a skill swap is gated by and resets root cooldown. Support add/remove and
-        // support-cap changes never bypass an active cast, so there is no abuse case in
-        // letting them proceed - and preserving progress means they don't force a fresh cd.
+        // Only replacing a skill is gated by and resets root cooldown. Removing a skill
+        // cannot trigger another cast, so it remains available while its former root is
+        // cooling down. Support and trigger edits also preserve cooldown progress.
         private static bool AffectsRootCooldown(SkillLoadoutEditKind kind) =>
-            kind is SkillLoadoutEditKind.SetSkill or SkillLoadoutEditKind.ClearSkill;
+            kind is SkillLoadoutEditKind.SetSkill;
 
         private bool IsCooldownBlocked(SkillLoadoutEditCommand command) =>
             AffectsRootCooldown(command.Kind) && IsRootNodeOnCooldown(command.NodeIndex);
@@ -499,9 +499,8 @@ namespace PlayGround.Skills
                     node.SetSkillSet(set);
                     break;
                 case SkillLoadoutEditKind.ClearSkill:
-                    if (node.SkillSet?.Supports.Length > 0 || node.TriggerToNext != null
-                        || (command.NodeIndex > 0 && nodes[command.NodeIndex - 1]?.TriggerToNext != null))
-                    { rejectionReason = "Clear supports and adjacent triggers first."; return false; }
+                    // The skill owns its supports. Keep adjacent trigger choices so they are
+                    // restored if a skill is equipped in this position again.
                     node.SetSkillSet(null);
                     break;
                 case SkillLoadoutEditKind.SetSupport:
