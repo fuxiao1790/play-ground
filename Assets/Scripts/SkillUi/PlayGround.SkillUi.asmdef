@@ -3,6 +3,9 @@
   "rootNamespace": "PlayGround.SkillUi",
   "references": [
     "PlayGround.GameLogic",
+    "PlayGround.Sim",
+    "Unity.Collections",
+    "Unity.Entities",
     "Unity.InputSystem"
   ],
   "includePlatforms": [],

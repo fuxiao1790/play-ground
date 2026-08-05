@@ -2,6 +2,18 @@
     <Style src="SkillLoadoutUi.uss" />
     <Style src="../ResourceBars/ResourceBarsUi.uss" />
     <ui:VisualElement name="hud-container" class="hud-container">
+        <ui:VisualElement name="performance-panel" class="performance-panel">
+            <ui:Label name="performance-fps" class="performance-text" />
+            <ui:Label name="performance-spawn-reuse" class="performance-text" />
+            <ui:Label name="performance-create-ecb" class="performance-text" />
+            <ui:Label name="performance-despawned" class="performance-text" />
+            <ui:Label name="performance-delete-ecb" class="performance-text" />
+            <ui:Label name="performance-projectiles" class="performance-text" />
+            <ui:Label name="performance-aoes" class="performance-text" />
+            <ui:Label name="performance-hit-events" class="performance-text" />
+            <ui:Label name="performance-vfx-events" class="performance-text" />
+            <ui:Label name="performance-vfx-particles" class="performance-text" />
+        </ui:VisualElement>
         <!-- Reserved for a future target-health projection. -->
         <ui:VisualElement name="target-hud" class="target-hud" />
         <ui:VisualElement name="bottom-hud" class="bottom-hud">

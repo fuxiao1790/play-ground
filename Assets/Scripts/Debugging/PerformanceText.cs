@@ -10,6 +10,7 @@ public class PerformanceText : MonoBehaviour
     [SerializeField] private Vector2 padding = new(12f, 12f);
     [SerializeField] private Vector2 size = new(360f, 180f);
     [SerializeField] private int fontSize = 18;
+    [SerializeField] private Color backgroundColor = new(0f, 0f, 0f, 0.55f);
 
     private float smoothedDeltaTime;
 
@@ -121,5 +122,37 @@ public class PerformanceText : MonoBehaviour
         text.horizontalOverflow = HorizontalWrapMode.Overflow;
         text.verticalOverflow = VerticalWrapMode.Overflow;
         text.raycastTarget = false;
+
+        EnsureBackground(canvasGO.transform);
+    }
+
+    private void EnsureBackground(Transform canvasTransform)
+    {
+        Transform existing = canvasTransform.Find("PerformanceBackground");
+        GameObject backgroundObject = existing != null
+            ? existing.gameObject
+            : new GameObject("PerformanceBackground");
+
+        if (backgroundObject.transform.parent != canvasTransform)
+        {
+            backgroundObject.transform.SetParent(canvasTransform, false);
+        }
+
+        Image background = backgroundObject.GetComponent<Image>();
+        if (background == null)
+        {
+            background = backgroundObject.AddComponent<Image>();
+        }
+
+        RectTransform rectTransform = background.rectTransform;
+        rectTransform.anchorMin = new Vector2(0f, 1f);
+        rectTransform.anchorMax = new Vector2(0f, 1f);
+        rectTransform.pivot = new Vector2(0f, 1f);
+        rectTransform.anchoredPosition = Vector2.zero;
+        rectTransform.sizeDelta = size + padding * 2f;
+
+        background.color = backgroundColor;
+        background.raycastTarget = false;
+        backgroundObject.transform.SetAsFirstSibling();
     }
 }

@@ -1,7 +1,7 @@
 /*
  * SkillLoadoutUi styling.
- * Every rule here is a 1:1 transcription of an inline style previously set in
- * SkillLoadoutUi.cs. No new visual values are introduced.
+ * Skill-loadout rules are a 1:1 transcription of inline styles previously set
+ * in SkillLoadoutUi.cs. PerformanceUi has its own HUD-card styling below.
  *
  * Color conversion (Unity Color 0-1 floats -> USS rgba 0-255 channels, 0-1 alpha):
  *   bar   Color(0.03, 0.04, 0.08, 0.88) -> rgba(8, 10, 20, 0.88)
@@ -15,6 +15,30 @@
     flex-direction: column;
     padding-right: 12%;
     padding-left: 12%;
+}
+
+/* PerformanceUi */
+.performance-panel {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 280px;
+    padding: 6px 8px;
+    background-color: rgba(9, 12, 22, 0.72);
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: rgba(134, 160, 210, 0.3);
+    border-right-color: rgba(134, 160, 210, 0.3);
+    border-bottom-color: rgba(134, 160, 210, 0.3);
+    border-left-color: rgba(134, 160, 210, 0.3);
+}
+
+.performance-text {
+    color: white;
+    font-size: 14px;
+    white-space: normal;
 }
 
 /* Reserved for the future target-health projection. */

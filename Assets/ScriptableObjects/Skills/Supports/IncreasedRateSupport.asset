@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.IncreasedRateSupport
   assetGuid: 9d05d7d1a10342a4492264f6e451686d
   displayName: Increased Rate Support
-  description:
+  description: 
   icon: {fileID: 0}
-  increasedRatePercent: 25
+  increasedRatePercent: 50
+  manaCostIncreased: 0
