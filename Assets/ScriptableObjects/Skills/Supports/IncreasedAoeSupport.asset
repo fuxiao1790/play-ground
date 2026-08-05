@@ -17,4 +17,4 @@ MonoBehaviour:
   description: 
   icon: {fileID: 0}
   areaSizeMultiplier: 1.3
-  manaCostIncreased: 0
+  manaCostIncreased: 1

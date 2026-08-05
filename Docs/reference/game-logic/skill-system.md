@@ -494,19 +494,20 @@ The compiled `EnergyPerSecond` is not the trigger's raw authored value.
 stat sheet's energy-gain terms:
 
 ```text
-Mathf.Max(0.01f, (energyPerSecond + snapshot.BaseEnergyGain)
-    * (1f + snapshot.IncreasedEnergyGainPercent)
-    * snapshot.EnergyGainMultiplier)
+Mathf.Max(0.01f, StatFold.Resolve(
+    energyPerSecond,
+    snapshot.BaseEnergyGain,
+    snapshot.IncreasedEnergyGain,
+    snapshot.EnergyGainMultiplier))
 ```
 
-`baseEnergyGain`, `increasedEnergyGainPercent`, and `energyGainMultiplier`
+`baseEnergyGain`, `increasedEnergyGain`, and `energyGainMultiplier`
 are authored on `UnitStatSheet` and reach every interval trigger through the
 same `SkillStatSnapshot` used for Rate/Damage/AreaSize. Unlike `TriggerLink`'s
 mana-cost factor, which only scales an already-resolved child cost with no base
 of its own, energy gain has a genuine base: the trigger's authored
-`energyPerSecond`. It follows the base/added/increased/multiplier shape, but
-is resolved locally on `IntervalSpawnTrigger` rather than through the
-per-skill accumulator.
+`energyPerSecond`. `increasedEnergyGain` is a direct multiplier (default `1`),
+and this local resolve uses the same shared `StatFold` formula as mana.
 
 Each source begins with empty energy. Every simulation update adds
 `energyPerSecond * deltaTime`; whenever accrued energy reaches the next

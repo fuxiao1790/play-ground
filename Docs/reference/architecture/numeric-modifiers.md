@@ -17,31 +17,31 @@ is the current concrete consumer; it is not the owner of the pattern.
 ```csharp
 public static class StatFold
 {
-    public static float Resolve(float baseValue, float added, float increasedPercent, float multiplier)
+    public static float Resolve(float baseValue, float addedBase, float increased, float multiplier)
     {
-        float effectiveBase = baseValue + added;
-        return effectiveBase * (1f + increasedPercent) * multiplier;
+        return (baseValue + addedBase) * increased * multiplier;
     }
 }
 ```
 
 ```text
-value = (base + added) * (1 + increased) * multiplier
+value = (base + addedBase) * increased * multiplier
 ```
 
 It is a pure function with no dependency on skills, players, or any other
 domain type - `Assets/Scripts/Common/Modifiers/StatFold.cs`. Any system with a
-numeric value that needs to combine a base with flat bonuses, summed percent
-increases, and multipliers calls this directly rather than writing the
-expression inline. Flat `added` amounts join the base before `increased` and
+numeric value that needs to combine a base with flat bonuses, a direct
+`increased` factor, and multipliers calls this directly rather than writing the
+expression inline. Flat `addedBase` amounts join the base before `increased` and
 `multiplier` are applied, so both scale the combined total, not just the raw
 base.
 
 ## Combining Multiple Sources
 
 A single value often has more than one contributor - several supports on a
-skill, several stat sources on a player. `added` and `increased` amounts are
-summed across contributors; multipliers are multiplied across contributors.
+skill, several stat sources on a player. `addedBase` amounts are summed;
+`increased` factors contribute their delta from neutral `1`; multipliers are
+multiplied across contributors.
 Combine order never changes the numeric result, so contribution order is not
 meaningful and does not need to be authored or preserved.
 
@@ -67,8 +67,8 @@ per-edge trigger-link concerns that fall outside the per-skill accumulator:
   (`base = 1`, `added = 0`).
 - `IntervalSpawnTrigger.ResolveEnergyPerSecond(snapshot)` resolves the
   trigger's authored `energyPerSecond` against the player stat sheet's
-  `baseEnergyGain` / `increasedEnergyGainPercent` / `energyGainMultiplier`
-  terms.
+  `baseEnergyGain` / `increasedEnergyGain` / `energyGainMultiplier` terms.
+  Both mana and energy use the shared `StatFold.Resolve` implementation.
 
 See [skill-modifiers.md](../game-logic/skill-modifiers.md) for the skill
 system's full application of this pattern: the modifier kind interfaces,

@@ -23,5 +23,5 @@ MonoBehaviour:
   critMultiplier: 1.5
   areaSizeMultiplier: 1
   baseEnergyGain: 0
-  increasedEnergyGainPercent: 0
+  increasedEnergyGain: 1
   energyGainMultiplier: 1

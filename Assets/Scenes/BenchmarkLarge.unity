@@ -331,7 +331,7 @@ MonoBehaviour:
   behaviour: {fileID: 11400000, guid: 4aac8482a8fe9094d89631645450595f, type: 2}
   placement: {fileID: 11400000, guid: 8f4a425140a0d5449bb2fb80385b00e0, type: 2}
   spawnPoints: []
-  cap: 100
+  cap: 200
   combatRoot: {fileID: 529810935}
   vfxRoot: {fileID: 0}
   target: {fileID: 0}

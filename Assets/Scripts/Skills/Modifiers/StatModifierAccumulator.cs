@@ -14,6 +14,7 @@ namespace PlayGround.Skills.Modifiers
         {
             for (var i = 0; i < StatCount; i++)
             {
+                increased[i] = 1f;
                 mul[i] = 1f;
             }
         }
@@ -23,9 +24,14 @@ namespace PlayGround.Skills.Modifiers
             added[(int)stat] += amount;
         }
 
-        public void AddIncreased(SkillStat stat, float percent)
+        public void AddIncreasedPercent(SkillStat stat, float percent)
         {
             increased[(int)stat] += percent;
+        }
+
+        public void AddIncreasedFactor(SkillStat stat, float factor)
+        {
+            increased[(int)stat] += factor - 1f;
         }
 
         public void AddMultiplier(SkillStat stat, float multiplier)

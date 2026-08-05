@@ -19,5 +19,5 @@ MonoBehaviour:
   echoCount: 2
   scatterRadius: 5
   manaCostAdded: 3
-  manaCostIncreasedPercent: 1.1
+  manaCostIncreased: 1.1
   manaCostMultiplier: 1.1

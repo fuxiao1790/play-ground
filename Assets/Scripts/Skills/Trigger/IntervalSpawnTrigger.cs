@@ -11,8 +11,8 @@ namespace PlayGround.Skills
         public float ResolveEnergyPerSecond(SkillStatSnapshot snapshot) =>
             Mathf.Max(0.01f, StatFold.Resolve(
                 baseValue: energyPerSecond,
-                added: snapshot.BaseEnergyGain,
-                increasedPercent: snapshot.IncreasedEnergyGainPercent,
+                addedBase: snapshot.BaseEnergyGain,
+                increased: snapshot.IncreasedEnergyGain,
                 multiplier: snapshot.EnergyGainMultiplier));
 
         public float ManaToEnergyCost(float manaCost) =>

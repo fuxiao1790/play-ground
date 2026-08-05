@@ -24,9 +24,14 @@ namespace PlayGround.Skills.Modifiers
             this.accumulator = accumulator;
         }
 
-        public void Add(SkillStat stat, float percent)
+        public void AddPercent(SkillStat stat, float percent)
         {
-            accumulator.AddIncreased(stat, percent);
+            accumulator.AddIncreasedPercent(stat, percent);
+        }
+
+        public void AddFactor(SkillStat stat, float factor)
+        {
+            accumulator.AddIncreasedFactor(stat, factor);
         }
     }
 

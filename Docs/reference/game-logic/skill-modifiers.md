@@ -150,17 +150,18 @@ all sources come from Layer 1.
 - `damageMultiplier`
 - `areaSizeMultiplier`
 - `baseEnergyGain`
-- `increasedEnergyGainPercent`
+- `increasedEnergyGain`
 - `energyGainMultiplier`
 
 Baking:
 - `increasedRatePercent` contributes an increased percent to the `Rate` fold
 - `damageMultiplier` contributes a multiplier to the `Damage` fold
 - `areaSizeMultiplier` contributes a multiplier to the `AreaSize` fold
-- `baseEnergyGain`, `increasedEnergyGainPercent`, and `energyGainMultiplier`
+- `baseEnergyGain`, `increasedEnergyGain`, and `energyGainMultiplier`
   do not feed the per-skill `StatModifierAccumulator` fold used by Rate/
-  Damage/AreaSize. They fold directly into each interval trigger's own
-  `energyPerSecond` at compile time: an interval trigger is a per-edge concern
+  Damage/AreaSize. They resolve through the shared `StatFold` into each interval
+  trigger's own `energyPerSecond` at compile time; `increasedEnergyGain` is a
+  direct multiplier (default `1`). An interval trigger is a per-edge concern
   with its own base value, not a set-level stat any support can attach to.
 - `recoveryTime` is derived after folding: `recoveryTime = 1 / rate`
 
@@ -171,6 +172,8 @@ resolved per link via `TriggerLink.ResolveManaCostFactor()` and
 `IntervalSpawnTrigger.ResolveEnergyPerSecond()` - the two single-source fold
 resolves documented in
 [numeric-modifiers.md#single-source-resolves](../architecture/numeric-modifiers.md#single-source-resolves).
+`manaCostIncreased` is a direct multiplier (default `1`); `1.1` means `1.1x`
+mana cost.
 The resolved mana-cost factor is used for the interval child-energy
 threshold, the initial active skill chain cost, and that link's triggered
 skill cost. See [skill-system.md](./skill-system.md#projectiledefinition) for

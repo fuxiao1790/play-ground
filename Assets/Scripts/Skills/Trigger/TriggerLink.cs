@@ -43,16 +43,16 @@ namespace PlayGround.Skills
         [FormerlySerializedAs("manaToEnergyRatio")]
         [Min(0f)] public float manaCostMultiplier = 1f;
 
-        // Applied before manaCostMultiplier: resolvedCost = childCost *
-        // (1 + manaCostIncreased) * manaCostMultiplier.
+        // Applied before manaCostMultiplier as a direct factor.
         [FormerlySerializedAs("manaCostIncreasedPercent")]
-        [Min(0f)] public float manaCostIncreased = 0f;
+        [Min(0f), Tooltip("Direct mana-cost increase multiplier. 1.1 means 1.1x mana cost.")]
+        public float manaCostIncreased = 1f;
 
         public float ResolveManaCostFactor() =>
             StatFold.Resolve(
                 baseValue: 1f,
-                added: 0f,
-                increasedPercent: manaCostIncreased,
+                addedBase: 0f,
+                increased: manaCostIncreased,
                 multiplier: manaCostMultiplier);
 
         public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;

@@ -17,4 +17,4 @@ MonoBehaviour:
   description: 
   icon: {fileID: 0}
   increasedRatePercent: 50
-  manaCostIncreased: 0
+  manaCostIncreased: 1

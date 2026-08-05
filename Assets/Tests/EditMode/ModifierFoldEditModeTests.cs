@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
+using PlayGround.Common.Modifiers;
 using PlayGround.Common.Stats;
 using PlayGround.Skills;
 using PlayGround.Skills.Modifiers;
@@ -112,11 +113,21 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void SharedStatFoldUsesBaseAddedIncreasedAndMultiplier()
+        {
+            Assert.That(StatFold.Resolve(
+                baseValue: 10f,
+                addedBase: 5f,
+                increased: 2f,
+                multiplier: 3f), Is.EqualTo(90f).Within(0.0001f));
+        }
+
+        [Test]
         public void AddedIncreasedAndMultiplierComposePerFormula()
         {
             var accumulator = new StatModifierAccumulator();
             accumulator.AddAdded(SkillStat.Damage, 5f);
-            accumulator.AddIncreased(SkillStat.Damage, 1f);
+            accumulator.AddIncreasedFactor(SkillStat.Damage, 2f);
             accumulator.AddMultiplier(SkillStat.Damage, 2f);
 
             Assert.That(accumulator.Resolve(SkillStat.Damage, 10f), Is.EqualTo(60f).Within(0.0001f));
@@ -167,10 +178,10 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void UnitStatSheetEnergyGainFieldsAggregateWithNeutralDefaultMultiplier()
+        public void UnitStatSheetEnergyGainFieldsAggregateWithNeutralDefaultMultipliers()
         {
             UnitStatSheet sheet = CreateAsset<UnitStatSheet>("Player Stats");
-            SetField(sheet, "increasedEnergyGainPercent", 20f);
+            SetField(sheet, "increasedEnergyGain", 1.5f);
             SetField(sheet, "baseEnergyGain", 1.5f);
             SetField(sheet, "energyGainMultiplier", 2f);
 
@@ -178,10 +189,12 @@ namespace PlayGround.Tests.EditMode
             UnitStatSheet freshSheet = CreateAsset<UnitStatSheet>("Fresh Player Stats");
             SkillStatSnapshot freshSnapshot = SkillStatAggregator.Aggregate(null, freshSheet);
 
-            Assert.That(snapshot.IncreasedEnergyGainPercent, Is.EqualTo(0.2f).Within(0.0001f));
+            Assert.That(snapshot.IncreasedEnergyGain, Is.EqualTo(1.5f).Within(0.0001f));
             Assert.That(snapshot.BaseEnergyGain, Is.EqualTo(1.5f).Within(0.0001f));
             Assert.That(snapshot.EnergyGainMultiplier, Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(freshSheet.IncreasedEnergyGain, Is.EqualTo(1f).Within(0.0001f));
             Assert.That(freshSheet.EnergyGainMultiplier, Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(freshSnapshot.IncreasedEnergyGain, Is.EqualTo(1f).Within(0.0001f));
             Assert.That(freshSnapshot.EnergyGainMultiplier, Is.EqualTo(1f).Within(0.0001f));
         }
 
@@ -196,10 +209,10 @@ namespace PlayGround.Tests.EditMode
                 critChance: 0f,
                 critMultiplier: 1.5f,
                 baseEnergyGain: 1f,
-                increasedEnergyGainPercent: 0.5f,
+                increasedEnergyGain: 0.5f,
                 energyGainMultiplier: 2f);
 
-            Assert.That(trigger.ResolveEnergyPerSecond(snapshot), Is.EqualTo(9f).Within(0.0001f));
+            Assert.That(trigger.ResolveEnergyPerSecond(snapshot), Is.EqualTo(3f).Within(0.0001f));
         }
 
         [Test]

@@ -19,5 +19,5 @@ MonoBehaviour:
   count: 1
   spreadDegrees: 15
   manaCostAdded: 1
-  manaCostIncreasedPercent: 1.1
+  manaCostIncreased: 1.1
   manaCostMultiplier: 1.1

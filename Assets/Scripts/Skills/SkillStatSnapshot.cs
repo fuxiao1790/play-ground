@@ -13,7 +13,7 @@ namespace PlayGround.Skills
             float critMultiplier,
             float areaSizeMultiplier = 1f,
             float baseEnergyGain = 0f,
-            float increasedEnergyGainPercent = 0f,
+            float increasedEnergyGain = 1f,
             float energyGainMultiplier = 1f)
         {
             IncreasedRatePercent = increasedRatePercent;
@@ -22,7 +22,7 @@ namespace PlayGround.Skills
             CritMultiplier = critMultiplier;
             AreaSizeMultiplier = areaSizeMultiplier;
             BaseEnergyGain = baseEnergyGain;
-            IncreasedEnergyGainPercent = increasedEnergyGainPercent;
+            IncreasedEnergyGain = increasedEnergyGain;
             EnergyGainMultiplier = energyGainMultiplier;
         }
 
@@ -32,7 +32,7 @@ namespace PlayGround.Skills
         public float CritMultiplier { get; }
         public float AreaSizeMultiplier { get; }
         public float BaseEnergyGain { get; }
-        public float IncreasedEnergyGainPercent { get; }
+        public float IncreasedEnergyGain { get; }
         public float EnergyGainMultiplier { get; }
     }
 
@@ -48,7 +48,7 @@ namespace PlayGround.Skills
                     sheet.CritMultiplier,
                     sheet.AreaSizeMultiplier,
                     sheet.BaseEnergyGain,
-                    sheet.IncreasedEnergyGainPercent,
+                    sheet.IncreasedEnergyGain,
                     sheet.EnergyGainMultiplier);
     }
 }

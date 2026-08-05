@@ -175,7 +175,7 @@ namespace PlayGround.Tests.EditMode
             definition.baseAreaSize = 4f;
             IncreasedAoeSupport support = CreateAsset<IncreasedAoeSupport>("Increased AOE");
             SetField(support, "areaSizeMultiplier", 1.5f);
-            SetField(support, "manaCostIncreased", 0.5f);
+            SetField(support, "manaCostIncreased", 1.5f);
             SkillSet set = CreateSkillSet("AOE Set", skill, support);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
@@ -220,7 +220,7 @@ namespace PlayGround.Tests.EditMode
             MultipleProjectilesSupport added = CreateAsset<MultipleProjectilesSupport>("Multiple Projectiles");
             SetField(added, "manaCostAdded", 3f);
             IncreasedAoeSupport increased = CreateAsset<IncreasedAoeSupport>("Increased AOE");
-            SetField(increased, "manaCostIncreased", 0.5f);
+            SetField(increased, "manaCostIncreased", 1.5f);
             ConcentratedEffectSupport multiplier = CreateAsset<ConcentratedEffectSupport>("Concentrated Effect");
             SetField(multiplier, "manaCostMultiplier", 1.5f);
             SkillSet set = CreateSkillSet("AOE Set", skill, added, increased, multiplier);
@@ -262,7 +262,7 @@ namespace PlayGround.Tests.EditMode
             SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
             OnImpactAoeTrigger trigger = CreateAsset<OnImpactAoeTrigger>("On Impact AOE");
             trigger.manaCostMultiplier = 2f;
-            trigger.manaCostIncreased = 0.5f;
+            trigger.manaCostIncreased = 1.5f;
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
                 new[]
@@ -316,7 +316,7 @@ namespace PlayGround.Tests.EditMode
                 critChance: 0f,
                 critMultiplier: 1.5f,
                 baseEnergyGain: 1f,
-                increasedEnergyGainPercent: 0.5f,
+                increasedEnergyGain: 0.5f,
                 energyGainMultiplier: 2f);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
@@ -330,7 +330,7 @@ namespace PlayGround.Tests.EditMode
 
             RuntimeChildSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).ChildSpawnSetup;
             Assert.That(setup, Is.Not.Null);
-            Assert.That(setup.EnergyPerSecond, Is.EqualTo(9f).Within(0.0001f));
+            Assert.That(setup.EnergyPerSecond, Is.EqualTo(3f).Within(0.0001f));
         }
 
         [Test]
@@ -377,7 +377,7 @@ namespace PlayGround.Tests.EditMode
                 critChance: 0f,
                 critMultiplier: 1.5f,
                 baseEnergyGain: 0.5f,
-                increasedEnergyGainPercent: 0.5f,
+                increasedEnergyGain: 0.5f,
                 energyGainMultiplier: 2f);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
@@ -391,7 +391,7 @@ namespace PlayGround.Tests.EditMode
 
             RuntimeAoeIntervalSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).AoeIntervalSpawnSetup;
             Assert.That(setup, Is.Not.Null);
-            Assert.That(setup.EnergyPerSecond, Is.EqualTo(6f).Within(0.0001f));
+            Assert.That(setup.EnergyPerSecond, Is.EqualTo(2f).Within(0.0001f));
         }
 
         [Test]
@@ -455,7 +455,7 @@ namespace PlayGround.Tests.EditMode
             SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
             ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
             trigger.manaCostMultiplier = 2f;
-            trigger.manaCostIncreased = 0.5f;
+            trigger.manaCostIncreased = 1.5f;
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
                 new[]

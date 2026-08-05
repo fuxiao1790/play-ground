@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace PlayGround.Common.Stats
 {
@@ -24,8 +25,9 @@ namespace PlayGround.Common.Stats
 
         [Header("Duration Skill Energy")]
         [SerializeField, Min(0f)] private float baseEnergyGain = 0f;
-        [SerializeField, Min(0f), Tooltip("Authored as percent points. 15 means +15% energy gain.")]
-        private float increasedEnergyGainPercent = 0f;
+        [FormerlySerializedAs("increasedEnergyGainPercent")]
+        [SerializeField, Min(0f), Tooltip("Direct energy-gain multiplier. 1.5 means 1.5x energy gain.")]
+        private float increasedEnergyGain = 1f;
         [SerializeField] private float energyGainMultiplier = 1f;
 
         public float MaxHealth => Mathf.Max(1f, maxHealth);
@@ -39,7 +41,7 @@ namespace PlayGround.Common.Stats
         public float CritMultiplier => Mathf.Max(1f, critMultiplier);
         public float AreaSizeMultiplier => Mathf.Max(0f, areaSizeMultiplier);
         public float BaseEnergyGain => Mathf.Max(0f, baseEnergyGain);
-        public float IncreasedEnergyGainPercent => Mathf.Max(0f, increasedEnergyGainPercent) * 0.01f;
+        public float IncreasedEnergyGain => Mathf.Max(0f, increasedEnergyGain);
         public float EnergyGainMultiplier => Mathf.Max(0f, energyGainMultiplier);
 
         internal void SetRuntimeValues(

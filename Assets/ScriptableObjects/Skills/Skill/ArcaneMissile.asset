@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileSkill
   assetGuid: 77007c219666046418c6dd37745733ff
   displayName: Arcane Missile
-  description:
+  description: 
   icon: {fileID: 0}
   baseRate: 1
   maxSupportCount: 6
@@ -28,9 +28,10 @@ MonoBehaviour:
     jitterDegrees: 0
     pierceCount: 0
     repeatHitCooldown: 1
-    manaCost: 2
+    manaCost: 3
     armSeconds: 0
     directDamageEnabled: 1
+    continuousCollision: 0
     trackingEnabled: 0
     trackingTurnSpeedDegrees: 180
     trackingQueryIntervalSeconds: 0.25
