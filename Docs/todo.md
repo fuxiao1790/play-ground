@@ -1,3 +1,10 @@
+refactor debt
+- spawn event structs are field-for-field identical across lanes (`ProjectileSpawnEvent`,
+  `ImpactAoeSpawnEvent`, `LingeringAoeSpawnEvent`, and the two targeted lanes once those land =
+  five copies), each with its own singleton lane and expansion system. Collapse to one
+  `CombatSpawnEvent` discriminated by the `IntervalChildKind` the struct already carries.
+  Deferred deliberately during targeted skills; see `.agent/targeted-skills/requirements.md` §9.
+
 minor performance related refacor
 - collision system writing into event queue instead of native stream, reader must free every element per read. (not sure if this is even problematic)
 
