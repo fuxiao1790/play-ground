@@ -199,6 +199,22 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void SpawnFrame_ArmsEveryChainSoNoSpriteDrawsOnTheCaster()
+        {
+            // Apply runs after resolve, so an unarmed chain would spend its spawn frame in render
+            // prep with kinematics still on the caster origin. Arming is what keeps it invisible.
+            Enqueue(MakeEvent(RegisterTemplate(), IntervalChildKind.Targeted, new float2(4f, -2f)));
+
+            Tick();
+
+            Entity chain = OnlyActiveTargeted();
+            Assert.That(_entityManager.IsComponentEnabled<ArmingTag>(chain), Is.True);
+            Assert.That(
+                _entityManager.GetComponentData<CombatArmingComponent>(chain).Remaining,
+                Is.Zero);
+        }
+
+        [Test]
         public void TargetedSpawnsContributeStatsAndDisplaySnapshot()
         {
             Enqueue(MakeEvent(RegisterTemplate(count: 2), IntervalChildKind.Targeted));

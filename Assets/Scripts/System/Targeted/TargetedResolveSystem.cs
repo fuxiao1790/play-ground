@@ -246,7 +246,17 @@ namespace PlayGround.System.Combat.Targeted
                 }
 
                 linksResolved = linksThisUpdate;
-                return chain.LinkIndex >= chainCount || (availableHits > 0 && linksThisUpdate == 0);
+
+                // An update that landed a link never ends the instance. The render mirror is only
+                // written above, and render prep runs after this system, so dying here would draw
+                // the sprite nowhere for a chainDelay = 0 walk. Holding the slot for one more
+                // update renders the sprite once on the final target, then expires.
+                if (linksThisUpdate > 0)
+                {
+                    return false;
+                }
+
+                return chain.LinkIndex >= chainCount || availableHits > 0;
             }
 
             private bool TrySelectNthNearest(

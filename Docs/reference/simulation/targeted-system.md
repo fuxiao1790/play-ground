@@ -7,8 +7,10 @@ Targeted chains are high-count ECS combat entities. Use
 
 A targeted entity walks target proxies. It has no gameplay collider and does
 not use Physics2D. There is exactly **one** targeted variant: a chain lives for
-its walk and no longer. It expires the instant it uses its last chain, or the
-instant a link finds nothing to jump to.
+its walk and one update longer. It expires on the first update that lands no
+link — because the walk used its last chain, or because a link found nothing to
+jump to. That trailing update is what renders the last link (see
+[Render Mirror And VFX](#render-mirror-and-vfx)).
 
 Repeating chains are composed, not authored: hang a
 `TargetedIntervalSpawnTrigger` off a projectile or lingering AOE and the source
@@ -74,15 +76,28 @@ finalize and spawn expansion. It searches hostile target proxies only:
    `chainDamageFalloff^linkIndex`, a hit VFX request, and a line segment.
 
 `chainDelay` gates links. The resolver consumes overdue gates in one update, so
-long frames catch up without inventing extra frames. When `LinkIndex` reaches
-`ChainCount`, or a link finds no target, the resolve disables `Active` and emits
-the expire VFX — the walk is the lifetime.
+long frames catch up without inventing extra frames. An update that lands a link
+never expires the instance. On the first update that lands none — `LinkIndex`
+has reached `ChainCount`, or a link found no target — the resolve disables
+`Active` and emits the expire VFX at the last link position.
 
 ## Render Mirror And VFX
 
 Chains carry shared render components so the common batched renderer can draw a
 debug sprite when authored. `CombatKinematicsComponent` is only a mirror of the
-last resolved link, not authoritative walk state. Link VFX uses `LineSegment`
+last resolved link, not authoritative walk state.
+
+Because it is only a mirror, a chain has no pose until its first link lands. Two
+rules keep the sprite on link targets and off the caster:
+
+1. A chain is **spawned armed** regardless of authored `armSeconds`, and render
+   prep hides armed entities. Apply runs after resolve, so without this the
+   spawn-frame sprite would draw at the spawn origin — the caster.
+   `CombatArmingSystem` clears a zero-length arm on the next update, which is the
+   same update the walk starts, so no link is delayed.
+2. The resolve holds the instance for one update after its last link, so the
+   final target gets a rendered frame. Without it a `chainDelay = 0` walk would
+   be born and expired between two render passes and never draw at all. Link VFX uses `LineSegment`
 requests with start position, end position, and authored link width; targeted
 chains have no gameplay area from which width or effect size can be derived.
 

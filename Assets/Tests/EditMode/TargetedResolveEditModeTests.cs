@@ -34,6 +34,7 @@ namespace PlayGround.Tests.EditMode
             _world.GetOrCreateSystemManaged<CombatAoeVfxDispatchSystem>();
             _world.GetOrCreateSystemManaged<CombatStatsGatherSystem>();
             _simulation.AddSystemToUpdateList(_world.GetOrCreateSystem<TargetSpatialHashSystem>());
+            _simulation.AddSystemToUpdateList(_world.GetOrCreateSystem<CombatArmingSystem>());
             _simulation.AddSystemToUpdateList(_world.GetOrCreateSystem<TargetedResolveSystem>());
             _simulation.SortSystems();
         }
@@ -59,6 +60,84 @@ namespace PlayGround.Tests.EditMode
             Assert.That(hits, Has.Length.EqualTo(1));
             Assert.That(hits[0].Source, Is.EqualTo(chain));
             Assert.That(hits[0].Target, Is.EqualTo(target));
+        }
+
+        [Test]
+        public void ZeroLengthArm_ClearsAndWalksInTheSameUpdate()
+        {
+            // Chains spawn armed so their sprite never draws on the caster. A zero-length arm must
+            // cost the walk nothing: arming clears and link 0 lands in the same update.
+            Entity target = AddCircleTarget(new float2(1f, 0f), 0.25f);
+            Entity chain = AddChain(instanceIndex: 0, chainDistance: 2f, chainCount: 1, armed: true);
+
+            Tick();
+
+            CombatHitEvent[] hits = DrainHits();
+            Assert.That(_entityManager.IsComponentEnabled<ArmingTag>(chain), Is.False);
+            Assert.That(hits, Has.Length.EqualTo(1));
+            Assert.That(hits[0].Target, Is.EqualTo(target));
+        }
+
+        [Test]
+        public void LinkZero_SkipsNearerSameFactionProxy()
+        {
+            AddCircleTarget(new float2(0.5f, 0f), 0.25f, CombatFaction.Player);
+            Entity hostile = AddCircleTarget(new float2(2f, 0f), 0.25f);
+            AddChain(instanceIndex: 0, chainDistance: 5f, chainCount: 1);
+
+            Tick();
+
+            CombatHitEvent[] hits = DrainHits();
+            Assert.That(hits, Has.Length.EqualTo(1));
+            Assert.That(hits[0].Target, Is.EqualTo(hostile));
+        }
+
+        [Test]
+        public void ChainHop_SkipsNearerSameFactionProxy()
+        {
+            Entity firstHostile = AddCircleTarget(new float2(1f, 0f), 0.25f);
+            AddCircleTarget(new float2(1.2f, 0f), 0.25f, CombatFaction.Player);
+            Entity secondHostile = AddCircleTarget(new float2(2f, 0f), 0.25f);
+            AddChain(instanceIndex: 0, chainDistance: 3f, chainCount: 2);
+
+            Tick();
+
+            // Hit order is not guaranteed: the lane is a parallel-writer queue.
+            Assert.That(TargetsFor(DrainHits()),
+                Is.EquivalentTo(new[] { firstHostile, secondHostile }));
+        }
+
+        [Test]
+        public void MobChain_WalksPlayerFactionProxiesOnly()
+        {
+            AddCircleTarget(new float2(1f, 0f), 0.25f);
+            Entity hostile = AddCircleTarget(new float2(2f, 0f), 0.25f, CombatFaction.Player);
+            AddChain(instanceIndex: 0, chainDistance: 5f, chainCount: 1, faction: CombatFaction.Mob);
+
+            Tick();
+
+            CombatHitEvent[] hits = DrainHits();
+            Assert.That(hits, Has.Length.EqualTo(1));
+            Assert.That(hits[0].Target, Is.EqualTo(hostile));
+        }
+
+        [Test]
+        public void Walk_EndsWhenOnlySameFactionProxiesRemain()
+        {
+            Entity hostile = AddCircleTarget(new float2(1f, 0f), 0.25f);
+            AddCircleTarget(new float2(1.2f, 0f), 0.25f, CombatFaction.Player);
+            Entity chain = AddChain(instanceIndex: 0, chainDistance: 3f, chainCount: 4);
+
+            Tick();
+
+            CombatHitEvent[] hits = DrainHits();
+            Assert.That(hits, Has.Length.EqualTo(1));
+            Assert.That(hits[0].Target, Is.EqualTo(hostile));
+
+            Tick();
+
+            Assert.That(DrainHits(), Is.Empty);
+            Assert.That(_entityManager.IsComponentEnabled<Active>(chain), Is.False);
         }
 
         [Test]
@@ -112,10 +191,20 @@ namespace PlayGround.Tests.EditMode
         public void Lifetime_EndsWithTheWalkNotWithATimer()
         {
             // The whole point of the collapsed shape: an instance is alive exactly as long as it
-            // still has chains to use. A completed walk expires it on the spot.
+            // still has chains to use, plus the single update that renders its last link.
             AddCircleTarget(new float2(1f, 0f), 0.25f);
             Entity chain = AddChain(instanceIndex: 0, chainDistance: 2f, chainCount: 1);
             _entityManager.SetComponentData(chain, new CombatLifetimeComponent { Remaining = 999f });
+
+            Tick();
+
+            // Alive for exactly one update after the last link, with the mirror on the target so
+            // render prep draws the sprite there instead of on the spawn origin.
+            Assert.That(_entityManager.IsComponentEnabled<Active>(chain), Is.True);
+            CombatKinematicsComponent mirror =
+                _entityManager.GetComponentData<CombatKinematicsComponent>(chain);
+            Assert.That(mirror.Position.x, Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(mirror.Position.y, Is.EqualTo(0f).Within(0.0001f));
 
             Tick();
 
@@ -223,7 +312,10 @@ namespace PlayGround.Tests.EditMode
             Assert.That(DrainLineSegments(), Is.Empty);
         }
 
-        private Entity AddCircleTarget(float2 position, float radius)
+        private Entity AddCircleTarget(
+            float2 position,
+            float radius,
+            CombatFaction faction = CombatFaction.Mob)
         {
             CombatCollisionMath.ComputeWorldBounds(
                 position,
@@ -246,11 +338,16 @@ namespace PlayGround.Tests.EditMode
                 BoundsMin = boundsMin,
                 BoundsMax = boundsMax
             });
-            _entityManager.SetComponentData(entity, new TargetFaction { Value = CombatFaction.Mob });
+            _entityManager.SetComponentData(entity, new TargetFaction { Value = faction });
             return entity;
         }
 
-        private Entity AddChain(int instanceIndex, float chainDistance, int chainCount)
+        private Entity AddChain(
+            int instanceIndex,
+            float chainDistance,
+            int chainCount,
+            CombatFaction faction = CombatFaction.Player,
+            bool armed = false)
         {
             Entity entity = _entityManager.CreateEntity(
                 typeof(TargetedTag),
@@ -263,11 +360,12 @@ namespace PlayGround.Tests.EditMode
                 typeof(VfxTimingData),
                 typeof(CombatKinematicsComponent),
                 typeof(CombatLifetimeComponent),
+                typeof(CombatArmingComponent),
                 typeof(Active),
                 typeof(ArmingTag));
             _entityManager.SetComponentData(entity, new TargetedIdentityComponent
             {
-                Faction = CombatFaction.Player,
+                Faction = faction,
                 InstanceIndex = instanceIndex
             });
             _entityManager.SetComponentData(entity, new TargetedResolveConfig
@@ -276,7 +374,7 @@ namespace PlayGround.Tests.EditMode
                 ChainDamageFalloff = 1f,
                 ChainCount = chainCount
             });
-            _entityManager.SetComponentEnabled<ArmingTag>(entity, false);
+            _entityManager.SetComponentEnabled<ArmingTag>(entity, armed);
             return entity;
         }
 
@@ -338,6 +436,17 @@ namespace PlayGround.Tests.EditMode
             }
 
             return false;
+        }
+
+        private static Entity[] TargetsFor(CombatHitEvent[] hits)
+        {
+            Entity[] targets = new Entity[hits.Length];
+            for (int i = 0; i < hits.Length; i++)
+            {
+                targets[i] = hits[i].Target;
+            }
+
+            return targets;
         }
 
         private static Entity TargetFor(CombatHitEvent[] hits, Entity source)

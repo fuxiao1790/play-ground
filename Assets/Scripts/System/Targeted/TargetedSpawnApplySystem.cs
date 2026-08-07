@@ -186,7 +186,13 @@ namespace PlayGround.System.Combat.Targeted
                         lifetimes[i] = new CombatLifetimeComponent { Remaining = cfg.LifetimeSeconds };
                         armings[i] = new CombatArmingComponent { Remaining = cfg.ArmSeconds };
                         activeMask[i] = true;
-                        armingMask[i] = cfg.ArmSeconds > 0f;
+                        // A chain has no pose until its first link lands: CombatKinematicsComponent
+                        // still holds the spawn origin, which is the caster. Apply runs after
+                        // resolve, so an unarmed chain would sit through render prep and draw its
+                        // sprite on the caster for one frame every cast. Arm every chain instead;
+                        // CombatArmingSystem clears a zero-length arm on the next update, which is
+                        // the same update the walk starts, so no link is delayed.
+                        armingMask[i] = true;
                     }
                 }
 
