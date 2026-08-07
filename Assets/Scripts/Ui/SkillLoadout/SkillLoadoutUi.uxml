@@ -10,6 +10,7 @@
             <ui:Label name="performance-delete-ecb" class="performance-text" />
             <ui:Label name="performance-projectiles" class="performance-text" />
             <ui:Label name="performance-aoes" class="performance-text" />
+            <ui:Label name="performance-targeted" class="performance-text" />
             <ui:Label name="performance-hit-events" class="performance-text" />
             <ui:Label name="performance-vfx-events" class="performance-text" />
             <ui:Label name="performance-vfx-particles" class="performance-text" />

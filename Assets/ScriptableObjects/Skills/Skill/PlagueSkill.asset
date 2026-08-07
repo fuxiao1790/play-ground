@@ -23,7 +23,7 @@ MonoBehaviour:
     manaCost: 1
     directDamageEnabled: 1
     count: 1
-    acquireRadius: 4
+    acquireRadius: 20
     maxTargets: 4
     chainRadius: 4
     chainDamageFalloff: 0

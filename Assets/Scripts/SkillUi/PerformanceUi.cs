@@ -20,6 +20,7 @@ namespace PlayGround.SkillUi
         private Label deleteEcbText;
         private Label projectilesText;
         private Label aoesText;
+        private Label targetedText;
         private Label hitEventsText;
         private Label vfxEventsText;
         private Label vfxParticlesText;
@@ -45,11 +46,13 @@ namespace PlayGround.SkillUi
             deleteEcbText = document.rootVisualElement.Q<Label>("performance-delete-ecb");
             projectilesText = document.rootVisualElement.Q<Label>("performance-projectiles");
             aoesText = document.rootVisualElement.Q<Label>("performance-aoes");
+            targetedText = document.rootVisualElement.Q<Label>("performance-targeted");
             hitEventsText = document.rootVisualElement.Q<Label>("performance-hit-events");
             vfxEventsText = document.rootVisualElement.Q<Label>("performance-vfx-events");
             vfxParticlesText = document.rootVisualElement.Q<Label>("performance-vfx-particles");
             if (performancePanel == null || fpsText == null || spawnReuseText == null || createEcbText == null
                 || despawnedText == null || deleteEcbText == null || projectilesText == null || aoesText == null
+                || targetedText == null
                 || hitEventsText == null || vfxEventsText == null || vfxParticlesText == null)
                 throw new InvalidOperationException(
                     $"{nameof(PerformanceUi)} could not find its required elements. Assign SkillLoadoutUi.uxml as the UIDocument Source Asset.");
@@ -79,6 +82,7 @@ namespace PlayGround.SkillUi
             deleteEcbText.text = $"Delete ECB:   {stats.EntitiesDeleted}";
             projectilesText.text = $"Projectiles:  {stats.ActiveProjectiles}";
             aoesText.text = $"AOEs:         {stats.ActiveAoes}";
+            targetedText.text = $"Targeted:     {stats.ActiveTargeted}";
             hitEventsText.text = $"Hit events:   {stats.HitEventsCreated}";
             vfxEventsText.text = $"VFX events:   {stats.VfxEventsCreated}";
             vfxParticlesText.text = $"VFX particles: {CombatVfxRoot.AliveParticleCount(false)}";
