@@ -8,6 +8,7 @@ using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Targeted;
 using PlayGround.System.Combat.Projectiles;
 using PlayGround.System.Combat.Vfx;
 using Unity.Collections;
@@ -22,11 +23,15 @@ namespace PlayGround.System.Combat.Stats
         private Entity _statsEntity;
         private EntityQuery activeProjectileRenderQuery;
         private EntityQuery activeAoeRenderQuery;
+        private EntityQuery activeTargetedQuery;
 
         protected override void OnCreate()
         {
             _statsEntity = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(_statsEntity, new CombatStatsSingleton());
+            EntityManager.AddComponentData(_statsEntity, new CombatStatsSingleton
+            {
+                TargetedLinkCounts = new NativeQueue<int>(Allocator.Persistent)
+            });
             EntityManager.AddComponentData(_statsEntity, new CombatStatsDisplaySingleton());
 
             activeProjectileRenderQuery = new EntityQueryBuilder(Allocator.Temp)
@@ -40,6 +45,26 @@ namespace PlayGround.System.Combat.Stats
                 .WithAll<Active>()
                 .WithAll<AoeTag>()
                 .Build(this);
+
+            activeTargetedQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<TargetedTag>()
+                .WithAll<Active>()
+                .Build(this);
+        }
+
+        protected override void OnDestroy()
+        {
+            if (_statsEntity == Entity.Null || !EntityManager.Exists(_statsEntity))
+            {
+                return;
+            }
+
+            CombatStatsSingleton stats = EntityManager.GetComponentData<CombatStatsSingleton>(_statsEntity);
+            stats.TargetedLinkProducerHandle.Complete();
+            if (stats.TargetedLinkCounts.IsCreated)
+            {
+                stats.TargetedLinkCounts.Dispose();
+            }
         }
 
         protected override void OnUpdate()
@@ -52,6 +77,14 @@ namespace PlayGround.System.Combat.Stats
             CombatStatsSingleton snapshot = EntityManager.GetComponentData<CombatStatsSingleton>(_statsEntity);
             snapshot.ActiveProjectiles = activeProjectileRenderQuery.CalculateEntityCount();
             snapshot.ActiveAoes = activeAoeRenderQuery.CalculateEntityCount();
+            snapshot.ActiveTargeted = activeTargetedQuery.CalculateEntityCount();
+            snapshot.TargetedLinkProducerHandle.Complete();
+            while (snapshot.TargetedLinkCounts.TryDequeue(out int links))
+            {
+                snapshot.TargetedLinksResolved += links;
+            }
+
+            snapshot.TargetedLinkProducerHandle = default;
             EntityManager.SetComponentData(_statsEntity, snapshot);
 
             // Publish a full copy to the display mirror. This is the only write this component
@@ -60,8 +93,11 @@ namespace PlayGround.System.Combat.Stats
             {
                 EntitiesSpawnedViaEcb = snapshot.EntitiesSpawnedViaEcb,
                 EntitiesSpawnedViaReuse = snapshot.EntitiesSpawnedViaReuse,
+                TargetedEntitiesSpawned = snapshot.TargetedEntitiesSpawned,
+                TargetedLinksResolved = snapshot.TargetedLinksResolved,
                 ActiveProjectiles = snapshot.ActiveProjectiles,
                 ActiveAoes = snapshot.ActiveAoes,
+                ActiveTargeted = snapshot.ActiveTargeted,
                 HitEventsCreated = snapshot.HitEventsCreated,
                 VfxEventsCreated = snapshot.VfxEventsCreated,
                 EntitiesDespawned = snapshot.EntitiesDespawned,

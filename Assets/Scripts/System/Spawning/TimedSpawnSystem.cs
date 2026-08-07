@@ -10,6 +10,7 @@ using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Targeted;
 using PlayGround.System.Combat.Vfx;
 using Unity.Burst;
 using Unity.Collections;
@@ -24,6 +25,8 @@ namespace PlayGround.System.Combat.Spawning
     [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
     [UpdateBefore(typeof(ImpactAoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(LingeringAoeSpawnExpansionSystem))]
+    [UpdateBefore(typeof(TargetedSpawnExpansionSystem))]
+    [UpdateBefore(typeof(LingeringTargetedSpawnExpansionSystem))]
     public partial struct TimedSpawnSystem : ISystem
     {
         public void OnUpdate(ref SystemState state)
@@ -36,16 +39,40 @@ namespace PlayGround.System.Combat.Spawning
                 SystemAPI.GetSingletonRW<ImpactAoeSpawnEventSingleton>();
             RefRW<LingeringAoeSpawnEventSingleton> lingeringAoeLane =
                 SystemAPI.GetSingletonRW<LingeringAoeSpawnEventSingleton>();
+            bool hasTargetedLane = SystemAPI.TryGetSingletonRW<TargetedSpawnEventSingleton>(out RefRW<TargetedSpawnEventSingleton> targetedLane);
+            bool hasLingeringTargetedLane = SystemAPI.TryGetSingletonRW<LingeringTargetedSpawnEventSingleton>(out RefRW<LingeringTargetedSpawnEventSingleton> lingeringTargetedLane);
+            NativeQueue<TargetedSpawnEvent> fallbackTargetedQueue = hasTargetedLane
+                ? default
+                : new NativeQueue<TargetedSpawnEvent>(Allocator.TempJob);
+            NativeQueue<LingeringTargetedSpawnEvent> fallbackLingeringTargetedQueue = hasLingeringTargetedLane
+                ? default
+                : new NativeQueue<LingeringTargetedSpawnEvent>(Allocator.TempJob);
 
             JobHandle handle = new TimedSpawnJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
                 ProjectileEventQueue = projectileLane.ValueRO.EventQueue.AsParallelWriter(),
                 ImpactAoeEventQueue = impactAoeLane.ValueRO.EventQueue.AsParallelWriter(),
-                LingeringAoeEventQueue = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter()
+                LingeringAoeEventQueue = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter(),
+                HasTargetedLane = hasTargetedLane,
+                HasLingeringTargetedLane = hasLingeringTargetedLane,
+                TargetedEventQueue = hasTargetedLane
+                    ? targetedLane.ValueRO.EventQueue.AsParallelWriter()
+                    : fallbackTargetedQueue.AsParallelWriter(),
+                LingeringTargetedEventQueue = hasLingeringTargetedLane
+                    ? lingeringTargetedLane.ValueRO.EventQueue.AsParallelWriter()
+                    : fallbackLingeringTargetedQueue.AsParallelWriter()
             }.ScheduleParallel(state.Dependency);
 
             state.Dependency = handle;
+            if (!hasTargetedLane)
+            {
+                state.Dependency = fallbackTargetedQueue.Dispose(state.Dependency);
+            }
+            if (!hasLingeringTargetedLane)
+            {
+                state.Dependency = fallbackLingeringTargetedQueue.Dispose(state.Dependency);
+            }
 
             projectileLane.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(projectileLane.ValueRW.ProducerHandle, handle);
@@ -53,6 +80,16 @@ namespace PlayGround.System.Combat.Spawning
                 JobHandle.CombineDependencies(impactAoeLane.ValueRW.ProducerHandle, handle);
             lingeringAoeLane.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(lingeringAoeLane.ValueRW.ProducerHandle, handle);
+            if (hasTargetedLane)
+            {
+                targetedLane.ValueRW.ProducerHandle =
+                    JobHandle.CombineDependencies(targetedLane.ValueRW.ProducerHandle, handle);
+            }
+            if (hasLingeringTargetedLane)
+            {
+                lingeringTargetedLane.ValueRW.ProducerHandle =
+                    JobHandle.CombineDependencies(lingeringTargetedLane.ValueRW.ProducerHandle, handle);
+            }
         }
 
         [BurstCompile]
@@ -64,6 +101,10 @@ namespace PlayGround.System.Combat.Spawning
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventQueue;
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventQueue;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventQueue;
+            public bool HasTargetedLane;
+            public bool HasLingeringTargetedLane;
+            public NativeQueue<TargetedSpawnEvent>.ParallelWriter TargetedEventQueue;
+            public NativeQueue<LingeringTargetedSpawnEvent>.ParallelWriter LingeringTargetedEventQueue;
 
             // Safety guards: a bad threshold stays positive and catch-up remains bounded.
             private const float MinEnergyThreshold = 1e-3f;
@@ -118,7 +159,7 @@ namespace PlayGround.System.Combat.Spawning
                             DeterministicIdTickIndex = tickIndex
                         });
                     }
-                    else
+                    else if (spawn.ChildKind == IntervalChildKind.Projectile)
                     {
                         ProjectileEventQueue.Enqueue(new ProjectileSpawnEvent
                         {
@@ -131,6 +172,45 @@ namespace PlayGround.System.Combat.Spawning
                             JitterSeed = (uint)spawn.JitterSeed,
                             DeterministicIdTickIndex = tickIndex
                         });
+                    }
+                    else if (spawn.ChildKind == IntervalChildKind.Targeted)
+                    {
+                        if (!HasTargetedLane)
+                            throw new global::System.InvalidOperationException("Targeted timed-spawn lane is missing.");
+                        TargetedEventQueue.Enqueue(new TargetedSpawnEvent
+                        {
+                            Kind = IntervalChildKind.Targeted,
+                            TemplateKey = spawn.TemplateKey,
+                            Position = kinematics.Position,
+                            AcquireAnchor = kinematics.Position,
+                            AimDirection = default,
+                            Faction = spawn.Faction,
+                            SourceId = spawn.SourceId,
+                            JitterSeed = (uint)spawn.JitterSeed,
+                            DeterministicIdTickIndex = tickIndex
+                        });
+                    }
+                    else if (spawn.ChildKind == IntervalChildKind.LingeringTargeted)
+                    {
+                        if (!HasLingeringTargetedLane)
+                            throw new global::System.InvalidOperationException("Lingering targeted timed-spawn lane is missing.");
+                        LingeringTargetedEventQueue.Enqueue(new LingeringTargetedSpawnEvent
+                        {
+                            Kind = IntervalChildKind.LingeringTargeted,
+                            TemplateKey = spawn.TemplateKey,
+                            Position = kinematics.Position,
+                            AcquireAnchor = kinematics.Position,
+                            AimDirection = default,
+                            Faction = spawn.Faction,
+                            SourceId = spawn.SourceId,
+                            JitterSeed = (uint)spawn.JitterSeed,
+                            DeterministicIdTickIndex = tickIndex
+                        });
+                    }
+                    else
+                    {
+                        throw new global::System.InvalidOperationException(
+                            $"Unhandled interval child kind {spawn.ChildKind}.");
                     }
 
                     state.EnergyAccumulated -= threshold;

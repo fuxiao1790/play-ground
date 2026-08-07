@@ -90,8 +90,10 @@ Each must hold after the change; source in brackets.
 
 **Reused as-is — no new code:**
 
-- Broadphase: `TargetSpatialHashSingleton.TrackingCells` + the parallel snapshot arrays. Already a
-  centre-point radius index rebuilt every frame. **No new spatial structure.**
+- Broadphase: `TargetSpatialHashSingleton.AoeOccupiedCells` + the parallel snapshot arrays — the
+  same bounds-expanded hash AOE area queries use, rebuilt every frame. **No new spatial
+  structure.** Narrow phase reuses `CombatCollisionMath`, so a chain decides "is this target in
+  range" with the same test an AOE does.
 - Hit path: `CombatHitEvent` → `CombatHitDispatchSingleton` → `CombatApplyFinalizeSingleSystem` →
   `CombatTickResult` → `CombatApplyBridge`. No targeted-specific presentation code.
 - Pooling: `Active` enableable + `SpawnPoolTopUp.EnsureDisabledSlots` + `CombatPoolCleanupSystem`.
@@ -118,7 +120,8 @@ Each must hold after the change; source in brackets.
 | Two expansion + two apply systems | Mirrors `ImpactAoe*`/`LingeringAoe*`; sharing a core, not the systems. | 003 |
 | `TargetedResolveCore` + two resolve systems | Mirrors `AoeCollisionCore` + the two AOE collision systems. | 004 |
 | `CombatHitEvent.DamageScale` | No per-hit damage channel exists. §2. | 001 |
-| `TargetedPrefab`, two skill SOs, two definitions | Mirrors `BasicAoePrefab` / `AoeSkill` / `LingeringAoeSkill`. | 008 |
+| `TargetedTypeDefinition`, `TargetedTypeRegistry` | Sim-side registration type mirroring `AoeTypeDefinition` / `AoeTypeRegistry`; minus the collision shape. | 007 |
+| `TargetedPrefab`, two skill SOs, two definitions | Skills-side authoring mirroring `BasicAoePrefab` / `AoeSkill` / `LingeringAoeSkill`. | 008 |
 | `OnImpactTargetedTrigger`, `TargetedIntervalSpawnTrigger` | Trigger links are typed by output domain; a third domain needs its two. | 010 |
 | `MultipleChainsSupport` | Third member of the `MultipleProjectiles`/`MultipleAoes` family. | 011 |
 
@@ -129,7 +132,7 @@ Each must hold after the change; source in brackets.
 | Invariant | How the design holds |
 |---|---|
 | C1 | Every targeted query includes `TargetedTag`; the variant systems additionally filter on `LingeringTargetedTag` presence/absence, exactly as the AOE pools do. |
-| C2 | The resolve job reads only the broadphase snapshot arrays and its own chain state. **No `ComponentLookup` at all** — the liveness check that would have needed one was dropped (§2). |
+| C2 | The resolve job reads only the broadphase snapshot arrays (positions, shapes, factions, entities) and its own chain state. **No `ComponentLookup` at all** — the liveness check that would have needed one was dropped (§2). |
 | C3 | Producers enqueue an event carrying template key + origin + anchor + faction + ids. `TargetedExpansionCore` dereferences the template and emits one `TargetedSpawnCommand` per fork. |
 | C4 | Templates are registered from `CombatRoot` during compile (managed, pre-tick) and read `[ReadOnly]` in the expansion job. |
 | C5 | Apply mirrors `ImpactAoeSpawnApplySystem`: `SpawnPoolTopUp.EnsureDisabledSlots` then a chunk job over `WithDisabled<Active>`. Expiry disables, never destroys. |
@@ -138,7 +141,7 @@ Each must hold after the change; source in brackets.
 | C8 | Resolve combines `BuildHandle`, publishes into `ConsumerHandle` — same shape as `LingeringAoeCollisionSystem.OnUpdate`. |
 | C9 | Walk state is four `float2` + two `int` + one `float`, all inline. Exclusion is one `int`. No per-entity container, nothing to allocate or grow. |
 | C10 | Resolve runs before apply, so a chain spawned this frame first resolves next frame. Documented consequence: triggered chains land one frame after their cause, identical to impact AOEs. |
-| C11 | `MaxChainTargets`, `MaxTargetedSearchRadius`, `MinTickInterval` bound per-resolve work. Spawn/despawn counts feed `CombatStatsSingleton` so the pool-cleanup calm-down gate stays correct. **Gap: no scene-level concurrency cap — see §8.** |
+| C11 | `MaxChainTargets` and `MinTickInterval` bound authored counts; search needs no radius cap because the occupied-cells hash makes query cost track targets present, not radius. Spawn/despawn counts feed `CombatStatsSingleton` so the pool-cleanup calm-down gate stays correct. Scene-level concurrency is deferred (§8). |
 | C12 | Task 002 carries the lifecycle comments; every later task that changes a lifecycle updates them in the same commit. |
 | C13 | Each lane singleton disposes its queue and command list in the owning system's `OnDestroy`, mirroring `ImpactAoeSpawnExpansionSystem.OnDestroy`. |
 | C14 | Task 008 and task 015 list editor work as **user steps** with explicit instructions; no asset YAML is authored by the agent. |
@@ -208,7 +211,7 @@ Bottom-up. Tasks 1–7 need no authored asset and are verifiable in EditMode.
 | [004](./004-resolve-core-and-systems.md) | `TargetedResolveCore` + two resolve systems | 002, 003 |
 | [005](./005-lifetime-arming-pool-cleanup.md) | Lifetime jobs, arming, pool cleanup, stats counters | 003 |
 | [006](./006-render-and-link-vfx.md) | Render mirror, `renderQuery`, `LineSegment` emission | 004 |
-| [007](./007-combat-root-registration-and-spawn-api.md) | `CombatRoot` registration + spawn API + gate routing | 002, 003 |
+| [007](./007-combat-root-registration-and-spawn-api.md) | `TargetedTypeDefinition` + `CombatRoot` registration + spawn API + gate routing | 002, 003 |
 | [008](./008-authoring-prefab-and-skill-types.md) | `TargetedPrefab`, two skill SOs, two definitions | — |
 | [009](./009-compiler-runtime-definitions.md) | `RuntimeTargetedDefinition`, compile, template registration | 007, 008 |
 | [010](./010-trigger-links.md) | `OnImpactTargetedTrigger`, `TargetedIntervalSpawnTrigger` | 009 |

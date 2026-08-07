@@ -24,6 +24,16 @@ namespace PlayGround.Skills.Runtime
         public Hash128 TemplateKey { get; set; }
     }
 
+    public sealed class RuntimeTargetedIntervalSpawnSetup
+    {
+        public int JitterSeed { get; set; }
+        public RuntimeTargetedDefinition ChildDefinition { get; set; }
+        public float EnergyPerSecond { get; set; }
+        public float EnergyThreshold { get; set; }
+        public int Count { get; set; }
+        public Hash128 TemplateKey { get; set; }
+    }
+
     public sealed class RuntimeAoeIntervalSpawnSetup
     {
         public int JitterSeed { get; set; }
@@ -60,8 +70,14 @@ namespace PlayGround.Skills.Runtime
         // Compiled from AoeIntervalSpawnTrigger; null if none.
         public RuntimeAoeIntervalSpawnSetup AoeIntervalSpawnSetup { get; set; }
 
+        // Compiled from TargetedIntervalSpawnTrigger; null if none.
+        public RuntimeTargetedIntervalSpawnSetup TargetedIntervalSpawnSetup { get; set; }
+
         // Compiled from OnImpactAoeTrigger; null if none.
         public RuntimeAoeDefinition ImpactAoeDefinition { get; set; }
+
+        // Compiled from OnImpactTargetedTrigger; null if none.
+        public RuntimeTargetedDefinition ImpactTargetedDefinition { get; set; }
 
         // Compiled from OnImpactProjectileTrigger; null if none.
         public RuntimeProjectileDefinition ImpactProjectileDefinition { get; set; }

@@ -9,12 +9,14 @@ using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
+using PlayGround.System.Combat.Targeted;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Vfx;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 namespace PlayGround.System.Combat.Lifetime
@@ -49,6 +51,8 @@ namespace PlayGround.System.Combat.Lifetime
     public partial class CombatPoolCleanupSystem : SystemBase
     {
         private EntityQuery _poolQuery;
+        private EntityQuery _targetedPoolQuery;
+        private EntityQuery _lingeringTargetedPoolQuery;
         private EntityTypeHandle _entityHandle;
         private ComponentTypeHandle<Active> _activeHandle;
 
@@ -74,11 +78,23 @@ namespace PlayGround.System.Combat.Lifetime
                 EntityManager.SetComponentData(configEntity, CombatPoolCleanupConfig.Default);
             }
 
-            // One query spans every reuse pool (projectiles + both AOE archetypes). Chunks are
-            // already archetype-separated, so the per-chunk trim decision is pool-agnostic.
+            // Projectile/AOE pools share the existing query. Targeted pools stay split by their
+            // lingering discriminator so single-hit and interval slots trim independently.
             _poolQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<Active>()
                 .WithAny<ProjectileTag, AoeTag>()
+                .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
+                .Build(this);
+            _targetedPoolQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<Active>()
+                .WithAll<TargetedTag>()
+                .WithNone<LingeringTargetedTag>()
+                .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
+                .Build(this);
+            _lingeringTargetedPoolQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<Active>()
+                .WithAll<TargetedTag>()
+                .WithAll<LingeringTargetedTag>()
                 .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
                 .Build(this);
 
@@ -104,7 +120,9 @@ namespace PlayGround.System.Combat.Lifetime
             // skip the gate and trim unconditionally, same as the old busy-gate fallback.
             if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(out RefRW<CombatStatsSingleton> loadStats))
             {
-                int activeLoad = loadStats.ValueRO.ActiveProjectiles + loadStats.ValueRO.ActiveAoes;
+                int activeLoad = loadStats.ValueRO.ActiveProjectiles
+                    + loadStats.ValueRO.ActiveAoes
+                    + loadStats.ValueRO.ActiveTargeted;
                 int spawns = loadStats.ValueRO.EntitiesSpawnedViaEcb + loadStats.ValueRO.EntitiesSpawnedViaReuse;
                 int despawns = math.max(0, _prevSpawns - (activeLoad - _prevActiveLoad));
                 loadStats.ValueRW.EntitiesDespawned += despawns;
@@ -123,38 +141,57 @@ namespace PlayGround.System.Combat.Lifetime
                 }
             }
 
-            if (_poolQuery.IsEmpty)
+            if (_poolQuery.IsEmpty
+                && _targetedPoolQuery.IsEmpty
+                && _lingeringTargetedPoolQuery.IsEmpty)
             {
                 return;
             }
 
             // Only disabled entities are destroyed and nothing else mutates the pool mid-update,
             // so the drop in total pool count equals the number deleted.
-            int before = _poolQuery.CalculateEntityCount();
+            int before = _poolQuery.CalculateEntityCount()
+                + _targetedPoolQuery.CalculateEntityCount()
+                + _lingeringTargetedPoolQuery.CalculateEntityCount();
 
             _entityHandle.Update(this);
             _activeHandle.Update(this);
 
             EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.TempJob);
+            EntityCommandBuffer.ParallelWriter ecbWriter = ecb.AsParallelWriter();
 
-            Dependency = new PoolTrimJob
-            {
-                EntityHandle = _entityHandle,
-                ActiveHandle = _activeHandle,
-                ActiveThresholdPercent = cfg.ChunkActiveThresholdPercent,
-                Ecb = ecb.AsParallelWriter()
-            }.ScheduleParallel(_poolQuery, Dependency);
+            Dependency = ScheduleTrim(_poolQuery, cfg, ecbWriter, Dependency);
+            Dependency = ScheduleTrim(_targetedPoolQuery, cfg, ecbWriter, Dependency);
+            Dependency = ScheduleTrim(_lingeringTargetedPoolQuery, cfg, ecbWriter, Dependency);
 
             Dependency.Complete();
             ecb.Playback(EntityManager);
             ecb.Dispose();
 
-            LastDeletedCount = before - _poolQuery.CalculateEntityCount();
+            LastDeletedCount = before
+                - _poolQuery.CalculateEntityCount()
+                - _targetedPoolQuery.CalculateEntityCount()
+                - _lingeringTargetedPoolQuery.CalculateEntityCount();
 
             if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(out RefRW<CombatStatsSingleton> stats))
             {
                 stats.ValueRW.EntitiesDeleted += LastDeletedCount;
             }
+        }
+
+        private JobHandle ScheduleTrim(
+            EntityQuery poolQuery,
+            in CombatPoolCleanupConfig cfg,
+            EntityCommandBuffer.ParallelWriter ecb,
+            JobHandle dependency)
+        {
+            return new PoolTrimJob
+            {
+                EntityHandle = _entityHandle,
+                ActiveHandle = _activeHandle,
+                ActiveThresholdPercent = cfg.ChunkActiveThresholdPercent,
+                Ecb = ecb
+            }.ScheduleParallel(poolQuery, dependency);
         }
 
         [BurstCompile]

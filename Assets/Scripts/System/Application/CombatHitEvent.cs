@@ -24,5 +24,6 @@ namespace PlayGround.System.Combat.Application
     {
         public Entity Source;
         public Entity Target;
+        public float DamageScale;
     }
 }

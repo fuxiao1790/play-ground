@@ -8,6 +8,7 @@ using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Vfx;
 
 namespace PlayGround.Skills
 {
@@ -107,6 +108,128 @@ namespace PlayGround.Skills
                 AddWarning(warnings, SkillValidationWarningCode.UnsupportedSupportForSkill, slotIndex,
                     $"Support '{support.name}' on skill set '{skillSet.name}' supports {SkillDefinitionTagUtility.Format(support.SupportedSkillTags)}, but skill '{skill.name}' is {SkillDefinitionTagUtility.Format(skillTags)}. Support will be ignored.");
             }
+
+            if (skill.Definition is TargetedDefinitionBase targeted)
+                ValidateTargetedDefinition(targeted, slotIndex, warnings);
+        }
+
+        private static void ValidateTargetedDefinition(
+            TargetedDefinitionBase definition,
+            int slotIndex,
+            List<SkillValidationWarning> warnings)
+        {
+            if (definition.maxTargets < 1 || definition.maxTargets > 32)
+            {
+                AddWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, slotIndex,
+                    $"Targeted maxTargets {definition.maxTargets} is outside [1, 32] and will be clamped.");
+            }
+
+            if (definition.count < 1)
+            {
+                AddWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, slotIndex,
+                    $"Targeted count {definition.count} is below 1 and will be clamped to 1.");
+            }
+
+            if (definition.chainDelaySeconds < 0f)
+            {
+                AddWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, slotIndex,
+                    "Targeted chainDelaySeconds is negative and will be clamped to 0.");
+            }
+
+            if (definition.acquireRadius <= 0f)
+            {
+                AddWarning(warnings, SkillValidationWarningCode.TargetedConfigurationError, slotIndex,
+                    "Targeted acquireRadius must be greater than 0; this skill will not spawn.",
+                    SkillValidationSeverity.Error);
+            }
+
+            if (definition.maxTargets > 1 && definition.chainRadius <= 0f)
+            {
+                AddWarning(warnings, SkillValidationWarningCode.TargetedChainWarning, slotIndex,
+                    "Targeted maxTargets is greater than 1 but chainRadius is not positive; no jump can occur.");
+            }
+
+            if (definition.maxTargets > 1 && definition.chainDamageFalloff <= 0f)
+            {
+                AddWarning(warnings, SkillValidationWarningCode.TargetedChainWarning, slotIndex,
+                    "Targeted chainDamageFalloff is not positive; links after the first deal zero damage.");
+            }
+
+            if (definition is LingeringTargetedDefinition lingering)
+            {
+                float chainDuration = TargetedChainDuration(definition);
+                if (lingering.tickIntervalSeconds <= 0f)
+                {
+                    AddWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, slotIndex,
+                        "Lingering targeted tickIntervalSeconds must be positive and will be clamped to 0.01.");
+                }
+
+                if (lingering.tickIntervalSeconds > lingering.lifetimeSeconds)
+                {
+                    AddWarning(warnings, SkillValidationWarningCode.TargetedIntervalWarning, slotIndex,
+                        "Lingering targeted tickIntervalSeconds exceeds lifetimeSeconds; the walk fires once.");
+                }
+
+                if (chainDuration > lingering.tickIntervalSeconds)
+                {
+                    AddWarning(warnings, SkillValidationWarningCode.TargetedIntervalWarning, slotIndex,
+                        "Targeted chain duration exceeds tickIntervalSeconds; later links are cut off by the next walk.");
+                }
+
+                if (chainDuration > lingering.lifetimeSeconds)
+                {
+                    AddWarning(warnings, SkillValidationWarningCode.TargetedIntervalWarning, slotIndex,
+                        "Targeted chain duration exceeds lifetimeSeconds; the instance expires before one walk finishes.");
+                }
+            }
+
+            TargetedPrefab prefab = definition.Prefab;
+            if (prefab == null)
+            {
+                AddWarning(warnings, SkillValidationWarningCode.TargetedVisualWarning, slotIndex,
+                    "Targeted prefab is missing; link VFX cannot be configured.");
+                return;
+            }
+
+            if (!prefab.IsValidTemplate(out string reason))
+            {
+                SkillValidationSeverity severity = reason.Contains("Hurtbox")
+                    ? SkillValidationSeverity.Error
+                    : SkillValidationSeverity.Warning;
+                AddWarning(warnings, SkillValidationWarningCode.TargetedVisualWarning, slotIndex,
+                    $"Targeted prefab is invalid: {reason}", severity);
+            }
+
+            if (prefab.LinkEffect == null || prefab.LinkEffectShape != VfxDataShape.LineSegment)
+            {
+                AddWarning(warnings, SkillValidationWarningCode.TargetedVisualWarning, slotIndex,
+                    "Targeted link VFX is missing or is not a LineSegment.");
+            }
+
+            if ((prefab.SpawnEffect != null || prefab.HitEffect != null
+                    || prefab.ExpireEffect != null || prefab.ArmingEffect != null)
+                && prefab.VfxEffectSize <= 0f)
+            {
+                AddWarning(warnings, SkillValidationWarningCode.TargetedVisualWarning, slotIndex,
+                    "Targeted circular VFX are assigned but vfxEffectSize is not positive.");
+            }
+
+            if (prefab.LinkEffect != null && prefab.LinkWidth <= 0f)
+            {
+                AddWarning(warnings, SkillValidationWarningCode.TargetedVisualWarning, slotIndex,
+                    "Targeted link VFX is assigned but linkWidth is not positive.");
+            }
+        }
+
+        private static float TargetedChainDuration(TargetedDefinitionBase definition)
+        {
+            int maxTargets = definition.maxTargets < 1
+                ? 1
+                : definition.maxTargets > 32 ? 32 : definition.maxTargets;
+            float delay = definition.chainDelaySeconds > 0f
+                ? definition.chainDelaySeconds
+                : 0f;
+            return maxTargets * delay;
         }
 
         private static void ValidateTriggerLink(
@@ -160,6 +283,17 @@ namespace PlayGround.Skills
             if (IsIntervalSpawnTrigger(link))
                 ValidateIntervalSpawnSource(link, slotIndex, causeSkill, warnings);
 
+            if (link is TargetedIntervalSpawnTrigger targetedInterval
+                && effectSkill.Definition is TargetedDefinitionBase targetedEffect)
+            {
+                ValidateTargetedIntervalEnergyReachability(
+                    targetedInterval,
+                    causeSkill.Definition,
+                    targetedEffect,
+                    slotIndex,
+                    warnings);
+            }
+
             if (!SkillDefinitionTagUtility.HasAny(causeSkill.Tags, link.SourceSkillTags))
             {
                 AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerSource, slotIndex,
@@ -212,8 +346,45 @@ namespace PlayGround.Skills
             }
         }
 
+        private static void ValidateTargetedIntervalEnergyReachability(
+            TargetedIntervalSpawnTrigger trigger,
+            SkillDefinition source,
+            TargetedDefinitionBase effect,
+            int slotIndex,
+            List<SkillValidationWarning> warnings)
+        {
+            if (!TryGetIntervalSourceLifetime(source, out float sourceLifetime))
+                return;
+
+            float sourceCapacity = trigger.ResolveEnergyPerSecond(SkillStatSnapshot.Identity) * sourceLifetime;
+            float energyThreshold = trigger.ManaToEnergyCost(effect.manaCost);
+            if (energyThreshold <= sourceCapacity)
+                return;
+
+            AddWarning(warnings, SkillValidationWarningCode.TargetedIntervalWarning, slotIndex,
+                "Targeted interval child energy threshold exceeds what the source can accrue over its lifetime; it will never spawn.");
+        }
+
+        private static bool TryGetIntervalSourceLifetime(SkillDefinition source, out float lifetime)
+        {
+            switch (source)
+            {
+                case ProjectileDefinition projectile:
+                    lifetime = projectile.lifetime > 0f ? projectile.lifetime : 0f;
+                    return lifetime > 0f;
+
+                case LingeringAoeDefinition lingeringAoe:
+                    lifetime = lingeringAoe.lifetimeSeconds > 0f ? lingeringAoe.lifetimeSeconds : 0f;
+                    return lifetime > 0f;
+
+                default:
+                    lifetime = 0f;
+                    return false;
+            }
+        }
+
         private static bool IsIntervalSpawnTrigger(TriggerLink link) =>
-            link is ProjectileIntervalSpawnTrigger or AoeIntervalSpawnTrigger;
+            link is ProjectileIntervalSpawnTrigger or AoeIntervalSpawnTrigger or TargetedIntervalSpawnTrigger;
 
         private static void ValidateStackingSupportReachability(
             SkillSet skillSet,
@@ -266,9 +437,10 @@ namespace PlayGround.Skills
             List<SkillValidationWarning> warnings,
             SkillValidationWarningCode code,
             int slotIndex,
-            string message)
+            string message,
+            SkillValidationSeverity severity = SkillValidationSeverity.Warning)
         {
-            warnings.Add(new SkillValidationWarning(code, slotIndex, message));
+            warnings.Add(new SkillValidationWarning(code, slotIndex, message, severity));
         }
     }
 }

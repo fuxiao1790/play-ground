@@ -11,7 +11,7 @@ namespace PlayGround.Skills
         private float areaSizeMultiplier = 0.75f;
         [SerializeField, Min(0f)] private float manaCostMultiplier = 1f;
 
-        public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Aoe;
+        public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Aoe | SkillDefinitionTags.Targeted;
 
         void IAreaSizeModifiers.IMultiplierModifier.CollectMultipliers(MultiplierSink sink) => sink.Add(SkillStat.AreaSize, areaSizeMultiplier);
         void IManaModifiers.IMultiplierModifier.CollectMultipliers(MultiplierSink sink) => sink.Add(SkillStat.ManaCost, manaCostMultiplier);

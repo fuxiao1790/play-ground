@@ -9,6 +9,7 @@ using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Targeted;
 using UnityEngine;
 using Unity.Entities;
 using Hash128 = Unity.Entities.Hash128;
@@ -66,6 +67,26 @@ namespace PlayGround.Skills
                     AoeVariant.AoeChildKindFor(aoe.LifetimeSeconds),
                     caster,
                     Mathf.Max(0f, aoe.ManaCost),
+                    castToken);
+                return;
+            }
+
+            if (def is RuntimeTargetedDefinition targeted)
+            {
+                if (targeted.TypeId < 0 || targeted.SpawnBlocked)
+                {
+                    return;
+                }
+
+                combatRoot.SpawnRegisteredTargeted(
+                    targeted.SpawnTemplateKey,
+                    origin,
+                    aimWorldPos,
+                    Mathf.Max(1, targeted.Count),
+                    faction,
+                    TargetedVariant.ChildKindFor(targeted.LifetimeSeconds),
+                    caster,
+                    Mathf.Max(0f, targeted.ManaCost),
                     castToken);
             }
         }

@@ -8,6 +8,7 @@ using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Targeted;
 using PlayGround.System.Combat.Projectiles;
 using PlayGround.System.Combat.Vfx;
 using Unity.Burst;
@@ -60,6 +61,10 @@ namespace PlayGround.System.Combat.Aoes
                 SystemAPI.GetSingletonRW<ImpactAoeSpawnEventSingleton>();
             RefRW<LingeringAoeSpawnEventSingleton> lingeringAoeLane =
                 SystemAPI.GetSingletonRW<LingeringAoeSpawnEventSingleton>();
+            RefRW<TargetedSpawnEventSingleton> targetedLane =
+                SystemAPI.GetSingletonRW<TargetedSpawnEventSingleton>();
+            RefRW<LingeringTargetedSpawnEventSingleton> lingeringTargetedLane =
+                SystemAPI.GetSingletonRW<LingeringTargetedSpawnEventSingleton>();
             RefRW<CombatHitDispatchSingleton> hitDispatch =
                 SystemAPI.GetSingletonRW<CombatHitDispatchSingleton>();
             RefRW<CombatAoeVfxDispatchSingleton> vfx =
@@ -78,7 +83,9 @@ namespace PlayGround.System.Combat.Aoes
                 TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter(),
                 ProjectileEventWriter = projectileLane.ValueRO.EventQueue.AsParallelWriter(),
                 ImpactAoeEventWriter = impactAoeLane.ValueRO.EventQueue.AsParallelWriter(),
-                LingeringAoeEventWriter = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter()
+                LingeringAoeEventWriter = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter(),
+                TargetedEventWriter = targetedLane.ValueRO.EventQueue.AsParallelWriter(),
+                LingeringTargetedEventWriter = lingeringTargetedLane.ValueRO.EventQueue.AsParallelWriter()
             };
 
             var collisionHandle = job.ScheduleParallel(lingeringAoeQuery, state.Dependency);
@@ -89,6 +96,10 @@ namespace PlayGround.System.Combat.Aoes
                 JobHandle.CombineDependencies(impactAoeLane.ValueRW.ProducerHandle, collisionHandle);
             lingeringAoeLane.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(lingeringAoeLane.ValueRW.ProducerHandle, collisionHandle);
+            targetedLane.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(targetedLane.ValueRW.ProducerHandle, collisionHandle);
+            lingeringTargetedLane.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(lingeringTargetedLane.ValueRW.ProducerHandle, collisionHandle);
             hitDispatch.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(hitDispatch.ValueRW.ProducerHandle, collisionHandle);
             vfx.ValueRW.ProducerHandle =
@@ -116,6 +127,8 @@ namespace PlayGround.System.Combat.Aoes
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
+            public NativeQueue<TargetedSpawnEvent>.ParallelWriter TargetedEventWriter;
+            public NativeQueue<LingeringTargetedSpawnEvent>.ParallelWriter LingeringTargetedEventWriter;
             public float DeltaTime;
 
             private void Execute(
@@ -167,7 +180,9 @@ namespace PlayGround.System.Combat.Aoes
                     TimedCircularVfxPending,
                     ProjectileEventWriter,
                     ImpactAoeEventWriter,
-                    LingeringAoeEventWriter);
+                    LingeringAoeEventWriter,
+                    TargetedEventWriter,
+                    LingeringTargetedEventWriter);
             }
         }
     }

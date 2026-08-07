@@ -52,9 +52,30 @@ public struct TargetedResolveConfig : IComponentData
     public float ChainDamageFalloff;
     public float ChainDelaySeconds;
     public int MaxTargets;
-    public int LinkVfxId;
-    public int ImpactVfxId;
-    public float LinkWidth;
+}
+
+// ECS Lifecycle: base targeted component; added by spawn materialization; reset on reuse.
+// Mirrors AoeVfxIds field-for-field in role: ids only, no scalars. LinkId takes the slot
+// PulseId occupies on AOEs — both are the domain's repeating in-flight effect.
+// Targeted does not reuse AoeVfxIds itself: that struct has no slot for a line segment.
+public struct TargetedVfxIds : IComponentData
+{
+    public int SpawnId;    // circular, emitted by expansion when ArmSeconds == 0
+    public int HitId;      // circular, optional flash on each hit target
+    public int ExpireId;   // circular, emitted by the lifetime job
+    public int LinkId;     // LineSegment, one per landed link — the shipped visual
+    public int ArmingId;   // circular, emitted by expansion when ArmSeconds > 0
+}
+
+// ECS Lifecycle: base targeted component; added by spawn materialization; reset on reuse;
+// carries fire-time VFX dispatch sizes. Mirrors AoeAreaComponent's role — the scalar the VFX
+// emit is sized by — with two fields because this domain dispatches two shapes.
+// Unlike AoeAreaComponent this is NOT a gameplay value: a chain has no area, so these are
+// authored, visual-only, and do not fold through the AreaSize stat.
+public struct TargetedVfxSizeComponent : IComponentData
+{
+    public float EffectSize;   // radius for the circular spawn / arming / expire / hit effects
+    public float LinkWidth;    // width for the LineSegment link effect
 }
 
 // ECS Lifecycle: interval-only targeted component; added at entity creation; reset on reuse.
@@ -72,10 +93,62 @@ public struct TargetedTickGateComponent : IComponentData
   event field set **plus** `float2 AcquireAnchor` (requirements §3.1). Both carry `Kind`,
   `TemplateKey`, `Position` (the origin), `AcquireAnchor`, `AimDirection`, `Faction`, `SourceId`,
   `JitterSeed`, `DeterministicIdTickIndex`, `ContactGateSeedTargetId`.
-- `TargetedSpawnCommand` — resolved single-entity allocation intent: faction, ids, `TypeId`,
-  `RenderTypeId`, `InstanceIndex`, origin, anchor, lifetime, arm seconds, tick interval,
-  `Count`, `CombatHitPayload`, the `TargetedResolveConfig` values, `CombatRenderComponent`,
-  `CombatRenderAuthoring`, `OnHitSpawnRef`, `HasTimedSpawner` + `TimedSpawnComponent`.
+- `TargetedSpawnCommand` — resolved single-entity allocation intent, written out in full rather
+  than described, because the per-instance stamping fields are easy to omit and task 003 cannot
+  run without them:
+
+  ```csharp
+  // ECS Lifecycle: resolved single-entity allocation intent; produced by expansion, consumed by
+  // apply. Registry templates use this same shape with per-instance fields left default.
+  public struct TargetedSpawnCommand
+  {
+      public CombatFaction Faction;
+      public int TargetedId;
+      public int TypeId;
+      public int RenderTypeId;
+      public int InstanceIndex;              // fork index; drives rank-offset acquisition
+
+      // Per-instance stamping frame — mirrors AoeSpawnCommand. Expansion writes these from the
+      // event, then TargetedIdFor(command, i) reads them back to derive unique per-fork ids.
+      public uint JitterSeed;
+      public int DeterministicIdTickIndex;
+
+      public float2 Origin;                  // segment 0 start; caster for a root cast
+      public float2 AcquireAnchor;           // link 0 search centre; cursor for a root cast
+
+      public int Count;
+      public float LifetimeSeconds;
+      public float TickIntervalSeconds;
+      public float ArmSeconds;
+
+      public CombatHitPayload HitPayload;
+      public TargetedResolveConfig Resolve;
+      public TargetedVfxIds VfxIds;
+      public TargetedVfxSizeComponent VfxSize;
+      public CombatRenderComponent Render;
+      public CombatRenderAuthoring Authoring;
+      public OnHitSpawnRef OnHitSpawn;
+      public int HasTimedSpawner;
+      public TimedSpawnComponent TimedSpawn;
+  }
+  ```
+
+  `JitterSeed` and `DeterministicIdTickIndex` are **not optional**. `TargetedIdFor(command, i)`
+  mirrors `AoeIdFor`: it returns `TargetedId + i` when the tick index is `<= 0`, and otherwise
+  hashes id, seed, tick index, and fork index together. Without them, forks from a
+  deterministically-expanded spawn (interval children, stack detonations) collide on the same id.
+  There is no scatter seed — targeted has no `ScatterSeedFor` analogue, since it never displaces
+  anything.
+
+- `AimDirection` and `ContactGateSeedTargetId` stay on the **events** for shape parity with the
+  other four spawn-event structs, but targeted uses neither: there is no aim fan, and exclusion is
+  `LastTargetKey` in chain state, not a contact gate. They are deliberately absent from the
+  command. Do not wire them up.
+- `TargetedVfxUtility.TimingFor(in TargetedSpawnCommand command)` → `VfxTimingData`, mirroring
+  `AoeSpawnApplyUtility.VfxTimingFor`: `Duration = LifetimeSeconds`,
+  `TickInterval = TickIntervalSeconds`. Both are `0` on the single-hit variant, which is what a
+  `Circular`-shaped effect wants. `VfxTimingData` is reused as-is — unlike `AoeVfxIds` it is
+  domain-neutral and already carries exactly these two fields.
 - `TargetedVariant.ChildKindFor(float lifetimeSeconds)` → `LingeringTargeted` when `> 0`, else
   `Targeted`. Mirrors `AoeVariant.AoeChildKindFor`.
 
@@ -116,6 +189,17 @@ unhandled kind) rather than fall through to a default.
   silent default branch.
 - EditMode test: `TargetedVariant.ChildKindFor(0f)` is `Targeted`; `ChildKindFor(0.1f)` is
   `LingeringTargeted`.
+- EditMode test: `TargetedVfxUtility.TimingFor` returns `Duration = 0, TickInterval = 0` for a
+  single-hit command and the authored lifetime/interval for a lingering one.
+- No targeted type references `AoeVfxIds` or `AoeAreaComponent` — grep-verifiable.
+- `TargetedVfxIds` contains **only** `int` fields, matching `AoeVfxIds`. Sizes live on
+  `TargetedVfxSizeComponent`, the way AOE sizes live on `AoeAreaComponent` and timing lives on
+  `VfxTimingData`. A scalar creeping into the ids struct is a review failure.
+- `TargetedSpawnCommand` carries `JitterSeed` and `DeterministicIdTickIndex`. Diff its field list
+  against `AoeSpawnCommand` and account for every difference — each one should be either a
+  targeted-specific addition (`AcquireAnchor`, `InstanceIndex`, `Resolve`, `VfxSize`) or a
+  deliberate omission (collision shape, `AreaSize`, `EchoCount`, `ScatterRadius`,
+  `ContactGateSeedTargetId`).
 - EditMode test: acquiring and releasing a combat scope creates and disposes the
   `TargetedSpawnTemplate` map without leaking (mirrors the existing scope-registry test).
 - Every new declaration has an `ECS Lifecycle:` comment.

@@ -1,11 +1,23 @@
 # Project Overview
 
+## Agent instructions
+
+Rules apply to all agents working in this project:
+
+- Use caveman speech. Follow [.agent/caveman.md](../.agent/caveman.md).
+- Always defer test execution to the user. Agents must not run tests or invoke
+  the Unity test runner.
+- Give the user an exact test command to run.
+- Require test results exported as an XML result file. For Unity Test
+  Framework, use `-testResults "<project-path>/TestResults/<task>-results.xml"`.
+- Review the user-provided XML before reporting test results or claiming tests
+  passed. Do not substitute logs, console output, or screenshots.
+
 This page is a simple index to the documentation set. Use it to jump to the
 section that matches the topic you need.
 
 ## Working guidance
 
-- Always use caveman speech — follow [.agent/caveman.md](../.agent/caveman.md) for the rules and compression levels.
 - Use [folder-structure.md](./folder-structure.md) to quickly find files.
 - Review [architecture/index.md](./architecture/index.md) and [coding-standards.md](./coding-standards.md) before making code changes.
 - Review [reference/simulation/ecs-notes.md](./reference/simulation/ecs-notes.md) before suggesting or making code changes.

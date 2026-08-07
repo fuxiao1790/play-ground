@@ -39,10 +39,13 @@ public class PerformanceText : MonoBehaviour
             $"FPS:          {fps:0}\n" +
             $"Spawn reuse:  {stats.EntitiesSpawnedViaReuse}\n" +
             $"Create ECB:   {stats.EntitiesSpawnedViaEcb}\n" +
+            $"Target spawns: {stats.TargetedEntitiesSpawned}\n" +
+            $"Target links:  {stats.TargetedLinksResolved}\n" +
             $"Despawned:    {stats.EntitiesDespawned}\n" +
             $"Delete ECB:   {stats.EntitiesDeleted}\n" +
             $"Projectiles:  {stats.ActiveProjectiles}\n" +
             $"AOEs:         {stats.ActiveAoes}\n" +
+            $"Targeted:     {stats.ActiveTargeted}\n" +
             $"Hit events:   {stats.HitEventsCreated}\n" +
             $"VFX events:   {stats.VfxEventsCreated}\n" +
             $"VFX particles: {CombatVfxRoot.AliveParticleCount(false)}\n";

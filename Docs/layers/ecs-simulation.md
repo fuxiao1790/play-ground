@@ -2,17 +2,17 @@
 
 ## Purpose
 
-Own high-count combat runtime data and scalable simulation: projectiles, AOEs,
+Own high-count combat runtime data and scalable simulation: projectiles, AOEs, targeted chains,
 target proxy reads, hit qualification, health/status aggregation, spawn
 expansion/apply, pooling, timed spawns, VFX request production, and render data
 preparation.
 
 ## Owns
 
-- Projectile and AOE entities and their ECS component state.
-- `ProjectileSpawnEvent`/`AOE variant spawn event` drain from native queues and scope
+- Projectile, AOE, and targeted entities and their ECS component state.
+- projectile/AOE/targeted spawn event drain from native queues and scope
   buffers.
-- `ProjectileSpawnCommand`/`AoeSpawnCommand` production and consumption.
+- `ProjectileSpawnCommand`/`AoeSpawnCommand`/`TargetedSpawnCommand` production and consumption.
 - `Active`-based reuse and cold creation fallback.
 - `CombatHitEvent` production and ECS-owned `CombatTickResult` finalization.
 - `Health`, `Mana`, `TargetStackEntry`, and status processing.
@@ -35,7 +35,7 @@ preparation.
 
 ## Outputs
 
-- Projectile/AOE ECS entities and reusable slots.
+- Projectile/AOE/targeted ECS entities and reusable slots.
 - Hit, status, spawn follow-up, and VFX request data.
 - `CombatTickResult` values for presentation.
 - Render batch matrices and render grouping data.
@@ -57,12 +57,13 @@ preparation.
 - Must not read managed `TargetCompanion` values.
 - Must not call `ICombatTarget` callbacks.
 - Must not use `Active`, common combat components, or `CombatScope` membership
-  as domain markers without `ProjectileTag` or `AoeTag`.
+  as domain markers without `ProjectileTag`, `AoeTag`, or `TargetedTag`.
 
 ## Main Systems / Modules
 
 - `Assets/Scripts/System/Projectiles/`
 - `Assets/Scripts/System/Aoes/`
+- `Assets/Scripts/System/Targeted/`
 - `Assets/Scripts/System/Api/Collision/`
 - `Assets/Scripts/System/Status/`
 - `Assets/Scripts/System/Application/CombatApplyFinalizeSingleSystem.cs`
@@ -92,5 +93,6 @@ preparation.
   [index.md](../reference/simulation/index.md),
   [projectile-system.md](../reference/simulation/projectile-system.md),
   [aoe-system.md](../reference/simulation/aoe-system.md),
+  [targeted-system.md](../reference/simulation/targeted-system.md),
   [spawn-template-registry.md](../reference/simulation/spawn-template-registry.md),
   [ecs-notes.md](../reference/simulation/ecs-notes.md).

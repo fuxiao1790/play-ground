@@ -1,0 +1,92 @@
+using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Core;
+using PlayGround.System.Combat.Rendering;
+using PlayGround.System.Combat.Spawning;
+using PlayGround.System.Combat.Vfx;
+using Unity.Entities;
+using Unity.Mathematics;
+
+namespace PlayGround.System.Combat.Targeted
+{
+    // ECS Lifecycle: transient spawn intent; enqueued by producers into the expansion queue
+    // or appended to the scope submission buffer; consumed and discarded by TargetedSpawnExpansionSystem.
+    public struct TargetedSpawnEvent : IBufferElementData
+    {
+        public IntervalChildKind Kind;
+        public Hash128 TemplateKey;
+        public float2 Position;
+        public float2 AcquireAnchor;
+        public float2 AimDirection;
+        public CombatFaction Faction;
+        public int SourceId;
+        public uint JitterSeed;
+        public int DeterministicIdTickIndex;
+        public int ContactGateSeedTargetId;
+    }
+
+    // ECS Lifecycle: transient spawn intent; enqueued by producers into the expansion queue
+    // or appended to the scope submission buffer; consumed and discarded by LingeringTargetedSpawnExpansionSystem.
+    public struct LingeringTargetedSpawnEvent : IBufferElementData
+    {
+        public IntervalChildKind Kind;
+        public Hash128 TemplateKey;
+        public float2 Position;
+        public float2 AcquireAnchor;
+        public float2 AimDirection;
+        public CombatFaction Faction;
+        public int SourceId;
+        public uint JitterSeed;
+        public int DeterministicIdTickIndex;
+        public int ContactGateSeedTargetId;
+    }
+
+    // ECS Lifecycle: resolved single-entity allocation intent; produced by expansion, consumed by
+    // apply. Registry templates use this same shape with per-instance fields left default.
+    public struct TargetedSpawnCommand
+    {
+        public CombatFaction Faction;
+        public int TargetedId;
+        public int TypeId;
+        public int RenderTypeId;
+        public int InstanceIndex;
+        // Per-instance stamping frame, mirroring AoeSpawnCommand. Expansion copies these from the
+        // event before fanning, and TargetedIdFor reads them back to derive unique per-fork ids.
+        // Registry templates leave both default.
+        public uint JitterSeed;
+        public int DeterministicIdTickIndex;
+        public float2 Origin;
+        public float2 AcquireAnchor;
+        public int Count;
+        public float LifetimeSeconds;
+        public float TickIntervalSeconds;
+        public float ArmSeconds;
+        public CombatHitPayload HitPayload;
+        public TargetedResolveConfig Resolve;
+        public TargetedVfxIds VfxIds;
+        public TargetedVfxSizeComponent VfxSize;
+        public CombatRenderComponent Render;
+        public CombatRenderAuthoring Authoring;
+        public OnHitSpawnRef OnHitSpawn;
+        public int HasTimedSpawner;
+        public TimedSpawnComponent TimedSpawn;
+    }
+
+    // ECS Lifecycle: stateless variant selector; used while compiling targeted child templates.
+    public static class TargetedVariant
+    {
+        public static IntervalChildKind ChildKindFor(float lifetimeSeconds) =>
+            lifetimeSeconds > 0f ? IntervalChildKind.LingeringTargeted : IntervalChildKind.Targeted;
+    }
+
+    // ECS Lifecycle: stateless VFX timing mapper; reads spawn commands during targeted
+    // materialization without retaining ECS state.
+    public static class TargetedVfxUtility
+    {
+        public static VfxTimingData TimingFor(in TargetedSpawnCommand command) =>
+            new()
+            {
+                Duration = command.LifetimeSeconds,
+                TickInterval = command.TickIntervalSeconds
+            };
+    }
+}

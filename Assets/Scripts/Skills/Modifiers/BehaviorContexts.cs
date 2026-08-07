@@ -72,4 +72,20 @@ namespace PlayGround.Skills.Modifiers
             set => aoe.directDamageEnabled = value;
         }
     }
+
+    public readonly struct TargetedBehaviorContext
+    {
+        private readonly TargetedDefinitionBase targeted;
+
+        public TargetedBehaviorContext(TargetedDefinitionBase targeted)
+        {
+            this.targeted = targeted;
+        }
+
+        public int Count
+        {
+            get => targeted.count;
+            set => targeted.count = value;
+        }
+    }
 }

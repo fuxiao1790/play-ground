@@ -127,7 +127,7 @@ Docs/
 ## Current Combat Runtime Map
 
 - `Assets/Scripts/System/Core/CombatRoot.cs`: per-faction scene bridge for
-  projectile and AOE registration, managed spawn submission, render resources,
+  projectile, AOE, and targeted registration, managed spawn submission, render resources,
   target registry, and ECS world/scope lifetime.
 - `Assets/Scripts/System/Core/CombatScope.cs`: shared `CombatScope` tag and
   `CombatFaction`.
@@ -213,9 +213,33 @@ Docs/
   lingering AOEs.
 - `Assets/Scripts/System/Aoes/AoeTypeRegistry.cs`: runtime AOE type lookup.
 
+## Current Targeted Runtime Map
+
+- `Assets/Scripts/System/Targeted/TargetedSpawnPipeline.cs`: targeted and
+  lingering-targeted spawn events, one command shape, and variant selection.
+- `Assets/Scripts/System/Targeted/TargetedSpawnExpansionSystem.cs`: two event
+  lanes and resolved command production.
+- `Assets/Scripts/System/Targeted/TargetedSpawnApplySystem.cs`: separate
+  single-hit and lingering pools; disabled-slot reuse and cold creation.
+- `Assets/Scripts/System/Targeted/TargetedResolveSystem.cs`: single-hit and
+  interval resolve systems.
+- `Assets/Scripts/System/Targeted/TargetedResolveCore.cs`: target-proxy
+  spatial-hash walk, falloff, and link VFX emission.
+- `Assets/Scripts/System/Targeted/TargetedTypeRegistry.cs`: runtime visual type lookup.
+
+## Current Skill Targeted Files
+
+- `Assets/Scripts/Skills/Skill/TargetedSkill.cs`: single-hit and lingering
+  targeted skill assets.
+- `Assets/Scripts/Skills/Trigger/OnImpactTargetedTrigger.cs` and
+  `TargetedIntervalSpawnTrigger.cs`: targeted trigger links.
+- `Assets/Scripts/Skills/Support/MultipleChainsSupport.cs`: targeted count and
+  mana support.
+- `Assets/Scripts/Skills/Validator/TargetedPrefab.cs`: targeted prefab and VFX validation.
+
 ## Current VFX Runtime Map
 
-- `Assets/Scripts/System/Vfx/AoeVfxEcsComponents.cs`: `AoeVfxIds` slots and
+- `Assets/Scripts/System/Vfx/AoeVfxEcsComponents.cs`: shared VFX timing slots and
   `VfxTimingData` ECS components.
 - `Assets/Scripts/System/Vfx/VfxDataShapes.cs`: `VfxDataShape` enum, per-shape
   request structs (`CircularVfxSpawnRequest`, `TimedCircularVfxSpawnRequest`, `LineSegmentVfxSpawn`), and the

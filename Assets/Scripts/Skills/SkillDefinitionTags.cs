@@ -8,7 +8,8 @@ namespace PlayGround.Skills
         None = 0,
         Projectile = 1 << 0,
         Aoe = 1 << 1,
-        Any = Projectile | Aoe,
+        Targeted = 1 << 2,
+        Any = Projectile | Aoe | Targeted,
     }
 
     public static class SkillDefinitionTagUtility
@@ -19,7 +20,7 @@ namespace PlayGround.Skills
         public static string Format(SkillDefinitionTags tags)
         {
             if (tags == SkillDefinitionTags.None) return "none";
-            if (tags == SkillDefinitionTags.Any) return "projectile or AOE";
+            if (tags == SkillDefinitionTags.Any) return "projectile, AOE, or targeted";
             return tags.ToString();
         }
     }

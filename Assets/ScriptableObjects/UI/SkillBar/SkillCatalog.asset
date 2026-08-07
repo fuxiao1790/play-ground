@@ -23,5 +23,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 6539f094aa736534781901f6238c9723, type: 2}
   - {fileID: 11400000, guid: f217cdb34c295864a96158022a88d04d, type: 2}
   - {fileID: 11400000, guid: 231b5de57bc5a0d4bae45eab4d62bf3b, type: 2}
+  - {fileID: 11400000, guid: b8aaf6d116674ac49bf1dc53438ebbe0, type: 2}
   supportCatalog: {fileID: 11400000, guid: 877d17045513478b98dc6098a525d468, type: 2}
   triggerCatalog: {fileID: 11400000, guid: 0a4509f5cc494bc38290197d5eb15398, type: 2}

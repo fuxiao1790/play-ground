@@ -11,6 +11,7 @@ using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Vfx;
+using PlayGround.System.Combat.Targeted;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
@@ -50,7 +51,7 @@ namespace PlayGround.System.Combat.Rendering
             renderQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CombatRenderComponent>()
                 .WithAll<Active>()
-                .WithAny<ProjectileTag, AoeTag>()
+                .WithAny<ProjectileTag, AoeTag, TargetedTag>()
                 .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
                 .Build(this);
         }

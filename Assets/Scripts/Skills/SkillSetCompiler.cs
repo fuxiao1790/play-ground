@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using PlayGround.Skills.Modifiers;
 using PlayGround.Skills.Runtime;
 using PlayGround.System.Combat.Projectiles;
+using PlayGround.System.Combat.Targeted;
 using PlayGround.System.Combat.Vfx;
 using UnityEngine;
 
@@ -81,6 +82,10 @@ namespace PlayGround.Skills
                 {
                     ApplyAoeIntervalSpawn(triggerHost, aoeIntervalTrigger, nodes, targetNodeIndex, snapshot);
                 }
+                else if (link is TargetedIntervalSpawnTrigger targetedIntervalTrigger)
+                {
+                    ApplyTargetedIntervalSpawn(triggerHost, targetedIntervalTrigger, nodes, targetNodeIndex, snapshot);
+                }
                 else if (link is OnImpactAoeTrigger)
                 {
                     RuntimeSkillDefinition compiledTarget = CompileInternal(
@@ -96,6 +101,24 @@ namespace PlayGround.Skills
                         {
                             sourceAoeDef.OnHitAoeSpawnDefinition = aoeTarget;
                             ApplyIncomingTriggerManaCostMultiplier(aoeTarget, link);
+                        }
+                    }
+                }
+                else if (link is OnImpactTargetedTrigger)
+                {
+                    RuntimeSkillDefinition compiledTarget = CompileInternal(
+                        nodes, targetNodeIndex, snapshot, includeTriggeredManaCosts: false);
+                    if (compiledTarget is RuntimeTargetedDefinition targetedTarget)
+                    {
+                        if (triggerHost is RuntimeProjectileDefinition projectileSource)
+                        {
+                            projectileSource.ImpactTargetedDefinition = targetedTarget;
+                            ApplyIncomingTriggerManaCostMultiplier(targetedTarget, link);
+                        }
+                        else if (triggerHost is RuntimeAoeDefinition aoeSource)
+                        {
+                            aoeSource.OnHitTargetedSpawnDefinition = targetedTarget;
+                            ApplyIncomingTriggerManaCostMultiplier(targetedTarget, link);
                         }
                     }
                 }
@@ -144,6 +167,11 @@ namespace PlayGround.Skills
                         else if (triggerHost is RuntimeAoeDefinition aoeDef)
                         {
                             aoeDef.StackingDetonation = stackingDetonation;
+                            ApplyIncomingTriggerManaCostMultiplier(stackingDetonation, link);
+                        }
+                        else if (triggerHost is RuntimeTargetedDefinition targetedDef)
+                        {
+                            targetedDef.StackingDetonation = stackingDetonation;
                             ApplyIncomingTriggerManaCostMultiplier(stackingDetonation, link);
                         }
                     }
@@ -246,6 +274,11 @@ namespace PlayGround.Skills
                          && support is IAoeBehaviorModifier aoeModifier)
                 {
                     aoeModifier.ApplyToAoe(new AoeBehaviorContext(aoe));
+                }
+                else if (definition is TargetedDefinitionBase targeted
+                         && support is ITargetedBehaviorModifier targetedModifier)
+                {
+                    targetedModifier.ApplyToTargeted(new TargetedBehaviorContext(targeted));
                 }
             }
         }
@@ -357,6 +390,44 @@ namespace PlayGround.Skills
                 };
             }
 
+            if (def is TargetedDefinitionBase targeted)
+            {
+                float lifetimeSeconds = 0f;
+                float tickIntervalSeconds = 0f;
+                if (targeted is LingeringTargetedDefinition lingering)
+                {
+                    lifetimeSeconds = lingering.lifetimeSeconds;
+                    tickIntervalSeconds = lingering.tickIntervalSeconds;
+                }
+
+                TargetedPrefab prefab = targeted.Prefab;
+                float acquireRadius = modifiers.Resolve(SkillStat.AreaSize, targeted.acquireRadius);
+                return new RuntimeTargetedDefinition
+                {
+                    Prefab = prefab,
+                    Count = Mathf.Max(1, targeted.count),
+                    AcquireRadius = Mathf.Max(0f, acquireRadius),
+                    MaxTargets = Mathf.Clamp(targeted.maxTargets, 1, 32),
+                    ChainRadius = Mathf.Max(0f, modifiers.Resolve(SkillStat.AreaSize, targeted.chainRadius)),
+                    ChainDamageFalloff = Mathf.Max(0f, targeted.chainDamageFalloff),
+                    ChainDelaySeconds = Mathf.Max(0f, targeted.chainDelaySeconds),
+                    LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds),
+                    TickIntervalSeconds = lifetimeSeconds > 0f ? Mathf.Max(0.01f, tickIntervalSeconds) : 0f,
+                    ManaCost = Mathf.Max(0f, modifiers.Resolve(SkillStat.ManaCost, targeted.manaCost)),
+                    ArmSeconds = Mathf.Max(0f, targeted.armSeconds),
+                    DirectDamageEnabled = targeted.directDamageEnabled,
+                    VfxSize = new TargetedVfxSizeComponent
+                    {
+                        EffectSize = prefab != null ? prefab.VfxEffectSize : 0f,
+                        LinkWidth = prefab != null ? prefab.LinkWidth : 0f
+                    },
+                    CritChance = snapshot.CritChance,
+                    CritMultiplier = snapshot.CritMultiplier,
+                    Damage = Mathf.Max(0f, modifiers.Resolve(SkillStat.Damage, targeted.damage)),
+                    SpawnBlocked = acquireRadius <= 0f
+                };
+            }
+
             return null;
         }
 
@@ -464,6 +535,46 @@ namespace PlayGround.Skills
             }
         }
 
+        private static void ApplyTargetedIntervalSpawn(
+            RuntimeSkillDefinition parent,
+            TargetedIntervalSpawnTrigger trigger,
+            IReadOnlyList<SkillLoadoutNode> nodes,
+            int targetNodeIndex,
+            SkillStatSnapshot snapshot)
+        {
+            if (parent is not RuntimeProjectileDefinition and not RuntimeAoeDefinition)
+                return;
+
+            if (parent is RuntimeAoeDefinition { LifetimeSeconds: <= 0f })
+                return;
+
+            RuntimeSkillDefinition compiledChild = CompileInternal(
+                nodes, targetNodeIndex, snapshot, includeTriggeredManaCosts: false);
+            if (compiledChild is not RuntimeTargetedDefinition childDef)
+                return;
+
+            float energyThreshold = trigger.ManaToEnergyCost(childDef.ManaCost);
+            var setup = new RuntimeTargetedIntervalSpawnSetup
+            {
+                JitterSeed = ++nextChildJitterSeed,
+                ChildDefinition = childDef,
+                EnergyPerSecond = trigger.ResolveEnergyPerSecond(snapshot),
+                EnergyThreshold = energyThreshold,
+                Count = Mathf.Max(1, childDef.Count + trigger.count)
+            };
+
+            if (parent is RuntimeProjectileDefinition projectileParent)
+            {
+                projectileParent.TargetedIntervalSpawnSetup = setup;
+                ApplyIncomingTriggerManaCostMultiplier(childDef, trigger);
+            }
+            else if (parent is RuntimeAoeDefinition aoeParent)
+            {
+                aoeParent.TargetedIntervalSpawnSetup = setup;
+                ApplyIncomingTriggerManaCostMultiplier(childDef, trigger);
+            }
+        }
+
         // Follow the compiled trigger tree after every link has been validated and
         // attached. A triggered skill never submits its own external request, so
         // its cost must be charged once by the player-cast skill that started it.
@@ -501,6 +612,9 @@ namespace PlayGround.Skills
                 case RuntimeAoeDefinition aoe:
                     return aoe.ManaCost;
 
+                case RuntimeTargetedDefinition targeted:
+                    return targeted.ManaCost;
+
                 default:
                     return 0f;
             }
@@ -528,7 +642,9 @@ namespace PlayGround.Skills
                 return multiplier
                     * GetManaCostMultiplier(projectile.ChildSpawnSetup?.ChildDefinition, includeCurrent: true)
                     * GetManaCostMultiplier(projectile.AoeIntervalSpawnSetup?.ChildDefinition, includeCurrent: true)
+                    * GetManaCostMultiplier(projectile.TargetedIntervalSpawnSetup?.ChildDefinition, includeCurrent: true)
                     * GetManaCostMultiplier(projectile.ImpactAoeDefinition, includeCurrent: true)
+                    * GetManaCostMultiplier(projectile.ImpactTargetedDefinition, includeCurrent: true)
                     * GetManaCostMultiplier(projectile.ImpactProjectileDefinition, includeCurrent: true)
                     * GetManaCostMultiplier(projectile.StackingDetonation, includeCurrent: true);
             }
@@ -538,9 +654,19 @@ namespace PlayGround.Skills
                 return multiplier
                     * GetManaCostMultiplier(aoe.ChildSpawnSetup?.ChildDefinition, includeCurrent: true)
                     * GetManaCostMultiplier(aoe.AoeIntervalSpawnSetup?.ChildDefinition, includeCurrent: true)
+                    * GetManaCostMultiplier(aoe.TargetedIntervalSpawnSetup?.ChildDefinition, includeCurrent: true)
                     * GetManaCostMultiplier(aoe.OnHitAoeSpawnDefinition, includeCurrent: true)
+                    * GetManaCostMultiplier(aoe.OnHitTargetedSpawnDefinition, includeCurrent: true)
                     * GetManaCostMultiplier(aoe.OnHitProjectileSpawnDefinition, includeCurrent: true)
                     * GetManaCostMultiplier(aoe.StackingDetonation, includeCurrent: true);
+            }
+
+            if (definition is RuntimeTargetedDefinition targeted)
+            {
+                return multiplier
+                    * GetManaCostMultiplier(targeted.OnHitAoeSpawnDefinition, includeCurrent: true)
+                    * GetManaCostMultiplier(targeted.OnHitProjectileSpawnDefinition, includeCurrent: true)
+                    * GetManaCostMultiplier(targeted.StackingDetonation, includeCurrent: true);
             }
 
             return multiplier;
@@ -571,7 +697,9 @@ namespace PlayGround.Skills
                 return manaCost
                     + SumTriggeredSkillManaCosts(projectile.ChildSpawnSetup?.ChildDefinition, isTriggeredSkill: true)
                     + SumTriggeredSkillManaCosts(projectile.AoeIntervalSpawnSetup?.ChildDefinition, isTriggeredSkill: true)
+                    + SumTriggeredSkillManaCosts(projectile.TargetedIntervalSpawnSetup?.ChildDefinition, isTriggeredSkill: true)
                     + SumTriggeredSkillManaCosts(projectile.ImpactAoeDefinition, isTriggeredSkill: true)
+                    + SumTriggeredSkillManaCosts(projectile.ImpactTargetedDefinition, isTriggeredSkill: true)
                     + SumTriggeredSkillManaCosts(projectile.ImpactProjectileDefinition, isTriggeredSkill: true)
                     + SumTriggeredSkillManaCosts(projectile.StackingDetonation, isTriggeredSkill: true);
             }
@@ -581,9 +709,19 @@ namespace PlayGround.Skills
                 return manaCost
                     + SumTriggeredSkillManaCosts(aoe.ChildSpawnSetup?.ChildDefinition, isTriggeredSkill: true)
                     + SumTriggeredSkillManaCosts(aoe.AoeIntervalSpawnSetup?.ChildDefinition, isTriggeredSkill: true)
+                    + SumTriggeredSkillManaCosts(aoe.TargetedIntervalSpawnSetup?.ChildDefinition, isTriggeredSkill: true)
                     + SumTriggeredSkillManaCosts(aoe.OnHitAoeSpawnDefinition, isTriggeredSkill: true)
+                    + SumTriggeredSkillManaCosts(aoe.OnHitTargetedSpawnDefinition, isTriggeredSkill: true)
                     + SumTriggeredSkillManaCosts(aoe.OnHitProjectileSpawnDefinition, isTriggeredSkill: true)
                     + SumTriggeredSkillManaCosts(aoe.StackingDetonation, isTriggeredSkill: true);
+            }
+
+            if (definition is RuntimeTargetedDefinition targeted)
+            {
+                return manaCost
+                    + SumTriggeredSkillManaCosts(targeted.OnHitAoeSpawnDefinition, isTriggeredSkill: true)
+                    + SumTriggeredSkillManaCosts(targeted.OnHitProjectileSpawnDefinition, isTriggeredSkill: true)
+                    + SumTriggeredSkillManaCosts(targeted.StackingDetonation, isTriggeredSkill: true);
             }
 
             return manaCost;
@@ -604,6 +742,10 @@ namespace PlayGround.Skills
 
                 case RuntimeAoeDefinition aoe:
                     aoe.ManaCost = resolvedManaCost;
+                    break;
+
+                case RuntimeTargetedDefinition targeted:
+                    targeted.ManaCost = resolvedManaCost;
                     break;
             }
         }

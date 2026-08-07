@@ -13,6 +13,11 @@ namespace PlayGround.Skills
         SpawnChainDepthExceeded,
         ContinuousCollisionCannotTrack,
         TrackingProjectileMayTunnel,
+        TargetedParameterClamped,
+        TargetedConfigurationError,
+        TargetedChainWarning,
+        TargetedIntervalWarning,
+        TargetedVisualWarning,
     }
 
     public enum SkillValidationSeverity

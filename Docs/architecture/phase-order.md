@@ -11,16 +11,17 @@ ECS simulation groups, and ECS presentation systems.
 4. ECS simulation expires lifetime and emits timed child spawn events.
 5. Projectile tracking, movement, contact gates, and collision run.
 6. AOE pulse VFX and collision run.
-7. Combat apply/finalize consumes hit events, updates ECS health/status, and
+7. Targeted single-hit and lingering resolve systems walk target proxies and emit hits.
+8. Combat apply/finalize consumes hit events, updates ECS health/status, and
    freezes presentation-ready results.
-8. Status processing may emit stack detonation projectile or AOE spawn events.
-9. Projectile and AOE expansion systems drain managed scope buffers and ECS
+9. Status processing may emit stack detonation projectile, AOE, or targeted spawn events.
+10. Projectile, AOE, and targeted expansion systems drain managed scope buffers and ECS
    event queues into commands.
-10. Projectile and AOE apply systems reuse disabled slots or cold-create
-    overflow entities.
-11. Render preparation writes batched sprite matrices.
-12. Actor roots delete queued dead target proxies in `LateUpdate()`.
-13. Presentation systems dispatch compact combat results, VFX requests, and
+11. Projectile, AOE, and targeted apply systems reuse disabled slots or cold-create
+   overflow entities.
+12. Render preparation writes batched sprite matrices.
+13. Actor roots delete queued dead target proxies in `LateUpdate()`.
+14. Presentation systems dispatch compact combat results, VFX requests, and
     render batches.
 
 TODO: verify exact ordering between actor `LateUpdate()` proxy deletion and all
@@ -33,7 +34,7 @@ runtime objects, and target proxy handles. It may write actor state, movement
 intent, and target proxy position/shape.
 
 ECS simulation may read ECS component data, buffers, native containers, and
-unmanaged target proxy data. It may write projectile, AOE, status, hit, spawn,
+unmanaged target proxy data. It may write projectile, AOE, targeted, status, hit, spawn,
 render-prep, and VFX request data.
 
 ECS simulation may not read managed target companions or live Unity objects.
@@ -44,7 +45,7 @@ batches, update actor feedback, and clear presentation buffers.
 ## Spawn Timing Rule
 
 Apply systems run after movement and collision. Newly spawned or reused
-projectiles and AOEs do not move, collide, or emit timed spawns until the next
+projectiles, AOEs, and targeted chains do not move, collide, resolve, or emit timed spawns until the next
 simulation update.
 
 ## Structural Change Timing

@@ -7,6 +7,13 @@
 The player-facing surface, mirroring `BasicAoePrefab` / `AoeSkill` / `LingeringAoeSkill`
 (requirements decision 4). Two skill types, one prefab type, no hurtbox.
 
+**Not in this task: `TargetedTypeDefinition`.** That is the Sim-assembly registration type beside
+`CombatRoot`, mirroring `AoeTypeDefinition`, and it lands in **task 007**. The two describe similar
+content but sit on opposite sides of the assembly boundary: `TargetedPrefab` here is authoring that
+`PlayGround.GameLogic` owns, `TargetedTypeDefinition` is what `PlayGround.Sim` registers. Task 009
+converts one into the other, exactly as `SkillDriver` converts a `RuntimeAoeDefinition` into an
+`AoeTypeDefinition` before calling `CombatRoot.RegisterType`.
+
 ## New files
 
 `Assets/Scripts/Skills/Validator/TargetedPrefab.cs`
@@ -16,8 +23,13 @@ Follows `BasicAoePrefab`'s shape **minus collision**:
 - `[SerializeField] SpriteRenderer spriteRenderer` — **optional**, same rule `BasicAoePrefab` uses:
   if present with a sprite it must be on a child named `Visual`, and its material must be non-null,
   textured, GPU-instanced, and on a supported shader. Absent or sprite-less → VFX-only.
-- VFX asset slots with a `VfxDataShape` each, following `BasicAoePrefab`: **link** (must be
-  `LineSegment`), plus optional impact / spawn / expire / arming.
+- VFX asset slots with a `VfxDataShape` each, following `BasicAoePrefab`'s spawn/hit/expire/arming
+  set, plus a **link** slot that must be `LineSegment`.
+- `[SerializeField] float vfxEffectSize` — the radius the circular spawn / hit / expire / arming
+  effects are dispatched at. An AOE derives this from its gameplay area; **a chain has no area**,
+  so it must be authored. Visual-only: it does not fold through the `AreaSize` stat and does not
+  affect targeting.
+- `[SerializeField] float linkWidth` — the `LineSegment` width.
 - **No `hurtbox` field.** No `Radius`, `HalfExtents`, `RotationRadians`, or `ShapeType` accessors —
   a targeted skill resolves by query, so there is no shape to extract.
 - `IsValidTemplate(out string reason)` **fails** when a child named `Hurtbox` exists. A physics

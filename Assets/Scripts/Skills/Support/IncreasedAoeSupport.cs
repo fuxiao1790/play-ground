@@ -12,7 +12,7 @@ namespace PlayGround.Skills
         [SerializeField, FormerlySerializedAs("manaCostIncreasedPercent"), Min(0f), Tooltip("Direct mana-cost increase multiplier. 1.1 means 1.1x mana cost.")]
         private float manaCostIncreased = 1f;
 
-        public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Aoe;
+        public override SkillDefinitionTags SupportedSkillTags => SkillDefinitionTags.Aoe | SkillDefinitionTags.Targeted;
 
         void IAreaSizeModifiers.IIncreasedModifier.CollectIncreases(IncreasedSink sink) => sink.AddFactor(SkillStat.AreaSize, areaSizeMultiplier);
         void IManaModifiers.IIncreasedModifier.CollectIncreases(IncreasedSink sink) => sink.AddFactor(SkillStat.ManaCost, manaCostIncreased);

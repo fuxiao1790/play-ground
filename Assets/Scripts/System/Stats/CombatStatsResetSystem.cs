@@ -21,7 +21,7 @@ namespace PlayGround.System.Combat.Stats
     // CombatStatsGatherSystem reads the built-up snapshot at the end of the frame. Running here
     // (InitializationSystemGroup) guarantees the reset happens before those producers each frame.
     //
-    // ActiveProjectiles/ActiveAoes are deliberately preserved: they are level stats, not
+    // ActiveProjectiles/ActiveAoes/ActiveTargeted are deliberately preserved: they are level stats, not
     // accumulators. Gather overwrites them each Presentation, and CombatPoolCleanupSystem reads
     // them mid-frame (LateSimulation) as last frame's values for its calm-down gate — zeroing
     // them here would hand that gate a phantom activeLoad of 0 every frame.
@@ -35,7 +35,10 @@ namespace PlayGround.System.Combat.Stats
                 stats.ValueRW = new CombatStatsSingleton
                 {
                     ActiveProjectiles = stats.ValueRO.ActiveProjectiles,
-                    ActiveAoes = stats.ValueRO.ActiveAoes
+                    ActiveAoes = stats.ValueRO.ActiveAoes,
+                    ActiveTargeted = stats.ValueRO.ActiveTargeted,
+                    TargetedLinkCounts = stats.ValueRO.TargetedLinkCounts,
+                    TargetedLinkProducerHandle = stats.ValueRO.TargetedLinkProducerHandle
                 };
             }
         }

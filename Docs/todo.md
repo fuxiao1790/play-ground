@@ -1,7 +1,7 @@
 refactor debt
 - spawn event structs are field-for-field identical across lanes (`ProjectileSpawnEvent`,
-  `ImpactAoeSpawnEvent`, `LingeringAoeSpawnEvent`, and the two targeted lanes once those land =
-  five copies), each with its own singleton lane and expansion system. Collapse to one
+  `ImpactAoeSpawnEvent`, `LingeringAoeSpawnEvent`, `TargetedSpawnEvent`, and
+  `LingeringTargetedSpawnEvent` = five copies), each with its own singleton lane and expansion system. Collapse to one
   `CombatSpawnEvent` discriminated by the `IntervalChildKind` the struct already carries.
   Deferred deliberately during targeted skills; see `.agent/targeted-skills/requirements.md` §9.
 
@@ -22,7 +22,6 @@ enhancements/addition to existing
 - on crit trigger and others.
 
 needed for poc
-- targeted skills. no physics, single hit / interval ticking variation used for something like chain lightning.
 - ecs sound
 - damage number vfx graph.
 - more aoe shape kinds

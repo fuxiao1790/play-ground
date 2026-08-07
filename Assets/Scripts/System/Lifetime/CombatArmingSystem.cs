@@ -9,6 +9,7 @@ using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
+using PlayGround.System.Combat.Targeted;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Vfx;
 using Unity.Burst;
@@ -46,10 +47,15 @@ namespace PlayGround.System.Combat.Lifetime
                 TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter()
             }.ScheduleParallel(projectileHandle);
 
-            vfx.ValueRW.ProducerHandle =
-                JobHandle.CombineDependencies(vfx.ValueRW.ProducerHandle, aoeHandle);
+            JobHandle targetedHandle = new TargetedArmingJob
+            {
+                DeltaTime = deltaTime
+            }.ScheduleParallel(aoeHandle);
 
-            state.Dependency = aoeHandle;
+            vfx.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(vfx.ValueRW.ProducerHandle, targetedHandle);
+
+            state.Dependency = targetedHandle;
         }
 
         [BurstCompile]
@@ -106,6 +112,25 @@ namespace PlayGround.System.Combat.Lifetime
                     timing,
                     CircularVfxPending,
                     TimedCircularVfxPending);
+            }
+        }
+
+        [BurstCompile]
+        [WithAll(typeof(TargetedTag), typeof(Active), typeof(ArmingTag))]
+        private partial struct TargetedArmingJob : IJobEntity
+        {
+            public float DeltaTime;
+
+            private void Execute(
+                ref CombatArmingComponent arming,
+                EnabledRefRW<ArmingTag> armingTag)
+            {
+                arming.Remaining -= DeltaTime;
+                if (arming.Remaining <= 0f)
+                {
+                    arming.Remaining = 0f;
+                    armingTag.ValueRW = false;
+                }
             }
         }
     }

@@ -20,8 +20,10 @@ expansion, and [Presentation And Feedback](../layers/presentation-and-feedback.m
 
 Current key data:
 
-- `CombatHitEvent`: `{ Source, Target }`, where `Source` is the projectile/AOE
-  entity that produced the hit and `Target` is the target proxy entity.
+- `CombatHitEvent`: `{ Source, Target, DamageScale }`, where `Source` is the
+  projectile/AOE/targeted entity that produced the hit and `Target` is the
+  target proxy entity. An unset scale (`0`) means `1`; targeted links use their
+  falloff scale explicitly.
 - `CombatHitPayload`: source-side ECS component carrying damage amount, crit
   chance, crit multiplier, direct-damage flag, source node id, and stack effect.
 - `Health`
@@ -41,6 +43,10 @@ receives compact target results, not one plain-damage callback per raw hit.
 Every hit source archetype that can enqueue `CombatHitEvent` carries
 `CombatHitPayload`, so finalize can resolve payload data through one read-only
 `ComponentLookup<CombatHitPayload>` indexed by `CombatHitEvent.Source`.
+
+Finalize multiplies the payload damage by `DamageScale` before it rolls crit and
+applies the crit multiplier. This preserves falloff on both normal and critical
+hits.
 
 ## Restrictions
 

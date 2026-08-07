@@ -32,10 +32,15 @@ contract this task verifies:
 
 Link VFX — emitted by `TargetedResolveCore`, one call per landed link:
 
-- `VfxEmit.EnqueueLineSegment(linkVfxId, LinkSource, LinkTarget, linkWidth, lineSegments)`.
+- `VfxEmit.EnqueueLineSegment(vfxIds.LinkId, LinkSource, LinkTarget, vfxSize.LinkWidth,
+  lineSegments)`.
 - `VfxEmit` drops ids that do not decode to `VfxDataShape.LineSegment`, so a mis-authored id fails
   silently at runtime — task 013 catches it at authoring time instead.
-- Optional circular impact flash at `LinkTarget` when `impactVfxId != 0`.
+- Optional circular hit flash at `LinkTarget` when `vfxIds.HitId != 0`, sized by
+  `vfxSize.EffectSize`.
+- All five ids live on `TargetedVfxIds` (spawn, hit, expire, link, arming), sizes on
+  `TargetedVfxSizeComponent`, timing on the shared `VfxTimingData` — the same three-way split
+  AOEs use (`AoeVfxIds` / `AoeAreaComponent` / `VfxTimingData`).
 - Combine the resolve job handle into `CombatAoeVfxDispatchSingleton.ProducerHandle` on the main
   thread (C6).
 

@@ -133,4 +133,38 @@ namespace PlayGround.Skills
 
         public override SkillDefinition DeepCopy() => (LingeringAoeDefinition)MemberwiseClone();
     }
+
+    [Serializable]
+    public abstract class TargetedDefinitionBase : SkillDefinition
+    {
+        [Min(0f)] public float damage = 10f;
+        [Min(0f)] public float manaCost = 1f;
+        public bool directDamageEnabled = true;
+        [Min(1)] public int count = 1;
+        [Min(0f)] public float acquireRadius = 4f;
+        [Min(1)] public int maxTargets = 1;
+        [Min(0f)] public float chainRadius = 4f;
+        [Min(0f)] public float chainDamageFalloff;
+        [Min(0f)] public float chainDelaySeconds;
+        [Min(0f)] public float armSeconds;
+        public abstract TargetedPrefab Prefab { get; }
+    }
+
+    [Serializable]
+    public sealed class TargetedDefinition : TargetedDefinitionBase
+    {
+        public TargetedPrefab prefab;
+        public override TargetedPrefab Prefab => prefab;
+        public override SkillDefinition DeepCopy() => (TargetedDefinition)MemberwiseClone();
+    }
+
+    [Serializable]
+    public sealed class LingeringTargetedDefinition : TargetedDefinitionBase
+    {
+        public TargetedPrefab prefab;
+        [Min(0f)] public float lifetimeSeconds = 1f;
+        [Min(0f)] public float tickIntervalSeconds = 0.25f;
+        public override TargetedPrefab Prefab => prefab;
+        public override SkillDefinition DeepCopy() => (LingeringTargetedDefinition)MemberwiseClone();
+    }
 }

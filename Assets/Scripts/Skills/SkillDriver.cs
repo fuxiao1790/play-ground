@@ -15,6 +15,7 @@ using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Targeted;
 using PlayGround.System.Combat.Projectiles;
 using PlayGround.System.Combat.Vfx;
 using Unity.Profiling;
@@ -131,6 +132,7 @@ namespace PlayGround.Skills
             combatRoot = root;
             RegisterProjectileTypes();
             RegisterAoeTypes();
+            RegisterTargetedTypes();
             RegisterSpawnTemplates();
         }
 
@@ -140,6 +142,7 @@ namespace PlayGround.Skills
             vfxRoot = root;
             RegisterProjectileTypes();
             RegisterAoeTypes();
+            RegisterTargetedTypes();
         }
 
         public void BindCaster(ICombatTarget owner)
@@ -245,6 +248,7 @@ namespace PlayGround.Skills
 
             RegisterProjectileTypes();
             RegisterAoeTypes();
+            RegisterTargetedTypes();
             RegisterSpawnTemplates(warnings);
             validationWarnings = warnings.ToArray();
         }
@@ -589,12 +593,29 @@ namespace PlayGround.Skills
                     RegisterProjectileTypesRecursive(aoeDef.ChildSpawnSetup.ChildDefinition);
                 if (aoeDef.AoeIntervalSpawnSetup?.ChildDefinition != null)
                     RegisterProjectileTypesRecursive(aoeDef.AoeIntervalSpawnSetup.ChildDefinition);
+                if (aoeDef.TargetedIntervalSpawnSetup?.ChildDefinition != null)
+                    RegisterProjectileTypesRecursive(aoeDef.TargetedIntervalSpawnSetup.ChildDefinition);
                 if (aoeDef.OnHitAoeSpawnDefinition != null)
                     RegisterProjectileTypesRecursive(aoeDef.OnHitAoeSpawnDefinition);
+                if (aoeDef.OnHitTargetedSpawnDefinition != null)
+                    RegisterProjectileTypesRecursive(aoeDef.OnHitTargetedSpawnDefinition);
                 if (aoeDef.OnHitProjectileSpawnDefinition != null)
                     RegisterProjectileTypesRecursive(aoeDef.OnHitProjectileSpawnDefinition);
                 if (aoeDef.StackingDetonation != null)
                     RegisterProjectileTypesRecursive(aoeDef.StackingDetonation);
+            }
+
+            if (def is RuntimeTargetedDefinition targetedDef)
+            {
+                if (targetedDef.OnHitAoeSpawnDefinition != null)
+                {
+                    RegisterAoeTypeDefinition(targetedDef.OnHitAoeSpawnDefinition);
+                    RegisterProjectileTypesRecursive(targetedDef.OnHitAoeSpawnDefinition);
+                }
+                if (targetedDef.OnHitProjectileSpawnDefinition != null)
+                    RegisterProjectileTypesRecursive(targetedDef.OnHitProjectileSpawnDefinition);
+                if (targetedDef.StackingDetonation != null)
+                    RegisterProjectileTypesRecursive(targetedDef.StackingDetonation);
             }
 
             if (def is RuntimeProjectileDefinition projDef && projDef.Prefab != null)
@@ -613,6 +634,8 @@ namespace PlayGround.Skills
                     RegisterProjectileTypesRecursive(p.ChildSpawnSetup.ChildDefinition);
                 if (p.AoeIntervalSpawnSetup?.ChildDefinition != null)
                     RegisterProjectileTypesRecursive(p.AoeIntervalSpawnSetup.ChildDefinition);
+                if (p.TargetedIntervalSpawnSetup?.ChildDefinition != null)
+                    RegisterProjectileTypesRecursive(p.TargetedIntervalSpawnSetup.ChildDefinition);
                 if (p.ImpactAoeDefinition != null)
                 {
                     RegisterAoeTypeDefinition(p.ImpactAoeDefinition);
@@ -620,6 +643,8 @@ namespace PlayGround.Skills
                 }
                 if (p.ImpactProjectileDefinition != null)
                     RegisterProjectileTypesRecursive(p.ImpactProjectileDefinition);
+                if (p.ImpactTargetedDefinition != null)
+                    RegisterProjectileTypesRecursive(p.ImpactTargetedDefinition);
                 if (p.StackingDetonation != null)
                     RegisterProjectileTypesRecursive(p.StackingDetonation);
             }
@@ -630,6 +655,13 @@ namespace PlayGround.Skills
             if (compiledSlots == null) return;
             for (int i = 0; i < activeSlotCount; i++)
                 RegisterAoeTypesRecursive(compiledSlots[i]);
+        }
+
+        private void RegisterTargetedTypes()
+        {
+            if (compiledSlots == null) return;
+            for (int i = 0; i < activeSlotCount; i++)
+                RegisterTargetedTypesRecursive(compiledSlots[i]);
         }
 
         private void RegisterSpawnTemplates(List<SkillValidationWarning> warnings = null)
@@ -694,8 +726,22 @@ namespace PlayGround.Skills
                     }
                 }
 
+                if (aoeDef.TargetedIntervalSpawnSetup?.ChildDefinition != null)
+                {
+                    if (RegisterSpawnTemplatesRecursive(
+                            aoeDef.TargetedIntervalSpawnSetup.ChildDefinition,
+                            depth + 1,
+                            warnings,
+                            slotIndex))
+                    {
+                        RegisterTargetedIntervalTemplate(aoeDef.TargetedIntervalSpawnSetup);
+                    }
+                }
+
                 if (aoeDef.OnHitAoeSpawnDefinition != null)
                     RegisterSpawnTemplatesRecursive(aoeDef.OnHitAoeSpawnDefinition, depth + 1, warnings, slotIndex);
+                if (aoeDef.OnHitTargetedSpawnDefinition != null)
+                    RegisterSpawnTemplatesRecursive(aoeDef.OnHitTargetedSpawnDefinition, depth + 1, warnings, slotIndex);
                 if (aoeDef.OnHitProjectileSpawnDefinition != null)
                     RegisterSpawnTemplatesRecursive(aoeDef.OnHitProjectileSpawnDefinition, depth + 1, warnings, slotIndex);
                 if (aoeDef.StackingDetonation != null)
@@ -712,6 +758,25 @@ namespace PlayGround.Skills
                         BuildOnHitSpawnRef(aoeDef),
                         AoeTimedSpawnFromDefinition(aoeDef));
                 aoeDef.SpawnTemplateKey = combatRoot.RegisterSpawnTemplate(in template);
+                return true;
+            }
+
+            if (def is RuntimeTargetedDefinition targetedDef)
+            {
+                if (targetedDef.OnHitAoeSpawnDefinition != null)
+                    RegisterSpawnTemplatesRecursive(targetedDef.OnHitAoeSpawnDefinition, depth + 1, warnings, slotIndex);
+                if (targetedDef.OnHitProjectileSpawnDefinition != null)
+                    RegisterSpawnTemplatesRecursive(targetedDef.OnHitProjectileSpawnDefinition, depth + 1, warnings, slotIndex);
+                if (targetedDef.StackingDetonation != null)
+                    RegisterSpawnTemplatesRecursive(targetedDef.StackingDetonation, depth + 1, warnings, slotIndex);
+
+                TargetedSpawnCommand template =
+                    SkillIntervalTemplateBuilder.BuildTargetedTemplate(
+                        targetedDef,
+                        combatRoot,
+                        SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(targetedDef, combatRoot),
+                        BuildOnHitSpawnRef(targetedDef));
+                targetedDef.SpawnTemplateKey = combatRoot.RegisterSpawnTemplate(in template);
                 return true;
             }
 
@@ -744,8 +809,22 @@ namespace PlayGround.Skills
                     }
                 }
 
+                if (projDef.TargetedIntervalSpawnSetup?.ChildDefinition != null)
+                {
+                    if (RegisterSpawnTemplatesRecursive(
+                            projDef.TargetedIntervalSpawnSetup.ChildDefinition,
+                            depth + 1,
+                            warnings,
+                            slotIndex))
+                    {
+                        RegisterTargetedIntervalTemplate(projDef.TargetedIntervalSpawnSetup);
+                    }
+                }
+
                 if (projDef.ImpactAoeDefinition != null)
                     RegisterSpawnTemplatesRecursive(projDef.ImpactAoeDefinition, depth + 1, warnings, slotIndex);
+                if (projDef.ImpactTargetedDefinition != null)
+                    RegisterSpawnTemplatesRecursive(projDef.ImpactTargetedDefinition, depth + 1, warnings, slotIndex);
                 if (projDef.ImpactProjectileDefinition != null)
                     RegisterSpawnTemplatesRecursive(projDef.ImpactProjectileDefinition, depth + 1, warnings, slotIndex);
                 if (projDef.StackingDetonation != null)
@@ -814,6 +893,22 @@ namespace PlayGround.Skills
             setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in template);
         }
 
+        private void RegisterTargetedIntervalTemplate(RuntimeTargetedIntervalSpawnSetup setup)
+        {
+            RuntimeTargetedDefinition child = setup?.ChildDefinition;
+            if (setup == null || child == null || child.TypeId < 0)
+                return;
+
+            TargetedSpawnCommand template =
+                SkillIntervalTemplateBuilder.BuildTargetedTemplate(
+                    child,
+                    combatRoot,
+                    SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(child, combatRoot),
+                    BuildOnHitSpawnRef(child));
+            template.Count = Mathf.Max(1, setup.Count);
+            setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in template);
+        }
+
         private static OnHitSpawnRef BuildOnHitSpawnRef(RuntimeProjectileDefinition def)
         {
             if (def == null)
@@ -836,6 +931,16 @@ namespace PlayGround.Skills
                 {
                     Kind = AoeVariant.AoeChildKindFor(def.ImpactAoeDefinition.LifetimeSeconds),
                     TemplateKey = def.ImpactAoeDefinition.SpawnTemplateKey
+                };
+            }
+
+            if (def.ImpactTargetedDefinition != null
+                && !IsDefault(def.ImpactTargetedDefinition.SpawnTemplateKey))
+            {
+                return new OnHitSpawnRef
+                {
+                    Kind = TargetedVariant.ChildKindFor(def.ImpactTargetedDefinition.LifetimeSeconds),
+                    TemplateKey = def.ImpactTargetedDefinition.SpawnTemplateKey
                 };
             }
 
@@ -867,6 +972,44 @@ namespace PlayGround.Skills
                 };
             }
 
+            if (def.OnHitTargetedSpawnDefinition != null
+                && !IsDefault(def.OnHitTargetedSpawnDefinition.SpawnTemplateKey))
+            {
+                return new OnHitSpawnRef
+                {
+                    Kind = TargetedVariant.ChildKindFor(def.OnHitTargetedSpawnDefinition.LifetimeSeconds),
+                    TemplateKey = def.OnHitTargetedSpawnDefinition.SpawnTemplateKey
+                };
+            }
+
+            return default;
+        }
+
+        private static OnHitSpawnRef BuildOnHitSpawnRef(RuntimeTargetedDefinition def)
+        {
+            if (def == null)
+                return default;
+
+            if (def.OnHitAoeSpawnDefinition is RuntimeAoeDefinition onHitAoe
+                && !IsDefault(onHitAoe.SpawnTemplateKey))
+            {
+                return new OnHitSpawnRef
+                {
+                    Kind = AoeVariant.AoeChildKindFor(onHitAoe.LifetimeSeconds),
+                    TemplateKey = onHitAoe.SpawnTemplateKey
+                };
+            }
+
+            if (def.OnHitProjectileSpawnDefinition != null
+                && !IsDefault(def.OnHitProjectileSpawnDefinition.SpawnTemplateKey))
+            {
+                return new OnHitSpawnRef
+                {
+                    Kind = IntervalChildKind.Projectile,
+                    TemplateKey = def.OnHitProjectileSpawnDefinition.SpawnTemplateKey
+                };
+            }
+
             return default;
         }
 
@@ -874,6 +1017,8 @@ namespace PlayGround.Skills
         {
             TimedSpawnComponent timedSpawn = ProjectileTimedSpawnFromSetup(def.ChildSpawnSetup);
             TimedSpawnComponent aoeTimedSpawn = AoeTimedSpawnFromSetup(def.AoeIntervalSpawnSetup);
+            TimedSpawnComponent targetedTimedSpawn = TargetedTimedSpawnFromSetup(def.TargetedIntervalSpawnSetup);
+            if (IsTimedSpawnEnabled(targetedTimedSpawn)) return targetedTimedSpawn;
             return IsTimedSpawnEnabled(aoeTimedSpawn) ? aoeTimedSpawn : timedSpawn;
         }
 
@@ -881,7 +1026,24 @@ namespace PlayGround.Skills
         {
             TimedSpawnComponent timedSpawn = ProjectileTimedSpawnFromSetup(def.ChildSpawnSetup);
             TimedSpawnComponent aoeTimedSpawn = AoeTimedSpawnFromSetup(def.AoeIntervalSpawnSetup);
+            TimedSpawnComponent targetedTimedSpawn = TargetedTimedSpawnFromSetup(def.TargetedIntervalSpawnSetup);
+            if (IsTimedSpawnEnabled(targetedTimedSpawn)) return targetedTimedSpawn;
             return IsTimedSpawnEnabled(aoeTimedSpawn) ? aoeTimedSpawn : timedSpawn;
+        }
+
+        private static TimedSpawnComponent TargetedTimedSpawnFromSetup(RuntimeTargetedIntervalSpawnSetup setup)
+        {
+            if (setup == null || IsDefault(setup.TemplateKey))
+                return default;
+
+            return new TimedSpawnComponent
+            {
+                ChildKind = TargetedVariant.ChildKindFor(setup.ChildDefinition.LifetimeSeconds),
+                JitterSeed = setup.JitterSeed,
+                EnergyPerSecond = Mathf.Max(0.01f, setup.EnergyPerSecond),
+                EnergyThreshold = Mathf.Max(1e-3f, setup.EnergyThreshold),
+                TemplateKey = setup.TemplateKey
+            };
         }
 
         private static TimedSpawnComponent ProjectileTimedSpawnFromSetup(RuntimeChildSpawnSetup setup)
@@ -941,12 +1103,23 @@ namespace PlayGround.Skills
                     RegisterAoeTypesRecursive(aoeDef.ChildSpawnSetup.ChildDefinition);
                 if (aoeDef.AoeIntervalSpawnSetup?.ChildDefinition != null)
                     RegisterAoeTypesRecursive(aoeDef.AoeIntervalSpawnSetup.ChildDefinition);
+                if (aoeDef.TargetedIntervalSpawnSetup?.ChildDefinition != null)
+                    RegisterAoeTypesRecursive(aoeDef.TargetedIntervalSpawnSetup.ChildDefinition);
                 if (aoeDef.OnHitAoeSpawnDefinition != null)
                     RegisterAoeTypesRecursive(aoeDef.OnHitAoeSpawnDefinition);
+                if (aoeDef.OnHitTargetedSpawnDefinition != null)
+                    RegisterAoeTypesRecursive(aoeDef.OnHitTargetedSpawnDefinition);
                 if (aoeDef.OnHitProjectileSpawnDefinition != null)
                     RegisterAoeTypesRecursive(aoeDef.OnHitProjectileSpawnDefinition);
                 if (aoeDef.StackingDetonation != null)
                     RegisterAoeTypesRecursive(aoeDef.StackingDetonation);
+            }
+
+            if (def is RuntimeTargetedDefinition targetedDef)
+            {
+                RegisterAoeTypesRecursive(targetedDef.OnHitAoeSpawnDefinition);
+                RegisterAoeTypesRecursive(targetedDef.OnHitProjectileSpawnDefinition);
+                RegisterAoeTypesRecursive(targetedDef.StackingDetonation);
             }
 
             if (def is RuntimeProjectileDefinition projDef)
@@ -955,12 +1128,60 @@ namespace PlayGround.Skills
                     RegisterAoeTypesRecursive(projDef.ChildSpawnSetup.ChildDefinition);
                 if (projDef.AoeIntervalSpawnSetup?.ChildDefinition != null)
                     RegisterAoeTypesRecursive(projDef.AoeIntervalSpawnSetup.ChildDefinition);
+                if (projDef.TargetedIntervalSpawnSetup?.ChildDefinition != null)
+                    RegisterAoeTypesRecursive(projDef.TargetedIntervalSpawnSetup.ChildDefinition);
                 if (projDef.ImpactAoeDefinition != null)
                     RegisterAoeTypesRecursive(projDef.ImpactAoeDefinition);
+                if (projDef.ImpactTargetedDefinition != null)
+                    RegisterAoeTypesRecursive(projDef.ImpactTargetedDefinition);
                 if (projDef.ImpactProjectileDefinition != null)
                     RegisterAoeTypesRecursive(projDef.ImpactProjectileDefinition);
                 if (projDef.StackingDetonation != null)
                     RegisterAoeTypesRecursive(projDef.StackingDetonation);
+            }
+        }
+
+        private void RegisterTargetedTypesRecursive(RuntimeSkillDefinition def)
+        {
+            if (def == null) return;
+
+            if (def is RuntimeStackingDetonation stackingDetonation)
+            {
+                EnsureStackingDetonationDebuffKey(stackingDetonation);
+                RegisterTargetedTypesRecursive(stackingDetonation.Detonation);
+                return;
+            }
+
+            if (def is RuntimeTargetedDefinition targetedDef)
+            {
+                RegisterTargetedTypeDefinition(targetedDef);
+                RegisterTargetedTypesRecursive(targetedDef.OnHitAoeSpawnDefinition);
+                RegisterTargetedTypesRecursive(targetedDef.OnHitProjectileSpawnDefinition);
+                RegisterTargetedTypesRecursive(targetedDef.StackingDetonation);
+                return;
+            }
+
+            if (def is RuntimeAoeDefinition aoeDef)
+            {
+                RegisterTargetedTypesRecursive(aoeDef.ChildSpawnSetup?.ChildDefinition);
+                RegisterTargetedTypesRecursive(aoeDef.AoeIntervalSpawnSetup?.ChildDefinition);
+                RegisterTargetedTypesRecursive(aoeDef.TargetedIntervalSpawnSetup?.ChildDefinition);
+                RegisterTargetedTypesRecursive(aoeDef.OnHitAoeSpawnDefinition);
+                RegisterTargetedTypesRecursive(aoeDef.OnHitTargetedSpawnDefinition);
+                RegisterTargetedTypesRecursive(aoeDef.OnHitProjectileSpawnDefinition);
+                RegisterTargetedTypesRecursive(aoeDef.StackingDetonation);
+                return;
+            }
+
+            if (def is RuntimeProjectileDefinition projDef)
+            {
+                RegisterTargetedTypesRecursive(projDef.ChildSpawnSetup?.ChildDefinition);
+                RegisterTargetedTypesRecursive(projDef.AoeIntervalSpawnSetup?.ChildDefinition);
+                RegisterTargetedTypesRecursive(projDef.TargetedIntervalSpawnSetup?.ChildDefinition);
+                RegisterTargetedTypesRecursive(projDef.ImpactAoeDefinition);
+                RegisterTargetedTypesRecursive(projDef.ImpactTargetedDefinition);
+                RegisterTargetedTypesRecursive(projDef.ImpactProjectileDefinition);
+                RegisterTargetedTypesRecursive(projDef.StackingDetonation);
             }
         }
 
@@ -985,6 +1206,23 @@ namespace PlayGround.Skills
             else if (combatRoot != null && aoeDef.TypeId >= 0)
             {
                 combatRoot.SetAoeVfxIds(aoeDef.TypeId, aoeDef.VfxIds);
+            }
+        }
+
+        private void RegisterTargetedTypeDefinition(RuntimeTargetedDefinition targetedDef)
+        {
+            if (targetedDef == null) return;
+
+            TargetedTypeDefinition definition = targetedDef.CreateTypeDefinition();
+            RegisterTargetedVfx(targetedDef, definition);
+            if (combatRoot != null && targetedDef.TypeId < 0)
+            {
+                targetedDef.TypeId = combatRoot.RegisterTargetedType(definition);
+                targetedDef.RenderId = combatRoot.TargetedRenderId(targetedDef.TypeId);
+            }
+            else if (combatRoot != null && targetedDef.TypeId >= 0)
+            {
+                combatRoot.SetTargetedVfxIds(targetedDef.TypeId, targetedDef.VfxIds);
             }
         }
 
@@ -1043,6 +1281,30 @@ namespace PlayGround.Skills
             }
 
             aoeDef.VfxIds = vfxIds;
+            definition.SetVfxIds(vfxIds);
+        }
+
+        private void RegisterTargetedVfx(
+            RuntimeTargetedDefinition targetedDef,
+            TargetedTypeDefinition definition)
+        {
+            if (targetedDef == null || definition == null)
+                return;
+
+            TargetedVfxIds vfxIds = default;
+            if (vfxRoot != null && targetedDef.Prefab != null)
+            {
+                vfxIds = new TargetedVfxIds
+                {
+                    SpawnId = vfxRoot.Register(definition.SpawnEffect, targetedDef.Prefab.SpawnEffectShape),
+                    HitId = vfxRoot.Register(definition.HitEffect, targetedDef.Prefab.HitEffectShape),
+                    ExpireId = vfxRoot.Register(definition.ExpireEffect, targetedDef.Prefab.ExpireEffectShape),
+                    LinkId = vfxRoot.Register(definition.LinkEffect, targetedDef.Prefab.LinkEffectShape),
+                    ArmingId = vfxRoot.Register(definition.ArmingEffect, targetedDef.Prefab.ArmingEffectShape)
+                };
+            }
+
+            targetedDef.VfxIds = vfxIds;
             definition.SetVfxIds(vfxIds);
         }
 
@@ -1193,6 +1455,54 @@ namespace PlayGround.Skills
             };
         }
 
+        public static TargetedSpawnCommand BuildTargetedTemplate(
+            RuntimeTargetedDefinition child,
+            CombatRoot root,
+            StackEffectSnapshot stackEffect,
+            OnHitSpawnRef onHitSpawn = default,
+            TimedSpawnComponent timedSpawn = default)
+        {
+            float commandLifetime = Mathf.Max(0f, child.LifetimeSeconds);
+            if (commandLifetime <= 0f && child.ChainDelaySeconds > 0f)
+            {
+                commandLifetime = child.MaxTargets * child.ChainDelaySeconds + (1f / 60f);
+            }
+
+            return new TargetedSpawnCommand
+            {
+                TypeId = child.TypeId,
+                RenderTypeId = child.RenderId,
+                Count = Mathf.Max(1, child.Count),
+                LifetimeSeconds = commandLifetime,
+                TickIntervalSeconds = Mathf.Max(0f, child.TickIntervalSeconds),
+                ArmSeconds = Mathf.Max(0f, child.ArmSeconds),
+                HitPayload = new CombatHitPayload
+                {
+                    DamageAmount = Mathf.Max(0f, child.Damage),
+                    CritChance = child.CritChance,
+                    CritMultiplier = child.CritMultiplier,
+                    DirectDamageEnabled = child.DirectDamageEnabled,
+                    SourceNodeId = default,
+                    StackEffect = stackEffect
+                },
+                Resolve = new TargetedResolveConfig
+                {
+                    AcquireRadius = Mathf.Max(0f, child.AcquireRadius),
+                    ChainRadius = Mathf.Max(0f, child.ChainRadius),
+                    ChainDamageFalloff = Mathf.Max(0f, child.ChainDamageFalloff),
+                    ChainDelaySeconds = Mathf.Max(0f, child.ChainDelaySeconds),
+                    MaxTargets = Mathf.Max(1, child.MaxTargets)
+                },
+                VfxIds = child.VfxIds,
+                VfxSize = child.VfxSize,
+                Render = TargetedRenderComponentFor(child.RenderId),
+                Authoring = TargetedAuthoringFor(child.Prefab),
+                OnHitSpawn = onHitSpawn,
+                HasTimedSpawner = IsTimedSpawnEnabled(timedSpawn) ? 1 : 0,
+                TimedSpawn = timedSpawn
+            };
+        }
+
         public static StackEffectSnapshot BuildApplicatorStackEffectSnapshot(
             RuntimeSkillDefinition def,
             CombatRoot root,
@@ -1256,6 +1566,32 @@ namespace PlayGround.Skills
                 VisualScale = new Unity.Mathematics.float2(geometry.VisualScale.x, geometry.VisualScale.y),
                 VisualRotationSin = geometry.VisualRotationSin,
                 VisualRotationCos = geometry.VisualRotationCos
+            };
+        }
+
+        private static CombatRenderComponent TargetedRenderComponentFor(int renderId)
+        {
+            if (renderId <= 0)
+                return default;
+
+            return new CombatRenderComponent
+            {
+                RenderTypeId = renderId,
+                AlignToVelocity = 0,
+                RenderZ = CombatRoot.AoeRenderZ
+            };
+        }
+
+        private static CombatRenderAuthoring TargetedAuthoringFor(TargetedPrefab prefab)
+        {
+            if (prefab == null || prefab.Sprite == null)
+                return default;
+
+            return new CombatRenderAuthoring
+            {
+                VisualScale = new Unity.Mathematics.float2(1f, 1f),
+                VisualRotationSin = 0f,
+                VisualRotationCos = 1f
             };
         }
 

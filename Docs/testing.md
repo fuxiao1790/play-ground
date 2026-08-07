@@ -53,6 +53,8 @@ EditMode:
 - projectile child entity creation and payload forwarding behavior
 - AOE pulse hit rules
 - AOE lingering tick and re-entry rules
+- targeted chain target selection, falloff, stagger, and interval restart rules
+- targeted lifetime expiry and separate pool reuse
 - mob state transition rules
 - damage snapshot forwarding
 
@@ -72,6 +74,9 @@ PlayMode:
 - player AOE hits mobs only
 - mob AOE hits player only
 - stack-triggered projectile explosion
+- targeted root cast chains mobs without projectile or AOE entities
+- targeted impact and interval trigger chains
+- targeted link VFX emits one line segment per resolved link
 
 ## Running Tests
 

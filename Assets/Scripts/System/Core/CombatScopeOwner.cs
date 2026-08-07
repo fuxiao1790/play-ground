@@ -10,6 +10,7 @@ using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Targeted;
 using PlayGround.System.Combat.Vfx;
 using Unity.Collections;
 using Unity.Entities;
@@ -30,6 +31,7 @@ namespace PlayGround.System.Combat.Core
         private static int ownerCount;
         private static NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnCommand> ownedProjectileMap;
         private static NativeHashMap<Unity.Entities.Hash128, AoeSpawnCommand> ownedAoeMap;
+        private static NativeHashMap<Unity.Entities.Hash128, TargetedSpawnCommand> ownedTargetedMap;
 
         public static Entity Acquire(EntityManager entityManager)
         {
@@ -48,6 +50,8 @@ namespace PlayGround.System.Combat.Core
                     InitialTemplateRegistryCapacity, Allocator.Persistent);
                 ownedAoeMap = new NativeHashMap<Unity.Entities.Hash128, AoeSpawnCommand>(
                     InitialTemplateRegistryCapacity, Allocator.Persistent);
+                ownedTargetedMap = new NativeHashMap<Unity.Entities.Hash128, TargetedSpawnCommand>(
+                    InitialTemplateRegistryCapacity, Allocator.Persistent);
 
                 ownedScope = entityManager.CreateEntity(typeof(CombatScope));
                 entityManager.AddBuffer<CombatSpawnRequest>(ownedScope);
@@ -55,11 +59,14 @@ namespace PlayGround.System.Combat.Core
                 entityManager.AddBuffer<ProjectileSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<ImpactAoeSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<LingeringAoeSpawnEvent>(ownedScope);
+                entityManager.AddBuffer<TargetedSpawnEvent>(ownedScope);
+                entityManager.AddBuffer<LingeringTargetedSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<TargetProxyCreateEvent>(ownedScope);
                 entityManager.AddBuffer<TargetProxyUpdateEvent>(ownedScope);
                 entityManager.AddBuffer<TargetProxyDeleteEvent>(ownedScope);
                 entityManager.AddComponentData(ownedScope, new ProjectileSpawnTemplate { Map = ownedProjectileMap });
                 entityManager.AddComponentData(ownedScope, new AoeSpawnTemplate { Map = ownedAoeMap });
+                entityManager.AddComponentData(ownedScope, new TargetedSpawnTemplate { Map = ownedTargetedMap });
                 ownedWorld = world;
                 ownerCount = 0;
             }
@@ -124,8 +131,14 @@ namespace PlayGround.System.Combat.Core
                 ownedAoeMap.Dispose();
             }
 
+            if (ownedTargetedMap.IsCreated)
+            {
+                ownedTargetedMap.Dispose();
+            }
+
             ownedProjectileMap = default;
             ownedAoeMap = default;
+            ownedTargetedMap = default;
         }
     }
 }

@@ -11,6 +11,7 @@ using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Targeted;
 using PlayGround.System.Combat.Vfx;
 using System.Collections.Generic;
 using PlayGround.Common;
@@ -63,6 +64,7 @@ namespace PlayGround.System.Combat.Core
         // and GPU resources; these maps translate a behavior type id to its render id.
         private readonly Dictionary<int, int> projectileRenderIdByType = new();
         private readonly Dictionary<int, int> aoeRenderIdByType = new();
+        private readonly Dictionary<int, int> targetedRenderIdByType = new();
 
         // Projectile state.
         private readonly Dictionary<BasicAttackPrefab, int> templateTypeIds = new();
@@ -75,6 +77,12 @@ namespace PlayGround.System.Combat.Core
         private int spawnedAoes;
         private int nextAoeId;
         private int nextTypeId = 1;
+
+        // Targeted state.
+        private readonly Dictionary<TargetedTypeDefinition, int> targetedDefinitionTypeIds = new();
+        private TargetedTypeRegistry targetedTypeRegistry = new();
+        private int nextTargetedId;
+        private int nextTargetedTypeId = 1;
 
         private World entityWorld;
         private EntityManager entityManager;
@@ -301,6 +309,71 @@ namespace PlayGround.System.Combat.Core
         public Hash128 RegisterTimedSpawnTemplate(in AoeSpawnCommand template) =>
             RegisterSpawnTemplate(in template);
 
+        // ---- Targeted API ----
+
+        public Hash128 RegisterSpawnTemplate(in TargetedSpawnCommand template)
+        {
+            EnsureRuntimeReady();
+
+            TargetedSpawnCommand normalizedTemplate = SpawnTemplateFor(in template);
+            Hash128 key = SpawnTemplateHash.Of(in normalizedTemplate);
+            TargetedSpawnTemplate registry = entityManager.GetComponentData<TargetedSpawnTemplate>(scopeEntity);
+            if (!registry.Map.ContainsKey(key))
+            {
+                entityManager.CompleteAllTrackedJobs();
+                registry.Map.Add(key, normalizedTemplate);
+            }
+
+            return key;
+        }
+
+        public Hash128 RegisterTimedSpawnTemplate(in TargetedSpawnCommand template) =>
+            RegisterSpawnTemplate(in template);
+
+        public int SpawnRegisteredTargeted(
+            Hash128 templateKey,
+            Vector2 origin,
+            Vector2 acquireAnchor,
+            int count,
+            CombatFaction faction,
+            IntervalChildKind kind,
+            Entity caster = default,
+            float manaCost = 0f,
+            int castToken = 0)
+        {
+            EnsureRuntimeReady();
+            if (templateKey.Equals(default(Hash128)))
+            {
+                return 0;
+            }
+
+            if (kind != IntervalChildKind.Targeted
+                && kind != IntervalChildKind.LingeringTargeted)
+            {
+                throw new global::System.ArgumentOutOfRangeException(nameof(kind), kind,
+                    "Registered targeted spawns require a targeted child kind.");
+            }
+
+            int targetedCount = math.max(1, count);
+            int targetedId = ++nextTargetedId;
+            nextTargetedId += targetedCount - 1;
+            entityManager.GetBuffer<ExternalSpawnRequest>(scopeEntity).Add(new ExternalSpawnRequest
+            {
+                Kind = kind,
+                TemplateKey = templateKey,
+                Caster = caster,
+                ManaCost = math.max(0f, manaCost),
+                Position = new float2(origin.x, origin.y),
+                AcquireAnchor = new float2(acquireAnchor.x, acquireAnchor.y),
+                AimDirection = default,
+                Faction = faction,
+                SourceId = targetedId,
+                JitterSeed = (uint)targetedId * 2654435761u,
+                CastToken = castToken
+            });
+            return targetedId;
+        }
+
         public int SpawnRegisteredAoe(
             Hash128 templateKey,
             Vector2 position,
@@ -407,6 +480,25 @@ namespace PlayGround.System.Combat.Core
             definitionTypeIds[definition] = typeId;
             typeRegistry.Register(typeId, definition);
             TryBuildAoeRenderResource(typeId);
+            return typeId;
+        }
+
+        public int RegisterTargetedType(TargetedTypeDefinition definition)
+        {
+            if (definition == null)
+            {
+                throw new global::System.ArgumentNullException(nameof(definition));
+            }
+
+            if (targetedDefinitionTypeIds.TryGetValue(definition, out int existing))
+            {
+                return existing;
+            }
+
+            int typeId = nextTargetedTypeId++;
+            targetedDefinitionTypeIds[definition] = typeId;
+            targetedTypeRegistry.Register(typeId, definition);
+            TryBuildTargetedRenderResource(typeId);
             return typeId;
         }
 
@@ -665,6 +757,28 @@ namespace PlayGround.System.Combat.Core
             return template;
         }
 
+        private static TargetedSpawnCommand SpawnTemplateFor(in TargetedSpawnCommand command)
+        {
+            TargetedSpawnCommand template = command;
+            template.Faction = CombatFaction.None;
+            template.TargetedId = 0;
+            template.InstanceIndex = 0;
+            template.JitterSeed = 0;
+            template.DeterministicIdTickIndex = 0;
+            template.Origin = default;
+            template.AcquireAnchor = default;
+            TimedSpawnComponent timedSpawn = template.TimedSpawn;
+            timedSpawn.Faction = CombatFaction.None;
+            timedSpawn.SourceId = 0;
+            template.TimedSpawn = timedSpawn;
+            CombatHitPayload hitPayload = template.HitPayload;
+            StackEffectSnapshot stack = hitPayload.StackEffect;
+            stack.Faction = CombatFaction.None;
+            hitPayload.StackEffect = stack;
+            template.HitPayload = hitPayload;
+            return template;
+        }
+
         private static ProjectileTrackingComponent TrackingComponentFor(ProjectileTrackingConfig config)
         {
             return new ProjectileTrackingComponent
@@ -690,9 +804,18 @@ namespace PlayGround.System.Combat.Core
         public int AoeRenderId(int aoeTypeId) =>
             aoeRenderIdByType.TryGetValue(aoeTypeId, out int renderId) ? renderId : 0;
 
+        // Render id for a targeted behavior type id (0 when the type has no visual).
+        public int TargetedRenderId(int targetedTypeId) =>
+            targetedRenderIdByType.TryGetValue(targetedTypeId, out int renderId) ? renderId : 0;
+
         public void SetAoeVfxIds(int aoeTypeId, AoeVfxIds vfxIds)
         {
             typeRegistry.SetVfxIds(aoeTypeId, vfxIds);
+        }
+
+        public void SetTargetedVfxIds(int targetedTypeId, TargetedVfxIds vfxIds)
+        {
+            targetedTypeRegistry.SetVfxIds(targetedTypeId, vfxIds);
         }
 
         private void BuildProjectileRenderResources()
@@ -702,6 +825,7 @@ namespace PlayGround.System.Combat.Core
             ConfigureRenderRegistryRenderer();
             projectileRenderIdByType.Clear();
             aoeRenderIdByType.Clear();
+            targetedRenderIdByType.Clear();
             templateTypeIds.Clear();
             nextTemplateTypeId = 1;
             if (projectileSprite != null)
@@ -754,6 +878,16 @@ namespace PlayGround.System.Combat.Core
             ConfigureRenderRegistryAtlas();
             ConfigureRenderRegistryRenderer();
             aoeRenderIdByType[typeId] = _renderRegistry?.Register(
+                visual.Sprite, visual.VisualScale, visual.VisualRotationDegrees, gameObject.layer) ?? 0;
+        }
+
+        private void TryBuildTargetedRenderResource(int typeId)
+        {
+            if (!targetedTypeRegistry.TryGetVisual(typeId, out TargetedVisualDefinition visual))
+                return;
+            ConfigureRenderRegistryAtlas();
+            ConfigureRenderRegistryRenderer();
+            targetedRenderIdByType[typeId] = _renderRegistry?.Register(
                 visual.Sprite, visual.VisualScale, visual.VisualRotationDegrees, gameObject.layer) ?? 0;
         }
 
@@ -963,6 +1097,13 @@ namespace PlayGround.System.Combat.Core
             int deterministicIdTickIndex = 0,
             int contactGateSeedTargetId = 0)
         {
+            if (kind == IntervalChildKind.Targeted
+                || kind == IntervalChildKind.LingeringTargeted)
+            {
+                throw new global::System.InvalidOperationException(
+                    $"Targeted spawn routing is not available for {kind}.");
+            }
+
             if (kind == IntervalChildKind.LingeringAoe)
             {
                 entityManager.GetBuffer<LingeringAoeSpawnEvent>(scopeEntity).Add(new LingeringAoeSpawnEvent
@@ -980,18 +1121,24 @@ namespace PlayGround.System.Combat.Core
                 return;
             }
 
-            entityManager.GetBuffer<ImpactAoeSpawnEvent>(scopeEntity).Add(new ImpactAoeSpawnEvent
+            if (kind == IntervalChildKind.ImpactAoe)
             {
-                Kind = IntervalChildKind.ImpactAoe,
-                TemplateKey = templateKey,
-                Position = position,
-                AimDirection = aimDirection,
-                Faction = faction,
-                SourceId = sourceId,
-                JitterSeed = jitterSeed,
-                DeterministicIdTickIndex = deterministicIdTickIndex,
-                ContactGateSeedTargetId = contactGateSeedTargetId
-            });
+                entityManager.GetBuffer<ImpactAoeSpawnEvent>(scopeEntity).Add(new ImpactAoeSpawnEvent
+                {
+                    Kind = IntervalChildKind.ImpactAoe,
+                    TemplateKey = templateKey,
+                    Position = position,
+                    AimDirection = aimDirection,
+                    Faction = faction,
+                    SourceId = sourceId,
+                    JitterSeed = jitterSeed,
+                    DeterministicIdTickIndex = deterministicIdTickIndex,
+                    ContactGateSeedTargetId = contactGateSeedTargetId
+                });
+                return;
+            }
+
+            throw new global::System.InvalidOperationException($"Unhandled interval child kind {kind}.");
         }
 
         [global::System.Serializable]

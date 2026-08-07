@@ -11,6 +11,8 @@ using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Vfx;
+using Unity.Collections;
+using Unity.Jobs;
 namespace PlayGround.System.Combat.Stats
 {
     // ECS Lifecycle: singleton data; the shared per-frame stats blackboard. The entity is
@@ -31,12 +33,14 @@ namespace PlayGround.System.Combat.Stats
     //   partial mid-frame value. The simulation holds no reference to any Debugging type.
     //
     // Field producers:
-    // - EntitiesSpawnedViaEcb: top-up create total, summed (+=) by the projectile, impact AOE,
-    //   and lingering AOE spawn-apply systems from their per-frame pool-growth counts.
+    // - EntitiesSpawnedViaEcb: top-up create total, summed (+=) by every domain's spawn-apply
+    //   systems from their per-frame pool-growth counts.
     // - EntitiesSpawnedViaReuse: reuse total, summed (+=) by those same spawn-apply systems from
     //   the disabled Active slots they reclaimed.
-    // - ActiveProjectiles / ActiveAoes: written by CombatStatsGatherSystem from its Active
-    //   entity queries per domain tag. Preserved by the frame reset (level stats, not
+    // - TargetedEntitiesSpawned: targeted-only spawn total, summed by both targeted apply lanes.
+    // - TargetedLinksResolved: targeted-only links, drained by gather from TargetedLinkCounts.
+    // - ActiveProjectiles / ActiveAoes / ActiveTargeted: written by CombatStatsGatherSystem from
+    //   its Active entity queries per domain tag. Preserved by the frame reset (level stats, not
     //   accumulators); CombatPoolCleanupSystem's calm-down gate reads them one frame stale.
     // - HitEventsCreated: added by CombatApplyFinalizeSingleSystem from HitQueue.Count before the
     //   queue is flattened or cleared.
@@ -54,12 +58,20 @@ namespace PlayGround.System.Combat.Stats
     {
         public int EntitiesSpawnedViaEcb;
         public int EntitiesSpawnedViaReuse;
+        public int TargetedEntitiesSpawned;
+        public int TargetedLinksResolved;
         public int ActiveProjectiles;
         public int ActiveAoes;
+        public int ActiveTargeted;
         public int HitEventsCreated;
         public int VfxEventsCreated;
         public int EntitiesDespawned;
         public int EntitiesDeleted;
+
+        // ECS Lifecycle: stats-owned per-frame link contributions; created/disposed by
+        // CombatStatsGatherSystem and drained into TargetedLinksResolved once per frame.
+        public NativeQueue<int> TargetedLinkCounts;
+        public JobHandle TargetedLinkProducerHandle;
     }
 
     // ECS Lifecycle: singleton data; the GameObject-facing mirror of CombatStatsSingleton.
@@ -72,8 +84,11 @@ namespace PlayGround.System.Combat.Stats
     {
         public int EntitiesSpawnedViaEcb;
         public int EntitiesSpawnedViaReuse;
+        public int TargetedEntitiesSpawned;
+        public int TargetedLinksResolved;
         public int ActiveProjectiles;
         public int ActiveAoes;
+        public int ActiveTargeted;
         public int HitEventsCreated;
         public int VfxEventsCreated;
         public int EntitiesDespawned;

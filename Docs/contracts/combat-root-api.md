@@ -20,8 +20,10 @@ Key API surface:
 
 - projectile template/type registration
 - AOE config/type registration
-- timed spawn template registration returning `Hash128`
-- registered projectile/AOE template spawning
+- `RegisterSpawnTemplate` and `RegisterTimedSpawnTemplate` overloads for
+  projectile, AOE, and targeted command templates, returning `Hash128`
+- registered projectile/AOE/targeted template spawning
+- `RegisterTargetedType(TargetedTypeDefinition)` type registration
 - projectile/AOE render id and render-template lookup
 - AOE VFX-id assignment
 - target registry access for actor registration
@@ -51,7 +53,12 @@ is destroyed.
 ## Ordering
 
 Register resources before spawn submissions. Register targets before they are
-expected to receive projectile/AOE hits.
+expected to receive projectile/AOE/targeted hits.
+
+`SpawnRegisteredTargeted(templateKey, origin, acquireAnchor, count, faction,
+kind, ...)` deliberately takes two positions. `origin` is the caster/impact
+position used by the chain and rendering mirror; `acquireAnchor` is the point
+used for first-target selection.
 
 ## Related Layers
 

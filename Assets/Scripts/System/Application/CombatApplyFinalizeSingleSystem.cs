@@ -253,7 +253,8 @@ namespace PlayGround.System.Combat.Application
                         }
 
                         var random = new Unity.Mathematics.Random(seed);
-                        float baseAmount = math.max(0f, payload.DamageAmount);
+                        float scale = hit.DamageScale <= 0f ? 1f : hit.DamageScale;
+                        float baseAmount = math.max(0f, payload.DamageAmount * scale);
                         bool isCrit = random.NextFloat() < payload.CritChance;
                         float rolledAmount = math.max(0f, isCrit ? baseAmount * payload.CritMultiplier : baseAmount);
 

@@ -9,6 +9,7 @@ using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
+using PlayGround.System.Combat.Targeted;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Vfx;
 using Unity.Burst;
@@ -52,11 +53,17 @@ namespace PlayGround.System.Combat.Lifetime
 
             JobHandle projectileHandle = projectileJob.ScheduleParallel(state.Dependency);
             JobHandle aoeHandle = aoeJob.ScheduleParallel(projectileHandle);
+            JobHandle targetedHandle = new TargetedLifetimeJob
+            {
+                DeltaTime = deltaTime,
+                CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
+                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter()
+            }.ScheduleParallel(aoeHandle);
 
             vfx.ValueRW.ProducerHandle =
-                JobHandle.CombineDependencies(vfx.ValueRW.ProducerHandle, aoeHandle);
+                JobHandle.CombineDependencies(vfx.ValueRW.ProducerHandle, targetedHandle);
 
-            state.Dependency = aoeHandle;
+            state.Dependency = targetedHandle;
         }
 
         [BurstCompile]
@@ -113,6 +120,40 @@ namespace PlayGround.System.Combat.Lifetime
                         kinematics.Position,
                         math.max(authoring.VisualScale.x, authoring.VisualScale.y),
                         timing);
+                }
+            }
+        }
+
+        [BurstCompile]
+        [WithAll(typeof(TargetedTag), typeof(Active), typeof(CombatLifetimeComponent))]
+        [WithDisabled(typeof(ArmingTag))]
+        private partial struct TargetedLifetimeJob : IJobEntity
+        {
+            public float DeltaTime;
+            public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
+            public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
+
+            private void Execute(
+                in TargetedVfxIds vfxIds,
+                in TargetedVfxSizeComponent vfxSize,
+                in VfxTimingData timing,
+                in CombatKinematicsComponent kinematics,
+                ref CombatLifetimeComponent lifetime,
+                EnabledRefRW<Active> active,
+                EnabledRefRW<ArmingTag> arming)
+            {
+                lifetime.Remaining -= DeltaTime;
+                if (lifetime.Remaining <= 0f)
+                {
+                    lifetime.Remaining = 0f;
+                    CombatDeathUtility.Kill(active, arming);
+                    VfxEmit.Enqueue(
+                        vfxIds.ExpireId,
+                        kinematics.Position,
+                        vfxSize.EffectSize,
+                        timing,
+                        CircularVfxPending,
+                        TimedCircularVfxPending);
                 }
             }
         }

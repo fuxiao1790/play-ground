@@ -10,6 +10,7 @@ using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Targeted;
 using PlayGround.System.Combat.Vfx;
 using Unity.Collections;
 using Unity.Entities;
@@ -44,6 +45,13 @@ namespace PlayGround.System.Combat.Spawning
     public struct AoeSpawnTemplate : IComponentData
     {
         public NativeHashMap<Hash128, AoeSpawnCommand> Map;
+    }
+
+    // ECS Lifecycle: singleton registry component; added to the shared combat scope entity on first CombatScopeOwner.Acquire and disposed on final CombatScopeOwner.Release.
+    // Registry contract: Map stores targeted command-shaped templates keyed by content hash. CombatRoot writes templates only from managed pre-tick code; systems and jobs read this map as [ReadOnly] during the simulation tick.
+    public struct TargetedSpawnTemplate : IComponentData
+    {
+        public NativeHashMap<Hash128, TargetedSpawnCommand> Map;
     }
 
     public static class SpawnTemplateLimits

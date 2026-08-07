@@ -1,4 +1,4 @@
-# 007 — `CombatRoot` registration, spawn API, gate routing
+# 007 — Type definition, `CombatRoot` registration, spawn API, gate routing
 
 **Depends on:** 002, 003. **Scope:** medium. **Risk:** low.
 
@@ -6,6 +6,33 @@
 
 Closes the managed→ECS boundary so compiled skills can register templates and cast. Mirrors the
 existing AOE members on `CombatRoot` one-for-one (C4).
+
+## New file
+
+`Assets/Scripts/System/Targeted/TargetedTypeRegistry.cs`
+
+Mirrors `Assets/Scripts/System/Aoes/AoeTypeRegistry.cs`. **This type lives here, not in task 008.**
+`AoeTypeDefinition` is a plain `[Serializable]` class in the **Sim** assembly beside `CombatRoot`,
+not a ScriptableObject and not part of the authoring layer — task 008 owns the Skills-assembly
+authoring surface (`TargetedPrefab`, the skill SOs), which is a different thing that happens to
+describe the same content.
+
+- `TargetedTypeDefinition` — `[Serializable]` class holding `visualPrefab`, `visualRotationDegrees`,
+  `preloadCount`, the VFX assets (`spawnEffect`, `hitEffect`, `expireEffect`, `linkEffect`,
+  `armingEffect`), and the two dispatch sizes (`effectSize`, `linkWidth`). Exposes
+  `TargetedVfxIds VfxIds { get; private set; }` with a `SetVfxIds` setter, matching
+  `AoeTypeDefinition`.
+  - **No `collisionShape` field.** `AoeTypeDefinition` carries a `Collider2D`; a targeted skill has
+    no hurtbox and bakes no shape (requirements §6.2). Its absence here is the same guard
+    `TargetedPrefab` enforces on the authoring side.
+  - `linkEffect` takes the slot `pulseEffect` occupies on AOEs — both are the domain's repeating
+    in-flight effect, matching how `LinkId` sits where `PulseId` does in the ids struct.
+- `TargetedVisualDefinition` — readonly struct mirroring `AoeVisualDefinition`
+  (sprite, material, scale, rotation).
+- `TargetedTypeRegistry` — `Register(int typeId, TargetedTypeDefinition)`, `TryGetDefinition`,
+  `TryGetVisual`, `SetVfxIds`, and a `TryBakeVisual` that pulls the sprite off the visual prefab's
+  child `SpriteRenderer`. Baking must tolerate **no sprite** and return `false` without error —
+  a VFX-only chain is the expected shipping case, unlike AOEs where a missing sprite is unusual.
 
 ## Changes
 
@@ -25,7 +52,10 @@ Mirroring the AOE trio (`RegisterSpawnTemplate`, `RegisterTimedSpawnTemplate`,
   one API-shape divergence from AOE, and it exists because a root cast draws from the caster but
   searches around the cursor (requirements §3.1).
 - `int RegisterTargetedType(TargetedTypeDefinition definition)` — dedupes by reference and returns
-  a `TypeId`, mirroring `RegisterType(AoeTypeDefinition)`.
+  a `TypeId`, mirroring `RegisterType(AoeTypeDefinition)`. Backed by a `TargetedTypeRegistry`
+  instance owned by `CombatRoot`, the way the AOE registry is.
+- `void SetTargetedVfxIds(int typeId, TargetedVfxIds vfxIds)` — mirrors `SetAoeVfxIds`, letting VFX
+  registration land after type registration.
 - Sprite registration reuses the existing `CombatRenderResourceRegistry.Register` path and returns
   `0` when no sprite is authored, which is already the "no render" value.
 - **Templates are written only here, from managed pre-tick code.** They are read `[ReadOnly]`
@@ -60,6 +90,11 @@ Mirroring the AOE trio (`RegisterSpawnTemplate`, `RegisterTimedSpawnTemplate`,
 - EditMode: a `TimedSpawnComponent` with `ChildKind = Targeted` emits into the targeted lane on
   energy accrual; with `LingeringTargeted`, into the lingering lane.
 - EditMode: registering a targeted type twice by the same reference returns the same `TypeId`.
+- EditMode: `TargetedTypeRegistry.TryGetVisual` returns `false` — without logging or throwing — for
+  a definition whose visual prefab is null or has no sprite. This is the normal shipping case.
+- EditMode: `SetTargetedVfxIds` after registration updates the stored definition's ids.
+- EditMode: `TargetedTypeDefinition` has no collision-shape member — grep-verifiable, and the
+  compile-time guard that a hurtbox cannot leak in through registration.
 - All existing spawn-pipeline tests pass unchanged.
 
 ## Notes

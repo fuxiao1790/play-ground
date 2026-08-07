@@ -16,6 +16,11 @@ these is an existing system that enumerates domains explicitly, so each needs a 
   does not tick during windup, matching the other two jobs.
 - On expiry, `CombatDeathUtility.Kill(active, arming)`. Targeted entities have no
   `CombatCollisionActiveTag`, so use the projectile-shaped overload, not the AOE one.
+- Emit `TargetedVfxIds.ExpireId` on expiry, at the entity's current position, sized by
+  `TargetedVfxSizeComponent.EffectSize` with `TargetedVfxUtility.TimingFor` — the same three
+  sources expansion uses (task 003). The AOE lifetime job derives its size from
+  `CombatRenderAuthoring.VisualScale`; targeted must not, because a chain with no sprite has no
+  meaningful visual scale.
 - **Single-hit fail-safe.** A single-hit chain with `chainDelaySeconds > 0` lives until its walk
   finishes (task 004 kills it), but it must still carry a computed lifetime
   (`maxTargets * chainDelaySeconds` plus margin, set at compile time in task 009) so a walk that

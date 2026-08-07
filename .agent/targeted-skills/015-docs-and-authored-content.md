@@ -41,7 +41,8 @@ Unity editor work is instructions for the user, never hand-edited asset YAML.
 4. **Skill assets.** Create a `Targeted Skill` and a `Lingering Targeted Skill` via
    `Assets > Create > PlayGround > Skills`. Suggested first content: `acquireRadius` ~6,
    `maxTargets` 4, `chainRadius` ~4, `chainDamageFalloff` 0.7, `chainDelaySeconds` 0.05,
-   `count` 1.
+   `count` 1. On the prefab, set `linkWidth` and `vfxEffectSize` to non-zero values — a chain has
+   no gameplay area for the runtime to derive them from, so unset means invisible.
 5. **Skill sets and loadout.** Wrap each skill in a `SkillSet`, add them to the player's
    `SkillLoadout`, and bind a root set to input.
 6. **Trigger demo.** Wire an existing projectile set → `OnImpactTargetedTrigger` → the targeted set

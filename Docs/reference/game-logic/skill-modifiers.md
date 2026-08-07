@@ -185,6 +185,7 @@ how the factor aggregates across a full trigger chain.
 |---|---|---|
 | Multiple Projectiles | `IManaModifiers.IBaseValueModifier`, `IManaModifiers.IIncreasedModifier`, `IManaModifiers.IMultiplierModifier`, `IProjectileBehaviorModifier` | Adds, increases, and multiplies `ManaCost` (three independent authored fields, same fold as player-level stat terms); adds projectile `count`, `spreadDegrees` |
 | Multiple AOEs | `IManaModifiers.IBaseValueModifier`, `IManaModifiers.IIncreasedModifier`, `IManaModifiers.IMultiplierModifier`, `IAoeBehaviorModifier` | Adds, increases, and multiplies `ManaCost` (three independent authored fields, same fold as player-level stat terms); adds AOE `echoCount`, `scatterRadius` |
+| Multiple Chains | `IManaModifiers.IBaseValueModifier`, `IManaModifiers.IIncreasedModifier`, `IManaModifiers.IMultiplierModifier`, `ITargetedBehaviorModifier` | Adds, increases, and multiplies `ManaCost`; adds targeted-chain `count` |
 | Piercing | `IPierceCountModifiers.IBaseValueModifier`, `IManaModifiers.IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost` and `PierceCount`; sets projectile `repeatHitCooldown` |
 | Homing | `IManaModifiers.IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost`; enables tracking and sets turn speed/query interval |
 | Concentrated Effect | `IAreaSizeModifiers.IMultiplierModifier`, `IManaModifiers.IMultiplierModifier` | Multiplier on `AreaSize`; also multiplies `ManaCost` |
@@ -199,13 +200,16 @@ Supports also declare compatible skill tags:
 |---|---|
 | Multiple Projectiles | `Projectile` |
 | Multiple AOEs | `Aoe` |
+| Multiple Chains | `Targeted` |
 | Piercing | `Projectile` |
 | Homing | `Projectile` |
 | Faster Projectiles | `Projectile` |
 | Added Damage | `Projectile`, `Aoe` |
-| Concentrated Effect | `Aoe` |
-| Increased AOE Effect | `Aoe` |
-| Increased Skill Speed | `Projectile`, `Aoe` |
+| Concentrated Effect | `Aoe`, `Targeted` |
+| Increased AOE Effect | `Aoe`, `Targeted` |
+| Increased Skill Speed | `Projectile`, `Aoe`, `Targeted` |
 
 Example: putting Multiple Projectiles on an AOE skill is allowed, but it does
 nothing and validation returns a warning.
+
+`SkillDefinitionTags.Any` means `Projectile`, `Aoe`, or `Targeted`.

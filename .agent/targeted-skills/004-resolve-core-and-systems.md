@@ -15,66 +15,110 @@ Burst-compatible static core. **Reads only the broadphase snapshot arrays and it
 — no `ComponentLookup`, no random access** (C2, C9). Requirements §3.5 explains why there is
 deliberately no liveness check.
 
-Drain loop, per requirements §3.3:
+Drain loop, per requirements §3.3. The three bounds — remaining links, elapsed delay, and the
+catch-up cap — collapse into a single `availableHits` count computed up front, so the loop body is
+a plain walk:
 
 ```text
-linksThisUpdate = 0
 chain.LinkGateRemaining -= dt
 
-while chain.LinkIndex < maxTargets
-      and chain.LinkGateRemaining <= 0
-      and iterations < maxTargets:
+// Pure read, no mutation: how many links the gate has unlocked this update.
+// ChainDelaySeconds == 0 unlocks the whole remaining walk, which is why delay 0 is not a
+// special case anywhere in the body.
+availableHits = cfg.ChainDelaySeconds <= 0
+    ? cfg.MaxTargets
+    : (chain.LinkGateRemaining <= 0
+        ? floor(-chain.LinkGateRemaining / cfg.ChainDelaySeconds) + 1
+        : 0)
 
-    searchFrom = chain.LinkIndex == 0 ? chain.AcquireAnchor : chain.LinkTarget
-    radius     = chain.LinkIndex == 0 ? cfg.AcquireRadius   : cfg.ChainRadius
+availableHits = min(availableHits, cfg.MaxTargets - chain.LinkIndex)   // also the catch-up cap
+
+currentPosition = chain.LinkTarget      // walk state, NOT kinematics.Position (see below)
+linksThisUpdate = 0
+
+for i in 0 ..< availableHits:
+    // link 0 is the only asymmetric one: it searches the anchor, at acquire range, at fork rank
+    searchFrom = chain.LinkIndex == 0 ? chain.AcquireAnchor    : currentPosition
+    radius     = chain.LinkIndex == 0 ? cfg.AcquireRadius      : cfg.ChainRadius
     rank       = chain.LinkIndex == 0 ? identity.InstanceIndex : 0
 
+    // excludeKey is load-bearing, not an optimisation — see below
     target = SelectNthNearest(searchFrom, radius, rank, faction, chain.LastTargetKey)
-    if none: break
+    if target not found: break
 
-    chain.LinkSource   = chain.LinkTarget
-    chain.LinkTarget   = target.Position
+    chain.LinkSource    = currentPosition
+    currentPosition     = target.Position
+    chain.LinkTarget    = currentPosition
     chain.LastTargetKey = TargetKey(target.Entity)
 
     HitWriter.Enqueue(new CombatHitEvent {
         Source = self, Target = target.Entity,
         DamageScale = pow(cfg.ChainDamageFalloff, chain.LinkIndex) })
 
-    VfxEmit.EnqueueLineSegment(cfg.LinkVfxId, chain.LinkSource, chain.LinkTarget,
-                               cfg.LinkWidth, lineSegments)
-    if cfg.ImpactVfxId != 0:
-        VfxEmit.Enqueue(cfg.ImpactVfxId, chain.LinkTarget, ...)
+    VfxEmit.EnqueueLineSegment(vfxIds.LinkId, chain.LinkSource, chain.LinkTarget,
+                               vfxSize.LinkWidth, lineSegments)
+    if vfxIds.HitId != 0:
+        VfxEmit.Enqueue(vfxIds.HitId, chain.LinkTarget, vfxSize.EffectSize, timing,
+                        circularPending, timedCircularPending)
 
     chain.LinkIndex++
     linksThisUpdate++
-    chain.LinkGateRemaining += cfg.ChainDelaySeconds   // += 0 drains the whole walk this update
-    iterations++
+    chain.LinkGateRemaining += cfg.ChainDelaySeconds   // per landed link only
 
 if linksThisUpdate > 0:
     kinematics.Position = chain.LinkTarget                       // the only render coupling
     kinematics.Velocity = chain.LinkTarget - chain.LinkSource
 ```
 
+Three things the loop shape must keep, each of which silently breaks the feature if dropped:
+
+- **`excludeKey` is mandatory, not an optimisation.** After `currentPosition = target.Position`,
+  that target's own centre is at distance zero from the next search origin, so an unfiltered
+  `SearchClosest(currentPosition)` re-selects it forever. A chain would hit one enemy
+  `maxTargets` times. `LastTargetKey` is the entire mechanism preventing it.
+- **Seed `currentPosition` from `chain.LinkTarget`, not `kinematics.Position`.** They hold the same
+  value at the top of a resolve, but kinematics is a *derived render mirror* (§3.2). Reading it
+  back would make a render concern authoritative for targeting, and a stale mirror would become a
+  gameplay bug instead of a visual one.
+- **Gate advances per landed link, not per available slot.** `availableHits` is computed as a pure
+  read; `LinkGateRemaining` only accrues inside the loop. Pre-consuming it would charge delay for
+  links that never landed when the walk breaks early.
+
+Hits are enqueued straight into the lane's parallel writer rather than accumulated into a local
+list — the allocation rule forbids a per-entity temp container on this path (C9).
+
 `SelectNthNearest(from, radius, rank, faction, excludeKey)`:
 
-- Scans the cells of `TrackingCells` overlapping the circle, clamped by `MaxTargetedSearchRadius`.
+- Uses **`TargetSpatialHashSingleton.AoeOccupiedCells`** at `CombatSpatialHash.AoeCellSize` — the
+  same broadphase AOE area queries use. Not `TrackingCells`: that stores one centre cell per
+  target, so a large target reaching into range would be missed. Iterate the cell range with
+  `CombatSpatialHash.MinCell`/`MaxCell` over the query circle's bounds, exactly as
+  `AoeCollisionCore` does.
+- **No radius clamp.** The hash only holds cells targets actually occupy, so cost tracks targets in
+  the region, not radius². Do not reintroduce a `MaxTargetedSearchRadius`.
+- Narrow phase: reuse `CombatCollisionMath` to test the search circle against the candidate's
+  shape, the same overlap test AOEs run. Eligibility is shape overlap; **ranking** is by centre
+  distance.
 - Skips `target.Faction == self.Faction` and `TargetKey(entity) == excludeKey`.
-- Keeps the `rank+1` nearest in a small fixed-size running set — the scan already visits every
-  candidate to find the nearest, so ranking costs a bounded insert, not a second pass.
+- **Dedupe by target index.** A target's bounds span several cells, so one scan can encounter it
+  repeatedly. Harmless for a plain nearest search — same target, same distance — but it would
+  corrupt rank selection by filling the running set with one enemy. The running set is keyed by
+  index for this reason.
+- Keeps the `rank+1` nearest in a small fixed-size running set bounded by `MaxChainTargets`. The
+  scan already visits every candidate to find the nearest, so ranking costs a bounded insert, not
+  a second pass.
 - Returns rank `rank mod eligibleCount` when fewer than `rank+1` candidates exist (the fork wrap in
   requirements §3.6), so `count = 3` against one enemy has all three forks hit it.
 - Tie-break: lowest broadphase index. Deterministic **within a frame** only — the index comes from
   `ToEntityArray` in chunk order. Do not assert cross-session reproducibility.
 
-Key details that are easy to get wrong:
+Further details that are easy to get wrong:
 
-- `chain.LinkSource = chain.LinkTarget` **before** writing the new target; `LinkTarget` is seeded to
-  the origin at spawn (task 003), so link 0's segment correctly starts at the caster.
+- `chain.LinkTarget` is seeded to the origin at spawn (task 003), so link 0's `LinkSource` lands on
+  the caster and its segment starts there.
 - `rank` applies to link 0 only. Links 1..n always take the nearest.
-- `LastTargetKey` is **not** cleared between links — it advances with each link, and it is the
-  entire exclusion mechanism. A link may revisit an earlier target; only the immediately previous
-  one is barred.
-- Iteration cap is `maxTargets`, mirroring the bounded catch-up `TimedSpawnSystem` uses.
+- `LastTargetKey` is **not** cleared between links — it advances with each one. A link may revisit
+  an earlier target; only the immediately previous one is barred.
 - When `linksThisUpdate == 0`, leave position and velocity untouched: a zero `Velocity` makes
   `ElementFor` fall back to facing `+X`, snapping the debug sprite sideways between jumps.
 
@@ -92,6 +136,11 @@ Key details that are easy to get wrong:
 - Both: `[UpdateInGroup(SimulationSystemGroup)]`, after `TargetSpatialHashSystem` and
   `CombatArmingSystem`, before `CombatApplyFinalizeSingleSystem` and before every spawn expansion
   system — the slot the AOE collision systems occupy.
+- **This task owns the resolve↔expansion ordering.** Task 003 deliberately does not name these
+  systems (they did not exist yet), so the constraint is declared here:
+  `[UpdateBefore(typeof(TargetedSpawnExpansionSystem))]`,
+  `[UpdateBefore(typeof(LingeringTargetedSpawnExpansionSystem))]`, plus the existing projectile and
+  AOE expansion systems, so an on-hit spawn a chain produces lands in the same frame.
 - Both combine `TargetSpatialHashSingleton.BuildHandle` into their dependency and publish into
   `ConsumerHandle` (C8), and combine their handle into `CombatHitDispatchSingleton.ProducerHandle`
   and `CombatAoeVfxDispatchSingleton.ProducerHandle` on the main thread (C6).
@@ -127,6 +176,14 @@ EditMode, using hand-registered templates (no authored assets needed):
 - Target dies (proxy removed) mid-walk → the walk continues from its last position.
 - Arming: `armSeconds > 0` produces no hits until the window elapses.
 - `maxTargets` above `MaxChainTargets` clamps without overrunning the rank set.
+- **Shape overlap, not centre distance:** a large target whose collision shape reaches into
+  `acquireRadius` but whose centre lies outside it **is** selected. This is the case `TrackingCells`
+  would have missed.
+- **Dedupe:** a target whose bounds span several cells is counted once. With `count = 2` and two
+  enemies where the near one spans many cells, fork 1 opens on the *far* enemy, not on a duplicate
+  of the near one.
+- A large search radius over a sparse field costs proportional to targets present, not to radius —
+  assert the candidate-visit count, not wall time.
 
 ## Notes
 

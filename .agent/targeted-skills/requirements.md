@@ -59,7 +59,10 @@ spawn kind, spawn event, expansion, apply, pool, and resolve system. Decisions 4
 - Up to `maxTargets` links; stops early when a link finds nothing.
 - A link never selects the target the previous link hit; earlier targets **may** be revisited
   (§3.4). Chain length is bounded by `maxTargets`, not by the number of distinct enemies.
-- Centre distance only, not shape overlap. Accepted cost of reusing the existing hash.
+- Eligibility is **shape overlap**, not centre distance: a candidate qualifies when the search
+  circle overlaps its collision shape, using the same narrow-phase test AOEs use. A large target
+  whose body reaches into range but whose centre does not is correctly found. Ranking among the
+  qualifying candidates is by centre distance.
 - Interval variant starts a fresh walk each tick, carrying only the last target key (§3.4).
 - **Tie-break is deterministic within a frame** — lowest broadphase index, no RNG, no
   dependence on thread scheduling. It is *not* reproducible across sessions: the index comes
@@ -528,8 +531,13 @@ Decision 9 — mirror the impact/lingering AOE structure exactly:
   projectile impact in frame N creates the targeted entity in N and resolves it in N+1. Identical
   to impact AOEs, so it is consistent rather than a defect — but for delay-0 chain lightning it
   is worth knowing before it gets reported as input lag.
-- Reuses the existing tracking spatial hash for radius queries. **Zero new native containers,
-  zero new spatial structures.**
+- Reuses **`TargetSpatialHashSingleton.AoeOccupiedCells`** — the same broadphase AOE area queries
+  use, at `CombatSpatialHash.AoeCellSize`. Targets are inserted into every cell their bounds
+  overlap, so a radius query finds them by shape rather than by centre. **Zero new native
+  containers, zero new spatial structures.**
+- Because a target occupies several cells, one scan can encounter the same target more than once.
+  The candidate set dedupes by target index — harmless for a plain nearest search, but it would
+  corrupt rank selection (§3.6) if left in.
 - Resolve system slot: after `TargetSpatialHashSystem` and arming, before
   `CombatApplyFinalizeSingleSystem` and before spawn expansion — the AOE collision slot.
 - Combines the hash `BuildHandle`, publishes into `ConsumerHandle`, writes lanes via
@@ -569,11 +577,13 @@ Decision 9 — mirror the impact/lingering AOE structure exactly:
 - The resolve reads only broadphase snapshot arrays and its own chain state. No
   `ComponentLookup`, no random access (§3.5).
 - Idle interval frames cost one gate decrement and return — no query work.
-- Cost per resolve = `maxTargets × cellsScanned × candidatesPerCell`, bounded by caps rather
-  than by trusting authored values:
-  - `MaxChainTargets` (suggest 32)
-  - `MaxTargetedSearchRadius`
-  - `MinTickInterval` (suggest 0.02s)
+- **No search-radius cap.** The occupied-cells hash is keyed at a cell size derived from target
+  extents and only stores cells targets actually occupy, so query cost tracks the number of
+  targets in the region rather than the square of the radius. An artificial
+  `MaxTargetedSearchRadius` would clamp authored reach for no measured benefit.
+- Remaining caps, both about authored counts rather than search:
+  - `MaxChainTargets` (suggest 32) — bounds links per resolve and the rank set
+  - `MinTickInterval` (suggest 0.02s) — stops a zero interval resolving every frame
 - **The per-resolve caps do not bound the scene.** `TargetedIntervalSpawnTrigger` on a
   projectile volley can put hundreds of walking chains in flight at once, each running
   `maxTargets` ring scans per tick. That multiplier is sharper than anything AOEs produce, and
@@ -587,16 +597,19 @@ Decision 9 — mirror the impact/lingering AOE structure exactly:
 
 ## 11. Validation
 
-- Clamp + warn: `maxTargets < 1`, radius above cap, `tickInterval <= 0`, `maxTargets` above
-  `MaxChainTargets`.
+- Clamp + warn: `maxTargets < 1`, `tickInterval <= 0`, `maxTargets` above `MaxChainTargets`.
+  Search radii are **not** clamped — there is no radius cap (§10).
 - **Error** on `acquireRadius <= 0` — blocks the spawn instead of firing a no-op.
 - Warn on `maxTargets > 1` with `chainRadius <= 0` (chain can never jump).
 - Warn on `chainDamageFalloff <= 0` with `maxTargets > 1` (all links after the first deal zero).
 - Clamp `chainDelaySeconds < 0` to 0; clamp `count < 1` to 1.
-- Warn when `maxTargets * chainDelaySeconds > tickIntervalSeconds` — later links are cut off
-  by the next tick restarting the walk, so the authored chain length is never reached.
-- Warn when `maxTargets * chainDelaySeconds > lifetimeSeconds` on the single-hit variant —
-  the instance expires before the walk finishes.
+- Warn when `maxTargets * chainDelaySeconds > tickIntervalSeconds` (interval variant) — later
+  links are cut off by the next tick restarting the walk.
+- Warn when `maxTargets * chainDelaySeconds > lifetimeSeconds` (interval variant) — the instance
+  expires before even one walk completes. Distinct from the case above: a walk can be cut short by
+  the next tick or by the instance dying, and either can fire without the other.
+- Neither applies to the single-hit variant, which authors no `lifetimeSeconds` (that field *is*
+  the variant discriminator) and has its fail-safe lifetime computed to fit the walk (§8).
 - Warn on `tickInterval > lifetime` — fires exactly once, ticking silently never appears.
   Same trap class as the interval-spawn threshold-vs-lifetime bug.
 - Warn on an interval trigger whose energy threshold exceeds what the source can accrue over

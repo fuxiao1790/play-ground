@@ -18,7 +18,7 @@ authoring or implementation.
 ## Concepts
 
 **Skill** 鈥?an active spell or attack. Defines what is spawned: a projectile,
-an AOE, a beam. Owns base visual, collision shape, base rate (attacks/casts
+an AOE, a targeted chain, a beam. Owns base visual, collision shape, base rate (attacks/casts
 per second), and behavior data. A Skill slotted alone fires with base behavior and no
 augmentation.
 
@@ -193,9 +193,10 @@ containing visual, collision, and behavior data. Skills do not own augmentation
 鈥?that belongs to Supports.
 
 `Skill` is abstract. Concrete types are `ProjectileSkill`, regular `AoeSkill`,
-and `LingeringAoeSkill`, each holding their typed definition inline. Regular
-and lingering AOE skills derive from the same AOE skill base. The SO is never
-mutated at runtime.
+`LingeringAoeSkill`, `TargetedSkill`, and `LingeringTargetedSkill`, each holding
+their typed definition inline. Regular and lingering AOEs derive from the same
+AOE skill base; targeted skills derive from the targeted skill base. The SO is
+never mutated at runtime.
 
 ```csharp
 abstract class Skill : ScriptableObject {
@@ -219,6 +220,16 @@ sealed class LingeringAoeSkill : AoeSkillBase {
     LingeringAoeDefinition definition;
 }
 
+[CreateAssetMenu(menuName = "PlayGround/Skills/Targeted Skill")]
+sealed class TargetedSkill : TargetedSkillBase {
+    TargetedDefinition definition;
+}
+
+[CreateAssetMenu(menuName = "PlayGround/Skills/Lingering Targeted Skill")]
+sealed class LingeringTargetedSkill : TargetedSkillBase {
+    LingeringTargetedDefinition definition;
+}
+
 ```
 
 Skill tags are runtime-authoring metadata used for validation, not hard gates.
@@ -228,6 +239,7 @@ Current tags:
 |---|---|
 | `Projectile` | Skill compiles to a projectile runtime definition |
 | `Aoe` | Skill compiles to an AOE runtime definition |
+| `Targeted` | Skill compiles to a target-proxy chain runtime definition |
 
 Players may still place any support or trigger beside any skill. Incompatible
 links and supports compile as no-ops and return validation warnings for UI.
@@ -243,6 +255,8 @@ Current Skill types and their definition roots:
 | Projectile skill | `ProjectileSkill` | `ProjectileDefinition` |
 | AOE skill | `AoeSkill` | `AoeDefinition` |
 | Lingering AOE skill | `LingeringAoeSkill` | `LingeringAoeDefinition` |
+| Targeted skill | `TargetedSkill` | `TargetedDefinition` |
+| Lingering targeted skill | `LingeringTargetedSkill` | `LingeringTargetedDefinition` |
 
 ### ProjectileDefinition
 
@@ -261,7 +275,7 @@ and render data from it at load time, identical to current baking behavior.
 Behavior fields on the definition drive simulation 鈥?the prefab contributes
 nothing to behavior.
 
-`manaCost` belongs to every projectile or AOE definition. It folds through
+`manaCost` belongs to every projectile, AOE, or targeted definition. It folds through
 `SkillStat.ManaCost` during runtime compilation, so compatible supports can
 modify it - see [skill-modifiers.md](./skill-modifiers.md) for the fold and
 the supports that contribute to it. A player-cast skill spends once, using
@@ -307,6 +321,36 @@ LingeringAoeDefinition
  鈹斺攢 behavior:  baseAreaSize, damage, lifetimeSeconds, tickIntervalSeconds,
                echoCount, scatterRadius, manaCost, directDamageEnabled
 ```
+
+### TargetedDefinition
+
+```
+TargetedDefinition
+ - prefab:    TargetedPrefab       - visual and VFX preset only; no Hurtbox
+ - behavior:  damage, count, acquireRadius, maxTargets, chainRadius,
+              chainDamageFalloff, chainDelaySeconds, armSeconds,
+              manaCost, directDamageEnabled
+```
+
+Targeted chains do not use Physics2D or a gameplay collider. On each walk the
+first link searches from the cast `acquireAnchor`; later links search from the
+last hit target. They resolve against target proxies through the spatial hash.
+Only the immediately previous target is excluded, so earlier targets may be
+visited again. `count` creates independent chains. `chainDamageFalloff` is
+applied as `falloff^linkIndex`, before the hit's crit roll.
+
+### LingeringTargetedDefinition
+
+```
+LingeringTargetedDefinition
+ - same fields as TargetedDefinition
+ - behavior:  lifetimeSeconds, tickIntervalSeconds
+```
+
+`lifetimeSeconds > 0` is the variant discriminator: it compiles to a lingering
+targeted chain that restarts its walk every tick interval. `TargetedDefinition`
+has no lifetime field and always compiles to the single-hit variant. This mirrors
+pulse AOEs, which also expose no lifetime.
 
 ### Unit Resources and Root Casts
 
@@ -477,11 +521,12 @@ compile the same setup onto `RuntimeAoeDefinition.AoeIntervalSpawnSetup`.
 
 Energy-driven source/child support:
 
-| Source / Child | Projectile child | AOE child |
-|---|---|---|
-| Projectile source | `ProjectileIntervalSpawnTrigger` | `AoeIntervalSpawnTrigger` |
-| Lingering AOE source | `ProjectileIntervalSpawnTrigger` | `AoeIntervalSpawnTrigger` |
-| Pulse AOE source | warning, no-op | warning, no-op |
+| Source / Child | Projectile child | AOE child | Targeted child |
+|---|---|---|---|
+| Projectile source | `ProjectileIntervalSpawnTrigger` | `AoeIntervalSpawnTrigger` | `TargetedIntervalSpawnTrigger` |
+| Lingering AOE source | `ProjectileIntervalSpawnTrigger` | `AoeIntervalSpawnTrigger` | `TargetedIntervalSpawnTrigger` |
+| Lingering targeted source | `ProjectileIntervalSpawnTrigger` | `AoeIntervalSpawnTrigger` | `TargetedIntervalSpawnTrigger` |
+| Pulse AOE or single-hit targeted source | warning, no-op | warning, no-op | warning, no-op |
 
 Both concrete interval triggers inherit `energyPerSecond` from
 `IntervalSpawnTrigger` and the mana-cost fields from `TriggerLink`. The child
@@ -515,8 +560,8 @@ threshold, the system emits a child event and consumes that fixed threshold.
 Thresholds are floored positive, each update emits at most 256 children, and a
 runtime rate at or below zero emits none.
 
-`projectileCount` and `echoCount` are **additive** with the effect set's own
-multiplicity. For projectile children this means
+`projectileCount`, `echoCount`, and targeted `count` are **additive** with the
+effect set's own multiplicity. For projectile children this means
 `childDefinition.Count + projectileCount`, floored to `1`. For AOE children this
 means `childDefinition.EchoCount + echoCount`, floored to `1`. These are the
 only additive timed-child multiplicity fields.
@@ -558,6 +603,35 @@ class OnImpactAoeTrigger : TriggerLink { }
 ```
 
 Compatible tags: source `Projectile` or `Aoe`, target `Aoe`.
+
+**TargetedIntervalSpawnTrigger**
+
+The source accrues energy and starts targeted-chain children whenever it reaches
+the child cost. Sources may be projectiles, lingering AOEs, or lingering
+targeted chains; pulse AOEs and single-hit targeted chains warn and compile to
+no timed-child setup. The effect must compile to a `RuntimeTargetedDefinition`.
+
+```csharp
+class TargetedIntervalSpawnTrigger : IntervalSpawnTrigger {
+    int count;
+}
+```
+
+Compatible tags: source `Projectile`, `Aoe`, or `Targeted`; target `Targeted`.
+`count` is additive with the child targeted definition's count, floored to one.
+`count` is additive with the child targeted definition's count, floored to one.
+
+**OnImpactTargetedTrigger**
+
+Fires a targeted child when a projectile or AOE accepts a hit. The child starts
+at the impact position and uses that position as its acquisition anchor. The
+effect must compile to a `RuntimeTargetedDefinition`.
+
+```csharp
+class OnImpactTargetedTrigger : TriggerLink { }
+```
+
+Compatible tags: source `Projectile` or `Aoe`, target `Targeted`.
 
 **OnImpactProjectileTrigger**
 
@@ -641,6 +715,8 @@ Current warning cases:
 - trigger link is not between two valid skill sets
 - trigger has no runtime-compatible tags
 - trigger source or target tags do not match the neighboring skill sets
+- targeted chain has a missing prefab, missing line-segment VFX, or non-positive link width
+- a lingering targeted walk can be truncated by its next tick or by lifetime expiry
 - interval trigger source is a pulse AOE instead of a projectile or lingering
   AOE
 - stacking set is not the effect of a `StackTrigger`

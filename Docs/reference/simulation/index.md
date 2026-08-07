@@ -22,7 +22,7 @@ Use this split:
 
 - GameObjects own player, mobs, spawners, authored roots, camera, walls, and
   Unity presentation.
-- ECS owns projectiles, AOEs, future beams, target proxy data, collision,
+- ECS owns projectiles, AOEs, targeted chains, future beams, target proxy data, collision,
   combat-state aggregation, transient VFX requests, slot reuse, and render
   preparation.
 - `CombatRoot` is the managed bridge. It submits spawn intent, owns authoring
@@ -38,6 +38,7 @@ Use this split:
 | Spawn template registry | Spawn safety rules for managed requests, ECS events, commands, runtime component snapshots, timed-spawn templates, and consequence events. | [spawn-template-registry.md](./spawn-template-registry.md) |
 | Projectiles | High-count moving attacks split into a discrete lane (footprint-only collision, may home) and a continuous lane (footprint plus swept travel corridor, never homes), each with its own archetype, reuse pool, and collision system; plus timed spawns, impact spawns, lifetime, and render data. | [projectile-system.md](./projectile-system.md) |
 | AOEs | Pulse and lingering areas, repeat-hit gates, projectile bursts from AOE hits, lifetime, pulse VFX, and AOE-specific reuse. | [aoe-system.md](./aoe-system.md) |
+| Targeted chains | Single-hit and interval target-proxy chain walks, link falloff, line-segment VFX, lifetime, and separate reuse pools. | [targeted-system.md](./targeted-system.md) |
 | Combat state and status | ECS-owned target health/status direction, damage aggregation, compact presentation sync, and mob GameObject presentation boundary. | [mob-combat-state-ecs.md](./mob-combat-state-ecs.md) |
 | VFX requests | Native VFX request flow from simulation jobs to presentation dispatch and Visual Effect Graph buffer contracts. | [vfx-system.md](./vfx-system.md), [shared-graph area-size corruption](./vfx-shared-graph-area-size-corruption.md) |
 | Combat rendering | Single indirect draw of all projectile/AOE sprites via a shared atlas + `ScriptableRendererFeature` on the URP 2D renderer, per-instance data in a `StructuredBuffer`, and the affine UV basis. | [combat-render-system.md](./combat-render-system.md), [tight-mesh UV distortion](./combat-atlas-tight-mesh-uv-distortion.md) |
@@ -47,7 +48,7 @@ Use this split:
 ## Current Frame Path
 
 1. Actor roots push target proxy position and shape before simulation.
-2. Lifetime, timed-spawn, projectile, AOE, status, and collision systems run in
+2. Lifetime, timed-spawn, projectile, AOE, targeted, status, and collision systems run in
    ECS.
 3. Collision systems emit plain data consequences, not managed callbacks.
 4. Combat apply/finalize systems aggregate health, status, and result data.
@@ -58,7 +59,7 @@ Use this split:
 8. Render preparation writes batched sprite matrices.
 9. Presentation systems dispatch combat results, VFX, and render batches.
 
-Newly applied projectiles and AOEs do not move or collide until the next
+Newly applied projectiles, AOEs, and targeted chains do not resolve until the next
 simulation update because apply runs after collision.
 
 ## Change Rules
@@ -69,7 +70,7 @@ simulation update because apply runs after collision.
 - Keep hot despawn as enable/disable, not destroy/create.
 - Keep pool cleanup bounded, after spawn apply, and keyed by reuse pool rather
   than render kind.
-- Require domain tags such as `ProjectileTag` and `AoeTag` on domain systems.
+- Require domain tags such as `ProjectileTag`, `AoeTag`, and `TargetedTag` on domain systems.
 - Keep lane membership structural. `ProjectileContinuousTag` is assigned at
   entity creation and never toggled, so lane-specific systems discriminate by
   query rather than by branching on a flag.

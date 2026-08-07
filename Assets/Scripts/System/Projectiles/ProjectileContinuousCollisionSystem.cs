@@ -10,6 +10,7 @@ using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Targeted;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -61,6 +62,10 @@ namespace PlayGround.System.Combat.Projectiles
                 SystemAPI.GetSingletonRW<ImpactAoeSpawnEventSingleton>();
             RefRW<LingeringAoeSpawnEventSingleton> lingeringAoeLane =
                 SystemAPI.GetSingletonRW<LingeringAoeSpawnEventSingleton>();
+            RefRW<TargetedSpawnEventSingleton> targetedLane =
+                SystemAPI.GetSingletonRW<TargetedSpawnEventSingleton>();
+            RefRW<LingeringTargetedSpawnEventSingleton> lingeringTargetedLane =
+                SystemAPI.GetSingletonRW<LingeringTargetedSpawnEventSingleton>();
             RefRW<CombatHitDispatchSingleton> hitDispatch =
                 SystemAPI.GetSingletonRW<CombatHitDispatchSingleton>();
 
@@ -76,7 +81,9 @@ namespace PlayGround.System.Combat.Projectiles
                 HitWriter = hitDispatch.ValueRO.HitQueue.AsParallelWriter(),
                 ProjectileEventWriter = projectileLane.ValueRO.EventQueue.AsParallelWriter(),
                 ImpactAoeEventWriter = impactAoeLane.ValueRO.EventQueue.AsParallelWriter(),
-                LingeringAoeEventWriter = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter()
+                LingeringAoeEventWriter = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter(),
+                TargetedEventWriter = targetedLane.ValueRO.EventQueue.AsParallelWriter(),
+                LingeringTargetedEventWriter = lingeringTargetedLane.ValueRO.EventQueue.AsParallelWriter()
             };
 
             var collisionHandle = job.ScheduleParallel(state.Dependency);
@@ -90,6 +97,10 @@ namespace PlayGround.System.Combat.Projectiles
                 JobHandle.CombineDependencies(impactAoeLane.ValueRW.ProducerHandle, collisionHandle);
             lingeringAoeLane.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(lingeringAoeLane.ValueRW.ProducerHandle, collisionHandle);
+            targetedLane.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(targetedLane.ValueRW.ProducerHandle, collisionHandle);
+            lingeringTargetedLane.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(lingeringTargetedLane.ValueRW.ProducerHandle, collisionHandle);
             hitDispatch.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(hitDispatch.ValueRW.ProducerHandle, collisionHandle);
             RefRW<TargetSpatialHashSingleton> hashRw = SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
@@ -117,6 +128,8 @@ namespace PlayGround.System.Combat.Projectiles
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
+            public NativeQueue<TargetedSpawnEvent>.ParallelWriter TargetedEventWriter;
+            public NativeQueue<LingeringTargetedSpawnEvent>.ParallelWriter LingeringTargetedEventWriter;
 
             private struct HitCandidate
             {
@@ -303,6 +316,13 @@ namespace PlayGround.System.Combat.Projectiles
                         targetKey,
                         ImpactAoeEventWriter,
                         LingeringAoeEventWriter);
+                    ProjectileHitEmission.EnqueueOnHitTargeted(
+                        identity,
+                        projectileHit,
+                        impactPoint,
+                        targetKey,
+                        TargetedEventWriter,
+                        LingeringTargetedEventWriter);
                     ProjectileHitEmission.AddOrRefreshGate(
                         contactGates,
                         targetKey,

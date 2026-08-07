@@ -82,4 +82,9 @@ namespace PlayGround.Skills
     {
         void ApplyToAoe(AoeBehaviorContext ctx);
     }
+
+    public interface ITargetedBehaviorModifier
+    {
+        void ApplyToTargeted(TargetedBehaviorContext ctx);
+    }
 }

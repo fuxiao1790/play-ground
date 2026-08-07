@@ -17,7 +17,9 @@ namespace PlayGround.System.Combat.Spawning
     {
         Projectile = 0,
         ImpactAoe = 1,
-        LingeringAoe = 2
+        LingeringAoe = 2,
+        Targeted = 3,
+        LingeringTargeted = 4
     }
 
     public struct OnHitSpawnRef
