@@ -9,26 +9,23 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9fc3206abe4b53b4190fddabcf7a8d9c, type: 3}
+  m_Script: {fileID: 11500000, guid: 7ba472645a136b54c91a5b0fb721448a, type: 3}
   m_Name: PlagueSkill
-  m_EditorClassIdentifier: PlayGround.GameLogic::PlayGround.Skills.LingeringTargetedSkill
-  assetGuid: b8aaf6d116674ac49bf1dc53438ebbe0
+  m_EditorClassIdentifier: PlayGround.GameLogic::PlayGround.Skills.TargetedSkill
+  assetGuid: 
   displayName: 
   description: 
   icon: {fileID: 0}
   baseRate: 5
   maxSupportCount: 6
   definition:
+    prefab: {fileID: 0}
     damage: 10
     manaCost: 1
     directDamageEnabled: 1
-    count: 1
-    acquireRadius: 20
-    maxTargets: 4
-    chainRadius: 4
+    echoCount: 1
+    chainCount: 1
+    chainDistance: 4
+    chainDelay: 0
     chainDamageFalloff: 0
-    chainDelaySeconds: 0.15
     armSeconds: 0
-    prefab: {fileID: 5803526691707006748, guid: a1542c8064227664ca7ba54dfcc78474, type: 3}
-    lifetimeSeconds: 4
-    tickIntervalSeconds: 2
