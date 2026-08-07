@@ -12,20 +12,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7ba472645a136b54c91a5b0fb721448a, type: 3}
   m_Name: PlagueSkill
   m_EditorClassIdentifier: PlayGround.GameLogic::PlayGround.Skills.TargetedSkill
-  assetGuid: 
+  assetGuid: d998f041b369ada40876029385c0efea
   displayName: 
   description: 
   icon: {fileID: 0}
   baseRate: 5
   maxSupportCount: 6
   definition:
-    prefab: {fileID: 0}
-    damage: 10
-    manaCost: 1
+    prefab: {fileID: 5803526691707006748, guid: a1542c8064227664ca7ba54dfcc78474, type: 3}
+    damage: 5
+    manaCost: 5
     directDamageEnabled: 1
     echoCount: 1
-    chainCount: 1
-    chainDistance: 4
-    chainDelay: 0
+    chainCount: 5
+    chainDistance: 20
+    chainDelay: 0.15
     chainDamageFalloff: 0
     armSeconds: 0
