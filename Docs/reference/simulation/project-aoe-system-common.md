@@ -3,26 +3,28 @@
 All docs in `Docs/` are design references. They describe current
 implementation intent and should be checked against code before large changes.
 
-This is the detailed shared projectile/AOE ECS doc. Use [index.md](./index.md)
-for the simulation overview and aspect map.
+This is the detailed shared combat-domain ECS doc. Use [index.md](./index.md)
+for the simulation overview and aspect map. The filename predates the Targeted
+domain; the rules here cover all three.
 
-This page covers shared runtime rules for the projectile and AOE ECS systems.
-It is about common ownership, spawn flow, target proxies, reuse/despawn,
+This page covers shared runtime rules for the projectile, AOE, and targeted ECS
+systems. It is about common ownership, spawn flow, target proxies, reuse/despawn,
 consequence events, and frame timing. Domain-specific details still live in
-`projectile-system.md` and `aoe-system.md`.
+`projectile-system.md`, `aoe-system.md`, and `targeted-system.md`.
 
 ## Core Rules
 
-- Projectiles and AOEs are high-count ECS entities, not one GameObject per
-  gameplay entity.
+- Projectiles, AOEs, and targeted chains are high-count ECS entities, not one
+  GameObject per gameplay entity.
 - Scene objects submit spawn intent; ECS systems expand, allocate, simulate,
   collide, and prepare render/VFX data.
-- Runtime entities must carry a domain tag: `ProjectileTag` or `AoeTag`.
+- Runtime entities must carry a domain tag: `ProjectileTag`, `AoeTag`, or
+  `TargetedTag`.
 - `Active` is only a generic occupancy flag. It does not identify domain or
   faction.
 - Faction is explicit through `CombatFaction`.
-- Hot despawn disables enableable components. It does not destroy projectile or
-  AOE entities.
+- Hot despawn disables enableable components. It does not destroy projectile,
+  AOE, or targeted entities.
 - Spawn must flow through event -> expansion -> command -> apply.
 
 ## Verified Code Map
@@ -47,7 +49,7 @@ consequence events, and frame timing. Domain-specific details still live in
 - `Assets/Scripts/System/Lifetime/CombatLifetimeSystem.cs`: projectile and
   lingering-AOE lifetime expiry.
 - `Assets/Scripts/System/Spawning/TimedSpawnSystem.cs`: shared timed-spawn
-  producer for projectile and AOE child events.
+  producer for projectile, AOE, and targeted child events.
 - `Assets/Scripts/System/Rendering/CombatRenderComponents.cs`: common render data,
   faction/type shared components, and render matrix prep.
 - `Assets/Scripts/System/Rendering/CombatBatchedRenderSystem.cs`: shared batched
@@ -73,6 +75,14 @@ consequence events, and frame timing. Domain-specific details still live in
   slot reuse and cold creation.
 - `Assets/Scripts/System/Aoes/AoeCollisionCore.cs`: AOE collision consequences
   and pulse deactivation.
+- `Assets/Scripts/System/Targeted/TargetedSpawnPipeline.cs`: targeted
+  event/command data.
+- `Assets/Scripts/System/Targeted/TargetedSpawnExpansionSystem.cs`: targeted
+  event drain and echo fan-out.
+- `Assets/Scripts/System/Targeted/TargetedSpawnApplySystem.cs`: the single
+  targeted pool's slot reuse and cold creation.
+- `Assets/Scripts/System/Targeted/TargetedResolveSystem.cs`: the chain walk, hit
+  and VFX emission, and walk-end expiry.
 - `Assets/Scripts/System/Status/StatusProcessSystem.cs`: status-stack
   detonation producer that emits projectile or AOE spawn events.
 
@@ -142,11 +152,13 @@ Events are gameplay intent:
 
 - `ProjectileSpawnEvent`
 - `AOE variant spawn event`
+- `TargetedSpawnEvent`
 
 Commands are one-entity allocation intent:
 
 - `ProjectileSpawnCommand`
 - `AoeSpawnCommand`
+- `TargetedSpawnCommand`
 
 Projectile flow:
 
@@ -160,8 +172,14 @@ AOE flow:
 `AOE variant spawn event` -> `AOE spawn expansion systems` -> `AoeSpawnCommand` ->
 `ImpactAoeSpawnApplySystem` or `LingeringAoeSpawnApplySystem`.
 
-Do not add a direct path that creates projectile or AOE entities from managed
-gameplay code, collision systems, status systems, or timed-spawn systems.
+Targeted flow:
+
+`TargetedSpawnEvent` -> `TargetedSpawnExpansionSystem` -> `TargetedSpawnCommand`
+-> `TargetedSpawnApplySystem`. One lane and one pool: a chain lives exactly as
+long as its walk, so there is no variant to route.
+
+Do not add a direct path that creates projectile, AOE, or targeted entities from
+managed gameplay code, collision systems, status systems, or timed-spawn systems.
 
 ## Internal Event Producers
 
@@ -171,18 +189,24 @@ entities.
 Current producers:
 
 - `TimedSpawnSystem` reads stored template events, stamps source position,
-  faction, source id, and deterministic tick data, then enqueues projectile or
-  AOE events.
+  faction, source id, and deterministic tick data, then enqueues projectile,
+  AOE, or targeted events.
 - `ProjectileDiscreteCollisionSystem` and `ProjectileContinuousCollisionSystem`
-  enqueue impact projectile events and impact AOE events from accepted
-  projectile hits. Both go through the shared `ProjectileHitEmission` helpers,
-  so the two lanes emit identical consequence data.
-- `AoeCollisionCore` enqueues projectile burst events and on-hit AOE events
-  from accepted AOE hits.
-- `StatusProcessSystem` enqueues stack detonation projectile or AOE events.
+  enqueue impact projectile events, impact AOE events, and on-hit targeted
+  events from accepted projectile hits. Both go through the shared
+  `ProjectileHitEmission` helpers, so the two lanes emit identical consequence
+  data.
+- `AoeCollisionCore` enqueues projectile burst events, on-hit AOE events, and
+  on-hit targeted events from accepted AOE hits.
+- `StatusProcessSystem` enqueues stack detonation projectile or AOE events. A
+  targeted chain can apply the stacks that lead to a detonation, but is not
+  itself a detonation output.
+- Targeted producers route through `TargetedSpawnEmission`, which drops any
+  event whose kind is not `IntervalChildKind.Targeted`.
 
-These producers write to `ProjectileSpawnExpansionSystem.EventQueue` or
-the matching AOE expansion system `EventQueue`. Producer job handles are combined into
+These producers write to `ProjectileSpawnExpansionSystem.EventQueue`, the
+matching AOE expansion system `EventQueue`, or
+`TargetedSpawnEventSingleton.EventQueue`. Producer job handles are combined into
 the expansion system's `ProducerHandle`, because the native queues are not
 tracked by ordinary component dependencies.
 
@@ -209,6 +233,16 @@ It computes bounds, resolves deterministic ids, emits spawn VFX requests with th
 resolved graph-kind ids stored on `AoeSpawnCommand`, and writes commands into
 impact or lingering command containers.
 
+`TargetedSpawnExpansionSystem` drains:
+
+- `TargetedSpawnEventSingleton.EventQueue`
+- shared scope `DynamicBuffer<TargetedSpawnEvent>`
+
+It dereferences the template, resolves deterministic ids, and fans one event out
+into `EchoCount` commands. There is deliberately no scatter, spread, or jitter
+math on this path: forks differ by acquisition rank at resolve time, not by
+position.
+
 Apply systems should not interpret volley, scatter, jitter, or pattern math.
 
 ## Apply Ownership
@@ -226,6 +260,11 @@ AOE apply is split by pool. Impact AOEs reuse slots without
 across the same lingering pool; `TimedSpawnComponent` is enabled or disabled
 during reset.
 
+Targeted apply uses one disabled-slot query: `WithAll<TargetedTag>()` plus
+`WithDisabled<Active>()`. There is no variant discriminator and no second pool.
+Targeted archetypes carry no `CombatCollisionComponent` and no
+`CombatCollisionActiveTag`, because a chain has no gameplay collider.
+
 Reusable slots are found with `WithDisabled<Active>()`. Each apply system runs
 one single-threaded Burst reuse job that resets all per-instance data and
 enables the needed enableable components. Commands after the reused prefix are
@@ -236,8 +275,8 @@ despawn.
 
 ## Despawn And Reuse
 
-Normal projectile and AOE despawn disables enableable components. It does not
-destroy entities.
+Normal projectile, AOE, and targeted despawn disables enableable components. It
+does not destroy entities.
 
 Shared occupancy:
 
@@ -261,28 +300,36 @@ Despawn routes through the shared `CombatDeathUtility.Kill` helper, which disabl
 `Active` (plus `CombatCollisionActiveTag` / `ArmingTag` where the entity carries
 them) and emits expire VFX from one place:
 
-- `CombatLifetimeSystem` kills projectiles and lingering AOEs on lifetime expiry.
+- `CombatLifetimeSystem` kills projectiles and lingering AOEs on lifetime expiry,
+  and has a third job that kills a targeted entity if it ever outlives its
+  compiled fail-safe lifetime.
 - Both projectile collision systems kill the source projectile when it is
   invalid, expired, or consumed by pierce, via `ProjectileHitEmission.Deactivate`.
 - `AoeCollisionCore` kills invalid AOEs and impact AOEs after their collision pass.
+- `TargetedResolveSystem` kills the chain the moment its walk ends — after the
+  last link, or after a link that finds nothing. This is the normal targeted
+  despawn path; the lifetime job above is only a backstop.
 
 This pattern keeps entities in stable archetypes and avoids structural churn on
 hot combat paths.
 
 ## Arming (initial delay)
 
-Projectiles and AOEs may spawn with an authored `ArmSeconds > 0` initial delay.
+Projectiles, AOEs, and targeted chains may spawn with an authored
+`ArmSeconds > 0` initial delay.
 Arming is a **pause overlay**, not a separate lifecycle phase: spawn apply sets the
 normal armed gate values as usual, then additionally enables `ArmingTag` and sets
 `CombatArmingComponent.Remaining = ArmSeconds`.
 
 - While `ArmingTag` is enabled the entity is live and reuse-protected (`Active`
-  stays enabled) but frozen: movement, both lifetime jobs, all three collision
-  jobs, timed-spawn, tracking, and the AOE pulse-VFX tick exclude it via
+  stays enabled) but frozen: movement, all three lifetime jobs, all three
+  collision jobs, the targeted resolve, timed-spawn, tracking, and the AOE
+  pulse-VFX tick exclude it via
   `WithDisabled<ArmingTag>`, and render prepare degenerates it to an invisible
   instance. Only the telegraph VFX (`AoeVfxIds.ArmingId`) plays.
 - `CombatArmingSystem` (runs before `CombatLifetimeSystem`, split into a
-  projectile job and an AOE job like `CombatLifetimeSystem`) counts `Remaining`
+  projectile job, an AOE job, and a targeted job like `CombatLifetimeSystem`)
+  counts `Remaining`
   down and disables `ArmingTag` at zero. The entity then resumes with its
   already-correct gate values �?no gate rewrite.
 
@@ -312,24 +359,31 @@ normal armed gate values as usual, then additionally enables `ArmingTag` and set
 
 ## Consequence Events
 
-Projectile and AOE collision systems emit plain data consequences. They do not
-call managed target callbacks and do not allocate follow-up entities directly.
+Projectile and AOE collision systems and the targeted resolve emit plain data
+consequences. They do not call managed target callbacks and do not allocate
+follow-up entities directly.
 
 Current consequence paths include:
 
-- hit events into `CombatApplyFinalizeSingleSystem`
+- hit events into `CombatApplyFinalizeSingleSystem`; targeted links set
+  `CombatHitEvent.DamageScale` to their falloff, while other producers leave it
+  unset (`0`, read as `1`)
 - `ProjectileSpawnEvent` values for impact projectiles, AOE projectile bursts,
   and stack detonation projectiles
 - `AOE variant spawn event` values for impact AOEs, on-hit AOEs, timed AOEs, and stack
   detonation AOEs
+- `TargetedSpawnEvent` values for on-impact and interval-triggered chains
 - `CircularVfxSpawnRequest` / `TimedCircularVfxSpawnRequest` values written to the per-shape VFX
-  queues via `VfxEmit`
+  queues via `VfxEmit`, plus `LineSegmentVfxSpawn` values from the targeted
+  resolve
 
 Follow-up spawns stay in ECS event flow and return to expansion/apply.
 
 ## Rendering And VFX
 
-Projectile and AOE visuals share the sprite-atlas render path.
+Projectile, AOE, and targeted visuals share the sprite-atlas render path. A
+targeted chain's sprite is optional: with none authored the `LineSegment` VFX
+carries the whole visual.
 
 Runtime entities carry common render data:
 
@@ -359,12 +413,13 @@ completes producers, buckets each shape by graph id, and dispatches through
 
 ## Teardown Exceptions
 
-Normal projectile and AOE despawn should not delete entities.
+Normal projectile, AOE, and targeted despawn should not delete entities.
 
 Deliberate deletion still exists for lifecycle teardown:
 
 - `CombatRoot.OnDestroy` destroys projectile and AOE entities for that root's
-  faction.
+  faction. **Known gap:** it holds no equivalent targeted query, so targeted
+  entities survive a root teardown until the shared world is released.
 - `CombatScopeOwner.Release` destroys the shared `CombatScope` after the last
   combat root releases it.
 - `CombatTargetProxy.Delete` destroys target proxy entities when actor target
@@ -376,22 +431,26 @@ These are not normal combat despawn paths.
 
 Important ordering:
 
-1. `CombatLifetimeSystem` expires existing projectiles and AOEs.
+1. `CombatLifetimeSystem` expires existing projectiles and AOEs, and any
+   targeted chain past its fail-safe lifetime.
 2. `TimedSpawnSystem` emits energy-driven child spawn events.
 3. Projectile tracking, movement, contact gates, and collision run.
 4. AOE pulse VFX and collision run.
-5. `CombatApplyFinalizeSingleSystem` applies hit events to ECS target health and
+5. `TargetedResolveSystem` walks chains, emits hits and link VFX, and expires
+   chains whose walk has ended.
+6. `CombatApplyFinalizeSingleSystem` applies hit events to ECS target health and
    status data.
-6. `StatusProcessSystem` emits stack detonation spawn events.
-7. `ProjectileSpawnExpansionSystem` and `AOE spawn expansion systems` drain
-   completed event producers plus managed scope buffers.
-8. Projectile and AOE apply systems reuse disabled slots or cold-create
-   overflow.
-9. Render preparation and presentation systems run.
+7. `StatusProcessSystem` emits stack detonation spawn events.
+8. `ProjectileSpawnExpansionSystem`, `AOE spawn expansion systems`, and
+   `TargetedSpawnExpansionSystem` drain completed event producers plus managed
+   scope buffers.
+9. Projectile, AOE, and targeted apply systems reuse disabled slots or
+   cold-create overflow.
+10. Render preparation and presentation systems run.
 
 Because apply runs after movement and collision, newly spawned/reused
-projectiles and AOEs do not move, collide, or fire timed spawns until the next
-simulation update.
+projectiles, AOEs, and chains do not move, collide, resolve, or fire timed spawns
+until the next simulation update.
 
 ## Change Rules
 
@@ -400,12 +459,12 @@ simulation update.
 - Keep spawn math in expansion systems.
 - Keep reuse and cold creation in apply systems.
 - Keep hot despawn as enable/disable, not destroy/create.
-- Require domain tags on projectile and AOE systems.
+- Require domain tags on projectile, AOE, and targeted systems.
 - Do not treat `Active`, common combat components, or scope membership as a
   domain marker.
 - Do not route internal follow-up spawns through managed target callbacks.
 - Do not read `TargetCompanion` from simulation jobs.
-- Delete projectile and AOE entities only for root/scope teardown.
+- Delete projectile, AOE, and targeted entities only for root/scope teardown.
 
 ## Supporting Tests
 
@@ -423,3 +482,8 @@ Current tests that support this map include:
   timed template registration, and AOE runtime behavior.
 - `Assets/Tests/EditMode/ProjectileAuthoringEditModeTests.cs`: spawn event and
   command data constraints, including AOE command size checks.
+- `Assets/Tests/EditMode/TargetedSpawnPipelineEditModeTests.cs`: targeted event
+  drain, echo fan-out into one command per entity, and pool reuse.
+- `Assets/Tests/PlayMode/TargetedSkillPlayModeTests.cs`: root cast, chain
+  falloff and stagger, trigger-driven chains, link VFX, and mixed-scene pool
+  cleanup across the projectile, AOE, and targeted pools.

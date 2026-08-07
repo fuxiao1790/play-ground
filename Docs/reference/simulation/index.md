@@ -43,7 +43,7 @@ Use this split:
 | VFX requests | Native VFX request flow from simulation jobs to presentation dispatch and Visual Effect Graph buffer contracts. | [vfx-system.md](./vfx-system.md), [shared-graph area-size corruption](./vfx-shared-graph-area-size-corruption.md) |
 | Combat rendering | Single indirect draw of all projectile/AOE sprites via a shared atlas + `ScriptableRendererFeature` on the URP 2D renderer, per-instance data in a `StructuredBuffer`, and the affine UV basis. | [combat-render-system.md](./combat-render-system.md), [tight-mesh UV distortion](./combat-atlas-tight-mesh-uv-distortion.md) |
 | ECS performance patterns | Generic structural change costs, enableable components, high-churn patterns, locality, and profiling guidance. | [ecs-notes.md](./ecs-notes.md) |
-| Project ECS implementation | Pool patterns for projectiles and AOEs, spawn reuse scheduling, presentation bridge architecture, and collision event dispatch design. | [project-ecs-implementation.md](./project-ecs-implementation.md) |
+| Project ECS implementation | Pool patterns for projectiles, AOEs, and targeted chains, spawn reuse scheduling, presentation bridge architecture, and collision event dispatch design. | [project-ecs-implementation.md](./project-ecs-implementation.md) |
 
 ## Current Frame Path
 
