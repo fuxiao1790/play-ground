@@ -22,6 +22,11 @@ namespace PlayGround.Skills
 
         public SpriteRenderer SpriteRenderer => spriteRenderer;
         public Sprite Sprite => spriteRenderer != null ? spriteRenderer.sprite : null;
+        public Vector2 VisualScale => spriteRenderer != null
+            ? new Vector2(
+                Mathf.Abs(spriteRenderer.transform.lossyScale.x),
+                Mathf.Abs(spriteRenderer.transform.lossyScale.y))
+            : Vector2.one;
         public float VisualRotationDegrees => spriteRenderer != null ? spriteRenderer.transform.eulerAngles.z : 0f;
         public VisualEffectAsset SpawnEffect => spawnEffect;
         public VfxDataShape SpawnEffectShape => spawnEffectShape;

@@ -1461,6 +1461,19 @@ namespace PlayGround.Skills
             StackEffectSnapshot stackEffect,
             OnHitSpawnRef onHitSpawn = default)
         {
+            CombatRenderComponent render;
+            CombatRenderAuthoring authoring;
+            if (root != null)
+            {
+                render = root.TargetedTemplateRenderComponent(child.RenderId);
+                authoring = root.TargetedTemplateAuthoring(child.RenderId);
+            }
+            else
+            {
+                render = TargetedRenderComponentFor(child.RenderId);
+                authoring = TargetedAuthoringFor(child.Prefab);
+            }
+
             return new TargetedSpawnCommand
             {
                 TypeId = child.TypeId,
@@ -1488,8 +1501,8 @@ namespace PlayGround.Skills
                 },
                 VfxIds = child.VfxIds,
                 VfxSize = child.VfxSize,
-                Render = TargetedRenderComponentFor(child.RenderId),
-                Authoring = TargetedAuthoringFor(child.Prefab),
+                Render = render,
+                Authoring = authoring,
                 OnHitSpawn = onHitSpawn
             };
         }
@@ -1568,21 +1581,29 @@ namespace PlayGround.Skills
             return new CombatRenderComponent
             {
                 RenderTypeId = renderId,
-                AlignToVelocity = 0,
+                // The resolve writes kinematics.Velocity as the link direction; the sprite faces
+                // it. Requirements §6.1.
+                AlignToVelocity = 1,
                 RenderZ = CombatRoot.AoeRenderZ
             };
         }
 
+        // Root-less fallback (EditMode): no render registry, so no sprite native size to fold in —
+        // the authored transform scale is all there is. Mirrors ProjectileAuthoringFor.
         private static CombatRenderAuthoring TargetedAuthoringFor(TargetedPrefab prefab)
         {
             if (prefab == null || prefab.Sprite == null)
                 return default;
 
+            Vector2 visualScale = prefab.VisualScale;
+            float radians = prefab.VisualRotationDegrees * Mathf.Deg2Rad;
             return new CombatRenderAuthoring
             {
-                VisualScale = new Unity.Mathematics.float2(1f, 1f),
-                VisualRotationSin = 0f,
-                VisualRotationCos = 1f
+                VisualScale = new Unity.Mathematics.float2(
+                    visualScale.x > 0f ? visualScale.x : 1f,
+                    visualScale.y > 0f ? visualScale.y : 1f),
+                VisualRotationSin = Mathf.Sin(radians),
+                VisualRotationCos = Mathf.Cos(radians)
             };
         }
 

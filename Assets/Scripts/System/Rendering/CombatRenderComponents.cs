@@ -312,6 +312,29 @@ namespace PlayGround.System.Combat.Rendering
             return component;
         }
 
+        public CombatRenderComponent GetTargetedRenderComponent(
+            int renderId,
+            out CombatRenderAuthoring authoring)
+        {
+            authoring = default;
+            if (!Entries.TryGetValue(renderId, out CombatRenderResourceEntry entry)) return default;
+
+            // entry.VisualScale already carries the Visual child's transform scale times the
+            // sprite's native size; a chain has no per-instance size multiplier to fold in.
+            authoring.SetVisualTransform(
+                new float2(entry.VisualScale.x, entry.VisualScale.y),
+                entry.VisualRotationSin,
+                entry.VisualRotationCos);
+
+            var component = new CombatRenderComponent
+            {
+                RenderZ = CombatRoot.AoeRenderZ,
+                AlignToVelocity = 1,
+                RenderTypeId = renderId
+            };
+            return component;
+        }
+
         public void Unregister()
         {
             // The MeshFilter/MeshRenderer are scene/prefab-owned and never destroyed here.

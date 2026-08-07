@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using PlayGround.Skills;
+using PlayGround.System.Combat.Targeted;
 using UnityEngine;
 
 namespace PlayGround.Tests.EditMode
@@ -59,6 +60,45 @@ namespace PlayGround.Tests.EditMode
                 Object.DestroyImmediate(nonInstancedRoot);
                 Object.DestroyImmediate(validMaterial);
                 Object.DestroyImmediate(nonInstancedMaterial);
+                Object.DestroyImmediate(sprite);
+                Object.DestroyImmediate(texture);
+            }
+        }
+
+        [Test]
+        public void VisualTransformScale_ReachesPrefabAndBakedVisual()
+        {
+            Texture2D texture = new Texture2D(2, 2);
+            Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, 2f, 2f), new Vector2(0.5f, 0.5f));
+            Shader shader = Shader.Find("Sprites/Default");
+            Assert.That(shader, Is.Not.Null);
+
+            GameObject root = new GameObject("TargetedScaled");
+            Material material = new Material(shader) { mainTexture = texture, enableInstancing = true };
+
+            try
+            {
+                TargetedPrefab prefab = root.AddComponent<TargetedPrefab>();
+                SpriteRenderer renderer = CreateRenderer(root, "Visual", sprite, material);
+                renderer.transform.localScale = new Vector3(3f, 5f, 1f);
+                prefab.Configure(renderer);
+
+                Assert.That(prefab.VisualScale.x, Is.EqualTo(3f).Within(0.0001f));
+                Assert.That(prefab.VisualScale.y, Is.EqualTo(5f).Within(0.0001f));
+
+                TargetedTypeDefinition definition = new TargetedTypeDefinition();
+                definition.Configure(root);
+                TargetedTypeRegistry registry = new TargetedTypeRegistry();
+                registry.Register(0, definition);
+
+                Assert.That(registry.TryGetVisual(0, out TargetedVisualDefinition visual), Is.True);
+                Assert.That(visual.VisualScale.x, Is.EqualTo(3f).Within(0.0001f));
+                Assert.That(visual.VisualScale.y, Is.EqualTo(5f).Within(0.0001f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                Object.DestroyImmediate(material);
                 Object.DestroyImmediate(sprite);
                 Object.DestroyImmediate(texture);
             }

@@ -55,10 +55,14 @@ namespace PlayGround.System.Combat.Targeted
                 return false;
             }
 
+            // The Visual child's transform scale is the authored sprite size, exactly as
+            // AoeSpawnGeometry.FromTemplate reads it for AOEs. Targeted has no per-instance
+            // area-size multiplier, so it is baked once here.
+            Vector3 lossyScale = spriteRenderer.transform.lossyScale;
             visual = new TargetedVisualDefinition(
                 spriteRenderer.sprite,
                 spriteRenderer.sharedMaterial,
-                Vector2.one,
+                new Vector2(Mathf.Abs(lossyScale.x), Mathf.Abs(lossyScale.y)),
                 definition.VisualRotationDegrees);
             return true;
         }

@@ -463,6 +463,19 @@ namespace PlayGround.System.Combat.Core
             return authoring;
         }
 
+        public CombatRenderComponent TargetedTemplateRenderComponent(int renderId)
+        {
+            if (_renderRegistry == null) return default;
+            return _renderRegistry.GetTargetedRenderComponent(renderId, out _);
+        }
+
+        public CombatRenderAuthoring TargetedTemplateAuthoring(int renderId)
+        {
+            if (_renderRegistry == null) return default;
+            _renderRegistry.GetTargetedRenderComponent(renderId, out CombatRenderAuthoring authoring);
+            return authoring;
+        }
+
         public int RegisterType(AoeTypeDefinition definition)
         {
             if (definition == null)
