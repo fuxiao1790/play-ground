@@ -17,7 +17,7 @@ owned by `MobRoot`.
    status, and projectile attack helpers.
 3. Mob behavior triggers update local events and selected movement/attack state.
 4. Mob root registers as a combat target and pushes target proxy data.
-5. Mob attacks submit projectile/AOE spawn requests through combat roots.
+5. Mob attacks submit projectile/AOE/targeted spawn requests through combat roots.
 6. Presentation results update hurt/death feedback and target cleanup.
 
 ## Producers

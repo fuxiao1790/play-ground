@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define ECS render data used to batch projectile and AOE sprite visuals.
+Define ECS render data used to batch projectile, AOE, and targeted sprite visuals.
 
 ## Produced By
 
@@ -52,7 +52,7 @@ asset, assigned via a serialized field on `CombatRoot` and threaded into
 material's texture, and computes each kind's affine UV basis from the packed
 sprite's `uv`/`vertices`.
 
-Every active projectile/AOE entity across every kind draws through one
+Every active projectile/AOE/targeted entity across every kind draws through one
 registry-owned `MeshRenderer` with one shared capacity-baked mesh and one shared
 material. The mesh contains repeated quads. Each quad carries its `_InstanceData`
 slot in UV1 (`TEXCOORD1.x`), and `CombatBatchedRenderSystem` controls the active
@@ -67,7 +67,8 @@ that expects to interleave with individual projectile/AOE sprites.
 ## Restrictions
 
 Render state must not define gameplay domain or faction by itself. Domain still
-comes from `ProjectileTag` or `AoeTag`; faction comes from `CombatFaction`.
+comes from `ProjectileTag`, `AoeTag`, or `TargetedTag`; faction comes from
+`CombatFaction`.
 
 Spawn pooling must not key on `CombatRenderKindId`. Reuse can claim any disabled
 slot in the matching archetype and must overwrite the kind id from the current
@@ -75,7 +76,9 @@ spawn command.
 
 ## Lifetime
 
-Render components live on projectile/AOE reusable entities. Render resources live
+Render components live on projectile/AOE/targeted reusable entities. A targeted
+chain's sprite is an optional debug affordance: with no authored sprite the
+`LineSegment` VFX carries the whole visual. Render resources live
 with the owning combat root and are released on root teardown. The capacity mesh,
 renderer GameObject, material, and per-kind UV basis GPU buffer are owned and
 disposed by `CombatRenderResourceRegistry`. The per-frame `_InstanceData` buffer

@@ -11,8 +11,8 @@ ECS as the runtime authority for Current values.
    skill chain cost and that link's triggered skill cost.
 2. `ExternalSpawnGateSystem` runs serially before spawn expansion. It accepts a
    missing `Mana` component, otherwise checks and deducts that caster's `Mana`.
-3. Accepted requests become the existing typed projectile or AOE internal event
-   in the same simulation update. Interval and impact children already produce
+3. Accepted requests become the existing typed projectile, AOE, or targeted
+   internal event in the same simulation update. Interval and impact children already produce
    internal events and bypass this gate; their mana costs were included in the
    initiating active skill's one-time spend.
 4. Rejected requests emit `SpawnRejectedEvent`. `SpawnRejectionBridge` resolves

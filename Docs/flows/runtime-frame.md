@@ -12,25 +12,28 @@ Show the cross-layer order for one gameplay frame.
    `TargetProxyUpdateApplySystem` consume them in `SimulationSystemGroup` before
    `TargetSpatialHashSystem`; a registration handle resolves on a later simulation
    tick.
-3. ECS lifetime systems expire old projectile/AOE entities.
-4. Timed spawn systems enqueue child projectile/AOE events.
+3. ECS lifetime systems expire old projectile/AOE entities and any targeted
+   entity that outlives its fail-safe lifetime.
+4. Timed spawn systems enqueue child projectile/AOE/targeted events.
 5. Projectile systems track, move, expire contact gates, and collide.
 6. AOE systems emit pulse VFX and collide on their tick intervals.
-7. Combat apply/finalize aggregates hit data into ECS health/status and freezes
+7. Targeted resolve walks chains, emitting one hit and one line segment per link,
+   and expires each chain when its walk ends.
+8. Combat apply/finalize aggregates hit data into ECS health/status and freezes
    compact results.
-8. Status processing may enqueue detonation spawn events.
-9. Spawn expansion drains managed and ECS event queues into commands.
-10. Apply systems reuse disabled slots or cold-create overflow.
-11. Render prep writes matrices.
-12. Actor roots enqueue deletion for invalid target proxies.
+9. Status processing may enqueue detonation spawn events.
+10. Spawn expansion drains managed and ECS event queues into commands.
+11. Apply systems reuse disabled slots or cold-create overflow.
+12. Render prep writes matrices.
+13. Actor roots enqueue deletion for invalid target proxies.
    `TargetProxyDeleteApplySystem` consumes those events in
    `PresentationSystemGroup` after `CombatApplyBridge`.
-13. Presentation systems dispatch combat results, VFX, and render batches.
+14. Presentation systems dispatch combat results, VFX, and render batches.
 
 ## Producers
 
-Scene actors, combat bridge, projectile systems, AOE systems, status systems,
-render prep systems, and VFX producers.
+Scene actors, combat bridge, projectile systems, AOE systems, targeted resolve,
+status systems, render prep systems, and VFX producers.
 
 ## Consumers
 

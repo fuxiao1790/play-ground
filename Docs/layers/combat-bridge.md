@@ -14,26 +14,27 @@ buffers.
 - `CombatTargetProxy` creation, push, and deletion entry points.
 - Ref-counted ECS world/scope acquisition and release through combat ownership
   helpers.
-- Projectile/AOE type registration and render resource dictionaries.
+- Projectile/AOE/targeted type registration and render resource dictionaries.
 - Managed spawn submission into shared `CombatScope` buffers.
 
 ## Does Not Own
 
 - Spawn expansion math.
 - Entity reuse or cold creation.
-- Projectile/AOE simulation, collision, status processing, or render matrix
-  preparation.
+- Projectile/AOE simulation, collision, targeted chain resolve, status
+  processing, or render matrix preparation.
 - Final target health/status authority after hit aggregation.
 
 ## Inputs
 
 - Managed spawn requests from game logic.
 - Target registration from actor roots.
-- Authored projectile, AOE, render, and VFX configuration.
+- Authored projectile, AOE, targeted, render, and VFX configuration.
 
 ## Outputs
 
-- `ProjectileSpawnEvent` and `AOE variant spawn event` values on shared scope buffers.
+- `ProjectileSpawnEvent`, `AOE variant spawn event`, and `TargetedSpawnEvent`
+  values on shared scope buffers.
 - Target proxy entities and target proxy updates.
 - Registered render/VFX catalog data visible to presentation systems.
 

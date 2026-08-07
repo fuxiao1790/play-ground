@@ -2,12 +2,14 @@
 
 ## Purpose
 
-Trace how projectile and AOE hits become ECS-owned combat state and compact
-presentation results.
+Trace how projectile, AOE, and targeted hits become ECS-owned combat state and
+compact presentation results.
 
 ## Sequence
 
-1. Projectile/AOE collision systems query unmanaged target proxy data.
+1. Projectile/AOE collision systems query unmanaged target proxy data, as does
+   `TargetedResolveSystem` — a chain selects victims by broadphase query instead
+   of a simulated collider, then joins this path unchanged.
 2. Collision systems qualify hits with broad phase, narrow phase, faction, and
    repeat-hit gates.
 3. Accepted hits emit plain data hit events and optional spawn/VFX consequences.
@@ -21,7 +23,7 @@ presentation results.
 ## Producers
 
 `ProjectileDiscreteCollisionSystem`, `ProjectileContinuousCollisionSystem`, AOE
-collision systems, and status systems.
+collision systems, `TargetedResolveSystem`, and status systems.
 
 ## Consumers
 
@@ -42,7 +44,8 @@ actor roots, and spawn expansion systems for follow-up events.
 
 ## Ordering / Timing Requirements
 
-Hit finalization runs after projectile/AOE collision and before spawn expansion.
+Hit finalization runs after projectile/AOE collision and targeted resolve, and
+before spawn expansion.
 Managed target callbacks run after finalized result data exists.
 
 ## Failure / Edge Cases

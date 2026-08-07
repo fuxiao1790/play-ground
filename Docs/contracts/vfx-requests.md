@@ -5,12 +5,13 @@
 Define visual-only event data passed from simulation producers to VFX Graph
 dispatch.
 
-The current payloads are AOE-shaped. `CircularVfxSpawnRequest` carries graph id, world
+`CircularVfxSpawnRequest` carries graph id, world
 position, and area size. `TimedCircularVfxSpawnRequest` adds duration and tick interval.
 `LineSegmentVfxSpawn` carries a directional start point, end point, and width. The dispatcher routes
-them through the Circular, TimedCircular, and LineSegment data shapes. Projectile
-systems do not emit these requests; the payloads are reserved for AOE-shaped
-visuals.
+them through the Circular, TimedCircular, and LineSegment data shapes. AOE systems
+emit the circular shapes; `TargetedResolveSystem` emits circular hit/expire requests plus one
+`LineSegmentVfxSpawn` per resolved chain link, and is the only `LineSegment` producer.
+Projectile systems do not emit these requests.
 
 ## Produced By
 

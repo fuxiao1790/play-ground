@@ -11,14 +11,15 @@ Requirements: [requirements.md](./requirements.md).
 > two variants to one — see [requirements.md §16](./requirements.md#16-what-the-simplification-removed)
 > for the full list of what was removed and why.
 >
-> **The numbered task files below describe the pre-simplification design** and are kept as the
-> execution record. Where they disagree with `requirements.md`, the requirements win. Specifically,
-> these no longer exist: `LingeringTargetedSkill`, `LingeringTargetedDefinition`,
-> `lifetimeSeconds`, `tickIntervalSeconds`, `acquireRadius`, `IntervalChildKind.LingeringTargeted`,
-> `LingeringTargetedTag`, `TargetedTickGateComponent`, `LingeringTargetedSpawnEvent` and its lane /
-> expansion / apply / pool, `TargetedVariant`, and `TargetedResolveCore`. Renamed: `count` →
-> `echoCount`, `maxTargets` → `chainCount`, `chainRadius` → `chainDistance`, `chainDelaySeconds` →
-> `chainDelay`.
+> **Sections 1–8 below describe the shipped design.** The **numbered task files** still describe the
+> pre-simplification design and are kept as the execution record; where they disagree with
+> `requirements.md`, the requirements win. Gone since those files were written:
+> `LingeringTargetedSkill`, `LingeringTargetedDefinition`, `lifetimeSeconds`, `tickIntervalSeconds`,
+> `acquireRadius`, `IntervalChildKind.LingeringTargeted`, `LingeringTargetedTag`,
+> `TargetedTickGateComponent`, `LingeringTargetedSpawnEvent` and its lane / expansion / apply /
+> pool, `TargetedVariant`, `TargetedResolveCore`, `TargetedSpawnCommand.HasTimedSpawner` /
+> `.TimedSpawn`, and the four chain-truncation warnings. Renamed: `count` → `echoCount`,
+> `maxTargets` → `chainCount`, `chainRadius` → `chainDistance`, `chainDelaySeconds` → `chainDelay`.
 
 ---
 
@@ -61,8 +62,8 @@ standards rule against widening damage events with spawn-routing data.
 
 **Why the exclusion state is one `int`.** The degenerate case the exclusion exists to prevent is a
 link selecting its own source at distance zero. Only the immediately previous target must be
-excluded for that. One `int` also collapses the interval variant's last-target carry-over into the
-same field, and removes overflow as a concept.
+excluded for that. One `int` also removes overflow as a concept — there is no set to size, grow,
+or spill.
 
 **Why no liveness check.** Damage aggregates in finalize, which runs after every resolve, so
 mid-frame `Health` is stale by construction (ADR-006). A `ComponentLookup<Health>` would cost
@@ -106,15 +107,18 @@ Each must hold after the change; source in brackets.
   `CombatTickResult` → `CombatApplyBridge`. No targeted-specific presentation code.
 - Pooling: `Active` enableable + `SpawnPoolTopUp.EnsureDisabledSlots` + `CombatPoolCleanupSystem`.
 - Arming: `ArmingTag` + `CombatArmingComponent` pause overlay.
-- Lifetime: `CombatLifetimeComponent` + `CombatLifetimeSystem`.
+- Lifetime: `CombatLifetimeComponent` + `CombatLifetimeSystem` — as a fail-safe only. The walk ends
+  the instance; the compiled lifetime (`RuntimeTargetedDefinition.LifetimeFor`) is a backstop
+  derived from the walk's worst case, never authored.
 - Render: `CombatRenderComponent.AlignToVelocity` + `CombatRenderMatrixUtility.ElementFor`. The
   "point along a direction" mechanism projectiles already use.
 - VFX: the `LineSegment` lane — request struct, `VfxEmit.EnqueueLineSegment`, bucketing job, GPU
-  buffers, dispatch — is fully built and currently has **no gameplay producer**.
+  buffers, dispatch — was already fully built with **no gameplay producer**. The chain resolve is
+  its first one.
 - Mana gate: `ExternalSpawnRequest` → `ExternalSpawnGateSystem` → `SpawnRejectedSingleton` →
   `SkillDriver` cooldown refund.
-- Stat folding: `StatModifierAccumulator` + `StatFold`, with radii mapped onto the existing
-  `AreaSize` stat.
+- Stat folding: `StatModifierAccumulator` + `StatFold`, with `chainDistance` mapped onto the
+  existing `AreaSize` stat. `vfxEffectSize` and `linkWidth` are deliberately **not** folded.
 - Interval triggers: `IntervalSpawnTrigger` energy accrual, `TimedSpawnComponent`, `TimedSpawnSystem`.
   A targeted child costs one enum value and one routing branch — no new component.
 
@@ -122,14 +126,14 @@ Each must hold after the change; source in brackets.
 
 | New thing | Why it cannot reuse | Task |
 |---|---|---|
-| `TargetedTag`, `LingeringTargetedTag` | C1 requires a domain tag; the variant tag mirrors `LingeringAoeTag`. | 002 |
-| `TargetedChainComponent` (walk state) | No existing component holds link index, two link endpoints, an origin, an anchor, and a last-target key. | 002 |
-| `TargetedSpawnEvent` / `LingeringTargetedSpawnEvent` / `TargetedSpawnCommand` | Structural warning — see §6. Decision 7 defers the collapse. | 002 |
-| Two expansion + two apply systems | Mirrors `ImpactAoe*`/`LingeringAoe*`; sharing a core, not the systems. | 003 |
-| `TargetedResolveCore` + two resolve systems | Mirrors `AoeCollisionCore` + the two AOE collision systems. | 004 |
+| `TargetedTag` | C1 requires a domain tag. One archetype, so nothing discriminates below it. | 002 |
+| `TargetedChainComponent` (walk state) | No existing component holds link index, two link endpoints, an origin, an anchor, a last-target key, and the per-link gate. | 002 |
+| `TargetedSpawnEvent` / `TargetedSpawnCommand` | Structural warning — see §6. Decision 7 defers the collapse. | 002 |
+| `TargetedSpawnExpansionSystem` + `TargetedSpawnApplySystem` | Mirrors `ImpactAoeSpawn*`: one lane, one expansion, one apply, one pool. | 003 |
+| `TargetedResolveSystem` | Mirrors the AOE collision systems. Owns the walk outright — with one system there is no core to share, which is why `TargetedResolveCore` was deleted in the simplification. | 004 |
 | `CombatHitEvent.DamageScale` | No per-hit damage channel exists. §2. | 001 |
 | `TargetedTypeDefinition`, `TargetedTypeRegistry` | Sim-side registration type mirroring `AoeTypeDefinition` / `AoeTypeRegistry`; minus the collision shape. | 007 |
-| `TargetedPrefab`, two skill SOs, two definitions | Skills-side authoring mirroring `BasicAoePrefab` / `AoeSkill` / `LingeringAoeSkill`. | 008 |
+| `TargetedPrefab`, `TargetedSkill`, `TargetedDefinition` | Skills-side authoring mirroring `BasicAoePrefab` / `AoeSkill`. | 008 |
 | `OnImpactTargetedTrigger`, `TargetedIntervalSpawnTrigger` | Trigger links are typed by output domain; a third domain needs its two. | 010 |
 | `MultipleChainsSupport` | Third member of the `MultipleProjectiles`/`MultipleAoes` family. | 011 |
 
@@ -139,21 +143,21 @@ Each must hold after the change; source in brackets.
 
 | Invariant | How the design holds |
 |---|---|
-| C1 | Every targeted query includes `TargetedTag`; the variant systems additionally filter on `LingeringTargetedTag` presence/absence, exactly as the AOE pools do. |
+| C1 | Every targeted query includes `TargetedTag`. One archetype, so nothing further discriminates: resolve queries `TargetedTag` + `Active` + `WithDisabled<ArmingTag>`. |
 | C2 | The resolve job reads only the broadphase snapshot arrays (positions, shapes, factions, entities) and its own chain state. **No `ComponentLookup` at all** — the liveness check that would have needed one was dropped (§2). |
 | C3 | Producers enqueue an event carrying template key + origin + anchor + faction + ids. `TargetedExpansionCore` dereferences the template and emits one `TargetedSpawnCommand` per fork. |
 | C4 | Templates are registered from `CombatRoot` during compile (managed, pre-tick) and read `[ReadOnly]` in the expansion job. |
-| C5 | Apply mirrors `ImpactAoeSpawnApplySystem`: `SpawnPoolTopUp.EnsureDisabledSlots` then a chunk job over `WithDisabled<Active>`. Expiry disables, never destroys. |
-| C6 | `TargetedSpawnEventSingleton` / `LingeringTargetedSpawnEventSingleton` hold queue + commands + `ProducerHandle` + `PendingHandle`. Resolve writes hit and VFX lanes via `AsParallelWriter` and combines handles on the main thread. |
-| C7 | Resolve reads its lanes with `GetSingletonRW`, no `TryGet` guard. |
+| C5 | Apply mirrors `ImpactAoeSpawnApplySystem`: `SpawnPoolTopUp.EnsureDisabledSlots` then a chunk job over `WithDisabled<Active>`. End of walk calls `CombatDeathUtility.Kill`, which disables; nothing destroys. |
+| C6 | `TargetedSpawnEventSingleton` holds queue + commands + `ProducerHandle` + `PendingHandle`. Resolve writes the hit, VFX, and stats lanes via `AsParallelWriter` and combines handles on the main thread. |
+| C7 | Resolve reads the hit and VFX lanes with `GetSingletonRW`, no `TryGet` guard. The one `TryGetSingletonRW` is `CombatStatsSingleton`, which is debug instrumentation the sim does not need to run. |
 | C8 | Resolve combines `BuildHandle`, publishes into `ConsumerHandle` — same shape as `LingeringAoeCollisionSystem.OnUpdate`. |
-| C9 | Walk state is four `float2` + two `int` + one `float`, all inline. Exclusion is one `int`. No per-entity container, nothing to allocate or grow. |
+| C9 | Walk state is four `float2` + two `int` + one `float`, all inline. Exclusion is one `int`. The nearest-N rank set is a stack `FixedList512Bytes<Candidate>` bounded by `MaxChainCount`. No per-entity container, nothing to allocate or grow. |
 | C10 | Resolve runs before apply, so a chain spawned this frame first resolves next frame. Documented consequence: triggered chains land one frame after their cause, identical to impact AOEs. |
-| C11 | `MaxChainTargets` and `MinTickInterval` bound authored counts; search needs no radius cap because the occupied-cells hash makes query cost track targets present, not radius. Spawn/despawn counts feed `CombatStatsSingleton` so the pool-cleanup calm-down gate stays correct. Scene-level concurrency is deferred (§8). |
+| C11 | `TargetedResolveSystem.MaxChainCount` (32) bounds both the authored chain length and the rank set; validation warns before that defensive clamp is reached. Search needs no radius cap because the occupied-cells hash makes query cost track targets present, not radius. `CombatStatsSingleton` carries `TargetedEntitiesSpawned`, `TargetedLinksResolved`, and `ActiveTargeted`, so the pool-cleanup calm-down gate stays correct and links are countable. Scene-level concurrency is deferred (§8). |
 | C12 | Task 002 carries the lifecycle comments; every later task that changes a lifecycle updates them in the same commit. |
-| C13 | Each lane singleton disposes its queue and command list in the owning system's `OnDestroy`, mirroring `ImpactAoeSpawnExpansionSystem.OnDestroy`. |
+| C13 | The lane singleton disposes its queue and command list in `TargetedSpawnExpansionSystem.OnDestroy`, mirroring `ImpactAoeSpawnExpansionSystem.OnDestroy`. |
 | C14 | Task 008 and task 015 list editor work as **user steps** with explicit instructions; no asset YAML is authored by the agent. |
-| C15 | `acquireRadius`/`chainRadius` fold through the existing `AreaSize` stat; `Damage`, `ManaCost`, `Rate` unchanged. |
+| C15 | `chainDistance` folds through the existing `AreaSize` stat; `Damage`, `ManaCost`, `Rate` unchanged; visual-only sizes are not folded. |
 
 ---
 
@@ -161,19 +165,20 @@ Each must hold after the change; source in brackets.
 
 The structural warning in this change is real and was surfaced during specification.
 `ProjectileSpawnEvent`, `ImpactAoeSpawnEvent`, and `LingeringAoeSpawnEvent` are already
-field-for-field identical, each with its own singleton lane and expansion system. This feature adds
-**two more**, taking the count from three to five.
+field-for-field identical, each with its own singleton lane and expansion system. This feature
+originally added **two more**, taking the count from three to five; the simplification deleted
+`LingeringTargetedSpawnEvent`, so the shipped count is **four**.
 
 **Minimal/additive approach (chosen)**
-- Resulting data flow: five parallel event lanes, five expansion systems, five apply systems, all
+- Resulting data flow: four parallel event lanes, four expansion systems, four apply systems, all
   structurally identical, discriminated by static type.
-- New concepts/types introduced: `TargetedSpawnEvent`, `LingeringTargetedSpawnEvent`, two lane
-  singletons, two expansion systems, two apply systems.
+- New concepts/types introduced: `TargetedSpawnEvent`, one lane singleton, one expansion system,
+  one apply system.
 - Copies/translations added: none beyond the existing per-lane pattern — each lane still does
   event → command with no extra hop.
-- Long-term cost: every future producer must be wired into the correct one of five lanes; a sixth
+- Long-term cost: every future producer must be wired into the correct one of four lanes; a fifth
   domain repeats the whole shape again; a change to the event frame (adding a field like the
-  acquisition anchor) must be replicated five times.
+  acquisition anchor) must be replicated four times.
 
 **Refactor approach (rejected for now)**
 - Resulting data flow: one `CombatSpawnEvent` discriminated by the `IntervalChildKind` the struct
@@ -184,21 +189,26 @@ field-for-field identical, each with its own singleton lane and expansion system
   dispose, and handle plumbing — roughly 250 near-identical lines today.
 - Long-term benefit: adding a domain becomes an enum value plus an expansion core, not a lane.
 
-**Decision: additive.** Not by default — by explicit user decision (requirements §13.1, decision 7).
+**Decision: additive.** Not by default — by explicit user decision
+([requirements.md §14](./requirements.md#14-decisions), decision 7).
 The refactor touches every spawn producer in the codebase and every expansion system, which is a
 wider blast radius than the feature that surfaced it. Bundling them would make both harder to
 review and would put a working combat pipeline at risk for a cleanup.
 
-**Debt recorded**, not dropped: a `refactor debt` entry now heads `Docs/todo.md` naming the five
+**Debt recorded**, not dropped: a `refactor debt` entry heads `Docs/todo.md` naming the four
 structs and the target shape. The right sequencing is to land targeted skills, then do the collapse
-as its own task while five identical copies make the pattern maximally obvious.
+as its own task while the identical copies make the pattern maximally obvious.
 
-**Second comparison — variant split.** Splitting single-hit from interval into two archetypes and
-two pools (decision 9) is itself the more-additive option: one archetype with a nullable tick gate
-would be fewer types. It was chosen because it mirrors impact/lingering AOE exactly, and because
-the interval variant genuinely carries components the single-hit one does not (tick gate,
-last-target carry-over). Cost is honest and stated: `CombatPoolCleanupSystem` goes from four pools
-to six.
+**Second comparison — variant split, decided then reversed.** Splitting single-hit from interval
+into two archetypes and two pools was chosen because it mirrored impact/lingering AOE exactly and
+because the interval variant carried components the single-hit one did not (tick gate,
+last-target carry-over). It shipped that way, then came out: an interval trigger on a projectile or
+lingering AOE already expresses "restart the walk", and the second archetype only bought a second
+set of timers for the author to reconcile. `CombatPoolCleanupSystem` keeps **one** targeted pool
+query beside the shared projectile/AOE one. This is the concrete case where the more-additive
+option was taken, measured against real authoring, and undone — the reversal is now decision 2 in
+[requirements.md §14](./requirements.md#14-decisions), with the removals in
+[§16](./requirements.md#16-what-the-simplification-removed).
 
 **Default decision rule.** Where two representations describe the same domain concept, refactor
 toward one source of truth unless there is a concrete migration reason not to. Applied here: the
@@ -215,17 +225,17 @@ Bottom-up. Tasks 1–7 need no authored asset and are verifiable in EditMode.
 |---|---|---|
 | [001](./001-damage-scale-hit-contract.md) | `CombatHitEvent.DamageScale` + finalize applies it | — |
 | [002](./002-targeted-components-and-contracts.md) | Domain tags, walk state, spawn event/command/registry types | — |
-| [003](./003-spawn-lanes-expansion-apply.md) | Two expansion systems, two apply systems, two pools | 002 |
-| [004](./004-resolve-core-and-systems.md) | `TargetedResolveCore` + two resolve systems | 002, 003 |
+| [003](./003-spawn-lanes-expansion-apply.md) | Two expansion systems, two apply systems, two pools — *shipped, then collapsed to one of each* | 002 |
+| [004](./004-resolve-core-and-systems.md) | `TargetedResolveCore` + two resolve systems — *shipped, then collapsed into `TargetedResolveSystem`* | 002, 003 |
 | [005](./005-lifetime-arming-pool-cleanup.md) | Lifetime jobs, arming, pool cleanup, stats counters | 003 |
 | [006](./006-render-and-link-vfx.md) | Render mirror, `renderQuery`, `LineSegment` emission | 004 |
 | [007](./007-combat-root-registration-and-spawn-api.md) | `TargetedTypeDefinition` + `CombatRoot` registration + spawn API + gate routing | 002, 003 |
-| [008](./008-authoring-prefab-and-skill-types.md) | `TargetedPrefab`, two skill SOs, two definitions | — |
+| [008](./008-authoring-prefab-and-skill-types.md) | `TargetedPrefab`, two skill SOs, two definitions — *shipped, then collapsed to `TargetedSkill` + `TargetedDefinition`* | — |
 | [009](./009-compiler-runtime-definitions.md) | `RuntimeTargetedDefinition`, compile, template registration | 007, 008 |
 | [010](./010-trigger-links.md) | `OnImpactTargetedTrigger`, `TargetedIntervalSpawnTrigger` | 009 |
 | [011](./011-supports-and-tag-widening.md) | `MultipleChainsSupport`, `Any` widening, AOE-support tags | 009 |
 | [012](./012-root-cast-wiring.md) | `SkillSpawnTranslator` + `SkillDriver` root cast | 009 |
-| [013](./013-validation-warnings.md) | All §11 validation cases | 009, 010, 011 |
+| [013](./013-validation-warnings.md) | All validation cases ([requirements.md §12](./requirements.md#12-validation)) | 009, 010, 011 |
 | [014](./014-playmode-integration-tests.md) | PlayMode integration tests | 012, 013 |
 | [015](./015-docs-and-authored-content.md) | Doc updates + user editor steps | all |
 
@@ -240,23 +250,27 @@ Two items were raised during specification and are **explicitly deferred** — n
 open questions. Recorded so they are not rediscovered as surprises:
 
 - *Scene-level concurrency budget.* Per-resolve caps bound one instance; nothing bounds how many
-  walk at once, and `count` on an interval-triggered chain is the sharpest multiplier available.
+  walk at once, and `echoCount` on an interval-triggered chain is the sharpest multiplier available.
   Deferred. If it ever bites, the fix is a scene-level concurrent-instance cap — additive, and it
   changes no contract in this plan.
 - *Rank-offset fork differentiation.* Fork `i` opening on the `i`-th nearest target is the derived
   consequence of "no scatter". Settled as spec'd; task 004 implements it without further question.
 
-The items below are live and affect implementation.
+The items below were live during implementation; they are recorded here as shipped behaviour.
 
-**`IntervalChildKind` switch audit is a correctness risk, not a design one.** Two new enum values
-must be handled at `ExternalSpawnGateSystem.AppendInternalSpawn`, `TimedSpawnSystem`,
-`AoeCollisionCore`, `ProjectileDiscreteCollisionSystem`, and `CombatRoot`. A missed site fails
-silently as a spawn that never happens. Task 002 enumerates them explicitly.
+**`IntervalChildKind` switch audit is a correctness risk, not a design one.** The one new enum
+value, `IntervalChildKind.Targeted`, is handled at `ExternalSpawnGateSystem.AppendInternalSpawn`,
+`TimedSpawnSystem`, `AoeCollisionCore`, `ProjectileDiscreteCollisionSystem`, and `CombatRoot` — all
+five verified. A missed site fails silently as a spawn that never happens. (The simplification
+deleted the second value, `LingeringTargeted`, and its branch at each site.)
 
-**Interval-trigger traps have bitten this project before.** Two known ones apply unchanged to
-targeted children and are covered by task 013: an energy threshold that exceeds what the source can
-accrue over its lifetime means the child never spawns; and `tickInterval > lifetime` means a
-"ticking" chain fires exactly once. Both are silent without the warnings.
+**Interval-trigger traps have bitten this project before.** One of the two known traps still
+applies to targeted children and is validated in
+[SkillLoadoutValidator.cs:306](../../Assets/Scripts/Skills/SkillLoadoutValidator.cs#L306): an
+energy threshold that exceeds what the source can accrue over its lifetime means the child never
+spawns, silently. The second — `tickInterval > lifetime` making a "ticking" chain fire once — is
+structurally unreachable now that the walk owns the instance's lifetime; its warning was one of the
+four truncation warnings the simplification deleted.
 
 **Editor work is the user's.** Task 008 delivers the C# types; the `TargetedPrefab` prefab asset,
 skill SO assets, the `LineSegment` VFX graph, the sprite atlas entry for any debug sprite, and the

@@ -11,7 +11,8 @@ ECS simulation groups, and ECS presentation systems.
 4. ECS simulation expires lifetime and emits timed child spawn events.
 5. Projectile tracking, movement, contact gates, and collision run.
 6. AOE pulse VFX and collision run.
-7. Targeted single-hit and lingering resolve systems walk target proxies and emit hits.
+7. The targeted resolve system walks target proxies, emits hits, and expires chains
+   whose walk has ended.
 8. Combat apply/finalize consumes hit events, updates ECS health/status, and
    freezes presentation-ready results.
 9. Status processing may emit stack detonation projectile, AOE, or targeted spawn events.

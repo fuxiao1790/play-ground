@@ -48,9 +48,9 @@ Key contract:
 ## Collision To Combat Result
 
 [Collision To Combat Result](../flows/collision-to-combat-result.md) takes
-projectile and AOE collision against target proxies, emits plain data hit and
-consequence events, finalizes health/status in ECS, and exposes compact
-presentation results.
+projectile and AOE collision plus targeted chain resolve against target proxies,
+emits plain data hit and consequence events, finalizes health/status in ECS, and
+exposes compact presentation results.
 
 Key contracts:
 [Target Proxy](../contracts/target-proxy.md),

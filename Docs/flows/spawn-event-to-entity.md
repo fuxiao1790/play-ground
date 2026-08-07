@@ -2,19 +2,20 @@
 
 ## Purpose
 
-Trace how projectile and AOE intent becomes reusable ECS entities.
+Trace how projectile, AOE, and targeted intent becomes reusable ECS entities.
 
 ## Sequence
 
 1. Managed bridge or ECS producers create `ProjectileSpawnEvent`,
-   `ImpactAoeSpawnEvent`, or `LingeringAoeSpawnEvent`.
+   `ImpactAoeSpawnEvent`, `LingeringAoeSpawnEvent`, or `TargetedSpawnEvent`.
 2. Expansion systems drain scope buffers and native event queues after producer
    jobs complete.
 3. Expansion owns count, spread, jitter, bounds, deterministic id, and command
    production.
-4. Expansion writes `ProjectileSpawnCommand` or `AoeSpawnCommand`. Projectile
-   commands are routed into a discrete or continuous list by their
-   `ContinuousCollision` flag; the two lanes are separate pools from here on.
+4. Expansion writes `ProjectileSpawnCommand`, `AoeSpawnCommand`, or
+   `TargetedSpawnCommand`. Projectile commands are routed into a discrete or
+   continuous list by their `ContinuousCollision` flag; the two lanes are
+   separate pools from here on.
 5. Apply systems count disabled slots in their own reuse pool and cold-create
    the deficit up front through `SpawnPoolTopUp.EnsureDisabledSlots`, since
    entity creation is structural.
@@ -32,9 +33,10 @@ Trace how projectile and AOE intent becomes reusable ECS entities.
 ## Consumers
 
 `ProjectileSpawnExpansionSystem`, `ImpactAoeSpawnExpansionSystem`,
-`LingeringAoeSpawnExpansionSystem`, `ProjectileDiscreteSpawnApplySystem`,
-`ProjectileContinuousSpawnApplySystem`, `ImpactAoeSpawnApplySystem`, and
-`LingeringAoeSpawnApplySystem`.
+`LingeringAoeSpawnExpansionSystem`, `TargetedSpawnExpansionSystem`,
+`ProjectileDiscreteSpawnApplySystem`, `ProjectileContinuousSpawnApplySystem`,
+`ImpactAoeSpawnApplySystem`, `LingeringAoeSpawnApplySystem`, and
+`TargetedSpawnApplySystem`.
 
 ## Contracts Used
 
@@ -56,7 +58,9 @@ Commands are one entity; events are gameplay intent.
 
 AOE variant is chosen at authoring from child lifetime (`Lifetime > 0` means
 lingering, otherwise impact) and carried on the event kind. Producers route to
-the matching AOE event queue exactly like they route projectile events.
+the matching AOE event queue exactly like they route projectile events. Targeted
+has no such variant split — one `IntervalChildKind.Targeted` value, one lane, one
+pool — because a chain lives exactly as long as its walk.
 
 ## Failure / Edge Cases
 

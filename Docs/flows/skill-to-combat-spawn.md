@@ -9,8 +9,9 @@ Trace how authored skills become plain-data combat spawn requests.
 1. Authoring defines skills, supports, triggers, normalized loadout nodes, and validator
    prefab requirements.
 2. Game logic compiles equipped sets into runtime skill definitions.
-3. `SkillSpawnTranslator` turns runtime definitions into projectile or AOE
-   spawn request data.
+3. `SkillSpawnTranslator` turns runtime definitions into projectile, AOE, or
+   targeted spawn request data. A targeted cast passes two positions: the caster
+   origin and the aim-derived acquisition anchor.
 4. `SkillDriver` or mob attack code submits the request to `CombatRoot`.
 5. `CombatRoot` validates registered resources and appends a spawn event to the
    shared scope buffer.
@@ -24,8 +25,8 @@ Skill authoring assets, `SkillSetCompiler`, `SkillSpawnTranslator`,
 
 ## Consumers
 
-`CombatRoot`, spawn expansion systems, projectile/AOE apply systems, and ECS
-simulation.
+`CombatRoot`, spawn expansion systems, projectile/AOE/targeted apply systems, and
+ECS simulation.
 
 ## Contracts Used
 

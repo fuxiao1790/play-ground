@@ -53,8 +53,8 @@ EditMode:
 - projectile child entity creation and payload forwarding behavior
 - AOE pulse hit rules
 - AOE lingering tick and re-entry rules
-- targeted chain target selection, falloff, stagger, and interval restart rules
-- targeted lifetime expiry and separate pool reuse
+- targeted chain target selection, fork rank, falloff, stagger, and walk-end expiry rules
+- targeted arming pause, fail-safe lifetime expiry, and targeted pool trim
 - mob state transition rules
 - damage snapshot forwarding
 

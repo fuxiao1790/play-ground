@@ -172,8 +172,9 @@ matrix.
 
 AOE simulation producers call `VfxEmit.Enqueue`, which decodes the existing
 Circular or TimedCircular slot id and writes the matching concrete
-request. A future directional producer calls `VfxEmit.EnqueueLineSegment`
-with its start and end coordinates.
+request. `TargetedResolveSystem` calls `VfxEmit.EnqueueLineSegment` with each
+resolved link's start and end coordinates, and `VfxEmit.Enqueue` for its hit and
+expire effects.
 
 Current AOE emitters:
 
@@ -200,9 +201,12 @@ The pulse slot, `AoePulseVfxComponent`, and `AoePulseVfxSystem` remain available
 TimedCircular slots are an opt-in alternative for graphs that can self-drive
 their whole-duration visuals from one emission.
 
-LineSegment is a directional graph placeholder. Its graph receives a start and
-end coordinate plus width per spawn. It is fully registered and dispatched, but no existing
-AOE producer emits this shape yet.
+LineSegment is the directional shape. Its graph receives a start and
+end coordinate plus width per spawn. Targeted chains are its only producer: the
+link slot on `TargetedPrefab` must be authored as `VfxDataShape.LineSegment`
+(`IsValidTemplate` rejects anything else, and loadout validation warns), and
+`VfxEmit.EnqueueLineSegment` silently drops an id whose encoded shape is not
+LineSegment. No AOE producer emits this shape.
 
 ## Performance Notes
 

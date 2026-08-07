@@ -72,9 +72,9 @@ This document tracks implementation decisions, patterns, and current architectur
 
 ## Spawn Reuse Scheduling
 
-Projectile and AOE spawn reuse use one sequential command cursor per reuse
-pool. Spawn commands are stored in one `NativeList` per reuse pool: projectile,
-impact AOE, and lingering AOE. Each apply system owns one disabled-slot query,
+Projectile, AOE, and targeted spawn reuse use one sequential command cursor per
+reuse pool. Spawn commands are stored in one `NativeList` per reuse pool:
+projectile, impact AOE, lingering AOE, and targeted. Each apply system owns one disabled-slot query,
 captures matching chunks, and schedules one single-threaded Burst job that
 walks chunks in order, resets disabled slots, and writes the number of commands
 reused. The apply systems then cold-create the unreused suffix in the same

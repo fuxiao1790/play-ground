@@ -24,8 +24,8 @@ Authority rules:
   target proxy creation, render/VFX resource registration, and managed spawn
   submission into ECS buffers.
 - [ECS Simulation](../layers/ecs-simulation.md): high-count projectile, AOE,
-  status, target health, collision, spawn expansion/apply, pooling, and render
-  preparation data.
+  targeted, status, target health, collision, spawn expansion/apply, pooling, and
+  render preparation data.
 - [Presentation And Feedback](../layers/presentation-and-feedback.md):
   presentation bridge, batched sprite submission, VFX dispatch, actor feedback,
   and debug display.

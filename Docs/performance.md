@@ -117,6 +117,16 @@ AOEs:
 - retained disabled AOE pools follow the same bounded cleanup rule as
   projectiles, split by impact and lingering reuse pools
 
+Targeted chains:
+
+- reuse the AOE spatial-hash occupied cells and narrow phase; no new spatial
+  structure and no radius cap, since query cost tracks targets present
+- cost per instance is bounded by `chainCount` (clamped to 32), and an instance
+  ends with its walk, so concurrency is bounded by cast rate rather than lifetime
+- `CombatStatsSingleton` exposes `TargetedEntitiesSpawned`,
+  `TargetedLinksResolved`, and `ActiveTargeted`
+- one retained disabled pool, trimmed by the same bounded cleanup rule
+
 Beams and lasers:
 
 - use beam-specific runtime

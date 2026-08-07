@@ -618,7 +618,6 @@ class TargetedIntervalSpawnTrigger : IntervalSpawnTrigger {
 
 Compatible tags: source `Projectile` or `Aoe`; target `Targeted`. `echoCount` is
 additive with the child targeted definition's `echoCount`, floored to one.
-`count` is additive with the child targeted definition's count, floored to one.
 
 **OnImpactTargetedTrigger**
 
@@ -715,7 +714,12 @@ Current warning cases:
 - trigger has no runtime-compatible tags
 - trigger source or target tags do not match the neighboring skill sets
 - targeted chain has a missing prefab, missing line-segment VFX, or non-positive link width
-- a lingering targeted walk can be truncated by its next tick or by lifetime expiry
+- targeted prefab fails `IsValidTemplate`; a baked `Hurtbox` is error severity
+- targeted `chainCount`, `echoCount`, or `chainDelay` outside its range and will be clamped
+- `chainDistance` is not positive: error, the skill will not spawn
+- `chainCount > 1` with a non-positive `chainDamageFalloff`, so links after the first deal zero damage
+- a `TargetedIntervalSpawnTrigger` child costs more energy than its source can accrue over its
+  lifetime, so it never spawns
 - interval trigger source is a pulse AOE instead of a projectile or lingering
   AOE
 - stacking set is not the effect of a `StackTrigger`
