@@ -32,54 +32,43 @@ namespace PlayGround.Tests.EditMode
             TargetedSkill skill = CreateAsset<TargetedSkill>("Targeted");
             TargetedDefinition definition = (TargetedDefinition)skill.Definition;
             definition.prefab = CreateTargetedPrefab(withLinkVfx: true);
-            definition.maxTargets = 0;
-            definition.count = 0;
-            definition.chainDelaySeconds = -1f;
-            definition.acquireRadius = 0f;
+            definition.chainCount = 0;
+            definition.echoCount = 0;
+            definition.chainDelay = -1f;
+            definition.chainDistance = 0f;
             SkillSet set = CreateSkillSet(skill);
 
             SkillValidationWarning[] warnings = Validate(new SkillLoadoutNode(set));
-            AssertWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, "maxTargets");
-            AssertWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, "count");
-            AssertWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, "chainDelaySeconds");
+            AssertWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, "chainCount");
+            AssertWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, "echoCount");
+            AssertWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, "chainDelay");
             AssertWarning(warnings, SkillValidationWarningCode.TargetedConfigurationError, "will not spawn", SkillValidationSeverity.Error);
 
             RuntimeTargetedDefinition runtime = (RuntimeTargetedDefinition)SkillSetCompiler.Compile(
                 new[] { new SkillLoadoutNode(set) }, 0, SkillStatSnapshot.Identity);
-            Assert.That(runtime.MaxTargets, Is.EqualTo(1));
-            Assert.That(runtime.Count, Is.EqualTo(1));
-            Assert.That(runtime.ChainDelaySeconds, Is.Zero);
+            Assert.That(runtime.ChainCount, Is.EqualTo(1));
+            Assert.That(runtime.EchoCount, Is.EqualTo(1));
+            Assert.That(runtime.ChainDelay, Is.Zero);
             Assert.That(runtime.SpawnBlocked, Is.True);
         }
 
         [Test]
-        public void ValidatorWarnsAndCompilerClampsTargetedUpperBoundAndIntervalTick()
+        public void ValidatorWarnsAndCompilerClampsChainCountUpperBound()
         {
-            LingeringTargetedSkill skill = CreateLingeringSkill(lifetime: 1f, tickInterval: 0f, maxTargets: 64, chainDelay: 0f);
+            TargetedSkill skill = CreateAsset<TargetedSkill>("Targeted");
+            TargetedDefinition definition = (TargetedDefinition)skill.Definition;
+            definition.prefab = CreateTargetedPrefab(withLinkVfx: true);
+            definition.chainDistance = 4f;
+            definition.chainDamageFalloff = 1f;
+            definition.chainCount = 64;
             SkillSet set = CreateSkillSet(skill);
 
             SkillValidationWarning[] warnings = Validate(new SkillLoadoutNode(set));
-            AssertWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, "maxTargets");
-            AssertWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, "tickIntervalSeconds");
+            AssertWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, "chainCount");
 
             RuntimeTargetedDefinition runtime = (RuntimeTargetedDefinition)SkillSetCompiler.Compile(
                 new[] { new SkillLoadoutNode(set) }, 0, SkillStatSnapshot.Identity);
-            Assert.That(runtime.MaxTargets, Is.EqualTo(32));
-            Assert.That(runtime.TickIntervalSeconds, Is.EqualTo(0.01f).Within(0.0001f));
-        }
-
-        [Test]
-        public void IntervalTruncationWarningsFireIndependently()
-        {
-            LingeringTargetedSkill lifetimeSkill = CreateLingeringSkill(lifetime: 0.5f, tickInterval: 2f, maxTargets: 6, chainDelay: 0.2f);
-            SkillValidationWarning[] lifetimeWarnings = Validate(new SkillLoadoutNode(CreateSkillSet(lifetimeSkill)));
-            AssertWarning(lifetimeWarnings, SkillValidationWarningCode.TargetedIntervalWarning, "lifetimeSeconds");
-            AssertNoWarning(lifetimeWarnings, "tickIntervalSeconds; later");
-
-            LingeringTargetedSkill tickSkill = CreateLingeringSkill(lifetime: 2f, tickInterval: 0.5f, maxTargets: 6, chainDelay: 0.2f);
-            SkillValidationWarning[] tickWarnings = Validate(new SkillLoadoutNode(CreateSkillSet(tickSkill)));
-            AssertWarning(tickWarnings, SkillValidationWarningCode.TargetedIntervalWarning, "tickIntervalSeconds; later");
-            AssertNoWarning(tickWarnings, "lifetimeSeconds; the instance");
+            Assert.That(runtime.ChainCount, Is.EqualTo(32));
         }
 
         [Test]
@@ -102,16 +91,17 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void ValidSingleHitWithLongChainHasNoLifetimeWarning()
+        public void LongSlowChainProducesNoWarnings()
         {
+            // The instance lives exactly as long as its walk, so no combination of chainCount and
+            // chainDelay can truncate it. There is nothing left here to warn about.
             TargetedSkill skill = CreateAsset<TargetedSkill>("Targeted");
             TargetedDefinition definition = (TargetedDefinition)skill.Definition;
             definition.prefab = CreateTargetedPrefab(withLinkVfx: true);
-            definition.acquireRadius = 4f;
-            definition.maxTargets = 32;
-            definition.chainRadius = 4f;
+            definition.chainCount = 32;
+            definition.chainDistance = 4f;
             definition.chainDamageFalloff = 1f;
-            definition.chainDelaySeconds = 10f;
+            definition.chainDelay = 10f;
 
             SkillValidationWarning[] warnings = Validate(new SkillLoadoutNode(CreateSkillSet(skill)));
 
@@ -146,21 +136,6 @@ namespace PlayGround.Tests.EditMode
             SkillValidationWarning[] sizeWarnings = Validate(new SkillLoadoutNode(CreateSkillSet(sizesSkill)));
             AssertWarning(sizeWarnings, SkillValidationWarningCode.TargetedVisualWarning, "vfxEffectSize");
             AssertWarning(sizeWarnings, SkillValidationWarningCode.TargetedVisualWarning, "linkWidth");
-        }
-
-        private LingeringTargetedSkill CreateLingeringSkill(float lifetime, float tickInterval, int maxTargets, float chainDelay)
-        {
-            LingeringTargetedSkill skill = CreateAsset<LingeringTargetedSkill>("Lingering Targeted");
-            LingeringTargetedDefinition definition = (LingeringTargetedDefinition)skill.Definition;
-            definition.prefab = CreateTargetedPrefab(withLinkVfx: true);
-            definition.acquireRadius = 4f;
-            definition.chainRadius = 4f;
-            definition.chainDamageFalloff = 1f;
-            definition.lifetimeSeconds = lifetime;
-            definition.tickIntervalSeconds = tickInterval;
-            definition.maxTargets = maxTargets;
-            definition.chainDelaySeconds = chainDelay;
-            return skill;
         }
 
         private TargetedPrefab CreateTargetedPrefab(
@@ -222,12 +197,6 @@ namespace PlayGround.Tests.EditMode
             }
 
             Assert.Fail($"Expected {severity} {code} containing '{messageFragment}'.");
-        }
-
-        private static void AssertNoWarning(SkillValidationWarning[] warnings, string messageFragment)
-        {
-            for (int i = 0; i < warnings.Length; i++)
-                Assert.That(warnings[i].Message, Does.Not.Contain(messageFragment));
         }
 
         private static void SetField(object target, string fieldName, object value)

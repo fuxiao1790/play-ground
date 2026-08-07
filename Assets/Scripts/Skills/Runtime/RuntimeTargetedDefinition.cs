@@ -9,14 +9,15 @@ namespace PlayGround.Skills.Runtime
     public sealed class RuntimeTargetedDefinition : RuntimeSkillDefinition
     {
         public TargetedPrefab Prefab { get; set; }
-        public int Count { get; set; } = 1;
-        public float AcquireRadius { get; set; }
-        public int MaxTargets { get; set; } = 1;
-        public float ChainRadius { get; set; }
+        public int EchoCount { get; set; } = 1;
+        public int ChainCount { get; set; } = 1;
+        public float ChainDistance { get; set; }
         public float ChainDamageFalloff { get; set; }
-        public float ChainDelaySeconds { get; set; }
+        public float ChainDelay { get; set; }
+
+        // Not authored. A chain despawns when its walk ends; this is the computed backstop that
+        // stops a stalled instance leaking a pooled slot. See LifetimeFor.
         public float LifetimeSeconds { get; set; }
-        public float TickIntervalSeconds { get; set; }
         public float ManaCost { get; set; }
         public float ArmSeconds { get; set; }
         public bool DirectDamageEnabled { get; set; } = true;
@@ -31,6 +32,14 @@ namespace PlayGround.Skills.Runtime
 
         // Compiled from StackTrigger; null when no stacking detonation is attached.
         public RuntimeStackingDetonation StackingDetonation { get; set; }
+
+        // Margin over the walk's worst case so a frame-rate hitch or a catch-up update can never
+        // expire an instance that still has links owed to it.
+        private const float LifetimeMarginSeconds = 0.5f;
+
+        public static float LifetimeFor(int chainCount, float chainDelay) =>
+            (UnityEngine.Mathf.Max(1, chainCount) * UnityEngine.Mathf.Max(0f, chainDelay))
+            + LifetimeMarginSeconds;
 
         private TargetedTypeDefinition typeDefinition;
 

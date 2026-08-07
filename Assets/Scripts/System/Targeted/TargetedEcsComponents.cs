@@ -9,10 +9,6 @@ namespace PlayGround.System.Combat.Targeted
     // gates targeted systems from common combat components.
     public struct TargetedTag : IComponentData { }
 
-    // ECS Lifecycle: interval-variant discriminator; added at entity creation; kept until root
-    // teardown; present only on interval targeted skills. Absence marks a single-hit chain.
-    public struct LingeringTargetedTag : IComponentData { }
-
     // ECS Lifecycle: base targeted component; added by spawn materialization; reset on reuse.
     public struct TargetedIdentityComponent : IComponentData
     {
@@ -36,13 +32,13 @@ namespace PlayGround.System.Combat.Targeted
     }
 
     // ECS Lifecycle: base targeted component; added by spawn materialization; reset on reuse.
+    // ChainDistance is the reach of every hop, including link 0 out from the acquisition anchor.
     public struct TargetedResolveConfig : IComponentData
     {
-        public float AcquireRadius;
-        public float ChainRadius;
+        public float ChainDistance;
         public float ChainDamageFalloff;
-        public float ChainDelaySeconds;
-        public int MaxTargets;
+        public float ChainDelay;
+        public int ChainCount;
     }
 
     // ECS Lifecycle: base targeted component; added by spawn materialization; reset on reuse.
@@ -63,13 +59,5 @@ namespace PlayGround.System.Combat.Targeted
     {
         public float EffectSize;
         public float LinkWidth;
-    }
-
-    // ECS Lifecycle: interval-only targeted component; added at entity creation; reset on reuse.
-    // Remaining counts down to the next walk restart; seeded to 0 so the first walk starts immediately.
-    public struct TargetedTickGateComponent : IComponentData
-    {
-        public float TickIntervalSeconds;
-        public float Remaining;
     }
 }

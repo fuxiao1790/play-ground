@@ -109,78 +109,46 @@ namespace PlayGround.Skills
                     $"Support '{support.name}' on skill set '{skillSet.name}' supports {SkillDefinitionTagUtility.Format(support.SupportedSkillTags)}, but skill '{skill.name}' is {SkillDefinitionTagUtility.Format(skillTags)}. Support will be ignored.");
             }
 
-            if (skill.Definition is TargetedDefinitionBase targeted)
+            if (skill.Definition is TargetedDefinition targeted)
                 ValidateTargetedDefinition(targeted, slotIndex, warnings);
         }
 
         private static void ValidateTargetedDefinition(
-            TargetedDefinitionBase definition,
+            TargetedDefinition definition,
             int slotIndex,
             List<SkillValidationWarning> warnings)
         {
-            if (definition.maxTargets < 1 || definition.maxTargets > 32)
+            if (definition.chainCount < 1 || definition.chainCount > 32)
             {
                 AddWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, slotIndex,
-                    $"Targeted maxTargets {definition.maxTargets} is outside [1, 32] and will be clamped.");
+                    $"Targeted chainCount {definition.chainCount} is outside [1, 32] and will be clamped.");
             }
 
-            if (definition.count < 1)
+            if (definition.echoCount < 1)
             {
                 AddWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, slotIndex,
-                    $"Targeted count {definition.count} is below 1 and will be clamped to 1.");
+                    $"Targeted echoCount {definition.echoCount} is below 1 and will be clamped to 1.");
             }
 
-            if (definition.chainDelaySeconds < 0f)
+            if (definition.chainDelay < 0f)
             {
                 AddWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, slotIndex,
-                    "Targeted chainDelaySeconds is negative and will be clamped to 0.");
+                    "Targeted chainDelay is negative and will be clamped to 0.");
             }
 
-            if (definition.acquireRadius <= 0f)
+            // chainDistance governs every hop, link 0 included, so a non-positive value cannot
+            // even acquire a first target. Blocking beats firing a silent no-op.
+            if (definition.chainDistance <= 0f)
             {
                 AddWarning(warnings, SkillValidationWarningCode.TargetedConfigurationError, slotIndex,
-                    "Targeted acquireRadius must be greater than 0; this skill will not spawn.",
+                    "Targeted chainDistance must be greater than 0; this skill will not spawn.",
                     SkillValidationSeverity.Error);
             }
 
-            if (definition.maxTargets > 1 && definition.chainRadius <= 0f)
-            {
-                AddWarning(warnings, SkillValidationWarningCode.TargetedChainWarning, slotIndex,
-                    "Targeted maxTargets is greater than 1 but chainRadius is not positive; no jump can occur.");
-            }
-
-            if (definition.maxTargets > 1 && definition.chainDamageFalloff <= 0f)
+            if (definition.chainCount > 1 && definition.chainDamageFalloff <= 0f)
             {
                 AddWarning(warnings, SkillValidationWarningCode.TargetedChainWarning, slotIndex,
                     "Targeted chainDamageFalloff is not positive; links after the first deal zero damage.");
-            }
-
-            if (definition is LingeringTargetedDefinition lingering)
-            {
-                float chainDuration = TargetedChainDuration(definition);
-                if (lingering.tickIntervalSeconds <= 0f)
-                {
-                    AddWarning(warnings, SkillValidationWarningCode.TargetedParameterClamped, slotIndex,
-                        "Lingering targeted tickIntervalSeconds must be positive and will be clamped to 0.01.");
-                }
-
-                if (lingering.tickIntervalSeconds > lingering.lifetimeSeconds)
-                {
-                    AddWarning(warnings, SkillValidationWarningCode.TargetedIntervalWarning, slotIndex,
-                        "Lingering targeted tickIntervalSeconds exceeds lifetimeSeconds; the walk fires once.");
-                }
-
-                if (chainDuration > lingering.tickIntervalSeconds)
-                {
-                    AddWarning(warnings, SkillValidationWarningCode.TargetedIntervalWarning, slotIndex,
-                        "Targeted chain duration exceeds tickIntervalSeconds; later links are cut off by the next walk.");
-                }
-
-                if (chainDuration > lingering.lifetimeSeconds)
-                {
-                    AddWarning(warnings, SkillValidationWarningCode.TargetedIntervalWarning, slotIndex,
-                        "Targeted chain duration exceeds lifetimeSeconds; the instance expires before one walk finishes.");
-                }
             }
 
             TargetedPrefab prefab = definition.Prefab;
@@ -219,17 +187,6 @@ namespace PlayGround.Skills
                 AddWarning(warnings, SkillValidationWarningCode.TargetedVisualWarning, slotIndex,
                     "Targeted link VFX is assigned but linkWidth is not positive.");
             }
-        }
-
-        private static float TargetedChainDuration(TargetedDefinitionBase definition)
-        {
-            int maxTargets = definition.maxTargets < 1
-                ? 1
-                : definition.maxTargets > 32 ? 32 : definition.maxTargets;
-            float delay = definition.chainDelaySeconds > 0f
-                ? definition.chainDelaySeconds
-                : 0f;
-            return maxTargets * delay;
         }
 
         private static void ValidateTriggerLink(
@@ -284,7 +241,7 @@ namespace PlayGround.Skills
                 ValidateIntervalSpawnSource(link, slotIndex, causeSkill, warnings);
 
             if (link is TargetedIntervalSpawnTrigger targetedInterval
-                && effectSkill.Definition is TargetedDefinitionBase targetedEffect)
+                && effectSkill.Definition is TargetedDefinition targetedEffect)
             {
                 ValidateTargetedIntervalEnergyReachability(
                     targetedInterval,
@@ -349,7 +306,7 @@ namespace PlayGround.Skills
         private static void ValidateTargetedIntervalEnergyReachability(
             TargetedIntervalSpawnTrigger trigger,
             SkillDefinition source,
-            TargetedDefinitionBase effect,
+            TargetedDefinition effect,
             int slotIndex,
             List<SkillValidationWarning> warnings)
         {

@@ -65,24 +65,34 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void TargetedDefinitions_DeepCopyAndSkillsUseTargetedTag()
+        public void TargetedDefinition_DeepCopiesAndSkillUsesTargetedTag()
         {
-            var definition = new TargetedDefinition { damage = 3f };
+            var definition = new TargetedDefinition { damage = 3f, chainDelay = 0.25f };
             var copy = (TargetedDefinition)definition.DeepCopy();
             copy.damage = 9f;
+            copy.chainDelay = 0.5f;
             Assert.That(definition.damage, Is.EqualTo(3f));
-
-            var lingeringDefinition = new LingeringTargetedDefinition { tickIntervalSeconds = 0.25f };
-            var lingeringCopy = (LingeringTargetedDefinition)lingeringDefinition.DeepCopy();
-            lingeringCopy.tickIntervalSeconds = 0.5f;
-            Assert.That(lingeringDefinition.tickIntervalSeconds, Is.EqualTo(0.25f));
+            Assert.That(definition.chainDelay, Is.EqualTo(0.25f));
 
             TargetedSkill skill = ScriptableObject.CreateInstance<TargetedSkill>();
-            LingeringTargetedSkill lingering = ScriptableObject.CreateInstance<LingeringTargetedSkill>();
             Assert.That(skill.Tags, Is.EqualTo(SkillDefinitionTags.Targeted));
-            Assert.That(lingering.Tags, Is.EqualTo(SkillDefinitionTags.Targeted));
             Object.DestroyImmediate(skill);
-            Object.DestroyImmediate(lingering);
+        }
+
+        [Test]
+        public void TargetedDefinition_ExposesNoLifetimeOrTickInterval()
+        {
+            // The walk owns the instance's life. Re-adding either field would put back the
+            // three-timer confusion this authoring surface was collapsed to remove.
+            global::System.Type type = typeof(TargetedDefinition);
+
+            Assert.That(type.GetField("lifetimeSeconds"), Is.Null);
+            Assert.That(type.GetField("tickIntervalSeconds"), Is.Null);
+            Assert.That(type.GetField("acquireRadius"), Is.Null);
+            Assert.That(type.GetField("chainDistance"), Is.Not.Null);
+            Assert.That(type.GetField("chainCount"), Is.Not.Null);
+            Assert.That(type.GetField("chainDelay"), Is.Not.Null);
+            Assert.That(type.GetField("echoCount"), Is.Not.Null);
         }
 
         private static SpriteRenderer CreateRenderer(GameObject root, string childName, Sprite sprite, Material material)

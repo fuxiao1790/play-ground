@@ -30,7 +30,7 @@ namespace PlayGround.Skills.Runtime
         public RuntimeTargetedDefinition ChildDefinition { get; set; }
         public float EnergyPerSecond { get; set; }
         public float EnergyThreshold { get; set; }
-        public int Count { get; set; }
+        public int EchoCount { get; set; }
         public Hash128 TemplateKey { get; set; }
     }
 

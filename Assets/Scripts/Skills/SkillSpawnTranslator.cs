@@ -82,9 +82,9 @@ namespace PlayGround.Skills
                     targeted.SpawnTemplateKey,
                     origin,
                     aimWorldPos,
-                    Mathf.Max(1, targeted.Count),
+                    Mathf.Max(1, targeted.EchoCount),
                     faction,
-                    TargetedVariant.ChildKindFor(targeted.LifetimeSeconds),
+                    IntervalChildKind.Targeted,
                     caster,
                     Mathf.Max(0f, targeted.ManaCost),
                     castToken);

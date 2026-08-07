@@ -60,7 +60,6 @@ namespace PlayGround.System.Combat.Core
                 entityManager.AddBuffer<ImpactAoeSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<LingeringAoeSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<TargetedSpawnEvent>(ownedScope);
-                entityManager.AddBuffer<LingeringTargetedSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<TargetProxyCreateEvent>(ownedScope);
                 entityManager.AddBuffer<TargetProxyUpdateEvent>(ownedScope);
                 entityManager.AddBuffer<TargetProxyDeleteEvent>(ownedScope);

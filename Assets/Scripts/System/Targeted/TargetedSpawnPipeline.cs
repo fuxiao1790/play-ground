@@ -24,22 +24,6 @@ namespace PlayGround.System.Combat.Targeted
         public int ContactGateSeedTargetId;
     }
 
-    // ECS Lifecycle: transient spawn intent; enqueued by producers into the expansion queue
-    // or appended to the scope submission buffer; consumed and discarded by LingeringTargetedSpawnExpansionSystem.
-    public struct LingeringTargetedSpawnEvent : IBufferElementData
-    {
-        public IntervalChildKind Kind;
-        public Hash128 TemplateKey;
-        public float2 Position;
-        public float2 AcquireAnchor;
-        public float2 AimDirection;
-        public CombatFaction Faction;
-        public int SourceId;
-        public uint JitterSeed;
-        public int DeterministicIdTickIndex;
-        public int ContactGateSeedTargetId;
-    }
-
     // ECS Lifecycle: resolved single-entity allocation intent; produced by expansion, consumed by
     // apply. Registry templates use this same shape with per-instance fields left default.
     public struct TargetedSpawnCommand
@@ -56,9 +40,10 @@ namespace PlayGround.System.Combat.Targeted
         public int DeterministicIdTickIndex;
         public float2 Origin;
         public float2 AcquireAnchor;
-        public int Count;
+        public int EchoCount;
+        // Fail-safe only. A chain expires the instant its walk ends, so this backstop is computed
+        // from the walk's own worst-case duration and never authored.
         public float LifetimeSeconds;
-        public float TickIntervalSeconds;
         public float ArmSeconds;
         public CombatHitPayload HitPayload;
         public TargetedResolveConfig Resolve;
@@ -67,15 +52,6 @@ namespace PlayGround.System.Combat.Targeted
         public CombatRenderComponent Render;
         public CombatRenderAuthoring Authoring;
         public OnHitSpawnRef OnHitSpawn;
-        public int HasTimedSpawner;
-        public TimedSpawnComponent TimedSpawn;
-    }
-
-    // ECS Lifecycle: stateless variant selector; used while compiling targeted child templates.
-    public static class TargetedVariant
-    {
-        public static IntervalChildKind ChildKindFor(float lifetimeSeconds) =>
-            lifetimeSeconds > 0f ? IntervalChildKind.LingeringTargeted : IntervalChildKind.Targeted;
     }
 
     // ECS Lifecycle: stateless VFX timing mapper; reads spawn commands during targeted
@@ -86,7 +62,7 @@ namespace PlayGround.System.Combat.Targeted
             new()
             {
                 Duration = command.LifetimeSeconds,
-                TickInterval = command.TickIntervalSeconds
+                TickInterval = 0f
             };
     }
 }

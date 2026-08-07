@@ -26,40 +26,47 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void CompilerMapsSingleAndLingeringTargetedValues()
+        public void CompilerMapsAuthoredTargetedValues()
         {
-            TargetedSkill singleSkill = CreateAsset<TargetedSkill>("Targeted Skill");
-            TargetedDefinition single = (TargetedDefinition)singleSkill.Definition;
-            single.count = 3;
-            single.acquireRadius = 2f;
-            single.maxTargets = 6;
-            single.chainRadius = 4f;
-            single.chainDamageFalloff = 0.8f;
-            single.chainDelaySeconds = 0.2f;
-            single.damage = 10f;
-            single.armSeconds = 0.1f;
-            single.prefab = CreatePrefab();
+            TargetedSkill skill = CreateAsset<TargetedSkill>("Targeted Skill");
+            TargetedDefinition definition = (TargetedDefinition)skill.Definition;
+            definition.echoCount = 3;
+            definition.chainCount = 6;
+            definition.chainDistance = 4f;
+            definition.chainDamageFalloff = 0.8f;
+            definition.chainDelay = 0.2f;
+            definition.damage = 10f;
+            definition.armSeconds = 0.1f;
+            definition.prefab = CreatePrefab();
 
-            RuntimeTargetedDefinition compiledSingle = Compile(singleSkill);
+            RuntimeTargetedDefinition compiled = Compile(skill);
 
-            Assert.That(compiledSingle.Count, Is.EqualTo(3));
-            Assert.That(compiledSingle.AcquireRadius, Is.EqualTo(2f).Within(0.0001f));
-            Assert.That(compiledSingle.ChainRadius, Is.EqualTo(4f).Within(0.0001f));
-            Assert.That(compiledSingle.LifetimeSeconds, Is.Zero);
-            Assert.That(compiledSingle.TickIntervalSeconds, Is.Zero);
-            Assert.That(TargetedVariant.ChildKindFor(compiledSingle.LifetimeSeconds), Is.EqualTo(IntervalChildKind.Targeted));
+            Assert.That(compiled.EchoCount, Is.EqualTo(3));
+            Assert.That(compiled.ChainCount, Is.EqualTo(6));
+            Assert.That(compiled.ChainDistance, Is.EqualTo(4f).Within(0.0001f));
+            Assert.That(compiled.ChainDamageFalloff, Is.EqualTo(0.8f).Within(0.0001f));
+            Assert.That(compiled.ChainDelay, Is.EqualTo(0.2f).Within(0.0001f));
+        }
 
-            LingeringTargetedSkill lingeringSkill = CreateAsset<LingeringTargetedSkill>("Lingering Targeted Skill");
-            LingeringTargetedDefinition lingering = (LingeringTargetedDefinition)lingeringSkill.Definition;
-            lingering.lifetimeSeconds = 3f;
-            lingering.tickIntervalSeconds = 0.4f;
-            lingering.prefab = CreatePrefab();
+        [Test]
+        public void CompiledLifetimeCoversTheWholeWalkAndIsNeverAuthored()
+        {
+            // Lifetime is a fail-safe derived from the walk, so it must always outlast the walk
+            // itself; the resolve is what actually expires the instance when the last link lands.
+            TargetedSkill skill = CreateAsset<TargetedSkill>("Targeted Skill");
+            TargetedDefinition definition = (TargetedDefinition)skill.Definition;
+            definition.chainCount = 6;
+            definition.chainDelay = 0.2f;
+            definition.chainDistance = 4f;
+            definition.prefab = CreatePrefab();
 
-            RuntimeTargetedDefinition compiledLingering = Compile(lingeringSkill);
+            RuntimeTargetedDefinition compiled = Compile(skill);
 
-            Assert.That(compiledLingering.LifetimeSeconds, Is.EqualTo(3f).Within(0.0001f));
-            Assert.That(compiledLingering.TickIntervalSeconds, Is.EqualTo(0.4f).Within(0.0001f));
-            Assert.That(TargetedVariant.ChildKindFor(compiledLingering.LifetimeSeconds), Is.EqualTo(IntervalChildKind.LingeringTargeted));
+            Assert.That(compiled.LifetimeSeconds, Is.GreaterThan(6 * 0.2f));
+
+            definition.chainDelay = 0f;
+            RuntimeTargetedDefinition instant = Compile(skill);
+            Assert.That(instant.LifetimeSeconds, Is.GreaterThan(0f));
         }
 
         [Test]
@@ -67,8 +74,7 @@ namespace PlayGround.Tests.EditMode
         {
             TargetedSkill skill = CreateAsset<TargetedSkill>("Targeted Skill");
             TargetedDefinition definition = (TargetedDefinition)skill.Definition;
-            definition.acquireRadius = 2f;
-            definition.chainRadius = 3f;
+            definition.chainDistance = 3f;
             definition.damage = 10f;
             definition.prefab = CreatePrefab();
 
@@ -84,8 +90,7 @@ namespace PlayGround.Tests.EditMode
                 new SkillStatSnapshot(0f, 1f, 0f, 1.5f, areaSizeMultiplier: 2f));
 
             Assert.That(runtime.Damage, Is.EqualTo(15f).Within(0.0001f));
-            Assert.That(runtime.AcquireRadius, Is.EqualTo(4f).Within(0.0001f));
-            Assert.That(runtime.ChainRadius, Is.EqualTo(6f).Within(0.0001f));
+            Assert.That(runtime.ChainDistance, Is.EqualTo(6f).Within(0.0001f));
             Assert.That(runtime.RecoveryTime, Is.EqualTo(1f / 7.5f).Within(0.0001f));
             Assert.That(runtime.VfxSize.EffectSize, Is.EqualTo(1f).Within(0.0001f));
             Assert.That(runtime.VfxSize.LinkWidth, Is.EqualTo(1f).Within(0.0001f));

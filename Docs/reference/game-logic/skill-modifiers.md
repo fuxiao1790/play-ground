@@ -185,7 +185,7 @@ how the factor aggregates across a full trigger chain.
 |---|---|---|
 | Multiple Projectiles | `IManaModifiers.IBaseValueModifier`, `IManaModifiers.IIncreasedModifier`, `IManaModifiers.IMultiplierModifier`, `IProjectileBehaviorModifier` | Adds, increases, and multiplies `ManaCost` (three independent authored fields, same fold as player-level stat terms); adds projectile `count`, `spreadDegrees` |
 | Multiple AOEs | `IManaModifiers.IBaseValueModifier`, `IManaModifiers.IIncreasedModifier`, `IManaModifiers.IMultiplierModifier`, `IAoeBehaviorModifier` | Adds, increases, and multiplies `ManaCost` (three independent authored fields, same fold as player-level stat terms); adds AOE `echoCount`, `scatterRadius` |
-| Multiple Chains | `IManaModifiers.IBaseValueModifier`, `IManaModifiers.IIncreasedModifier`, `IManaModifiers.IMultiplierModifier`, `ITargetedBehaviorModifier` | Adds, increases, and multiplies `ManaCost`; adds targeted-chain `count` |
+| Multiple Chains | `IManaModifiers.IBaseValueModifier`, `IManaModifiers.IIncreasedModifier`, `IManaModifiers.IMultiplierModifier`, `ITargetedBehaviorModifier` | Adds, increases, and multiplies `ManaCost`; adds targeted `echoCount` |
 | Piercing | `IPierceCountModifiers.IBaseValueModifier`, `IManaModifiers.IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost` and `PierceCount`; sets projectile `repeatHitCooldown` |
 | Homing | `IManaModifiers.IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost`; enables tracking and sets turn speed/query interval |
 | Concentrated Effect | `IAreaSizeModifiers.IMultiplierModifier`, `IManaModifiers.IMultiplierModifier` | Multiplier on `AreaSize`; also multiplies `ManaCost` |

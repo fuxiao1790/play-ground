@@ -1,4 +1,4 @@
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Collision.Broadphase;
@@ -48,10 +48,10 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void ShapeOverlap_SelectsTargetWhoseCentreIsOutsideAcquireRadius()
+        public void ShapeOverlap_SelectsTargetWhoseCentreIsOutsideChainDistance()
         {
             Entity target = AddCircleTarget(new float2(2f, 0f), 1.1f);
-            Entity chain = AddChain(instanceIndex: 0, acquireRadius: 1f, chainRadius: 1f, maxTargets: 1);
+            Entity chain = AddChain(instanceIndex: 0, chainDistance: 1f, chainCount: 1);
 
             Tick();
 
@@ -66,8 +66,8 @@ namespace PlayGround.Tests.EditMode
         {
             Entity near = AddCircleTarget(new float2(1f, 0f), 8f);
             Entity far = AddCircleTarget(new float2(12f, 0f), 0.25f);
-            Entity firstFork = AddChain(instanceIndex: 0, acquireRadius: 20f, chainRadius: 1f, maxTargets: 1);
-            Entity secondFork = AddChain(instanceIndex: 1, acquireRadius: 20f, chainRadius: 1f, maxTargets: 1);
+            Entity firstFork = AddChain(instanceIndex: 0, chainDistance: 20f, chainCount: 1);
+            Entity secondFork = AddChain(instanceIndex: 1, chainDistance: 20f, chainCount: 1);
 
             Tick();
 
@@ -78,10 +78,10 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void LargeCompiledAcquireRadius_IsNotGloballyClamped()
+        public void LargeCompiledChainDistance_IsNotGloballyClamped()
         {
             Entity target = AddCircleTarget(new float2(2048f, 0f), 0.25f);
-            AddChain(instanceIndex: 0, acquireRadius: 4096f, chainRadius: 1f, maxTargets: 1);
+            AddChain(instanceIndex: 0, chainDistance: 4096f, chainCount: 1);
 
             Tick();
 
@@ -95,9 +95,9 @@ namespace PlayGround.Tests.EditMode
         {
             AddCircleTarget(new float2(1f, 0f), 0.25f);
             AddCircleTarget(new float2(2f, 0f), 0.25f);
-            Entity chain = AddChain(instanceIndex: 0, acquireRadius: 2f, chainRadius: 2f, maxTargets: 2);
+            Entity chain = AddChain(instanceIndex: 0, chainDistance: 2f, chainCount: 2);
             TargetedResolveConfig config = _entityManager.GetComponentData<TargetedResolveConfig>(chain);
-            config.ChainDelaySeconds = 0.1f;
+            config.ChainDelay = 0.1f;
             _entityManager.SetComponentData(chain, config);
 
             Tick();
@@ -109,10 +109,36 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void Lifetime_EndsWithTheWalkNotWithATimer()
+        {
+            // The whole point of the collapsed shape: an instance is alive exactly as long as it
+            // still has chains to use. A completed walk expires it on the spot.
+            AddCircleTarget(new float2(1f, 0f), 0.25f);
+            Entity chain = AddChain(instanceIndex: 0, chainDistance: 2f, chainCount: 1);
+            _entityManager.SetComponentData(chain, new CombatLifetimeComponent { Remaining = 999f });
+
+            Tick();
+
+            Assert.That(_entityManager.IsComponentEnabled<Active>(chain), Is.False);
+        }
+
+        [Test]
+        public void Lifetime_EndsImmediatelyWhenALinkFindsNothing()
+        {
+            Entity chain = AddChain(instanceIndex: 0, chainDistance: 2f, chainCount: 4);
+            _entityManager.SetComponentData(chain, new CombatLifetimeComponent { Remaining = 999f });
+
+            Tick();
+
+            Assert.That(DrainHits(), Is.Empty);
+            Assert.That(_entityManager.IsComponentEnabled<Active>(chain), Is.False);
+        }
+
+        [Test]
         public void Resolve_PublishesTargetedLinkCounterToStableDisplay()
         {
             AddCircleTarget(new float2(1f, 0f), 0.25f);
-            AddChain(instanceIndex: 0, acquireRadius: 2f, chainRadius: 2f, maxTargets: 1);
+            AddChain(instanceIndex: 0, chainDistance: 2f, chainCount: 1);
 
             Tick();
             _world.GetExistingSystemManaged<CombatStatsGatherSystem>().Update();
@@ -130,9 +156,9 @@ namespace PlayGround.Tests.EditMode
         public void Resolve_UpdatesRenderMirrorAndPreservesPoseWhenNoLinkLands()
         {
             AddCircleTarget(new float2(3f, 4f), 0.25f);
-            Entity chain = AddChain(instanceIndex: 0, acquireRadius: 6f, chainRadius: 6f, maxTargets: 2);
+            Entity chain = AddChain(instanceIndex: 0, chainDistance: 6f, chainCount: 2);
             TargetedResolveConfig config = _entityManager.GetComponentData<TargetedResolveConfig>(chain);
-            config.ChainDelaySeconds = 0.1f;
+            config.ChainDelay = 0.1f;
             _entityManager.SetComponentData(chain, config);
 
             Tick();
@@ -174,7 +200,7 @@ namespace PlayGround.Tests.EditMode
         {
             AddCircleTarget(new float2(1f, 0f), 0.25f);
             AddCircleTarget(new float2(1f, 2f), 0.25f);
-            Entity chain = AddChain(instanceIndex: 0, acquireRadius: 2f, chainRadius: 3f, maxTargets: 2);
+            Entity chain = AddChain(instanceIndex: 0, chainDistance: 3f, chainCount: 2);
             SetLinkVfx(chain, VfxDataShapeTable.EncodeId(VfxDataShape.LineSegment, 1), 0.75f);
 
             Tick();
@@ -189,7 +215,7 @@ namespace PlayGround.Tests.EditMode
         public void Resolve_DropsLinkVfxIdWithNonLineSegmentShape()
         {
             AddCircleTarget(new float2(1f, 0f), 0.25f);
-            Entity chain = AddChain(instanceIndex: 0, acquireRadius: 2f, chainRadius: 2f, maxTargets: 1);
+            Entity chain = AddChain(instanceIndex: 0, chainDistance: 2f, chainCount: 1);
             SetLinkVfx(chain, VfxDataShapeTable.EncodeId(VfxDataShape.Circular, 1), 1f);
 
             Tick();
@@ -224,7 +250,7 @@ namespace PlayGround.Tests.EditMode
             return entity;
         }
 
-        private Entity AddChain(int instanceIndex, float acquireRadius, float chainRadius, int maxTargets)
+        private Entity AddChain(int instanceIndex, float chainDistance, int chainCount)
         {
             Entity entity = _entityManager.CreateEntity(
                 typeof(TargetedTag),
@@ -236,6 +262,7 @@ namespace PlayGround.Tests.EditMode
                 typeof(TargetedVfxSizeComponent),
                 typeof(VfxTimingData),
                 typeof(CombatKinematicsComponent),
+                typeof(CombatLifetimeComponent),
                 typeof(Active),
                 typeof(ArmingTag));
             _entityManager.SetComponentData(entity, new TargetedIdentityComponent
@@ -245,10 +272,9 @@ namespace PlayGround.Tests.EditMode
             });
             _entityManager.SetComponentData(entity, new TargetedResolveConfig
             {
-                AcquireRadius = acquireRadius,
-                ChainRadius = chainRadius,
+                ChainDistance = chainDistance,
                 ChainDamageFalloff = 1f,
-                MaxTargets = maxTargets
+                ChainCount = chainCount
             });
             _entityManager.SetComponentEnabled<ArmingTag>(entity, false);
             return entity;

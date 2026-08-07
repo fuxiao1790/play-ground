@@ -52,7 +52,6 @@ namespace PlayGround.System.Combat.Lifetime
     {
         private EntityQuery _poolQuery;
         private EntityQuery _targetedPoolQuery;
-        private EntityQuery _lingeringTargetedPoolQuery;
         private EntityTypeHandle _entityHandle;
         private ComponentTypeHandle<Active> _activeHandle;
 
@@ -78,8 +77,8 @@ namespace PlayGround.System.Combat.Lifetime
                 EntityManager.SetComponentData(configEntity, CombatPoolCleanupConfig.Default);
             }
 
-            // Projectile/AOE pools share the existing query. Targeted pools stay split by their
-            // lingering discriminator so single-hit and interval slots trim independently.
+            // Projectile/AOE pools share the existing query. Targeted keeps its own so its single
+            // pool trims against its own headroom rather than the combined projectile/AOE load.
             _poolQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<Active>()
                 .WithAny<ProjectileTag, AoeTag>()
@@ -88,13 +87,6 @@ namespace PlayGround.System.Combat.Lifetime
             _targetedPoolQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<Active>()
                 .WithAll<TargetedTag>()
-                .WithNone<LingeringTargetedTag>()
-                .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
-                .Build(this);
-            _lingeringTargetedPoolQuery = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<Active>()
-                .WithAll<TargetedTag>()
-                .WithAll<LingeringTargetedTag>()
                 .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
                 .Build(this);
 
@@ -141,9 +133,7 @@ namespace PlayGround.System.Combat.Lifetime
                 }
             }
 
-            if (_poolQuery.IsEmpty
-                && _targetedPoolQuery.IsEmpty
-                && _lingeringTargetedPoolQuery.IsEmpty)
+            if (_poolQuery.IsEmpty && _targetedPoolQuery.IsEmpty)
             {
                 return;
             }
@@ -151,8 +141,7 @@ namespace PlayGround.System.Combat.Lifetime
             // Only disabled entities are destroyed and nothing else mutates the pool mid-update,
             // so the drop in total pool count equals the number deleted.
             int before = _poolQuery.CalculateEntityCount()
-                + _targetedPoolQuery.CalculateEntityCount()
-                + _lingeringTargetedPoolQuery.CalculateEntityCount();
+                + _targetedPoolQuery.CalculateEntityCount();
 
             _entityHandle.Update(this);
             _activeHandle.Update(this);
@@ -162,7 +151,6 @@ namespace PlayGround.System.Combat.Lifetime
 
             Dependency = ScheduleTrim(_poolQuery, cfg, ecbWriter, Dependency);
             Dependency = ScheduleTrim(_targetedPoolQuery, cfg, ecbWriter, Dependency);
-            Dependency = ScheduleTrim(_lingeringTargetedPoolQuery, cfg, ecbWriter, Dependency);
 
             Dependency.Complete();
             ecb.Playback(EntityManager);
@@ -170,8 +158,7 @@ namespace PlayGround.System.Combat.Lifetime
 
             LastDeletedCount = before
                 - _poolQuery.CalculateEntityCount()
-                - _targetedPoolQuery.CalculateEntityCount()
-                - _lingeringTargetedPoolQuery.CalculateEntityCount();
+                - _targetedPoolQuery.CalculateEntityCount();
 
             if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(out RefRW<CombatStatsSingleton> stats))
             {

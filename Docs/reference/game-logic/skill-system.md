@@ -193,10 +193,11 @@ containing visual, collision, and behavior data. Skills do not own augmentation
 鈥?that belongs to Supports.
 
 `Skill` is abstract. Concrete types are `ProjectileSkill`, regular `AoeSkill`,
-`LingeringAoeSkill`, `TargetedSkill`, and `LingeringTargetedSkill`, each holding
-their typed definition inline. Regular and lingering AOEs derive from the same
-AOE skill base; targeted skills derive from the targeted skill base. The SO is
-never mutated at runtime.
+`LingeringAoeSkill`, and `TargetedSkill`, each holding their typed definition
+inline. Regular and lingering AOEs derive from the same AOE skill base; targeted
+skills derive from the targeted skill base. There is only one targeted type: a
+chain's lifetime is its walk, so there is nothing for a lingering variant to
+mean. The SO is never mutated at runtime.
 
 ```csharp
 abstract class Skill : ScriptableObject {
@@ -225,11 +226,6 @@ sealed class TargetedSkill : TargetedSkillBase {
     TargetedDefinition definition;
 }
 
-[CreateAssetMenu(menuName = "PlayGround/Skills/Lingering Targeted Skill")]
-sealed class LingeringTargetedSkill : TargetedSkillBase {
-    LingeringTargetedDefinition definition;
-}
-
 ```
 
 Skill tags are runtime-authoring metadata used for validation, not hard gates.
@@ -256,7 +252,6 @@ Current Skill types and their definition roots:
 | AOE skill | `AoeSkill` | `AoeDefinition` |
 | Lingering AOE skill | `LingeringAoeSkill` | `LingeringAoeDefinition` |
 | Targeted skill | `TargetedSkill` | `TargetedDefinition` |
-| Lingering targeted skill | `LingeringTargetedSkill` | `LingeringTargetedDefinition` |
 
 ### ProjectileDefinition
 
@@ -327,30 +322,31 @@ LingeringAoeDefinition
 ```
 TargetedDefinition
  - prefab:    TargetedPrefab       - visual and VFX preset only; no Hurtbox
- - behavior:  damage, count, acquireRadius, maxTargets, chainRadius,
-              chainDamageFalloff, chainDelaySeconds, armSeconds,
+ - behavior:  damage, echoCount, chainCount, chainDistance, chainDelay,
+              chainDamageFalloff, armSeconds,
               manaCost, directDamageEnabled
 ```
 
+| Field | Meaning |
+|---|---|
+| `echoCount` | Independent chains created by one cast. |
+| `chainCount` | Links walked by **one** chain. |
+| `chainDistance` | Reach of every hop, link 0 included. |
+| `chainDelay` | Seconds between links; `0` resolves the whole walk in one update. |
+
 Targeted chains do not use Physics2D or a gameplay collider. On each walk the
 first link searches from the cast `acquireAnchor`; later links search from the
-last hit target. They resolve against target proxies through the spatial hash.
-Only the immediately previous target is excluded, so earlier targets may be
-visited again. `count` creates independent chains. `chainDamageFalloff` is
+last hit target, both within `chainDistance`. They resolve against target
+proxies through the spatial hash. Only the immediately previous target is
+excluded, so earlier targets may be visited again. `chainDamageFalloff` is
 applied as `falloff^linkIndex`, before the hit's crit roll.
 
-### LingeringTargetedDefinition
-
-```
-LingeringTargetedDefinition
- - same fields as TargetedDefinition
- - behavior:  lifetimeSeconds, tickIntervalSeconds
-```
-
-`lifetimeSeconds > 0` is the variant discriminator: it compiles to a lingering
-targeted chain that restarts its walk every tick interval. `TargetedDefinition`
-has no lifetime field and always compiles to the single-hit variant. This mirrors
-pulse AOEs, which also expose no lifetime.
+**There is one targeted variant, and it authors no lifetime.** The instance
+expires the moment it uses its last chain, or the moment a link finds nothing.
+The compiler derives a fail-safe `CombatLifetimeComponent` from
+`chainCount * chainDelay` plus a margin purely so a stalled instance cannot leak
+a pooled slot. A chain that repeats over time is composed instead: put a
+`TargetedIntervalSpawnTrigger` on a projectile or lingering AOE source.
 
 ### Unit Resources and Root Casts
 
@@ -525,8 +521,10 @@ Energy-driven source/child support:
 |---|---|---|---|
 | Projectile source | `ProjectileIntervalSpawnTrigger` | `AoeIntervalSpawnTrigger` | `TargetedIntervalSpawnTrigger` |
 | Lingering AOE source | `ProjectileIntervalSpawnTrigger` | `AoeIntervalSpawnTrigger` | `TargetedIntervalSpawnTrigger` |
-| Lingering targeted source | `ProjectileIntervalSpawnTrigger` | `AoeIntervalSpawnTrigger` | `TargetedIntervalSpawnTrigger` |
-| Pulse AOE or single-hit targeted source | warning, no-op | warning, no-op | warning, no-op |
+| Pulse AOE or targeted source | warning, no-op | warning, no-op | warning, no-op |
+
+A targeted chain is never an interval **source**: it has no duration of its own
+to accrue energy over. It is only ever a child.
 
 Both concrete interval triggers inherit `energyPerSecond` from
 `IntervalSpawnTrigger` and the mana-cost fields from `TriggerLink`. The child
@@ -560,11 +558,11 @@ threshold, the system emits a child event and consumes that fixed threshold.
 Thresholds are floored positive, each update emits at most 256 children, and a
 runtime rate at or below zero emits none.
 
-`projectileCount`, `echoCount`, and targeted `count` are **additive** with the
-effect set's own multiplicity. For projectile children this means
-`childDefinition.Count + projectileCount`, floored to `1`. For AOE children this
-means `childDefinition.EchoCount + echoCount`, floored to `1`. These are the
-only additive timed-child multiplicity fields.
+`projectileCount` and the two `echoCount` fields (AOE and targeted) are
+**additive** with the effect set's own multiplicity. For projectile children this
+means `childDefinition.Count + projectileCount`, floored to `1`. For AOE and
+targeted children it means `childDefinition.EchoCount + echoCount`, floored to
+`1`. These are the only additive timed-child multiplicity fields.
 
 Timed-child burst geometry is authoritative on the trigger. `sideSpreadDegrees`
 on `ProjectileIntervalSpawnTrigger` defines the projectile burst spread; the
@@ -607,18 +605,19 @@ Compatible tags: source `Projectile` or `Aoe`, target `Aoe`.
 **TargetedIntervalSpawnTrigger**
 
 The source accrues energy and starts targeted-chain children whenever it reaches
-the child cost. Sources may be projectiles, lingering AOEs, or lingering
-targeted chains; pulse AOEs and single-hit targeted chains warn and compile to
-no timed-child setup. The effect must compile to a `RuntimeTargetedDefinition`.
+the child cost. Sources may be projectiles or lingering AOEs; pulse AOEs warn
+and compile to no timed-child setup. The effect must compile to a
+`RuntimeTargetedDefinition`. **This is how a chain repeats over time** — the
+targeted definition itself has no tick interval.
 
 ```csharp
 class TargetedIntervalSpawnTrigger : IntervalSpawnTrigger {
-    int count;
+    int echoCount;
 }
 ```
 
-Compatible tags: source `Projectile`, `Aoe`, or `Targeted`; target `Targeted`.
-`count` is additive with the child targeted definition's count, floored to one.
+Compatible tags: source `Projectile` or `Aoe`; target `Targeted`. `echoCount` is
+additive with the child targeted definition's `echoCount`, floored to one.
 `count` is additive with the child targeted definition's count, floored to one.
 
 **OnImpactTargetedTrigger**

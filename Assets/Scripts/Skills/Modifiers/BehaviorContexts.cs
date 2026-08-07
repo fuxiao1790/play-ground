@@ -75,17 +75,17 @@ namespace PlayGround.Skills.Modifiers
 
     public readonly struct TargetedBehaviorContext
     {
-        private readonly TargetedDefinitionBase targeted;
+        private readonly TargetedDefinition targeted;
 
-        public TargetedBehaviorContext(TargetedDefinitionBase targeted)
+        public TargetedBehaviorContext(TargetedDefinition targeted)
         {
             this.targeted = targeted;
         }
 
-        public int Count
+        public int EchoCount
         {
-            get => targeted.count;
-            set => targeted.count = value;
+            get => targeted.echoCount;
+            set => targeted.echoCount = value;
         }
     }
 }

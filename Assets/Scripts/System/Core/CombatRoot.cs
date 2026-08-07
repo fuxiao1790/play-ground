@@ -347,8 +347,7 @@ namespace PlayGround.System.Combat.Core
                 return 0;
             }
 
-            if (kind != IntervalChildKind.Targeted
-                && kind != IntervalChildKind.LingeringTargeted)
+            if (kind != IntervalChildKind.Targeted)
             {
                 throw new global::System.ArgumentOutOfRangeException(nameof(kind), kind,
                     "Registered targeted spawns require a targeted child kind.");
@@ -767,10 +766,6 @@ namespace PlayGround.System.Combat.Core
             template.DeterministicIdTickIndex = 0;
             template.Origin = default;
             template.AcquireAnchor = default;
-            TimedSpawnComponent timedSpawn = template.TimedSpawn;
-            timedSpawn.Faction = CombatFaction.None;
-            timedSpawn.SourceId = 0;
-            template.TimedSpawn = timedSpawn;
             CombatHitPayload hitPayload = template.HitPayload;
             StackEffectSnapshot stack = hitPayload.StackEffect;
             stack.Faction = CombatFaction.None;
@@ -1097,8 +1092,7 @@ namespace PlayGround.System.Combat.Core
             int deterministicIdTickIndex = 0,
             int contactGateSeedTargetId = 0)
         {
-            if (kind == IntervalChildKind.Targeted
-                || kind == IntervalChildKind.LingeringTargeted)
+            if (kind == IntervalChildKind.Targeted)
             {
                 throw new global::System.InvalidOperationException(
                     $"Targeted spawn routing is not available for {kind}.");

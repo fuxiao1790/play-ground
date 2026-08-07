@@ -215,26 +215,24 @@ Docs/
 
 ## Current Targeted Runtime Map
 
-- `Assets/Scripts/System/Targeted/TargetedSpawnPipeline.cs`: targeted and
-  lingering-targeted spawn events, one command shape, and variant selection.
-- `Assets/Scripts/System/Targeted/TargetedSpawnExpansionSystem.cs`: two event
-  lanes and resolved command production.
-- `Assets/Scripts/System/Targeted/TargetedSpawnApplySystem.cs`: separate
-  single-hit and lingering pools; disabled-slot reuse and cold creation.
-- `Assets/Scripts/System/Targeted/TargetedResolveSystem.cs`: single-hit and
-  interval resolve systems.
-- `Assets/Scripts/System/Targeted/TargetedResolveCore.cs`: target-proxy
-  spatial-hash walk, falloff, and link VFX emission.
+- `Assets/Scripts/System/Targeted/TargetedSpawnPipeline.cs`: the spawn event and
+  the command shape.
+- `Assets/Scripts/System/Targeted/TargetedSpawnExpansionSystem.cs`: the event
+  lane, echo fan-out, and resolved command production.
+- `Assets/Scripts/System/Targeted/TargetedSpawnApplySystem.cs`: the single
+  targeted pool; disabled-slot reuse and cold creation.
+- `Assets/Scripts/System/Targeted/TargetedResolveSystem.cs`: the target-proxy
+  spatial-hash walk, falloff, link VFX emission, and walk-end expiry.
 - `Assets/Scripts/System/Targeted/TargetedTypeRegistry.cs`: runtime visual type lookup.
 
 ## Current Skill Targeted Files
 
-- `Assets/Scripts/Skills/Skill/TargetedSkill.cs`: single-hit and lingering
-  targeted skill assets.
+- `Assets/Scripts/Skills/Skill/TargetedSkill.cs`: the targeted skill asset and
+  its base type.
 - `Assets/Scripts/Skills/Trigger/OnImpactTargetedTrigger.cs` and
   `TargetedIntervalSpawnTrigger.cs`: targeted trigger links.
-- `Assets/Scripts/Skills/Support/MultipleChainsSupport.cs`: targeted count and
-  mana support.
+- `Assets/Scripts/Skills/Support/MultipleChainsSupport.cs`: targeted echo count
+  and mana support.
 - `Assets/Scripts/Skills/Validator/TargetedPrefab.cs`: targeted prefab and VFX validation.
 
 ## Current VFX Runtime Map

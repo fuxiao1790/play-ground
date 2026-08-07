@@ -48,8 +48,7 @@ namespace PlayGround.System.Combat.Aoes
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
             NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
             NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter,
-            NativeQueue<TargetedSpawnEvent>.ParallelWriter targetedEventWriter,
-            NativeQueue<LingeringTargetedSpawnEvent>.ParallelWriter lingeringTargetedEventWriter)
+            NativeQueue<TargetedSpawnEvent>.ParallelWriter targetedEventWriter)
         {
             if (identity.Faction == CombatFaction.None)
             {
@@ -131,8 +130,7 @@ namespace PlayGround.System.Combat.Aoes
                             projectileEventWriter,
                             impactAoeEventWriter,
                             lingeringAoeEventWriter,
-                            targetedEventWriter,
-                            lingeringTargetedEventWriter);
+                            targetedEventWriter);
 
                         if (--remaining == 0)
                             break;
@@ -164,8 +162,7 @@ namespace PlayGround.System.Combat.Aoes
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
             NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
             NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter,
-            NativeQueue<TargetedSpawnEvent>.ParallelWriter targetedEventWriter,
-            NativeQueue<LingeringTargetedSpawnEvent>.ParallelWriter lingeringTargetedEventWriter)
+            NativeQueue<TargetedSpawnEvent>.ParallelWriter targetedEventWriter)
         {
             if (HasHitEvent(payload))
             {
@@ -177,8 +174,7 @@ namespace PlayGround.System.Combat.Aoes
             }
 
             if (hitSpawn.OnHitSpawn.Enabled
-                && (hitSpawn.OnHitSpawn.Kind == IntervalChildKind.Targeted
-                    || hitSpawn.OnHitSpawn.Kind == IntervalChildKind.LingeringTargeted))
+                && hitSpawn.OnHitSpawn.Kind == IntervalChildKind.Targeted)
             {
                 TargetedSpawnEmission.Enqueue(
                     identity.AoeId,
@@ -188,14 +184,14 @@ namespace PlayGround.System.Combat.Aoes
                     targetKey,
                     hitSpawn.OnHitSpawn.Kind,
                     hitSpawn.OnHitSpawn.TemplateKey,
-                    targetedEventWriter,
-                    lingeringTargetedEventWriter);
+                    targetedEventWriter);
             }
 
             if (hitSpawn.OnHitSpawn.Enabled
                 && hitSpawn.OnHitSpawn.Kind != IntervalChildKind.Projectile
                 && hitSpawn.OnHitSpawn.Kind != IntervalChildKind.ImpactAoe
-                && hitSpawn.OnHitSpawn.Kind != IntervalChildKind.LingeringAoe)
+                && hitSpawn.OnHitSpawn.Kind != IntervalChildKind.LingeringAoe
+                && hitSpawn.OnHitSpawn.Kind != IntervalChildKind.Targeted)
             {
                 throw new global::System.InvalidOperationException(
                     "Unhandled interval child kind.");

@@ -17,31 +17,13 @@ namespace PlayGround.System.Combat.Targeted
             int targetKey,
             IntervalChildKind kind,
             Unity.Entities.Hash128 templateKey,
-            NativeQueue<TargetedSpawnEvent>.ParallelWriter targetedWriter,
-            NativeQueue<LingeringTargetedSpawnEvent>.ParallelWriter lingeringWriter)
+            NativeQueue<TargetedSpawnEvent>.ParallelWriter targetedWriter)
         {
-            int id = HashId(sourceId, typeId, targetKey, IdSalt);
-            uint jitterSeed = (uint)id * 2654435761u;
-            if (kind == IntervalChildKind.LingeringTargeted)
-            {
-                lingeringWriter.Enqueue(new LingeringTargetedSpawnEvent
-                {
-                    Kind = kind,
-                    TemplateKey = templateKey,
-                    Faction = faction,
-                    Position = impactPosition,
-                    AcquireAnchor = impactPosition,
-                    SourceId = id,
-                    JitterSeed = jitterSeed,
-                    DeterministicIdTickIndex = 0,
-                    ContactGateSeedTargetId = targetKey
-                });
-                return;
-            }
-
             if (kind != IntervalChildKind.Targeted)
                 return;
 
+            int id = HashId(sourceId, typeId, targetKey, IdSalt);
+            uint jitterSeed = (uint)id * 2654435761u;
             targetedWriter.Enqueue(new TargetedSpawnEvent
             {
                 Kind = kind,

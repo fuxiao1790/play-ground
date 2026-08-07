@@ -1,6 +1,5 @@
 using PlayGround.System.Combat.Aoes;
 using PlayGround.System.Combat.Core;
-using PlayGround.System.Combat.Lifetime;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Vfx;
@@ -15,7 +14,6 @@ namespace PlayGround.System.Combat.Targeted
     internal static class TargetedExpansionCore
     {
         public static void Expand(
-            IntervalChildKind expectedKind,
             IntervalChildKind eventKind,
             Hash128 templateKey,
             float2 origin,
@@ -29,7 +27,7 @@ namespace PlayGround.System.Combat.Targeted
             NativeQueue<CircularVfxSpawnRequest>.ParallelWriter circularVfxPending,
             NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter timedCircularVfxPending)
         {
-            if (eventKind != expectedKind
+            if (eventKind != IntervalChildKind.Targeted
                 || !templates.TryGetValue(templateKey, out TargetedSpawnCommand command))
             {
                 return;
@@ -37,30 +35,12 @@ namespace PlayGround.System.Combat.Targeted
 
             Stamp(ref command, origin, acquireAnchor, faction, sourceId, jitterSeed, deterministicIdTickIndex);
 
-            bool lingering = expectedKind == IntervalChildKind.LingeringTargeted;
-            int count = math.max(1, command.Count);
-            for (int i = 0; i < count; i++)
+            int echoCount = math.max(1, command.EchoCount);
+            for (int i = 0; i < echoCount; i++)
             {
                 TargetedSpawnCommand spawned = command;
                 spawned.TargetedId = TargetedIdFor(in command, i);
                 spawned.InstanceIndex = i;
-
-                if (spawned.HasTimedSpawner != 0)
-                {
-                    if (lingering)
-                    {
-                        TimedSpawnComponent timedSpawn = spawned.TimedSpawn;
-                        timedSpawn.Faction = spawned.Faction;
-                        timedSpawn.SourceId = spawned.TargetedId;
-                        timedSpawn.JitterSeed = unchecked((int)((uint)spawned.TargetedId * 2654435761u));
-                        spawned.TimedSpawn = timedSpawn;
-                    }
-                    else
-                    {
-                        spawned.HasTimedSpawner = 0;
-                        spawned.TimedSpawn = default;
-                    }
-                }
 
                 commands.Add(spawned);
 
@@ -124,17 +104,6 @@ namespace PlayGround.System.Combat.Targeted
         public JobHandle PendingHandle;
     }
 
-    // ECS Lifecycle: singleton lingering-targeted spawn lane; EventQueue + Commands created by
-    // LingeringTargetedSpawnExpansionSystem on create, drained/produced each simulation update,
-    // consumed by LingeringTargetedSpawnApplySystem, disposed by LingeringTargetedSpawnExpansionSystem on destroy.
-    public struct LingeringTargetedSpawnEventSingleton : IComponentData
-    {
-        public NativeQueue<LingeringTargetedSpawnEvent> EventQueue;
-        public NativeList<TargetedSpawnCommand> Commands;
-        public JobHandle ProducerHandle;
-        public JobHandle PendingHandle;
-    }
-
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(TimedSpawnSystem))]
     [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
@@ -142,7 +111,6 @@ namespace PlayGround.System.Combat.Targeted
     [UpdateAfter(typeof(PlayGround.System.Combat.Projectiles.ProjectileDiscreteCollisionSystem))]
     [UpdateAfter(typeof(StatusProcessSystem))]
     [UpdateBefore(typeof(TargetedSpawnApplySystem))]
-    [UpdateBefore(typeof(LingeringTargetedSpawnApplySystem))]
     public partial class TargetedSpawnExpansionSystem : SystemBase
     {
         private EntityQuery _scopeQuery;
@@ -278,168 +246,6 @@ namespace PlayGround.System.Combat.Targeted
                 {
                     TargetedSpawnEvent evt = Events[i];
                     TargetedExpansionCore.Expand(
-                        IntervalChildKind.Targeted,
-                        evt.Kind,
-                        evt.TemplateKey,
-                        evt.Position,
-                        evt.AcquireAnchor,
-                        evt.Faction,
-                        evt.SourceId,
-                        evt.JitterSeed,
-                        evt.DeterministicIdTickIndex,
-                        Templates,
-                        Commands,
-                        CircularVfxPending,
-                        TimedCircularVfxPending);
-                }
-            }
-        }
-    }
-
-    [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(TimedSpawnSystem))]
-    [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
-    [UpdateAfter(typeof(LingeringAoeCollisionSystem))]
-    [UpdateAfter(typeof(PlayGround.System.Combat.Projectiles.ProjectileDiscreteCollisionSystem))]
-    [UpdateAfter(typeof(StatusProcessSystem))]
-    [UpdateBefore(typeof(TargetedSpawnApplySystem))]
-    [UpdateBefore(typeof(LingeringTargetedSpawnApplySystem))]
-    public partial class LingeringTargetedSpawnExpansionSystem : SystemBase
-    {
-        private EntityQuery _scopeQuery;
-        private Entity _singletonEntity;
-
-        protected override void OnCreate()
-        {
-            _singletonEntity = EntityManager.CreateEntity(typeof(LingeringTargetedSpawnEventSingleton));
-            EntityManager.SetComponentData(_singletonEntity, new LingeringTargetedSpawnEventSingleton
-            {
-                EventQueue = new NativeQueue<LingeringTargetedSpawnEvent>(Allocator.Persistent)
-            });
-            _scopeQuery = EntityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<CombatScope>(),
-                ComponentType.ReadWrite<LingeringTargetedSpawnEvent>());
-        }
-
-        protected override void OnDestroy()
-        {
-            if (_singletonEntity == Entity.Null
-                || !EntityManager.Exists(_singletonEntity)
-                || !EntityManager.HasComponent<LingeringTargetedSpawnEventSingleton>(_singletonEntity))
-            {
-                return;
-            }
-
-            LingeringTargetedSpawnEventSingleton lane =
-                EntityManager.GetComponentData<LingeringTargetedSpawnEventSingleton>(_singletonEntity);
-            lane.PendingHandle.Complete();
-            lane.ProducerHandle.Complete();
-            if (lane.Commands.IsCreated)
-            {
-                lane.Commands.Dispose();
-            }
-
-            if (lane.EventQueue.IsCreated)
-            {
-                lane.EventQueue.Dispose();
-            }
-        }
-
-        protected override void OnUpdate()
-        {
-            RefRW<LingeringTargetedSpawnEventSingleton> laneRef =
-                SystemAPI.GetSingletonRW<LingeringTargetedSpawnEventSingleton>();
-            ref LingeringTargetedSpawnEventSingleton lane = ref laneRef.ValueRW;
-
-            lane.PendingHandle.Complete();
-            if (lane.Commands.IsCreated)
-            {
-                lane.Commands.Dispose();
-                lane.Commands = default;
-            }
-
-            Dependency.Complete();
-            lane.ProducerHandle.Complete();
-            lane.ProducerHandle = default;
-
-            int queueCount = lane.EventQueue.Count;
-            using NativeArray<Entity> scopes = _scopeQuery.ToEntityArray(Allocator.Temp);
-            int bufferCount = 0;
-            for (int s = 0; s < scopes.Length; s++)
-            {
-                bufferCount += EntityManager.GetBuffer<LingeringTargetedSpawnEvent>(scopes[s]).Length;
-            }
-
-            int totalEvents = queueCount + bufferCount;
-            if (totalEvents == 0)
-            {
-                lane.PendingHandle = default;
-                return;
-            }
-
-            var events = new NativeArray<LingeringTargetedSpawnEvent>(totalEvents, Allocator.TempJob);
-            int offset = 0;
-            while (lane.EventQueue.TryDequeue(out LingeringTargetedSpawnEvent evt))
-            {
-                events[offset++] = evt;
-            }
-
-            for (int s = 0; s < scopes.Length; s++)
-            {
-                DynamicBuffer<LingeringTargetedSpawnEvent> buffer =
-                    EntityManager.GetBuffer<LingeringTargetedSpawnEvent>(scopes[s]);
-                for (int i = 0; i < buffer.Length; i++)
-                {
-                    events[offset++] = buffer[i];
-                }
-
-                buffer.Clear();
-            }
-
-            if (!SystemAPI.TryGetSingleton(out TargetedSpawnTemplate templates))
-            {
-                Dependency = events.Dispose(Dependency);
-                lane.PendingHandle = Dependency;
-                return;
-            }
-
-            RefRW<CombatAoeVfxDispatchSingleton> vfx =
-                SystemAPI.GetSingletonRW<CombatAoeVfxDispatchSingleton>();
-            NativeList<TargetedSpawnCommand> commands = new(events.Length, Allocator.TempJob);
-            JobHandle expansionInput =
-                JobHandle.CombineDependencies(Dependency, vfx.ValueRO.ProducerHandle);
-
-            Dependency = new LingeringTargetedExpansionJob
-            {
-                Events = events,
-                Templates = templates.Map,
-                Commands = commands,
-                CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
-                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter()
-            }.Schedule(expansionInput);
-            vfx.ValueRW.ProducerHandle = Dependency;
-
-            Dependency = events.Dispose(Dependency);
-            lane.Commands = commands;
-            lane.PendingHandle = Dependency;
-        }
-
-        [BurstCompile]
-        private struct LingeringTargetedExpansionJob : IJob
-        {
-            [ReadOnly] public NativeArray<LingeringTargetedSpawnEvent> Events;
-            [ReadOnly] public NativeHashMap<Hash128, TargetedSpawnCommand> Templates;
-            public NativeList<TargetedSpawnCommand> Commands;
-            public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
-            public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
-
-            public void Execute()
-            {
-                for (int i = 0; i < Events.Length; i++)
-                {
-                    LingeringTargetedSpawnEvent evt = Events[i];
-                    TargetedExpansionCore.Expand(
-                        IntervalChildKind.LingeringTargeted,
                         evt.Kind,
                         evt.TemplateKey,
                         evt.Position,

@@ -26,7 +26,6 @@ namespace PlayGround.System.Combat.Spawning
     [UpdateBefore(typeof(ImpactAoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(LingeringAoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(TargetedSpawnExpansionSystem))]
-    [UpdateBefore(typeof(LingeringTargetedSpawnExpansionSystem))]
     public partial struct TimedSpawnSystem : ISystem
     {
         public void OnUpdate(ref SystemState state)
@@ -40,13 +39,9 @@ namespace PlayGround.System.Combat.Spawning
             RefRW<LingeringAoeSpawnEventSingleton> lingeringAoeLane =
                 SystemAPI.GetSingletonRW<LingeringAoeSpawnEventSingleton>();
             bool hasTargetedLane = SystemAPI.TryGetSingletonRW<TargetedSpawnEventSingleton>(out RefRW<TargetedSpawnEventSingleton> targetedLane);
-            bool hasLingeringTargetedLane = SystemAPI.TryGetSingletonRW<LingeringTargetedSpawnEventSingleton>(out RefRW<LingeringTargetedSpawnEventSingleton> lingeringTargetedLane);
             NativeQueue<TargetedSpawnEvent> fallbackTargetedQueue = hasTargetedLane
                 ? default
                 : new NativeQueue<TargetedSpawnEvent>(Allocator.TempJob);
-            NativeQueue<LingeringTargetedSpawnEvent> fallbackLingeringTargetedQueue = hasLingeringTargetedLane
-                ? default
-                : new NativeQueue<LingeringTargetedSpawnEvent>(Allocator.TempJob);
 
             JobHandle handle = new TimedSpawnJob
             {
@@ -55,23 +50,15 @@ namespace PlayGround.System.Combat.Spawning
                 ImpactAoeEventQueue = impactAoeLane.ValueRO.EventQueue.AsParallelWriter(),
                 LingeringAoeEventQueue = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter(),
                 HasTargetedLane = hasTargetedLane,
-                HasLingeringTargetedLane = hasLingeringTargetedLane,
                 TargetedEventQueue = hasTargetedLane
                     ? targetedLane.ValueRO.EventQueue.AsParallelWriter()
-                    : fallbackTargetedQueue.AsParallelWriter(),
-                LingeringTargetedEventQueue = hasLingeringTargetedLane
-                    ? lingeringTargetedLane.ValueRO.EventQueue.AsParallelWriter()
-                    : fallbackLingeringTargetedQueue.AsParallelWriter()
+                    : fallbackTargetedQueue.AsParallelWriter()
             }.ScheduleParallel(state.Dependency);
 
             state.Dependency = handle;
             if (!hasTargetedLane)
             {
                 state.Dependency = fallbackTargetedQueue.Dispose(state.Dependency);
-            }
-            if (!hasLingeringTargetedLane)
-            {
-                state.Dependency = fallbackLingeringTargetedQueue.Dispose(state.Dependency);
             }
 
             projectileLane.ValueRW.ProducerHandle =
@@ -85,11 +72,6 @@ namespace PlayGround.System.Combat.Spawning
                 targetedLane.ValueRW.ProducerHandle =
                     JobHandle.CombineDependencies(targetedLane.ValueRW.ProducerHandle, handle);
             }
-            if (hasLingeringTargetedLane)
-            {
-                lingeringTargetedLane.ValueRW.ProducerHandle =
-                    JobHandle.CombineDependencies(lingeringTargetedLane.ValueRW.ProducerHandle, handle);
-            }
         }
 
         [BurstCompile]
@@ -102,9 +84,7 @@ namespace PlayGround.System.Combat.Spawning
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventQueue;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventQueue;
             public bool HasTargetedLane;
-            public bool HasLingeringTargetedLane;
             public NativeQueue<TargetedSpawnEvent>.ParallelWriter TargetedEventQueue;
-            public NativeQueue<LingeringTargetedSpawnEvent>.ParallelWriter LingeringTargetedEventQueue;
 
             // Safety guards: a bad threshold stays positive and catch-up remains bounded.
             private const float MinEnergyThreshold = 1e-3f;
@@ -180,23 +160,6 @@ namespace PlayGround.System.Combat.Spawning
                         TargetedEventQueue.Enqueue(new TargetedSpawnEvent
                         {
                             Kind = IntervalChildKind.Targeted,
-                            TemplateKey = spawn.TemplateKey,
-                            Position = kinematics.Position,
-                            AcquireAnchor = kinematics.Position,
-                            AimDirection = default,
-                            Faction = spawn.Faction,
-                            SourceId = spawn.SourceId,
-                            JitterSeed = (uint)spawn.JitterSeed,
-                            DeterministicIdTickIndex = tickIndex
-                        });
-                    }
-                    else if (spawn.ChildKind == IntervalChildKind.LingeringTargeted)
-                    {
-                        if (!HasLingeringTargetedLane)
-                            throw new global::System.InvalidOperationException("Lingering targeted timed-spawn lane is missing.");
-                        LingeringTargetedEventQueue.Enqueue(new LingeringTargetedSpawnEvent
-                        {
-                            Kind = IntervalChildKind.LingeringTargeted,
                             TemplateKey = spawn.TemplateKey,
                             Position = kinematics.Position,
                             AcquireAnchor = kinematics.Position,

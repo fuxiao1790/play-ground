@@ -1,7 +1,7 @@
 refactor debt
 - spawn event structs are field-for-field identical across lanes (`ProjectileSpawnEvent`,
-  `ImpactAoeSpawnEvent`, `LingeringAoeSpawnEvent`, `TargetedSpawnEvent`, and
-  `LingeringTargetedSpawnEvent` = five copies), each with its own singleton lane and expansion system. Collapse to one
+  `ImpactAoeSpawnEvent`, `LingeringAoeSpawnEvent`, and `TargetedSpawnEvent` = four copies),
+  each with its own singleton lane and expansion system. Collapse to one
   `CombatSpawnEvent` discriminated by the `IntervalChildKind` the struct already carries.
   Deferred deliberately during targeted skills; see `.agent/targeted-skills/requirements.md` §9.
 

@@ -12,34 +12,27 @@ namespace PlayGround.Tests.EditMode
     public sealed class TargetedContractsEditModeTests
     {
         [Test]
-        public void ChildKindFor_ZeroIsTargeted_AndPositiveIsLingeringTargeted()
+        public void IntervalChildKind_HasOneTargetedValue()
         {
-            Assert.That(TargetedVariant.ChildKindFor(0f), Is.EqualTo(IntervalChildKind.Targeted));
-            Assert.That(TargetedVariant.ChildKindFor(0.1f), Is.EqualTo(IntervalChildKind.LingeringTargeted));
-        }
+            // The targeted domain has a single variant: a chain lives exactly as long as its
+            // walk, so there is nothing for a second child kind to discriminate.
+            string[] names = Enum.GetNames(typeof(IntervalChildKind));
 
-        [Test]
-        public void TimingFor_SingleHit_ReturnsZeroDurationAndInterval()
-        {
-            VfxTimingData timing = TargetedVfxUtility.TimingFor(new TargetedSpawnCommand());
-
-            Assert.That(timing.Duration, Is.Zero);
-            Assert.That(timing.TickInterval, Is.Zero);
-        }
-
-        [Test]
-        public void TimingFor_Lingering_ReturnsAuthoredDurationAndInterval()
-        {
-            TargetedSpawnCommand command = new()
+            Assert.That(names, Is.EqualTo(new[]
             {
-                LifetimeSeconds = 2.5f,
-                TickIntervalSeconds = 0.75f
-            };
+                "Projectile", "ImpactAoe", "LingeringAoe", "Targeted"
+            }));
+        }
+
+        [Test]
+        public void TimingFor_UsesComputedLifetimeAndNeverTicks()
+        {
+            TargetedSpawnCommand command = new() { LifetimeSeconds = 2.5f };
 
             VfxTimingData timing = TargetedVfxUtility.TimingFor(command);
 
             Assert.That(timing.Duration, Is.EqualTo(2.5f));
-            Assert.That(timing.TickInterval, Is.EqualTo(0.75f));
+            Assert.That(timing.TickInterval, Is.Zero);
         }
 
         [Test]
@@ -64,6 +57,18 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void TargetedResolveConfig_CarriesOneDistanceAndOneDelay()
+        {
+            // One distance governs every hop including link 0, and one delay paces the walk.
+            // No acquire radius, no tick interval: those were the confusing duplicates.
+            FieldInfo[] resolveFields = typeof(TargetedResolveConfig).GetFields(BindingFlags.Instance | BindingFlags.Public);
+
+            Assert.That(
+                Array.ConvertAll(resolveFields, field => field.Name),
+                Is.EqualTo(new[] { "ChainDistance", "ChainDamageFalloff", "ChainDelay", "ChainCount" }));
+        }
+
+        [Test]
         public void TargetedSpawnCommand_UsesNestedResolveAndDeterministicInstanceFrame()
         {
             FieldInfo[] commandFields = typeof(TargetedSpawnCommand).GetFields(BindingFlags.Instance | BindingFlags.Public);
@@ -73,32 +78,29 @@ namespace PlayGround.Tests.EditMode
                 DeterministicIdTickIndex = 3,
                 Resolve = new TargetedResolveConfig
                 {
-                    AcquireRadius = 10f,
-                    ChainRadius = 8f,
+                    ChainDistance = 8f,
                     ChainDamageFalloff = 0.25f,
-                    ChainDelaySeconds = 0.5f,
-                    MaxTargets = 4
+                    ChainDelay = 0.5f,
+                    ChainCount = 4
                 }
             };
 
             Assert.That(command.JitterSeed, Is.EqualTo(17u));
             Assert.That(command.DeterministicIdTickIndex, Is.EqualTo(3));
-            Assert.That(command.Resolve.AcquireRadius, Is.EqualTo(10f));
-            Assert.That(command.Resolve.ChainRadius, Is.EqualTo(8f));
+            Assert.That(command.Resolve.ChainDistance, Is.EqualTo(8f));
             Assert.That(command.Resolve.ChainDamageFalloff, Is.EqualTo(0.25f));
-            Assert.That(command.Resolve.ChainDelaySeconds, Is.EqualTo(0.5f));
-            Assert.That(command.Resolve.MaxTargets, Is.EqualTo(4));
+            Assert.That(command.Resolve.ChainDelay, Is.EqualTo(0.5f));
+            Assert.That(command.Resolve.ChainCount, Is.EqualTo(4));
             Assert.That(
                 Array.ConvertAll(commandFields, field => field.Name),
                 Is.EqualTo(new[]
                 {
                     "Faction", "TargetedId", "TypeId", "RenderTypeId", "InstanceIndex",
-                    "JitterSeed", "DeterministicIdTickIndex", "Origin", "AcquireAnchor", "Count",
-                    "LifetimeSeconds", "TickIntervalSeconds", "ArmSeconds", "HitPayload", "Resolve",
-                    "VfxIds", "VfxSize", "Render", "Authoring", "OnHitSpawn", "HasTimedSpawner",
-                    "TimedSpawn"
+                    "JitterSeed", "DeterministicIdTickIndex", "Origin", "AcquireAnchor", "EchoCount",
+                    "LifetimeSeconds", "ArmSeconds", "HitPayload", "Resolve",
+                    "VfxIds", "VfxSize", "Render", "Authoring", "OnHitSpawn"
                 }));
-            Assert.That(typeof(TargetedSpawnCommand).GetField("AcquireRadius"), Is.Null);
+            Assert.That(typeof(TargetedSpawnCommand).GetField("TickIntervalSeconds"), Is.Null);
             Assert.That(typeof(TargetedSpawnCommand).GetField("AimDirection"), Is.Null);
             Assert.That(typeof(TargetedSpawnCommand).GetField("ContactGateSeedTargetId"), Is.Null);
         }
@@ -117,7 +119,6 @@ namespace PlayGround.Tests.EditMode
             TargetedSpawnTemplate registry = entityManager.GetComponentData<TargetedSpawnTemplate>(scope);
 
             Assert.That(entityManager.HasBuffer<TargetedSpawnEvent>(scope), Is.True);
-            Assert.That(entityManager.HasBuffer<LingeringTargetedSpawnEvent>(scope), Is.True);
             Assert.That(registry.Map.IsCreated, Is.True);
 
             release.Invoke(null, new object[] { entityManager, scope });

@@ -275,7 +275,7 @@ namespace PlayGround.Skills
                 {
                     aoeModifier.ApplyToAoe(new AoeBehaviorContext(aoe));
                 }
-                else if (definition is TargetedDefinitionBase targeted
+                else if (definition is TargetedDefinition targeted
                          && support is ITargetedBehaviorModifier targetedModifier)
                 {
                     targetedModifier.ApplyToTargeted(new TargetedBehaviorContext(targeted));
@@ -390,29 +390,24 @@ namespace PlayGround.Skills
                 };
             }
 
-            if (def is TargetedDefinitionBase targeted)
+            if (def is TargetedDefinition targeted)
             {
-                float lifetimeSeconds = 0f;
-                float tickIntervalSeconds = 0f;
-                if (targeted is LingeringTargetedDefinition lingering)
-                {
-                    lifetimeSeconds = lingering.lifetimeSeconds;
-                    tickIntervalSeconds = lingering.tickIntervalSeconds;
-                }
-
                 TargetedPrefab prefab = targeted.Prefab;
-                float acquireRadius = modifiers.Resolve(SkillStat.AreaSize, targeted.acquireRadius);
+                float chainDistance = Mathf.Max(
+                    0f, modifiers.Resolve(SkillStat.AreaSize, targeted.chainDistance));
+                int chainCount = Mathf.Clamp(targeted.chainCount, 1, 32);
+                float chainDelay = Mathf.Max(0f, targeted.chainDelay);
                 return new RuntimeTargetedDefinition
                 {
                     Prefab = prefab,
-                    Count = Mathf.Max(1, targeted.count),
-                    AcquireRadius = Mathf.Max(0f, acquireRadius),
-                    MaxTargets = Mathf.Clamp(targeted.maxTargets, 1, 32),
-                    ChainRadius = Mathf.Max(0f, modifiers.Resolve(SkillStat.AreaSize, targeted.chainRadius)),
+                    EchoCount = Mathf.Max(1, targeted.echoCount),
+                    ChainCount = chainCount,
+                    ChainDistance = chainDistance,
                     ChainDamageFalloff = Mathf.Max(0f, targeted.chainDamageFalloff),
-                    ChainDelaySeconds = Mathf.Max(0f, targeted.chainDelaySeconds),
-                    LifetimeSeconds = Mathf.Max(0f, lifetimeSeconds),
-                    TickIntervalSeconds = lifetimeSeconds > 0f ? Mathf.Max(0.01f, tickIntervalSeconds) : 0f,
+                    ChainDelay = chainDelay,
+                    // Derived, never authored: the walk owns the instance's life, and this only
+                    // catches an instance that somehow stops walking.
+                    LifetimeSeconds = RuntimeTargetedDefinition.LifetimeFor(chainCount, chainDelay),
                     ManaCost = Mathf.Max(0f, modifiers.Resolve(SkillStat.ManaCost, targeted.manaCost)),
                     ArmSeconds = Mathf.Max(0f, targeted.armSeconds),
                     DirectDamageEnabled = targeted.directDamageEnabled,
@@ -424,7 +419,7 @@ namespace PlayGround.Skills
                     CritChance = snapshot.CritChance,
                     CritMultiplier = snapshot.CritMultiplier,
                     Damage = Mathf.Max(0f, modifiers.Resolve(SkillStat.Damage, targeted.damage)),
-                    SpawnBlocked = acquireRadius <= 0f
+                    SpawnBlocked = chainDistance <= 0f
                 };
             }
 
@@ -560,7 +555,7 @@ namespace PlayGround.Skills
                 ChildDefinition = childDef,
                 EnergyPerSecond = trigger.ResolveEnergyPerSecond(snapshot),
                 EnergyThreshold = energyThreshold,
-                Count = Mathf.Max(1, childDef.Count + trigger.count)
+                EchoCount = Mathf.Max(1, childDef.EchoCount + trigger.echoCount)
             };
 
             if (parent is RuntimeProjectileDefinition projectileParent)

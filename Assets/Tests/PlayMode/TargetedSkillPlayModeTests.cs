@@ -1,7 +1,8 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
+using PlayGround.Skills.Runtime;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Aoes;
 using PlayGround.System.Combat.Collision;
@@ -38,7 +39,7 @@ namespace PlayGround.Tests.PlayMode
             int projectileCountBefore = Count<ProjectileTag>(entityManager);
             int aoeCountBefore = Count<AoeTag>(entityManager);
 
-            Spawn(root, damage: 5f, acquireRadius: 2f, chainRadius: 2f, maxTargets: 1);
+            Spawn(root, damage: 5f, chainDistance: 2f, chainCount: 1);
             yield return null;
             yield return null;
 
@@ -59,7 +60,7 @@ namespace PlayGround.Tests.PlayMode
             root.TargetRegistry.Register(second);
             root.TargetRegistry.Register(third);
 
-            Spawn(root, damage: 8f, acquireRadius: 2f, chainRadius: 1.5f, maxTargets: 3, falloff: 0.5f);
+            Spawn(root, damage: 8f, chainDistance: 2f, chainCount: 3, falloff: 0.5f);
             yield return null;
             yield return null;
 
@@ -83,9 +84,8 @@ namespace PlayGround.Tests.PlayMode
             Spawn(
                 root,
                 damage: 8f,
-                acquireRadius: 2f,
-                chainRadius: 1.5f,
-                maxTargets: 3,
+                chainDistance: 2f,
+                chainCount: 3,
                 falloff: 0.5f,
                 chainDelay: 0.2f);
 
@@ -108,8 +108,10 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator IntervalChain_TicksAndDoesNotReopenOnSameTarget()
+        public IEnumerator Chain_AlternatesBetweenTargetsAndExpiresWithItsWalk()
         {
+            // Two enemies and four chains: the walk bounces A-B-A-B rather than re-zapping the
+            // one it just hit, and the instance is gone the moment the last chain is spent.
             hitOrder.Clear();
             CombatRoot root = CreateRoot(out _);
             TargetProbe first = CreateTarget(new Vector2(1f, 0f));
@@ -117,20 +119,13 @@ namespace PlayGround.Tests.PlayMode
             root.TargetRegistry.Register(first);
             root.TargetRegistry.Register(second);
 
-            Spawn(
-                root,
-                damage: 5f,
-                acquireRadius: 2f,
-                chainRadius: 2f,
-                maxTargets: 1,
-                lifetimeSeconds: 0.5f,
-                tickInterval: 0.1f,
-                kind: IntervalChildKind.LingeringTargeted);
-            yield return WaitUntilHitCount(3);
+            Spawn(root, damage: 5f, chainDistance: 2f, chainCount: 4);
+            yield return WaitUntilHitCount(4);
 
-            Assert.That(hitOrder.Count, Is.GreaterThanOrEqualTo(3));
+            Assert.That(hitOrder.Count, Is.GreaterThanOrEqualTo(4));
             Assert.That(hitOrder[0], Is.Not.EqualTo(hitOrder[1]));
             Assert.That(hitOrder[1], Is.Not.EqualTo(hitOrder[2]));
+            Assert.That(hitOrder[2], Is.Not.EqualTo(hitOrder[3]));
             Assert.That(first.TotalDamage, Is.GreaterThan(0f));
             Assert.That(second.TotalDamage, Is.GreaterThan(0f));
 
@@ -154,9 +149,8 @@ namespace PlayGround.Tests.PlayMode
             Spawn(
                 root,
                 damage: 5f,
-                acquireRadius: 2f,
-                chainRadius: 2f,
-                maxTargets: 1,
+                chainDistance: 2f,
+                chainCount: 1,
                 caster: caster.CombatTargetProxy,
                 manaCost: 3f,
                 castToken: 17);
@@ -179,7 +173,7 @@ namespace PlayGround.Tests.PlayMode
 
             TargetedSpawnCommand targeted = new()
             {
-                Count = 1,
+                EchoCount = 1,
                 HitPayload = new CombatHitPayload
                 {
                     DamageAmount = 5f,
@@ -188,10 +182,9 @@ namespace PlayGround.Tests.PlayMode
                 },
                 Resolve = new TargetedResolveConfig
                 {
-                    AcquireRadius = 2f,
-                    ChainRadius = 2f,
+                    ChainDistance = 2f,
                     ChainDamageFalloff = 1f,
-                    MaxTargets = 1
+                    ChainCount = 1
                 },
                 VfxSize = new TargetedVfxSizeComponent { EffectSize = 1f, LinkWidth = 1f }
             };
@@ -243,7 +236,7 @@ namespace PlayGround.Tests.PlayMode
 
             TargetedSpawnCommand targeted = new()
             {
-                Count = 1,
+                EchoCount = 1,
                 HitPayload = new CombatHitPayload
                 {
                     DamageAmount = 5f,
@@ -252,10 +245,9 @@ namespace PlayGround.Tests.PlayMode
                 },
                 Resolve = new TargetedResolveConfig
                 {
-                    AcquireRadius = 2f,
-                    ChainRadius = 2f,
+                    ChainDistance = 2f,
                     ChainDamageFalloff = 1f,
-                    MaxTargets = 1
+                    ChainCount = 1
                 },
                 VfxSize = new TargetedVfxSizeComponent { EffectSize = 1f, LinkWidth = 1f }
             };
@@ -316,7 +308,7 @@ namespace PlayGround.Tests.PlayMode
             Hash128 detonationKey = root.RegisterSpawnTemplate(in detonation);
             TargetedSpawnCommand applicator = new()
             {
-                Count = 1,
+                EchoCount = 1,
                 HitPayload = new CombatHitPayload
                 {
                     CritMultiplier = 1f,
@@ -333,10 +325,9 @@ namespace PlayGround.Tests.PlayMode
                 },
                 Resolve = new TargetedResolveConfig
                 {
-                    AcquireRadius = 2f,
-                    ChainRadius = 1.5f,
+                    ChainDistance = 2f,
                     ChainDamageFalloff = 1f,
-                    MaxTargets = 3
+                    ChainCount = 3
                 },
                 VfxSize = new TargetedVfxSizeComponent { EffectSize = 1f, LinkWidth = 1f }
             };
@@ -384,9 +375,8 @@ namespace PlayGround.Tests.PlayMode
             Spawn(
                 root,
                 damage: 1f,
-                acquireRadius: 2f,
-                chainRadius: 1.5f,
-                maxTargets: 3,
+                chainDistance: 2f,
+                chainCount: 3,
                 linkVfxId: VfxDataShapeTable.EncodeId(VfxDataShape.LineSegment, 1));
             yield return WaitUntilDamaged(third);
 
@@ -409,9 +399,8 @@ namespace PlayGround.Tests.PlayMode
             Spawn(
                 root,
                 damage: 5f,
-                acquireRadius: 2f,
-                chainRadius: 2f,
-                maxTargets: 1,
+                chainDistance: 2f,
+                chainCount: 1,
                 faction: CombatFaction.Mob);
             yield return WaitUntilDamaged(player);
 
@@ -422,52 +411,23 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator PoolReuse_RemainsBoundedAcrossTwoHundredCastsPerVariant()
+        public IEnumerator PoolReuse_RemainsBoundedAcrossTwoHundredCasts()
         {
             CombatRoot root = CreateRoot(out _);
             TargetProbe target = CreateTarget(new Vector2(1f, 0f));
             root.TargetRegistry.Register(target);
 
             for (int i = 0; i < 200; i++)
-                Spawn(root, 0f, 2f, 2f, maxTargets: 1);
+                Spawn(root, 0f, 2f, chainCount: 1);
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             yield return WaitUntilNoActiveTargeted(entityManager);
-            int singleHitSlots = SingleHitTargetedCount(entityManager);
+            int slots = Count<TargetedTag>(entityManager);
 
             for (int i = 0; i < 200; i++)
-                Spawn(root, 0f, 2f, 2f, maxTargets: 1);
+                Spawn(root, 0f, 2f, chainCount: 1);
             yield return WaitUntilNoActiveTargeted(entityManager);
-            Assert.That(SingleHitTargetedCount(entityManager), Is.EqualTo(singleHitSlots));
 
-            for (int i = 0; i < 200; i++)
-            {
-                Spawn(
-                    root,
-                    0f,
-                    2f,
-                    2f,
-                    maxTargets: 1,
-                    lifetimeSeconds: 0.05f,
-                    tickInterval: 0.1f,
-                    kind: IntervalChildKind.LingeringTargeted);
-            }
-            yield return WaitUntilNoActiveTargeted(entityManager);
-            int lingeringSlots = LingeringTargetedCount(entityManager);
-
-            for (int i = 0; i < 200; i++)
-            {
-                Spawn(
-                    root,
-                    0f,
-                    2f,
-                    2f,
-                    maxTargets: 1,
-                    lifetimeSeconds: 0.05f,
-                    tickInterval: 0.1f,
-                    kind: IntervalChildKind.LingeringTargeted);
-            }
-            yield return WaitUntilNoActiveTargeted(entityManager);
-            Assert.That(LingeringTargetedCount(entityManager), Is.EqualTo(lingeringSlots));
+            Assert.That(Count<TargetedTag>(entityManager), Is.EqualTo(slots));
 
             yield return Cleanup(root, target);
         }
@@ -532,12 +492,8 @@ namespace PlayGround.Tests.PlayMode
                 Spawn(
                     root,
                     damage: 0f,
-                    acquireRadius: 2f,
-                    chainRadius: 2f,
-                    maxTargets: 1,
-                    lifetimeSeconds: 0.1f,
-                    tickInterval: 1f,
-                    kind: IntervalChildKind.LingeringTargeted);
+                    chainDistance: 2f,
+                    chainCount: 1);
             }
 
             yield return null;
@@ -585,13 +541,10 @@ namespace PlayGround.Tests.PlayMode
         private static void Spawn(
             CombatRoot root,
             float damage,
-            float acquireRadius,
-            float chainRadius,
-            int maxTargets,
+            float chainDistance,
+            int chainCount,
             float falloff = 1f,
             float chainDelay = 0f,
-            float lifetimeSeconds = 0f,
-            float tickInterval = 0f,
             IntervalChildKind kind = IntervalChildKind.Targeted,
             Entity caster = default,
             float manaCost = 0f,
@@ -601,13 +554,9 @@ namespace PlayGround.Tests.PlayMode
         {
             TargetedSpawnCommand template = new()
             {
-                Count = 1,
-                LifetimeSeconds = lifetimeSeconds > 0f
-                    ? lifetimeSeconds
-                    : chainDelay > 0f
-                    ? maxTargets * chainDelay + (1f / 60f)
-                    : 0f,
-                TickIntervalSeconds = tickInterval,
+                EchoCount = 1,
+                // Derived exactly the way the compiler does it: a backstop behind the walk.
+                LifetimeSeconds = RuntimeTargetedDefinition.LifetimeFor(chainCount, chainDelay),
                 HitPayload = new CombatHitPayload
                 {
                     DamageAmount = damage,
@@ -616,11 +565,10 @@ namespace PlayGround.Tests.PlayMode
                 },
                 Resolve = new TargetedResolveConfig
                 {
-                    AcquireRadius = acquireRadius,
-                    ChainRadius = chainRadius,
+                    ChainDistance = chainDistance,
                     ChainDamageFalloff = falloff,
-                    ChainDelaySeconds = chainDelay,
-                    MaxTargets = maxTargets
+                    ChainDelay = chainDelay,
+                    ChainCount = chainCount
                 },
                 VfxIds = new TargetedVfxIds { LinkId = linkVfxId },
                 VfxSize = new TargetedVfxSizeComponent { EffectSize = 1f, LinkWidth = 1f }
@@ -703,22 +651,6 @@ namespace PlayGround.Tests.PlayMode
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<TargetedTag>(),
                 ComponentType.ReadOnly<Active>());
-            return query.CalculateEntityCount();
-        }
-
-        private static int SingleHitTargetedCount(EntityManager entityManager)
-        {
-            using EntityQuery query = entityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<TargetedTag>(),
-                ComponentType.Exclude<LingeringTargetedTag>());
-            return query.CalculateEntityCount();
-        }
-
-        private static int LingeringTargetedCount(EntityManager entityManager)
-        {
-            using EntityQuery query = entityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<TargetedTag>(),
-                ComponentType.ReadOnly<LingeringTargetedTag>());
             return query.CalculateEntityCount();
         }
 

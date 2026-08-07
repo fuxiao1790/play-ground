@@ -11,7 +11,7 @@ namespace PlayGround.Skills
         IManaModifiers.IMultiplierModifier,
         ITargetedBehaviorModifier
     {
-        [SerializeField, Min(1)] private int count = 2;
+        [SerializeField, FormerlySerializedAs("count"), Min(1)] private int echoCount = 2;
         [SerializeField, Min(0f)] private float manaCostAdded = 4f;
         [SerializeField, FormerlySerializedAs("manaCostIncreasedPercent"), Min(0f)] private float manaCostIncreased = 1f;
         [SerializeField, Min(0f)] private float manaCostMultiplier = 1f;
@@ -21,6 +21,6 @@ namespace PlayGround.Skills
         public void CollectAdded(AddedSink sink) => sink.Add(SkillStat.ManaCost, manaCostAdded);
         public void CollectIncreases(IncreasedSink sink) => sink.AddFactor(SkillStat.ManaCost, manaCostIncreased);
         public void CollectMultipliers(MultiplierSink sink) => sink.Add(SkillStat.ManaCost, manaCostMultiplier);
-        public void ApplyToTargeted(TargetedBehaviorContext ctx) => ctx.Count += count;
+        public void ApplyToTargeted(TargetedBehaviorContext ctx) => ctx.EchoCount += echoCount;
     }
 }

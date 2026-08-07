@@ -134,37 +134,30 @@ namespace PlayGround.Skills
         public override SkillDefinition DeepCopy() => (LingeringAoeDefinition)MemberwiseClone();
     }
 
+    // One targeted variant, not two. A chain's lifetime is its walk: the instance expires the
+    // instant it uses its last chain, so there is no authored lifetime and no tick interval to
+    // reconcile against the per-link delay. Repeated chains come from an interval trigger on a
+    // projectile or lingering AOE source, the same way every other repeating child does.
     [Serializable]
-    public abstract class TargetedDefinitionBase : SkillDefinition
+    public sealed class TargetedDefinition : SkillDefinition
     {
+        public TargetedPrefab prefab;
         [Min(0f)] public float damage = 10f;
         [Min(0f)] public float manaCost = 1f;
         public bool directDamageEnabled = true;
-        [Min(1)] public int count = 1;
-        [Min(0f)] public float acquireRadius = 4f;
-        [Min(1)] public int maxTargets = 1;
-        [Min(0f)] public float chainRadius = 4f;
+        [FormerlySerializedAs("count")]
+        [Min(1)] public int echoCount = 1;
+        [FormerlySerializedAs("maxTargets")]
+        [Min(1)] public int chainCount = 1;
+        [FormerlySerializedAs("chainRadius")]
+        [Min(0f)] public float chainDistance = 4f;
+        [FormerlySerializedAs("chainDelaySeconds")]
+        [Min(0f)] public float chainDelay;
         [Min(0f)] public float chainDamageFalloff;
-        [Min(0f)] public float chainDelaySeconds;
         [Min(0f)] public float armSeconds;
-        public abstract TargetedPrefab Prefab { get; }
-    }
 
-    [Serializable]
-    public sealed class TargetedDefinition : TargetedDefinitionBase
-    {
-        public TargetedPrefab prefab;
-        public override TargetedPrefab Prefab => prefab;
+        public TargetedPrefab Prefab => prefab;
+
         public override SkillDefinition DeepCopy() => (TargetedDefinition)MemberwiseClone();
-    }
-
-    [Serializable]
-    public sealed class LingeringTargetedDefinition : TargetedDefinitionBase
-    {
-        public TargetedPrefab prefab;
-        [Min(0f)] public float lifetimeSeconds = 1f;
-        [Min(0f)] public float tickIntervalSeconds = 0.25f;
-        public override TargetedPrefab Prefab => prefab;
-        public override SkillDefinition DeepCopy() => (LingeringTargetedDefinition)MemberwiseClone();
     }
 }

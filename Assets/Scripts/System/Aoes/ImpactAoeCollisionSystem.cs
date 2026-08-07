@@ -64,8 +64,6 @@ namespace PlayGround.System.Combat.Aoes
                 SystemAPI.GetSingletonRW<LingeringAoeSpawnEventSingleton>();
             RefRW<TargetedSpawnEventSingleton> targetedLane =
                 SystemAPI.GetSingletonRW<TargetedSpawnEventSingleton>();
-            RefRW<LingeringTargetedSpawnEventSingleton> lingeringTargetedLane =
-                SystemAPI.GetSingletonRW<LingeringTargetedSpawnEventSingleton>();
             RefRW<CombatHitDispatchSingleton> hitDispatch =
                 SystemAPI.GetSingletonRW<CombatHitDispatchSingleton>();
             RefRW<CombatAoeVfxDispatchSingleton> vfx =
@@ -84,8 +82,7 @@ namespace PlayGround.System.Combat.Aoes
                 ProjectileEventWriter = projectileLane.ValueRO.EventQueue.AsParallelWriter(),
                 ImpactAoeEventWriter = impactAoeLane.ValueRO.EventQueue.AsParallelWriter(),
                 LingeringAoeEventWriter = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter(),
-                TargetedEventWriter = targetedLane.ValueRO.EventQueue.AsParallelWriter(),
-                LingeringTargetedEventWriter = lingeringTargetedLane.ValueRO.EventQueue.AsParallelWriter()
+                TargetedEventWriter = targetedLane.ValueRO.EventQueue.AsParallelWriter()
             };
 
             var collisionHandle = job.ScheduleParallel(impactAoeQuery, state.Dependency);
@@ -98,8 +95,6 @@ namespace PlayGround.System.Combat.Aoes
                 JobHandle.CombineDependencies(lingeringAoeLane.ValueRW.ProducerHandle, collisionHandle);
             targetedLane.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(targetedLane.ValueRW.ProducerHandle, collisionHandle);
-            lingeringTargetedLane.ValueRW.ProducerHandle =
-                JobHandle.CombineDependencies(lingeringTargetedLane.ValueRW.ProducerHandle, collisionHandle);
             hitDispatch.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(hitDispatch.ValueRW.ProducerHandle, collisionHandle);
             vfx.ValueRW.ProducerHandle =
@@ -129,7 +124,6 @@ namespace PlayGround.System.Combat.Aoes
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
             public NativeQueue<TargetedSpawnEvent>.ParallelWriter TargetedEventWriter;
-            public NativeQueue<LingeringTargetedSpawnEvent>.ParallelWriter LingeringTargetedEventWriter;
 
             private void Execute(
                 Entity entity,
@@ -170,8 +164,7 @@ namespace PlayGround.System.Combat.Aoes
                     ProjectileEventWriter,
                     ImpactAoeEventWriter,
                     LingeringAoeEventWriter,
-                    TargetedEventWriter,
-                    LingeringTargetedEventWriter);
+                    TargetedEventWriter);
             }
         }
     }

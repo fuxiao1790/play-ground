@@ -905,7 +905,7 @@ namespace PlayGround.Skills
                     combatRoot,
                     SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(child, combatRoot),
                     BuildOnHitSpawnRef(child));
-            template.Count = Mathf.Max(1, setup.Count);
+            template.EchoCount = Mathf.Max(1, setup.EchoCount);
             setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in template);
         }
 
@@ -939,7 +939,7 @@ namespace PlayGround.Skills
             {
                 return new OnHitSpawnRef
                 {
-                    Kind = TargetedVariant.ChildKindFor(def.ImpactTargetedDefinition.LifetimeSeconds),
+                    Kind = IntervalChildKind.Targeted,
                     TemplateKey = def.ImpactTargetedDefinition.SpawnTemplateKey
                 };
             }
@@ -977,7 +977,7 @@ namespace PlayGround.Skills
             {
                 return new OnHitSpawnRef
                 {
-                    Kind = TargetedVariant.ChildKindFor(def.OnHitTargetedSpawnDefinition.LifetimeSeconds),
+                    Kind = IntervalChildKind.Targeted,
                     TemplateKey = def.OnHitTargetedSpawnDefinition.SpawnTemplateKey
                 };
             }
@@ -1038,7 +1038,7 @@ namespace PlayGround.Skills
 
             return new TimedSpawnComponent
             {
-                ChildKind = TargetedVariant.ChildKindFor(setup.ChildDefinition.LifetimeSeconds),
+                ChildKind = IntervalChildKind.Targeted,
                 JitterSeed = setup.JitterSeed,
                 EnergyPerSecond = Mathf.Max(0.01f, setup.EnergyPerSecond),
                 EnergyThreshold = Mathf.Max(1e-3f, setup.EnergyThreshold),
@@ -1459,22 +1459,16 @@ namespace PlayGround.Skills
             RuntimeTargetedDefinition child,
             CombatRoot root,
             StackEffectSnapshot stackEffect,
-            OnHitSpawnRef onHitSpawn = default,
-            TimedSpawnComponent timedSpawn = default)
+            OnHitSpawnRef onHitSpawn = default)
         {
-            float commandLifetime = Mathf.Max(0f, child.LifetimeSeconds);
-            if (commandLifetime <= 0f && child.ChainDelaySeconds > 0f)
-            {
-                commandLifetime = child.MaxTargets * child.ChainDelaySeconds + (1f / 60f);
-            }
-
             return new TargetedSpawnCommand
             {
                 TypeId = child.TypeId,
                 RenderTypeId = child.RenderId,
-                Count = Mathf.Max(1, child.Count),
-                LifetimeSeconds = commandLifetime,
-                TickIntervalSeconds = Mathf.Max(0f, child.TickIntervalSeconds),
+                EchoCount = Mathf.Max(1, child.EchoCount),
+                // Fail-safe only; the resolve expires the instance the moment its walk ends.
+                LifetimeSeconds = RuntimeTargetedDefinition.LifetimeFor(
+                    child.ChainCount, child.ChainDelay),
                 ArmSeconds = Mathf.Max(0f, child.ArmSeconds),
                 HitPayload = new CombatHitPayload
                 {
@@ -1487,19 +1481,16 @@ namespace PlayGround.Skills
                 },
                 Resolve = new TargetedResolveConfig
                 {
-                    AcquireRadius = Mathf.Max(0f, child.AcquireRadius),
-                    ChainRadius = Mathf.Max(0f, child.ChainRadius),
+                    ChainDistance = Mathf.Max(0f, child.ChainDistance),
                     ChainDamageFalloff = Mathf.Max(0f, child.ChainDamageFalloff),
-                    ChainDelaySeconds = Mathf.Max(0f, child.ChainDelaySeconds),
-                    MaxTargets = Mathf.Max(1, child.MaxTargets)
+                    ChainDelay = Mathf.Max(0f, child.ChainDelay),
+                    ChainCount = Mathf.Max(1, child.ChainCount)
                 },
                 VfxIds = child.VfxIds,
                 VfxSize = child.VfxSize,
                 Render = TargetedRenderComponentFor(child.RenderId),
                 Authoring = TargetedAuthoringFor(child.Prefab),
-                OnHitSpawn = onHitSpawn,
-                HasTimedSpawner = IsTimedSpawnEnabled(timedSpawn) ? 1 : 0,
-                TimedSpawn = timedSpawn
+                OnHitSpawn = onHitSpawn
             };
         }
 

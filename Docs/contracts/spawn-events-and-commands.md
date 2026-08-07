@@ -24,7 +24,6 @@ Event types:
 - `ImpactAoeSpawnEvent`
 - `LingeringAoeSpawnEvent`
 - `TargetedSpawnEvent`
-- `LingeringTargetedSpawnEvent`
 
 Command types:
 
@@ -52,12 +51,12 @@ template key; expansion is where the template resolves the lane discriminator.
 See [spawn-template-registry.md](../reference/simulation/spawn-template-registry.md)
 for the registry concurrency contract and the `(kind, key)` model.
 
-AOE and targeted variants are decided at authoring from child lifetime and
-carried on `IntervalChildKind` / `StackDetonationKind`: `Lifetime > 0` routes
-to lingering AOE / lingering targeted, otherwise impact AOE / single-hit
-targeted. `IntervalChildKind` therefore has `Targeted` and
-`LingeringTargeted` alongside projectile and AOE values. Producers route by the
-carried kind and do not inspect templates at runtime.
+AOE variants are decided at authoring from child lifetime and carried on
+`IntervalChildKind` / `StackDetonationKind`: `Lifetime > 0` routes to lingering
+AOE, otherwise impact AOE. Targeted has no such split — a chain lives exactly as
+long as its walk, so `IntervalChildKind` carries a single `Targeted` value
+alongside the projectile and AOE ones. Producers route by the carried kind and
+do not inspect templates at runtime.
 
 Targeted events carry the ordinary instance frame plus `AcquireAnchor`. `Position`
 is the chain origin; `AcquireAnchor` is separately preserved so root casts can
@@ -119,8 +118,7 @@ Detailed references:
 [spawn-template-registry.md](../reference/simulation/spawn-template-registry.md) and
 [project-aoe-system-common.md](../reference/simulation/project-aoe-system-common.md).
 
-The five event structs are intentionally field-for-field identical today:
-projectile, impact AOE, lingering AOE, targeted, and lingering targeted. Each
-currently has its own singleton lane and expansion system. This is deliberate
-temporary duplication; see the spawn-event consolidation debt in
-[todo.md](../todo.md).
+The four event structs are intentionally field-for-field identical today:
+projectile, impact AOE, lingering AOE, and targeted. Each currently has its own
+singleton lane and expansion system. This is deliberate temporary duplication;
+see the spawn-event consolidation debt in [todo.md](../todo.md).

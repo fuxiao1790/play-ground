@@ -51,7 +51,6 @@ namespace PlayGround.System.Combat.Spawning
     [UpdateBefore(typeof(ImpactAoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(LingeringAoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(TargetedSpawnExpansionSystem))]
-    [UpdateBefore(typeof(LingeringTargetedSpawnExpansionSystem))]
     public partial class ExternalSpawnGateSystem : SystemBase
     {
         private Entity rejectionEntity;
@@ -153,23 +152,6 @@ namespace PlayGround.System.Combat.Spawning
                 EntityManager.GetBuffer<TargetedSpawnEvent>(scope).Add(new TargetedSpawnEvent
                 {
                     Kind = IntervalChildKind.Targeted,
-                    TemplateKey = request.TemplateKey,
-                    Position = request.Position,
-                    AcquireAnchor = acquireAnchor,
-                    AimDirection = request.AimDirection,
-                    Faction = request.Faction,
-                    SourceId = request.SourceId,
-                    JitterSeed = request.JitterSeed,
-                    ContactGateSeedTargetId = request.ContactGateSeedTargetId
-                });
-                return;
-            }
-
-            if (request.Kind == IntervalChildKind.LingeringTargeted)
-            {
-                EntityManager.GetBuffer<LingeringTargetedSpawnEvent>(scope).Add(new LingeringTargetedSpawnEvent
-                {
-                    Kind = IntervalChildKind.LingeringTargeted,
                     TemplateKey = request.TemplateKey,
                     Position = request.Position,
                     AcquireAnchor = acquireAnchor,

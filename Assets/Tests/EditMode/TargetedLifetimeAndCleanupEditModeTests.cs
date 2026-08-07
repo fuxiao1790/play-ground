@@ -76,12 +76,12 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void Cleanup_TrimsSingleAndLingeringTargetedPoolsIndependently()
+        public void Cleanup_TrimsTheTargetedPool()
         {
-            Entity single = CreateTargeted(lifetime: 1f, armSeconds: 0f);
-            Entity lingering = CreateTargeted(lifetime: 1f, armSeconds: 0f, lingering: true);
-            _entityManager.SetComponentEnabled<Active>(single, false);
-            _entityManager.SetComponentEnabled<Active>(lingering, false);
+            Entity first = CreateTargeted(lifetime: 1f, armSeconds: 0f);
+            Entity second = CreateTargeted(lifetime: 1f, armSeconds: 0f);
+            _entityManager.SetComponentEnabled<Active>(first, false);
+            _entityManager.SetComponentEnabled<Active>(second, false);
 
             CombatPoolCleanupSystem cleanup = _world.GetOrCreateSystemManaged<CombatPoolCleanupSystem>();
             Entity config = _entityManager.CreateEntityQuery(
@@ -95,22 +95,16 @@ namespace PlayGround.Tests.EditMode
 
             cleanup.Update();
 
-            Assert.That(_entityManager.Exists(single), Is.False);
-            Assert.That(_entityManager.Exists(lingering), Is.False);
+            Assert.That(_entityManager.Exists(first), Is.False);
+            Assert.That(_entityManager.Exists(second), Is.False);
         }
 
-        private Entity CreateTargeted(float lifetime, float armSeconds, bool lingering = false)
+        private Entity CreateTargeted(float lifetime, float armSeconds)
         {
-            Entity entity = lingering
-                ? _entityManager.CreateEntity(
-                    typeof(TargetedTag), typeof(LingeringTargetedTag), typeof(Active), typeof(ArmingTag),
-                    typeof(CombatArmingComponent), typeof(CombatLifetimeComponent),
-                    typeof(TargetedVfxIds), typeof(TargetedVfxSizeComponent), typeof(VfxTimingData),
-                    typeof(CombatKinematicsComponent))
-                : _entityManager.CreateEntity(
-                    typeof(TargetedTag), typeof(Active), typeof(ArmingTag), typeof(CombatArmingComponent),
-                    typeof(CombatLifetimeComponent), typeof(TargetedVfxIds),
-                    typeof(TargetedVfxSizeComponent), typeof(VfxTimingData), typeof(CombatKinematicsComponent));
+            Entity entity = _entityManager.CreateEntity(
+                typeof(TargetedTag), typeof(Active), typeof(ArmingTag), typeof(CombatArmingComponent),
+                typeof(CombatLifetimeComponent), typeof(TargetedVfxIds),
+                typeof(TargetedVfxSizeComponent), typeof(VfxTimingData), typeof(CombatKinematicsComponent));
             _entityManager.SetComponentData(entity, new CombatLifetimeComponent { Remaining = lifetime });
             _entityManager.SetComponentData(entity, new CombatArmingComponent { Remaining = armSeconds });
             _entityManager.SetComponentEnabled<Active>(entity, true);

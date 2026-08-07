@@ -35,7 +35,6 @@ namespace PlayGround.Tests.EditMode
             _world.GetOrCreateSystemManaged<ImpactAoeSpawnExpansionSystem>();
             _world.GetOrCreateSystemManaged<LingeringAoeSpawnExpansionSystem>();
             _world.GetOrCreateSystemManaged<TargetedSpawnExpansionSystem>();
-            _world.GetOrCreateSystemManaged<LingeringTargetedSpawnExpansionSystem>();
             _simulation.AddSystemToUpdateList(_world.GetOrCreateSystem<TimedSpawnSystem>());
             _simulation.SortSystems();
 
@@ -45,7 +44,6 @@ namespace PlayGround.Tests.EditMode
             _entityManager.AddBuffer<ImpactAoeSpawnEvent>(_scope);
             _entityManager.AddBuffer<LingeringAoeSpawnEvent>(_scope);
             _entityManager.AddBuffer<TargetedSpawnEvent>(_scope);
-            _entityManager.AddBuffer<LingeringTargetedSpawnEvent>(_scope);
         }
 
         [TearDown]
@@ -108,7 +106,7 @@ namespace PlayGround.Tests.EditMode
             _entityManager.SetComponentData(caster, new Mana { Current = 1f, Max = 1f });
             _entityManager.GetBuffer<ExternalSpawnRequest>(_scope).Add(new ExternalSpawnRequest
             {
-                Kind = IntervalChildKind.LingeringTargeted,
+                Kind = IntervalChildKind.Targeted,
                 TemplateKey = new Hash128(2u, 3u, 4u, 5u),
                 Position = new float2(-3f, 8f),
                 Faction = CombatFaction.Player,
@@ -127,20 +125,22 @@ namespace PlayGround.Tests.EditMode
 
             _gate.Update();
 
-            DynamicBuffer<LingeringTargetedSpawnEvent> events =
-                _entityManager.GetBuffer<LingeringTargetedSpawnEvent>(_scope);
+            // The free request routes through; the one that cannot pay is rejected, so exactly
+            // one event lands and its anchor falls back to its origin.
+            DynamicBuffer<TargetedSpawnEvent> events =
+                _entityManager.GetBuffer<TargetedSpawnEvent>(_scope);
             Assert.That(events.Length, Is.EqualTo(1));
+            Assert.That(events[0].SourceId, Is.EqualTo(32));
             Assert.That(events[0].AcquireAnchor, Is.EqualTo(events[0].Position));
-            Assert.That(_entityManager.GetBuffer<TargetedSpawnEvent>(_scope).Length, Is.Zero);
             SpawnRejectedSingleton rejected = RejectionLane();
             Assert.That(rejected.Events.Length, Is.EqualTo(1));
             Assert.That(rejected.Events[0].CastToken, Is.EqualTo(77));
         }
 
-        [TestCase(IntervalChildKind.Targeted)]
-        [TestCase(IntervalChildKind.LingeringTargeted)]
-        public void TimedSpawn_RoutesTargetedVariantsWithSourceAsOriginAndAnchor(IntervalChildKind kind)
+        [Test]
+        public void TimedSpawn_RoutesTargetedChildrenWithSourceAsOriginAndAnchor()
         {
+            const IntervalChildKind kind = IntervalChildKind.Targeted;
             Entity source = _entityManager.CreateEntity(
                 typeof(Active),
                 typeof(ArmingTag),
@@ -168,24 +168,12 @@ namespace PlayGround.Tests.EditMode
             _world.SetTime(new TimeData(0.1d, 0.1f));
             _simulation.Update();
 
-            if (kind == IntervalChildKind.Targeted)
-            {
-                TargetedSpawnEventSingleton lane = _entityManager.CreateEntityQuery(
-                    ComponentType.ReadOnly<TargetedSpawnEventSingleton>()).GetSingleton<TargetedSpawnEventSingleton>();
-                lane.ProducerHandle.Complete();
-                Assert.That(lane.EventQueue.TryDequeue(out TargetedSpawnEvent spawned), Is.True);
-                Assert.That(spawned.Position, Is.EqualTo(new float2(4f, -2f)));
-                Assert.That(spawned.AcquireAnchor, Is.EqualTo(spawned.Position));
-            }
-            else
-            {
-                LingeringTargetedSpawnEventSingleton lane = _entityManager.CreateEntityQuery(
-                    ComponentType.ReadOnly<LingeringTargetedSpawnEventSingleton>()).GetSingleton<LingeringTargetedSpawnEventSingleton>();
-                lane.ProducerHandle.Complete();
-                Assert.That(lane.EventQueue.TryDequeue(out LingeringTargetedSpawnEvent spawned), Is.True);
-                Assert.That(spawned.Position, Is.EqualTo(new float2(4f, -2f)));
-                Assert.That(spawned.AcquireAnchor, Is.EqualTo(spawned.Position));
-            }
+            TargetedSpawnEventSingleton lane = _entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<TargetedSpawnEventSingleton>()).GetSingleton<TargetedSpawnEventSingleton>();
+            lane.ProducerHandle.Complete();
+            Assert.That(lane.EventQueue.TryDequeue(out TargetedSpawnEvent spawned), Is.True);
+            Assert.That(spawned.Position, Is.EqualTo(new float2(4f, -2f)));
+            Assert.That(spawned.AcquireAnchor, Is.EqualTo(spawned.Position));
         }
 
         private SpawnRejectedSingleton RejectionLane() => _entityManager.CreateEntityQuery(

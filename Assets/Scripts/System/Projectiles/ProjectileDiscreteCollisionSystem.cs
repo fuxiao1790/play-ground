@@ -63,8 +63,6 @@ namespace PlayGround.System.Combat.Projectiles
                 SystemAPI.GetSingletonRW<LingeringAoeSpawnEventSingleton>();
             RefRW<TargetedSpawnEventSingleton> targetedLane =
                 SystemAPI.GetSingletonRW<TargetedSpawnEventSingleton>();
-            RefRW<LingeringTargetedSpawnEventSingleton> lingeringTargetedLane =
-                SystemAPI.GetSingletonRW<LingeringTargetedSpawnEventSingleton>();
             RefRW<CombatHitDispatchSingleton> hitDispatch =
                 SystemAPI.GetSingletonRW<CombatHitDispatchSingleton>();
 
@@ -81,8 +79,7 @@ namespace PlayGround.System.Combat.Projectiles
                 ProjectileEventWriter = projectileLane.ValueRO.EventQueue.AsParallelWriter(),
                 ImpactAoeEventWriter = impactAoeLane.ValueRO.EventQueue.AsParallelWriter(),
                 LingeringAoeEventWriter = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter(),
-                TargetedEventWriter = targetedLane.ValueRO.EventQueue.AsParallelWriter(),
-                LingeringTargetedEventWriter = lingeringTargetedLane.ValueRO.EventQueue.AsParallelWriter()
+                TargetedEventWriter = targetedLane.ValueRO.EventQueue.AsParallelWriter()
             };
 
             var collisionHandle = job.ScheduleParallel(state.Dependency);
@@ -98,8 +95,6 @@ namespace PlayGround.System.Combat.Projectiles
                 JobHandle.CombineDependencies(lingeringAoeLane.ValueRW.ProducerHandle, collisionHandle);
             targetedLane.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(targetedLane.ValueRW.ProducerHandle, collisionHandle);
-            lingeringTargetedLane.ValueRW.ProducerHandle =
-                JobHandle.CombineDependencies(lingeringTargetedLane.ValueRW.ProducerHandle, collisionHandle);
             hitDispatch.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(hitDispatch.ValueRW.ProducerHandle, collisionHandle);
             RefRW<TargetSpatialHashSingleton> hashRw = SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
@@ -128,7 +123,6 @@ namespace PlayGround.System.Combat.Projectiles
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
             public NativeQueue<TargetedSpawnEvent>.ParallelWriter TargetedEventWriter;
-            public NativeQueue<LingeringTargetedSpawnEvent>.ParallelWriter LingeringTargetedEventWriter;
 
             private void Execute(
                 Entity entity,
@@ -247,8 +241,7 @@ namespace PlayGround.System.Combat.Projectiles
                                 projectileHit,
                                 kinematics.Position,
                                 targetKey,
-                                TargetedEventWriter,
-                                LingeringTargetedEventWriter);
+                                TargetedEventWriter);
 
                             ProjectileHitEmission.AddOrRefreshGate(contactGates, targetKey,
                                 projectileHit.RepeatHitCooldownSeconds);
@@ -311,8 +304,7 @@ namespace PlayGround.System.Combat.Projectiles
                 return;
             }
 
-            if (projectileHit.OnHitSpawn.Kind == IntervalChildKind.Targeted
-                || projectileHit.OnHitSpawn.Kind == IntervalChildKind.LingeringTargeted)
+            if (projectileHit.OnHitSpawn.Kind == IntervalChildKind.Targeted)
             {
                 return;
             }
@@ -355,8 +347,7 @@ namespace PlayGround.System.Combat.Projectiles
                 return;
             }
 
-            if (projectileHit.OnHitSpawn.Kind == IntervalChildKind.Targeted
-                || projectileHit.OnHitSpawn.Kind == IntervalChildKind.LingeringTargeted)
+            if (projectileHit.OnHitSpawn.Kind == IntervalChildKind.Targeted)
             {
                 return;
             }
@@ -406,12 +397,10 @@ namespace PlayGround.System.Combat.Projectiles
             in ProjectileHitComponent projectileHit,
             float2 impactPosition,
             int targetKey,
-            NativeQueue<TargetedSpawnEvent>.ParallelWriter targetedEventWriter,
-            NativeQueue<LingeringTargetedSpawnEvent>.ParallelWriter lingeringTargetedEventWriter)
+            NativeQueue<TargetedSpawnEvent>.ParallelWriter targetedEventWriter)
         {
             if (!projectileHit.OnHitSpawn.Enabled
-                || (projectileHit.OnHitSpawn.Kind != IntervalChildKind.Targeted
-                    && projectileHit.OnHitSpawn.Kind != IntervalChildKind.LingeringTargeted))
+                || projectileHit.OnHitSpawn.Kind != IntervalChildKind.Targeted)
             {
                 return;
             }
@@ -424,8 +413,7 @@ namespace PlayGround.System.Combat.Projectiles
                 targetKey,
                 projectileHit.OnHitSpawn.Kind,
                 projectileHit.OnHitSpawn.TemplateKey,
-                targetedEventWriter,
-                lingeringTargetedEventWriter);
+                targetedEventWriter);
         }
 
         internal static void Deactivate(

@@ -1,12 +1,24 @@
 ---
 name: targeted-skills-plan
-description: Implementation plan for targeted (no-physics) chain skills — single-hit and interval variants
+description: Implementation plan for targeted (no-physics) chain skills — executed, then simplified to one variant
 ---
 
 # Targeted Skills — Implementation Plan
 
-Requirements: [requirements.md](./requirements.md). All twelve specification decisions are locked
-there (§13.1); this plan implements them and does not reopen them.
+Requirements: [requirements.md](./requirements.md).
+
+> **Status: executed, then simplified.** All 15 tasks shipped. The feature was then collapsed from
+> two variants to one — see [requirements.md §16](./requirements.md#16-what-the-simplification-removed)
+> for the full list of what was removed and why.
+>
+> **The numbered task files below describe the pre-simplification design** and are kept as the
+> execution record. Where they disagree with `requirements.md`, the requirements win. Specifically,
+> these no longer exist: `LingeringTargetedSkill`, `LingeringTargetedDefinition`,
+> `lifetimeSeconds`, `tickIntervalSeconds`, `acquireRadius`, `IntervalChildKind.LingeringTargeted`,
+> `LingeringTargetedTag`, `TargetedTickGateComponent`, `LingeringTargetedSpawnEvent` and its lane /
+> expansion / apply / pool, `TargetedVariant`, and `TargetedResolveCore`. Renamed: `count` →
+> `echoCount`, `maxTargets` → `chainCount`, `chainRadius` → `chainDistance`, `chainDelaySeconds` →
+> `chainDelay`.
 
 ---
 
@@ -17,14 +29,10 @@ victims by broadphase query instead of simulated geometry: it picks a first targ
 acquisition anchor, then walks link-to-link outward, emitting one hit and one `LineSegment` VFX per
 link, optionally staggered by a per-link delay.
 
-Two variants, mirroring impact vs lingering AOE at every layer:
-
-| | Single hit | Interval tick |
-|---|---|---|
-| Condition | `lifetimeSeconds == 0` | `lifetimeSeconds > 0` |
-| Skill SO | `TargetedSkill` | `LingeringTargetedSkill` |
-| Spawn kind | `IntervalChildKind.Targeted` | `IntervalChildKind.LingeringTargeted` |
-| Pool tag | *(absent)* | `LingeringTargetedTag` |
+~~Two variants, mirroring impact vs lingering AOE at every layer.~~ **One variant.** A chain's
+lifetime is its walk: the instance expires the moment it uses its last chain, or the moment a link
+finds nothing. Repeating chains are composed from a `TargetedIntervalSpawnTrigger` on a projectile
+or lingering AOE source, not authored as a second archetype.
 
 15 tasks, bottom-up: ECS contracts → lanes → resolve → integration → authoring → compile → wiring
 → validation → tests → docs. Tasks 1–7 are testable in EditMode without any authored asset.

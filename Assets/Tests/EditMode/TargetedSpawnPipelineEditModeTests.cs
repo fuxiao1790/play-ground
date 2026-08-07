@@ -28,14 +28,11 @@ namespace PlayGround.Tests.EditMode
             _world.GetOrCreateSystemManaged<CombatAoeVfxDispatchSystem>();
             _world.GetOrCreateSystemManaged<CombatStatsGatherSystem>();
             _simulation.AddSystemToUpdateList(_world.GetOrCreateSystemManaged<TargetedSpawnExpansionSystem>());
-            _simulation.AddSystemToUpdateList(_world.GetOrCreateSystemManaged<LingeringTargetedSpawnExpansionSystem>());
             _simulation.AddSystemToUpdateList(_world.GetOrCreateSystemManaged<TargetedSpawnApplySystem>());
-            _simulation.AddSystemToUpdateList(_world.GetOrCreateSystemManaged<LingeringTargetedSpawnApplySystem>());
             _simulation.SortSystems();
 
             _scope = _entityManager.CreateEntity(typeof(CombatScope));
             _entityManager.AddBuffer<TargetedSpawnEvent>(_scope);
-            _entityManager.AddBuffer<LingeringTargetedSpawnEvent>(_scope);
             _templates = new NativeHashMap<Hash128, TargetedSpawnCommand>(16, Allocator.Persistent);
             _entityManager.AddComponentData(_scope, new TargetedSpawnTemplate { Map = _templates });
         }
@@ -55,21 +52,17 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void Events_MaterializeSeparatedSingleAndLingeringArchetypes()
+        public void Events_MaterializeIntoOneTargetedArchetype()
         {
-            Enqueue(MakeEvent(RegisterTemplate(IntervalChildKind.Targeted), IntervalChildKind.Targeted));
-            Enqueue(MakeLingeringEvent(
-                MakeEvent(RegisterTemplate(IntervalChildKind.LingeringTargeted), IntervalChildKind.LingeringTargeted)));
+            Enqueue(MakeEvent(RegisterTemplate(), IntervalChildKind.Targeted));
+            Enqueue(MakeEvent(RegisterTemplate(count: 2), IntervalChildKind.Targeted));
 
             Tick();
 
-            Assert.That(Count<TargetedTag, LingeringTargetedTag>(hasSecond: false), Is.EqualTo(1));
-            Assert.That(Count<TargetedTag, LingeringTargetedTag>(hasSecond: true), Is.EqualTo(1));
-            using EntityQuery lingering = _entityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<LingeringTargetedTag>(),
-                ComponentType.ReadOnly<TargetedTickGateComponent>(),
+            using EntityQuery query = _entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<TargetedTag>(),
                 ComponentType.ReadOnly<Active>());
-            Assert.That(lingering.CalculateEntityCount(), Is.EqualTo(1));
+            Assert.That(query.CalculateEntityCount(), Is.EqualTo(3));
         }
 
         [Test]
@@ -77,7 +70,7 @@ namespace PlayGround.Tests.EditMode
         {
             float2 origin = new(4f, -2f);
             float2 anchor = new(9f, 3f);
-            Hash128 key = RegisterTemplate(IntervalChildKind.Targeted, count: 3);
+            Hash128 key = RegisterTemplate(count: 3);
             Enqueue(MakeEvent(key, IntervalChildKind.Targeted, origin, anchor, sourceId: 77));
 
             Tick();
@@ -111,7 +104,7 @@ namespace PlayGround.Tests.EditMode
         [Test]
         public void DeterministicFanOut_IsStableAndSeparatesTickIndices()
         {
-            Hash128 key = RegisterTemplate(IntervalChildKind.Targeted, count: 3);
+            Hash128 key = RegisterTemplate(count: 3);
             Enqueue(MakeEvent(key, IntervalChildKind.Targeted, sourceId: 101, jitterSeed: 21u, tickIndex: 2));
             Enqueue(MakeEvent(key, IntervalChildKind.Targeted, sourceId: 101, jitterSeed: 21u, tickIndex: 3));
 
@@ -140,7 +133,7 @@ namespace PlayGround.Tests.EditMode
         public void InvalidKindAndMissingTemplate_ProduceNoCommandsOrEntities()
         {
             Enqueue(MakeEvent(default, IntervalChildKind.Targeted));
-            Enqueue(MakeEvent(RegisterTemplate(IntervalChildKind.Targeted), IntervalChildKind.LingeringTargeted));
+            Enqueue(MakeEvent(RegisterTemplate(), IntervalChildKind.LingeringAoe));
 
             Tick();
 
@@ -153,7 +146,6 @@ namespace PlayGround.Tests.EditMode
         {
             float2 origin = new(-1f, 8f);
             Hash128 key = RegisterTemplate(
-                IntervalChildKind.Targeted,
                 count: 3,
                 vfxId: VfxDataShapeTable.EncodeId(VfxDataShape.Circular, 1),
                 effectSize: 2.5f);
@@ -170,7 +162,7 @@ namespace PlayGround.Tests.EditMode
                 Assert.That(request.AreaSize, Is.EqualTo(2.5f));
             }
 
-            Enqueue(MakeEvent(RegisterTemplate(IntervalChildKind.Targeted), IntervalChildKind.Targeted));
+            Enqueue(MakeEvent(RegisterTemplate(), IntervalChildKind.Targeted));
             Tick();
             vfx = VfxLane();
             vfx.ProducerHandle.Complete();
@@ -180,7 +172,6 @@ namespace PlayGround.Tests.EditMode
             int armingId = VfxDataShapeTable.EncodeId(VfxDataShape.Circular, 3);
             Enqueue(MakeEvent(
                 RegisterTemplate(
-                    IntervalChildKind.Targeted,
                     vfxId: spawnId,
                     armingId: armingId,
                     armSeconds: 0.25f),
@@ -194,32 +185,23 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void Reuse_StaysWithinItsOwnTargetedPool()
+        public void Reuse_TakesTheDisabledSlotBackInsteadOfCreatingANewOne()
         {
-            Enqueue(MakeEvent(RegisterTemplate(IntervalChildKind.Targeted), IntervalChildKind.Targeted));
+            Enqueue(MakeEvent(RegisterTemplate(), IntervalChildKind.Targeted));
             Tick();
-            Entity single = OnlyActiveTargeted(lingering: false);
-            _entityManager.SetComponentEnabled<Active>(single, false);
+            Entity slot = OnlyActiveTargeted();
+            _entityManager.SetComponentEnabled<Active>(slot, false);
 
-            Enqueue(MakeEvent(RegisterTemplate(IntervalChildKind.Targeted), IntervalChildKind.Targeted));
-            Tick();
-            Assert.That(OnlyActiveTargeted(lingering: false), Is.EqualTo(single));
-
-            _entityManager.SetComponentEnabled<Active>(single, false);
-            Enqueue(MakeLingeringEvent(
-                MakeEvent(RegisterTemplate(IntervalChildKind.LingeringTargeted), IntervalChildKind.LingeringTargeted)));
+            Enqueue(MakeEvent(RegisterTemplate(), IntervalChildKind.Targeted));
             Tick();
 
-            Assert.That(_entityManager.IsComponentEnabled<Active>(single), Is.False);
-            Assert.That(OnlyActiveTargeted(lingering: true), Is.Not.EqualTo(single));
+            Assert.That(OnlyActiveTargeted(), Is.EqualTo(slot));
         }
 
         [Test]
-        public void BothTargetedLanesContributeSpawnStatsAndDisplaySnapshot()
+        public void TargetedSpawnsContributeStatsAndDisplaySnapshot()
         {
-            Enqueue(MakeEvent(RegisterTemplate(IntervalChildKind.Targeted), IntervalChildKind.Targeted));
-            Enqueue(MakeLingeringEvent(
-                MakeEvent(RegisterTemplate(IntervalChildKind.LingeringTargeted), IntervalChildKind.LingeringTargeted)));
+            Enqueue(MakeEvent(RegisterTemplate(count: 2), IntervalChildKind.Targeted));
 
             Tick();
 
@@ -239,7 +221,6 @@ namespace PlayGround.Tests.EditMode
         private void Tick() => _simulation.Update();
 
         private Hash128 RegisterTemplate(
-            IntervalChildKind kind,
             int count = 1,
             int vfxId = 0,
             float effectSize = 1f,
@@ -248,8 +229,8 @@ namespace PlayGround.Tests.EditMode
         {
             TargetedSpawnCommand template = new()
             {
-                Count = count,
-                LifetimeSeconds = kind == IntervalChildKind.LingeringTargeted ? 5f : 0f,
+                EchoCount = count,
+                LifetimeSeconds = 1f,
                 ArmSeconds = armSeconds,
                 VfxIds = new TargetedVfxIds { SpawnId = vfxId, ArmingId = armingId },
                 VfxSize = new TargetedVfxSizeComponent { EffectSize = effectSize, LinkWidth = 1f }
@@ -261,9 +242,6 @@ namespace PlayGround.Tests.EditMode
 
         private void Enqueue(TargetedSpawnEvent evt) =>
             _entityManager.GetBuffer<TargetedSpawnEvent>(_scope).Add(evt);
-
-        private void Enqueue(LingeringTargetedSpawnEvent evt) =>
-            _entityManager.GetBuffer<LingeringTargetedSpawnEvent>(_scope).Add(evt);
 
         private static TargetedSpawnEvent MakeEvent(
             Hash128 key,
@@ -285,34 +263,11 @@ namespace PlayGround.Tests.EditMode
                 DeterministicIdTickIndex = tickIndex
             };
 
-        private static LingeringTargetedSpawnEvent MakeLingeringEvent(TargetedSpawnEvent evt) =>
-            new()
-            {
-                Kind = evt.Kind,
-                TemplateKey = evt.TemplateKey,
-                Position = evt.Position,
-                AcquireAnchor = evt.AcquireAnchor,
-                Faction = evt.Faction,
-                SourceId = evt.SourceId,
-                JitterSeed = evt.JitterSeed,
-                DeterministicIdTickIndex = evt.DeterministicIdTickIndex
-            };
-
-        private int Count<TFirst, TSecond>(bool hasSecond)
-            where TFirst : unmanaged, IComponentData
-            where TSecond : unmanaged, IComponentData
+        private Entity OnlyActiveTargeted()
         {
-            using EntityQuery query = hasSecond
-                ? _entityManager.CreateEntityQuery(ComponentType.ReadOnly<TFirst>(), ComponentType.ReadOnly<TSecond>(), ComponentType.ReadOnly<Active>())
-                : _entityManager.CreateEntityQuery(ComponentType.ReadOnly<TFirst>(), ComponentType.Exclude<TSecond>(), ComponentType.ReadOnly<Active>());
-            return query.CalculateEntityCount();
-        }
-
-        private Entity OnlyActiveTargeted(bool lingering)
-        {
-            using EntityQuery query = lingering
-                ? _entityManager.CreateEntityQuery(ComponentType.ReadOnly<TargetedTag>(), ComponentType.ReadOnly<LingeringTargetedTag>(), ComponentType.ReadOnly<Active>())
-                : _entityManager.CreateEntityQuery(ComponentType.ReadOnly<TargetedTag>(), ComponentType.Exclude<LingeringTargetedTag>(), ComponentType.ReadOnly<Active>());
+            using EntityQuery query = _entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<TargetedTag>(),
+                ComponentType.ReadOnly<Active>());
             using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
             Assert.That(entities.Length, Is.EqualTo(1));
             return entities[0];
