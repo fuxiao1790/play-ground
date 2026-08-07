@@ -151,6 +151,7 @@ namespace PlayGround.System.Combat.Rendering
         public int MeshCapacity => _meshCapacity;
 
         private int _nextRenderId = 1;
+        private Texture _atlasPage;
         private GraphicsBuffer _uvBasisBuffer;
         private GraphicsBuffer _fallbackInstanceBuffer;
         private GraphicsBuffer _fallbackUvBasisBuffer;
@@ -209,7 +210,11 @@ namespace PlayGround.System.Combat.Rendering
                 throw new InvalidOperationException(
                     $"Sprite '{sprite.name}' is not part of the combat sprite atlas '{Atlas.name}' (GetSprite returned null). Add it to the atlas's packables in the editor and repack.");
 
-            SharedMaterial.mainTexture = packedSprite.texture;
+            if (SharedMaterial == null)
+                throw new InvalidOperationException(
+                    $"Cannot register sprite '{sprite.name}': no Material is bound yet. Assign the Combat Sprite Renderer (with a Material using Combat/AtlasIndirectSprite) on CombatRoot so AttachRenderer runs before registration.");
+
+            BindAtlasPage(packedSprite);
 
             ComputeUvBasis(packedSprite, out Vector2 uvOrigin, out Vector2 uAxis, out Vector2 vAxis);
             Vector4 uvOriginU = new(uvOrigin.x, uvOrigin.y, uAxis.x, uAxis.y);
@@ -354,6 +359,7 @@ namespace PlayGround.System.Combat.Rendering
             _fallbackInstanceBuffer = null;
             _fallbackUvBasisBuffer = null;
             Atlas = null;
+            _atlasPage = null;
             _meshCapacity = 0;
 
             Entries.Clear();
@@ -493,10 +499,42 @@ namespace PlayGround.System.Combat.Rendering
         private static Vector2 PositiveScale(Vector2 scale) =>
             new(scale.x > 0f ? scale.x : 1f, scale.y > 0f ? scale.y : 1f);
 
+        // Every registered kind samples one atlas page through the single _MainTex binding.
+        // An unpacked sprite still carries source-texture UVs, so its quad would address the
+        // whole bound page (single PNG -> uv 0..1 -> the entire sheet is drawn) instead of the
+        // sprite. A second page would silently reroute every earlier kind's UVs onto it.
+        private void BindAtlasPage(Sprite packedSprite)
+        {
+            if (!packedSprite.packed)
+                throw new InvalidOperationException(
+                    $"Sprite '{packedSprite.name}' came back from atlas '{Atlas.name}' unpacked; its UVs still address source texture "
+                    + $"'{(packedSprite.texture != null ? packedSprite.texture.name : "<null>")}', so the quad would sample the whole bound atlas page. "
+                    + "Repack the atlas (Tools/Skills/Rebuild Skill Atlas) before entering play mode.");
+
+            if (_atlasPage == null)
+            {
+                _atlasPage = packedSprite.texture;
+                SharedMaterial.mainTexture = _atlasPage;
+                return;
+            }
+
+            if (_atlasPage != packedSprite.texture)
+                throw new InvalidOperationException(
+                    $"Sprite '{packedSprite.name}' packed onto atlas page '{packedSprite.texture.name}' but '{_atlasPage.name}' is already bound; "
+                    + $"atlas '{Atlas.name}' spilled onto multiple pages. One draw call binds one page - raise Max Texture Size or shrink the packables.");
+        }
+
         private static void ComputeUvBasis(Sprite sprite, out Vector2 origin, out Vector2 uAxis, out Vector2 vAxis)
         {
             Vector2[] verts = sprite.vertices;
             Vector2[] uvs = sprite.uv;
+
+            // The basis below treats the extreme vertices as rect corners. A Tight mesh hull has
+            // more than four vertices, so those extremes sit inside the rect and the basis is wrong.
+            if (verts.Length != 4)
+                throw new InvalidOperationException(
+                    $"Sprite '{sprite.name}' has a {verts.Length}-vertex (Tight) mesh; the combat atlas basis needs vertices at the rect corners. "
+                    + "Set its texture importer Mesh Type to Full Rect and repack the atlas.");
 
             int bl = 0, br = 0, tl = 0;
             float blScore = verts[0].x + verts[0].y;

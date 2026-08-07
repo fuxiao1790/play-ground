@@ -1,3 +1,4 @@
+using PlayGround.Editor.Rendering;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -36,6 +37,37 @@ namespace PlayGround.Editor.Skills
             SpriteAtlasUtility.PackAtlases(new[] { atlas }, EditorUserBuildSettings.activeBuildTarget);
 
             Debug.Log($"Rebuilt skill atlas '{AtlasPath}' with {sprites.Count} sprites from '{PrefabFolder}'.");
+            LogAtlasContract();
+        }
+
+        [MenuItem("Tools/Skills/Validate Combat Atlas")]
+        public static void Validate()
+        {
+            if (LogAtlasContract() == 0)
+            {
+                Debug.Log($"Skill atlas '{AtlasPath}' satisfies the combat batch contract.");
+            }
+        }
+
+        // Same checks the CombatRoot inspector draws, so a repack reports its own violations
+        // instead of leaving them for the next play session to render as a full atlas page.
+        private static int LogAtlasContract()
+        {
+            SpriteAtlas atlas = AssetDatabase.LoadAssetAtPath<SpriteAtlas>(AtlasPath);
+            List<CombatAtlasIssue> issues = CombatAtlasValidator.ValidateAtlas(atlas);
+            foreach (CombatAtlasIssue issue in issues)
+            {
+                if (issue.Severity == MessageType.Error)
+                {
+                    Debug.LogError($"[Combat atlas] {issue.Message}", atlas);
+                }
+                else
+                {
+                    Debug.LogWarning($"[Combat atlas] {issue.Message}", atlas);
+                }
+            }
+
+            return issues.Count;
         }
 
         private static List<SpriteUse> CollectSpriteUses()

@@ -125,11 +125,37 @@ Two different rotations live in two different spaces and must not be confused:
 - **Registered sprites must have mesh vertices at their rect corners.** Import
   them as Full Rect, or ensure the art fills the rect. `ComputeUvBasis` treats
   the extreme vertices as rect corners; a Tight mesh with transparent margins
-  produces a wrong basis and visibly distorted sprites. See
+  produces a wrong basis and visibly distorted sprites. `ComputeUvBasis` now
+  throws when `sprite.vertices.Length != 4`. See
   [combat-atlas-tight-mesh-uv-distortion.md](./combat-atlas-tight-mesh-uv-distortion.md).
 - **The atlas must be packed at runtime.** `SpriteAtlas.GetSprite(...)` must
-  return sprites from the atlas page.
-- **Single page is required.** One draw call binds one atlas texture.
+  return sprites from the atlas page. `Register` throws when the returned sprite
+  reports `packed == false`: an unpacked sprite keeps source-texture UVs, so a
+  Full Rect single PNG resolves to `uv 0..1` and its quad draws the *entire*
+  bound atlas page, while a sheet sub-sprite draws an arbitrary slab of it.
+- **Single page is required.** One draw call binds one atlas texture. `Register`
+  remembers the first page it binds and throws if a later sprite packed onto a
+  different one, instead of silently rebinding `_MainTex` and rerouting every
+  earlier kind's UVs onto the new page.
+
+### Edit-time checking
+
+`CombatAtlasValidator` (Editor assembly) mirrors every constraint above without
+entering play mode. It reads the atlas's packables, resolves them to sprites, and
+reports unpacked/missing pages, multiple pages, Tight mesh types, duplicate sprite
+names, missing packable references, and whole-texture packables.
+
+It is surfaced in three places:
+
+- the `CombatRoot` inspector (`CombatRootEditor`), which also checks the assigned
+  Combat Sprite Renderer for a MeshFilter, the `Combat/AtlasIndirectSprite`
+  material, and that every sprite the component references is actually in the
+  atlas. The Sorting Layer check reads the nearest `SortingGroup` when there is
+  one: `MeshRenderer.sortingLayerName` is not editable in the Inspector, so a
+  `SortingGroup` is how this batch is placed on `CombatSprites` and the renderer's
+  own field stays at `Default`.
+- `Tools/Skills/Validate Combat Atlas`
+- automatically at the end of `Tools/Skills/Rebuild Skill Atlas`
 
 `RenderMeshInstanced` / `RenderMeshIndirect` immediate calls remain rejected
 because they are not scene `Renderer`s and are not executed by the 2D renderer.
