@@ -675,9 +675,9 @@ Compatible tags: source `Aoe`, target `Aoe`.
 
 **StackTrigger**
 
-Wires a normal applicator set to a stacking detonation set. The source is a
-plain projectile or AOE runtime definition. The effect must be a normal skill
-set with `StackingSupport`, which compiles to `RuntimeStackingDetonation`.
+Wires a normal applicator set to a stacking detonation set. The source may be
+a projectile, AOE, or targeted runtime definition. The effect must be a normal
+skill set with `StackingSupport`, which compiles to `RuntimeStackingDetonation`.
 At compile time the trigger stores the detonation on the applicator; at spawn
 time the applicator bakes a `StackEffectSnapshot` into its hit payload.
 
@@ -685,8 +685,10 @@ time the applicator bakes a `StackEffectSnapshot` into its hit payload.
 class StackTrigger : TriggerLink { }
 ```
 
-Compatible tags: source `Projectile` or `Aoe`, target set must have
-`StackingSupport`.
+Compatible tags: source `Projectile`, `Aoe`, or `Targeted`; target set must
+have `StackingSupport`. For a targeted applicator, every chain-link hit reads
+the same baked `StackEffectSnapshot` off the spawning entity's hit payload —
+identical to the projectile/AOE path.
 Trigger links are also tag-validated but not blocked. A
 `ProjectileIntervalSpawnTrigger` from a projectile set to an AOE set is allowed
 in the loadout, but no timed-child setup is compiled and validation returns a

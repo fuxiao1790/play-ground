@@ -1517,6 +1517,8 @@ namespace PlayGround.Skills
                 stackEffect = BuildStackEffectSnapshot(projectile.StackingDetonation, root);
             else if (def is RuntimeAoeDefinition aoe)
                 stackEffect = BuildStackEffectSnapshot(aoe.StackingDetonation, root);
+            else if (def is RuntimeTargetedDefinition targeted)
+                stackEffect = BuildStackEffectSnapshot(targeted.StackingDetonation, root);
 
             return stackEffect.Enabled ? stackEffect : fallback;
         }
