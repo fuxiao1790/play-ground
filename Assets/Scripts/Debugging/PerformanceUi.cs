@@ -62,11 +62,7 @@ namespace PlayGround.SkillUi
 
         private void OnDisable()
         {
-            if (hasStatsQuery)
-                statsQuery.Dispose();
-
-            statsWorld = null;
-            hasStatsQuery = false;
+            ReleaseStatsQuery();
         }
 
         private void Update()
@@ -96,9 +92,7 @@ namespace PlayGround.SkillUi
 
             if (!hasStatsQuery || statsWorld != world)
             {
-                if (hasStatsQuery)
-                    statsQuery.Dispose();
-
+                ReleaseStatsQuery();
                 statsWorld = world;
                 statsQuery = world.EntityManager.CreateEntityQuery(
                     ComponentType.ReadOnly<CombatStatsDisplaySingleton>());
@@ -106,6 +100,21 @@ namespace PlayGround.SkillUi
             }
 
             return statsQuery.TryGetSingleton(out CombatStatsDisplaySingleton stats) ? stats : default;
+        }
+
+        // The query is owned by the world, so it dies with the world. This overlay has execution
+        // order 1000, meaning its OnDisable runs after CombatRoot's teardown has already disposed
+        // the world — disposing the handle then walks a freed query-data map and throws. When the
+        // world is gone the query storage is already released, so dropping the handle is the whole
+        // cleanup.
+        private void ReleaseStatsQuery()
+        {
+            if (hasStatsQuery && statsWorld != null && statsWorld.IsCreated)
+                statsQuery.Dispose();
+
+            statsQuery = default;
+            statsWorld = null;
+            hasStatsQuery = false;
         }
     }
 }

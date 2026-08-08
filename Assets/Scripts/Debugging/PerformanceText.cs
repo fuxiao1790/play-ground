@@ -13,10 +13,18 @@ public class PerformanceText : MonoBehaviour
     [SerializeField] private Color backgroundColor = new(0f, 0f, 0f, 0.55f);
 
     private float smoothedDeltaTime;
+    private World statsWorld;
+    private EntityQuery statsQuery;
+    private bool hasStatsQuery;
 
     private void Awake()
     {
         EnsureOverlayText();
+    }
+
+    private void OnDisable()
+    {
+        ReleaseStatsQuery();
     }
 
     private void Update()
@@ -53,8 +61,9 @@ public class PerformanceText : MonoBehaviour
 
     // Read-only pull of the display mirror the gather system publishes once per frame.
     // The overlay queries the world for it here rather than the internal accumulator, which
-    // CombatStatsResetSystem zeroes at the start of every frame.
-    private static CombatStatsDisplaySingleton ReadCombatStats()
+    // CombatStatsResetSystem zeroes at the start of every frame. The query is cached because
+    // creating one per Update allocates a handle the world only reclaims when it is disposed.
+    private CombatStatsDisplaySingleton ReadCombatStats()
     {
         World world = World.DefaultGameObjectInjectionWorld;
         if (world == null || !world.IsCreated)
@@ -62,9 +71,31 @@ public class PerformanceText : MonoBehaviour
             return default;
         }
 
-        EntityQuery query = world.EntityManager.CreateEntityQuery(
-            ComponentType.ReadOnly<CombatStatsDisplaySingleton>());
-        return query.TryGetSingleton(out CombatStatsDisplaySingleton stats) ? stats : default;
+        if (!hasStatsQuery || statsWorld != world)
+        {
+            ReleaseStatsQuery();
+            statsWorld = world;
+            statsQuery = world.EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<CombatStatsDisplaySingleton>());
+            hasStatsQuery = true;
+        }
+
+        return statsQuery.TryGetSingleton(out CombatStatsDisplaySingleton stats) ? stats : default;
+    }
+
+    // The query is owned by the world and dies with it, so disposing the handle after the world
+    // has already been torn down walks a freed query-data map and throws. When the world is gone
+    // the storage is already released and dropping the handle is the whole cleanup.
+    private void ReleaseStatsQuery()
+    {
+        if (hasStatsQuery && statsWorld != null && statsWorld.IsCreated)
+        {
+            statsQuery.Dispose();
+        }
+
+        statsQuery = default;
+        statsWorld = null;
+        hasStatsQuery = false;
     }
 
     private void EnsureOverlayText()
