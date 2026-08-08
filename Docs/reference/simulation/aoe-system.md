@@ -59,8 +59,6 @@ Non-goals:
   lingering AOEs.
 - `Assets/Scripts/System/Aoes/AoeEcsComponents.cs`: AOE identity, collision
   active tag, hit interval state, hit-spawn snapshot, area, and pulse VFX data.
-- `Assets/Scripts/Skills/Authoring/AoeConfig.cs`: ScriptableObject authoring for AOE
-  type definitions.
 - `Assets/Scripts/System/Aoes/AoeRuntimeEvents.cs`: managed AOE spawn request and
   counters.
 - `Assets/Scripts/System/Lifetime/CombatLifetimeSystem.cs`: shared projectile and
@@ -72,7 +70,7 @@ Non-goals:
 
 `CombatRoot` owns AOE authoring and bridge work:
 
-- register `AoeConfig` and `AoeTypeDefinition`
+- register `AoeTypeDefinition`
 - validate AOE type ids and spawn geometry
 - build AOE render resources
 - append `ImpactAoeSpawnEvent` or `LingeringAoeSpawnEvent` values to the shared
@@ -281,8 +279,8 @@ It is separate from hit qualification and from lifetime expiry.
 
 AOE visuals use the same shared-atlas rendering path as projectiles:
 
-- `CombatRoot` builds render resources from `AoeConfig` or
-  `AoeTypeDefinition`, registering each kind's sprite with the shared
+- `CombatRoot` builds render resources from `AoeTypeDefinition`,
+  registering each kind's sprite with the shared
   `CombatRenderResourceRegistry` (one `SpriteAtlas`-backed texture, one mesh,
   one material for every kind).
 - AOE entities carry common render components and faction/type shared
@@ -327,7 +325,7 @@ update because apply runs after collision.
 
 Current AOE authoring uses:
 
-- `AoeConfig` assets
+- `AoeSkill`/`LingeringAoeSkill` assets (embedding `AoeDefinition`/`LingeringAoeDefinition`)
 - `AoeTypeDefinition`
 - `BasicAoePrefab`, `LingeringAoePrefab`, or other validator prefabs
 - `AoeSpawnGeometry` resolved before ECS receives the spawn event

@@ -196,8 +196,6 @@ Docs/
 
 - `Assets/Scripts/System/Aoes/AoeRuntimeEvents.cs`: managed AOE spawn request and
   counters.
-- `Assets/Scripts/Skills/Authoring/AoeConfig.cs`: ScriptableObject authoring for AOE
-  type definitions.
 - `Assets/Scripts/System/Aoes/AoeSpawnPipeline.cs`: `AOE variant spawn event`,
   `AoeSpawnCommand`, and impact/on-hit AOE helpers.
 - `Assets/Scripts/System/Aoes/AoeSpawnExpansionSystem.cs`: contains impact and

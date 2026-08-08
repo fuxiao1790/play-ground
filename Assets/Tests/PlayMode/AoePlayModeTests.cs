@@ -697,24 +697,6 @@ namespace PlayGround.Tests.PlayMode
             typeId = root.RegisterType(definition);
         }
 
-        private static AoeConfig CreateMinimalAoeConfig()
-        {
-            GameObject prefabObject = new GameObject("MinimalAoePrefab");
-            prefabObject.SetActive(false);
-            CircleCollider2D hurtbox = prefabObject.AddComponent<CircleCollider2D>();
-            hurtbox.radius = 0.5f;
-            GameObject visualObject = new GameObject("Visual");
-            visualObject.transform.SetParent(prefabObject.transform, false);
-            SpriteRenderer sr = visualObject.AddComponent<SpriteRenderer>();
-            sr.sprite = CombatAtlasTestFixture.Sprite;
-            BasicAoePrefab basicPrefab = prefabObject.AddComponent<BasicAoePrefab>();
-            basicPrefab.Configure(sr, hurtbox);
-
-            AoeConfig config = ScriptableObject.CreateInstance<AoeConfig>();
-            config.Configure(basicPrefab);
-            return config;
-        }
-
         private static BasicAttackPrefab CreateProjectilePrefab(string name)
         {
             GameObject prefabObject = new(name);
