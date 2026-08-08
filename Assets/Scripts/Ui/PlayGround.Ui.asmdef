@@ -1,6 +1,6 @@
 {
-  "name": "PlayGround.SkillUi",
-  "rootNamespace": "PlayGround.SkillUi",
+  "name": "PlayGround.Ui",
+  "rootNamespace": "PlayGround.Ui",
   "references": [
     "PlayGround.GameLogic",
     "PlayGround.Sim",

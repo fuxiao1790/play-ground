@@ -81,8 +81,8 @@ Docs/
 - `Assets/Scripts/System/PlayGround.Sim.asmdef`: `PlayGround.Sim`; ECS runtime plus
   combat bridge, ECS-serving presentation roots, `System/Authoring/` prefab
   components, and `System/Shared/` primitives.
-- `Assets/Scripts/SkillUi/PlayGround.SkillUi.asmdef`: `PlayGround.SkillUi`;
-  skill-loadout UI.
+- `Assets/Scripts/Ui/PlayGround.Ui.asmdef`: `PlayGround.Ui`; HUD and
+  skill-loadout UI (organized by component under `Ui/Hud/`).
 - `Assets/Scripts/Debugging/PlayGround.Debugging.asmdef`: exempt Debugging leaf.
 - `Assets/Prefabs/`: authored runtime prefabs
 - `Assets/ScriptableObjects/`: authored reusable data

@@ -1,6 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
     <Style src="SkillLoadoutUi.uss" />
-    <Style src="../ResourceBars/ResourceBarsUi.uss" />
+    <Style src="ResourceBarUi.uss" />
     <ui:VisualElement name="hud-container" class="hud-container">
         <ui:VisualElement name="performance-panel" class="performance-panel">
             <ui:Label name="performance-fps" class="performance-text" />

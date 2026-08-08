@@ -33,7 +33,7 @@ must stay forbidden even when they seem convenient for tests or prototypes.
 Core runtime code is split into asmdefs under `Assets/Scripts/` with one-way references:
 
 ```text
-PlayGround.SkillUi -> PlayGround.GameLogic -> PlayGround.Sim
+PlayGround.Ui -> PlayGround.GameLogic -> PlayGround.Sim
 ```
 
 `PlayGround.Sim` (`Assets/Scripts/System/`) must not reference game logic, UI, or Debugging. The combat

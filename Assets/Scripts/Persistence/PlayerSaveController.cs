@@ -4,9 +4,10 @@ using System.IO;
 using PlayGround.Common;
 using PlayGround.Persistence;
 using PlayGround.Player;
+using PlayGround.Skills;
 using UnityEngine;
 
-namespace PlayGround.Skills
+namespace PlayGround.Persistence
 {
     [DefaultExecutionOrder(100)]
     public sealed class PlayerSaveController : MonoBehaviour

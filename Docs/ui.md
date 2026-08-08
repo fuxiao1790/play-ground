@@ -12,12 +12,12 @@ Scene And Authoring owns the Unity UI objects and presentation roots. This
 includes `UIDocument`, UI Toolkit panels, `PanelSettings`, scene wiring, and
 the UI input surface.
 
-The `PlayGround.SkillUi` assembly owns feature-specific UI controllers. It may
+The `PlayGround.Ui` assembly owns feature-specific UI controllers. It may
 read Game Logic state and send commands to Game Logic. The dependency direction
 stays one way:
 
 ```text
-PlayGround.SkillUi -> PlayGround.GameLogic -> PlayGround.Sim
+PlayGround.Ui -> PlayGround.GameLogic -> PlayGround.Sim
 ```
 
 Game Logic and ECS Simulation must not reference UI types. UI must not make ECS
@@ -40,9 +40,13 @@ The project uses Unity UI Toolkit at runtime.
 
 The current skill UI is the reference implementation:
 
-- Root and templates: `Assets/Scripts/Ui/SkillLoadout/`
-- Runtime controller: `Assets/Scripts/SkillUi/SkillLoadoutUi.cs`
-- Compiled assembly: `Assets/Scripts/SkillUi/PlayGround.SkillUi.asmdef`
+- Shared HUD root: `Assets/Scripts/Ui/Hud/` (`SkillLoadoutUi.uxml`,
+  `SkillLoadoutUi.uss`, `ResourceBarUi.uss`)
+- Skill-bar-private templates: `Assets/Scripts/Ui/Hud/SkillLoadout/`
+- Shared skill catalogs: `Assets/Scripts/Skills/Authoring/` (consumed by UI
+  and persistence)
+- Runtime controller: `Assets/Scripts/Ui/Hud/SkillLoadout/SkillLoadoutUi.cs`
+- Compiled assembly: `Assets/Scripts/Ui/PlayGround.Ui.asmdef`
 - Sample scene wiring: `Assets/Scenes/BenchmarkLarge.unity`
 
 ## UXML, USS, And C# Rules
@@ -156,7 +160,7 @@ Use this order:
 2. Decide whether the feature belongs in the existing `UIDocument` or needs a
    separate panel.
 3. Author stable structure in UXML and appearance in USS.
-4. Add a small controller in `PlayGround.SkillUi` for binding and events.
+4. Add a small controller in `PlayGround.Ui` for binding and events.
 5. Keep input ownership explicit. Put new interactive controls above the world
    surface and define pass-through behavior deliberately.
 6. Refresh from owner events or revisions. Do not create a second gameplay
