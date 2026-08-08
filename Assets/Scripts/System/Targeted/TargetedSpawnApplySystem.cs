@@ -169,7 +169,7 @@ namespace PlayGround.System.Combat.Targeted
                             Origin = cfg.Origin,
                             AcquireAnchor = cfg.AcquireAnchor,
                             LinkSource = cfg.Origin,
-                            LinkTarget = cfg.Origin,
+                            LinkTarget = cfg.AcquireAnchor,
                             LastTargetKey = 0,
                             LinkIndex = 0,
                             LinkGateRemaining = 0f
@@ -179,20 +179,17 @@ namespace PlayGround.System.Combat.Targeted
                         vfxIds[i] = cfg.VfxIds;
                         vfxSizes[i] = cfg.VfxSize;
                         vfxTimings[i] = TargetedVfxUtility.TimingFor(cfg);
-                        kinematics[i] = new CombatKinematicsComponent { Position = cfg.Origin };
+                        kinematics[i] = new CombatKinematicsComponent { Position = cfg.AcquireAnchor };
                         renders[i] = cfg.Render;
                         authorings[i] = cfg.Authoring;
                         renderKindIds[i] = new CombatRenderKindId { Value = cfg.RenderTypeId };
                         lifetimes[i] = new CombatLifetimeComponent { Remaining = cfg.LifetimeSeconds };
                         armings[i] = new CombatArmingComponent { Remaining = cfg.ArmSeconds };
                         activeMask[i] = true;
-                        // A chain has no pose until its first link lands: CombatKinematicsComponent
-                        // still holds the spawn origin, which is the caster. Apply runs after
-                        // resolve, so an unarmed chain would sit through render prep and draw its
-                        // sprite on the caster for one frame every cast. Arm every chain instead;
-                        // CombatArmingSystem clears a zero-length arm on the next update, which is
-                        // the same update the walk starts, so no link is delayed.
-                        armingMask[i] = true;
+                        // An acquired chain starts on its target and can render immediately. An
+                        // unacquired chain keeps the caster-facing placeholder hidden until its
+                        // first link lands. Authored arming remains an independent pause overlay.
+                        armingMask[i] = cfg.ArmSeconds > 0f || cfg.HasAcquiredTarget == 0;
                     }
                 }
 

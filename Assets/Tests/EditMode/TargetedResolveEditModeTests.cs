@@ -290,6 +290,9 @@ namespace PlayGround.Tests.EditMode
             AddCircleTarget(new float2(1f, 0f), 0.25f);
             AddCircleTarget(new float2(1f, 2f), 0.25f);
             Entity chain = AddChain(instanceIndex: 0, chainDistance: 3f, chainCount: 2);
+            TargetedChainComponent seeded = _entityManager.GetComponentData<TargetedChainComponent>(chain);
+            seeded.LinkTarget = new float2(9f, 9f);
+            _entityManager.SetComponentData(chain, seeded);
             SetLinkVfx(chain, VfxDataShapeTable.EncodeId(VfxDataShape.LineSegment, 1), 0.75f);
 
             Tick();
@@ -298,6 +301,41 @@ namespace PlayGround.Tests.EditMode
             Assert.That(segments, Has.Length.EqualTo(2));
             Assert.That(ContainsSegment(segments, float2.zero, new float2(1f, 0f), 0.75f), Is.True);
             Assert.That(ContainsSegment(segments, new float2(1f, 0f), new float2(1f, 2f), 0.75f), Is.True);
+        }
+
+        [Test]
+        public void AcquisitionAndResolve_UseSameNearestHostileRule()
+        {
+            AddCircleTarget(new float2(0.5f, 0f), 0.25f, CombatFaction.Player);
+            Entity nearestHostile = AddCircleTarget(new float2(1f, 0f), 0.25f);
+            Entity chain = AddChain(instanceIndex: 0, chainDistance: 3f, chainCount: 1);
+
+            Tick();
+
+            CombatHitEvent[] hits = DrainHits();
+            Assert.That(hits, Has.Length.EqualTo(1));
+            Assert.That(hits[0].Target, Is.EqualTo(nearestHostile));
+
+            TargetSpatialHashSingleton hash = _entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<TargetSpatialHashSingleton>()).GetSingleton<TargetSpatialHashSingleton>();
+            hash.BuildHandle.Complete();
+            TargetedAcquisition.Snapshot snapshot = new(
+                hash.TargetEntities.AsArray(),
+                hash.TargetPositions.AsArray(),
+                hash.TargetShapes.AsArray(),
+                hash.TargetFactions.AsArray(),
+                hash.AoeOccupiedCells);
+            Assert.That(
+                TargetedAcquisition.TryNearestHostile(
+                    snapshot,
+                    float2.zero,
+                    3f,
+                    CombatFaction.Player,
+                    out Entity acquired,
+                    out _),
+                Is.True);
+            Assert.That(acquired, Is.EqualTo(hits[0].Target));
+            Assert.That(hits[0].Source, Is.EqualTo(chain));
         }
 
         [Test]

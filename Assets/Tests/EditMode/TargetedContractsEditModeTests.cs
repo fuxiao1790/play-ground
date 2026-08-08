@@ -96,7 +96,7 @@ namespace PlayGround.Tests.EditMode
                 Is.EqualTo(new[]
                 {
                     "Faction", "TargetedId", "TypeId", "RenderTypeId", "InstanceIndex",
-                    "JitterSeed", "DeterministicIdTickIndex", "Origin", "AcquireAnchor", "EchoCount",
+                    "JitterSeed", "DeterministicIdTickIndex", "Origin", "AcquireAnchor", "HasAcquiredTarget", "EchoCount",
                     "LifetimeSeconds", "ArmSeconds", "HitPayload", "Resolve",
                     "VfxIds", "VfxSize", "Render", "Authoring", "OnHitSpawn"
                 }));

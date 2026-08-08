@@ -70,11 +70,12 @@ namespace PlayGround.System.Combat.Targeted
             JobHandle handle = new TargetedResolveJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
-                TargetEntities = hash.TargetEntities.AsArray(),
-                TargetPositions = hash.TargetPositions.AsArray(),
-                TargetShapes = hash.TargetShapes.AsArray(),
-                TargetFactions = hash.TargetFactions.AsArray(),
-                OccupiedTargetCells = hash.AoeOccupiedCells,
+                TargetSnapshot = new TargetedAcquisition.Snapshot(
+                    hash.TargetEntities.AsArray(),
+                    hash.TargetPositions.AsArray(),
+                    hash.TargetShapes.AsArray(),
+                    hash.TargetFactions.AsArray(),
+                    hash.AoeOccupiedCells),
                 HitWriter = hitDispatch.ValueRO.HitQueue.AsParallelWriter(),
                 CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
                 TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter(),
@@ -107,11 +108,7 @@ namespace PlayGround.System.Combat.Targeted
         private partial struct TargetedResolveJob : IJobEntity
         {
             public float DeltaTime;
-            [ReadOnly] public NativeArray<Entity> TargetEntities;
-            [ReadOnly] public NativeArray<TargetPosition> TargetPositions;
-            [ReadOnly] public NativeArray<TargetCollisionShape> TargetShapes;
-            [ReadOnly] public NativeArray<TargetFaction> TargetFactions;
-            [ReadOnly] public NativeParallelMultiHashMap<long, int> OccupiedTargetCells;
+            public TargetedAcquisition.Snapshot TargetSnapshot;
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
             public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
             public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
@@ -197,22 +194,24 @@ namespace PlayGround.System.Combat.Targeted
                         ? math.clamp(identity.InstanceIndex, 0, MaxChainCount - 1)
                         : 0;
 
-                    if (!TrySelectNthNearest(
+                    if (!TargetedAcquisition.TrySelectNthNearest(
+                            TargetSnapshot,
                             searchFrom,
                             config.ChainDistance,
                             rank,
                             identity.Faction,
                             chain.LastTargetKey,
+                            MaxChainCount,
                             out Entity targetEntity,
                             out float2 targetPosition))
                     {
                         break;
                     }
 
-                    chain.LinkSource = currentPosition;
+                    chain.LinkSource = firstLink ? chain.Origin : currentPosition;
                     currentPosition = targetPosition;
                     chain.LinkTarget = currentPosition;
-                    chain.LastTargetKey = TargetKey(targetEntity);
+                    chain.LastTargetKey = TargetedAcquisition.TargetKey(targetEntity);
 
                     HitWriter.Enqueue(new CombatHitEvent
                     {
@@ -259,148 +258,6 @@ namespace PlayGround.System.Combat.Targeted
                 return chain.LinkIndex >= chainCount || availableHits > 0;
             }
 
-            private bool TrySelectNthNearest(
-                float2 from,
-                float radius,
-                int rank,
-                CombatFaction faction,
-                int excludeKey,
-                out Entity selectedEntity,
-                out float2 selectedPosition)
-            {
-                selectedEntity = Entity.Null;
-                selectedPosition = default;
-                int limit = math.clamp(rank + 1, 1, MaxChainCount);
-                FixedList512Bytes<Candidate> eligible = default;
-
-                int2 min = CombatSpatialHash.MinCell(
-                    from - new float2(radius), CombatSpatialHash.AoeCellSize);
-                int2 max = CombatSpatialHash.MaxCell(
-                    from + new float2(radius), CombatSpatialHash.AoeCellSize);
-                for (int y = min.y; y <= max.y; y++)
-                {
-                    for (int x = min.x; x <= max.x; x++)
-                    {
-                        if (!OccupiedTargetCells.TryGetFirstValue(
-                                CombatSpatialHash.CellKey(x, y),
-                                out int targetIndex,
-                                out NativeParallelMultiHashMapIterator<long> iterator))
-                        {
-                            continue;
-                        }
-
-                        do
-                        {
-                            if (targetIndex < 0 || targetIndex >= TargetEntities.Length
-                                || TargetFactions[targetIndex].Value == faction
-                                || TargetKey(TargetEntities[targetIndex]) == excludeKey)
-                            {
-                                continue;
-                            }
-
-                            TargetCollisionShape target = TargetShapes[targetIndex];
-                            if (!CombatCollisionMath.BoundsIntersect(
-                                    from - new float2(radius),
-                                    from + new float2(radius),
-                                    target.BoundsMin,
-                                    target.BoundsMax)
-                                || !CombatCollisionMath.Hit(
-                                    from,
-                                    radius,
-                                    default,
-                                    0f,
-                                    CombatShapeType.Circle,
-                                    TargetPositions[targetIndex].Value,
-                                    target.Radius,
-                                    target.HalfExtents,
-                                    target.RotationRadians,
-                                    target.ShapeType))
-                            {
-                                continue;
-                            }
-
-                            InsertNearest(ref eligible, new Candidate
-                            {
-                                TargetIndex = targetIndex,
-                                DistanceSquared = math.lengthsq(TargetPositions[targetIndex].Value - from)
-                            }, limit);
-                        }
-                        while (OccupiedTargetCells.TryGetNextValue(out targetIndex, ref iterator));
-                    }
-                }
-
-                if (eligible.Length == 0)
-                {
-                    return false;
-                }
-
-                Candidate selected = eligible[rank % eligible.Length];
-                selectedEntity = TargetEntities[selected.TargetIndex];
-                selectedPosition = TargetPositions[selected.TargetIndex].Value;
-                return true;
-            }
-
-            private static void InsertNearest(
-                ref FixedList512Bytes<Candidate> candidates,
-                Candidate candidate,
-                int limit)
-            {
-                // This bounded nearest set is also the target-index dedupe. A candidate displaced
-                // from a full set cannot later re-enter: every retained candidate is closer.
-                for (int i = 0; i < candidates.Length; i++)
-                {
-                    if (candidates[i].TargetIndex == candidate.TargetIndex)
-                    {
-                        return;
-                    }
-                }
-
-                int insertAt = candidates.Length;
-                for (int i = 0; i < candidates.Length; i++)
-                {
-                    Candidate other = candidates[i];
-                    if (candidate.DistanceSquared < other.DistanceSquared
-                        || (candidate.DistanceSquared == other.DistanceSquared
-                            && candidate.TargetIndex < other.TargetIndex))
-                    {
-                        insertAt = i;
-                        break;
-                    }
-                }
-
-                if (insertAt >= limit)
-                {
-                    return;
-                }
-
-                if (candidates.Length < limit)
-                {
-                    candidates.Add(default);
-                }
-
-                for (int i = candidates.Length - 1; i > insertAt; i--)
-                {
-                    candidates[i] = candidates[i - 1];
-                }
-
-                candidates[insertAt] = candidate;
-            }
-
-            private static int TargetKey(Entity entity)
-            {
-                unchecked
-                {
-                    int key = ((entity.Index + 1) * 397) ^ entity.Version;
-                    key &= 0x7fffffff;
-                    return key == 0 ? 1 : key;
-                }
-            }
-
-            private struct Candidate
-            {
-                public int TargetIndex;
-                public float DistanceSquared;
-            }
         }
     }
 }

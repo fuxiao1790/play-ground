@@ -1,4 +1,5 @@
 using PlayGround.System.Combat.Aoes;
+using PlayGround.System.Combat.Collision.Broadphase;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Projectiles;
 using PlayGround.System.Combat.Targets;
@@ -47,6 +48,7 @@ namespace PlayGround.System.Combat.Spawning
     }
 
     [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(TargetSpatialHashSystem))]
     [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
     [UpdateBefore(typeof(ImpactAoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(LingeringAoeSpawnExpansionSystem))]
@@ -149,12 +151,40 @@ namespace PlayGround.System.Combat.Spawning
 
             if (request.Kind == IntervalChildKind.Targeted)
             {
+                byte hasAcquiredTarget = 0;
+                if (SystemAPI.TryGetSingleton(out TargetedSpawnTemplate templates)
+                    && templates.Map.TryGetValue(
+                        request.TemplateKey,
+                        out TargetedSpawnCommand command)
+                    && SystemAPI.TryGetSingleton(out TargetSpatialHashSingleton hash))
+                {
+                    hash.BuildHandle.Complete();
+                    TargetedAcquisition.Snapshot snapshot = new(
+                        hash.TargetEntities.AsArray(),
+                        hash.TargetPositions.AsArray(),
+                        hash.TargetShapes.AsArray(),
+                        hash.TargetFactions.AsArray(),
+                        hash.AoeOccupiedCells);
+                    if (TargetedAcquisition.TryNearestHostile(
+                            snapshot,
+                            acquireAnchor,
+                            command.Resolve.ChainDistance,
+                            request.Faction,
+                            out _,
+                            out float2 acquiredPosition))
+                    {
+                        acquireAnchor = acquiredPosition;
+                        hasAcquiredTarget = 1;
+                    }
+                }
+
                 EntityManager.GetBuffer<TargetedSpawnEvent>(scope).Add(new TargetedSpawnEvent
                 {
                     Kind = IntervalChildKind.Targeted,
                     TemplateKey = request.TemplateKey,
                     Position = request.Position,
                     AcquireAnchor = acquireAnchor,
+                    HasAcquiredTarget = hasAcquiredTarget,
                     AimDirection = request.AimDirection,
                     Faction = request.Faction,
                     SourceId = request.SourceId,

@@ -10,12 +10,14 @@ namespace PlayGround.System.Combat.Targeted
 {
     // ECS Lifecycle: transient spawn intent; enqueued by producers into the expansion queue
     // or appended to the scope submission buffer; consumed and discarded by TargetedSpawnExpansionSystem.
+    // HasAcquiredTarget is stamped only for root-cast gate intent and is discarded after expansion.
     public struct TargetedSpawnEvent : IBufferElementData
     {
         public IntervalChildKind Kind;
         public Hash128 TemplateKey;
         public float2 Position;
         public float2 AcquireAnchor;
+        public byte HasAcquiredTarget;
         public float2 AimDirection;
         public CombatFaction Faction;
         public int SourceId;
@@ -26,6 +28,7 @@ namespace PlayGround.System.Combat.Targeted
 
     // ECS Lifecycle: resolved single-entity allocation intent; produced by expansion, consumed by
     // apply. Registry templates use this same shape with per-instance fields left default.
+    // HasAcquiredTarget is per-instance expansion data and is cleared in normalized templates.
     public struct TargetedSpawnCommand
     {
         public CombatFaction Faction;
@@ -40,6 +43,7 @@ namespace PlayGround.System.Combat.Targeted
         public int DeterministicIdTickIndex;
         public float2 Origin;
         public float2 AcquireAnchor;
+        public byte HasAcquiredTarget;
         public int EchoCount;
         // Fail-safe only. A chain expires the instant its walk ends, so this backstop is computed
         // from the walk's own worst-case duration and never authored.

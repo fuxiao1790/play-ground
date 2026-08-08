@@ -11,6 +11,7 @@ using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Targeted;
 using PlayGround.System.Combat.Vfx;
 using Unity.Burst;
 using Unity.Collections;
@@ -337,7 +338,8 @@ namespace PlayGround.System.Combat.Collision.Broadphase
             {
                 for (int i = 0; i < TargetEntities.Length; i++)
                 {
-                    TrackingIndicesById.TryAdd(TargetIdKey(TargetKey(TargetEntities[i])), i);
+                    TrackingIndicesById.TryAdd(
+                        TargetIdKey(TargetedAcquisition.TargetKey(TargetEntities[i])), i);
                     int2 cell = CombatSpatialHash.FloorCell(
                         TargetPositions[i].Value,
                         CombatSpatialHash.TrackingCellSize);
@@ -367,16 +369,6 @@ namespace PlayGround.System.Combat.Collision.Broadphase
                         }
                     }
                 }
-            }
-        }
-
-        private static int TargetKey(Entity entity)
-        {
-            unchecked
-            {
-                int key = ((entity.Index + 1) * 397) ^ entity.Version;
-                key &= 0x7fffffff;
-                return key == 0 ? 1 : key;
             }
         }
 

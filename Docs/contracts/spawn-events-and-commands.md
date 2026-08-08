@@ -58,9 +58,20 @@ long as its walk, so `IntervalChildKind` carries a single `Targeted` value
 alongside the projectile and AOE ones. Producers route by the carried kind and
 do not inspect templates at runtime.
 
-Targeted events carry the ordinary instance frame plus `AcquireAnchor`. `Position`
-is the chain origin; `AcquireAnchor` is separately preserved so root casts can
-start at the caster while selecting their first target around the cursor.
+Targeted events carry the ordinary instance frame plus `AcquireAnchor` and
+`HasAcquiredTarget`. `Position` is the chain origin. Root casts enter the gate
+with the cursor as `AcquireAnchor`; the gate replaces it with the nearest hostile
+target position within `ChainDistance` and sets `HasAcquiredTarget` when it finds
+one. Interval-child and on-hit chains keep their source/impact anchor and leave
+the flag clear. Expansion copies both fields into `TargetedSpawnCommand`; the
+registry template keeps the flag clear.
+
+Targeted-specific fields are:
+
+- `TargetedSpawnEvent.AcquireAnchor`
+- `TargetedSpawnEvent.HasAcquiredTarget`
+- `TargetedSpawnCommand.AcquireAnchor`
+- `TargetedSpawnCommand.HasAcquiredTarget`
 
 ## Guarantees
 

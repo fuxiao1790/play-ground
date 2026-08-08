@@ -89,10 +89,10 @@ namespace PlayGround.Tests.EditMode
                 Assert.That(identity.TargetedId, Is.InRange(77, 79));
                 seen[identity.TargetedId - 77] = true;
                 Assert.That(identity.InstanceIndex, Is.InRange(0, 2));
-                Assert.That(kinematics.Position, Is.EqualTo(origin));
+                Assert.That(kinematics.Position, Is.EqualTo(anchor));
                 Assert.That(chain.Origin, Is.EqualTo(origin));
                 Assert.That(chain.LinkSource, Is.EqualTo(origin));
-                Assert.That(chain.LinkTarget, Is.EqualTo(origin));
+                Assert.That(chain.LinkTarget, Is.EqualTo(anchor));
                 Assert.That(chain.AcquireAnchor, Is.EqualTo(anchor));
                 Assert.That(chain.LastTargetKey, Is.Zero);
                 Assert.That(chain.LinkIndex, Is.Zero);
@@ -199,16 +199,44 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void SpawnFrame_ArmsEveryChainSoNoSpriteDrawsOnTheCaster()
+        public void SpawnFrame_AcquiredChainStartsOnAnchorAndIsUnarmed()
         {
-            // Apply runs after resolve, so an unarmed chain would spend its spawn frame in render
-            // prep with kinematics still on the caster origin. Arming is what keeps it invisible.
-            Enqueue(MakeEvent(RegisterTemplate(), IntervalChildKind.Targeted, new float2(4f, -2f)));
+            float2 origin = new(4f, -2f);
+            float2 anchor = new(9f, 3f);
+            Enqueue(MakeEvent(
+                RegisterTemplate(),
+                IntervalChildKind.Targeted,
+                origin,
+                anchor,
+                hasAcquiredTarget: 1));
+
+            Tick();
+
+            Entity chain = OnlyActiveTargeted();
+            Assert.That(_entityManager.IsComponentEnabled<ArmingTag>(chain), Is.False);
+            Assert.That(_entityManager.GetComponentData<CombatKinematicsComponent>(chain).Position, Is.EqualTo(anchor));
+            TargetedChainComponent state = _entityManager.GetComponentData<TargetedChainComponent>(chain);
+            Assert.That(state.LinkTarget, Is.EqualTo(anchor));
+            Assert.That(state.LinkSource, Is.EqualTo(origin));
+        }
+
+        [Test]
+        public void SpawnFrame_UnacquiredChainStartsOnRawAnchorAndStaysArmed()
+        {
+            float2 origin = new(4f, -2f);
+            float2 anchor = new(9f, 3f);
+            Enqueue(MakeEvent(
+                RegisterTemplate(),
+                IntervalChildKind.Targeted,
+                origin,
+                anchor,
+                hasAcquiredTarget: 0));
 
             Tick();
 
             Entity chain = OnlyActiveTargeted();
             Assert.That(_entityManager.IsComponentEnabled<ArmingTag>(chain), Is.True);
+            Assert.That(_entityManager.GetComponentData<CombatKinematicsComponent>(chain).Position, Is.EqualTo(anchor));
             Assert.That(
                 _entityManager.GetComponentData<CombatArmingComponent>(chain).Remaining,
                 Is.Zero);
@@ -264,6 +292,7 @@ namespace PlayGround.Tests.EditMode
             IntervalChildKind kind,
             float2 position = default,
             float2 acquireAnchor = default,
+            byte hasAcquiredTarget = 0,
             int sourceId = 1,
             uint jitterSeed = 0u,
             int tickIndex = 0) =>
@@ -273,6 +302,7 @@ namespace PlayGround.Tests.EditMode
                 TemplateKey = key,
                 Position = position,
                 AcquireAnchor = acquireAnchor,
+                HasAcquiredTarget = hasAcquiredTarget,
                 Faction = CombatFaction.Player,
                 SourceId = sourceId,
                 JitterSeed = jitterSeed,

@@ -779,6 +779,7 @@ namespace PlayGround.System.Combat.Core
             template.DeterministicIdTickIndex = 0;
             template.Origin = default;
             template.AcquireAnchor = default;
+            template.HasAcquiredTarget = 0;
             CombatHitPayload hitPayload = template.HitPayload;
             StackEffectSnapshot stack = hitPayload.StackEffect;
             stack.Faction = CombatFaction.None;

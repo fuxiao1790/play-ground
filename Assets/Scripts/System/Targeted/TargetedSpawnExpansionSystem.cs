@@ -18,6 +18,7 @@ namespace PlayGround.System.Combat.Targeted
             Hash128 templateKey,
             float2 origin,
             float2 acquireAnchor,
+            byte hasAcquiredTarget,
             CombatFaction faction,
             int sourceId,
             uint jitterSeed,
@@ -33,7 +34,15 @@ namespace PlayGround.System.Combat.Targeted
                 return;
             }
 
-            Stamp(ref command, origin, acquireAnchor, faction, sourceId, jitterSeed, deterministicIdTickIndex);
+            Stamp(
+                ref command,
+                origin,
+                acquireAnchor,
+                hasAcquiredTarget,
+                faction,
+                sourceId,
+                jitterSeed,
+                deterministicIdTickIndex);
 
             int echoCount = math.max(1, command.EchoCount);
             for (int i = 0; i < echoCount; i++)
@@ -61,6 +70,7 @@ namespace PlayGround.System.Combat.Targeted
             ref TargetedSpawnCommand command,
             float2 origin,
             float2 acquireAnchor,
+            byte hasAcquiredTarget,
             CombatFaction faction,
             int sourceId,
             uint jitterSeed,
@@ -70,6 +80,7 @@ namespace PlayGround.System.Combat.Targeted
             command.TargetedId = sourceId;
             command.Origin = origin;
             command.AcquireAnchor = acquireAnchor;
+            command.HasAcquiredTarget = hasAcquiredTarget;
             command.JitterSeed = jitterSeed;
             command.DeterministicIdTickIndex = deterministicIdTickIndex;
         }
@@ -250,6 +261,7 @@ namespace PlayGround.System.Combat.Targeted
                         evt.TemplateKey,
                         evt.Position,
                         evt.AcquireAnchor,
+                        evt.HasAcquiredTarget,
                         evt.Faction,
                         evt.SourceId,
                         evt.JitterSeed,

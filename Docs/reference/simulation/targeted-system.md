@@ -59,17 +59,22 @@ Hot despawn only disables `Active`; cleanup trims bounded excess slots later.
 
 ## Spawn And Resolve
 
-`TargetedSpawnEvent` carries template key, origin, acquire anchor, faction,
-source id, and deterministic frame. Expansion stamps the instance frame and
-emits one `TargetedSpawnCommand` per echo.
+`TargetedSpawnEvent` carries template key, origin, acquire anchor, acquisition
+flag, faction, source id, and deterministic frame. For a root cast,
+`ExternalSpawnGateSystem` acquires the nearest hostile proxy to the aim point
+within `ChainDistance`; on success, `AcquireAnchor` becomes that target's
+position instead of the raw cursor. Interval-child and on-hit chains keep
+their source/impact anchor and acquire in resolve. Expansion stamps the
+instance frame and emits one `TargetedSpawnCommand` per echo.
 
 The resolve system runs after target spatial-hash build and arming, before hit
 finalize and spawn expansion. It searches hostile target proxies only:
 
 1. Link 0 searches from `AcquireAnchor`; later links search from the last
    target. Both use `ChainDistance` — one authored reach, no second radius.
-2. Fork `i` of an echo opens on the `i`-th nearest eligible target so multiple
-   chains from one cast do not walk the same path.
+2. Fork `i` of an echo opens on the `i`-th nearest eligible target from the
+   anchor, so multiple chains from one cast do not walk the same path even
+   though the gate stamps one shared anchor position.
 3. Only the immediately prior target is excluded; older targets may be
    revisited, so two enemies and `chainCount = 6` gives A→B→A→B→A→B.
 4. Each accepted link emits `CombatHitEvent` with `DamageScale` equal to
@@ -87,14 +92,13 @@ Chains carry shared render components so the common batched renderer can draw a
 debug sprite when authored. `CombatKinematicsComponent` is only a mirror of the
 last resolved link, not authoritative walk state.
 
-Because it is only a mirror, a chain has no pose until its first link lands. Two
+Because it is only a mirror, apply seeds its pose from `AcquireAnchor`. Two
 rules keep the sprite on link targets and off the caster:
 
-1. A chain is **spawned armed** regardless of authored `armSeconds`, and render
-   prep hides armed entities. Apply runs after resolve, so without this the
-   spawn-frame sprite would draw at the spawn origin — the caster.
-   `CombatArmingSystem` clears a zero-length arm on the next update, which is the
-   same update the walk starts, so no link is delayed.
+1. An acquired chain is unarmed when authored `armSeconds` is zero, so render
+   prep can draw it on its acquired target on the spawn frame. An unacquired
+   chain stays armed until resolve finds its first link; authored arm time also
+   keeps its normal pause behavior.
 2. The resolve holds the instance for one update after its last link, so the
    final target gets a rendered frame. Without it a `chainDelay = 0` walk would
    be born and expired between two render passes and never draw at all. Link VFX uses `LineSegment`
