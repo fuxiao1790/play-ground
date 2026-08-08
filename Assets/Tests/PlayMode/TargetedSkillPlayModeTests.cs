@@ -29,6 +29,26 @@ namespace PlayGround.Tests.PlayMode
         private static int nextTargetId = 50_000;
         private static readonly List<int> hitOrder = new();
 
+        // Cleanup must run even when an assertion throws mid-test, otherwise a failing test's
+        // CombatRoot and target proxies leak into every later test in the fixture (shared
+        // World.DefaultGameObjectInjectionWorld) and cascade-fail them too. UnityTearDown always
+        // runs, unlike an inline `yield return Cleanup(...)` placed after the assertions.
+        private CombatRoot activeRoot;
+        private readonly List<TargetProbe> activeTargets = new();
+
+        [UnityTearDown]
+        public IEnumerator TearDownActiveCombat()
+        {
+            if (activeRoot == null)
+            {
+                yield break;
+            }
+
+            yield return Cleanup(activeRoot, activeTargets.ToArray());
+            activeRoot = null;
+            activeTargets.Clear();
+        }
+
         [UnityTest]
         public IEnumerator BasicCast_DamagesTargetWithoutCreatingProjectileOrAoe()
         {
@@ -46,7 +66,6 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(target.TotalDamage, Is.EqualTo(5f).Within(0.001f));
             Assert.That(Count<ProjectileTag>(entityManager), Is.EqualTo(projectileCountBefore));
             Assert.That(Count<AoeTag>(entityManager), Is.EqualTo(aoeCountBefore));
-            yield return Cleanup(root, target);
         }
 
         [UnityTest]
@@ -67,7 +86,6 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(first.TotalDamage, Is.EqualTo(8f).Within(0.001f));
             Assert.That(second.TotalDamage, Is.EqualTo(4f).Within(0.001f));
             Assert.That(third.TotalDamage, Is.EqualTo(2f).Within(0.001f));
-            yield return Cleanup(root, first, second, third);
         }
 
         [UnityTest]
@@ -103,8 +121,6 @@ namespace PlayGround.Tests.PlayMode
             yield return WaitUntilDamaged(third);
 
             Assert.That(third.TotalDamage, Is.EqualTo(2f).Within(0.001f));
-
-            yield return Cleanup(root, first, second, third);
         }
 
         [UnityTest]
@@ -112,6 +128,10 @@ namespace PlayGround.Tests.PlayMode
         {
             // Two enemies and four chains: the walk bounces A-B-A-B rather than re-zapping the
             // one it just hit, and the instance is gone the moment the last chain is spent.
+            // chainDelay spreads links across separate frames: hit delivery is aggregated per
+            // target per frame (CombatApplyFinalizeSingleSystem groups by target before
+            // ReceiveHit fires), so two same-frame links on one target would otherwise collapse
+            // into a single hitOrder entry and make the alternation unobservable here.
             hitOrder.Clear();
             CombatRoot root = CreateRoot(out _);
             TargetProbe first = CreateTarget(new Vector2(1f, 0f));
@@ -119,7 +139,7 @@ namespace PlayGround.Tests.PlayMode
             root.TargetRegistry.Register(first);
             root.TargetRegistry.Register(second);
 
-            Spawn(root, damage: 5f, chainDistance: 2f, chainCount: 4);
+            Spawn(root, damage: 5f, chainDistance: 2f, chainCount: 4, chainDelay: 0.1f);
             yield return WaitUntilHitCount(4);
 
             Assert.That(hitOrder.Count, Is.GreaterThanOrEqualTo(4));
@@ -132,8 +152,6 @@ namespace PlayGround.Tests.PlayMode
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             yield return WaitUntilNoActiveTargeted(entityManager);
             Assert.That(ActiveTargetedCount(entityManager), Is.Zero);
-
-            yield return Cleanup(root, first, second);
         }
 
         [UnityTest]
@@ -159,8 +177,6 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(caster.RejectedCastToken, Is.EqualTo(17));
             Assert.That(caster.CombatCurrentMana, Is.EqualTo(2f));
             Assert.That(ActiveTargetedCount(World.DefaultGameObjectInjectionWorld.EntityManager), Is.Zero);
-
-            yield return Cleanup(root, caster, target);
         }
 
         [UnityTest]
@@ -222,8 +238,6 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(target.TotalDamage, Is.EqualTo(1f).Within(0.001f));
             yield return null;
             Assert.That(target.TotalDamage, Is.EqualTo(6f).Within(0.001f));
-
-            yield return Cleanup(root, target);
         }
 
         [UnityTest]
@@ -278,7 +292,6 @@ namespace PlayGround.Tests.PlayMode
             yield return WaitUntilDamaged(target);
 
             Assert.That(target.TotalDamage, Is.EqualTo(5f).Within(0.001f));
-            yield return Cleanup(root, target);
         }
 
         [UnityTest]
@@ -347,7 +360,6 @@ namespace PlayGround.Tests.PlayMode
             float firstDamage = first.TotalDamage;
             float secondDamage = second.TotalDamage;
             float thirdDamage = third.TotalDamage;
-            yield return Cleanup(root, first, second, third);
 
             Assert.That(firstDamage, Is.EqualTo(7f).Within(0.001f));
             Assert.That(secondDamage, Is.EqualTo(7f).Within(0.001f));
@@ -384,7 +396,6 @@ namespace PlayGround.Tests.PlayMode
             dispatch.Enabled = true;
 
             Assert.That(emitted, Is.EqualTo(3));
-            yield return Cleanup(root, first, second, third);
         }
 
         [UnityTest]
@@ -406,8 +417,6 @@ namespace PlayGround.Tests.PlayMode
 
             Assert.That(player.TotalDamage, Is.EqualTo(5f).Within(0.001f));
             Assert.That(nearbyMob.TotalDamage, Is.Zero);
-
-            yield return Cleanup(root, nearbyMob, player);
         }
 
         [UnityTest]
@@ -428,8 +437,6 @@ namespace PlayGround.Tests.PlayMode
             yield return WaitUntilNoActiveTargeted(entityManager);
 
             Assert.That(Count<TargetedTag>(entityManager), Is.EqualTo(slots));
-
-            yield return Cleanup(root, target);
         }
 
         [UnityTest]
@@ -510,7 +517,6 @@ namespace PlayGround.Tests.PlayMode
                 + Count<AoeTag>(entityManager)
                 + Count<TargetedTag>(entityManager);
 
-            yield return Cleanup(root, target);
             entityManager.SetComponentData(cleanupConfigEntity, cleanupConfig);
 
             Assert.That(projectilesDuring, Is.GreaterThan(projectilesBefore));
@@ -519,7 +525,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(totalAfterWindDown, Is.LessThan(totalDuring));
         }
 
-        private static CombatRoot CreateRoot(out GameObject rootObject)
+        private CombatRoot CreateRoot(out GameObject rootObject)
         {
             rootObject = new GameObject("Targeted Combat Root");
             rootObject.SetActive(false);
@@ -535,6 +541,7 @@ namespace PlayGround.Tests.PlayMode
             rendererField.SetValue(root, renderer);
             root.ConfigureAtlas(CombatAtlasTestFixture.Atlas);
             rootObject.SetActive(true);
+            activeRoot = root;
             return root;
         }
 
@@ -586,7 +593,7 @@ namespace PlayGround.Tests.PlayMode
                 castToken: castToken);
         }
 
-        private static TargetProbe CreateTarget(
+        private TargetProbe CreateTarget(
             Vector2 position,
             CombatFaction faction = CombatFaction.Mob,
             float mana = 0f)
@@ -595,6 +602,7 @@ namespace PlayGround.Tests.PlayMode
             gameObject.transform.position = position;
             TargetProbe target = gameObject.AddComponent<TargetProbe>();
             target.Configure(++nextTargetId, faction, radius: 0.25f, mana: mana);
+            activeTargets.Add(target);
             return target;
         }
 
@@ -674,18 +682,40 @@ namespace PlayGround.Tests.PlayMode
 
         private static IEnumerator Cleanup(CombatRoot root, params TargetProbe[] targets)
         {
+            Entity[] proxies = new Entity[targets.Length];
             for (int i = 0; i < targets.Length; i++)
             {
+                proxies[i] = targets[i].CombatTargetProxy;
                 root.TargetRegistry.Unregister(targets[i]);
                 CombatTargetProxy.Delete(targets[i]);
             }
 
+            // Deletion is deferred (event -> PresentationSystemGroup destroy -> next hash
+            // rebuild). Waiting on a fixed frame count instead of the actual entity state left a
+            // window where the next test's target at the same position could still see this
+            // proxy in the spatial hash, and pre-acquisition would silently pick the dying one.
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            for (int frame = 0; frame < 120 && AnyProxyExists(entityManager, proxies); frame++)
+                yield return null;
+
+            // One more frame so the spatial hash rebuilds without the just-destroyed proxies.
             yield return null;
 
             for (int i = 0; i < targets.Length; i++)
                 Object.Destroy(targets[i].gameObject);
             Object.Destroy(root.gameObject);
             yield return null;
+        }
+
+        private static bool AnyProxyExists(EntityManager entityManager, Entity[] proxies)
+        {
+            for (int i = 0; i < proxies.Length; i++)
+            {
+                if (proxies[i] != Entity.Null && entityManager.Exists(proxies[i]))
+                    return true;
+            }
+
+            return false;
         }
 
         private sealed class TargetProbe : MonoBehaviour, ICombatTarget
