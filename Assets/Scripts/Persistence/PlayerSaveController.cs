@@ -16,7 +16,7 @@ namespace PlayGround.Persistence
 
         [SerializeField] private PlayerRoot playerRoot;
         [SerializeField] private SkillDriver skillDriver;
-        [SerializeField] private SkillUiCatalog catalog;
+        [SerializeField] private SkillUiCatalog skillCatalog;
         [SerializeField] private SkillUiSupportCatalog supportCatalog;
         [SerializeField] private SkillUiTriggerCatalog triggerCatalog;
         [SerializeField, Min(1f)] private float autosaveSeconds = 30f;
@@ -39,7 +39,7 @@ namespace PlayGround.Persistence
                 throw new MissingReferenceException($"{nameof(PlayerSaveController)} on {name} needs a {nameof(SkillDriver)}.");
             }
 
-            if (catalog == null)
+            if (skillCatalog == null)
             {
                 throw new MissingReferenceException($"{nameof(PlayerSaveController)} on {name} needs a {nameof(SkillUiCatalog)}.");
             }
@@ -272,9 +272,9 @@ namespace PlayGround.Persistence
             Dictionary<string, SkillSupport> supports,
             Dictionary<string, TriggerLink> triggers)
         {
-            for (int i = 0; i < catalog.Skills.Count; i++)
+            for (int i = 0; i < skillCatalog.Skills.Count; i++)
             {
-                AddAsset(skills, catalog.Skills[i]);
+                AddAsset(skills, skillCatalog.Skills[i]);
             }
 
             for (int i = 0; i < supportCatalog.Supports.Count; i++)

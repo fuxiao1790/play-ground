@@ -13,7 +13,7 @@ namespace PlayGround.Skills
     public sealed class SkillLoadoutUi : MonoBehaviour
     {
         [SerializeField] private SkillDriver skillDriver;
-        [SerializeField] private SkillUiCatalog catalog;
+        [SerializeField] private SkillUiCatalog skillCatalog;
         [SerializeField] private SkillUiSupportCatalog supportCatalog;
         [SerializeField] private SkillUiTriggerCatalog triggerCatalog;
         [SerializeField] private PlayerRoot playerRoot;
@@ -120,7 +120,7 @@ namespace PlayGround.Skills
                 throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} requires a {nameof(UIDocument)} component.");
             if (skillDriver == null)
                 throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} could not resolve a {nameof(SkillDriver)}.");
-            if (catalog == null)
+            if (skillCatalog == null)
                 throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} needs a {nameof(SkillUiCatalog)}.");
             if (supportCatalog == null)
                 throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} needs a {nameof(SkillUiSupportCatalog)}.");
@@ -279,7 +279,7 @@ namespace PlayGround.Skills
             AddClear(choices);
             if (target.Kind == PickerKind.Skill)
             {
-                foreach (var skill in catalog.Skills)
+                foreach (var skill in skillCatalog.Skills)
                 {
                     AddChoice(choices, skill.DisplayName,
                         new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetSkill,

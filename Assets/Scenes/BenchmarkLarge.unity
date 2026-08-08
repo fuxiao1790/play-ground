@@ -1927,7 +1927,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PlayGround.SkillUi::PlayGround.Skills.SkillLoadoutUi
   skillDriver: {fileID: 1534015925}
-  catalog: {fileID: 11400000, guid: 8c2ac3dd8ca03c044a86edf6d4298796, type: 2}
+  skillCatalog: {fileID: 11400000, guid: 8c2ac3dd8ca03c044a86edf6d4298796, type: 2}
+  supportCatalog: {fileID: 11400000, guid: 877d17045513478b98dc6098a525d468, type: 2}
+  triggerCatalog: {fileID: 11400000, guid: 0a4509f5cc494bc38290197d5eb15398, type: 2}
   playerRoot: {fileID: 830174276}
   initialNodeCount: 3
   nodeColumnTemplate: {fileID: 9197481963319205126, guid: 707e9a4867132d244867fa216fcc4cb4, type: 3}
@@ -1949,7 +1951,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.SkillUi::PlayGround.Skills.PlayerSaveController
   playerRoot: {fileID: 830174276}
   skillDriver: {fileID: 1534015925}
-  catalog: {fileID: 11400000, guid: 8c2ac3dd8ca03c044a86edf6d4298796, type: 2}
+  skillCatalog: {fileID: 11400000, guid: 8c2ac3dd8ca03c044a86edf6d4298796, type: 2}
+  supportCatalog: {fileID: 11400000, guid: 877d17045513478b98dc6098a525d468, type: 2}
+  triggerCatalog: {fileID: 11400000, guid: 0a4509f5cc494bc38290197d5eb15398, type: 2}
   autosaveSeconds: 30
 --- !u!114 &1983018958
 MonoBehaviour:
