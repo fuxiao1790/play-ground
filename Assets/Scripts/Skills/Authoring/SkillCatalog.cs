@@ -7,12 +7,8 @@ namespace PlayGround.Skills
     public sealed class SkillUiCatalog : ScriptableObject
     {
         [SerializeField] private List<Skill> skills = new();
-        [SerializeField] private SkillUiSupportCatalog supportCatalog;
-        [SerializeField] private SkillUiTriggerCatalog triggerCatalog;
 
         public IReadOnlyList<Skill> Skills => skills;
-        public SkillUiSupportCatalog SupportCatalog => supportCatalog;
-        public SkillUiTriggerCatalog TriggerCatalog => triggerCatalog;
 
         private void OnValidate()
         {

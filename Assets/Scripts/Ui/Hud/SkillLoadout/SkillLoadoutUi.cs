@@ -14,6 +14,8 @@ namespace PlayGround.Skills
     {
         [SerializeField] private SkillDriver skillDriver;
         [SerializeField] private SkillUiCatalog catalog;
+        [SerializeField] private SkillUiSupportCatalog supportCatalog;
+        [SerializeField] private SkillUiTriggerCatalog triggerCatalog;
         [SerializeField] private PlayerRoot playerRoot;
         [SerializeField, Min(1)] private int initialNodeCount = 3;
 
@@ -118,8 +120,12 @@ namespace PlayGround.Skills
                 throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} requires a {nameof(UIDocument)} component.");
             if (skillDriver == null)
                 throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} could not resolve a {nameof(SkillDriver)}.");
-            if (catalog == null || catalog.SupportCatalog == null || catalog.TriggerCatalog == null)
-                throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} needs a complete {nameof(SkillUiCatalog)}.");
+            if (catalog == null)
+                throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} needs a {nameof(SkillUiCatalog)}.");
+            if (supportCatalog == null)
+                throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} needs a {nameof(SkillUiSupportCatalog)}.");
+            if (triggerCatalog == null)
+                throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} needs a {nameof(SkillUiTriggerCatalog)}.");
             if (nodeColumnTemplate == null || supportButtonTemplate == null || triggerButtonTemplate == null
                 || pickerTemplate == null || pickerChoiceTemplate == null)
                 throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} is missing one or more UXML template references.");
@@ -283,7 +289,7 @@ namespace PlayGround.Skills
             else if (target.Kind == PickerKind.Support)
             {
                 SkillDefinitionTags skillTags = GetSkillSet(target.NodeIndex)?.Skill?.Tags ?? SkillDefinitionTags.None;
-                foreach (var support in catalog.SupportCatalog.Supports)
+                foreach (var support in supportCatalog.Supports)
                 {
                     if (!SkillDefinitionTagUtility.HasAny(skillTags, support.SupportedSkillTags))
                         continue;
@@ -295,7 +301,7 @@ namespace PlayGround.Skills
             }
             else
             {
-                foreach (var trigger in catalog.TriggerCatalog.Triggers)
+                foreach (var trigger in triggerCatalog.Triggers)
                 {
                     AddChoice(choices, trigger.DisplayName,
                         new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetTrigger,

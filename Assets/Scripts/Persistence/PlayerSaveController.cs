@@ -17,6 +17,8 @@ namespace PlayGround.Persistence
         [SerializeField] private PlayerRoot playerRoot;
         [SerializeField] private SkillDriver skillDriver;
         [SerializeField] private SkillUiCatalog catalog;
+        [SerializeField] private SkillUiSupportCatalog supportCatalog;
+        [SerializeField] private SkillUiTriggerCatalog triggerCatalog;
         [SerializeField, Min(1f)] private float autosaveSeconds = 30f;
 
         private PlayerSaveStore store;
@@ -42,9 +44,14 @@ namespace PlayGround.Persistence
                 throw new MissingReferenceException($"{nameof(PlayerSaveController)} on {name} needs a {nameof(SkillUiCatalog)}.");
             }
 
-            if (catalog.SupportCatalog == null || catalog.TriggerCatalog == null)
+            if (supportCatalog == null)
             {
-                throw new MissingReferenceException($"{nameof(PlayerSaveController)} on {name} needs a complete {nameof(SkillUiCatalog)}.");
+                throw new MissingReferenceException($"{nameof(PlayerSaveController)} on {name} needs a {nameof(SkillUiSupportCatalog)}.");
+            }
+
+            if (triggerCatalog == null)
+            {
+                throw new MissingReferenceException($"{nameof(PlayerSaveController)} on {name} needs a {nameof(SkillUiTriggerCatalog)}.");
             }
 
             store = new PlayerSaveStore(Path.Combine(Application.persistentDataPath, SaveFileName));
@@ -270,14 +277,14 @@ namespace PlayGround.Persistence
                 AddAsset(skills, catalog.Skills[i]);
             }
 
-            for (int i = 0; i < catalog.SupportCatalog.Supports.Count; i++)
+            for (int i = 0; i < supportCatalog.Supports.Count; i++)
             {
-                AddAsset(supports, catalog.SupportCatalog.Supports[i]);
+                AddAsset(supports, supportCatalog.Supports[i]);
             }
 
-            for (int i = 0; i < catalog.TriggerCatalog.Triggers.Count; i++)
+            for (int i = 0; i < triggerCatalog.Triggers.Count; i++)
             {
-                AddAsset(triggers, catalog.TriggerCatalog.Triggers[i]);
+                AddAsset(triggers, triggerCatalog.Triggers[i]);
             }
         }
 
