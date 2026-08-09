@@ -13,7 +13,7 @@ jump to. That trailing update is what renders the last link (see
 [Render Mirror And VFX](#render-mirror-and-vfx)).
 
 Repeating chains are composed, not authored: hang a
-`TargetedIntervalSpawnTrigger` off a projectile or lingering AOE and the source
+`IntervalSpawnTrigger` off a projectile or lingering AOE and the source
 spawns a fresh chain per energy tick, the same way every other repeating child
 works.
 

@@ -9,6 +9,7 @@ namespace PlayGround.Skills
         Projectile = 1 << 0,
         Aoe = 1 << 1,
         Targeted = 1 << 2,
+        Interval = 1 << 3,
         Any = Projectile | Aoe | Targeted,
     }
 
@@ -21,6 +22,7 @@ namespace PlayGround.Skills
         {
             if (tags == SkillDefinitionTags.None) return "none";
             if (tags == SkillDefinitionTags.Any) return "projectile, AOE, or targeted";
+            if (tags == SkillDefinitionTags.Interval) return "projectile or lingering AOE";
             return tags.ToString();
         }
     }

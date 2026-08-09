@@ -201,7 +201,7 @@ namespace PlayGround.Tests.EditMode
         [Test]
         public void IntervalEnergyGainFoldAppliesBaseIncreaseAndMultiplier()
         {
-            ProjectileIntervalSpawnTrigger trigger = CreateAsset<ProjectileIntervalSpawnTrigger>("Projectile Interval Spawn");
+            IntervalSpawnTrigger trigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
             trigger.energyPerSecond = 2f;
             var snapshot = new SkillStatSnapshot(
                 increasedRatePercent: 0f,

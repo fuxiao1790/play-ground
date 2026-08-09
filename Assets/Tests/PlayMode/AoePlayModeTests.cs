@@ -312,8 +312,8 @@ namespace PlayGround.Tests.PlayMode
             SkillSet rootSetA = ScriptableObject.CreateInstance<SkillSet>();
             SkillSet rootSetB = ScriptableObject.CreateInstance<SkillSet>();
             SkillSet childSet = ScriptableObject.CreateInstance<SkillSet>();
-            ProjectileIntervalSpawnTrigger triggerA = ScriptableObject.CreateInstance<ProjectileIntervalSpawnTrigger>();
-            ProjectileIntervalSpawnTrigger triggerB = ScriptableObject.CreateInstance<ProjectileIntervalSpawnTrigger>();
+            IntervalSpawnTrigger triggerA = ScriptableObject.CreateInstance<IntervalSpawnTrigger>();
+            IntervalSpawnTrigger triggerB = ScriptableObject.CreateInstance<IntervalSpawnTrigger>();
             SkillLoadout loadout = ScriptableObject.CreateInstance<SkillLoadout>();
             GameObject driverObject = new("SkillDriverHarness");
             driverObject.SetActive(false);
@@ -406,8 +406,8 @@ namespace PlayGround.Tests.PlayMode
             SkillSet aoeSourceSet = ScriptableObject.CreateInstance<SkillSet>();
             SkillSet projectileChildSet = ScriptableObject.CreateInstance<SkillSet>();
             SkillSet aoeChildSet = ScriptableObject.CreateInstance<SkillSet>();
-            ProjectileIntervalSpawnTrigger projectileTrigger = ScriptableObject.CreateInstance<ProjectileIntervalSpawnTrigger>();
-            AoeIntervalSpawnTrigger aoeTrigger = ScriptableObject.CreateInstance<AoeIntervalSpawnTrigger>();
+            IntervalSpawnTrigger projectileTrigger = ScriptableObject.CreateInstance<IntervalSpawnTrigger>();
+            IntervalSpawnTrigger aoeTrigger = ScriptableObject.CreateInstance<IntervalSpawnTrigger>();
             SkillLoadout loadout = ScriptableObject.CreateInstance<SkillLoadout>();
             GameObject driverObject = new("SkillDriverHarness");
             driverObject.SetActive(false);
@@ -499,8 +499,8 @@ namespace PlayGround.Tests.PlayMode
             SkillSet rootSet = ScriptableObject.CreateInstance<SkillSet>();
             SkillSet middleSet = ScriptableObject.CreateInstance<SkillSet>();
             SkillSet aoeSet = ScriptableObject.CreateInstance<SkillSet>();
-            ProjectileIntervalSpawnTrigger projectileTrigger = ScriptableObject.CreateInstance<ProjectileIntervalSpawnTrigger>();
-            AoeIntervalSpawnTrigger aoeTrigger = ScriptableObject.CreateInstance<AoeIntervalSpawnTrigger>();
+            IntervalSpawnTrigger projectileTrigger = ScriptableObject.CreateInstance<IntervalSpawnTrigger>();
+            IntervalSpawnTrigger aoeTrigger = ScriptableObject.CreateInstance<IntervalSpawnTrigger>();
             SkillLoadout loadout = ScriptableObject.CreateInstance<SkillLoadout>();
             GameObject driverObject = new("SkillDriverHarness");
             driverObject.SetActive(false);

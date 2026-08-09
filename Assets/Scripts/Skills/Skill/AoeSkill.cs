@@ -4,7 +4,7 @@ namespace PlayGround.Skills
 {
     public abstract class AoeSkillBase : Skill
     {
-        public sealed override SkillDefinitionTags Tags => SkillDefinitionTags.Aoe;
+        public override SkillDefinitionTags Tags => SkillDefinitionTags.Aoe;
     }
 
     [CreateAssetMenu(menuName = "PlayGround/Skills/AOE Skill", fileName = "NewAoeSkill")]

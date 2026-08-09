@@ -237,14 +237,11 @@ namespace PlayGround.Skills
                 return;
             }
 
-            if (IsIntervalSpawnTrigger(link))
-                ValidateIntervalSpawnSource(link, slotIndex, causeSkill, warnings);
-
-            if (link is TargetedIntervalSpawnTrigger targetedInterval
+            if (link is IntervalSpawnTrigger intervalTrigger
                 && effectSkill.Definition is TargetedDefinition targetedEffect)
             {
                 ValidateTargetedIntervalEnergyReachability(
-                    targetedInterval,
+                    intervalTrigger,
                     causeSkill.Definition,
                     targetedEffect,
                     slotIndex,
@@ -253,8 +250,12 @@ namespace PlayGround.Skills
 
             if (!SkillDefinitionTagUtility.HasAny(causeSkill.Tags, link.SourceSkillTags))
             {
+                SkillValidationSeverity severity = link is IntervalSpawnTrigger
+                    ? SkillValidationSeverity.Error
+                    : SkillValidationSeverity.Warning;
                 AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerSource, slotIndex,
-                    $"Trigger '{link.name}' expects {SkillDefinitionTagUtility.Format(link.SourceSkillTags)} source, but source skill '{causeSkill.name}' is {SkillDefinitionTagUtility.Format(causeSkill.Tags)}. Link will do nothing.");
+                    $"Trigger '{link.name}' expects {SkillDefinitionTagUtility.Format(link.SourceSkillTags)} source, but source skill '{causeSkill.name}' is {SkillDefinitionTagUtility.Format(causeSkill.Tags)}. Link will do nothing.",
+                    severity);
             }
 
             if (!SkillDefinitionTagUtility.HasAny(effectSkill.Tags, link.TargetSkillTags))
@@ -290,21 +291,8 @@ namespace PlayGround.Skills
         private static bool CanTargetAoeHitSpawn(SkillDefinition definition) =>
             definition is AoeDefinitionBase;
 
-        private static void ValidateIntervalSpawnSource(
-            TriggerLink link,
-            int slotIndex,
-            Skill causeSkill,
-            List<SkillValidationWarning> warnings)
-        {
-            if (causeSkill.Definition is AoeDefinitionBase and not LingeringAoeDefinition)
-            {
-                AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerSource, slotIndex,
-                    $"Trigger '{link.name}' uses AOE source skill '{causeSkill.name}', but interval spawn sources must be projectiles or lingering AOEs. Pulse AOEs have no duration to tick, so this link will do nothing.");
-            }
-        }
-
         private static void ValidateTargetedIntervalEnergyReachability(
-            TargetedIntervalSpawnTrigger trigger,
+            IntervalSpawnTrigger trigger,
             SkillDefinition source,
             TargetedDefinition effect,
             int slotIndex,
@@ -339,9 +327,6 @@ namespace PlayGround.Skills
                     return false;
             }
         }
-
-        private static bool IsIntervalSpawnTrigger(TriggerLink link) =>
-            link is ProjectileIntervalSpawnTrigger or AoeIntervalSpawnTrigger or TargetedIntervalSpawnTrigger;
 
         private static void ValidateStackingSupportReachability(
             SkillSet skillSet,

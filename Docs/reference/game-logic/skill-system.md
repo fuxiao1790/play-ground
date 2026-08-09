@@ -346,7 +346,7 @@ expires the moment it uses its last chain, or the moment a link finds nothing.
 The compiler derives a fail-safe `CombatLifetimeComponent` from
 `chainCount * chainDelay` plus a margin purely so a stalled instance cannot leak
 a pooled slot. A chain that repeats over time is composed instead: put a
-`TargetedIntervalSpawnTrigger` on a projectile or lingering AOE source.
+`IntervalSpawnTrigger` on a projectile or lingering AOE source.
 
 ### Unit Resources and Root Casts
 
@@ -475,59 +475,52 @@ implicit from slot position, not stored on the link.
 abstract class TriggerLink { }
 ```
 
-**ProjectileIntervalSpawnTrigger**
+**IntervalSpawnTrigger**
 
-The cause duration skill accrues energy and spawns child projectiles from the
-effect set whenever it reaches the child cost. Sources may be projectiles or
-lingering AOEs. Pulse AOEs have no lifetime to accrue on, so they validate with
-a warning and compile to no timed-child setup.
-Effect must compile to a `RuntimeProjectileDefinition`.
+The cause duration skill accrues energy and spawns children from the effect set
+whenever it reaches the child cost. One trigger asset supports every spawnable
+effect shape:
 
 ```csharp
-class ProjectileIntervalSpawnTrigger : IntervalSpawnTrigger {
+class IntervalSpawnTrigger : TriggerLink {
     int projectileCount;
     float sideSpreadDegrees;
-}
-```
-
-Compatible tags: source `Projectile` or `Aoe`, target `Projectile`.
-Projectile sources compile a `RuntimeChildSpawnSetup` onto
-`RuntimeProjectileDefinition.ChildSpawnSetup`. Lingering AOE sources compile the
-same setup onto `RuntimeAoeDefinition.ChildSpawnSetup`.
-
-**AoeIntervalSpawnTrigger**
-
-The cause duration skill accrues energy and spawns child AOEs from the effect
-set whenever it reaches the child cost. Sources may be projectiles or lingering
-AOEs. Pulse AOEs have no lifetime to accrue on, so they validate with a warning
-and compile to no timed-child setup.
-Effect must compile to a `RuntimeAoeDefinition`.
-
-```csharp
-class AoeIntervalSpawnTrigger : IntervalSpawnTrigger {
     int echoCount;
     float scatterRadius;
 }
 ```
 
-Compatible tags: source `Projectile` or `Aoe`, target `Aoe`.
-Projectile sources compile a `RuntimeAoeIntervalSpawnSetup` onto
-`RuntimeProjectileDefinition.AoeIntervalSpawnSetup`. Lingering AOE sources
-compile the same setup onto `RuntimeAoeDefinition.AoeIntervalSpawnSetup`.
+`projectileCount` and `sideSpreadDegrees` apply only when the compiled effect is
+a projectile. `echoCount` and `scatterRadius` apply only when it is an AOE;
+`echoCount` also applies when it is targeted. Fields not used by the compiled
+effect are inert.
+
+`SourceSkillTags = Interval`. `SkillDefinitionTags.Interval` marks skill shapes
+with a duration that can accrue energy: `ProjectileSkill` and
+`LingeringAoeSkill`. Pulse `AoeSkill` and `TargetedSkill` do not carry this tag,
+so the generic `UnsupportedTriggerSource` tag mismatch reports an Error and the
+compiler produces no timed-child setup. `TargetSkillTags = Any`, so no effect
+shape is invalid merely because of an authored trigger variant.
+
+The compiler chooses setup from the compiled effect runtime type, not from the
+trigger asset: `RuntimeProjectileDefinition` builds `RuntimeChildSpawnSetup`,
+`RuntimeAoeDefinition` builds `RuntimeAoeIntervalSpawnSetup`, and
+`RuntimeTargetedDefinition` builds `RuntimeTargetedIntervalSpawnSetup`. Each is
+assigned to the matching field on the projectile or lingering-AOE source.
 
 Energy-driven source/child support:
 
-| Source / Child | Projectile child | AOE child | Targeted child |
-|---|---|---|---|
-| Projectile source | `ProjectileIntervalSpawnTrigger` | `AoeIntervalSpawnTrigger` | `TargetedIntervalSpawnTrigger` |
-| Lingering AOE source | `ProjectileIntervalSpawnTrigger` | `AoeIntervalSpawnTrigger` | `TargetedIntervalSpawnTrigger` |
-| Pulse AOE or targeted source | warning, no-op | warning, no-op | warning, no-op |
+| Source / Child | Any child type |
+|---|---|
+| Projectile source | `IntervalSpawnTrigger` |
+| Lingering AOE source | `IntervalSpawnTrigger` |
+| Pulse AOE or targeted source | error, no-op |
 
 A targeted chain is never an interval **source**: it has no duration of its own
 to accrue energy over. It is only ever a child.
 
-Both concrete interval triggers inherit `energyPerSecond` from
-`IntervalSpawnTrigger` and the mana-cost fields from `TriggerLink`. The child
+`IntervalSpawnTrigger` carries `energyPerSecond` and inherits mana-cost fields
+from `TriggerLink`. The child
 definition owns `manaCost`; its compiled, support-folded `ManaCost` is
 converted by `IntervalSpawnTrigger.ManaToEnergyCost`. The baked threshold is
 `max(0.001, childManaCost * ResolveManaCostFactor())`.
@@ -565,9 +558,9 @@ targeted children it means `childDefinition.EchoCount + echoCount`, floored to
 `1`. These are the only additive timed-child multiplicity fields.
 
 Timed-child burst geometry is authoritative on the trigger. `sideSpreadDegrees`
-on `ProjectileIntervalSpawnTrigger` defines the projectile burst spread; the
+on `IntervalSpawnTrigger` defines the projectile burst spread; the
 child projectile skill's own spread is not applied to energy-spawned copies.
-`scatterRadius` on `AoeIntervalSpawnTrigger` defines the AOE echo scatter
+`scatterRadius` on `IntervalSpawnTrigger` defines the AOE echo scatter
 radius; the child AOE skill's own `ScatterRadius` is not applied to
 energy-spawned copies.
 
@@ -602,22 +595,10 @@ class OnImpactAoeTrigger : TriggerLink { }
 
 Compatible tags: source `Projectile` or `Aoe`, target `Aoe`.
 
-**TargetedIntervalSpawnTrigger**
-
-The source accrues energy and starts targeted-chain children whenever it reaches
-the child cost. Sources may be projectiles or lingering AOEs; pulse AOEs warn
-and compile to no timed-child setup. The effect must compile to a
-`RuntimeTargetedDefinition`. **This is how a chain repeats over time** — the
-targeted definition itself has no tick interval.
-
-```csharp
-class TargetedIntervalSpawnTrigger : IntervalSpawnTrigger {
-    int echoCount;
-}
-```
-
-Compatible tags: source `Projectile` or `Aoe`; target `Targeted`. `echoCount` is
-additive with the child targeted definition's `echoCount`, floored to one.
+For a targeted effect, `IntervalSpawnTrigger` starts targeted-chain children
+whenever it reaches the child cost. **This is how a chain repeats over time** —
+the targeted definition itself has no tick interval. `echoCount` is additive
+with the child targeted definition's `echoCount`, floored to one.
 
 **OnImpactTargetedTrigger**
 
@@ -689,10 +670,10 @@ Compatible tags: source `Projectile`, `Aoe`, or `Targeted`; target set must
 have `StackingSupport`. For a targeted applicator, every chain-link hit reads
 the same baked `StackEffectSnapshot` off the spawning entity's hit payload —
 identical to the projectile/AOE path.
-Trigger links are also tag-validated but not blocked. A
-`ProjectileIntervalSpawnTrigger` from a projectile set to an AOE set is allowed
-in the loadout, but no timed-child setup is compiled and validation returns a
-warning.
+Trigger links are tag-validated. An `IntervalSpawnTrigger` from a projectile
+set to an AOE set is valid and compiles an AOE interval setup. A pulse AOE or
+targeted interval source instead fails the generic source-tag check at Error
+severity and compiles to no timed-child setup.
 
 ### Validation Warnings
 
@@ -720,10 +701,11 @@ Current warning cases:
 - targeted `chainCount`, `echoCount`, or `chainDelay` outside its range and will be clamped
 - `chainDistance` is not positive: error, the skill will not spawn
 - `chainCount > 1` with a non-positive `chainDamageFalloff`, so links after the first deal zero damage
-- a `TargetedIntervalSpawnTrigger` child costs more energy than its source can accrue over its
+- an `IntervalSpawnTrigger` targeted child costs more energy than its source can accrue over its
   lifetime, so it never spawns
-- interval trigger source is a pulse AOE instead of a projectile or lingering
-  AOE
+- interval trigger source has no `Interval` tag (pulse AOE or targeted):
+  `UnsupportedTriggerSource` Error from generic tag validation; it compiles to
+  no timed-child setup
 - stacking set is not the effect of a `StackTrigger`
 - `StackTrigger` targets a set without `StackingSupport`
 - stacking set is targeted by a normal trigger link
@@ -801,12 +783,12 @@ compile(SkillSet set, allChains, snapshot) -> RuntimeSkillDefinition:
     rate = acc.Resolve(Rate, set.skill.BaseRate)
     runtime.RecoveryTime = 1 / max(0.01, rate)
     for each chain in allChains where chain.cause == set:
-        if chain.link is ProjectileIntervalSpawnTrigger:
-            compile chain.effect recursively -> RuntimeProjectileDefinition
-            bake RuntimeChildSpawnSetup onto runtime.ChildSpawnSetup
-        if chain.link is AoeIntervalSpawnTrigger:
-            compile chain.effect recursively -> RuntimeAoeDefinition
-            bake RuntimeAoeIntervalSpawnSetup onto runtime.AoeIntervalSpawnSetup
+        if chain.link is IntervalSpawnTrigger:
+            compile chain.effect recursively
+            switch compiled effect runtime type:
+                RuntimeProjectileDefinition -> bake RuntimeChildSpawnSetup
+                RuntimeAoeDefinition -> bake RuntimeAoeIntervalSpawnSetup
+                RuntimeTargetedDefinition -> bake RuntimeTargetedIntervalSpawnSetup
         if chain.link is OnImpactAoeTrigger:
             compile chain.effect recursively -> RuntimeAoeDefinition
             if runtime is projectile: set runtime.ImpactAoeDefinition

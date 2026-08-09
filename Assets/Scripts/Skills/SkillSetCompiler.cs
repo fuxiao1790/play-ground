@@ -74,17 +74,9 @@ namespace PlayGround.Skills
             if (link != null && targetNodeIndex < nodes.Count)
             {
 
-                if (link is ProjectileIntervalSpawnTrigger childTrigger)
+                if (link is IntervalSpawnTrigger intervalTrigger)
                 {
-                    ApplyChildSpawn(triggerHost, childTrigger, nodes, targetNodeIndex, snapshot);
-                }
-                else if (link is AoeIntervalSpawnTrigger aoeIntervalTrigger)
-                {
-                    ApplyAoeIntervalSpawn(triggerHost, aoeIntervalTrigger, nodes, targetNodeIndex, snapshot);
-                }
-                else if (link is TargetedIntervalSpawnTrigger targetedIntervalTrigger)
-                {
-                    ApplyTargetedIntervalSpawn(triggerHost, targetedIntervalTrigger, nodes, targetNodeIndex, snapshot);
+                    ApplyIntervalSpawn(triggerHost, intervalTrigger, nodes, targetNodeIndex, snapshot);
                 }
                 else if (link is OnImpactAoeTrigger)
                 {
@@ -448,9 +440,9 @@ namespace PlayGround.Skills
             }
         }
 
-        private static void ApplyChildSpawn(
+        private static void ApplyIntervalSpawn(
             RuntimeSkillDefinition parent,
-            ProjectileIntervalSpawnTrigger trigger,
+            IntervalSpawnTrigger trigger,
             IReadOnlyList<SkillLoadoutNode> nodes,
             int targetNodeIndex,
             SkillStatSnapshot snapshot)
@@ -463,110 +455,65 @@ namespace PlayGround.Skills
 
             RuntimeSkillDefinition compiledChild = CompileInternal(
                 nodes, targetNodeIndex, snapshot, includeTriggeredManaCosts: false);
-            if (compiledChild is not RuntimeProjectileDefinition childDef) return;
-
-            float energyThreshold = trigger.ManaToEnergyCost(childDef.ManaCost);
-            var setup = new RuntimeChildSpawnSetup
+            switch (compiledChild)
             {
-                JitterSeed = ++nextChildJitterSeed,
-                ChildDefinition = childDef,
-                EnergyPerSecond = trigger.ResolveEnergyPerSecond(snapshot),
-                EnergyThreshold = energyThreshold,
-                Behavior = new ProjectileChildSpawnBehavior(
-                    Mathf.Max(1, childDef.Count + trigger.projectileCount),
-                    ProjectileChildSpawnPatternType.SideSpray,
-                    trigger.sideSpreadDegrees),
-            };
+                case RuntimeProjectileDefinition childDef:
+                {
+                    var setup = new RuntimeChildSpawnSetup
+                    {
+                        JitterSeed = ++nextChildJitterSeed,
+                        ChildDefinition = childDef,
+                        EnergyPerSecond = trigger.ResolveEnergyPerSecond(snapshot),
+                        EnergyThreshold = trigger.ManaToEnergyCost(childDef.ManaCost),
+                        Behavior = new ProjectileChildSpawnBehavior(
+                            Mathf.Max(1, childDef.Count + trigger.projectileCount),
+                            ProjectileChildSpawnPatternType.SideSpray,
+                            trigger.sideSpreadDegrees),
+                    };
+                    if (parent is RuntimeProjectileDefinition projectileParent)
+                        projectileParent.ChildSpawnSetup = setup;
+                    else if (parent is RuntimeAoeDefinition aoeParent)
+                        aoeParent.ChildSpawnSetup = setup;
+                    ApplyIncomingTriggerManaCostMultiplier(childDef, trigger);
+                    break;
+                }
 
-            if (parent is RuntimeProjectileDefinition projectileParent)
-            {
-                projectileParent.ChildSpawnSetup = setup;
-                ApplyIncomingTriggerManaCostMultiplier(childDef, trigger);
-            }
-            else if (parent is RuntimeAoeDefinition aoeParent)
-            {
-                aoeParent.ChildSpawnSetup = setup;
-                ApplyIncomingTriggerManaCostMultiplier(childDef, trigger);
-            }
-        }
+                case RuntimeAoeDefinition childDef:
+                {
+                    var setup = new RuntimeAoeIntervalSpawnSetup
+                    {
+                        JitterSeed = ++nextChildJitterSeed,
+                        ChildDefinition = childDef,
+                        EnergyPerSecond = trigger.ResolveEnergyPerSecond(snapshot),
+                        EnergyThreshold = trigger.ManaToEnergyCost(childDef.ManaCost),
+                        Count = Mathf.Max(1, childDef.EchoCount + trigger.echoCount),
+                        ScatterRadius = Mathf.Max(0f, trigger.scatterRadius),
+                    };
+                    if (parent is RuntimeProjectileDefinition projectileParent)
+                        projectileParent.AoeIntervalSpawnSetup = setup;
+                    else if (parent is RuntimeAoeDefinition aoeParent)
+                        aoeParent.AoeIntervalSpawnSetup = setup;
+                    ApplyIncomingTriggerManaCostMultiplier(childDef, trigger);
+                    break;
+                }
 
-        private static void ApplyAoeIntervalSpawn(
-            RuntimeSkillDefinition parent,
-            AoeIntervalSpawnTrigger trigger,
-            IReadOnlyList<SkillLoadoutNode> nodes,
-            int targetNodeIndex,
-            SkillStatSnapshot snapshot)
-        {
-            if (parent is not RuntimeProjectileDefinition and not RuntimeAoeDefinition)
-                return;
-
-            if (parent is RuntimeAoeDefinition { LifetimeSeconds: <= 0f })
-                return;
-
-            RuntimeSkillDefinition compiledChild = CompileInternal(
-                nodes, targetNodeIndex, snapshot, includeTriggeredManaCosts: false);
-            if (compiledChild is not RuntimeAoeDefinition childDef) return;
-
-            float energyThreshold = trigger.ManaToEnergyCost(childDef.ManaCost);
-            var setup = new RuntimeAoeIntervalSpawnSetup
-            {
-                JitterSeed = ++nextChildJitterSeed,
-                ChildDefinition = childDef,
-                EnergyPerSecond = trigger.ResolveEnergyPerSecond(snapshot),
-                EnergyThreshold = energyThreshold,
-                Count = Mathf.Max(1, childDef.EchoCount + trigger.echoCount),
-                ScatterRadius = Mathf.Max(0f, trigger.scatterRadius),
-            };
-
-            if (parent is RuntimeProjectileDefinition projectileParent)
-            {
-                projectileParent.AoeIntervalSpawnSetup = setup;
-                ApplyIncomingTriggerManaCostMultiplier(childDef, trigger);
-            }
-            else if (parent is RuntimeAoeDefinition aoeParent)
-            {
-                aoeParent.AoeIntervalSpawnSetup = setup;
-                ApplyIncomingTriggerManaCostMultiplier(childDef, trigger);
-            }
-        }
-
-        private static void ApplyTargetedIntervalSpawn(
-            RuntimeSkillDefinition parent,
-            TargetedIntervalSpawnTrigger trigger,
-            IReadOnlyList<SkillLoadoutNode> nodes,
-            int targetNodeIndex,
-            SkillStatSnapshot snapshot)
-        {
-            if (parent is not RuntimeProjectileDefinition and not RuntimeAoeDefinition)
-                return;
-
-            if (parent is RuntimeAoeDefinition { LifetimeSeconds: <= 0f })
-                return;
-
-            RuntimeSkillDefinition compiledChild = CompileInternal(
-                nodes, targetNodeIndex, snapshot, includeTriggeredManaCosts: false);
-            if (compiledChild is not RuntimeTargetedDefinition childDef)
-                return;
-
-            float energyThreshold = trigger.ManaToEnergyCost(childDef.ManaCost);
-            var setup = new RuntimeTargetedIntervalSpawnSetup
-            {
-                JitterSeed = ++nextChildJitterSeed,
-                ChildDefinition = childDef,
-                EnergyPerSecond = trigger.ResolveEnergyPerSecond(snapshot),
-                EnergyThreshold = energyThreshold,
-                EchoCount = Mathf.Max(1, childDef.EchoCount + trigger.echoCount)
-            };
-
-            if (parent is RuntimeProjectileDefinition projectileParent)
-            {
-                projectileParent.TargetedIntervalSpawnSetup = setup;
-                ApplyIncomingTriggerManaCostMultiplier(childDef, trigger);
-            }
-            else if (parent is RuntimeAoeDefinition aoeParent)
-            {
-                aoeParent.TargetedIntervalSpawnSetup = setup;
-                ApplyIncomingTriggerManaCostMultiplier(childDef, trigger);
+                case RuntimeTargetedDefinition childDef:
+                {
+                    var setup = new RuntimeTargetedIntervalSpawnSetup
+                    {
+                        JitterSeed = ++nextChildJitterSeed,
+                        ChildDefinition = childDef,
+                        EnergyPerSecond = trigger.ResolveEnergyPerSecond(snapshot),
+                        EnergyThreshold = trigger.ManaToEnergyCost(childDef.ManaCost),
+                        EchoCount = Mathf.Max(1, childDef.EchoCount + trigger.echoCount),
+                    };
+                    if (parent is RuntimeProjectileDefinition projectileParent)
+                        projectileParent.TargetedIntervalSpawnSetup = setup;
+                    else if (parent is RuntimeAoeDefinition aoeParent)
+                        aoeParent.TargetedIntervalSpawnSetup = setup;
+                    ApplyIncomingTriggerManaCostMultiplier(childDef, trigger);
+                    break;
+                }
             }
         }
 

@@ -9,15 +9,17 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a1000000000000000000000000000011, type: 3}
-  m_Name: ProjectileIntervalSpawnTrigger
-  m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileIntervalSpawnTrigger
-  assetGuid: 72106f578633ced47afdee80a7dc84db
-  displayName: Projectile Interval Spawn Trigger
+  m_Script: {fileID: 11500000, guid: 39d566d68f3d40f89524e473f7855200, type: 3}
+  m_Name: IntervalSpawnTrigger
+  m_EditorClassIdentifier: PlayGround.GameLogic::PlayGround.Skills.IntervalSpawnTrigger
+  assetGuid: d077c5b467c1bf84a81d840bd2ab870c
+  displayName: 
   description: 
   icon: {fileID: 0}
   manaCostMultiplier: 1.1
   manaCostIncreased: 1.1
   energyPerSecond: 25
   projectileCount: 1
-  sideSpreadDegrees: 15
+  sideSpreadDegrees: 30
+  echoCount: 1
+  scatterRadius: 5

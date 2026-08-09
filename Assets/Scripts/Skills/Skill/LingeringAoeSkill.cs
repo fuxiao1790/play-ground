@@ -7,6 +7,7 @@ namespace PlayGround.Skills
     {
         [SerializeField] private LingeringAoeDefinition definition = new();
 
+        public override SkillDefinitionTags Tags => SkillDefinitionTags.Aoe | SkillDefinitionTags.Interval;
         public override SkillDefinition Definition => definition;
     }
 }

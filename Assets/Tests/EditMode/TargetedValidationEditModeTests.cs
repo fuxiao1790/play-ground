@@ -80,7 +80,7 @@ namespace PlayGround.Tests.EditMode
             TargetedDefinition childDefinition = (TargetedDefinition)child.Definition;
             childDefinition.prefab = CreateTargetedPrefab(withLinkVfx: true);
             childDefinition.manaCost = 1f;
-            TargetedIntervalSpawnTrigger trigger = CreateAsset<TargetedIntervalSpawnTrigger>("Targeted Interval");
+            IntervalSpawnTrigger trigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
             trigger.energyPerSecond = 1f;
 
             SkillValidationWarning[] warnings = Validate(

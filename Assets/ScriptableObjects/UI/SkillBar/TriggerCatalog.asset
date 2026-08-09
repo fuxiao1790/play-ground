@@ -13,11 +13,8 @@ MonoBehaviour:
   m_Name: TriggerCatalog
   m_EditorClassIdentifier: PlayGround.SkillUi::PlayGround.Skills.SkillUiTriggerCatalog
   triggers:
-  - {fileID: 11400000, guid: 4f6fe4b46eb54b9c8ff4e4c04b05f7e7, type: 2}
-  - {fileID: 11400000, guid: db15faed11f2e8d4d86c5b856a6d270b, type: 2}
   - {fileID: 11400000, guid: 8a0e8f4655664c4ca5fd11198d90f001, type: 2}
   - {fileID: 11400000, guid: 502349cdbd8fc624f8dd28ba7b2eebbb, type: 2}
   - {fileID: 11400000, guid: 1a2b3c4d5e6f708192a3b4c5d6e7f801, type: 2}
-  - {fileID: 11400000, guid: 72106f578633ced47afdee80a7dc84db, type: 2}
-  - {fileID: 11400000, guid: 72a746e8a702b014b85cb4d1db22eb8a, type: 2}
   - {fileID: 11400000, guid: c4000000000000000000000000000001, type: 2}
+  - {fileID: 11400000, guid: d077c5b467c1bf84a81d840bd2ab870c, type: 2}
