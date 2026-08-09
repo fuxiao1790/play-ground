@@ -1,5 +1,10 @@
 using NUnit.Framework;
+using PlayGround.System.Combat.Aoes;
+using PlayGround.System.Combat.Projectiles;
+using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Stats;
+using PlayGround.System.Combat.Targeted;
+using Unity.Collections;
 using Unity.Entities;
 
 namespace PlayGround.Tests.PlayMode
@@ -10,6 +15,9 @@ namespace PlayGround.Tests.PlayMode
         private EntityManager entityManager;
         private CombatStatsGatherSystem gatherSystem;
         private CombatStatsResetSystem resetSystem;
+        private NativeHashMap<Hash128, ProjectileSpawnCommand> projectileTemplateMap;
+        private NativeHashMap<Hash128, AoeSpawnCommand> aoeTemplateMap;
+        private NativeHashMap<Hash128, TargetedSpawnCommand> targetedTemplateMap;
 
         [SetUp]
         public void SetUp()
@@ -23,6 +31,15 @@ namespace PlayGround.Tests.PlayMode
         [TearDown]
         public void TearDown()
         {
+            if (projectileTemplateMap.IsCreated)
+                projectileTemplateMap.Dispose();
+
+            if (aoeTemplateMap.IsCreated)
+                aoeTemplateMap.Dispose();
+
+            if (targetedTemplateMap.IsCreated)
+                targetedTemplateMap.Dispose();
+
             if (testWorld != null && testWorld.IsCreated)
             {
                 testWorld.Dispose();
@@ -61,6 +78,31 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(display.EntitiesDeleted, Is.EqualTo(8));
             Assert.That(display.ActiveProjectiles, Is.Zero);
             Assert.That(display.ActiveAoes, Is.Zero);
+        }
+
+        [Test]
+        public void GatherMirrorsSharedScopeTemplateRegistrySizesIntoDisplaySingleton()
+        {
+            Entity scope = entityManager.CreateEntity();
+            projectileTemplateMap = new NativeHashMap<Hash128, ProjectileSpawnCommand>(4, Allocator.Persistent);
+            aoeTemplateMap = new NativeHashMap<Hash128, AoeSpawnCommand>(4, Allocator.Persistent);
+            targetedTemplateMap = new NativeHashMap<Hash128, TargetedSpawnCommand>(4, Allocator.Persistent);
+            projectileTemplateMap.TryAdd(new Hash128(1u, 0u, 0u, 0u), default);
+            projectileTemplateMap.TryAdd(new Hash128(2u, 0u, 0u, 0u), default);
+            aoeTemplateMap.TryAdd(new Hash128(3u, 0u, 0u, 0u), default);
+            targetedTemplateMap.TryAdd(new Hash128(4u, 0u, 0u, 0u), default);
+            targetedTemplateMap.TryAdd(new Hash128(5u, 0u, 0u, 0u), default);
+            targetedTemplateMap.TryAdd(new Hash128(6u, 0u, 0u, 0u), default);
+            entityManager.AddComponentData(scope, new ProjectileSpawnTemplate { Map = projectileTemplateMap });
+            entityManager.AddComponentData(scope, new AoeSpawnTemplate { Map = aoeTemplateMap });
+            entityManager.AddComponentData(scope, new TargetedSpawnTemplate { Map = targetedTemplateMap });
+
+            gatherSystem.Update();
+
+            CombatStatsDisplaySingleton display = entityManager.GetComponentData<CombatStatsDisplaySingleton>(StatsEntity());
+            Assert.That(display.ProjectileTemplateRegistryEntries, Is.EqualTo(2));
+            Assert.That(display.AoeTemplateRegistryEntries, Is.EqualTo(1));
+            Assert.That(display.TargetedTemplateRegistryEntries, Is.EqualTo(3));
         }
 
         [Test]

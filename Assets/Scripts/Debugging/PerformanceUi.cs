@@ -21,6 +21,9 @@ namespace PlayGround.SkillUi
         private Label projectilesText;
         private Label aoesText;
         private Label targetedText;
+        private Label projectileTemplateRegistryText;
+        private Label aoeTemplateRegistryText;
+        private Label targetedTemplateRegistryText;
         private Label hitEventsText;
         private Label vfxEventsText;
         private Label vfxParticlesText;
@@ -47,12 +50,16 @@ namespace PlayGround.SkillUi
             projectilesText = document.rootVisualElement.Q<Label>("performance-projectiles");
             aoesText = document.rootVisualElement.Q<Label>("performance-aoes");
             targetedText = document.rootVisualElement.Q<Label>("performance-targeted");
+            projectileTemplateRegistryText = document.rootVisualElement.Q<Label>("performance-projectile-template-registry");
+            aoeTemplateRegistryText = document.rootVisualElement.Q<Label>("performance-aoe-template-registry");
+            targetedTemplateRegistryText = document.rootVisualElement.Q<Label>("performance-targeted-template-registry");
             hitEventsText = document.rootVisualElement.Q<Label>("performance-hit-events");
             vfxEventsText = document.rootVisualElement.Q<Label>("performance-vfx-events");
             vfxParticlesText = document.rootVisualElement.Q<Label>("performance-vfx-particles");
             if (performancePanel == null || fpsText == null || spawnReuseText == null || createEcbText == null
                 || despawnedText == null || deleteEcbText == null || projectilesText == null || aoesText == null
-                || targetedText == null
+                || targetedText == null || projectileTemplateRegistryText == null || aoeTemplateRegistryText == null
+                || targetedTemplateRegistryText == null
                 || hitEventsText == null || vfxEventsText == null || vfxParticlesText == null)
                 throw new InvalidOperationException(
                     $"{nameof(PerformanceUi)} could not find its required elements. Assign SkillLoadoutUi.uxml as the UIDocument Source Asset.");
@@ -79,6 +86,9 @@ namespace PlayGround.SkillUi
             projectilesText.text = $"Projectiles:  {stats.ActiveProjectiles}";
             aoesText.text = $"AOEs:         {stats.ActiveAoes}";
             targetedText.text = $"Targeted:     {stats.ActiveTargeted}";
+            projectileTemplateRegistryText.text = $"Projectile templates: {stats.ProjectileTemplateRegistryEntries}";
+            aoeTemplateRegistryText.text = $"AOE templates:        {stats.AoeTemplateRegistryEntries}";
+            targetedTemplateRegistryText.text = $"Targeted templates:   {stats.TargetedTemplateRegistryEntries}";
             hitEventsText.text = $"Hit events:   {stats.HitEventsCreated}";
             vfxEventsText.text = $"VFX events:   {stats.VfxEventsCreated}";
             vfxParticlesText.text = $"VFX particles: {CombatVfxRoot.AliveParticleCount(false)}";

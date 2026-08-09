@@ -38,6 +38,9 @@ namespace PlayGround.Tests.PlayMode
                 EntitiesSpawnedViaReuse = 22,
                 ActiveProjectiles = 333,
                 ActiveAoes = 44,
+                ProjectileTemplateRegistryEntries = 12,
+                AoeTemplateRegistryEntries = 23,
+                TargetedTemplateRegistryEntries = 34,
                 HitEventsCreated = 5,
                 VfxEventsCreated = 6,
                 EntitiesDespawned = 7,
@@ -50,6 +53,9 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(stats.ActiveProjectiles, Is.EqualTo(333),
                 "Active counts are level stats; mid-frame readers (the cleanup calm-down gate) need last frame's values to survive the reset.");
             Assert.That(stats.ActiveAoes, Is.EqualTo(44));
+            Assert.That(stats.ProjectileTemplateRegistryEntries, Is.EqualTo(12));
+            Assert.That(stats.AoeTemplateRegistryEntries, Is.EqualTo(23));
+            Assert.That(stats.TargetedTemplateRegistryEntries, Is.EqualTo(34));
             Assert.That(stats.EntitiesSpawnedViaEcb, Is.Zero);
             Assert.That(stats.EntitiesSpawnedViaReuse, Is.Zero);
             Assert.That(stats.HitEventsCreated, Is.Zero);

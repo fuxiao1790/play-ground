@@ -11,6 +11,9 @@
             <ui:Label name="performance-projectiles" class="performance-text" />
             <ui:Label name="performance-aoes" class="performance-text" />
             <ui:Label name="performance-targeted" class="performance-text" />
+            <ui:Label name="performance-projectile-template-registry" class="performance-text" />
+            <ui:Label name="performance-aoe-template-registry" class="performance-text" />
+            <ui:Label name="performance-targeted-template-registry" class="performance-text" />
             <ui:Label name="performance-hit-events" class="performance-text" />
             <ui:Label name="performance-vfx-events" class="performance-text" />
             <ui:Label name="performance-vfx-particles" class="performance-text" />

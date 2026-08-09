@@ -40,8 +40,11 @@ namespace PlayGround.System.Combat.Stats
     // - TargetedEntitiesSpawned: targeted-only spawn total, summed by both targeted apply lanes.
     // - TargetedLinksResolved: targeted-only links, drained by gather from TargetedLinkCounts.
     // - ActiveProjectiles / ActiveAoes / ActiveTargeted: written by CombatStatsGatherSystem from
-    //   its Active entity queries per domain tag. Preserved by the frame reset (level stats, not
-    //   accumulators); CombatPoolCleanupSystem's calm-down gate reads them one frame stale.
+    //   its Active entity queries per domain tag. ProjectileTemplateRegistryEntries /
+    //   AoeTemplateRegistryEntries / TargetedTemplateRegistryEntries are written by that system
+    //   from the shared scope's three spawn-template maps. These are level stats, so the frame
+    //   reset preserves them; CombatPoolCleanupSystem's calm-down gate reads active counts one
+    //   frame stale.
     // - HitEventsCreated: added by CombatApplyFinalizeSingleSystem from HitQueue.Count before the
     //   queue is flattened or cleared.
     // - VfxEventsCreated: added by CombatAoeVfxDispatchSystem after the VFX root drains PendingCircularSpawns.
@@ -63,6 +66,9 @@ namespace PlayGround.System.Combat.Stats
         public int ActiveProjectiles;
         public int ActiveAoes;
         public int ActiveTargeted;
+        public int ProjectileTemplateRegistryEntries;
+        public int AoeTemplateRegistryEntries;
+        public int TargetedTemplateRegistryEntries;
         public int HitEventsCreated;
         public int VfxEventsCreated;
         public int EntitiesDespawned;
@@ -89,6 +95,9 @@ namespace PlayGround.System.Combat.Stats
         public int ActiveProjectiles;
         public int ActiveAoes;
         public int ActiveTargeted;
+        public int ProjectileTemplateRegistryEntries;
+        public int AoeTemplateRegistryEntries;
+        public int TargetedTemplateRegistryEntries;
         public int HitEventsCreated;
         public int VfxEventsCreated;
         public int EntitiesDespawned;

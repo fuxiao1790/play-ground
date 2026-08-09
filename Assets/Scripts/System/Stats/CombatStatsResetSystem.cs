@@ -37,6 +37,9 @@ namespace PlayGround.System.Combat.Stats
                     ActiveProjectiles = stats.ValueRO.ActiveProjectiles,
                     ActiveAoes = stats.ValueRO.ActiveAoes,
                     ActiveTargeted = stats.ValueRO.ActiveTargeted,
+                    ProjectileTemplateRegistryEntries = stats.ValueRO.ProjectileTemplateRegistryEntries,
+                    AoeTemplateRegistryEntries = stats.ValueRO.AoeTemplateRegistryEntries,
+                    TargetedTemplateRegistryEntries = stats.ValueRO.TargetedTemplateRegistryEntries,
                     TargetedLinkCounts = stats.ValueRO.TargetedLinkCounts,
                     TargetedLinkProducerHandle = stats.ValueRO.TargetedLinkProducerHandle
                 };
