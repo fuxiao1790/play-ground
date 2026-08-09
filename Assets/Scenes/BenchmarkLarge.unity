@@ -788,6 +788,10 @@ PrefabInstance:
       propertyPath: 'hitEffectDefinitions.Array.data[1]'
       value: 
       objectReference: {fileID: 11400000, guid: 525bfcba82d9456cab3270d3f8ab970f, type: 2}
+    - target: {fileID: 9051215296213569053, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+      propertyPath: m_Interpolate
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 9101000000000000001, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: m_LocalPosition.x
       value: -1
