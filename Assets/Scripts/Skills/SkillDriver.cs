@@ -198,59 +198,31 @@ namespace PlayGround.Skills
             preserveCooldownState = false;
             cooldownResetNodeIndex = -1;
 
-            var warnings = new List<SkillValidationWarning>(SkillLoadoutValidator.Validate(runtimeLoadout));
-
             SkillStatSnapshot snapshot = SkillStatAggregator.Aggregate(runtimeLoadout, statSheet);
-            IReadOnlyList<SkillLoadoutNode> nodes = runtimeLoadout.Nodes;
+            CompiledLoadout compiled = SkillLoadoutCompiler.Compile(runtimeLoadout, snapshot);
+            compiledSlots = compiled.Roots;
+            slotStates = new SkillSlotState[compiled.Count];
+            firedCastTokens = new int[compiled.Count];
+            this.rootNodeIndices = compiled.RootNodeIndices;
+            activeSlotCount = compiled.Count;
 
-            var rootNodeIndices = new List<int>();
-            for (int i = 0; i < nodes.Count; i++)
+            for (int i = 0; i < compiled.Count; i++)
             {
-                SkillSet skillSet = nodes[i]?.SkillSet;
-                if (skillSet == null) continue;
-
-                bool hasIncomingTrigger = i > 0
-                    && nodes[i - 1]?.SkillSet != null
-                    && nodes[i - 1]?.TriggerToNext != null;
-                if (!hasIncomingTrigger)
-                {
-                    if (HasTriggeredOnlyConversionSupport(skillSet))
-                        continue;
-
-                    rootNodeIndices.Add(i);
-                }
-            }
-
-            int maxSlots = Mathf.Min(rootNodeIndices.Count, runtimeLoadout.MaxRootSets);
-            compiledSlots = new RuntimeSkillDefinition[maxSlots];
-            slotStates = new SkillSlotState[maxSlots];
-            firedCastTokens = new int[maxSlots];
-            this.rootNodeIndices = new int[maxSlots];
-            activeSlotCount = 0;
-
-            for (int i = 0; i < maxSlots; i++)
-            {
-                RuntimeSkillDefinition def = SkillSetCompiler.Compile(nodes, rootNodeIndices[i], snapshot);
-                if (def == null) continue;
-
-                compiledSlots[activeSlotCount] = def;
-                int nodeIndex = rootNodeIndices[i];
+                RuntimeSkillDefinition def = compiled.Roots[i];
+                int nodeIndex = compiled.RootNodeIndices[i];
                 SkillSlotState state = nodeIndex != resetNodeIndex
                     ? FindPreservedState(previousStates, previousNodeIndices, nodeIndex)
                     : null;
                 state ??= new SkillSlotState();
                 state.SetRecoveryTime(def.RecoveryTime);
-                slotStates[activeSlotCount] = state;
-                this.rootNodeIndices[activeSlotCount] = nodeIndex;
-                activeSlotCount++;
-                AppendCompilerWarnings(def, nodeIndex, warnings);
+                slotStates[i] = state;
             }
 
             RegisterProjectileTypes();
             RegisterAoeTypes();
             RegisterTargetedTypes();
-            RegisterSpawnTemplates(warnings);
-            validationWarnings = warnings.ToArray();
+            RegisterSpawnTemplates(compiled.Warnings);
+            validationWarnings = compiled.Warnings.ToArray();
         }
 
         private static SkillSlotState FindPreservedState(
@@ -262,58 +234,6 @@ namespace PlayGround.Skills
             for (int i = 0; i < nodeIndices.Length; i++)
                 if (nodeIndices[i] == nodeIndex) return states[i];
             return null;
-        }
-
-        private static void AppendCompilerWarnings(
-            RuntimeSkillDefinition def,
-            int slotIndex,
-            List<SkillValidationWarning> warnings)
-        {
-            if (def == null || warnings == null)
-                return;
-
-            if (def is RuntimeStackingDetonation stacking)
-            {
-                AppendCompilerWarnings(stacking.Detonation, slotIndex, warnings);
-                return;
-            }
-
-            if (def is RuntimeProjectileDefinition projectile)
-            {
-                if (projectile.SpawnBlocked)
-                {
-                    warnings.Add(new SkillValidationWarning(
-                        SkillValidationWarningCode.ContinuousCollisionCannotTrack,
-                        slotIndex,
-                        "Projectile cannot enable both continuous collision and tracking.",
-                        SkillValidationSeverity.Error));
-                }
-
-                if (projectile.TrackingMayTunnel)
-                {
-                    warnings.Add(new SkillValidationWarning(
-                        SkillValidationWarningCode.TrackingProjectileMayTunnel,
-                        slotIndex,
-                        "Tracking projectile may tunnel at its compiled speed.",
-                        SkillValidationSeverity.Warning));
-                }
-
-                AppendCompilerWarnings(projectile.ChildSpawnSetup?.ChildDefinition, slotIndex, warnings);
-                AppendCompilerWarnings(projectile.AoeIntervalSpawnSetup?.ChildDefinition, slotIndex, warnings);
-                AppendCompilerWarnings(projectile.ImpactAoeDefinition, slotIndex, warnings);
-                AppendCompilerWarnings(projectile.ImpactProjectileDefinition, slotIndex, warnings);
-                AppendCompilerWarnings(projectile.StackingDetonation, slotIndex, warnings);
-                return;
-            }
-
-            if (def is RuntimeAoeDefinition aoe)
-            {
-                AppendCompilerWarnings(aoe.ChildSpawnSetup?.ChildDefinition, slotIndex, warnings);
-                AppendCompilerWarnings(aoe.AoeIntervalSpawnSetup?.ChildDefinition, slotIndex, warnings);
-                AppendCompilerWarnings(aoe.OnHitAoeSpawnDefinition, slotIndex, warnings);
-                AppendCompilerWarnings(aoe.OnHitProjectileSpawnDefinition, slotIndex, warnings);
-                AppendCompilerWarnings(aoe.StackingDetonation, slotIndex, warnings);
-            }
         }
 
         // UI configuration requests the initial empty-node count before Start.
@@ -549,24 +469,6 @@ namespace PlayGround.Skills
             for (int i = 0; i < activeSlotCount; i++)
                 if (rootNodeIndices[i] == nodeIndex) return i;
             return -1;
-        }
-
-        private static bool HasTriggeredOnlyConversionSupport(SkillSet set)
-        {
-            if (set == null)
-                return false;
-
-            SkillSupport[] supports = set.Supports;
-            if (supports == null)
-                return false;
-
-            for (int i = 0; i < supports.Length; i++)
-            {
-                if (supports[i] is ConversionSupport { ConvertsToTriggeredOnly: true })
-                    return true;
-            }
-
-            return false;
         }
 
         private void RegisterProjectileTypes()
