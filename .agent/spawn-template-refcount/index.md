@@ -28,7 +28,7 @@ registry. `OnHitSpawnRef` already carries that exact pair.
 | Invariant | Source | Effect on this change |
 |---|---|---|
 | Registry is written only by managed pre-tick code and is immutable for the whole simulation tick; every sim job may take the map `[ReadOnly]` and read it concurrently | `Docs/reference/simulation/spawn-template-registry.md` "Registry Concurrency Contract" | Counter mutation and erase must never happen inside the tick from a job. Deltas are queued from jobs; a single-threaded system applies them and erases after all sim jobs are complete. |
-| Template values must stay blittable and Burst-readable | same doc, "Registry rules" | Counters live in a **separate** map, not in the command value. `ProjectileSpawnTemplate` / `AoeSpawnTemplate` / `TargetedSpawnTemplate` stay byte-identical, so every existing `[ReadOnly] TryGetValue` job read is untouched. |
+| Template values must stay blittable and Burst-readable; `sizeof(AoeSpawnCommand) < 4096` | same doc, "Registry rules"; `ProjectileAuthoringEditModeTests.cs:91` | Counters live in a **separate** map, not in the command value, so applying a `+1`/`-1` does not read-modify-write a ~4KB struct. Side effect: the three registry components stay byte-identical and every existing `[ReadOnly] TryGetValue` job read is untouched. |
 | Registry maps are owned by `CombatScopeOwner`, created on first `Acquire` and disposed on last `Release` | `CombatScopeOwner.cs:49-68`, `:121-141` | New counter maps and the delta queue are allocated and disposed in the same place, same `Allocator.Persistent`. |
 | Missing key on dereference is a silent `continue`, not a throw | `ProjectileSpawnExpansionSystem.cs:190-194`, `AoeSpawnExpansionSystem.cs:39`, `TargetedSpawnExpansionSystem.cs:32` | Erasing too early produces a silent behavior loss, not a crash — so it will not be caught by tests. The conservative counting below is deliberate. |
 | Combat ECS singletons the sim needs are read directly and throw if missing | memory `fail-loud-singletons` | The new refcount-state singleton is read directly, no `TryGetSingleton` guard, no `RequireForUpdate` skip. Test worlds that lack a combat scope must create one (see `007`). |
@@ -84,36 +84,82 @@ Introduced:
 
 - `SpawnTemplateRegistryState` — one scope singleton holding three
   `NativeHashMap<Hash128, SpawnTemplateRefCount>` plus one delta queue.
-  Justification: keeping counters out of the command maps is what preserves the
-  Burst read path and the "value is a command-shaped template" rule.
+  Justification: a 12-byte counter value keeps delta application off the ~4KB
+  template struct. See the comparison below — this is a deliberate exception to the
+  one-source-of-truth default rule, with a stated containment plan.
 - `SpawnTemplateRefCountSystem` — the single-threaded drain + erase point.
 - `CombatRoot.UnregisterSpawnTemplate(kind, key)`.
 
 ## Minimal/additive vs. refactor comparison
 
-**Minimal/additive** — counters folded into the map value
+**Additive — sidecar counter maps** (chosen):
+
+- resulting data flow: command maps untouched; counters and deltas are a managed +
+  single-threaded-system concern no Burst reader sees. Two containers keyed by the
+  same `Hash128`, inserted and erased in lockstep.
+- new concepts/types introduced: `SpawnTemplateRegistryState`,
+  `SpawnTemplateRefCount`, `SpawnTemplateRefDelta`, `SpawnTemplateRefCountSystem`
+- copies/translations added: none on the read path. Delta application is a
+  read-modify-write of a 12-byte value.
+- long-term cost: **structural warning — two structures describing one concept that
+  must stay in sync.** A key present in the command map but absent from the counter
+  map, or vice versa, is a silent bug. Containment below.
+
+**Refactor — counters folded into the map value**
 (`NativeHashMap<Hash128, ProjectileTemplateEntry{Command, Refs}>`):
 
-- resulting data flow: every expansion job reads a wrapper and unpacks `.Command`
-- new concepts/types introduced: 3 wrapper structs
-- copies/translations added: one extra struct copy per template fetch in every
-  expansion and timed-spawn job; entry becomes writable so the `[ReadOnly]`
-  concurrent-read guarantee has to be re-argued
-- long-term cost: the doc's "the stored value is a command-shaped template, there
-  is no separate `TemplateData` struct" rule is broken; every reader touched
+- resulting data flow: one container per domain. Template data and template lifetime
+  have a single source of truth; insert and erase are atomic by construction.
+- existing types changed: the three registry components; every reader unpacks
+  `.Command` — `ProjectileSpawnExpansionSystem.cs:191`, `AoeSpawnExpansionSystem.cs:39`,
+  `TargetedSpawnExpansionSystem.cs:32`, `ExternalSpawnGateSystem.cs:156`,
+  `TimedSpawnSystem`, plus tests. Modest, ~8 sites.
+- copies/translations removed or avoided: removes the sync obligation entirely.
+- long-term benefit: no drift possible; fewer allocations (3 maps, not 6).
 
-**Refactor / sidecar** — counters in a separate scope singleton (chosen):
+**Decision: choose additive**, against the default rule, for one concrete reason:
+**write amplification on delta application.**
 
-- resulting data flow: command maps unchanged; counters and deltas are a managed +
-  single-threaded-system concern that no Burst reader sees
-- existing types changed: `CombatScopeOwner` (allocate/dispose), `CombatRoot`
-  (register/unregister), the two `WriteCommon` funnels, `PoolTrimJob`
-- copies/translations avoided: zero change to the hot template fetch
-- long-term benefit: one owner for lifetime accounting; the concurrency contract in
-  the doc stays literally true for the command maps
+`sizeof(AoeSpawnCommand)` is asserted `< 4096`
+(`ProjectileAuthoringEditModeTests.cs:91`) and `ProjectileSpawnCommand` is the same
+order. `NativeHashMap` has no in-place value mutation — applying one delta is
+`TryGetValue` + `map[key] = entry`, so folding the counters in makes every `+1`/`-1`
+copy the whole ~4KB template twice. This project's stated target is extreme spawn
+counts; at a few hundred spawns per frame with two or three keys each, that is
+megabytes of memcpy per frame to move two integers. The sidecar's value is 12 bytes,
+so the same work is ~350x cheaper and stays in cache.
 
-**Decision:** sidecar. The counters are lifetime metadata, not spawn data; putting
-them in the value would push lifetime bookkeeping into every Burst hot path.
+Two arguments that look like they favour the sidecar do **not** hold, and are
+deliberately not part of the rationale — do not resurrect them in review: the extra
+12 bytes on a 4KB `TryGetValue` copy is not a meaningful read-path cost, and the
+`[ReadOnly]` concurrency guarantee is unaffected either way, since under both designs
+the only writer is `SpawnTemplateRefCountSystem` at the same point in the frame. Write
+amplification is the whole case.
+
+**Containing the structural warning.** The sync obligation is real, so it is confined
+rather than left implicit:
+
+- exactly one writer per map pair — `CombatRoot.AddOwner` inserts, and
+  `SpawnTemplateRefCountSystem` is the only place that erases, always removing from
+  both maps together (task 005)
+- the drain creates a counter entry on demand, so a delta for a key the counter map
+  has never seen is well-defined rather than a throw
+- task 007 test 9 asserts every `InstanceCount` returns to 0 after a full
+  spawn/expire/trim cycle — the standing regression guard against 003 and 004
+  drifting apart
+- if delta volume ever turns out to be low in practice, the refactor above is the
+  correct simplification and should be revisited
+
+## Resulting codebase shape
+
+After the change: template *data* lives where it lives today, unchanged and
+Burst-read the same way. Template *lifetime* is a new, clearly-owned concern with one
+state singleton, one writer system, and one managed entry point (`CombatRoot`
+register/unregister). Registration gains a symmetric release that `SkillDriver` is
+responsible for — which is the piece missing today, not just an optimization.
+
+No adapter or shim code, no old/new parallel path, no second representation of a
+template. The one new coupling is the two-map key sync, contained as above.
 
 ## Design validation
 
@@ -141,8 +187,20 @@ them in the value would push lifetime bookkeeping into every Burst hot path.
 
 ## Default decision rule
 
-One source of truth per concept: the command map owns template data, the counter map
-owns template lifetime, keyed identically. No second representation of a template.
+**Rule:** when two representations or data paths describe the same domain concept,
+refactor toward one source of truth unless there is a concrete compatibility or
+migration reason not to.
+
+**How this plan stands against it:** template *data* and template *lifetime* are two
+concepts, and each has exactly one owner — the command map and the counter map. A
+template is never represented twice. The rule is still strained, because the two maps
+share a key space and must be inserted and erased together; that is the structural
+warning named above. The exception is taken on a concrete performance ground (write
+amplification), not on "avoid touching existing code", and it carries a containment
+plan and a revisit condition.
+
+Everywhere else the rule holds unconditionally: no second template struct, no
+event-to-command remap, no parallel registry, no compatibility shim.
 
 ## Task list
 
