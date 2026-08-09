@@ -1,7 +1,9 @@
 using PlayGround.System.Combat.Collision.Broadphase;
 using PlayGround.System.Combat.Core;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 namespace PlayGround.System.Combat.Targets
@@ -21,59 +23,97 @@ namespace PlayGround.System.Combat.Targets
 
         protected override void OnUpdate()
         {
-            Dependency.Complete();
-
-            using NativeArray<Entity> scopes = scopeQuery.ToEntityArray(Allocator.Temp);
-            for (int scopeIndex = 0; scopeIndex < scopes.Length; scopeIndex++)
+            NativeArray<ArchetypeChunk> scopeChunks = scopeQuery.ToArchetypeChunkArray(Allocator.TempJob);
+            Dependency = new ApplyProxyUpdatesJob
             {
-                Entity scope = scopes[scopeIndex];
-                DynamicBuffer<TargetProxyUpdateEvent> buffer =
-                    EntityManager.GetBuffer<TargetProxyUpdateEvent>(scope);
+                ScopeChunks = scopeChunks,
+                EventHandle = GetBufferTypeHandle<TargetProxyUpdateEvent>(false),
+                PositionLookup = GetComponentLookup<TargetPosition>(false),
+                ShapeLookup = GetComponentLookup<TargetCollisionShape>(false),
+                HealthLookup = GetComponentLookup<Health>(false),
+                ManaLookup = GetComponentLookup<Mana>(false)
+            }.Schedule(Dependency);
+            Dependency = scopeChunks.Dispose(Dependency);
+        }
 
-                for (int eventIndex = 0; eventIndex < buffer.Length; eventIndex++)
+        [BurstCompile]
+        private struct ApplyProxyUpdatesJob : IJob
+        {
+            [ReadOnly] public NativeArray<ArchetypeChunk> ScopeChunks;
+            public BufferTypeHandle<TargetProxyUpdateEvent> EventHandle;
+            public ComponentLookup<TargetPosition> PositionLookup;
+            public ComponentLookup<TargetCollisionShape> ShapeLookup;
+            public ComponentLookup<Health> HealthLookup;
+            public ComponentLookup<Mana> ManaLookup;
+
+            public void Execute()
+            {
+                for (int chunkIndex = 0; chunkIndex < ScopeChunks.Length; chunkIndex++)
                 {
-                    TargetProxyUpdateEvent updateEvent = buffer[eventIndex];
-                    if (!EntityManager.Exists(updateEvent.Proxy))
+                    BufferAccessor<TargetProxyUpdateEvent> accessor =
+                        ScopeChunks[chunkIndex].GetBufferAccessor(ref EventHandle);
+                    for (int bufferIndex = 0; bufferIndex < accessor.Length; bufferIndex++)
                     {
-                        continue;
+                        DynamicBuffer<TargetProxyUpdateEvent> buffer = accessor[bufferIndex];
+                        for (int eventIndex = 0; eventIndex < buffer.Length; eventIndex++)
+                        {
+                            Apply(buffer[eventIndex]);
+                        }
+
+                        buffer.Clear();
                     }
+                }
+            }
 
-                    switch (updateEvent.Kind)
-                    {
-                        case TargetProxyUpdateKind.Push:
-                            EntityManager.SetComponentData(updateEvent.Proxy, updateEvent.Position);
-                            EntityManager.SetComponentData(updateEvent.Proxy, updateEvent.Shape);
-                            break;
+            private void Apply(in TargetProxyUpdateEvent updateEvent)
+            {
+                switch (updateEvent.Kind)
+                {
+                    case TargetProxyUpdateKind.Push:
+                        if (PositionLookup.HasComponent(updateEvent.Proxy)
+                            && ShapeLookup.HasComponent(updateEvent.Proxy))
+                        {
+                            PositionLookup[updateEvent.Proxy] = updateEvent.Position;
+                            ShapeLookup[updateEvent.Proxy] = updateEvent.Shape;
+                        }
+                        break;
 
-                        case TargetProxyUpdateKind.PushResourceMaxes:
-                            Health health = EntityManager.GetComponentData<Health>(updateEvent.Proxy);
+                    case TargetProxyUpdateKind.PushResourceMaxes:
+                        if (HealthLookup.HasComponent(updateEvent.Proxy)
+                            && ManaLookup.HasComponent(updateEvent.Proxy))
+                        {
+                            Health health = HealthLookup[updateEvent.Proxy];
                             health.Max = updateEvent.MaxHealth;
                             health.RegenPerSecond = updateEvent.HealthRegenPerSecond;
                             health.Current = math.clamp(health.Current, 0f, health.Max);
-                            EntityManager.SetComponentData(updateEvent.Proxy, health);
+                            HealthLookup[updateEvent.Proxy] = health;
 
-                            Mana mana = EntityManager.GetComponentData<Mana>(updateEvent.Proxy);
+                            Mana mana = ManaLookup[updateEvent.Proxy];
                             mana.Max = updateEvent.MaxMana;
                             mana.RegenPerSecond = updateEvent.ManaRegenPerSecond;
                             mana.Current = math.clamp(mana.Current, 0f, mana.Max);
-                            EntityManager.SetComponentData(updateEvent.Proxy, mana);
-                            break;
+                            ManaLookup[updateEvent.Proxy] = mana;
+                        }
+                        break;
 
-                        case TargetProxyUpdateKind.SetHealth:
-                            Health currentHealth = EntityManager.GetComponentData<Health>(updateEvent.Proxy);
-                            currentHealth.Current = math.clamp(updateEvent.CurrentValue, 0f, currentHealth.Max);
-                            EntityManager.SetComponentData(updateEvent.Proxy, currentHealth);
-                            break;
+                    case TargetProxyUpdateKind.SetHealth:
+                        if (HealthLookup.HasComponent(updateEvent.Proxy))
+                        {
+                            Health health = HealthLookup[updateEvent.Proxy];
+                            health.Current = math.clamp(updateEvent.CurrentValue, 0f, health.Max);
+                            HealthLookup[updateEvent.Proxy] = health;
+                        }
+                        break;
 
-                        case TargetProxyUpdateKind.SetMana:
-                            Mana currentMana = EntityManager.GetComponentData<Mana>(updateEvent.Proxy);
-                            currentMana.Current = math.clamp(updateEvent.CurrentValue, 0f, currentMana.Max);
-                            EntityManager.SetComponentData(updateEvent.Proxy, currentMana);
-                            break;
-                    }
+                    case TargetProxyUpdateKind.SetMana:
+                        if (ManaLookup.HasComponent(updateEvent.Proxy))
+                        {
+                            Mana mana = ManaLookup[updateEvent.Proxy];
+                            mana.Current = math.clamp(updateEvent.CurrentValue, 0f, mana.Max);
+                            ManaLookup[updateEvent.Proxy] = mana;
+                        }
+                        break;
                 }
-
-                buffer.Clear();
             }
         }
     }

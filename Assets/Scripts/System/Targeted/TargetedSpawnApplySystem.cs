@@ -23,6 +23,8 @@ namespace PlayGround.System.Combat.Targeted
 
         private EntityArchetype _archetype;
         private EntityQuery _deadSlots;
+        private EntityQuery _coldSlots;
+        private EntityQuery _coldSlotMarkerQuery;
 
         protected override void OnCreate()
         {
@@ -40,12 +42,22 @@ namespace PlayGround.System.Combat.Targeted
                 typeof(CombatRenderAuthoring),
                 typeof(CombatRenderKindId),
                 typeof(CombatKinematicsComponent),
+                typeof(ColdSlotTag),
                 typeof(Active),
                 typeof(ArmingTag),
                 typeof(CombatArmingComponent));
             _deadSlots = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<TargetedTag>()
                 .WithDisabled<Active>()
+                .Build(this);
+            _coldSlots = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<TargetedTag>()
+                .WithAll<ColdSlotTag>()
+                .WithAll<Active>()
+                .Build(this);
+            _coldSlotMarkerQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<TargetedTag>()
+                .WithAll<ColdSlotTag>()
                 .Build(this);
         }
 
@@ -61,7 +73,8 @@ namespace PlayGround.System.Combat.Targeted
 
             NativeArray<TargetedSpawnCommand> commands = lane.Commands.AsArray();
             int created = SpawnPoolTopUp.EnsureDisabledSlots(
-                EntityManager, _archetype, _deadSlots, commands.Length, CreateSlotsMarker);
+                EntityManager, _archetype, _deadSlots, _coldSlots, _coldSlotMarkerQuery,
+                commands.Length, CreateSlotsMarker);
             using NativeArray<ArchetypeChunk> chunks = _deadSlots.ToArchetypeChunkArray(Allocator.TempJob);
             using var reused = new NativeReference<int>(Allocator.TempJob);
             new TargetedSpawnJob

@@ -43,6 +43,8 @@ namespace PlayGround.System.Combat.Projectiles
 
         private EntityArchetype _archetype;
         private EntityQuery _deadSlotQuery;
+        private EntityQuery _coldSlotQuery;
+        private EntityQuery _coldSlotMarkerQuery;
 
         protected override void OnCreate()
         {
@@ -58,6 +60,7 @@ namespace PlayGround.System.Combat.Projectiles
                 typeof(CombatRenderComponent),
                 typeof(CombatRenderAuthoring),
                 typeof(CombatRenderKindId),
+                typeof(ColdSlotTag),
                 typeof(Active),
                 typeof(CombatCollisionActiveTag),
                 typeof(ArmingTag),
@@ -70,6 +73,17 @@ namespace PlayGround.System.Combat.Projectiles
                 .WithAll<ProjectileTag>()
                 .WithNone<ProjectileContinuousTag>()
                 .WithDisabled<Active>()
+                .Build(this);
+            _coldSlotQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<ProjectileTag>()
+                .WithAll<ColdSlotTag>()
+                .WithAll<Active>()
+                .WithNone<ProjectileContinuousTag>()
+                .Build(this);
+            _coldSlotMarkerQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<ProjectileTag>()
+                .WithAll<ColdSlotTag>()
+                .WithNone<ProjectileContinuousTag>()
                 .Build(this);
         }
 
@@ -114,6 +128,8 @@ namespace PlayGround.System.Combat.Projectiles
                     EntityManager,
                     _archetype,
                     _deadSlotQuery,
+                    _coldSlotQuery,
+                    _coldSlotMarkerQuery,
                     totalRequests,
                     CreateSlotsMarker);
                 int reuseCount = 0;

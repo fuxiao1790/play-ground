@@ -110,65 +110,40 @@ namespace PlayGround.System.Combat.Projectiles
             singleton.ProducerHandle.Complete();
             singleton.ProducerHandle = default;
 
-            int queueCount = singleton.EventQueue.Count;
-            using NativeArray<Entity> scopes = _scopeQuery.ToEntityArray(Allocator.Temp);
-            int bufferCount = 0;
-            for (int s = 0; s < scopes.Length; s++)
+            var events = new NativeList<ProjectileSpawnEvent>(Allocator.TempJob);
+            NativeArray<ArchetypeChunk> scopeChunks =
+                _scopeQuery.ToArchetypeChunkArray(Allocator.TempJob);
+            JobHandle gatherHandle = new GatherSpawnEventsJob<ProjectileSpawnEvent>
             {
-                bufferCount += EntityManager.GetBuffer<ProjectileSpawnEvent>(scopes[s]).Length;
-            }
-
-            int totalEvents = queueCount + bufferCount;
-            if (totalEvents == 0)
-            {
-                singleton.PendingHandle = default;
-                return;
-            }
-
-            var events = new NativeArray<ProjectileSpawnEvent>(totalEvents, Allocator.TempJob);
-            int offset = 0;
-
-            if (queueCount > 0)
-            {
-                NativeArray<ProjectileSpawnEvent> queued = singleton.EventQueue.ToArray(Allocator.Temp);
-                NativeArray<ProjectileSpawnEvent>.Copy(queued, 0, events, offset, queued.Length);
-                offset += queued.Length;
-                queued.Dispose();
-                singleton.EventQueue.Clear();
-            }
-
-            for (int s = 0; s < scopes.Length; s++)
-            {
-                DynamicBuffer<ProjectileSpawnEvent> buf = EntityManager.GetBuffer<ProjectileSpawnEvent>(scopes[s]);
-                if (buf.Length > 0)
-                {
-                    NativeArray<ProjectileSpawnEvent>.Copy(buf.AsNativeArray(), 0, events, offset, buf.Length);
-                    offset += buf.Length;
-                    buf.Clear();
-                }
-            }
+                Queue = singleton.EventQueue,
+                BufferHandle = GetBufferTypeHandle<ProjectileSpawnEvent>(false),
+                ScopeChunks = scopeChunks,
+                Events = events
+            }.Schedule(Dependency);
 
             if (!SystemAPI.TryGetSingleton(out ProjectileSpawnTemplate templates))
             {
-                singleton.PendingHandle = events.Dispose(Dependency);
+                Dependency = events.Dispose(gatherHandle);
+                singleton.PendingHandle = scopeChunks.Dispose(Dependency);
                 Dependency = singleton.PendingHandle;
                 return;
             }
 
             NativeList<ProjectileSpawnCommand> discreteCommands =
-                new(events.Length, Allocator.TempJob);
+                new(Allocator.TempJob);
             NativeList<ProjectileSpawnCommand> continuousCommands =
-                new(events.Length, Allocator.TempJob);
+                new(Allocator.TempJob);
 
             Dependency = new ProjectileExpansionJob
             {
-                Events = events,
+                Events = events.AsDeferredJobArray(),
                 Templates = templates.Map,
                 DiscreteCommands = discreteCommands,
                 ContinuousCommands = continuousCommands
-            }.Schedule(Dependency);
+            }.Schedule(gatherHandle);
 
             Dependency = events.Dispose(Dependency);
+            Dependency = scopeChunks.Dispose(Dependency);
             singleton.DiscreteCommands = discreteCommands;
             singleton.ContinuousCommands = continuousCommands;
             singleton.PendingHandle = Dependency;

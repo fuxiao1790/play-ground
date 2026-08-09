@@ -180,64 +180,43 @@ namespace PlayGround.System.Combat.Targeted
             lane.ProducerHandle.Complete();
             lane.ProducerHandle = default;
 
-            int queueCount = lane.EventQueue.Count;
-            using NativeArray<Entity> scopes = _scopeQuery.ToEntityArray(Allocator.Temp);
-            int bufferCount = 0;
-            for (int s = 0; s < scopes.Length; s++)
+            var events = new NativeList<TargetedSpawnEvent>(Allocator.TempJob);
+            NativeArray<ArchetypeChunk> scopeChunks =
+                _scopeQuery.ToArchetypeChunkArray(Allocator.TempJob);
+            JobHandle gatherHandle = new GatherSpawnEventsJob<TargetedSpawnEvent>
             {
-                bufferCount += EntityManager.GetBuffer<TargetedSpawnEvent>(scopes[s]).Length;
-            }
-
-            int totalEvents = queueCount + bufferCount;
-            if (totalEvents == 0)
-            {
-                lane.PendingHandle = default;
-                return;
-            }
-
-            var events = new NativeArray<TargetedSpawnEvent>(totalEvents, Allocator.TempJob);
-            int offset = 0;
-            while (lane.EventQueue.TryDequeue(out TargetedSpawnEvent evt))
-            {
-                events[offset++] = evt;
-            }
-
-            for (int s = 0; s < scopes.Length; s++)
-            {
-                DynamicBuffer<TargetedSpawnEvent> buffer =
-                    EntityManager.GetBuffer<TargetedSpawnEvent>(scopes[s]);
-                for (int i = 0; i < buffer.Length; i++)
-                {
-                    events[offset++] = buffer[i];
-                }
-
-                buffer.Clear();
-            }
+                Queue = lane.EventQueue,
+                BufferHandle = GetBufferTypeHandle<TargetedSpawnEvent>(false),
+                ScopeChunks = scopeChunks,
+                Events = events
+            }.Schedule(Dependency);
 
             if (!SystemAPI.TryGetSingleton(out TargetedSpawnTemplate templates))
             {
-                Dependency = events.Dispose(Dependency);
-                lane.PendingHandle = Dependency;
+                Dependency = events.Dispose(gatherHandle);
+                lane.PendingHandle = scopeChunks.Dispose(Dependency);
+                Dependency = lane.PendingHandle;
                 return;
             }
 
             RefRW<CombatAoeVfxDispatchSingleton> vfx =
                 SystemAPI.GetSingletonRW<CombatAoeVfxDispatchSingleton>();
-            NativeList<TargetedSpawnCommand> commands = new(events.Length, Allocator.TempJob);
+            NativeList<TargetedSpawnCommand> commands = new(Allocator.TempJob);
             JobHandle expansionInput =
                 JobHandle.CombineDependencies(Dependency, vfx.ValueRO.ProducerHandle);
 
             Dependency = new TargetedExpansionJob
             {
-                Events = events,
+                Events = events.AsDeferredJobArray(),
                 Templates = templates.Map,
                 Commands = commands,
                 CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
                 TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter()
-            }.Schedule(expansionInput);
+            }.Schedule(JobHandle.CombineDependencies(gatherHandle, expansionInput));
             vfx.ValueRW.ProducerHandle = Dependency;
 
             Dependency = events.Dispose(Dependency);
+            Dependency = scopeChunks.Dispose(Dependency);
             lane.Commands = commands;
             lane.PendingHandle = Dependency;
         }

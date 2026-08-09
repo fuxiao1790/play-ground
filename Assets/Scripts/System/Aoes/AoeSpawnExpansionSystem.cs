@@ -256,44 +256,22 @@ namespace PlayGround.System.Combat.Aoes
             singleton.ProducerHandle.Complete();
             singleton.ProducerHandle = default;
 
-            int queueCount = singleton.EventQueue.Count;
-            using NativeArray<Entity> scopes = _scopeQuery.ToEntityArray(Allocator.Temp);
-            int bufferCount = 0;
-            for (int s = 0; s < scopes.Length; s++)
+            var events = new NativeList<ImpactAoeSpawnEvent>(Allocator.TempJob);
+            NativeArray<ArchetypeChunk> scopeChunks =
+                _scopeQuery.ToArchetypeChunkArray(Allocator.TempJob);
+            JobHandle gatherHandle = new GatherSpawnEventsJob<ImpactAoeSpawnEvent>
             {
-                bufferCount += EntityManager.GetBuffer<ImpactAoeSpawnEvent>(scopes[s]).Length;
-            }
-
-            int totalEvents = queueCount + bufferCount;
-            if (totalEvents == 0)
-            {
-                singleton.PendingHandle = default;
-                return;
-            }
-
-            var events = new NativeArray<ImpactAoeSpawnEvent>(totalEvents, Allocator.TempJob);
-            int offset = 0;
-
-            while (singleton.EventQueue.TryDequeue(out ImpactAoeSpawnEvent evt))
-            {
-                events[offset++] = evt;
-            }
-
-            for (int s = 0; s < scopes.Length; s++)
-            {
-                DynamicBuffer<ImpactAoeSpawnEvent> buf = EntityManager.GetBuffer<ImpactAoeSpawnEvent>(scopes[s]);
-                for (int i = 0; i < buf.Length; i++)
-                {
-                    events[offset++] = buf[i];
-                }
-
-                buf.Clear();
-            }
+                Queue = singleton.EventQueue,
+                BufferHandle = GetBufferTypeHandle<ImpactAoeSpawnEvent>(false),
+                ScopeChunks = scopeChunks,
+                Events = events
+            }.Schedule(Dependency);
 
             if (!SystemAPI.TryGetSingleton(out AoeSpawnTemplate templates))
             {
-                Dependency = events.Dispose(Dependency);
-                singleton.PendingHandle = Dependency;
+                Dependency = events.Dispose(gatherHandle);
+                singleton.PendingHandle = scopeChunks.Dispose(Dependency);
+                Dependency = singleton.PendingHandle;
                 return;
             }
 
@@ -303,23 +281,24 @@ namespace PlayGround.System.Combat.Aoes
                 SystemAPI.GetSingletonRW<CombatAoeVfxDispatchSingleton>();
 
             NativeList<AoeSpawnCommand> commands =
-                new(events.Length, Allocator.TempJob);
+                new(Allocator.TempJob);
 
             JobHandle expansionInput =
                 JobHandle.CombineDependencies(Dependency, vfx.ValueRO.ProducerHandle);
 
             Dependency = new ImpactAoeExpansionJob
             {
-                Events = events,
+                Events = events.AsDeferredJobArray(),
                 Templates = templates.Map,
                 Commands = commands,
                 CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
                 TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter()
-            }.Schedule(expansionInput);
+            }.Schedule(JobHandle.CombineDependencies(gatherHandle, expansionInput));
 
             vfx.ValueRW.ProducerHandle = Dependency;
 
             Dependency = events.Dispose(Dependency);
+            Dependency = scopeChunks.Dispose(Dependency);
             singleton.Commands = commands;
             singleton.PendingHandle = Dependency;
         }
@@ -427,45 +406,22 @@ namespace PlayGround.System.Combat.Aoes
             singleton.ProducerHandle.Complete();
             singleton.ProducerHandle = default;
 
-            int queueCount = singleton.EventQueue.Count;
-            using NativeArray<Entity> scopes = _scopeQuery.ToEntityArray(Allocator.Temp);
-            int bufferCount = 0;
-            for (int s = 0; s < scopes.Length; s++)
+            var events = new NativeList<LingeringAoeSpawnEvent>(Allocator.TempJob);
+            NativeArray<ArchetypeChunk> scopeChunks =
+                _scopeQuery.ToArchetypeChunkArray(Allocator.TempJob);
+            JobHandle gatherHandle = new GatherSpawnEventsJob<LingeringAoeSpawnEvent>
             {
-                bufferCount += EntityManager.GetBuffer<LingeringAoeSpawnEvent>(scopes[s]).Length;
-            }
-
-            int totalEvents = queueCount + bufferCount;
-            if (totalEvents == 0)
-            {
-                singleton.PendingHandle = default;
-                return;
-            }
-
-            var events = new NativeArray<LingeringAoeSpawnEvent>(totalEvents, Allocator.TempJob);
-            int offset = 0;
-
-            while (singleton.EventQueue.TryDequeue(out LingeringAoeSpawnEvent evt))
-            {
-                events[offset++] = evt;
-            }
-
-            for (int s = 0; s < scopes.Length; s++)
-            {
-                DynamicBuffer<LingeringAoeSpawnEvent> buf =
-                    EntityManager.GetBuffer<LingeringAoeSpawnEvent>(scopes[s]);
-                for (int i = 0; i < buf.Length; i++)
-                {
-                    events[offset++] = buf[i];
-                }
-
-                buf.Clear();
-            }
+                Queue = singleton.EventQueue,
+                BufferHandle = GetBufferTypeHandle<LingeringAoeSpawnEvent>(false),
+                ScopeChunks = scopeChunks,
+                Events = events
+            }.Schedule(Dependency);
 
             if (!SystemAPI.TryGetSingleton(out AoeSpawnTemplate templates))
             {
-                Dependency = events.Dispose(Dependency);
-                singleton.PendingHandle = Dependency;
+                Dependency = events.Dispose(gatherHandle);
+                singleton.PendingHandle = scopeChunks.Dispose(Dependency);
+                Dependency = singleton.PendingHandle;
                 return;
             }
 
@@ -475,23 +431,24 @@ namespace PlayGround.System.Combat.Aoes
                 SystemAPI.GetSingletonRW<CombatAoeVfxDispatchSingleton>();
 
             NativeList<AoeSpawnCommand> commands =
-                new(events.Length, Allocator.TempJob);
+                new(Allocator.TempJob);
 
             JobHandle expansionInput =
                 JobHandle.CombineDependencies(Dependency, vfx.ValueRO.ProducerHandle);
 
             Dependency = new LingeringAoeExpansionJob
             {
-                Events = events,
+                Events = events.AsDeferredJobArray(),
                 Templates = templates.Map,
                 Commands = commands,
                 CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
                 TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter()
-            }.Schedule(expansionInput);
+            }.Schedule(JobHandle.CombineDependencies(gatherHandle, expansionInput));
 
             vfx.ValueRW.ProducerHandle = Dependency;
 
             Dependency = events.Dispose(Dependency);
+            Dependency = scopeChunks.Dispose(Dependency);
             singleton.Commands = commands;
             singleton.PendingHandle = Dependency;
         }

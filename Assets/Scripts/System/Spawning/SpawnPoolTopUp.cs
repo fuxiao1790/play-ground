@@ -5,6 +5,12 @@ using Unity.Profiling;
 
 namespace PlayGround.System.Combat.Spawning
 {
+    // ECS Lifecycle: enabled only on fresh cold slots so SpawnPoolTopUp can disable Active
+    // at query granularity, then disabled in the same call to consume the creation marker.
+    internal struct ColdSlotTag : IComponentData, IEnableableComponent
+    {
+    }
+
     internal static class SpawnPoolTopUp
     {
         /// <summary>
@@ -16,6 +22,8 @@ namespace PlayGround.System.Combat.Spawning
             EntityManager entityManager,
             EntityArchetype archetype,
             EntityQuery disabledSlotQuery,
+            EntityQuery activeColdSlotQuery,
+            EntityQuery coldSlotMarkerQuery,
             int demand,
             ProfilerMarker createSlotsMarker)
         {
@@ -28,14 +36,9 @@ namespace PlayGround.System.Combat.Spawning
 
             using (createSlotsMarker.Auto())
             {
-                NativeArray<Entity> created =
-                    entityManager.CreateEntity(archetype, deficit, Allocator.Temp);
-                for (int i = 0; i < created.Length; i++)
-                {
-                    entityManager.SetComponentEnabled<Active>(created[i], false);
-                }
-
-                created.Dispose();
+                entityManager.CreateEntity(archetype, deficit, Allocator.Temp).Dispose();
+                entityManager.SetComponentEnabled<Active>(activeColdSlotQuery, false);
+                entityManager.SetComponentEnabled<ColdSlotTag>(coldSlotMarkerQuery, false);
             }
             return deficit;
         }

@@ -1,7 +1,9 @@
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Core;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 
 namespace PlayGround.System.Combat.Targets
 {
@@ -22,24 +24,68 @@ namespace PlayGround.System.Combat.Targets
         {
             Dependency.Complete();
 
-            using NativeArray<Entity> scopes = scopeQuery.ToEntityArray(Allocator.Temp);
-            for (int scopeIndex = 0; scopeIndex < scopes.Length; scopeIndex++)
+            NativeArray<ArchetypeChunk> scopeChunks = scopeQuery.ToArchetypeChunkArray(Allocator.TempJob);
+            NativeList<Entity> proxies = new(Allocator.TempJob);
+            JobHandle collectHandle = new CollectProxyDeletesJob
             {
-                Entity scope = scopes[scopeIndex];
-                DynamicBuffer<TargetProxyDeleteEvent> buffer =
-                    EntityManager.GetBuffer<TargetProxyDeleteEvent>(scope);
-                using NativeArray<TargetProxyDeleteEvent> events = buffer.ToNativeArray(Allocator.Temp);
+                ScopeChunks = scopeChunks,
+                EventHandle = GetBufferTypeHandle<TargetProxyDeleteEvent>(false),
+                EntityStorage = GetEntityStorageInfoLookup(),
+                Proxies = proxies
+            }.Schedule(Dependency);
+            collectHandle.Complete();
 
-                for (int eventIndex = 0; eventIndex < events.Length; eventIndex++)
+            if (proxies.Length > 0)
+            {
+                EntityManager.DestroyEntity(proxies.AsArray());
+            }
+
+            scopeChunks.Dispose();
+            proxies.Dispose();
+        }
+
+        [BurstCompile]
+        private struct CollectProxyDeletesJob : IJob
+        {
+            [ReadOnly] public NativeArray<ArchetypeChunk> ScopeChunks;
+            public BufferTypeHandle<TargetProxyDeleteEvent> EventHandle;
+            [ReadOnly] public EntityStorageInfoLookup EntityStorage;
+            public NativeList<Entity> Proxies;
+
+            public void Execute()
+            {
+                for (int chunkIndex = 0; chunkIndex < ScopeChunks.Length; chunkIndex++)
                 {
-                    Entity proxy = events[eventIndex].Proxy;
-                    if (EntityManager.Exists(proxy))
+                    BufferAccessor<TargetProxyDeleteEvent> accessor =
+                        ScopeChunks[chunkIndex].GetBufferAccessor(ref EventHandle);
+                    for (int bufferIndex = 0; bufferIndex < accessor.Length; bufferIndex++)
                     {
-                        EntityManager.DestroyEntity(proxy);
+                        DynamicBuffer<TargetProxyDeleteEvent> buffer = accessor[bufferIndex];
+                        for (int eventIndex = 0; eventIndex < buffer.Length; eventIndex++)
+                        {
+                            Entity proxy = buffer[eventIndex].Proxy;
+                            if (EntityStorage.Exists(proxy))
+                            {
+                                AddUnique(proxy);
+                            }
+                        }
+
+                        buffer.Clear();
+                    }
+                }
+            }
+
+            private void AddUnique(Entity proxy)
+            {
+                for (int i = 0; i < Proxies.Length; i++)
+                {
+                    if (Proxies[i] == proxy)
+                    {
+                        return;
                     }
                 }
 
-                EntityManager.GetBuffer<TargetProxyDeleteEvent>(scope).Clear();
+                Proxies.Add(proxy);
             }
         }
     }

@@ -1,4 +1,6 @@
+using Unity.Burst;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 namespace PlayGround.System.Combat.Targets
@@ -10,20 +12,41 @@ namespace PlayGround.System.Combat.Targets
         public void OnUpdate(ref SystemState state)
         {
             float deltaTime = SystemAPI.Time.DeltaTime;
-            foreach (RefRW<Health> health in SystemAPI.Query<RefRW<Health>>())
+            JobHandle healthHandle = new HealthRegenJob
             {
+                DeltaTime = deltaTime
+            }.ScheduleParallel(state.Dependency);
 
-                health.ValueRW.Current = math.min(
-                    health.ValueRO.Max,
-                    health.ValueRO.Current + health.ValueRO.RegenPerSecond * deltaTime);
+            state.Dependency = new ManaRegenJob
+            {
+                DeltaTime = deltaTime
+            }.ScheduleParallel(healthHandle);
+        }
+
+        [BurstCompile]
+        private partial struct HealthRegenJob : IJobEntity
+        {
+            public float DeltaTime;
+
+            private void Execute(ref Health health)
+            {
+                health.Current = math.min(
+                    health.Max,
+                    health.Current + health.RegenPerSecond * DeltaTime);
             }
+        }
 
-            foreach (RefRW<Mana> mana in SystemAPI.Query<RefRW<Mana>>())
+        [BurstCompile]
+        private partial struct ManaRegenJob : IJobEntity
+        {
+            public float DeltaTime;
+
+            private void Execute(ref Mana mana)
             {
-                mana.ValueRW.Current = math.clamp(
-                    mana.ValueRO.Current + mana.ValueRO.RegenPerSecond * deltaTime,
+                mana.Current = math.clamp(
+                    mana.Current + mana.RegenPerSecond * DeltaTime,
                     0f,
-                    mana.ValueRO.Max);
+                    mana.Max);
             }
         }
     }

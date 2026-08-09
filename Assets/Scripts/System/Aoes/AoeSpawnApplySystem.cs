@@ -37,6 +37,8 @@ namespace PlayGround.System.Combat.Aoes
 
         private EntityArchetype _impactArchetype;
         private EntityQuery _deadSlotQuery;
+        private EntityQuery _coldSlotQuery;
+        private EntityQuery _coldSlotMarkerQuery;
 
         protected override void OnCreate()
         {
@@ -54,6 +56,7 @@ namespace PlayGround.System.Combat.Aoes
                 typeof(CombatRenderKindId),
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
+                typeof(ColdSlotTag),
                 typeof(Active),
                 typeof(CombatCollisionActiveTag),
                 typeof(ArmingTag),
@@ -62,6 +65,17 @@ namespace PlayGround.System.Combat.Aoes
             _deadSlotQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<AoeTag>()
                 .WithDisabled<Active>()
+                .WithNone<LingeringAoeTag>()
+                .Build(this);
+            _coldSlotMarkerQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AoeTag>()
+                .WithAll<ColdSlotTag>()
+                .WithNone<LingeringAoeTag>()
+                .Build(this);
+            _coldSlotQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AoeTag>()
+                .WithAll<ColdSlotTag>()
+                .WithAll<Active>()
                 .WithNone<LingeringAoeTag>()
                 .Build(this);
         }
@@ -96,6 +110,8 @@ namespace PlayGround.System.Combat.Aoes
                     EntityManager,
                     _impactArchetype,
                     _deadSlotQuery,
+                    _coldSlotQuery,
+                    _coldSlotMarkerQuery,
                     totalRequests,
                     CreateSlotsMarker);
                 int reuseCount = 0;
@@ -264,6 +280,8 @@ namespace PlayGround.System.Combat.Aoes
 
         private EntityArchetype _lingeringArchetype;
         private EntityQuery _deadSlotQuery;
+        private EntityQuery _coldSlotQuery;
+        private EntityQuery _coldSlotMarkerQuery;
 
         protected override void OnCreate()
         {
@@ -284,6 +302,7 @@ namespace PlayGround.System.Combat.Aoes
                 typeof(CombatRenderKindId),
                 typeof(CombatKinematicsComponent),
                 typeof(CombatCollisionComponent),
+                typeof(ColdSlotTag),
                 typeof(Active),
                 typeof(CombatCollisionActiveTag),
                 typeof(ArmingTag),
@@ -295,6 +314,17 @@ namespace PlayGround.System.Combat.Aoes
                 .WithAll<AoeTag>()
                 .WithAll<LingeringAoeTag>()
                 .WithDisabled<Active>()
+                .Build(this);
+            _coldSlotQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AoeTag>()
+                .WithAll<LingeringAoeTag>()
+                .WithAll<ColdSlotTag>()
+                .WithAll<Active>()
+                .Build(this);
+            _coldSlotMarkerQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AoeTag>()
+                .WithAll<LingeringAoeTag>()
+                .WithAll<ColdSlotTag>()
                 .Build(this);
         }
 
@@ -328,6 +358,8 @@ namespace PlayGround.System.Combat.Aoes
                     EntityManager,
                     _lingeringArchetype,
                     _deadSlotQuery,
+                    _coldSlotQuery,
+                    _coldSlotMarkerQuery,
                     totalRequests,
                     CreateSlotsMarker);
                 int reuseCount = 0;
