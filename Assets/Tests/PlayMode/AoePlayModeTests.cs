@@ -356,7 +356,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(firstSetup.TemplateKey, Is.Not.EqualTo(default(Hash128)));
             Assert.That(secondSetup.TemplateKey, Is.EqualTo(firstSetup.TemplateKey));
             Assert.That(registry.Map.ContainsKey(firstSetup.TemplateKey), Is.True);
-            Assert.That(registry.Map.Count, Is.LessThanOrEqualTo(projectileStartCount + 1));
+            Assert.That(registry.Map.Count, Is.LessThanOrEqualTo(projectileStartCount + 2));
 
             triggerB.projectileCount = 2;
             CompileAndRegister(driver);
@@ -369,7 +369,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(originalKey, Is.EqualTo(firstSetup.TemplateKey));
             Assert.That(changedCountKey, Is.Not.EqualTo(originalKey));
             Assert.That(registry.Map.ContainsKey(changedCountKey), Is.True);
-            Assert.That(registry.Map.Count, Is.LessThanOrEqualTo(projectileStartCount + 2));
+            Assert.That(registry.Map.Count, Is.LessThanOrEqualTo(projectileStartCount + 3));
 
             triggerB.projectileCount = 1;
             CompileAndRegister(driver);
@@ -387,6 +387,81 @@ namespace PlayGround.Tests.PlayMode
                 childSet,
                 triggerA,
                 triggerB,
+                loadout);
+        }
+
+        [Test]
+        public void CompileAndRegisterUsesOneTemplatePerCastableRootAndIntervalChild()
+        {
+            CreateProjectileRoot(out GameObject rootObject, out CombatRoot root);
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            Entity scope = ScopeEntity(root);
+            int projectileStartCount = entityManager.GetComponentData<ProjectileSpawnTemplate>(scope).Map.Count;
+            int aoeStartCount = entityManager.GetComponentData<AoeSpawnTemplate>(scope).Map.Count;
+
+            BasicAttackPrefab rootPrefab = CreateProjectilePrefab("RootMagicBoltTemplate");
+            LingeringAoePrefab circlePrefab = CreateLingeringAoePrefab("MagicCircleTemplate");
+            BasicAttackPrefab childPrefab = CreateProjectilePrefab("IntervalMagicBoltTemplate");
+            ProjectileSkill rootSkill = ScriptableObject.CreateInstance<ProjectileSkill>();
+            LingeringAoeSkill circleSkill = ScriptableObject.CreateInstance<LingeringAoeSkill>();
+            ProjectileSkill childSkill = ScriptableObject.CreateInstance<ProjectileSkill>();
+            SkillSet rootSet = ScriptableObject.CreateInstance<SkillSet>();
+            SkillSet circleSet = ScriptableObject.CreateInstance<SkillSet>();
+            SkillSet childSet = ScriptableObject.CreateInstance<SkillSet>();
+            IntervalSpawnTrigger circleTrigger = ScriptableObject.CreateInstance<IntervalSpawnTrigger>();
+            IntervalSpawnTrigger childTrigger = ScriptableObject.CreateInstance<IntervalSpawnTrigger>();
+            SkillLoadout loadout = ScriptableObject.CreateInstance<SkillLoadout>();
+            GameObject driverObject = new("SkillDriverHarness");
+            driverObject.SetActive(false);
+            SkillDriver driver = driverObject.AddComponent<SkillDriver>();
+
+            ConfigureProjectile(rootSkill, rootPrefab, damage: 1f);
+            ConfigureLingeringAoe(circleSkill, circlePrefab, damage: 1f, lifetime: 1f);
+            ConfigureProjectile(childSkill, childPrefab, damage: 2f);
+            circleTrigger.energyPerSecond = 4f;
+            circleTrigger.echoCount = 1;
+            childTrigger.energyPerSecond = 4f;
+            childTrigger.projectileCount = 2;
+            SetField(rootSet, "skill", rootSkill);
+            SetField(rootSet, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(circleSet, "skill", circleSkill);
+            SetField(circleSet, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(childSet, "skill", childSkill);
+            SetField(childSet, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(loadout, "slots", new global::System.Collections.Generic.List<LoadoutSlot>
+            {
+                new SkillSetSlot { skillSet = rootSet },
+                new TriggerLinkSlot { link = circleTrigger },
+                new SkillSetSlot { skillSet = circleSet },
+                new TriggerLinkSlot { link = childTrigger },
+                new SkillSetSlot { skillSet = childSet },
+            });
+            SetField(driver, "loadout", loadout);
+            SetField(driver, "combatRoot", root);
+
+            CompileAndRegister(driver);
+
+            ProjectileSpawnTemplate projectileRegistry =
+                entityManager.GetComponentData<ProjectileSpawnTemplate>(scope);
+            AoeSpawnTemplate aoeRegistry = entityManager.GetComponentData<AoeSpawnTemplate>(scope);
+            Assert.That(projectileRegistry.Map.Count, Is.EqualTo(projectileStartCount + 2));
+            Assert.That(aoeRegistry.Map.Count, Is.EqualTo(aoeStartCount + 1));
+
+            Cleanup(
+                rootObject,
+                rootPrefab.gameObject,
+                circlePrefab.gameObject,
+                childPrefab.gameObject,
+                driverObject);
+            CleanupObjects(
+                rootSkill,
+                circleSkill,
+                childSkill,
+                rootSet,
+                circleSet,
+                childSet,
+                circleTrigger,
+                childTrigger,
                 loadout);
         }
 

@@ -844,6 +844,9 @@ After compilation, `SkillDriver` recursively walks all compiled trees:
   child domain and registers it with `CombatRoot.RegisterTimedSpawnTemplate`.
   The returned `TemplateKey` is copied onto the setup; ECS spawner components
   carry that key instead of embedding the full recursive child template.
+- Each castable root also registers one spawn template for `SkillSpawnTranslator`.
+  An interval child does not register an additional generic template: its
+  interval template is the only entry used to materialize it.
 
 Registration re-runs via `BindAoeRoot` whenever `CombatRoot` is wired after compile.
 

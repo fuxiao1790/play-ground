@@ -579,7 +579,10 @@ namespace PlayGround.Skills
             int depth,
             List<SkillValidationWarning> warnings,
             int slotIndex,
-            ProjectileChildSpawnPatternType selfPattern = ProjectileChildSpawnPatternType.Forward)
+            ProjectileChildSpawnPatternType selfPattern = ProjectileChildSpawnPatternType.Forward,
+            // Interval edges register their own behavior-specific templates. Root, on-hit,
+            // and stacking edges need the definition's generic key instead.
+            bool registerSelfTemplate = true)
         {
             if (def == null) return false;
             if (depth > CombatRoot.MaxSpawnChainDepth)
@@ -599,7 +602,8 @@ namespace PlayGround.Skills
                 // keep the default forward pattern).
                 return RegisterSpawnTemplatesRecursive(
                     stackingDetonation.Detonation, depth, warnings, slotIndex,
-                    ProjectileChildSpawnPatternType.Radial);
+                    ProjectileChildSpawnPatternType.Radial,
+                    registerSelfTemplate: true);
             }
 
             if (def is RuntimeAoeDefinition aoeDef)
@@ -610,7 +614,8 @@ namespace PlayGround.Skills
                             aoeDef.ChildSpawnSetup.ChildDefinition,
                             depth + 1,
                             warnings,
-                            slotIndex))
+                            slotIndex,
+                            registerSelfTemplate: false))
                     {
                         RegisterProjectileIntervalTemplate(aoeDef.ChildSpawnSetup);
                     }
@@ -622,7 +627,8 @@ namespace PlayGround.Skills
                             aoeDef.AoeIntervalSpawnSetup.ChildDefinition,
                             depth + 1,
                             warnings,
-                            slotIndex))
+                            slotIndex,
+                            registerSelfTemplate: false))
                     {
                         RegisterAoeIntervalTemplate(aoeDef.AoeIntervalSpawnSetup);
                     }
@@ -634,7 +640,8 @@ namespace PlayGround.Skills
                             aoeDef.TargetedIntervalSpawnSetup.ChildDefinition,
                             depth + 1,
                             warnings,
-                            slotIndex))
+                            slotIndex,
+                            registerSelfTemplate: false))
                     {
                         RegisterTargetedIntervalTemplate(aoeDef.TargetedIntervalSpawnSetup);
                     }
@@ -659,7 +666,9 @@ namespace PlayGround.Skills
                         stackEffect,
                         BuildOnHitSpawnRef(aoeDef),
                         AoeTimedSpawnFromDefinition(aoeDef));
-                aoeDef.SpawnTemplateKey = combatRoot.RegisterSpawnTemplate(in template);
+                aoeDef.SpawnTemplateKey = registerSelfTemplate
+                    ? combatRoot.RegisterSpawnTemplate(in template)
+                    : default;
                 return true;
             }
 
@@ -678,7 +687,9 @@ namespace PlayGround.Skills
                         combatRoot,
                         SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(targetedDef, combatRoot),
                         BuildOnHitSpawnRef(targetedDef));
-                targetedDef.SpawnTemplateKey = combatRoot.RegisterSpawnTemplate(in template);
+                targetedDef.SpawnTemplateKey = registerSelfTemplate
+                    ? combatRoot.RegisterSpawnTemplate(in template)
+                    : default;
                 return true;
             }
 
@@ -693,7 +704,8 @@ namespace PlayGround.Skills
                             projDef.ChildSpawnSetup.ChildDefinition,
                             depth + 1,
                             warnings,
-                            slotIndex))
+                            slotIndex,
+                            registerSelfTemplate: false))
                     {
                         RegisterProjectileIntervalTemplate(projDef.ChildSpawnSetup);
                     }
@@ -705,7 +717,8 @@ namespace PlayGround.Skills
                             projDef.AoeIntervalSpawnSetup.ChildDefinition,
                             depth + 1,
                             warnings,
-                            slotIndex))
+                            slotIndex,
+                            registerSelfTemplate: false))
                     {
                         RegisterAoeIntervalTemplate(projDef.AoeIntervalSpawnSetup);
                     }
@@ -717,7 +730,8 @@ namespace PlayGround.Skills
                             projDef.TargetedIntervalSpawnSetup.ChildDefinition,
                             depth + 1,
                             warnings,
-                            slotIndex))
+                            slotIndex,
+                            registerSelfTemplate: false))
                     {
                         RegisterTargetedIntervalTemplate(projDef.TargetedIntervalSpawnSetup);
                     }
@@ -746,7 +760,9 @@ namespace PlayGround.Skills
                         BuildOnHitSpawnRef(projDef),
                         ProjectileTimedSpawnFromDefinition(projDef),
                         projDef.JitterDegrees);
-                projDef.SpawnTemplateKey = combatRoot.RegisterSpawnTemplate(in template);
+                projDef.SpawnTemplateKey = registerSelfTemplate
+                    ? combatRoot.RegisterSpawnTemplate(in template)
+                    : default;
                 return true;
             }
 
