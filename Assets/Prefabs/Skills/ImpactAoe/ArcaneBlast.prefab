@@ -54,7 +54,7 @@ MonoBehaviour:
   hitEffectShape: 0
   expireEffect: {fileID: 0}
   expireEffectShape: 0
-  armingEffect: {fileID: 8926484042661614526, guid: 7bcdd344de3f4ef488735af502f912d2, type: 3}
+  armingEffect: {fileID: 0}
   armingEffectShape: 0
 --- !u!1 &1003000000000000100
 GameObject:

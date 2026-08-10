@@ -41,6 +41,17 @@
     white-space: normal;
 }
 
+/* Show more / less toggle. The panel itself is picking-ignore so the world stays
+   clickable through it; PickingMode.Ignore does not propagate, so this button
+   still takes clicks. */
+.performance-toggle {
+    align-self: flex-end;
+    height: 20px;
+    margin: 4px 0 0 0;
+    padding: 0 8px;
+    font-size: 11px;
+}
+
 /* Reserved for the future target-health projection. */
 .target-hud {
     align-self: center;

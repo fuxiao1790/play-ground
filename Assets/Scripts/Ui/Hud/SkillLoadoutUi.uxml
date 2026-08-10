@@ -4,19 +4,23 @@
     <ui:VisualElement name="hud-container" class="hud-container">
         <ui:VisualElement name="performance-panel" class="performance-panel">
             <ui:Label name="performance-fps" class="performance-text" />
-            <ui:Label name="performance-spawn-reuse" class="performance-text" />
-            <ui:Label name="performance-create-ecb" class="performance-text" />
-            <ui:Label name="performance-despawned" class="performance-text" />
-            <ui:Label name="performance-delete-ecb" class="performance-text" />
-            <ui:Label name="performance-projectiles" class="performance-text" />
-            <ui:Label name="performance-aoes" class="performance-text" />
-            <ui:Label name="performance-targeted" class="performance-text" />
-            <ui:Label name="performance-projectile-template-registry" class="performance-text" />
-            <ui:Label name="performance-aoe-template-registry" class="performance-text" />
-            <ui:Label name="performance-targeted-template-registry" class="performance-text" />
-            <ui:Label name="performance-hit-events" class="performance-text" />
-            <ui:Label name="performance-vfx-events" class="performance-text" />
-            <ui:Label name="performance-vfx-particles" class="performance-text" />
+            <!-- Everything below the FPS line collapses behind #performance-toggle. -->
+            <ui:VisualElement name="performance-details">
+                <ui:Label name="performance-spawn-reuse" class="performance-text" />
+                <ui:Label name="performance-create-ecb" class="performance-text" />
+                <ui:Label name="performance-despawned" class="performance-text" />
+                <ui:Label name="performance-delete-ecb" class="performance-text" />
+                <ui:Label name="performance-projectiles" class="performance-text" />
+                <ui:Label name="performance-aoes" class="performance-text" />
+                <ui:Label name="performance-targeted" class="performance-text" />
+                <ui:Label name="performance-projectile-template-registry" class="performance-text" />
+                <ui:Label name="performance-aoe-template-registry" class="performance-text" />
+                <ui:Label name="performance-targeted-template-registry" class="performance-text" />
+                <ui:Label name="performance-hit-events" class="performance-text" />
+                <ui:Label name="performance-vfx-events" class="performance-text" />
+                <ui:Label name="performance-vfx-particles" class="performance-text" />
+            </ui:VisualElement>
+            <ui:Button name="performance-toggle" class="performance-toggle" text="Show less" />
         </ui:VisualElement>
         <!-- Reserved for a future target-health projection. -->
         <ui:VisualElement name="target-hud" class="target-hud" />

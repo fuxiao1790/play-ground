@@ -33,8 +33,9 @@ namespace PlayGround.Editor.Skills
                 .OrderBy(SpriteSortKey)
                 .ToList();
 
-            ReplaceAtlasPackables(atlas, sprites);
+            atlas = ReplaceAtlasPackables(atlas, sprites);
             SpriteAtlasUtility.PackAtlases(new[] { atlas }, EditorUserBuildSettings.activeBuildTarget);
+            AssertSinglePackedPage(atlas);
 
             Debug.Log($"Rebuilt skill atlas '{AtlasPath}' with {sprites.Count} sprites from '{PrefabFolder}'.");
             LogAtlasContract();
@@ -95,14 +96,14 @@ namespace PlayGround.Editor.Skills
             return spriteUses;
         }
 
-        private static void ReplaceAtlasPackables(SpriteAtlas atlas, IReadOnlyList<Sprite> sprites)
+        private static SpriteAtlas ReplaceAtlasPackables(SpriteAtlas atlas, IReadOnlyList<Sprite> sprites)
         {
-            SerializedObject serializedAtlas = new(atlas);
-            SerializedProperty packables = serializedAtlas.FindProperty("m_ImporterData.packables");
+            SerializedObject serializedAtlas = AtlasSerializedObject(atlas);
+            SerializedProperty packables = FindPackables(serializedAtlas);
             if (packables == null || !packables.isArray)
             {
                 throw new InvalidOperationException(
-                    $"Skill atlas '{AtlasPath}' does not expose m_ImporterData.packables; Unity SpriteAtlas V2 serialization may have changed.");
+                    $"Skill atlas '{AtlasPath}' exposes neither m_ImporterData.packables nor m_EditorData.packables; Unity SpriteAtlas serialization may have changed.");
             }
 
             packables.ClearArray();
@@ -117,24 +118,59 @@ namespace PlayGround.Editor.Skills
             AssetDatabase.SaveAssets();
             AssetDatabase.ImportAsset(AtlasPath, ImportAssetOptions.ForceUpdate);
 
-            AssertAtlasPackableCount(sprites.Count);
+            return AssertAtlasPackableCount(sprites.Count);
         }
 
-        private static void AssertAtlasPackableCount(int expectedCount)
+        private static SpriteAtlas AssertAtlasPackableCount(int expectedCount)
         {
             SpriteAtlas reloadedAtlas = AssetDatabase.LoadAssetAtPath<SpriteAtlas>(AtlasPath);
-            SerializedObject serializedAtlas = new(reloadedAtlas);
-            SerializedProperty packables = serializedAtlas.FindProperty("m_ImporterData.packables");
+            SerializedObject serializedAtlas = AtlasSerializedObject(reloadedAtlas);
+            SerializedProperty packables = FindPackables(serializedAtlas);
             if (packables == null || !packables.isArray)
             {
                 throw new InvalidOperationException(
-                    $"Skill atlas '{AtlasPath}' does not expose m_ImporterData.packables after save.");
+                    $"Skill atlas '{AtlasPath}' exposes neither m_ImporterData.packables nor m_EditorData.packables after save.");
             }
 
             if (packables.arraySize != expectedCount)
             {
                 throw new InvalidOperationException(
                     $"Skill atlas '{AtlasPath}' save failed: expected {expectedCount} packables, found {packables.arraySize} after import.");
+            }
+
+            return reloadedAtlas;
+        }
+
+        private static SerializedProperty FindPackables(SerializedObject serializedAtlas)
+        {
+            return serializedAtlas.FindProperty("m_ImporterData.packables")
+                ?? serializedAtlas.FindProperty("m_EditorData.packables");
+        }
+
+        private static SerializedObject AtlasSerializedObject(SpriteAtlas atlas)
+        {
+            string atlasPath = AssetDatabase.GetAssetPath(atlas);
+            AssetImporter importer = AssetImporter.GetAtPath(atlasPath);
+            return new SerializedObject(importer != null ? importer : atlas);
+        }
+
+        private static void AssertSinglePackedPage(SpriteAtlas atlas)
+        {
+            string atlasPath = AssetDatabase.GetAssetPath(atlas);
+            Texture2D[] pages = AssetDatabase.LoadAllAssetsAtPath(atlasPath)
+                .OfType<Texture2D>()
+                .ToArray();
+
+            if (pages.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Skill atlas '{AtlasPath}' did not produce a packed page. Rebuild failed; do not enter play mode.");
+            }
+
+            if (pages.Length > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Skill atlas '{AtlasPath}' produced {pages.Length} packed pages. One combat batch supports one page; increase atlas Max Texture Size or shrink its packables.");
             }
         }
 

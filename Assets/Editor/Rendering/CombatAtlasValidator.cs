@@ -168,7 +168,7 @@ namespace PlayGround.Editor.Rendering
             string atlasPath,
             List<CombatAtlasIssue> issues)
         {
-            SerializedObject serializedAtlas = new(atlas);
+            SerializedObject serializedAtlas = AtlasSerializedObject(atlas);
             SerializedProperty packables = serializedAtlas.FindProperty("m_ImporterData.packables")
                 ?? serializedAtlas.FindProperty("m_EditorData.packables");
 
@@ -197,6 +197,13 @@ namespace PlayGround.Editor.Rendering
             }
 
             return result;
+        }
+
+        private static SerializedObject AtlasSerializedObject(SpriteAtlas atlas)
+        {
+            string atlasPath = AssetDatabase.GetAssetPath(atlas);
+            AssetImporter importer = AssetImporter.GetAtPath(atlasPath);
+            return new SerializedObject(importer != null ? importer : atlas);
         }
 
         private static List<Sprite> ResolveSprites(

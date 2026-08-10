@@ -27,6 +27,9 @@ namespace PlayGround.SkillUi
         private Label hitEventsText;
         private Label vfxEventsText;
         private Label vfxParticlesText;
+        private VisualElement detailsGroup;
+        private Button toggleButton;
+        private bool detailsExpanded = true;
         private float smoothedDeltaTime;
         private World statsWorld;
         private EntityQuery statsQuery;
@@ -56,29 +59,54 @@ namespace PlayGround.SkillUi
             hitEventsText = document.rootVisualElement.Q<Label>("performance-hit-events");
             vfxEventsText = document.rootVisualElement.Q<Label>("performance-vfx-events");
             vfxParticlesText = document.rootVisualElement.Q<Label>("performance-vfx-particles");
+            detailsGroup = document.rootVisualElement.Q<VisualElement>("performance-details");
+            toggleButton = document.rootVisualElement.Q<Button>("performance-toggle");
             if (performancePanel == null || fpsText == null || spawnReuseText == null || createEcbText == null
                 || despawnedText == null || deleteEcbText == null || projectilesText == null || aoesText == null
                 || targetedText == null || projectileTemplateRegistryText == null || aoeTemplateRegistryText == null
                 || targetedTemplateRegistryText == null
-                || hitEventsText == null || vfxEventsText == null || vfxParticlesText == null)
+                || hitEventsText == null || vfxEventsText == null || vfxParticlesText == null
+                || detailsGroup == null || toggleButton == null)
                 throw new InvalidOperationException(
                     $"{nameof(PerformanceUi)} could not find its required elements. Assign SkillLoadoutUi.uxml as the UIDocument Source Asset.");
 
             performancePanel.pickingMode = PickingMode.Ignore;
+            toggleButton.clicked += ToggleDetails;
+            ApplyDetailsVisibility();
         }
 
         private void OnDisable()
         {
+            if (toggleButton != null)
+                toggleButton.clicked -= ToggleDetails;
+
             ReleaseStatsQuery();
+        }
+
+        private void ToggleDetails()
+        {
+            detailsExpanded = !detailsExpanded;
+            ApplyDetailsVisibility();
+        }
+
+        private void ApplyDetailsVisibility()
+        {
+            detailsGroup.style.display = detailsExpanded ? DisplayStyle.Flex : DisplayStyle.None;
+            toggleButton.text = detailsExpanded ? "Show less" : "Show more";
         }
 
         private void Update()
         {
             smoothedDeltaTime += (Time.unscaledDeltaTime - smoothedDeltaTime) * 0.1f;
             float fps = smoothedDeltaTime > 0f ? 1f / smoothedDeltaTime : 0f;
-            CombatStatsDisplaySingleton stats = ReadCombatStats();
-
             fpsText.text = $"FPS:          {fps:0}";
+
+            // Collapsed rows are display:none, so the string formatting and the particle
+            // walk behind them would be pure overhead in an overlay meant to measure cost.
+            if (!detailsExpanded)
+                return;
+
+            CombatStatsDisplaySingleton stats = ReadCombatStats();
             spawnReuseText.text = $"Spawn reuse:  {stats.EntitiesSpawnedViaReuse}";
             createEcbText.text = $"Create ECB:   {stats.EntitiesSpawnedViaEcb}";
             despawnedText.text = $"Despawned:    {stats.EntitiesDespawned}";

@@ -83,6 +83,24 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void BasicAttackPrefabResolvesCircleHurtboxFromNamedChild()
+        {
+            GameObject attackObject = new("CircleAttackPrefabTest");
+            attackObject.SetActive(false);
+            GameObject hurtboxObject = new("Hurtbox");
+            hurtboxObject.transform.SetParent(attackObject.transform, false);
+            CircleCollider2D hurtbox = hurtboxObject.AddComponent<CircleCollider2D>();
+            hurtbox.radius = 0.4f;
+            BasicAttackPrefab basicPrefab = attackObject.AddComponent<BasicAttackPrefab>();
+            basicPrefab.Configure(null, null);
+
+            Assert.That(basicPrefab.ShapeType, Is.EqualTo(CombatShapeType.Circle));
+            Assert.That(basicPrefab.Radius, Is.EqualTo(0.4f).Within(0.0001f));
+            Assert.That(basicPrefab.HalfExtents, Is.EqualTo(new Vector2(0.4f, 0.4f)).Using(Vector2Comparer.Instance));
+            Object.DestroyImmediate(attackObject);
+        }
+
+        [Test]
         public void SpawnTemplateEvents_AreBlittableAndContentHashed()
         {
             Assert.That(UnsafeUtility.IsBlittable<ProjectileSpawnEvent>(), Is.True);

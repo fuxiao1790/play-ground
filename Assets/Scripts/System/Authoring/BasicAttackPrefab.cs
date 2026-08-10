@@ -23,10 +23,10 @@ namespace PlayGround.System.Combat.Authoring
             ? Mathf.Max(Mathf.Abs(spriteRenderer.transform.lossyScale.x), Mathf.Abs(spriteRenderer.transform.lossyScale.y))
             : 1f;
         public float VisualRotationDegrees => spriteRenderer != null ? spriteRenderer.transform.eulerAngles.z : 0f;
-        public float Radius => ProjectileTargetShapeUtility.Radius(hurtbox);
-        public Vector2 HalfExtents => ProjectileTargetShapeUtility.HalfExtents(hurtbox);
-        public float RotationRadians => ProjectileTargetShapeUtility.RotationRadians(hurtbox);
-        public CombatShapeType ShapeType => ProjectileTargetShapeUtility.ShapeType(hurtbox);
+        public float Radius => ProjectileTargetShapeUtility.Radius(ResolveHurtbox());
+        public Vector2 HalfExtents => ProjectileTargetShapeUtility.HalfExtents(ResolveHurtbox());
+        public float RotationRadians => ProjectileTargetShapeUtility.RotationRadians(ResolveHurtbox());
+        public CombatShapeType ShapeType => ProjectileTargetShapeUtility.ShapeType(ResolveHurtbox());
 
         private void Awake()
         {
@@ -67,21 +67,22 @@ namespace PlayGround.System.Combat.Authoring
                 return false;
             }
 
-            if (hurtbox == null)
+            Collider2D resolvedHurtbox = ResolveHurtbox();
+            if (resolvedHurtbox == null)
             {
                 reason = "missing Hurtbox child collider";
                 return false;
             }
 
-            if (hurtbox.gameObject.name != "Hurtbox")
+            if (resolvedHurtbox.gameObject.name != "Hurtbox")
             {
                 reason = "hurtbox collider must be on a child named Hurtbox";
                 return false;
             }
 
-            if (!ProjectileTargetShapeUtility.IsSupportedShape(hurtbox))
+            if (!ProjectileTargetShapeUtility.IsSupportedShape(resolvedHurtbox))
             {
-                reason = $"unsupported hurtbox collider type {hurtbox.GetType().Name}";
+                reason = $"unsupported hurtbox collider type {resolvedHurtbox.GetType().Name}";
                 return false;
             }
 
@@ -140,6 +141,22 @@ namespace PlayGround.System.Combat.Authoring
             }
 
             return null;
+        }
+
+        private Collider2D ResolveHurtbox()
+        {
+            if (hurtbox != null && ProjectileTargetShapeUtility.IsSupportedShape(hurtbox))
+            {
+                return hurtbox;
+            }
+
+            Collider2D resolvedHurtbox = FindChildComponent<Collider2D>("Hurtbox");
+            if (resolvedHurtbox != null)
+            {
+                hurtbox = resolvedHurtbox;
+            }
+
+            return hurtbox;
         }
     }
 }
