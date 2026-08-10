@@ -13,7 +13,7 @@ public struct SpawnTemplateRefCount
 {
     // Managed claims. RegisterSpawnTemplate +1, UnregisterSpawnTemplate -1.
     public int OwnerCount;
-    // ECS entities whose components currently carry this key (live or pooled-dead).
+    // Live ECS entities carrying this key. A spawn emits +1, a despawn emits -1.
     public int InstanceCount;
     // Registered by an ad-hoc CombatRoot.Spawn path that has no owner to release it.
     // Never erased.

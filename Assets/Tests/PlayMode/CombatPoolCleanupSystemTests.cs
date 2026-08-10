@@ -25,6 +25,7 @@ namespace PlayGround.Tests.PlayMode
         private CombatPoolCleanupSystem cleanupSystem;
         private NativeHashMap<Hash128, ProjectileSpawnCommand> projectileTemplateMap;
         private Entity scopeEntity;
+        private SpawnTemplateRegistryState templateRegistryState;
         private Entity statsEntity;
         private double elapsedTime;
 
@@ -34,12 +35,15 @@ namespace PlayGround.Tests.PlayMode
             testWorld = new World("CombatPoolCleanupSystemTest");
             entityManager = testWorld.EntityManager;
             cleanupSystem = testWorld.GetOrCreateSystemManaged<CombatPoolCleanupSystem>();
+            scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
+            templateRegistryState = SpawnTemplateRegistryTestState.Add(entityManager, scopeEntity);
             SetConfig(new CombatPoolCleanupConfig { ChunkActiveThresholdPercent = 40f });
         }
 
         [TearDown]
         public void TearDown()
         {
+            SpawnTemplateRegistryTestState.Dispose(ref templateRegistryState);
             if (projectileTemplateMap.IsCreated)
             {
                 projectileTemplateMap.Dispose();
@@ -260,7 +264,6 @@ namespace PlayGround.Tests.PlayMode
             testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
             testWorld.GetOrCreateSystemManaged<ProjectileDiscreteSpawnApplySystem>();
 
-            scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
             projectileTemplateMap = new NativeHashMap<Hash128, ProjectileSpawnCommand>(8, Allocator.Persistent);
             entityManager.AddComponentData(scopeEntity, new ProjectileSpawnTemplate { Map = projectileTemplateMap });

@@ -54,6 +54,143 @@ namespace PlayGround.System.Combat.Spawning
         public NativeHashMap<Hash128, TargetedSpawnCommand> Map;
     }
 
+    // Lifetime metadata for one registry entry. Kept out of the template maps so the
+    // command maps stay command-shaped and Burst-readable exactly as before.
+    public struct SpawnTemplateRefCount
+    {
+        // Managed claims. RegisterSpawnTemplate +1, UnregisterSpawnTemplate -1.
+        public int OwnerCount;
+        // Live ECS entities carrying this key. A spawn emits +1, a despawn emits -1.
+        public int InstanceCount;
+        // Registered by an ad-hoc CombatRoot.Spawn path that has no owner to release it.
+        // Never erased.
+        public bool Pinned;
+
+        public bool Reclaimable => !Pinned && OwnerCount <= 0 && InstanceCount <= 0;
+    }
+
+    // One delta queued when an entity is spawned or despawned. Applied single-threaded by
+    // SpawnTemplateRefCountSystem; spawn and despawn code never touches a count itself.
+    public struct SpawnTemplateRefDelta
+    {
+        public IntervalChildKind Kind;
+        public Hash128 Key;
+        public int Delta;
+    }
+
+    // The single definition of which template keys an entity of each domain carries.
+    // Acquire and release are the same walk with an opposite sign, so a spawn and the
+    // matching despawn cannot disagree about the key set, and adding a new key-carrying
+    // field means editing one method rather than hunting every spawn and death site.
+    //
+    // Reads the entity's own components rather than the spawn command, so branches that
+    // zero a component at materialization (a non-timed source clears TimedSpawnComponent)
+    // need no mirroring here.
+    public static class SpawnTemplateRefEmit
+    {
+        public static void Enqueue(
+            IntervalChildKind kind,
+            Hash128 key,
+            int delta,
+            NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas)
+        {
+            if (key.Equals(default(Hash128)))
+            {
+                return;
+            }
+
+            deltas.Enqueue(new SpawnTemplateRefDelta { Kind = kind, Key = key, Delta = delta });
+        }
+
+        public static void AcquireProjectile(
+            in ProjectileHitComponent hit,
+            in TimedSpawnComponent timed,
+            in CombatHitPayload payload,
+            NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas) =>
+            EmitProjectile(in hit, in timed, in payload, 1, deltas);
+
+        public static void ReleaseProjectile(
+            in ProjectileHitComponent hit,
+            in TimedSpawnComponent timed,
+            in CombatHitPayload payload,
+            NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas) =>
+            EmitProjectile(in hit, in timed, in payload, -1, deltas);
+
+        public static void AcquireAoe(
+            in AoeHitSpawnComponent hit,
+            in TimedSpawnComponent timed,
+            in CombatHitPayload payload,
+            NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas) =>
+            EmitAoe(in hit, in timed, in payload, 1, deltas);
+
+        public static void ReleaseAoe(
+            in AoeHitSpawnComponent hit,
+            in TimedSpawnComponent timed,
+            in CombatHitPayload payload,
+            NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas) =>
+            EmitAoe(in hit, in timed, in payload, -1, deltas);
+
+        // Targeted entities carry no OnHitSpawnRef and no TimedSpawnComponent; the stack
+        // detonation key is their only template reference.
+        public static void AcquireTargeted(
+            in CombatHitPayload payload,
+            NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas) =>
+            Enqueue(IntervalChildKind.Projectile, payload.StackEffect.DetonationKey, 1, deltas);
+
+        public static void ReleaseTargeted(
+            in CombatHitPayload payload,
+            NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas) =>
+            Enqueue(IntervalChildKind.Projectile, payload.StackEffect.DetonationKey, -1, deltas);
+
+        private static void EmitProjectile(
+            in ProjectileHitComponent hit,
+            in TimedSpawnComponent timed,
+            in CombatHitPayload payload,
+            int delta,
+            NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas)
+        {
+            Enqueue(hit.OnHitSpawn.Kind, hit.OnHitSpawn.TemplateKey, delta, deltas);
+            Enqueue(timed.ChildKind, timed.TemplateKey, delta, deltas);
+            // A stack detonation is always a projectile nova.
+            Enqueue(IntervalChildKind.Projectile, payload.StackEffect.DetonationKey, delta, deltas);
+        }
+
+        private static void EmitAoe(
+            in AoeHitSpawnComponent hit,
+            in TimedSpawnComponent timed,
+            in CombatHitPayload payload,
+            int delta,
+            NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas)
+        {
+            Enqueue(hit.OnHitSpawn.Kind, hit.OnHitSpawn.TemplateKey, delta, deltas);
+            Enqueue(timed.ChildKind, timed.TemplateKey, delta, deltas);
+            Enqueue(IntervalChildKind.Projectile, payload.StackEffect.DetonationKey, delta, deltas);
+        }
+    }
+
+    // ECS Lifecycle: singleton refcount state; added to the shared combat scope entity on
+    // first CombatScopeOwner.Acquire and disposed on final CombatScopeOwner.Release.
+    // Concurrency: the three count maps are read and written only by managed pre-tick code
+    // and by SpawnTemplateRefCountSystem. Simulation jobs only ever write Deltas through a
+    // ParallelWriter; they never touch the count maps.
+    public struct SpawnTemplateRegistryState : IComponentData
+    {
+        public NativeHashMap<Hash128, SpawnTemplateRefCount> ProjectileCounts;
+        public NativeHashMap<Hash128, SpawnTemplateRefCount> AoeCounts;
+        public NativeHashMap<Hash128, SpawnTemplateRefCount> TargetedCounts;
+        public NativeQueue<SpawnTemplateRefDelta> Deltas;
+        // Set by managed unregisters and delta draining; avoids map scans when no lifetime
+        // state changed since the previous late-simulation sweep.
+        public bool IsDirty;
+    }
+
+    public static class SpawnTemplateRegistryKind
+    {
+        // ImpactAoe and LingeringAoe share the AOE registry.
+        public static bool IsAoe(IntervalChildKind kind) =>
+            kind == IntervalChildKind.ImpactAoe || kind == IntervalChildKind.LingeringAoe;
+    }
+
     public static class SpawnTemplateLimits
     {
         public const int MaxSpawnChainDepth = 3;

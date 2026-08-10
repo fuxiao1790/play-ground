@@ -23,6 +23,7 @@ namespace PlayGround.Tests.PlayMode
         private SimulationSystemGroup simGroup;
         private Entity scopeEntity;
         private NativeHashMap<Unity.Entities.Hash128, AoeSpawnCommand> aoeTemplateMap;
+        private SpawnTemplateRegistryState templateRegistryState;
         private double elapsedTime;
         private int nextProjectileId;
 
@@ -47,6 +48,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnApplySystem>());
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
+            templateRegistryState = SpawnTemplateRegistryTestState.Add(entityManager, scopeEntity);
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<ImpactAoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<LingeringAoeSpawnEvent>(scopeEntity);
@@ -58,6 +60,7 @@ namespace PlayGround.Tests.PlayMode
         [TearDown]
         public void TearDown()
         {
+            SpawnTemplateRegistryTestState.Dispose(ref templateRegistryState);
             if (aoeTemplateMap.IsCreated)
                 aoeTemplateMap.Dispose();
             if (testWorld.IsCreated)

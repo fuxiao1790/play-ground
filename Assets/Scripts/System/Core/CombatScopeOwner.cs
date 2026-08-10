@@ -32,6 +32,10 @@ namespace PlayGround.System.Combat.Core
         private static NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnCommand> ownedProjectileMap;
         private static NativeHashMap<Unity.Entities.Hash128, AoeSpawnCommand> ownedAoeMap;
         private static NativeHashMap<Unity.Entities.Hash128, TargetedSpawnCommand> ownedTargetedMap;
+        private static NativeHashMap<Unity.Entities.Hash128, SpawnTemplateRefCount> ownedProjectileCounts;
+        private static NativeHashMap<Unity.Entities.Hash128, SpawnTemplateRefCount> ownedAoeCounts;
+        private static NativeHashMap<Unity.Entities.Hash128, SpawnTemplateRefCount> ownedTargetedCounts;
+        private static NativeQueue<SpawnTemplateRefDelta> ownedTemplateRefDeltas;
 
         public static Entity Acquire(EntityManager entityManager)
         {
@@ -52,6 +56,13 @@ namespace PlayGround.System.Combat.Core
                     InitialTemplateRegistryCapacity, Allocator.Persistent);
                 ownedTargetedMap = new NativeHashMap<Unity.Entities.Hash128, TargetedSpawnCommand>(
                     InitialTemplateRegistryCapacity, Allocator.Persistent);
+                ownedProjectileCounts = new NativeHashMap<Unity.Entities.Hash128, SpawnTemplateRefCount>(
+                    InitialTemplateRegistryCapacity, Allocator.Persistent);
+                ownedAoeCounts = new NativeHashMap<Unity.Entities.Hash128, SpawnTemplateRefCount>(
+                    InitialTemplateRegistryCapacity, Allocator.Persistent);
+                ownedTargetedCounts = new NativeHashMap<Unity.Entities.Hash128, SpawnTemplateRefCount>(
+                    InitialTemplateRegistryCapacity, Allocator.Persistent);
+                ownedTemplateRefDeltas = new NativeQueue<SpawnTemplateRefDelta>(Allocator.Persistent);
 
                 ownedScope = entityManager.CreateEntity(typeof(CombatScope));
                 entityManager.AddBuffer<CombatSpawnRequest>(ownedScope);
@@ -66,6 +77,13 @@ namespace PlayGround.System.Combat.Core
                 entityManager.AddComponentData(ownedScope, new ProjectileSpawnTemplate { Map = ownedProjectileMap });
                 entityManager.AddComponentData(ownedScope, new AoeSpawnTemplate { Map = ownedAoeMap });
                 entityManager.AddComponentData(ownedScope, new TargetedSpawnTemplate { Map = ownedTargetedMap });
+                entityManager.AddComponentData(ownedScope, new SpawnTemplateRegistryState
+                {
+                    ProjectileCounts = ownedProjectileCounts,
+                    AoeCounts = ownedAoeCounts,
+                    TargetedCounts = ownedTargetedCounts,
+                    Deltas = ownedTemplateRefDeltas,
+                });
                 ownedWorld = world;
                 ownerCount = 0;
             }
@@ -135,9 +153,33 @@ namespace PlayGround.System.Combat.Core
                 ownedTargetedMap.Dispose();
             }
 
+            if (ownedProjectileCounts.IsCreated)
+            {
+                ownedProjectileCounts.Dispose();
+            }
+
+            if (ownedAoeCounts.IsCreated)
+            {
+                ownedAoeCounts.Dispose();
+            }
+
+            if (ownedTargetedCounts.IsCreated)
+            {
+                ownedTargetedCounts.Dispose();
+            }
+
+            if (ownedTemplateRefDeltas.IsCreated)
+            {
+                ownedTemplateRefDeltas.Dispose();
+            }
+
             ownedProjectileMap = default;
             ownedAoeMap = default;
             ownedTargetedMap = default;
+            ownedProjectileCounts = default;
+            ownedAoeCounts = default;
+            ownedTargetedCounts = default;
+            ownedTemplateRefDeltas = default;
         }
     }
 }

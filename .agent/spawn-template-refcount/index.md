@@ -11,12 +11,23 @@ Each registry entry gains two counters:
 - **`OwnerCount`** — managed registrations. `RegisterSpawnTemplate` increments,
   `UnregisterSpawnTemplate(kind, key)` decrements.
 - **`InstanceCount`** — ECS entities whose components currently carry the key.
-  Spawn-apply increments, pool destroy decrements.
 
 An entry is erased only when `OwnerCount == 0 && InstanceCount == 0`. `Unregister`
 is therefore exactly the "mark for deletion" the design calls for — it drops the
 managed claim; the entry survives until no in-flight entity can still dereference
 it, then a late-simulation sweep erases it.
+
+**No system that spawns or despawns entities mutates a reference count.** Every spawn
+emits one acquire event and every despawn emits one release event onto a shared
+`NativeQueue<SpawnTemplateRefDelta>`. The emitting code holds only a `ParallelWriter`;
+it cannot name, read, or write a counter. `SpawnTemplateRefCountSystem` drains the
+queue and is the only place a count is touched.
+
+Both halves go through `SpawnTemplateRefEmit`, which is the single definition of which
+keys each domain carries. `AcquireX` and `ReleaseX` are the same walk with an opposite
+sign, so the two cannot disagree, and both read the entity's **components** rather than
+the spawn command — so branches that zero a component at materialization need no
+mirroring anywhere.
 
 Identity stays what it is today: `(IntervalChildKind kind, Hash128 key)`, where
 `key` is the xxHash3 content hash of the normalized command
@@ -48,24 +59,30 @@ the key in its compiled definitions but has no live entities at that instant;
 managed claims removes the failure mode without changing the caller's mental model —
 `Unregister` is still "I am done with this id."
 
-## Why "live + pooled", not "live"
+## Why symmetric spawn/despawn events
 
-Despawn is `Active = false` via `CombatDeathUtility.Kill`, called from many parallel
-collision and lifetime jobs that hold only `EnabledRefRW<Active>` and cannot see the
-entity's key components. Threading a delta writer through every `Kill` call site
-would be invasive and would still leave pooled-disabled slots holding stale keys.
+`InstanceCount` counts **live** entities. One acquire at spawn, one release at death.
 
-Instead `InstanceCount` counts entities that **currently carry the key in their
-components**, alive or pooled-dead. It is decremented at the two points where those
-components stop carrying the key:
+The alternative considered first was counting entities that carry a key whether alive or
+pooled-dead, releasing when a reused slot is overwritten or when
+`CombatPoolCleanupSystem` destroys it. That avoided touching the death sites, but it is
+worse on every axis: two different code paths mean "this entity is gone", the release
+site has to read back the slot's previous occupant before overwriting it, `PoolTrimJob`
+has to do component archaeology through `chunk.Has` guards on four types, and reclaim
+lags until a slot is reused or trimmed.
 
-- spawn-apply overwrites a reused disabled slot (old keys `-1`, new keys `+1`)
-- `CombatPoolCleanupSystem` destroys a disabled slot (`-1`)
+Symmetric events are simpler and reclaim as soon as the last entity dies.
+`CombatDeathUtility.Kill` itself stays untouched — it only receives `EnabledRefRW`
+handles and cannot see key components, so the release is emitted beside each `Kill`
+call, where the components are already in scope.
 
-This over-counts relative to "live entities", which is the safe direction — an entry
-is never erased while anything could still dereference it. Reclaim lags until the
-pool slot is reused or trimmed, which is acceptable because reclaim is a memory
-optimization, not a correctness requirement. `CombatDeathUtility` is untouched.
+What it costs, honestly: the release sites are the two hottest jobs in the game.
+Projectile and lingering-AOE collision and lifetime jobs each gain a
+`NativeQueue.ParallelWriter` field and read `TimedSpawnComponent`, which they did not
+touch before. The chunk array is only dereferenced on the death branch, so the steady
+-state cost is a wider query, not a wider inner loop.
+
+`CombatPoolCleanupSystem` needs no change at all under this model.
 
 ## Mechanisms Reused vs. Introduced
 
@@ -78,6 +95,9 @@ Reused:
 - The single materialization funnels that already exist:
   `ProjectileSpawnApplyUtility.WriteCommon` (both projectile lanes) and
   `AoeSpawnApplyUtility.WriteCommon` (both AOE lanes).
+- The existing shared funnels, so the release sites stay countable:
+  `ProjectileHitEmission.Deactivate` (both projectile collision lanes) and
+  `AoeCollisionCore.Deactivate` (impact and lingering).
 - `LateSimulationSystemGroup`, already used by `CombatPoolCleanupSystem`.
 
 Introduced:
@@ -142,13 +162,18 @@ rather than left implicit:
 - exactly one writer per map pair — `CombatRoot.AddOwner` inserts, and
   `SpawnTemplateRefCountSystem` is the only place that erases, always removing from
   both maps together (task 005)
-- the drain creates a counter entry on demand, so a delta for a key the counter map
+- the drain creates a counter entry on demand, so a release for a key the counter map
   has never seen is well-defined rather than a throw
 - task 007 test 9 asserts every `InstanceCount` returns to 0 after a full
-  spawn/expire/trim cycle — the standing regression guard against 003 and 004
-  drifting apart
+  spawn/expire/trim cycle — the standing regression guard
 - if delta volume ever turns out to be low in practice, the refactor above is the
   correct simplification and should be revisited
+
+The acquire/release halves cannot drift: both go through `SpawnTemplateRefEmit`, where
+`AcquireX` and `ReleaseX` are the same private walk with an opposite sign, reading the
+same component types. Adding a key-carrying field means editing one method. The
+clamp-and-assert in 005 step 3 still catches a genuine mismatch — a negative
+`InstanceCount` proves a release arrived with no matching acquire.
 
 ## Resulting codebase shape
 
@@ -158,16 +183,34 @@ state singleton, one writer system, and one managed entry point (`CombatRoot`
 register/unregister). Registration gains a symmetric release that `SkillDriver` is
 responsible for — which is the piece missing today, not just an optimization.
 
+Spawn and despawn systems do not participate in reference counting. The apply systems
+and death sites gain a `NativeQueue.ParallelWriter` parameter and one enqueue call, and
+nothing else. None of them can name, read, or write a counter. The key set for each
+domain, and the reference counting itself, are each legible in one file.
+
 No adapter or shim code, no old/new parallel path, no second representation of a
 template. The one new coupling is the two-map key sync, contained as above.
 
 ## Design validation
 
-- *Immutable during tick* — deltas are queued, never applied, from jobs. Application
+- *Immutable during tick* — releases are queued, never applied, from jobs. Application
   and erase happen in `SpawnTemplateRefCountSystem` in `LateSimulationSystemGroup`
   after `CombatPoolCleanupSystem`, with the dependency completed first. No sim job
   is in flight at that point, and the next managed write is in the following frame's
   `Update()`.
+- *No refcount mutation from spawn/despawn systems* — every spawn and death site holds
+  only a `NativeQueue.ParallelWriter` and cannot name, read, or write a counter.
+- *Enableable-component trap* — `TimedSpawnComponent` is disabled on non-timed sources,
+  so every job reading it for release declares `[WithPresent]`. Without it the query
+  would silently drop all non-timed projectiles from collision and expiry. This does
+  not fail to compile; it is the highest-risk detail in the change.
+- *Never-live entities* — an impact AOE with nothing to collide against is materialized
+  inactive (`SpawnStateFor` returns `active: collision`) and never reaches a death site.
+  Acquire is gated on `spawnState.Active` so it never claims a reference.
+- *No double release* — every kill path returns immediately after deactivating, and
+  every collision and lifetime query requires `Active` enabled, so no later system in
+  the frame matches an entity another already killed. `CombatLifetimeSystem` is ordered
+  before the collision systems.
 - *Burst read path* — the three template components are unchanged; no job signature
   that reads templates changes.
 - *No early erase* — erase requires both counters at zero. `InstanceCount` counts
@@ -208,9 +251,9 @@ event-to-command remap, no parallel registry, no compatibility shim.
 |---|---|---|
 | [001](./001-registry-refcount-state.md) | `SpawnTemplateRegistryState` singleton + `CombatScopeOwner` ownership | — |
 | [002](./002-combatroot-register-unregister-api.md) | `CombatRoot` owner-count register / unregister / pin API | 001 |
-| [003](./003-apply-instance-counting.md) | Instance `+1`/`-1` in the three spawn-apply materialization points | 001 |
-| [004](./004-pool-cleanup-decrement.md) | Instance `-1` in `CombatPoolCleanupSystem.PoolTrimJob` | 001 |
-| [005](./005-refcount-sweep-system.md) | `SpawnTemplateRefCountSystem` drain + erase | 001, 003, 004 |
+| [003](./003-apply-instance-counting.md) | Spawn events at the four materialization points | 001 |
+| [004](./004-pool-cleanup-decrement.md) | Despawn events at the six death sites | 001, 003 |
+| [005](./005-refcount-sweep-system.md) | `SpawnTemplateRefCountSystem` — derive acquire, drain release, erase | 001, 003, 004 |
 | [006](./006-skilldriver-owner-lifecycle.md) | `SkillDriver` tracks its key set, unregisters on recompile / destroy | 002 |
 | [007](./007-docs-and-tests.md) | Doc updates + test coverage + test-world scope setup | 001-006 |
 

@@ -41,6 +41,12 @@ namespace PlayGround.System.Combat.Aoes
                 .WithAll<VfxTimingData>()
                 .WithDisabled<ArmingTag>()
                 .WithAll<LingeringAoeTag>()
+                // Read only to release its template key on death. Present, not All: the
+                // component is enableable and disabled on non-timed lingering AOEs, which
+                // must still collide. This job schedules with this explicit query, so the
+                // job's [WithPresent] attribute does not apply here and the entry must be
+                // declared on the builder too.
+                .WithPresent<TimedSpawnComponent>()
                 .Build(ref state);
         }
 
@@ -82,7 +88,9 @@ namespace PlayGround.System.Combat.Aoes
                 ProjectileEventWriter = projectileLane.ValueRO.EventQueue.AsParallelWriter(),
                 ImpactAoeEventWriter = impactAoeLane.ValueRO.EventQueue.AsParallelWriter(),
                 LingeringAoeEventWriter = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter(),
-                TargetedEventWriter = targetedLane.ValueRO.EventQueue.AsParallelWriter()
+                TargetedEventWriter = targetedLane.ValueRO.EventQueue.AsParallelWriter(),
+                SpawnTemplateDeltas =
+                    SystemAPI.GetSingleton<SpawnTemplateRegistryState>().Deltas.AsParallelWriter()
             };
 
             var collisionHandle = job.ScheduleParallel(lingeringAoeQuery, state.Dependency);
@@ -109,6 +117,9 @@ namespace PlayGround.System.Combat.Aoes
         [BurstCompile]
         [WithAll(typeof(AoeTag), typeof(Active), typeof(CombatCollisionActiveTag))]
         [WithDisabled(typeof(ArmingTag))]
+        // Read only to release its template key on death. Enableable and disabled on
+        // non-timed lingering AOEs, so Present rather than All or the query would drop them.
+        [WithPresent(typeof(TimedSpawnComponent))]
         private partial struct LingeringAoeCollisionJob : IJobEntity
         {
             [ReadOnly] public NativeArray<Entity> TargetEntities;
@@ -123,6 +134,7 @@ namespace PlayGround.System.Combat.Aoes
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
             public NativeQueue<TargetedSpawnEvent>.ParallelWriter TargetedEventWriter;
+            public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter SpawnTemplateDeltas;
             public float DeltaTime;
 
             private void Execute(
@@ -133,6 +145,7 @@ namespace PlayGround.System.Combat.Aoes
                 in CombatCollisionComponent collision,
                 ref AoeHitGateComponent hitGate,
                 in AoeHitSpawnComponent hitSpawn,
+                in TimedSpawnComponent timedSpawn,
                 in AoeVfxIds vfxIds,
                 in VfxTimingData timing,
                 in AoeAreaComponent area,
@@ -157,6 +170,7 @@ namespace PlayGround.System.Combat.Aoes
                     kinematics,
                     collision,
                     hitSpawn,
+                    timedSpawn,
                     vfxIds,
                     timing,
                     area,
@@ -175,7 +189,8 @@ namespace PlayGround.System.Combat.Aoes
                     ProjectileEventWriter,
                     ImpactAoeEventWriter,
                     LingeringAoeEventWriter,
-                    TargetedEventWriter);
+                    TargetedEventWriter,
+                    SpawnTemplateDeltas);
             }
         }
     }

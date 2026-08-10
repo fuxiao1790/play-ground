@@ -54,6 +54,7 @@ namespace PlayGround.Skills
         private ICombatTarget casterOwner;
         private int[] firedCastTokens;
         private int nextCastToken;
+        private List<(IntervalChildKind Kind, Unity.Entities.Hash128 Key)> registeredTemplateKeys = new();
 
         public int SlotCount => activeSlotCount;
         public ulong Revision => revision;
@@ -129,11 +130,17 @@ namespace PlayGround.Skills
         public void BindCombatRoot(CombatRoot root)
         {
             if (combatRoot == root) return;
+            ReleaseTemplateKeys(registeredTemplateKeys);
             combatRoot = root;
             RegisterProjectileTypes();
             RegisterAoeTypes();
             RegisterTargetedTypes();
             RegisterSpawnTemplates();
+        }
+
+        private void OnDestroy()
+        {
+            ReleaseTemplateKeys(registeredTemplateKeys);
         }
 
         public void BindVfxRoot(CombatVfxRoot root)
@@ -570,8 +577,12 @@ namespace PlayGround.Skills
         {
             if (combatRoot == null || compiledSlots == null) return;
 
+            List<(IntervalChildKind Kind, Unity.Entities.Hash128 Key)> previous = registeredTemplateKeys;
+            registeredTemplateKeys = new List<(IntervalChildKind Kind, Unity.Entities.Hash128 Key)>();
             for (int i = 0; i < activeSlotCount; i++)
                 RegisterSpawnTemplatesRecursive(compiledSlots[i], 1, warnings, i);
+
+            ReleaseTemplateKeys(previous);
         }
 
         private bool RegisterSpawnTemplatesRecursive(
@@ -666,9 +677,16 @@ namespace PlayGround.Skills
                         stackEffect,
                         BuildOnHitSpawnRef(aoeDef),
                         AoeTimedSpawnFromDefinition(aoeDef));
-                aoeDef.SpawnTemplateKey = registerSelfTemplate
-                    ? combatRoot.RegisterSpawnTemplate(in template)
-                    : default;
+                if (registerSelfTemplate)
+                {
+                    Unity.Entities.Hash128 key = combatRoot.RegisterSpawnTemplate(in template);
+                    aoeDef.SpawnTemplateKey = key;
+                    registeredTemplateKeys.Add((IntervalChildKind.ImpactAoe, key));
+                }
+                else
+                {
+                    aoeDef.SpawnTemplateKey = default;
+                }
                 return true;
             }
 
@@ -687,9 +705,16 @@ namespace PlayGround.Skills
                         combatRoot,
                         SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(targetedDef, combatRoot),
                         BuildOnHitSpawnRef(targetedDef));
-                targetedDef.SpawnTemplateKey = registerSelfTemplate
-                    ? combatRoot.RegisterSpawnTemplate(in template)
-                    : default;
+                if (registerSelfTemplate)
+                {
+                    Unity.Entities.Hash128 key = combatRoot.RegisterSpawnTemplate(in template);
+                    targetedDef.SpawnTemplateKey = key;
+                    registeredTemplateKeys.Add((IntervalChildKind.Targeted, key));
+                }
+                else
+                {
+                    targetedDef.SpawnTemplateKey = default;
+                }
                 return true;
             }
 
@@ -760,9 +785,16 @@ namespace PlayGround.Skills
                         BuildOnHitSpawnRef(projDef),
                         ProjectileTimedSpawnFromDefinition(projDef),
                         projDef.JitterDegrees);
-                projDef.SpawnTemplateKey = registerSelfTemplate
-                    ? combatRoot.RegisterSpawnTemplate(in template)
-                    : default;
+                if (registerSelfTemplate)
+                {
+                    Unity.Entities.Hash128 key = combatRoot.RegisterSpawnTemplate(in template);
+                    projDef.SpawnTemplateKey = key;
+                    registeredTemplateKeys.Add((IntervalChildKind.Projectile, key));
+                }
+                else
+                {
+                    projDef.SpawnTemplateKey = default;
+                }
                 return true;
             }
 
@@ -787,7 +819,9 @@ namespace PlayGround.Skills
                     ProjectileTimedSpawnFromDefinition(child),
                     child.JitterDegrees);
 
-            setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in template);
+            Unity.Entities.Hash128 key = combatRoot.RegisterTimedSpawnTemplate(in template);
+            setup.TemplateKey = key;
+            registeredTemplateKeys.Add((IntervalChildKind.Projectile, key));
         }
 
         private void RegisterAoeIntervalTemplate(RuntimeAoeIntervalSpawnSetup setup)
@@ -808,7 +842,9 @@ namespace PlayGround.Skills
                     AoeTimedSpawnFromDefinition(child),
                     scatterRadiusOverride: setup.ScatterRadius);
 
-            setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in template);
+            Unity.Entities.Hash128 key = combatRoot.RegisterTimedSpawnTemplate(in template);
+            setup.TemplateKey = key;
+            registeredTemplateKeys.Add((IntervalChildKind.ImpactAoe, key));
         }
 
         private void RegisterTargetedIntervalTemplate(RuntimeTargetedIntervalSpawnSetup setup)
@@ -824,7 +860,25 @@ namespace PlayGround.Skills
                     SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(child, combatRoot),
                     BuildOnHitSpawnRef(child));
             template.EchoCount = Mathf.Max(1, setup.EchoCount);
-            setup.TemplateKey = combatRoot.RegisterTimedSpawnTemplate(in template);
+            Unity.Entities.Hash128 key = combatRoot.RegisterTimedSpawnTemplate(in template);
+            setup.TemplateKey = key;
+            registeredTemplateKeys.Add((IntervalChildKind.Targeted, key));
+        }
+
+        private void ReleaseTemplateKeys(List<(IntervalChildKind Kind, Unity.Entities.Hash128 Key)> keys)
+        {
+            if (combatRoot == null || keys == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < keys.Count; i++)
+            {
+                (IntervalChildKind kind, Unity.Entities.Hash128 key) = keys[i];
+                combatRoot.UnregisterSpawnTemplate(kind, key);
+            }
+
+            keys.Clear();
         }
 
         private static OnHitSpawnRef BuildOnHitSpawnRef(RuntimeProjectileDefinition def)

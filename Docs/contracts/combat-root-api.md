@@ -22,6 +22,8 @@ Key API surface:
 - AOE config/type registration
 - `RegisterSpawnTemplate` and `RegisterTimedSpawnTemplate` overloads for
   projectile, AOE, and targeted command templates, returning `Hash128`
+- `UnregisterSpawnTemplate(IntervalChildKind, Hash128)`, which drops one managed
+  registry claim without directly erasing the template
 - registered projectile/AOE/targeted template spawning
 - `RegisterTargetedType(TargetedTypeDefinition)` type registration
 - projectile/AOE render id and render-template lookup
@@ -49,6 +51,11 @@ simulation events.
 `CombatRoot` acquires ECS world/scope ownership on bind/enable and releases it
 on teardown. One root serves all factions; resources are cleaned when the root
 is destroyed.
+
+Template registrations are content-deduplicated but owner-counted. Callers that
+hold a registration across recompiles or teardown must call
+`UnregisterSpawnTemplate`; entries stay valid for in-flight and pooled entities
+until late-simulation reference reclamation confirms no remaining instance key.
 
 ## Ordering
 

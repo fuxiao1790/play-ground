@@ -85,6 +85,8 @@ namespace PlayGround.System.Combat.Projectiles
                 Dependency.Complete();
             }
 
+            SpawnTemplateRegistryState registryState = SystemAPI.GetSingleton<SpawnTemplateRegistryState>();
+
             int totalRequests = 0;
             NativeArray<ProjectileSpawnCommand> commands = default;
             using (DrainCommandsMarker.Auto())
@@ -146,6 +148,7 @@ namespace PlayGround.System.Combat.Projectiles
                         ArmingTagHandle = GetComponentTypeHandle<ArmingTag>(false),
                         TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
                         TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
+                        Deltas = registryState.Deltas.AsParallelWriter(),
                     }.Schedule(default).Complete();
 
                     reuseCount = reused.Value;
@@ -188,6 +191,7 @@ namespace PlayGround.System.Combat.Projectiles
             public ComponentTypeHandle<ArmingTag> ArmingTagHandle;
             public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
             public ComponentTypeHandle<TimedSpawnStateComponent> TimedSpawnStateHandle;
+            public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter Deltas;
 
             public void Execute()
             {
@@ -258,6 +262,7 @@ namespace PlayGround.System.Combat.Projectiles
                             collisionActiveMask,
                             armingMask,
                             timedSpawnMask,
+                            Deltas,
                             i);
                         steps[i] = new ProjectileContinuousStepComponent { Origin = cfg.Position };
                     }

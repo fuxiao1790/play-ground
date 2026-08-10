@@ -817,7 +817,7 @@ compileLoadout(SkillLoadout loadout):
     RegisterProjectileTypes()   // walk compiled trees; call combatRoot.RegisterTemplate per unique prefab
     RegisterAoeTypes()          // walk compiled trees; call combatRoot.RegisterType per unique AoeTypeDefinition
     AssignStackingDebuffKeys()  // mint one dedicated key per compiled RuntimeStackingDetonation
-    RegisterTimedSpawnTemplates() // content-hash child templates; store TemplateKey on timed-child setup
+    RegisterSpawnTemplates()      // register new content-hash keys, then release prior compile keys
 ```
 
 The compiled runtime tree feeds directly into the existing spawn request and
@@ -848,7 +848,10 @@ After compilation, `SkillDriver` recursively walks all compiled trees:
   An interval child does not register an additional generic template: its
   interval template is the only entry used to materialize it.
 
-Registration re-runs via `BindAoeRoot` whenever `CombatRoot` is wired after compile.
+`SkillDriver` registers a new compile's complete key set before releasing the
+previous set. This keeps shared keys continuously owned across recompiles and
+lets in-flight entities retain old keys through instance counting. It also
+releases its set on root replacement and driver destruction.
 
 ### Spawn-Template Registry
 
@@ -886,10 +889,10 @@ reuses the previous key. Per-source energy rate, threshold, threshold jitter,
 and jitter seed are not part of the template hash because they belong to the
 individual energy config.
 
-Registry entries are never recycled in the current implementation. This keeps
-old pooled or still-active spawners valid after loadout recompiles. A future
-enhancement may add reference counts plus a grace-period sweep, but v1 relies on
-the small number of distinct compiled behaviors per session.
+Registry entries are owner- and instance-counted. `SkillDriver` releases the
+previous compile's registrations only after registering the new set; entries
+still referenced by live or pooled entities survive until the late-simulation
+sweep observes zero instances. Ad-hoc root spawns are pinned.
 
 The timed-spawn loop clamps every tick advance to a positive minimum and caps
 catch-up iterations per update. A bad or zero authored interval can produce only

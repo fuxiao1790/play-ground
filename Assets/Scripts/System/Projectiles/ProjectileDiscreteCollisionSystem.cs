@@ -65,9 +65,11 @@ namespace PlayGround.System.Combat.Projectiles
                 SystemAPI.GetSingletonRW<TargetedSpawnEventSingleton>();
             RefRW<CombatHitDispatchSingleton> hitDispatch =
                 SystemAPI.GetSingletonRW<CombatHitDispatchSingleton>();
+            SpawnTemplateRegistryState registryState = SystemAPI.GetSingleton<SpawnTemplateRegistryState>();
 
             var job = new ProjectileCollisionJob
             {
+                SpawnTemplateDeltas = registryState.Deltas.AsParallelWriter(),
                 TargetEntities = hash.TargetEntities.AsArray(),
                 TargetPositions = hash.TargetPositions.AsArray(),
                 TargetShapes = hash.TargetShapes.AsArray(),
@@ -109,6 +111,10 @@ namespace PlayGround.System.Combat.Projectiles
         [WithAll(typeof(ProjectileTag), typeof(Active), typeof(CombatCollisionActiveTag))]
         [WithNone(typeof(ProjectileContinuousTag))]
         [WithDisabled(typeof(ArmingTag))]
+        // TimedSpawnComponent is read only to release its template key on death. It is
+        // enableable and disabled on non-timed projectiles, so it must be Present rather
+        // than All or the query would drop every non-timed projectile from collision.
+        [WithPresent(typeof(TimedSpawnComponent))]
         private partial struct ProjectileCollisionJob : IJobEntity
         {
             [ReadOnly] public NativeArray<Entity> TargetEntities;
@@ -123,6 +129,7 @@ namespace PlayGround.System.Combat.Projectiles
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
             public NativeQueue<TargetedSpawnEvent>.ParallelWriter TargetedEventWriter;
+            public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter SpawnTemplateDeltas;
 
             private void Execute(
                 Entity entity,
@@ -130,6 +137,7 @@ namespace PlayGround.System.Combat.Projectiles
                 in CombatHitPayload payload,
                 in CombatKinematicsComponent kinematics,
                 in CombatCollisionComponent collision,
+                in TimedSpawnComponent timedSpawn,
                 ref CombatLifetimeComponent lifetime,
                 ref ProjectileHitComponent projectileHit,
                 EnabledRefRW<Active> active,
@@ -138,20 +146,41 @@ namespace PlayGround.System.Combat.Projectiles
             {
                 if (identity.Faction == CombatFaction.None)
                 {
-                    ProjectileHitEmission.Deactivate(ref lifetime, active, arming);
+                    ProjectileHitEmission.Deactivate(
+                        ref lifetime,
+                        active,
+                        arming,
+                        in projectileHit,
+                        in timedSpawn,
+                        in payload,
+                        SpawnTemplateDeltas);
                     return;
                 }
 
                 if (lifetime.Remaining <= 0f)
                 {
-                    ProjectileHitEmission.Deactivate(ref lifetime, active, arming);
+                    ProjectileHitEmission.Deactivate(
+                        ref lifetime,
+                        active,
+                        arming,
+                        in projectileHit,
+                        in timedSpawn,
+                        in payload,
+                        SpawnTemplateDeltas);
                     return;
                 }
 
                 // Pierce is the projectile's hit cap. It may still hit at 0; below zero is exhausted.
                 if (projectileHit.PierceRemaining < 0)
                 {
-                    ProjectileHitEmission.Deactivate(ref lifetime, active, arming);
+                    ProjectileHitEmission.Deactivate(
+                        ref lifetime,
+                        active,
+                        arming,
+                        in projectileHit,
+                        in timedSpawn,
+                        in payload,
+                        SpawnTemplateDeltas);
                     return;
                 }
 
@@ -249,7 +278,14 @@ namespace PlayGround.System.Combat.Projectiles
                             projectileHit.PierceRemaining--;
                             if (projectileHit.PierceRemaining < 0)
                             {
-                                ProjectileHitEmission.Deactivate(ref lifetime, active, arming);
+                                ProjectileHitEmission.Deactivate(
+                                    ref lifetime,
+                                    active,
+                                    arming,
+                                    in projectileHit,
+                                    in timedSpawn,
+                                    in payload,
+                                    SpawnTemplateDeltas);
                                 return;
                             }
                         }
@@ -416,13 +452,20 @@ namespace PlayGround.System.Combat.Projectiles
                 targetedEventWriter);
         }
 
+        // Single projectile death funnel for both collision lanes. Despawn emits a release
+        // event for every template key the entity carries; it never touches a reference count.
         internal static void Deactivate(
             ref CombatLifetimeComponent lifetime,
             EnabledRefRW<Active> active,
-            EnabledRefRW<ArmingTag> arming)
+            EnabledRefRW<ArmingTag> arming,
+            in ProjectileHitComponent projectileHit,
+            in TimedSpawnComponent timedSpawn,
+            in CombatHitPayload payload,
+            NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas)
         {
             lifetime.Remaining = 0f;
             CombatDeathUtility.Kill(active, arming);
+            SpawnTemplateRefEmit.ReleaseProjectile(in projectileHit, in timedSpawn, in payload, deltas);
         }
 
         internal static bool IsGated(DynamicBuffer<ProjectileContactGateElement> contactGates, int targetId)

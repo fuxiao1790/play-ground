@@ -83,7 +83,9 @@ namespace PlayGround.System.Combat.Targeted
                 CollectTargetedLinks = collectTargetedLinks ? 1 : 0,
                 TargetedLinkCounts = collectTargetedLinks
                     ? stats.ValueRO.TargetedLinkCounts.AsParallelWriter()
-                    : default
+                    : default,
+                SpawnTemplateDeltas =
+                    SystemAPI.GetSingleton<SpawnTemplateRegistryState>().Deltas.AsParallelWriter()
             }.ScheduleParallel(_query, state.Dependency);
 
             hitDispatch.ValueRW.ProducerHandle =
@@ -115,6 +117,7 @@ namespace PlayGround.System.Combat.Targeted
             public NativeQueue<LineSegmentVfxSpawn>.ParallelWriter LineSegmentVfxPending;
             public int CollectTargetedLinks;
             public NativeQueue<int>.ParallelWriter TargetedLinkCounts;
+            public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter SpawnTemplateDeltas;
 
             private void Execute(
                 Entity entity,
@@ -146,6 +149,7 @@ namespace PlayGround.System.Combat.Targeted
                 // finds nothing, the instance is done. The compiled CombatLifetimeComponent is a
                 // fail-safe behind this, not the normal despawn path.
                 CombatDeathUtility.Kill(active, arming);
+                SpawnTemplateRefEmit.ReleaseTargeted(in payload, SpawnTemplateDeltas);
                 VfxEmit.Enqueue(
                     vfxIds.ExpireId,
                     kinematics.Position,

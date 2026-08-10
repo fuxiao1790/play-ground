@@ -52,6 +52,7 @@ namespace PlayGround.System.Combat.Targeted
         protected override void OnUpdate()
         {
             Dependency.Complete();
+            SpawnTemplateRegistryState registryState = SystemAPI.GetSingleton<SpawnTemplateRegistryState>();
             TargetedSpawnEventSingleton lane = SystemAPI.GetSingleton<TargetedSpawnEventSingleton>();
             lane.PendingHandle.Complete();
             if (!lane.Commands.IsCreated || lane.Commands.Length == 0)
@@ -83,7 +84,8 @@ namespace PlayGround.System.Combat.Targeted
                 AuthoringHandle = GetComponentTypeHandle<CombatRenderAuthoring>(false),
                 RenderKindHandle = GetComponentTypeHandle<CombatRenderKindId>(false),
                 LifetimeHandle = GetComponentTypeHandle<CombatLifetimeComponent>(false),
-                ArmingHandle = GetComponentTypeHandle<CombatArmingComponent>(false)
+                ArmingHandle = GetComponentTypeHandle<CombatArmingComponent>(false),
+                Deltas = registryState.Deltas.AsParallelWriter()
             }.Schedule(default).Complete();
 
             // EnsureDisabledSlots creates the deficit before the job sees the disabled-slot
@@ -124,6 +126,7 @@ namespace PlayGround.System.Combat.Targeted
             public ComponentTypeHandle<CombatRenderKindId> RenderKindHandle;
             public ComponentTypeHandle<CombatLifetimeComponent> LifetimeHandle;
             public ComponentTypeHandle<CombatArmingComponent> ArmingHandle;
+            public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter Deltas;
 
             public void Execute()
             {
@@ -190,6 +193,11 @@ namespace PlayGround.System.Combat.Targeted
                         // unacquired chain keeps the caster-facing placeholder hidden until its
                         // first link lands. Authored arming remains an independent pause overlay.
                         armingMask[i] = cfg.ArmSeconds > 0f || cfg.HasAcquiredTarget == 0;
+
+                        // Spawn event, emitted after every component is written so it reads the
+                        // entity's own state and stays the mirror image of the release the death
+                        // path emits.
+                        SpawnTemplateRefEmit.AcquireTargeted(hitPayloads[i], Deltas);
                     }
                 }
 

@@ -66,7 +66,12 @@ Add to `Assets/Tests/PlayMode/AoePlayModeTests.cs` or a new
 8. `SkillDriver` `OnDestroy` with in-flight projectiles → entries survive until the
    entities are gone.
 9. Assert every `InstanceCount` returns to 0 after a full spawn/expire/trim cycle —
-   this is the regression guard against 003 and 004 drifting apart.
+   the regression guard against the acquire derivation in 005 and the release sites in
+   003/004 drifting apart.
+10. Spawn a source with `HasTimedSpawner == 0` but a non-default
+    `TimedSpawn.TemplateKey` on the command → no acquire for that key, because
+    `WriteCommon` zeroes the component. Guards the one branch 005 has to mirror by
+    hand.
 
 ## Test command
 

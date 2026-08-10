@@ -26,6 +26,7 @@ namespace PlayGround.Tests.PlayMode
         private EntityManager entityManager;
         private SimulationSystemGroup simGroup;
         private Entity scopeEntity;
+        private SpawnTemplateRegistryState templateRegistryState;
         private NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnCommand> projectileTemplateMap;
         private Unity.Entities.Hash128 childProjectileTemplateKey;
         private double elapsedTime;
@@ -56,6 +57,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.SortSystems();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
+            templateRegistryState = CreateTemplateRegistryState();
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<ImpactAoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<LingeringAoeSpawnEvent>(scopeEntity);
@@ -68,6 +70,7 @@ namespace PlayGround.Tests.PlayMode
         [TearDown]
         public void TearDown()
         {
+            DisposeTemplateRegistryState();
             if (projectileTemplateMap.IsCreated)
                 projectileTemplateMap.Dispose();
             if (testWorld.IsCreated)
@@ -461,6 +464,28 @@ namespace PlayGround.Tests.PlayMode
             CombatStatsDisplaySingleton display = entityManager.GetComponentData<CombatStatsDisplaySingleton>(
                 query.GetSingletonEntity());
             Assert.That(display.ActiveProjectiles, Is.EqualTo(2));
+        }
+
+        private SpawnTemplateRegistryState CreateTemplateRegistryState()
+        {
+            SpawnTemplateRegistryState state = new()
+            {
+                ProjectileCounts = new NativeHashMap<Unity.Entities.Hash128, SpawnTemplateRefCount>(8, Allocator.Persistent),
+                AoeCounts = new NativeHashMap<Unity.Entities.Hash128, SpawnTemplateRefCount>(8, Allocator.Persistent),
+                TargetedCounts = new NativeHashMap<Unity.Entities.Hash128, SpawnTemplateRefCount>(8, Allocator.Persistent),
+                Deltas = new NativeQueue<SpawnTemplateRefDelta>(Allocator.Persistent)
+            };
+            entityManager.AddComponentData(scopeEntity, state);
+            return state;
+        }
+
+        private void DisposeTemplateRegistryState()
+        {
+            if (templateRegistryState.ProjectileCounts.IsCreated) templateRegistryState.ProjectileCounts.Dispose();
+            if (templateRegistryState.AoeCounts.IsCreated) templateRegistryState.AoeCounts.Dispose();
+            if (templateRegistryState.TargetedCounts.IsCreated) templateRegistryState.TargetedCounts.Dispose();
+            if (templateRegistryState.Deltas.IsCreated) templateRegistryState.Deltas.Dispose();
+            templateRegistryState = default;
         }
 
         private void Tick(float dt)

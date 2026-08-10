@@ -40,15 +40,23 @@ namespace PlayGround.System.Combat.Lifetime
             RefRW<CombatAoeVfxDispatchSingleton> vfx =
                 SystemAPI.GetSingletonRW<CombatAoeVfxDispatchSingleton>();
 
+            // Created unconditionally with the combat scope. Read directly: a missing registry
+            // state is a broken world and must throw, not be skipped.
+            SpawnTemplateRegistryState registryState = SystemAPI.GetSingleton<SpawnTemplateRegistryState>();
+            NativeQueue<SpawnTemplateRefDelta>.ParallelWriter spawnTemplateDeltas =
+                registryState.Deltas.AsParallelWriter();
+
             var projectileJob = new ProjectileLifetimeJob
             {
-                DeltaTime = deltaTime
+                DeltaTime = deltaTime,
+                SpawnTemplateDeltas = spawnTemplateDeltas
             };
             var aoeJob = new AoeLifetimeJob
             {
                 DeltaTime = deltaTime,
                 CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
-                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter()
+                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter(),
+                SpawnTemplateDeltas = spawnTemplateDeltas
             };
 
             JobHandle projectileHandle = projectileJob.ScheduleParallel(state.Dependency);
@@ -57,7 +65,8 @@ namespace PlayGround.System.Combat.Lifetime
             {
                 DeltaTime = deltaTime,
                 CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
-                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter()
+                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter(),
+                SpawnTemplateDeltas = spawnTemplateDeltas
             }.ScheduleParallel(aoeHandle);
 
             vfx.ValueRW.ProducerHandle =
@@ -69,11 +78,18 @@ namespace PlayGround.System.Combat.Lifetime
         [BurstCompile]
         [WithAll(typeof(ProjectileTag), typeof(Active), typeof(CombatLifetimeComponent))]
         [WithDisabled(typeof(ArmingTag))]
+        // Read only to release template keys on death; enableable and disabled on non-timed
+        // projectiles, so Present rather than All or the query would drop them.
+        [WithPresent(typeof(TimedSpawnComponent))]
         private partial struct ProjectileLifetimeJob : IJobEntity
         {
             public float DeltaTime;
+            public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter SpawnTemplateDeltas;
 
             private void Execute(
+                in ProjectileHitComponent projectileHit,
+                in TimedSpawnComponent timedSpawn,
+                in CombatHitPayload payload,
                 ref CombatLifetimeComponent lifetime,
                 EnabledRefRW<Active> active,
                 EnabledRefRW<ArmingTag> arming)
@@ -83,24 +99,34 @@ namespace PlayGround.System.Combat.Lifetime
                 {
                     lifetime.Remaining = 0f;
                     CombatDeathUtility.Kill(active, arming);
+                    SpawnTemplateRefEmit.ReleaseProjectile(
+                        in projectileHit, in timedSpawn, in payload, SpawnTemplateDeltas);
                 }
             }
         }
 
         [BurstCompile]
+        // Only lingering AOEs carry CombatLifetimeComponent, so this job never sees an impact
+        // AOE; impact death runs through AoeCollisionCore.Deactivate instead.
         [WithAll(typeof(AoeTag), typeof(Active), typeof(CombatLifetimeComponent))]
         [WithDisabled(typeof(ArmingTag))]
+        // Read only to release its template key on death; enableable, so Present not All.
+        [WithPresent(typeof(TimedSpawnComponent))]
         private partial struct AoeLifetimeJob : IJobEntity
         {
             public float DeltaTime;
             public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
             public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
+            public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter SpawnTemplateDeltas;
 
             private void Execute(
                 in AoeVfxIds vfxIds,
                 in CombatKinematicsComponent kinematics,
                 in CombatRenderAuthoring authoring,
                 in VfxTimingData timing,
+                in AoeHitSpawnComponent hitSpawn,
+                in TimedSpawnComponent timedSpawn,
+                in CombatHitPayload payload,
                 ref CombatLifetimeComponent lifetime,
                 EnabledRefRW<Active> active,
                 EnabledRefRW<CombatCollisionActiveTag> collisionActive,
@@ -120,6 +146,8 @@ namespace PlayGround.System.Combat.Lifetime
                         kinematics.Position,
                         math.max(authoring.VisualScale.x, authoring.VisualScale.y),
                         timing);
+                    SpawnTemplateRefEmit.ReleaseAoe(
+                        in hitSpawn, in timedSpawn, in payload, SpawnTemplateDeltas);
                 }
             }
         }
@@ -132,12 +160,14 @@ namespace PlayGround.System.Combat.Lifetime
             public float DeltaTime;
             public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
             public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
+            public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter SpawnTemplateDeltas;
 
             private void Execute(
                 in TargetedVfxIds vfxIds,
                 in TargetedVfxSizeComponent vfxSize,
                 in VfxTimingData timing,
                 in CombatKinematicsComponent kinematics,
+                in CombatHitPayload payload,
                 ref CombatLifetimeComponent lifetime,
                 EnabledRefRW<Active> active,
                 EnabledRefRW<ArmingTag> arming)
@@ -147,6 +177,7 @@ namespace PlayGround.System.Combat.Lifetime
                 {
                     lifetime.Remaining = 0f;
                     CombatDeathUtility.Kill(active, arming);
+                    SpawnTemplateRefEmit.ReleaseTargeted(in payload, SpawnTemplateDeltas);
                     VfxEmit.Enqueue(
                         vfxIds.ExpireId,
                         kinematics.Position,

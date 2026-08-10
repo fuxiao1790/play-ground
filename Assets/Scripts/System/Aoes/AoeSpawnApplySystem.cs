@@ -69,6 +69,7 @@ namespace PlayGround.System.Combat.Aoes
         protected override void OnUpdate()
         {
             Dependency.Complete();
+            SpawnTemplateRegistryState registryState = SystemAPI.GetSingleton<SpawnTemplateRegistryState>();
 
             NativeArray<AoeSpawnCommand> commands = default;
             int totalRequests = 0;
@@ -127,6 +128,7 @@ namespace PlayGround.System.Combat.Aoes
                         RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderKindId>(false),
                         ArmingHandle = GetComponentTypeHandle<CombatArmingComponent>(false),
                         ArmingTagHandle = GetComponentTypeHandle<ArmingTag>(false),
+                        Deltas = registryState.Deltas.AsParallelWriter(),
                     }.Schedule(default).Complete();
 
                     reuseCount = reused.Value;
@@ -169,6 +171,7 @@ namespace PlayGround.System.Combat.Aoes
             public ComponentTypeHandle<CombatRenderKindId> RenderBatchIdHandle;
             public ComponentTypeHandle<CombatArmingComponent> ArmingHandle;
             public ComponentTypeHandle<ArmingTag> ArmingTagHandle;
+            public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter Deltas;
 
             public void Execute()
             {
@@ -238,6 +241,18 @@ namespace PlayGround.System.Combat.Aoes
                         collisionActiveMask[i] = spawnState.Collision;
                         armings[i] = AoeSpawnApplyUtility.ArmingFor(cfg);
                         armingMask[i] = AoeSpawnApplyUtility.IsArming(cfg);
+
+                        // An impact AOE with nothing to collide against materializes already
+                        // dead, so it never reaches a death site and must not claim a
+                        // reference. Impact archetypes carry no TimedSpawnComponent.
+                        if (spawnState.Active)
+                        {
+                            SpawnTemplateRefEmit.AcquireAoe(
+                                hitSpawns[i],
+                                default,
+                                hitPayloads[i],
+                                Deltas);
+                        }
                     }
                 }
 
@@ -301,6 +316,7 @@ namespace PlayGround.System.Combat.Aoes
         protected override void OnUpdate()
         {
             Dependency.Complete();
+            SpawnTemplateRegistryState registryState = SystemAPI.GetSingleton<SpawnTemplateRegistryState>();
 
             NativeArray<AoeSpawnCommand> commands = default;
             int totalRequests = 0;
@@ -363,6 +379,7 @@ namespace PlayGround.System.Combat.Aoes
                         ArmingTagHandle = GetComponentTypeHandle<ArmingTag>(false),
                         TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
                         TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
+                        Deltas = registryState.Deltas.AsParallelWriter(),
                     }.Schedule(default).Complete();
 
                     reuseCount = reused.Value;
@@ -409,6 +426,7 @@ namespace PlayGround.System.Combat.Aoes
             public ComponentTypeHandle<ArmingTag> ArmingTagHandle;
             public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
             public ComponentTypeHandle<TimedSpawnStateComponent> TimedSpawnStateHandle;
+            public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter Deltas;
 
             public void Execute()
             {
@@ -497,6 +515,18 @@ namespace PlayGround.System.Combat.Aoes
                         collisionActiveMask[i] = spawnState.Collision;
                         armings[i] = AoeSpawnApplyUtility.ArmingFor(cfg);
                         armingMask[i] = AoeSpawnApplyUtility.IsArming(cfg);
+
+                        // Spawn event, emitted after every component is written so it reads the
+                        // entity's own state and stays the mirror image of the release the death
+                        // path emits. Lingering AOEs are always materialized active.
+                        if (spawnState.Active)
+                        {
+                            SpawnTemplateRefEmit.AcquireAoe(
+                                hitSpawns[i],
+                                timedSpawns[i],
+                                hitPayloads[i],
+                                Deltas);
+                        }
                     }
                 }
 

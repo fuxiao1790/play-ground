@@ -85,6 +85,8 @@ namespace PlayGround.System.Combat.Projectiles
                 Dependency.Complete();
             }
 
+            SpawnTemplateRegistryState registryState = SystemAPI.GetSingleton<SpawnTemplateRegistryState>();
+
             int totalRequests = 0;
             NativeArray<ProjectileSpawnCommand> commands = default;
             using (DrainCommandsMarker.Auto())
@@ -146,6 +148,7 @@ namespace PlayGround.System.Combat.Projectiles
                         ArmingTagHandle = GetComponentTypeHandle<ArmingTag>(false),
                         TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
                         TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
+                        Deltas = registryState.Deltas.AsParallelWriter(),
                     }.Schedule(default).Complete();
 
                     reuseCount = reused.Value;
@@ -188,6 +191,7 @@ namespace PlayGround.System.Combat.Projectiles
             public ComponentTypeHandle<ArmingTag> ArmingTagHandle;
             public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
             public ComponentTypeHandle<TimedSpawnStateComponent> TimedSpawnStateHandle;
+            public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter Deltas;
 
             public void Execute()
             {
@@ -260,6 +264,7 @@ namespace PlayGround.System.Combat.Projectiles
                             collisionActiveMask,
                             armingMask,
                             timedSpawnMask,
+                            Deltas,
                             i);
                         tracking[i] = cfg.Tracking;
                         ProjectileSpawnApplyUtility.SpawnState spawnState =
@@ -296,6 +301,7 @@ namespace PlayGround.System.Combat.Projectiles
             EnabledMask collisionActiveMask,
             EnabledMask armingMask,
             EnabledMask timedSpawnMask,
+            NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas,
             int index)
         {
             identities[index] = new ProjectileIdentityComponent
@@ -350,6 +356,18 @@ namespace PlayGround.System.Combat.Projectiles
             collisionActiveMask[index] = spawnState.Collision;
             armings[index] = ArmingFor(cfg);
             armingMask[index] = IsArming(cfg);
+
+            // Spawn event, emitted after every component is written so it reads the entity's
+            // own state and stays the mirror image of the release the death path emits. The
+            // slot's previous occupant already released its own keys when it died.
+            if (spawnState.Active)
+            {
+                SpawnTemplateRefEmit.AcquireProjectile(
+                    hits[index],
+                    timedSpawns[index],
+                    hitPayloads[index],
+                    deltas);
+            }
         }
 
         public static bool NeedsCollision(in ProjectileHitPayload payload) =>

@@ -186,7 +186,7 @@ namespace PlayGround.System.Combat.Core
             int baseProjectileId = nextProjectileId + 1;
             nextProjectileId += request.Count;
             ProjectileSpawnCommand template = ProjectileCommandFor(request, baseProjectileId, seedContactGateTargetId);
-            Hash128 templateKey = RegisterSpawnTemplate(in template);
+            Hash128 templateKey = RegisterPinnedSpawnTemplate(in template);
             entityManager.GetBuffer<ProjectileSpawnEvent>(scopeEntity)
                 .Add(ProjectileEventFor(templateKey, request, baseProjectileId, seedContactGateTargetId, faction));
             return baseProjectileId;
@@ -205,11 +205,35 @@ namespace PlayGround.System.Combat.Core
                 registry.Map.Add(key, normalizedTemplate);
             }
 
+            AddOwner(IntervalChildKind.Projectile, key, pinned: false);
             return key;
         }
 
         public Hash128 RegisterTimedSpawnTemplate(in ProjectileSpawnCommand template) =>
             RegisterSpawnTemplate(in template);
+
+        // Drops one managed claim on a registry entry. The entry is not erased here: it
+        // survives until no ECS entity still carries the key, then SpawnTemplateRefCountSystem
+        // reclaims it. Safe to call with an unknown or default key.
+        public void UnregisterSpawnTemplate(IntervalChildKind kind, Hash128 key)
+        {
+            if (key.Equals(default(Hash128)) || scopeEntity == Entity.Null || !entityManager.Exists(scopeEntity))
+            {
+                return;
+            }
+
+            SpawnTemplateRegistryState registryState = entityManager.GetComponentData<SpawnTemplateRegistryState>(scopeEntity);
+            NativeHashMap<Hash128, SpawnTemplateRefCount> counts = CountsFor(in registryState, kind);
+            if (!counts.TryGetValue(key, out SpawnTemplateRefCount entry))
+            {
+                return;
+            }
+
+            entry.OwnerCount = math.max(0, entry.OwnerCount - 1);
+            counts[key] = entry;
+            registryState.IsDirty = true;
+            entityManager.SetComponentData(scopeEntity, registryState);
+        }
 
         public int SpawnRegisteredProjectile(
             Hash128 templateKey,
@@ -303,6 +327,7 @@ namespace PlayGround.System.Combat.Core
                 registry.Map.Add(key, normalizedTemplate);
             }
 
+            AddOwner(IntervalChildKind.ImpactAoe, key, pinned: false);
             return key;
         }
 
@@ -324,6 +349,7 @@ namespace PlayGround.System.Combat.Core
                 registry.Map.Add(key, normalizedTemplate);
             }
 
+            AddOwner(IntervalChildKind.Targeted, key, pinned: false);
             return key;
         }
 
@@ -539,13 +565,74 @@ namespace PlayGround.System.Combat.Core
 
             int aoeId = ++nextAoeId;
             AoeSpawnCommand template = AoeCommandFor(request, aoeId);
-            Hash128 templateKey = RegisterSpawnTemplate(in template);
+            Hash128 templateKey = RegisterPinnedSpawnTemplate(in template);
             AppendAoeEvent(AoeEventFor(templateKey, request, aoeId, faction));
             spawnedAoes++;
             return aoeId;
         }
 
         // ---- Request builders ----
+
+        private Hash128 RegisterPinnedSpawnTemplate(in ProjectileSpawnCommand template)
+        {
+            ProjectileSpawnCommand normalizedTemplate = SpawnTemplateFor(in template);
+            Hash128 key = SpawnTemplateHash.Of(in normalizedTemplate);
+            ProjectileSpawnTemplate registry = entityManager.GetComponentData<ProjectileSpawnTemplate>(scopeEntity);
+            if (!registry.Map.ContainsKey(key))
+            {
+                entityManager.CompleteAllTrackedJobs();
+                registry.Map.Add(key, normalizedTemplate);
+            }
+
+            AddOwner(IntervalChildKind.Projectile, key, pinned: true);
+            return key;
+        }
+
+        private Hash128 RegisterPinnedSpawnTemplate(in AoeSpawnCommand template)
+        {
+            AoeSpawnCommand normalizedTemplate = SpawnTemplateFor(in template);
+            Hash128 key = SpawnTemplateHash.Of(in normalizedTemplate);
+            AoeSpawnTemplate registry = entityManager.GetComponentData<AoeSpawnTemplate>(scopeEntity);
+            if (!registry.Map.ContainsKey(key))
+            {
+                entityManager.CompleteAllTrackedJobs();
+                registry.Map.Add(key, normalizedTemplate);
+            }
+
+            AddOwner(IntervalChildKind.ImpactAoe, key, pinned: true);
+            return key;
+        }
+
+        private void AddOwner(IntervalChildKind kind, Hash128 key, bool pinned)
+        {
+            SpawnTemplateRegistryState registryState = entityManager.GetComponentData<SpawnTemplateRegistryState>(scopeEntity);
+            NativeHashMap<Hash128, SpawnTemplateRefCount> counts = CountsFor(in registryState, kind);
+            counts.TryGetValue(key, out SpawnTemplateRefCount entry);
+            if (pinned)
+            {
+                entry.Pinned = true;
+            }
+            else
+            {
+                entry.OwnerCount++;
+            }
+
+            counts[key] = entry;
+        }
+
+        private static NativeHashMap<Hash128, SpawnTemplateRefCount> CountsFor(
+            in SpawnTemplateRegistryState registryState,
+            IntervalChildKind kind)
+        {
+            if (kind == IntervalChildKind.Targeted)
+            {
+                return registryState.TargetedCounts;
+            }
+
+            return SpawnTemplateRegistryKind.IsAoe(kind)
+                ? registryState.AoeCounts
+                : registryState.ProjectileCounts;
+        }
 
         private ProjectileSpawnEvent ProjectileEventFor(
             Hash128 templateKey,

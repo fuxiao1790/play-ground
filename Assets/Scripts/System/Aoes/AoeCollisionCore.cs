@@ -30,6 +30,7 @@ namespace PlayGround.System.Combat.Aoes
             in CombatKinematicsComponent kinematics,
             in CombatCollisionComponent collision,
             in AoeHitSpawnComponent hitSpawn,
+            in TimedSpawnComponent timedSpawn,
             in AoeVfxIds vfxIds,
             in VfxTimingData timing,
             in AoeAreaComponent area,
@@ -48,11 +49,13 @@ namespace PlayGround.System.Combat.Aoes
             NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
             NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
             NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter,
-            NativeQueue<TargetedSpawnEvent>.ParallelWriter targetedEventWriter)
+            NativeQueue<TargetedSpawnEvent>.ParallelWriter targetedEventWriter,
+            NativeQueue<SpawnTemplateRefDelta>.ParallelWriter spawnTemplateDeltas)
         {
             if (identity.Faction == CombatFaction.None)
             {
-                Deactivate(active, collisionActive, arming);
+                Deactivate(
+                    active, collisionActive, arming, in hitSpawn, in timedSpawn, in payload, spawnTemplateDeltas);
                 return;
             }
 
@@ -140,7 +143,8 @@ namespace PlayGround.System.Combat.Aoes
             }
 
             if (deactivateAfterPass)
-                Deactivate(active, collisionActive, arming);
+                Deactivate(
+                    active, collisionActive, arming, in hitSpawn, in timedSpawn, in payload, spawnTemplateDeltas);
         }
 
         internal static void EmitHit(
@@ -260,12 +264,20 @@ namespace PlayGround.System.Combat.Aoes
             }
         }
 
+        // Single AOE death funnel for the impact and lingering lanes. Despawn emits a release
+        // event for every template key the entity carries; it never touches a reference count.
+        // Impact archetypes have no TimedSpawnComponent and pass default, which releases nothing.
         internal static void Deactivate(
             EnabledRefRW<Active> active,
             EnabledRefRW<CombatCollisionActiveTag> collisionActive,
-            EnabledRefRW<ArmingTag> arming)
+            EnabledRefRW<ArmingTag> arming,
+            in AoeHitSpawnComponent hitSpawn,
+            in TimedSpawnComponent timedSpawn,
+            in CombatHitPayload payload,
+            NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas)
         {
             CombatDeathUtility.Kill(active, collisionActive, arming);
+            SpawnTemplateRefEmit.ReleaseAoe(in hitSpawn, in timedSpawn, in payload, deltas);
         }
 
         internal static bool HasHitEvent(in CombatHitPayload payload) =>

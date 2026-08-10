@@ -18,6 +18,7 @@ namespace PlayGround.Tests.EditMode
         private SimulationSystemGroup _simulation;
         private Entity _scope;
         private NativeHashMap<Hash128, TargetedSpawnCommand> _templates;
+        private SpawnTemplateRegistryState _templateRegistryState;
 
         [SetUp]
         public void SetUp()
@@ -32,6 +33,7 @@ namespace PlayGround.Tests.EditMode
             _simulation.SortSystems();
 
             _scope = _entityManager.CreateEntity(typeof(CombatScope));
+            _templateRegistryState = CreateTemplateRegistryState();
             _entityManager.AddBuffer<TargetedSpawnEvent>(_scope);
             _templates = new NativeHashMap<Hash128, TargetedSpawnCommand>(16, Allocator.Persistent);
             _entityManager.AddComponentData(_scope, new TargetedSpawnTemplate { Map = _templates });
@@ -40,6 +42,7 @@ namespace PlayGround.Tests.EditMode
         [TearDown]
         public void TearDown()
         {
+            DisposeTemplateRegistryState();
             if (_templates.IsCreated)
             {
                 _templates.Dispose();
@@ -260,6 +263,28 @@ namespace PlayGround.Tests.EditMode
                 query.GetSingletonEntity());
             Assert.That(display.TargetedEntitiesSpawned, Is.EqualTo(2));
             Assert.That(display.ActiveTargeted, Is.EqualTo(2));
+        }
+
+        private SpawnTemplateRegistryState CreateTemplateRegistryState()
+        {
+            SpawnTemplateRegistryState state = new()
+            {
+                ProjectileCounts = new NativeHashMap<Hash128, SpawnTemplateRefCount>(16, Allocator.Persistent),
+                AoeCounts = new NativeHashMap<Hash128, SpawnTemplateRefCount>(16, Allocator.Persistent),
+                TargetedCounts = new NativeHashMap<Hash128, SpawnTemplateRefCount>(16, Allocator.Persistent),
+                Deltas = new NativeQueue<SpawnTemplateRefDelta>(Allocator.Persistent)
+            };
+            _entityManager.AddComponentData(_scope, state);
+            return state;
+        }
+
+        private void DisposeTemplateRegistryState()
+        {
+            if (_templateRegistryState.ProjectileCounts.IsCreated) _templateRegistryState.ProjectileCounts.Dispose();
+            if (_templateRegistryState.AoeCounts.IsCreated) _templateRegistryState.AoeCounts.Dispose();
+            if (_templateRegistryState.TargetedCounts.IsCreated) _templateRegistryState.TargetedCounts.Dispose();
+            if (_templateRegistryState.Deltas.IsCreated) _templateRegistryState.Deltas.Dispose();
+            _templateRegistryState = default;
         }
 
         private void Tick() => _simulation.Update();

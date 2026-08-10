@@ -82,7 +82,9 @@ namespace PlayGround.System.Combat.Aoes
                 ProjectileEventWriter = projectileLane.ValueRO.EventQueue.AsParallelWriter(),
                 ImpactAoeEventWriter = impactAoeLane.ValueRO.EventQueue.AsParallelWriter(),
                 LingeringAoeEventWriter = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter(),
-                TargetedEventWriter = targetedLane.ValueRO.EventQueue.AsParallelWriter()
+                TargetedEventWriter = targetedLane.ValueRO.EventQueue.AsParallelWriter(),
+                SpawnTemplateDeltas =
+                    SystemAPI.GetSingleton<SpawnTemplateRegistryState>().Deltas.AsParallelWriter()
             };
 
             var collisionHandle = job.ScheduleParallel(impactAoeQuery, state.Dependency);
@@ -124,6 +126,7 @@ namespace PlayGround.System.Combat.Aoes
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
             public NativeQueue<TargetedSpawnEvent>.ParallelWriter TargetedEventWriter;
+            public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter SpawnTemplateDeltas;
 
             private void Execute(
                 Entity entity,
@@ -146,6 +149,8 @@ namespace PlayGround.System.Combat.Aoes
                     kinematics,
                     collision,
                     hitSpawn,
+                    // Impact archetypes carry no TimedSpawnComponent.
+                    default,
                     vfxIds,
                     timing,
                     area,
@@ -164,7 +169,8 @@ namespace PlayGround.System.Combat.Aoes
                     ProjectileEventWriter,
                     ImpactAoeEventWriter,
                     LingeringAoeEventWriter,
-                    TargetedEventWriter);
+                    TargetedEventWriter,
+                    SpawnTemplateDeltas);
             }
         }
     }

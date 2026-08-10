@@ -40,6 +40,7 @@ namespace PlayGround.Tests.PlayMode
         private TargetProxyUpdateApplySystem targetProxyUpdateApply;
         private TargetProxyDeleteApplySystem targetProxyDeleteApply;
         private Entity scopeEntity;
+        private SpawnTemplateRegistryState templateRegistryState;
         private Entity aoeTemplateEntity;
         private Entity projectileTemplateEntity;
         private double elapsedTime;
@@ -92,6 +93,7 @@ namespace PlayGround.Tests.PlayMode
             presentationGroup.SortSystems();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
+            templateRegistryState = SpawnTemplateRegistryTestState.Add(entityManager, scopeEntity);
             entityManager.AddBuffer<ImpactAoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<LingeringAoeSpawnEvent>(scopeEntity);
             entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
@@ -115,6 +117,7 @@ namespace PlayGround.Tests.PlayMode
         [TearDown]
         public void TearDown()
         {
+            SpawnTemplateRegistryTestState.Dispose(ref templateRegistryState);
             if (testWorld.IsCreated)
             {
                 if (entityManager.Exists(aoeTemplateEntity))

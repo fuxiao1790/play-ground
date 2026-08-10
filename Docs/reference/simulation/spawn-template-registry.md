@@ -30,14 +30,13 @@ and future chained effects.
 
 ## Registry Concurrency Contract
 
-The spawn-template registry is written only by **external spawns** 鈥?managed
-gameplay code running in the GameObject `Update()` lifecycle, which executes
-before the ECS simulation tick. The registry is never written from inside the
-tick: no system, job, collision, status, or timed-spawn code adds or removes
-entries.
+The spawn-template registry is written by managed gameplay code in GameObject
+`Update()` before the ECS simulation tick, and by
+`SpawnTemplateRefCountSystem` in `LateSimulationSystemGroup` after every
+simulation job for that tick has completed. No job, collision, status, or
+timed-spawn system mutates a template map.
 
-Because all writes happen before the tick and entries are never removed in v1,
-the registry is **immutable for the entire simulation tick**:
+The registry is therefore **immutable for the entire simulation tick**:
 
 - it cannot rehash or reallocate mid-tick;
 - every simulation job may take it `[ReadOnly]` and read it concurrently with no
@@ -46,10 +45,8 @@ the registry is **immutable for the entire simulation tick**:
   per-instance fields, and enqueued 鈥?the registry entry itself is never mutated.
 
 Registration, including loadout recompiles, happens in managed land before the
-next tick, so the write-only-external contract holds across equipment changes.
-On-demand registration, if ever needed, must also occur in `Update()` (external,
-pre-tick) 鈥?never from a job. This invariant is what makes registry reads safe in
-collision and status jobs; it is load-bearing, not incidental.
+next tick. Reclaim runs only after the tick, so `[ReadOnly]` concurrent registry
+reads remain safe; this ordering is load-bearing, not incidental.
 
 ## Unified Spawn Model
 
@@ -235,7 +232,40 @@ Registry rules:
 - stored commands are blittable and readable by Burst jobs
 - per-instance fields are left default before hashing
 - identical follow-up behavior deduplicates to one map entry
-- entries are never removed in v1
+- entries reclaim only when both managed owner count and entity instance count
+  reach zero; pinned ad-hoc entries are never reclaimed
+
+### Registry Lifetime
+
+Registry identity is `(IntervalChildKind, Hash128)`. `OwnerCount` tracks managed
+`RegisterSpawnTemplate` claims; `InstanceCount` tracks **live** entities carrying
+that key. `Unregister` drops only one managed claim; it never erases a template
+directly. The late-simulation sweep erases the counter entry and matching command
+entry only when both counts are zero. `CombatRoot.Spawn` registrations are pinned
+because no durable owner exists to release them.
+
+`InstanceCount` moves only through events. Every spawn emits one acquire and every
+despawn emits one release onto a shared `NativeQueue<SpawnTemplateRefDelta>`;
+`SpawnTemplateRefCountSystem` drains that queue and is the only code that touches a
+count. Spawn-apply, collision, and lifetime systems hold a `ParallelWriter` and
+nothing more. Both halves go through `SpawnTemplateRefEmit`, the single definition of
+which keys each domain carries, so acquire and release cannot disagree.
+
+Two rules keep the accounting exact:
+
+- Acquire is gated on the slot actually going live. An impact AOE with nothing to
+  collide against is materialized inactive and never reaches a death site, so it must
+  not claim a reference.
+- Any job that reads `TimedSpawnComponent` to release its key must declare
+  `[WithPresent(typeof(TimedSpawnComponent))]`. The component is enableable and
+  disabled on non-timed sources, so an ordinary `All` match would silently drop every
+  non-timed projectile from collision and expiry. When the job is scheduled against an
+  explicit `EntityQuery` rather than the generated one, the attribute does not apply and
+  the builder needs `.WithPresent<TimedSpawnComponent>()` as well — otherwise scheduling
+  throws "the query must contain all the components required for `Execute()` to run".
+
+`CombatPoolCleanupSystem` takes no part in this: it destroys already-disabled slots,
+which released their keys when they died.
 
 Per-instance fields stamped by expansion:
 
@@ -568,6 +598,15 @@ payloads.
 - Run a lingering-AOE 鈫?on-hit projectile 鈫?stack detonation chain; confirm
   three levels materialize correctly through the registry.
 - Confirm the registry count is unchanged after a simulation tick.
+- Register identical content twice, unregister one owner, and confirm the entry
+  survives. Release the final owner and confirm it reclaims after the sweep.
+- Confirm a released child template survives while an in-flight entity still carries
+  its key, then reclaims once that entity dies.
+- Confirm a full spawn/expire lifecycle returns every instance count to zero.
+- Confirm non-timed projectiles still collide and still expire after any change to a
+  job that reads `TimedSpawnComponent` for release.
+- Confirm an impact AOE materialized inactive claims no reference.
+- Confirm repeated identical ad-hoc `CombatRoot.Spawn` calls keep one pinned entry.
 - Mutate authoring data after firing; verify in-flight entities still use the
   original snapshot.
 - Confirm simulation jobs do not read managed companions.
