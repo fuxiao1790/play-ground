@@ -138,11 +138,6 @@ namespace PlayGround.Skills
             RegisterSpawnTemplates();
         }
 
-        private void OnDestroy()
-        {
-            ReleaseTemplateKeys(registeredTemplateKeys);
-        }
-
         public void BindVfxRoot(CombatVfxRoot root)
         {
             if (vfxRoot == root) return;
@@ -865,6 +860,11 @@ namespace PlayGround.Skills
             registeredTemplateKeys.Add((IntervalChildKind.Targeted, key));
         }
 
+        // Called only while the sim is live: on recompile and on rebind. There is no
+        // teardown release. The count maps are scope-owned and freed wholesale by
+        // CombatScopeOwner, and the ECS world is gone before MonoBehaviour teardown runs,
+        // so a shutdown unregister is a write nobody reads through a dead EntityManager.
+        // A driver destroyed at runtime would have to release at that despawn site.
         private void ReleaseTemplateKeys(List<(IntervalChildKind Kind, Unity.Entities.Hash128 Key)> keys)
         {
             if (combatRoot == null || keys == null)

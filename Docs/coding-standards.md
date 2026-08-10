@@ -57,6 +57,48 @@ Unity guarantees all `Awake()` calls for scene-loaded objects complete before
 any `OnEnable()` fires, so `OnEnable()` is the safer boundary for touching other
 MonoBehaviours.
 
+## OnDestroy Boundary
+
+The teardown counterpart of the Awake rule. On destroy a component may only
+touch data it owns. Assume every reference it holds to another object is
+already gone.
+
+`OnDestroy` runs in no particular order. Reaching into another object to clean
+up inherently requires that target to still be valid, and nothing can guarantee
+that. The target may already be gone, or may be gone on the next run with the
+same scene. Cross-object teardown is therefore never correct, however the order
+happens to fall today.
+
+A validity check does not rescue it. Guarding the reach only converts an
+unguaranteed action into a silent no-op, so the release still does not happen
+whenever the order goes the other way. Put the release at the event that
+actually causes it instead.
+
+The ECS world is one instance of this. At play-mode exit Entities disposes the
+world from `DefaultWorldInitializationProxy.OnDisable`, before MonoBehaviour
+`OnDestroy` runs, so any `EntityManager` or entity access in a destroy handler
+reads already-freed state.
+
+`OnDestroy` should:
+
+- dispose native containers, GPU buffers, and `EntityQuery` handles this
+  component created
+- clear a static instance/registration this component installed
+- null out its own caches
+
+`OnDestroy` should not:
+
+- call into another root, driver, or registry to deregister
+- touch `EntityManager`, entities, or ECS singletons
+- free another object's handles on its behalf
+
+Releases that matter while the game is running belong at the real event that
+causes them — despawn, rebind, recompile — not at teardown. `SkillDriver` has
+no `OnDestroy`: its spawn-template claims are released on loadout recompile and
+on `BindCombatRoot`. At teardown there is no valid moment to release them —
+`CombatRoot` may already be destroyed — and the registry is freed wholesale
+regardless.
+
 ## Fail Fast Validation
 
 Serialized fields that are required must be validated once at setup.
