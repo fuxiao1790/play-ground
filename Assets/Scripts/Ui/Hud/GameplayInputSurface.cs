@@ -1,4 +1,5 @@
 using System;
+using PlayGround.Game;
 using PlayGround.Player;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -10,11 +11,13 @@ namespace PlayGround.Skills
     public sealed class GameplayInputSurface : MonoBehaviour, IGameplayInputSource
     {
         [SerializeField] private PlayerRoot playerRoot;
+        [SerializeField] private PauseController pauseController;
 
         private UIDocument document;
         private VisualElement root;
         private VisualElement surface;
         private bool fireHeld;
+        private int? capturedPointerId;
 
         public bool FireHeld => fireHeld;
 
@@ -31,12 +34,15 @@ namespace PlayGround.Skills
             CreateSurfaceIfNeeded();
             InsertSurfaceAtRootStart();
             playerRoot.SetFireInput(this);
+            pauseController.PausedChanged += OnPausedChanged;
+            OnPausedChanged(pauseController.IsPaused);
         }
 
         private void OnDisable()
         {
+            pauseController.PausedChanged -= OnPausedChanged;
             playerRoot?.ClearFireInput(this);
-            fireHeld = false;
+            ClearHeldPointer();
             surface?.RemoveFromHierarchy();
         }
 
@@ -47,6 +53,9 @@ namespace PlayGround.Skills
 
             if (playerRoot == null)
                 throw new InvalidOperationException($"{nameof(GameplayInputSurface)} could not resolve a {nameof(PlayerRoot)}.");
+
+            if (pauseController == null)
+                throw new InvalidOperationException($"{nameof(GameplayInputSurface)} needs a {nameof(PauseController)}.");
         }
 
         private void CreateSurfaceIfNeeded()
@@ -81,22 +90,45 @@ namespace PlayGround.Skills
 
         private void OnPointerDown(PointerDownEvent evt)
         {
+            if (pauseController.IsPaused)
+                return;
+
             surface.CapturePointer(evt.pointerId);
+            capturedPointerId = evt.pointerId;
             fireHeld = true;
         }
 
         private void OnPointerUp(PointerUpEvent evt)
         {
-            if (!fireHeld || !surface.HasPointerCapture(evt.pointerId))
+            if (!fireHeld || capturedPointerId != evt.pointerId || !surface.HasPointerCapture(evt.pointerId))
                 return;
 
-            surface.ReleasePointer(evt.pointerId);
-            fireHeld = false;
+            ClearHeldPointer();
         }
 
         private void OnPointerCaptureOut(PointerCaptureOutEvent evt)
         {
+            if (capturedPointerId == evt.pointerId)
+            {
+                capturedPointerId = null;
+                fireHeld = false;
+            }
+        }
+
+        private void OnPausedChanged(bool paused)
+        {
+            surface.pickingMode = paused ? PickingMode.Ignore : PickingMode.Position;
+            if (paused)
+                ClearHeldPointer();
+        }
+
+        private void ClearHeldPointer()
+        {
+            int? pointerId = capturedPointerId;
+            capturedPointerId = null;
             fireHeld = false;
+            if (pointerId.HasValue && surface != null && surface.HasPointerCapture(pointerId.Value))
+                surface.ReleasePointer(pointerId.Value);
         }
     }
 }

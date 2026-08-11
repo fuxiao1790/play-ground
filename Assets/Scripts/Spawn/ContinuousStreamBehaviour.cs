@@ -27,6 +27,11 @@ namespace PlayGround.Spawn
 
             public override void Tick(ISpawnSink sink, float dt)
             {
+                if (dt <= 0f)
+                {
+                    return;
+                }
+
                 if (sink == null)
                 {
                     return;

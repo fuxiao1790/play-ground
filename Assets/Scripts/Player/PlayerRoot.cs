@@ -1,6 +1,7 @@
 using PlayGround.Common;
 using PlayGround.Common.Stats;
 using PlayGround.Common.StatusEffects;
+using PlayGround.Game;
 using PlayGround.Persistence;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
@@ -12,6 +13,7 @@ using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Projectiles;
+using System;
 using System.Collections.Generic;
 using Unity.Entities;
 using UnityEngine;
@@ -30,6 +32,7 @@ namespace PlayGround.Player
         [SerializeField] private Camera worldCamera;
         [SerializeField] private UnitStatSheet statSheet;
         [SerializeField] private SpriteFacingSet facingSet;
+        [SerializeField] private PauseController pauseController;
         [SerializeField] private float stopThreshold = 0.1f;
         [SerializeField] private float accelerationMultiplier = 8f;
         [SerializeField] private float frictionMultiplier = 6f;
@@ -62,7 +65,7 @@ namespace PlayGround.Player
         private bool deleteProxyInLateUpdate;
         private int targetId;
         private IGameplayInputSource fireInput;
-        private bool gameplayInputSuspended;
+        private GameplayInputBlock gameplayInputBlocks;
         public StatusEffects StatusEffects { get; private set; }
 
         public Vector2 AimDirection => facing?.AimDirection ?? Vector2.right;
@@ -91,6 +94,7 @@ namespace PlayGround.Player
         public float CurrentMana => mana?.Current ?? 0f;
         public int EquippedAttackCount => skillDriver?.SlotCount ?? 0;
         public IReadOnlyList<StatusStackSnapshot> StatusSnapshots => statusSnapshots;
+        public bool GameplayInputBlocked => gameplayInputBlocks != GameplayInputBlock.None;
 
         public void SetFireInput(IGameplayInputSource source) => fireInput = source;
 
@@ -99,9 +103,17 @@ namespace PlayGround.Player
             if (fireInput == source) fireInput = null;
         }
 
-        // Loadout editing (picker modal) freezes gameplay input.
-        public void SetGameplayInputSuspended(bool suspended) =>
-            gameplayInputSuspended = suspended;
+        public void SetGameplayInputBlocked(GameplayInputBlock reason, bool blocked)
+        {
+            if (blocked)
+            {
+                gameplayInputBlocks |= reason;
+            }
+            else
+            {
+                gameplayInputBlocks &= ~reason;
+            }
+        }
 
         private void Awake()
         {
@@ -128,6 +140,9 @@ namespace PlayGround.Player
 
             if (facingSet == null || !facingSet.HasAllSprites)
                 throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} needs a fully assigned {nameof(SpriteFacingSet)}.");
+
+            if (pauseController == null)
+                throw new MissingReferenceException($"{nameof(PlayerRoot)} on {name} needs a {nameof(PauseController)}.");
 
             playerMap = inputActions.FindActionMap("Player", true);
             moveAction = playerMap.FindAction("Move", true);
@@ -167,10 +182,13 @@ namespace PlayGround.Player
         {
             playerMap?.Enable();
             pointAction?.Enable();
+            pauseController.PausedChanged += OnPausedChanged;
+            OnPausedChanged(pauseController.IsPaused);
         }
 
         private void OnDisable()
         {
+            pauseController.PausedChanged -= OnPausedChanged;
             DeleteCombatTargetProxy();
             pointAction?.Disable();
             playerMap?.Disable();
@@ -209,8 +227,10 @@ namespace PlayGround.Player
             if (ReadDashPressedThisFrame())
                 movement.TryStartDash(aimWorldPosition);
 
-            facing.AimAt(aimWorldPosition);
-            bool fireHeld = !gameplayInputSuspended && (fireInput?.FireHeld ?? false);
+            if (!GameplayInputBlocked)
+                facing.AimAt(aimWorldPosition);
+
+            bool fireHeld = !GameplayInputBlocked && (fireInput?.FireHeld ?? false);
             skillDriver.Tick(fireHeld, facing.AimDirection, aimWorldPosition);
             animatorDriver.Tick(Time.deltaTime);
             stateDriver.Tick();
@@ -432,11 +452,14 @@ namespace PlayGround.Player
             deleteProxyInLateUpdate = false;
         }
 
+        private void OnPausedChanged(bool paused) =>
+            SetGameplayInputBlocked(GameplayInputBlock.Paused, paused);
+
         private Vector2 ReadMoveInput() =>
-            gameplayInputSuspended ? Vector2.zero : Vector2.ClampMagnitude(moveAction.ReadValue<Vector2>(), 1f);
+            GameplayInputBlocked ? Vector2.zero : Vector2.ClampMagnitude(moveAction.ReadValue<Vector2>(), 1f);
 
         private bool ReadDashPressedThisFrame() =>
-            !gameplayInputSuspended && dashAction.WasPressedThisFrame();
+            !GameplayInputBlocked && dashAction.WasPressedThisFrame();
 
         private Vector2 ReadAimWorldPosition()
         {

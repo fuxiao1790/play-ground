@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="pause-menu" class="pause-menu pause-menu--hidden" picking-mode="Ignore">
+        <ui:VisualElement class="pause-menu__panel" picking-mode="Ignore">
+            <ui:Label name="title" class="pause-menu__title" text="Paused" picking-mode="Ignore" />
+            <ui:Button name="resume" class="pause-menu__resume" text="Resume" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

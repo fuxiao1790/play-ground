@@ -86,10 +86,13 @@ namespace PlayGround.Skills
                 ProcessPendingEdit();
                 if (compiledSlots == null) return;
 
+                float deltaTime = Time.deltaTime;
+                if (deltaTime <= 0f) return;
+
                 using (CooldownsMarker.Auto())
                 {
                     for (int i = 0; i < activeSlotCount; i++)
-                        slotStates[i].Tick(Time.deltaTime);
+                        slotStates[i].Tick(deltaTime);
                 }
 
                 if (!fireHeld) return;

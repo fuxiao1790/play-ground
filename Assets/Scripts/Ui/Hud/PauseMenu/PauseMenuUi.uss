@@ -1,0 +1,39 @@
+.pause-menu {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    align-items: center;
+    padding-top: 72px;
+}
+
+.pause-menu--hidden {
+    display: none;
+}
+
+.pause-menu__panel {
+    width: 240px;
+    align-items: center;
+    padding: 18px 24px;
+    background-color: rgba(10, 13, 26, 0.96);
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: rgba(134, 160, 210, 0.45);
+    border-right-color: rgba(134, 160, 210, 0.45);
+    border-bottom-color: rgba(134, 160, 210, 0.45);
+    border-left-color: rgba(134, 160, 210, 0.45);
+}
+
+.pause-menu__title {
+    margin-bottom: 12px;
+    color: white;
+    font-size: 22px;
+}
+
+.pause-menu__resume {
+    width: 160px;
+    height: 32px;
+}

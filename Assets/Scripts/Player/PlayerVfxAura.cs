@@ -56,6 +56,11 @@ namespace PlayGround.Player
 
         private void Update()
         {
+            if (Time.deltaTime <= 0f)
+            {
+                return;
+            }
+
             if (Time.time < nextEmitTime)
             {
                 return;
