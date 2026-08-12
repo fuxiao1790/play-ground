@@ -26,4 +26,3 @@ needed for poc
 - damage number vfx graph.
 - more aoe shape kinds
 - better mob ai.
-- pause
