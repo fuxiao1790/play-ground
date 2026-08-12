@@ -289,32 +289,79 @@ Benefits:
 - New producers don't require rewiring every consumer
 - Encapsulation enforced by the ECS type system
 
-### Why NativeQueue for These Sinks (Not Ordering)
+### Why NativeQueue for These Sinks
 
-These lane sinks use `NativeQueue<T>` for its *shape*, not its FIFO ordering.
-`NativeQueue`'s cross-element ordering guarantee is meaningless here: every
+The name oversells the ordering and undersells the mechanism. `NativeQueue<T>` is
+chosen here for its **write path**: thread-owned blocks with no per-element
+synchronization. The FIFO is the artifact; the lock-free lanes are the substance.
+
+**`.ParallelWriter.Enqueue` takes no atomic per element.** This is the single most
+misread property of the container — assuming an atomic slot claim per add, and
+"fixing" it, is how these sinks get churned for nothing. The whole write path
+(`UnsafeQueue<T>.ParallelWriter.Enqueue`) is:
+
+```csharp
+UnsafeQueueBlockHeader* writeBlock =
+    UnsafeQueueData.AllocateWriteBlockMT<T>(m_Buffer, m_AllocatorLabel, m_ThreadIndex);
+UnsafeUtility.WriteArrayElement(writeBlock + 1, writeBlock->m_NumItems, value);
+++writeBlock->m_NumItems;
+```
+
+`m_ThreadIndex` is `[NativeSetThreadIndex]`. `AllocateWriteBlockMT` reads the
+thread's current block out of `m_CurrentWriteBlockTLS[threadIndex * CacheLineSize]`
+— one cache-line-padded slot per worker, so no false sharing — and returns it
+directly unless it is full. `++writeBlock->m_NumItems` is a **plain increment, not
+`Interlocked`**, and is safe unsynchronized precisely because the block is
+thread-owned.
+
+The cost splits by granularity:
+
+- **Per element:** TLS pointer read, `WriteArrayElement`, plain increment. Zero
+  atomics, zero allocation.
+- **Per 16 KB block** (`m_BlockSize = 16 * 1024`; items per block =
+  `(m_BlockSize - sizeof(UnsafeQueueBlockHeader)) / sizeof(T)`, so ~341 for a
+  48-byte payload): one `Memory.Unmanaged.Allocate` plus one
+  `Interlocked.Exchange` linking the block into the drain chain. The single-
+  threaded drain needs that link to find the block at all.
+
+Ordering, separately, is meaningless here and nothing may depend on it. Every
 producer writes through `.AsParallelWriter()` from a `ScheduleParallel` job, so
-enqueue order is decided by which worker thread claims which block when. Nothing
-downstream may rely on element order — sinks drain with `while (TryDequeue(...))`
-and must treat the contents as an unordered set. Do not reach for `NativeQueue`
-expecting a meaningful order under parallel writes.
+element order reflects which worker filled which block when. Sinks drain with
+`while (TryDequeue(...))` and must treat the contents as an unordered set.
 
-The reason these are queues is that each sink is a **single container that many
-independent systems append to across one frame**, drained once by the owner. A
-single lane's queue is written by several disjoint producer systems (collision,
+The second reason these are queues is shape: each sink is a **single container
+that many independent systems append to across one frame**, drained once by the
+owner. A single lane is written by several disjoint producer systems (collision,
 status, timed spawn, expansion) and chained through the singleton's
-`ProducerHandle`.
+`ProducerHandle`, so producers can be added without rewiring consumers.
 
-`NativeStream` is **not** a drop-in replacement for that shape. A stream fixes
-its lane count at allocation and each lane may `BeginForEachIndex` only once, so
-several separate systems writing one shared stream would have to carve
-lane ranges per system per thread — most lanes empty — and thread that
-partition everywhere. `NativeStream` only wins over `NativeQueue` for the
-classic pattern where one job produces in parallel and the very next step
-drains it (block-local writes, no atomic global linkage); none of these
-cross-system sinks are that pattern. Performance of the queue path is not a
-concern regardless: `.ParallelWriter.Enqueue` only takes an atomic to claim a
-block slot, then writes block-local, so contention stays negligible.
+`NativeStream` is **not** a drop-in replacement, and does not improve the write
+path:
+
+- Its lane is `m_ForeachIndex`, not the thread index — the two are separate fields
+  in `UnsafeStream.Writer`, where `[NativeSetThreadIndex]` only picks which block
+  pool to allocate from. You cannot fold the lane onto the thread.
+- Writes must be bracketed by `BeginForEachIndex` / `EndForEachIndex`, and
+  `EndForEachIndex` is what records the lane's element count for the reader. The
+  bracket is the write protocol, not a concession to parallel readers.
+- Each index may be begun **once**, so a thread cannot reopen its lane across work
+  items. Every producer here is `IJobEntity`, whose `Execute` is per entity and
+  offers no per-lane bracket — adopting streams would mean rewriting them all as
+  `IJobChunk` with manual `ChunkEntityEnumerator` enabled-mask handling.
+- It removes the block-link atomic (per-thread block heads) but its
+  `AllocationSize` is 4 KB against the queue's 16 KB, so it pays **4× the
+  `Memory.Unmanaged` allocations** for the same event volume. On
+  `Allocator.Persistent` those enter a locking allocator — strictly worse than the
+  lock-free `Interlocked.Exchange` they replaced.
+
+Do not "optimize" these sinks to `NativeList<T>.ParallelWriter` either. Its
+`AddNoResize` is `Interlocked.Increment(ref ListData->m_length)` — an atomic **per
+element**, on one shared cache line. That is the contended design `NativeQueue`
+avoids.
+
+Implementation details above are from Collections 6.4.0
+(`Unity.Collections/UnsafeQueue.cs`, `UnsafeStream.cs`, `UnsafeList.cs`). Re-verify
+against the source if the package is upgraded before relying on them.
 
 ## ECS Lifecycle Comments
 

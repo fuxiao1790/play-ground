@@ -5,9 +5,7 @@ refactor debt
   `CombatSpawnEvent` discriminated by the `IntervalChildKind` the struct already carries.
   Deferred deliberately during targeted skills; see `.agent/targeted-skills/requirements.md` §9.
 
-minor performance related refacor
-- collision system writing into event queue instead of native stream, reader must free every element per read. (not sure if this is even problematic)
-
+minor performance related refacor. (highly unlikely to have any actual performance benefit)
 - collision system use aabb tree instead of spatial hash. aabb tree is more simd friendly.
 
 minor fixes
