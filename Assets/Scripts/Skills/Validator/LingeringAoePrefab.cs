@@ -18,15 +18,15 @@ namespace PlayGround.Skills
         [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField] private Collider2D hurtbox;
         [SerializeField] private VisualEffectAsset spawnEffect;
-        [SerializeField] private VfxDataShape spawnEffectShape = VfxDataShape.Circular;
+        [SerializeField] private VfxDataShape spawnEffectShape = VfxDataShape.ImpactCircle;
         [SerializeField] private VisualEffectAsset hitEffect;
-        [SerializeField] private VfxDataShape hitEffectShape = VfxDataShape.Circular;
+        [SerializeField] private VfxDataShape hitEffectShape = VfxDataShape.ImpactCircle;
         [SerializeField] private VisualEffectAsset expireEffect;
-        [SerializeField] private VfxDataShape expireEffectShape = VfxDataShape.Circular;
+        [SerializeField] private VfxDataShape expireEffectShape = VfxDataShape.ImpactCircle;
         [SerializeField] private VisualEffectAsset pulseEffect;
-        [SerializeField] private VfxDataShape pulseEffectShape = VfxDataShape.Circular;
+        [SerializeField] private VfxDataShape pulseEffectShape = VfxDataShape.ImpactCircle;
         [SerializeField] private VisualEffectAsset armingEffect;
-        [SerializeField] private VfxDataShape armingEffectShape = VfxDataShape.Circular;
+        [SerializeField] private VfxDataShape armingEffectShape = VfxDataShape.ImpactCircle;
 
         public SpriteRenderer SpriteRenderer => spriteRenderer;
         public Collider2D Hurtbox => hurtbox;
@@ -63,11 +63,11 @@ namespace PlayGround.Skills
             VisualEffectAsset expireVisualEffect = null,
             VisualEffectAsset pulseVisualEffect = null,
             VisualEffectAsset armingVisualEffect = null,
-            VfxDataShape spawnShape = VfxDataShape.Circular,
-            VfxDataShape hitShape = VfxDataShape.Circular,
-            VfxDataShape expireShape = VfxDataShape.Circular,
-            VfxDataShape pulseShape = VfxDataShape.Circular,
-            VfxDataShape armingShape = VfxDataShape.Circular)
+            VfxDataShape spawnShape = VfxDataShape.ImpactCircle,
+            VfxDataShape hitShape = VfxDataShape.ImpactCircle,
+            VfxDataShape expireShape = VfxDataShape.ImpactCircle,
+            VfxDataShape pulseShape = VfxDataShape.ImpactCircle,
+            VfxDataShape armingShape = VfxDataShape.ImpactCircle)
         {
             spriteRenderer = renderer;
             hurtbox = hurtboxShape;

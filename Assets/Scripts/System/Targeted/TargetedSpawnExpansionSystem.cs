@@ -25,8 +25,8 @@ namespace PlayGround.System.Combat.Targeted
             int deterministicIdTickIndex,
             NativeHashMap<Hash128, TargetedSpawnCommand> templates,
             NativeList<TargetedSpawnCommand> commands,
-            NativeQueue<CircularVfxSpawnRequest>.ParallelWriter circularVfxPending,
-            NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter timedCircularVfxPending)
+            NativeQueue<ImpactCircleVfxEvent>.ParallelWriter circularVfxPending,
+            NativeQueue<LingeringCircleVfxEvent>.ParallelWriter timedCircularVfxPending)
         {
             if (eventKind != IntervalChildKind.Targeted
                 || !templates.TryGetValue(templateKey, out TargetedSpawnCommand command))
@@ -248,8 +248,8 @@ namespace PlayGround.System.Combat.Targeted
             [ReadOnly] public NativeArray<TargetedSpawnEvent> Events;
             [ReadOnly] public NativeHashMap<Hash128, TargetedSpawnCommand> Templates;
             public NativeList<TargetedSpawnCommand> Commands;
-            public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
-            public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
+            public NativeQueue<ImpactCircleVfxEvent>.ParallelWriter CircularVfxPending;
+            public NativeQueue<LingeringCircleVfxEvent>.ParallelWriter TimedCircularVfxPending;
 
             public void Execute()
             {

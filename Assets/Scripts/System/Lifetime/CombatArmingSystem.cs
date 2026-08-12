@@ -82,8 +82,8 @@ namespace PlayGround.System.Combat.Lifetime
         private partial struct AoeArmingJob : IJobEntity
         {
             public float DeltaTime;
-            public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
-            public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
+            public NativeQueue<ImpactCircleVfxEvent>.ParallelWriter CircularVfxPending;
+            public NativeQueue<LingeringCircleVfxEvent>.ParallelWriter TimedCircularVfxPending;
 
             private void Execute(
                 in AoeVfxIds vfxIds,

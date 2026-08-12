@@ -297,7 +297,7 @@ namespace PlayGround.Tests.EditMode
 
             Tick();
 
-            LineSegmentVfxSpawn[] segments = DrainLineSegments();
+            LineSegmentVfxEvent[] segments = DrainLineSegments();
             Assert.That(segments, Has.Length.EqualTo(2));
             Assert.That(ContainsSegment(segments, float2.zero, new float2(1f, 0f), 0.75f), Is.True);
             Assert.That(ContainsSegment(segments, new float2(1f, 0f), new float2(1f, 2f), 0.75f), Is.True);
@@ -343,7 +343,7 @@ namespace PlayGround.Tests.EditMode
         {
             AddCircleTarget(new float2(1f, 0f), 0.25f);
             Entity chain = AddChain(instanceIndex: 0, chainDistance: 2f, chainCount: 1);
-            SetLinkVfx(chain, VfxDataShapeTable.EncodeId(VfxDataShape.Circular, 1), 1f);
+            SetLinkVfx(chain, VfxDataShapeTable.EncodeId(VfxDataShape.ImpactCircle, 1), 1f);
 
             Tick();
 
@@ -444,27 +444,27 @@ namespace PlayGround.Tests.EditMode
             _entityManager.SetComponentData(chain, size);
         }
 
-        private LineSegmentVfxSpawn[] DrainLineSegments()
+        private LineSegmentVfxEvent[] DrainLineSegments()
         {
             using EntityQuery query = _entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CombatAoeVfxDispatchSingleton>());
             CombatAoeVfxDispatchSingleton lane = query.GetSingleton<CombatAoeVfxDispatchSingleton>();
             lane.ProducerHandle.Complete();
-            using NativeArray<LineSegmentVfxSpawn> segments =
+            using NativeArray<LineSegmentVfxEvent> segments =
                 lane.PendingLineSegmentSpawns.ToArray(Allocator.Temp);
             lane.PendingLineSegmentSpawns.Clear();
             return segments.ToArray();
         }
 
         private static bool ContainsSegment(
-            LineSegmentVfxSpawn[] segments,
+            LineSegmentVfxEvent[] segments,
             float2 startPosition,
             float2 endPosition,
             float width)
         {
             for (int i = 0; i < segments.Length; i++)
             {
-                LineSegmentVfxSpawn segment = segments[i];
+                LineSegmentVfxEvent segment = segments[i];
                 if (segment.StartPosition.Equals(startPosition)
                     && segment.EndPosition.Equals(endPosition)
                     && segment.Width == width)

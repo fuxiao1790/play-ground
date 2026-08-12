@@ -26,17 +26,17 @@ namespace PlayGround.System.Combat.Vfx
     // AoeVfxResourcesBase.EnsureBufferCapacity's GraphicsBuffer growth pattern.
     public struct CombatAoeVfxDispatchSingleton : IComponentData
     {
-        public NativeQueue<CircularVfxSpawnRequest> PendingCircularSpawns;
+        public NativeQueue<ImpactCircleVfxEvent> PendingCircularSpawns;
         public NativeList<float2> CircularSortedPositions;
         public NativeList<float> CircularSortedAreaSizes;
         public NativeList<int> CircularBucketOffsets;
-        public NativeQueue<TimedCircularVfxSpawnRequest> PendingTimedCircularSpawns;
+        public NativeQueue<LingeringCircleVfxEvent> PendingTimedCircularSpawns;
         public NativeList<float2> TimedCircularSortedPositions;
         public NativeList<float> TimedCircularSortedAreaSizes;
         public NativeList<float> TimedCircularSortedDurations;
         public NativeList<float> TimedCircularSortedTickIntervals;
         public NativeList<int> TimedCircularBucketOffsets;
-        public NativeQueue<LineSegmentVfxSpawn> PendingLineSegmentSpawns;
+        public NativeQueue<LineSegmentVfxEvent> PendingLineSegmentSpawns;
         public NativeList<float2> LineSegmentSortedStartPositions;
         public NativeList<float2> LineSegmentSortedEndPositions;
         public NativeList<float> LineSegmentSortedWidths;
@@ -55,17 +55,17 @@ namespace PlayGround.System.Combat.Vfx
             singletonEntity = EntityManager.CreateEntity(typeof(CombatAoeVfxDispatchSingleton));
             EntityManager.SetComponentData(singletonEntity, new CombatAoeVfxDispatchSingleton
             {
-                PendingCircularSpawns = new NativeQueue<CircularVfxSpawnRequest>(Allocator.Persistent),
+                PendingCircularSpawns = new NativeQueue<ImpactCircleVfxEvent>(Allocator.Persistent),
                 CircularSortedPositions = new NativeList<float2>(Allocator.Persistent),
                 CircularSortedAreaSizes = new NativeList<float>(Allocator.Persistent),
                 CircularBucketOffsets = new NativeList<int>(Allocator.Persistent),
-                PendingTimedCircularSpawns = new NativeQueue<TimedCircularVfxSpawnRequest>(Allocator.Persistent),
+                PendingTimedCircularSpawns = new NativeQueue<LingeringCircleVfxEvent>(Allocator.Persistent),
                 TimedCircularSortedPositions = new NativeList<float2>(Allocator.Persistent),
                 TimedCircularSortedAreaSizes = new NativeList<float>(Allocator.Persistent),
                 TimedCircularSortedDurations = new NativeList<float>(Allocator.Persistent),
                 TimedCircularSortedTickIntervals = new NativeList<float>(Allocator.Persistent),
                 TimedCircularBucketOffsets = new NativeList<int>(Allocator.Persistent),
-                PendingLineSegmentSpawns = new NativeQueue<LineSegmentVfxSpawn>(Allocator.Persistent),
+                PendingLineSegmentSpawns = new NativeQueue<LineSegmentVfxEvent>(Allocator.Persistent),
                 LineSegmentSortedStartPositions = new NativeList<float2>(Allocator.Persistent),
                 LineSegmentSortedEndPositions = new NativeList<float2>(Allocator.Persistent),
                 LineSegmentSortedWidths = new NativeList<float>(Allocator.Persistent),
@@ -179,7 +179,7 @@ namespace PlayGround.System.Combat.Vfx
                 new BucketCircularVfxSpawnsJob
                 {
                     Pending = singleton.PendingCircularSpawns,
-                    BucketCount = root.RegisteredCountFor(VfxDataShape.Circular),
+                    BucketCount = root.RegisteredCountFor(VfxDataShape.ImpactCircle),
                     SortedPositions = singleton.CircularSortedPositions,
                     SortedAreaSizes = singleton.CircularSortedAreaSizes,
                     BucketOffsets = singleton.CircularBucketOffsets
@@ -196,7 +196,7 @@ namespace PlayGround.System.Combat.Vfx
                 new BucketTimedCircularVfxSpawnsJob
                 {
                     Pending = singleton.PendingTimedCircularSpawns,
-                    BucketCount = root.RegisteredCountFor(VfxDataShape.TimedCircular),
+                    BucketCount = root.RegisteredCountFor(VfxDataShape.LingeringCircle),
                     SortedPositions = singleton.TimedCircularSortedPositions,
                     SortedAreaSizes = singleton.TimedCircularSortedAreaSizes,
                     SortedDurations = singleton.TimedCircularSortedDurations,
@@ -244,7 +244,7 @@ namespace PlayGround.System.Combat.Vfx
         [BurstCompile]
         private struct BucketCircularVfxSpawnsJob : IJob
         {
-            public NativeQueue<CircularVfxSpawnRequest> Pending;
+            public NativeQueue<ImpactCircleVfxEvent> Pending;
             public int BucketCount;
             public NativeList<float2> SortedPositions;
             public NativeList<float> SortedAreaSizes;
@@ -253,7 +253,7 @@ namespace PlayGround.System.Combat.Vfx
             public void Execute()
             {
                 int pendingCount = Pending.Count;
-                NativeArray<CircularVfxSpawnRequest> items = Pending.ToArray(Allocator.Temp);
+                NativeArray<ImpactCircleVfxEvent> items = Pending.ToArray(Allocator.Temp);
                 Pending.Clear();
 
                 var counts = new NativeArray<int>(BucketCount + 1, Allocator.Temp);
@@ -286,7 +286,7 @@ namespace PlayGround.System.Combat.Vfx
 
                 for (int i = 0; i < items.Length; i++)
                 {
-                    CircularVfxSpawnRequest item = items[i];
+                    ImpactCircleVfxEvent item = items[i];
                     int id = VfxDataShapeTable.DecodeLocalIndex(item.VfxId);
                     if (id < 1 || id > BucketCount)
                     {
@@ -311,7 +311,7 @@ namespace PlayGround.System.Combat.Vfx
         [BurstCompile]
         private struct BucketTimedCircularVfxSpawnsJob : IJob
         {
-            public NativeQueue<TimedCircularVfxSpawnRequest> Pending;
+            public NativeQueue<LingeringCircleVfxEvent> Pending;
             public int BucketCount;
             public NativeList<float2> SortedPositions;
             public NativeList<float> SortedAreaSizes;
@@ -322,7 +322,7 @@ namespace PlayGround.System.Combat.Vfx
             public void Execute()
             {
                 int pendingCount = Pending.Count;
-                NativeArray<TimedCircularVfxSpawnRequest> items = Pending.ToArray(Allocator.Temp);
+                NativeArray<LingeringCircleVfxEvent> items = Pending.ToArray(Allocator.Temp);
                 Pending.Clear();
 
                 var counts = new NativeArray<int>(BucketCount + 1, Allocator.Temp);
@@ -357,7 +357,7 @@ namespace PlayGround.System.Combat.Vfx
 
                 for (int i = 0; i < items.Length; i++)
                 {
-                    TimedCircularVfxSpawnRequest item = items[i];
+                    LingeringCircleVfxEvent item = items[i];
                     int id = VfxDataShapeTable.DecodeLocalIndex(item.VfxId);
                     if (id < 1 || id > BucketCount)
                     {
@@ -386,7 +386,7 @@ namespace PlayGround.System.Combat.Vfx
         [BurstCompile]
         private struct BucketLineSegmentVfxSpawnsJob : IJob
         {
-            public NativeQueue<LineSegmentVfxSpawn> Pending;
+            public NativeQueue<LineSegmentVfxEvent> Pending;
             public int BucketCount;
             public NativeList<float2> SortedStartPositions;
             public NativeList<float2> SortedEndPositions;
@@ -396,7 +396,7 @@ namespace PlayGround.System.Combat.Vfx
             public void Execute()
             {
                 int pendingCount = Pending.Count;
-                NativeArray<LineSegmentVfxSpawn> items = Pending.ToArray(Allocator.Temp);
+                NativeArray<LineSegmentVfxEvent> items = Pending.ToArray(Allocator.Temp);
                 Pending.Clear();
 
                 var counts = new NativeArray<int>(BucketCount + 1, Allocator.Temp);
@@ -430,7 +430,7 @@ namespace PlayGround.System.Combat.Vfx
 
                 for (int i = 0; i < items.Length; i++)
                 {
-                    LineSegmentVfxSpawn item = items[i];
+                    LineSegmentVfxEvent item = items[i];
                     int id = VfxDataShapeTable.DecodeLocalIndex(item.VfxId);
                     if (id < 1 || id > BucketCount)
                     {

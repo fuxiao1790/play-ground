@@ -10,14 +10,14 @@ namespace PlayGround.System.Combat.Vfx
             float2 startPosition,
             float2 endPosition,
             float width,
-            in NativeQueue<LineSegmentVfxSpawn>.ParallelWriter lineSegments)
+            in NativeQueue<LineSegmentVfxEvent>.ParallelWriter lineSegments)
         {
             if (vfxId <= 0 || VfxDataShapeTable.DecodeShape(vfxId) != VfxDataShape.LineSegment)
             {
                 return;
             }
 
-            lineSegments.Enqueue(new LineSegmentVfxSpawn
+            lineSegments.Enqueue(new LineSegmentVfxEvent
             {
                 VfxId = vfxId,
                 StartPosition = startPosition,
@@ -31,8 +31,8 @@ namespace PlayGround.System.Combat.Vfx
             float2 position,
             float areaSize,
             in VfxTimingData timing,
-            in NativeQueue<CircularVfxSpawnRequest>.ParallelWriter circular,
-            in NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter timedCircular)
+            in NativeQueue<ImpactCircleVfxEvent>.ParallelWriter circular,
+            in NativeQueue<LingeringCircleVfxEvent>.ParallelWriter timedCircular)
         {
             if (vfxId <= 0)
             {
@@ -41,16 +41,16 @@ namespace PlayGround.System.Combat.Vfx
 
             switch (VfxDataShapeTable.DecodeShape(vfxId))
             {
-                case VfxDataShape.Circular:
-                    circular.Enqueue(new CircularVfxSpawnRequest
+                case VfxDataShape.ImpactCircle:
+                    circular.Enqueue(new ImpactCircleVfxEvent
                     {
                         VfxId = vfxId,
                         Position = position,
                         AreaSize = areaSize
                     });
                     break;
-                case VfxDataShape.TimedCircular:
-                    timedCircular.Enqueue(new TimedCircularVfxSpawnRequest
+                case VfxDataShape.LingeringCircle:
+                    timedCircular.Enqueue(new LingeringCircleVfxEvent
                     {
                         VfxId = vfxId,
                         Position = position,

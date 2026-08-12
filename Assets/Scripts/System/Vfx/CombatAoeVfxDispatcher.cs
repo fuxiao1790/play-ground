@@ -53,7 +53,7 @@ namespace PlayGround.System.Combat.Vfx
         public GraphicsBuffer PositionBuffer;
         public GraphicsBuffer AreaSizeBuffer;
 
-        public override VfxDataShape Shape => VfxDataShape.Circular;
+        public override VfxDataShape Shape => VfxDataShape.ImpactCircle;
 
         protected override void GrowBuffers(int newCapacity)
         {
@@ -100,7 +100,7 @@ namespace PlayGround.System.Combat.Vfx
         public GraphicsBuffer DurationBuffer;
         public GraphicsBuffer TickIntervalBuffer;
 
-        public override VfxDataShape Shape => VfxDataShape.TimedCircular;
+        public override VfxDataShape Shape => VfxDataShape.LingeringCircle;
 
         protected override void GrowBuffers(int newCapacity)
         {

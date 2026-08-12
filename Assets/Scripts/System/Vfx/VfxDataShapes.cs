@@ -7,23 +7,23 @@ namespace PlayGround.System.Combat.Vfx
     public enum VfxDataShape : byte
     {
         // Spawn payload: Position and AreaSize.
-        Circular = 0,
+        ImpactCircle = 0,
 
         // Spawn payload: Position, AreaSize, Duration, and TickInterval.
-        TimedCircular = 1,
+        LingeringCircle = 1,
 
         // Spawn payload: StartPosition, EndPosition, and Width.
         LineSegment = 2
     }
 
-    public struct CircularVfxSpawnRequest
+    public struct ImpactCircleVfxEvent
     {
         public int VfxId;
         public float2 Position;
         public float AreaSize;
     }
 
-    public struct TimedCircularVfxSpawnRequest
+    public struct LingeringCircleVfxEvent
     {
         public int VfxId;
         public float2 Position;
@@ -32,7 +32,7 @@ namespace PlayGround.System.Combat.Vfx
         public float TickInterval;
     }
 
-    public struct LineSegmentVfxSpawn
+    public struct LineSegmentVfxEvent
     {
         public int VfxId;
         public float2 StartPosition;
@@ -92,8 +92,8 @@ namespace PlayGround.System.Combat.Vfx
         public static IReadOnlyList<VfxDataShapeBuffer> BuffersFor(VfxDataShape shape) =>
             shape switch
             {
-                VfxDataShape.Circular => CircularBuffers,
-                VfxDataShape.TimedCircular => TimedCircularBuffers,
+                VfxDataShape.ImpactCircle => CircularBuffers,
+                VfxDataShape.LingeringCircle => TimedCircularBuffers,
                 VfxDataShape.LineSegment => LineSegmentBuffers,
                 _ => CircularBuffers
             };

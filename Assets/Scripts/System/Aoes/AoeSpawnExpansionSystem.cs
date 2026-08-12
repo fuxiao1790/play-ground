@@ -32,8 +32,8 @@ namespace PlayGround.System.Combat.Aoes
             int contactGateSeedTargetId,
             NativeHashMap<Hash128, AoeSpawnCommand> templates,
             NativeList<AoeSpawnCommand> commands,
-            NativeQueue<CircularVfxSpawnRequest>.ParallelWriter circularVfxPending,
-            NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter timedCircularVfxPending)
+            NativeQueue<ImpactCircleVfxEvent>.ParallelWriter circularVfxPending,
+            NativeQueue<LingeringCircleVfxEvent>.ParallelWriter timedCircularVfxPending)
         {
             if (eventKind != expectedKind
                 || !templates.TryGetValue(templateKey, out AoeSpawnCommand command))
@@ -330,8 +330,8 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeArray<ImpactAoeSpawnEvent> Events;
             [ReadOnly] public NativeHashMap<Hash128, AoeSpawnCommand> Templates;
             public NativeList<AoeSpawnCommand> Commands;
-            public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
-            public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
+            public NativeQueue<ImpactCircleVfxEvent>.ParallelWriter CircularVfxPending;
+            public NativeQueue<LingeringCircleVfxEvent>.ParallelWriter TimedCircularVfxPending;
 
             public void Execute()
             {
@@ -502,8 +502,8 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeArray<LingeringAoeSpawnEvent> Events;
             [ReadOnly] public NativeHashMap<Hash128, AoeSpawnCommand> Templates;
             public NativeList<AoeSpawnCommand> Commands;
-            public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
-            public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
+            public NativeQueue<ImpactCircleVfxEvent>.ParallelWriter CircularVfxPending;
+            public NativeQueue<LingeringCircleVfxEvent>.ParallelWriter TimedCircularVfxPending;
 
             public void Execute()
             {

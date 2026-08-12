@@ -150,7 +150,7 @@ namespace PlayGround.Tests.EditMode
             float2 origin = new(-1f, 8f);
             Hash128 key = RegisterTemplate(
                 count: 3,
-                vfxId: VfxDataShapeTable.EncodeId(VfxDataShape.Circular, 1),
+                vfxId: VfxDataShapeTable.EncodeId(VfxDataShape.ImpactCircle, 1),
                 effectSize: 2.5f);
             Enqueue(MakeEvent(key, IntervalChildKind.Targeted, origin));
 
@@ -159,7 +159,7 @@ namespace PlayGround.Tests.EditMode
             CombatAoeVfxDispatchSingleton vfx = VfxLane();
             vfx.ProducerHandle.Complete();
             Assert.That(vfx.PendingCircularSpawns.Count, Is.EqualTo(3));
-            while (vfx.PendingCircularSpawns.TryDequeue(out CircularVfxSpawnRequest request))
+            while (vfx.PendingCircularSpawns.TryDequeue(out ImpactCircleVfxEvent request))
             {
                 Assert.That(request.Position, Is.EqualTo(origin));
                 Assert.That(request.AreaSize, Is.EqualTo(2.5f));
@@ -171,8 +171,8 @@ namespace PlayGround.Tests.EditMode
             vfx.ProducerHandle.Complete();
             Assert.That(vfx.PendingCircularSpawns.Count, Is.Zero);
 
-            int spawnId = VfxDataShapeTable.EncodeId(VfxDataShape.Circular, 2);
-            int armingId = VfxDataShapeTable.EncodeId(VfxDataShape.Circular, 3);
+            int spawnId = VfxDataShapeTable.EncodeId(VfxDataShape.ImpactCircle, 2);
+            int armingId = VfxDataShapeTable.EncodeId(VfxDataShape.ImpactCircle, 3);
             Enqueue(MakeEvent(
                 RegisterTemplate(
                     vfxId: spawnId,
@@ -183,7 +183,7 @@ namespace PlayGround.Tests.EditMode
             vfx = VfxLane();
             vfx.ProducerHandle.Complete();
             Assert.That(vfx.PendingCircularSpawns.Count, Is.EqualTo(1));
-            Assert.That(vfx.PendingCircularSpawns.TryDequeue(out CircularVfxSpawnRequest arming), Is.True);
+            Assert.That(vfx.PendingCircularSpawns.TryDequeue(out ImpactCircleVfxEvent arming), Is.True);
             Assert.That(arming.VfxId, Is.EqualTo(armingId));
         }
 

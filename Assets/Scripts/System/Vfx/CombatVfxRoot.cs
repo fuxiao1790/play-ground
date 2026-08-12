@@ -12,7 +12,7 @@ namespace PlayGround.System.Combat.Vfx
     {
         public static CombatVfxRoot Instance { get; private set; }
 
-        public int RegisteredVfxCount => RegisteredCountFor(VfxDataShape.Circular);
+        public int RegisteredVfxCount => RegisteredCountFor(VfxDataShape.ImpactCircle);
 
         private readonly List<AoeVfxResourcesBase>[] ownersByShape =
         {
@@ -49,7 +49,7 @@ namespace PlayGround.System.Combat.Vfx
             dispatcher = null;
         }
 
-        public int Register(VisualEffectAsset asset, VfxDataShape shape = VfxDataShape.Circular)
+        public int Register(VisualEffectAsset asset, VfxDataShape shape = VfxDataShape.ImpactCircle)
         {
             if (asset == null || dispatcher == null)
             {
@@ -118,8 +118,8 @@ namespace PlayGround.System.Combat.Vfx
         private static AoeVfxResourcesBase CreateResources(VfxDataShape shape, VisualEffect vfx) =>
             shape switch
             {
-                VfxDataShape.Circular => new CircularVfxResources { Instance = vfx },
-                VfxDataShape.TimedCircular => new TimedCircularVfxResources { Instance = vfx },
+                VfxDataShape.ImpactCircle => new CircularVfxResources { Instance = vfx },
+                VfxDataShape.LingeringCircle => new TimedCircularVfxResources { Instance = vfx },
                 VfxDataShape.LineSegment => new LineSegmentVfxResources { Instance = vfx },
                 _ => throw new global::System.ArgumentOutOfRangeException(
                     nameof(shape), shape, "Unknown VFX data shape.")
@@ -143,7 +143,7 @@ namespace PlayGround.System.Combat.Vfx
                 return 0;
             }
 
-            List<AoeVfxResourcesBase> owners = OwnersFor(VfxDataShape.Circular);
+            List<AoeVfxResourcesBase> owners = OwnersFor(VfxDataShape.ImpactCircle);
             for (int localIndex = 1; localIndex <= owners.Count; localIndex++)
             {
                 int start = bucketOffsets[localIndex];
@@ -180,7 +180,7 @@ namespace PlayGround.System.Combat.Vfx
                 return 0;
             }
 
-            List<AoeVfxResourcesBase> owners = OwnersFor(VfxDataShape.TimedCircular);
+            List<AoeVfxResourcesBase> owners = OwnersFor(VfxDataShape.LingeringCircle);
             for (int localIndex = 1; localIndex <= owners.Count; localIndex++)
             {
                 int start = bucketOffsets[localIndex];

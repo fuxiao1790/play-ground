@@ -120,8 +120,8 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeArray<TargetFaction> TargetFactions;
             [ReadOnly] public NativeParallelMultiHashMap<long, int> OccupiedTargetCells;
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
-            public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
-            public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
+            public NativeQueue<ImpactCircleVfxEvent>.ParallelWriter CircularVfxPending;
+            public NativeQueue<LingeringCircleVfxEvent>.ParallelWriter TimedCircularVfxPending;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
             public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;

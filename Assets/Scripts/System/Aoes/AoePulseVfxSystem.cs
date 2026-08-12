@@ -46,8 +46,8 @@ namespace PlayGround.System.Combat.Aoes
         private partial struct AoePulseVfxJob : IJobEntity
         {
             public float DeltaTime;
-            public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
-            public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
+            public NativeQueue<ImpactCircleVfxEvent>.ParallelWriter CircularVfxPending;
+            public NativeQueue<LingeringCircleVfxEvent>.ParallelWriter TimedCircularVfxPending;
 
             private void Execute(
                 in AoeVfxIds vfxIds,

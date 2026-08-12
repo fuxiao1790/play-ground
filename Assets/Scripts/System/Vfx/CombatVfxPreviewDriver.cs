@@ -23,7 +23,7 @@ namespace PlayGround.System.Combat.Vfx
     [RequireComponent(typeof(VisualEffect))]
     public sealed class CombatVfxPreviewDriver : MonoBehaviour
     {
-        [SerializeField] private VfxDataShape dataShape = VfxDataShape.Circular;
+        [SerializeField] private VfxDataShape dataShape = VfxDataShape.ImpactCircle;
         [SerializeField, Min(1)] private int spawnCount = 32;
         [SerializeField, Min(1)] private int bufferCapacity = 2048;
         [SerializeField, Min(0.02f)] private float intervalSeconds = 0.5f;
@@ -160,7 +160,7 @@ namespace PlayGround.System.Combat.Vfx
                 areaSizeBuffer.SetData(areaSizes, 0, 0, count);
                 visualEffect.SetGraphicsBuffer(VfxDataShapeTable.AreaSizesPropertyName, areaSizeBuffer);
 
-                if (dataShape == VfxDataShape.TimedCircular)
+                if (dataShape == VfxDataShape.LingeringCircle)
                 {
                     FillTimedCircularData(count);
                     durationBuffer.SetData(durations, 0, 0, count);
@@ -187,7 +187,7 @@ namespace PlayGround.System.Combat.Vfx
             int capacity = Mathf.Max(1, bufferCapacity);
             bool positionsReady = positionsBuffer != null && positionsBuffer.count == capacity;
             bool areaSizesReady = areaSizeBuffer != null && areaSizeBuffer.count == capacity;
-            bool timedCircularBuffersReady = dataShape == VfxDataShape.TimedCircular
+            bool timedCircularBuffersReady = dataShape == VfxDataShape.LingeringCircle
                 ? durationBuffer != null
                     && durationBuffer.count == capacity
                     && tickIntervalBuffer != null
@@ -219,7 +219,7 @@ namespace PlayGround.System.Combat.Vfx
                 capacity,
                 sizeof(float));
 
-            if (dataShape == VfxDataShape.TimedCircular)
+            if (dataShape == VfxDataShape.LingeringCircle)
             {
                 durations = new float[capacity];
                 tickIntervals = new float[capacity];

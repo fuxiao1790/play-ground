@@ -101,11 +101,11 @@ namespace PlayGround.Skills
         public override VisualEffectAsset ExpireEffect => prefab != null ? prefab.ExpireEffect : null;
         public override VisualEffectAsset PulseEffect => null;
         public override VisualEffectAsset ArmingEffect => prefab != null ? prefab.ArmingEffect : null;
-        public override VfxDataShape SpawnEffectShape => prefab != null ? prefab.SpawnEffectShape : VfxDataShape.Circular;
-        public override VfxDataShape HitEffectShape => prefab != null ? prefab.HitEffectShape : VfxDataShape.Circular;
-        public override VfxDataShape ExpireEffectShape => prefab != null ? prefab.ExpireEffectShape : VfxDataShape.Circular;
-        public override VfxDataShape PulseEffectShape => VfxDataShape.Circular;
-        public override VfxDataShape ArmingEffectShape => prefab != null ? prefab.ArmingEffectShape : VfxDataShape.Circular;
+        public override VfxDataShape SpawnEffectShape => prefab != null ? prefab.SpawnEffectShape : VfxDataShape.ImpactCircle;
+        public override VfxDataShape HitEffectShape => prefab != null ? prefab.HitEffectShape : VfxDataShape.ImpactCircle;
+        public override VfxDataShape ExpireEffectShape => prefab != null ? prefab.ExpireEffectShape : VfxDataShape.ImpactCircle;
+        public override VfxDataShape PulseEffectShape => VfxDataShape.ImpactCircle;
+        public override VfxDataShape ArmingEffectShape => prefab != null ? prefab.ArmingEffectShape : VfxDataShape.ImpactCircle;
 
         public override SkillDefinition DeepCopy() => (AoeDefinition)MemberwiseClone();
     }
@@ -125,11 +125,11 @@ namespace PlayGround.Skills
         public override VisualEffectAsset ExpireEffect => prefab != null ? prefab.ExpireEffect : null;
         public override VisualEffectAsset PulseEffect => prefab != null ? prefab.PulseEffect : null;
         public override VisualEffectAsset ArmingEffect => prefab != null ? prefab.ArmingEffect : null;
-        public override VfxDataShape SpawnEffectShape => prefab != null ? prefab.SpawnEffectShape : VfxDataShape.Circular;
-        public override VfxDataShape HitEffectShape => prefab != null ? prefab.HitEffectShape : VfxDataShape.Circular;
-        public override VfxDataShape ExpireEffectShape => prefab != null ? prefab.ExpireEffectShape : VfxDataShape.Circular;
-        public override VfxDataShape PulseEffectShape => prefab != null ? prefab.PulseEffectShape : VfxDataShape.Circular;
-        public override VfxDataShape ArmingEffectShape => prefab != null ? prefab.ArmingEffectShape : VfxDataShape.Circular;
+        public override VfxDataShape SpawnEffectShape => prefab != null ? prefab.SpawnEffectShape : VfxDataShape.ImpactCircle;
+        public override VfxDataShape HitEffectShape => prefab != null ? prefab.HitEffectShape : VfxDataShape.ImpactCircle;
+        public override VfxDataShape ExpireEffectShape => prefab != null ? prefab.ExpireEffectShape : VfxDataShape.ImpactCircle;
+        public override VfxDataShape PulseEffectShape => prefab != null ? prefab.PulseEffectShape : VfxDataShape.ImpactCircle;
+        public override VfxDataShape ArmingEffectShape => prefab != null ? prefab.ArmingEffectShape : VfxDataShape.ImpactCircle;
 
         public override SkillDefinition DeepCopy() => (LingeringAoeDefinition)MemberwiseClone();
     }

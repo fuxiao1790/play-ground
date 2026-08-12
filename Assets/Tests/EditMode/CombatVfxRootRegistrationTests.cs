@@ -25,8 +25,8 @@ namespace PlayGround.Tests.EditMode
             VisualEffectAsset asset = LoadVfxAsset();
             CombatVfxRoot root = CreateRoot();
 
-            int first = root.Register(asset, VfxDataShape.Circular);
-            int second = root.Register(asset, VfxDataShape.Circular);
+            int first = root.Register(asset, VfxDataShape.ImpactCircle);
+            int second = root.Register(asset, VfxDataShape.ImpactCircle);
 
             Assert.That(first, Is.GreaterThan(0));
             Assert.That(second, Is.EqualTo(first));
@@ -38,7 +38,7 @@ namespace PlayGround.Tests.EditMode
         {
             CombatVfxRoot root = CreateRoot();
 
-            int id = root.Register(null, VfxDataShape.Circular);
+            int id = root.Register(null, VfxDataShape.ImpactCircle);
 
             Assert.That(id, Is.Zero);
             Assert.That(root.transform.childCount, Is.Zero);

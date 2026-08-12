@@ -59,7 +59,7 @@ namespace PlayGround.Tests.EditMode
             });
             _entityManager.SetComponentData(entity, new TargetedVfxIds
             {
-                ExpireId = VfxDataShapeTable.EncodeId(VfxDataShape.Circular, 1)
+                ExpireId = VfxDataShapeTable.EncodeId(VfxDataShape.ImpactCircle, 1)
             });
             _entityManager.SetComponentData(entity, new TargetedVfxSizeComponent { EffectSize = 2.5f });
 
@@ -70,7 +70,7 @@ namespace PlayGround.Tests.EditMode
                 ComponentType.ReadOnly<CombatAoeVfxDispatchSingleton>());
             CombatAoeVfxDispatchSingleton vfx = vfxQuery.GetSingleton<CombatAoeVfxDispatchSingleton>();
             vfx.ProducerHandle.Complete();
-            Assert.That(vfx.PendingCircularSpawns.TryDequeue(out CircularVfxSpawnRequest request), Is.True);
+            Assert.That(vfx.PendingCircularSpawns.TryDequeue(out ImpactCircleVfxEvent request), Is.True);
             Assert.That(request.Position, Is.EqualTo(new float2(3f, -2f)));
             Assert.That(request.AreaSize, Is.EqualTo(2.5f));
         }

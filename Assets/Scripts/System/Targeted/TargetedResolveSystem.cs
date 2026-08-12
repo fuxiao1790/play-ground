@@ -112,9 +112,9 @@ namespace PlayGround.System.Combat.Targeted
             public float DeltaTime;
             public TargetedAcquisition.Snapshot TargetSnapshot;
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
-            public NativeQueue<CircularVfxSpawnRequest>.ParallelWriter CircularVfxPending;
-            public NativeQueue<TimedCircularVfxSpawnRequest>.ParallelWriter TimedCircularVfxPending;
-            public NativeQueue<LineSegmentVfxSpawn>.ParallelWriter LineSegmentVfxPending;
+            public NativeQueue<ImpactCircleVfxEvent>.ParallelWriter CircularVfxPending;
+            public NativeQueue<LingeringCircleVfxEvent>.ParallelWriter TimedCircularVfxPending;
+            public NativeQueue<LineSegmentVfxEvent>.ParallelWriter LineSegmentVfxPending;
             public int CollectTargetedLinks;
             public NativeQueue<int>.ParallelWriter TargetedLinkCounts;
             public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter SpawnTemplateDeltas;

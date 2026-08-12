@@ -8,15 +8,15 @@ namespace PlayGround.Skills
     {
         [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField] private VisualEffectAsset spawnEffect;
-        [SerializeField] private VfxDataShape spawnEffectShape = VfxDataShape.Circular;
+        [SerializeField] private VfxDataShape spawnEffectShape = VfxDataShape.ImpactCircle;
         [SerializeField] private VisualEffectAsset hitEffect;
-        [SerializeField] private VfxDataShape hitEffectShape = VfxDataShape.Circular;
+        [SerializeField] private VfxDataShape hitEffectShape = VfxDataShape.ImpactCircle;
         [SerializeField] private VisualEffectAsset expireEffect;
-        [SerializeField] private VfxDataShape expireEffectShape = VfxDataShape.Circular;
+        [SerializeField] private VfxDataShape expireEffectShape = VfxDataShape.ImpactCircle;
         [SerializeField] private VisualEffectAsset linkEffect;
         [SerializeField] private VfxDataShape linkEffectShape = VfxDataShape.LineSegment;
         [SerializeField] private VisualEffectAsset armingEffect;
-        [SerializeField] private VfxDataShape armingEffectShape = VfxDataShape.Circular;
+        [SerializeField] private VfxDataShape armingEffectShape = VfxDataShape.ImpactCircle;
         [SerializeField, Min(0f)] private float vfxEffectSize = 1f;
         [SerializeField, Min(0f)] private float linkWidth = 1f;
 
