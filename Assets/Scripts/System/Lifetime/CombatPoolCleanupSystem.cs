@@ -53,7 +53,6 @@ namespace PlayGround.System.Combat.Lifetime
         private EntityQuery _poolQuery;
         private EntityQuery _targetedPoolQuery;
         private EntityTypeHandle _entityHandle;
-        private ComponentTypeHandle<Active> _activeHandle;
 
         // Smoothed despawns/frame must also clear this absolute floor before the gate opens, so
         // zero-vs-zero rate noise in a dead-calm scene cannot trigger trim passes.
@@ -77,21 +76,20 @@ namespace PlayGround.System.Combat.Lifetime
                 EntityManager.SetComponentData(configEntity, CombatPoolCleanupConfig.Default);
             }
 
-            // Projectile/AOE pools share the existing query. Targeted keeps its own so its single
-            // pool trims against its own headroom rather than the combined projectile/AOE load.
+            // WithDisabled<Active>() makes the IJobChunk mask mark disabled slots, so the trim
+            // job can popcount and enumerate them directly. Projectile/AOE pools share the
+            // existing query. Targeted keeps its own so its single pool trims against its own
+            // headroom rather than the combined projectile/AOE load.
             _poolQuery = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<Active>()
+                .WithDisabled<Active>()
                 .WithAny<ProjectileTag, AoeTag>()
-                .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
                 .Build(this);
             _targetedPoolQuery = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<Active>()
+                .WithDisabled<Active>()
                 .WithAll<TargetedTag>()
-                .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
                 .Build(this);
 
             _entityHandle = GetEntityTypeHandle();
-            _activeHandle = GetComponentTypeHandle<Active>(true);
         }
 
         protected override void OnUpdate()
@@ -139,12 +137,11 @@ namespace PlayGround.System.Combat.Lifetime
             }
 
             // Only disabled entities are destroyed and nothing else mutates the pool mid-update,
-            // so the drop in total pool count equals the number deleted.
+            // so the drop in disabled-slot count equals the number deleted.
             int before = _poolQuery.CalculateEntityCount()
                 + _targetedPoolQuery.CalculateEntityCount();
 
             _entityHandle.Update(this);
-            _activeHandle.Update(this);
 
             EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.TempJob);
             EntityCommandBuffer.ParallelWriter ecbWriter = ecb.AsParallelWriter();
@@ -175,7 +172,6 @@ namespace PlayGround.System.Combat.Lifetime
             return new PoolTrimJob
             {
                 EntityHandle = _entityHandle,
-                ActiveHandle = _activeHandle,
                 ActiveThresholdPercent = cfg.ChunkActiveThresholdPercent,
                 Ecb = ecb
             }.ScheduleParallel(poolQuery, dependency);
@@ -185,7 +181,6 @@ namespace PlayGround.System.Combat.Lifetime
         private struct PoolTrimJob : IJobChunk
         {
             [ReadOnly] public EntityTypeHandle EntityHandle;
-            [ReadOnly] public ComponentTypeHandle<Active> ActiveHandle;
             public float ActiveThresholdPercent;
             public EntityCommandBuffer.ParallelWriter Ecb;
 
@@ -195,17 +190,13 @@ namespace PlayGround.System.Combat.Lifetime
                 bool useEnabledMask,
                 in v128 chunkEnabledMask)
             {
-                EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
-
-                int count = chunk.Count;
-                int activeCount = 0;
-                for (int i = 0; i < count; i++)
-                {
-                    if (activeMask[i])
-                    {
-                        activeCount++;
-                    }
-                }
+            int count = chunk.Count;
+            // A fully drained chunk makes every entity match, so useEnabledMask is false and
+            // chunkEnabledMask contents are undefined. Its disabled count is the chunk count.
+            int disabledCount = useEnabledMask
+                    ? math.countbits(chunkEnabledMask.ULong0) + math.countbits(chunkEnabledMask.ULong1)
+                    : count;
+                int activeCount = count - disabledCount;
 
                 // Busy chunk: leave its disabled entities as a warm reuse buffer.
                 int threshold = (int)(count * ActiveThresholdPercent / 100f);
@@ -215,12 +206,10 @@ namespace PlayGround.System.Combat.Lifetime
                 }
 
                 NativeArray<Entity> entities = chunk.GetNativeArray(EntityHandle);
-                for (int i = 0; i < count; i++)
+                ChunkEntityEnumerator enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, count);
+                while (enumerator.NextEntityIndex(out int i))
                 {
-                    if (!activeMask[i])
-                    {
-                        Ecb.DestroyEntity(unfilteredChunkIndex, entities[i]);
-                    }
+                    Ecb.DestroyEntity(unfilteredChunkIndex, entities[i]);
                 }
             }
         }

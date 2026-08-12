@@ -62,30 +62,4 @@ namespace PlayGround.System.Combat.Aoes
         public TimedSpawnComponent TimedSpawn { get; }
     }
 
-    public readonly struct AoeRuntimeCounters
-    {
-        public AoeRuntimeCounters(
-            int activeAoes,
-            int spawnedAoes,
-            int despawnedAoes,
-            int hitEvents,
-            int activeVisuals,
-            int renderBatches)
-        {
-            ActiveAoes = activeAoes;
-            SpawnedAoes = spawnedAoes;
-            DespawnedAoes = despawnedAoes;
-            HitEvents = hitEvents;
-            ActiveVisuals = activeVisuals;
-            RenderBatches = renderBatches;
-        }
-
-        public int ActiveAoes { get; }
-        public int SpawnedAoes { get; }
-        public int DespawnedAoes { get; }
-        public int DespawnedOrReusedAoes => DespawnedAoes;
-        public int HitEvents { get; }
-        public int ActiveVisuals { get; }
-        public int RenderBatches { get; }
-    }
 }

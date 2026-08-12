@@ -104,8 +104,9 @@ Projectiles:
 - gameplay collision should use baked shapes and target proxy data
 - simulation stages stay split by responsibility: target tracking, movement,
   child projectile creation, lifetime expiry disable, contact gates, and collision
-- `CombatRoot` exposes active count, spawn/despawn totals, hit event count,
-  simulation milliseconds, and render milliseconds
+- `CombatStatsSingleton` accumulates active counts, spawn/despawn totals, and hit
+  event counts; `CombatStatsGatherSystem` publishes them to
+  `CombatStatsDisplaySingleton` for the debug overlay to read
 - performance target: about 50k projectiles on screen with 20 targets at 120 fps
 - retained disabled projectile pools should drain gradually after spikes without
   deleting below the configured retention or active-ratio floor

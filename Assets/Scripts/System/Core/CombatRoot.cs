@@ -74,7 +74,6 @@ namespace PlayGround.System.Combat.Core
         // AOE state.
         private readonly Dictionary<AoeTypeDefinition, int> definitionTypeIds = new();
         private AoeTypeRegistry typeRegistry = new();
-        private int spawnedAoes;
         private int nextAoeId;
         private int nextTypeId = 1;
 
@@ -95,7 +94,6 @@ namespace PlayGround.System.Combat.Core
         private bool ecsHandlesCreated;
 
         public CombatTargetRegistry<ICombatTarget> TargetRegistry => targetRegistry;
-        public AoeRuntimeCounters Counters => new(ActiveAoeCount(), spawnedAoes, 0, 0, 0, 0);
 
         internal Entity ScopeEntity => scopeEntity;
         internal EntityManager EntityManager => entityManager;
@@ -423,7 +421,6 @@ namespace PlayGround.System.Combat.Core
                 faction,
                 aoeId,
                 (uint)aoeId * 2654435761u);
-            spawnedAoes += aoeCount;
             return aoeId;
         }
 
@@ -459,7 +456,6 @@ namespace PlayGround.System.Combat.Core
                 JitterSeed = (uint)aoeId * 2654435761u,
                 CastToken = castToken
             });
-            spawnedAoes += aoeCount;
             return aoeId;
         }
 
@@ -567,7 +563,6 @@ namespace PlayGround.System.Combat.Core
             AoeSpawnCommand template = AoeCommandFor(request, aoeId);
             Hash128 templateKey = RegisterPinnedSpawnTemplate(in template);
             AppendAoeEvent(AoeEventFor(templateKey, request, aoeId, faction));
-            spawnedAoes++;
             return aoeId;
         }
 
@@ -1029,28 +1024,6 @@ namespace PlayGround.System.Combat.Core
                 ComponentType.ReadOnly<AoeIdentityComponent>());
             targetRegistry.ConfigureProxyBinding(entityManager);
             ecsHandlesCreated = true;
-        }
-
-        private int ActiveAoeCount()
-        {
-            if (!IsRuntimeReady())
-            {
-                return 0;
-            }
-
-            int count = entityManager.GetBuffer<ImpactAoeSpawnEvent>(scopeEntity).Length
-                + entityManager.GetBuffer<LingeringAoeSpawnEvent>(scopeEntity).Length;
-
-            using NativeArray<Entity> entities = allAoeQuery.ToEntityArray(Allocator.Temp);
-            for (int i = 0; i < entities.Length; i++)
-            {
-                if (entityManager.IsComponentEnabled<Active>(entities[i]))
-                {
-                    count++;
-                }
-            }
-
-            return count;
         }
 
         private void DestroyScopedEntities(EntityQuery query)

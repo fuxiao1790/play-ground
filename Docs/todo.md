@@ -13,6 +13,7 @@ minor performance related refacor
 minor fixes
 - multiple aoe should have 1 aoe aimed at where the cursor is.
 - multiple projectile should also have 1 projectile aimed at where the cursor is.'
+- use popcount or equivalent to count # of active entities in a chunk instead of looping if not already.
 
 changes to existing gameplay
 - more interaction between skills instead of just a single skill that does everything. damage currently is the only axis, is there something else that can be added.

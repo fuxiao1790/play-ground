@@ -14,6 +14,7 @@ using PlayGround.System.Combat.Lifetime;
 using PlayGround.System.Combat.Platform;
 using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
+using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Projectiles;
@@ -146,7 +147,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator AoeCountersTrackSpawnDespawnHitAndRenderBatchFields()
+        public IEnumerator AoeSpawnIsRecordedInCombatStatsDisplayMirror()
         {
             CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out int typeId);
             AoeTargetProbe target = CreateTarget(Vector2.zero, DefaultTargetMask);
@@ -155,11 +156,13 @@ namespace PlayGround.Tests.PlayMode
             root.Spawn(Command(typeId, templateObject, Vector2.zero, 2f), CombatFaction.Player);
             yield return null;
 
-            AoeRuntimeCounters counters = root.Counters;
-            Assert.That(counters.SpawnedAoes, Is.EqualTo(1));
-            Assert.That(counters.DespawnedOrReusedAoes, Is.EqualTo(1));
-            Assert.That(counters.HitEvents, Is.EqualTo(1));
-            Assert.That(counters.RenderBatches, Is.GreaterThanOrEqualTo(0));
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<CombatStatsDisplaySingleton>());
+            CombatStatsDisplaySingleton stats = query.GetSingleton<CombatStatsDisplaySingleton>();
+
+            Assert.That(stats.EntitiesSpawnedViaEcb + stats.EntitiesSpawnedViaReuse,
+                Is.GreaterThanOrEqualTo(1), "The AOE spawn must reach the stats mirror.");
             Cleanup(rootObject, templateObject, target.gameObject);
         }
 

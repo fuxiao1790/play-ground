@@ -99,7 +99,8 @@ namespace PlayGround.SkillUi
         {
             smoothedDeltaTime += (Time.unscaledDeltaTime - smoothedDeltaTime) * 0.1f;
             float fps = smoothedDeltaTime > 0f ? 1f / smoothedDeltaTime : 0f;
-            fpsText.text = $"FPS:          {fps:0}";
+            float frameTimeMilliseconds = smoothedDeltaTime * 1000f;
+            fpsText.text = $"FPS:          {fps:0} ({frameTimeMilliseconds:0.0} ms)";
 
             // Collapsed rows are display:none, so the string formatting and the particle
             // walk behind them would be pure overhead in an overlay meant to measure cost.
