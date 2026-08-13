@@ -39,3 +39,24 @@ Awaiting user validation
   `C:\Users\user\.vscode\extensions\visualstudiotoolsforunity.vstuc-1.2.2\Analyzers\Microsoft.Unity.Analyzers.dll`.
 - Post-implementation compile fix: `SpawnController` now calls public
   `CombatRoot.CreateTargetProxy`; `EntityManager` remains internal to Sim.
+- Mob visual lifecycle fix: pooled mobs prepare alive state before activation;
+  `OnDisable` and despawn force the renderer off. Spawn regression test now
+  asserts renderer is disabled while pending and enabled after confirmation.
+- Pool physics fix: `InitializeForSpawn` now copies the rented transform position
+  into `Rigidbody2D` before enabling simulation, preventing old body pose from
+  restoring on the next physics tick. Spawn regression test uses a non-zero
+  position and asserts Rigidbody2D position matches it.
+- Pool physics fix 2 (reused instances flashing at their previous position):
+  the fix above ran on an **inactive** GameObject, where `Rigidbody2D` has no
+  native body and both `body.position` and `body.simulated` writes are dropped.
+  `ProjectSettings/Physics2DSettings.asset` has `m_AutoSyncTransforms: 0`, so the
+  `MobPool.Rent` transform write is not authoritative either until a physics step
+  runs - body and Transform disagreed across activation.
+  `BeginLife` now activates before calling `InitializeForSpawn`, and
+  `InitializeForSpawn` sets `body.simulated = true` before `body.position`.
+  Safe to activate first because `OnDisable` leaves the sprite off and
+  `InitializeForSpawn` re-enables it within the same `Update`.
+  Note the asymmetry that hid this: `Awake` also calls `InitializeForSpawn`, so a
+  pooled instance's **first** activation re-ran it with a live body and looked
+  correct; only reuse was broken. If a flash is still observed on the very first
+  spawn of an instance, this diagnosis is wrong and the cause is elsewhere.

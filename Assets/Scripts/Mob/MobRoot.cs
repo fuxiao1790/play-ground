@@ -146,6 +146,7 @@ namespace PlayGround.Mob
 
         protected virtual void OnDisable()
         {
+            SetSpriteVisible(false);
             PlayGround.System.Combat.Targets.CombatTargetProxy.Delete(this);
             UnregisterTargets();
         }
@@ -247,14 +248,16 @@ namespace PlayGround.Mob
                 hurtbox.enabled = true;
             }
 
-            if (spriteRenderer != null)
-            {
-                spriteRenderer.enabled = true;
-            }
+            SetSpriteVisible(true);
 
             if (body != null)
             {
+                // Physics2D auto-sync is off, so a transform write is not authoritative until a
+                // step runs. Push the rented pose through the body itself, and only once the
+                // GameObject is active - an inactive Rigidbody2D has no native body and drops
+                // these writes, leaving the body at its previous life's pose.
                 body.simulated = true;
+                body.position = transform.position;
                 body.linearVelocity = Vector2.zero;
             }
 
@@ -271,6 +274,10 @@ namespace PlayGround.Mob
         public void BeginLife()
         {
             HasPendingSpawnConfirmation = false;
+            // Activate first so the Rigidbody2D has a native body: InitializeForSpawn writes
+            // physics state, and those writes are dropped on an inactive object. Nothing renders
+            // in between - OnDisable left the sprite off, and InitializeForSpawn re-enables it
+            // inside this same Update.
             gameObject.SetActive(true);
             InitializeForSpawn();
         }
@@ -333,9 +340,17 @@ namespace PlayGround.Mob
             }
 
             hurtbox.enabled = false;
-            spriteRenderer.enabled = false;
+            SetSpriteVisible(false);
             UnregisterTargets();
             SoftDied?.Invoke(this);
+        }
+
+        private void SetSpriteVisible(bool visible)
+        {
+            if (spriteRenderer != null)
+            {
+                spriteRenderer.enabled = visible;
+            }
         }
 
         private void UnregisterTargets()

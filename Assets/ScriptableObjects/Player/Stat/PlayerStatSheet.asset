@@ -17,11 +17,11 @@ MonoBehaviour:
   healthRegenPerSecond: 100
   manaRegenPerSecond: 500
   moveSpeed: 10
-  increasedRatePercent: 0
+  increasedRatePercent: 300
   damageMultiplier: 1
   critChance: 0.418
   critMultiplier: 2.5
-  areaSizeMultiplier: 1
+  areaSizeMultiplier: 1.5
   baseEnergyGain: 30
   increasedEnergyGain: 1.3
   energyGainMultiplier: 1.3

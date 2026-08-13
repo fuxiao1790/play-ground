@@ -160,11 +160,14 @@ namespace PlayGround.Tests.PlayMode
         public IEnumerator SpawnedMobStaysDormantUntilProxyConfirmation()
         {
             CreateFixture(1, 0f, out GameObject combatObject, out _, out GameObject prefabObject, out SpawnController controller);
+            Vector2 spawnPosition = new(4f, -3f);
+            controller.GetComponentInChildren<SpawnPoint>().transform.position = spawnPosition;
 
             controller.Spawn();
             MobRoot pending = SingleRuntimeMob(prefabObject);
             Assert.That(pending.gameObject.activeSelf, Is.False);
             Assert.That(pending.CombatTargetProxy, Is.EqualTo(Entity.Null));
+            Assert.That(pending.GetComponent<SpriteRenderer>().enabled, Is.False);
 
             yield return null;
 
@@ -172,6 +175,8 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(active, Is.SameAs(pending));
             Assert.That(active.CombatTargetProxy, Is.Not.EqualTo(Entity.Null));
             Assert.That(World.DefaultGameObjectInjectionWorld.EntityManager.Exists(active.CombatTargetProxy), Is.True);
+            Assert.That(active.GetComponent<SpriteRenderer>().enabled, Is.True);
+            Assert.That(active.GetComponent<Rigidbody2D>().position, Is.EqualTo(spawnPosition));
 
             Object.Destroy(controller.gameObject);
             Object.Destroy(prefabObject);
