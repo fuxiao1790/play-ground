@@ -10,8 +10,8 @@ Show the cross-layer order for one gameplay frame.
 2. Player and mob roots enqueue target-proxy create, position, shape, and
    resource-update events. `TargetProxyCreateApplySystem` and
    `TargetProxyUpdateApplySystem` consume them in `SimulationSystemGroup` before
-   `TargetSpatialHashSystem`; a registration handle resolves on a later simulation
-   tick.
+   `TargetSpatialHashSystem`. Create results push in the same frame's
+   presentation phase; an actor acts on its confirmed handle in next `Update()`.
 3. ECS lifetime systems expire old projectile/AOE entities and any targeted
    entity that outlives its fail-safe lifetime.
 4. Timed spawn systems enqueue child projectile/AOE/targeted events.
@@ -25,10 +25,11 @@ Show the cross-layer order for one gameplay frame.
 10. Spawn expansion drains managed and ECS event queues into commands.
 11. Apply systems reuse disabled slots or cold-create overflow.
 12. Render prep writes matrices.
-13. Actor roots enqueue deletion for invalid target proxies.
-   `TargetProxyDeleteApplySystem` consumes those events in
-   `PresentationSystemGroup` after `CombatApplyBridge`.
-14. Presentation systems dispatch combat results, VFX, and render batches.
+13. `CombatDespawnOnDeathSystem` turns zero health on tagged proxies into
+   `CombatDespawnEvent` and `TargetProxyDeleteEvent`. Player teardown may also
+   enqueue deletion.
+14. Presentation replays combat results, pushes spawn and despawn outcomes to
+   actors, applies proxy deletion, then dispatches VFX and render batches.
 
 ## Producers
 
@@ -61,9 +62,8 @@ batched render submission.
 
 Target-proxy create and update events apply before spatial hashing and collision
 reads proxy data. Spawn apply runs after movement/collision, so newly spawned
-entities first simulate next frame. Target-proxy delete events apply after
-`CombatApplyBridge`; managed companion resolution therefore happens before the
-proxy is deleted.
+entities first simulate next frame. Presentation pushes confirmed proxy creates
+and despawns before deletion; actors consume those pushes in next `Update()`.
 
 ## Failure / Edge Cases
 
@@ -78,3 +78,5 @@ Underwarmed pools fall back to cold creation. Visual VFX events may be capped.
 ## Notes / TODOs
 
 TODO: verify actor `LateUpdate()` ordering against ECS presentation systems.
+Planned stock-Entities order is documented above; frame-marker trace validation
+is pending.

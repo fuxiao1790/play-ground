@@ -1,5 +1,6 @@
 using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Presentation;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
@@ -88,7 +89,7 @@ namespace PlayGround.System.Combat.Application
                     continue;
                 }
 
-                ICombatTarget target = ResolveTarget(entityManager, result.TargetProxy);
+                ICombatTarget target = CombatTargetBridge.ResolveTarget(entityManager, result.TargetProxy);
                 if (!IsTargetUsable(target))
                 {
                     continue;
@@ -124,22 +125,8 @@ namespace PlayGround.System.Combat.Application
             return false;
         }
 
-        private static ICombatTarget ResolveTarget(EntityManager entityManager, Entity targetProxy)
-        {
-            if (targetProxy == Entity.Null
-                || !entityManager.Exists(targetProxy)
-                || !entityManager.HasComponent<TargetCompanion>(targetProxy))
-            {
-                return null;
-            }
-
-            TargetCompanion companion = entityManager.GetComponentObject<TargetCompanion>(targetProxy);
-            return companion?.Target;
-        }
-
         private static bool IsTargetUsable(ICombatTarget target) =>
             target != null
-            && (target is not UnityEngine.Object unityObject || unityObject != null)
             && target.IsCombatTargetActive;
     }
 }

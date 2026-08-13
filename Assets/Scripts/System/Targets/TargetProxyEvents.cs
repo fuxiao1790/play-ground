@@ -17,6 +17,7 @@ namespace PlayGround.System.Combat.Targets
         public float MaxMana;
         public float CurrentMana;
         public float ManaRegenPerSecond;
+        public byte DespawnOnDeath;
     }
 
     public enum TargetProxyUpdateKind : byte
@@ -45,6 +46,23 @@ namespace PlayGround.System.Combat.Targets
     // ECS Lifecycle: transient proxy-deletion intent; appended to the shared combat scope
     // by the managed combat bridge, consumed and discarded by TargetProxyDeleteApplySystem.
     public struct TargetProxyDeleteEvent : IBufferElementData
+    {
+        public Entity Proxy;
+    }
+
+    // ECS Lifecycle: transient proxy-creation result; appended by
+    // TargetProxyCreateApplySystem during simulation, consumed and discarded by
+    // CombatActorSpawnBridge during presentation of the same frame.
+    public struct TargetProxySpawnResult : IBufferElementData
+    {
+        public int Token;
+        public Entity Proxy;
+    }
+
+    // ECS Lifecycle: transient despawn notification; appended by
+    // CombatDespawnOnDeathSystem during simulation, consumed and discarded by
+    // CombatDespawnBridge during presentation of the same frame.
+    public struct CombatDespawnEvent : IBufferElementData
     {
         public Entity Proxy;
     }

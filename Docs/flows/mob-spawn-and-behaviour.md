@@ -2,33 +2,33 @@
 
 ## Purpose
 
-Trace low-count mob spawning and behavior before mobs participate in ECS combat
-through target proxies.
-
-Current status: the previous mob spawning implementation was removed so the next
-spawning pass can start clean. Mob behavior and target proxy participation remain
-owned by `MobRoot`.
+Trace low-count Unity mob spawning, behavior, and ECS combat proxy lifecycle.
 
 ## Sequence
 
-1. A future mob spawning system chooses when and where to create low-count mob
-   scene actors.
-2. `MobRoot` validates Unity references and binds behavior, animation, health,
-   status, and projectile attack helpers.
-3. Mob behavior triggers update local events and selected movement/attack state.
-4. Mob root registers as a combat target and pushes target proxy data.
-5. Mob attacks submit projectile/AOE/targeted spawn requests through combat roots.
-6. Presentation results update hurt/death feedback and target cleanup.
+1. `SpawnController` applies its `SpawnBehaviour`, cap, placement, and
+   `MobSpawnTable` choice.
+2. `MobPool` rents a disabled `MobRoot`; `SpawnController` wires combat roots,
+   target registry, optional VFX root, and target.
+3. `SpawnController` submits proxy creation and records the disabled mob as an
+   in-flight spawn. In-flight mobs count toward the cap.
+4. Simulation creates the proxy. Presentation binds its companion and records
+   confirmation on the mob.
+5. On next `Update()`, `SpawnController` enables the confirmed mob. `MobRoot`
+   then pushes proxy state, runs movement/behavior, and drives skills.
+6. Mob attacks submit projectile/AOE/targeted requests through combat roots.
+7. A tagged proxy reaching zero health produces a deferred despawn. The mob
+   handles it next `Update()`, then `SpawnController` returns it to `MobPool`.
 
 ## Producers
 
-Future mob spawning code, mob behavior triggers, `MobRoot`, and
-`MobProjectileAttack`.
+`SpawnController`, `SpawnBehaviour`, `SpawnPlacement`, `SpawnPoint`,
+`MobRoot`, and `MobProjectileAttack`.
 
 ## Consumers
 
-Scene actors, combat bridge, ECS simulation via target proxies and spawn events,
-and presentation feedback.
+`MobPool`, combat bridge, ECS target proxy simulation, presentation feedback,
+and the spawn controller reclaim path.
 
 ## Contracts Used
 
@@ -37,29 +37,25 @@ and presentation feedback.
 - [Combat Root API](../contracts/combat-root-api.md)
 - [Combat Hit And Tick Results](../contracts/combat-hit-and-tick-results.md)
 
-## Layer Boundaries Crossed
-
-- [Scene And Authoring](../layers/scene-and-authoring.md)
-- [Game Logic](../layers/game-logic.md)
-- [Combat Bridge](../layers/combat-bridge.md)
-- [ECS Simulation](../layers/ecs-simulation.md)
-- [Presentation And Feedback](../layers/presentation-and-feedback.md)
-
 ## Ordering / Timing Requirements
 
-Mob movement and body collision stay in Physics2D. Combat hit detection uses
-target proxies pushed before simulation.
+Mob movement and body collision stay in Physics2D. Combat target state pushes
+before simulation after the mob is confirmed. Spawn confirmation and death
+notifications push in presentation; actor actions occur on the following
+`Update()`.
 
 ## Failure / Edge Cases
 
-Future spawn overlap checks and caps should prevent invalid overpopulation.
-Death presentation must wait until target proxy cleanup is safe for
-current-frame result replay.
+The pool does not return a mob for ordinary teardown deletion. Only the
+combat-despawn event leads to `SoftDied`, preventing duplicate stack entries in
+`MobPool`. A newly created proxy can be targetable for one frame before its
+disabled mob appears.
 
 ## Related Decisions
 
 - [ADR-001](../decisions/adr-001-hybrid-gameobject-ecs-runtime.md)
 - [ADR-004](../decisions/adr-004-target-proxy-collision.md)
+- [ADR-007](../decisions/adr-007-deferred-spawn-despawn-handshake.md)
 
 ## Notes / TODOs
 

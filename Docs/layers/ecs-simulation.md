@@ -16,6 +16,8 @@ preparation.
 - `Active`-based reuse and cold creation fallback.
 - `CombatHitEvent` production and ECS-owned `CombatTickResult` finalization.
 - `Health`, `Mana`, `TargetStackEntry`, and status processing.
+- Death decision for proxies carrying `DespawnOnDeathTag`, including
+  `CombatDespawnEvent` and proxy-delete intent.
 - VFX request production as data.
 - Render matrix preparation.
 

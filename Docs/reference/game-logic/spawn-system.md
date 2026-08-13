@@ -5,21 +5,29 @@ final decisions, and should be revisited in detail before implementation locks i
 
 ## Current Shape
 
-The previous mob spawning implementation has been removed. There is currently no
-runtime `Assets/Scripts/Spawn/` implementation, no spawn-point scene objects, and
-no spawn-pool ScriptableObject contract.
+Runtime spawning lives in `Assets/Scripts/Spawn/`:
 
-Mobs themselves remain authored under `Assets/Scripts/Mob/` and
-`Assets/Prefabs/Mobs/`.
+- `SpawnController` owns rate behavior, cap checks, placement, combat binding,
+  pending confirmations, and pool reclaim.
+- `SpawnPoint` supplies authored scene positions and samples disabled collider
+  shapes.
+- `MobSpawnTable` is the ScriptableObject prefab-selection contract.
+- `MobPool` rents disabled mob instances and receives reclaimed instances.
+
+Mobs remain authored under `Assets/Scripts/Mob/` and `Assets/Prefabs/Mobs/`.
 
 ## Runtime Rules
 
-- Replacement spawning rules are not yet defined.
-- Future spawn code should continue to create low-count Unity `MobRoot` actors,
-  then bind them to combat target registration through the existing mob root
-  path.
+- Spawn decision, weighted prefab knowledge, placement, and pooling stay in
+  GameObject code.
+- A rent is disabled until its ECS proxy returns through the presentation spawn
+  bridge; pending rents count toward the cap.
+- ECS decides tagged-proxy death. The actor hides and pool reclaim happen on the
+  next `Update()` after the presentation despawn push.
+- Proxy entities create and destroy once per mob life. They are not pooled with
+  projectile/AOE combat entities.
 
-## Temporary Fallback
+## Runtime Fallback
 
-The runtime fallback mob prefab path has been deleted with the old spawning
-system. Use real mob prefabs when the replacement spawner is introduced.
+`MobPool` cold-instantiates the selected authored prefab when its matching free
+stack is empty. Prewarm provides the usual allocation-free spawn path.

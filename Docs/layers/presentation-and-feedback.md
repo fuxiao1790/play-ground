@@ -11,11 +11,14 @@ submission, debug text, and visual budgets.
 - `CombatApplyBridge`/presentation bridge behavior that resolves
   `TargetCompanion`.
 - `ICombatTarget.ReceiveCombatTick` calls from compact combat results.
+- `CombatActorSpawnBridge` and `CombatDespawnBridge` lifecycle pushes to actors.
 - `CombatVfxRoot`, `CombatAoeVfxDispatcher`, VFX Graph buffers, and VFX dispatch
   caps.
 - `CombatBatchedRenderSystem` submission through render resources owned by
   combat roots.
 - Actor animation/hurt/death feedback after combat result sync.
+- Actor proxy spawn/despawn confirmation pushes; actor roots perform their own
+  next-`Update()` activation or teardown.
 - Debug overlay display.
 
 ## Does Not Own
@@ -24,6 +27,8 @@ submission, debug text, and visual budgets.
 - Health/status aggregation.
 - Gameplay meaning of skills, supports, or mob behavior.
 - Spawn expansion/apply or ECS entity lifetime.
+- ECS proxy destruction; `TargetProxyDeleteApplySystem` owns that structural
+  cleanup after lifecycle pushes.
 
 ## Inputs
 
@@ -57,6 +62,8 @@ submission, debug text, and visual budgets.
 ## Main Systems / Modules
 
 - `Assets/Scripts/System/Presentation/CombatApplyBridge.cs`
+- `Assets/Scripts/System/Presentation/CombatActorSpawnBridge.cs`
+- `Assets/Scripts/System/Presentation/CombatDespawnBridge.cs`
 - `Assets/Scripts/System/Rendering/CombatBatchedRenderSystem.cs`
 - `Assets/Scripts/System/Vfx/CombatAoeVfxDispatchSystem.cs`
 - `Assets/Scripts/System/Vfx/CombatVfxRoot.cs`

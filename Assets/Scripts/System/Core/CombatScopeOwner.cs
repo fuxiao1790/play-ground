@@ -72,8 +72,10 @@ namespace PlayGround.System.Combat.Core
                 entityManager.AddBuffer<LingeringAoeSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<TargetedSpawnEvent>(ownedScope);
                 entityManager.AddBuffer<TargetProxyCreateEvent>(ownedScope);
+                entityManager.AddBuffer<TargetProxySpawnResult>(ownedScope);
                 entityManager.AddBuffer<TargetProxyUpdateEvent>(ownedScope);
                 entityManager.AddBuffer<TargetProxyDeleteEvent>(ownedScope);
+                entityManager.AddBuffer<CombatDespawnEvent>(ownedScope);
                 entityManager.AddComponentData(ownedScope, new ProjectileSpawnTemplate { Map = ownedProjectileMap });
                 entityManager.AddComponentData(ownedScope, new AoeSpawnTemplate { Map = ownedAoeMap });
                 entityManager.AddComponentData(ownedScope, new TargetedSpawnTemplate { Map = ownedTargetedMap });

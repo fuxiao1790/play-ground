@@ -102,6 +102,9 @@ after expansion and after current-frame collision.
 Target-proxy lifecycle uses a sibling scope-buffer event-to-apply pipeline:
 `TargetProxyCreateApplySystem`, `TargetProxyUpdateApplySystem`, and
 `TargetProxyDeleteApplySystem` consume proxy events instead of spawn expansion.
+`TargetProxySpawnResult` returns create confirmation to presentation, while
+`CombatDespawnEvent` returns ECS death decisions to presentation before proxy
+deletion.
 See [Target Proxy](target-proxy.md) and
 [Target Proxy Lifecycle](../flows/target-proxy-lifecycle.md).
 

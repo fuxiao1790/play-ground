@@ -95,6 +95,12 @@ namespace PlayGround.System.Combat.Core
 
         public CombatTargetRegistry<ICombatTarget> TargetRegistry => targetRegistry;
 
+        public bool CreateTargetProxy(ICombatTarget target, CombatFaction faction)
+        {
+            EnsureRuntimeReady();
+            return CombatTargetProxy.Create(entityManager, target, faction);
+        }
+
         internal Entity ScopeEntity => scopeEntity;
         internal EntityManager EntityManager => entityManager;
 

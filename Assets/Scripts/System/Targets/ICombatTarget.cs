@@ -124,6 +124,24 @@ namespace PlayGround.System.Combat.Targets
         {
         }
 
+        // True when this target's actor should be despawned by the simulation once its
+        // health reaches zero. False for actors that manage their own death (the player).
+        bool CombatDespawnOnDeath => false;
+
+        // Pushed by CombatActorSpawnBridge during presentation, on the frame the proxy
+        // entity was created. The actor is expected to record it and go live on its next
+        // Update(), not to go live here.
+        void OnCombatSpawned(Entity proxy)
+        {
+        }
+
+        // Pushed by CombatDespawnBridge during presentation, on the frame the simulation
+        // decided this actor died and before its proxy entity is destroyed. The actor is
+        // expected to record it and act on its next Update().
+        void OnCombatDespawned()
+        {
+        }
+
         void ReceiveCombat(
             IReadOnlyList<CombatHitData> hits,
             IReadOnlyList<StatusStackSnapshot> stacks)

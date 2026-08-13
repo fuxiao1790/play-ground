@@ -8,6 +8,7 @@ using PlayGround.Spawn;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Projectiles;
+using PlayGround.System.Combat.Targets;
 using Unity.Entities;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -22,11 +23,14 @@ namespace PlayGround.Tests.PlayMode
             CreateFixture(1, 0f, out GameObject combatObject, out _, out GameObject prefabObject, out SpawnController controller);
 
             controller.Spawn();
+            yield return null;
             MobRoot first = SingleActiveMob();
-            first.SoftDie();
+            KillThroughProxy(first);
+            yield return null;
             yield return null;
 
             controller.Spawn();
+            yield return null;
             MobRoot second = SingleActiveMob();
 
             Assert.That(second, Is.SameAs(first));
@@ -58,8 +62,10 @@ namespace PlayGround.Tests.PlayMode
             CreateFixture(1, 0f, out GameObject combatObject, out CombatRoot combatRoot, out GameObject prefabObject, out SpawnController controller);
 
             controller.Spawn();
+            yield return null;
             MobRoot first = SingleActiveMob();
-            first.SoftDie();
+            KillThroughProxy(first);
+            yield return null;
             yield return null;
 
             controller.Spawn();
@@ -87,11 +93,14 @@ namespace PlayGround.Tests.PlayMode
             CreateFixture(1, 0f, out GameObject combatObject, out _, out GameObject prefabObject, out SpawnController controller);
 
             controller.Spawn();
+            yield return null;
             MobRoot first = SingleActiveMob();
-            first.SoftDie();
+            KillThroughProxy(first);
+            yield return null;
             yield return null;
 
             controller.Spawn();
+            yield return null;
             MobRoot reused = SingleActiveMob();
             Rigidbody2D body = reused.GetComponent<Rigidbody2D>();
             Collider2D collider = reused.GetComponent<Collider2D>();
@@ -117,20 +126,23 @@ namespace PlayGround.Tests.PlayMode
             controller.Spawn();
             controller.Spawn();
             controller.Spawn();
+            yield return null;
             MobRoot[] firstBatch = ActiveMobs();
             Assert.That(controller.ActiveCount, Is.EqualTo(3));
 
             for (int i = 0; i < firstBatch.Length; i++)
             {
-                firstBatch[i].SoftDie();
+                KillThroughProxy(firstBatch[i]);
             }
 
+            yield return null;
             yield return null;
             Assert.That(controller.ActiveCount, Is.EqualTo(0));
 
             controller.Spawn();
             controller.Spawn();
             controller.Spawn();
+            yield return null;
             var reused = new HashSet<MobRoot>(ActiveMobs());
 
             Assert.That(reused.Count, Is.EqualTo(3));
@@ -138,6 +150,58 @@ namespace PlayGround.Tests.PlayMode
             {
                 Assert.That(reused.Contains(firstBatch[i]), Is.True);
             }
+
+            Object.Destroy(controller.gameObject);
+            Object.Destroy(prefabObject);
+            Object.Destroy(combatObject);
+        }
+
+        [UnityTest]
+        public IEnumerator SpawnedMobStaysDormantUntilProxyConfirmation()
+        {
+            CreateFixture(1, 0f, out GameObject combatObject, out _, out GameObject prefabObject, out SpawnController controller);
+
+            controller.Spawn();
+            MobRoot pending = SingleRuntimeMob(prefabObject);
+            Assert.That(pending.gameObject.activeSelf, Is.False);
+            Assert.That(pending.CombatTargetProxy, Is.EqualTo(Entity.Null));
+
+            yield return null;
+
+            MobRoot active = SingleActiveMob();
+            Assert.That(active, Is.SameAs(pending));
+            Assert.That(active.CombatTargetProxy, Is.Not.EqualTo(Entity.Null));
+            Assert.That(World.DefaultGameObjectInjectionWorld.EntityManager.Exists(active.CombatTargetProxy), Is.True);
+
+            Object.Destroy(controller.gameObject);
+            Object.Destroy(prefabObject);
+            Object.Destroy(combatObject);
+        }
+
+        [UnityTest]
+        public IEnumerator KilledMobReturnsToPoolOnlyOnce()
+        {
+            CreateFixture(2, 0f, out GameObject combatObject, out _, out GameObject prefabObject, out SpawnController controller);
+
+            controller.Spawn();
+            yield return null;
+            MobRoot killed = SingleActiveMob();
+            KillThroughProxy(killed);
+            yield return null;
+            yield return null;
+            yield return null;
+
+            Assert.That(controller.ActiveCount, Is.EqualTo(0));
+
+            controller.Spawn();
+            controller.Spawn();
+            yield return null;
+
+            MobRoot[] replacementBatch = ActiveMobs();
+            Assert.That(controller.ActiveCount, Is.EqualTo(2));
+            Assert.That(replacementBatch, Has.Length.EqualTo(2));
+            Assert.That(new HashSet<MobRoot>(replacementBatch).Count, Is.EqualTo(2));
+            Assert.That(replacementBatch, Does.Contain(killed));
 
             Object.Destroy(controller.gameObject);
             Object.Destroy(prefabObject);
@@ -234,6 +298,32 @@ namespace PlayGround.Tests.PlayMode
             MobRoot[] mobs = ActiveMobs();
             Assert.That(mobs.Length, Is.EqualTo(1));
             return mobs[0];
+        }
+
+        private static MobRoot SingleRuntimeMob(GameObject prefabObject)
+        {
+            MobRoot[] mobs = Object.FindObjectsByType<MobRoot>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var runtimeMobs = new List<MobRoot>();
+            for (int i = 0; i < mobs.Length; i++)
+            {
+                if (mobs[i].gameObject != prefabObject)
+                {
+                    runtimeMobs.Add(mobs[i]);
+                }
+            }
+
+            Assert.That(runtimeMobs, Has.Count.EqualTo(1));
+            return runtimeMobs[0];
+        }
+
+        private static void KillThroughProxy(MobRoot mob)
+        {
+            Entity proxy = mob.CombatTargetProxy;
+            Assert.That(proxy, Is.Not.EqualTo(Entity.Null));
+            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            Health health = entityManager.GetComponentData<Health>(proxy);
+            health.Current = 0f;
+            entityManager.SetComponentData(proxy, health);
         }
 
         private static MobRoot[] ActiveMobs() =>

@@ -11,12 +11,23 @@ namespace PlayGround.System.Combat.Targets
     public partial class TargetProxyCreateApplySystem : SystemBase
     {
         private EntityQuery scopeQuery;
+        private NativeList<TargetProxySpawnResult> results;
 
         protected override void OnCreate()
         {
             scopeQuery = EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<CombatScope>(),
-                ComponentType.ReadWrite<TargetProxyCreateEvent>());
+                ComponentType.ReadWrite<TargetProxyCreateEvent>(),
+                ComponentType.ReadWrite<TargetProxySpawnResult>());
+            results = new NativeList<TargetProxySpawnResult>(Allocator.Persistent);
+        }
+
+        protected override void OnDestroy()
+        {
+            if (results.IsCreated)
+            {
+                results.Dispose();
+            }
         }
 
         protected override void OnUpdate()
@@ -27,18 +38,14 @@ namespace PlayGround.System.Combat.Targets
             for (int scopeIndex = 0; scopeIndex < scopes.Length; scopeIndex++)
             {
                 Entity scope = scopes[scopeIndex];
-                DynamicBuffer<TargetProxyCreateEvent> buffer =
-                    EntityManager.GetBuffer<TargetProxyCreateEvent>(scope);
-                using NativeArray<TargetProxyCreateEvent> events = buffer.ToNativeArray(Allocator.Temp);
+                results.Clear();
+                using NativeArray<TargetProxyCreateEvent> events = EntityManager
+                    .GetBuffer<TargetProxyCreateEvent>(scope)
+                    .ToNativeArray(Allocator.Temp);
 
                 for (int eventIndex = 0; eventIndex < events.Length; eventIndex++)
                 {
                     TargetProxyCreateEvent createEvent = events[eventIndex];
-                    if (!CombatTargetProxy.TryTakePendingCreate(createEvent.Token, out ICombatTarget target))
-                    {
-                        continue;
-                    }
-
                     Entity proxy = EntityManager.CreateEntity(CombatTargetProxy.Archetype(EntityManager));
                     EntityManager.SetComponentData(proxy, new TargetFaction { Value = createEvent.Faction });
                     EntityManager.SetComponentData(proxy, createEvent.Position);
@@ -55,8 +62,23 @@ namespace PlayGround.System.Combat.Targets
                         Max = createEvent.MaxMana,
                         RegenPerSecond = createEvent.ManaRegenPerSecond
                     });
-                    EntityManager.AddComponentObject(proxy, new TargetCompanion { Target = target });
-                    target.CombatTargetProxy = proxy;
+                    if (createEvent.DespawnOnDeath != 0)
+                    {
+                        EntityManager.AddComponent<DespawnOnDeathTag>(proxy);
+                    }
+
+                    results.Add(new TargetProxySpawnResult
+                    {
+                        Token = createEvent.Token,
+                        Proxy = proxy
+                    });
+                }
+
+                DynamicBuffer<TargetProxySpawnResult> spawnResults =
+                    EntityManager.GetBuffer<TargetProxySpawnResult>(scope);
+                for (int resultIndex = 0; resultIndex < results.Length; resultIndex++)
+                {
+                    spawnResults.Add(results[resultIndex]);
                 }
 
                 EntityManager.GetBuffer<TargetProxyCreateEvent>(scope).Clear();

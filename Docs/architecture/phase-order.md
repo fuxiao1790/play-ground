@@ -21,12 +21,15 @@ ECS simulation groups, and ECS presentation systems.
 11. Projectile, AOE, and targeted apply systems reuse disabled slots or cold-create
    overflow entities.
 12. Render preparation writes batched sprite matrices.
-13. Actor roots delete queued dead target proxies in `LateUpdate()`.
-14. Presentation systems dispatch compact combat results, VFX requests, and
-    render batches.
+13. Player actor roots may queue target proxy deletion in `LateUpdate()`.
+14. Presentation replays combat results, pushes proxy spawn/despawn outcomes,
+    applies queued proxy deletion, dispatches VFX requests, and submits render
+    batches.
 
 TODO: verify exact ordering between actor `LateUpdate()` proxy deletion and all
-`PresentationSystemGroup` systems in the current Unity player loop.
+`PresentationSystemGroup` systems in the current Unity player loop. Planned
+order follows stock Entities placement, but frame-marker trace validation is
+pending.
 
 ## Phase Ownership
 
@@ -52,5 +55,6 @@ simulation update.
 ## Structural Change Timing
 
 Hot despawn disables enableable state. Structural creation happens in apply
-fallbacks and teardown paths. Target proxy deletion is actor-owned and delayed
-until after proxy data is no longer needed for the current frame.
+fallbacks and teardown paths. Target proxy deletion is delayed until
+presentation: ECS death decisions enqueue deletion, and player teardown may
+enqueue deletion after current-frame proxy users are done.

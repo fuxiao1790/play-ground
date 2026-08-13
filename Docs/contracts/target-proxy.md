@@ -27,6 +27,7 @@ Current proxy data includes:
 - `Health`
 - `Mana`
 - `TargetStackEntry` buffer
+- optional `DespawnOnDeathTag`
 - managed `TargetCompanion`
 - compatibility `CombatTargetElement` in older code paths
 
@@ -45,22 +46,24 @@ target snapshot buffers.
 ## Lifetime
 
 Actor registration enqueues a create event that seeds `Health`/`Mana` Current,
-Max, and RegenPerSecond from the root's `Resource` values. The
-`TargetProxyCreateApplySystem` creates the proxy in a later simulation tick, so
-the actor's proxy handle resolves then rather than during registration. The root
-owns initial values, Max, and regen-rate; ECS owns runtime Current (damage,
-spending, and regen). Roots enqueue Max/regen, shape, and position updates;
-`TargetProxyUpdateApplySystem` applies them without resetting Current, then the
-root mirrors Current back for presentation. Actor teardown enqueues deletion;
-`TargetProxyDeleteApplySystem` applies it after current-frame proxy users are
-safe.
+Max, RegenPerSecond, and the optional death-despawn flag from the root. The
+simulation create system returns `TargetProxySpawnResult`; in the same frame's
+`PresentationSystemGroup`, `CombatActorSpawnBridge` resolves the token, binds
+`TargetCompanion`, assigns the actor's handle, and calls `OnCombatSpawned`.
+Actors act on that push in their next `Update()`. The root owns initial values,
+Max, and regen rate; ECS owns runtime Current. Roots enqueue Max/regen, shape,
+and position updates; `TargetProxyUpdateApplySystem` applies them without
+resetting Current. Health reaching zero on a tagged proxy emits both
+`CombatDespawnEvent` and `TargetProxyDeleteEvent`; presentation pushes the
+despawn before `TargetProxyDeleteApplySystem` destroys the entity.
 
 ## Ordering
 
 Create and update events apply in `SimulationSystemGroup` before
 `TargetSpatialHashSystem`, so collision and tracking read current proxy data.
-Delete events apply in `PresentationSystemGroup` after `CombatApplyBridge`,
-preserving current-frame hit/result replay safety.
+Presentation order is `CombatApplyBridge`, `CombatActorSpawnBridge`,
+`CombatDespawnBridge`, then `TargetProxyDeleteApplySystem`; this preserves
+killing-hit replay and keeps companions available to both lifecycle bridges.
 
 ## Related Layers
 

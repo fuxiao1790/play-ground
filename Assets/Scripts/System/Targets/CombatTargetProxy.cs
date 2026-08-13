@@ -24,6 +24,13 @@ namespace PlayGround.System.Combat.Targets
     {
     }
 
+    // ECS Lifecycle: opt-in death-handling tag; added at proxy creation when the
+    // registering target reports CombatDespawnOnDeath, never added or removed
+    // afterwards, destroyed with the proxy. Absent from the player proxy.
+    public struct DespawnOnDeathTag : IComponentData
+    {
+    }
+
     public struct TargetPosition : IComponentData
     {
         public float2 Value;
@@ -111,7 +118,8 @@ namespace PlayGround.System.Combat.Targets
                 HealthRegenPerSecond = math.max(0f, target.CombatHealthRegenPerSecond),
                 MaxMana = maxMana,
                 CurrentMana = currentMana,
-                ManaRegenPerSecond = math.max(0f, target.CombatManaRegenPerSecond)
+                ManaRegenPerSecond = math.max(0f, target.CombatManaRegenPerSecond),
+                DespawnOnDeath = target.CombatDespawnOnDeath ? (byte)1 : (byte)0
             });
             return true;
         }

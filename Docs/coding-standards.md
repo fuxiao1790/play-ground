@@ -148,9 +148,9 @@ Use `Update()` for:
 - target proxy push from player and mob roots
 - debug text updates
 
-Use `LateUpdate()` for queued target proxy deletion on actors. This keeps proxy
-entities valid through the simulation and presentation work that may still
-reference them in the current frame.
+Use `LateUpdate()` for queued target proxy deletion on the player actor. Mob
+death requests come from ECS and are pushed during presentation; the mob hides
+and returns to its pool on its next `Update()`.
 
 Do not hide expensive setup inside repeated runtime calls. Scene/prefab baking,
 collider shape extraction, material setup, and pool creation should happen
@@ -187,8 +187,10 @@ thousands of live trigger objects.
 
 Managed target references are restricted. `TargetCompanion` may exist on proxy
 entities, but only presentation bridges may read it: `CombatApplyBridge` calls
-`ICombatTarget.ReceiveCombatTick`, and `SpawnRejectionBridge` returns rejected
-root-cast tokens to `SkillDriver` through the target.
+`ICombatTarget.ReceiveCombatTick`, `SpawnRejectionBridge` returns rejected
+root-cast tokens to `SkillDriver` through the target, `CombatActorSpawnBridge`
+binds confirmed proxy creates, and `CombatDespawnBridge` pushes confirmed actor
+despawns.
 
 ## Combat Event Separation
 

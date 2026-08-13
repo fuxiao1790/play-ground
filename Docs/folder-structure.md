@@ -53,6 +53,7 @@ Docs/
     adr-004-target-proxy-collision.md
     adr-005-enableable-pooling-for-combat-entities.md
     adr-006-ecs-aggregated-combat-results.md
+    adr-007-deferred-spawn-despawn-handshake.md
   reference/
     architecture/
     design/
@@ -137,6 +138,12 @@ Docs/
   acquire/release integration for combat runtime roots.
 - `Assets/Scripts/System/Targets/CombatTargetProxy.cs`: ECS target proxy entity
   creation, shape push, health/status seed data, and deletion.
+- `Assets/Scripts/System/Targets/CombatDespawnOnDeathSystem.cs`: ECS death
+  decision for tagged target proxies.
+- `Assets/Scripts/System/Presentation/CombatActorSpawnBridge.cs`: presentation
+  spawn confirmation and managed companion binding.
+- `Assets/Scripts/System/Presentation/CombatDespawnBridge.cs`: presentation
+  actor despawn notification before proxy deletion.
 - `Assets/Scripts/System/Targets/CombatTargetRegistry.cs`: managed target
   registry that creates proxy entities for registered `ICombatTarget` objects.
 - `Assets/Scripts/System/Application/CombatApplyFinalizeSingleSystem.cs`: single-pass

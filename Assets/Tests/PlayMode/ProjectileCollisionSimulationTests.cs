@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using PlayGround.Common;
 using PlayGround.System.Combat.Aoes;
@@ -7,6 +8,7 @@ using PlayGround.System.Combat.Collision.Broadphase;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
 using PlayGround.System.Combat.Platform;
+using PlayGround.System.Combat.Presentation;
 using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
@@ -33,6 +35,12 @@ namespace PlayGround.Tests.PlayMode
         private ExternalSpawnGateSystem externalSpawnGate;
         private TargetProxyCreateApplySystem targetProxyCreateApply;
         private TargetProxyUpdateApplySystem targetProxyUpdateApply;
+        private CombatDespawnOnDeathSystem combatDespawnOnDeath;
+        private PresentationSystemGroup presentationGroup;
+        private CombatApplyBridge combatApplyBridge;
+        private CombatActorSpawnBridge combatActorSpawnBridge;
+        private CombatDespawnBridge combatDespawnBridge;
+        private TargetProxyDeleteApplySystem targetProxyDeleteApply;
         private Entity scopeEntity;
         private SpawnTemplateRegistryState templateRegistryState;
         private Entity projectileTemplateEntity;
@@ -54,12 +62,14 @@ namespace PlayGround.Tests.PlayMode
             externalSpawnGate = testWorld.GetOrCreateSystemManaged<ExternalSpawnGateSystem>();
             targetProxyCreateApply = testWorld.GetOrCreateSystemManaged<TargetProxyCreateApplySystem>();
             targetProxyUpdateApply = testWorld.GetOrCreateSystemManaged<TargetProxyUpdateApplySystem>();
+            combatDespawnOnDeath = testWorld.GetOrCreateSystemManaged<CombatDespawnOnDeathSystem>();
             simGroup.AddSystemToUpdateList(targetProxyCreateApply);
             simGroup.AddSystemToUpdateList(targetProxyUpdateApply);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContactGateSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TargetSpatialHashSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileDiscreteCollisionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSingleSystem>());
+            simGroup.AddSystemToUpdateList(combatDespawnOnDeath);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ResourceRegenSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<StatusProcessSystem>());
             simGroup.AddSystemToUpdateList(projectileExpansion);
@@ -73,7 +83,16 @@ namespace PlayGround.Tests.PlayMode
             // (to create the lane singleton) and tick (to drain it). It no-ops without a VfxRoot.
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatAoeVfxDispatchSystem>());
             simGroup.SortSystems();
-            testWorld.GetOrCreateSystemManaged<CombatApplyBridge>();
+            presentationGroup = testWorld.GetOrCreateSystemManaged<PresentationSystemGroup>();
+            combatApplyBridge = testWorld.GetOrCreateSystemManaged<CombatApplyBridge>();
+            combatActorSpawnBridge = testWorld.GetOrCreateSystemManaged<CombatActorSpawnBridge>();
+            combatDespawnBridge = testWorld.GetOrCreateSystemManaged<CombatDespawnBridge>();
+            targetProxyDeleteApply = testWorld.GetOrCreateSystemManaged<TargetProxyDeleteApplySystem>();
+            presentationGroup.AddSystemToUpdateList(combatDespawnBridge);
+            presentationGroup.AddSystemToUpdateList(targetProxyDeleteApply);
+            presentationGroup.AddSystemToUpdateList(combatActorSpawnBridge);
+            presentationGroup.AddSystemToUpdateList(combatApplyBridge);
+            presentationGroup.SortSystems();
 
             scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
             templateRegistryState = SpawnTemplateRegistryTestState.Add(entityManager, scopeEntity);
@@ -84,6 +103,8 @@ namespace PlayGround.Tests.PlayMode
             entityManager.AddBuffer<TargetProxyCreateEvent>(scopeEntity);
             entityManager.AddBuffer<TargetProxyUpdateEvent>(scopeEntity);
             entityManager.AddBuffer<TargetProxyDeleteEvent>(scopeEntity);
+            entityManager.AddBuffer<TargetProxySpawnResult>(scopeEntity);
+            entityManager.AddBuffer<CombatDespawnEvent>(scopeEntity);
 
             projectileTemplateEntity = entityManager.CreateEntity();
             entityManager.AddComponentData(projectileTemplateEntity, new ProjectileSpawnTemplate
@@ -102,9 +123,7 @@ namespace PlayGround.Tests.PlayMode
         public void CombatTargetProxySeedsManaFromCombatTarget()
         {
             var target = new TestCombatTarget(++nextTargetId, float2.zero, 1f, 50f, 12f, 3f);
-            Assert.That(CombatTargetProxy.Create(entityManager, target, CombatFaction.Player), Is.True);
-            targetProxyCreateApply.Update();
-            Entity proxy = target.CombatTargetProxy;
+            Entity proxy = CreateAndConfirmTarget(target, CombatFaction.Player);
 
             Mana mana = entityManager.GetComponentData<Mana>(proxy);
             Assert.That(mana.Max, Is.EqualTo(50f).Within(0.0001f));
@@ -116,9 +135,7 @@ namespace PlayGround.Tests.PlayMode
         public void CombatTargetProxyPushResourceMaxesPreservesEcsCurrent()
         {
             var target = new TestCombatTarget(++nextTargetId, float2.zero, 1f, 50f, 12f, 3f);
-            Assert.That(CombatTargetProxy.Create(entityManager, target, CombatFaction.Player), Is.True);
-            targetProxyCreateApply.Update();
-            Entity proxy = target.CombatTargetProxy;
+            Entity proxy = CreateAndConfirmTarget(target, CombatFaction.Player);
             entityManager.SetComponentData(proxy, new Mana { Current = 7f, Max = 50f, RegenPerSecond = 3f });
 
             target.SetManaValues(80f, 5f);
@@ -135,9 +152,7 @@ namespace PlayGround.Tests.PlayMode
         public void ResourceRegenRaisesManaAndClampsAtMax()
         {
             var target = new TestCombatTarget(++nextTargetId, float2.zero, 1f, 10f, 5f, 4f);
-            Assert.That(CombatTargetProxy.Create(entityManager, target, CombatFaction.Player), Is.True);
-            targetProxyCreateApply.Update();
-            Entity proxy = target.CombatTargetProxy;
+            Entity proxy = CreateAndConfirmTarget(target, CombatFaction.Player);
 
             TickSimulationOnly(1f);
             Assert.That(entityManager.GetComponentData<Mana>(proxy).Current, Is.EqualTo(9f).Within(0.0001f));
@@ -150,21 +165,69 @@ namespace PlayGround.Tests.PlayMode
         public void ResourceRegenDoesNotReviveDepletedHealth()
         {
             var target = new TestCombatTarget(++nextTargetId, float2.zero, 1f, healthCurrent: 0f, healthRegenPerSecond: 4f);
-            Assert.That(CombatTargetProxy.Create(entityManager, target, CombatFaction.Player), Is.True);
-            targetProxyCreateApply.Update();
-            Entity proxy = target.CombatTargetProxy;
+            Entity proxy = CreateAndConfirmTarget(target, CombatFaction.Player);
 
             TickSimulationOnly(1f);
             Assert.That(entityManager.GetComponentData<Health>(proxy).Current, Is.EqualTo(0f).Within(0.0001f));
         }
 
         [Test]
+        public void CombatDespawnSkipsUntaggedPlayerProxy()
+        {
+            var player = new TestCombatTarget(++nextTargetId, float2.zero, 1f);
+            Entity proxy = CreateAndConfirmTarget(player, CombatFaction.Player);
+            Health health = entityManager.GetComponentData<Health>(proxy);
+            health.Current = 0f;
+            entityManager.SetComponentData(proxy, health);
+
+            combatDespawnOnDeath.Update();
+
+            Assert.That(entityManager.Exists(proxy), Is.True);
+            Assert.That(entityManager.GetBuffer<CombatDespawnEvent>(scopeEntity).Length, Is.EqualTo(0));
+            Assert.That(entityManager.GetBuffer<TargetProxyDeleteEvent>(scopeEntity).Length, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void KillingTickReplaysBeforeActorDespawn()
+        {
+            var target = new TestCombatTarget(
+                ++nextTargetId,
+                float2.zero,
+                0.25f,
+                maxHealth: 1f,
+                healthCurrent: 1f,
+                despawnOnDeath: true);
+            Entity proxy = CreateAndConfirmTarget(target, CombatFaction.Mob);
+            CreateProjectile(pierceRemaining: 0);
+
+            TickSimulationOnly(0.01f);
+            presentationGroup.Update();
+
+            Assert.That(target.LifecycleCalls, Is.EqualTo(new[] { "spawn", "tick", "despawn" }));
+            Assert.That(entityManager.Exists(proxy), Is.False);
+        }
+
+        [Test]
+        public void CancelledTargetProxyCreateDestroysOrphan()
+        {
+            var target = new TestCombatTarget(++nextTargetId, float2.zero, 1f);
+            Assert.That(CombatTargetProxy.Create(entityManager, target, CombatFaction.Mob), Is.True);
+            CombatTargetProxy.Delete(target);
+
+            targetProxyCreateApply.Update();
+            presentationGroup.Update();
+
+            using EntityQuery orphanQuery = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<TargetProxyTag>(),
+                ComponentType.Exclude<TargetCompanion>());
+            Assert.That(orphanQuery.CalculateEntityCount(), Is.EqualTo(0));
+        }
+
+        [Test]
         public void ResourceRegenRunsAfterCombatDamage()
         {
             var target = new TestCombatTarget(++nextTargetId, float2.zero, 0.25f, healthCurrent: 5f, healthRegenPerSecond: 2f);
-            Assert.That(CombatTargetProxy.Create(entityManager, target, CombatFaction.Player), Is.True);
-            targetProxyCreateApply.Update();
-            Entity proxy = target.CombatTargetProxy;
+            Entity proxy = CreateAndConfirmTarget(target, CombatFaction.Player);
             CreateProjectile(pierceRemaining: 0);
 
             TickSimulationOnly(0.5f);
@@ -613,8 +676,15 @@ namespace PlayGround.Tests.PlayMode
         private Entity AddTarget(float2 position, float radius, CombatFaction faction = CombatFaction.Mob)
         {
             var target = new TestCombatTarget(++nextTargetId, position, radius);
+            return CreateAndConfirmTarget(target, faction);
+        }
+
+        private Entity CreateAndConfirmTarget(TestCombatTarget target, CombatFaction faction)
+        {
             Assert.That(CombatTargetProxy.Create(entityManager, target, faction), Is.True);
             targetProxyCreateApply.Update();
+            combatActorSpawnBridge.Update();
+            Assert.That(target.CombatTargetProxy, Is.Not.EqualTo(Entity.Null));
             return target.CombatTargetProxy;
         }
 
@@ -766,6 +836,7 @@ namespace PlayGround.Tests.PlayMode
             private readonly float maxHealth;
             private readonly float currentHealth;
             private readonly float healthRegenPerSecond;
+            private readonly bool despawnOnDeath;
 
             public TestCombatTarget(
                 int targetId,
@@ -776,7 +847,8 @@ namespace PlayGround.Tests.PlayMode
                 float manaRegenPerSecond = 0f,
                 float maxHealth = TestTargetHealth,
                 float healthCurrent = TestTargetHealth,
-                float healthRegenPerSecond = 0f)
+                float healthRegenPerSecond = 0f,
+                bool despawnOnDeath = false)
             {
                 TargetId = targetId;
                 this.position = position;
@@ -787,9 +859,11 @@ namespace PlayGround.Tests.PlayMode
                 this.maxHealth = maxHealth;
                 this.currentHealth = healthCurrent;
                 this.healthRegenPerSecond = healthRegenPerSecond;
+                this.despawnOnDeath = despawnOnDeath;
             }
 
             public int TargetId { get; }
+            public List<string> LifecycleCalls { get; } = new();
             public Entity CombatTargetProxy { get; set; }
             public Vector2 CombatTargetPosition => new(position.x, position.y);
             public float CombatTargetRadius => radius;
@@ -803,6 +877,7 @@ namespace PlayGround.Tests.PlayMode
             public float CombatMaxMana => maxMana;
             public float CombatCurrentMana => currentMana;
             public float CombatManaRegenPerSecond => manaRegenPerSecond;
+            public bool CombatDespawnOnDeath => despawnOnDeath;
             public void SetManaValues(float max, float regenPerSecond)
             {
                 maxMana = max;
@@ -811,6 +886,23 @@ namespace PlayGround.Tests.PlayMode
             public bool IsCombatTargetActive => true;
             public void ReceiveHit(in CombatHitData hit)
             {
+            }
+
+            public void ReceiveCombatTick(
+                in CombatTickResult result,
+                IReadOnlyList<StatusStackSnapshot> stacks)
+            {
+                LifecycleCalls.Add("tick");
+            }
+
+            public void OnCombatSpawned(Entity proxy)
+            {
+                LifecycleCalls.Add("spawn");
+            }
+
+            public void OnCombatDespawned()
+            {
+                LifecycleCalls.Add("despawn");
             }
         }
     }

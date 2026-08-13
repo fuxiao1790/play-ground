@@ -58,11 +58,9 @@ namespace PlayGround.Mob
         private CombatShapeType cachedCombatTargetShapeType;
         private int cachedCombatTargetMask;
         private bool combatTargetShapeCached;
-        private bool hasRegisteredProxy;
-        private bool deleteProxyInLateUpdate;
+        private bool despawnPending;
         private int targetId;
         private bool isAlive = true;
-        private bool softDeathNotified;
         private Resource health;
         private Resource mana;
 
@@ -107,7 +105,9 @@ namespace PlayGround.Mob
         public float CombatCurrentMana => CurrentMana;
         public float CombatManaRegenPerSecond => mana?.RegenPerSecond ?? statSheet.ManaRegenPerSecond;
         public bool IsCombatTargetActive => isActiveAndEnabled && isAlive && CurrentHealth > 0f;
+        public bool CombatDespawnOnDeath => true;
         public bool IsAlive => isAlive;
+        public bool HasPendingSpawnConfirmation { get; private set; }
 
         protected virtual void Awake()
         {
@@ -124,14 +124,14 @@ namespace PlayGround.Mob
         {
             using (UpdateMarker.Auto())
             {
-                SyncResourceAuthoring();
-                MirrorResourcesFromProxy();
-                if (!isAlive)
+                if (despawnPending)
                 {
-                    QueueCombatTargetProxyDelete();
+                    HandleDespawn();
                     return;
                 }
 
+                SyncResourceAuthoring();
+                MirrorResourcesFromProxy();
                 PushCombatTargetProxy();
                 float deltaTime = Time.deltaTime;
                 TickWander(deltaTime);
@@ -144,17 +144,9 @@ namespace PlayGround.Mob
             }
         }
 
-        protected virtual void LateUpdate()
-        {
-            if (deleteProxyInLateUpdate)
-            {
-                DeleteCombatTargetProxy();
-            }
-        }
-
         protected virtual void OnDisable()
         {
-            DeleteCombatTargetProxy();
+            PlayGround.System.Combat.Targets.CombatTargetProxy.Delete(this);
             UnregisterTargets();
         }
 
@@ -208,7 +200,6 @@ namespace PlayGround.Mob
 
             registries.Add(targetRegistry);
             targetRegistry.Register(this);
-            hasRegisteredProxy = true;
             skillDriver?.BindCaster(this);
         }
 
@@ -226,12 +217,9 @@ namespace PlayGround.Mob
         public void InitializeForSpawn()
         {
             isAlive = true;
-            softDeathNotified = false;
-            deleteProxyInLateUpdate = false;
             if (health == null)
             {
                 health = new Resource(statSheet.MaxHealth, statSheet.HealthRegenPerSecond);
-                health.Depleted += HandleHealthDepleted;
             }
             else
             {
@@ -274,6 +262,24 @@ namespace PlayGround.Mob
             PickNewWanderVelocity();
         }
 
+        public void OnCombatSpawned(Entity proxy)
+        {
+            // Scene-placed mobs keep this harmless flag because only SpawnController consumes pooled confirmations.
+            HasPendingSpawnConfirmation = true;
+        }
+
+        public void BeginLife()
+        {
+            HasPendingSpawnConfirmation = false;
+            gameObject.SetActive(true);
+            InitializeForSpawn();
+        }
+
+        public void OnCombatDespawned()
+        {
+            despawnPending = true;
+        }
+
         public void ReceiveHit(in CombatHitData hit)
         {
             if (hit.DirectDamageEnabled)
@@ -314,19 +320,9 @@ namespace PlayGround.Mob
             return true;
         }
 
-        public void SoftDie()
+        private void HandleDespawn()
         {
-            if (softDeathNotified)
-            {
-                return;
-            }
-
-            if (health != null && !health.IsDepleted)
-            {
-                health.MirrorCurrent(0f);
-                return;
-            }
-
+            despawnPending = false;
             isAlive = false;
             body.linearVelocity = Vector2.zero;
             wanderVelocity = Vector2.zero;
@@ -338,15 +334,8 @@ namespace PlayGround.Mob
 
             hurtbox.enabled = false;
             spriteRenderer.enabled = false;
-            QueueCombatTargetProxyDelete();
             UnregisterTargets();
-            softDeathNotified = true;
             SoftDied?.Invoke(this);
-        }
-
-        private void HandleHealthDepleted()
-        {
-            SoftDie();
         }
 
         private void UnregisterTargets()
@@ -393,20 +382,6 @@ namespace PlayGround.Mob
                 health.MirrorCurrent(ecsHealth.Current);
                 mana.MirrorCurrent(ecsMana.Current);
             }
-        }
-
-        private void QueueCombatTargetProxyDelete()
-        {
-            if (hasRegisteredProxy)
-            {
-                deleteProxyInLateUpdate = true;
-            }
-        }
-
-        private void DeleteCombatTargetProxy()
-        {
-            PlayGround.System.Combat.Targets.CombatTargetProxy.Delete(this);
-            deleteProxyInLateUpdate = false;
         }
 
         private void ValidateReferences()

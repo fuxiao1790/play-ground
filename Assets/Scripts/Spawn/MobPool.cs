@@ -26,8 +26,6 @@ namespace PlayGround.Spawn
             Transform mobTransform = mob.transform;
             mobTransform.SetParent(null, true);
             mobTransform.position = position;
-            mob.gameObject.SetActive(true);
-            mob.InitializeForSpawn();
             return mob;
         }
 

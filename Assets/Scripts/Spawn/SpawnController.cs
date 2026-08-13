@@ -20,13 +20,14 @@ namespace PlayGround.Spawn
         [SerializeField] private int randomSeed;
 
         private readonly HashSet<MobRoot> pendingReclaim = new();
+        private readonly List<MobRoot> pendingSpawns = new();
         private MobPool pool;
         private SpawnBehaviourRuntime behaviourRuntime;
         private global::System.Random rng;
 
         public int ActiveCount { get; private set; }
         public int Cap => cap;
-        public bool CanSpawn => isActiveAndEnabled && combatRoot != null && ActiveCount < cap;
+        public bool CanSpawn => isActiveAndEnabled && combatRoot != null && ActiveCount + pendingSpawns.Count < cap;
 
         private void Awake()
         {
@@ -53,6 +54,7 @@ namespace PlayGround.Spawn
                 return;
             }
 
+            ActivateConfirmedSpawns();
             behaviourRuntime.Tick(this, Time.deltaTime);
             ReclaimDead();
         }
@@ -102,7 +104,30 @@ namespace PlayGround.Spawn
             }
 
             WireMob(mob);
-            ActiveCount++;
+            combatRoot.CreateTargetProxy(mob, mob.CombatFaction);
+            pendingSpawns.Add(mob);
+        }
+
+        private void ActivateConfirmedSpawns()
+        {
+            for (int i = pendingSpawns.Count - 1; i >= 0; i--)
+            {
+                MobRoot mob = pendingSpawns[i];
+                if (mob == null)
+                {
+                    pendingSpawns.RemoveAt(i);
+                    continue;
+                }
+
+                if (!mob.HasPendingSpawnConfirmation)
+                {
+                    continue;
+                }
+
+                mob.BeginLife();
+                pendingSpawns.RemoveAt(i);
+                ActiveCount++;
+            }
         }
 
         private void WireMob(MobRoot mob)
