@@ -69,6 +69,9 @@ desktop.ini
 # Visual Studio Code
 .vscode/
 
+# Local AI assistant permissions
+.claude/settings.local.json
+
 # Builds
 *.apk
 *.aab
