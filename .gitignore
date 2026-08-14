@@ -72,6 +72,9 @@ desktop.ini
 # Local AI assistant permissions
 .claude/settings.local.json
 
+# Unity Profiler capture output
+ProfilerCaptures/
+
 # Builds
 *.apk
 *.aab
