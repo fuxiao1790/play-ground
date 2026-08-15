@@ -28,6 +28,7 @@ ExportedObj/
 *.csproj
 *.unityproj
 *.sln
+*.slnx
 *.suo
 *.tmp
 *.user
@@ -44,6 +45,9 @@ ExportedObj/
 *.pidb.meta
 *.pdb.meta
 *.mdb.meta
+
+# Image-editor backup files
+*.png~
 
 # Unity3D generated file on crash reports
 sysinfo.txt
