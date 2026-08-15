@@ -1,0 +1,780 @@
+fileFormatVersion: 2
+guid: 80d60e9d5b06d98418f5f8b45f2fe2c4
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 8557081616139029641
+    second: cold-aoe_0
+  - first:
+      213: 7919521524744331312
+    second: cold-aoe_1
+  - first:
+      213: -5548767081157251531
+    second: cold-aoe_2
+  - first:
+      213: 6083080943370098623
+    second: cold-aoe_3
+  - first:
+      213: -4023567196362772715
+    second: cold-aoe_4
+  - first:
+      213: 1072159039674246348
+    second: cold-aoe_5
+  - first:
+      213: 7210135711347322612
+    second: cold-aoe_6
+  - first:
+      213: 2311857378210408228
+    second: cold-aoe_7
+  - first:
+      213: -6264778314983045048
+    second: cold-aoe_8
+  - first:
+      213: 2149164685822180201
+    second: cold-aoe_9
+  - first:
+      213: -4276008521312932135
+    second: cold-aoe_10
+  - first:
+      213: 4100594022133614770
+    second: cold-aoe_11
+  - first:
+      213: 4299219626862387379
+    second: cold-aoe_12
+  - first:
+      213: -479783929252610189
+    second: cold-aoe_13
+  - first:
+      213: 6462987592303381341
+    second: cold-aoe_14
+  - first:
+      213: -5313543830929067616
+    second: cold-aoe_15
+  - first:
+      213: 517566694641578106
+    second: cold-aoe_16
+  - first:
+      213: -1570865202432534849
+    second: cold-aoe_17
+  - first:
+      213: 3485051866263909776
+    second: cold-aoe_18
+  - first:
+      213: 5938463433143945635
+    second: cold-aoe_19
+  - first:
+      213: -1120844094178037199
+    second: cold-aoe_20
+  - first:
+      213: 697205169547041626
+    second: cold-aoe_21
+  - first:
+      213: 4950051380348479154
+    second: cold-aoe_22
+  - first:
+      213: -8290783681362892251
+    second: cold-aoe_23
+  - first:
+      213: 2558070946947199801
+    second: cold-aoe_24
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: cold-aoe_0
+      rect:
+        serializedVersion: 2
+        x: 404
+        y: 1054
+        width: 48
+        height: 51
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 98c0efb746cd0c670800000000000000
+      internalID: 8557081616139029641
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_1
+      rect:
+        serializedVersion: 2
+        x: 513
+        y: 1070
+        width: 24
+        height: 26
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 03022790edac7ed60800000000000000
+      internalID: 7919521524744331312
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_2
+      rect:
+        serializedVersion: 2
+        x: 586
+        y: 1037
+        width: 82
+        height: 154
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 53ead320db1def2b0800000000000000
+      internalID: -5548767081157251531
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_3
+      rect:
+        serializedVersion: 2
+        x: 718
+        y: 1069
+        width: 24
+        height: 27
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fb7d58173e17b6450800000000000000
+      internalID: 6083080943370098623
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_4
+      rect:
+        serializedVersion: 2
+        x: 805
+        y: 1054
+        width: 50
+        height: 51
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 51fe1e2e3fa6928c0800000000000000
+      internalID: -4023567196362772715
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_5
+      rect:
+        serializedVersion: 2
+        x: 173
+        y: 872
+        width: 35
+        height: 37
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: cc4e18e47f211ee00800000000000000
+      internalID: 1072159039674246348
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_6
+      rect:
+        serializedVersion: 2
+        x: 198
+        y: 206
+        width: 857
+        height: 839
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4fe27318a3c8f0460800000000000000
+      internalID: 7210135711347322612
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_7
+      rect:
+        serializedVersion: 2
+        x: 1046
+        y: 871
+        width: 36
+        height: 38
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 427e897690e551020800000000000000
+      internalID: 2311857378210408228
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_8
+      rect:
+        serializedVersion: 2
+        x: 132
+        y: 765
+        width: 52
+        height: 52
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8488dd290590f09a0800000000000000
+      internalID: -6264778314983045048
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_9
+      rect:
+        serializedVersion: 2
+        x: 1072
+        y: 765
+        width: 51
+        height: 51
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 96bbe3e15ed53dd10800000000000000
+      internalID: 2149164685822180201
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_10
+      rect:
+        serializedVersion: 2
+        x: 151
+        y: 701
+        width: 23
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9de6996b7e098a4c0800000000000000
+      internalID: -4276008521312932135
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_11
+      rect:
+        serializedVersion: 2
+        x: 1082
+        y: 701
+        width: 22
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2b84d59898c38e830800000000000000
+      internalID: 4100594022133614770
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_12
+      rect:
+        serializedVersion: 2
+        x: 40
+        y: 589
+        width: 144
+        height: 77
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3b0258ee875e9ab30800000000000000
+      internalID: 4299219626862387379
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_13
+      rect:
+        serializedVersion: 2
+        x: 1068
+        y: 589
+        width: 146
+        height: 77
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 37ff4ffee077759f0800000000000000
+      internalID: -479783929252610189
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_14
+      rect:
+        serializedVersion: 2
+        x: 152
+        y: 531
+        width: 22
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d5b000b09f421b950800000000000000
+      internalID: 6462987592303381341
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_15
+      rect:
+        serializedVersion: 2
+        x: 1083
+        y: 531
+        width: 21
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0a13103c9008246b0800000000000000
+      internalID: -5313543830929067616
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_16
+      rect:
+        serializedVersion: 2
+        x: 133
+        y: 437
+        width: 50
+        height: 51
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a703fa5aa24ce2700800000000000000
+      internalID: 517566694641578106
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_17
+      rect:
+        serializedVersion: 2
+        x: 1072
+        y: 437
+        width: 51
+        height: 51
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fb69cf2db6a233ae0800000000000000
+      internalID: -1570865202432534849
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_18
+      rect:
+        serializedVersion: 2
+        x: 173
+        y: 350
+        width: 35
+        height: 36
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 095f87035346d5030800000000000000
+      internalID: 3485051866263909776
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_19
+      rect:
+        serializedVersion: 2
+        x: 1046
+        y: 350
+        width: 35
+        height: 36
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3a901347709a96250800000000000000
+      internalID: 5938463433143945635
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_20
+      rect:
+        serializedVersion: 2
+        x: 404
+        y: 147
+        width: 48
+        height: 50
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1327ced1c36f170f0800000000000000
+      internalID: -1120844094178037199
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_21
+      rect:
+        serializedVersion: 2
+        x: 513
+        y: 156
+        width: 24
+        height: 26
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a5bda626868fca900800000000000000
+      internalID: 697205169547041626
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_22
+      rect:
+        serializedVersion: 2
+        x: 586
+        y: 61
+        width: 82
+        height: 160
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2b66a91018d12b440800000000000000
+      internalID: 4950051380348479154
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_23
+      rect:
+        serializedVersion: 2
+        x: 717
+        y: 156
+        width: 25
+        height: 26
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 52a62c21b2831fc80800000000000000
+      internalID: -8290783681362892251
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cold-aoe_24
+      rect:
+        serializedVersion: 2
+        x: 805
+        y: 147
+        width: 49
+        height: 51
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 933f80719f7108320800000000000000
+      internalID: 2558070946947199801
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      cold-aoe_0: 8557081616139029641
+      cold-aoe_1: 7919521524744331312
+      cold-aoe_10: -4276008521312932135
+      cold-aoe_11: 4100594022133614770
+      cold-aoe_12: 4299219626862387379
+      cold-aoe_13: -479783929252610189
+      cold-aoe_14: 6462987592303381341
+      cold-aoe_15: -5313543830929067616
+      cold-aoe_16: 517566694641578106
+      cold-aoe_17: -1570865202432534849
+      cold-aoe_18: 3485051866263909776
+      cold-aoe_19: 5938463433143945635
+      cold-aoe_2: -5548767081157251531
+      cold-aoe_20: -1120844094178037199
+      cold-aoe_21: 697205169547041626
+      cold-aoe_22: 4950051380348479154
+      cold-aoe_23: -8290783681362892251
+      cold-aoe_24: 2558070946947199801
+      cold-aoe_3: 6083080943370098623
+      cold-aoe_4: -4023567196362772715
+      cold-aoe_5: 1072159039674246348
+      cold-aoe_6: 7210135711347322612
+      cold-aoe_7: 2311857378210408228
+      cold-aoe_8: -6264778314983045048
+      cold-aoe_9: 2149164685822180201
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
