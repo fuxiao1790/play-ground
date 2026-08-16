@@ -1,331 +1,442 @@
-# Centralized Sound Event Lane (Skill Cast Sounds First)
+# Skill Cast Sounds Through One Frame-Batched Audio Root
 
 ## Summary
 
-Build one path for sound: producers enqueue a plain `SoundEvent`, one bridge
-drains it once per frame, applies selection policy, and hands survivors to a
-pooled-voice player. Both ECS/Burst code and GameObject code produce into that
-path.
+Producers enqueue a plain `SoundEvent`. One scene root drains the whole frame's
+events in `LateUpdate`, ranks them, and plays the survivors through a pooled
+voice set. Only one producer is wired: skill cast sounds from `SkillDriver`.
 
-Only **one producer is wired by this plan** — skill cast sounds from
-`SkillDriver`. Hit, spawn, and death sounds need no lane change when they land
-later; they enqueue the same struct with a different `SoundCategory`. That is
-the reason for building the lane now instead of calling `AudioManager.PlaySound`
-directly from the cast site.
+The batch drain — not a per-call `PlaySound` — is the point of the design. The
+stated requirement is *prioritize many kinds over many copies*, and that decision
+cannot be made one event at a time; it needs the frame's whole set at once.
+
+### What changed from the previous revision of this plan
+
+The previous revision preserved `AudioManager` (move to Sim, extend, keep its
+API) and built an ECS lane + presentation bridge around it. Both are dropped:
+
+- **`AudioManager` is deleted, not moved.** It has zero callers
+  (`SkillDriver.cs:32` serializes it, `SkillDriver.cs:72` resolves it, nothing
+  calls `PlaySound`). There is no behavior to preserve and no migration to
+  perform, so it is not a constraint on the design — it is a file to delete.
+- **The `NativeQueue` lane, `SoundEventSingleton`, and `SoundEventBridge` are
+  dropped.** They existed to serve Burst producers. There are none, today or in
+  this plan. See Decision 3.
+
+Net effect: six tasks become four, and the runtime gains one type instead of
+four.
 
 ### Why cast sounds are not a low-count category
 
-`MobRoot.cs:505` calls `skillDriver.Tick(true, ...)`, so **mobs cast too**.
-Cast-sound rate is `mobCount × slots / recovery`, not `1 / recovery`, and
-`SkillDriver.Tick` fires *every ready slot every frame* while `fireHeld`
-(`SkillDriver.cs:96-125`) — it is auto-repeat, not one-per-press. Cast sound
-needs real culling and distance culling on day one. A direct `PlaySound` call at
-the spawn site would ship a known-broken budget.
+`MobRoot.cs:505` calls `skillDriver.Tick(true, ...)`, so **mobs cast too**. Cast
+rate is `mobCount × slots / recovery`, not `1 / recovery`, and `SkillDriver.Tick`
+fires *every ready slot every frame* while `fireHeld`
+(`SkillDriver.cs:100-129`) — auto-repeat, not one-per-press. Cast sound needs
+real culling and distance culling on day one; a direct per-call play at the spawn
+site would ship a known-broken budget.
 
 ### Current state
 
-- `AudioManager` (`Assets/Scripts/Audio/AudioManager.cs`) is a working pooled
-  voice player with per-clip cap and same-clip start spacing. **It has zero
-  callers.** `SkillDriver.cs:32` serializes it, `SkillDriver.cs:71` resolves it,
-  nothing ever calls `PlaySound`.
+- `Assets/Scripts/Audio/AudioManager.cs` — pooled voice player with per-clip cap
+  and same-clip spacing. **Zero callers.** Referenced by the
+  `BenchmarkLarge.unity` scene (GUID `944e3f8cd2ab47d3a41aa6f16f7d3a21`) and by
+  `Assets/_Recovery/0.unity`.
 - No `AudioClip` field exists anywhere under `Assets/Scripts/Skills/`. There is
   no authored sound data to play.
-- No audio tests exist.
+- No audio tests exist. `Assets/Tests/` has no reference to audio at all.
 
 ## Rationale
 
-### Decision 1 — `AudioManager` moves into `PlayGround.Sim`
+### Decision 1 — one new type, `AudioRoot`, replacing `AudioManager` outright
 
-Load-bearing and non-obvious. `PlayGround.GameLogic.asmdef` sits at
-`Assets/Scripts/`, so `Assets/Scripts/Audio/AudioManager.cs` is **GameLogic**.
-`PlayGround.Sim.asmdef` (`Assets/Scripts/System/`) references no PlayGround
-assembly at all. Per `Docs/architecture/layer-rules.md` §*Package Boundary* the
-reference direction is `Ui -> GameLogic -> Sim`, one-way.
+`AudioManager` is dead code. Keeping it would mean designing around an API
+(`PlaySound(clip, position, priority, maxSimultaneous)`) that is actively wrong
+for this plan: it is a per-call greedy allocator that returns `false` when the
+pool is full (`AudioManager.cs:154`), so whoever calls earliest wins regardless
+of value. That is precisely the decision the batch drain has to take away from
+it. Preserving it would leave two selection points, one of which must be
+neutered.
 
-The bridge is an ECS presentation system, and layer-rules.md states plainly that
-"the combat bridge and ECS-serving presentation components live in Sim with the
-ECS runtime." **A bridge in Sim therefore cannot call an `AudioManager` in
-GameLogic.**
+So: delete the file, write `AudioRoot` for the shape this plan needs. Its pool,
+per-clip cap, and same-clip spacing logic are worth **re-using as reference
+material** — they are correct — but they are re-derived inside a type whose drain
+is frame-batched rather than grafted onto one whose drain is per-call.
 
-`CombatVfxRoot` already resolved this exact problem the same way: it is a
-`MonoBehaviour` living at `Assets/Scripts/System/Vfx/CombatVfxRoot.cs`, inside
-Sim, precisely so Sim-side dispatch can use it while GameLogic (`SkillDriver`)
-still references it downward. Audio conforms to that precedent.
+Naming follows `CombatVfxRoot`, the sibling this most resembles.
 
-Rejected alternatives:
+### Decision 2 — `AudioRoot` lives in `PlayGround.Sim`
 
-- *Define `ISoundPlayer` in Sim, keep `AudioManager` in GameLogic.* This is
-  adapter code whose only purpose is to avoid moving a file — the exact pattern
-  `plan-changes.md` flags as a structural warning. `ICombatTarget` earns its
-  interface because many unrelated GameLogic types implement it; a single
-  audio player does not.
-- *Put the bridge in GameLogic instead.* It would compile (GameLogic references
-  Unity.Entities) but violates the stated layer rule, and it fails the real test:
-  future ECS producers must stamp sound ids into **Sim-owned components** beside
-  `AoeVfxIds`. A registry stranded in GameLogic cannot serve Sim components.
+`Docs/architecture/layer-rules.md` §*Package Boundary* fixes the reference
+direction as `Ui -> GameLogic -> Sim`, one-way, and `PlayGround.Sim.asmdef` lists
+only Unity packages.
 
-The move is mechanical — `AudioManager` imports only `UnityEngine` and
-`System.Collections.Generic`, with no GameLogic dependency.
+Sim is therefore the **only** location callable from both sides: GameLogic
+(`SkillDriver`) may reference down into Sim, and any future ECS presentation code
+is already in Sim. GameLogic is callable from one side only.
 
-### Decision 2 — the clip registry folds into `AudioManager`, no new root type
+This costs nothing — `AudioRoot` needs only `UnityEngine`,
+`System.Collections.Generic`, and `Unity.Mathematics` — and it is a folder
+choice, not an extra type or an extra data path. `CombatVfxRoot` is the exact
+precedent: a `MonoBehaviour` at `Assets/Scripts/System/Vfx/CombatVfxRoot.cs`,
+inside Sim, referenced downward by `SkillDriver.cs:31`.
 
-Burst cannot hold an `AudioClip` reference (`layer-rules.md` §*Managed And
-Unmanaged Data*: jobs must not read ScriptableObjects or managed objects), so
-events must carry an `int` clip id resolved through a managed table.
+Namespace `PlayGround.System.Combat.Audio`, matching the sibling
+`PlayGround.System.Combat.Vfx`.
 
-That table goes **on `AudioManager`**, not in a new `CombatAudioRoot`.
-`AudioManager` is already the scene-level audio root and already a static
-singleton; adding `Register(AudioClip) -> int` plus an id→clip lookup adds no new
-concept. A separate root would duplicate the singleton and root-component role to
-hold one dictionary — hiding complexity rather than removing it.
+### Decision 3 — no ECS lane, no bridge system, until a Burst producer exists
 
-Id convention mirrors what the codebase already uses in two places: `0` means
-"none", and producers guard with `if (id <= 0) return;` exactly as
-`VfxEmit.cs:15` does and as `RuntimeSkillDefinition.RenderId` documents
-("0 means 'no render'").
+**This is the largest change from the previous revision.**
 
-### Decision 3 — two containers, one event type, merged at one point
+The previous revision built `SoundEventSingleton` (a `NativeQueue<SoundEvent>`
+plus `ProducerHandle`) and a `SoundEventBridge` `SystemBase` in
+`PresentationSystemGroup`, then merged that native path with a managed
+`List<SoundEvent>` at drain. On day one, the native half carries zero events:
+the only producer in this plan is `SkillDriver.Tick`, a main-thread
+`MonoBehaviour` call reached from `PlayerRoot.Update` (`PlayerRoot.cs:234`) and
+`MobRoot.Update` (`MobRoot.cs:505`).
 
-**This is the constraint that shapes the whole design.** The existing
-`.agent/burst-onupdate-work/index.md` §*Why the dual event path stays* records a
-decision that applies directly here:
+That is copying a mechanism's *stage count* rather than its *concepts*. The lane
+shape in `Docs/coding-standards.md` §*System Encapsulation* exists to solve a
+specific pressure — parallel job writes that need an explicit `JobHandle`
+rendezvous before a sink reads. Sound has no such writer, so the lane would be
+pure ceremony: a native container to allocate, dispose on every teardown path,
+complete, drain, and clear, all to move zero elements.
 
-> A raw `NativeQueue.Enqueue` from managed gameplay code has no such protection —
-> every caller would have to complete the lane's `ProducerHandle` by hand at an
-> unpredictable point in the frame.
+Instead: one `List<SoundEvent>` on `AudioRoot`, appended on the main thread,
+drained in `LateUpdate`. Unity runs every `Update` before any `LateUpdate`, so
+the drain sees the complete frame's cast events. `Docs/coding-standards.md`
+§*Update Timing* already assigns exactly this role to `LateUpdate` ("queued
+target proxy deletion on actors ... keeps proxy entities valid through the
+simulation and presentation work that may still reference them in the current
+frame").
 
-So managed producers must **not** write the native queue. Instead:
+**When a Burst producer does land**, the addition is a `NativeQueue<SoundEvent>`
+lane plus a small system that drains it into `AudioRoot.Enqueue` before
+`LateUpdate`. Nothing built here changes: `SoundEvent` is already unmanaged, the
+clip is already an `int` id, and `AudioRoot.Enqueue` is already the single merge
+point. The extension is additive by construction, which is why deferring it costs
+nothing.
 
-- **ECS/Burst producers** → `SoundEventSingleton.Events`, a
-  `NativeQueue<SoundEvent>` written through `.AsParallelWriter()` and chained on
-  `ProducerHandle`. Standard lane shape.
-- **GameObject producers** → `AudioManager.Enqueue(in SoundEvent)`, appending to
-  a plain managed `List<SoundEvent>`. Main-thread only by construction, so no
-  safety contract exists to violate.
-- The bridge **merges both** at drain, exactly as the four spawn expansion
-  systems already merge a scope `DynamicBuffer` with a lane `NativeQueue`.
+Two supporting observations, recorded so this is not reopened as an oversight:
 
-Two containers, but **one event type and one merge point**, which is what
-"centralized" has to mean here. A managed `List` is chosen over a
-`DynamicBuffer` because sound has no entity to own a buffer and no need for ECS
-dependency tracking — the list is written and read on the main thread in the
-same frame.
+- `SoundEvent` stays fully unmanaged (`int` / `float2` / enum) even though
+  nothing needs that yet. Unlike the lane, it is a data-shape choice with zero
+  added code, so it is free insurance rather than speculative machinery.
+- Hit sounds — the most likely next producer — may not need a native lane
+  either. `CombatApplyBridge.cs:83-107` already replays every combat tick result
+  on the main thread during presentation, with `HitCount` and `CritCount` in
+  hand. A hit-sound producer can enqueue from that loop directly.
 
-### Decision 4 — selection policy lives in the bridge, not in `PlaySound`
+### Decision 4 — the clip registry lives on `AudioRoot`
 
-`AudioManager.PlaySound` decides one event at a time, so it is
-first-come-first-served: a mob-cast flood that arrives early wins the pool and a
-later, more valuable sound is refused (`AudioManager.cs:154` returns `null` when
-full). The bridge sees the **whole frame's events at once**, so ranking is a
-sort over a batch rather than a greedy guess.
+Events carry an `int` clip id resolved through a managed table, not an
+`AudioClip` reference.
 
-Split accordingly:
+Justified by today's needs, not by the future Burst constraint: the selection
+pass groups and counts events **per clip**, and an `int` key is what that
+grouping uses. It also matches how skills already carry presentation identity —
+`RuntimeSkillDefinition.RenderId` (`RuntimeSkillDefinition.cs:10`) is an `int`
+resolved once during `CompileAndRegister`, and `CastSoundId` sits in exactly that
+slot beside it.
 
-- **Bridge** — distance cull, dedupe by clip, rank by category budget and by
-  novelty (a clip's first instance outranks its Nth), take the top N.
-- **`AudioManager`** — pooled voice allocation, playback, pruning, counters. Its
-  per-clip cap and spacing become a backstop rather than the primary limiter.
+The table goes on `AudioRoot` — the same place `CombatVfxRoot` keeps `idsByAsset`
+(`CombatVfxRoot.cs:23`), and `Docs/coding-standards.md` §*Root Component Rule*
+puts one coordinating root per concern. A separate registry type would duplicate
+the root role to hold one dictionary.
 
-Priority ordering by *kind over count* is the user's stated requirement: a
-repeated sound thinned is inaudible, a whole sound kind missing is audible.
+Id convention, matching two existing precedents: `0` means "none", and producers
+guard with `if (id <= 0) return;` exactly as `VfxEmit.cs:15` and `VfxEmit.cs:37`
+do.
+
+### Decision 5 — `AudioRoot` owns all processing; there is no policy type
+
+Culling, ranking, jitter, and playback are all `AudioRoot`'s job. No
+`SoundSelection` class, no settings struct, no play-request struct, no cull-count
+struct. Producers hand over an event and stop having opinions.
+
+An earlier revision split the ranking into a pure static class for testability.
+That bought four types to serve one method — decomposition that hides the logic
+rather than removing any — against `Docs/coding-standards.md` §*Root Component
+Rule*, which puts one coordinating root per concern. If profiling later shows the
+drain is hot enough to need a different shape (a job, a burst-compiled sort), that
+is the evidence that would justify splitting it. Absent that evidence, it stays
+one type.
+
+The testability concern is answered without a type: the ranking method takes
+`now`, `listenerPosition`, and `freeVoices` as **parameters** and touches no
+`AudioSource`, `Time`, or `Camera`. Tests call it on a plain `AudioRoot` instance
+and never trigger playback — which also sidesteps EditMode having no audio device
+and no advancing `Time.time`.
+
+Ranking, in order:
+
+1. **Spatial cull** against each event's own `AudibleRadius`, falling back to a
+   serialized default.
+2. **Group by `ClipId`**, assigning a copy index.
+3. **Per-clip frame cap** — drop copies beyond `maxCopiesPerClipPerFrame`
+   **regardless of free voices**. Identical clips started on one frame are
+   sample-aligned and sum coherently (`+6 dB` at two copies), so they read as one
+   loud sound; spare voices do not fix that. Duplicates are capped by kind,
+   scarcity only decides how many kinds survive.
+4. **Rank** by `Priority` descending, then by copy index ascending — a clip's
+   first copy outranks any clip's second copy. This is the rule that implements
+   "kinds over copies".
+5. **Take the top N**, `N = free voice count`.
+6. **Volume falloff on repeats** — a copy plays at
+   `repeatVolumeFalloff^copyIndex`. With the cap at `3` the ladder terminates at
+   `1.0, 0.8, 0.64`, and the headroom freed is what lets other kinds be heard.
+
+`AudioRoot` then adds pitch jitter to every voice and a short random start delay
+to copies after the first. Decorrelating aligned duplicates is response policy,
+so the values are `AudioRoot` configuration and the per-copy choices are locals
+in the drain — none of it reaches a payload.
+
+**The per-category voice floor from the previous revision is cut.** With `Cast`
+as the only producing category it is inert by the previous plan's own admission,
+and an inert mechanism cannot be validated by any test that reflects real
+behavior. `SoundCategory` still rides on the event — one byte, used for counters
+and debug readout — so adding the floor when a second category ships is a change
+to one function, not to the data contract.
+
+### Decision 6 — the payload is sized for localization; the machinery is not
+
+`SoundEvent` carries `Position`, `Velocity`, `AudibleRadius`, and `Category` so a
+later localization pass reads this struct rather than defining its own. The line
+that keeps this forward-sizing from becoming a dumping ground:
+
+> **A field belongs in `SoundEvent` if it describes what happened in the world.
+> It belongs on `AudioRoot` if it describes how audio should respond.**
+
+World facts: what sounded, where, moving how fast, carrying how far, what kind,
+how much it mattered. Every one of those is knowledge only the producer has.
+
+Response policy: pitch jitter, repeat delay, volume falloff, per-clip cap, pool
+size, spacing. Every one of those is the manager's decision, and a producer that
+could set them would be reaching across into playback. They are serialized fields
+on `AudioRoot` and locals in the drain — **no jitter value appears in any payload
+or in any struct crossing between producer and manager.**
+
+`Velocity` is Doppler input nobody reads today; producers write `default`. That
+is acceptable under the rule because it is a world fact that simply has no
+consumer yet — unlike a policy field, it will never need to move.
+
+Also rejected:
+
+- **Per-sound base volume.** A property of the clip, not the occurrence. Belongs
+  in the registry beside the clip, authored once, not copied into every event.
+- **An emitter handle to follow** (`Transform`, `Entity`, emitter id). A sound
+  tracking a moving emitter is not fire-and-forget — the pool must re-position
+  that voice every frame and release it when the emitter dies. That is a lifetime
+  model, not a field. It arrives as a second play mode with its own task, if ever.
+
+The scene's `AudioListener` and the object the cull measures from **must be the
+same object**. Otherwise the game culls sounds it would have panned and pans
+sounds it culled, and it presents as "sounds cut out near the screen edge" with
+nothing visibly wrong in either component. `AudioRoot` serializes the listener as
+a `GameObject`, which makes the check direct —
+`listenerObject.GetComponent<AudioListener>()` — at setup and on every
+`BindListener` (task 002).
 
 ## Constraints & Invariants
 
 - **Assembly reference direction is one-way `Ui -> GameLogic -> Sim`; Sim
   references no PlayGround assembly.** Source:
   `Docs/architecture/layer-rules.md` §*Package Boundary*; verified against
-  `PlayGround.Sim.asmdef`, which lists only Unity packages. → Forces Decision 1.
+  `PlayGround.Sim.asmdef`, which lists only Unity packages. → Forces Decision 2.
   No task may add a PlayGround reference to `PlayGround.Sim.asmdef`.
-- **Jobs and simulation systems must not read GameObjects, ScriptableObjects, or
-  managed values.** Source: `layer-rules.md` §*Managed And Unmanaged Data*. →
-  `SoundEvent` is fully unmanaged; the clip is an `int` id.
-- **Runtime ECS data must be copied from authoring data before simulation.**
-  Source: `layer-rules.md` §*Runtime, Authoring, And Configuration*. → Clip ids
-  resolve once at compile/registration time, never by reading the authoring
-  `Skill` asset at cast time.
-- **Lane singletons own their native containers and expose explicit `JobHandle`
-  fields; producers combine into `ProducerHandle` on the main thread, sinks
-  complete before draining.** Source: `Docs/coding-standards.md` §*System
-  Encapsulation*. → `SoundEventSingleton` follows the canonical shape; the
-  bridge completes before drain, like `CombatApplyBridge.cs:33`.
-- **Systems must not reach into other systems' collections;
-  `GetExistingSystemManaged` + field access is banned.** Same source. → The
-  managed producer path goes through `AudioManager`, a scene root, not through a
-  system field.
-- **`NativeQueue` contents are an unordered set under parallel writes.** Source:
-  `coding-standards.md` §*Why NativeQueue for These Sinks (Not Ordering)*. →
-  The bridge must sort explicitly; nothing may depend on enqueue order.
-- **Any code creating a native handle owns disposal on every teardown path.**
-  Source: `coding-standards.md` §*Native And ECS Handle Ownership*. → The bridge
-  creates `Events` in `OnCreate` and disposes in `OnDestroy`, including the
-  partial-setup path.
+- **Runtime ECS/simulation data must be copied from authoring data before
+  simulation.** Source: `layer-rules.md` §*Runtime, Authoring, And
+  Configuration*. → Clip ids resolve once in `CompileAndRegister`, never by
+  reading the authoring `Skill` asset at cast time.
+- **Do not hide expensive setup inside repeated runtime calls; pool creation
+  happens during setup.** Source: `Docs/coding-standards.md` §*Update Timing*. →
+  Voice pool is prewarmed at setup; `Register` is called from
+  `CompileAndRegister`, not from the cast site.
+- **Cross-MonoBehaviour work belongs in `OnEnable`/`Start`, not `Awake`.**
+  Source: `coding-standards.md` §*Awake vs OnEnable Boundary*. →
+  `SkillDriver.cs:72` currently resolves `AudioManager.Instance` in `Awake`,
+  racing `AudioManager.Awake` (`AudioManager.cs:38`). Pre-existing latent bug;
+  the replacement wiring resolves in `OnEnable` (task 003).
+- **`Update()` for cooldowns and input, `LateUpdate()` for queued drains that
+  must see the finished frame.** Source: `coding-standards.md` §*Update Timing*.
+  → Producers enqueue during `Update`; `AudioRoot` drains in `LateUpdate`. A
+  producer that enqueues from `LateUpdate` has undefined ordering against the
+  drain — recorded as a restriction in the contract doc (task 004).
 - **Combat paths are allocation-light.** Source: `coding-standards.md`
-  §*Allocation Rule* (VFX dispatch is named a hot path). → The bridge reuses
-  scratch containers across frames, as `CombatApplyBridge.cs:20` does with its
-  `static readonly List<StatusStackSnapshot> statusScratch`. No per-event
-  allocation.
+  §*Allocation Rule*. → The pending list, the selection scratch, and the output
+  list are fields reused across frames. No per-event allocation.
 - **Every scalable system needs an obvious budget and fallback; "impact sounds
   can be culled by same-clip and priority rules".** Source: `coding-standards.md`
-  §*Performance Budget Rule*. → The bridge's selection policy is that budget.
-- **`audio requests culled` is a required debug counter.** Source:
-  `Docs/performance.md` §*Required Counters*; §*Audio* names pooled AudioSources,
-  same-clip duplicate culling, and priority/distance culling. → Counters are a
-  deliverable, not optional, and are not a test-only hook under
-  `coding-standards.md` §*Test Hooks*.
+  §*Performance Budget Rule*. → The selection policy is that budget; overflow
+  degrades by dropping redundant copies before novel kinds.
+- **`audio requests culled` is a required debug counter**, and §*Audio* names
+  pooled AudioSources, same-clip duplicate culling, and priority/distance
+  culling. Source: `Docs/performance.md` §*Required Counters*, §*Audio*. →
+  Counters are a deliverable, not a test-only hook under `coding-standards.md`
+  §*Test Hooks*. `AudioRoot` exposes them; `DebugOverlay` owns the label
+  (§*Debug UI Ownership*).
 - **Audio is a scene object.** Source: `performance.md` §*Runtime Strategy*
   ("scene objects for player, mobs, walls, camera, spawners, **audio**, and
-  debug"). → `AudioManager` stays a `MonoBehaviour`; the move changes assembly,
-  not kind.
-- **Cross-MonoBehaviour work belongs in `OnEnable`/`Start`, not `Awake`.**
-  Source: `coding-standards.md` §*Awake vs OnEnable Boundary*. → `SkillDriver.cs:71`
-  currently resolves `AudioManager.Instance` in `Awake`, which races
-  `AudioManager.Awake` (`AudioManager.cs:38`). Pre-existing latent bug; fixed in
-  task 005 rather than carried forward.
-- **Presentation must not mutate simulation state except clearing buffers owned
-  by that phase.** Source: `Docs/layers/presentation-and-feedback.md`
-  §*Forbidden Dependencies*. → The bridge clears only the sound lane.
+  debug"). → `AudioRoot` is a `MonoBehaviour`.
+- **Prefer serialized references over scene scans; fail fast on bad setup.**
+  Source: `coding-standards.md` §*Unity Object Access*, §*Fail Fast Validation*.
+  → `SkillDriver` gets a serialized `AudioRoot`; the
+  `FindAnyObjectByType<AudioManager>()` fallback at `SkillDriver.cs:72` is
+  removed, not carried over.
+- **Presentation must not mutate simulation state.** Source:
+  `Docs/layers/presentation-and-feedback.md` §*Forbidden Dependencies*. → No
+  gameplay decision may read a sound event or the audio counters.
 
 ## Mechanisms Reused vs. Introduced
 
 **Reused:**
 
-- Lane singleton + `ProducerHandle` + drain-and-clear, copied from
-  `CombatApplyResultSingleton` / `CombatApplyBridge`.
-- `PresentationSystemGroup` bridge shape: `CompleteDependency()` →
-  `ProducerHandle.Complete()` → drain → clear (`CombatApplyBridge.cs:23-59`).
-- Managed id registry with dedupe and `0` = none, copied from
-  `CombatVfxRoot.Register` (`CombatVfxRoot.cs:52-110`, `idsByAsset`).
-- The `RenderId`-style "resolve an int id during `CompileAndRegister`" pass in
-  `SkillDriver`, alongside the existing `RegisterProjectileTypes` /
-  `RegisterAoeVfx` calls.
-- Dual managed/native producer path merged at one sink — the shape the spawn
-  expansion systems already use and that `burst-onupdate-work` explicitly
-  ratified.
-- `AudioManager`'s existing pool, per-clip cap, spacing, and counters. No
-  rewrite; it is demoted from decision-maker to voice pool.
+- Scene-root-with-static-`Instance` shape, plus a managed id registry with
+  dedupe and `0` = none — `CombatVfxRoot.cs:13`, `:23`, `:52-110`.
+- `id <= 0` producer guard — `VfxEmit.cs:15`, `VfxEmit.cs:37`.
+- "Resolve an int presentation id during `CompileAndRegister`" — the existing
+  `RenderId` / `TypeId` pass in `SkillDriver` (`SkillDriver.cs:532`, `:1179`).
+- Reused scratch containers across frames — `CombatApplyBridge.cs:20`
+  (`static readonly List<StatusStackSnapshot> statusScratch`).
+- `LateUpdate` as the drain point for work queued during `Update` —
+  `coding-standards.md` §*Update Timing*, as already used for queued proxy
+  deletion.
+- `AudioManager`'s pool / per-clip cap / spacing logic, as **reference material**
+  for the equivalent code inside `AudioRoot`.
 
 **Introduced:**
 
-- `SoundEvent` + `SoundCategory` — one new data contract, the point of the plan.
-- `SoundEventSingleton` — one new lane, conforming exactly to the canonical
-  lane list in `coding-standards.md` §*System Encapsulation*.
-- `SoundEventBridge` — one new presentation system.
+- `AudioRoot` — one `MonoBehaviour`, replacing `AudioManager`.
+- `SoundEvent` + `SoundCategory` — one data contract.
 
-No new root component, no new interface, no adapter.
+Two types total. No lane singleton, no ECS system, no selection class, no
+settings/request/count structs, no interface, no adapter, no second root.
 
 ## Design Validation
 
 | Invariant | Held? |
 |---|---|
-| Sim references no PlayGround assembly | Yes — `AudioManager` moves *into* Sim (task 001); no asmdef reference is added. |
-| Jobs never read managed objects | Yes — `SoundEvent` is `int`/`float2`/enum only; clip resolution happens in the bridge, on the main thread. |
-| Authoring data copied before simulation | Yes — clip id resolved in `CompileAndRegister` (task 005), same pass as `RenderId`. |
-| Lane owns container + explicit handle | Yes — `SoundEventSingleton` mirrors `CombatApplyResultSingleton`. |
-| Managed code never raw-enqueues a native lane | Yes — Decision 3; managed producers use a `List<SoundEvent>` on `AudioManager`. |
-| `NativeQueue` order not relied upon | Yes — bridge sorts before selecting; ordering is never assumed. |
-| Native handle disposal on every path | Task 003 acceptance criterion; disposal in `OnDestroy` including partial create. |
-| Allocation-light | Yes — reused scratch containers, no per-event allocation; task 004 criterion. |
-| Budget + fallback exists | Yes — bridge selection policy is the budget; overflow degrades by dropping redundant copies first. |
-| `audio requests culled` counter exposed | Yes — task 004 splits culls into redundant vs novel and publishes both. |
-| Presentation does not mutate sim state | Yes — bridge clears only its own lane. |
-| Awake/OnEnable boundary | Fixed — task 005 moves `AudioManager` resolution out of `SkillDriver.Awake`. |
+| Sim references no PlayGround assembly | Yes — `AudioRoot` is written *into* Sim (task 001); no asmdef reference is added. |
+| Authoring data copied before simulation | Yes — clip id resolved in `CompileAndRegister` (task 003), same pass as `RenderId`. |
+| No managed object reaches a job | Yes, vacuously — no job touches audio. `SoundEvent` is unmanaged anyway, so the future lane inherits the property. |
+| Setup not hidden in repeated runtime calls | Yes — pool prewarmed at setup; `Register` runs at compile time and dedupes, so recompiles are free. |
+| Awake/OnEnable boundary | Fixed — task 003 resolves the reference in `OnEnable`, not `Awake`. |
+| Drain sees the whole frame | Yes — every producer enqueues from `Update`; Unity completes all `Update` before any `LateUpdate`. |
+| Allocation-light | Yes — three reused list fields, no per-event allocation; task 002 criterion. |
+| Budget + fallback exists | Yes — selection policy is the budget; overflow drops redundant copies before novel kinds. |
+| Priority/distance culling for impact spam (`performance.md` §*Audio*) | Yes — per-event `AudibleRadius` cull plus faction-derived priority, both in task 002. |
+| Same-clip duplicate culling (`performance.md` §*Audio*) | Yes — `maxCopiesPerClipPerFrame` within a frame, `sameSoundStartSpacingSeconds` across frames. |
+| `audio requests culled` counter exposed | Yes — task 002 splits culls into distance / redundant / novel and publishes all three. |
+| Serialized reference, no scene scan | Yes — task 003 removes `FindAnyObjectByType`. |
+| Presentation does not mutate sim state | Yes — nothing reads back from audio. |
+| No native handle to own | Yes, by construction — no native container is created, so §*Native And ECS Handle Ownership* has nothing to bind. |
 
 ## Minimal/Additive vs. Refactor Comparison
 
-**Minimal/additive approach** (rejected): leave `AudioManager` in GameLogic, add
-an `AudioClip` field to `Skill`, call `AudioManager.Instance.PlaySound(...)`
-directly at the cast site in `SkillDriver.Tick`.
+The relevant comparison is no longer "keep `AudioManager` vs. move it" — it is
+**"build the ECS lane now vs. build the managed drain now"**.
 
-- resulting data flow: `SkillDriver` → `PlaySound`, one event at a time, greedy
-  first-come-first-served allocation. ECS has no path to sound at all.
-- new concepts/types introduced: none now — but hit/spawn sounds later cannot
-  reach `AudioManager` from Sim, forcing either an `ISoundPlayer` interface plus
-  a registration shim, or a second sound path built in GameLogic.
-- copies/translations added: none now; later, an adapter layer whose only job is
-  crossing an assembly boundary that Decision 1 removes outright.
-- long-term cost: the greedy allocator is retained as the selection point, so the
-  "many kinds over many copies" requirement can never be implemented properly —
-  it needs whole-frame visibility that a per-call API cannot provide. Two sound
-  paths (managed direct-call, ECS lane) must then be kept in sync.
+**Additive approach** (rejected): keep the previous revision's
+`SoundEventSingleton` + `SoundEventBridge` alongside the managed list.
 
-**Refactor approach** (chosen): move `AudioManager` into Sim, fold the registry
-into it, add the lane and the bridge, wire one producer.
+- resulting data flow: managed producers → `List`; Burst producers → `NativeQueue`
+  → bridge merges both in `PresentationSystemGroup` → `AudioRoot`.
+- new concepts/types introduced: a lane singleton, a `SystemBase`, a
+  `ProducerHandle` rendezvous, a native container lifetime.
+- copies/translations added: one drain-and-merge of a container that carries zero
+  elements until a Burst producer exists.
+- long-term cost: four types must be kept correct — allocation, disposal on every
+  teardown path including partial construction, handle completion, clear-on-early-
+  out — with no test that can exercise the native half, because nothing writes it.
+  Every one of those is a real failure mode (a missed clear replays stale sound;
+  a missed dispose leaks) bought for zero present benefit.
 
-- resulting data flow: managed producers → `AudioManager` managed list; Burst
-  producers → lane `NativeQueue`; **one** bridge merges, ranks, and plays.
-- existing concepts/types changed or removed: `AudioManager` changes assembly and
-  namespace and loses its role as selection authority; `SkillDriver.cs:32/71`
-  wiring is replaced rather than left dead.
-- copies/translations removed or avoided: no interface shim, no second sound
-  path, no per-call world lookup, no adapter between GameLogic and Sim.
-- long-term benefit: adding hit or spawn sounds is a `SoundCategory` value and a
-  producer call — no plumbing. Selection policy has exactly one home.
+**Deferred approach** (chosen): managed list + `LateUpdate` drain only.
 
-**Decision: refactor.** Reason: the additive version's cost is not extra code, it
-is that the one requirement driving this work — prioritize kinds over copies —
-is unimplementable behind a per-call API, and the assembly boundary blocks ECS
-producers entirely. Both are structural, and both are removed by a file move plus
-one lane.
+- resulting data flow: producers → `AudioRoot.Enqueue` → `LateUpdate` drain →
+  cull, rank, play. One path, one merge point, one type doing the work.
+- existing concepts/types changed or removed: `AudioManager` deleted;
+  `SkillDriver.cs:32`/`:72` dead wiring replaced rather than carried forward.
+- copies/translations removed or avoided: no native container, no handle
+  rendezvous, no merge of an empty queue, no ECS system lifetime.
+- long-term benefit: when a Burst producer appears, the lane is added *then*,
+  against a real writer and a test that can observe it. `SoundEvent` is already
+  unmanaged and `Enqueue` is already the merge point, so the addition touches no
+  existing code.
+
+**Decision: defer the lane.** Reason: the lane's stages solve a pressure — parallel
+job writes needing an explicit rendezvous — that this domain does not yet have.
+Copying stage count instead of concepts buys four lifetime obligations and zero
+behavior. The requirement that actually drives this work, *kinds over copies*, is
+served by the batch drain, and the batch drain is independent of where the batch
+came from.
 
 ## Default Decision Rule Applied
 
-One representation pair was examined and **deliberately not collapsed**: the
-managed `List<SoundEvent>` and the native `NativeQueue<SoundEvent>` both describe
-"a pending sound event". They stay separate because they carry different *safety*
-contracts (main-thread managed write vs. parallel-job write) — the same concrete
-reason recorded in `.agent/burst-onupdate-work/index.md` for the spawn buffer/queue
-pair. They share one element type and one merge point, so there is still a single
-source of truth for what a sound event *is*. Recorded so a later reader does not
-reopen it as an oversight.
+No two representations of the same concept survive this plan. The previous
+revision deliberately kept a managed `List<SoundEvent>` and a native
+`NativeQueue<SoundEvent>` as separate carriers of "a pending sound event",
+justified by their different safety contracts. With the native half removed there
+is one carrier, one element type, and one merge point, so the rule is satisfied
+outright rather than by exception.
+
+The exception returns — with the same justification recorded in
+`.agent/burst-onupdate-work/index.md` §*Why the dual event path stays* — if and
+when a Burst producer needs the lane. That is the correct time to accept it.
 
 ## Task List
 
-Sequential — each task depends on the one before it, except 006.
+Sequential — each task depends on the one before it, except 004.
 
 | # | Task | Scope |
 |---|---|---|
-| [001](./001-move-audiomanager-to-sim.md) | Move `AudioManager` GameLogic → Sim | Small, mechanical |
-| [002](./002-audio-clip-registry.md) | Clip id registry on `AudioManager` | Small |
-| [003](./003-sound-event-lane.md) | `SoundEvent`, `SoundCategory`, `SoundEventSingleton` | Small |
-| [004](./004-sound-event-bridge.md) | `SoundEventBridge` + selection policy + counters | **Largest** |
-| [005](./005-skill-cast-producer.md) | Cast clip authoring → id → enqueue | Medium |
-| [006](./006-docs.md) | Contract doc + layer/folder doc updates | Small |
+| [001](./001-audio-root.md) | Delete `AudioManager`; add `AudioRoot` — pool, registry, `SoundEvent` | Medium |
+| [002](./002-drain-and-selection.md) | `AudioRoot` drain: spatial cull, ranking, playback, counters | **Largest** |
+| [003](./003-skill-cast-producer.md) | Cast clip authoring → id → enqueue; `SkillDriver` wiring fix | Medium |
+| [004](./004-docs.md) | Contract doc + layer/folder doc updates | Small |
 
-**Dependency notes.** 001 must land first — everything else assumes Sim. 004 is
-the only task with real design content; 001-003 are plumbing sized to be
-reviewable on their own. 006 may land any time after 004 fixes the shape.
+**Dependency notes.** 002 is the only task with real design content; 001 is the
+vessel it needs. 004 may land any time after 002 fixes the shape.
 
 ## Open Questions
 
-None blocking. Three judgment calls were resolved from code and docs rather than
-escalated:
+None blocking.
 
-- *Managed producers writing the native queue directly?* — No. Resolved from
-  `.agent/burst-onupdate-work/index.md` §*Why the dual event path stays*, which
-  already rejected exactly this for spawn events. Recorded under Decision 3.
-- *New `CombatAudioRoot` type?* — No. Resolved from `coding-standards.md`
-  §*Root Component Rule*: `AudioManager` is already the audio root. Recorded
-  under Decision 2.
-- *Fail loud or drop silently when the lane is unavailable?* — Split, because
-  `coding-standards.md` §*Fail Fast Validation* bans "hiding bad setup with no-op
-  behavior" while a missing sound must never throw mid-combat. Resolution:
-  **wiring** is validated fail-fast at setup (task 005 validates the serialized
-  reference), **individual events** drop into a counter (task 004). The
-  distinction is deliberate and is not the fail-loud-singleton rule that applies
-  to sim-critical combat singletons — audio is not sim-critical.
+- *Where does the listener position come from?* — Resolved. `AudioRoot`
+  serializes a `GameObject listenerObject` and reads its transform. **Nothing is
+  camera-specific**: player, camera, or a dedicated marker are all valid, and
+  `AudioRoot` never inspects which. No `Camera.main` fallback —
+  `coding-standards.md` §*Unity Object Access* prefers serialized references and
+  §*Fail Fast Validation* bans hiding bad setup behind convenience resolution.
+  `BindListener(GameObject)` handles runtime rebinding, following the existing
+  `SkillDriver.BindCombatRoot` / `BindVfxRoot` idiom.
 
-One item is deliberately deferred, not forgotten: **distance culling needs a
-camera-space reference in Sim**. Task 004 implements it against the bridge's own
-serialized/queried view rectangle; if that proves awkward, the fallback is stated
-in the task file rather than here.
+  A radius cull rather than a view rectangle: for a top-down game the two differ
+  only at the corners, and the rectangle costs rotation handling and a per-frame
+  camera-size query for that. Making the listener a plain object rather than a
+  camera is what lets the radius stand on its own — it is a distance from a
+  point, not an approximation of a frustum.
+
+  The camera-vs-player question the previous revision left open is not a design
+  decision at all under this shape; it is a field assignment. The one binding
+  rule is Decision 6's: whatever object you assign must carry the scene's
+  `AudioListener`, validated at setup and on rebind.
+- *Fail loud or drop silently when audio is unavailable?* — Split.
+  **Wiring** is validated fail-fast at setup (task 003 validates the serialized
+  reference). **Individual events** drop into a counter (task 002). A missing
+  sound must never throw mid-combat. This is deliberately *not* the fail-loud
+  singleton rule that governs sim-critical combat singletons — audio is not
+  sim-critical and nothing reads back from it.
+- *Reuse `AudioManager` instead of deleting it?* — No. Zero callers means zero
+  migration cost, and its per-call greedy allocator is the exact decision point
+  this plan moves into the batch drain. Recorded under Decision 1.
 
 ## Testing
 
 Per `Docs/project-overview.md`, agents do not run tests. There is currently **no
-audio test coverage at all** — `Assets/Tests/` contains no reference to
-`AudioManager`, `PlaySound`, or audio. Tasks 002 and 004 add EditMode tests for
-the registry and the selection policy respectively; both are pure functions over
-data and need no scene.
+audio test coverage at all**. Tasks 001 and 002 add EditMode tests for the
+registry and the selection policy; both are pure functions over data and need no
+scene.
 
 After all tasks land:
 
@@ -343,8 +454,15 @@ Report only against the exported XML.
 
 Agents do not edit Unity YAML. These steps are yours:
 
-1. Move the `AudioManager` GameObject's script reference if Unity does not
-   auto-resolve the namespace change (task 001).
-2. Assign a cast `AudioClip` on each `Skill` asset you want audible (task 005).
-3. Place an `AudioManager` in any scene under test — it currently exists only in
-   `Assets/Scenes/BenchmarkLarge.unity`.
+1. **After task 001**, `Assets/Scenes/BenchmarkLarge.unity` will hold a missing
+   script where `AudioManager` was (GUID `944e3f8cd2ab47d3a41aa6f16f7d3a21`).
+   Remove that component and add `AudioRoot` to the same GameObject.
+   `Assets/_Recovery/0.unity` references the same GUID; leave it or clean it up,
+   it is not in the build.
+2. **After task 003**, assign the `AudioRoot` reference on each `SkillDriver`
+   (player and mob prefabs), and assign a cast `AudioClip` on each `Skill` asset
+   you want audible. Skills with no clip stay silent by design.
+3. Assign `listenerObject` on the `AudioRoot` — whichever object carries the
+   scene's `AudioListener`. Leaving it empty is a setup error and the game runs
+   silent by design, so this is not optional.
+4. Place an `AudioRoot` in any scene under test.
