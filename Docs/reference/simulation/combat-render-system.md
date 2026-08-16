@@ -143,7 +143,12 @@ Two different rotations live in two different spaces and must not be confused:
 `CombatAtlasValidator` (Editor assembly) mirrors every constraint above without
 entering play mode. It reads the atlas's packables, resolves them to sprites, and
 reports unpacked/missing pages, multiple pages, Tight mesh types, duplicate sprite
-names, missing packable references, and whole-texture packables.
+names, missing packable references, and whole-texture packables. It also resolves
+every packable sprite through `SpriteAtlas.GetSprite(...)` and checks the returned
+sprite's packed state, vertex count, and page identity using the same values runtime
+registration consumes. V2 packable inputs are edited through `SpriteAtlasAsset` and
+read through `SpriteAtlasExtensions`; editor code does not depend on private serialized
+property paths.
 
 It is surfaced in three places:
 

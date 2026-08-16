@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.U2D;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.U2D;
@@ -47,8 +48,6 @@ namespace PlayGround.Editor.Rendering
                 return issues;
             }
 
-            ValidatePages(atlasPath, issues);
-
             List<UnityEngine.Object> packables = ReadPackables(atlas, atlasPath, issues);
             if (packables == null) return issues;
 
@@ -59,8 +58,17 @@ namespace PlayGround.Editor.Rendering
             }
 
             List<Sprite> sprites = ResolveSprites(packables, issues);
+            if (sprites.Count == 0)
+            {
+                issues.Add(new CombatAtlasIssue(
+                    MessageType.Error,
+                    $"Atlas '{atlas.name}' resolves no sprites from its packables."));
+                return issues;
+            }
+
             ValidateMeshTypes(sprites, issues);
             ValidateUniqueNames(sprites, issues);
+            ValidateRuntimeSprites(atlas, sprites, issues);
             return issues;
         }
 
@@ -141,50 +149,38 @@ namespace PlayGround.Editor.Rendering
                 + "The whole batch sorts as one Renderer against actor sprites and combat VFX."));
         }
 
-        private static void ValidatePages(string atlasPath, List<CombatAtlasIssue> issues)
-        {
-            Texture2D[] pages = AssetDatabase.LoadAllAssetsAtPath(atlasPath).OfType<Texture2D>().ToArray();
-            if (pages.Length == 0)
-            {
-                issues.Add(new CombatAtlasIssue(
-                    MessageType.Error,
-                    "Atlas has no packed page texture. GetSprite(...) hands back unpacked sprites whose UVs still address their "
-                    + "source texture, so a Full Rect single PNG draws the entire bound page on its quad. Repack the atlas."));
-                return;
-            }
-
-            if (pages.Length > 1)
-            {
-                issues.Add(new CombatAtlasIssue(
-                    MessageType.Error,
-                    $"Atlas packed onto {pages.Length} pages. One draw call binds one page - raise Max Texture Size or shrink the packables."));
-            }
-        }
-
-        // Matches the serialization RebuildSkillAtlas writes through: V2 keeps packables on the
-        // SpriteAtlasAsset under m_ImporterData, V1 under m_EditorData.
+        // Use Unity's public packable API. SpriteAtlas V2 does not support reading its importer
+        // inputs through SerializedObject, and its private property layout changes across versions.
         private static List<UnityEngine.Object> ReadPackables(
             SpriteAtlas atlas,
             string atlasPath,
             List<CombatAtlasIssue> issues)
         {
-            SerializedObject serializedAtlas = AtlasSerializedObject(atlas);
-            SerializedProperty packables = serializedAtlas.FindProperty("m_ImporterData.packables")
-                ?? serializedAtlas.FindProperty("m_EditorData.packables");
-
-            if (packables == null || !packables.isArray)
+            UnityEngine.Object[] packables;
+            try
+            {
+                packables = atlas.GetPackables();
+            }
+            catch (Exception exception)
             {
                 issues?.Add(new CombatAtlasIssue(
                     MessageType.Error,
-                    $"Atlas '{atlasPath}' exposes neither m_ImporterData.packables nor m_EditorData.packables; "
-                    + "Unity SpriteAtlas serialization may have changed."));
+                    $"Failed to read packables from atlas '{atlasPath}': {exception.GetType().Name}: {exception.Message}"));
                 return null;
             }
 
-            List<UnityEngine.Object> result = new(packables.arraySize);
-            for (int i = 0; i < packables.arraySize; i++)
+            if (packables == null)
             {
-                UnityEngine.Object packable = packables.GetArrayElementAtIndex(i).objectReferenceValue;
+                issues?.Add(new CombatAtlasIssue(
+                    MessageType.Error,
+                    $"Atlas '{atlasPath}' returned a null packable list."));
+                return null;
+            }
+
+            List<UnityEngine.Object> result = new(packables.Length);
+            for (int i = 0; i < packables.Length; i++)
+            {
+                UnityEngine.Object packable = packables[i];
                 if (packable == null)
                 {
                     issues?.Add(new CombatAtlasIssue(
@@ -197,13 +193,6 @@ namespace PlayGround.Editor.Rendering
             }
 
             return result;
-        }
-
-        private static SerializedObject AtlasSerializedObject(SpriteAtlas atlas)
-        {
-            string atlasPath = AssetDatabase.GetAssetPath(atlas);
-            AssetImporter importer = AssetImporter.GetAtPath(atlasPath);
-            return new SerializedObject(importer != null ? importer : atlas);
         }
 
         private static List<Sprite> ResolveSprites(
@@ -318,6 +307,87 @@ namespace PlayGround.Editor.Rendering
                     MessageType.Error,
                     $"Sprite name '{group.Key}' is used by {group.Count()} atlas entries ({locations}). "
                     + "Register(...) resolves sprites by name, so it cannot tell them apart."));
+            }
+        }
+
+        // Exercise the same SpriteAtlas API and packed Sprite properties that Register(...) uses
+        // at runtime. Importer packables and generated page sub-assets can look valid while this
+        // lookup still returns null, an unpacked Sprite, a Tight mesh, or a different page.
+        private static void ValidateRuntimeSprites(
+            SpriteAtlas atlas,
+            List<Sprite> sprites,
+            List<CombatAtlasIssue> issues)
+        {
+            Texture atlasPage = null;
+
+            foreach (Sprite sourceSprite in sprites.Distinct())
+            {
+                Sprite packedSprite = null;
+                try
+                {
+                    packedSprite = atlas.GetSprite(sourceSprite.name);
+                    if (packedSprite == null)
+                    {
+                        issues.Add(new CombatAtlasIssue(
+                            MessageType.Error,
+                            $"Sprite '{sourceSprite.name}' is listed by atlas '{atlas.name}' but GetSprite returned null. "
+                            + "Repack the atlas before entering play mode."));
+                        continue;
+                    }
+
+                    if (!packedSprite.packed)
+                    {
+                        issues.Add(new CombatAtlasIssue(
+                            MessageType.Error,
+                            $"Sprite '{packedSprite.name}' came back from atlas '{atlas.name}' unpacked; its UVs still address source texture "
+                            + $"'{(packedSprite.texture != null ? packedSprite.texture.name : "<null>")}', so the quad would sample the whole bound atlas page. "
+                            + "Repack the atlas before entering play mode."));
+                        continue;
+                    }
+
+                    Texture packedPage = packedSprite.texture;
+                    if (packedPage == null)
+                    {
+                        issues.Add(new CombatAtlasIssue(
+                            MessageType.Error,
+                            $"Sprite '{packedSprite.name}' came back from atlas '{atlas.name}' packed but has no texture page."));
+                        continue;
+                    }
+
+                    if (atlasPage == null)
+                    {
+                        atlasPage = packedPage;
+                    }
+                    else if (atlasPage != packedPage)
+                    {
+                        issues.Add(new CombatAtlasIssue(
+                            MessageType.Error,
+                            $"Sprite '{packedSprite.name}' packed onto atlas page '{packedPage.name}' but '{atlasPage.name}' is already used; "
+                            + $"atlas '{atlas.name}' spilled onto multiple pages. One draw call binds one page - raise Max Texture Size or shrink the packables."));
+                    }
+
+                    int vertexCount = packedSprite.vertices.Length;
+                    if (vertexCount != 4)
+                    {
+                        issues.Add(new CombatAtlasIssue(
+                            MessageType.Error,
+                            $"Sprite '{packedSprite.name}' has a {vertexCount}-vertex (Tight) packed mesh; "
+                            + "the combat atlas basis needs vertices at the rect corners. Set its texture importer Mesh Type to Full Rect and repack."));
+                    }
+                }
+                catch (Exception exception)
+                {
+                    issues.Add(new CombatAtlasIssue(
+                        MessageType.Error,
+                        $"Runtime atlas lookup for sprite '{sourceSprite.name}' threw {exception.GetType().Name}: {exception.Message}"));
+                }
+                finally
+                {
+                    if (packedSprite != null)
+                    {
+                        UnityEngine.Object.DestroyImmediate(packedSprite);
+                    }
+                }
             }
         }
     }

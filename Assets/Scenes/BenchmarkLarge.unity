@@ -613,6 +613,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1593919881}
     - target: {fileID: 1931760800162926548, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+      propertyPath: bodyCollider
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 1931760800162926548, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       propertyPath: maxAttackCount
       value: 9
       objectReference: {fileID: 0}
@@ -800,7 +804,8 @@ PrefabInstance:
       propertyPath: m_LocalPosition.x
       value: -1
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 5382079239456475212, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
     m_RemovedGameObjects:
     - {fileID: 2956451268465802521, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
     - {fileID: 7214301001001001012, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
@@ -809,6 +814,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 954641363838781461, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1534015924}
+    - targetCorrespondingSourceObject: {fileID: 954641363838781461, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1534015928}
     - targetCorrespondingSourceObject: {fileID: 7214301001001001000, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1933694803}
@@ -1566,6 +1574,43 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a100000000000000000000000000000d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.SkillDriver
+--- !u!70 &1534015928
+CapsuleCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 225537358}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: -0.1, y: 0}
+  m_Size: {x: 1, y: 2}
+  m_Direction: 0
 --- !u!1 &1554334968
 GameObject:
   m_ObjectHideFlags: 0
