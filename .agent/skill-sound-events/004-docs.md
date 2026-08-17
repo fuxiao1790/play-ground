@@ -15,9 +15,14 @@ is the closest sibling. Required sections:
 - **Purpose** — carry sound intent from any producer to one playback point.
 - **Produced By** — GameObject code via `AudioRoot.Enqueue`, during `Update` or
   earlier. Today that is `SkillDriver.Tick` only.
+- **Authored By** — the basic prefab (`BasicAoePrefab`, `LingeringAoePrefab`,
+  `TargetedPrefab`, `BasicAttackPrefab`), beside the VFX slots, travelling the
+  same prefab → definition → compiler → `SkillSoundIds` chain VFX travels. Say
+  plainly that clips do **not** go on the `Skill` ScriptableObject, and note the
+  two asymmetries: `BasicAttackPrefab` has a sound slot but no VFX sibling, and
+  only `spawnSound` exists until the remaining slots get producers.
 - **Consumed By** — `AudioRoot.LateUpdate` only.
-- **Fields / Shape** — `SoundEvent` and `SoundCategory`, the only two types in
-  the contract. State per field whether it is read today or reserved for
+- **Fields / Shape** — `SoundEvent`, `SoundCategory`, and `SkillSoundIds`. State per field whether it is read today or reserved for
   localization, and record the admission rule from [index.md](./index.md)
   Decision 6: *a field belongs in the payload if it describes what happened in
   the world; it belongs on `AudioRoot` if it describes how audio should respond.*
@@ -72,6 +77,12 @@ is the closest sibling. Required sections:
 - Do **not** add anything to §*System Encapsulation*'s canonical combat-lane
   list. Sound has no lane, and listing it there would be the exact mistake this
   plan avoids.
+
+### Update: `Docs/reference/game-logic/skill-system.md`
+
+Wherever the skill authoring chain is described, add the sound slot beside the
+VFX slot. A designer looking for "where do I put the sound" must find the answer
+in the skill docs, not only in the audio contract.
 
 ### Update: `Docs/folder-structure.md`
 

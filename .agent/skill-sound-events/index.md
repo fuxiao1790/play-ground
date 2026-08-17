@@ -127,7 +127,40 @@ Two supporting observations, recorded so this is not reopened as an oversight:
   on the main thread during presentation, with `HitCount` and `CritCount` in
   hand. A hit-sound producer can enqueue from that loop directly.
 
-### Decision 4 — the clip registry lives on `AudioRoot`
+### Decision 4a — sound is authored on the basic prefab, mirroring VFX
+
+Clips live on the prefab beside the `VisualEffectAsset` they accompany, and
+travel the same five-stage path VFX already travels: prefab field → definition
+pass-through → abstract on the definition base → compiler copy → driver resolves
+an int id into an ids struct.
+
+| Stage | VFX | Sound |
+|---|---|---|
+| Prefab holds the asset | `BasicAoePrefab.cs:20` `spawnEffect` | `spawnSound`, `spawnSoundRadius` |
+| Definition passes through | `SkillDefinition.cs:99` | `SpawnSound`, `SpawnSoundRadius` |
+| Compiler copies | `SkillSetCompiler.cs:362` | same site |
+| Driver resolves id | `SkillDriver.cs:1250` → `AoeVfxIds` | `RegisterSounds` → `SkillSoundIds` |
+
+Nothing presentation-shaped lives on the `Skill` ScriptableObject today, so
+putting clips there — as an earlier revision of task 003 did — would have created
+a second authoring home for the same kind of data, and left sound as the only
+presentation asset a designer looks for somewhere other than the prefab.
+
+Two consequences worth stating up front:
+
+- **`BasicAttackPrefab` gets a sound slot with no VFX sibling.** Projectiles
+  author no VFX at all today — there is no `spawnEffect` on that prefab and no
+  `RegisterProjectileVfx`. A projectile skill still has to be audible when cast,
+  so it gets the field regardless. It also lives in `PlayGround.Sim` rather than
+  GameLogic; `AudioClip` is `UnityEngine`, so the field is legal and adds no
+  assembly reference.
+- **Only the `spawnSound` slot is added, not the full Spawn/Hit/Expire/Pulse/
+  Arming set.** A `hitSound` field with no producer is an authored clip that
+  silently never plays — worse in the inspector than an absent field. The chain
+  above is what makes each further slot a one-line change per stage, which is the
+  whole reason for conforming to it.
+
+### Decision 4b — the clip registry lives on `AudioRoot`
 
 Events carry an `int` clip id resolved through a managed table, not an
 `AudioClip` reference.
@@ -136,8 +169,9 @@ Justified by today's needs, not by the future Burst constraint: the selection
 pass groups and counts events **per clip**, and an `int` key is what that
 grouping uses. It also matches how skills already carry presentation identity —
 `RuntimeSkillDefinition.RenderId` (`RuntimeSkillDefinition.cs:10`) is an `int`
-resolved once during `CompileAndRegister`, and `CastSoundId` sits in exactly that
-slot beside it.
+resolved once during `CompileAndRegister`, and `SkillSoundIds` sits in exactly
+that slot beside it — the direct analogue of `AoeVfxIds`
+(`AoeVfxEcsComponents.cs:19-26`).
 
 The table goes on `AudioRoot` — the same place `CombatVfxRoot` keeps `idsByAsset`
 (`CombatVfxRoot.cs:23`), and `Docs/coding-standards.md` §*Root Component Rule*
@@ -296,6 +330,9 @@ a `GameObject`, which makes the check direct —
 - `id <= 0` producer guard — `VfxEmit.cs:15`, `VfxEmit.cs:37`.
 - "Resolve an int presentation id during `CompileAndRegister`" — the existing
   `RenderId` / `TypeId` pass in `SkillDriver` (`SkillDriver.cs:532`, `:1179`).
+- The whole prefab → definition → compiler → ids-struct authoring chain, copied
+  stage for stage from VFX (`BasicAoePrefab.cs:20`, `SkillDefinition.cs:79/99`,
+  `SkillSetCompiler.cs:362`, `SkillDriver.cs:1240-1260`, `AoeVfxIds`).
 - Reused scratch containers across frames — `CombatApplyBridge.cs:20`
   (`static readonly List<StatusStackSnapshot> statusScratch`).
 - `LateUpdate` as the drain point for work queued during `Update` —
@@ -308,8 +345,10 @@ a `GameObject`, which makes the check direct —
 
 - `AudioRoot` — one `MonoBehaviour`, replacing `AudioManager`.
 - `SoundEvent` + `SoundCategory` — one data contract.
+- `SkillSoundIds` — the `AoeVfxIds` analogue; a struct rather than a bare `int`
+  so the remaining authoring slots cost one field each.
 
-Two types total. No lane singleton, no ECS system, no selection class, no
+Three small types. No lane singleton, no ECS system, no selection class, no
 settings/request/count structs, no interface, no adapter, no second root.
 
 ## Design Validation
@@ -464,8 +503,11 @@ Agents do not edit Unity YAML. These steps are yours:
    `Assets/_Recovery/0.unity` references the same GUID; leave it or clean it up,
    it is not in the build.
 2. **After task 003**, assign the `AudioRoot` reference on each `SkillDriver`
-   (player and mob prefabs), and assign a cast `AudioClip` on each `Skill` asset
-   you want audible. Skills with no clip stay silent by design.
+   (player and mob prefabs), and assign `spawnSound` on the **prefab** of each
+   skill you want audible — `BasicAoePrefab`, `LingeringAoePrefab`,
+   `TargetedPrefab`, or `BasicAttackPrefab` — beside the `spawnEffect` slot you
+   already fill in. Not on the `Skill` asset. Set `spawnSoundRadius` only where
+   the default reach is wrong. Prefabs with no clip stay silent by design.
 3. Assign `listenerObject` on the `AudioRoot` — whichever object carries the
    scene's `AudioListener`. Leaving it empty is a setup error and the game runs
    silent by design, so this is not optional.

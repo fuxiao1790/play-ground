@@ -50,7 +50,20 @@ public struct SoundEvent
     public SoundCategory Category;
     public short Priority;        // higher wins; ties broken by novelty in 002
 }
+
+// Mirrors AoeVfxIds (AoeVfxEcsComponents.cs:19-26). One field today; the
+// remaining slots land beside their VFX siblings when their producers do.
+public struct SkillSoundIds
+{
+    public int SpawnId;
+}
 ```
+
+`SkillSoundIds` is a plain struct, not `IComponentData`. `AoeVfxIds` carries that
+interface because ECS AOE entities hold it and Burst emits from it; no ECS code
+touches sound ids yet, so claiming the role now would be the same speculative
+machinery [index.md](./index.md) Decision 3 defers. The upgrade is adding one
+interface when the lane lands.
 
 Keep `SoundEvent` fully unmanaged — no reference field, no `AudioClip`. Nothing
 requires it today; it is a data-shape choice with zero added code that lets a
