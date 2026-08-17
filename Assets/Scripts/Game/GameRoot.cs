@@ -28,7 +28,10 @@ namespace PlayGround.Game
         private void Awake()
         {
             ConfigureFramePacing();
+        }
 
+        private void OnEnable()
+        {
             if (combatRoot == null)
             {
                 combatRoot = FindTaggedComponent<CombatRoot>(GameplayTags.PlayerProjectileRoot);
@@ -55,6 +58,28 @@ namespace PlayGround.Game
                 spawnController = FindAnyObjectByType<SpawnController>();
             }
 
+            if (gameplayCamera == null)
+            {
+                gameplayCamera = FindAnyObjectByType<GameplayCamera>();
+            }
+
+            if (playArea == null)
+            {
+                playArea = FindAnyObjectByType<PlayAreaRoot>();
+            }
+
+            if (gameplayCamera != null && player != null && playArea != null)
+            {
+                gameplayCamera.Configure(player.transform, playArea.Bounds);
+            }
+            else if (gameplayCamera != null && player != null)
+            {
+                gameplayCamera.Configure(player.transform);
+            }
+        }
+
+        private void Start()
+        {
             if (mobs != null)
             {
                 for (int i = 0; i < mobs.Length; i++)
@@ -79,28 +104,6 @@ namespace PlayGround.Game
                 player.Register(combatRoot.TargetRegistry);
             }
 
-            if (gameplayCamera == null)
-            {
-                gameplayCamera = FindAnyObjectByType<GameplayCamera>();
-            }
-
-            if (playArea == null)
-            {
-                playArea = FindAnyObjectByType<PlayAreaRoot>();
-            }
-
-            if (gameplayCamera != null && player != null && playArea != null)
-            {
-                gameplayCamera.Configure(player.transform, playArea.Bounds);
-            }
-            else if (gameplayCamera != null && player != null)
-            {
-                gameplayCamera.Configure(player.transform);
-            }
-        }
-
-        private void Start()
-        {
             if (player != null && combatRoot != null)
             {
                 PlayGround.Skills.SkillDriver driver =

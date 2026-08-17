@@ -53,9 +53,12 @@ dependency is explicitly constructed and owned by the current component. This
 includes registering with roots, subscribing to events, and calling into other
 scene components.
 
-Unity guarantees all `Awake()` calls for scene-loaded objects complete before
-any `OnEnable()` fires, so `OnEnable()` is the safer boundary for touching other
-MonoBehaviours.
+`OnEnable()` may interleave with `Awake()` calls on other objects during scene
+load. Use it only when the dependency's `Awake()` state is not required, such
+as wiring an event to a serialized reference. Unity completes scene-loaded
+`Awake()` and `OnEnable()` callbacks before `Start()`, so use `Start()` when the
+cross-object call requires dependency initialization. Do not depend on relative
+`Awake()` or `OnEnable()` order between different objects.
 
 ## OnDestroy Boundary
 
