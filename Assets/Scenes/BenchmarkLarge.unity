@@ -1907,7 +1907,7 @@ MonoBehaviour:
   repeatStartDelayMaxSeconds: 0.02
   listenerObject: {fileID: 1593919878}
   spatialBlend: 0.5
-  rolloffMode: 1
+  rolloffMode: 0
   minDistance: 10
   maxDistance: 20
 --- !u!4 &1951940091
