@@ -49,6 +49,8 @@ namespace PlayGround.Skills
         public ProjectileTrackingConfig GetTrackingConfig() =>
             new(trackingEnabled, trackingTurnSpeedDegrees,
                 trackingQueryIntervalSeconds, trackingInitialDelaySeconds);
+        public AudioClip SpawnSound => prefab != null ? prefab.SpawnSound : null;
+        public float SpawnSoundRadius => prefab != null ? prefab.SpawnSoundRadius : 0f;
 
         public void OnValidate()
         {
@@ -77,6 +79,8 @@ namespace PlayGround.Skills
         public abstract Collider2D CollisionShape { get; }
         public abstract float VisualRotationDegrees { get; }
         public abstract VisualEffectAsset SpawnEffect { get; }
+        public abstract AudioClip SpawnSound { get; }
+        public abstract float SpawnSoundRadius { get; }
         public abstract VisualEffectAsset HitEffect { get; }
         public abstract VisualEffectAsset ExpireEffect { get; }
         public abstract VisualEffectAsset PulseEffect { get; }
@@ -97,6 +101,8 @@ namespace PlayGround.Skills
         public override Collider2D CollisionShape => prefab != null ? prefab.Hurtbox : null;
         public override float VisualRotationDegrees => prefab != null ? prefab.VisualRotationDegrees : 0f;
         public override VisualEffectAsset SpawnEffect => prefab != null ? prefab.SpawnEffect : null;
+        public override AudioClip SpawnSound => prefab != null ? prefab.SpawnSound : null;
+        public override float SpawnSoundRadius => prefab != null ? prefab.SpawnSoundRadius : 0f;
         public override VisualEffectAsset HitEffect => prefab != null ? prefab.HitEffect : null;
         public override VisualEffectAsset ExpireEffect => prefab != null ? prefab.ExpireEffect : null;
         public override VisualEffectAsset PulseEffect => null;
@@ -121,6 +127,8 @@ namespace PlayGround.Skills
         public override Collider2D CollisionShape => prefab != null ? prefab.Hurtbox : null;
         public override float VisualRotationDegrees => prefab != null ? prefab.VisualRotationDegrees : 0f;
         public override VisualEffectAsset SpawnEffect => prefab != null ? prefab.SpawnEffect : null;
+        public override AudioClip SpawnSound => prefab != null ? prefab.SpawnSound : null;
+        public override float SpawnSoundRadius => prefab != null ? prefab.SpawnSoundRadius : 0f;
         public override VisualEffectAsset HitEffect => prefab != null ? prefab.HitEffect : null;
         public override VisualEffectAsset ExpireEffect => prefab != null ? prefab.ExpireEffect : null;
         public override VisualEffectAsset PulseEffect => prefab != null ? prefab.PulseEffect : null;
@@ -157,6 +165,8 @@ namespace PlayGround.Skills
         [Min(0f)] public float armSeconds;
 
         public TargetedPrefab Prefab => prefab;
+        public AudioClip SpawnSound => prefab != null ? prefab.SpawnSound : null;
+        public float SpawnSoundRadius => prefab != null ? prefab.SpawnSoundRadius : 0f;
 
         public override SkillDefinition DeepCopy() => (TargetedDefinition)MemberwiseClone();
     }

@@ -58,6 +58,7 @@ section that matches the topic you need.
 - [Spawn events and commands](./contracts/spawn-events-and-commands.md)
 - [Target proxy](./contracts/target-proxy.md)
 - [Combat hit and tick results](./contracts/combat-hit-and-tick-results.md)
+- [Sound events](./contracts/sound-events.md)
 - [Collision to combat result](./flows/collision-to-combat-result.md)
 
 ## Process and rules

@@ -316,6 +316,8 @@ namespace PlayGround.Skills
                 var runtime = new RuntimeProjectileDefinition
                 {
                     Prefab = p.prefab,
+                    SpawnSound = p.SpawnSound,
+                    SpawnSoundRadius = p.SpawnSoundRadius,
                     Speed = modifiers.Resolve(SkillStat.ProjectileSpeed, p.speed),
                     Lifetime = modifiers.Resolve(SkillStat.ProjectileLifetime, p.lifetime),
                     Damage = Mathf.Max(0f, modifiers.Resolve(SkillStat.Damage, p.damage)),
@@ -360,6 +362,8 @@ namespace PlayGround.Skills
                     AreaSize = Mathf.Max(0.01f, modifiers.Resolve(SkillStat.AreaSize, a.baseAreaSize)),
                     VisualRotationDegrees = a.VisualRotationDegrees,
                     SpawnEffect = a.SpawnEffect,
+                    SpawnSound = a.SpawnSound,
+                    SpawnSoundRadius = a.SpawnSoundRadius,
                     HitEffect = a.HitEffect,
                     ExpireEffect = a.ExpireEffect,
                     PulseEffect = a.PulseEffect,
@@ -392,6 +396,8 @@ namespace PlayGround.Skills
                 return new RuntimeTargetedDefinition
                 {
                     Prefab = prefab,
+                    SpawnSound = targeted.SpawnSound,
+                    SpawnSoundRadius = targeted.SpawnSoundRadius,
                     EchoCount = Mathf.Max(1, targeted.echoCount),
                     ChainCount = chainCount,
                     ChainDistance = chainDistance,

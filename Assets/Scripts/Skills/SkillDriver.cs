@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using PlayGround.Audio;
 using PlayGround.Common;
 using PlayGround.Common.Stats;
 using PlayGround.Skills.Runtime;
 using PlayGround.System.Combat.Aoes;
 using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Audio;
 using PlayGround.System.Combat.Authoring;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
@@ -29,7 +29,7 @@ namespace PlayGround.Skills
         [SerializeField] private SkillLoadout loadout;
         [SerializeField] private CombatRoot combatRoot;
         [SerializeField] private CombatVfxRoot vfxRoot;
-        [SerializeField] private AudioManager audioManager;
+        [SerializeField] private AudioRoot audioRoot;
         [SerializeField] private UnitStatSheet statSheet;
         [SerializeField] private CombatFaction faction = CombatFaction.Player;
         [SerializeField] private string fallbackCombatRootTag = GameplayTags.PlayerProjectileRoot;
@@ -54,6 +54,7 @@ namespace PlayGround.Skills
         private ICombatTarget casterOwner;
         private int[] firedCastTokens;
         private int nextCastToken;
+        private bool audioRootSetupErrorLogged;
         private List<(IntervalChildKind Kind, Unity.Entities.Hash128 Key)> registeredTemplateKeys = new();
 
         public int SlotCount => activeSlotCount;
@@ -68,8 +69,17 @@ namespace PlayGround.Skills
         {
             if (combatRoot == null)
                 combatRoot = FindRootByTag<CombatRoot>(CombatRootTag);
+        }
 
-            audioManager ??= AudioManager.Instance ?? FindAnyObjectByType<AudioManager>();
+        private void OnEnable()
+        {
+            audioRoot ??= AudioRoot.Instance;
+            if (audioRoot == null && Application.isPlaying && !audioRootSetupErrorLogged)
+            {
+                audioRootSetupErrorLogged = true;
+                Debug.LogError(
+                    $"{nameof(SkillDriver)} on '{name}' is not configured: no {nameof(AudioRoot)} is assigned or active.");
+            }
         }
 
         private void Start()
@@ -121,6 +131,21 @@ namespace PlayGround.Skills
                                 faction,
                                 casterOwner?.CombatTargetProxy ?? Entity.Null,
                                 castToken);
+                            RuntimeSkillDefinition definition = compiledSlots[i];
+                            if (definition.SoundIds.SpawnId > 0 && audioRoot != null)
+                            {
+                                audioRoot.Enqueue(new SoundEvent
+                                {
+                                    ClipId = definition.SoundIds.SpawnId,
+                                    Position = new Unity.Mathematics.float2(
+                                        transform.position.x,
+                                        transform.position.y),
+                                    Velocity = default,
+                                    AudibleRadius = definition.SpawnSoundRadius,
+                                    Category = SoundCategory.Cast,
+                                    Priority = faction == CombatFaction.Player ? (short)1 : (short)0
+                                });
+                            }
                             firedCastTokens[i] = castToken;
                         }
 
@@ -226,8 +251,24 @@ namespace PlayGround.Skills
             RegisterProjectileTypes();
             RegisterAoeTypes();
             RegisterTargetedTypes();
+            RegisterSounds();
             RegisterSpawnTemplates(compiled.Warnings);
             validationWarnings = compiled.Warnings.ToArray();
+        }
+
+        private void RegisterSounds()
+        {
+            if (compiledSlots == null)
+                return;
+
+            for (int i = 0; i < activeSlotCount; i++)
+            {
+                RuntimeSkillDefinition definition = compiledSlots[i];
+                definition.SoundIds = new SkillSoundIds
+                {
+                    SpawnId = audioRoot != null ? audioRoot.Register(definition.SpawnSound) : 0
+                };
+            }
         }
 
         private static SkillSlotState FindPreservedState(

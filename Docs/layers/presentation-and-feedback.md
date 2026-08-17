@@ -4,7 +4,7 @@
 
 Own presentation-time bridge work after simulation data is finalized: managed
 target callback resolution, actor feedback, VFX dispatch, batched sprite
-submission, debug text, and visual budgets.
+submission, audio playback, debug text, and presentation budgets.
 
 ## Owns
 
@@ -13,6 +13,8 @@ submission, debug text, and visual budgets.
 - `ICombatTarget.ReceiveCombatTick` calls from compact combat results.
 - `CombatVfxRoot`, `CombatAoeVfxDispatcher`, VFX Graph buffers, and VFX dispatch
   caps.
+- `AudioRoot`, its clip registry, pending sound batch, pooled voices, listener
+  binding, and audio budget/selection policy.
 - `CombatBatchedRenderSystem` submission through render resources owned by
   combat roots.
 - Actor animation/hurt/death feedback after combat result sync.
@@ -29,6 +31,7 @@ submission, debug text, and visual budgets.
 
 - `CombatTickResult` presentation data.
 - Basic and Timed native VFX request queues on the VFX dispatch singleton.
+- Managed pending sound events enqueued during `Update` or earlier.
 - Prepared render matrices and per-entity render batch ids.
 - Actor target companion references during presentation only.
 
@@ -36,6 +39,7 @@ submission, debug text, and visual budgets.
 
 - Managed target feedback callbacks.
 - VFX Graph events and GPU buffer uploads.
+- Pooled `AudioSource` voice playback.
 - Batched sprite draw submissions.
 - Debug/profiling display values.
 
@@ -43,6 +47,7 @@ submission, debug text, and visual budgets.
 
 - May read [Combat Hit And Tick Results](../contracts/combat-hit-and-tick-results.md).
 - May read [VFX Requests](../contracts/vfx-requests.md).
+- May read [Sound Events](../contracts/sound-events.md).
 - May read [Render Batch Data](../contracts/render-batch-data.md).
 - May resolve managed target companions after simulation finalize.
 
@@ -57,6 +62,7 @@ submission, debug text, and visual budgets.
 ## Main Systems / Modules
 
 - `Assets/Scripts/System/Presentation/CombatApplyBridge.cs`
+- `Assets/Scripts/System/Audio/AudioRoot.cs`
 - `Assets/Scripts/System/Rendering/CombatBatchedRenderSystem.cs`
 - `Assets/Scripts/System/Vfx/CombatAoeVfxDispatchSystem.cs`
 - `Assets/Scripts/System/Vfx/CombatVfxRoot.cs`
@@ -67,6 +73,7 @@ submission, debug text, and visual budgets.
 
 - [Combat Hit And Tick Results](../contracts/combat-hit-and-tick-results.md)
 - [VFX Requests](../contracts/vfx-requests.md)
+- [Sound Events](../contracts/sound-events.md)
 - [Render Batch Data](../contracts/render-batch-data.md)
 - [Target Proxy](../contracts/target-proxy.md)
 

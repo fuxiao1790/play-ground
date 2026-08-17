@@ -43,6 +43,7 @@ Docs/
     spawn-events-and-commands.md
     target-proxy.md
     combat-hit-and-tick-results.md
+    sound-events.md
     skill-runtime-snapshots.md
     vfx-requests.md
     render-batch-data.md
@@ -80,7 +81,9 @@ Docs/
   assembly for skills, actors, spawning, persistence, authoring, stats, and status.
 - `Assets/Scripts/System/PlayGround.Sim.asmdef`: `PlayGround.Sim`; ECS runtime plus
   combat bridge, ECS-serving presentation roots, `System/Authoring/` prefab
-  components, and `System/Shared/` primitives.
+  components, `System/Audio/` sound runtime, and `System/Shared/` primitives.
+- `Assets/Scripts/System/Audio/`: managed sound-event contract, frame-batched
+  audio root, clip registry, selection policy, and pooled voices.
 - `Assets/Scripts/Ui/PlayGround.Ui.asmdef`: `PlayGround.Ui`; HUD and
   skill-loadout UI (organized by component under `Ui/Hud/`).
 - `Assets/Scripts/Debugging/PlayGround.Debugging.asmdef`: exempt Debugging leaf.
@@ -113,6 +116,7 @@ Docs/
 - Target proxy contract: [contracts/target-proxy.md](./contracts/target-proxy.md)
 - Combat result contract:
   [contracts/combat-hit-and-tick-results.md](./contracts/combat-hit-and-tick-results.md)
+- Sound event contract: [contracts/sound-events.md](./contracts/sound-events.md)
 - Skill details:
   [reference/game-logic/skill-system.md](./reference/game-logic/skill-system.md)
 - Skill stat modifiers:
@@ -159,6 +163,14 @@ Docs/
   sprite render components and matrix preparation.
 - `Assets/Scripts/System/Rendering/CombatBatchedRenderSystem.cs`: instanced render
   submission in `PresentationSystemGroup`.
+
+## Current Audio Runtime Map
+
+- `Assets/Scripts/System/Audio/SoundEvent.cs`: unmanaged `SoundEvent`,
+  `SoundCategory`, and `SkillSoundIds` boundary data.
+- `Assets/Scripts/System/Audio/AudioRoot.cs`: managed clip registry, pending
+  frame drain, culling/selection policy, listener binding, pooled voice playback,
+  and diagnostics.
 
 ## Current Projectile Runtime Map
 

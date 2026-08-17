@@ -8,6 +8,8 @@ namespace PlayGround.Skills
     {
         [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField] private VisualEffectAsset spawnEffect;
+        [SerializeField] private AudioClip spawnSound;
+        [SerializeField, Min(0f)] private float spawnSoundRadius;
         [SerializeField] private VfxDataShape spawnEffectShape = VfxDataShape.ImpactCircle;
         [SerializeField] private VisualEffectAsset hitEffect;
         [SerializeField] private VfxDataShape hitEffectShape = VfxDataShape.ImpactCircle;
@@ -29,6 +31,8 @@ namespace PlayGround.Skills
             : Vector2.one;
         public float VisualRotationDegrees => spriteRenderer != null ? spriteRenderer.transform.eulerAngles.z : 0f;
         public VisualEffectAsset SpawnEffect => spawnEffect;
+        public AudioClip SpawnSound => spawnSound;
+        public float SpawnSoundRadius => spawnSoundRadius;
         public VfxDataShape SpawnEffectShape => spawnEffectShape;
         public VisualEffectAsset HitEffect => hitEffect;
         public VfxDataShape HitEffectShape => hitEffectShape;

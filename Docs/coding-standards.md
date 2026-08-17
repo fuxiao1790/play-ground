@@ -204,10 +204,13 @@ Keep these as distinct typed paths:
   `CombatApplyBridge`.
 - `CircularVfxSpawnRequest`, `TimedCircularVfxSpawnRequest`, and `LineSegmentVfxSpawn` carry visual-only requests into
   VFX dispatch.
+- `SoundEvent` carries audio-only world occurrence facts into the frame-batched
+  `AudioRoot` consumer.
 
 Do not widen damage events with spawn-routing fields. Do not widen spawn events
-with target-replay-only data. Do not route internal spawn follow-ups through
-managed target callbacks.
+with target-replay-only data. Keep sound fields out of damage, spawn, and VFX
+payloads. Do not route internal spawn follow-ups through managed target
+callbacks.
 
 ## Shared VFX Area-Size Isolation
 

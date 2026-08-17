@@ -144,7 +144,10 @@ Types: `SkillDriver`, `SkillSlotState`, `SkillSetCompiler`
 - Owns `SkillSlotState` per root slot: tracks cooldown elapsed time, gates input-driven casts
 - On player input: checks slot cooldown; if ready, calls `SkillSpawnTranslator` and resets timer
 - On Layer 1 change: recompiles affected paths, re-registers types, updates slot `recoveryTime`
-- Holds scene-side references to `CombatRoot`, `AudioManager` 鈥?internal wiring only
+- Registers each compiled root's prefab-authored spawn clip with `AudioRoot` and
+  stores the stable id in `SkillSoundIds.SpawnId`.
+- Holds scene-side references to `CombatRoot`, `CombatVfxRoot`, and `AudioRoot`
+  鈥?internal wiring only
 
 `SkillSlotState` per root slot:
 - `elapsedSinceLastFire` 鈥?ticked each frame, reset on successful fire
@@ -252,6 +255,25 @@ Current Skill types and their definition roots:
 | AOE skill | `AoeSkill` | `AoeDefinition` |
 | Lingering AOE skill | `LingeringAoeSkill` | `LingeringAoeDefinition` |
 | Targeted skill | `TargetedSkill` | `TargetedDefinition` |
+
+### Prefab Sound Authoring
+
+Designers assign `spawnSound` and `spawnSoundRadius` on `BasicAttackPrefab`,
+`BasicAoePrefab`, `LingeringAoePrefab`, or `TargetedPrefab`, beside the prefab's
+visual/VFX authoring. Clips do not live on the `Skill` ScriptableObject.
+
+Compilation passes the prefab values through the typed definition and
+`SkillSetCompiler` into `RuntimeSkillDefinition.SpawnSound` and
+`SpawnSoundRadius`. `SkillDriver.CompileAndRegister` registers each root clip
+with `AudioRoot`, stores `SkillSoundIds.SpawnId`, and `SkillDriver.Tick` enqueues
+the cast occurrence. Registration and emission are root-only; triggered child
+definitions do not add another cast sound.
+
+Only the spawn sound slot exists today. `BasicAttackPrefab` has this sound slot
+but no sibling VFX slot. AOE and targeted prefabs have other VFX slots, but do
+not have hit, expire, pulse, or arming sound slots. See
+[Sound Events](../../contracts/sound-events.md) for runtime timing, selection,
+and listener rules.
 
 ### ProjectileDefinition
 
@@ -816,6 +838,7 @@ compileLoadout(SkillLoadout loadout):
         compiledSlots[i] = compile(rootSet, chains, snapshot)
     RegisterProjectileTypes()   // walk compiled trees; call combatRoot.RegisterTemplate per unique prefab
     RegisterAoeTypes()          // walk compiled trees; call combatRoot.RegisterType per unique AoeTypeDefinition
+    RegisterSounds()            // register each root SpawnSound; store SkillSoundIds.SpawnId
     AssignStackingDebuffKeys()  // mint one dedicated key per compiled RuntimeStackingDetonation
     RegisterSpawnTemplates()      // register new content-hash keys, then release prior compile keys
 ```
@@ -834,6 +857,11 @@ After compilation, `SkillDriver` recursively walks all compiled trees:
   `AoeTypeDefinition` and registered with `CombatRoot.RegisterType`; the returned
   `TypeId` is stored. `CombatRoot` deduplicates 鈥?re-registering the same reference
   returns the existing ID.
+
+- Root cast sounds: each compiled root's prefab-authored `SpawnSound` is
+  registered with `AudioRoot`; its stable id is stored in
+  `SkillSoundIds.SpawnId`. This pass is deliberately non-recursive, so triggered
+  children do not become cast-sound producers.
 
 - Stacking detonations: each compiled `RuntimeStackingDetonation`
   receives a dedicated debuff key during the same registration walk if it does

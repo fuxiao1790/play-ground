@@ -16,9 +16,13 @@ namespace PlayGround.System.Combat.Authoring
     {
         [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField] private Collider2D hurtbox;
+        [SerializeField] private AudioClip spawnSound;
+        [SerializeField, Min(0f)] private float spawnSoundRadius;
 
         public Sprite Sprite => spriteRenderer != null ? spriteRenderer.sprite : null;
         public Material Material => spriteRenderer != null ? spriteRenderer.sharedMaterial : null;
+        public AudioClip SpawnSound => spawnSound;
+        public float SpawnSoundRadius => spawnSoundRadius;
         public float VisualScale => spriteRenderer != null
             ? Mathf.Max(Mathf.Abs(spriteRenderer.transform.lossyScale.x), Mathf.Abs(spriteRenderer.transform.lossyScale.y))
             : 1f;
