@@ -438,17 +438,21 @@ audio test coverage at all**. Tasks 001 and 002 add EditMode tests for the
 registry and the selection policy; both are pure functions over data and need no
 scene.
 
-After all tasks land:
+All coverage this plan adds is **EditMode**. No PlayMode test is introduced —
+nothing here needs a running scene, and naming a PlayMode run with nothing behind
+it would just be ceremony.
 
-```
-Unity.exe -runTests -batchmode -projectPath "e:/UnityHub/projects/play-ground" -testPlatform EditMode -testResults "e:/UnityHub/projects/play-ground/TestResults/skill-sound-events-editmode-results.xml"
-```
+Tests to run after all tasks land:
 
-```
-Unity.exe -runTests -batchmode -projectPath "e:/UnityHub/projects/play-ground" -testPlatform PlayMode -testResults "e:/UnityHub/projects/play-ground/TestResults/skill-sound-events-playmode-results.xml"
-```
+| Platform | Test class | Added by |
+|---|---|---|
+| EditMode | `AudioClipRegistryEditModeTests` | [001](./001-audio-root.md) |
+| EditMode | `AudioRootSelectionEditModeTests` | [002](./002-drain-and-selection.md) |
+| EditMode | `SkillCastSoundEditModeTests` | [003](./003-skill-cast-producer.md) |
+| EditMode | `ProjectileContinuousAuthoringEditModeTests` | pre-existing — regression guard for "no audio root is silent, not fatal" |
 
-Report only against the exported XML.
+Export results to `Logs/TestResults-EditMode-SkillSoundEvents.xml` and report only
+against that XML.
 
 ## Editor Work (User)
 

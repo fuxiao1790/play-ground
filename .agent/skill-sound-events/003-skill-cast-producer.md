@@ -154,8 +154,10 @@ drives `driver.Tick(true, ...)` with no audio root present — it must keep
 passing, which is the regression guard for "unresolved root is silent, not
 fatal".
 
-Cast-id resolution is worth a small EditMode test alongside it: compile a loadout
-whose skill has a clip, assert `CastSoundId > 0` and stable across a recompile.
+Add `Assets/Tests/EditMode/SkillCastSoundEditModeTests.cs` for cast-id
+resolution: compile a loadout whose skill has a clip, assert `CastSoundId > 0`
+and that it is stable across a recompile, and that `castSoundRadius` reaches
+`RuntimeSkillDefinition.CastSoundRadius`.
 
 ## Dependencies
 

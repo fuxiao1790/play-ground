@@ -7,9 +7,11 @@ Rules apply to all agents working in this project:
 - Use caveman speech. Follow [.agent/caveman.md](../.agent/caveman.md).
 - Always defer test execution to the user. Agents must not run tests or invoke
   the Unity test runner.
-- Give the user an exact test command to run.
-- Require test results exported as an XML result file. For Unity Test
-  Framework, use `-testResults "<project-path>/TestResults/<task>-results.xml"`.
+- Name the tests to run, not a command. Give the platform (EditMode or
+  PlayMode), the test class, and the specific test methods when only part of a
+  class applies.
+- Require test results exported as an XML result file under `Logs/`, named per
+  [testing.md](./testing.md) §*Result Files*.
 - Review the user-provided XML before reporting test results or claiming tests
   passed. Do not substitute logs, console output, or screenshots.
 

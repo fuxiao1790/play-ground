@@ -80,11 +80,16 @@ PlayMode:
 
 ## Running Tests
 
+Tests are run by the user, never by an agent
+([project-overview.md](./project-overview.md) §*Agent instructions*). An agent
+names the platform and the test classes to run, then reads the exported result
+XML. It does not invoke the runner and does not hand over a command line — the
+commands below are for you.
+
 Use Unity Test Runner in editor for normal local work.
 
 For command line, use Unity in headless batch mode with project path and test
-platform. This should be the default for agent-driven runs so the visible editor
-does not need to be opened or interacted with.
+platform, so the visible editor does not need to be opened or interacted with.
 
 Do not pass `-quit` for `-runTests`. In this Unity/Test Framework version, the
 test runner exits the editor process itself after writing results; adding `-quit`
@@ -101,6 +106,16 @@ PlayMode example:
 ```powershell
 & 'C:\Program Files\Unity\Hub\Editor\6000.4.8f1\Editor\Unity.exe' -automated -runTests -batchmode -nographics -projectPath . -testPlatform PlayMode -testResults Logs\TestResults-PlayMode.xml -logFile Logs\PlayModeTests.log
 ```
+
+### Result Files
+
+Result XML goes under `Logs/`, which is gitignored. Name it
+`TestResults-<platform>.xml`, adding a suffix when separate runs must be kept
+apart — `TestResults-PlayMode-Baseline.xml`,
+`TestResults-PlayMode-Isolated.xml`.
+
+This file is the only evidence an agent may use to report a test outcome. Logs,
+console output, and screenshots do not substitute for it.
 
 For non-test editor automation, such as scene or prefab builders, use headless
 batch mode and include `-quit` because the called editor method owns the work:
