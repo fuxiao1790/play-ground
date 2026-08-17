@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 4817022546720873754}
   - component: {fileID: 9051215296213569053}
-  - component: {fileID: 5382079239456475212}
   - component: {fileID: 1931760800162926548}
   - component: {fileID: 7777777777777777777}
   m_Layer: 8
@@ -65,42 +64,6 @@ Rigidbody2D:
   m_SleepingMode: 1
   m_CollisionDetection: 1
   m_Constraints: 4
---- !u!58 &5382079239456475212
-CircleCollider2D:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 954641363838781461}
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Density: 1
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_ForceSendLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_ForceReceiveLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_ContactCaptureLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_CallbackLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_IsTrigger: 0
-  m_UsedByEffector: 0
-  m_CompositeOperation: 0
-  m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 0}
-  m_Radius: 0.45
 --- !u!114 &1931760800162926548
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -115,13 +78,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Player.PlayerRoot
   inputActions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   body: {fileID: 9051215296213569053}
-  bodyCollider: {fileID: 5382079239456475212}
+  bodyCollider: {fileID: 0}
   hurtbox: {fileID: 0}
   spriteRenderer: {fileID: 3310007684589038134}
   animator: {fileID: 0}
   worldCamera: {fileID: 0}
   statSheet: {fileID: 0}
   facingSet: {fileID: 0}
+  pauseController: {fileID: 0}
   stopThreshold: 0.1
   accelerationMultiplier: 8
   frictionMultiplier: 6
@@ -145,7 +109,7 @@ MonoBehaviour:
   loadout: {fileID: 11400000, guid: a3000000000000000000000000000008, type: 2}
   combatRoot: {fileID: 0}
   vfxRoot: {fileID: 0}
-  audioManager: {fileID: 0}
+  audioRoot: {fileID: 0}
   statSheet: {fileID: 0}
   faction: 1
   fallbackCombatRootTag: PlayerProjectileRoot

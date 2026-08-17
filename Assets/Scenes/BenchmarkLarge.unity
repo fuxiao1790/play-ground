@@ -804,8 +804,7 @@ PrefabInstance:
       propertyPath: m_LocalPosition.x
       value: -1
       objectReference: {fileID: 0}
-    m_RemovedComponents:
-    - {fileID: 5382079239456475212, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
+    m_RemovedComponents: []
     m_RemovedGameObjects:
     - {fileID: 2956451268465802521, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
     - {fileID: 7214301001001001012, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
@@ -1901,7 +1900,7 @@ MonoBehaviour:
   prewarmSources: 8
   sameSoundStartSpacingSeconds: 0.04
   defaultAudibleRadius: 20
-  maxCopiesPerClipPerFrame: 3
+  maxCopiesPerClipPerFrame: 5
   repeatVolumeFalloff: 0.8
   pitchJitterRange: 0.06
   repeatStartDelayMaxSeconds: 0.02
