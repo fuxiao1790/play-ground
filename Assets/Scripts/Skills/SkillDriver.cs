@@ -131,21 +131,6 @@ namespace PlayGround.Skills
                                 faction,
                                 casterOwner?.CombatTargetProxy ?? Entity.Null,
                                 castToken);
-                            RuntimeSkillDefinition definition = compiledSlots[i];
-                            if (definition.SoundIds.SpawnId > 0 && audioRoot != null)
-                            {
-                                audioRoot.Enqueue(new SoundEvent
-                                {
-                                    ClipId = definition.SoundIds.SpawnId,
-                                    Position = new Unity.Mathematics.float2(
-                                        transform.position.x,
-                                        transform.position.y),
-                                    Velocity = default,
-                                    AudibleRadius = definition.SpawnSoundRadius,
-                                    Category = SoundCategory.Cast,
-                                    Priority = faction == CombatFaction.Player ? (short)1 : (short)0
-                                });
-                            }
                             firedCastTokens[i] = castToken;
                         }
 
@@ -262,12 +247,63 @@ namespace PlayGround.Skills
                 return;
 
             for (int i = 0; i < activeSlotCount; i++)
+                RegisterSoundsRecursive(compiledSlots[i], 1);
+        }
+
+        private void RegisterSoundsRecursive(RuntimeSkillDefinition definition, int depth)
+        {
+            if (definition == null || depth > CombatRoot.MaxSpawnChainDepth)
+                return;
+
+            if (definition is RuntimeStackingDetonation stackingDetonation)
             {
-                RuntimeSkillDefinition definition = compiledSlots[i];
-                definition.SoundIds = new SkillSoundIds
-                {
-                    SpawnId = audioRoot != null ? audioRoot.Register(definition.SpawnSound) : 0
-                };
+                RegisterSoundsRecursive(stackingDetonation.Detonation, depth);
+                return;
+            }
+
+            definition.SoundIds = new SkillSoundIds
+            {
+                SpawnId = audioRoot != null ? audioRoot.Register(definition.SpawnSound) : 0
+            };
+
+            if (definition is RuntimeAoeDefinition aoe)
+            {
+                if (combatRoot != null && aoe.TypeId >= 0)
+                    combatRoot.SetAoeSoundIds(aoe.TypeId, aoe.SoundIds, aoe.SpawnSoundRadius);
+
+                RegisterSoundsRecursive(aoe.ChildSpawnSetup?.ChildDefinition, depth + 1);
+                RegisterSoundsRecursive(aoe.AoeIntervalSpawnSetup?.ChildDefinition, depth + 1);
+                RegisterSoundsRecursive(aoe.TargetedIntervalSpawnSetup?.ChildDefinition, depth + 1);
+                RegisterSoundsRecursive(aoe.OnHitAoeSpawnDefinition, depth + 1);
+                RegisterSoundsRecursive(aoe.OnHitTargetedSpawnDefinition, depth + 1);
+                RegisterSoundsRecursive(aoe.OnHitProjectileSpawnDefinition, depth + 1);
+                RegisterSoundsRecursive(aoe.StackingDetonation, depth + 1);
+                return;
+            }
+
+            if (definition is RuntimeTargetedDefinition targeted)
+            {
+                if (combatRoot != null && targeted.TypeId >= 0)
+                    combatRoot.SetTargetedSoundIds(
+                        targeted.TypeId,
+                        targeted.SoundIds,
+                        targeted.SpawnSoundRadius);
+
+                RegisterSoundsRecursive(targeted.OnHitAoeSpawnDefinition, depth + 1);
+                RegisterSoundsRecursive(targeted.OnHitProjectileSpawnDefinition, depth + 1);
+                RegisterSoundsRecursive(targeted.StackingDetonation, depth + 1);
+                return;
+            }
+
+            if (definition is RuntimeProjectileDefinition projectile)
+            {
+                RegisterSoundsRecursive(projectile.ChildSpawnSetup?.ChildDefinition, depth + 1);
+                RegisterSoundsRecursive(projectile.AoeIntervalSpawnSetup?.ChildDefinition, depth + 1);
+                RegisterSoundsRecursive(projectile.TargetedIntervalSpawnSetup?.ChildDefinition, depth + 1);
+                RegisterSoundsRecursive(projectile.ImpactAoeDefinition, depth + 1);
+                RegisterSoundsRecursive(projectile.ImpactProjectileDefinition, depth + 1);
+                RegisterSoundsRecursive(projectile.ImpactTargetedDefinition, depth + 1);
+                RegisterSoundsRecursive(projectile.StackingDetonation, depth + 1);
             }
         }
 
@@ -1369,6 +1405,8 @@ namespace PlayGround.Skills
             return new ProjectileSpawnCommand
             {
                 TypeId = child.TypeId,
+                SoundIds = child.SoundIds,
+                SpawnSoundRadius = child.SpawnSoundRadius,
                 RenderTypeId = child.RenderId,
                 HasTimedSpawner = hasTimedSpawner ? 1 : 0,
                 ContinuousCollision = child.ContinuousCollision ? 1 : 0,
@@ -1442,6 +1480,8 @@ namespace PlayGround.Skills
             {
                 TypeId = child.TypeId,
                 VfxIds = child.VfxIds,
+                SoundIds = child.SoundIds,
+                SpawnSoundRadius = child.SpawnSoundRadius,
                 RenderTypeId = child.RenderId,
                 Lifetime = child.LifetimeSeconds,
                 // Child templates use their own authored arm time; parent arm time is not inherited.
@@ -1493,6 +1533,8 @@ namespace PlayGround.Skills
             return new TargetedSpawnCommand
             {
                 TypeId = child.TypeId,
+                SoundIds = child.SoundIds,
+                SpawnSoundRadius = child.SpawnSoundRadius,
                 RenderTypeId = child.RenderId,
                 EchoCount = Mathf.Max(1, child.EchoCount),
                 // Fail-safe only; the resolve expires the instance the moment its walk ends.

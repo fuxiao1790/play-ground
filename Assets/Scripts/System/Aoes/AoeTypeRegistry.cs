@@ -1,4 +1,5 @@
 using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Audio;
 using PlayGround.System.Combat.Aoes;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
@@ -55,6 +56,14 @@ namespace PlayGround.System.Combat.Aoes
             if (definitionsById.TryGetValue(typeId, out AoeTypeDefinition definition))
             {
                 definition.SetVfxIds(vfxIds);
+            }
+        }
+
+        public void SetSoundIds(int typeId, SkillSoundIds soundIds, float spawnSoundRadius)
+        {
+            if (definitionsById.TryGetValue(typeId, out AoeTypeDefinition definition))
+            {
+                definition.SetSoundIds(soundIds, spawnSoundRadius);
             }
         }
 
@@ -120,6 +129,8 @@ namespace PlayGround.System.Combat.Aoes
         public VisualEffectAsset PulseEffect => pulseEffect;
         public VisualEffectAsset ArmingEffect => armingEffect;
         public AoeVfxIds VfxIds { get; private set; }
+        public SkillSoundIds SoundIds { get; private set; }
+        public float SpawnSoundRadius { get; private set; }
 
         public void Configure(
             GameObject visualPrefab,
@@ -146,6 +157,12 @@ namespace PlayGround.System.Combat.Aoes
         public void SetVfxIds(AoeVfxIds vfxIds)
         {
             VfxIds = vfxIds;
+        }
+
+        public void SetSoundIds(SkillSoundIds soundIds, float spawnSoundRadius)
+        {
+            SoundIds = soundIds;
+            SpawnSoundRadius = Mathf.Max(0f, spawnSoundRadius);
         }
     }
 }

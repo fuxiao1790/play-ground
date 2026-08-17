@@ -1,4 +1,5 @@
 using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Audio;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
@@ -35,6 +36,8 @@ namespace PlayGround.System.Combat.Targeted
         public int TargetedId;
         public int TypeId;
         public int RenderTypeId;
+        public SkillSoundIds SoundIds;
+        public float SpawnSoundRadius;
         public int InstanceIndex;
         // Per-instance stamping frame, mirroring AoeSpawnCommand. Expansion copies these from the
         // event before fanning, and TargetedIdFor reads them back to derive unique per-fork ids.

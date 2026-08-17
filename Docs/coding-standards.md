@@ -276,6 +276,7 @@ For event queues and native containers:
 
 Canonical combat-lane examples:
 - `CombatAoeVfxDispatchSingleton`
+- `SoundEventSingleton`
 - `CombatHitDispatchSingleton`
 - `ProjectileSpawnEventSingleton`
 - `ImpactAoeSpawnEventSingleton`

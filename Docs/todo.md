@@ -20,7 +20,6 @@ enhancements/addition to existing
 - on crit trigger and others.
 
 needed for poc
-- ecs sound
 - damage number vfx graph.
 - more aoe shape kinds
 - better mob ai.

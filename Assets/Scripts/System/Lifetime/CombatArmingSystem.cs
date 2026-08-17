@@ -1,5 +1,6 @@
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Aoes;
+using PlayGround.System.Combat.Audio;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
@@ -30,6 +31,8 @@ namespace PlayGround.System.Combat.Lifetime
             // Read it directly: a missing lane is a broken world and must throw, not be skipped.
             RefRW<CombatAoeVfxDispatchSingleton> vfx =
                 SystemAPI.GetSingletonRW<CombatAoeVfxDispatchSingleton>();
+            RefRW<SoundEventSingleton> sounds =
+                SystemAPI.GetSingletonRW<SoundEventSingleton>();
 
             float deltaTime = SystemAPI.Time.DeltaTime;
 
@@ -44,7 +47,8 @@ namespace PlayGround.System.Combat.Lifetime
             {
                 DeltaTime = deltaTime,
                 CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
-                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter()
+                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter(),
+                SoundsPending = sounds.ValueRO.Events.AsParallelWriter()
             }.ScheduleParallel(projectileHandle);
 
             JobHandle targetedHandle = new TargetedArmingJob
@@ -54,6 +58,8 @@ namespace PlayGround.System.Combat.Lifetime
 
             vfx.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(vfx.ValueRW.ProducerHandle, targetedHandle);
+            sounds.ValueRW.ProducerHandle =
+                JobHandle.CombineDependencies(sounds.ValueRW.ProducerHandle, targetedHandle);
 
             state.Dependency = targetedHandle;
         }
@@ -84,9 +90,11 @@ namespace PlayGround.System.Combat.Lifetime
             public float DeltaTime;
             public NativeQueue<ImpactCircleVfxEvent>.ParallelWriter CircularVfxPending;
             public NativeQueue<LingeringCircleVfxEvent>.ParallelWriter TimedCircularVfxPending;
+            public NativeQueue<SoundEvent>.ParallelWriter SoundsPending;
 
             private void Execute(
                 in AoeVfxIds vfxIds,
+                in AoeIdentityComponent identity,
                 in CombatKinematicsComponent kinematics,
                 in AoeAreaComponent area,
                 in VfxTimingData timing,
@@ -112,6 +120,13 @@ namespace PlayGround.System.Combat.Lifetime
                     timing,
                     CircularVfxPending,
                     TimedCircularVfxPending);
+                SoundEmit.Enqueue(
+                    identity.SoundIds.SpawnId,
+                    kinematics.Position,
+                    identity.SpawnSoundRadius,
+                    SoundCategory.Spawn,
+                    identity.Faction,
+                    SoundsPending);
             }
         }
 

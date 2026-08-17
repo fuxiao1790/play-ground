@@ -629,7 +629,14 @@ namespace PlayGround.System.Combat.Aoes
             };
 
         private static AoeIdentityComponent IdentityFor(in AoeSpawnCommand cmd) =>
-            new() { Faction = cmd.Faction, AoeId = cmd.AoeId, TypeId = cmd.TypeId };
+            new()
+            {
+                Faction = cmd.Faction,
+                AoeId = cmd.AoeId,
+                TypeId = cmd.TypeId,
+                SoundIds = cmd.SoundIds,
+                SpawnSoundRadius = cmd.SpawnSoundRadius
+            };
 
         private static CombatKinematicsComponent KinematicsFor(in AoeSpawnCommand cmd) =>
             new() { Position = cmd.Position, Velocity = default };

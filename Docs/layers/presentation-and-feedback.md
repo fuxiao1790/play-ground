@@ -31,7 +31,7 @@ submission, audio playback, debug text, and presentation budgets.
 
 - `CombatTickResult` presentation data.
 - Basic and Timed native VFX request queues on the VFX dispatch singleton.
-- Managed pending sound events enqueued during `Update` or earlier.
+- Native sound events on `SoundEventSingleton` plus the managed pending batch.
 - Prepared render matrices and per-entity render batch ids.
 - Actor target companion references during presentation only.
 
@@ -63,6 +63,7 @@ submission, audio playback, debug text, and presentation budgets.
 
 - `Assets/Scripts/System/Presentation/CombatApplyBridge.cs`
 - `Assets/Scripts/System/Audio/AudioRoot.cs`
+- `Assets/Scripts/System/Audio/SoundEventDispatchSystem.cs`
 - `Assets/Scripts/System/Rendering/CombatBatchedRenderSystem.cs`
 - `Assets/Scripts/System/Vfx/CombatAoeVfxDispatchSystem.cs`
 - `Assets/Scripts/System/Vfx/CombatVfxRoot.cs`

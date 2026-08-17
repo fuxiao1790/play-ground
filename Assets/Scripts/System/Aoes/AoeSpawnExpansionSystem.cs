@@ -1,4 +1,5 @@
 using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Audio;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Collision.Narrowphase;
 using PlayGround.System.Combat.Core;
@@ -33,7 +34,8 @@ namespace PlayGround.System.Combat.Aoes
             NativeHashMap<Hash128, AoeSpawnCommand> templates,
             NativeList<AoeSpawnCommand> commands,
             NativeQueue<ImpactCircleVfxEvent>.ParallelWriter circularVfxPending,
-            NativeQueue<LingeringCircleVfxEvent>.ParallelWriter timedCircularVfxPending)
+            NativeQueue<LingeringCircleVfxEvent>.ParallelWriter timedCircularVfxPending,
+            NativeQueue<SoundEvent>.ParallelWriter soundsPending)
         {
             if (eventKind != expectedKind
                 || !templates.TryGetValue(templateKey, out AoeSpawnCommand command))
@@ -108,6 +110,17 @@ namespace PlayGround.System.Combat.Aoes
                     timing,
                     circularVfxPending,
                     timedCircularVfxPending);
+
+                if (spawned.ArmSeconds <= 0f)
+                {
+                    SoundEmit.Enqueue(
+                        spawned.SoundIds.SpawnId,
+                        pos,
+                        spawned.SpawnSoundRadius,
+                        SoundCategory.Spawn,
+                        spawned.Faction,
+                        soundsPending);
+                }
             }
         }
 
@@ -301,12 +314,16 @@ namespace PlayGround.System.Combat.Aoes
             // Read it directly: a missing lane is a broken world and must throw, not be skipped.
             RefRW<CombatAoeVfxDispatchSingleton> vfx =
                 SystemAPI.GetSingletonRW<CombatAoeVfxDispatchSingleton>();
+            RefRW<SoundEventSingleton> sounds =
+                SystemAPI.GetSingletonRW<SoundEventSingleton>();
 
             NativeList<AoeSpawnCommand> commands =
                 new(events.Length, Allocator.TempJob);
 
-            JobHandle expansionInput =
-                JobHandle.CombineDependencies(Dependency, vfx.ValueRO.ProducerHandle);
+            JobHandle expansionInput = JobHandle.CombineDependencies(
+                Dependency,
+                vfx.ValueRO.ProducerHandle,
+                sounds.ValueRO.ProducerHandle);
 
             Dependency = new ImpactAoeExpansionJob
             {
@@ -314,10 +331,12 @@ namespace PlayGround.System.Combat.Aoes
                 Templates = templates.Map,
                 Commands = commands,
                 CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
-                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter()
+                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter(),
+                SoundsPending = sounds.ValueRO.Events.AsParallelWriter()
             }.Schedule(expansionInput);
 
             vfx.ValueRW.ProducerHandle = Dependency;
+            sounds.ValueRW.ProducerHandle = Dependency;
 
             Dependency = events.Dispose(Dependency);
             singleton.Commands = commands;
@@ -332,6 +351,7 @@ namespace PlayGround.System.Combat.Aoes
             public NativeList<AoeSpawnCommand> Commands;
             public NativeQueue<ImpactCircleVfxEvent>.ParallelWriter CircularVfxPending;
             public NativeQueue<LingeringCircleVfxEvent>.ParallelWriter TimedCircularVfxPending;
+            public NativeQueue<SoundEvent>.ParallelWriter SoundsPending;
 
             public void Execute()
             {
@@ -352,7 +372,8 @@ namespace PlayGround.System.Combat.Aoes
                         Templates,
                         Commands,
                         CircularVfxPending,
-                        TimedCircularVfxPending);
+                        TimedCircularVfxPending,
+                        SoundsPending);
                 }
             }
         }
@@ -473,12 +494,16 @@ namespace PlayGround.System.Combat.Aoes
             // Read it directly: a missing lane is a broken world and must throw, not be skipped.
             RefRW<CombatAoeVfxDispatchSingleton> vfx =
                 SystemAPI.GetSingletonRW<CombatAoeVfxDispatchSingleton>();
+            RefRW<SoundEventSingleton> sounds =
+                SystemAPI.GetSingletonRW<SoundEventSingleton>();
 
             NativeList<AoeSpawnCommand> commands =
                 new(events.Length, Allocator.TempJob);
 
-            JobHandle expansionInput =
-                JobHandle.CombineDependencies(Dependency, vfx.ValueRO.ProducerHandle);
+            JobHandle expansionInput = JobHandle.CombineDependencies(
+                Dependency,
+                vfx.ValueRO.ProducerHandle,
+                sounds.ValueRO.ProducerHandle);
 
             Dependency = new LingeringAoeExpansionJob
             {
@@ -486,10 +511,12 @@ namespace PlayGround.System.Combat.Aoes
                 Templates = templates.Map,
                 Commands = commands,
                 CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
-                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter()
+                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter(),
+                SoundsPending = sounds.ValueRO.Events.AsParallelWriter()
             }.Schedule(expansionInput);
 
             vfx.ValueRW.ProducerHandle = Dependency;
+            sounds.ValueRW.ProducerHandle = Dependency;
 
             Dependency = events.Dispose(Dependency);
             singleton.Commands = commands;
@@ -504,6 +531,7 @@ namespace PlayGround.System.Combat.Aoes
             public NativeList<AoeSpawnCommand> Commands;
             public NativeQueue<ImpactCircleVfxEvent>.ParallelWriter CircularVfxPending;
             public NativeQueue<LingeringCircleVfxEvent>.ParallelWriter TimedCircularVfxPending;
+            public NativeQueue<SoundEvent>.ParallelWriter SoundsPending;
 
             public void Execute()
             {
@@ -524,7 +552,8 @@ namespace PlayGround.System.Combat.Aoes
                         Templates,
                         Commands,
                         CircularVfxPending,
-                        TimedCircularVfxPending);
+                        TimedCircularVfxPending,
+                        SoundsPending);
                 }
             }
         }

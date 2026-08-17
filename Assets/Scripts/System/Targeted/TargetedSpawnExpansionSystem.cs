@@ -1,4 +1,5 @@
 using PlayGround.System.Combat.Aoes;
+using PlayGround.System.Combat.Audio;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
@@ -26,7 +27,8 @@ namespace PlayGround.System.Combat.Targeted
             NativeHashMap<Hash128, TargetedSpawnCommand> templates,
             NativeList<TargetedSpawnCommand> commands,
             NativeQueue<ImpactCircleVfxEvent>.ParallelWriter circularVfxPending,
-            NativeQueue<LingeringCircleVfxEvent>.ParallelWriter timedCircularVfxPending)
+            NativeQueue<LingeringCircleVfxEvent>.ParallelWriter timedCircularVfxPending,
+            NativeQueue<SoundEvent>.ParallelWriter soundsPending)
         {
             if (eventKind != IntervalChildKind.Targeted
                 || !templates.TryGetValue(templateKey, out TargetedSpawnCommand command))
@@ -63,6 +65,13 @@ namespace PlayGround.System.Combat.Targeted
                     TargetedVfxUtility.TimingFor(spawned),
                     circularVfxPending,
                     timedCircularVfxPending);
+                SoundEmit.Enqueue(
+                    spawned.SoundIds.SpawnId,
+                    spawned.Origin,
+                    spawned.SpawnSoundRadius,
+                    SoundCategory.Spawn,
+                    spawned.Faction,
+                    soundsPending);
             }
         }
 
@@ -223,9 +232,13 @@ namespace PlayGround.System.Combat.Targeted
 
             RefRW<CombatAoeVfxDispatchSingleton> vfx =
                 SystemAPI.GetSingletonRW<CombatAoeVfxDispatchSingleton>();
+            RefRW<SoundEventSingleton> sounds =
+                SystemAPI.GetSingletonRW<SoundEventSingleton>();
             NativeList<TargetedSpawnCommand> commands = new(events.Length, Allocator.TempJob);
-            JobHandle expansionInput =
-                JobHandle.CombineDependencies(Dependency, vfx.ValueRO.ProducerHandle);
+            JobHandle expansionInput = JobHandle.CombineDependencies(
+                Dependency,
+                vfx.ValueRO.ProducerHandle,
+                sounds.ValueRO.ProducerHandle);
 
             Dependency = new TargetedExpansionJob
             {
@@ -233,9 +246,11 @@ namespace PlayGround.System.Combat.Targeted
                 Templates = templates.Map,
                 Commands = commands,
                 CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
-                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter()
+                TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter(),
+                SoundsPending = sounds.ValueRO.Events.AsParallelWriter()
             }.Schedule(expansionInput);
             vfx.ValueRW.ProducerHandle = Dependency;
+            sounds.ValueRW.ProducerHandle = Dependency;
 
             Dependency = events.Dispose(Dependency);
             lane.Commands = commands;
@@ -250,6 +265,7 @@ namespace PlayGround.System.Combat.Targeted
             public NativeList<TargetedSpawnCommand> Commands;
             public NativeQueue<ImpactCircleVfxEvent>.ParallelWriter CircularVfxPending;
             public NativeQueue<LingeringCircleVfxEvent>.ParallelWriter TimedCircularVfxPending;
+            public NativeQueue<SoundEvent>.ParallelWriter SoundsPending;
 
             public void Execute()
             {
@@ -269,7 +285,8 @@ namespace PlayGround.System.Combat.Targeted
                         Templates,
                         Commands,
                         CircularVfxPending,
-                        TimedCircularVfxPending);
+                        TimedCircularVfxPending,
+                        SoundsPending);
                 }
             }
         }

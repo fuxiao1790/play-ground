@@ -1,4 +1,5 @@
 using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Audio;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
@@ -160,13 +161,21 @@ namespace PlayGround.System.Combat.Projectiles
             NativeList<ProjectileSpawnCommand> continuousCommands =
                 new(events.Length, Allocator.TempJob);
 
+            RefRW<SoundEventSingleton> sounds =
+                SystemAPI.GetSingletonRW<SoundEventSingleton>();
+            JobHandle expansionInput =
+                JobHandle.CombineDependencies(Dependency, sounds.ValueRO.ProducerHandle);
+
             Dependency = new ProjectileExpansionJob
             {
                 Events = events,
                 Templates = templates.Map,
                 DiscreteCommands = discreteCommands,
-                ContinuousCommands = continuousCommands
-            }.Schedule(Dependency);
+                ContinuousCommands = continuousCommands,
+                SoundsPending = sounds.ValueRO.Events.AsParallelWriter()
+            }.Schedule(expansionInput);
+
+            sounds.ValueRW.ProducerHandle = Dependency;
 
             Dependency = events.Dispose(Dependency);
             singleton.DiscreteCommands = discreteCommands;
@@ -181,6 +190,7 @@ namespace PlayGround.System.Combat.Projectiles
             [ReadOnly] public NativeHashMap<Hash128, ProjectileSpawnCommand> Templates;
             public NativeList<ProjectileSpawnCommand> DiscreteCommands;
             public NativeList<ProjectileSpawnCommand> ContinuousCommands;
+            public NativeQueue<SoundEvent>.ParallelWriter SoundsPending;
 
             public void Execute()
             {
@@ -299,6 +309,14 @@ namespace PlayGround.System.Combat.Projectiles
                 {
                     DiscreteCommands.Add(command);
                 }
+
+                SoundEmit.Enqueue(
+                    command.SoundIds.SpawnId,
+                    command.Position,
+                    command.SpawnSoundRadius,
+                    SoundCategory.Spawn,
+                    command.Faction,
+                    SoundsPending);
             }
 
             private static float SpreadAngle(float spread, int i, int count) =>

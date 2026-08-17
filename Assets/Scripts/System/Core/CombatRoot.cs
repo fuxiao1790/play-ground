@@ -1,6 +1,7 @@
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Authoring;
 using PlayGround.System.Combat.Aoes;
+using PlayGround.System.Combat.Audio;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
@@ -723,6 +724,8 @@ namespace PlayGround.System.Combat.Core
                 AoeId = aoeId,
                 TypeId = request.TypeId,
                 VfxIds = VfxIdsFor(request.TypeId),
+                SoundIds = SoundIdsFor(request.TypeId),
+                SpawnSoundRadius = SpawnSoundRadiusFor(request.TypeId),
                 RenderTypeId = renderId,
                 Lifetime = request.LifetimeSeconds,
                 ArmSeconds = 0f,
@@ -799,6 +802,20 @@ namespace PlayGround.System.Combat.Core
             return typeRegistry.TryGetDefinition(typeId, out AoeTypeDefinition definition)
                 ? definition.VfxIds
                 : default;
+        }
+
+        private SkillSoundIds SoundIdsFor(int typeId)
+        {
+            return typeRegistry.TryGetDefinition(typeId, out AoeTypeDefinition definition)
+                ? definition.SoundIds
+                : default;
+        }
+
+        private float SpawnSoundRadiusFor(int typeId)
+        {
+            return typeRegistry.TryGetDefinition(typeId, out AoeTypeDefinition definition)
+                ? definition.SpawnSoundRadius
+                : 0f;
         }
 
         private static ProjectileSpawnCommand SpawnTemplateFor(in ProjectileSpawnCommand command)
@@ -904,9 +921,19 @@ namespace PlayGround.System.Combat.Core
             typeRegistry.SetVfxIds(aoeTypeId, vfxIds);
         }
 
+        public void SetAoeSoundIds(int aoeTypeId, SkillSoundIds soundIds, float spawnSoundRadius)
+        {
+            typeRegistry.SetSoundIds(aoeTypeId, soundIds, spawnSoundRadius);
+        }
+
         public void SetTargetedVfxIds(int targetedTypeId, TargetedVfxIds vfxIds)
         {
             targetedTypeRegistry.SetVfxIds(targetedTypeId, vfxIds);
+        }
+
+        public void SetTargetedSoundIds(int targetedTypeId, SkillSoundIds soundIds, float spawnSoundRadius)
+        {
+            targetedTypeRegistry.SetSoundIds(targetedTypeId, soundIds, spawnSoundRadius);
         }
 
         private void BuildProjectileRenderResources()

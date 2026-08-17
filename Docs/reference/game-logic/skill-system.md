@@ -144,8 +144,8 @@ Types: `SkillDriver`, `SkillSlotState`, `SkillSetCompiler`
 - Owns `SkillSlotState` per root slot: tracks cooldown elapsed time, gates input-driven casts
 - On player input: checks slot cooldown; if ready, calls `SkillSpawnTranslator` and resets timer
 - On Layer 1 change: recompiles affected paths, re-registers types, updates slot `recoveryTime`
-- Registers each compiled root's prefab-authored spawn clip with `AudioRoot` and
-  stores the stable id in `SkillSoundIds.SpawnId`.
+- Recursively registers each compiled definition's prefab-authored spawn clip
+  with `AudioRoot` and stores the stable id in `SkillSoundIds.SpawnId`.
 - Holds scene-side references to `CombatRoot`, `CombatVfxRoot`, and `AudioRoot`
   鈥?internal wiring only
 
@@ -264,10 +264,10 @@ visual/VFX authoring. Clips do not live on the `Skill` ScriptableObject.
 
 Compilation passes the prefab values through the typed definition and
 `SkillSetCompiler` into `RuntimeSkillDefinition.SpawnSound` and
-`SpawnSoundRadius`. `SkillDriver.CompileAndRegister` registers each root clip
-with `AudioRoot`, stores `SkillSoundIds.SpawnId`, and `SkillDriver.Tick` enqueues
-the cast occurrence. Registration and emission are root-only; triggered child
-definitions do not add another cast sound.
+`SpawnSoundRadius`. `SkillDriver.CompileAndRegister` recursively registers clips
+with `AudioRoot` and stores `SkillSoundIds.SpawnId` on each definition. Spawn
+templates carry the id and radius into ECS; expansion emits one occurrence for
+every materialized root or nested spawn.
 
 Only the spawn sound slot exists today. `BasicAttackPrefab` has this sound slot
 but no sibling VFX slot. AOE and targeted prefabs have other VFX slots, but do
@@ -858,10 +858,10 @@ After compilation, `SkillDriver` recursively walks all compiled trees:
   `TypeId` is stored. `CombatRoot` deduplicates 鈥?re-registering the same reference
   returns the existing ID.
 
-- Root cast sounds: each compiled root's prefab-authored `SpawnSound` is
-  registered with `AudioRoot`; its stable id is stored in
-  `SkillSoundIds.SpawnId`. This pass is deliberately non-recursive, so triggered
-  children do not become cast-sound producers.
+- Spawn sounds: every compiled definition's prefab-authored `SpawnSound` is
+  registered recursively with `AudioRoot`; its stable id is stored in
+  `SkillSoundIds.SpawnId` and copied into its spawn template. Root casts,
+  interval children, on-hit spawns, and stacking detonations emit at expansion.
 
 - Stacking detonations: each compiled `RuntimeStackingDetonation`
   receives a dedicated debuff key during the same registration walk if it does

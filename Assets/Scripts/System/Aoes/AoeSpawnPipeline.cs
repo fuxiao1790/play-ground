@@ -1,4 +1,5 @@
 using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Audio;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
@@ -60,6 +61,8 @@ namespace PlayGround.System.Combat.Aoes
         public int AoeId;
         public int TypeId;
         public AoeVfxIds VfxIds;
+        public SkillSoundIds SoundIds;
+        public float SpawnSoundRadius;
         // Render identity, allocated from the unified render-resource id space (decoupled
         // from the behavior TypeId). Drives the CombatRenderKindId / registry lookup.
         public int RenderTypeId;

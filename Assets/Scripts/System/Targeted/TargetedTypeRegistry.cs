@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using PlayGround.System.Combat.Audio;
 using UnityEngine;
 using UnityEngine.VFX;
 
@@ -38,6 +39,14 @@ namespace PlayGround.System.Combat.Targeted
             if (definitionsById.TryGetValue(typeId, out TargetedTypeDefinition definition))
             {
                 definition.SetVfxIds(vfxIds);
+            }
+        }
+
+        public void SetSoundIds(int typeId, SkillSoundIds soundIds, float spawnSoundRadius)
+        {
+            if (definitionsById.TryGetValue(typeId, out TargetedTypeDefinition definition))
+            {
+                definition.SetSoundIds(soundIds, spawnSoundRadius);
             }
         }
 
@@ -109,6 +118,8 @@ namespace PlayGround.System.Combat.Targeted
         public float EffectSize => effectSize;
         public float LinkWidth => linkWidth;
         public TargetedVfxIds VfxIds { get; private set; }
+        public SkillSoundIds SoundIds { get; private set; }
+        public float SpawnSoundRadius { get; private set; }
 
         public void Configure(
             GameObject visualPrefab,
@@ -137,6 +148,12 @@ namespace PlayGround.System.Combat.Targeted
         public void SetVfxIds(TargetedVfxIds vfxIds)
         {
             VfxIds = vfxIds;
+        }
+
+        public void SetSoundIds(SkillSoundIds soundIds, float spawnSoundRadius)
+        {
+            SoundIds = soundIds;
+            SpawnSoundRadius = Mathf.Max(0f, spawnSoundRadius);
         }
     }
 }

@@ -82,8 +82,9 @@ Docs/
 - `Assets/Scripts/System/PlayGround.Sim.asmdef`: `PlayGround.Sim`; ECS runtime plus
   combat bridge, ECS-serving presentation roots, `System/Authoring/` prefab
   components, `System/Audio/` sound runtime, and `System/Shared/` primitives.
-- `Assets/Scripts/System/Audio/`: managed sound-event contract, frame-batched
-  audio root, clip registry, selection policy, and pooled voices.
+- `Assets/Scripts/System/Audio/`: unmanaged ECS sound lane and dispatcher plus
+  the managed frame-batched audio root, clip registry, selection policy, and
+  pooled voices.
 - `Assets/Scripts/Ui/PlayGround.Ui.asmdef`: `PlayGround.Ui`; HUD and
   skill-loadout UI (organized by component under `Ui/Hud/`).
 - `Assets/Scripts/Debugging/PlayGround.Debugging.asmdef`: exempt Debugging leaf.
@@ -168,6 +169,11 @@ Docs/
 
 - `Assets/Scripts/System/Audio/SoundEvent.cs`: unmanaged `SoundEvent`,
   `SoundCategory`, and `SkillSoundIds` boundary data.
+- `Assets/Scripts/System/Audio/SoundEventLane.cs`: persistent native sound queue
+  and producer dependency handle.
+- `Assets/Scripts/System/Audio/SoundEmit.cs`: Burst-safe spawn occurrence writer.
+- `Assets/Scripts/System/Audio/SoundEventDispatchSystem.cs`: presentation-time
+  native-to-managed transport into `AudioRoot.Enqueue`.
 - `Assets/Scripts/System/Audio/AudioRoot.cs`: managed clip registry, pending
   frame drain, culling/selection policy, listener binding, pooled voice playback,
   and diagnostics.

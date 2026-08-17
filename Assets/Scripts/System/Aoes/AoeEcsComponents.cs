@@ -1,4 +1,5 @@
 using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Audio;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
@@ -28,6 +29,8 @@ namespace PlayGround.System.Combat.Aoes
         public CombatFaction Faction;
         public int AoeId;
         public int TypeId;
+        public SkillSoundIds SoundIds;
+        public float SpawnSoundRadius;
     }
 
     // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse.
