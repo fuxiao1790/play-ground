@@ -1,5 +1,6 @@
 using PlayGround.System.Combat.Aoes;
 using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Audio;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
@@ -18,6 +19,7 @@ namespace PlayGround.System.Combat.Stats
 {
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     [UpdateAfter(typeof(CombatAoeVfxDispatchSystem))]
+    [UpdateAfter(typeof(SoundEventDispatchSystem))]
     public partial class CombatStatsGatherSystem : SystemBase
     {
         private Entity _statsEntity;
@@ -124,6 +126,7 @@ namespace PlayGround.System.Combat.Stats
                 TargetedTemplateRegistryEntries = snapshot.TargetedTemplateRegistryEntries,
                 HitEventsCreated = snapshot.HitEventsCreated,
                 VfxEventsCreated = snapshot.VfxEventsCreated,
+                SoundEventsCreated = snapshot.SoundEventsCreated,
                 EntitiesDespawned = snapshot.EntitiesDespawned,
                 EntitiesDeleted = snapshot.EntitiesDeleted
             });

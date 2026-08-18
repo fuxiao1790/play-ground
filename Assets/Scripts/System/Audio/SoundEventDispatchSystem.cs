@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using PlayGround.System.Combat.Stats;
 using Unity.Collections;
 using Unity.Entities;
 
@@ -74,6 +75,12 @@ namespace PlayGround.System.Combat.Audio
             if (!lane.Events.IsCreated)
             {
                 return;
+            }
+
+            if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(
+                    out RefRW<CombatStatsSingleton> stats))
+            {
+                stats.ValueRW.SoundEventsCreated += lane.Events.Count;
             }
 
             AudioRoot root = AudioRoot.Instance;

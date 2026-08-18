@@ -18,6 +18,7 @@
                 <ui:Label name="performance-targeted-template-registry" class="performance-text" />
                 <ui:Label name="performance-hit-events" class="performance-text" />
                 <ui:Label name="performance-vfx-events" class="performance-text" />
+                <ui:Label name="performance-sound-events" class="performance-text" />
                 <ui:Label name="performance-vfx-particles" class="performance-text" />
             </ui:VisualElement>
             <ui:Button name="performance-toggle" class="performance-toggle" text="Show less" />

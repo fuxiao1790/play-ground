@@ -63,6 +63,7 @@ namespace PlayGround.Tests.PlayMode
                 EntitiesSpawnedViaReuse = 22,
                 HitEventsCreated = 5,
                 VfxEventsCreated = 6,
+                SoundEventsCreated = 9,
                 EntitiesDespawned = 7,
                 EntitiesDeleted = 8
             });
@@ -74,6 +75,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(display.EntitiesSpawnedViaReuse, Is.EqualTo(22));
             Assert.That(display.HitEventsCreated, Is.EqualTo(5));
             Assert.That(display.VfxEventsCreated, Is.EqualTo(6));
+            Assert.That(display.SoundEventsCreated, Is.EqualTo(9));
             Assert.That(display.EntitiesDespawned, Is.EqualTo(7));
             Assert.That(display.EntitiesDeleted, Is.EqualTo(8));
             Assert.That(display.ActiveProjectiles, Is.Zero);

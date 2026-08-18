@@ -43,6 +43,7 @@ namespace PlayGround.Tests.PlayMode
                 TargetedTemplateRegistryEntries = 34,
                 HitEventsCreated = 5,
                 VfxEventsCreated = 6,
+                SoundEventsCreated = 9,
                 EntitiesDespawned = 7,
                 EntitiesDeleted = 8
             });
@@ -60,6 +61,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(stats.EntitiesSpawnedViaReuse, Is.Zero);
             Assert.That(stats.HitEventsCreated, Is.Zero);
             Assert.That(stats.VfxEventsCreated, Is.Zero);
+            Assert.That(stats.SoundEventsCreated, Is.Zero);
             Assert.That(stats.EntitiesDespawned, Is.Zero);
             Assert.That(stats.EntitiesDeleted, Is.Zero);
         }

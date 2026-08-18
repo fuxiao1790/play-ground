@@ -1900,19 +1900,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0f5387ce374744cf8f2ef28182bce41c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PlayGround.Sim::PlayGround.System.Combat.Audio.AudioRoot
-  maxActiveSources: 50
+  maxActiveSources: 300
   prewarmSources: 8
   sameSoundStartSpacingSeconds: 0.04
-  defaultAudibleRadius: 20
-  maxCopiesPerClipPerFrame: 5
-  repeatVolumeFalloff: 0.8
+  defaultAudibleRadius: 40
+  maxCopiesPerClipPerFrame: 20
+  repeatVolumeFalloff: 0.66
   pitchJitterRange: 0.06
   repeatStartDelayMaxSeconds: 0.02
   listenerObject: {fileID: 1593919878}
   spatialBlend: 0.5
   rolloffMode: 0
   minDistance: 10
-  maxDistance: 20
+  maxDistance: 200
 --- !u!4 &1951940091
 Transform:
   m_ObjectHideFlags: 0

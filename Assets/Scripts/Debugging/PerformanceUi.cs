@@ -26,6 +26,7 @@ namespace PlayGround.SkillUi
         private Label targetedTemplateRegistryText;
         private Label hitEventsText;
         private Label vfxEventsText;
+        private Label soundEventsText;
         private Label vfxParticlesText;
         private VisualElement detailsGroup;
         private Button toggleButton;
@@ -58,6 +59,7 @@ namespace PlayGround.SkillUi
             targetedTemplateRegistryText = document.rootVisualElement.Q<Label>("performance-targeted-template-registry");
             hitEventsText = document.rootVisualElement.Q<Label>("performance-hit-events");
             vfxEventsText = document.rootVisualElement.Q<Label>("performance-vfx-events");
+            soundEventsText = document.rootVisualElement.Q<Label>("performance-sound-events");
             vfxParticlesText = document.rootVisualElement.Q<Label>("performance-vfx-particles");
             detailsGroup = document.rootVisualElement.Q<VisualElement>("performance-details");
             toggleButton = document.rootVisualElement.Q<Button>("performance-toggle");
@@ -65,7 +67,8 @@ namespace PlayGround.SkillUi
                 || despawnedText == null || deleteEcbText == null || projectilesText == null || aoesText == null
                 || targetedText == null || projectileTemplateRegistryText == null || aoeTemplateRegistryText == null
                 || targetedTemplateRegistryText == null
-                || hitEventsText == null || vfxEventsText == null || vfxParticlesText == null
+                || hitEventsText == null || vfxEventsText == null || soundEventsText == null
+                || vfxParticlesText == null
                 || detailsGroup == null || toggleButton == null)
                 throw new InvalidOperationException(
                     $"{nameof(PerformanceUi)} could not find its required elements. Assign SkillLoadoutUi.uxml as the UIDocument Source Asset.");
@@ -120,6 +123,7 @@ namespace PlayGround.SkillUi
             targetedTemplateRegistryText.text = $"Targeted templates:   {stats.TargetedTemplateRegistryEntries}";
             hitEventsText.text = $"Hit events:   {stats.HitEventsCreated}";
             vfxEventsText.text = $"VFX events:   {stats.VfxEventsCreated}";
+            soundEventsText.text = $"Sound events: {stats.SoundEventsCreated}";
             vfxParticlesText.text = $"VFX particles: {CombatVfxRoot.AliveParticleCount(false)}";
         }
 

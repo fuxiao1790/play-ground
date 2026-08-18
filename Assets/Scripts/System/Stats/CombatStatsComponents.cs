@@ -51,6 +51,8 @@ namespace PlayGround.System.Combat.Stats
     //   Counts only requests accepted by CombatAoeVfxDispatcher.StageAoeSpawn (a VFX resource registered
     //   for (typeId, trigger), still under its max-per-frame cap); blindly queued requests with no
     //   registered visual do not contribute.
+    // - SoundEventsCreated: added by SoundEventDispatchSystem from the sound lane count after
+    //   producers complete and before the lane is drained or cleared.
     // - EntitiesDespawned: added by CombatPoolCleanupSystem; no expiry/collision system counts
     //   despawns directly. Derived by conservation from the spawn counters and the change in the
     //   gathered active counts (despawns = spawns - delta active), so the value runs one frame
@@ -71,6 +73,7 @@ namespace PlayGround.System.Combat.Stats
         public int TargetedTemplateRegistryEntries;
         public int HitEventsCreated;
         public int VfxEventsCreated;
+        public int SoundEventsCreated;
         public int EntitiesDespawned;
         public int EntitiesDeleted;
 
@@ -100,6 +103,7 @@ namespace PlayGround.System.Combat.Stats
         public int TargetedTemplateRegistryEntries;
         public int HitEventsCreated;
         public int VfxEventsCreated;
+        public int SoundEventsCreated;
         public int EntitiesDespawned;
         public int EntitiesDeleted;
     }
