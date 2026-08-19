@@ -31,7 +31,8 @@ submission, audio playback, debug text, and presentation budgets.
 
 - `CombatTickResult` presentation data.
 - Basic and Timed native VFX request queues on the VFX dispatch singleton.
-- Native sound events on `SoundEventSingleton` plus the managed pending batch.
+- Clip-bucketed native sound events on `SoundEventSingleton` plus the managed
+  per-clip pending buckets.
 - Prepared render matrices and per-entity render batch ids.
 - Actor target companion references during presentation only.
 

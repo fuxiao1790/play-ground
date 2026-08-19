@@ -49,6 +49,8 @@ MonoBehaviour:
   spriteRenderer: {fileID: 1003000000000000202}
   hurtbox: {fileID: 1003000000000000102}
   spawnEffect: {fileID: 8926484042661614526, guid: 2cf1ebe567ca4bd4496bd38277510ce1, type: 3}
+  spawnSound: {fileID: 8300000, guid: 37fa145661ce1804eb487c60545815e2, type: 3}
+  spawnSoundRadius: 100
   spawnEffectShape: 1
   hitEffect: {fileID: 0}
   hitEffectShape: 0

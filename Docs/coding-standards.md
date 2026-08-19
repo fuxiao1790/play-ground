@@ -285,7 +285,7 @@ Canonical combat-lane examples:
 - `ImpactAoeSpawnEventSingleton`
 - `LingeringAoeSpawnEventSingleton`
 
-These hold the lane's native queue/list plus explicit `JobHandle` fields. Producers use
+These hold the lane's native containers plus explicit `JobHandle` fields. Producers use
 `SystemAPI.TryGetSingletonRW<T>()` and combine their scheduled job handle into the
 singleton on the main thread; sinks complete the stored handles before draining and dispose
 the native containers during their own teardown.

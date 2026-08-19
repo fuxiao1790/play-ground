@@ -1,4 +1,5 @@
 using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Audio;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
@@ -91,6 +92,10 @@ namespace PlayGround.System.Combat.Aoes
                 return;
             }
 
+            RefRW<SoundEventSingleton> sounds =
+                SystemAPI.GetSingletonRW<SoundEventSingleton>();
+            SoundEventLane.Reserve(ref sounds.ValueRW, totalRequests);
+
             using (SpawnMarker.Auto())
             {
                 int created = SpawnPoolTopUp.EnsureDisabledSlots(
@@ -129,6 +134,8 @@ namespace PlayGround.System.Combat.Aoes
                         ArmingHandle = GetComponentTypeHandle<CombatArmingComponent>(false),
                         ArmingTagHandle = GetComponentTypeHandle<ArmingTag>(false),
                         Deltas = registryState.Deltas.AsParallelWriter(),
+                        SoundEventsByClip = sounds.ValueRO.EventsByClip,
+                        SoundClipIds = sounds.ValueRO.ClipIds,
                     }.Schedule(default).Complete();
 
                     reuseCount = reused.Value;
@@ -172,6 +179,8 @@ namespace PlayGround.System.Combat.Aoes
             public ComponentTypeHandle<CombatArmingComponent> ArmingHandle;
             public ComponentTypeHandle<ArmingTag> ArmingTagHandle;
             public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter Deltas;
+            public NativeParallelMultiHashMap<int, SoundEvent> SoundEventsByClip;
+            public NativeParallelHashSet<int> SoundClipIds;
 
             public void Execute()
             {
@@ -241,6 +250,16 @@ namespace PlayGround.System.Combat.Aoes
                         collisionActiveMask[i] = spawnState.Collision;
                         armings[i] = AoeSpawnApplyUtility.ArmingFor(cfg);
                         armingMask[i] = AoeSpawnApplyUtility.IsArming(cfg);
+                        if (cfg.ArmSeconds <= 0f)
+                        {
+                            SoundEmit.Enqueue(
+                                cfg.SoundIds.SpawnId,
+                                cfg.Position,
+                                cfg.SpawnSoundRadius,
+                                SoundCategory.Spawn,
+                                SoundEventsByClip,
+                                SoundClipIds);
+                        }
 
                         // An impact AOE with nothing to collide against materializes already
                         // dead, so it never reaches a death site and must not claim a
@@ -338,6 +357,10 @@ namespace PlayGround.System.Combat.Aoes
                 return;
             }
 
+            RefRW<SoundEventSingleton> sounds =
+                SystemAPI.GetSingletonRW<SoundEventSingleton>();
+            SoundEventLane.Reserve(ref sounds.ValueRW, totalRequests);
+
             using (SpawnMarker.Auto())
             {
                 int created = SpawnPoolTopUp.EnsureDisabledSlots(
@@ -380,6 +403,8 @@ namespace PlayGround.System.Combat.Aoes
                         TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
                         TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
                         Deltas = registryState.Deltas.AsParallelWriter(),
+                        SoundEventsByClip = sounds.ValueRO.EventsByClip,
+                        SoundClipIds = sounds.ValueRO.ClipIds,
                     }.Schedule(default).Complete();
 
                     reuseCount = reused.Value;
@@ -427,6 +452,8 @@ namespace PlayGround.System.Combat.Aoes
             public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
             public ComponentTypeHandle<TimedSpawnStateComponent> TimedSpawnStateHandle;
             public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter Deltas;
+            public NativeParallelMultiHashMap<int, SoundEvent> SoundEventsByClip;
+            public NativeParallelHashSet<int> SoundClipIds;
 
             public void Execute()
             {
@@ -515,6 +542,16 @@ namespace PlayGround.System.Combat.Aoes
                         collisionActiveMask[i] = spawnState.Collision;
                         armings[i] = AoeSpawnApplyUtility.ArmingFor(cfg);
                         armingMask[i] = AoeSpawnApplyUtility.IsArming(cfg);
+                        if (cfg.ArmSeconds <= 0f)
+                        {
+                            SoundEmit.Enqueue(
+                                cfg.SoundIds.SpawnId,
+                                cfg.Position,
+                                cfg.SpawnSoundRadius,
+                                SoundCategory.Spawn,
+                                SoundEventsByClip,
+                                SoundClipIds);
+                        }
 
                         // Spawn event, emitted after every component is written so it reads the
                         // entity's own state and stays the mirror image of the release the death

@@ -10,7 +10,6 @@ namespace PlayGround.Tests.EditMode
     public sealed class AudioRootSelectionEditModeTests
     {
         private readonly List<AudioClip> clips = new();
-        private readonly List<SoundEvent> events = new();
         private GameObject rootObject;
 
         [TearDown]
@@ -27,7 +26,6 @@ namespace PlayGround.Tests.EditMode
             }
 
             clips.Clear();
-            events.Clear();
         }
 
         [Test]
@@ -50,7 +48,7 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void RankPending_PriorityBeatsNovelty()
+        public void RankPending_NoveltyBeatsPriority()
         {
             AudioRoot root = CreateRoot();
             int repeatedId = RegisterClip(root, "HighPriorityRepeated");
@@ -61,9 +59,89 @@ namespace PlayGround.Tests.EditMode
 
             root.RankPending(10f, float2.zero, 2);
 
-            Assert.That(SelectedCountForClip(root, repeatedId), Is.EqualTo(2));
-            Assert.That(SelectedCountForClip(root, novelId), Is.Zero);
-            Assert.That(root.CulledNovel, Is.EqualTo(1));
+            Assert.That(SelectedCountForClip(root, repeatedId), Is.EqualTo(1));
+            Assert.That(SelectedCountForClip(root, novelId), Is.EqualTo(1));
+            Assert.That(root.CulledNovel, Is.Zero);
+            Assert.That(root.CulledRedundant, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void RankPending_CullsRepeatCopiesProportionallyAfterOnePerClip()
+        {
+            AudioRoot root = CreateRoot();
+            SetPrivateField(root, "maxCopiesPerClipPerFrame", 10);
+            int highVolumeId = RegisterClip(root, "HighVolume");
+            int lowVolumeId = RegisterClip(root, "LowVolume");
+            for (int i = 0; i < 8; i++)
+            {
+                Enqueue(root, highVolumeId, priority: 10);
+            }
+
+            for (int i = 0; i < 4; i++)
+            {
+                Enqueue(root, lowVolumeId, priority: 0);
+            }
+
+            root.RankPending(10f, float2.zero, 6);
+
+            Assert.That(SelectedCountForClip(root, highVolumeId), Is.EqualTo(4));
+            Assert.That(SelectedCountForClip(root, lowVolumeId), Is.EqualTo(2));
+            Assert.That(root.CulledNovel, Is.Zero);
+            Assert.That(root.CulledRedundant, Is.EqualTo(6));
+        }
+
+        [Test]
+        public void RankPending_PerClipCapCannotRemoveFirstCopy()
+        {
+            AudioRoot root = CreateRoot();
+            SetPrivateField(root, "maxCopiesPerClipPerFrame", 0);
+            int firstId = RegisterClip(root, "First");
+            int secondId = RegisterClip(root, "Second");
+            Enqueue(root, firstId);
+            Enqueue(root, firstId);
+            Enqueue(root, secondId);
+            Enqueue(root, secondId);
+
+            root.RankPending(10f, float2.zero, 10);
+
+            Assert.That(SelectedCountForClip(root, firstId), Is.EqualTo(1));
+            Assert.That(SelectedCountForClip(root, secondId), Is.EqualTo(1));
+            Assert.That(root.CulledNovel, Is.Zero);
+            Assert.That(root.CulledRedundant, Is.EqualTo(2));
+        }
+
+        [TestCase(300, 32, 28)]
+        [TestCase(24, 32, 24)]
+        [TestCase(0, 32, 0)]
+        [TestCase(24, 2, 1)]
+        public void ClampDuplicateVoiceBudget_LeavesUnityRealVoiceHeadroom(
+            int configuredBudget,
+            int unityRealVoices,
+            int expectedBudget)
+        {
+            Assert.That(
+                AudioRoot.ClampDuplicateVoiceBudget(configuredBudget, unityRealVoices),
+                Is.EqualTo(expectedBudget));
+        }
+
+        [Test]
+        public void RankPending_RecentClipIsSpacingCulledRegardlessOfPriority()
+        {
+            AudioRoot root = CreateRoot();
+            SetPrivateField(root, "sameSoundStartSpacingSeconds", 0.2f);
+            int recentHighPriorityId = RegisterClip(root, "RecentHighPriority");
+            int olderLowPriorityId = RegisterClip(root, "OlderLowPriority");
+            SetLastStartTime(root, recentHighPriorityId, 9.9f);
+            SetLastStartTime(root, olderLowPriorityId, 5f);
+            Enqueue(root, recentHighPriorityId, priority: 10);
+            Enqueue(root, olderLowPriorityId, priority: 0);
+
+            root.RankPending(10f, float2.zero, 1);
+
+            Assert.That(SelectedCountForClip(root, recentHighPriorityId), Is.Zero);
+            Assert.That(SelectedCountForClip(root, olderLowPriorityId), Is.EqualTo(1));
+            Assert.That(root.CulledNovel, Is.Zero);
+            Assert.That(root.CulledSpacing, Is.EqualTo(1));
         }
 
         [Test]
@@ -76,8 +154,8 @@ namespace PlayGround.Tests.EditMode
 
             root.RankPending(10f, float2.zero, 10);
 
-            Assert.That(root.SelectedIndices.Count, Is.EqualTo(1));
-            Assert.That(events[root.SelectedIndices[0]].Position.x, Is.EqualTo(9f));
+            Assert.That(root.SelectedSounds.Count, Is.EqualTo(1));
+            Assert.That(root.SelectedSounds[0].Event.Position.x, Is.EqualTo(9f));
             Assert.That(root.CulledDistance, Is.EqualTo(1));
         }
 
@@ -127,12 +205,12 @@ namespace PlayGround.Tests.EditMode
 
             root.RankPending(10f, float2.zero, 100);
 
-            Assert.That(root.SelectedIndices.Count, Is.EqualTo(2));
+            Assert.That(root.SelectedSounds.Count, Is.EqualTo(2));
             Assert.That(root.CulledRedundant, Is.EqualTo(2));
         }
 
         [Test]
-        public void RankPending_SelectsMinimumOfSurvivorsAndFreeVoices()
+        public void RankPending_KeepsOnePerClipEvenWhenVoiceBudgetIsSmaller()
         {
             AudioRoot root = CreateRoot();
             for (int i = 0; i < 5; i++)
@@ -142,8 +220,9 @@ namespace PlayGround.Tests.EditMode
 
             int selected = root.RankPending(10f, float2.zero, 3);
 
-            Assert.That(selected, Is.EqualTo(3));
-            Assert.That(root.SelectedIndices.Count, Is.EqualTo(3));
+            Assert.That(selected, Is.EqualTo(5));
+            Assert.That(root.SelectedSounds.Count, Is.EqualTo(5));
+            Assert.That(root.CulledNovel, Is.Zero);
         }
 
         [Test]
@@ -177,22 +256,30 @@ namespace PlayGround.Tests.EditMode
 
             root.RankPending(10f, float2.zero, 3);
 
-            Assert.That(root.SelectedIndices.Count, Is.EqualTo(3));
+            Assert.That(root.SelectedSounds.Count, Is.EqualTo(3));
             Assert.That(root.CulledNovel, Is.Zero);
             Assert.That(root.CulledRedundant, Is.EqualTo(1));
         }
 
         [Test]
-        public void RankPending_EmptyBatchAndZeroVoicesProduceNoOutputOrCounts()
+        public void RankPending_EmptyBatchProducesNoOutputOrCounts()
         {
             AudioRoot root = CreateRoot();
 
             Assert.That(root.RankPending(10f, float2.zero, 3), Is.Zero);
             AssertNoCounts(root);
+        }
 
-            Enqueue(root, 0, position: new float2(100f, 0f), audibleRadius: 1f);
-            Assert.That(root.RankPending(10f, float2.zero, 0), Is.Zero);
-            Assert.That(root.SelectedIndices, Is.Empty);
+        [Test]
+        public void RankPending_ZeroVoiceBudgetStillKeepsOneUniqueOccurrence()
+        {
+            AudioRoot root = CreateRoot();
+            int clipId = RegisterClip(root, "Unique");
+
+            Enqueue(root, clipId);
+
+            Assert.That(root.RankPending(10f, float2.zero, 0), Is.EqualTo(1));
+            Assert.That(root.SelectedSounds[0].Event.ClipId, Is.EqualTo(clipId));
             AssertNoCounts(root);
         }
 
@@ -208,7 +295,7 @@ namespace PlayGround.Tests.EditMode
 
             root.RankPending(10f, float2.zero, 3);
 
-            Assert.That(root.SelectedIndices.Count, Is.EqualTo(3));
+            Assert.That(root.SelectedSounds.Count, Is.EqualTo(3));
             Assert.That(root.CulledSpacing, Is.Zero);
         }
 
@@ -224,7 +311,7 @@ namespace PlayGround.Tests.EditMode
 
             root.RankPending(10f, float2.zero, 10);
 
-            Assert.That(root.SelectedIndices.Count, Is.EqualTo(1));
+            Assert.That(root.SelectedSounds.Count, Is.EqualTo(1));
             Assert.That(root.Rejected, Is.EqualTo(3));
         }
 
@@ -261,16 +348,15 @@ namespace PlayGround.Tests.EditMode
                 Category = SoundCategory.Cast,
                 Priority = priority
             };
-            events.Add(soundEvent);
             root.Enqueue(in soundEvent);
         }
 
         private int SelectedCountForClip(AudioRoot root, int clipId)
         {
             int count = 0;
-            for (int i = 0; i < root.SelectedIndices.Count; i++)
+            for (int i = 0; i < root.SelectedSounds.Count; i++)
             {
-                if (events[root.SelectedIndices[i]].ClipId == clipId)
+                if (root.SelectedSounds[i].Event.ClipId == clipId)
                 {
                     count++;
                 }
@@ -281,8 +367,7 @@ namespace PlayGround.Tests.EditMode
 
         private static float SelectedVolume(AudioRoot root, int selectionIndex, float falloff)
         {
-            int pendingIndex = root.SelectedIndices[selectionIndex];
-            return math.pow(falloff, root.CopyIndexForPendingIndex(pendingIndex));
+            return math.pow(falloff, root.SelectedSounds[selectionIndex].CopyIndex);
         }
 
         private static void AssertNoCounts(AudioRoot root)
@@ -302,6 +387,16 @@ namespace PlayGround.Tests.EditMode
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}'.");
             field.SetValue(root, value);
+        }
+
+        private static void SetLastStartTime(AudioRoot root, int clipId, float lastStart)
+        {
+            FieldInfo field = typeof(AudioRoot).GetField(
+                "lastStartTimeByClipId",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, "Missing last-start history.");
+            var history = (Dictionary<int, float>)field.GetValue(root);
+            history[clipId] = lastStart;
         }
     }
 }

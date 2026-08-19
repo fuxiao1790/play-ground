@@ -9,6 +9,9 @@ namespace PlayGround.System.Combat.Audio
 {
     public sealed class AudioRoot : MonoBehaviour
     {
+        private const int UnityRealVoiceHeadroom = 4;
+        private const int NeutralUnityPriority = 128;
+
         public static AudioRoot Instance { get; private set; }
 
         public int ActiveCount
@@ -26,10 +29,10 @@ namespace PlayGround.System.Combat.Audio
         public long CulledSpacing => culledSpacing;
         public long Rejected => rejected;
 
-        internal IReadOnlyList<int> SelectedIndices => selectedIndices;
+        internal IReadOnlyList<SelectedSound> SelectedSounds => selectedSounds;
 
         [SerializeField, Min(0)]
-        [Tooltip("Maximum number of sounds that may play concurrently. Lower-ranked events are culled when every voice is occupied.")]
+        [Tooltip("Concurrent duplicate-voice budget after one voice per represented clip. Runtime also caps it below Unity's real-voice limit. New unique clips may exceed this value; duplicate copies may not.")]
         private int maxActiveSources = 24;
 
         [SerializeField, Min(0)]
@@ -45,7 +48,7 @@ namespace PlayGround.System.Combat.Audio
         private float defaultAudibleRadius = 20f;
 
         [SerializeField, Min(0)]
-        [Tooltip("Maximum copies of one clip eligible to play from a single frame's batch, regardless of available voices.")]
+        [Tooltip("Maximum copies of one clip eligible to play from a single frame's batch. A present clip always retains its first copy, so values below one behave as one.")]
         private int maxCopiesPerClipPerFrame = 3;
 
         [SerializeField, Range(0f, 1f)]
@@ -82,17 +85,19 @@ namespace PlayGround.System.Combat.Audio
 
         private readonly Dictionary<AudioClip, int> idsByClip = new();
         private readonly List<AudioClip> clipsById = new() { null };
-        private readonly List<SoundEvent> pending = new();
+        private readonly List<PendingBucket> pendingByClipId = new() { null };
+        private readonly List<int> pendingClipIds = new();
+        private readonly List<int> eligibleClipIds = new();
+        private readonly List<SelectedSound> selectedSounds = new();
         private readonly List<AudioSource> sources = new();
         private readonly List<ActiveSound> activeSounds = new();
         private readonly Dictionary<int, float> lastStartTimeByClipId = new();
         private readonly Dictionary<int, float> batchLastStartTimeByClipId = new();
-        private readonly List<int> groupingIndices = new();
-        private readonly List<int> copyIndexByPendingIndex = new();
-        private readonly List<int> selectedIndices = new();
         private Transform listenerTransform;
         private Unity.Mathematics.Random random = new(0x6E624EB7u);
         private bool listenerSetupErrorLogged;
+        private int pendingCount;
+        private int fairnessCursor;
         private long accepted;
         private long culledDistance;
         private long culledRedundant;
@@ -129,51 +134,44 @@ namespace PlayGround.System.Combat.Audio
         {
             float now = Time.time;
             PruneInactive(now);
-            selectedIndices.Clear();
+            selectedSounds.Clear();
             batchLastStartTimeByClipId.Clear();
 
-            if (pending.Count == 0)
+            if (pendingCount == 0)
             {
-                pending.Clear();
+                ClearPending();
                 return;
             }
 
             if (listenerTransform == null)
             {
-                culledDistance += pending.Count;
-                pending.Clear();
-                return;
-            }
-
-            int freeVoices = math.max(0, math.max(0, maxActiveSources) - activeSounds.Count);
-            if (freeVoices == 0)
-            {
-                pending.Clear();
+                culledDistance += pendingCount;
+                ClearPending();
                 return;
             }
 
             RankPending(
                 now,
                 new float2(listenerTransform.position.x, listenerTransform.position.y),
-                freeVoices);
-            for (int i = 0; i < selectedIndices.Count; i++)
+                ResolveDuplicateVoiceBudget());
+            for (int i = 0; i < selectedSounds.Count; i++)
             {
-                int pendingIndex = selectedIndices[i];
-                SoundEvent soundEvent = pending[pendingIndex];
+                SelectedSound selected = selectedSounds[i];
+                SoundEvent soundEvent = selected.Event;
                 if (!TryGetClip(soundEvent.ClipId, out AudioClip clip))
                 {
                     rejected++;
                     continue;
                 }
 
-                AudioSource source = AvailableSource();
+                AudioSource source = AvailableSource(selected.CopyIndex == 0);
                 if (source == null)
                 {
-                    CountCapacityCull(copyIndexByPendingIndex[pendingIndex]);
+                    CountCapacityCull(selected.CopyIndex);
                     continue;
                 }
 
-                int copyIndex = copyIndexByPendingIndex[pendingIndex];
+                int copyIndex = selected.CopyIndex;
                 float volume = math.pow(math.saturate(repeatVolumeFalloff), copyIndex);
                 float jitterRange = math.max(0f, pitchJitterRange);
                 float pitch = math.max(
@@ -197,7 +195,9 @@ namespace PlayGround.System.Combat.Audio
                 source.clip = clip;
                 source.volume = volume;
                 source.pitch = pitch;
-                source.priority = Mathf.Clamp(128 - soundEvent.Priority, 0, 256);
+                // AudioRoot already selected this voice. Keep every source equal so Unity's
+                // global mixer cannot reintroduce clip or faction preference.
+                source.priority = NeutralUnityPriority;
                 source.spatialBlend = spatialBlend;
                 source.rolloffMode = rolloffMode;
                 float rolloffMaxDistance = math.max(0.01f, audibleRadius);
@@ -215,7 +215,7 @@ namespace PlayGround.System.Combat.Audio
 
                 float startTime = now + delay;
                 float endTime = startTime + clip.length / math.max(0.01f, math.abs(pitch));
-                activeSounds.Add(new ActiveSound(source, clip, endTime));
+                activeSounds.Add(new ActiveSound(source, soundEvent.ClipId, endTime));
                 if (!batchLastStartTimeByClipId.TryGetValue(soundEvent.ClipId, out float batchStart)
                     || startTime > batchStart)
                 {
@@ -230,7 +230,7 @@ namespace PlayGround.System.Combat.Audio
                 lastStartTimeByClipId[pair.Key] = pair.Value;
             }
 
-            pending.Clear();
+            ClearPending();
         }
 
         private void OnDestroy()
@@ -261,6 +261,7 @@ namespace PlayGround.System.Combat.Audio
 
             int id = clipsById.Count;
             clipsById.Add(clip);
+            pendingByClipId.Add(new PendingBucket());
             idsByClip.Add(clip, id);
             return id;
         }
@@ -279,7 +280,50 @@ namespace PlayGround.System.Combat.Audio
 
         public void Enqueue(in SoundEvent soundEvent)
         {
-            pending.Add(soundEvent);
+            EnqueueBucketed(soundEvent.ClipId, in soundEvent);
+        }
+
+        internal void EnqueueBucketed(int clipId, in SoundEvent soundEvent)
+        {
+            if (clipId <= 0
+                || clipId >= pendingByClipId.Count
+                || soundEvent.ClipId != clipId)
+            {
+                rejected++;
+                return;
+            }
+
+            PendingBucket bucket = pendingByClipId[clipId];
+            if (listenerTransform != null)
+            {
+                float2 listenerPosition = new(
+                    listenerTransform.position.x,
+                    listenerTransform.position.y);
+                float audibleRadius = ResolveAudibleRadius(soundEvent.AudibleRadius);
+                if (math.distancesq(soundEvent.Position, listenerPosition)
+                    > audibleRadius * audibleRadius)
+                {
+                    culledDistance++;
+                    return;
+                }
+            }
+
+            // Dispatch arrives already grouped by clip, so enforce the per-clip
+            // occurrence ceiling while copying the bucket. LateUpdate then scales with
+            // represented clips instead of the raw projectile-spam event count.
+            if (bucket.Events.Count >= math.max(1, maxCopiesPerClipPerFrame))
+            {
+                culledRedundant++;
+                return;
+            }
+
+            if (bucket.Events.Count == 0)
+            {
+                pendingClipIds.Add(clipId);
+            }
+
+            bucket.Events.Add(soundEvent);
+            pendingCount++;
         }
 
         public void BindListener(GameObject listener)
@@ -297,7 +341,7 @@ namespace PlayGround.System.Combat.Audio
                 + "culled_redundant:{5} culled_novel:{6} culled_spacing:{7} rejected:{8}",
                 activeSounds.Count,
                 sources.Count,
-                math.max(0, maxActiveSources),
+                ResolveDuplicateVoiceBudget(),
                 accepted,
                 culledDistance,
                 culledRedundant,
@@ -320,10 +364,8 @@ namespace PlayGround.System.Combat.Audio
                 source.clip = null;
             }
 
-            pending.Clear();
-            groupingIndices.Clear();
-            copyIndexByPendingIndex.Clear();
-            selectedIndices.Clear();
+            ClearPending();
+            selectedSounds.Clear();
             activeSounds.Clear();
             lastStartTimeByClipId.Clear();
             batchLastStartTimeByClipId.Clear();
@@ -337,89 +379,95 @@ namespace PlayGround.System.Combat.Audio
 
         internal int RankPending(float now, float2 listenerPosition, int freeVoices)
         {
-            groupingIndices.Clear();
-            selectedIndices.Clear();
-            ResizeCopyIndexScratch(pending.Count);
+            eligibleClipIds.Clear();
+            selectedSounds.Clear();
 
-            if (pending.Count == 0 || freeVoices <= 0)
+            if (pendingCount == 0)
             {
                 return 0;
             }
 
-            for (int i = 0; i < pending.Count; i++)
-            {
-                SoundEvent soundEvent = pending[i];
-                float audibleRadius = ResolveAudibleRadius(soundEvent.AudibleRadius);
-                if (math.distancesq(soundEvent.Position, listenerPosition)
-                    > audibleRadius * audibleRadius)
-                {
-                    culledDistance++;
-                    continue;
-                }
-
-                if (soundEvent.ClipId <= 0 || soundEvent.ClipId >= clipsById.Count)
-                {
-                    rejected++;
-                    continue;
-                }
-
-                groupingIndices.Add(i);
-            }
-
-            SortGroupingIndices();
-            int currentClipId = 0;
-            int copyIndex = -1;
-            int allowedCopies = math.max(0, maxCopiesPerClipPerFrame);
+            int allowedCopies = math.max(1, maxCopiesPerClipPerFrame);
             float spacing = math.max(0f, sameSoundStartSpacingSeconds);
-            for (int i = 0; i < groupingIndices.Count; i++)
+            int totalRepeatDemand = 0;
+            for (int bucketIndex = 0; bucketIndex < pendingClipIds.Count; bucketIndex++)
             {
-                int pendingIndex = groupingIndices[i];
-                SoundEvent soundEvent = pending[pendingIndex];
-                if (soundEvent.ClipId != currentClipId)
+                int clipId = pendingClipIds[bucketIndex];
+                PendingBucket bucket = pendingByClipId[clipId];
+                bucket.ResetSelection();
+                for (int eventIndex = 0; eventIndex < bucket.Events.Count; eventIndex++)
                 {
-                    currentClipId = soundEvent.ClipId;
-                    copyIndex = 0;
-                }
-                else
-                {
-                    copyIndex++;
+                    SoundEvent soundEvent = bucket.Events[eventIndex];
+                    float audibleRadius = ResolveAudibleRadius(soundEvent.AudibleRadius);
+                    if (math.distancesq(soundEvent.Position, listenerPosition)
+                        > audibleRadius * audibleRadius)
+                    {
+                        culledDistance++;
+                        continue;
+                    }
+
+                    if (bucket.EligibleEventIndices.Count >= allowedCopies)
+                    {
+                        culledRedundant++;
+                        continue;
+                    }
+
+                    bucket.EligibleEventIndices.Add(eventIndex);
                 }
 
-                copyIndexByPendingIndex[pendingIndex] = copyIndex;
-                if (copyIndex >= allowedCopies)
+                if (bucket.EligibleEventIndices.Count == 0)
                 {
-                    culledRedundant++;
                     continue;
                 }
 
                 if (spacing > 0f
-                    && lastStartTimeByClipId.TryGetValue(soundEvent.ClipId, out float lastStart)
+                    && lastStartTimeByClipId.TryGetValue(clipId, out float lastStart)
                     && now - lastStart < spacing)
                 {
-                    culledSpacing++;
+                    culledSpacing += bucket.EligibleEventIndices.Count;
+                    bucket.EligibleEventIndices.Clear();
                     continue;
                 }
 
-                selectedIndices.Add(pendingIndex);
+                bucket.RepeatDemand = bucket.EligibleEventIndices.Count - 1;
+                totalRepeatDemand += bucket.RepeatDemand;
+                eligibleClipIds.Add(clipId);
             }
 
-            SortSelectedIndices();
-            int selectedCount = math.min(selectedIndices.Count, freeVoices);
-            for (int i = selectedCount; i < selectedIndices.Count; i++)
+            if (eligibleClipIds.Count == 0)
             {
-                CountCapacityCull(copyIndexByPendingIndex[selectedIndices[i]]);
+                AdvanceFairnessCursor();
+                return 0;
             }
 
-            if (selectedCount < selectedIndices.Count)
+            // Every represented clip keeps one occurrence. The configured/Unity voice
+            // budget only controls redundant copies; it never erases a unique sound.
+            for (int offset = 0; offset < eligibleClipIds.Count; offset++)
             {
-                selectedIndices.RemoveRange(selectedCount, selectedIndices.Count - selectedCount);
+                int clipId = EligibleClipAt(offset);
+                PendingBucket bucket = pendingByClipId[clipId];
+                AddSelection(bucket, copyIndex: 0);
             }
 
-            return selectedIndices.Count;
+            int repeatBudget = math.max(
+                0,
+                freeVoices - activeSounds.Count - eligibleClipIds.Count);
+            int repeatsToSelect = math.min(totalRepeatDemand, repeatBudget);
+            AllocateRepeatQuotas(repeatsToSelect, totalRepeatDemand);
+            for (int offset = 0; offset < eligibleClipIds.Count; offset++)
+            {
+                PendingBucket bucket = pendingByClipId[EligibleClipAt(offset)];
+                for (int copyIndex = 1; copyIndex <= bucket.RepeatQuota; copyIndex++)
+                {
+                    AddSelection(bucket, copyIndex);
+                }
+
+                culledRedundant += bucket.RepeatDemand - bucket.RepeatQuota;
+            }
+
+            AdvanceFairnessCursor();
+            return selectedSounds.Count;
         }
-
-        internal int CopyIndexForPendingIndex(int pendingIndex) =>
-            copyIndexByPendingIndex[pendingIndex];
 
         private void CacheListener()
         {
@@ -457,8 +505,14 @@ namespace PlayGround.System.Combat.Audio
             Debug.LogError($"{nameof(AudioRoot)} on '{name}' is not configured: {reason}.");
         }
 
-        private AudioSource AvailableSource()
+        private AudioSource AvailableSource(bool isFirstCopy)
         {
+            int duplicateVoiceBudget = ResolveDuplicateVoiceBudget();
+            if (!isFirstCopy && activeSounds.Count >= duplicateVoiceBudget)
+            {
+                return null;
+            }
+
             for (int i = 0; i < sources.Count; i++)
             {
                 if (sources[i] != null && !IsSourceActive(sources[i]))
@@ -467,12 +521,25 @@ namespace PlayGround.System.Combat.Audio
                 }
             }
 
-            if (sources.Count >= math.max(0, maxActiveSources))
+            return CreateSource();
+        }
+
+        private int ResolveDuplicateVoiceBudget()
+        {
+            AudioConfiguration configuration = AudioSettings.GetConfiguration();
+            return ClampDuplicateVoiceBudget(maxActiveSources, configuration.numRealVoices);
+        }
+
+        internal static int ClampDuplicateVoiceBudget(int configuredBudget, int unityRealVoices)
+        {
+            int nonNegativeConfiguredBudget = math.max(0, configuredBudget);
+            if (nonNegativeConfiguredBudget == 0)
             {
-                return null;
+                return 0;
             }
 
-            return CreateSource();
+            int unityBudget = math.max(1, unityRealVoices - UnityRealVoiceHeadroom);
+            return math.min(nonNegativeConfiguredBudget, unityBudget);
         }
 
         private AudioSource CreateSource()
@@ -507,7 +574,7 @@ namespace PlayGround.System.Combat.Audio
             for (int i = activeSounds.Count - 1; i >= 0; i--)
             {
                 ActiveSound sound = activeSounds[i];
-                if (sound.Source == null || !sound.Source.isPlaying || now >= sound.EndTime)
+                if (sound.Source == null || now >= sound.EndTime)
                 {
                     if (sound.Source != null)
                     {
@@ -522,137 +589,120 @@ namespace PlayGround.System.Combat.Audio
         private float ResolveAudibleRadius(float eventRadius) =>
             eventRadius > 0f ? eventRadius : math.max(0f, defaultAudibleRadius);
 
-        private void ResizeCopyIndexScratch(int count)
+        private void AllocateRepeatQuotas(int repeatsToSelect, int totalRepeatDemand)
         {
-            if (copyIndexByPendingIndex.Capacity < count)
+            if (repeatsToSelect <= 0 || totalRepeatDemand <= 0)
             {
-                copyIndexByPendingIndex.Capacity = count;
+                return;
             }
 
-            while (copyIndexByPendingIndex.Count < count)
+            int allocated = 0;
+            for (int i = 0; i < eligibleClipIds.Count; i++)
             {
-                copyIndexByPendingIndex.Add(0);
+                PendingBucket bucket = pendingByClipId[eligibleClipIds[i]];
+                long scaledDemand = (long)bucket.RepeatDemand * repeatsToSelect;
+                bucket.RepeatQuota = (int)(scaledDemand / totalRepeatDemand);
+                bucket.QuotaRemainder = (int)(scaledDemand % totalRepeatDemand);
+                allocated += bucket.RepeatQuota;
             }
 
-            if (copyIndexByPendingIndex.Count > count)
+            // The floor allocations leave fewer than one slot per represented clip.
+            // Pick largest fractional remainders with bounded linear scans; voice budgets
+            // are small, so this stays cheap and never needs ordering the event batch.
+            while (allocated < repeatsToSelect)
             {
-                copyIndexByPendingIndex.RemoveRange(
-                    count,
-                    copyIndexByPendingIndex.Count - count);
-            }
-        }
-
-        private void SortGroupingIndices()
-        {
-            for (int i = 1; i < groupingIndices.Count; i++)
-            {
-                int candidate = groupingIndices[i];
-                int insertionIndex = i;
-                while (insertionIndex > 0
-                    && CompareForGrouping(candidate, groupingIndices[insertionIndex - 1]) < 0)
+                PendingBucket best = null;
+                int bestRemainder = -1;
+                for (int offset = 0; offset < eligibleClipIds.Count; offset++)
                 {
-                    groupingIndices[insertionIndex] = groupingIndices[insertionIndex - 1];
-                    insertionIndex--;
+                    PendingBucket candidate = pendingByClipId[EligibleClipAt(offset)];
+                    if (candidate.RepeatQuota >= candidate.RepeatDemand
+                        || candidate.QuotaRemainder <= bestRemainder)
+                    {
+                        continue;
+                    }
+
+                    best = candidate;
+                    bestRemainder = candidate.QuotaRemainder;
                 }
 
-                groupingIndices[insertionIndex] = candidate;
-            }
-        }
-
-        private void SortSelectedIndices()
-        {
-            for (int i = 1; i < selectedIndices.Count; i++)
-            {
-                int candidate = selectedIndices[i];
-                int insertionIndex = i;
-                while (insertionIndex > 0
-                    && CompareForSelection(candidate, selectedIndices[insertionIndex - 1]) < 0)
+                if (best == null)
                 {
-                    selectedIndices[insertionIndex] = selectedIndices[insertionIndex - 1];
-                    insertionIndex--;
+                    break;
                 }
 
-                selectedIndices[insertionIndex] = candidate;
+                best.RepeatQuota++;
+                // A largest-remainder allocation grants at most one fractional slot.
+                best.QuotaRemainder = -1;
+                allocated++;
             }
         }
 
-        private int CompareForGrouping(int leftIndex, int rightIndex)
+        private void AddSelection(PendingBucket bucket, int copyIndex)
         {
-            SoundEvent left = pending[leftIndex];
-            SoundEvent right = pending[rightIndex];
-            int comparison = left.ClipId.CompareTo(right.ClipId);
-            if (comparison != 0)
-            {
-                return comparison;
-            }
-
-            comparison = right.Priority.CompareTo(left.Priority);
-            return comparison != 0
-                ? comparison
-                : CompareOccurrenceFacts(in left, leftIndex, in right, rightIndex);
+            int eventIndex = bucket.EligibleEventIndices[copyIndex];
+            selectedSounds.Add(new SelectedSound(bucket.Events[eventIndex], copyIndex));
         }
 
-        private int CompareForSelection(int leftIndex, int rightIndex)
+        private int EligibleClipAt(int offset)
         {
-            SoundEvent left = pending[leftIndex];
-            SoundEvent right = pending[rightIndex];
-            int comparison = right.Priority.CompareTo(left.Priority);
-            if (comparison != 0)
-            {
-                return comparison;
-            }
-
-            comparison = copyIndexByPendingIndex[leftIndex]
-                .CompareTo(copyIndexByPendingIndex[rightIndex]);
-            if (comparison != 0)
-            {
-                return comparison;
-            }
-
-            comparison = left.ClipId.CompareTo(right.ClipId);
-            return comparison != 0
-                ? comparison
-                : CompareOccurrenceFacts(in left, leftIndex, in right, rightIndex);
+            int count = eligibleClipIds.Count;
+            return eligibleClipIds[(fairnessCursor + offset) % count];
         }
 
-        private static int CompareOccurrenceFacts(
-            in SoundEvent left,
-            int leftIndex,
-            in SoundEvent right,
-            int rightIndex)
+        private void AdvanceFairnessCursor()
         {
-            int comparison = ((byte)left.Category).CompareTo((byte)right.Category);
-            if (comparison != 0)
+            if (pendingClipIds.Count > 0)
             {
-                return comparison;
+                fairnessCursor = (fairnessCursor + 1) % pendingClipIds.Count;
+            }
+        }
+
+        private void ClearPending()
+        {
+            for (int i = 0; i < pendingClipIds.Count; i++)
+            {
+                pendingByClipId[pendingClipIds[i]].Clear();
             }
 
-            comparison = left.Position.x.CompareTo(right.Position.x);
-            if (comparison != 0)
+            pendingClipIds.Clear();
+            eligibleClipIds.Clear();
+            pendingCount = 0;
+        }
+
+        internal readonly struct SelectedSound
+        {
+            public SelectedSound(SoundEvent soundEvent, int copyIndex)
             {
-                return comparison;
+                Event = soundEvent;
+                CopyIndex = copyIndex;
             }
 
-            comparison = left.Position.y.CompareTo(right.Position.y);
-            if (comparison != 0)
+            public SoundEvent Event { get; }
+            public int CopyIndex { get; }
+        }
+
+        private sealed class PendingBucket
+        {
+            public readonly List<SoundEvent> Events = new();
+            public readonly List<int> EligibleEventIndices = new();
+            public int RepeatDemand;
+            public int RepeatQuota;
+            public int QuotaRemainder;
+
+            public void ResetSelection()
             {
-                return comparison;
+                EligibleEventIndices.Clear();
+                RepeatDemand = 0;
+                RepeatQuota = 0;
+                QuotaRemainder = 0;
             }
 
-            comparison = left.Velocity.x.CompareTo(right.Velocity.x);
-            if (comparison != 0)
+            public void Clear()
             {
-                return comparison;
+                Events.Clear();
+                ResetSelection();
             }
-
-            comparison = left.Velocity.y.CompareTo(right.Velocity.y);
-            if (comparison != 0)
-            {
-                return comparison;
-            }
-
-            comparison = left.AudibleRadius.CompareTo(right.AudibleRadius);
-            return comparison != 0 ? comparison : leftIndex.CompareTo(rightIndex);
         }
 
         private void CountCapacityCull(int copyIndex)
@@ -669,15 +719,15 @@ namespace PlayGround.System.Combat.Audio
 
         private readonly struct ActiveSound
         {
-            public ActiveSound(AudioSource source, AudioClip clip, float endTime)
+            public ActiveSound(AudioSource source, int clipId, float endTime)
             {
                 Source = source;
-                Clip = clip;
+                ClipId = clipId;
                 EndTime = endTime;
             }
 
             public AudioSource Source { get; }
-            public AudioClip Clip { get; }
+            public int ClipId { get; }
             public float EndTime { get; }
         }
     }

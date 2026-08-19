@@ -1,5 +1,6 @@
 using PlayGround.System.Combat.Aoes;
 using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Audio;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
@@ -110,6 +111,10 @@ namespace PlayGround.System.Combat.Projectiles
                 return;
             }
 
+            RefRW<SoundEventSingleton> sounds =
+                SystemAPI.GetSingletonRW<SoundEventSingleton>();
+            SoundEventLane.Reserve(ref sounds.ValueRW, totalRequests);
+
             using (SpawnMarker.Auto())
             {
                 int created = SpawnPoolTopUp.EnsureDisabledSlots(
@@ -149,6 +154,8 @@ namespace PlayGround.System.Combat.Projectiles
                         TimedSpawnHandle = GetComponentTypeHandle<TimedSpawnComponent>(false),
                         TimedSpawnStateHandle = GetComponentTypeHandle<TimedSpawnStateComponent>(false),
                         Deltas = registryState.Deltas.AsParallelWriter(),
+                        SoundEventsByClip = sounds.ValueRO.EventsByClip,
+                        SoundClipIds = sounds.ValueRO.ClipIds,
                     }.Schedule(default).Complete();
 
                     reuseCount = reused.Value;
@@ -192,6 +199,8 @@ namespace PlayGround.System.Combat.Projectiles
             public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
             public ComponentTypeHandle<TimedSpawnStateComponent> TimedSpawnStateHandle;
             public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter Deltas;
+            public NativeParallelMultiHashMap<int, SoundEvent> SoundEventsByClip;
+            public NativeParallelHashSet<int> SoundClipIds;
 
             public void Execute()
             {
@@ -270,6 +279,13 @@ namespace PlayGround.System.Combat.Projectiles
                         ProjectileSpawnApplyUtility.SpawnState spawnState =
                             ProjectileSpawnApplyUtility.SpawnStateFor(cfg);
                         trackingMask[i] = spawnState.Tracking;
+                        SoundEmit.Enqueue(
+                            cfg.SoundIds.SpawnId,
+                            cfg.Position,
+                            cfg.SpawnSoundRadius,
+                            SoundCategory.Spawn,
+                            SoundEventsByClip,
+                            SoundClipIds);
                     }
                 }
 

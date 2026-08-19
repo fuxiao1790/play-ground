@@ -8,12 +8,12 @@ dropping, delaying, or reprioritizing it must never change gameplay state.
 
 ## Produced By
 
-Burst spawn producers call `SoundEmit.Enqueue` with
-`SoundEventSingleton.Events.AsParallelWriter()`:
+Spawn apply jobs call `SoundEmit.Enqueue` with the clip-keyed containers owned
+by `SoundEventSingleton`:
 
-- impact and lingering AOE expansion in `AoeSpawnExpansionSystem.cs`
-- `ProjectileSpawnExpansionSystem`
-- `TargetedSpawnExpansionSystem`
+- impact and lingering AOE materialization in `AoeSpawnApplySystem.cs`
+- discrete and continuous projectile materialization
+- targeted materialization
 - deferred armed-AOE completion in `CombatArmingSystem`
 
 This covers every materialized spawn: root casts, trigger-linked skills,
@@ -37,8 +37,8 @@ basic prefab sound/radius
   -> SkillSetCompiler runtime definition tree
   -> recursive AudioRoot.Register
   -> SkillSoundIds.SpawnId + radius on spawn templates/commands
-  -> SoundEmit -> SoundEventSingleton
-  -> SoundEventDispatchSystem -> AudioRoot.Enqueue
+  -> spawn apply loop -> SoundEmit -> SoundEventSingleton clip bucket
+  -> SoundEventDispatchSystem -> AudioRoot.EnqueueBucketed
   -> AudioRoot.LateUpdate selection and playback
 ```
 
@@ -49,11 +49,11 @@ and arming sound slots require matching producers before being added.
 ## Consumed By
 
 `SoundEventDispatchSystem` is transport only. In `PresentationSystemGroup` it
-completes every stored producer handle, drains the native queue, and forwards
-the occurrences to `AudioRoot.Enqueue`. It never culls, ranks, spaces, or plays.
+completes every stored producer handle, walks the ECS-provided clip buckets,
+and forwards each bucket to `AudioRoot`. It never sorts, culls, spaces, or plays.
 
 `AudioRoot.LateUpdate` is the sole decision and playback point. It owns clip
-registration, the managed pending batch, selection policy, pooled voices,
+registration, the managed pending buckets, selection policy, pooled voices,
 listener binding, response configuration, and diagnostic counters.
 
 ## Fields / Shape
@@ -62,10 +62,10 @@ listener binding, response configuration, and diagnostic counters.
 |---|---|
 | `int ClipId` | Registry identity; `0` or an unknown id is silent. |
 | `float2 Position` | Distance culling and pooled voice world position. |
-| `float2 Velocity` | Reserved for motion-aware localization; currently a deterministic tie-break field. |
+| `float2 Velocity` | Reserved for motion-aware localization. |
 | `float AudibleRadius` | Per-event cull and rolloff radius; non-positive uses the root default. |
 | `SoundCategory Category` | Occurrence class; ECS spawn producers use `Spawn`. |
-| `short Priority` | Higher values rank first; player spawns use `1`, other factions use `0`. |
+| `short Priority` | Reserved. Current spawn events use `0`; selection treats all sources equally. |
 
 `SkillSoundIds` currently contains `SpawnId`. Audio response budgets, spacing,
 falloff, jitter, delay, and voice configuration remain on `AudioRoot` because
@@ -77,13 +77,13 @@ they describe playback policy, not what occurred.
   and across recompiles.
 - A missing clip, invalid id, missing `AudioRoot`, or invalid listener is silent
   and cannot throw into combat.
-- The complete managed pending batch is considered before playback; there is no
+- The complete managed pending buckets are considered before playback; there is no
   immediate per-call play path.
 - A mana-rejected cast is silent because the resource gate rejects it before
   spawn expansion.
 - An armed AOE is silent at placement and emits its one spawn sound when arming
   completes, mirroring its deferred spawn VFX.
-- Player-faction priority applies equally to root and nested spawns.
+- Faction and source kind do not affect selection or Unity voice priority.
 
 ## Spatial Model
 
@@ -96,29 +96,55 @@ logs once where appropriate and stays silent.
 ## Culling And Selection
 
 `AudioRoot` rejects invalid ids and out-of-range events, limits copies per clip,
-and applies cross-frame same-clip start spacing. Same-frame copies compare
-spacing against the drain-start snapshot, so the per-clip frame cap—not queue
-order—controls a volley in one batch.
+and applies cross-frame same-clip start spacing. A clip present in an eligible
+batch always retains its first copy before its per-clip cap is applied.
+Same-frame copies compare spacing against the drain-start snapshot, so the
+per-clip frame cap—not queue order—controls a volley in one batch.
 
-Survivors rank by priority, then clip novelty, then explicit occurrence fields.
-Capacity limits pooled playback. Repeat volume falloff, pitch jitter, delayed
-repeats, spatial blend, and rolloff are playback response owned by `AudioRoot`.
+Every eligible clip reserves its first occurrence before repeat capacity is
+allocated. Remaining capacity is divided by repeat demand using integer
+proportional quotas and largest-remainder scans. Ties start from a rotating
+bucket cursor so a stable clip id or hash iteration order cannot own the spare
+slot every frame. This is linear in occurrence count plus a bounded
+`voice budget * unique clip count` quota pass; there is no event grouping or
+sorting in `AudioRoot`.
+
+`maxActiveSources` is the duplicate-voice budget, not a hard unique-clip cap.
+One eligible occurrence per clip survives even when that count exceeds the
+budget. Playback never calls `Stop` to steal an active voice, so capacity policy
+cannot truncate a sound already in progress.
+
+Unity also has a global real-voice limit. `AudioRoot` clamps its duplicate budget
+to four voices below `AudioSettings.GetConfiguration().numRealVoices`, regardless
+of a larger scene-authored value. Every pooled source uses the same neutral
+`AudioSource.priority` value. `SoundEvent.Priority` is currently ignored and is
+never copied into Unity priority, because doing so would let Unity's global
+voice manager reintroduce clip or faction preference after proportional
+selection.
+Repeat volume falloff, pitch jitter, delayed repeats, spatial blend, and rolloff
+are playback response owned by `AudioRoot`.
 
 ## Lifetime
 
-`SoundEventSingleton` owns one persistent `NativeQueue<SoundEvent>` plus the
-combined producer handle. The dispatcher completes producers and empties the
-queue on every update path, including a missing `AudioRoot`; it disposes the
-queue during teardown.
+`SoundEventSingleton` owns one persistent
+`NativeParallelMultiHashMap<int, SoundEvent>` keyed by clip id, a
+`NativeParallelHashSet<int>` of represented clip ids, and the combined producer
+handle. Apply systems reserve capacity at their existing materialization sync
+point. The dispatcher completes producers and clears both containers on every
+update path, including a missing `AudioRoot`; it disposes both during teardown.
 
-Forwarded events live in `AudioRoot`'s reused managed pending list until its
-next `LateUpdate` drain. That list also clears on every drain path. Pooled
-`AudioSource` objects live under `AudioRoot` until root teardown.
+Forwarded events live in `AudioRoot`'s reused per-clip managed buckets until its
+next `LateUpdate` drain. Those buckets clear on every drain path. Pooled
+`AudioSource` objects live under `AudioRoot` until root teardown. Active entries,
+including delayed starts whose `AudioSource.isPlaying` is not yet true, remain
+reserved until their computed end time so another event cannot reuse and cut
+off the scheduled voice.
 
 ## Ordering
 
-Parallel `NativeQueue` insertion order has no semantic meaning. Playback order
-comes only from explicit ranking, grouping, spacing, and capacity rules.
+Parallel multi-map insertion and hash-set iteration order have no semantic
+meaning. Clip novelty, proportional quotas, rotating ties, spacing, and
+capacity rules do not depend on either order.
 
 The relative runtime order of `PresentationSystemGroup` dispatch and the
 `AudioRoot.LateUpdate` callback has not yet been measured in the Unity Profiler.
@@ -129,12 +155,14 @@ order.
 
 ## Restrictions
 
-- Jobs enqueue only unmanaged `SoundEvent` values through `SoundEmit`; they
+- Jobs add only unmanaged `SoundEvent` values through `SoundEmit`; they
   never call managed `AudioRoot`.
+- Spawn sounds are emitted inside spawn apply loops after materialization, not
+  from expansion jobs. Armed AOE completion remains its own timed producer.
 - Emitting systems combine their scheduled jobs into
   `SoundEventSingleton.ProducerHandle` on the main thread.
 - Managed producers call `AudioRoot.Enqueue`; they do not retain or write the
-  native queue. This preserves singleton ownership, safety handles, and teardown
+  native buckets. This preserves singleton ownership, safety handles, and teardown
   ordering.
 - No gameplay decision may read sound events, playback, or diagnostic counters.
 - No per-call play API may bypass the batch.

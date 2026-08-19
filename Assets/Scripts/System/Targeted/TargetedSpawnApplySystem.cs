@@ -11,6 +11,7 @@ using Unity.Entities;
 using Unity.Jobs;
 using Unity.Profiling;
 using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Audio;
 
 namespace PlayGround.System.Combat.Targeted
 {
@@ -61,6 +62,9 @@ namespace PlayGround.System.Combat.Targeted
             }
 
             NativeArray<TargetedSpawnCommand> commands = lane.Commands.AsArray();
+            RefRW<SoundEventSingleton> sounds =
+                SystemAPI.GetSingletonRW<SoundEventSingleton>();
+            SoundEventLane.Reserve(ref sounds.ValueRW, commands.Length);
             int created = SpawnPoolTopUp.EnsureDisabledSlots(
                 EntityManager, _archetype, _deadSlots, commands.Length, CreateSlotsMarker);
             using NativeArray<ArchetypeChunk> chunks = _deadSlots.ToArchetypeChunkArray(Allocator.TempJob);
@@ -85,7 +89,9 @@ namespace PlayGround.System.Combat.Targeted
                 RenderKindHandle = GetComponentTypeHandle<CombatRenderKindId>(false),
                 LifetimeHandle = GetComponentTypeHandle<CombatLifetimeComponent>(false),
                 ArmingHandle = GetComponentTypeHandle<CombatArmingComponent>(false),
-                Deltas = registryState.Deltas.AsParallelWriter()
+                Deltas = registryState.Deltas.AsParallelWriter(),
+                SoundEventsByClip = sounds.ValueRO.EventsByClip,
+                SoundClipIds = sounds.ValueRO.ClipIds
             }.Schedule(default).Complete();
 
             // EnsureDisabledSlots creates the deficit before the job sees the disabled-slot
@@ -127,6 +133,8 @@ namespace PlayGround.System.Combat.Targeted
             public ComponentTypeHandle<CombatLifetimeComponent> LifetimeHandle;
             public ComponentTypeHandle<CombatArmingComponent> ArmingHandle;
             public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter Deltas;
+            public NativeParallelMultiHashMap<int, SoundEvent> SoundEventsByClip;
+            public NativeParallelHashSet<int> SoundClipIds;
 
             public void Execute()
             {
@@ -193,6 +201,13 @@ namespace PlayGround.System.Combat.Targeted
                         // unacquired chain keeps the caster-facing placeholder hidden until its
                         // first link lands. Authored arming remains an independent pause overlay.
                         armingMask[i] = cfg.ArmSeconds > 0f || cfg.HasAcquiredTarget == 0;
+                        SoundEmit.Enqueue(
+                            cfg.SoundIds.SpawnId,
+                            cfg.Origin,
+                            cfg.SpawnSoundRadius,
+                            SoundCategory.Spawn,
+                            SoundEventsByClip,
+                            SoundClipIds);
 
                         // Spawn event, emitted after every component is written so it reads the
                         // entity's own state and stays the mirror image of the release the death

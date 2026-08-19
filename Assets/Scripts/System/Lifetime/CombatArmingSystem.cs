@@ -25,6 +25,15 @@ namespace PlayGround.System.Combat.Lifetime
     [UpdateBefore(typeof(CombatLifetimeSystem))]
     public partial struct CombatArmingSystem : ISystem
     {
+        private EntityQuery armedAoeQuery;
+
+        public void OnCreate(ref SystemState state)
+        {
+            armedAoeQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AoeTag, Active, ArmingTag>()
+                .Build(ref state);
+        }
+
         public void OnUpdate(ref SystemState state)
         {
             // The VFX lane is created unconditionally by CombatAoeVfxDispatchSystem's OnCreate.
@@ -33,6 +42,9 @@ namespace PlayGround.System.Combat.Lifetime
                 SystemAPI.GetSingletonRW<CombatAoeVfxDispatchSingleton>();
             RefRW<SoundEventSingleton> sounds =
                 SystemAPI.GetSingletonRW<SoundEventSingleton>();
+            SoundEventLane.Reserve(
+                ref sounds.ValueRW,
+                armedAoeQuery.CalculateEntityCount());
 
             float deltaTime = SystemAPI.Time.DeltaTime;
 
@@ -48,7 +60,8 @@ namespace PlayGround.System.Combat.Lifetime
                 DeltaTime = deltaTime,
                 CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
                 TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter(),
-                SoundsPending = sounds.ValueRO.Events.AsParallelWriter()
+                SoundEventsByClip = sounds.ValueRO.EventsByClip.AsParallelWriter(),
+                SoundClipIds = sounds.ValueRO.ClipIds.AsParallelWriter()
             }.ScheduleParallel(projectileHandle);
 
             JobHandle targetedHandle = new TargetedArmingJob
@@ -90,7 +103,8 @@ namespace PlayGround.System.Combat.Lifetime
             public float DeltaTime;
             public NativeQueue<ImpactCircleVfxEvent>.ParallelWriter CircularVfxPending;
             public NativeQueue<LingeringCircleVfxEvent>.ParallelWriter TimedCircularVfxPending;
-            public NativeQueue<SoundEvent>.ParallelWriter SoundsPending;
+            public NativeParallelMultiHashMap<int, SoundEvent>.ParallelWriter SoundEventsByClip;
+            public NativeParallelHashSet<int>.ParallelWriter SoundClipIds;
 
             private void Execute(
                 in AoeVfxIds vfxIds,
@@ -125,8 +139,8 @@ namespace PlayGround.System.Combat.Lifetime
                     kinematics.Position,
                     identity.SpawnSoundRadius,
                     SoundCategory.Spawn,
-                    identity.Faction,
-                    SoundsPending);
+                    SoundEventsByClip,
+                    SoundClipIds);
             }
         }
 

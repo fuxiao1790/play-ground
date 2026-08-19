@@ -169,7 +169,7 @@ Docs/
 
 - `Assets/Scripts/System/Audio/SoundEvent.cs`: unmanaged `SoundEvent`,
   `SoundCategory`, and `SkillSoundIds` boundary data.
-- `Assets/Scripts/System/Audio/SoundEventLane.cs`: persistent native sound queue
+- `Assets/Scripts/System/Audio/SoundEventLane.cs`: persistent clip-bucketed native sound lane
   and producer dependency handle.
 - `Assets/Scripts/System/Audio/SoundEmit.cs`: Burst-safe spawn occurrence writer.
 - `Assets/Scripts/System/Audio/SoundEventDispatchSystem.cs`: presentation-time

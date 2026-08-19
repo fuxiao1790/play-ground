@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using PlayGround.System.Combat.Stats;
 using Unity.Collections;
 using Unity.Entities;
@@ -12,26 +11,33 @@ namespace PlayGround.System.Combat.Audio
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     public partial class SoundEventDispatchSystem : SystemBase
     {
-        private readonly List<SoundEvent> drainScratch = new();
         private Entity singletonEntity;
 
         protected override void OnCreate()
         {
             singletonEntity = Entity.Null;
-            var events = new NativeQueue<SoundEvent>(Allocator.Persistent);
+            var eventsByClip =
+                new NativeParallelMultiHashMap<int, SoundEvent>(1, Allocator.Persistent);
+            var clipIds = new NativeParallelHashSet<int>(1, Allocator.Persistent);
             try
             {
                 singletonEntity = EntityManager.CreateEntity(typeof(SoundEventSingleton));
                 EntityManager.SetComponentData(singletonEntity, new SoundEventSingleton
                 {
-                    Events = events
+                    EventsByClip = eventsByClip,
+                    ClipIds = clipIds
                 });
             }
             catch
             {
-                if (events.IsCreated)
+                if (eventsByClip.IsCreated)
                 {
-                    events.Dispose();
+                    eventsByClip.Dispose();
+                }
+
+                if (clipIds.IsCreated)
+                {
+                    clipIds.Dispose();
                 }
 
                 throw;
@@ -40,7 +46,6 @@ namespace PlayGround.System.Combat.Audio
 
         protected override void OnDestroy()
         {
-            drainScratch.Clear();
             if (singletonEntity == Entity.Null
                 || !EntityManager.Exists(singletonEntity)
                 || !EntityManager.HasComponent<SoundEventSingleton>(singletonEntity))
@@ -51,9 +56,14 @@ namespace PlayGround.System.Combat.Audio
             SoundEventSingleton lane =
                 EntityManager.GetComponentData<SoundEventSingleton>(singletonEntity);
             lane.ProducerHandle.Complete();
-            if (lane.Events.IsCreated)
+            if (lane.EventsByClip.IsCreated)
             {
-                lane.Events.Dispose();
+                lane.EventsByClip.Dispose();
+            }
+
+            if (lane.ClipIds.IsCreated)
+            {
+                lane.ClipIds.Dispose();
             }
         }
 
@@ -63,16 +73,13 @@ namespace PlayGround.System.Combat.Audio
             if (!SystemAPI.TryGetSingletonRW<SoundEventSingleton>(
                     out RefRW<SoundEventSingleton> soundLane))
             {
-                drainScratch.Clear();
                 return;
             }
 
             ref SoundEventSingleton lane = ref soundLane.ValueRW;
             lane.ProducerHandle.Complete();
             lane.ProducerHandle = default;
-            drainScratch.Clear();
-
-            if (!lane.Events.IsCreated)
+            if (!lane.EventsByClip.IsCreated || !lane.ClipIds.IsCreated)
             {
                 return;
             }
@@ -80,28 +87,36 @@ namespace PlayGround.System.Combat.Audio
             if (SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(
                     out RefRW<CombatStatsSingleton> stats))
             {
-                stats.ValueRW.SoundEventsCreated += lane.Events.Count;
+                stats.ValueRW.SoundEventsCreated += lane.EventsByClip.Count();
             }
 
             AudioRoot root = AudioRoot.Instance;
             if (root == null)
             {
-                lane.Events.Clear();
+                lane.EventsByClip.Clear();
+                lane.ClipIds.Clear();
                 return;
             }
 
-            while (lane.Events.TryDequeue(out SoundEvent soundEvent))
+            foreach (int clipId in lane.ClipIds)
             {
-                drainScratch.Add(soundEvent);
+                if (!lane.EventsByClip.TryGetFirstValue(
+                        clipId,
+                        out SoundEvent soundEvent,
+                        out NativeParallelMultiHashMapIterator<int> iterator))
+                {
+                    continue;
+                }
+
+                do
+                {
+                    root.EnqueueBucketed(clipId, in soundEvent);
+                }
+                while (lane.EventsByClip.TryGetNextValue(out soundEvent, ref iterator));
             }
 
-            for (int i = 0; i < drainScratch.Count; i++)
-            {
-                SoundEvent soundEvent = drainScratch[i];
-                root.Enqueue(in soundEvent);
-            }
-
-            drainScratch.Clear();
+            lane.EventsByClip.Clear();
+            lane.ClipIds.Clear();
         }
     }
 }
