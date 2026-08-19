@@ -19,7 +19,7 @@ namespace PlayGround.System.Combat.Audio
             get
             {
                 PruneInactive(Time.time);
-                return activeSounds.Count;
+                return activeVoiceCount;
             }
         }
         public long Accepted => accepted;
@@ -36,7 +36,7 @@ namespace PlayGround.System.Combat.Audio
         private int maxActiveSources = 24;
 
         [SerializeField, Min(0)]
-        [Tooltip("Number of pooled AudioSources created during setup. Clamped to Max Active Sources; remaining voices are created lazily.")]
+        [Tooltip("Number of unassigned AudioSources created during setup, clamped to Max Active Sources. First use assigns each to a clip-id pool; remaining voices are created lazily.")]
         private int prewarmSources = 8;
 
         [SerializeField, Min(0f)]
@@ -89,8 +89,10 @@ namespace PlayGround.System.Combat.Audio
         private readonly List<int> pendingClipIds = new();
         private readonly List<int> eligibleClipIds = new();
         private readonly List<SelectedSound> selectedSounds = new();
-        private readonly List<AudioSource> sources = new();
-        private readonly List<ActiveSound> activeSounds = new();
+        private readonly List<VoicePool> voicePoolsByClipId = new() { null };
+        private readonly List<VoiceSlot> allVoices = new();
+        private readonly Stack<VoiceSlot> unassignedVoices = new();
+        private readonly MinPriorityQueue<VoiceSlot> activeVoicesByExpiry = new();
         private readonly Dictionary<int, float> lastStartTimeByClipId = new();
         private readonly Dictionary<int, float> batchLastStartTimeByClipId = new();
         private Transform listenerTransform;
@@ -98,6 +100,7 @@ namespace PlayGround.System.Combat.Audio
         private bool listenerSetupErrorLogged;
         private int pendingCount;
         private int fairnessCursor;
+        private int activeVoiceCount;
         private long accepted;
         private long culledDistance;
         private long culledRedundant;
@@ -119,9 +122,9 @@ namespace PlayGround.System.Combat.Audio
             Instance = this;
 
             int count = Mathf.Min(Mathf.Max(0, prewarmSources), Mathf.Max(0, maxActiveSources));
-            for (int i = sources.Count; i < count; i++)
+            for (int i = allVoices.Count; i < count; i++)
             {
-                CreateSource();
+                unassignedVoices.Push(CreateVoice(clipId: 0));
             }
         }
 
@@ -164,13 +167,14 @@ namespace PlayGround.System.Combat.Audio
                     continue;
                 }
 
-                AudioSource source = AvailableSource(selected.CopyIndex == 0);
-                if (source == null)
+                VoiceSlot voice = AvailableVoice(soundEvent.ClipId, selected.CopyIndex == 0);
+                if (voice == null)
                 {
                     CountCapacityCull(selected.CopyIndex);
                     continue;
                 }
 
+                AudioSource source = voice.Source;
                 int copyIndex = selected.CopyIndex;
                 float volume = math.pow(math.saturate(repeatVolumeFalloff), copyIndex);
                 float jitterRange = math.max(0f, pitchJitterRange);
@@ -215,7 +219,10 @@ namespace PlayGround.System.Combat.Audio
 
                 float startTime = now + delay;
                 float endTime = startTime + clip.length / math.max(0.01f, math.abs(pitch));
-                activeSounds.Add(new ActiveSound(source, soundEvent.ClipId, endTime));
+                voice.Active = true;
+                voice.ExpireTime = endTime;
+                activeVoicesByExpiry.Enqueue(voice, endTime);
+                activeVoiceCount++;
                 if (!batchLastStartTimeByClipId.TryGetValue(soundEvent.ClipId, out float batchStart)
                     || startTime > batchStart)
                 {
@@ -241,7 +248,9 @@ namespace PlayGround.System.Combat.Audio
             }
 
             Clear();
-            sources.Clear();
+            allVoices.Clear();
+            unassignedVoices.Clear();
+            voicePoolsByClipId.Clear();
             clipsById.Clear();
             idsByClip.Clear();
             listenerTransform = null;
@@ -262,6 +271,7 @@ namespace PlayGround.System.Combat.Audio
             int id = clipsById.Count;
             clipsById.Add(clip);
             pendingByClipId.Add(new PendingBucket());
+            voicePoolsByClipId.Add(new VoicePool());
             idsByClip.Add(clip, id);
             return id;
         }
@@ -339,8 +349,8 @@ namespace PlayGround.System.Combat.Audio
                 global::System.Globalization.CultureInfo.InvariantCulture,
                 "AudioRoot: active:{0} pool:{1}/{2} accepted:{3} culled_distance:{4} "
                 + "culled_redundant:{5} culled_novel:{6} culled_spacing:{7} rejected:{8}",
-                activeSounds.Count,
-                sources.Count,
+                activeVoiceCount,
+                allVoices.Count,
                 ResolveDuplicateVoiceBudget(),
                 accepted,
                 culledDistance,
@@ -352,9 +362,20 @@ namespace PlayGround.System.Combat.Audio
 
         public void Clear()
         {
-            for (int i = 0; i < sources.Count; i++)
+            activeVoicesByExpiry.Clear();
+            activeVoiceCount = 0;
+            unassignedVoices.Clear();
+            for (int clipId = 1; clipId < voicePoolsByClipId.Count; clipId++)
             {
-                AudioSource source = sources[i];
+                voicePoolsByClipId[clipId].FreeVoices.Clear();
+            }
+
+            for (int i = 0; i < allVoices.Count; i++)
+            {
+                VoiceSlot voice = allVoices[i];
+                AudioSource source = voice.Source;
+                voice.Active = false;
+                voice.ExpireTime = 0f;
                 if (source == null)
                 {
                     continue;
@@ -362,11 +383,18 @@ namespace PlayGround.System.Combat.Audio
 
                 source.Stop();
                 source.clip = null;
+                if (voice.ClipId > 0 && voice.ClipId < voicePoolsByClipId.Count)
+                {
+                    voicePoolsByClipId[voice.ClipId].FreeVoices.Push(voice);
+                }
+                else
+                {
+                    unassignedVoices.Push(voice);
+                }
             }
 
             ClearPending();
             selectedSounds.Clear();
-            activeSounds.Clear();
             lastStartTimeByClipId.Clear();
             batchLastStartTimeByClipId.Clear();
             accepted = 0;
@@ -451,7 +479,7 @@ namespace PlayGround.System.Combat.Audio
 
             int repeatBudget = math.max(
                 0,
-                freeVoices - activeSounds.Count - eligibleClipIds.Count);
+                freeVoices - activeVoiceCount - eligibleClipIds.Count);
             int repeatsToSelect = math.min(totalRepeatDemand, repeatBudget);
             AllocateRepeatQuotas(repeatsToSelect, totalRepeatDemand);
             for (int offset = 0; offset < eligibleClipIds.Count; offset++)
@@ -505,23 +533,37 @@ namespace PlayGround.System.Combat.Audio
             Debug.LogError($"{nameof(AudioRoot)} on '{name}' is not configured: {reason}.");
         }
 
-        private AudioSource AvailableSource(bool isFirstCopy)
+        private VoiceSlot AvailableVoice(int clipId, bool isFirstCopy)
         {
             int duplicateVoiceBudget = ResolveDuplicateVoiceBudget();
-            if (!isFirstCopy && activeSounds.Count >= duplicateVoiceBudget)
+            if (!isFirstCopy && activeVoiceCount >= duplicateVoiceBudget)
             {
                 return null;
             }
 
-            for (int i = 0; i < sources.Count; i++)
+            VoicePool pool = voicePoolsByClipId[clipId];
+            while (pool.FreeVoices.Count > 0)
             {
-                if (sources[i] != null && !IsSourceActive(sources[i]))
+                VoiceSlot voice = pool.FreeVoices.Pop();
+                if (voice.Source != null)
                 {
-                    return sources[i];
+                    return voice;
                 }
             }
 
-            return CreateSource();
+            while (unassignedVoices.Count > 0)
+            {
+                VoiceSlot voice = unassignedVoices.Pop();
+                if (voice.Source == null)
+                {
+                    continue;
+                }
+
+                voice.ClipId = clipId;
+                return voice;
+            }
+
+            return CreateVoice(clipId);
         }
 
         private int ResolveDuplicateVoiceBudget()
@@ -542,9 +584,9 @@ namespace PlayGround.System.Combat.Audio
             return math.min(nonNegativeConfiguredBudget, unityBudget);
         }
 
-        private AudioSource CreateSource()
+        private VoiceSlot CreateVoice(int clipId)
         {
-            var sourceObject = new GameObject($"OneShotAudio_{sources.Count + 1}");
+            var sourceObject = new GameObject($"OneShotAudio_{allVoices.Count + 1}");
             sourceObject.transform.SetParent(transform, false);
             AudioSource source = sourceObject.AddComponent<AudioSource>();
             source.playOnAwake = false;
@@ -552,37 +594,32 @@ namespace PlayGround.System.Combat.Audio
             source.rolloffMode = rolloffMode;
             source.minDistance = minDistance;
             source.maxDistance = maxDistance;
-            sources.Add(source);
-            return source;
-        }
-
-        private bool IsSourceActive(AudioSource source)
-        {
-            for (int i = 0; i < activeSounds.Count; i++)
-            {
-                if (activeSounds[i].Source == source)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            var voice = new VoiceSlot(source, clipId);
+            allVoices.Add(voice);
+            return voice;
         }
 
         private void PruneInactive(float now)
         {
-            for (int i = activeSounds.Count - 1; i >= 0; i--)
+            while (activeVoicesByExpiry.TryPeek(out VoiceSlot voice, out float expireTime)
+                && now >= expireTime)
             {
-                ActiveSound sound = activeSounds[i];
-                if (sound.Source == null || now >= sound.EndTime)
+                activeVoicesByExpiry.TryDequeue(out voice, out _);
+                if (!voice.Active || voice.ExpireTime != expireTime)
                 {
-                    if (sound.Source != null)
-                    {
-                        sound.Source.clip = null;
-                    }
-
-                    activeSounds.RemoveAt(i);
+                    continue;
                 }
+
+                voice.Active = false;
+                voice.ExpireTime = 0f;
+                activeVoiceCount--;
+                if (voice.Source == null)
+                {
+                    continue;
+                }
+
+                voice.Source.clip = null;
+                voicePoolsByClipId[voice.ClipId].FreeVoices.Push(voice);
             }
         }
 
@@ -717,18 +754,23 @@ namespace PlayGround.System.Combat.Audio
             }
         }
 
-        private readonly struct ActiveSound
+        private sealed class VoicePool
         {
-            public ActiveSound(AudioSource source, int clipId, float endTime)
+            public readonly Stack<VoiceSlot> FreeVoices = new();
+        }
+
+        private sealed class VoiceSlot
+        {
+            public VoiceSlot(AudioSource source, int clipId)
             {
                 Source = source;
                 ClipId = clipId;
-                EndTime = endTime;
             }
 
             public AudioSource Source { get; }
-            public int ClipId { get; }
-            public float EndTime { get; }
+            public int ClipId { get; set; }
+            public bool Active { get; set; }
+            public float ExpireTime { get; set; }
         }
     }
 }

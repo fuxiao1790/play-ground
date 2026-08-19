@@ -174,8 +174,10 @@ Docs/
 - `Assets/Scripts/System/Audio/SoundEmit.cs`: Burst-safe spawn occurrence writer.
 - `Assets/Scripts/System/Audio/SoundEventDispatchSystem.cs`: presentation-time
   native-to-managed transport into `AudioRoot.Enqueue`.
+- `Assets/Scripts/System/Audio/MinPriorityQueue.cs`: reused binary min-heap for
+  active-voice expiry.
 - `Assets/Scripts/System/Audio/AudioRoot.cs`: managed clip registry, pending
-  frame drain, culling/selection policy, listener binding, pooled voice playback,
+  frame drain, culling/selection policy, listener binding, per-clip voice pools,
   and diagnostics.
 
 ## Current Projectile Runtime Map

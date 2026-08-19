@@ -135,10 +135,16 @@ update path, including a missing `AudioRoot`; it disposes both during teardown.
 
 Forwarded events live in `AudioRoot`'s reused per-clip managed buckets until its
 next `LateUpdate` drain. Those buckets clear on every drain path. Pooled
-`AudioSource` objects live under `AudioRoot` until root teardown. Active entries,
-including delayed starts whose `AudioSource.isPlaying` is not yet true, remain
-reserved until their computed end time so another event cannot reuse and cut
-off the scheduled voice.
+`AudioSource` objects live under `AudioRoot` until root teardown. Prewarmed
+voices begin unassigned; first use assigns each voice to a clip-id pool, and
+expiry returns it to that same pool in O(1).
+
+Every active voice stores its computed expiry and is also entered in a reused
+binary min-priority queue keyed by that time. Pruning peeks only the earliest
+expiry, dequeues expired roots in O(log active voices), and does no source or
+active-voice list scan. Delayed starts remain reserved through their computed
+end time even while `AudioSource.isPlaying` is false, preventing reuse from
+cutting off scheduled playback.
 
 ## Ordering
 
