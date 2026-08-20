@@ -24,7 +24,7 @@ namespace PlayGround.System.Combat.Application
         public float DamageAmount;
         public float CritChance;
         public float CritMultiplier;
-        public bool DirectDamageEnabled;
+        public bool DirectDamageEnabled; //todo: remove this field, if damage is not enabled, the hit even shouldn't be produced. 
         public EntityId SourceNodeId;
         public StackEffectSnapshot StackEffect;
     }

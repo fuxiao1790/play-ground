@@ -14,26 +14,6 @@ namespace PlayGround.System.Combat.Projectiles
 {
     public static class ProjectileCollisionMath
     {
-#pragma warning disable CS0618
-        public static void ComputeWorldBounds(
-            float2 position,
-            float radius,
-            float2 halfExtents,
-            float rotationRadians,
-            ProjectileShapeType shapeType,
-            out float2 min,
-            out float2 max)
-        {
-            ComputeWorldBounds(
-                position,
-                radius,
-                halfExtents,
-                rotationRadians,
-                ToCombatShapeType(shapeType),
-                out min,
-                out max);
-        }
-
         public static void ComputeWorldBounds(
             float2 position,
             float radius,
@@ -65,11 +45,5 @@ namespace PlayGround.System.Combat.Projectiles
         {
             return CombatCollisionMath.Hit(projectileKinematics, projectileCollision, target);
         }
-
-        private static CombatShapeType ToCombatShapeType(ProjectileShapeType shapeType)
-        {
-            return (CombatShapeType)(int)shapeType;
-        }
-#pragma warning restore CS0618
     }
 }

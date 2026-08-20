@@ -42,19 +42,6 @@ namespace PlayGround.System.Combat.Projectiles
         {
         }
 
-        [global::System.Obsolete("Use the CombatShapeType overload.")]
-        public ProjectileSpawnRequest(
-            Vector2 position,
-            Vector2 direction,
-            float speed,
-            float lifetime,
-            float radius,
-            DamageSnapshot damage,
-            ProjectileShapeType shapeType)
-            : this(position, direction, speed, lifetime, radius, damage, (CombatShapeType)(int)shapeType)
-        {
-        }
-
         public ProjectileSpawnRequest(
             Vector2 position,
             Vector2 direction,
@@ -115,44 +102,6 @@ namespace PlayGround.System.Combat.Projectiles
             TimedSpawn = timedSpawn;
             ChildKind = childKind;
             ContinuousCollision = continuousCollision;
-        }
-
-        [global::System.Obsolete("Use the CombatShapeType overload.")]
-        public ProjectileSpawnRequest(
-            Vector2 position,
-            Vector2 direction,
-            float speed,
-            float lifetime,
-            float radius,
-            Vector2 halfExtents,
-            float rotationRadians,
-            DamageSnapshot damage,
-            ProjectileShapeType shapeType,
-            int projectileTypeId = 0,
-            int pierceCount = 0,
-            float repeatHitCooldownSeconds = 0f,
-            ProjectileTrackingConfig tracking = default,
-            ProjectileChildSpawnConfig childSpawn = default,
-            bool directDamageEnabled = true,
-            EntityId sourceNodeId = default)
-            : this(
-                position,
-                direction,
-                speed,
-                lifetime,
-                radius,
-                halfExtents,
-                rotationRadians,
-                damage,
-                (CombatShapeType)(int)shapeType,
-                projectileTypeId,
-                pierceCount,
-                repeatHitCooldownSeconds,
-                tracking,
-                childSpawn,
-                directDamageEnabled,
-                sourceNodeId)
-        {
         }
 
         public Vector2 Position { get; }
@@ -254,48 +203,6 @@ namespace PlayGround.System.Combat.Projectiles
             StackEffect = stackEffect;
             TemplateKey = templateKey;
             ContinuousCollision = continuousCollision;
-        }
-
-        [global::System.Obsolete("Use the CombatShapeType overload.")]
-        public ProjectileChildSpawnConfig(
-            int jitterSeed,
-            int typeId,
-            float energyPerSecond,
-            float energyThreshold,
-            float speed,
-            float lifetime,
-            float radius,
-            Vector2 halfExtents,
-            ProjectileShapeType shapeType,
-            float rotationRadians,
-            DamageSnapshot damage,
-            bool directDamageEnabled = true,
-            int pierceCount = 0,
-            float repeatHitCooldownSeconds = 0f,
-            float visualScale = 1f,
-            float visualRotationDegrees = 0f,
-            ProjectileTrackingConfig tracking = default,
-            ProjectileChildSpawnBehavior behavior = default)
-            : this(
-                jitterSeed,
-                typeId,
-                energyPerSecond,
-                energyThreshold,
-                speed,
-                lifetime,
-                radius,
-                halfExtents,
-                (CombatShapeType)(int)shapeType,
-                rotationRadians,
-                damage,
-                directDamageEnabled,
-                pierceCount,
-                repeatHitCooldownSeconds,
-                visualScale,
-                visualRotationDegrees,
-                tracking,
-                behavior)
-        {
         }
 
         public int JitterSeed { get; }
