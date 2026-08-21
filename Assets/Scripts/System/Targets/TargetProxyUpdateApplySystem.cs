@@ -33,11 +33,6 @@ namespace PlayGround.System.Combat.Targets
                 for (int eventIndex = 0; eventIndex < buffer.Length; eventIndex++)
                 {
                     TargetProxyUpdateEvent updateEvent = buffer[eventIndex];
-                    if (!EntityManager.Exists(updateEvent.Proxy))
-                    {
-                        continue;
-                    }
-
                     switch (updateEvent.Kind)
                     {
                         case TargetProxyUpdateKind.Push:

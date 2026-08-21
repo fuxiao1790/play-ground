@@ -36,6 +36,12 @@ Simulation systems can read unmanaged proxy data without touching Unity
 objects. Presentation bridge can resolve `TargetCompanion` after finalized
 results exist.
 
+Each actor root owns its resolved proxy `Entity` handle. Once non-null, that
+handle remains valid until the actor fires its proxy-despawn event and clears
+the handle. Bridge hot paths trust this lifetime contract instead of calling
+`EntityManager.Exists` per actor; an invalid non-null handle before despawn is a
+lifecycle bug and must fail fast.
+
 ## Restrictions
 
 Simulation jobs must not read managed `TargetCompanion`. New collision and

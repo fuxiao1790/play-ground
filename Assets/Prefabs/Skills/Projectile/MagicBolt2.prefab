@@ -139,7 +139,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Sim::PlayGround.System.Combat.Authoring.BasicAttackPrefab
   spriteRenderer: {fileID: 6416970736168755285}
   hurtbox: {fileID: 1469189744092702574}
-  spawnSound: {fileID: 8300000, guid: d6e5d5d95af56d744b2ba01ac9753b3f, type: 3}
+  spawnSound: {fileID: 0}
   spawnSoundRadius: 150
 --- !u!1 &7079102651487229076
 GameObject:

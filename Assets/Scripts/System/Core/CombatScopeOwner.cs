@@ -92,6 +92,21 @@ namespace PlayGround.System.Combat.Core
             return ownedScope;
         }
 
+        public static bool TryGetScope(EntityManager entityManager, out Entity scope)
+        {
+            if (entityManager != default
+                && entityManager.World == ownedWorld
+                && ownerCount > 0
+                && ownedScope != Entity.Null)
+            {
+                scope = ownedScope;
+                return true;
+            }
+
+            scope = Entity.Null;
+            return false;
+        }
+
         public static void Release(EntityManager entityManager, Entity scope)
         {
             if (scope == Entity.Null || scope != ownedScope || entityManager.World != ownedWorld)

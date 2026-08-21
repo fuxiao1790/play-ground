@@ -63,7 +63,6 @@ namespace PlayGround.System.Combat.Targets
         private static readonly ProfilerMarker PushResolveMarker = new("CombatTargetProxy.Push.Resolve");
         private static readonly ProfilerMarker PushApplyMarker = new("CombatTargetProxy.Push.Apply");
         private static readonly ProfilerMarker TryGetEntityManagerMarker = new("CombatTargetProxy.TryGetEntityManager");
-        private static readonly ProfilerMarker ExistsMarker = new("CombatTargetProxy.Exists");
         private static readonly ProfilerMarker BuildPositionMarker = new("CombatTargetProxy.BuildPosition");
         private static readonly ProfilerMarker BuildShapeMarker = new("CombatTargetProxy.BuildShape");
         private static int nextCreateToken;
@@ -118,7 +117,7 @@ namespace PlayGround.System.Combat.Targets
 
         public static void Delete(EntityManager entityManager, Entity entity)
         {
-            if (!Exists(entityManager, entity) || !TryGetScopeEntity(entityManager, out Entity scopeEntity))
+            if (entity == Entity.Null || !TryGetScopeEntity(entityManager, out Entity scopeEntity))
             {
                 return;
             }
@@ -170,7 +169,7 @@ namespace PlayGround.System.Combat.Targets
             {
                 if (target == null
                     || !target.IsCombatTargetActive
-                    || !Exists(entityManager, entity)
+                    || entity == Entity.Null
                     || !TryGetScopeEntity(entityManager, out Entity scopeEntity))
                 {
                     return false;
@@ -205,7 +204,6 @@ namespace PlayGround.System.Combat.Targets
             if (target == null
                 || target.CombatTargetProxy == Entity.Null
                 || !TryGetEntityManager(out EntityManager entityManager)
-                || !Exists(entityManager, target.CombatTargetProxy)
                 || !TryGetScopeEntity(entityManager, out Entity scopeEntity))
             {
                 return false;
@@ -227,7 +225,6 @@ namespace PlayGround.System.Combat.Targets
             if (target == null
                 || target.CombatTargetProxy == Entity.Null
                 || !TryGetEntityManager(out EntityManager entityManager)
-                || !Exists(entityManager, target.CombatTargetProxy)
                 || !TryGetScopeEntity(entityManager, out Entity scopeEntity))
             {
                 return false;
@@ -248,8 +245,7 @@ namespace PlayGround.System.Combat.Targets
         {
             if (target == null
                 || target.CombatTargetProxy == Entity.Null
-                || !TryGetEntityManager(out EntityManager entityManager)
-                || !Exists(entityManager, target.CombatTargetProxy))
+                || !TryGetEntityManager(out EntityManager entityManager))
             {
                 return false;
             }
@@ -260,9 +256,7 @@ namespace PlayGround.System.Combat.Targets
         public static bool PushResourceMaxes(EntityManager entityManager, Entity entity, ICombatTarget target)
         {
             if (target == null
-                || !Exists(entityManager, entity)
-                || !entityManager.HasComponent<Health>(entity)
-                || !entityManager.HasComponent<Mana>(entity)
+                || entity == Entity.Null
                 || !TryGetScopeEntity(entityManager, out Entity scopeEntity))
             {
                 return false;
@@ -296,10 +290,7 @@ namespace PlayGround.System.Combat.Targets
             mana = default;
             if (target == null
                 || target.CombatTargetProxy == Entity.Null
-                || !TryGetEntityManager(out EntityManager entityManager)
-                || !Exists(entityManager, target.CombatTargetProxy)
-                || !entityManager.HasComponent<Health>(target.CombatTargetProxy)
-                || !entityManager.HasComponent<Mana>(target.CombatTargetProxy))
+                || !TryGetEntityManager(out EntityManager entityManager))
             {
                 return false;
             }
@@ -307,30 +298,6 @@ namespace PlayGround.System.Combat.Targets
             health = entityManager.GetComponentData<Health>(target.CombatTargetProxy);
             mana = entityManager.GetComponentData<Mana>(target.CombatTargetProxy);
             return true;
-        }
-
-        public static bool Exists(EntityManager entityManager, Entity entity)
-        {
-            using (ExistsMarker.Auto())
-            {
-                if (entity == Entity.Null || entityManager == default)
-                {
-                    return false;
-                }
-
-                try
-                {
-                    return entityManager.Exists(entity);
-                }
-                catch (global::System.InvalidOperationException)
-                {
-                    return false;
-                }
-                catch (global::System.NullReferenceException)
-                {
-                    return false;
-                }
-            }
         }
 
         public static int TargetKey(Entity entity)
@@ -413,10 +380,15 @@ namespace PlayGround.System.Combat.Targets
 
         private static bool TryGetScopeEntity(EntityManager entityManager, out Entity scopeEntity)
         {
-            scopeEntity = Entity.Null;
             if (entityManager == default)
             {
+                scopeEntity = Entity.Null;
                 return false;
+            }
+
+            if (CombatScopeOwner.TryGetScope(entityManager, out scopeEntity))
+            {
+                return true;
             }
 
             using EntityQuery query = entityManager.CreateEntityQuery(
