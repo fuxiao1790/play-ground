@@ -1,5 +1,6 @@
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
+using PlayGround.System.Combat.Collision.Narrowphase;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
 using PlayGround.System.Combat.Platform;
@@ -41,7 +42,7 @@ namespace PlayGround.System.Combat.Projectiles
                 ref CombatCollisionComponent collision)
             {
                 kinematics.Position += kinematics.Velocity * DeltaTime;
-                ProjectileCollisionMath.ComputeWorldBounds(
+                CombatCollisionMath.ComputeWorldBounds(
                     kinematics.Position,
                     collision.Radius,
                     collision.HalfExtents,

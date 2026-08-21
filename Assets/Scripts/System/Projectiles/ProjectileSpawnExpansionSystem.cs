@@ -1,5 +1,6 @@
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
+using PlayGround.System.Combat.Collision.Narrowphase;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
 using PlayGround.System.Combat.Platform;
@@ -265,7 +266,7 @@ namespace PlayGround.System.Combat.Projectiles
 
             private void WriteCommand(in ProjectileSpawnCommand template, int projectileId, float2 velocity)
             {
-                ProjectileCollisionMath.ComputeWorldBounds(
+                CombatCollisionMath.ComputeWorldBounds(
                     template.Position, template.Radius, template.HalfExtents, template.RotationRadians, template.ShapeType,
                     out float2 boundsMin, out float2 boundsMax);
 

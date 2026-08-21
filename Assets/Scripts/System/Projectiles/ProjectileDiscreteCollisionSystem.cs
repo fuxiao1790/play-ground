@@ -226,7 +226,7 @@ namespace PlayGround.System.Combat.Projectiles
                                 continue;
                             }
 
-                            if (!ProjectileCollisionMath.BoundsIntersect(
+                            if (!CombatCollisionMath.BoundsIntersect(
                                 collision.BoundsMin,
                                 collision.BoundsMax,
                                 target.BoundsMin,

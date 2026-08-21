@@ -278,7 +278,7 @@ structurally because their archetype has no `ProjectileTrackingComponent`.
 
 Movement is shared data math. `ProjectileContinuousOriginSystem` captures only continuous step-start
 positions before `ProjectileMovementSystem` integrates both lanes and recomputes current
-world bounds through `ProjectileCollisionMath`.
+world bounds through `CombatCollisionMath`.
 
 ## Collision And Consequences
 

@@ -161,7 +161,6 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public NativeArray<AoeSpawnCommand> Configs;
             [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
             public NativeReference<int> ReuseCount;
-
             public ComponentTypeHandle<Active> ActiveHandle;
             public ComponentTypeHandle<CombatCollisionActiveTag> CollisionActiveHandle;
             public ComponentTypeHandle<AoeIdentityComponent> IdentityHandle;
