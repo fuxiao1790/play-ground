@@ -1,11 +1,11 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
     <!-- No <Style src> here: MobResourceBarUi.cs pulls only #marker out of this
-         template and reparents it under #labels-layer, a branch of the
-         separate SkillLoadoutUi.uxml tree. A <Style src> attached to this
-         file's own TemplateContainer would not travel with it (same reason
-         PauseMenuUi.cs applies pauseMenuStyleSheet in C# instead of via
-         PauseMenuUi.uxml). MobResourceBarUi applies MobResourceBar.uss directly
-         to #marker after instantiation instead. -->
+         template and reparents it under #labels-layer in WorldLabelsUi.uxml's
+         tree. A <Style src> attached to this file's own TemplateContainer
+         would not travel with it (same reason PauseMenuUi.cs applies
+         pauseMenuStyleSheet in C# instead of via PauseMenuUi.uxml).
+         MobResourceBarUi applies MobResourceBar.uss directly to #marker after
+         instantiation instead. -->
     <ui:VisualElement name="marker" class="mob-resource-marker" picking-mode="Ignore">
         <ui:VisualElement name="bar" class="mob-resource-bar mob-resource-bar--health" picking-mode="Ignore">
             <ui:VisualElement name="fill" class="mob-resource-bar__fill" picking-mode="Ignore" />

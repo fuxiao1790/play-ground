@@ -1,0 +1,4 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="WorldLabelsUi.uss" />
+    <ui:VisualElement name="labels-layer" class="labels-layer" picking-mode="Ignore" />
+</ui:UXML>

@@ -9,11 +9,13 @@
  */
 
 /* Root layer stack (back-to-front, authored in SkillLoadoutUi.uxml document order):
-   #click-to-fire-layer, #labels-layer, #hud-container, #popup-layer,
-   #pause-background, #pause-menu-layer. Every layer fills the panel; later
-   siblings draw over earlier siblings. Picking mode is authored per layer and
-   set explicitly on any descendant that must stay pass-through, since
-   PickingMode.Ignore does not propagate to children. */
+   #click-to-fire-layer, #hud-container, #popup-layer, #pause-background,
+   #pause-menu-layer. Every layer fills the panel; later siblings draw over
+   earlier siblings. Picking mode is authored per layer and set explicitly on
+   any descendant that must stay pass-through, since PickingMode.Ignore does
+   not propagate to children. World-projected labels live in a separate
+   lower-sorted WorldLabelsPanel (see WorldLabelsUi.uxml/.uss), not in this
+   document. */
 .ui-layer {
     position: absolute;
     top: 0;

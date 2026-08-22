@@ -85,8 +85,10 @@ Docs/
 - `Assets/Scripts/System/Audio/`: unmanaged ECS sound lane and dispatcher plus
   the managed frame-batched audio root, clip registry, selection policy, and
   pooled voices.
-- `Assets/Scripts/Ui/PlayGround.Ui.asmdef`: `PlayGround.Ui`; HUD and
-  skill-loadout UI (organized by component under `Ui/Hud/`).
+- `Assets/Scripts/Ui/PlayGround.Ui.asmdef`: `PlayGround.Ui`; two independently
+  owned runtime panels — HUD/skill-loadout UI under `Ui/Hud/` (`HudPanel`,
+  organized by component) and world-label UI under `Ui/WorldLabels/`
+  (`WorldLabelsPanel`, mob resource bars only).
 - `Assets/Scripts/Debugging/PlayGround.Debugging.asmdef`: exempt Debugging leaf.
 - `Assets/Prefabs/`: authored runtime prefabs
 - `Assets/ScriptableObjects/`: authored reusable data

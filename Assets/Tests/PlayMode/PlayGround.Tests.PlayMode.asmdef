@@ -4,6 +4,7 @@
     "references": [
         "PlayGround.Sim",
         "PlayGround.GameLogic",
+        "PlayGround.Ui",
         "Unity.Collections",
         "Unity.Entities",
         "Unity.Mathematics"

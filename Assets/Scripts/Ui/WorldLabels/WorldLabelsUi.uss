@@ -1,0 +1,14 @@
+/*
+ * WorldLabelsUi styling.
+ * WorldLabelsPanel has exactly one root layer: #labels-layer fills the whole
+ * panel. MobResourceBarUi adds/removes pooled marker elements directly under
+ * it; this stylesheet only positions that root, not the markers themselves
+ * (see MobResourceBar.uss for marker/fill styling).
+ */
+.labels-layer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}

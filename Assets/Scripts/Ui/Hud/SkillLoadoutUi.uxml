@@ -2,7 +2,6 @@
     <Style src="SkillLoadoutUi.uss" />
     <Style src="ResourceBarUi.uss" />
     <ui:VisualElement name="click-to-fire-layer" class="ui-layer" picking-mode="Position" />
-    <ui:VisualElement name="labels-layer" class="ui-layer" picking-mode="Ignore" />
     <ui:VisualElement name="hud-container" class="ui-layer hud-container">
         <ui:VisualElement name="performance-panel" class="performance-panel">
             <ui:Label name="performance-fps" class="performance-text" />

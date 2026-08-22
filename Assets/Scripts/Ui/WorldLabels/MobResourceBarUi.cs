@@ -48,7 +48,7 @@ namespace PlayGround.Ui
             labelsLayer = root.Q<VisualElement>("labels-layer");
             if (labelsLayer == null)
                 throw new InvalidOperationException(
-                    $"{nameof(MobResourceBarUi)} could not find the '#labels-layer' element. Assign SkillLoadoutUi.uxml as the UIDocument Source Asset.");
+                    $"{nameof(MobResourceBarUi)} could not find the '#labels-layer' element. Assign WorldLabelsUi.uxml as the UIDocument Source Asset.");
         }
 
         private void OnDisable()

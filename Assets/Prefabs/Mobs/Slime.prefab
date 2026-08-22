@@ -277,6 +277,7 @@ MonoBehaviour:
   spriteRenderer: {fileID: 227430868430504257}
   target: {fileID: 0}
   statSheet: {fileID: 11400000, guid: 4f1fe3388cd7fef42b7f7bd6e5bc3cc2, type: 2}
+  resourceBarOffset: {x: 0, y: 0.8, z: 0}
   targetRadius: 0.5
   wanderMinDuration: 0.7
   wanderMaxDuration: 2
@@ -297,7 +298,7 @@ MonoBehaviour:
   loadout: {fileID: 11400000, guid: c9ceda56222b8674fbc8b503b88cc106, type: 2}
   combatRoot: {fileID: 0}
   vfxRoot: {fileID: 0}
-  audioManager: {fileID: 0}
+  audioRoot: {fileID: 0}
   statSheet: {fileID: 11400000, guid: 4f1fe3388cd7fef42b7f7bd6e5bc3cc2, type: 2}
   faction: 2
   fallbackCombatRootTag: PlayerProjectileRoot
