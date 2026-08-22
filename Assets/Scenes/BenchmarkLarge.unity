@@ -1939,12 +1939,14 @@ GameObject:
   - component: {fileID: 1983018955}
   - component: {fileID: 1983018954}
   - component: {fileID: 1983018956}
+  - component: {fileID: 1983018963}
+  - component: {fileID: 1983018962}
+  - component: {fileID: 1983018964}
   - component: {fileID: 1983018957}
   - component: {fileID: 1983018958}
   - component: {fileID: 1983018960}
   - component: {fileID: 1983018961}
   - component: {fileID: 1983018959}
-  - component: {fileID: 1983018962}
   m_Layer: 0
   m_Name: GameUI
   m_TagString: Untagged
@@ -2116,6 +2118,40 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b92e4d01456a7bf42a2b92e9d5688be4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PlayGround.SkillUi::PlayGround.SkillUi.PerformanceUi
+--- !u!114 &1983018963
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1983018953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93fc7f5c0972a8f40b2d2229451812ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlayGround.Ui::PlayGround.Ui.PauseMenuUi
+  document: {fileID: 1983018954}
+  pauseMenuTemplate: {fileID: 9197481963319205126, guid: 088d18a02345a8045aa873be8bdfbb88, type: 3}
+  pauseMenuStyleSheet: {fileID: 7433441132597879392, guid: 990edbe31b490c844a68d8daab2ca334, type: 3}
+  pauseController: {fileID: 912359186}
+--- !u!114 &1983018964
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1983018953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 646dcce427fe4594dbdf1e3e02e6f20f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlayGround.Ui::PlayGround.Ui.MobHealthBarUi
+  document: {fileID: 1983018954}
+  combatRoot: {fileID: 529810935}
+  gameplayCamera: {fileID: 1593919881}
+  healthBarTemplate: {fileID: 9197481963319205126, guid: 3344f3433c890a14585eb3ada162eac4, type: 3}
+  healthBarStyleSheet: {fileID: 7433441132597879392, guid: c18affb2f5e53804489e6f1216eeb1c2, type: 3}
+  worldOffset: {x: 0, y: 2, z: 0}
 --- !u!1 &2131619987
 GameObject:
   m_ObjectHideFlags: 0

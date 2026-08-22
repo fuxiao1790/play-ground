@@ -10,9 +10,10 @@ Do not hand-edit scene YAML or `.meta` files.
 - Add/enable `PauseMenuUi` on the existing `GameUI` object.
 - Assign existing `UIDocument`, pause-menu template, pause stylesheet, and
   `PauseController`.
-- Add `MobHealthBarUi` on `GameUI`.
+- Add `MobResourceBarUi` on `GameUI`.
 - Assign existing combat root and gameplay camera.
-- Assign new mob-health template and authored world offset.
+- Assign new mob-resource template and stylesheet.
+- Configure the local resource-bar offset independently on each mob prefab.
 - Confirm `UIDocument` still uses `SkillLoadoutUi.uxml` and existing
   `PanelSettings`.
 - Do not add Canvas, extra UIDocument, mob-prefab health components, or scene-wide
@@ -36,4 +37,3 @@ Do not hand-edit scene YAML or `.meta` files.
 
 Low: Inspector wiring and visual default tuning; risk comes from required
 reference completeness rather than code volume.
-

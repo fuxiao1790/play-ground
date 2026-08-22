@@ -29,6 +29,7 @@ namespace PlayGround.Skills
         private UIDocument document;
         private VisualElement root;
         private VisualElement bar;
+        private VisualElement popupLayer;
         private VisualElement modal;
         private Label[] cooldownLabels;
         private Button[] skillButtons;
@@ -138,7 +139,8 @@ namespace PlayGround.Skills
             VisualElement bottomHud = root.Q<VisualElement>("bottom-hud");
             VisualElement healthSlot = root.Q<VisualElement>("health-resource-slot");
             VisualElement manaSlot = root.Q<VisualElement>("mana-resource-slot");
-            if (hudContainer == null || targetHud == null || bottomHud == null || healthSlot == null || manaSlot == null)
+            popupLayer = root.Q<VisualElement>("popup-layer");
+            if (hudContainer == null || targetHud == null || bottomHud == null || healthSlot == null || manaSlot == null || popupLayer == null)
                 throw new InvalidOperationException(
                     $"{nameof(SkillLoadoutUi)} could not find the required HUD layout elements. Assign SkillLoadoutUi.uxml as the UIDocument Source Asset.");
 
@@ -309,7 +311,7 @@ namespace PlayGround.Skills
                 }
             }
             modal.Q<Button>("cancel").clicked += ClosePicker;
-            root.Add(modal);
+            popupLayer.Add(modal);
             playerRoot?.SetGameplayInputBlocked(GameplayInputBlock.SkillPicker, true);
         }
 

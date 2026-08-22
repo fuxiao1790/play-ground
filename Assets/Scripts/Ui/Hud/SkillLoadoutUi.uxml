@@ -1,7 +1,9 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
     <Style src="SkillLoadoutUi.uss" />
     <Style src="ResourceBarUi.uss" />
-    <ui:VisualElement name="hud-container" class="hud-container">
+    <ui:VisualElement name="click-to-fire-layer" class="ui-layer" picking-mode="Position" />
+    <ui:VisualElement name="labels-layer" class="ui-layer" picking-mode="Ignore" />
+    <ui:VisualElement name="hud-container" class="ui-layer hud-container">
         <ui:VisualElement name="performance-panel" class="performance-panel">
             <ui:Label name="performance-fps" class="performance-text" />
             <!-- Everything below the FPS line collapses behind #performance-toggle. -->
@@ -43,4 +45,7 @@
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
+    <ui:VisualElement name="popup-layer" class="ui-layer" picking-mode="Ignore" />
+    <ui:VisualElement name="pause-background" class="ui-layer pause-background pause-background--hidden" picking-mode="Ignore" />
+    <ui:VisualElement name="pause-menu-layer" class="ui-layer" picking-mode="Ignore" />
 </ui:UXML>

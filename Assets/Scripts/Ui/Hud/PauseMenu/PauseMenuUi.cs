@@ -16,6 +16,8 @@ namespace PlayGround.Ui
         [SerializeField] private PauseController pauseController;
 
         private VisualElement root;
+        private VisualElement pauseMenuLayer;
+        private VisualElement pauseBackground;
         private VisualElement pauseMenu;
         private Button resumeButton;
 
@@ -27,6 +29,12 @@ namespace PlayGround.Ui
         private void OnEnable()
         {
             root = document.rootVisualElement;
+            pauseMenuLayer = root.Q<VisualElement>("pause-menu-layer");
+            pauseBackground = root.Q<VisualElement>("pause-background");
+            if (pauseMenuLayer == null || pauseBackground == null)
+                throw new InvalidOperationException(
+                    $"{nameof(PauseMenuUi)} could not find the '#pause-menu-layer'/'#pause-background' elements. Assign SkillLoadoutUi.uxml as the UIDocument Source Asset.");
+
             pauseMenu = pauseMenuTemplate.Instantiate().Q<VisualElement>("pause-menu");
             if (pauseMenu == null)
             {
@@ -43,7 +51,7 @@ namespace PlayGround.Ui
             }
 
             resumeButton.clicked += OnResumeClicked;
-            root.Add(pauseMenu);
+            pauseMenuLayer.Add(pauseMenu);
             pauseController.PausedChanged += OnPausedChanged;
             OnPausedChanged(pauseController.IsPaused);
         }
@@ -59,6 +67,8 @@ namespace PlayGround.Ui
             pauseMenu?.RemoveFromHierarchy();
             pauseMenu = null;
             resumeButton = null;
+            pauseMenuLayer = null;
+            pauseBackground = null;
             root = null;
         }
 
@@ -80,6 +90,9 @@ namespace PlayGround.Ui
         private void OnPausedChanged(bool paused)
         {
             pauseMenu.EnableInClassList(HiddenClassName, !paused);
+            pauseBackground.EnableInClassList("pause-background--visible", paused);
+            pauseBackground.EnableInClassList("pause-background--hidden", !paused);
+            pauseBackground.pickingMode = paused ? PickingMode.Position : PickingMode.Ignore;
         }
 
         private void OnResumeClicked()

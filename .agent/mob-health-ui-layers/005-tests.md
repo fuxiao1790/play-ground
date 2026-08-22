@@ -27,7 +27,7 @@ Create `UiLayerInputPlayModeTests`:
 - `PauseMenuRemainsInteractiveAboveBackground`
 - `SkillPickerIsParentedToPopupLayer`
 
-Create `MobHealthBarUiPlayModeTests`:
+Create `MobResourceBarUiPlayModeTests`:
 
 - `RegisteredMobCreatesOneProjectedHealthBar`
 - `DamageUpdatesExistingBarWithoutRecreatingIt`
@@ -58,7 +58,7 @@ Agent does not invoke Unity Test Runner. User runs:
 
 - **EditMode:** `UiLayerContractEditModeTests`
   - Export: `Logs/TestResults-EditMode-UiLayers.xml`
-- **PlayMode:** `UiLayerInputPlayModeTests`, `MobHealthBarUiPlayModeTests`, and
+- **PlayMode:** `UiLayerInputPlayModeTests`, `MobResourceBarUiPlayModeTests`, and
   existing `MobSpawnControllerPlayModeTests`
   - Export: `Logs/TestResults-PlayMode-MobHealthUi.xml`
 
@@ -82,4 +82,3 @@ Agent must review those XML files before reporting any tests passed.
 
 High: UI Toolkit event dispatch and pooled runtime projection require realistic
 PlayMode fixtures.
-

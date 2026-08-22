@@ -17,7 +17,7 @@ The UXML child order is the reverse (back-to-front), because later siblings draw
 over earlier siblings. Controllers add feature content only to their named layer;
 they do not call `root.Add(...)` or reorder root children at runtime.
 
-Mob health remains authoritative in `MobRoot`. `MobHealthBarUi` reads registered
+Mob health remains authoritative in `MobRoot`. `MobResourceBarUi` reads registered
 `MobRoot` instances from `CombatRoot.TargetRegistry.Targets`, projects their world
 positions into the existing UI Toolkit panel, and owns only pooled visual state.
 
@@ -60,7 +60,7 @@ none` and `PickingMode.Ignore`.
 ### Reuse combat target membership
 
 `CombatTargetRegistry<ICombatTarget>.Targets` is already the active managed target
-membership used by both scene-authored and spawned mobs. `MobHealthBarUi` filters
+membership used by both scene-authored and spawned mobs. `MobResourceBarUi` filters
 that list for `MobRoot`; it does not add spawn/despawn events, static mob lists, a
 second registry, or UI references to `MobRoot`/`SpawnController`.
 
@@ -129,7 +129,7 @@ source model.
 - `GameplayCamera.LateUpdate` moves/zooms the camera.
 - Source: `Assets/Scripts/Mob/MobRoot.cs` and
   `Assets/Scripts/Camera/GameplayCamera.cs`.
-- Result: `MobHealthBarUi` runs in `LateUpdate` with an execution order after
+- Result: `MobResourceBarUi` runs in `LateUpdate` with an execution order after
   `GameplayCamera`, so it reads current health and final camera transform for the
   frame. It uses `RuntimePanelUtils.CameraTransformWorldToPanel` against the
   existing panel.
@@ -146,13 +146,14 @@ source model.
 
 ### Scene wiring
 
-- Required references use Inspector injection and fail-fast validation. Scene
-  YAML/meta files are not hand-edited to simulate assignments.
+- Required references use Inspector injection and fail-fast validation. Scene and
+  prefab YAML/meta files are not hand-edited to simulate assignments.
 - Source: `Docs/coding-standards.md` sections **Root Component Rule** and **Fail
   Fast Validation**; `Docs/ui.md` section **Scene And Inspector Setup**.
-- Result: `MobHealthBarUi` receives camera, combat root, template, and authored
-  offset through serialized fields. `PauseMenuUi` is wired through the Unity
-  Inspector in the target scene.
+- Result: `MobResourceBarUi` receives camera, combat root, template, and stylesheet
+  through serialized fields. Each `MobRoot` prefab owns its local-space
+  resource-bar offset. `PauseMenuUi` is wired through the Unity Inspector in the
+  target scene.
 
 ### Test execution
 
@@ -178,11 +179,11 @@ source model.
 
 - Five new named root containers plus authored click-to-fire element, defining
   six total layers.
-- `MobHealthBar.uxml` and corresponding USS classes for repeated health views.
-- `MobHealthBarUi`, one UI-owned projection/pooling controller.
+- `MobResourceBar.uxml` and corresponding USS classes for repeated resource views.
+- `MobResourceBarUi`, one UI-owned projection/pooling controller.
 - Pause background as a stable authored element and input shield.
 
-`MobHealthBarUi` is justified because no existing controller owns world-projected
+`MobResourceBarUi` is justified because no existing controller owns world-projected
 labels, camera projection, or per-target visual pooling. It creates presentation
 state only; it does not duplicate gameplay ownership.
 
@@ -254,11 +255,11 @@ state only; it does not duplicate gameplay ownership.
 - No ground-item/loot runtime exists in current code. This plan reserves and
   documents its target layer but does not invent item ownership or implement item
   labels.
-- Exact bar colors, dimensions, and world offset are authored presentation values;
-  initial defaults should be reviewed visually during user playtest.
+- Exact bar colors and dimensions are UI-authored presentation values. Resource-bar
+  offset is authored independently on each mob prefab and should be reviewed
+  visually during user playtest.
 - Current `Docs/flows/mob-spawn-and-behaviour.md` describes spawning as future work,
   while `SpawnController`/`MobPool` now exist. That stale documentation is outside
   this UI change unless implementation reveals a conflicting lifecycle contract.
 - No `info.md` exists for this task; repository docs and current code are the
   exploration ground truth.
-

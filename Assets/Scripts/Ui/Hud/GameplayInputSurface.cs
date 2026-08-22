@@ -31,8 +31,14 @@ namespace PlayGround.Skills
         private void OnEnable()
         {
             root = document.rootVisualElement;
-            CreateSurfaceIfNeeded();
-            InsertSurfaceAtRootStart();
+            surface = root.Q<VisualElement>("click-to-fire-layer");
+            if (surface == null)
+                throw new InvalidOperationException(
+                    $"{nameof(GameplayInputSurface)} could not find the '#click-to-fire-layer' element. Assign SkillLoadoutUi.uxml as the UIDocument Source Asset.");
+
+            surface.RegisterCallback<PointerDownEvent>(OnPointerDown);
+            surface.RegisterCallback<PointerUpEvent>(OnPointerUp);
+            surface.RegisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
             playerRoot.SetFireInput(this);
             pauseController.PausedChanged += OnPausedChanged;
             OnPausedChanged(pauseController.IsPaused);
@@ -43,7 +49,13 @@ namespace PlayGround.Skills
             pauseController.PausedChanged -= OnPausedChanged;
             playerRoot?.ClearFireInput(this);
             ClearHeldPointer();
-            surface?.RemoveFromHierarchy();
+            if (surface != null)
+            {
+                surface.UnregisterCallback<PointerDownEvent>(OnPointerDown);
+                surface.UnregisterCallback<PointerUpEvent>(OnPointerUp);
+                surface.UnregisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
+                surface = null;
+            }
         }
 
         private void ValidateSetup()
@@ -56,36 +68,6 @@ namespace PlayGround.Skills
 
             if (pauseController == null)
                 throw new InvalidOperationException($"{nameof(GameplayInputSurface)} needs a {nameof(PauseController)}.");
-        }
-
-        private void CreateSurfaceIfNeeded()
-        {
-            if (surface != null)
-                return;
-
-            surface = new VisualElement();
-            surface.AddToClassList("world-input-surface");
-            surface.pickingMode = PickingMode.Position;
-            surface.RegisterCallback<PointerDownEvent>(OnPointerDown);
-            surface.RegisterCallback<PointerUpEvent>(OnPointerUp);
-            surface.RegisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
-        }
-
-        private void InsertSurfaceAtRootStart()
-        {
-            if (surface.parent == root)
-            {
-                if (root.IndexOf(surface) == 0)
-                    return;
-
-                surface.RemoveFromHierarchy();
-            }
-            else
-            {
-                surface.RemoveFromHierarchy();
-            }
-
-            root.Insert(0, surface);
         }
 
         private void OnPointerDown(PointerDownEvent evt)

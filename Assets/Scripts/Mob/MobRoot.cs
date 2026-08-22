@@ -16,6 +16,7 @@ using PlayGround.System.Combat.Vfx;
 using Unity.Entities;
 using Unity.Profiling;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace PlayGround.Mob
 {
@@ -27,6 +28,9 @@ namespace PlayGround.Mob
         [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField] private Transform target;
         [SerializeField] private UnitStatSheet statSheet;
+        [FormerlySerializedAs("healthBarOffset")]
+        [SerializeField, Tooltip("Local-space offset used to position this mob's projected resource bars.")]
+        private Vector3 resourceBarOffset = new(0f, 1f, 0f);
         [SerializeField] private float targetRadius = 0.5f;
         [SerializeField, Min(0.05f)] private float wanderMinDuration = 0.7f;
         [SerializeField, Min(0.05f)] private float wanderMaxDuration = 2f;
@@ -73,6 +77,7 @@ namespace PlayGround.Mob
         public float MaxHealth => health?.Max ?? statSheet.MaxHealth;
         public float CurrentMana => mana?.Current ?? 0f;
         public IReadOnlyList<StatusStackSnapshot> StatusSnapshots => statusSnapshots;
+        public Vector3 ResourceBarAnchorPosition => transform.TransformPoint(resourceBarOffset);
         public Transform Target => target;
         public int TargetId => targetId;
         public Entity CombatTargetProxy

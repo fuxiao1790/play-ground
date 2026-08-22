@@ -84,16 +84,28 @@ and [Skill Loadout Edit](./flows/skill-loadout-edit.md).
 
 ## Input Layering
 
-The `GameUI` panel has two functional layers:
+The `GameUI` panel is one authored root layer stack, six named layers, defined
+directly in `SkillLoadoutUi.uxml`. UXML child order is back-to-front (later
+siblings draw over earlier siblings), so front-to-back reading order is:
 
 ```text
-top:    buttons, skill bar, picker, other interactive UI
-bottom: full-screen world input surface
+front: #pause-menu-layer     (PauseMenuUi)     - ignores picking; menu controls opt in
+       #pause-background     (PauseMenuUi)     - hidden by default; visible + Position while paused
+       #popup-layer          (SkillLoadoutUi)  - ignores picking; picker controls opt in
+       #hud-container        (SkillLoadoutUi)  - existing HUD; ignores picking except controls
+       #labels-layer         (MobResourceBarUi) - ignores picking; world-projected labels
+back:  #click-to-fire-layer  (GameplayInputSurface) - Position by default, the only click-to-fire source
 ```
 
-`GameplayInputSurface` is the only mouse click-to-fire source. It receives
-pointer down/up events, captures the pointer while held, and exposes
-`FireHeld` through `IGameplayInputSource`.
+Each layer is a full-screen (`.ui-layer`) root child of `rootVisualElement`.
+Controllers query their named layer and attach feature content to it; no
+controller calls `root.Add(...)`, `root.Insert(...)`, or `BringToFront()` to
+manage layer order. Root sibling order is fixed by the authored UXML and does
+not depend on controller execution order.
+
+`GameplayInputSurface` is the only mouse click-to-fire source. It binds
+`#click-to-fire-layer` in `OnEnable`, receives pointer down/up events, captures
+the pointer while held, and exposes `FireHeld` through `IGameplayInputSource`.
 
 `PlayerRoot` consumes that source and passes the result to `SkillDriver`. The UI
 layer pushes the source into `PlayerRoot`; Game Logic does not look up or read
@@ -102,9 +114,14 @@ UI objects.
 UI Toolkit picking decides whether a click reaches the world surface:
 
 - Normal controls use position picking and consume their own clicks.
-- The world surface sits behind the controls.
-- The top UI layer decides whether each element consumes a click or allows it
-  to pass through with `picking-mode: ignore`.
+- The click-to-fire layer sits behind every other layer.
+- Each higher layer ignores picking by default (`picking-mode: Ignore`) so
+  decorative content passes clicks through; interactive descendants opt back
+  in explicitly, since `PickingMode.Ignore` does not propagate to children.
+- While paused, `#pause-background` switches to `PickingMode.Position` and
+  becomes visible, shielding `#popup-layer`, `#hud-container`, and
+  `#labels-layer` from pointer input; `#pause-menu-layer` stays above it so
+  its controls remain interactive.
 - Pointer capture keeps a held click stable until release or capture loss.
 
 Opening the skill picker is a separate modal input mode. `SkillLoadoutUi` tells
@@ -113,6 +130,15 @@ suspension when it closes. This is not a replacement for UI layering.
 
 Runtime UI pointer delivery requires the scene's UI event setup, normally an
 `EventSystem` with `InputSystemUIInputModule`.
+
+World-projected labels keep their visual objects in `#labels-layer`, while the
+world object owns its authored anchor. Mob prefabs store a local-space resource-bar
+offset on `MobRoot`; `MobResourceBarUi` reads the resulting world position. This
+allows differently sized mob prefabs to place their bars independently without
+making game logic reference UI types or putting one global offset on `GameUI`.
+Current mob bar binds health. Generic resource-bar asset and controller naming,
+plus resource-specific USS modifier classes, allow future mana or other resource
+bindings to reuse the same projection, pooling, and layer path.
 
 ## Lifecycle And Performance
 

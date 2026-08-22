@@ -1,0 +1,44 @@
+/*
+ * MobResourceBar styling. #marker is a zero-size anchor moved every frame with
+ * VisualElement.transform.position (render-only translation, no layout pass).
+ * #bar is authored offset from #marker with `translate` so its bottom-center
+ * sits at the marker point. Resource-specific modifier classes own fill color.
+ */
+
+.mob-resource-marker {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+}
+
+.mob-resource-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 36px;
+    height: 5px;
+    translate: -50% -100%;
+    overflow: hidden;
+    background-color: rgba(8, 10, 20, 0.88);
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: rgba(255, 255, 255, 0.3);
+    border-right-color: rgba(255, 255, 255, 0.3);
+    border-bottom-color: rgba(255, 255, 255, 0.3);
+    border-left-color: rgba(255, 255, 255, 0.3);
+}
+
+.mob-resource-bar__fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+}
+
+.mob-resource-bar--health .mob-resource-bar__fill {
+    background-color: rgba(196, 54, 54, 1);
+}

@@ -8,6 +8,20 @@
  *   modal Color(0.04, 0.05, 0.10, 0.96) -> rgba(10, 13, 26, 0.96)
  */
 
+/* Root layer stack (back-to-front, authored in SkillLoadoutUi.uxml document order):
+   #click-to-fire-layer, #labels-layer, #hud-container, #popup-layer,
+   #pause-background, #pause-menu-layer. Every layer fills the panel; later
+   siblings draw over earlier siblings. Picking mode is authored per layer and
+   set explicitly on any descendant that must stay pass-through, since
+   PickingMode.Ignore does not propagate to children. */
+.ui-layer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+
 /* HUD structure */
 .hud-container {
     flex-grow: 1;
@@ -165,10 +179,17 @@
     margin-bottom: 6px;
 }
 
-.world-input-surface {
-    position: absolute;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
+/* #pause-background: visual dimmer + input shield while paused. C# toggles
+   between these two classes and the element's PickingMode; USS only controls
+   visibility. */
+.pause-background {
+    background-color: rgba(0, 0, 0, 0.55);
+}
+
+.pause-background--hidden {
+    display: none;
+}
+
+.pause-background--visible {
+    display: flex;
 }

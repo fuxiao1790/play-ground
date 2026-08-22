@@ -7,16 +7,18 @@ health ownership.
 
 ## Assets And Controller
 
-- Add `Assets/Scripts/Ui/WorldLabels/MobHealthBar.uxml` for one repeated bar.
-- Add `Assets/Scripts/Ui/WorldLabels/MobHealthBar.uss` or colocated shared world
+- Add `Assets/Scripts/Ui/WorldLabels/MobResourceBar.uxml` for one repeated bar.
+- Add `Assets/Scripts/Ui/WorldLabels/MobResourceBar.uss` or colocated shared world
   label styles for dimensions, background, fill, borders, and anchor layout.
-- Add `Assets/Scripts/Ui/WorldLabels/MobHealthBarUi.cs` in `PlayGround.Ui`.
+- Add `Assets/Scripts/Ui/WorldLabels/MobResourceBarUi.cs` in `PlayGround.Ui`.
 - Configure through serialized references:
   - `CombatRoot`
   - gameplay `Camera`
   - `VisualTreeAsset` health bar template
-  - world-space offset above mob
+  - health bar stylesheet
 - Validate all required references in `Awake` and `#labels-layer` in `OnEnable`.
+- Add a local-space resource-bar offset to `MobRoot`, authored independently on each
+  mob prefab, and expose its computed world anchor as read-only presentation data.
 
 ## Data And Lifecycle
 
@@ -32,7 +34,7 @@ health ownership.
 
 ## Projection And Rendering
 
-- Build anchor from mob world position plus authored offset.
+- Read the world anchor computed from each mob prefab's authored local offset.
 - Reject behind-camera and out-of-viewport anchors before showing view.
 - Convert visible anchor with
   `RuntimePanelUtils.CameraTransformWorldToPanel(labelsLayer.panel, world, camera)`.
@@ -68,4 +70,3 @@ health ownership.
 
 High: new pooled projection controller, repeated template, camera culling, and
 mob-pool lifecycle reconciliation.
-
