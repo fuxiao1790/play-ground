@@ -385,6 +385,7 @@ MonoBehaviour:
   document: {fileID: 207125678}
   combatRoot: {fileID: 529810935}
   gameplayCamera: {fileID: 1593919881}
+  gameSettings: {fileID: 912359187}
   resourceBarTemplate: {fileID: 9197481963319205126, guid: 3344f3433c890a14585eb3ada162eac4, type: 3}
   resourceBarStyleSheet: {fileID: 7433441132597879392, guid: c18affb2f5e53804489e6f1216eeb1c2, type: 3}
 --- !u!114 &207125678
@@ -1017,6 +1018,7 @@ GameObject:
   - component: {fileID: 912359185}
   - component: {fileID: 912359184}
   - component: {fileID: 912359186}
+  - component: {fileID: 912359187}
   m_Layer: 0
   m_Name: GameRoot
   m_TagString: Untagged
@@ -1070,6 +1072,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PlayGround.GameLogic::PlayGround.Game.PauseController
   inputActions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
+--- !u!114 &912359187
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 912359183}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9ea4e3b372454a39a457764f997811d1, type: 3}
+  m_Name: ''
+  m_EditorClassIdentifier: PlayGround.GameLogic::PlayGround.Game.GameSettings
 --- !u!1 &970727964
 GameObject:
   m_ObjectHideFlags: 0
@@ -2206,6 +2220,7 @@ MonoBehaviour:
   pauseMenuTemplate: {fileID: 9197481963319205126, guid: 088d18a02345a8045aa873be8bdfbb88, type: 3}
   pauseMenuStyleSheet: {fileID: 7433441132597879392, guid: 990edbe31b490c844a68d8daab2ca334, type: 3}
   pauseController: {fileID: 912359186}
+  gameSettings: {fileID: 912359187}
 --- !u!1 &2131619987
 GameObject:
   m_ObjectHideFlags: 0

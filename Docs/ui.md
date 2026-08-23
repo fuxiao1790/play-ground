@@ -176,6 +176,9 @@ UI Toolkit picking decides whether a click reaches the world surface:
 - Pause menu and its options popup both live under `#pause-menu-layer`. The
   popup is the frontmost child and position-picks across the panel while visible,
   preventing interaction with Resume and Options underneath.
+- The options popup projects `GameSettings` state. Its mob-health-bar toggle
+  sends changes through `GameSettings.SetDisplayMobHealthBars`; it does not own
+  a second local settings model.
 - Pointer capture keeps a held click stable until release or capture loss.
 
 Opening the skill picker is a separate modal input mode. `SkillLoadoutUi` tells

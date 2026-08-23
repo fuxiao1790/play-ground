@@ -6,7 +6,10 @@
             <ui:Button name="options" class="pause-menu__button" text="Options" />
         </ui:VisualElement>
         <ui:VisualElement name="options-popup" class="options-popup options-popup--hidden">
-            <ui:VisualElement class="options-popup__panel" />
+            <ui:VisualElement class="options-popup__panel">
+                <ui:Label class="options-popup__title" text="Options" picking-mode="Ignore" />
+                <ui:Toggle name="display-mob-health-bars" class="options-popup__toggle" label="Display mob health bars" />
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

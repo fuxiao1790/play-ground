@@ -52,6 +52,7 @@ Authority rules:
 - [Skill Runtime Snapshots](../contracts/skill-runtime-snapshots.md)
 - [Skill Loadout Editing](../contracts/skill-loadout-editing.md)
 - [Player Save Data](../contracts/player-save-data.md)
+- [Game Settings Data](../contracts/game-settings-data.md)
 - [VFX Requests](../contracts/vfx-requests.md)
 - [Render Batch Data](../contracts/render-batch-data.md)
 

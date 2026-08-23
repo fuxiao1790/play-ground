@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using PlayGround.Game;
 using PlayGround.Mob;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Targets;
@@ -17,6 +18,7 @@ namespace PlayGround.Ui
         [SerializeField] private UIDocument document;
         [SerializeField] private CombatRoot combatRoot;
         [SerializeField] private Camera gameplayCamera;
+        [SerializeField] private GameSettings gameSettings;
         [FormerlySerializedAs("healthBarTemplate")]
         [SerializeField] private VisualTreeAsset resourceBarTemplate;
         [FormerlySerializedAs("healthBarStyleSheet")]
@@ -27,6 +29,7 @@ namespace PlayGround.Ui
         private readonly Stack<ResourceBarEntry> pooledEntries = new();
         private readonly List<MobRoot> staleKeys = new();
         private int frameToken;
+        private bool displayMobHealthBars;
 
         private sealed class ResourceBarEntry
         {
@@ -49,19 +52,25 @@ namespace PlayGround.Ui
             if (labelsLayer == null)
                 throw new InvalidOperationException(
                     $"{nameof(MobResourceBarUi)} could not find the '#labels-layer' element. Assign WorldLabelsUi.uxml as the UIDocument Source Asset.");
+
+            displayMobHealthBars = gameSettings.DisplayMobHealthBars;
+            gameSettings.DisplayMobHealthBarsChanged += OnDisplayMobHealthBarsChanged;
         }
 
         private void OnDisable()
         {
-            foreach (KeyValuePair<MobRoot, ResourceBarEntry> pair in entriesByMob)
-                ReleaseEntry(pair.Value);
+            if (gameSettings != null)
+                gameSettings.DisplayMobHealthBarsChanged -= OnDisplayMobHealthBarsChanged;
 
-            entriesByMob.Clear();
+            ReleaseAllEntries();
             labelsLayer = null;
         }
 
         private void LateUpdate()
         {
+            if (!displayMobHealthBars)
+                return;
+
             frameToken++;
             IReadOnlyList<ICombatTarget> targets = combatRoot.TargetRegistry.Targets;
             for (int i = 0; i < targets.Count; i++)
@@ -90,6 +99,8 @@ namespace PlayGround.Ui
                 throw new InvalidOperationException($"{nameof(MobResourceBarUi)} needs a {nameof(combatRoot)} reference.");
             if (gameplayCamera == null)
                 throw new InvalidOperationException($"{nameof(MobResourceBarUi)} needs a {nameof(gameplayCamera)} reference.");
+            if (gameSettings == null)
+                throw new InvalidOperationException($"{nameof(MobResourceBarUi)} needs a {nameof(gameSettings)} reference.");
             if (resourceBarTemplate == null)
                 throw new InvalidOperationException($"{nameof(MobResourceBarUi)} needs a {nameof(resourceBarTemplate)} reference.");
             if (resourceBarStyleSheet == null)
@@ -144,6 +155,21 @@ namespace PlayGround.Ui
                 ReleaseEntry(entriesByMob[key]);
                 entriesByMob.Remove(key);
             }
+        }
+
+        private void OnDisplayMobHealthBarsChanged(bool display)
+        {
+            displayMobHealthBars = display;
+            if (!display)
+                ReleaseAllEntries();
+        }
+
+        private void ReleaseAllEntries()
+        {
+            foreach (KeyValuePair<MobRoot, ResourceBarEntry> pair in entriesByMob)
+                ReleaseEntry(pair.Value);
+
+            entriesByMob.Clear();
         }
 
         private ResourceBarEntry AcquireEntry()

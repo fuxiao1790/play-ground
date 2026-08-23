@@ -15,6 +15,7 @@ namespace PlayGround.Ui
         [SerializeField] private VisualTreeAsset pauseMenuTemplate;
         [SerializeField] private StyleSheet pauseMenuStyleSheet;
         [SerializeField] private PauseController pauseController;
+        [SerializeField] private GameSettings gameSettings;
 
         private VisualElement root;
         private VisualElement pauseMenuLayer;
@@ -23,6 +24,7 @@ namespace PlayGround.Ui
         private VisualElement optionsPopup;
         private Button resumeButton;
         private Button optionsButton;
+        private Toggle displayMobHealthBarsToggle;
 
         private void Awake()
         {
@@ -49,14 +51,21 @@ namespace PlayGround.Ui
             resumeButton = pauseMenu.Q<Button>("resume");
             optionsButton = pauseMenu.Q<Button>("options");
             optionsPopup = pauseMenu.Q<VisualElement>("options-popup");
-            if (resumeButton == null || optionsButton == null || optionsPopup == null)
+            displayMobHealthBarsToggle = pauseMenu.Q<Toggle>("display-mob-health-bars");
+            if (resumeButton == null
+                || optionsButton == null
+                || optionsPopup == null
+                || displayMobHealthBarsToggle == null)
             {
                 throw new InvalidOperationException(
-                    $"{nameof(PauseMenuUi)} could not find the '#resume', '#options', and '#options-popup' elements in {nameof(pauseMenuTemplate)}.");
+                    $"{nameof(PauseMenuUi)} could not find the '#resume', '#options', '#options-popup', and '#display-mob-health-bars' elements in {nameof(pauseMenuTemplate)}.");
             }
 
             resumeButton.clicked += OnResumeClicked;
             optionsButton.clicked += OnOptionsClicked;
+            displayMobHealthBarsToggle.SetValueWithoutNotify(gameSettings.DisplayMobHealthBars);
+            displayMobHealthBarsToggle.RegisterValueChangedCallback(OnDisplayMobHealthBarsToggleChanged);
+            gameSettings.DisplayMobHealthBarsChanged += OnDisplayMobHealthBarsChanged;
             pauseMenuLayer.Add(pauseMenu);
             pauseController.PausedChanged += OnPausedChanged;
             OnPausedChanged(pauseController.IsPaused);
@@ -76,12 +85,19 @@ namespace PlayGround.Ui
             if (optionsButton != null)
                 optionsButton.clicked -= OnOptionsClicked;
 
+            if (displayMobHealthBarsToggle != null)
+                displayMobHealthBarsToggle.UnregisterValueChangedCallback(OnDisplayMobHealthBarsToggleChanged);
+
+            if (gameSettings != null)
+                gameSettings.DisplayMobHealthBarsChanged -= OnDisplayMobHealthBarsChanged;
+
             CloseOptionsPopup();
             pauseMenu?.RemoveFromHierarchy();
             pauseMenu = null;
             optionsPopup = null;
             resumeButton = null;
             optionsButton = null;
+            displayMobHealthBarsToggle = null;
             pauseMenuLayer = null;
             pauseBackground = null;
             root = null;
@@ -100,6 +116,9 @@ namespace PlayGround.Ui
 
             if (pauseController == null)
                 throw new InvalidOperationException($"{nameof(PauseMenuUi)} needs a {nameof(pauseController)} reference.");
+
+            if (gameSettings == null)
+                throw new InvalidOperationException($"{nameof(PauseMenuUi)} needs a {nameof(gameSettings)} reference.");
         }
 
         private void OnPausedChanged(bool paused)
@@ -131,6 +150,16 @@ namespace PlayGround.Ui
         {
             pauseController.RegisterCancelHandler(this);
             optionsPopup.RemoveFromClassList(OptionsHiddenClassName);
+        }
+
+        private void OnDisplayMobHealthBarsToggleChanged(ChangeEvent<bool> changeEvent)
+        {
+            gameSettings.SetDisplayMobHealthBars(changeEvent.newValue);
+        }
+
+        private void OnDisplayMobHealthBarsChanged(bool display)
+        {
+            displayMobHealthBarsToggle?.SetValueWithoutNotify(display);
         }
 
         private void CloseOptionsPopup()

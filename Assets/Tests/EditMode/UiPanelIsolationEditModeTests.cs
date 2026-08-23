@@ -95,7 +95,7 @@ namespace PlayGround.Tests.EditMode
 
             VisualElement optionsPanel = optionsPopup.Q<VisualElement>(className: "options-popup__panel");
             Assert.That(optionsPanel, Is.Not.Null);
-            Assert.That(optionsPanel.hierarchy.childCount, Is.Zero, "Options popup must remain empty for now.");
+            Assert.That(optionsPanel.Q<Toggle>("display-mob-health-bars"), Is.Not.Null);
         }
 
         [Test]
