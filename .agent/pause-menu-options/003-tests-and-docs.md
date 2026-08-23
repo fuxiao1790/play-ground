@@ -2,8 +2,8 @@
 
 ## Change
 
-- Add focused tests for authored popup structure and consume-before-toggle
-  routing.
+- Add focused tests for authored popup structure, universal popup closing, and
+  consume-before-toggle routing.
 - Update `Docs/ui.md` with single-owner cancel routing and pause options popup
   behavior.
 - Review diff without running Unity tests.
@@ -21,4 +21,3 @@
 ## Scope
 
 - Small regression-test and documentation update.
-

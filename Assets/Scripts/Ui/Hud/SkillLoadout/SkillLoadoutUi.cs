@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using PlayGround.Game;
 using PlayGround.Player;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -10,13 +11,14 @@ namespace PlayGround.Skills
     // from the source UXML when OnEnable queries #bar.
     [DefaultExecutionOrder(1000)]
     [RequireComponent(typeof(UIDocument))]
-    public sealed class SkillLoadoutUi : MonoBehaviour
+    public sealed class SkillLoadoutUi : MonoBehaviour, IUiCancelHandler
     {
         [SerializeField] private SkillDriver skillDriver;
         [SerializeField] private SkillUiCatalog skillCatalog;
         [SerializeField] private SkillUiSupportCatalog supportCatalog;
         [SerializeField] private SkillUiTriggerCatalog triggerCatalog;
         [SerializeField] private PlayerRoot playerRoot;
+        [SerializeField] private PauseController pauseController;
         [SerializeField, Min(1)] private int initialNodeCount = 3;
 
         [Header("UXML Templates")]
@@ -59,6 +61,7 @@ namespace PlayGround.Skills
             document = GetComponent<UIDocument>();
             if (skillDriver == null) skillDriver = FindAnyObjectByType<SkillDriver>();
             if (playerRoot == null) playerRoot = FindAnyObjectByType<PlayerRoot>();
+            if (pauseController == null) pauseController = FindAnyObjectByType<PauseController>();
             ValidateSetup();
             cooldownLabels = new Label[initialNodeCount];
             skillButtons = new Button[initialNodeCount];
@@ -127,6 +130,8 @@ namespace PlayGround.Skills
                 throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} needs a {nameof(SkillUiSupportCatalog)}.");
             if (triggerCatalog == null)
                 throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} needs a {nameof(SkillUiTriggerCatalog)}.");
+            if (pauseController == null)
+                throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} could not resolve a {nameof(PauseController)}.");
             if (nodeColumnTemplate == null || supportButtonTemplate == null || triggerButtonTemplate == null
                 || pickerTemplate == null || pickerChoiceTemplate == null)
                 throw new InvalidOperationException($"{nameof(SkillLoadoutUi)} is missing one or more UXML template references.");
@@ -313,6 +318,7 @@ namespace PlayGround.Skills
             modal.Q<Button>("cancel").clicked += ClosePicker;
             popupLayer.Add(modal);
             playerRoot?.SetGameplayInputBlocked(GameplayInputBlock.SkillPicker, true);
+            pauseController.RegisterCancelHandler(this);
         }
 
         private void AddClear(VisualElement choices)
@@ -353,8 +359,20 @@ namespace PlayGround.Skills
 
         private void ClosePicker()
         {
+            if (pauseController != null)
+                pauseController.UnregisterCancelHandler(this);
+
             modal?.RemoveFromHierarchy(); modal = null;
             playerRoot?.SetGameplayInputBlocked(GameplayInputBlock.SkillPicker, false);
+        }
+
+        public bool TryHandleCancel()
+        {
+            if (modal == null)
+                return false;
+
+            ClosePicker();
+            return true;
         }
 
         private void OnLoadoutChanged(ulong _) => RefreshBar();

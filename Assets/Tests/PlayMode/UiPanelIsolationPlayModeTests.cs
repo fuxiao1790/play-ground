@@ -3,6 +3,7 @@ using System.Reflection;
 using NUnit.Framework;
 using PlayGround.Game;
 using PlayGround.Mob;
+using PlayGround.Skills;
 using PlayGround.System.Combat.Core;
 using PlayGround.Ui;
 using UnityEngine;
@@ -122,7 +123,10 @@ namespace PlayGround.Tests.PlayMode
 
             VisualElement optionsPopup = hudDocument.rootVisualElement.Q<VisualElement>("options-popup");
             Assert.That(optionsPopup, Is.Not.Null);
-            optionsPopup.RemoveFromClassList("options-popup--hidden");
+            Button optionsButton = hudDocument.rootVisualElement.Q<Button>("options");
+            Assert.That(optionsButton, Is.Not.Null);
+            Submit(optionsButton);
+            Assert.That(optionsPopup.ClassListContains("options-popup--hidden"), Is.False);
 
             pauseController.HandleCancel();
 
@@ -133,6 +137,33 @@ namespace PlayGround.Tests.PlayMode
             pauseController.HandleCancel();
             Assert.That(pauseController.IsPaused, Is.False,
                 "Cancel must resume gameplay after options popup has closed.");
+        }
+
+        [UnityTest]
+        public IEnumerator SkillPickerConsumesCancelBeforePauseToggle()
+        {
+            UIDocument hudDocument = FindComponentInScene<UIDocument>("GameUI");
+            PauseMenuUi pauseMenuUi = FindComponentInScene<PauseMenuUi>("GameUI");
+            SkillLoadoutUi skillLoadoutUi = FindComponentInScene<SkillLoadoutUi>("GameUI");
+            Assert.That(hudDocument, Is.Not.Null, "Missing UIDocument on 'GameUI'.");
+            Assert.That(pauseMenuUi, Is.Not.Null, "Missing PauseMenuUi on 'GameUI'.");
+            Assert.That(skillLoadoutUi, Is.Not.Null, "Missing SkillLoadoutUi on 'GameUI'.");
+
+            PauseController pauseController = GetPrivateField<PauseController>(pauseMenuUi, "pauseController");
+            Button skillButton = hudDocument.rootVisualElement.Q<Button>(className: "skill-button");
+            Assert.That(skillButton, Is.Not.Null);
+            Submit(skillButton);
+            yield return null;
+
+            Assert.That(hudDocument.rootVisualElement.Q<VisualElement>("picker"), Is.Not.Null,
+                "Submitting a skill button must open skill picker.");
+
+            pauseController.HandleCancel();
+
+            Assert.That(hudDocument.rootVisualElement.Q<VisualElement>("picker"), Is.Null,
+                "Cancel must close active skill picker.");
+            Assert.That(pauseController.IsPaused, Is.False,
+                "Cancel consumed by skill picker must not pause gameplay.");
         }
 
         [UnityTest]
@@ -228,6 +259,15 @@ namespace PlayGround.Tests.PlayMode
             FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Missing field {fieldName} on {target.GetType().Name}.");
             return field.GetValue(target) as T;
+        }
+
+        private static void Submit(Button button)
+        {
+            using (NavigationSubmitEvent submit = NavigationSubmitEvent.GetPooled())
+            {
+                submit.target = button;
+                button.SendEvent(submit);
+            }
         }
 
         private static int CountDescendants(VisualElement element)

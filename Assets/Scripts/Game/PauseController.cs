@@ -5,16 +5,16 @@ using UnityEngine.InputSystem;
 
 namespace PlayGround.Game
 {
-    public interface IPauseCancelHandler
+    public interface IUiCancelHandler
     {
-        bool TryHandlePauseCancel();
+        bool TryHandleCancel();
     }
 
     public sealed class PauseController : MonoBehaviour
     {
         [SerializeField] private InputActionAsset inputActions;
 
-        private readonly List<IPauseCancelHandler> cancelHandlers = new();
+        private readonly List<IUiCancelHandler> cancelHandlers = new();
         private InputAction cancelAction;
 
         public bool IsPaused { get; private set; }
@@ -50,7 +50,7 @@ namespace PlayGround.Game
             }
         }
 
-        public void RegisterCancelHandler(IPauseCancelHandler handler)
+        public void RegisterCancelHandler(IUiCancelHandler handler)
         {
             if (handler == null)
                 throw new ArgumentNullException(nameof(handler));
@@ -59,7 +59,7 @@ namespace PlayGround.Game
                 cancelHandlers.Add(handler);
         }
 
-        public void UnregisterCancelHandler(IPauseCancelHandler handler)
+        public void UnregisterCancelHandler(IUiCancelHandler handler)
         {
             if (handler != null)
                 cancelHandlers.Remove(handler);
@@ -69,7 +69,7 @@ namespace PlayGround.Game
         {
             for (int i = cancelHandlers.Count - 1; i >= 0; i--)
             {
-                if (cancelHandlers[i].TryHandlePauseCancel())
+                if (cancelHandlers[i].TryHandleCancel())
                     return;
             }
 

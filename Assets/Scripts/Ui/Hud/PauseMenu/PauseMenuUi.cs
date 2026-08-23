@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 namespace PlayGround.Ui
 {
     [DefaultExecutionOrder(1000)]
-    public sealed class PauseMenuUi : MonoBehaviour, IPauseCancelHandler
+    public sealed class PauseMenuUi : MonoBehaviour, IUiCancelHandler
     {
         private const string HiddenClassName = "pause-menu--hidden";
         private const string OptionsHiddenClassName = "options-popup--hidden";
@@ -58,7 +58,6 @@ namespace PlayGround.Ui
             resumeButton.clicked += OnResumeClicked;
             optionsButton.clicked += OnOptionsClicked;
             pauseMenuLayer.Add(pauseMenu);
-            pauseController.RegisterCancelHandler(this);
             pauseController.PausedChanged += OnPausedChanged;
             OnPausedChanged(pauseController.IsPaused);
         }
@@ -114,7 +113,7 @@ namespace PlayGround.Ui
             pauseBackground.pickingMode = paused ? PickingMode.Position : PickingMode.Ignore;
         }
 
-        public bool TryHandlePauseCancel()
+        public bool TryHandleCancel()
         {
             if (optionsPopup == null || optionsPopup.ClassListContains(OptionsHiddenClassName))
                 return false;
@@ -130,11 +129,15 @@ namespace PlayGround.Ui
 
         private void OnOptionsClicked()
         {
+            pauseController.RegisterCancelHandler(this);
             optionsPopup.RemoveFromClassList(OptionsHiddenClassName);
         }
 
         private void CloseOptionsPopup()
         {
+            if (pauseController != null)
+                pauseController.UnregisterCancelHandler(this);
+
             optionsPopup?.AddToClassList(OptionsHiddenClassName);
         }
     }

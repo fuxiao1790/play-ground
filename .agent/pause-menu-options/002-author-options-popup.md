@@ -7,7 +7,8 @@
 - Add empty, hidden, full-screen options-popup overlay and centered blank panel
   after the menu panel in UXML.
 - Cache and wire options controls in `PauseMenuUi`.
-- Implement `IPauseCancelHandler`; consume cancel only when popup is visible.
+- Implement `IUiCancelHandler`; register and consume cancel only while popup is
+  visible.
 - Close popup whenever pause ends or component disables.
 
 ## Acceptance Criteria
@@ -26,4 +27,3 @@
 ## Scope
 
 - Small UI controller and authored UXML/USS change.
-

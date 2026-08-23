@@ -168,11 +168,11 @@ UI Toolkit picking decides whether a click reaches the world surface:
   it sits in the higher-sorted `HudPanel` — every `WorldLabelsPanel` element
   too, from pointer input; `#pause-menu-layer` stays above it so its controls
   remain interactive.
-- `PauseController` remains the sole `UI/Cancel` reader. Modal UI registers an
-  `IPauseCancelHandler`; handlers are offered cancel newest-first, and pause is
-  toggled only when none consumes it. `PauseMenuUi` consumes cancel while its
-  empty options popup is visible, closes that popup, and leaves the game paused.
-  The next cancel follows the normal pause toggle path.
+- `PauseController` remains the sole `UI/Cancel` reader. Any visible popup owner
+  registers an `IUiCancelHandler` only for its popup lifetime. Active handlers
+  are offered cancel newest-first, so Escape closes the frontmost popup; pause
+  toggles only when no popup consumes it. Current consumers are
+  `SkillLoadoutUi` for skill picker and `PauseMenuUi` for options popup.
 - Pause menu and its options popup both live under `#pause-menu-layer`. The
   popup is the frontmost child and position-picks across the panel while visible,
   preventing interaction with Resume and Options underneath.
@@ -294,9 +294,9 @@ temporary tracking list, not part of the architectural contract. Remove each
 entry once the implementation is fixed or the referenced doc is corrected to
 match reality.
 
-- **No Escape key, backdrop cancel, or scrolling in the picker.** Only the
-  `#cancel` button closes the modal; the choices list has no `ScrollView` or
-  overflow handling.
+- **No backdrop cancel or scrolling in the picker.** Escape and the `#cancel`
+  button close the modal; the choices list has no `ScrollView` or overflow
+  handling.
 
   this is fine for now. bare bone ui is acceptable in current state.
 

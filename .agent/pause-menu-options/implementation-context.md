@@ -2,9 +2,10 @@
 
 ## Architectural Decisions
 - `PauseController` stays sole `UI/Cancel` reader; offers cancel to registered
-  `IPauseCancelHandler`s newest-first, toggles pause only if none consume it.
-- `PauseMenuUi` owns options-popup presentation state; registers/unregisters
-  in `OnEnable`/`OnDisable`.
+  `IUiCancelHandler`s newest-first, toggles pause only if none consume it.
+- Every popup owner registers only for popup lifetime, so newest registration
+  matches frontmost active popup. `PauseMenuUi` owns options-popup presentation
+  state; `SkillLoadoutUi` owns skill-picker presentation state.
 - Menu/popup hierarchy authored in UXML; layout/visibility class-driven in
   USS; C# wires intent and toggles classes only.
 - Popup stays under `#pause-menu-layer`, frontmost sibling, position-picks
@@ -15,21 +16,22 @@
   reference UI types.
 - `#pause-menu-layer` stays frontmost authored HUD layer.
 - No ECS data/jobs/structural changes.
-- Registration lives in `OnEnable`/`OnDisable`, never `Awake`/`OnDestroy`.
+- Registration is paired with popup open/close and cleaned during `OnDisable`;
+  never registered in `Awake` or cleaned in `OnDestroy`.
 - UI work stays fixed-size, never scales with projectile/AOE/entity count.
 
 ## Ownership Boundaries
 - Pause runtime state (`IsPaused`, `Time.timeScale`, `AudioListener.pause`):
   `PauseController` (Game Logic).
-- Popup visibility/presentation: `PauseMenuUi` (UI).
+- Popup visibility/presentation: each UI feature controller.
 
 ## Data Flow
 `UI/Cancel` -> `PauseController.HandleCancel` -> newest registered
-`IPauseCancelHandler.TryHandlePauseCancel` -> fallback `TogglePause`.
+`IUiCancelHandler.TryHandleCancel` -> fallback `TogglePause`.
 
 ## Lifecycle / Allocation Rules
-- `RegisterCancelHandler`/`UnregisterCancelHandler` paired with
-  `OnEnable`/`OnDisable` in `PauseMenuUi`.
+- `RegisterCancelHandler`/`UnregisterCancelHandler` paired with popup
+  open/close in each owner; `OnDisable` closes active popup.
 - Popup force-closed on pause end (`OnPausedChanged(false)`) and on disable.
 
 ## ECS / Job / Threading Constraints
@@ -47,7 +49,7 @@
 - Existing pause-menu UXML-template clone, USS hidden-class pattern.
 
 ## Introduced Mechanisms
-- `IPauseCancelHandler` contract (Game Logic, no UI type).
+- `IUiCancelHandler` contract (Game Logic, no concrete UI type).
 - `#options-popup` authored element + `options-popup--hidden` class. No
   settings data model.
 
@@ -61,6 +63,7 @@
 - `Assets/Scripts/Ui/Hud/PauseMenu/PauseMenuUi.cs`
 - `Assets/Scripts/Ui/Hud/PauseMenu/PauseMenuUi.uxml`
 - `Assets/Scripts/Ui/Hud/PauseMenu/PauseMenuUi.uss`
+- `Assets/Scripts/Ui/Hud/SkillLoadout/SkillLoadoutUi.cs`
 - `Assets/Tests/EditMode/UiPanelIsolationEditModeTests.cs`
 - `Assets/Tests/PlayMode/UiPanelIsolationPlayModeTests.cs`
 - `Docs/ui.md`

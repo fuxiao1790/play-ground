@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using PlayGround.Game;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -98,6 +99,33 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void CancelHandlersAreOfferedNewestFirst()
+        {
+            GameObject gameObject = new("CancelHandlerOrderTest");
+            gameObject.SetActive(false);
+            try
+            {
+                PauseController pauseController = gameObject.AddComponent<PauseController>();
+                var olderHandler = new TestCancelHandler();
+                var newerHandler = new TestCancelHandler();
+                pauseController.RegisterCancelHandler(olderHandler);
+                pauseController.RegisterCancelHandler(newerHandler);
+
+                pauseController.HandleCancel();
+
+                Assert.That(newerHandler.CallCount, Is.EqualTo(1));
+                Assert.That(olderHandler.CallCount, Is.Zero,
+                    "Newest active popup must consume cancel before older popup handlers.");
+                Assert.That(pauseController.IsPaused, Is.False,
+                    "Consumed cancel must not toggle pause state.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
         public void HudAndWorldLabelDocumentsUseDifferentPanelSettings()
         {
             Scene scene = EditorSceneManager.OpenScene(BenchmarkScenePath, OpenSceneMode.Additive);
@@ -139,6 +167,17 @@ namespace PlayGround.Tests.EditMode
             Assert.That(element.pickingMode, Is.EqualTo(PickingMode.Ignore), $"'{element.name}' must be PickingMode.Ignore.");
             for (int i = 0; i < element.hierarchy.childCount; i++)
                 AssertPickingIgnoreRecursive(element.hierarchy[i]);
+        }
+
+        private sealed class TestCancelHandler : IUiCancelHandler
+        {
+            public int CallCount { get; private set; }
+
+            public bool TryHandleCancel()
+            {
+                CallCount++;
+                return true;
+            }
         }
     }
 }

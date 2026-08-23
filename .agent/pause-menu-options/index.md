@@ -3,16 +3,16 @@
 ## Summary
 
 Center the existing pause menu, add an Options button and empty modal options
-popup, and route `UI/Cancel` through a single prioritized cancellation path so
-Escape closes the popup before it can change pause state.
+popup, and route `UI/Cancel` through one universal active-popup stack so Escape
+closes the frontmost popup before it can change pause state.
 
 ## Architectural Decisions
 
-- `PauseController` remains the only reader of `UI/Cancel`. It offers a
+- `PauseController` remains the only reader of `UI/Cancel`. It offers a generic
   registration contract for low-count modal UI handlers, asks the most recently
-  registered handler first, and toggles pause only when no handler consumes the
-  request.
-- `PauseMenuUi` owns options-popup presentation state because the popup is
+  opened popup first, and toggles pause only when no handler consumes request.
+- Popup owners register only while their popup is active. `PauseMenuUi` owns
+  options-popup presentation state because the popup is
   authored UI, not gameplay state. It registers during `OnEnable` and unregisters
   during `OnDisable`.
 - Stable menu and popup hierarchy remains authored in `PauseMenuUi.uxml`; layout
@@ -34,9 +34,10 @@ Escape closes the popup before it can change pause state.
 - Stable visual hierarchy belongs in UXML, visual values in USS, and C# owns
   event wiring/small state updates. Source: `Docs/ui.md` (UXML, USS, And C#
   Rules).
-- Cross-component registration belongs in `OnEnable`/`OnDisable`, not `Awake`
-  or `OnDestroy`. Source: `Docs/coding-standards.md` (Awake vs OnEnable Boundary,
-  OnDestroy Boundary).
+- Cross-component setup must not occur in `Awake`, and cleanup must not depend on
+  `OnDestroy`. Popup-handler registration follows real popup open/close state,
+  with `OnDisable` as cleanup fallback. Source: `Docs/coding-standards.md`
+  (Awake vs OnEnable Boundary, OnDestroy Boundary).
 - UI work stays fixed-size and cannot scale with projectile/AOE/entity count.
   Source: `Docs/ui.md` (Lifecycle And Performance).
 - No ECS data, jobs, structural changes, or high-count simulation paths are
@@ -57,9 +58,9 @@ Reused:
 
 Introduced:
 
-- `IPauseCancelHandler`, a narrow Game Logic contract that contains no UI type.
-  It permits modal presentation to consume cancel while preserving one input
-  source and one pause-state owner.
+- `IUiCancelHandler`, a narrow Game Logic contract that contains no concrete UI
+  type. It permits every modal presentation owner to consume cancel while
+  preserving one input source and one pause-state owner.
 - One authored `#options-popup` element plus its hidden class. No options data
   model or settings state is introduced while popup is empty.
 
@@ -69,10 +70,11 @@ Introduced:
   `PauseController` never imports or resolves `PlayGround.Ui`.
 - Ownership holds: popup visibility exists only in the visual element class
   state; pause truth remains `PauseController.IsPaused`.
-- Input routing holds: Escape reaches `PauseController` once, newest handler is
-  offered request first, and a consumed request does not toggle pause.
-- Lifecycle holds: handler and button wiring are paired in
-  `OnEnable`/`OnDisable`; no teardown work is placed in `OnDestroy`.
+- Input routing holds: Escape reaches `PauseController` once, newest active
+  popup is offered request first, and a consumed request does not toggle pause.
+- Lifecycle holds: button/event wiring is paired in `OnEnable`/`OnDisable`;
+  popup-handler registration is paired at open/close and also cleared by
+  `OnDisable`; no teardown work is placed in `OnDestroy`.
 - Layering holds: popup is later sibling of menu panel within frontmost pause
   root and position-picks across the screen while visible.
 - Performance holds: handler scan and UI state are fixed, low-count work and do
@@ -116,6 +118,7 @@ or migration requires otherwise.
 1. [001-centralize-cancel-routing.md](001-centralize-cancel-routing.md)
 2. [002-author-options-popup.md](002-author-options-popup.md)
 3. [003-tests-and-docs.md](003-tests-and-docs.md)
+4. [004-universal-popup-cancel.md](004-universal-popup-cancel.md)
 
 ## Open Questions And Dependencies
 
@@ -123,4 +126,3 @@ or migration requires otherwise.
   Escape is its close action.
 - Existing scene references remain valid because current template and controller
   assets are modified in place; no Inspector or scene YAML changes are needed.
-

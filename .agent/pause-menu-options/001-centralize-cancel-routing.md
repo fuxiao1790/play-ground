@@ -2,7 +2,7 @@
 
 ## Change
 
-- Add `IPauseCancelHandler` beside `PauseController` in Game Logic.
+- Add `IUiCancelHandler` beside `PauseController` in Game Logic.
 - Add idempotent registration/unregistration methods.
 - Route `UI/Cancel` to registered handlers in reverse registration order.
 - Toggle pause only if every handler declines the request.
@@ -24,4 +24,3 @@
 ## Scope
 
 - Small runtime refactor; low risk, fixed-count managed path.
-
