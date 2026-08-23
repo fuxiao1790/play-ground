@@ -13,6 +13,7 @@ namespace PlayGround.Tests.EditMode
         private const string HudUxmlPath = "Assets/Scripts/Ui/Hud/SkillLoadoutUi.uxml";
         private const string WorldLabelsUxmlPath = "Assets/Scripts/Ui/WorldLabels/WorldLabelsUi.uxml";
         private const string MobResourceBarUxmlPath = "Assets/Scripts/Ui/WorldLabels/MobResourceBar.uxml";
+        private const string PauseMenuUxmlPath = "Assets/Scripts/Ui/Hud/PauseMenu/PauseMenuUi.uxml";
         private const string HudPanelAssetPath = "Assets/UI/HudPanel.asset";
         private const string WorldLabelsPanelAssetPath = "Assets/UI/WorldLabelsPanel.asset";
         private const string BenchmarkScenePath = "Assets/Scenes/BenchmarkLarge.unity";
@@ -70,6 +71,30 @@ namespace PlayGround.Tests.EditMode
             VisualElement marker = markerAsset.Instantiate().Q<VisualElement>("marker");
             Assert.That(marker, Is.Not.Null);
             AssertPickingIgnoreRecursive(marker);
+        }
+
+        [Test]
+        public void PauseMenuTemplateContainsOptionsPopup()
+        {
+            VisualTreeAsset pauseMenuAsset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(PauseMenuUxmlPath);
+            Assert.That(pauseMenuAsset, Is.Not.Null, $"Missing pause-menu UXML at '{PauseMenuUxmlPath}'.");
+
+            VisualElement pauseMenu = pauseMenuAsset.Instantiate().Q<VisualElement>("pause-menu");
+            Assert.That(pauseMenu, Is.Not.Null);
+            Assert.That(pauseMenu.Q<Button>("resume"), Is.Not.Null);
+            Assert.That(pauseMenu.Q<Button>("options"), Is.Not.Null);
+
+            VisualElement optionsPopup = pauseMenu.Q<VisualElement>("options-popup");
+            Assert.That(optionsPopup, Is.Not.Null);
+            Assert.That(optionsPopup.ClassListContains("options-popup--hidden"), Is.True);
+            Assert.That(optionsPopup.pickingMode, Is.EqualTo(PickingMode.Position),
+                "Visible options popup must shield pause-menu controls underneath.");
+            Assert.That(pauseMenu.IndexOf(optionsPopup), Is.EqualTo(pauseMenu.hierarchy.childCount - 1),
+                "Options popup must be the frontmost child of the pause-menu root.");
+
+            VisualElement optionsPanel = optionsPopup.Q<VisualElement>(className: "options-popup__panel");
+            Assert.That(optionsPanel, Is.Not.Null);
+            Assert.That(optionsPanel.hierarchy.childCount, Is.Zero, "Options popup must remain empty for now.");
         }
 
         [Test]

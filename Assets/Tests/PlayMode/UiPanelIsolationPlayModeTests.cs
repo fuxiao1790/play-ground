@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Reflection;
 using NUnit.Framework;
+using PlayGround.Game;
 using PlayGround.Mob;
 using PlayGround.System.Combat.Core;
 using PlayGround.Ui;
@@ -85,6 +86,53 @@ namespace PlayGround.Tests.PlayMode
 
             VisualElement pauseBackground = hudDocument.rootVisualElement.Q<VisualElement>("pause-background");
             Assert.That(pauseBackground, Is.Not.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator PauseMenuIsCentered()
+        {
+            UIDocument hudDocument = FindComponentInScene<UIDocument>("GameUI");
+            PauseMenuUi pauseMenuUi = FindComponentInScene<PauseMenuUi>("GameUI");
+            Assert.That(hudDocument, Is.Not.Null, "Missing UIDocument on 'GameUI'.");
+            Assert.That(pauseMenuUi, Is.Not.Null, "Missing PauseMenuUi on 'GameUI'.");
+
+            PauseController pauseController = GetPrivateField<PauseController>(pauseMenuUi, "pauseController");
+            pauseController.SetPaused(true);
+            yield return null;
+
+            VisualElement pauseMenu = hudDocument.rootVisualElement.Q<VisualElement>("pause-menu");
+            Assert.That(pauseMenu, Is.Not.Null);
+            Assert.That(pauseMenu.resolvedStyle.alignItems, Is.EqualTo(Align.Center));
+            Assert.That(pauseMenu.resolvedStyle.justifyContent, Is.EqualTo(Justify.Center));
+
+            pauseController.SetPaused(false);
+        }
+
+        [UnityTest]
+        public IEnumerator OptionsPopupConsumesCancelBeforePauseToggle()
+        {
+            UIDocument hudDocument = FindComponentInScene<UIDocument>("GameUI");
+            PauseMenuUi pauseMenuUi = FindComponentInScene<PauseMenuUi>("GameUI");
+            Assert.That(hudDocument, Is.Not.Null, "Missing UIDocument on 'GameUI'.");
+            Assert.That(pauseMenuUi, Is.Not.Null, "Missing PauseMenuUi on 'GameUI'.");
+
+            PauseController pauseController = GetPrivateField<PauseController>(pauseMenuUi, "pauseController");
+            pauseController.SetPaused(true);
+            yield return null;
+
+            VisualElement optionsPopup = hudDocument.rootVisualElement.Q<VisualElement>("options-popup");
+            Assert.That(optionsPopup, Is.Not.Null);
+            optionsPopup.RemoveFromClassList("options-popup--hidden");
+
+            pauseController.HandleCancel();
+
+            Assert.That(pauseController.IsPaused, Is.True,
+                "Cancel must close active options popup without resuming gameplay.");
+            Assert.That(optionsPopup.ClassListContains("options-popup--hidden"), Is.True);
+
+            pauseController.HandleCancel();
+            Assert.That(pauseController.IsPaused, Is.False,
+                "Cancel must resume gameplay after options popup has closed.");
         }
 
         [UnityTest]

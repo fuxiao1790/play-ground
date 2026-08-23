@@ -1,13 +1,20 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace PlayGround.Game
 {
+    public interface IPauseCancelHandler
+    {
+        bool TryHandlePauseCancel();
+    }
+
     public sealed class PauseController : MonoBehaviour
     {
         [SerializeField] private InputActionAsset inputActions;
 
+        private readonly List<IPauseCancelHandler> cancelHandlers = new();
         private InputAction cancelAction;
 
         public bool IsPaused { get; private set; }
@@ -39,8 +46,34 @@ namespace PlayGround.Game
         {
             if (cancelAction.WasPressedThisFrame())
             {
-                TogglePause();
+                HandleCancel();
             }
+        }
+
+        public void RegisterCancelHandler(IPauseCancelHandler handler)
+        {
+            if (handler == null)
+                throw new ArgumentNullException(nameof(handler));
+
+            if (!cancelHandlers.Contains(handler))
+                cancelHandlers.Add(handler);
+        }
+
+        public void UnregisterCancelHandler(IPauseCancelHandler handler)
+        {
+            if (handler != null)
+                cancelHandlers.Remove(handler);
+        }
+
+        public void HandleCancel()
+        {
+            for (int i = cancelHandlers.Count - 1; i >= 0; i--)
+            {
+                if (cancelHandlers[i].TryHandlePauseCancel())
+                    return;
+            }
+
+            TogglePause();
         }
 
         public void SetPaused(bool paused)

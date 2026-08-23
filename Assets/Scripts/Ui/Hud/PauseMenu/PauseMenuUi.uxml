@@ -2,7 +2,11 @@
     <ui:VisualElement name="pause-menu" class="pause-menu pause-menu--hidden" picking-mode="Ignore">
         <ui:VisualElement class="pause-menu__panel" picking-mode="Ignore">
             <ui:Label name="title" class="pause-menu__title" text="Paused" picking-mode="Ignore" />
-            <ui:Button name="resume" class="pause-menu__resume" text="Resume" />
+            <ui:Button name="resume" class="pause-menu__button" text="Resume" />
+            <ui:Button name="options" class="pause-menu__button" text="Options" />
+        </ui:VisualElement>
+        <ui:VisualElement name="options-popup" class="options-popup options-popup--hidden">
+            <ui:VisualElement class="options-popup__panel" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

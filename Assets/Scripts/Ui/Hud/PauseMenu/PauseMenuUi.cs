@@ -6,9 +6,10 @@ using UnityEngine.UIElements;
 namespace PlayGround.Ui
 {
     [DefaultExecutionOrder(1000)]
-    public sealed class PauseMenuUi : MonoBehaviour
+    public sealed class PauseMenuUi : MonoBehaviour, IPauseCancelHandler
     {
         private const string HiddenClassName = "pause-menu--hidden";
+        private const string OptionsHiddenClassName = "options-popup--hidden";
 
         [SerializeField] private UIDocument document;
         [SerializeField] private VisualTreeAsset pauseMenuTemplate;
@@ -19,7 +20,9 @@ namespace PlayGround.Ui
         private VisualElement pauseMenuLayer;
         private VisualElement pauseBackground;
         private VisualElement pauseMenu;
+        private VisualElement optionsPopup;
         private Button resumeButton;
+        private Button optionsButton;
 
         private void Awake()
         {
@@ -44,14 +47,18 @@ namespace PlayGround.Ui
 
             pauseMenu.styleSheets.Add(pauseMenuStyleSheet);
             resumeButton = pauseMenu.Q<Button>("resume");
-            if (resumeButton == null)
+            optionsButton = pauseMenu.Q<Button>("options");
+            optionsPopup = pauseMenu.Q<VisualElement>("options-popup");
+            if (resumeButton == null || optionsButton == null || optionsPopup == null)
             {
                 throw new InvalidOperationException(
-                    $"{nameof(PauseMenuUi)} could not find the '#resume' element in {nameof(pauseMenuTemplate)}.");
+                    $"{nameof(PauseMenuUi)} could not find the '#resume', '#options', and '#options-popup' elements in {nameof(pauseMenuTemplate)}.");
             }
 
             resumeButton.clicked += OnResumeClicked;
+            optionsButton.clicked += OnOptionsClicked;
             pauseMenuLayer.Add(pauseMenu);
+            pauseController.RegisterCancelHandler(this);
             pauseController.PausedChanged += OnPausedChanged;
             OnPausedChanged(pauseController.IsPaused);
         }
@@ -59,14 +66,23 @@ namespace PlayGround.Ui
         private void OnDisable()
         {
             if (pauseController != null)
+            {
                 pauseController.PausedChanged -= OnPausedChanged;
+                pauseController.UnregisterCancelHandler(this);
+            }
 
             if (resumeButton != null)
                 resumeButton.clicked -= OnResumeClicked;
 
+            if (optionsButton != null)
+                optionsButton.clicked -= OnOptionsClicked;
+
+            CloseOptionsPopup();
             pauseMenu?.RemoveFromHierarchy();
             pauseMenu = null;
+            optionsPopup = null;
             resumeButton = null;
+            optionsButton = null;
             pauseMenuLayer = null;
             pauseBackground = null;
             root = null;
@@ -89,15 +105,37 @@ namespace PlayGround.Ui
 
         private void OnPausedChanged(bool paused)
         {
+            if (!paused)
+                CloseOptionsPopup();
+
             pauseMenu.EnableInClassList(HiddenClassName, !paused);
             pauseBackground.EnableInClassList("pause-background--visible", paused);
             pauseBackground.EnableInClassList("pause-background--hidden", !paused);
             pauseBackground.pickingMode = paused ? PickingMode.Position : PickingMode.Ignore;
         }
 
+        public bool TryHandlePauseCancel()
+        {
+            if (optionsPopup == null || optionsPopup.ClassListContains(OptionsHiddenClassName))
+                return false;
+
+            CloseOptionsPopup();
+            return true;
+        }
+
         private void OnResumeClicked()
         {
             pauseController.SetPaused(false);
+        }
+
+        private void OnOptionsClicked()
+        {
+            optionsPopup.RemoveFromClassList(OptionsHiddenClassName);
+        }
+
+        private void CloseOptionsPopup()
+        {
+            optionsPopup?.AddToClassList(OptionsHiddenClassName);
         }
     }
 }

@@ -168,6 +168,14 @@ UI Toolkit picking decides whether a click reaches the world surface:
   it sits in the higher-sorted `HudPanel` — every `WorldLabelsPanel` element
   too, from pointer input; `#pause-menu-layer` stays above it so its controls
   remain interactive.
+- `PauseController` remains the sole `UI/Cancel` reader. Modal UI registers an
+  `IPauseCancelHandler`; handlers are offered cancel newest-first, and pause is
+  toggled only when none consumes it. `PauseMenuUi` consumes cancel while its
+  empty options popup is visible, closes that popup, and leaves the game paused.
+  The next cancel follows the normal pause toggle path.
+- Pause menu and its options popup both live under `#pause-menu-layer`. The
+  popup is the frontmost child and position-picks across the panel while visible,
+  preventing interaction with Resume and Options underneath.
 - Pointer capture keeps a held click stable until release or capture loss.
 
 Opening the skill picker is a separate modal input mode. `SkillLoadoutUi` tells
