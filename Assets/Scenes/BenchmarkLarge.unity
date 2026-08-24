@@ -1082,7 +1082,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9ea4e3b372454a39a457764f997811d1, type: 3}
-  m_Name: ''
+  m_Name: 
   m_EditorClassIdentifier: PlayGround.GameLogic::PlayGround.Game.GameSettings
 --- !u!1 &970727964
 GameObject:
@@ -2095,6 +2095,7 @@ MonoBehaviour:
   supportCatalog: {fileID: 11400000, guid: 877d17045513478b98dc6098a525d468, type: 2}
   triggerCatalog: {fileID: 11400000, guid: 0a4509f5cc494bc38290197d5eb15398, type: 2}
   playerRoot: {fileID: 830174276}
+  pauseController: {fileID: 0}
   initialNodeCount: 3
   nodeColumnTemplate: {fileID: 9197481963319205126, guid: 707e9a4867132d244867fa216fcc4cb4, type: 3}
   supportButtonTemplate: {fileID: 9197481963319205126, guid: 8d79d196e75c9bc48bb17585cd55a266, type: 3}

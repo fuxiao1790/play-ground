@@ -113,6 +113,32 @@ If TopUp stays high, the matching archetype lacks enough disabled slots for
 that tick; check despawn timing and pool warmup before optimizing the dead-slot
 scan.
 
+## World-Label Query Guidance
+
+For mob resource bar (world-label) performance work, read these markers
+together rather than in isolation. Treat this CSV as CPU cost only — it does
+not measure GPU time, so use the Frame Debugger or a GPU profiler separately
+if GPU cost becomes relevant:
+
+- `WorldLabelsPanel.PrepareRepaint` — panel-side cost of preparing all
+  world-label content for the frame.
+- `MobResourceBarUi.LateUpdate` — controller-side cost of projecting mob
+  anchors and updating marker/fill values. Sum with the panel marker above
+  for total per-frame world-label CPU cost.
+- `UIR.NudgeVertices`, filtered to rows nested under
+  `WorldLabelsPanel.PrepareRepaint` — CPU-side vertex updates from
+  non-GPU-backed transform writes; should stay low when markers use
+  `UsageHints.DynamicTransform`.
+- `RenderTree.UpdateTransforms`, nested under the same panel — GPU-backed
+  transform propagation cost.
+- `LayoutUpdater.ComputeLayout` and `LayoutUpdater.UpdateSubTree` — Yoga
+  layout cost; should not scale with moving or health-changing mob bars once
+  fill uses fixed layout geometry plus `style.scale`.
+
+Compare stationary, moving, and health-changing phases of a capture
+separately — the same scene can look very different across these phases, and
+averaging them together hides which phase is expensive.
+
 ## Grep Approach
 
 Prefer searching over reading full captures.

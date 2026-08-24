@@ -121,13 +121,13 @@ namespace PlayGround.Ui
 
             SetVisible(entry, true);
             Vector2 panelPosition = RuntimePanelUtils.CameraTransformWorldToPanel(labelsLayer.panel, worldAnchor, gameplayCamera);
-            entry.Marker.transform.position = new Vector3(panelPosition.x, panelPosition.y, 0f);
+            entry.Marker.style.translate = new Translate(panelPosition.x, panelPosition.y);
 
             float ratio = mob.MaxHealth > 0f ? Mathf.Clamp01(mob.CurrentHealth / mob.MaxHealth) : 0f;
             if (!Mathf.Approximately(ratio, entry.FillRatio))
             {
                 entry.FillRatio = ratio;
-                entry.Fill.style.width = Length.Percent(ratio * 100f);
+                entry.Fill.style.scale = new Scale(new Vector2(ratio, 1f));
             }
         }
 
@@ -177,7 +177,7 @@ namespace PlayGround.Ui
             ResourceBarEntry entry = pooledEntries.Count > 0 ? pooledEntries.Pop() : CreateEntry();
             entry.Visible = false;
             entry.FillRatio = -1f;
-            entry.Fill.style.width = Length.Percent(100f);
+            entry.Fill.style.scale = new Scale(Vector2.one);
             entry.Marker.style.display = DisplayStyle.None;
             labelsLayer.Add(entry.Marker);
             return entry;
@@ -197,6 +197,8 @@ namespace PlayGround.Ui
 
             marker.styleSheets.Add(resourceBarStyleSheet);
             SetPickingModeToIgnore(marker);
+            marker.usageHints |= UsageHints.DynamicTransform;
+            fill.usageHints |= UsageHints.DynamicTransform;
             return new ResourceBarEntry { Marker = marker, Fill = fill };
         }
 

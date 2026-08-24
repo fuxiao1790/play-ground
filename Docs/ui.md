@@ -235,6 +235,32 @@ contention, not a UI entity scan — do not attribute it to that panel's UI
 work without also checking the panel's own self time and element/call
 counts.
 
+### World-Label Dynamic Transform Contract
+
+Mob resource bars stay standard `VisualElement` content inside
+`WorldLabelsPanel` — no custom quad/mesh renderer, second panel, or ECS
+presentation path exists for them:
+
+- The moving marker element updates position through `style.translate`,
+  backed by `UsageHints.DynamicTransform` assigned on both marker and fill
+  while each is detached, before either joins `#labels-layer`. This keeps
+  per-frame position changes on UI Toolkit's GPU-backed transform path
+  instead of triggering CPU vertex nudging or a layout pass.
+- Health fill keeps fixed, authored layout geometry (full width, left-center
+  `transform-origin`) and expresses its dynamic ratio only through
+  left-anchored `style.scale` on the X axis. Fill width is never mutated at
+  runtime.
+- `#labels-layer` itself does not receive `UsageHints.GroupTransform`. It is
+  stationary; only the markers it contains move independently, so grouping
+  the layer's own transform would not remove per-marker transform cost.
+- Marker/fill pooling (`Dictionary<MobRoot, ResourceBarEntry>` +
+  `Stack<ResourceBarEntry>`) and recursive `PickingMode.Ignore` remain
+  required regardless of the transform mechanism used.
+- When profiling this path, read `MobResourceBarUi.LateUpdate` together with
+  `WorldLabelsPanel.PrepareRepaint`; the controller marker and the panel
+  marker are two halves of one cost and should be compared as a pair against
+  a baseline, not read in isolation.
+
 See [Coding Standards](./coding-standards.md) and [ECS Notes](./reference/simulation/ecs-notes.md).
 
 ## Scene And Inspector Setup

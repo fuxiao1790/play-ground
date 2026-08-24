@@ -1,8 +1,11 @@
 /*
  * MobResourceBar styling. #marker is a zero-size anchor moved every frame with
- * VisualElement.transform.position (render-only translation, no layout pass).
- * #bar is authored offset from #marker with `translate` so its bottom-center
- * sits at the marker point. Resource-specific modifier classes own fill color.
+ * style.translate, backed by UsageHints.DynamicTransform (GPU-side transform,
+ * no layout pass). #bar is authored offset from #marker with `translate` so
+ * its bottom-center sits at the marker point. #fill keeps fixed full-width
+ * layout geometry and drains/fills via style.scale on the X axis from a
+ * left-center transform origin, also backed by UsageHints.DynamicTransform.
+ * Resource-specific modifier classes own fill color.
  */
 
 .mob-resource-marker {
@@ -37,6 +40,8 @@
     top: 0;
     bottom: 0;
     left: 0;
+    width: 100%;
+    transform-origin: 0% 50%;
 }
 
 .mob-resource-bar--health .mob-resource-bar__fill {
