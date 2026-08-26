@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using PlayGround.Common;
 using PlayGround.Common.Stats;
+using PlayGround.Game;
 using PlayGround.Skills;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
@@ -16,7 +17,6 @@ using PlayGround.System.Combat.Vfx;
 using Unity.Entities;
 using Unity.Profiling;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace PlayGround.Mob
 {
@@ -28,9 +28,9 @@ namespace PlayGround.Mob
         [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField] private Transform target;
         [SerializeField] private UnitStatSheet statSheet;
-        [FormerlySerializedAs("healthBarOffset")]
-        [SerializeField, Tooltip("Local-space offset used to position this mob's projected resource bars.")]
-        private Vector3 resourceBarOffset = new(0f, 1f, 0f);
+        [SerializeField] private MobResourceBarSprite resourceBar;
+        // Retained only for MobResourceBarUi, deleted by task 004 alongside this field/property.
+        [SerializeField] private Vector3 resourceBarOffset = new(0f, 1f, 0f);
         [SerializeField] private float targetRadius = 0.5f;
         [SerializeField, Min(0.05f)] private float wanderMinDuration = 0.7f;
         [SerializeField, Min(0.05f)] private float wanderMaxDuration = 2f;
@@ -228,20 +228,29 @@ namespace PlayGround.Mob
             target = targetTransform;
         }
 
+        public void BindGameSettings(GameSettings settings)
+        {
+            resourceBar?.BindGameSettings(settings);
+        }
+
         public void InitializeForSpawn()
         {
             isAlive = true;
             softDeathNotified = false;
             deleteProxyInLateUpdate = false;
+            resourceBar?.SetAliveVisible(true);
             if (health == null)
             {
                 health = new Resource(statSheet.MaxHealth, statSheet.HealthRegenPerSecond);
                 health.Depleted += HandleHealthDepleted;
+                health.Changed += HandleHealthChanged;
             }
             else
             {
                 health.Reset(statSheet.MaxHealth, statSheet.HealthRegenPerSecond);
             }
+
+            resourceBar?.SetHealth(health.Current, health.Max);
 
             if (mana == null)
             {
@@ -343,6 +352,7 @@ namespace PlayGround.Mob
 
             hurtbox.enabled = false;
             spriteRenderer.enabled = false;
+            resourceBar?.SetAliveVisible(false);
             QueueCombatTargetProxyDelete();
             UnregisterTargets();
             softDeathNotified = true;
@@ -352,6 +362,11 @@ namespace PlayGround.Mob
         private void HandleHealthDepleted()
         {
             SoftDie();
+        }
+
+        private void HandleHealthChanged()
+        {
+            resourceBar?.SetHealth(health.Current, health.Max);
         }
 
         private void UnregisterTargets()

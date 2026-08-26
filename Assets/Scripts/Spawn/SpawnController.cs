@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using PlayGround.Game;
 using PlayGround.Mob;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Vfx;
@@ -18,6 +19,7 @@ namespace PlayGround.Spawn
         [SerializeField] private Transform target;
         [SerializeField, Min(0)] private int prewarm;
         [SerializeField] private int randomSeed;
+        [SerializeField] private GameSettings gameSettings;
 
         private readonly HashSet<MobRoot> pendingReclaim = new();
         private MobPool pool;
@@ -63,7 +65,7 @@ namespace PlayGround.Spawn
             prewarm = Mathf.Max(0, prewarm);
         }
 
-        public void Bind(CombatRoot root, Transform targetTransform)
+        public void Bind(CombatRoot root, Transform targetTransform, GameSettings settings)
         {
             if (combatRoot == null)
             {
@@ -73,6 +75,11 @@ namespace PlayGround.Spawn
             if (target == null)
             {
                 target = targetTransform;
+            }
+
+            if (gameSettings == null)
+            {
+                gameSettings = settings;
             }
         }
 
@@ -109,6 +116,7 @@ namespace PlayGround.Spawn
         {
             mob.Register(combatRoot.TargetRegistry);
             mob.BindCombatRoot(combatRoot);
+            mob.BindGameSettings(gameSettings);
             if (vfxRoot != null)
             {
                 mob.BindVfxRoot(vfxRoot);

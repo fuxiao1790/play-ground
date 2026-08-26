@@ -25,9 +25,12 @@ namespace PlayGround.Game
         [SerializeField] private PlayAreaRoot playArea;
         [SerializeField] private SpawnController spawnController;
 
+        private GameSettings gameSettings;
+
         private void Awake()
         {
             ConfigureFramePacing();
+            gameSettings = GetComponent<GameSettings>();
         }
 
         private void OnEnable()
@@ -91,6 +94,7 @@ namespace PlayGround.Game
 
                     mobs[i].Register(combatRoot.TargetRegistry);
                     mobs[i].BindCombatRoot(combatRoot);
+                    mobs[i].BindGameSettings(gameSettings);
 
                     if (player != null)
                     {
@@ -111,7 +115,7 @@ namespace PlayGround.Game
                 driver?.BindCombatRoot(combatRoot);
             }
 
-            spawnController?.Bind(combatRoot, player != null ? player.transform : null);
+            spawnController?.Bind(combatRoot, player != null ? player.transform : null, gameSettings);
         }
 
         private static void ConfigureFramePacing()

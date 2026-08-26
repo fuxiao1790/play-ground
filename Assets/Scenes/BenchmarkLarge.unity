@@ -220,7 +220,7 @@ SortingGroup:
   m_GameObject: {fileID: 151502259}
   m_Enabled: 1
   m_SortingLayerID: -612406109
-  m_SortingLayer: -3
+  m_SortingLayer: -4
   m_SortingOrder: 0
   m_SortAtRoot: 1
   m_Sort3DAs2D: 1
@@ -337,6 +337,7 @@ MonoBehaviour:
   target: {fileID: 0}
   prewarm: 100
   randomSeed: 0
+  gameSettings: {fileID: 0}
 --- !u!1 &225537358 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 954641363838781461, guid: 1de70814cc1877b48b9a734e50bbe9c0, type: 3}
@@ -969,7 +970,7 @@ MonoBehaviour:
   player: {fileID: 830174276}
   gameplayCamera: {fileID: 1593919879}
   playArea: {fileID: 0}
-  spawnController: {fileID: 0}
+  spawnController: {fileID: 178213210}
 --- !u!4 &912359185
 Transform:
   m_ObjectHideFlags: 0
@@ -1359,7 +1360,7 @@ SortingGroup:
   m_GameObject: {fileID: 1019222039}
   m_Enabled: 1
   m_SortingLayerID: 1307555867
-  m_SortingLayer: -4
+  m_SortingLayer: -5
   m_SortingOrder: 0
   m_SortAtRoot: 1
   m_Sort3DAs2D: 1

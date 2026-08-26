@@ -13,7 +13,8 @@ Add EditMode read-only prefab-authoring coverage:
 - background/fill renderers and shared sprite/material are assigned;
 - resource-bar child is beneath mob root and has prefab-specific local
   transform;
-- fill configuration is left-anchored, 36-step, and sorted above mob visual;
+- fill configuration is left-anchored, ratio-proportional, and sorted above
+  mob visual;
 - BenchmarkLarge has no old world-label panel/controller and has
   `GameRoot.gameSettings` assigned.
 
@@ -23,7 +24,7 @@ instructions and must not patch prefab/scene serialization to make tests pass.
 Add PlayMode behavior coverage in `MobResourceBarSpritePlayModeTests`:
 
 - `MovementUsesParentTransformWithoutChangingAuthoredLocalTransform`;
-- `HealthChangesQuantizedFillAndUnchangedStepDoesNotChangeScale`;
+- `HealthChangeSetsFillScaleProportionalToRatio`;
 - `SoftDeathHidesBarAndInitializeForSpawnRestoresIt`;
 - `DisplaySettingChangeControlsLiveRendererVisibility`;
 - `PooledMobRestoresFullBarAfterPriorLifeDamage` (may extend

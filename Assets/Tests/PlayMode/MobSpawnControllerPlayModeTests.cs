@@ -211,7 +211,7 @@ namespace PlayGround.Tests.PlayMode
             SetField(controller, "prewarm", cap);
             SetField(controller, "randomSeed", 123);
             controllerObject.SetActive(true);
-            controller.Bind(combatRoot, null);
+            controller.Bind(combatRoot, null, null);
         }
 
         private static MobRoot CreateMobPrefab(out GameObject prefabObject)

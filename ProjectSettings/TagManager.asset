@@ -47,6 +47,9 @@ TagManager:
   - name: CombatSprites
     uniqueID: 3682561187
     locked: 0
+  - name: FloatingUI
+    uniqueID: 1317160231
+    locked: 0
   - name: Players
     uniqueID: 85618847
     locked: 0

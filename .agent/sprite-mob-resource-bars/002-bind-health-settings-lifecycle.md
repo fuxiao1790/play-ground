@@ -19,7 +19,15 @@ Refactor `MobRoot` to own one optional serialized
 
 Propagate existing settings without scene searches:
 
-- add an authored `GameSettings` reference to `GameRoot`;
+- add a plain, non-serialized `GameSettings gameSettings` field to `GameRoot`,
+  resolved once via `GetComponent<GameSettings>()` in `Awake` — not a
+  `[SerializeField]`/Inspector reference, matching the existing
+  `MobRoot.skillDriver` precedent, since `GameSettings` always lives on the
+  same GameObject as `GameRoot` and there is no legitimate case for pointing
+  it elsewhere (went through a manually-wired version, then a
+  `[SerializeField]`-with-fallback version, before landing here — see
+  index.md for why each intermediate step still had unnecessary Inspector
+  surface area);
 - bind it to scene mobs during `GameRoot.Start`;
 - extend `SpawnController.Bind` to receive/cache the same settings instance;
 - bind settings to each rented mob in `SpawnController.WireMob`;

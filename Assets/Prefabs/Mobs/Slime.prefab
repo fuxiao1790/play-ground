@@ -188,12 +188,13 @@ Transform:
   m_GameObject: {fileID: 6597991707308015085}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 4, y: -1.5, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 3, y: 3, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6361893321971626673}
   - {fileID: 8619537971111010875}
+  - {fileID: 1478488669227349200}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!50 &9150876510746367444
@@ -277,6 +278,7 @@ MonoBehaviour:
   spriteRenderer: {fileID: 227430868430504257}
   target: {fileID: 0}
   statSheet: {fileID: 11400000, guid: 4f1fe3388cd7fef42b7f7bd6e5bc3cc2, type: 2}
+  resourceBar: {fileID: 5432513113431511729}
   resourceBarOffset: {x: 0, y: 0.8, z: 0}
   targetRadius: 0.5
   wanderMinDuration: 0.7
@@ -302,3 +304,76 @@ MonoBehaviour:
   statSheet: {fileID: 11400000, guid: 4f1fe3388cd7fef42b7f7bd6e5bc3cc2, type: 2}
   faction: 2
   fallbackCombatRootTag: PlayerProjectileRoot
+--- !u!1001 &8239492775593065281
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 8495615360576718725}
+    m_Modifications:
+    - target: {fileID: 7411845928449167249, guid: d2ce6c2ea8f004a409131f7bdd127251, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7411845928449167249, guid: d2ce6c2ea8f004a409131f7bdd127251, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.752
+      objectReference: {fileID: 0}
+    - target: {fileID: 7411845928449167249, guid: d2ce6c2ea8f004a409131f7bdd127251, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7411845928449167249, guid: d2ce6c2ea8f004a409131f7bdd127251, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7411845928449167249, guid: d2ce6c2ea8f004a409131f7bdd127251, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7411845928449167249, guid: d2ce6c2ea8f004a409131f7bdd127251, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7411845928449167249, guid: d2ce6c2ea8f004a409131f7bdd127251, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7411845928449167249, guid: d2ce6c2ea8f004a409131f7bdd127251, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7411845928449167249, guid: d2ce6c2ea8f004a409131f7bdd127251, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7411845928449167249, guid: d2ce6c2ea8f004a409131f7bdd127251, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8236142251661257570, guid: d2ce6c2ea8f004a409131f7bdd127251, type: 3}
+      propertyPath: m_Name
+      value: ResourceBar
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: d2ce6c2ea8f004a409131f7bdd127251, type: 3}
+--- !u!4 &1478488669227349200 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 7411845928449167249, guid: d2ce6c2ea8f004a409131f7bdd127251, type: 3}
+  m_PrefabInstance: {fileID: 8239492775593065281}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &5432513113431511729 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4124354850658167280, guid: d2ce6c2ea8f004a409131f7bdd127251, type: 3}
+  m_PrefabInstance: {fileID: 8239492775593065281}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ed51d5278df3f724b9f15d5aa0eb6b42, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlayGround.GameLogic::PlayGround.Mob.MobResourceBarSprite

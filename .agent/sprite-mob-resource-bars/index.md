@@ -12,8 +12,9 @@ transform propagation moves the bar with the mob; no script projects the mob
 through the camera or writes bar position each frame.
 
 `MobRoot` remains health source of truth. It refreshes the child presenter from
-the existing `Resource.Changed` notification. The presenter changes fill only
-when the visible 36-step fill value changes, preserves the existing
+the existing `Resource.Changed` notification, which already gates the call to
+actual health changes only. The presenter writes fill scale directly from the
+continuous ratio on each such call, preserves the existing
 `GameSettings.DisplayMobHealthBars` option, and hides during soft death. No bar
 component has `Update`, `LateUpdate`, target iteration, pooling, or scene search.
 
@@ -31,8 +32,7 @@ and must not run an editor builder to perform those changes indirectly.
 `MobResourceBarSprite` is a focused child `MonoBehaviour` because its Transform
 and renderer layout must be visually adjustable per mob prefab. It owns only
 presentation state: cached renderer references, authored full-fill scale,
-quantized displayed step, lifecycle visibility, and settings subscription.
-It does not own health.
+lifecycle visibility, and settings subscription. It does not own health.
 
 `MobRoot` holds the serialized child reference and forwards health changes. This
 follows the root-component rule while keeping visual geometry out of `MobRoot`.
@@ -43,24 +43,51 @@ The resource-bar transform is a child of the mob root. Rigidbody/Transform
 movement therefore propagates through Unity's transform hierarchy without a
 managed world-to-panel projection or per-frame bar position assignment.
 
-Fill uses a shared rectangular sprite with a left-center pivot. Full-fill local
-scale is captured once. Runtime changes only the fill child's local X scale.
-The ratio is quantized to 36 steps, matching the old 36-pixel UI Toolkit bar,
-so fractional regeneration does not dirty the fill transform until a visible
-step changes.
+Fill uses a dedicated rectangular sprite with a left-center pivot, shared
+across all three mob prefabs' fill renderers. Background uses a separate
+dedicated rectangular sprite, shared across all three prefabs' background
+renderers (two shared sprites total — one per role — not one tinted sprite;
+see **Introduced** below). Full-fill local scale is captured once. Runtime
+changes only the fill child's local X scale, written directly from the
+continuous health ratio on every call. There is no step-quantization layer:
+`Resource.Changed` already gates `SetHealth` calls to actual health changes
+only, and pre-emptively coarsening those writes further was judged premature
+optimization. Revisit only if the task 006 profiling pass shows per-tick
+regen writes are a measured cost, not before.
 
 ### Preserve the existing display setting
 
 Interpretation of the user's confirmation: sprite bars continue to obey
-`DisplayMobHealthBars`. `GameRoot` passes its authored `GameSettings` reference
-to static mobs and `SpawnController`; `SpawnController` passes it to each rented
-mob. The child presenter subscribes/unsubscribes at `OnEnable`/`OnDisable` and
-applies changes without a frame loop.
+`DisplayMobHealthBars`. `GameRoot.gameSettings` is a plain, non-serialized
+private field resolved once via `GetComponent<GameSettings>()` in `Awake`
+(`GameSettings` always lives on the same GameObject as `GameRoot` by
+convention) — not an Inspector reference at all, matching the existing
+`MobRoot.skillDriver` precedent (also `GetComponent`-resolved, also not
+`[SerializeField]`) rather than the manually-wired cross-GameObject fields
+(`player`, `gameplayCamera`, `spawnController`, `playArea`) that genuinely
+need either manual assignment or a scene-wide `Find*` fallback because they
+live elsewhere. `GameRoot` then passes the resolved instance to static mobs
+and `SpawnController`; `SpawnController` passes it to each rented mob. The
+child presenter subscribes/unsubscribes at `OnEnable`/`OnDisable` and applies
+changes without a frame loop.
+
+This went through two iterations: first a manually-wired `[SerializeField]`
+(which shipped unassigned in `BenchmarkLarge`, silently leaving every mob's
+presenter defaulted to always-visible since `SubscribeSettings` no-ops on
+null), then a `[SerializeField]` with a same-GameObject `GetComponent`
+fallback, then finally dropping `[SerializeField]` entirely once it was clear
+there is no case where this reference should ever point anywhere other than
+`GetComponent<GameSettings>()` on `GameRoot`'s own GameObject — a serialized
+slot for that is pure surface area for the exact misconfiguration that
+already happened once, with no corresponding flexibility benefit.
 
 Test fixtures or stripped worlds may omit a bar and settings; an absent child
 bar means no presentation, while an authored production bar without a settings
-binding defaults visible. Production prefab/scene tests enforce the complete
-wiring in `BenchmarkLarge`.
+binding defaults visible. A bare test `GameObject` with only `GameRoot` added
+still resolves to null via `GetComponent` (no `GameSettings` component
+present), so this behavior is unchanged for tests — only production scenes
+where `GameSettings` is genuinely co-located benefit. Production prefab/scene
+tests enforce the complete wiring in `BenchmarkLarge`.
 
 ### Remove the old implementation instead of retaining two paths
 
@@ -125,11 +152,14 @@ repair serialized data directly or through Unity editor automation.
   fewer than 50 mobs, while `BenchmarkLarge` deliberately stresses up to 200
   (`Docs/performance.md`, **Runtime Strategy**;
   `Assets/Scenes/BenchmarkLarge.unity`, `SpawnController.cap`).
-- Sprite path adds two authored renderers per mob. All mobs reuse one sprite and
-  one compatible sprite material so renderer batching remains possible.
+- Sprite path adds two authored renderers per mob. All mobs reuse one background
+  sprite/material across their background renderers and one fill sprite/material
+  across their fill renderers (two shared assets total, not one), so renderer
+  batching remains possible within each role.
 - No bar script runs per rendered frame solely because a mob moved. Fill writes
-  occur only when health crosses one of 36 visible steps. Settings writes occur
-  only when the setting changes.
+  occur on every actual health change (`Resource.Changed` gates this, not a
+  frame loop); no additional visual-step quantization on top of that. Settings
+  writes occur only when the setting changes.
 - CPU and GPU/render cost must be measured separately; profiler CSV captures do
   not establish GPU cost (`Docs/profiling.md`, **World-Label Query Guidance**).
 
@@ -142,8 +172,10 @@ repair serialized data directly or through Unity editor automation.
   (`Assets/Scripts/Ui/WorldLabels/MobResourceBar.uss`).
 - Bar child local position is authored separately for Bat, Slime, and Skeleton.
 - Bar renderers use the same sorting layer as mob visuals, with stable orders
-  above the current mob visual order 9. Shared sprite/material and ordering are
-  consistent across all three prefabs.
+  above the current mob visual order 9. Background sprite/material is
+  consistent across all three prefabs' background renderers; fill
+  sprite/material is consistent across all three prefabs' fill renderers.
+  Ordering is consistent across all three prefabs.
 
 ## Mechanisms Reused Vs Introduced
 
@@ -163,10 +195,11 @@ repair serialized data directly or through Unity editor automation.
   justified because it removes camera projection, panel ownership, marker
   pooling, and UI Toolkit transform state while giving each prefab direct visual
   authoring control.
-- One shared rectangular sprite asset for background/fill rendering. It avoids
-  runtime sprite creation and per-mob material instances.
-- 36-step fill quantization. This prevents visually meaningless per-tick
-  transform dirties during fractional health regeneration.
+- Two shared rectangular sprite assets — one for background, one for fill —
+  each reused across all three mob prefabs for its role. Distinct art per role
+  (rather than one tinted sprite) was chosen by the user for authoring
+  flexibility. Still avoids runtime sprite creation and per-mob material
+  instances: two shared materials total, not one per prefab.
 
 ## Design Validation
 
@@ -185,8 +218,9 @@ repair serialized data directly or through Unity editor automation.
 - **Authoring correctness:** child transform replaces the old serialized offset,
   so there is one prefab-owned positioning representation.
 - **Rendering pressure:** two renderers per active mob are explicit cost. Shared
-  assets and stable sorting allow batching; profiling task compares this cost
-  against both UI Toolkit and no-bar baselines.
+  per-role assets (one background sprite/material, one fill sprite/material)
+  and stable sorting allow batching within each role; profiling task compares
+  this cost against both UI Toolkit and no-bar baselines.
 
 ## Minimal/Additive Vs Refactor Comparison
 
