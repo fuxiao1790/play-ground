@@ -34,11 +34,10 @@ Compare steady frames after warm-up on same hardware.
   chain inside BVH4/BVH8 geometric node tests before lane mask exists.
 - Burst Inspector confirms BVH4 packed subtract/multiply/add/compare followed by
   one mask extraction across four lanes.
-- Burst Inspector confirms BVH8 AVX packed subtract/multiply/add/compare followed
-  by movemask across eight lanes on supported x86 target. AVX limited to
-  add/subtract with scalar square/compare does not pass.
-- Portable BVH8 fallback remains present and performs two complete `float4`
-  overlap equations plus two packed mask extractions; no eight-lane scalar loop.
+- Burst Inspector confirms BVH8 performs two complete packed `float4` overlap
+  equations plus two packed mask extractions; no eight-lane scalar loop.
+- Source and compiled path contain no forced x86 AVX/AVX2 intrinsics or ISA
+  branch; Burst selects supported instructions for target CPU.
 - Benchmark evidence is invalid if inspected query kernel scalarizes child
   overlap math or constructs mask through per-lane branches.
 - Capture records target/node counts and average discrete pruning metrics with

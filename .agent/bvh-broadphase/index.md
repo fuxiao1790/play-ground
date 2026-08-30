@@ -31,19 +31,16 @@ working-tree implementation or generated execution packet.
 
 - `BvhConfig.ChildCount` accepts `4` or `8`; default `8`.
 - BVH4 hot bounds use three `float4` values: X, Y, radius.
-- BVH8 hot bounds use three `Unity.Burst.Intrinsics.v256` values.
+- BVH8 hot bounds use six `float4` values: low/high halves for X, Y, and radius.
 - Metadata stays separate: child references, packed child kinds, active mask.
 - BVH4 node lookup performs the complete overlap equation as one four-lane
   `float4` batch: subtract, multiply, add, compare, then `math.bitmask` (or an
   equivalent packed mask extraction). No scalar per-lane arithmetic,
   comparison, or `if` chain is allowed before the mask exists.
-- BVH8 AVX node lookup performs the complete overlap equation on `v256` values
-  by value: subtract, multiply, add, packed compare, then AVX movemask. Using
-  AVX only for broadcast/add/subtract followed by scalar lane math is not a SIMD
-  lookup and does not satisfy this plan.
-- BVH8 portable lookup performs two complete `float4` overlap tests, extracts
+- BVH8 lookup performs two complete `float4` overlap tests, extracts
   one four-bit mask from each half, and combines them. It must not extract eight
-  scalar lanes and rebuild the result with a loop.
+  scalar lanes and rebuild the result with a loop. Source uses no x86 AVX/AVX2
+  intrinsics or ISA checks; Burst selects supported instructions for target CPU.
 - No pointer loads or fixed buffers. Do not rely on Burst auto-vectorization to
   repair scalar source; SIMD operations and mask extraction must be explicit.
 - One compile-time constant selects one layout/build/query family. Only selected
@@ -103,8 +100,8 @@ values fail during system creation.
 | Shared native-container owner exposes handles; consumers depend on build and publish read handles. | `Docs/coding-standards.md`; `TargetSpatialHashSystem.cs` | Preserve singleton ownership, `BuildHandle`, `ConsumerHandle`, creation, completion, and disposal model. |
 | Tree cannot mutate while query jobs read it. | `bvh.md` sections 27-30 | Owner completes prior consumers before resize/clear; same-frame consumers depend on build; next update waits before reuse. |
 | No managed/per-query allocations on hot path; persistent buffers grow and reuse. | `Docs/performance.md`; `bvh.md` sections 14, 51-53 | Persistent snapshots, nodes, Morton entries, and build scratch; one fixed local traversal workspace reused across each chunk; no per-query native container. |
-| No `unsafe` in gameplay/shared runtime. | `Docs/coding-standards.md`; `PlayGround.Sim.asmdef`; `ProjectSettings.asset` | Safe `float4`/`v256` storage and fixed lists; no project/assembly setting change. |
-| One node's geometric child test is SIMD; tree navigation and exact narrowphase are scalar. | `bvh.md` sections 4, 6, 12-13 | Explicit BVH4 packed compare/bitmask; explicit BVH8 AVX compare/movemask; two-`float4` packed fallback. Reject scalar lane loops/branches inside geometric node test. |
+| No `unsafe` in gameplay/shared runtime. | `Docs/coding-standards.md`; `PlayGround.Sim.asmdef`; `ProjectSettings.asset` | Safe `float4` storage and fixed lists; no project/assembly setting change. |
+| One node's geometric child test is SIMD; tree navigation and exact narrowphase are scalar. | `bvh.md` sections 4, 6, 12-13 | Explicit BVH4 packed compare/bitmask; BVH8 uses two complete `float4` packed tests and combines their masks. Reject scalar lane loops/branches inside geometric node test. |
 | Broadphase may return false positives, never false negatives. | `bvh.md` sections 11, 18, 45-46, 57-58 | Conservative source/object circles; brute-force subset validation; active-lane masking; small documented contact epsilon. |
 | Exact shape logic and collision consequences stay unchanged. | `Docs/flows/collision-to-combat-result.md`; current collision systems | Discrete BVH yields snapshot index only. Existing faction/gate/AABB/exact hit and event emission remain consumer-owned. |
 | Discrete and continuous projectile broadphases remain different. | `ProjectileDiscreteCollisionSystem.cs`; `ProjectileContinuousCollisionSystem.cs`; user scope decision | Migrate discrete candidate enumeration only. Continuous keeps existing spatial-hash cell walk, maximum-target-radius expansion, endpoint/corridor exact tests, TOI cap/sort, and death/emission funnels. |
@@ -160,10 +157,10 @@ entity, position, shape, and faction. Node object references point there.
 - Width: compile-time choice controls grouping, node representation, masks,
   traversal, validation, depth calculations, and scheduled implementation.
 - SIMD: BVH4 executes full overlap math and mask extraction across one `float4`;
-  BVH8 executes full AVX overlap math/compare/movemask. Scalar traversal begins
-  only after packed mask production.
-- Portability: BVH8 AVX path guarded by Burst ISA support; portable path performs
-  two complete `float4` tests and combines their masks with identical semantics.
+  BVH8 executes two complete `float4` tests and combines their masks. Scalar
+  traversal begins only after packed mask production.
+- Portability: no x86 intrinsics or runtime ISA branch. Burst chooses supported
+  instruction encoding for the target; source remains two explicit vector halves.
 - Behavior: discrete collision consequence ownership remains unchanged.
   Continuous, AOE, targeted, and tracking behavior remain unchanged on existing
   hash paths.

@@ -17,9 +17,9 @@ Use `float4` for BVH4. Its full node overlap equation -- subtract, square,
 sum, radius square, compare, and mask extraction -- executes as one packed
 four-lane operation, ending in `math.bitmask` or equivalent.
 
-Use `v256` for the complete BVH8 AVX equation, ending in packed compare plus
-movemask. Portable fallback performs two complete `float4` equations and
-combines their two four-bit masks. Scalar lane extraction, scalar arithmetic,
+Use two complete `float4` equations for BVH8 and combine their two four-bit
+masks. Do not use x86 AVX/AVX2 intrinsics or ISA checks; Burst chooses supported
+instructions for target CPU. Scalar lane extraction, scalar arithmetic,
 per-lane comparison loops, and per-lane `if` mask construction inside node
 geometry are forbidden. Do not rely on Burst auto-vectorization. Do not use
 pointers, fixed buffers, `NativeList` per query, or `allowUnsafeCode`.
@@ -35,10 +35,7 @@ targeted, or tracking migration.
 - BVH4 source expresses complete overlap math as packed `float4` operations and
   obtains all four results through one packed mask extraction; no scalar
   per-lane comparison/branch occurs before mask production.
-- BVH8 AVX source expresses complete overlap math through packed AVX
-  subtract/multiply/add/compare/movemask operations. Partial AVX followed by
-  scalar lane math does not pass.
-- BVH8 fallback performs two complete packed `float4` tests and combines their
+- BVH8 source performs two complete packed `float4` tests and combines their
   masks; it does not loop over eight scalar lanes.
 - Traversal remains scalar only after node kernel returns lane mask: set-bit
   extraction, child metadata lookup, stack push, and leaf yield.

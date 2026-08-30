@@ -15,6 +15,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Profiling;
 
 namespace PlayGround.System.Combat.Aoes
 {
@@ -23,6 +24,9 @@ namespace PlayGround.System.Combat.Aoes
     [UpdateBefore(typeof(CombatApplyFinalizeSingleSystem))]
     public partial struct ImpactAoeCollisionSystem : ISystem
     {
+        private static readonly ProfilerMarker QueryScheduleMarker =
+            new("ImpactAoeCollisionSystem.OccupiedHashQuery.Schedule");
+
         private EntityQuery impactAoeQuery;
 
         public void OnCreate(ref SystemState state)
@@ -50,7 +54,7 @@ namespace PlayGround.System.Combat.Aoes
             if (impactAoeQuery.IsEmpty)
                 return;
 
-            var hash = SystemAPI.GetSingleton<TargetSpatialHashSingleton>();
+            var hash = SystemAPI.GetSingleton<TargetBroadphaseSingleton>();
             state.Dependency = JobHandle.CombineDependencies(state.Dependency, hash.BuildHandle);
 
             // Spawn lanes, hit dispatch and the VFX lane are all created unconditionally by their
@@ -87,7 +91,11 @@ namespace PlayGround.System.Combat.Aoes
                     SystemAPI.GetSingleton<SpawnTemplateRegistryState>().Deltas.AsParallelWriter()
             };
 
-            var collisionHandle = job.ScheduleParallel(impactAoeQuery, state.Dependency);
+            JobHandle collisionHandle;
+            using (QueryScheduleMarker.Auto())
+            {
+                collisionHandle = job.ScheduleParallel(impactAoeQuery, state.Dependency);
+            }
 
             projectileLane.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(projectileLane.ValueRW.ProducerHandle, collisionHandle);
@@ -102,7 +110,7 @@ namespace PlayGround.System.Combat.Aoes
             vfx.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(vfx.ValueRW.ProducerHandle, collisionHandle);
 
-            var rw = SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
+            var rw = SystemAPI.GetSingletonRW<TargetBroadphaseSingleton>();
             rw.ValueRW.ConsumerHandle =
                 JobHandle.CombineDependencies(rw.ValueRW.ConsumerHandle, collisionHandle);
             state.Dependency = collisionHandle;

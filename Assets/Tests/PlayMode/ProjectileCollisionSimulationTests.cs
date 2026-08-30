@@ -57,7 +57,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(targetProxyCreateApply);
             simGroup.AddSystemToUpdateList(targetProxyUpdateApply);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContactGateSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TargetSpatialHashSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TargetBroadphaseSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileDiscreteCollisionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSingleSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ResourceRegenSystem>());
@@ -283,6 +283,54 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(ReadFinalizedHitCount(), Is.EqualTo(0));
             Assert.That(entityManager.IsComponentEnabled<Active>(projectile), Is.True,
                 "Player projectile must not hit a Player target �?same-faction skip.");
+        }
+
+        [Test]
+        public void DiscreteBvhFindsHitInMultiLevelEdgeLeaf()
+        {
+            Entity hitTarget = AddTarget(float2.zero, 0.25f);
+            for (int i = 0; i < BvhConfig.ChildCount; i++)
+            {
+                AddTarget(new float2(100f + i, 100f + i), 0.25f);
+            }
+
+            CreateProjectile(pierceRemaining: 0);
+
+            TickSimulationOnly(0.01f);
+
+            Assert.That(ReadFinalizedHitCount(), Is.EqualTo(1));
+            Assert.That(entityManager.GetComponentData<Health>(hitTarget).Current,
+                Is.EqualTo(TestTargetHealth - 1f).Within(0.0001f));
+        }
+
+        [Test]
+        public void DiscreteBvhFalsePositiveOutsideProjectileBoundsIsPruned()
+        {
+            Entity outsideTarget = AddTarget(new float2(1.01f, 0.75f), 0.005f);
+            Entity projectile = CreateProjectile(pierceRemaining: 0);
+
+            TickSimulationOnly(0.01f);
+
+            Assert.That(ReadFinalizedHitCount(), Is.EqualTo(0));
+            Assert.That(entityManager.GetComponentData<Health>(outsideTarget).Current,
+                Is.EqualTo(TestTargetHealth).Within(0.0001f));
+            Assert.That(entityManager.IsComponentEnabled<Active>(projectile), Is.True);
+        }
+
+        [Test]
+        public void DiscreteBvhFindsTargetCenteredOnConservativeCircleEdge()
+        {
+            float queryRadius = math.sqrt(2f);
+            Entity edgeTarget = AddTarget(
+                new float2(queryRadius, 0f),
+                queryRadius - 1f);
+            CreateProjectile(pierceRemaining: 0);
+
+            TickSimulationOnly(0.01f);
+
+            Assert.That(ReadFinalizedHitCount(), Is.EqualTo(1));
+            Assert.That(entityManager.GetComponentData<Health>(edgeTarget).Current,
+                Is.EqualTo(TestTargetHealth - 1f).Within(0.0001f));
         }
 
         [Test]
@@ -561,6 +609,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatCollisionActiveTag),
                 typeof(ArmingTag),
                 typeof(CombatArmingComponent),
+                typeof(TimedSpawnComponent),
                 typeof(ProjectileContactGateElement));
 
             float radius = 1f;
@@ -606,6 +655,7 @@ namespace PlayGround.Tests.PlayMode
                 StackEffect = stackEffect
             });
             entityManager.SetComponentEnabled<ArmingTag>(entity, false);
+            entityManager.SetComponentEnabled<TimedSpawnComponent>(entity, false);
 
             return entity;
         }

@@ -33,7 +33,7 @@ namespace PlayGround.Tests.EditMode
             _world.GetOrCreateSystemManaged<CombatApplyFinalizeSingleSystem>();
             _world.GetOrCreateSystemManaged<CombatAoeVfxDispatchSystem>();
             _world.GetOrCreateSystemManaged<CombatStatsGatherSystem>();
-            _simulation.AddSystemToUpdateList(_world.GetOrCreateSystem<TargetSpatialHashSystem>());
+            _simulation.AddSystemToUpdateList(_world.GetOrCreateSystem<TargetBroadphaseSystem>());
             _simulation.AddSystemToUpdateList(_world.GetOrCreateSystem<CombatArmingSystem>());
             _simulation.AddSystemToUpdateList(_world.GetOrCreateSystem<TargetedResolveSystem>());
             _simulation.SortSystems();
@@ -316,8 +316,8 @@ namespace PlayGround.Tests.EditMode
             Assert.That(hits, Has.Length.EqualTo(1));
             Assert.That(hits[0].Target, Is.EqualTo(nearestHostile));
 
-            TargetSpatialHashSingleton hash = _entityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<TargetSpatialHashSingleton>()).GetSingleton<TargetSpatialHashSingleton>();
+            TargetBroadphaseSingleton hash = _entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<TargetBroadphaseSingleton>()).GetSingleton<TargetBroadphaseSingleton>();
             hash.BuildHandle.Complete();
             TargetedAcquisition.Snapshot snapshot = new(
                 hash.TargetEntities.AsArray(),

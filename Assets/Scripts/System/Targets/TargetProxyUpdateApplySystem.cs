@@ -7,7 +7,7 @@ using Unity.Mathematics;
 namespace PlayGround.System.Combat.Targets
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateBefore(typeof(TargetSpatialHashSystem))]
+    [UpdateBefore(typeof(TargetBroadphaseSystem))]
     public partial class TargetProxyUpdateApplySystem : SystemBase
     {
         private EntityQuery scopeQuery;

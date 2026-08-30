@@ -15,11 +15,12 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Unity.Profiling;
 
 namespace PlayGround.System.Combat.Targeted
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(TargetSpatialHashSystem))]
+    [UpdateAfter(typeof(TargetBroadphaseSystem))]
     [UpdateAfter(typeof(CombatArmingSystem))]
     [UpdateBefore(typeof(CombatApplyFinalizeSingleSystem))]
     [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
@@ -28,6 +29,9 @@ namespace PlayGround.System.Combat.Targeted
     [UpdateBefore(typeof(TargetedSpawnExpansionSystem))]
     public partial struct TargetedResolveSystem : ISystem
     {
+        private static readonly ProfilerMarker QueryScheduleMarker =
+            new("TargetedResolveSystem.OccupiedHashQuery.Schedule");
+
         // Resolve-side cap bounds the running rank set and per-update chain walk. Authoring
         // validation reports values outside this limit before they reach this defensive clamp.
         internal const int MaxChainCount = 32;
@@ -58,7 +62,7 @@ namespace PlayGround.System.Combat.Targeted
                 return;
             }
 
-            TargetSpatialHashSingleton hash = SystemAPI.GetSingleton<TargetSpatialHashSingleton>();
+            TargetBroadphaseSingleton hash = SystemAPI.GetSingleton<TargetBroadphaseSingleton>();
             state.Dependency = JobHandle.CombineDependencies(state.Dependency, hash.BuildHandle);
             RefRW<CombatHitDispatchSingleton> hitDispatch =
                 SystemAPI.GetSingletonRW<CombatHitDispatchSingleton>();
@@ -67,7 +71,7 @@ namespace PlayGround.System.Combat.Targeted
             bool collectTargetedLinks = SystemAPI.TryGetSingletonRW<CombatStatsSingleton>(
                 out RefRW<CombatStatsSingleton> stats);
 
-            JobHandle handle = new TargetedResolveJob
+            TargetedResolveJob job = new()
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
                 TargetSnapshot = new TargetedAcquisition.Snapshot(
@@ -86,7 +90,13 @@ namespace PlayGround.System.Combat.Targeted
                     : default,
                 SpawnTemplateDeltas =
                     SystemAPI.GetSingleton<SpawnTemplateRegistryState>().Deltas.AsParallelWriter()
-            }.ScheduleParallel(_query, state.Dependency);
+            };
+
+            JobHandle handle;
+            using (QueryScheduleMarker.Auto())
+            {
+                handle = job.ScheduleParallel(_query, state.Dependency);
+            }
 
             hitDispatch.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(hitDispatch.ValueRW.ProducerHandle, handle);
@@ -97,8 +107,8 @@ namespace PlayGround.System.Combat.Targeted
                 stats.ValueRW.TargetedLinkProducerHandle =
                     JobHandle.CombineDependencies(stats.ValueRW.TargetedLinkProducerHandle, handle);
             }
-            RefRW<TargetSpatialHashSingleton> hashRw =
-                SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
+            RefRW<TargetBroadphaseSingleton> hashRw =
+                SystemAPI.GetSingletonRW<TargetBroadphaseSingleton>();
             hashRw.ValueRW.ConsumerHandle =
                 JobHandle.CombineDependencies(hashRw.ValueRW.ConsumerHandle, handle);
             state.Dependency = handle;

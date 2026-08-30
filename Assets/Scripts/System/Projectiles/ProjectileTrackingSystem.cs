@@ -13,6 +13,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Unity.Profiling;
 
 namespace PlayGround.System.Combat.Projectiles
 {
@@ -22,12 +23,15 @@ namespace PlayGround.System.Combat.Projectiles
     [UpdateBefore(typeof(ProjectileMovementSystem))]
     public partial struct ProjectileTrackingSystem : ISystem
     {
+        private static readonly ProfilerMarker AcquisitionScheduleMarker =
+            new("ProjectileTrackingSystem.TrackingHashQuery.Schedule");
+
         private const int ForwardAcquisitionLateralCellRadius = 1;
         private const int MissedTargetSearchCooldownIndex = -2;
 
         public void OnUpdate(ref SystemState state)
         {
-            TargetSpatialHashSingleton hash = SystemAPI.GetSingleton<TargetSpatialHashSingleton>();
+            TargetBroadphaseSingleton hash = SystemAPI.GetSingleton<TargetBroadphaseSingleton>();
             state.Dependency = JobHandle.CombineDependencies(state.Dependency, hash.BuildHandle);
 
             var acquisitionJob = new ProjectileTargetAcquisitionJob
@@ -40,8 +44,12 @@ namespace PlayGround.System.Combat.Projectiles
                 TargetCells = hash.TrackingCells
             };
 
-            JobHandle acquisitionHandle = acquisitionJob.ScheduleParallel(state.Dependency);
-            RefRW<TargetSpatialHashSingleton> hashRw = SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
+            JobHandle acquisitionHandle;
+            using (AcquisitionScheduleMarker.Auto())
+            {
+                acquisitionHandle = acquisitionJob.ScheduleParallel(state.Dependency);
+            }
+            RefRW<TargetBroadphaseSingleton> hashRw = SystemAPI.GetSingletonRW<TargetBroadphaseSingleton>();
             hashRw.ValueRW.ConsumerHandle = JobHandle.CombineDependencies(
                 hashRw.ValueRW.ConsumerHandle,
                 acquisitionHandle);

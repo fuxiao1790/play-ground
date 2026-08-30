@@ -34,7 +34,7 @@ namespace PlayGround.Tests.PlayMode
             entityManager = testWorld.EntityManager;
             simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileSimulationSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TargetSpatialHashSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TargetBroadphaseSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileTrackingSystem>());
             simGroup.SortSystems();
 

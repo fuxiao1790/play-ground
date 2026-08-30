@@ -21,7 +21,7 @@ Update authoritative/reference docs to describe target snapshot feeding:
 
 Document why long continuous sweep boxes remain hash queries. Document safe SIMD
 layout, compile-time width change, complete BVH4 packed compare/bitmask pipeline,
-complete BVH8 AVX compare/movemask pipeline, two-half packed fallback, scalar
+BVH8 two-half packed `float4` pipeline with compiler-selected ISA, scalar
 post-mask traversal, ownership/handles, full-rebuild policy,
 deterministic-but-unspecified DFS order, validation procedure, Burst codegen
 evidence, and discrete benchmark result.

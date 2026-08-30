@@ -38,7 +38,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnExpansionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnExpansionSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TargetSpatialHashSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TargetBroadphaseSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileTrackingSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContinuousOriginSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileMovementSystem>());
@@ -79,6 +79,17 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(entityManager.IsComponentEnabled<Active>(projectile), Is.False);
             Assert.That(entityManager.GetComponentData<CombatKinematicsComponent>(projectile).Position.x,
                 Is.EqualTo(95f).Within(0.0001f), "Non-piercing sweep expires at impact, not frame end.");
+        }
+
+        [Test]
+        public void LongTravel_TargetNearCorridorEdgeInAdjacentHashCell_Hits()
+        {
+            Entity target = AddTarget(new float2(50f, 2.08f), radius: 0.25f);
+            CreateContinuousProjectile(new float2(0f, 1.75f), new float2(100f, 0f), pierce: 0);
+
+            Tick(1f);
+
+            Assert.That(entityManager.GetComponentData<Health>(target).Current, Is.EqualTo(9f).Within(0.0001f));
         }
 
         [Test]

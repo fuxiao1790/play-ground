@@ -12,10 +12,12 @@ using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Targeted;
 using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Unity.Profiling;
 
 namespace PlayGround.System.Combat.Projectiles
 {
@@ -24,22 +26,60 @@ namespace PlayGround.System.Combat.Projectiles
     [UpdateBefore(typeof(CombatApplyFinalizeSingleSystem))]
     public partial struct ProjectileDiscreteCollisionSystem : ISystem
     {
+        private static readonly ProfilerMarker QueryMarker =
+            new("ProjectileDiscreteCollisionSystem.BvhQuery");
+
         private EntityQuery activeProjectileQuery;
+        private EntityTypeHandle entityHandle;
+        private ComponentTypeHandle<ProjectileIdentityComponent> identityHandle;
+        private ComponentTypeHandle<CombatHitPayload> payloadHandle;
+        private ComponentTypeHandle<CombatKinematicsComponent> kinematicsHandle;
+        private ComponentTypeHandle<CombatCollisionComponent> collisionShapeHandle;
+        private ComponentTypeHandle<TimedSpawnComponent> timedSpawnHandle;
+        private ComponentTypeHandle<CombatLifetimeComponent> lifetimeHandle;
+        private ComponentTypeHandle<ProjectileHitComponent> projectileHitHandle;
+        private ComponentTypeHandle<Active> activeHandle;
+        private ComponentTypeHandle<ArmingTag> armingHandle;
+        private BufferTypeHandle<ProjectileContactGateElement> contactGateHandle;
 
         public void OnCreate(ref SystemState state)
         {
-            activeProjectileQuery = state.GetEntityQuery(
-                ComponentType.ReadOnly<ProjectileTag>(),
-                ComponentType.Exclude<ProjectileContinuousTag>(),
-                ComponentType.ReadOnly<Active>(),
-                ComponentType.ReadOnly<CombatCollisionActiveTag>(),
-                ComponentType.ReadOnly<ProjectileIdentityComponent>(),
-                ComponentType.ReadOnly<CombatHitPayload>(),
-                ComponentType.ReadOnly<CombatKinematicsComponent>(),
-                ComponentType.ReadOnly<CombatCollisionComponent>(),
-                ComponentType.ReadWrite<CombatLifetimeComponent>(),
-                ComponentType.ReadWrite<ProjectileHitComponent>(),
-                ComponentType.ReadWrite<ProjectileContactGateElement>());
+            // One explicit query now drives both the emptiness pre-check and IJobChunk
+            // scheduling. It must reproduce exactly what the generated IJobEntity query used
+            // to express, so every enabled-state clause is spelled out here: Active and
+            // CombatCollisionActiveTag present and enabled, ArmingTag present and disabled.
+            // Built through EntityQueryBuilder rather than GetEntityQuery because the
+            // ComponentType[] form cannot express disabled/present matching at all.
+            // TimedSpawnComponent is read only to release its template key on death. It is
+            // enableable and disabled on non-timed projectiles, so it must be Present rather
+            // than All or the query would drop every non-timed projectile from collision.
+            activeProjectileQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<ProjectileTag, CombatCollisionActiveTag>()
+                .WithAll<ProjectileIdentityComponent, CombatHitPayload>()
+                .WithAll<CombatKinematicsComponent, CombatCollisionComponent>()
+                .WithAllRW<Active>()
+                .WithAllRW<CombatLifetimeComponent, ProjectileHitComponent>()
+                .WithAllRW<ProjectileContactGateElement>()
+                .WithDisabledRW<ArmingTag>()
+                .WithPresent<TimedSpawnComponent>()
+                .WithNone<ProjectileContinuousTag>()
+                .Build(ref state);
+
+            entityHandle = state.GetEntityTypeHandle();
+            identityHandle = state.GetComponentTypeHandle<ProjectileIdentityComponent>(true);
+            payloadHandle = state.GetComponentTypeHandle<CombatHitPayload>(true);
+            kinematicsHandle = state.GetComponentTypeHandle<CombatKinematicsComponent>(true);
+            collisionShapeHandle = state.GetComponentTypeHandle<CombatCollisionComponent>(true);
+            timedSpawnHandle = state.GetComponentTypeHandle<TimedSpawnComponent>(true);
+
+            // Read-write handles: the two component values the job mutates, plus the two
+            // enableable tags whose bits it flips through EnabledRefRW. GetEnabledMask only
+            // yields a writable mask from a read-write handle.
+            lifetimeHandle = state.GetComponentTypeHandle<CombatLifetimeComponent>(false);
+            projectileHitHandle = state.GetComponentTypeHandle<ProjectileHitComponent>(false);
+            activeHandle = state.GetComponentTypeHandle<Active>(false);
+            armingHandle = state.GetComponentTypeHandle<ArmingTag>(false);
+            contactGateHandle = state.GetBufferTypeHandle<ProjectileContactGateElement>(false);
         }
 
         public void OnUpdate(ref SystemState state)
@@ -49,7 +89,7 @@ namespace PlayGround.System.Combat.Projectiles
                 return;
             }
 
-            TargetSpatialHashSingleton hash = SystemAPI.GetSingleton<TargetSpatialHashSingleton>();
+            TargetBroadphaseSingleton hash = SystemAPI.GetSingleton<TargetBroadphaseSingleton>();
             state.Dependency = JobHandle.CombineDependencies(state.Dependency, hash.BuildHandle);
 
             // The spawn lanes and hit-dispatch lane are created unconditionally by their owning
@@ -67,16 +107,41 @@ namespace PlayGround.System.Combat.Projectiles
                 SystemAPI.GetSingletonRW<CombatHitDispatchSingleton>();
             SpawnTemplateRegistryState registryState = SystemAPI.GetSingleton<SpawnTemplateRegistryState>();
 
+            entityHandle.Update(ref state);
+            identityHandle.Update(ref state);
+            payloadHandle.Update(ref state);
+            kinematicsHandle.Update(ref state);
+            collisionShapeHandle.Update(ref state);
+            timedSpawnHandle.Update(ref state);
+            lifetimeHandle.Update(ref state);
+            projectileHitHandle.Update(ref state);
+            activeHandle.Update(ref state);
+            armingHandle.Update(ref state);
+            contactGateHandle.Update(ref state);
+
             var job = new ProjectileCollisionJob
             {
+                EntityHandle = entityHandle,
+                IdentityHandle = identityHandle,
+                PayloadHandle = payloadHandle,
+                KinematicsHandle = kinematicsHandle,
+                CollisionShapeHandle = collisionShapeHandle,
+                TimedSpawnHandle = timedSpawnHandle,
+                LifetimeHandle = lifetimeHandle,
+                ProjectileHitHandle = projectileHitHandle,
+                ActiveHandle = activeHandle,
+                ArmingHandle = armingHandle,
+                ContactGateHandle = contactGateHandle,
                 SpawnTemplateDeltas = registryState.Deltas.AsParallelWriter(),
                 TargetEntities = hash.TargetEntities.AsArray(),
                 TargetPositions = hash.TargetPositions.AsArray(),
                 TargetShapes = hash.TargetShapes.AsArray(),
                 TargetFactions = hash.TargetFactions.AsArray(),
-                TargetCells = hash.ProjectileCollisionCells,
+                Tree = hash.DiscreteBvh,
+#if ENABLE_PROFILER
+                MetricsWriter = hash.DiscreteQueryMetrics.AsParallelWriter(),
+#endif
                 TotalTargetCount = hash.TargetCount,
-                MaxTargetRadius = hash.MaxTargetRadius,
                 HitWriter = hitDispatch.ValueRO.HitQueue.AsParallelWriter(),
                 ProjectileEventWriter = projectileLane.ValueRO.EventQueue.AsParallelWriter(),
                 ImpactAoeEventWriter = impactAoeLane.ValueRO.EventQueue.AsParallelWriter(),
@@ -84,7 +149,7 @@ namespace PlayGround.System.Combat.Projectiles
                 TargetedEventWriter = targetedLane.ValueRO.EventQueue.AsParallelWriter()
             };
 
-            var collisionHandle = job.ScheduleParallel(state.Dependency);
+            JobHandle collisionHandle = job.ScheduleParallel(activeProjectileQuery, state.Dependency);
 
             // The collision job writes both expansion EventQueues via ParallelWriter. Those
             // queues are read on the main thread by the expansion systems, which only complete
@@ -99,7 +164,7 @@ namespace PlayGround.System.Combat.Projectiles
                 JobHandle.CombineDependencies(targetedLane.ValueRW.ProducerHandle, collisionHandle);
             hitDispatch.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(hitDispatch.ValueRW.ProducerHandle, collisionHandle);
-            RefRW<TargetSpatialHashSingleton> hashRw = SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
+            RefRW<TargetBroadphaseSingleton> hashRw = SystemAPI.GetSingletonRW<TargetBroadphaseSingleton>();
             hashRw.ValueRW.ConsumerHandle = JobHandle.CombineDependencies(
                 hashRw.ValueRW.ConsumerHandle,
                 collisionHandle);
@@ -108,22 +173,35 @@ namespace PlayGround.System.Combat.Projectiles
         }
 
         [BurstCompile]
-        [WithAll(typeof(ProjectileTag), typeof(Active), typeof(CombatCollisionActiveTag))]
-        [WithNone(typeof(ProjectileContinuousTag))]
-        [WithDisabled(typeof(ArmingTag))]
-        // TimedSpawnComponent is read only to release its template key on death. It is
-        // enableable and disabled on non-timed projectiles, so it must be Present rather
-        // than All or the query would drop every non-timed projectile from collision.
-        [WithPresent(typeof(TimedSpawnComponent))]
-        private partial struct ProjectileCollisionJob : IJobEntity
+        private struct ProjectileCollisionJob : IJobChunk
         {
+            [ReadOnly] public EntityTypeHandle EntityHandle;
+            [ReadOnly] public ComponentTypeHandle<ProjectileIdentityComponent> IdentityHandle;
+            [ReadOnly] public ComponentTypeHandle<CombatHitPayload> PayloadHandle;
+            [ReadOnly] public ComponentTypeHandle<CombatKinematicsComponent> KinematicsHandle;
+            [ReadOnly] public ComponentTypeHandle<CombatCollisionComponent> CollisionShapeHandle;
+            [ReadOnly] public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
+            public ComponentTypeHandle<CombatLifetimeComponent> LifetimeHandle;
+            public ComponentTypeHandle<ProjectileHitComponent> ProjectileHitHandle;
+            public ComponentTypeHandle<Active> ActiveHandle;
+            public ComponentTypeHandle<ArmingTag> ArmingHandle;
+            public BufferTypeHandle<ProjectileContactGateElement> ContactGateHandle;
+
             [ReadOnly] public NativeArray<Entity> TargetEntities;
             [ReadOnly] public NativeArray<TargetPosition> TargetPositions;
             [ReadOnly] public NativeArray<TargetCollisionShape> TargetShapes;
             [ReadOnly] public NativeArray<TargetFaction> TargetFactions;
-            [ReadOnly] public NativeParallelMultiHashMap<long, int> TargetCells;
+
+            /// <summary>
+            /// Discrete broadphase tree owned by TargetBroadphaseSystem. Read-only: its
+            /// buffers are shared with every other chunk invocation running in parallel.
+            /// </summary>
+            [ReadOnly] public BvhTree Tree;
+#if ENABLE_PROFILER
+            public NativeQueue<BvhQueryMetrics>.ParallelWriter MetricsWriter;
+#endif
+
             public int TotalTargetCount;
-            [ReadOnly] public NativeReference<float> MaxTargetRadius;
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
             public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
             public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
@@ -131,7 +209,69 @@ namespace PlayGround.System.Combat.Projectiles
             public NativeQueue<TargetedSpawnEvent>.ParallelWriter TargetedEventWriter;
             public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter SpawnTemplateDeltas;
 
-            private void Execute(
+            public void Execute(
+                in ArchetypeChunk chunk,
+                int unfilteredChunkIndex,
+                bool useEnabledMask,
+                in v128 chunkEnabledMask)
+            {
+                // IJobChunk gives one sample per chunk, not one sample per projectile.
+                using ProfilerMarker.AutoScope marker = QueryMarker.Auto();
+                NativeArray<Entity> entities = chunk.GetNativeArray(EntityHandle);
+                NativeArray<ProjectileIdentityComponent> identities = chunk.GetNativeArray(ref IdentityHandle);
+                NativeArray<CombatHitPayload> payloads = chunk.GetNativeArray(ref PayloadHandle);
+                NativeArray<CombatKinematicsComponent> kinematics = chunk.GetNativeArray(ref KinematicsHandle);
+                NativeArray<CombatCollisionComponent> collisions = chunk.GetNativeArray(ref CollisionShapeHandle);
+                NativeArray<TimedSpawnComponent> timedSpawns = chunk.GetNativeArray(ref TimedSpawnHandle);
+                NativeArray<CombatLifetimeComponent> lifetimes = chunk.GetNativeArray(ref LifetimeHandle);
+                NativeArray<ProjectileHitComponent> projectileHits = chunk.GetNativeArray(ref ProjectileHitHandle);
+                BufferAccessor<ProjectileContactGateElement> contactGates =
+                    chunk.GetBufferAccessor(ref ContactGateHandle);
+                EnabledMask activeMask = chunk.GetEnabledMask(ref ActiveHandle);
+                EnabledMask armingMask = chunk.GetEnabledMask(ref ArmingHandle);
+
+                // One traversal workspace per chunk invocation, reseeded per projectile below.
+                // This Execute call is the chunk invocation, so a local here is exactly one
+                // stack per concurrently executing chunk and never one per projectile.
+                BvhTraversalWorkspace workspace = BvhTraversalWorkspace.Create(Tree);
+
+                ChunkEntityEnumerator enumerator =
+                    new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
+                while (enumerator.NextEntityIndex(out int i))
+                {
+                    // NativeArray hands back copies, so the two mutated components are read
+                    // into locals and written back once per entity; the buffer and the two
+                    // enabled bits are views and mutate in place.
+                    CombatLifetimeComponent lifetime = lifetimes[i];
+                    ProjectileHitComponent projectileHit = projectileHits[i];
+
+                    Collide(
+                        ref workspace,
+                        entities[i],
+                        identities[i],
+                        payloads[i],
+                        kinematics[i],
+                        collisions[i],
+                        timedSpawns[i],
+                        ref lifetime,
+                        ref projectileHit,
+                        activeMask.GetEnabledRefRW<Active>(i),
+                        armingMask.GetEnabledRefRW<ArmingTag>(i),
+                        contactGates[i]);
+
+                    lifetimes[i] = lifetime;
+                    projectileHits[i] = projectileHit;
+                }
+
+#if ENABLE_PROFILER
+                // One write after whole chunk: candidate traversal and narrowphase never
+                // contend on a shared counter or perform one atomic operation per candidate.
+                MetricsWriter.Enqueue(workspace.Metrics);
+#endif
+            }
+
+            private void Collide(
+                ref BvhTraversalWorkspace workspace,
                 Entity entity,
                 in ProjectileIdentityComponent identity,
                 in CombatHitPayload payload,
@@ -189,107 +329,98 @@ namespace PlayGround.System.Combat.Projectiles
                     return;
                 }
 
-                // Expand the projectile's AABB by MaxTargetRadius before converting to cell
-                // coordinates. Any target whose center falls within this expanded region is
-                // guaranteed to have its center cell included in the query, so no miss is
-                // possible at cell boundaries regardless of how large a target is.
-                float radiusExpansion = MaxTargetRadius.Value;
-                float2 queryMin = collision.BoundsMin - new float2(radiusExpansion, radiusExpansion);
-                float2 queryMax = collision.BoundsMax + new float2(radiusExpansion, radiusExpansion);
-                int2 cellMin = CombatSpatialHash.FloorCell(queryMin, CombatSpatialHash.ProjectileCollisionCellSize);
-                int2 cellMax = CombatSpatialHash.FloorCell(queryMax, CombatSpatialHash.ProjectileCollisionCellSize);
+                // Conservative query circle circumscribing the projectile's own world AABB:
+                // centre at the box midpoint, radius the half-diagonal. The AABB already
+                // contains the exact shape by construction, so this circle can never miss a
+                // target the shape could touch. Target circles already carry their own
+                // bounding radius in the tree, so no global radius expansion belongs here.
+                float2 queryCenter = (collision.BoundsMin + collision.BoundsMax) * 0.5f;
+                float queryRadius = math.distance(queryCenter, collision.BoundsMax);
+                workspace.Reset(queryCenter, queryRadius);
 
-                for (int cy = cellMin.y; cy <= cellMax.y; cy++)
+                while (workspace.TryMoveNext(out int targetIdx))
                 {
-                    for (int cx = cellMin.x; cx <= cellMax.x; cx++)
+                    if (TargetFactions[targetIdx].Value == identity.Faction)
                     {
-                        long key = CombatSpatialHash.CellKey(cx, cy);
-                        if (!TargetCells.TryGetFirstValue(key, out int targetIdx, out NativeParallelMultiHashMapIterator<long> iterator))
-                        {
-                            continue;
-                        }
+                        continue;
+                    }
 
-                        do
-                        {
-                            if (TargetFactions[targetIdx].Value == identity.Faction)
-                            {
-                                continue;
-                            }
+                    Entity targetEntity = TargetEntities[targetIdx];
+                    TargetPosition targetPosition = TargetPositions[targetIdx];
+                    TargetCollisionShape target = TargetShapes[targetIdx];
+                    int targetKey = ProjectileHitEmission.TargetKey(targetEntity);
 
-                            Entity targetEntity = TargetEntities[targetIdx];
-                            TargetPosition targetPosition = TargetPositions[targetIdx];
-                            TargetCollisionShape target = TargetShapes[targetIdx];
-                            int targetKey = ProjectileHitEmission.TargetKey(targetEntity);
+                    if (ProjectileHitEmission.IsGated(contactGates, targetKey))
+                    {
+                        continue;
+                    }
 
-                            if (ProjectileHitEmission.IsGated(contactGates, targetKey))
-                            {
-                                continue;
-                            }
+                    // Second, tighter filter: the broadphase circle is deliberately loose, so
+                    // the exact AABB test still prunes its false positives before narrowphase.
+                    if (!CombatCollisionMath.BoundsIntersect(
+                        collision.BoundsMin,
+                        collision.BoundsMax,
+                        target.BoundsMin,
+                        target.BoundsMax))
+                    {
+                        continue;
+                    }
 
-                            if (!CombatCollisionMath.BoundsIntersect(
-                                collision.BoundsMin,
-                                collision.BoundsMax,
-                                target.BoundsMin,
-                                target.BoundsMax))
-                            {
-                                continue;
-                            }
+#if ENABLE_PROFILER
+                    workspace.RecordExactTest();
+#endif
+                    if (!CombatCollisionMath.Hit(
+                            kinematics.Position,
+                            collision.Radius,
+                            collision.HalfExtents,
+                            collision.RotationRadians,
+                            collision.ShapeType,
+                            targetPosition.Value,
+                            target.Radius,
+                            target.HalfExtents,
+                            target.RotationRadians,
+                            target.ShapeType))
+                    {
+                        continue;
+                    }
 
-                            if (!CombatCollisionMath.Hit(
-                                    kinematics.Position,
-                                    collision.Radius,
-                                    collision.HalfExtents,
-                                    collision.RotationRadians,
-                                    collision.ShapeType,
-                                    targetPosition.Value,
-                                    target.Radius,
-                                    target.HalfExtents,
-                                    target.RotationRadians,
-                                    target.ShapeType))
-                            {
-                                continue;
-                            }
+                    ProjectileHitEmission.EnqueueHitEvent(HitWriter, entity, targetEntity, payload);
+                    ProjectileHitEmission.EnqueueOnHitProjectile(
+                        identity,
+                        projectileHit,
+                        kinematics.Position,
+                        targetPosition.Value,
+                        targetKey,
+                        ProjectileEventWriter);
+                    ProjectileHitEmission.EnqueueOnHitAoe(
+                        identity,
+                        projectileHit,
+                        kinematics.Position,
+                        targetKey,
+                        ImpactAoeEventWriter,
+                        LingeringAoeEventWriter);
+                    ProjectileHitEmission.EnqueueOnHitTargeted(
+                        identity,
+                        projectileHit,
+                        kinematics.Position,
+                        targetKey,
+                        TargetedEventWriter);
 
-                            ProjectileHitEmission.EnqueueHitEvent(HitWriter, entity, targetEntity, payload);
-                            ProjectileHitEmission.EnqueueOnHitProjectile(
-                                identity,
-                                projectileHit,
-                                kinematics.Position,
-                                targetPosition.Value,
-                                targetKey,
-                                ProjectileEventWriter);
-                            ProjectileHitEmission.EnqueueOnHitAoe(
-                                identity,
-                                projectileHit,
-                                kinematics.Position,
-                                targetKey,
-                                ImpactAoeEventWriter,
-                                LingeringAoeEventWriter);
-                            ProjectileHitEmission.EnqueueOnHitTargeted(
-                                identity,
-                                projectileHit,
-                                kinematics.Position,
-                                targetKey,
-                                TargetedEventWriter);
+                    ProjectileHitEmission.AddOrRefreshGate(contactGates, targetKey,
+                        projectileHit.RepeatHitCooldownSeconds);
 
-                            ProjectileHitEmission.AddOrRefreshGate(contactGates, targetKey,
-                                projectileHit.RepeatHitCooldownSeconds);
-
-                            projectileHit.PierceRemaining--;
-                            if (projectileHit.PierceRemaining < 0)
-                            {
-                                ProjectileHitEmission.Deactivate(
-                                    ref lifetime,
-                                    active,
-                                    arming,
-                                    in projectileHit,
-                                    in timedSpawn,
-                                    in payload,
-                                    SpawnTemplateDeltas);
-                                return;
-                            }
-                        }
-                        while (TargetCells.TryGetNextValue(out targetIdx, ref iterator));
+                    projectileHit.PierceRemaining--;
+                    if (projectileHit.PierceRemaining < 0)
+                    {
+                        ProjectileHitEmission.Deactivate(
+                            ref lifetime,
+                            active,
+                            arming,
+                            in projectileHit,
+                            in timedSpawn,
+                            in payload,
+                            SpawnTemplateDeltas);
+                        return;
                     }
                 }
             }

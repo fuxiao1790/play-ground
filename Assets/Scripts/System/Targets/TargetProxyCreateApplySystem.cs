@@ -7,7 +7,7 @@ namespace PlayGround.System.Combat.Targets
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateBefore(typeof(TargetProxyUpdateApplySystem))]
-    [UpdateBefore(typeof(TargetSpatialHashSystem))]
+    [UpdateBefore(typeof(TargetBroadphaseSystem))]
     public partial class TargetProxyCreateApplySystem : SystemBase
     {
         private EntityQuery scopeQuery;

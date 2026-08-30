@@ -16,6 +16,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Unity.Profiling;
 
 namespace PlayGround.System.Combat.Projectiles
 {
@@ -24,6 +25,9 @@ namespace PlayGround.System.Combat.Projectiles
     [UpdateBefore(typeof(CombatApplyFinalizeSingleSystem))]
     public partial struct ProjectileContinuousCollisionSystem : ISystem
     {
+        private static readonly ProfilerMarker QueryScheduleMarker =
+            new("ProjectileContinuousCollisionSystem.SpatialHashQuery.Schedule");
+
         private EntityQuery activeProjectileQuery;
 
         public void OnCreate(ref SystemState state)
@@ -50,7 +54,7 @@ namespace PlayGround.System.Combat.Projectiles
                 return;
             }
 
-            TargetSpatialHashSingleton hash = SystemAPI.GetSingleton<TargetSpatialHashSingleton>();
+            TargetBroadphaseSingleton hash = SystemAPI.GetSingleton<TargetBroadphaseSingleton>();
             state.Dependency = JobHandle.CombineDependencies(state.Dependency, hash.BuildHandle);
 
             // The spawn lanes and hit-dispatch lane are created unconditionally by their owning
@@ -85,7 +89,11 @@ namespace PlayGround.System.Combat.Projectiles
                 TargetedEventWriter = targetedLane.ValueRO.EventQueue.AsParallelWriter()
             };
 
-            var collisionHandle = job.ScheduleParallel(state.Dependency);
+            JobHandle collisionHandle;
+            using (QueryScheduleMarker.Auto())
+            {
+                collisionHandle = job.ScheduleParallel(state.Dependency);
+            }
 
             // The collision job writes both expansion EventQueues via ParallelWriter. Those
             // queues are read on the main thread by the expansion systems, which only complete
@@ -100,7 +108,7 @@ namespace PlayGround.System.Combat.Projectiles
                 JobHandle.CombineDependencies(targetedLane.ValueRW.ProducerHandle, collisionHandle);
             hitDispatch.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(hitDispatch.ValueRW.ProducerHandle, collisionHandle);
-            RefRW<TargetSpatialHashSingleton> hashRw = SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
+            RefRW<TargetBroadphaseSingleton> hashRw = SystemAPI.GetSingletonRW<TargetBroadphaseSingleton>();
             hashRw.ValueRW.ConsumerHandle = JobHandle.CombineDependencies(
                 hashRw.ValueRW.ConsumerHandle,
                 collisionHandle);

@@ -48,7 +48,7 @@ namespace PlayGround.System.Combat.Spawning
     }
 
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(TargetSpatialHashSystem))]
+    [UpdateAfter(typeof(TargetBroadphaseSystem))]
     [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
     [UpdateBefore(typeof(ImpactAoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(LingeringAoeSpawnExpansionSystem))]
@@ -156,7 +156,7 @@ namespace PlayGround.System.Combat.Spawning
                     && templates.Map.TryGetValue(
                         request.TemplateKey,
                         out TargetedSpawnCommand command)
-                    && SystemAPI.TryGetSingleton(out TargetSpatialHashSingleton hash))
+                    && SystemAPI.TryGetSingleton(out TargetBroadphaseSingleton hash))
                 {
                     hash.BuildHandle.Complete();
                     TargetedAcquisition.Snapshot snapshot = new(
