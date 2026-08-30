@@ -43,6 +43,8 @@ namespace PlayGround.System.Combat.Aoes
             NativeArray<TargetCollisionShape> targetShapes,
             NativeArray<TargetFaction> targetFactions,
             NativeParallelMultiHashMap<long, int> occupiedTargetCells,
+            NativeArray<int> seenTargetKeys,
+            int seenTargetKeysStart,
             NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
             NativeQueue<ImpactCircleVfxEvent>.ParallelWriter circularVfxPendingWriter,
             NativeQueue<LingeringCircleVfxEvent>.ParallelWriter timedCircularVfxPendingWriter,
@@ -59,12 +61,12 @@ namespace PlayGround.System.Combat.Aoes
                 return;
             }
 
-            // Bounded, allocation-free broadphase: walk cells inline, narrow-phase
-            // each candidate, de-dup within this pass, stop at the hard cap.
+            // Bounded broadphase: walk cells inline, narrow-phase each candidate,
+            // de-dup through caller-owned chunk scratch, stop at the hard cap.
             // Overflow keeps first-N in cell-scan order, not nearest-N.
             int remaining = CollisionConstants.MaxAoeTargetsPerTick;
             bool hitVfxEmitted = false;
-            FixedList512Bytes<int> seen = default;
+            int seenTargetKeyCount = 0;
 
             int2 min = CombatSpatialHash.MinCell(collision.BoundsMin, CombatSpatialHash.AoeCellSize);
             int2 max = CombatSpatialHash.MaxCell(collision.BoundsMax, CombatSpatialHash.AoeCellSize);
@@ -87,7 +89,11 @@ namespace PlayGround.System.Combat.Aoes
                         Entity targetEntity = targetEntities[i];
                         int targetKey = TargetKey(targetEntity);
 
-                        if (seen.IndexOf(targetKey) >= 0)
+                        if (ContainsSeenTargetKey(
+                                seenTargetKeys,
+                                seenTargetKeysStart,
+                                seenTargetKeyCount,
+                                targetKey))
                             continue;
 
                         TargetPosition targetPosition = targetPositions[i];
@@ -113,7 +119,7 @@ namespace PlayGround.System.Combat.Aoes
                                 target.ShapeType))
                             continue;
 
-                        seen.Add(targetKey);
+                        seenTargetKeys[seenTargetKeysStart + seenTargetKeyCount++] = targetKey;
                         EmitHit(
                             identity,
                             kinematics,
@@ -291,6 +297,24 @@ namespace PlayGround.System.Combat.Aoes
                 key &= 0x7fffffff;
                 return key == 0 ? 1 : key;
             }
+        }
+
+        private static bool ContainsSeenTargetKey(
+            NativeArray<int> seenTargetKeys,
+            int start,
+            int count,
+            int targetKey)
+        {
+            int end = start + count;
+            for (int i = start; i < end; i++)
+            {
+                if (seenTargetKeys[i] == targetKey)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static float2 DirectionFromTo(float2 from, float2 to)
