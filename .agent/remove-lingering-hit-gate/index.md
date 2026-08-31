@@ -49,7 +49,14 @@ risk (confirmed: `AoeSpawnCommand` is built in code by `SkillDriver`/
 | `CombatPoolCleanupSystem` is archetype-agnostic (no gate-specific reset logic anywhere). | Explore-agent finding: zero references to `AoeHitGateComponent`/`RepeatHitCooldownSeconds` in `Assets/Scripts/System/Lifetime/CombatPoolCleanupSystem.cs` | Removing the component requires no changes to pool cleanup logic itself — only to the archetype-construction lists that describe it, and to test helpers that hand-build matching archetypes. |
 | Several `AoeSimulationTests.cs` tests assert the cooldown behavior directly by name and premise (`LingeringTargetIsNotRehitUntilTickIntervalExpires`, `LingeringHitsImmediatelyThenRepeatsAfterCooldown`, `LingeringReentryWaitsForNextTickInterval`). | [AoeSimulationTests.cs:478-528](../../Assets/Tests/PlayMode/AoeSimulationTests.cs#L478-L528) | These tests' premises no longer exist after this change — delete or fundamentally rewrite them (task 005), not leave them asserting behavior that no longer applies. |
 | `Docs/reference/simulation/aoe-system.md` documents `AoeHitGateComponent` as a required component and describes the throttling semantics by name. | [aoe-system.md:181,226-229](../../Docs/reference/simulation/aoe-system.md#L181) | Must be updated in the same change set — a doc describing a deleted component/behavior is worse than no doc. |
-| Removing a component changes archetype chunk size, which can shift `EntityQuery`/chunk-capacity assertions. | `AoeSimulationTests.cs`'s `ImpactArchetypeOmitsLingeringOnlyComponentsAndHasLargerChunkCapacity` (~line 609) | Flag for the user to re-run and confirm the expected capacity number after the component is removed — this repo's convention is the agent does not run tests itself (`Docs/testing.md`); the user runs the named suite and reviews the XML. |
+| Removing a component changes absolute archetype chunk capacities, but the existing capacity test asserts only `impactCapacity > lingeringCapacity`. | `AoeSimulationTests.cs`'s `ImpactArchetypeOmitsLingeringOnlyComponentsAndHasLargerChunkCapacity` (~line 609) | Keep the relative invariant unchanged and include it in user-run PlayMode verification; there is no exact expected capacity to update. |
+
+**Explicitly out of scope:** projectile repeat-hit cooldown remains unchanged.
+Projectile requests, spawn commands, components, collision systems, tests, and
+documentation keep `RepeatHitCooldownSeconds`. The one occurrence in
+`ProjectileAuthoringEditModeTests.cs` that must change is an
+`AoeSpawnCommand` initializer; its containing file name does not make that
+field projectile data.
 
 ## Mechanisms Reused vs. Introduced
 
@@ -87,8 +94,9 @@ purpose (VFX). No new types, no new systems.
 2. [002-remove-gate-from-spawn-materialization.md](002-remove-gate-from-spawn-materialization.md) — `AoeSpawnApplySystem.cs`: remove `AoeHitGateComponent` from both archetypes, both jobs' handle wiring, and delete `HitGateFor`; remove it from `ImpactAoeCollisionSystem.cs`'s query too.
 3. [003-delete-hit-gate-component.md](003-delete-hit-gate-component.md) — delete the `AoeHitGateComponent` struct from `AoeEcsComponents.cs`; fix up test-helper archetype builders that still reference it.
 4. [004-rename-tick-interval-field.md](004-rename-tick-interval-field.md) — rename `AoeSpawnCommand.RepeatHitCooldownSeconds` → `TickIntervalSeconds` across all producers/consumers and tests.
-5. [005-rewrite-cadence-tests.md](005-rewrite-cadence-tests.md) — delete/rewrite the three cooldown-premised tests in `AoeSimulationTests.cs`; flag the chunk-capacity test for a user re-run.
-6. [006-update-docs.md](006-update-docs.md) — update `Docs/reference/simulation/aoe-system.md`.
+5. [005-rewrite-cadence-tests.md](005-rewrite-cadence-tests.md) — replace cooldown-premised tests with every-tick and immediate-re-entry coverage, audit hidden `tickInterval: 100f` gate assumptions, and retain the relative chunk-capacity invariant.
+6. [006-update-docs.md](006-update-docs.md) — update every stale AOE cadence description while preserving projectile repeat-hit cooldown documentation.
+7. [007-user-verification.md](007-user-verification.md) — request named EditMode/PlayMode tests and review exported XML before claiming success.
 
 ## Open Questions
 

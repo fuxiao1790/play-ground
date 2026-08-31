@@ -22,12 +22,17 @@ and update every producer/consumer:
 - [CombatRoot.cs:732](../../Assets/Scripts/System/Core/CombatRoot.cs#L732) — `RepeatHitCooldownSeconds = request.TickIntervalSeconds,` → `TickIntervalSeconds = request.TickIntervalSeconds,` (same note: only the left-hand side changes).
 - [AoeSimulationTests.cs:1396](../../Assets/Tests/PlayMode/AoeSimulationTests.cs#L1396), [:1455](../../Assets/Tests/PlayMode/AoeSimulationTests.cs#L1455), [:1522](../../Assets/Tests/PlayMode/AoeSimulationTests.cs#L1522) — update the `AoeSpawnCommand` field-initializer name; the `tickInterval` local parameter names in `SpawnCircle` and its callers are already correctly named and don't change.
 - `AoePlayModeTests.cs` (~line 254, ~line 1009) — same field-initializer rename in `AoeSpawnCommand` literals used for template-hash/registry tests.
+- [ProjectileAuthoringEditModeTests.cs:135](../../Assets/Tests/EditMode/ProjectileAuthoringEditModeTests.cs#L135) — rename the field on the `AoeSpawnCommand` literal. Despite the file/class name, this initializer is AOE data and otherwise fails to compile after the field rename.
 
 **Explicitly not touched by this task** (confirmed correctly named already,
 per index.md's grounding): `LingeringAoeDefinition.tickIntervalSeconds`
 (Inspector-authored field), `RuntimeAoeDefinition.TickIntervalSeconds`,
 `AoeSpawnRequest.TickIntervalSeconds` / `ProjectileAoeSpawnRequest`. Do not
 rename these — only `AoeSpawnCommand`'s field is mismatched.
+
+Do not rename or otherwise change projectile `RepeatHitCooldownSeconds` fields,
+initializers, component data, collision behavior, or documentation. Projectile
+repeat-hit cooldown remains an independent, valid mechanic.
 
 ## Acceptance Criteria
 
@@ -41,3 +46,4 @@ rename these — only `AoeSpawnCommand`'s field is mismatched.
   test still passes with unchanged expectations).
 - No remaining reference to `AoeSpawnCommand.RepeatHitCooldownSeconds`
   anywhere in the repo.
+- Projectile `RepeatHitCooldownSeconds` behavior and naming remain unchanged.
