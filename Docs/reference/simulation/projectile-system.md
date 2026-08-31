@@ -270,8 +270,10 @@ children when `TimedSpawnComponent` is enabled.
 ## Tracking And Movement
 
 Tracking is discrete-lane only. `ProjectileTrackingSystem` builds target lookup
-data from `TargetProxyTag`, `TargetPosition`, and `TargetFaction`, then runs
-acquisition and steering jobs. It filters by projectile faction so a
+data from `TargetProxyTag`, `TargetPosition`, and `TargetFaction`, then runs a
+single fused acquisition-and-steering job so both phases share one query pass
+over `CombatKinematicsComponent`/`ProjectileTrackingComponent` instead of two.
+It filters by projectile faction so a
 player-faction projectile sees only targets registered to the player-faction
 combat root. It needs no lane filter: continuous projectiles are excluded
 structurally because their archetype has no `ProjectileTrackingComponent`.

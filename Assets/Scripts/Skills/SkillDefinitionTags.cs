@@ -10,6 +10,7 @@ namespace PlayGround.Skills
         Aoe = 1 << 1,
         Targeted = 1 << 2,
         Interval = 1 << 3,
+        Duration = 1 << 4,
         Any = Projectile | Aoe | Targeted,
     }
 

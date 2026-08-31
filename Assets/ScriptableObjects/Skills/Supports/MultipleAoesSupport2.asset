@@ -16,8 +16,8 @@ MonoBehaviour:
   displayName: 
   description: 
   icon: {fileID: 0}
-  echoCount: 2
+  echoCount: 3
   scatterRadius: 5
-  manaCostAdded: 3
-  manaCostIncreased: 1.1
-  manaCostMultiplier: 1.1
+  manaCostAdded: 1
+  manaCostIncreased: 1.05
+  manaCostMultiplier: 1.05

@@ -31,8 +31,18 @@ namespace PlayGround.Skills
         }
     }
 
-    public interface IProjectileLifetimeModifiers
+    public interface IDurationModifiers
     {
+        public interface IBaseValueModifier
+        {
+            void CollectAdded(AddedSink sink);
+        }
+
+        public interface IIncreasedModifier
+        {
+            void CollectIncreases(IncreasedSink sink);
+        }
+
         public interface IMultiplierModifier
         {
             void CollectMultipliers(MultiplierSink sink);

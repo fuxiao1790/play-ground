@@ -227,8 +227,14 @@ namespace PlayGround.Skills
                 if (support is IProjectileSpeedModifiers.IMultiplierModifier speedMultiplier)
                     speedMultiplier.CollectMultipliers(new MultiplierSink(modifiers));
 
-                if (support is IProjectileLifetimeModifiers.IMultiplierModifier lifetimeMultiplier)
-                    lifetimeMultiplier.CollectMultipliers(new MultiplierSink(modifiers));
+                if (support is IDurationModifiers.IBaseValueModifier durationAdded)
+                    durationAdded.CollectAdded(new AddedSink(modifiers));
+
+                if (support is IDurationModifiers.IIncreasedModifier durationIncreased)
+                    durationIncreased.CollectIncreases(new IncreasedSink(modifiers));
+
+                if (support is IDurationModifiers.IMultiplierModifier durationMultiplier)
+                    durationMultiplier.CollectMultipliers(new MultiplierSink(modifiers));
 
                 if (support is IRateModifiers.IIncreasedModifier rateIncreased)
                     rateIncreased.CollectIncreases(new IncreasedSink(modifiers));
@@ -319,7 +325,7 @@ namespace PlayGround.Skills
                     SpawnSound = p.SpawnSound,
                     SpawnSoundRadius = p.SpawnSoundRadius,
                     Speed = modifiers.Resolve(SkillStat.ProjectileSpeed, p.speed),
-                    Lifetime = modifiers.Resolve(SkillStat.ProjectileLifetime, p.lifetime),
+                    Lifetime = modifiers.Resolve(SkillStat.Duration, p.lifetime),
                     Damage = Mathf.Max(0f, modifiers.Resolve(SkillStat.Damage, p.damage)),
                     Count = Mathf.Max(1, p.count),
                     SpreadDegrees = p.spreadDegrees,
@@ -351,7 +357,7 @@ namespace PlayGround.Skills
                 float tickIntervalSeconds = 0f;
                 if (a is LingeringAoeDefinition lingering)
                 {
-                    lifetimeSeconds = lingering.lifetimeSeconds;
+                    lifetimeSeconds = modifiers.Resolve(SkillStat.Duration, lingering.lifetimeSeconds);
                     tickIntervalSeconds = lingering.tickIntervalSeconds;
                 }
 

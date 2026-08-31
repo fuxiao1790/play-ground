@@ -782,7 +782,11 @@ compile(SkillSet set, allChains, snapshot) -> RuntimeSkillDefinition:
             support.CollectMultipliers(new MultiplierSink(acc))
         if support is IProjectileSpeedModifiers.IMultiplierModifier:
             support.CollectMultipliers(new MultiplierSink(acc))
-        if support is IProjectileLifetimeModifiers.IMultiplierModifier:
+        if support is IDurationModifiers.IBaseValueModifier:
+            support.CollectAdded(new AddedSink(acc))
+        if support is IDurationModifiers.IIncreasedModifier:
+            support.CollectIncreases(new IncreasedSink(acc))
+        if support is IDurationModifiers.IMultiplierModifier:
             support.CollectMultipliers(new MultiplierSink(acc))
         if support is IRateModifiers.IIncreasedModifier:
             support.CollectIncreases(new IncreasedSink(acc))

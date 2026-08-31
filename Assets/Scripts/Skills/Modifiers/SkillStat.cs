@@ -5,7 +5,7 @@ namespace PlayGround.Skills.Modifiers
         Damage,
         AreaSize,
         ProjectileSpeed,
-        ProjectileLifetime,
+        Duration,
         Rate,
         PierceCount,
         ManaCost,

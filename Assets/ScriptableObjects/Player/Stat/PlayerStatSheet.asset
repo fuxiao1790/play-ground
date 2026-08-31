@@ -22,6 +22,6 @@ MonoBehaviour:
   critChance: 0.418
   critMultiplier: 2.5
   areaSizeMultiplier: 1
-  baseEnergyGain: 50
+  baseEnergyGain: 30
   increasedEnergyGain: 1.3
   energyGainMultiplier: 1.3

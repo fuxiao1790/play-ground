@@ -16,8 +16,8 @@ MonoBehaviour:
   displayName: Multiple Aoe Support
   description: 
   icon: {fileID: 0}
-  echoCount: 1
+  echoCount: 2
   scatterRadius: 5
-  manaCostAdded: 2
-  manaCostIncreased: 1.1
-  manaCostMultiplier: 1.1
+  manaCostAdded: 1
+  manaCostIncreased: 1.05
+  manaCostMultiplier: 1.05

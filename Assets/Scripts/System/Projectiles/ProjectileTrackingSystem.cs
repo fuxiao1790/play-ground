@@ -30,7 +30,7 @@ namespace PlayGround.System.Combat.Projectiles
             TargetSpatialHashSingleton hash = SystemAPI.GetSingleton<TargetSpatialHashSingleton>();
             state.Dependency = JobHandle.CombineDependencies(state.Dependency, hash.BuildHandle);
 
-            var acquisitionJob = new ProjectileTargetAcquisitionJob
+            var trackingJob = new ProjectileTrackingJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
                 TargetEntities = hash.TargetEntities.AsArray(),
@@ -40,25 +40,19 @@ namespace PlayGround.System.Combat.Projectiles
                 TargetCells = hash.TrackingCells
             };
 
-            JobHandle acquisitionHandle = acquisitionJob.ScheduleParallel(state.Dependency);
+            JobHandle trackingHandle = trackingJob.ScheduleParallel(state.Dependency);
             RefRW<TargetSpatialHashSingleton> hashRw = SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
             hashRw.ValueRW.ConsumerHandle = JobHandle.CombineDependencies(
                 hashRw.ValueRW.ConsumerHandle,
-                acquisitionHandle);
+                trackingHandle);
 
-            var steeringJob = new ProjectileSteeringJob
-            {
-                DeltaTime = SystemAPI.Time.DeltaTime
-            };
-
-            JobHandle steeringHandle = steeringJob.ScheduleParallel(acquisitionHandle);
-            state.Dependency = steeringHandle;
+            state.Dependency = trackingHandle;
         }
 
         [BurstCompile]
         [WithAll(typeof(ProjectileTag), typeof(Active))]
         [WithDisabled(typeof(ArmingTag))]
-        private partial struct ProjectileTargetAcquisitionJob : IJobEntity
+        private partial struct ProjectileTrackingJob : IJobEntity
         {
             public float DeltaTime;
             [ReadOnly] public NativeArray<Entity> TargetEntities;
@@ -69,11 +63,11 @@ namespace PlayGround.System.Combat.Projectiles
 
             private void Execute(
                 ref ProjectileTrackingComponent tracking,
+                ref CombatKinematicsComponent kinematics,
                 in ProjectileIdentityComponent identity,
-                in CombatKinematicsComponent kinematics,
                 in CombatLifetimeComponent lifetime)
             {
-                if (!tracking.TrackingEnabled || identity.Faction == CombatFaction.None)
+                if (!tracking.TrackingEnabled)
                 {
                     return;
                 }
@@ -84,21 +78,69 @@ namespace PlayGround.System.Combat.Projectiles
                     return;
                 }
 
-                if (ShouldSkipAfterMissedTargetSearch(ref tracking))
+                if (identity.Faction != CombatFaction.None && !ShouldSkipAfterMissedTargetSearch(ref tracking))
+                {
+                    if (TryRefreshTrackedTarget(ref tracking, identity))
+                    {
+                        tracking.TrackingQueryCooldownRemaining = math.max(0f, tracking.TrackingQueryCooldownRemaining - DeltaTime);
+                    }
+                    else if (TryAcquireTrackedTarget(ref tracking, identity, kinematics, speed, lifetime.Remaining))
+                    {
+                        tracking.TrackingQueryCooldownRemaining = tracking.TrackingQueryIntervalSeconds;
+                    }
+                }
+
+                Steer(ref kinematics, tracking, speed);
+            }
+
+            private void Steer(ref CombatKinematicsComponent kinematics, in ProjectileTrackingComponent tracking, float speed)
+            {
+                if (tracking.TrackedTargetId == 0)
                 {
                     return;
                 }
 
-                if (TryRefreshTrackedTarget(ref tracking, identity))
+                float2 toTarget = tracking.TrackedTargetPosition - kinematics.Position;
+                if (math.lengthsq(toTarget) <= ProjectileSimulationConstants.MinimumDirectionLengthSquared)
                 {
-                    tracking.TrackingQueryCooldownRemaining = math.max(0f, tracking.TrackingQueryCooldownRemaining - DeltaTime);
                     return;
                 }
 
-                if (TryAcquireTrackedTarget(ref tracking, identity, kinematics, speed, lifetime.Remaining))
+                float2 currentDirection = kinematics.Velocity / speed;
+                float2 desiredDirection = math.normalize(toTarget);
+                float maxTurnRadians = tracking.TrackingTurnSpeedRadians * DeltaTime;
+                kinematics.Velocity = SteerDirection(currentDirection, desiredDirection, maxTurnRadians) * speed;
+            }
+
+            private static float2 SteerDirection(float2 currentDirection, float2 desiredDirection, float maxTurnRadians)
+            {
+                if (maxTurnRadians <= 0f)
                 {
-                    tracking.TrackingQueryCooldownRemaining = tracking.TrackingQueryIntervalSeconds;
+                    return currentDirection;
                 }
+
+                float2 directionDelta = desiredDirection - currentDirection;
+                float deltaLengthSquared = math.lengthsq(directionDelta);
+                if (deltaLengthSquared <= ProjectileSimulationConstants.MinimumDirectionLengthSquared)
+                {
+                    return desiredDirection;
+                }
+
+                float cross = currentDirection.x * desiredDirection.y - currentDirection.y * desiredDirection.x;
+                float dot = math.clamp(math.dot(currentDirection, desiredDirection), -1f, 1f);
+                float angle = math.atan2(cross, dot);
+                float absoluteAngle = math.abs(angle);
+                if (absoluteAngle <= maxTurnRadians)
+                {
+                    return desiredDirection;
+                }
+
+                float turnAngle = math.select(maxTurnRadians, -maxTurnRadians, angle < 0f);
+                float sin = math.sin(turnAngle);
+                float cos = math.cos(turnAngle);
+                return new float2(
+                    currentDirection.x * cos - currentDirection.y * sin,
+                    currentDirection.x * sin + currentDirection.y * cos);
             }
 
             private bool ShouldSkipAfterMissedTargetSearch(ref ProjectileTrackingComponent tracking)
@@ -374,77 +416,6 @@ namespace PlayGround.System.Combat.Projectiles
                     state ^= state << 5;
                     return state == 0u ? 1u : state;
                 }
-            }
-        }
-
-        [BurstCompile]
-        [WithAll(typeof(ProjectileTag), typeof(Active))]
-        [WithDisabled(typeof(ArmingTag))]
-        private partial struct ProjectileSteeringJob : IJobEntity
-        {
-            public float DeltaTime;
-
-            private void Execute(
-                ref CombatKinematicsComponent kinematics,
-                in ProjectileTrackingComponent tracking)
-            {
-                if (!tracking.TrackingEnabled)
-                {
-                    return;
-                }
-
-                float speed = math.length(kinematics.Velocity);
-                if (speed <= 0.0001f)
-                {
-                    return;
-                }
-
-                if (tracking.TrackedTargetId == 0)
-                {
-                    return;
-                }
-
-                float2 toTarget = tracking.TrackedTargetPosition - kinematics.Position;
-                if (math.lengthsq(toTarget) <= ProjectileSimulationConstants.MinimumDirectionLengthSquared)
-                {
-                    return;
-                }
-
-                float2 currentDirection = kinematics.Velocity / speed;
-                float2 desiredDirection = math.normalize(toTarget);
-                float maxTurnRadians = tracking.TrackingTurnSpeedRadians * DeltaTime;
-                kinematics.Velocity = SteerDirection(currentDirection, desiredDirection, maxTurnRadians) * speed;
-            }
-
-            private static float2 SteerDirection(float2 currentDirection, float2 desiredDirection, float maxTurnRadians)
-            {
-                if (maxTurnRadians <= 0f)
-                {
-                    return currentDirection;
-                }
-
-                float2 directionDelta = desiredDirection - currentDirection;
-                float deltaLengthSquared = math.lengthsq(directionDelta);
-                if (deltaLengthSquared <= ProjectileSimulationConstants.MinimumDirectionLengthSquared)
-                {
-                    return desiredDirection;
-                }
-
-                float cross = currentDirection.x * desiredDirection.y - currentDirection.y * desiredDirection.x;
-                float dot = math.clamp(math.dot(currentDirection, desiredDirection), -1f, 1f);
-                float angle = math.atan2(cross, dot);
-                float absoluteAngle = math.abs(angle);
-                if (absoluteAngle <= maxTurnRadians)
-                {
-                    return desiredDirection;
-                }
-
-                float turnAngle = math.select(maxTurnRadians, -maxTurnRadians, angle < 0f);
-                float sin = math.sin(turnAngle);
-                float cos = math.cos(turnAngle);
-                return new float2(
-                    currentDirection.x * cos - currentDirection.y * sin,
-                    currentDirection.x * sin + currentDirection.y * cos);
             }
         }
 

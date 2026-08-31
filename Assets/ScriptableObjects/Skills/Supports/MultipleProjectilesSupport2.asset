@@ -16,8 +16,8 @@ MonoBehaviour:
   displayName: 
   description: 
   icon: {fileID: 0}
-  count: 2
+  count: 3
   spreadDegrees: 15
-  manaCostAdded: 2
-  manaCostIncreased: 1.1
-  manaCostMultiplier: 1.1
+  manaCostAdded: 1
+  manaCostIncreased: 1.05
+  manaCostMultiplier: 1.05

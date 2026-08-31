@@ -16,6 +16,6 @@ MonoBehaviour:
   displayName: Piercing Support
   description: 
   icon: {fileID: 0}
-  pierceCount: 5
+  pierceCount: 10
   repeatHitCooldown: 0.5
   manaCostAdded: 1

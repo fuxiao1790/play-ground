@@ -57,7 +57,15 @@ interface IProjectileSpeedModifiers {
     }
 }
 
-interface IProjectileLifetimeModifiers {
+interface IDurationModifiers {
+    interface IBaseValueModifier {
+        void CollectAdded(AddedSink sink);
+    }
+
+    interface IIncreasedModifier {
+        void CollectIncreases(IncreasedSink sink);
+    }
+
     interface IMultiplierModifier {
         void CollectMultipliers(MultiplierSink sink);
     }
@@ -118,11 +126,20 @@ so an increased modifier cannot write base values or multiply stats.
 ## Numeric Fold
 
 Every numeric stat on a compiled skill (`Damage`, `AreaSize`, `Rate`,
-`ManaCost`, `PierceCount`, `ProjectileSpeed`, `ProjectileLifetime`) resolves
+`ManaCost`, `PierceCount`, `ProjectileSpeed`, `Duration`) resolves
 through the shared fold in
 [numeric-modifiers.md](../architecture/numeric-modifiers.md), combined across
 every contributing support and player-level snapshot term via
 `StatModifierAccumulator`. Support order never changes the numeric output.
+
+`Duration` is shared the same way `AreaSize` is shared between AOE `baseAreaSize`
+and targeted `chainDistance`: `ProjectileDefinition.lifetime` and
+`LingeringAoeDefinition.lifetimeSeconds` both resolve through `SkillStat.Duration`.
+A pulse `AoeDefinition` never reads it - its `lifetimeSeconds` stays the hardcoded
+`0` that keeps it a pulse AOE, so a duration support placed there is a true no-op,
+not a way to accidentally turn a pulse AOE into a lingering one. Only skills
+carrying `SkillDefinitionTags.Duration` (`ProjectileSkill`, `LingeringAoeSkill`)
+read the folded value.
 
 Rate uses the same fold as other stats. `IncreasedRateSupport` and the player
 `increasedRatePercent` are both authored as percent points (`25` means +25%)
@@ -190,9 +207,10 @@ how the factor aggregates across a full trigger chain.
 | Homing | `IManaModifiers.IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost`; enables tracking and sets turn speed/query interval |
 | Concentrated Effect | `IAreaSizeModifiers.IMultiplierModifier`, `IManaModifiers.IMultiplierModifier` | Multiplier on `AreaSize`; also multiplies `ManaCost` |
 | Increased AOE Effect | `IAreaSizeModifiers.IIncreasedModifier`, `IManaModifiers.IIncreasedModifier` | Increased percent on `AreaSize`; also increases `ManaCost` |
-| Faster Projectiles | `IProjectileSpeedModifiers.IMultiplierModifier`, `IProjectileLifetimeModifiers.IMultiplierModifier`, `IManaModifiers.IMultiplierModifier` | Multipliers on `ProjectileSpeed`, `ProjectileLifetime`; also multiplies `ManaCost` |
+| Faster Projectiles | `IProjectileSpeedModifiers.IMultiplierModifier`, `IDurationModifiers.IMultiplierModifier`, `IManaModifiers.IMultiplierModifier` | Multipliers on `ProjectileSpeed`, `Duration`; also multiplies `ManaCost` |
 | Added Damage | `IDamageModifiers.IBaseValueModifier`, `IManaModifiers.IBaseValueModifier` | Adds `Damage`; may also add `ManaCost` (default `0`) |
 | Increased Skill Speed | `IRateModifiers.IIncreasedModifier`, `IManaModifiers.IIncreasedModifier` | Increased percent on `Rate`; also increases `ManaCost` |
+| Increased Duration | `IDurationModifiers.IBaseValueModifier`, `IDurationModifiers.IIncreasedModifier`, `IDurationModifiers.IMultiplierModifier` | Adds, increases, and multiplies `Duration` (three independent authored fields, same fold as player-level stat terms) |
 
 Supports also declare compatible skill tags:
 
@@ -208,6 +226,7 @@ Supports also declare compatible skill tags:
 | Concentrated Effect | `Aoe`, `Targeted` |
 | Increased AOE Effect | `Aoe`, `Targeted` |
 | Increased Skill Speed | `Projectile`, `Aoe`, `Targeted` |
+| Increased Duration | `Duration` (`ProjectileSkill`, `LingeringAoeSkill` - not a pulse `AoeSkill` or `TargetedSkill`) |
 
 Example: putting Multiple Projectiles on an AOE skill is allowed, but it does
 nothing and validation returns a warning.
