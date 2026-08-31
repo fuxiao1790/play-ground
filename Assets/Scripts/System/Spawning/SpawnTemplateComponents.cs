@@ -196,6 +196,41 @@ namespace PlayGround.System.Combat.Spawning
         public const int MaxSpawnChainDepth = 3;
     }
 
+    // Interval-child-kind completeness is a property of the authored template, not of any
+    // one hit or tick, so it is checked once here when a template is registered rather than
+    // on every collision/timer read of the stamped-out Kind value.
+    public static class SpawnTemplateValidation
+    {
+        public static void EnsureValidChildKind(OnHitSpawnRef onHitSpawn)
+        {
+            if (onHitSpawn.Enabled)
+            {
+                EnsureValidChildKind(onHitSpawn.Kind);
+            }
+        }
+
+        public static void EnsureValidChildKind(TimedSpawnComponent timedSpawn)
+        {
+            if (!timedSpawn.TemplateKey.Equals(default(Unity.Entities.Hash128)))
+            {
+                EnsureValidChildKind(timedSpawn.ChildKind);
+            }
+        }
+
+        private static void EnsureValidChildKind(IntervalChildKind kind)
+        {
+            if (kind == IntervalChildKind.Projectile
+                || kind == IntervalChildKind.ImpactAoe
+                || kind == IntervalChildKind.LingeringAoe
+                || kind == IntervalChildKind.Targeted)
+            {
+                return;
+            }
+
+            throw new global::System.InvalidOperationException($"Unhandled interval child kind {kind}.");
+        }
+    }
+
     public static class SpawnTemplateHash
     {
         public static Hash128 Of<T>(in T evt)

@@ -325,25 +325,15 @@ namespace PlayGround.System.Combat.Projectiles
                     float2 impactPoint = math.lerp(segmentStart, segmentEnd, candidate.T);
 
                     ProjectileHitEmission.EnqueueHitEvent(HitWriter, entity, targetEntity, payload);
-                    ProjectileHitEmission.EnqueueOnHitProjectile(
+                    ProjectileHitEmission.EnqueueOnHitSpawn(
                         identity,
                         projectileHit,
                         impactPoint,
                         targetPosition.Value,
                         targetKey,
-                        ProjectileEventWriter);
-                    ProjectileHitEmission.EnqueueOnHitAoe(
-                        identity,
-                        projectileHit,
-                        impactPoint,
-                        targetKey,
+                        ProjectileEventWriter,
                         ImpactAoeEventWriter,
-                        LingeringAoeEventWriter);
-                    ProjectileHitEmission.EnqueueOnHitTargeted(
-                        identity,
-                        projectileHit,
-                        impactPoint,
-                        targetKey,
+                        LingeringAoeEventWriter,
                         TargetedEventWriter);
                     ProjectileHitEmission.AddOrRefreshGate(
                         contactGates,

@@ -251,25 +251,15 @@ namespace PlayGround.System.Combat.Projectiles
                             }
 
                             ProjectileHitEmission.EnqueueHitEvent(HitWriter, entity, targetEntity, payload);
-                            ProjectileHitEmission.EnqueueOnHitProjectile(
+                            ProjectileHitEmission.EnqueueOnHitSpawn(
                                 identity,
                                 projectileHit,
                                 kinematics.Position,
                                 targetPosition.Value,
                                 targetKey,
-                                ProjectileEventWriter);
-                            ProjectileHitEmission.EnqueueOnHitAoe(
-                                identity,
-                                projectileHit,
-                                kinematics.Position,
-                                targetKey,
+                                ProjectileEventWriter,
                                 ImpactAoeEventWriter,
-                                LingeringAoeEventWriter);
-                            ProjectileHitEmission.EnqueueOnHitTargeted(
-                                identity,
-                                projectileHit,
-                                kinematics.Position,
-                                targetKey,
+                                LingeringAoeEventWriter,
                                 TargetedEventWriter);
 
                             ProjectileHitEmission.AddOrRefreshGate(contactGates, targetKey,
@@ -321,135 +311,85 @@ namespace PlayGround.System.Combat.Projectiles
             });
         }
 
-        internal static void EnqueueOnHitProjectile(
+        internal static void EnqueueOnHitSpawn(
             in ProjectileIdentityComponent identity,
             in ProjectileHitComponent projectileHit,
             float2 impactPosition,
             float2 targetPosition,
             int targetKey,
-            NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter)
+            NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
+            NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
+            NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter,
+            NativeQueue<TargetedSpawnEvent>.ParallelWriter targetedEventWriter)
         {
             if (!projectileHit.OnHitSpawn.Enabled)
             {
                 return;
             }
 
-            if (projectileHit.OnHitSpawn.Kind == IntervalChildKind.ImpactAoe
-                || projectileHit.OnHitSpawn.Kind == IntervalChildKind.LingeringAoe)
+            switch (projectileHit.OnHitSpawn.Kind)
             {
-                return;
-            }
+                case IntervalChildKind.Targeted:
+                    TargetedSpawnEmission.Enqueue(
+                        identity.ProjectileId,
+                        identity.TypeId,
+                        identity.Faction,
+                        impactPosition,
+                        targetKey,
+                        projectileHit.OnHitSpawn.Kind,
+                        projectileHit.OnHitSpawn.TemplateKey,
+                        targetedEventWriter);
+                    break;
 
-            if (projectileHit.OnHitSpawn.Kind == IntervalChildKind.Targeted)
-            {
-                return;
-            }
-
-            if (projectileHit.OnHitSpawn.Kind != IntervalChildKind.Projectile)
-            {
-                throw new global::System.InvalidOperationException(
-                    "Unhandled interval child kind.");
-            }
-
-            int baseId = HashId(
-                identity.ProjectileId,
-                identity.TypeId,
-                targetKey,
-                ImpactProjectileIdSalt);
-            projectileEventWriter.Enqueue(new ProjectileSpawnEvent
-            {
-                Kind = projectileHit.OnHitSpawn.Kind,
-                TemplateKey = projectileHit.OnHitSpawn.TemplateKey,
-                Faction = identity.Faction,
-                Position = impactPosition,
-                AimDirection = DirectionFromTo(impactPosition, targetPosition, invert: true),
-                SourceId = baseId,
-                JitterSeed = (uint)baseId * 2654435761u,
-                ContactGateSeedTargetId = targetKey
-            });
-        }
-
-        internal static void EnqueueOnHitAoe(
-            in ProjectileIdentityComponent identity,
-            in ProjectileHitComponent projectileHit,
-            float2 impactPosition,
-            int targetKey,
-            NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
-            NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter)
-        {
-            if (!projectileHit.OnHitSpawn.Enabled
-                || projectileHit.OnHitSpawn.Kind == IntervalChildKind.Projectile)
-            {
-                return;
-            }
-
-            if (projectileHit.OnHitSpawn.Kind == IntervalChildKind.Targeted)
-            {
-                return;
-            }
-
-            if (projectileHit.OnHitSpawn.Kind != IntervalChildKind.ImpactAoe
-                && projectileHit.OnHitSpawn.Kind != IntervalChildKind.LingeringAoe)
-            {
-                throw new global::System.InvalidOperationException(
-                    "Unhandled interval child kind.");
-            }
-
-            int aoeId = HashId(
-                identity.ProjectileId,
-                identity.TypeId,
-                targetKey,
-                ImpactAoeIdSalt);
-
-            if (projectileHit.OnHitSpawn.Kind == IntervalChildKind.LingeringAoe)
-            {
-                lingeringAoeEventWriter.Enqueue(new LingeringAoeSpawnEvent
+                case IntervalChildKind.Projectile:
                 {
-                    Kind = projectileHit.OnHitSpawn.Kind,
-                    TemplateKey = projectileHit.OnHitSpawn.TemplateKey,
-                    Faction = identity.Faction,
-                    Position = impactPosition,
-                    SourceId = aoeId,
-                    JitterSeed = (uint)aoeId * 2654435761u,
-                    ContactGateSeedTargetId = targetKey
-                });
-                return;
+                    int baseId = HashId(identity.ProjectileId, identity.TypeId, targetKey, ImpactProjectileIdSalt);
+                    projectileEventWriter.Enqueue(new ProjectileSpawnEvent
+                    {
+                        Kind = projectileHit.OnHitSpawn.Kind,
+                        TemplateKey = projectileHit.OnHitSpawn.TemplateKey,
+                        Faction = identity.Faction,
+                        Position = impactPosition,
+                        AimDirection = DirectionFromTo(impactPosition, targetPosition, invert: true),
+                        SourceId = baseId,
+                        JitterSeed = (uint)baseId * 2654435761u,
+                        ContactGateSeedTargetId = targetKey
+                    });
+                    break;
+                }
+
+                case IntervalChildKind.LingeringAoe:
+                {
+                    int aoeId = HashId(identity.ProjectileId, identity.TypeId, targetKey, ImpactAoeIdSalt);
+                    lingeringAoeEventWriter.Enqueue(new LingeringAoeSpawnEvent
+                    {
+                        Kind = projectileHit.OnHitSpawn.Kind,
+                        TemplateKey = projectileHit.OnHitSpawn.TemplateKey,
+                        Faction = identity.Faction,
+                        Position = impactPosition,
+                        SourceId = aoeId,
+                        JitterSeed = (uint)aoeId * 2654435761u,
+                        ContactGateSeedTargetId = targetKey
+                    });
+                    break;
+                }
+
+                case IntervalChildKind.ImpactAoe:
+                {
+                    int aoeId = HashId(identity.ProjectileId, identity.TypeId, targetKey, ImpactAoeIdSalt);
+                    impactAoeEventWriter.Enqueue(new ImpactAoeSpawnEvent
+                    {
+                        Kind = projectileHit.OnHitSpawn.Kind,
+                        TemplateKey = projectileHit.OnHitSpawn.TemplateKey,
+                        Faction = identity.Faction,
+                        Position = impactPosition,
+                        SourceId = aoeId,
+                        JitterSeed = (uint)aoeId * 2654435761u,
+                        ContactGateSeedTargetId = targetKey
+                    });
+                    break;
+                }
             }
-
-            impactAoeEventWriter.Enqueue(new ImpactAoeSpawnEvent
-            {
-                Kind = projectileHit.OnHitSpawn.Kind,
-                TemplateKey = projectileHit.OnHitSpawn.TemplateKey,
-                Faction = identity.Faction,
-                Position = impactPosition,
-                SourceId = aoeId,
-                JitterSeed = (uint)aoeId * 2654435761u,
-                ContactGateSeedTargetId = targetKey
-            });
-        }
-
-        internal static void EnqueueOnHitTargeted(
-            in ProjectileIdentityComponent identity,
-            in ProjectileHitComponent projectileHit,
-            float2 impactPosition,
-            int targetKey,
-            NativeQueue<TargetedSpawnEvent>.ParallelWriter targetedEventWriter)
-        {
-            if (!projectileHit.OnHitSpawn.Enabled
-                || projectileHit.OnHitSpawn.Kind != IntervalChildKind.Targeted)
-            {
-                return;
-            }
-
-            TargetedSpawnEmission.Enqueue(
-                identity.ProjectileId,
-                identity.TypeId,
-                identity.Faction,
-                impactPosition,
-                targetKey,
-                projectileHit.OnHitSpawn.Kind,
-                projectileHit.OnHitSpawn.TemplateKey,
-                targetedEventWriter);
         }
 
         // Single projectile death funnel for both collision lanes. Despawn emits a release

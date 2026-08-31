@@ -22,6 +22,10 @@ namespace PlayGround.System.Combat.Aoes
     {
         private const int ImpactAoeIdSalt = 0x5F1A0E;
         private const int ProjectileBurstIdSalt = 0x7AB025;
+        // ProjectileDiscreteCollisionSystem hashes its own on-hit AOE spawn with the raw
+        // ImpactAoeIdSalt; AoeId and ProjectileId are independent counters that routinely
+        // overlap, so this file's variant is twisted to keep the two id spaces apart.
+        private const int AoeOnHitAoeIdSalt = ImpactAoeIdSalt ^ 0x13579B;
 
         internal static void RunCollision(
             Entity sourceEntity,
@@ -120,26 +124,25 @@ namespace PlayGround.System.Combat.Aoes
                             continue;
 
                         seenTargetKeys[seenTargetKeysStart + seenTargetKeyCount++] = targetKey;
-                        EmitHit(
+                        EnqueueHitEvent(hitWriter, sourceEntity, targetEntity, in payload);
+                        EnqueueOnHitSpawn(
                             identity,
                             kinematics,
                             hitSpawn,
-                            vfxIds,
-                            timing,
-                            area,
-                            targetEntity,
                             targetPosition,
                             targetKey,
-                            circularVfxPendingWriter,
-                            timedCircularVfxPendingWriter,
-                            ref hitVfxEmitted,
-                            hitWriter,
-                            sourceEntity,
-                            in payload,
                             projectileEventWriter,
                             impactAoeEventWriter,
                             lingeringAoeEventWriter,
                             targetedEventWriter);
+                        EnqueueHitVfx(
+                            vfxIds,
+                            kinematics,
+                            timing,
+                            area,
+                            circularVfxPendingWriter,
+                            timedCircularVfxPendingWriter,
+                            ref hitVfxEmitted);
 
                         if (--remaining == 0)
                             break;
@@ -153,26 +156,11 @@ namespace PlayGround.System.Combat.Aoes
                     active, collisionActive, arming, in hitSpawn, in timedSpawn, in payload, spawnTemplateDeltas);
         }
 
-        internal static void EmitHit(
-            AoeIdentityComponent identity,
-            CombatKinematicsComponent kinematics,
-            AoeHitSpawnComponent hitSpawn,
-            AoeVfxIds vfxIds,
-            VfxTimingData timing,
-            AoeAreaComponent area,
-            Entity targetEntity,
-            TargetPosition targetPosition,
-            int targetKey,
-            NativeQueue<ImpactCircleVfxEvent>.ParallelWriter circularVfxPending,
-            NativeQueue<LingeringCircleVfxEvent>.ParallelWriter timedCircularVfxPending,
-            ref bool hitVfxEmitted,
+        internal static void EnqueueHitEvent(
             NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
             Entity sourceEntity,
-            in CombatHitPayload payload,
-            NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
-            NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
-            NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter,
-            NativeQueue<TargetedSpawnEvent>.ParallelWriter targetedEventWriter)
+            Entity targetEntity,
+            in CombatHitPayload payload)
         {
             if (HasHitEvent(payload))
             {
@@ -182,55 +170,58 @@ namespace PlayGround.System.Combat.Aoes
                     Target = targetEntity
                 });
             }
+        }
 
-            if (hitSpawn.OnHitSpawn.Enabled
-                && hitSpawn.OnHitSpawn.Kind == IntervalChildKind.Targeted)
+        internal static void EnqueueOnHitSpawn(
+            AoeIdentityComponent identity,
+            CombatKinematicsComponent kinematics,
+            AoeHitSpawnComponent hitSpawn,
+            TargetPosition targetPosition,
+            int targetKey,
+            NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
+            NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
+            NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter,
+            NativeQueue<TargetedSpawnEvent>.ParallelWriter targetedEventWriter)
+        {
+            if (!hitSpawn.OnHitSpawn.Enabled)
             {
-                TargetedSpawnEmission.Enqueue(
-                    identity.AoeId,
-                    identity.TypeId,
-                    identity.Faction,
-                    targetPosition.Value,
-                    targetKey,
-                    hitSpawn.OnHitSpawn.Kind,
-                    hitSpawn.OnHitSpawn.TemplateKey,
-                    targetedEventWriter);
+                return;
             }
 
-            if (hitSpawn.OnHitSpawn.Enabled
-                && hitSpawn.OnHitSpawn.Kind != IntervalChildKind.Projectile
-                && hitSpawn.OnHitSpawn.Kind != IntervalChildKind.ImpactAoe
-                && hitSpawn.OnHitSpawn.Kind != IntervalChildKind.LingeringAoe
-                && hitSpawn.OnHitSpawn.Kind != IntervalChildKind.Targeted)
+            switch (hitSpawn.OnHitSpawn.Kind)
             {
-                throw new global::System.InvalidOperationException(
-                    "Unhandled interval child kind.");
-            }
+                case IntervalChildKind.Targeted:
+                    TargetedSpawnEmission.Enqueue(
+                        identity.AoeId,
+                        identity.TypeId,
+                        identity.Faction,
+                        targetPosition.Value,
+                        targetKey,
+                        hitSpawn.OnHitSpawn.Kind,
+                        hitSpawn.OnHitSpawn.TemplateKey,
+                        targetedEventWriter);
+                    break;
 
-            if (hitSpawn.OnHitSpawn.Enabled
-                && hitSpawn.OnHitSpawn.Kind == IntervalChildKind.Projectile)
-            {
-                int baseId = HashId(identity.AoeId, identity.TypeId, targetKey, ProjectileBurstIdSalt);
-                projectileEventWriter.Enqueue(new ProjectileSpawnEvent
+                case IntervalChildKind.Projectile:
                 {
-                    Kind = hitSpawn.OnHitSpawn.Kind,
-                    TemplateKey = hitSpawn.OnHitSpawn.TemplateKey,
-                    Faction = identity.Faction,
-                    Position = targetPosition.Value,
-                    AimDirection = DirectionFromTo(targetPosition.Value, kinematics.Position),
-                    SourceId = baseId,
-                    JitterSeed = (uint)baseId * 2654435761u,
-                    ContactGateSeedTargetId = targetKey
-                });
-            }
+                    int baseId = HashId(identity.AoeId, identity.TypeId, targetKey, ProjectileBurstIdSalt);
+                    projectileEventWriter.Enqueue(new ProjectileSpawnEvent
+                    {
+                        Kind = hitSpawn.OnHitSpawn.Kind,
+                        TemplateKey = hitSpawn.OnHitSpawn.TemplateKey,
+                        Faction = identity.Faction,
+                        Position = targetPosition.Value,
+                        AimDirection = DirectionFromTo(targetPosition.Value, kinematics.Position),
+                        SourceId = baseId,
+                        JitterSeed = (uint)baseId * 2654435761u,
+                        ContactGateSeedTargetId = targetKey
+                    });
+                    break;
+                }
 
-            if (hitSpawn.OnHitSpawn.Enabled
-                && (hitSpawn.OnHitSpawn.Kind == IntervalChildKind.ImpactAoe
-                    || hitSpawn.OnHitSpawn.Kind == IntervalChildKind.LingeringAoe))
-            {
-                int aoeId = HashId(identity.AoeId, identity.TypeId, targetKey, ImpactAoeIdSalt ^ 0x13579B);
-                if (hitSpawn.OnHitSpawn.Kind == IntervalChildKind.LingeringAoe)
+                case IntervalChildKind.LingeringAoe:
                 {
+                    int aoeId = HashId(identity.AoeId, identity.TypeId, targetKey, AoeOnHitAoeIdSalt);
                     lingeringAoeEventWriter.Enqueue(new LingeringAoeSpawnEvent
                     {
                         Kind = hitSpawn.OnHitSpawn.Kind,
@@ -241,9 +232,12 @@ namespace PlayGround.System.Combat.Aoes
                         JitterSeed = (uint)aoeId * 2654435761u,
                         ContactGateSeedTargetId = targetKey
                     });
+                    break;
                 }
-                else
+
+                case IntervalChildKind.ImpactAoe:
                 {
+                    int aoeId = HashId(identity.AoeId, identity.TypeId, targetKey, AoeOnHitAoeIdSalt);
                     impactAoeEventWriter.Enqueue(new ImpactAoeSpawnEvent
                     {
                         Kind = hitSpawn.OnHitSpawn.Kind,
@@ -254,20 +248,33 @@ namespace PlayGround.System.Combat.Aoes
                         JitterSeed = (uint)aoeId * 2654435761u,
                         ContactGateSeedTargetId = targetKey
                     });
+                    break;
                 }
             }
+        }
 
-            if (!hitVfxEmitted && vfxIds.HitId > 0)
+        internal static void EnqueueHitVfx(
+            AoeVfxIds vfxIds,
+            CombatKinematicsComponent kinematics,
+            VfxTimingData timing,
+            AoeAreaComponent area,
+            NativeQueue<ImpactCircleVfxEvent>.ParallelWriter circularVfxPending,
+            NativeQueue<LingeringCircleVfxEvent>.ParallelWriter timedCircularVfxPending,
+            ref bool hitVfxEmitted)
+        {
+            if (hitVfxEmitted || vfxIds.HitId <= 0)
             {
-                VfxEmit.Enqueue(
-                    vfxIds.HitId,
-                    kinematics.Position,
-                    area.Size,
-                    timing,
-                    circularVfxPending,
-                    timedCircularVfxPending);
-                hitVfxEmitted = true;
+                return;
             }
+
+            VfxEmit.Enqueue(
+                vfxIds.HitId,
+                kinematics.Position,
+                area.Size,
+                timing,
+                circularVfxPending,
+                timedCircularVfxPending);
+            hitVfxEmitted = true;
         }
 
         // Single AOE death funnel for the impact and lingering lanes. Despawn emits a release

@@ -300,6 +300,69 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void CombatRootRegisterSpawnTemplateRejectsUnhandledIntervalChildKind()
+        {
+            CreateProjectileRoot(out GameObject rootObject, out CombatRoot root);
+            var badKind = (IntervalChildKind)99;
+
+            var projectileBadOnHit = new ProjectileSpawnCommand
+            {
+                TypeId = ++nextTargetId,
+                Count = 1,
+                Speed = 10f,
+                Lifetime = 1f,
+                Radius = 0.25f,
+                ShapeType = CombatShapeType.Circle,
+                HitPayload = new ProjectileHitPayload(
+                    new CombatHitPayload { DamageAmount = 1f, DirectDamageEnabled = true },
+                    new OnHitSpawnRef { Kind = badKind, TemplateKey = new Hash128(1u, 0u, 0u, 0u) })
+            };
+            Assert.Throws<global::System.InvalidOperationException>(
+                () => root.RegisterSpawnTemplate(in projectileBadOnHit));
+
+            var projectileBadTimedSpawn = new ProjectileSpawnCommand
+            {
+                TypeId = ++nextTargetId,
+                Count = 1,
+                Speed = 10f,
+                Lifetime = 1f,
+                Radius = 0.25f,
+                ShapeType = CombatShapeType.Circle,
+                HitPayload = new ProjectileHitPayload(new CombatHitPayload
+                {
+                    DamageAmount = 1f,
+                    DirectDamageEnabled = true
+                }),
+                TimedSpawn = new TimedSpawnComponent
+                {
+                    ChildKind = badKind,
+                    TemplateKey = new Hash128(2u, 0u, 0u, 0u),
+                    EnergyPerSecond = 1f,
+                    EnergyThreshold = 1f,
+                    JitterSeed = 1
+                }
+            };
+            Assert.Throws<global::System.InvalidOperationException>(
+                () => root.RegisterSpawnTemplate(in projectileBadTimedSpawn));
+
+            var aoeBadOnHit = new AoeSpawnCommand
+            {
+                TypeId = ++nextTargetId,
+                Lifetime = 1f,
+                RepeatHitCooldownSeconds = 0.2f,
+                Radius = 1f,
+                ShapeType = CombatShapeType.Circle,
+                EchoCount = 1,
+                HitPayload = new CombatHitPayload { DamageAmount = 1f, DirectDamageEnabled = true },
+                OnHitSpawn = new OnHitSpawnRef { Kind = badKind, TemplateKey = new Hash128(3u, 0u, 0u, 0u) }
+            };
+            Assert.Throws<global::System.InvalidOperationException>(
+                () => root.RegisterSpawnTemplate(in aoeBadOnHit));
+
+            Object.DestroyImmediate(rootObject);
+        }
+
+        [Test]
         public void CompileAndRegisterAssignsDedupedIntervalTemplateKeys()
         {
             CreateProjectileRoot(out GameObject rootObject, out CombatRoot root);

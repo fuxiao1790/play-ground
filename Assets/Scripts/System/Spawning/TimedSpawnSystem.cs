@@ -170,11 +170,6 @@ namespace PlayGround.System.Combat.Spawning
                             DeterministicIdTickIndex = tickIndex
                         });
                     }
-                    else
-                    {
-                        throw new global::System.InvalidOperationException(
-                            $"Unhandled interval child kind {spawn.ChildKind}.");
-                    }
 
                     state.EnergyAccumulated -= threshold;
                 }

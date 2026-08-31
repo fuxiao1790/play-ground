@@ -843,6 +843,8 @@ namespace PlayGround.System.Combat.Core
             stack.Faction = CombatFaction.None;
             combat.StackEffect = stack;
             template.HitPayload = new ProjectileHitPayload(combat, hp.OnHitSpawn);
+            SpawnTemplateValidation.EnsureValidChildKind(hp.OnHitSpawn);
+            SpawnTemplateValidation.EnsureValidChildKind(timedSpawn);
             return template;
         }
 
@@ -865,6 +867,8 @@ namespace PlayGround.System.Combat.Core
             stack.Faction = CombatFaction.None;
             hitPayload.StackEffect = stack;
             template.HitPayload = hitPayload;
+            SpawnTemplateValidation.EnsureValidChildKind(template.OnHitSpawn);
+            SpawnTemplateValidation.EnsureValidChildKind(timedSpawn);
             return template;
         }
 
@@ -884,6 +888,7 @@ namespace PlayGround.System.Combat.Core
             stack.Faction = CombatFaction.None;
             hitPayload.StackEffect = stack;
             template.HitPayload = hitPayload;
+            SpawnTemplateValidation.EnsureValidChildKind(template.OnHitSpawn);
             return template;
         }
 
