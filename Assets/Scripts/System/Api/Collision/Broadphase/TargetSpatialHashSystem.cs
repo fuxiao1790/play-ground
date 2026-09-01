@@ -14,6 +14,7 @@ using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Targeted;
 using PlayGround.System.Combat.Vfx;
 using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -181,23 +182,51 @@ namespace PlayGround.System.Combat.Collision.Broadphase
 
         private void GatherTargets(ref SystemState state, ref TargetSpatialHashSingleton singleton, int targetCount)
         {
-            state.EntityManager.CompleteDependencyBeforeRO<TargetPosition>();
-            state.EntityManager.CompleteDependencyBeforeRO<TargetCollisionShape>();
-            state.EntityManager.CompleteDependencyBeforeRO<TargetFaction>();
-
             ResizeSnapshotLists(ref singleton, targetCount);
 
-            using NativeArray<Entity> entities = targetQuery.ToEntityArray(Allocator.Temp);
-            using NativeArray<TargetPosition> positions = targetQuery.ToComponentDataArray<TargetPosition>(Allocator.Temp);
-            using NativeArray<TargetCollisionShape> shapes = targetQuery.ToComponentDataArray<TargetCollisionShape>(Allocator.Temp);
-            using NativeArray<TargetFaction> factions = targetQuery.ToComponentDataArray<TargetFaction>(Allocator.Temp);
-
-            for (int i = 0; i < targetCount; i++)
+            // Single chunk pass instead of CalculateEntityCount + ToEntityArray + three
+            // ToComponentDataArray calls (five query walks) followed by a manual copy loop.
+            // The job's type handles make the job system complete write dependencies for
+            // these components itself, so the explicit CompleteDependencyBeforeRO calls that
+            // used to guard the manual ToComponentDataArray reads are no longer needed.
+            new GatherTargetsJob
             {
-                singleton.TargetEntities[i] = entities[i];
-                singleton.TargetPositions[i] = positions[i];
-                singleton.TargetShapes[i] = shapes[i];
-                singleton.TargetFactions[i] = factions[i];
+                EntityHandle = state.GetEntityTypeHandle(),
+                PositionHandle = state.GetComponentTypeHandle<TargetPosition>(true),
+                ShapeHandle = state.GetComponentTypeHandle<TargetCollisionShape>(true),
+                FactionHandle = state.GetComponentTypeHandle<TargetFaction>(true),
+                Entities = singleton.TargetEntities.AsArray(),
+                Positions = singleton.TargetPositions.AsArray(),
+                Shapes = singleton.TargetShapes.AsArray(),
+                Factions = singleton.TargetFactions.AsArray()
+            }.Run(targetQuery);
+        }
+
+        [BurstCompile]
+        private struct GatherTargetsJob : IJobChunk
+        {
+            [ReadOnly] public EntityTypeHandle EntityHandle;
+            [ReadOnly] public ComponentTypeHandle<TargetPosition> PositionHandle;
+            [ReadOnly] public ComponentTypeHandle<TargetCollisionShape> ShapeHandle;
+            [ReadOnly] public ComponentTypeHandle<TargetFaction> FactionHandle;
+            public NativeArray<Entity> Entities;
+            public NativeArray<TargetPosition> Positions;
+            public NativeArray<TargetCollisionShape> Shapes;
+            public NativeArray<TargetFaction> Factions;
+
+            // Running write cursor. Only valid because this job is always invoked via .Run(),
+            // which walks matching chunks sequentially on the main thread against one job
+            // instance; a parallel schedule would race this field across worker threads.
+            private int writeIndex;
+
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+            {
+                int count = chunk.Count;
+                NativeArray<Entity>.Copy(chunk.GetNativeArray(EntityHandle), 0, Entities, writeIndex, count);
+                NativeArray<TargetPosition>.Copy(chunk.GetNativeArray(ref PositionHandle), 0, Positions, writeIndex, count);
+                NativeArray<TargetCollisionShape>.Copy(chunk.GetNativeArray(ref ShapeHandle), 0, Shapes, writeIndex, count);
+                NativeArray<TargetFaction>.Copy(chunk.GetNativeArray(ref FactionHandle), 0, Factions, writeIndex, count);
+                writeIndex += count;
             }
         }
 
