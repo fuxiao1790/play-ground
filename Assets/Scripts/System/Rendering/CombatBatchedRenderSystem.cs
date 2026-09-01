@@ -12,8 +12,6 @@ using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Vfx;
 using PlayGround.System.Combat.Targeted;
-using Unity.Burst;
-using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
@@ -37,7 +35,6 @@ namespace PlayGround.System.Combat.Rendering
         private ComponentTypeHandle<CombatRenderComponent> renderComponentHandle;
         private GraphicsBuffer _instanceBuffer;
         private int _instanceCapacity;
-        private NativeList<CombatRenderComponent> _instanceData;
 
         protected override void OnCreate()
         {
@@ -46,19 +43,18 @@ namespace PlayGround.System.Combat.Rendering
 
             Assert.AreEqual(InstanceDataStride, UnsafeUtility.SizeOf<CombatRenderComponent>());
 
-            _instanceData = new NativeList<CombatRenderComponent>(Allocator.Persistent);
-
             renderQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CombatRenderComponent>()
                 .WithAll<Active>()
                 .WithAny<ProjectileTag, AoeTag, TargetedTag>()
                 .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
                 .Build(this);
+
+            renderComponentHandle = GetComponentTypeHandle<CombatRenderComponent>(true);
         }
 
         protected override void OnDestroy()
         {
-            if (_instanceData.IsCreated) _instanceData.Dispose();
             _instanceBuffer?.Dispose();
         }
 
@@ -80,37 +76,30 @@ namespace PlayGround.System.Combat.Rendering
             }
             GraphicsBuffer uvBasisBuffer = registry.EnsureUvBasisBuffer();
 
-            _instanceData.Clear();
             EnsureInstanceCapacity(entityCount);
             registry.EnsureMeshCapacity(entityCount);
 
-            renderComponentHandle = GetComponentTypeHandle<CombatRenderComponent>(true);
+            // No CPU-side staging copy: CompleteDependency() above already guarantees no
+            // outstanding job is writing CombatRenderComponent, so each chunk's component
+            // array is a direct read-only view into the chunk's real backing memory. Upload
+            // straight from that view to the GPU buffer, one SetData per chunk at its running
+            // offset, instead of compacting into an intermediate array first.
+            renderComponentHandle.Update(this);
             using (WriteDirectMarker.Auto())
             {
-                new WriteDirectJob
+                using NativeArray<ArchetypeChunk> chunks = renderQuery.ToArchetypeChunkArray(Allocator.Temp);
+                int offset = 0;
+                for (int i = 0; i < chunks.Length; i++)
                 {
-                    InstanceData = _instanceData,
-                    ComponentHandle = renderComponentHandle
-                }.Run(renderQuery);
+                    ArchetypeChunk chunk = chunks[i];
+                    NativeArray<CombatRenderComponent> components = chunk.GetNativeArray(ref renderComponentHandle);
+                    _instanceBuffer.SetData(components, 0, offset, chunk.Count);
+                    offset += chunk.Count;
+                }
             }
-
-            _instanceBuffer.SetData(_instanceData.AsArray(), 0, 0, _instanceData.Length);
 
             Submit(registry, uvBasisBuffer);
             registry.SetActiveInstanceCount(entityCount);
-        }
-
-        [BurstCompile]
-        private struct WriteDirectJob : IJobChunk
-        {
-            public NativeList<CombatRenderComponent> InstanceData;
-            [ReadOnly] public ComponentTypeHandle<CombatRenderComponent> ComponentHandle;
-
-            public void Execute(in ArchetypeChunk chunk, int _, bool useEnabledMask, in v128 chunkEnabledMask)
-            {
-                NativeArray<CombatRenderComponent> components = chunk.GetNativeArray(ref ComponentHandle);
-                InstanceData.AddRange(components);
-            }
         }
 
         private void EnsureInstanceCapacity(int count)
@@ -132,6 +121,7 @@ namespace PlayGround.System.Combat.Rendering
                 GraphicsBuffer.Target.Structured,
                 newCapacity,
                 InstanceDataStride);
+
             _instanceCapacity = newCapacity;
         }
 
