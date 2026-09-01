@@ -37,7 +37,7 @@ namespace PlayGround.System.Combat.Projectiles
 
             private void Execute(DynamicBuffer<ProjectileContactGateElement> contactGates)
             {
-                // Pass 1: subtract DeltaTime from all cooldowns (no branches �?Burst can vectorize).
+                // Pass 1: subtract DeltaTime from all cooldowns (no branches Burst can vectorize).
                 for (int i = 0; i < contactGates.Length; i++)
                     contactGates.ElementAt(i).CooldownRemaining -= DeltaTime;
 
