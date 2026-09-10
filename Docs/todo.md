@@ -4,6 +4,7 @@ refactor debt
   each with its own singleton lane and expansion system. Collapse to one
   `CombatSpawnEvent` discriminated by the `IntervalChildKind` the struct already carries.
   Deferred deliberately during targeted skills; see `.agent/targeted-skills/requirements.md` §9.
+- on hit trigger unification all variations of on x hit y trigger should just be on hit trigger.
 
 minor performance related refacor. (highly unlikely to have any actual performance benefit)
 - collision system use aabb tree instead of spatial hash. aabb tree is more simd friendly.
