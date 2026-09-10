@@ -249,8 +249,8 @@ Docs/
 
 - `Assets/Scripts/Skills/Skill/TargetedSkill.cs`: the targeted skill asset and
   its base type.
-- `Assets/Scripts/Skills/Trigger/OnImpactTargetedTrigger.cs`: targeted trigger
-  link.
+- `Assets/Scripts/Skills/Trigger/OnHitTrigger.cs`: unified immediate on-hit
+  trigger link.
 - `Assets/Scripts/Skills/Trigger/IntervalSpawnTrigger.cs`: single energy-driven
   interval-spawn trigger link for compiled projectile, AOE, or targeted effects.
 - `Assets/Scripts/Skills/Support/MultipleChainsSupport.cs`: targeted echo count

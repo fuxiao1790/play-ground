@@ -747,7 +747,6 @@ namespace PlayGround.Skills
                 AoeSpawnCommand template =
                     SkillIntervalTemplateBuilder.BuildAoeTemplate(
                         aoeDef,
-                        Mathf.Max(1, aoeDef.EchoCount),
                         combatRoot,
                         stackEffect,
                         BuildOnHitSpawnRef(aoeDef),
@@ -910,12 +909,10 @@ namespace PlayGround.Skills
             AoeSpawnCommand template =
                 SkillIntervalTemplateBuilder.BuildAoeTemplate(
                     child,
-                    Mathf.Max(1, setup.Count),
                     combatRoot,
                     stackEffect,
                     BuildOnHitSpawnRef(child),
-                    AoeTimedSpawnFromDefinition(child),
-                    scatterRadiusOverride: setup.ScatterRadius);
+                    AoeTimedSpawnFromDefinition(child));
 
             Unity.Entities.Hash128 key = combatRoot.RegisterTimedSpawnTemplate(in template);
             setup.TemplateKey = key;
@@ -934,7 +931,6 @@ namespace PlayGround.Skills
                     combatRoot,
                     SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(child, combatRoot),
                     BuildOnHitSpawnRef(child));
-            template.EchoCount = Mathf.Max(1, setup.EchoCount);
             Unity.Entities.Hash128 key = combatRoot.RegisterTimedSpawnTemplate(in template);
             setup.TemplateKey = key;
             registeredTemplateKeys.Add((IntervalChildKind.Targeted, key));
@@ -1014,13 +1010,13 @@ namespace PlayGround.Skills
                 };
             }
 
-            if (def.OnHitAoeSpawnDefinition is RuntimeAoeDefinition onHitAoe
-                && !IsDefault(onHitAoe.SpawnTemplateKey))
+            if (def.OnHitAoeSpawnDefinition != null
+                && !IsDefault(def.OnHitAoeSpawnDefinition.SpawnTemplateKey))
             {
                 return new OnHitSpawnRef
                 {
-                    Kind = AoeVariant.AoeChildKindFor(onHitAoe.LifetimeSeconds),
-                    TemplateKey = onHitAoe.SpawnTemplateKey
+                    Kind = AoeVariant.AoeChildKindFor(def.OnHitAoeSpawnDefinition.LifetimeSeconds),
+                    TemplateKey = def.OnHitAoeSpawnDefinition.SpawnTemplateKey
                 };
             }
 
@@ -1042,13 +1038,13 @@ namespace PlayGround.Skills
             if (def == null)
                 return default;
 
-            if (def.OnHitAoeSpawnDefinition is RuntimeAoeDefinition onHitAoe
-                && !IsDefault(onHitAoe.SpawnTemplateKey))
+            if (def.OnHitAoeSpawnDefinition != null
+                && !IsDefault(def.OnHitAoeSpawnDefinition.SpawnTemplateKey))
             {
                 return new OnHitSpawnRef
                 {
-                    Kind = AoeVariant.AoeChildKindFor(onHitAoe.LifetimeSeconds),
-                    TemplateKey = onHitAoe.SpawnTemplateKey
+                    Kind = AoeVariant.AoeChildKindFor(def.OnHitAoeSpawnDefinition.LifetimeSeconds),
+                    TemplateKey = def.OnHitAoeSpawnDefinition.SpawnTemplateKey
                 };
             }
 
@@ -1454,12 +1450,10 @@ namespace PlayGround.Skills
 
         public static AoeSpawnCommand BuildAoeTemplate(
             RuntimeAoeDefinition child,
-            int echoCount,
             CombatRoot root,
             StackEffectSnapshot stackEffect,
             OnHitSpawnRef onHitSpawn = default,
-            TimedSpawnComponent timedSpawn = default,
-            float? scatterRadiusOverride = null)
+            TimedSpawnComponent timedSpawn = default)
         {
             AoeSpawnGeometry geometry = child.CreateSpawnGeometry();
             bool hasTimedSpawner = IsTimedSpawnEnabled(timedSpawn);
@@ -1501,8 +1495,8 @@ namespace PlayGround.Skills
                 RotationRadians = geometry.RotationRadians,
                 HalfExtents = new Unity.Mathematics.float2(geometry.HalfExtents.x, geometry.HalfExtents.y),
                 ShapeType = geometry.ShapeType,
-                EchoCount = Mathf.Max(1, echoCount),
-                ScatterRadius = Mathf.Max(0f, scatterRadiusOverride ?? child.ScatterRadius),
+                EchoCount = Mathf.Max(1, child.EchoCount),
+                ScatterRadius = Mathf.Max(0f, child.ScatterRadius),
                 Render = render,
                 Authoring = authoring,
                 OnHitSpawn = onHitSpawn,

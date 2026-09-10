@@ -66,72 +66,12 @@ namespace PlayGround.Skills
                 {
                     ApplyIntervalSpawn(runtime, intervalTrigger, nodes, targetNodeIndex, snapshot);
                 }
-                else if (link is OnImpactAoeTrigger)
+                else if (link is OnHitTrigger)
                 {
                     RuntimeSkillDefinition compiledTarget = CompileInternal(
                         nodes, targetNodeIndex, snapshot, includeTriggeredManaCosts: false);
-                    if (compiledTarget is RuntimeAoeDefinition aoeTarget)
-                    {
-                        if (runtime is RuntimeProjectileDefinition projDef)
-                        {
-                            projDef.ImpactAoeDefinition = aoeTarget;
-                            ApplyIncomingTriggerManaCostMultiplier(aoeTarget, link);
-                        }
-                        else if (runtime is RuntimeAoeDefinition sourceAoeDef)
-                        {
-                            sourceAoeDef.OnHitAoeSpawnDefinition = aoeTarget;
-                            ApplyIncomingTriggerManaCostMultiplier(aoeTarget, link);
-                        }
-                    }
-                }
-                else if (link is OnImpactTargetedTrigger)
-                {
-                    RuntimeSkillDefinition compiledTarget = CompileInternal(
-                        nodes, targetNodeIndex, snapshot, includeTriggeredManaCosts: false);
-                    if (compiledTarget is RuntimeTargetedDefinition targetedTarget)
-                    {
-                        if (runtime is RuntimeProjectileDefinition projectileSource)
-                        {
-                            projectileSource.ImpactTargetedDefinition = targetedTarget;
-                            ApplyIncomingTriggerManaCostMultiplier(targetedTarget, link);
-                        }
-                        else if (runtime is RuntimeAoeDefinition aoeSource)
-                        {
-                            aoeSource.OnHitTargetedSpawnDefinition = targetedTarget;
-                            ApplyIncomingTriggerManaCostMultiplier(targetedTarget, link);
-                        }
-                    }
-                }
-                else if (link is OnImpactProjectileTrigger impactProjTrigger)
-                {
-                    RuntimeSkillDefinition compiledTarget = CompileInternal(
-                        nodes, targetNodeIndex, snapshot, includeTriggeredManaCosts: false);
-                    if (compiledTarget is RuntimeProjectileDefinition impactProjDef)
-                    {
-                        impactProjDef.Count = Mathf.Max(1, impactProjDef.Count + impactProjTrigger.spawnCount);
-                        impactProjDef.SpreadDegrees = impactProjTrigger.spreadDegrees;
-
-                        if (runtime is RuntimeProjectileDefinition projDef)
-                        {
-                            projDef.ImpactProjectileDefinition = impactProjDef;
-                            ApplyIncomingTriggerManaCostMultiplier(impactProjDef, link);
-                        }
-                        else if (runtime is RuntimeAoeDefinition aoeSourceDef)
-                        {
-                            aoeSourceDef.OnHitProjectileSpawnDefinition = impactProjDef;
-                            ApplyIncomingTriggerManaCostMultiplier(impactProjDef, link);
-                        }
-                    }
-                }
-                else if (link is OnAoeHitSpawnTrigger)
-                {
-                    RuntimeSkillDefinition compiledTarget = CompileInternal(
-                        nodes, targetNodeIndex, snapshot, includeTriggeredManaCosts: false);
-                    if (runtime is RuntimeAoeDefinition aoeDef)
-                    {
-                        aoeDef.OnHitAoeSpawnDefinition = compiledTarget;
+                    if (AttachOnHitTarget(runtime, compiledTarget))
                         ApplyIncomingTriggerManaCostMultiplier(compiledTarget, link);
-                    }
                 }
                 else if (link is StackTrigger stackTrigger)
                 {
@@ -443,9 +383,9 @@ namespace PlayGround.Skills
                         EnergyPerSecond = trigger.ResolveEnergyPerSecond(snapshot),
                         EnergyThreshold = trigger.ManaToEnergyCost(childDef.ManaCost),
                         Behavior = new ProjectileChildSpawnBehavior(
-                            Mathf.Max(1, childDef.Count + trigger.projectileCount),
+                            childDef.Count,
                             ProjectileChildSpawnPatternType.SideSpray,
-                            trigger.sideSpreadDegrees),
+                            childDef.SpreadDegrees),
                     };
                     if (parent is RuntimeProjectileDefinition projectileParent)
                         projectileParent.ChildSpawnSetup = setup;
@@ -463,8 +403,6 @@ namespace PlayGround.Skills
                         ChildDefinition = childDef,
                         EnergyPerSecond = trigger.ResolveEnergyPerSecond(snapshot),
                         EnergyThreshold = trigger.ManaToEnergyCost(childDef.ManaCost),
-                        Count = Mathf.Max(1, childDef.EchoCount + trigger.echoCount),
-                        ScatterRadius = Mathf.Max(0f, trigger.scatterRadius),
                     };
                     if (parent is RuntimeProjectileDefinition projectileParent)
                         projectileParent.AoeIntervalSpawnSetup = setup;
@@ -482,7 +420,6 @@ namespace PlayGround.Skills
                         ChildDefinition = childDef,
                         EnergyPerSecond = trigger.ResolveEnergyPerSecond(snapshot),
                         EnergyThreshold = trigger.ManaToEnergyCost(childDef.ManaCost),
-                        EchoCount = Mathf.Max(1, childDef.EchoCount + trigger.echoCount),
                     };
                     if (parent is RuntimeProjectileDefinition projectileParent)
                         projectileParent.TargetedIntervalSpawnSetup = setup;
@@ -492,6 +429,66 @@ namespace PlayGround.Skills
                     break;
                 }
             }
+        }
+
+        // Selects on-hit field from compiled source and target types. False means
+        // pair has no runtime slot, so caller must not stamp incoming mana cost.
+        private static bool AttachOnHitTarget(
+            RuntimeSkillDefinition source,
+            RuntimeSkillDefinition target)
+        {
+            if (target is RuntimeProjectileDefinition projectileTarget)
+            {
+                if (source is RuntimeProjectileDefinition projectileSource)
+                {
+                    projectileSource.ImpactProjectileDefinition = projectileTarget;
+                    return true;
+                }
+
+                if (source is RuntimeAoeDefinition aoeSource)
+                {
+                    aoeSource.OnHitProjectileSpawnDefinition = projectileTarget;
+                    return true;
+                }
+
+                return false;
+            }
+
+            if (target is RuntimeAoeDefinition aoeTarget)
+            {
+                if (source is RuntimeProjectileDefinition projectileSource)
+                {
+                    projectileSource.ImpactAoeDefinition = aoeTarget;
+                    return true;
+                }
+
+                if (source is RuntimeAoeDefinition aoeSource)
+                {
+                    aoeSource.OnHitAoeSpawnDefinition = aoeTarget;
+                    return true;
+                }
+
+                return false;
+            }
+
+            if (target is RuntimeTargetedDefinition targetedTarget)
+            {
+                if (source is RuntimeProjectileDefinition projectileSource)
+                {
+                    projectileSource.ImpactTargetedDefinition = targetedTarget;
+                    return true;
+                }
+
+                if (source is RuntimeAoeDefinition aoeSource)
+                {
+                    aoeSource.OnHitTargetedSpawnDefinition = targetedTarget;
+                    return true;
+                }
+
+                return false;
+            }
+
+            return false;
         }
 
         // Follow the compiled trigger tree after every link has been validated and

@@ -69,6 +69,32 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void CompilerLeavesIntervalChildBurstToTheChildSet()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Child Projectile Skill");
+            var targetDefinition = (ProjectileDefinition)targetSkill.Definition;
+            targetDefinition.count = 3;
+            targetDefinition.spreadDegrees = 45f;
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
+            IntervalSpawnTrigger trigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(sourceSet, trigger),
+                    new SkillLoadoutNode(targetSet),
+                },
+                0,
+                SkillStatSnapshot.Identity);
+
+            RuntimeChildSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).ChildSpawnSetup;
+            Assert.That(setup.Behavior.Count, Is.EqualTo(3));
+            Assert.That(setup.Behavior.SpreadDegrees, Is.EqualTo(45f));
+        }
+
+        [Test]
         public void CompilerAddsTriggeredManaCostToActiveSkill()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
@@ -77,7 +103,7 @@ namespace PlayGround.Tests.EditMode
             ((AoeDefinitionBase)targetSkill.Definition).manaCost = 3f;
             SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
-            OnImpactAoeTrigger trigger = CreateAsset<OnImpactAoeTrigger>("On Impact AOE");
+            OnHitTrigger trigger = CreateAsset<OnHitTrigger>("On Hit");
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
                 new[]
@@ -104,8 +130,8 @@ namespace PlayGround.Tests.EditMode
             SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
             SkillSet middleSet = CreateSkillSet("AOE Set", middleSkill);
             SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
-            OnImpactAoeTrigger firstTrigger = CreateAsset<OnImpactAoeTrigger>("On Impact AOE");
-            OnImpactProjectileTrigger secondTrigger = CreateAsset<OnImpactProjectileTrigger>("On Impact Projectile");
+            OnHitTrigger firstTrigger = CreateAsset<OnHitTrigger>("On Hit");
+            OnHitTrigger secondTrigger = CreateAsset<OnHitTrigger>("On Hit");
             firstTrigger.manaCostMultiplier = 2f;
             secondTrigger.manaCostMultiplier = 5f;
 
@@ -240,7 +266,7 @@ namespace PlayGround.Tests.EditMode
             ((AoeDefinitionBase)targetSkill.Definition).manaCost = 4f;
             SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
-            OnImpactAoeTrigger trigger = CreateAsset<OnImpactAoeTrigger>("On Impact AOE");
+            OnHitTrigger trigger = CreateAsset<OnHitTrigger>("On Hit");
             trigger.manaCostMultiplier = 2f;
             trigger.manaCostIncreased = 1.5f;
 
@@ -322,8 +348,8 @@ namespace PlayGround.Tests.EditMode
             SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
             IntervalSpawnTrigger trigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
             trigger.energyPerSecond = 1.5f;
-            trigger.echoCount = 2;
             ((AoeDefinitionBase)targetSkill.Definition).manaCost = 3f;
+            ((AoeDefinitionBase)targetSkill.Definition).echoCount = 3;
             var nodes = new[]
             {
                 new SkillLoadoutNode(sourceSet, trigger),
@@ -339,7 +365,7 @@ namespace PlayGround.Tests.EditMode
             Assert.That(projectile.AoeIntervalSpawnSetup.ChildDefinition, Is.TypeOf<RuntimeAoeDefinition>());
             Assert.That(projectile.AoeIntervalSpawnSetup.EnergyPerSecond, Is.EqualTo(1.5f).Within(0.0001f));
             Assert.That(projectile.AoeIntervalSpawnSetup.EnergyThreshold, Is.EqualTo(3f).Within(0.0001f));
-            Assert.That(projectile.AoeIntervalSpawnSetup.Count, Is.EqualTo(3));
+            Assert.That(projectile.AoeIntervalSpawnSetup.ChildDefinition.EchoCount, Is.EqualTo(3));
         }
 
         [Test]
@@ -451,7 +477,7 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void CompilerPopulatesAoeIntervalScatterRadius()
+        public void CompilerLeavesAoeIntervalScatterRadiusToTheChildSet()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
             AoeSkill targetSkill = CreateAsset<AoeSkill>("AOE Skill");
@@ -459,7 +485,6 @@ namespace PlayGround.Tests.EditMode
             SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
             IntervalSpawnTrigger trigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
-            trigger.scatterRadius = 2f;
             var nodes = new[]
             {
                 new SkillLoadoutNode(sourceSet, trigger),
@@ -471,7 +496,7 @@ namespace PlayGround.Tests.EditMode
             Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
             RuntimeAoeIntervalSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).AoeIntervalSpawnSetup;
             Assert.That(setup, Is.Not.Null);
-            Assert.That(setup.ScatterRadius, Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(setup.ChildDefinition.ScatterRadius, Is.EqualTo(9f).Within(0.0001f));
         }
 
         [Test]
@@ -686,19 +711,72 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void ValidatorDoesNotWarnForProjectileToAoeImpactLink()
+        public void ValidatorDoesNotWarnForProjectileToAoeOnHitLink()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
             AoeSkill targetSkill = CreateAsset<AoeSkill>("Aoe Skill");
             SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
             SkillSet targetSet = CreateSkillSet("Aoe Set", targetSkill);
-            OnImpactAoeTrigger trigger = CreateAsset<OnImpactAoeTrigger>("Impact AOE");
+            OnHitTrigger trigger = CreateAsset<OnHitTrigger>("On Hit");
 
             SkillValidationWarning[] warnings = Validate(
                 new SkillLoadoutNode(sourceSet, trigger),
                 new SkillLoadoutNode(targetSet));
 
             Assert.That(warnings, Is.Empty);
+        }
+
+        [Test]
+        public void CompilerAttachesOnHitAoeSourceToProjectileTarget()
+        {
+            AoeSkill sourceSkill = CreateAsset<AoeSkill>("AOE Skill");
+            ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            SkillSet sourceSet = CreateSkillSet("AOE Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("Projectile Set", targetSkill);
+            OnHitTrigger trigger = CreateAsset<OnHitTrigger>("On Hit");
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(sourceSet, trigger),
+                    new SkillLoadoutNode(targetSet),
+                },
+                0,
+                SkillStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
+            Assert.That(((RuntimeAoeDefinition)runtime).OnHitProjectileSpawnDefinition, Is.Not.Null);
+        }
+
+        [Test]
+        public void CompilerLeavesOnHitProjectileTargetBurstToTheEffectSet()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Root Projectile Skill");
+            ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Effect Projectile Skill");
+            var targetDefinition = (ProjectileDefinition)targetSkill.Definition;
+            targetDefinition.count = 3;
+            targetDefinition.spreadDegrees = 45f;
+            SkillSet sourceSet = CreateSkillSet("Root Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("Effect Projectile Set", targetSkill);
+            OnHitTrigger trigger = CreateAsset<OnHitTrigger>("On Hit");
+
+            var onHitRuntime = (RuntimeProjectileDefinition)SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(sourceSet, trigger),
+                    new SkillLoadoutNode(targetSet),
+                },
+                0,
+                SkillStatSnapshot.Identity);
+            var rootRuntime = (RuntimeProjectileDefinition)SkillSetCompiler.Compile(
+                new[] { new SkillLoadoutNode(targetSet) },
+                0,
+                SkillStatSnapshot.Identity);
+
+            Assert.That(onHitRuntime.ImpactProjectileDefinition.Count, Is.EqualTo(3));
+            Assert.That(onHitRuntime.ImpactProjectileDefinition.SpreadDegrees, Is.EqualTo(45f));
+            Assert.That(onHitRuntime.ImpactProjectileDefinition.Count, Is.EqualTo(rootRuntime.Count));
+            Assert.That(onHitRuntime.ImpactProjectileDefinition.SpreadDegrees, Is.EqualTo(rootRuntime.SpreadDegrees));
         }
 
         [Test]
@@ -761,8 +839,8 @@ namespace PlayGround.Tests.EditMode
             SkillSet projectileApplicatorSet = CreateSkillSet("Applicator Projectile Set", projectileApplicatorSkill);
             SkillSet firstDetonationSet = CreateSkillSet("First Stack Detonation Set", detonationSkill);
             SkillSet secondDetonationSet = CreateSkillSet("Second Stack Detonation Set", detonationSkill);
-            OnImpactAoeTrigger impactAoeTrigger = CreateAsset<OnImpactAoeTrigger>("Impact AOE");
-            OnImpactProjectileTrigger impactProjectileTrigger = CreateAsset<OnImpactProjectileTrigger>("Impact Projectile");
+            OnHitTrigger impactAoeTrigger = CreateAsset<OnHitTrigger>("On Hit");
+            OnHitTrigger impactProjectileTrigger = CreateAsset<OnHitTrigger>("On Hit");
             StackTrigger firstStackTrigger = CreateAsset<StackTrigger>("First Stack Trigger");
             StackTrigger secondStackTrigger = CreateAsset<StackTrigger>("Second Stack Trigger");
             var nodes = new SkillLoadoutNode[]
@@ -847,8 +925,8 @@ namespace PlayGround.Tests.EditMode
             SkillSet previousSet = CreateAsset<SkillSet>("Previous Set");
             SkillSet clearedSet = CreateAsset<SkillSet>("Cleared Set");
             SkillSet nextSet = CreateAsset<SkillSet>("Next Set");
-            OnImpactAoeTrigger previousTrigger = CreateAsset<OnImpactAoeTrigger>("Previous Trigger");
-            OnImpactAoeTrigger nextTrigger = CreateAsset<OnImpactAoeTrigger>("Next Trigger");
+            OnHitTrigger previousTrigger = CreateAsset<OnHitTrigger>("Previous Trigger");
+            OnHitTrigger nextTrigger = CreateAsset<OnHitTrigger>("Next Trigger");
             SkillLoadout loadout = CreateLoadout(
                 "Loadout",
                 new SkillLoadoutNode(previousSet, previousTrigger),

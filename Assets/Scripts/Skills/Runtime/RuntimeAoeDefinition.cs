@@ -49,15 +49,15 @@ namespace PlayGround.Skills.Runtime
         // Compiled from TargetedIntervalSpawnTrigger on lingering AOEs; null if none.
         public RuntimeTargetedIntervalSpawnSetup TargetedIntervalSpawnSetup { get; set; }
 
-        // Compiled from OnAoeHitSpawnTrigger; null if none. Chain depth is bounded
-        // by SpawnTemplateLimits.MaxSpawnChainDepth.
-        public RuntimeSkillDefinition OnHitAoeSpawnDefinition { get; set; }
+        // Compiled from OnHitTrigger with an AOE effect; null if none. Chain depth is
+        // bounded by SpawnTemplateLimits.MaxSpawnChainDepth.
+        public RuntimeAoeDefinition OnHitAoeSpawnDefinition { get; set; }
 
-        // Compiled from OnImpactProjectileTrigger on an AOE source; null if none.
+        // Compiled from OnHitTrigger with a projectile effect; null if none.
         // Fires via the on-hit spawn template key when this AOE hits a target.
         public RuntimeProjectileDefinition OnHitProjectileSpawnDefinition { get; set; }
 
-        // Compiled from OnImpactTargetedTrigger; null if none.
+        // Compiled from OnHitTrigger with a targeted effect; null if none.
         public RuntimeTargetedDefinition OnHitTargetedSpawnDefinition { get; set; }
 
         // Compiled from StackTrigger; null if none.

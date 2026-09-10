@@ -207,12 +207,6 @@ namespace PlayGround.Skills
                 return;
             }
 
-            if (link is OnAoeHitSpawnTrigger)
-            {
-                ValidateAoeHitSpawnLink(link, slotIndex, causeSkill, effectSkill, warnings);
-                return;
-            }
-
             if (link is IntervalSpawnTrigger intervalTrigger
                 && effectSkill.Definition is TargetedDefinition targetedEffect)
             {
@@ -240,32 +234,6 @@ namespace PlayGround.Skills
                     $"Trigger '{link.name}' expects {SkillDefinitionTagUtility.Format(link.TargetSkillTags)} target, but target skill '{effectSkill.name}' is {SkillDefinitionTagUtility.Format(effectSkill.Tags)}. Link will do nothing.");
             }
         }
-
-        private static void ValidateAoeHitSpawnLink(
-            TriggerLink link,
-            int slotIndex,
-            Skill causeSkill,
-            Skill effectSkill,
-            List<SkillValidationWarning> warnings)
-        {
-            if (!CanSourceAoeHitSpawn(causeSkill.Definition))
-            {
-                AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerSource, slotIndex,
-                    $"Trigger '{link.name}' expects an AOE source, but source skill '{causeSkill.name}' is {SkillDefinitionTagUtility.Format(causeSkill.Tags)}. Link will do nothing.");
-            }
-
-            if (!CanTargetAoeHitSpawn(effectSkill.Definition))
-            {
-                AddWarning(warnings, SkillValidationWarningCode.UnsupportedTriggerTarget, slotIndex,
-                    $"Trigger '{link.name}' expects an AOE target, but target skill '{effectSkill.name}' is {SkillDefinitionTagUtility.Format(effectSkill.Tags)}. Link will do nothing.");
-            }
-        }
-
-        private static bool CanSourceAoeHitSpawn(SkillDefinition definition) =>
-            definition is AoeDefinitionBase;
-
-        private static bool CanTargetAoeHitSpawn(SkillDefinition definition) =>
-            definition is AoeDefinitionBase;
 
         private static void ValidateTargetedIntervalEnergyReachability(
             IntervalSpawnTrigger trigger,

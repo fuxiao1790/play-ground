@@ -374,10 +374,12 @@ namespace PlayGround.Tests.PlayMode
             BasicAttackPrefab childPrefab = CreateProjectilePrefab("ChildProjectileTemplate");
             ProjectileSkill rootSkillA = ScriptableObject.CreateInstance<ProjectileSkill>();
             ProjectileSkill rootSkillB = ScriptableObject.CreateInstance<ProjectileSkill>();
-            ProjectileSkill childSkill = ScriptableObject.CreateInstance<ProjectileSkill>();
+            ProjectileSkill childSkillA = ScriptableObject.CreateInstance<ProjectileSkill>();
+            ProjectileSkill childSkillB = ScriptableObject.CreateInstance<ProjectileSkill>();
             SkillSet rootSetA = ScriptableObject.CreateInstance<SkillSet>();
             SkillSet rootSetB = ScriptableObject.CreateInstance<SkillSet>();
-            SkillSet childSet = ScriptableObject.CreateInstance<SkillSet>();
+            SkillSet childSetA = ScriptableObject.CreateInstance<SkillSet>();
+            SkillSet childSetB = ScriptableObject.CreateInstance<SkillSet>();
             IntervalSpawnTrigger triggerA = ScriptableObject.CreateInstance<IntervalSpawnTrigger>();
             IntervalSpawnTrigger triggerB = ScriptableObject.CreateInstance<IntervalSpawnTrigger>();
             SkillLoadout loadout = ScriptableObject.CreateInstance<SkillLoadout>();
@@ -387,25 +389,26 @@ namespace PlayGround.Tests.PlayMode
 
             ConfigureProjectile(rootSkillA, rootPrefab, damage: 0f);
             ConfigureProjectile(rootSkillB, rootPrefab, damage: 0f);
-            ConfigureProjectile(childSkill, childPrefab, damage: 3f);
+            ConfigureProjectile(childSkillA, childPrefab, damage: 3f);
+            ConfigureProjectile(childSkillB, childPrefab, damage: 3f);
             triggerA.energyPerSecond = 4f;
             triggerB.energyPerSecond = 4f;
-            triggerA.projectileCount = 1;
-            triggerB.projectileCount = 1;
             SetField(rootSetA, "skill", rootSkillA);
             SetField(rootSetA, "supports", global::System.Array.Empty<SkillSupport>());
             SetField(rootSetB, "skill", rootSkillB);
             SetField(rootSetB, "supports", global::System.Array.Empty<SkillSupport>());
-            SetField(childSet, "skill", childSkill);
-            SetField(childSet, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(childSetA, "skill", childSkillA);
+            SetField(childSetA, "supports", global::System.Array.Empty<SkillSupport>());
+            SetField(childSetB, "skill", childSkillB);
+            SetField(childSetB, "supports", global::System.Array.Empty<SkillSupport>());
             SetField(loadout, "slots", new global::System.Collections.Generic.List<LoadoutSlot>
             {
                 new SkillSetSlot { skillSet = rootSetA },
                 new TriggerLinkSlot { link = triggerA },
-                new SkillSetSlot { skillSet = childSet },
+                new SkillSetSlot { skillSet = childSetA },
                 new SkillSetSlot { skillSet = rootSetB },
                 new TriggerLinkSlot { link = triggerB },
-                new SkillSetSlot { skillSet = childSet },
+                new SkillSetSlot { skillSet = childSetB },
             });
             SetField(driver, "loadout", loadout);
             SetField(driver, "combatRoot", root);
@@ -424,7 +427,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(registry.Map.ContainsKey(firstSetup.TemplateKey), Is.True);
             Assert.That(registry.Map.Count, Is.LessThanOrEqualTo(projectileStartCount + 2));
 
-            triggerB.projectileCount = 2;
+            ((ProjectileDefinition)childSkillB.Definition).count = 2;
             CompileAndRegister(driver);
             first = (RuntimeProjectileDefinition)CompiledRuntime(driver, 0);
             second = (RuntimeProjectileDefinition)CompiledRuntime(driver, 1);
@@ -437,7 +440,7 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(registry.Map.ContainsKey(changedCountKey), Is.True);
             Assert.That(registry.Map.Count, Is.LessThanOrEqualTo(projectileStartCount + 3));
 
-            triggerB.projectileCount = 1;
+            ((ProjectileDefinition)childSkillB.Definition).count = 1;
             CompileAndRegister(driver);
             second = (RuntimeProjectileDefinition)CompiledRuntime(driver, 1);
 
@@ -447,10 +450,12 @@ namespace PlayGround.Tests.PlayMode
             CleanupObjects(
                 rootSkillA,
                 rootSkillB,
-                childSkill,
+                childSkillA,
+                childSkillB,
                 rootSetA,
                 rootSetB,
-                childSet,
+                childSetA,
+                childSetB,
                 triggerA,
                 triggerB,
                 loadout);
@@ -485,9 +490,9 @@ namespace PlayGround.Tests.PlayMode
             ConfigureLingeringAoe(circleSkill, circlePrefab, damage: 1f, lifetime: 1f);
             ConfigureProjectile(childSkill, childPrefab, damage: 2f);
             circleTrigger.energyPerSecond = 4f;
-            circleTrigger.echoCount = 1;
             childTrigger.energyPerSecond = 4f;
-            childTrigger.projectileCount = 2;
+            ((AoeDefinitionBase)circleSkill.Definition).echoCount = 2;
+            ((ProjectileDefinition)childSkill.Definition).count = 3;
             SetField(rootSet, "skill", rootSkill);
             SetField(rootSet, "supports", global::System.Array.Empty<SkillSupport>());
             SetField(circleSet, "skill", circleSkill);
@@ -559,9 +564,9 @@ namespace PlayGround.Tests.PlayMode
             ConfigureProjectile(projectileChildSkill, projectileChildPrefab, damage: 1f);
             ConfigureAoe(aoeChildSkill, aoeChildPrefab, damage: 1f);
             projectileTrigger.energyPerSecond = 50f;
-            projectileTrigger.projectileCount = 1;
             aoeTrigger.energyPerSecond = 50f;
-            aoeTrigger.echoCount = 1;
+            ((ProjectileDefinition)projectileChildSkill.Definition).count = 2;
+            ((AoeDefinitionBase)aoeChildSkill.Definition).echoCount = 2;
             SetField(projectileSourceSet, "skill", projectileSourceSkill);
             SetField(projectileSourceSet, "supports", global::System.Array.Empty<SkillSupport>());
             SetField(aoeSourceSet, "skill", aoeSourceSkill);
@@ -709,7 +714,7 @@ namespace PlayGround.Tests.PlayMode
             SkillSet rootSet = ScriptableObject.CreateInstance<SkillSet>();
             SkillSet applicatorSet = ScriptableObject.CreateInstance<SkillSet>();
             SkillSet detonationSet = ScriptableObject.CreateInstance<SkillSet>();
-            OnImpactAoeTrigger impactTrigger = ScriptableObject.CreateInstance<OnImpactAoeTrigger>();
+            OnHitTrigger impactTrigger = ScriptableObject.CreateInstance<OnHitTrigger>();
             StackTrigger stackTrigger = ScriptableObject.CreateInstance<StackTrigger>();
             SkillLoadout loadout = ScriptableObject.CreateInstance<SkillLoadout>();
             GameObject driverObject = new("SkillDriverHarness");

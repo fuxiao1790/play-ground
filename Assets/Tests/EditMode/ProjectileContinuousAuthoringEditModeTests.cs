@@ -125,7 +125,6 @@ namespace PlayGround.Tests.EditMode
             ProjectileSkill intervalRootSkill = CreateProjectileSkill(prefab, continuous: false);
             ProjectileSkill intervalChildSkill = CreateProjectileSkill(prefab, continuous: true);
             IntervalSpawnTrigger interval = CreateAsset<IntervalSpawnTrigger>();
-            interval.projectileCount = 1;
             RuntimeProjectileDefinition intervalRoot = CompileProjectile(
                 CreateSkillSet(intervalRootSkill), interval, CreateSkillSet(intervalChildSkill));
 
@@ -133,7 +132,7 @@ namespace PlayGround.Tests.EditMode
             ProjectileSkill impactChildSkill = CreateProjectileSkill(prefab, continuous: true);
             RuntimeProjectileDefinition impactRoot = CompileProjectile(
                 CreateSkillSet(impactRootSkill),
-                CreateAsset<OnImpactProjectileTrigger>(),
+                CreateAsset<OnHitTrigger>(),
                 CreateSkillSet(impactChildSkill));
 
             ProjectileSkill stackRootSkill = CreateProjectileSkill(prefab, continuous: false);

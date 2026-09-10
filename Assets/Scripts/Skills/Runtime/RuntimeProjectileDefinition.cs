@@ -30,7 +30,6 @@ namespace PlayGround.Skills.Runtime
         public RuntimeTargetedDefinition ChildDefinition { get; set; }
         public float EnergyPerSecond { get; set; }
         public float EnergyThreshold { get; set; }
-        public int EchoCount { get; set; }
         public Hash128 TemplateKey { get; set; }
     }
 
@@ -40,9 +39,6 @@ namespace PlayGround.Skills.Runtime
         public RuntimeAoeDefinition ChildDefinition { get; set; }
         public float EnergyPerSecond { get; set; }
         public float EnergyThreshold { get; set; }
-        // Per-tick burst count; maps to the child AOE echo count when building templates.
-        public int Count { get; set; }
-        public float ScatterRadius { get; set; }
         public Hash128 TemplateKey { get; set; }
     }
 
@@ -73,13 +69,13 @@ namespace PlayGround.Skills.Runtime
         // Compiled from TargetedIntervalSpawnTrigger; null if none.
         public RuntimeTargetedIntervalSpawnSetup TargetedIntervalSpawnSetup { get; set; }
 
-        // Compiled from OnImpactAoeTrigger; null if none.
+        // Compiled from OnHitTrigger with an AOE effect; null if none.
         public RuntimeAoeDefinition ImpactAoeDefinition { get; set; }
 
-        // Compiled from OnImpactTargetedTrigger; null if none.
+        // Compiled from OnHitTrigger with a targeted effect; null if none.
         public RuntimeTargetedDefinition ImpactTargetedDefinition { get; set; }
 
-        // Compiled from OnImpactProjectileTrigger; null if none.
+        // Compiled from OnHitTrigger with a projectile effect; null if none.
         public RuntimeProjectileDefinition ImpactProjectileDefinition { get; set; }
 
         // Compiled from StackTrigger; null if none.

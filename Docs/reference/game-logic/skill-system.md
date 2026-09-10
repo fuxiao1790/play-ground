@@ -479,10 +479,10 @@ A `SkillSetSlot` is a **root** (fired by player input) if its skill set does not
 appear as an `effect` in any parsed chain. All other skill sets are triggered.
 
 ```
-slots: [SetA | ProjectileIntervalSpawn | SetB | OnImpactAoe | SetC]
+slots: [SetA | ProjectileIntervalSpawn | SetB | OnHit | SetC]
 
 chains:  SetA 鈫?ProjectileIntervalSpawn 鈫?SetB
-         SetB 鈫?OnImpactAoe 鈫?SetC
+         SetB 鈫?OnHit 鈫?SetC
 
 effects: {SetB, SetC}
 roots:   {SetA}         鈫?SetA is the only player-input slot
@@ -490,11 +490,15 @@ roots:   {SetA}         鈫?SetA is the only player-input slot
 
 ### Trigger Types
 
-`TriggerLink` is abstract with no fields. The cause/effect relationship is
-implicit from slot position, not stored on the link.
+`TriggerLink` owns link UI and mana-cost factors. A trigger says **when** an
+effect fires; the effect skill set says **what** fires; `TriggerLink` prices
+the link. The cause/effect relationship is implicit from slot position, not
+stored on the link.
 
 ```csharp
-abstract class TriggerLink { }
+abstract class TriggerLink {
+    // UI fields, manaCostMultiplier, manaCostIncreased
+}
 ```
 
 **IntervalSpawnTrigger**
@@ -505,17 +509,13 @@ effect shape:
 
 ```csharp
 class IntervalSpawnTrigger : TriggerLink {
-    int projectileCount;
-    float sideSpreadDegrees;
-    int echoCount;
-    float scatterRadius;
+    float energyPerSecond;
 }
 ```
 
-`projectileCount` and `sideSpreadDegrees` apply only when the compiled effect is
-a projectile. `echoCount` and `scatterRadius` apply only when it is an AOE;
-`echoCount` also applies when it is targeted. Fields not used by the compiled
-effect are inert.
+The child skill set owns projectile count/spread, AOE echo count/scatter, and
+targeted echo count. Its definition and supports resolve these values before
+the interval setup is built.
 
 `SourceSkillTags = Interval`. `SkillDefinitionTags.Interval` marks skill shapes
 with a duration that can accrue energy: `ProjectileSkill` and
@@ -540,6 +540,11 @@ Energy-driven source/child support:
 
 A targeted chain is never an interval **source**: it has no duration of its own
 to accrue energy over. It is only ever a child.
+
+For a targeted effect, `IntervalSpawnTrigger` starts targeted-chain children
+whenever it reaches the child cost. **This is how a chain repeats over time** —
+the targeted definition itself has no tick interval. The child definition's own
+`echoCount`, floored to one during compilation, is the number of chains.
 
 `IntervalSpawnTrigger` carries `energyPerSecond` and inherits mana-cost fields
 from `TriggerLink`. The child
@@ -573,24 +578,16 @@ threshold, the system emits a child event and consumes that fixed threshold.
 Thresholds are floored positive, each update emits at most 256 children, and a
 runtime rate at or below zero emits none.
 
-`projectileCount` and the two `echoCount` fields (AOE and targeted) are
-**additive** with the effect set's own multiplicity. For projectile children this
-means `childDefinition.Count + projectileCount`, floored to `1`. For AOE and
-targeted children it means `childDefinition.EchoCount + echoCount`, floored to
-`1`. These are the only additive timed-child multiplicity fields.
-
-Timed-child burst geometry is authoritative on the trigger. `sideSpreadDegrees`
-on `IntervalSpawnTrigger` defines the projectile burst spread; the
-child projectile skill's own spread is not applied to energy-spawned copies.
-`scatterRadius` on `IntervalSpawnTrigger` defines the AOE echo scatter
-radius; the child AOE skill's own `ScatterRadius` is not applied to
-energy-spawned copies.
+Timed children use exactly the child set's compiled attributes: projectile
+`count` and `spreadDegrees`, AOE `echoCount` and `scatterRadius`, and targeted
+`echoCount`. `MultipleProjectilesSupport`, `MultipleAoesSupport`, and
+`MultipleChainsSupport` apply before those values are compiled.
 
 Directionality defaults:
 
 - projectile child from any source: `SideSpray` — half the shots fan left of a
   forward direction and half fan right. Each shot's angle is randomized within
-  `+/-sideSpreadDegrees/2` of that side's perpendicular line (i.e. the line 90
+  `+/-child spreadDegrees/2` of that side's perpendicular line (i.e. the line 90
   degrees from forward) — not around forward itself. For a *moving* source
   (non-zero velocity) forward is the source's travel direction; for a
   *stationary* source (zero velocity, e.g. most AOEs) there is no inherent
@@ -599,45 +596,36 @@ Directionality defaults:
   energy tick, so no two waves and no two spawners roll the same shots.
 - AOE child from any source: spawned around the source center. Echo copies fan
   through `AOE spawn expansion systems`; each copy is placed in a deterministic
-  random disk within the trigger `scatterRadius` around the center. With
-  `scatterRadius = 0`, echo copies overlap at the center.
+  random disk within the child AOE's `AoeDefinition.scatterRadius` around the center. With
+  `AoeDefinition.scatterRadius = 0`, echo copies overlap at the center.
 
-**OnImpactAoeTrigger**
+**OnHitTrigger**
 
-Fires the effect set as an AOE when the cause skill hits. The cause may be a
-projectile or an AOE; the effect must compile to a `RuntimeAoeDefinition`. For a
-projectile source the AOE is centered at the impact point and compiles into
-`RuntimeProjectileDefinition.ImpactAoeDefinition`. For an AOE source it fires on
-the AOE's hit and compiles into `RuntimeAoeDefinition.OnHitAoeSpawnDefinition`
-(the same field as `OnAoeHitSpawnTrigger`).
+Fires the effect set when the cause skill hits. The trigger carries no effect
+attributes; compiled source and effect types select the runtime field.
 
-```csharp
-class OnImpactAoeTrigger : TriggerLink { }
-```
-
-Compatible tags: source `Projectile` or `Aoe`, target `Aoe`.
-
-For a targeted effect, `IntervalSpawnTrigger` starts targeted-chain children
-whenever it reaches the child cost. **This is how a chain repeats over time** —
-the targeted definition itself has no tick interval. `echoCount` is additive
-with the child targeted definition's `echoCount`, floored to one.
-
-**OnImpactTargetedTrigger**
-
-Fires a targeted child when a projectile or AOE accepts a hit. The child starts
-at the impact position and uses that position as its acquisition anchor. The
-effect must compile to a `RuntimeTargetedDefinition`.
+| Source | Projectile effect | AOE effect | Targeted effect |
+|---|---|---|---|
+| `RuntimeProjectileDefinition` | `ImpactProjectileDefinition` | `ImpactAoeDefinition` | `ImpactTargetedDefinition` |
+| `RuntimeAoeDefinition` | `OnHitProjectileSpawnDefinition` | `OnHitAoeSpawnDefinition` (`RuntimeAoeDefinition`) | `OnHitTargetedSpawnDefinition` |
 
 ```csharp
-class OnImpactTargetedTrigger : TriggerLink { }
+class OnHitTrigger : TriggerLink { }
 ```
 
-Compatible tags: source `Projectile` or `Aoe`, target `Targeted`.
+Compatible tags: source `Projectile` or `Aoe`; target `Projectile`, `Aoe`, or
+`Targeted`. Targeted-as-source remains unwired even though
+`RuntimeTargetedDefinition` declares on-hit fields.
 
-**OnImpactProjectileTrigger**
+For an AOE effect, projectile sources center it at the impact point and store
+it in `RuntimeProjectileDefinition.ImpactAoeDefinition`; AOE sources fire it on
+their hit and store it in `RuntimeAoeDefinition.OnHitAoeSpawnDefinition`.
 
-Fires the effect set as a burst of projectiles when the cause skill hits. The
-cause may be a projectile or an AOE; the effect must compile to a
+For a targeted effect, the child starts at the impact position and uses that
+position as its acquisition anchor.
+
+For a projectile effect, the trigger fires the effect set as a burst when the
+cause skill hits. The cause may be a projectile or an AOE; the effect must compile to a
 `RuntimeProjectileDefinition`. For a projectile source the burst originates at
 the impact point aimed back from impact, and compiles into
 `RuntimeProjectileDefinition.ImpactProjectileDefinition`. For an AOE source the
@@ -645,19 +633,9 @@ burst fires on each AOE hit and compiles into
 `RuntimeAoeDefinition.OnHitProjectileSpawnDefinition`, materialized as the
 `AoeProjectileBurstSnapshot` on the AOE's `AoeHitSpawnComponent`.
 
-```csharp
-class OnImpactProjectileTrigger : TriggerLink {
-    int spawnCount;
-    float spreadDegrees;
-}
-```
-
-Compatible tags: source `Projectile` or `Aoe`, target `Projectile`.
-`spawnCount` is **additive** with the effect set's own projectile count: the
-impact burst size is `effectDefinition.Count + spawnCount`, floored to `1`. A
-`spawnCount` of `0` means the effect set's own count alone determines the burst.
-`spreadDegrees` overrides the effect set's spread and fans the burst around the
-back-aimed impact direction. Proj鈫抪roj鈫抪roj nesting is not supported (a value-type
+The child set alone resolves burst `count` and `spreadDegrees`, including
+`MultipleProjectilesSupport`, exactly as when cast directly. The burst fans
+around the back-aimed impact direction. Proj鈫抪roj鈫抪roj nesting is not supported (a value-type
 struct cannot be recursive); a nested impact-projectile chain on the effect is
 dropped with a compile warning. From an AOE source the burst is a flat
 `AoeProjectileBurstSnapshot`, so the spawned projectile's own impact AOE/projectile
@@ -665,16 +643,6 @@ chains cannot fire and are dropped with a compile warning. Only top-level and
 interval-spawned AOEs carry the on-hit burst; an AOE reached via a projectile's
 impact-AOE or another AOE's on-hit spawn cannot (those snapshots have no burst
 slot).
-
-**OnAoeHitSpawnTrigger**
-
-Fires the effect set as an AOE when the source AOE hits a target.
-
-```csharp
-class OnAoeHitSpawnTrigger : TriggerLink { }
-```
-
-Compatible tags: source `Aoe`, target `Aoe`.
 
 **StackTrigger**
 
@@ -815,17 +783,16 @@ compile(SkillSet set, allChains, snapshot) -> RuntimeSkillDefinition:
                 RuntimeProjectileDefinition -> bake RuntimeChildSpawnSetup
                 RuntimeAoeDefinition -> bake RuntimeAoeIntervalSpawnSetup
                 RuntimeTargetedDefinition -> bake RuntimeTargetedIntervalSpawnSetup
-        if chain.link is OnImpactAoeTrigger:
-            compile chain.effect recursively -> RuntimeAoeDefinition
-            if runtime is projectile: set runtime.ImpactAoeDefinition
-            else if runtime is AOE:   set runtime.OnHitAoeSpawnDefinition
-        if chain.link is OnImpactProjectileTrigger:
-            compile chain.effect recursively -> RuntimeProjectileDefinition
-            if runtime is projectile: set runtime.ImpactProjectileDefinition
-            else if runtime is AOE:   set runtime.OnHitProjectileSpawnDefinition
-        if chain.link is OnAoeHitSpawnTrigger:
-            compile chain.effect recursively to RuntimeAoeDefinition
-            set runtime.OnHitAoeSpawnDefinition
+        if chain.link is OnHitTrigger:
+            compile chain.effect recursively
+            if runtime is projectile:
+                RuntimeProjectileDefinition -> set runtime.ImpactProjectileDefinition
+                RuntimeAoeDefinition -> set runtime.ImpactAoeDefinition
+                RuntimeTargetedDefinition -> set runtime.ImpactTargetedDefinition
+            else if runtime is AOE:
+                RuntimeProjectileDefinition -> set runtime.OnHitProjectileSpawnDefinition
+                RuntimeAoeDefinition -> set runtime.OnHitAoeSpawnDefinition
+                RuntimeTargetedDefinition -> set runtime.OnHitTargetedSpawnDefinition
         if chain.link is StackTrigger:
             compile chain.effect recursively to RuntimeStackingDetonation
             set runtime.StackingDetonation
@@ -915,8 +882,8 @@ flow through the canonical event -> expansion -> command -> apply path.
 
 `CombatRoot.RegisterTimedSpawnTemplate` hashes the stored event content and
 inserts only if the key is absent. Identical child behavior shares one registry
-entry; changing child template behavior such as `projectileCount`, `echoCount`, or
-`scatterRadius` creates a different key, and selecting a previous behavior
+entry; changing child template behavior such as `ProjectileDefinition.count`,
+`AoeDefinition.echoCount`, or `AoeDefinition.scatterRadius` creates a different key, and selecting a previous behavior
 reuses the previous key. Per-source energy rate, threshold, threshold jitter,
 and jitter seed are not part of the template hash because they belong to the
 individual energy config.
@@ -1010,15 +977,14 @@ Example:
 
 ```text
 [SkillSetSlot: SetA]
-[TriggerLinkSlot: OnImpactAoe]
+[TriggerLinkSlot: OnHit]
 [SkillSetSlot: SetB_Applicator]
 [TriggerLinkSlot: StackTrigger]
 [SkillSetSlot: StackSet_Detonation + StackingSupport]
 ```
 
 The applicator remains a plain `RuntimeProjectileDefinition` or
-`RuntimeAoeDefinition`, so it still composes with `ProjectileIntervalSpawn`,
-`AoeIntervalSpawn`, `OnImpactAoe`, `OnImpactProjectile`, and `OnAoeHitSpawn`.
+`RuntimeAoeDefinition`, so it still composes with `IntervalSpawn` and `OnHit`.
 Only `StackTrigger` consumes the
 stacking detonation runtime.
 
@@ -1043,7 +1009,7 @@ the detonation set and then wire the next applicator to its own stacking set:
 [SkillSetSlot: FirstApplicator]
 [TriggerLinkSlot: StackTrigger]
 [SkillSetSlot: FirstDetonation + StackingSupport]
-[TriggerLinkSlot: OnAoeHitSpawn]
+[TriggerLinkSlot: OnHit]
 [SkillSetSlot: SecondApplicator]
 [TriggerLinkSlot: StackTrigger]
 [SkillSetSlot: SecondDetonation + StackingSupport]
@@ -1071,13 +1037,13 @@ chain. The left skill is always the cause; the right skill is always the effect.
 
 **Skill with one trigger:**
 ```
-[SkillSetSlot: SetA] [TriggerLinkSlot: OnImpactAoe] [SkillSetSlot: SetB]
+[SkillSetSlot: SetA] [TriggerLinkSlot: OnHit] [SkillSetSlot: SetB]
 ```
 
 **Deep chain:**
 ```
 [SkillSetSlot: SetA] [TriggerLinkSlot: ProjectileIntervalSpawn] [SkillSetSlot: SetB]
-[SkillSetSlot: SetB] [TriggerLinkSlot: OnImpactAoe] [SkillSetSlot: SetC]
+[SkillSetSlot: SetB] [TriggerLinkSlot: OnHit] [SkillSetSlot: SetC]
 ```
 SetB appears as both effect (of SetA) and cause (for SetC). It is compiled as
 a triggered-only set 鈥?not player-input-driven.
@@ -1124,10 +1090,10 @@ Fires five piercing magic bullets spread across 40 degrees.
 
 ```
 Slots: [SetA: [MultipleProjectiles, Piercing] + MagicBullet]
-       [OnImpactAoe]
+       [OnHit]
        [SetB: ArcaneBurst]
 
-Parsed chain: SetA 鈫?OnImpactAoe 鈫?SetB
+Parsed chain: SetA 鈫?OnHit 鈫?SetB
 Root: SetA
 ```
 
@@ -1141,13 +1107,13 @@ SetA.
 
 ```
 Slots: [SetA: [MultipleProjectiles, Piercing] + MagicBullet]
-       [ProjectileIntervalSpawn(interval=0.2s, projectileCount=2, spread=45掳)]
+       [IntervalSpawn(energyPerSecond=2)]
        [SetB: MagicBullet]
-       [OnImpactAoe]
+       [OnHit]
        [SetC: ArcaneBurst]
 
 Parsed chains: SetA 鈫?ProjectileIntervalSpawn 鈫?SetB
-               SetB 鈫?OnImpactAoe 鈫?SetC
+               SetB 鈫?OnHit 鈫?SetC
 Effects: {SetB, SetC}
 Root: SetA
 ```
@@ -1168,13 +1134,13 @@ SetC's burst radius is its own authored value, unaffected by SetA or SetB.
 
 ```
 Slots: [SetA: MagicBullet]
-       [OnImpactAoe]
+       [OnHit]
        [SetB: VolatileApplicatorAoe]
        [StackTrigger]
        [SetC: VolatileDetonationAoe + StackingSupport]
 ```
 
-SetA releases SetB through a normal impact-AOE link. SetB remains a plain AOE
+SetA releases SetB through a normal on-hit link. SetB remains a plain AOE
 applicator, but `StackTrigger` bakes SetC's stack payload into SetB at compile
 time. When SetB hits a target, `HitApplyFinalizeSystem` adds stacks under SetC's
 minted debuff key. `StatusProcessSystem` handles the threshold detonation using
@@ -1219,7 +1185,7 @@ SkillSets it shares identity with.
 A SkillSet asset may appear as both cause and effect in the same chain:
 
 ```
-[SkillSetSlot: SetA] [TriggerLinkSlot: OnAoeHitSpawn] [SkillSetSlot: SetA]
+[SkillSetSlot: SetA] [TriggerLinkSlot: OnHit] [SkillSetSlot: SetA]
 ```
 
 This is valid. SOs are configuration templates, not instances. Each slot is always an
