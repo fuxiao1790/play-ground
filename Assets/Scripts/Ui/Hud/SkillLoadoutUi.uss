@@ -181,6 +181,18 @@
     margin-bottom: 6px;
 }
 
+/* AddChoice(): applied to the choice matching the target's current skill/support/trigger */
+.picker-choice--selected {
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-left-width: 2px;
+    border-top-color: rgb(255, 210, 90);
+    border-right-color: rgb(255, 210, 90);
+    border-bottom-color: rgb(255, 210, 90);
+    border-left-color: rgb(255, 210, 90);
+}
+
 /* #pause-background: visual dimmer + input shield while paused. C# toggles
    between these two classes and the element's PickingMode; USS only controls
    visibility. */

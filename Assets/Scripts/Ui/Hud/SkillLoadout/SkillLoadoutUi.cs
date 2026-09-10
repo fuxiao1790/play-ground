@@ -284,13 +284,14 @@ namespace PlayGround.Skills
             modal.Q<Label>("title").text = $"Select {target.Kind}";
             var choices = modal.Q<VisualElement>("choices");
             AddClear(choices);
+            UnityEngine.Object current = GetCurrentSelection(target);
             if (target.Kind == PickerKind.Skill)
             {
                 foreach (var skill in skillCatalog.Skills)
                 {
                     AddChoice(choices, skill.DisplayName,
                         new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetSkill,
-                            target.NodeIndex, skill: skill));
+                            target.NodeIndex, skill: skill), skill == current);
                 }
             }
             else if (target.Kind == PickerKind.Support)
@@ -303,7 +304,7 @@ namespace PlayGround.Skills
 
                     AddChoice(choices, support.DisplayName,
                         new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetSupport,
-                            target.NodeIndex, target.SupportIndex, support: support));
+                            target.NodeIndex, target.SupportIndex, support: support), support == current);
                 }
             }
             else
@@ -312,7 +313,7 @@ namespace PlayGround.Skills
                 {
                     AddChoice(choices, trigger.DisplayName,
                         new SkillLoadoutEditCommand(skillDriver.Revision, SkillLoadoutEditKind.SetTrigger,
-                            target.NodeIndex, trigger: trigger));
+                            target.NodeIndex, trigger: trigger), trigger == current);
                 }
             }
             modal.Q<Button>("cancel").clicked += ClosePicker;
@@ -321,17 +322,33 @@ namespace PlayGround.Skills
             pauseController.RegisterCancelHandler(this);
         }
 
+        private UnityEngine.Object GetCurrentSelection(PickerTarget target)
+        {
+            switch (target.Kind)
+            {
+                case PickerKind.Skill:
+                    return GetSkillSet(target.NodeIndex)?.Skill;
+                case PickerKind.Support:
+                    SkillSet set = GetSkillSet(target.NodeIndex);
+                    return set != null && target.SupportIndex < set.Supports.Length ? set.Supports[target.SupportIndex] : null;
+                default:
+                    var nodes = skillDriver.RuntimeNodes;
+                    return nodes != null && target.NodeIndex < nodes.Count ? nodes[target.NodeIndex]?.TriggerToNext : null;
+            }
+        }
+
         private void AddClear(VisualElement choices)
         {
             SkillLoadoutEditKind kind = pickerTarget.Kind == PickerKind.Skill ? SkillLoadoutEditKind.ClearSkill : pickerTarget.Kind == PickerKind.Support ? SkillLoadoutEditKind.ClearSupport : SkillLoadoutEditKind.ClearTrigger;
             AddChoice(choices, "Clear", new SkillLoadoutEditCommand(skillDriver.Revision, kind, pickerTarget.NodeIndex, pickerTarget.SupportIndex));
         }
 
-        private void AddChoice(VisualElement parent, string label, SkillLoadoutEditCommand command)
+        private void AddChoice(VisualElement parent, string label, SkillLoadoutEditCommand command, bool isSelected = false)
         {
             var choice = pickerChoiceTemplate.Instantiate().Q<Button>("choice");
             choice.text = string.IsNullOrWhiteSpace(label) ? "Unnamed" : label;
             choice.clicked += () => SubmitChoice(command);
+            if (isSelected) choice.AddToClassList("picker-choice--selected");
             parent.Add(choice);
         }
 

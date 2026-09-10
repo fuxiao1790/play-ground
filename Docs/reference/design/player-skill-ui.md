@@ -36,6 +36,10 @@ state after submit. It supports pointer selection, keyboard focus/navigation,
 scrolling, Escape, and backdrop cancel. Its commands use the latest displayed
 loadout revision.
 
+Opening the picker from an occupied slot highlights the choice matching that
+slot's current skill, support, or trigger. An empty slot has no current
+choice, so nothing is highlighted.
+
 ## Input And Time
 
 The picker never changes `Time.timeScale`. CPU simulation, ECS combat, and GPU
