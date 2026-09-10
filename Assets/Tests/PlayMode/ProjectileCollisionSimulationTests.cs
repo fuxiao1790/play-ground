@@ -465,6 +465,52 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void ImpactProjectileBurstUsesIntervalSideSpray()
+        {
+            const int ChildTypeId = 8;
+            const float Speed = 5f;
+            var childTemplate = new ProjectileSpawnCommand
+            {
+                TypeId = ChildTypeId,
+                Count = 4,
+                SpreadDegrees = 0f,
+                SpawnPatternType = ProjectileChildSpawnPatternType.SideSpray,
+                Speed = Speed,
+                BaseDirection = new float2(1f, 0f),
+                Radius = 0.5f,
+                ShapeType = CombatShapeType.Circle
+            };
+            var childKey = SpawnTemplateHash.Of(in childTemplate);
+            RegisterProjectileTemplate(childKey, childTemplate);
+
+            // The parent hits to its right. With a zero side spread, the child burst must
+            // travel straight up/down from the impact, rather than forward/backward.
+            AddTarget(new float2(1f, 0f), 0.25f);
+            CreateProjectile(
+                pierceRemaining: 0,
+                onHitSpawn: new OnHitSpawnRef { Kind = IntervalChildKind.Projectile, TemplateKey = childKey });
+
+            TickSimulationOnly(0.01f);
+
+            float2[] velocities = ProjectileVelocitiesByTypeId(ChildTypeId);
+            Assert.That(velocities.Length, Is.EqualTo(4));
+            int upward = 0;
+            int downward = 0;
+            for (int i = 0; i < velocities.Length; i++)
+            {
+                Assert.That(math.abs(velocities[i].x), Is.LessThan(0.0001f));
+                Assert.That(math.abs(math.abs(velocities[i].y) - Speed), Is.LessThan(0.0001f));
+                if (velocities[i].y > 0f)
+                    upward++;
+                else
+                    downward++;
+            }
+
+            Assert.That(upward, Is.EqualTo(2));
+            Assert.That(downward, Is.EqualTo(2));
+        }
+
+        [Test]
         public void ImpactSpawnContactGateSeedPreventsChildFromHittingSpawnTarget()
         {
             const int ChildTypeId = 9;

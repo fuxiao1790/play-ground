@@ -214,6 +214,9 @@ namespace PlayGround.System.Combat.Aoes
                         AimDirection = DirectionFromTo(targetPosition.Value, kinematics.Position),
                         SourceId = baseId,
                         JitterSeed = (uint)baseId * 2654435761u,
+                        // Match projectile-source on-hit bursts: select the side-spray
+                        // expansion path with an impact-unique source id.
+                        DeterministicIdTickIndex = 1,
                         ContactGateSeedTargetId = targetKey
                     });
                     break;

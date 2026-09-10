@@ -637,7 +637,13 @@ The child set alone resolves burst `count` and `spreadDegrees`, including
 `MultipleProjectilesSupport`, exactly as when cast directly. The burst fans
 around the back-aimed impact direction. Proj鈫抪roj鈫抪roj nesting is not supported (a value-type
 struct cannot be recursive); a nested impact-projectile chain on the effect is
-dropped with a compile warning. From an AOE source the burst is a flat
+dropped with a compile warning.
+
+Projectile on-hit bursts use the same `SideSpray` pattern as interval projectile
+children: shots alternate to either side of the back-aimed impact direction and
+use the child's spread. Each impact has its own deterministic seed.
+
+From an AOE source the burst is a flat
 `AoeProjectileBurstSnapshot`, so the spawned projectile's own impact AOE/projectile
 chains cannot fire and are dropped with a compile warning. Only top-level and
 interval-spawned AOEs carry the on-hit burst; an AOE reached via a projectile's

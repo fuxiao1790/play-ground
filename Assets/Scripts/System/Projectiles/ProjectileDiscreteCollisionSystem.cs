@@ -353,6 +353,10 @@ namespace PlayGround.System.Combat.Projectiles
                         AimDirection = DirectionFromTo(impactPosition, targetPosition, invert: true),
                         SourceId = baseId,
                         JitterSeed = (uint)baseId * 2654435761u,
+                        // On-hit projectile children use the same side-spray expansion as
+                        // interval children. The hashed impact source id keeps this one-shot
+                        // burst distinct, so the constant pattern tick is sufficient.
+                        DeterministicIdTickIndex = 1,
                         ContactGateSeedTargetId = targetKey
                     });
                     break;

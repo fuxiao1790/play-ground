@@ -14,6 +14,7 @@ Blocked — awaiting user Unity Editor asset/catalog migration.
 | 004-asset-and-catalog-migration.md | Blocked | User-performed Unity Editor work; no `.asset` or `.meta` YAML may be hand-edited. |
 | 005-doc-updates.md | Complete | Unified on-hit and interval ownership documentation; legacy trigger-name searches pass. |
 | 006-interval-trigger-attribute-removal.md | Complete | Removed interval overrides/setups and migrated affected EditMode/PlayMode tests. |
+| Follow-up: on-hit projectile nova parity | Complete | On-hit projectile bursts now use interval side-spray templates and expansion; added collision-pipeline regression coverage. |
 
 ## Completed Tasks
 

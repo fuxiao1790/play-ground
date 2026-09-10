@@ -738,7 +738,12 @@ namespace PlayGround.Skills
                 if (aoeDef.OnHitTargetedSpawnDefinition != null)
                     RegisterSpawnTemplatesRecursive(aoeDef.OnHitTargetedSpawnDefinition, depth + 1, warnings, slotIndex);
                 if (aoeDef.OnHitProjectileSpawnDefinition != null)
-                    RegisterSpawnTemplatesRecursive(aoeDef.OnHitProjectileSpawnDefinition, depth + 1, warnings, slotIndex);
+                    RegisterSpawnTemplatesRecursive(
+                        aoeDef.OnHitProjectileSpawnDefinition,
+                        depth + 1,
+                        warnings,
+                        slotIndex,
+                        ProjectileChildSpawnPatternType.SideSpray);
                 if (aoeDef.StackingDetonation != null)
                     RegisterSpawnTemplatesRecursive(aoeDef.StackingDetonation, depth + 1, warnings, slotIndex);
 
@@ -841,7 +846,12 @@ namespace PlayGround.Skills
                 if (projDef.ImpactTargetedDefinition != null)
                     RegisterSpawnTemplatesRecursive(projDef.ImpactTargetedDefinition, depth + 1, warnings, slotIndex);
                 if (projDef.ImpactProjectileDefinition != null)
-                    RegisterSpawnTemplatesRecursive(projDef.ImpactProjectileDefinition, depth + 1, warnings, slotIndex);
+                    RegisterSpawnTemplatesRecursive(
+                        projDef.ImpactProjectileDefinition,
+                        depth + 1,
+                        warnings,
+                        slotIndex,
+                        ProjectileChildSpawnPatternType.SideSpray);
                 if (projDef.StackingDetonation != null)
                     RegisterSpawnTemplatesRecursive(projDef.StackingDetonation, depth + 1, warnings, slotIndex);
 
