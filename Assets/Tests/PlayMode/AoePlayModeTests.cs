@@ -706,7 +706,6 @@ namespace PlayGround.Tests.PlayMode
             ProjectileSkill rootSkill = ScriptableObject.CreateInstance<ProjectileSkill>();
             AoeSkill applicatorSkill = ScriptableObject.CreateInstance<AoeSkill>();
             AoeSkill detonationSkill = ScriptableObject.CreateInstance<AoeSkill>();
-            StackingSupport stackingSupport = ScriptableObject.CreateInstance<StackingSupport>();
             SkillSet rootSet = ScriptableObject.CreateInstance<SkillSet>();
             SkillSet applicatorSet = ScriptableObject.CreateInstance<SkillSet>();
             SkillSet detonationSet = ScriptableObject.CreateInstance<SkillSet>();
@@ -720,14 +719,14 @@ namespace PlayGround.Tests.PlayMode
             ConfigureProjectile(rootSkill, projectilePrefab, damage: 0f);
             ConfigureAoe(applicatorSkill, applicatorPrefab, damage: 0f);
             ConfigureAoe(detonationSkill, detonationPrefab, damage: 6f);
-            SetField(stackingSupport, "stackThreshold", 2);
-            SetField(stackingSupport, "debuffLifetimeSeconds", 10f);
+            stackTrigger.stackThreshold = 2;
+            stackTrigger.debuffLifetimeSeconds = 10f;
             SetField(rootSet, "skill", rootSkill);
             SetField(rootSet, "supports", global::System.Array.Empty<SkillSupport>());
             SetField(applicatorSet, "skill", applicatorSkill);
             SetField(applicatorSet, "supports", global::System.Array.Empty<SkillSupport>());
             SetField(detonationSet, "skill", detonationSkill);
-            SetField(detonationSet, "supports", new SkillSupport[] { stackingSupport });
+            SetField(detonationSet, "supports", global::System.Array.Empty<SkillSupport>());
             SetField(loadout, "slots", new global::System.Collections.Generic.List<LoadoutSlot>
             {
                 new SkillSetSlot { skillSet = rootSet },
@@ -774,7 +773,6 @@ namespace PlayGround.Tests.PlayMode
                 rootSkill,
                 applicatorSkill,
                 detonationSkill,
-                stackingSupport,
                 rootSet,
                 applicatorSet,
                 detonationSet,

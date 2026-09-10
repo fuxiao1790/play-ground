@@ -51,19 +51,7 @@ namespace PlayGround.Skills
             RuntimeSkillDefinition runtime = compiled.Runtime;
             if (runtime == null) return null;
 
-            if (runtime is RuntimeStackingDetonation rootStackingDetonation)
-                rootStackingDetonation.DebuffName = set.Skill.name;
-
             runtime.RecoveryTime = ResolveRecoveryTime(set.Skill.BaseRate, compiled.Modifiers);
-
-            // A stacking-detonation set wraps its spawned definition in a
-            // RuntimeStackingDetonation. The wrapper itself is never spawned, so its
-            // outgoing triggers (including a downstream StackTrigger) must attach to
-            // the inner detonation. That inner projectile/AOE is the entity that
-            // spawns and hits targets, and thus the applicator for the next link.
-            RuntimeSkillDefinition triggerHost = runtime is RuntimeStackingDetonation stackingHost
-                ? stackingHost.Detonation
-                : runtime;
 
             // Adjacency is forward-only (i -> i + 1); recursion terminates by
             // strictly increasing node index. No cycle is possible.
@@ -76,7 +64,7 @@ namespace PlayGround.Skills
 
                 if (link is IntervalSpawnTrigger intervalTrigger)
                 {
-                    ApplyIntervalSpawn(triggerHost, intervalTrigger, nodes, targetNodeIndex, snapshot);
+                    ApplyIntervalSpawn(runtime, intervalTrigger, nodes, targetNodeIndex, snapshot);
                 }
                 else if (link is OnImpactAoeTrigger)
                 {
@@ -84,12 +72,12 @@ namespace PlayGround.Skills
                         nodes, targetNodeIndex, snapshot, includeTriggeredManaCosts: false);
                     if (compiledTarget is RuntimeAoeDefinition aoeTarget)
                     {
-                        if (triggerHost is RuntimeProjectileDefinition projDef)
+                        if (runtime is RuntimeProjectileDefinition projDef)
                         {
                             projDef.ImpactAoeDefinition = aoeTarget;
                             ApplyIncomingTriggerManaCostMultiplier(aoeTarget, link);
                         }
-                        else if (triggerHost is RuntimeAoeDefinition sourceAoeDef)
+                        else if (runtime is RuntimeAoeDefinition sourceAoeDef)
                         {
                             sourceAoeDef.OnHitAoeSpawnDefinition = aoeTarget;
                             ApplyIncomingTriggerManaCostMultiplier(aoeTarget, link);
@@ -102,12 +90,12 @@ namespace PlayGround.Skills
                         nodes, targetNodeIndex, snapshot, includeTriggeredManaCosts: false);
                     if (compiledTarget is RuntimeTargetedDefinition targetedTarget)
                     {
-                        if (triggerHost is RuntimeProjectileDefinition projectileSource)
+                        if (runtime is RuntimeProjectileDefinition projectileSource)
                         {
                             projectileSource.ImpactTargetedDefinition = targetedTarget;
                             ApplyIncomingTriggerManaCostMultiplier(targetedTarget, link);
                         }
-                        else if (triggerHost is RuntimeAoeDefinition aoeSource)
+                        else if (runtime is RuntimeAoeDefinition aoeSource)
                         {
                             aoeSource.OnHitTargetedSpawnDefinition = targetedTarget;
                             ApplyIncomingTriggerManaCostMultiplier(targetedTarget, link);
@@ -123,12 +111,12 @@ namespace PlayGround.Skills
                         impactProjDef.Count = Mathf.Max(1, impactProjDef.Count + impactProjTrigger.spawnCount);
                         impactProjDef.SpreadDegrees = impactProjTrigger.spreadDegrees;
 
-                        if (triggerHost is RuntimeProjectileDefinition projDef)
+                        if (runtime is RuntimeProjectileDefinition projDef)
                         {
                             projDef.ImpactProjectileDefinition = impactProjDef;
                             ApplyIncomingTriggerManaCostMultiplier(impactProjDef, link);
                         }
-                        else if (triggerHost is RuntimeAoeDefinition aoeSourceDef)
+                        else if (runtime is RuntimeAoeDefinition aoeSourceDef)
                         {
                             aoeSourceDef.OnHitProjectileSpawnDefinition = impactProjDef;
                             ApplyIncomingTriggerManaCostMultiplier(impactProjDef, link);
@@ -139,33 +127,35 @@ namespace PlayGround.Skills
                 {
                     RuntimeSkillDefinition compiledTarget = CompileInternal(
                         nodes, targetNodeIndex, snapshot, includeTriggeredManaCosts: false);
-                    if (triggerHost is RuntimeAoeDefinition aoeDef)
+                    if (runtime is RuntimeAoeDefinition aoeDef)
                     {
                         aoeDef.OnHitAoeSpawnDefinition = compiledTarget;
                         ApplyIncomingTriggerManaCostMultiplier(compiledTarget, link);
                     }
                 }
-                else if (link is StackTrigger)
+                else if (link is StackTrigger stackTrigger)
                 {
                     RuntimeSkillDefinition compiledTarget = CompileInternal(
                         nodes, targetNodeIndex, snapshot, includeTriggeredManaCosts: false);
-                    if (compiledTarget is RuntimeStackingDetonation stackingDetonation)
+                    if (compiledTarget != null)
                     {
-                        if (triggerHost is RuntimeProjectileDefinition projDef)
+                        var stackingDetonation = new RuntimeStackingDetonation
                         {
+                            Detonation = compiledTarget,
+                            StackThreshold = Mathf.Max(1, stackTrigger.stackThreshold),
+                            DebuffLifetimeSeconds = Mathf.Max(0f, stackTrigger.debuffLifetimeSeconds),
+                            StacksPerHit = Mathf.Max(1, stackTrigger.stacksPerHit),
+                            DebuffName = GetSkillSet(nodes, targetNodeIndex)?.Skill?.name,
+                        };
+
+                        ApplyIncomingTriggerManaCostMultiplier(stackingDetonation, link);
+
+                        if (runtime is RuntimeProjectileDefinition projDef)
                             projDef.StackingDetonation = stackingDetonation;
-                            ApplyIncomingTriggerManaCostMultiplier(stackingDetonation, link);
-                        }
-                        else if (triggerHost is RuntimeAoeDefinition aoeDef)
-                        {
+                        else if (runtime is RuntimeAoeDefinition aoeDef)
                             aoeDef.StackingDetonation = stackingDetonation;
-                            ApplyIncomingTriggerManaCostMultiplier(stackingDetonation, link);
-                        }
-                        else if (triggerHost is RuntimeTargetedDefinition targetedDef)
-                        {
+                        else if (runtime is RuntimeTargetedDefinition targetedDef)
                             targetedDef.StackingDetonation = stackingDetonation;
-                            ApplyIncomingTriggerManaCostMultiplier(stackingDetonation, link);
-                        }
                     }
                 }
             }
@@ -190,11 +180,7 @@ namespace PlayGround.Skills
             CollectSupportModifiers(modifiers, supports);
             ApplySupportBehaviors(defCopy, supports);
 
-            RuntimeSkillDefinition runtime = ApplyConversionSupports(
-                definition,
-                BuildRuntime(defCopy, modifiers, snapshot),
-                supports,
-                snapshot);
+            RuntimeSkillDefinition runtime = BuildRuntime(defCopy, modifiers, snapshot);
 
             return new CompileDefinitionResult(runtime, modifiers);
         }
@@ -279,27 +265,6 @@ namespace PlayGround.Skills
                     targetedModifier.ApplyToTargeted(new TargetedBehaviorContext(targeted));
                 }
             }
-        }
-
-        private static RuntimeSkillDefinition ApplyConversionSupports(
-            SkillDefinition definition,
-            RuntimeSkillDefinition runtime,
-            IReadOnlyList<SkillSupport> supports,
-            SkillStatSnapshot snapshot)
-        {
-            if (runtime == null || supports == null)
-                return runtime;
-
-            for (int i = 0; i < supports.Count; i++)
-            {
-                if (supports[i] is ConversionSupport conversion)
-                    runtime = conversion.Compile(definition, runtime, snapshot);
-
-                if (runtime == null)
-                    return null;
-            }
-
-            return runtime;
         }
 
         private static float ResolveRecoveryTime(

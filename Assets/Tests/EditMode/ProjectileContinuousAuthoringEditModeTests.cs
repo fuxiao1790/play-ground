@@ -141,7 +141,7 @@ namespace PlayGround.Tests.EditMode
             RuntimeProjectileDefinition stackRoot = CompileProjectile(
                 CreateSkillSet(stackRootSkill),
                 CreateAsset<StackTrigger>(),
-                CreateSkillSet(stackChildSkill, CreateAsset<StackingSupport>()));
+                CreateSkillSet(stackChildSkill));
 
             Assert.That(BuildCommand(direct).ContinuousCollision, Is.EqualTo(1), "Direct cast");
             Assert.That(BuildCommand(intervalRoot.ChildSpawnSetup.ChildDefinition).ContinuousCollision, Is.EqualTo(1), "Interval child");

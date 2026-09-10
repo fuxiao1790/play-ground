@@ -21,12 +21,7 @@ namespace PlayGround.Skills
                     && nodes[i - 1]?.SkillSet != null
                     && nodes[i - 1]?.TriggerToNext != null;
                 if (!hasIncomingTrigger)
-                {
-                    if (HasTriggeredOnlyConversionSupport(skillSet))
-                        continue;
-
                     rootNodeIndices.Add(i);
-                }
             }
 
             int maxSlots = Mathf.Min(rootNodeIndices.Count, loadout.MaxRootSets);
@@ -51,24 +46,6 @@ namespace PlayGround.Skills
             }
 
             return new CompiledLoadout(roots, resolvedRootNodeIndices, count, warnings);
-        }
-
-        private static bool HasTriggeredOnlyConversionSupport(SkillSet set)
-        {
-            if (set == null)
-                return false;
-
-            SkillSupport[] supports = set.Supports;
-            if (supports == null)
-                return false;
-
-            for (int i = 0; i < supports.Length; i++)
-            {
-                if (supports[i] is ConversionSupport { ConvertsToTriggeredOnly: true })
-                    return true;
-            }
-
-            return false;
         }
 
         private static void AppendCompilerWarnings(

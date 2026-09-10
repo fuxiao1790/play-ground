@@ -220,17 +220,15 @@ namespace PlayGround.Tests.EditMode
         {
             AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
             ((AoeDefinitionBase)skill.Definition).manaCost = 10f;
-            StackingSupport support = CreateAsset<StackingSupport>("Stacking");
-            SkillSet set = CreateSkillSet("Stacking Set", skill, support);
+            AddedDamageSupport support = CreateAsset<AddedDamageSupport>("Added Damage");
+            SkillSet set = CreateSkillSet("AOE Set", skill, support);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
                 new[] { new SkillLoadoutNode(set) },
                 0,
                 SkillStatSnapshot.Identity);
 
-            Assert.That(runtime, Is.TypeOf<RuntimeStackingDetonation>());
-            var stacking = (RuntimeStackingDetonation)runtime;
-            Assert.That(((RuntimeAoeDefinition)stacking.Detonation).ManaCost, Is.EqualTo(10f).Within(0.0001f));
+            Assert.That(((RuntimeAoeDefinition)runtime).ManaCost, Is.EqualTo(10f).Within(0.0001f));
         }
 
         [Test]
@@ -582,64 +580,59 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void CompilerInvokesConversionSupportCompileHook()
+        public void CompilerBuildsStackTriggerRuntimeDetonation()
         {
-            ProjectileSkill skill = CreateAsset<ProjectileSkill>("Projectile Skill");
-            TrackingConversionSupport support = CreateAsset<TrackingConversionSupport>("Conversion Support");
-            SkillSet set = CreateSkillSet("Projectile Set", skill, support);
+            AoeSkill applicatorSkill = CreateAsset<AoeSkill>("Applicator AOE Skill");
+            AoeSkill detonationSkill = CreateAsset<AoeSkill>("Detonation AOE Skill");
+            StackTrigger trigger = CreateAsset<StackTrigger>("Stack Trigger");
+            trigger.stackThreshold = 4;
+            trigger.debuffLifetimeSeconds = 6f;
+            trigger.stacksPerHit = 2;
+            SkillSet applicatorSet = CreateSkillSet("Applicator AOE Set", applicatorSkill);
+            SkillSet detonationSet = CreateSkillSet("Detonation AOE Set", detonationSkill);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
-                new[] { new SkillLoadoutNode(set) },
+                new[]
+                {
+                    new SkillLoadoutNode(applicatorSet, trigger),
+                    new SkillLoadoutNode(detonationSet),
+                },
                 0,
                 SkillStatSnapshot.Identity);
 
-            Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
-            Assert.That(support.WasCompiled, Is.True);
-            Assert.That(support.DefinitionSeen, Is.SameAs(skill.Definition));
-            Assert.That(support.RuntimeSeen, Is.SameAs(runtime));
-        }
-
-        [Test]
-        public void CompilerBuildsStackingSupportRuntimeDetonation()
-        {
-            AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
-            StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
-            SetField(stackingSupport, "stackThreshold", 4);
-            SetField(stackingSupport, "debuffLifetimeSeconds", 6f);
-            SetField(stackingSupport, "stacksPerHit", 2);
-            SkillSet set = CreateSkillSet("Stacking Support Set", skill, stackingSupport);
-
-            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
-                new[] { new SkillLoadoutNode(set) },
-                0,
-                SkillStatSnapshot.Identity);
-
-            Assert.That(runtime, Is.TypeOf<RuntimeStackingDetonation>());
-            var stacking = (RuntimeStackingDetonation)runtime;
+            Assert.That(runtime, Is.TypeOf<RuntimeAoeDefinition>());
+            var stacking = ((RuntimeAoeDefinition)runtime).StackingDetonation;
+            Assert.That(stacking, Is.Not.Null);
             Assert.That(stacking.Detonation, Is.TypeOf<RuntimeAoeDefinition>());
             Assert.That(stacking.StackThreshold, Is.EqualTo(4));
             Assert.That(stacking.DebuffLifetimeSeconds, Is.EqualTo(6f).Within(0.0001f));
             Assert.That(stacking.StacksPerHit, Is.EqualTo(2));
-            Assert.That(stacking.DebuffName, Is.EqualTo("AOE Skill"));
+            Assert.That(stacking.DebuffName, Is.EqualTo(detonationSkill.name));
             Assert.That(stacking.DebuffKey, Is.EqualTo(-1));
-            Assert.That(typeof(StackingSupport).GetField("debuffName", BindingFlags.Instance | BindingFlags.NonPublic), Is.Null);
-            Assert.That(typeof(StackingSupport).GetField("cosmeticDebuffStatus", BindingFlags.Instance | BindingFlags.NonPublic), Is.Null);
+            Assert.That(typeof(StackTrigger).GetField("debuffName", BindingFlags.Instance | BindingFlags.NonPublic), Is.Null);
+            Assert.That(typeof(StackTrigger).GetField("cosmeticDebuffStatus", BindingFlags.Instance | BindingFlags.NonPublic), Is.Null);
         }
 
         [Test]
-        public void CompilerAppliesAdditiveSupportsToStackingSupportDetonation()
+        public void CompilerAppliesAdditiveSupportsToStackTriggerDetonation()
         {
-            AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
+            AoeSkill applicatorSkill = CreateAsset<AoeSkill>("Applicator AOE Skill");
+            AoeSkill detonationSkill = CreateAsset<AoeSkill>("Detonation AOE Skill");
             AddedDamageSupport damageSupport = CreateAsset<AddedDamageSupport>("Added Damage");
-            StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
-            SkillSet set = CreateSkillSet("Stacking Support Set", skill, damageSupport, stackingSupport);
+            StackTrigger trigger = CreateAsset<StackTrigger>("Stack Trigger");
+            SkillSet applicatorSet = CreateSkillSet("Applicator AOE Set", applicatorSkill);
+            SkillSet detonationSet = CreateSkillSet("Detonation AOE Set", detonationSkill, damageSupport);
 
             RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
-                new[] { new SkillLoadoutNode(set) },
+                new[]
+                {
+                    new SkillLoadoutNode(applicatorSet, trigger),
+                    new SkillLoadoutNode(detonationSet),
+                },
                 0,
                 SkillStatSnapshot.Identity);
 
-            var stacking = (RuntimeStackingDetonation)runtime;
+            var stacking = ((RuntimeAoeDefinition)runtime).StackingDetonation;
             Assert.That(((RuntimeAoeDefinition)stacking.Detonation).Damage, Is.EqualTo(15f).Within(0.0001f));
         }
 
@@ -713,9 +706,8 @@ namespace PlayGround.Tests.EditMode
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
             AoeSkill targetSkill = CreateAsset<AoeSkill>("Stack Detonation Skill");
-            StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
             SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
-            SkillSet targetSet = CreateSkillSet("Stack Detonation Set", targetSkill, stackingSupport);
+            SkillSet targetSet = CreateSkillSet("Stack Detonation Set", targetSkill);
             StackTrigger trigger = CreateAsset<StackTrigger>("Stack Trigger");
             var nodes = new[]
             {
@@ -737,10 +729,9 @@ namespace PlayGround.Tests.EditMode
             ProjectileSkill rootSkill = CreateAsset<ProjectileSkill>("Root Projectile Skill");
             ProjectileSkill applicatorSkill = CreateAsset<ProjectileSkill>("Applicator Projectile Skill");
             AoeSkill detonationSkill = CreateAsset<AoeSkill>("Stack Detonation Skill");
-            StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
             SkillSet rootSet = CreateSkillSet("Root Projectile Set", rootSkill);
             SkillSet applicatorSet = CreateSkillSet("Applicator Projectile Set", applicatorSkill);
-            SkillSet detonationSet = CreateSkillSet("Stack Detonation Set", detonationSkill, stackingSupport);
+            SkillSet detonationSet = CreateSkillSet("Stack Detonation Set", detonationSkill);
             IntervalSpawnTrigger childTrigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
             StackTrigger stackTrigger = CreateAsset<StackTrigger>("Stack Trigger");
             var nodes = new[]
@@ -765,13 +756,11 @@ namespace PlayGround.Tests.EditMode
             AoeSkill aoeApplicatorSkill = CreateAsset<AoeSkill>("Applicator AOE Skill");
             ProjectileSkill projectileApplicatorSkill = CreateAsset<ProjectileSkill>("Applicator Projectile Skill");
             AoeSkill detonationSkill = CreateAsset<AoeSkill>("Stack Detonation Skill");
-            StackingSupport firstStackingSupport = CreateAsset<StackingSupport>("First Stacking Support");
-            StackingSupport secondStackingSupport = CreateAsset<StackingSupport>("Second Stacking Support");
             SkillSet rootSet = CreateSkillSet("Root Projectile Set", rootSkill);
             SkillSet aoeApplicatorSet = CreateSkillSet("Applicator AOE Set", aoeApplicatorSkill);
             SkillSet projectileApplicatorSet = CreateSkillSet("Applicator Projectile Set", projectileApplicatorSkill);
-            SkillSet firstDetonationSet = CreateSkillSet("First Stack Detonation Set", detonationSkill, firstStackingSupport);
-            SkillSet secondDetonationSet = CreateSkillSet("Second Stack Detonation Set", detonationSkill, secondStackingSupport);
+            SkillSet firstDetonationSet = CreateSkillSet("First Stack Detonation Set", detonationSkill);
+            SkillSet secondDetonationSet = CreateSkillSet("Second Stack Detonation Set", detonationSkill);
             OnImpactAoeTrigger impactAoeTrigger = CreateAsset<OnImpactAoeTrigger>("Impact AOE");
             OnImpactProjectileTrigger impactProjectileTrigger = CreateAsset<OnImpactProjectileTrigger>("Impact Projectile");
             StackTrigger firstStackTrigger = CreateAsset<StackTrigger>("First Stack Trigger");
@@ -803,11 +792,9 @@ namespace PlayGround.Tests.EditMode
             LingeringAoeSkill applicatorSkill = CreateAsset<LingeringAoeSkill>("Lingering AOE Applicator");
             LingeringAoeSkill firstDetonationSkill = CreateAsset<LingeringAoeSkill>("Stacking Lingering AOE");
             AoeSkill secondDetonationSkill = CreateAsset<AoeSkill>("Stacking AOE");
-            StackingSupport firstStackingSupport = CreateAsset<StackingSupport>("First Stacking Support");
-            StackingSupport secondStackingSupport = CreateAsset<StackingSupport>("Second Stacking Support");
             SkillSet applicatorSet = CreateSkillSet("Lingering Applicator Set", applicatorSkill);
-            SkillSet firstDetonationSet = CreateSkillSet("Stacking Lingering Set", firstDetonationSkill, firstStackingSupport);
-            SkillSet secondDetonationSet = CreateSkillSet("Stacking AOE Set", secondDetonationSkill, secondStackingSupport);
+            SkillSet firstDetonationSet = CreateSkillSet("Stacking Lingering Set", firstDetonationSkill);
+            SkillSet secondDetonationSet = CreateSkillSet("Stacking AOE Set", secondDetonationSkill);
             StackTrigger firstStackTrigger = CreateAsset<StackTrigger>("First Stack Trigger");
             StackTrigger secondStackTrigger = CreateAsset<StackTrigger>("Second Stack Trigger");
             var nodes = new[]
@@ -833,12 +820,17 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void DriverDoesNotBindStackingSupportSetAsRoot()
+        public void DriverDoesNotBindStackTriggerEffectAsRoot()
         {
-            AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
-            StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
-            SkillSet set = CreateSkillSet("Stacking Set", skill, stackingSupport);
-            SkillLoadout loadout = CreateLoadout("Loadout", new SkillLoadoutNode(set));
+            AoeSkill applicatorSkill = CreateAsset<AoeSkill>("Applicator AOE Skill");
+            AoeSkill detonationSkill = CreateAsset<AoeSkill>("Detonation AOE Skill");
+            StackTrigger trigger = CreateAsset<StackTrigger>("Stack Trigger");
+            SkillSet applicatorSet = CreateSkillSet("Applicator AOE Set", applicatorSkill);
+            SkillSet detonationSet = CreateSkillSet("Detonation AOE Set", detonationSkill);
+            SkillLoadout loadout = CreateLoadout(
+                "Loadout",
+                new SkillLoadoutNode(applicatorSet, trigger),
+                new SkillLoadoutNode(detonationSet));
             var gameObject = new GameObject("Player Skill Driver Test");
             createdObjects.Add(gameObject);
             SkillDriver driver = gameObject.AddComponent<SkillDriver>();
@@ -846,7 +838,7 @@ namespace PlayGround.Tests.EditMode
 
             CompileAndRegister(driver);
 
-            Assert.That(driver.SlotCount, Is.EqualTo(0));
+            Assert.That(driver.SlotCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -887,26 +879,12 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void ValidatorWarnsWhenStackingSupportSetIsNotStackTriggerEffect()
-        {
-            AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
-            StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
-            SkillSet set = CreateSkillSet("Stacking Set", skill, stackingSupport);
-
-            SkillValidationWarning[] warnings = Validate(new SkillLoadoutNode(set));
-
-            Assert.That(warnings, Has.Length.EqualTo(1));
-            Assert.That(warnings[0].Code, Is.EqualTo(SkillValidationWarningCode.UnsupportedStackingDetonation));
-            Assert.That(warnings[0].Message, Does.Contain("not the effect of a StackTrigger"));
-        }
-
-        [Test]
-        public void ValidatorWarnsWhenStackTriggerTargetHasNoStackingSupport()
+        public void ValidatorWarnsWhenStackTriggerTargetsTargetedSkill()
         {
             ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
-            AoeSkill targetSkill = CreateAsset<AoeSkill>("AOE Skill");
+            TargetedSkill targetSkill = CreateAsset<TargetedSkill>("Targeted Skill");
             SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
-            SkillSet targetSet = CreateSkillSet("AOE Set", targetSkill);
+            SkillSet targetSet = CreateSkillSet("Targeted Set", targetSkill);
             StackTrigger trigger = CreateAsset<StackTrigger>("Stack Trigger");
 
             SkillValidationWarning[] warnings = Validate(
@@ -914,25 +892,7 @@ namespace PlayGround.Tests.EditMode
                 new SkillLoadoutNode(targetSet));
 
             Assert.That(warnings, Has.Length.EqualTo(1));
-            Assert.That(warnings[0].Code, Is.EqualTo(SkillValidationWarningCode.UnsupportedStackingDetonation));
-            Assert.That(warnings[0].Message, Does.Contain("with no StackingSupport"));
-        }
-
-        [Test]
-        public void ValidatorWarnsWhenStackingSupportSetIsTargetedByNonStackTrigger()
-        {
-            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
-            AoeSkill targetSkill = CreateAsset<AoeSkill>("Stack Detonation Skill");
-            StackingSupport stackingSupport = CreateAsset<StackingSupport>("Stacking Support");
-            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
-            SkillSet targetSet = CreateSkillSet("Stacking Set", targetSkill, stackingSupport);
-            OnImpactAoeTrigger trigger = CreateAsset<OnImpactAoeTrigger>("Impact AOE");
-
-            SkillValidationWarning[] warnings = Validate(
-                new SkillLoadoutNode(sourceSet, trigger),
-                new SkillLoadoutNode(targetSet));
-
-            Assert.That(HasWarning(warnings, SkillValidationWarningCode.UnsupportedStackingDetonation, 0, "is not a StackTrigger"), Is.True);
+            Assert.That(warnings[0].Code, Is.EqualTo(SkillValidationWarningCode.UnsupportedTriggerTarget));
         }
 
         private SkillValidationWarning[] Validate(params SkillLoadoutNode[] nodes)
@@ -1010,24 +970,5 @@ namespace PlayGround.Tests.EditMode
             method.Invoke(driver, null);
         }
 
-        private sealed class TrackingConversionSupport : ConversionSupport
-        {
-            public bool WasCompiled { get; private set; }
-            public SkillDefinition DefinitionSeen { get; private set; }
-            public RuntimeSkillDefinition RuntimeSeen { get; private set; }
-
-            public override bool ConvertsToTriggeredOnly => true;
-
-            public override RuntimeSkillDefinition Compile(
-                SkillDefinition definition,
-                RuntimeSkillDefinition runtime,
-                SkillStatSnapshot snapshot)
-            {
-                WasCompiled = true;
-                DefinitionSeen = definition;
-                RuntimeSeen = runtime;
-                return runtime;
-            }
-        }
     }
 }

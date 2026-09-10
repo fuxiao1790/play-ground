@@ -54,22 +54,10 @@ namespace PlayGround.Skills
         {
             if (nodes == null || warnings == null) return;
 
-            var stackTriggerEffectIndices = new HashSet<int>();
-            for (int i = 0; i + 1 < nodes.Count; i++)
-            {
-                if (nodes[i]?.TriggerToNext is StackTrigger
-                    && nodes[i]?.SkillSet != null
-                    && nodes[i + 1]?.SkillSet != null)
-                {
-                    stackTriggerEffectIndices.Add(i + 1);
-                }
-            }
-
             for (int i = 0; i < nodes.Count; i++)
             {
                 SkillLoadoutNode node = nodes[i];
                 ValidateSkillSet(node?.SkillSet, i, warnings);
-                ValidateStackingSupportReachability(node?.SkillSet, i, stackTriggerEffectIndices, warnings);
                 if (node?.TriggerToNext != null)
                     ValidateTriggerLink(nodes, node.TriggerToNext, i, warnings);
             }
@@ -211,18 +199,6 @@ namespace PlayGround.Skills
             if (causeSkill == null || effectSkill == null)
                 return;
 
-            if (link is StackTrigger)
-            {
-                ValidateStackTriggerTarget(link, slotIndex, effectSet, warnings);
-                return;
-            }
-
-            if (HasStackingSupport(effectSet))
-            {
-                AddWarning(warnings, SkillValidationWarningCode.UnsupportedStackingDetonation, slotIndex,
-                    $"Trigger '{link.name}' targets stacking set '{effectSet.name}' but is not a StackTrigger. Link will do nothing.");
-            }
-
             if (link.SourceSkillTags == SkillDefinitionTags.None
                 || link.TargetSkillTags == SkillDefinitionTags.None)
             {
@@ -326,53 +302,6 @@ namespace PlayGround.Skills
                     lifetime = 0f;
                     return false;
             }
-        }
-
-        private static void ValidateStackingSupportReachability(
-            SkillSet skillSet,
-            int slotIndex,
-            HashSet<int> stackTriggerEffectIndices,
-            List<SkillValidationWarning> warnings)
-        {
-            if (skillSet == null || !HasStackingSupport(skillSet))
-                return;
-
-            if (stackTriggerEffectIndices.Contains(slotIndex))
-                return;
-
-            AddWarning(warnings, SkillValidationWarningCode.UnsupportedStackingDetonation, slotIndex,
-                $"Stacking set '{skillSet.name}' is not the effect of a StackTrigger. Set will never fire.");
-        }
-
-        private static void ValidateStackTriggerTarget(
-            TriggerLink link,
-            int slotIndex,
-            SkillSet effectSet,
-            List<SkillValidationWarning> warnings)
-        {
-            if (HasStackingSupport(effectSet))
-                return;
-
-            AddWarning(warnings, SkillValidationWarningCode.UnsupportedStackingDetonation, slotIndex,
-                $"StackTrigger '{link.name}' targets skill set '{effectSet.name}' with no StackingSupport. Nothing will be baked.");
-        }
-
-        private static bool HasStackingSupport(SkillSet set)
-        {
-            if (set == null)
-                return false;
-
-            SkillSupport[] supports = set.Supports;
-            if (supports == null)
-                return false;
-
-            for (int i = 0; i < supports.Length; i++)
-            {
-                if (supports[i] is StackingSupport)
-                    return true;
-            }
-
-            return false;
         }
 
         private static void AddWarning(

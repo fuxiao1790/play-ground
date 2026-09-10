@@ -9,7 +9,6 @@ namespace PlayGround.Skills
         UnsupportedTriggerLink,
         UnsupportedTriggerSource,
         UnsupportedTriggerTarget,
-        UnsupportedStackingDetonation,
         SpawnChainDepthExceeded,
         ContinuousCollisionCannotTrack,
         TrackingProjectileMayTunnel,
