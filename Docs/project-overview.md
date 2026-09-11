@@ -48,6 +48,7 @@ section that matches the topic you need.
 ## Design and reference
 
 - [Gameplay design](./reference/design/gameplay.md)
+- [Visual style reference](./visual/style-reference.md)
 - [Skill system](./reference/game-logic/skill-system.md)
 - [Skill stat modifiers](./reference/game-logic/skill-modifiers.md)
 - [Spawn system](./reference/game-logic/spawn-system.md)
