@@ -81,7 +81,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 9
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 4839542078547052869, guid: 9e1e6aac4af8de348a90fdaa704e2249, type: 3}
+  m_Sprite: {fileID: -8625041320340971465, guid: 5ec5f194e704bdb44b16657c0584a6ae, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -138,6 +138,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.GameLogic::PlayGround.Skills.TargetedPrefab
   spriteRenderer: {fileID: 6416970736168755285}
   spawnEffect: {fileID: 0}
+  spawnSound: {fileID: 0}
+  spawnSoundRadius: 0
   spawnEffectShape: 0
   hitEffect: {fileID: 0}
   hitEffectShape: 0

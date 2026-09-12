@@ -107,5 +107,3 @@ Before registering a new sprite kind with the combat batch renderer:
   `Register` calls it per registered kind.
 - [combat-render-system.md](./combat-render-system.md) — the UV basis design
   and the sorting/constraint context.
-- `Assets/Shooter/Other/arcane-missile.png` / `arcane-missile-2.png` — the
-  incident textures.

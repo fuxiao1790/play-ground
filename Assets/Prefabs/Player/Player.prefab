@@ -83,8 +83,8 @@ MonoBehaviour:
   spriteRenderer: {fileID: 3310007684589038134}
   animator: {fileID: 0}
   worldCamera: {fileID: 0}
-  statSheet: {fileID: 0}
-  facingSet: {fileID: 0}
+  statSheet: {fileID: 11400000, guid: 0d55074d8dea09e4fb663e5a4bc3cc4c, type: 2}
+  facingSet: {fileID: 11400000, guid: 551a528f7fb2ed245b8021ab047800b2, type: 2}
   pauseController: {fileID: 0}
   stopThreshold: 0.1
   accelerationMultiplier: 8
@@ -194,7 +194,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 10
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 2216962988415778236, guid: e91e2d716ef99f6478d2070c36054e84, type: 3}
+  m_Sprite: {fileID: -5025341884519727021, guid: fa4076734d9861a4ca85c40216bcdbca, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
