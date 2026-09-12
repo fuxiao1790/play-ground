@@ -27,7 +27,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 50, y: 50, z: 1}
+  m_LocalScale: {x: 10, y: 10, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 8126269937979373232}
@@ -81,7 +81,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 9
   m_MaskInteraction: 0
-  m_Sprite: {fileID: -8625041320340971465, guid: 5ec5f194e704bdb44b16657c0584a6ae, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 5ec5f194e704bdb44b16657c0584a6ae, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -145,7 +145,7 @@ MonoBehaviour:
   hitEffectShape: 0
   expireEffect: {fileID: 0}
   expireEffectShape: 0
-  linkEffect: {fileID: 0}
+  linkEffect: {fileID: 8926484042661614526, guid: 4d01f0f12dacede4aa43753995e10107, type: 3}
   linkEffectShape: 2
   armingEffect: {fileID: 0}
   armingEffectShape: 0

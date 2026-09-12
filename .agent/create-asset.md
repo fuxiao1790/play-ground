@@ -39,14 +39,20 @@ then apply:
 
 | Kind | Default size | Style reference section | Palette guidance |
 |---|---|---|---|
-| particle/effect | 64x64 | Skills And Effects | bright core + colored trail/aura; blue=arcane/ice, orange-red=fire, green=nature/poison, violet=void, gold/white=holy or high-impact neutral |
+| particle/effect | 64x64 for radial/symmetric effects (bursts, impacts, auras); non-square, aspect-matched to the effect for elongated/directional effects (beams, chains/links, trails) — ask for dimensions if the aspect isn't obvious from the description | Skills And Effects | bright core + colored trail/aura; blue=arcane/ice, orange-red=fire, green=nature/poison, violet=void, gold/white=holy or high-impact neutral |
 | character | no established default — ask | Characters | warm red/brown/gold player palette, bright blue magic accent; dark outline + small bright highlights |
 | mob | no established default — ask | Mobs | one dominant palette per family (green slime, red mushroom, bone-white skeleton, green goblin, violet bat, brown treant, stone golem, blue wraith); must contrast player red/brown/blue |
 | environment/prop | no established default — ask | Environment And Props | muted, repeatable palette for floor tiles; obstacles/collision need a visually distinct edge |
 | icon/UI | no established default — ask | Combat Readability Checks | keep visually separate from authored pixel-art world assets |
 
-Only particle/effect has a project-confirmed default size (64x64, per
-[combat-atlas-tight-mesh-uv-distortion.md](../Docs/reference/simulation/combat-atlas-tight-mesh-uv-distortion.md)).
+64x64 is a project-confirmed default only for radial/symmetric particle/effect
+assets, not a fixed size for the whole kind. Square art was never the
+requirement in
+[combat-atlas-tight-mesh-uv-distortion.md](../Docs/reference/simulation/combat-atlas-tight-mesh-uv-distortion.md) —
+that doc's fix is importing combat-registered sprites as Full Rect (or filling
+the rect edge-to-edge under Tight), which removes the UV-distortion risk at
+any aspect ratio. So an elongated effect (e.g. a chain/link segment or beam)
+should get dimensions matching its actual shape, not be forced square.
 For every other kind, ask the user for size rather than guessing one.
 
 ## Shared Requirements (apply to every kind)
