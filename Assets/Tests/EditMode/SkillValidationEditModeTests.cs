@@ -221,6 +221,25 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void CompilerAppliesFullManaCostModifierSetFromHomingSupport()
+        {
+            ProjectileSkill skill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            ((ProjectileDefinition)skill.Definition).manaCost = 10f;
+            HomingSupport support = CreateAsset<HomingSupport>("Homing");
+            SetField(support, "manaCostAdded", 3f);
+            SetField(support, "manaCostIncreased", 1.5f);
+            SetField(support, "manaCostMultiplier", 2f);
+            SkillSet set = CreateSkillSet("Projectile Set", skill, support);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[] { new SkillLoadoutNode(set) },
+                0,
+                SkillStatSnapshot.Identity);
+
+            Assert.That(((RuntimeProjectileDefinition)runtime).ManaCost, Is.EqualTo(39f).Within(0.0001f));
+        }
+
+        [Test]
         public void CompilerCombinesManaCostFoldOrderAcrossSupports()
         {
             AoeSkill skill = CreateAsset<AoeSkill>("AOE Skill");
