@@ -269,9 +269,12 @@ with `AudioRoot` and stores `SkillSoundIds.SpawnId` on each definition. Spawn
 templates carry the id and radius into ECS; expansion emits one occurrence for
 every materialized root or nested spawn.
 
-Only the spawn sound slot exists today. `BasicAttackPrefab` has this sound slot
-but no sibling VFX slot. AOE and targeted prefabs have other VFX slots, but do
-not have hit, expire, pulse, or arming sound slots. See
+`BasicAttackPrefab` also has an optional trail VFX slot: a `VisualEffectAsset`,
+`VfxDataShape` (default `LineSegment`), width, and step distance. `SkillDriver`
+registers that slot and stores the resolved id, width, and step distance on
+skill-built projectile commands. Step distance paces segments by travel distance,
+like `TrailRenderer.minVertexDistance`, not by frame. AOE and targeted prefabs
+have other VFX slots, but do not have hit, expire, pulse, or arming sound slots. See
 [Sound Events](../../contracts/sound-events.md) for runtime timing, selection,
 and listener rules.
 

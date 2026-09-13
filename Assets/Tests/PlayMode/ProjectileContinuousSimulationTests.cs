@@ -9,6 +9,7 @@ using PlayGround.System.Combat.Lifetime;
 using PlayGround.System.Combat.Projectiles;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Targets;
+using PlayGround.System.Combat.Vfx;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
@@ -33,6 +34,7 @@ namespace PlayGround.Tests.PlayMode
             testWorld = new World("ProjectileContinuousSimulationTests");
             entityManager = testWorld.EntityManager;
             simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
+            testWorld.GetOrCreateSystemManaged<CombatAoeVfxDispatchSystem>();
 
             // These producers own singleton lanes consumed by continuous collision.
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>());
@@ -212,6 +214,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatKinematicsComponent),
                 typeof(ProjectileContinuousStepComponent),
                 typeof(CombatCollisionComponent),
+                typeof(ProjectileTrailVfxComponent),
                 typeof(CombatLifetimeComponent),
                 typeof(ProjectileHitComponent),
                 typeof(CombatHitPayload),

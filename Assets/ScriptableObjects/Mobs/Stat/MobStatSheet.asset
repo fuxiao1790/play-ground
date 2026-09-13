@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c154e0fcff4f4854b898bae7a65797bb, type: 3}
   m_Name: MobStatSheet
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Common.Stats.UnitStatSheet
-  maxHealth: 500000
+  maxHealth: 50000
   maxMana: 100
   healthRegenPerSecond: 0
   manaRegenPerSecond: 5

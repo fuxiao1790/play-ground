@@ -10,8 +10,11 @@ position, and area size. `TimedCircularVfxSpawnRequest` adds duration and tick i
 `LineSegmentVfxSpawn` carries a directional start point, end point, and width. The dispatcher routes
 them through the Circular, TimedCircular, and LineSegment data shapes. AOE systems
 emit the circular shapes; `TargetedResolveSystem` emits circular hit/expire requests plus one
-`LineSegmentVfxSpawn` per resolved chain link, and is the only `LineSegment` producer.
-Projectile systems do not emit these requests.
+`LineSegmentVfxSpawn` per resolved chain link. `ProjectileMovementSystem` emits one
+`LineSegmentVfxSpawn` per active, non-arming projectile when it has travelled at least
+its authored `StepDistance` since the last emitted segment, not once per frame. This is
+enabled only when that projectile's authored trail VFX id is nonzero. These are currently
+the only two `LineSegment` producers.
 
 ## Produced By
 

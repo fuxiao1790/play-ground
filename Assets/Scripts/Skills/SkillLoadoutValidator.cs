@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using PlayGround.System.Combat.Application;
+using PlayGround.System.Combat.Authoring;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
@@ -99,6 +100,9 @@ namespace PlayGround.Skills
 
             if (skill.Definition is TargetedDefinition targeted)
                 ValidateTargetedDefinition(targeted, slotIndex, warnings);
+
+            if (skill.Definition is ProjectileDefinition projectile)
+                ValidateProjectileDefinition(projectile, slotIndex, warnings);
         }
 
         private static void ValidateTargetedDefinition(
@@ -174,6 +178,36 @@ namespace PlayGround.Skills
             {
                 AddWarning(warnings, SkillValidationWarningCode.TargetedVisualWarning, slotIndex,
                     "Targeted link VFX is assigned but linkWidth is not positive.");
+            }
+        }
+
+        private static void ValidateProjectileDefinition(
+            ProjectileDefinition definition,
+            int slotIndex,
+            List<SkillValidationWarning> warnings)
+        {
+            BasicAttackPrefab prefab = definition.prefab;
+            if (prefab == null || prefab.TrailEffect == null)
+            {
+                return;
+            }
+
+            if (prefab.TrailEffectShape != VfxDataShape.LineSegment)
+            {
+                AddWarning(warnings, SkillValidationWarningCode.ProjectileVisualWarning, slotIndex,
+                    "Projectile trail VFX is assigned but is not a LineSegment shape; it will be dropped at registration.");
+            }
+
+            if (prefab.TrailWidth <= 0f)
+            {
+                AddWarning(warnings, SkillValidationWarningCode.ProjectileVisualWarning, slotIndex,
+                    "Projectile trail VFX is assigned but trailWidth is not positive.");
+            }
+
+            if (prefab.TrailStepDistance <= 0f)
+            {
+                AddWarning(warnings, SkillValidationWarningCode.ProjectileVisualWarning, slotIndex,
+                    "Projectile trail VFX is assigned but trailStepDistance is not positive.");
             }
         }
 

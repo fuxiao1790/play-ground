@@ -66,7 +66,7 @@ Non-goals:
   `ProjectileSpawnEvent`, `ProjectileSpawnCommand`, and helpers for impact and
   burst events.
 - `Assets/Scripts/System/Projectiles/ProjectileEcsComponents.cs`:
-  `ProjectileTag`, identity, hit, tracking, `ProjectileContinuousTag`,
+  `ProjectileTag`, identity, hit, optional trail VFX, tracking, `ProjectileContinuousTag`,
   `ProjectileContinuousStepComponent`, and the contact gate buffer.
 - `Assets/Scripts/System/Projectiles/ProjectileSpawnExpansionSystem.cs`: drains
   spawn events, expands volley data, and fans each resolved command into the
@@ -80,7 +80,7 @@ Non-goals:
 - `Assets/Scripts/System/Projectiles/ProjectileTrackingSystem.cs`: homing target
   refresh, acquisition, and steering.
 - `Assets/Scripts/System/Projectiles/ProjectileMovementSystem.cs`: position
-  integration and bounds refresh.
+  integration, bounds refresh, and optional trail VFX production.
 - `Assets/Scripts/System/Projectiles/ProjectileContinuousOriginSystem.cs`: captures each
   continuous projectile's position before shared movement.
 - `Assets/Scripts/System/Projectiles/ProjectileContactGateSystem.cs`: repeat-hit
@@ -208,6 +208,7 @@ Both projectile lanes carry:
 - generic `Active`
 - `CombatLifetimeComponent`
 - `CombatKinematicsComponent`
+- `ProjectileTrailVfxComponent`
 - `CombatCollisionComponent`
 - `ProjectileHitComponent`
 - `CombatCollisionActiveTag`
@@ -391,8 +392,10 @@ entity's own `CombatRenderComponent.UvRect` directly (no per-frame lookup),
 then submits `Graphics.RenderMeshInstanced` against the registry's shared
 mesh/material, chunked at the 1023-instance cap.
 
-Projectiles do not emit AOE VFX requests. Their presentation path is the
-batched sprite renderer described above.
+Projectiles always use the batched sprite renderer described above. Independently,
+`ProjectileMovementSystem` optionally emits one `LineSegment` trail VFX request
+after each authored `StepDistance` of travel when its prefab has an authored trail;
+it does not emit once per frame.
 
 ## Current Frame Order
 
@@ -404,7 +407,7 @@ Important simulation ordering:
 3. `TimedSpawnSystem` emits child spawn events.
 4. `ProjectileTrackingSystem` updates homing data (discrete lane only).
 5. `ProjectileContinuousOriginSystem` captures continuous step origins; `ProjectileMovementSystem` moves
-   both lanes and refreshes bounds.
+   both lanes, refreshes bounds, and distance-gates optional LineSegment trail VFX events.
 6. `ProjectileContactGateSystem` expires projectile contact gates.
 7. Discrete and continuous projectile collision systems emit damage and spawn events.
 8. AOE collision systems run after projectile collision.
@@ -431,7 +434,10 @@ Projectile authoring flows through skills and spawn requests:
 - `SkillDefinition` projectile entries and the `RuntimeProjectileDefinition`
   they compile into provide shape, speed, lifetime, damage, count, spread,
   pierce, tracking, lane membership (`continuousCollision`), impact
-  AOE/projectile, and child-spawn data.
+   AOE/projectile, and child-spawn data.
+- `BasicAttackPrefab` optionally carries a trail VFX asset, `LineSegment` shape,
+  width, and `StepDistance`. `SkillDriver` registers it like other VFX slots and copies
+  its resolved id, width, and step distance into skill-built projectile commands.
 - `CombatRoot.RegisterTemplate` registers projectile visual/collision templates
   and builds render resources.
 - Spawn data is snapshotted into events before ECS simulation sees it.
