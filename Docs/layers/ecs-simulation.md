@@ -94,5 +94,6 @@ preparation.
   [projectile-system.md](../reference/simulation/projectile-system.md),
   [aoe-system.md](../reference/simulation/aoe-system.md),
   [targeted-system.md](../reference/simulation/targeted-system.md),
+  [skill-ecs-simulation.md](../reference/simulation/skill-ecs-simulation.md),
   [spawn-template-registry.md](../reference/simulation/spawn-template-registry.md),
   [ecs-notes.md](../reference/simulation/ecs-notes.md).

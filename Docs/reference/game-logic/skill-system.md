@@ -1,5 +1,10 @@
 # Skill System
 
+> Legacy combined reference. Current documentation split by layer:
+> [Skill Gameplay System](./skill-gameplay-system.md) for player-facing
+> authoring and orchestration; [Skill ECS Simulation](../simulation/skill-ecs-simulation.md)
+> for copied runtime data and ECS behavior. Do not add new material here.
+
 All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
@@ -589,14 +594,12 @@ Timed children use exactly the child set's compiled attributes: projectile
 Directionality defaults:
 
 - projectile child from any source: `SideSpray` — half the shots fan left of a
-  forward direction and half fan right. Each shot's angle is randomized within
+  wave heading and half fan right. Each shot's angle is randomized within
   `+/-child spreadDegrees/2` of that side's perpendicular line (i.e. the line 90
-  degrees from forward) — not around forward itself. For a *moving* source
-  (non-zero velocity) forward is the source's travel direction; for a
-  *stationary* source (zero velocity, e.g. most AOEs) there is no inherent
-  forward, so one is rolled fresh each energy tick and side-sprayed around
-  exactly the same way. All of this is seeded per spawner instance and per
-  energy tick, so no two waves and no two spawners roll the same shots.
+  degrees from the heading) — not around the heading itself. Interval projectile
+  waves roll a fresh heading on every energy tick, whether the source is moving
+  or stationary. All of this is seeded per spawner instance and per energy tick,
+  so no two waves and no two spawners roll the same shots.
 - AOE child from any source: spawned around the source center. Echo copies fan
   through `AOE spawn expansion systems`; each copy is placed in a deterministic
   random disk within the child AOE's `AoeDefinition.scatterRadius` around the center. With

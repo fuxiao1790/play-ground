@@ -35,6 +35,7 @@ Use this split:
 | Aspect | Overview | Detail |
 |---|---|---|
 | Shared combat runtime | Common scope, faction, target proxy, spawn event -> command -> apply flow, reuse, despawn, rendering, VFX, and frame timing rules. | [project-aoe-system-common.md](./project-aoe-system-common.md) |
+| Skill runtime boundary | Copied compiled skill snapshots, root mana gate, registration ids/template keys, and skill-domain ECS ownership. | [skill-ecs-simulation.md](./skill-ecs-simulation.md) |
 | Spawn template registry | Spawn safety rules for managed requests, ECS events, commands, runtime component snapshots, timed-spawn templates, and consequence events. | [spawn-template-registry.md](./spawn-template-registry.md) |
 | Projectiles | High-count moving attacks split into a discrete lane (footprint-only collision, may home) and a continuous lane (footprint plus swept travel corridor, never homes), each with its own archetype, reuse pool, and collision system; plus timed spawns, impact spawns, lifetime, and render data. | [projectile-system.md](./projectile-system.md) |
 | AOEs | Pulse and lingering areas, repeat-hit gates, projectile bursts from AOE hits, lifetime, pulse VFX, and AOE-specific reuse. | [aoe-system.md](./aoe-system.md) |

@@ -445,7 +445,7 @@ namespace PlayGround.System.Combat.Projectiles
         public static TimedSpawnStateComponent InitialTimedSpawnStateFor(in ProjectileSpawnCommand cmd) =>
             new()
             {
-                EnergyAccumulated = 0f,
+                EnergyAccumulated = TimedSpawnInitialEnergy.Roll(cmd.TimedSpawn),
                 TickIndex = 0
             };
     }

@@ -279,13 +279,14 @@ namespace PlayGround.Skills
             if (!TryGetIntervalSourceLifetime(source, out float sourceLifetime))
                 return;
 
-            float sourceCapacity = trigger.ResolveEnergyPerSecond(SkillStatSnapshot.Identity) * sourceLifetime;
             float energyThreshold = trigger.ManaToEnergyCost(effect.manaCost);
+            float sourceCapacity = trigger.ResolveInitialEnergyMaximum(energyThreshold)
+                + trigger.ResolveEnergyPerSecond(SkillStatSnapshot.Identity) * sourceLifetime;
             if (energyThreshold <= sourceCapacity)
                 return;
 
             AddWarning(warnings, SkillValidationWarningCode.TargetedIntervalWarning, slotIndex,
-                "Targeted interval child energy threshold exceeds what the source can accrue over its lifetime; it will never spawn.");
+                "Targeted interval child energy threshold exceeds its initial plus lifetime energy capacity; it will never spawn.");
         }
 
         private static bool TryGetIntervalSourceLifetime(SkillDefinition source, out float lifetime)

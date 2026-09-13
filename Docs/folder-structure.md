@@ -120,8 +120,10 @@ Docs/
 - Combat result contract:
   [contracts/combat-hit-and-tick-results.md](./contracts/combat-hit-and-tick-results.md)
 - Sound event contract: [contracts/sound-events.md](./contracts/sound-events.md)
-- Skill details:
-  [reference/game-logic/skill-system.md](./reference/game-logic/skill-system.md)
+- Skill gameplay details:
+  [reference/game-logic/skill-gameplay-system.md](./reference/game-logic/skill-gameplay-system.md)
+- Skill ECS details:
+  [reference/simulation/skill-ecs-simulation.md](./reference/simulation/skill-ecs-simulation.md)
 - Skill stat modifiers:
   [reference/game-logic/skill-modifiers.md](./reference/game-logic/skill-modifiers.md)
 - General numeric modifier pattern (not skill-specific):

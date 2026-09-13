@@ -647,7 +647,7 @@ namespace PlayGround.System.Combat.Aoes
         public static TimedSpawnStateComponent InitialTimedSpawnStateFor(in AoeSpawnCommand cmd) =>
             new()
             {
-                EnergyAccumulated = 0f,
+                EnergyAccumulated = TimedSpawnInitialEnergy.Roll(cmd.TimedSpawn),
                 TickIndex = 0
             };
 

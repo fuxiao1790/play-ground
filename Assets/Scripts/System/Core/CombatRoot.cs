@@ -767,6 +767,7 @@ namespace PlayGround.System.Combat.Core
                     ChildKind = IntervalChildKind.Projectile,
                     TemplateKey = request.ChildSpawn.TemplateKey,
                     EnergyPerSecond = request.ChildSpawn.EnergyPerSecond,
+                    InitialEnergyPercent = request.ChildSpawn.InitialEnergyPercent,
                     EnergyThreshold = request.ChildSpawn.EnergyThreshold,
                     JitterSeed = request.ChildSpawn.JitterSeed
                 };

@@ -381,6 +381,7 @@ namespace PlayGround.Skills
                         JitterSeed = ++nextChildJitterSeed,
                         ChildDefinition = childDef,
                         EnergyPerSecond = trigger.ResolveEnergyPerSecond(snapshot),
+                        InitialEnergyPercent = trigger.ResolveInitialEnergyPercent(),
                         EnergyThreshold = trigger.ManaToEnergyCost(childDef.ManaCost),
                         Behavior = new ProjectileChildSpawnBehavior(
                             childDef.Count,
@@ -402,6 +403,7 @@ namespace PlayGround.Skills
                         JitterSeed = ++nextChildJitterSeed,
                         ChildDefinition = childDef,
                         EnergyPerSecond = trigger.ResolveEnergyPerSecond(snapshot),
+                        InitialEnergyPercent = trigger.ResolveInitialEnergyPercent(),
                         EnergyThreshold = trigger.ManaToEnergyCost(childDef.ManaCost),
                     };
                     if (parent is RuntimeProjectileDefinition projectileParent)
@@ -419,6 +421,7 @@ namespace PlayGround.Skills
                         JitterSeed = ++nextChildJitterSeed,
                         ChildDefinition = childDef,
                         EnergyPerSecond = trigger.ResolveEnergyPerSecond(snapshot),
+                        InitialEnergyPercent = trigger.ResolveInitialEnergyPercent(),
                         EnergyThreshold = trigger.ManaToEnergyCost(childDef.ManaCost),
                     };
                     if (parent is RuntimeProjectileDefinition projectileParent)

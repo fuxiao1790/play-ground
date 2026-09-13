@@ -310,6 +310,7 @@ namespace PlayGround.Tests.EditMode
             SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
             IntervalSpawnTrigger trigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
             trigger.energyPerSecond = 2f;
+            trigger.initialEnergyPercent = 25f;
             ((ProjectileDefinition)targetSkill.Definition).manaCost = 4f;
             var nodes = new[]
             {
@@ -323,7 +324,41 @@ namespace PlayGround.Tests.EditMode
             RuntimeChildSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).ChildSpawnSetup;
             Assert.That(setup, Is.Not.Null);
             Assert.That(setup.EnergyPerSecond, Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(setup.InitialEnergyPercent, Is.EqualTo(25f).Within(0.0001f));
             Assert.That(setup.EnergyThreshold, Is.EqualTo(4f).Within(0.0001f));
+        }
+
+        [Test]
+        public void TimedSpawnInitialEnergyRollUsesDeterministicSymmetricPercentRange()
+        {
+            var timedSpawn = new TimedSpawnComponent
+            {
+                JitterSeed = 17,
+                EnergyThreshold = 10f,
+                InitialEnergyPercent = 25f
+            };
+
+            bool hasNegativeRoll = false;
+            for (int sourceId = 1; sourceId <= 32; sourceId++)
+            {
+                timedSpawn.SourceId = sourceId;
+                float roll = TimedSpawnInitialEnergy.Roll(timedSpawn);
+                Assert.That(roll, Is.InRange(-2.5f, 2.5f));
+                hasNegativeRoll |= roll < 0f;
+            }
+
+            timedSpawn.SourceId = 42;
+            float first = TimedSpawnInitialEnergy.Roll(timedSpawn);
+            float second = TimedSpawnInitialEnergy.Roll(timedSpawn);
+            timedSpawn.JitterSeed = 99;
+            float differentTemplateSeed = TimedSpawnInitialEnergy.Roll(timedSpawn);
+            timedSpawn.SourceId = 43;
+            float nextEntity = TimedSpawnInitialEnergy.Roll(timedSpawn);
+
+            Assert.That(hasNegativeRoll, Is.True);
+            Assert.That(second, Is.EqualTo(first).Within(0.0001f));
+            Assert.That(differentTemplateSeed, Is.EqualTo(first).Within(0.0001f));
+            Assert.That(nextEntity, Is.Not.EqualTo(first));
         }
 
         [Test]

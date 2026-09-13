@@ -19,6 +19,7 @@ namespace PlayGround.Skills.Runtime
         public int JitterSeed { get; set; }
         public RuntimeProjectileDefinition ChildDefinition { get; set; }
         public float EnergyPerSecond { get; set; }
+        public float InitialEnergyPercent { get; set; }
         public float EnergyThreshold { get; set; }
         public ProjectileChildSpawnBehavior Behavior { get; set; }
         public Hash128 TemplateKey { get; set; }
@@ -29,6 +30,7 @@ namespace PlayGround.Skills.Runtime
         public int JitterSeed { get; set; }
         public RuntimeTargetedDefinition ChildDefinition { get; set; }
         public float EnergyPerSecond { get; set; }
+        public float InitialEnergyPercent { get; set; }
         public float EnergyThreshold { get; set; }
         public Hash128 TemplateKey { get; set; }
     }
@@ -38,6 +40,7 @@ namespace PlayGround.Skills.Runtime
         public int JitterSeed { get; set; }
         public RuntimeAoeDefinition ChildDefinition { get; set; }
         public float EnergyPerSecond { get; set; }
+        public float InitialEnergyPercent { get; set; }
         public float EnergyThreshold { get; set; }
         public Hash128 TemplateKey { get; set; }
     }

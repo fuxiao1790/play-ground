@@ -1100,6 +1100,7 @@ namespace PlayGround.Skills
                 ChildKind = IntervalChildKind.Targeted,
                 JitterSeed = setup.JitterSeed,
                 EnergyPerSecond = Mathf.Max(0.01f, setup.EnergyPerSecond),
+                InitialEnergyPercent = Mathf.Clamp(setup.InitialEnergyPercent, 0f, 100f),
                 EnergyThreshold = Mathf.Max(1e-3f, setup.EnergyThreshold),
                 TemplateKey = setup.TemplateKey
             };
@@ -1115,6 +1116,7 @@ namespace PlayGround.Skills
                 ChildKind = IntervalChildKind.Projectile,
                 JitterSeed = setup.JitterSeed,
                 EnergyPerSecond = Mathf.Max(0.01f, setup.EnergyPerSecond),
+                InitialEnergyPercent = Mathf.Clamp(setup.InitialEnergyPercent, 0f, 100f),
                 EnergyThreshold = Mathf.Max(1e-3f, setup.EnergyThreshold),
                 TemplateKey = setup.TemplateKey
             };
@@ -1130,6 +1132,7 @@ namespace PlayGround.Skills
                 ChildKind = AoeVariant.AoeChildKindFor(setup.ChildDefinition.LifetimeSeconds),
                 JitterSeed = setup.JitterSeed,
                 EnergyPerSecond = Mathf.Max(0.01f, setup.EnergyPerSecond),
+                InitialEnergyPercent = Mathf.Clamp(setup.InitialEnergyPercent, 0f, 100f),
                 EnergyThreshold = Mathf.Max(1e-3f, setup.EnergyThreshold),
                 TemplateKey = setup.TemplateKey
             };

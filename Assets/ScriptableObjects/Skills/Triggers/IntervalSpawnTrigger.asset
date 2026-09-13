@@ -16,6 +16,7 @@ MonoBehaviour:
   displayName: 
   description: 
   icon: {fileID: 0}
-  manaCostMultiplier: 1.2
-  manaCostIncreased: 1.2
-  energyPerSecond: 15
+  manaCostMultiplier: 1.5
+  manaCostIncreased: 1.5
+  energyPerSecond: 30
+  initialEnergyPercent: 75

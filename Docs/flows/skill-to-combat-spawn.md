@@ -60,8 +60,9 @@ use event-template keys instead of managed nested references.
 
 ## Notes / TODOs
 
-Detailed reference:
-[skill-system.md](../reference/game-logic/skill-system.md).
+Detailed references:
+[Skill Gameplay System](../reference/game-logic/skill-gameplay-system.md) and
+[Skill ECS Simulation](../reference/simulation/skill-ecs-simulation.md).
 
 Runtime edit authority is documented in
 [Skill Loadout Editing](../contracts/skill-loadout-editing.md) and

@@ -3,7 +3,7 @@
 All docs in `Docs/` are design references. They describe current intent, not
 final decisions, and should be revisited in detail before implementation locks in.
 
-See [skill-system.md](./skill-system.md) for the broader skill authoring model
+See [skill-gameplay-system.md](./skill-gameplay-system.md) for broader skill authoring model
 (Skills, Skill Sets, Trigger Links, Loadouts). This doc covers the skill
 system's modifier surface: the support kind interfaces, every current source
 that resolves through the shared numeric fold - Stat Modifier Supports,
@@ -193,7 +193,7 @@ resolves documented in
 mana cost.
 The resolved mana-cost factor is used for the interval child-energy
 threshold, the initial active skill chain cost, and that link's triggered
-skill cost. See [skill-system.md](./skill-system.md#projectiledefinition) for
+skill cost. See [skill-gameplay-system.md](./skill-gameplay-system.md#definition-ownership) for
 how the factor aggregates across a full trigger chain.
 
 ## Current Augment Supports

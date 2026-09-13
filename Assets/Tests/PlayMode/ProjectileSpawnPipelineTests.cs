@@ -272,6 +272,35 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void IntervalSideSpray_RollsANewDirectionForEachWaveFromAMovingSource()
+        {
+            const float speed = 5f;
+            var travelDirection = new float2(1f, 0f);
+            EnqueueEvent(MakeEvent(
+                count: 1,
+                baseDirection: travelDirection,
+                speed: speed,
+                jitterSeed: 123u,
+                deterministicIdTickIndex: 1,
+                spawnPatternType: ProjectileChildSpawnPatternType.SideSpray));
+            EnqueueEvent(MakeEvent(
+                count: 1,
+                baseDirection: travelDirection,
+                speed: speed,
+                jitterSeed: 123u,
+                deterministicIdTickIndex: 2,
+                spawnPatternType: ProjectileChildSpawnPatternType.SideSpray));
+
+            Tick(0.01f);
+
+            float2[] velocities = ActiveProjectileVelocities();
+            Assert.That(velocities.Length, Is.EqualTo(2));
+            Assert.That(math.distancesq(velocities[0], velocities[1]), Is.GreaterThan(0.001f));
+            Assert.That(math.length(velocities[0]), Is.EqualTo(speed).Within(0.001f));
+            Assert.That(math.length(velocities[1]), Is.EqualTo(speed).Within(0.001f));
+        }
+
+        [Test]
         public void ChildSpawn_TimedSpawnProjectile_ProducesChildWithHasTimedSpawnerZero()
         {
             CreateChildSpawnerEntity();

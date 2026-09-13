@@ -180,11 +180,13 @@ namespace PlayGround.System.Combat.Projectiles
             StackEffectSnapshot stackEffect = default,
             Hash128 templateKey = default,
             OnHitSpawnRef onHitSpawn = default,
-            bool continuousCollision = false)
+            bool continuousCollision = false,
+            float initialEnergyPercent = 0f)
         {
             JitterSeed = jitterSeed;
             TypeId = typeId;
             EnergyPerSecond = Mathf.Max(0f, energyPerSecond);
+            InitialEnergyPercent = Mathf.Clamp(initialEnergyPercent, 0f, 100f);
             EnergyThreshold = Mathf.Max(0f, energyThreshold);
             Speed = Mathf.Max(0f, speed);
             Lifetime = Mathf.Max(0f, lifetime);
@@ -208,6 +210,7 @@ namespace PlayGround.System.Combat.Projectiles
         public int JitterSeed { get; }
         public int TypeId { get; }
         public float EnergyPerSecond { get; }
+        public float InitialEnergyPercent { get; }
         public float EnergyThreshold { get; }
         public float Speed { get; }
         public float Lifetime { get; }

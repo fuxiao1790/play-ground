@@ -201,14 +201,11 @@ namespace PlayGround.System.Combat.Projectiles
                         && command.SpawnPatternType == ProjectileChildSpawnPatternType.SideSpray)
                     {
                         var rng = new Random(IntervalWaveSeed(in command));
-                        if (math.lengthsq(evt.AimDirection) <= 0.0001f)
-                        {
-                            // Stationary source: no travel direction to spray from, so roll a
-                            // fresh one per wave and side-spray around that instead.
-                            float randomForwardAngle = rng.NextFloat(0f, 2f * math.PI);
-                            math.sincos(randomForwardAngle, out float s, out float c);
-                            command.BaseDirection = new float2(c, s);
-                        }
+                        // Interval waves roll their own heading. A moving source must not lock
+                        // every later wave to its travel direction.
+                        float randomForwardAngle = rng.NextFloat(0f, 2f * math.PI);
+                        math.sincos(randomForwardAngle, out float s, out float c);
+                        command.BaseDirection = new float2(c, s);
 
                         for (int i = 0; i < count; i++)
                         {
@@ -315,9 +312,9 @@ namespace PlayGround.System.Combat.Projectiles
                 return seed != 0 ? seed : 1u;
             }
 
-            // Half the shots fan left of the spawner's travel direction, half fan right;
+            // Half the shots fan left of the wave heading, half fan right;
             // each shot's angle is randomized within +/-SpreadDegrees/2 of that side's
-            // perpendicular line (not the travel direction itself).
+            // perpendicular line (not the wave heading itself).
             private static float2 IntervalSideSprayVelocity(in ProjectileSpawnCommand command, int shotIndex, ref Random rng)
             {
                 float2 forward = math.normalizesafe(command.BaseDirection, new float2(1f, 0f));

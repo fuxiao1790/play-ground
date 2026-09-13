@@ -177,9 +177,8 @@ namespace PlayGround.System.Combat.Spawning
                 state.TickIndex = tickIndex;
             }
 
-            // A stationary source (zero velocity) has no travel direction; the expansion
-            // system reads a zero AimDirection as "fan the interval children in a nova"
-            // instead of side-spraying relative to a direction that doesn't exist.
+            // Preserve travel direction for patterns that use it. Interval side-spray
+            // waves select their own heading during expansion.
             private static float2 TravelDirectionFor(in CombatKinematicsComponent kinematics) =>
                 math.lengthsq(kinematics.Velocity) > 0.0001f ? kinematics.Velocity : default;
         }

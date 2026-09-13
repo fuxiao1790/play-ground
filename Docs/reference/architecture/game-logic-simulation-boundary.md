@@ -71,8 +71,10 @@ expanded into `AoeSpawnCommand`, and when the spawned AOE can collide.
 
 Some docs are intentionally boundary docs:
 
-- [game-logic/skill-system.md](../game-logic/skill-system.md): skill authoring,
-  composition, compilation, cooldowns, and trigger semantics.
+- [game-logic/skill-gameplay-system.md](../game-logic/skill-gameplay-system.md):
+  skill authoring, composition, compilation, cooldowns, and trigger semantics.
+- [simulation/skill-ecs-simulation.md](../simulation/skill-ecs-simulation.md):
+  copied skill snapshots, root-cast gate, ECS skill domains, and template keys.
 - [simulation/spawn-template-registry.md](../simulation/spawn-template-registry.md): plain-data
   snapshot rules for requests, events, commands, runtime components, timed
   templates, and consequence events.

@@ -49,7 +49,8 @@ section that matches the topic you need.
 
 - [Gameplay design](./reference/design/gameplay.md)
 - [Visual style reference](./visual/style-reference.md)
-- [Skill system](./reference/game-logic/skill-system.md)
+- [Skill gameplay system](./reference/game-logic/skill-gameplay-system.md)
+- [Skill ECS simulation](./reference/simulation/skill-ecs-simulation.md)
 - [Skill stat modifiers](./reference/game-logic/skill-modifiers.md)
 - [Spawn system](./reference/game-logic/spawn-system.md)
 - [Simulation index](./reference/simulation/index.md)

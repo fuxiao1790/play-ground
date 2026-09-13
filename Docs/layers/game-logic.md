@@ -75,7 +75,7 @@ meaning before data is snapshotted for simulation.
 ## Notes / TODOs
 
 - Detailed references:
-  [skill-system.md](../reference/game-logic/skill-system.md),
+  [skill-gameplay-system.md](../reference/game-logic/skill-gameplay-system.md),
   [mobs.md](../reference/game-logic/mobs.md),
   [mob-behaviour.md](../reference/game-logic/mob-behaviour.md),
   [spawn-system.md](../reference/game-logic/spawn-system.md).
