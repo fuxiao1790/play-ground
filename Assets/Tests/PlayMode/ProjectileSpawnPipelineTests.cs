@@ -116,6 +116,27 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void FanOut_Count4SpreadDegrees30_IncludesTwoForwardProjectiles()
+        {
+            const float speed = 5f;
+            EnqueueEvent(MakeEvent(count: 4, spreadDegrees: 30f, speed: speed));
+
+            Tick(0.01f);
+
+            float2[] velocities = ActiveProjectileVelocities();
+            int forwardCount = 0;
+            for (int i = 0; i < velocities.Length; i++)
+            {
+                if (math.distancesq(velocities[i], new float2(speed, 0f)) < 0.0001f)
+                {
+                    forwardCount++;
+                }
+            }
+
+            Assert.That(forwardCount, Is.EqualTo(2));
+        }
+
+        [Test]
         public void SingleShot_Count1_ProducesOneProjectileWithExactVelocity()
         {
             const float speed = 5f;
@@ -272,32 +293,55 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void IntervalSideSpray_RollsANewDirectionForEachWaveFromAMovingSource()
+        public void DirectionlessIntervalSideSprayTemplate_UsesItsStoredPattern()
         {
             const float speed = 5f;
-            var travelDirection = new float2(1f, 0f);
             EnqueueEvent(MakeEvent(
                 count: 1,
-                baseDirection: travelDirection,
                 speed: speed,
                 jitterSeed: 123u,
                 deterministicIdTickIndex: 1,
+                hasAimDirection: false,
                 spawnPatternType: ProjectileChildSpawnPatternType.SideSpray));
             EnqueueEvent(MakeEvent(
                 count: 1,
-                baseDirection: travelDirection,
                 speed: speed,
                 jitterSeed: 123u,
                 deterministicIdTickIndex: 2,
+                hasAimDirection: false,
                 spawnPatternType: ProjectileChildSpawnPatternType.SideSpray));
 
             Tick(0.01f);
 
             float2[] velocities = ActiveProjectileVelocities();
             Assert.That(velocities.Length, Is.EqualTo(2));
-            Assert.That(math.distancesq(velocities[0], velocities[1]), Is.GreaterThan(0.001f));
+            Assert.That(math.distancesq(velocities[0], velocities[1]), Is.LessThan(0.001f));
             Assert.That(math.length(velocities[0]), Is.EqualTo(speed).Within(0.001f));
             Assert.That(math.length(velocities[1]), Is.EqualTo(speed).Within(0.001f));
+        }
+
+        [Test]
+        public void DirectionlessIntervalForward_UsesDefaultHeadingForEachWave()
+        {
+            const float speed = 5f;
+            EnqueueEvent(MakeEvent(
+                baseDirection: new float2(1f, 0f),
+                speed: speed,
+                jitterSeed: 456u,
+                deterministicIdTickIndex: 1,
+                hasAimDirection: false));
+            EnqueueEvent(MakeEvent(
+                baseDirection: new float2(1f, 0f),
+                speed: speed,
+                jitterSeed: 456u,
+                deterministicIdTickIndex: 2,
+                hasAimDirection: false));
+
+            Tick(0.01f);
+
+            float2[] velocities = ActiveProjectileVelocities();
+            Assert.That(velocities.Length, Is.EqualTo(2));
+            Assert.That(math.distancesq(velocities[0], velocities[1]), Is.LessThan(0.001f));
         }
 
         [Test]
@@ -519,6 +563,7 @@ namespace PlayGround.Tests.PlayMode
             int baseProjectileId = 1,
             uint jitterSeed = 0u,
             int deterministicIdTickIndex = 0,
+            bool hasAimDirection = true,
             ProjectileChildSpawnPatternType spawnPatternType = ProjectileChildSpawnPatternType.Forward,
             float armSeconds = 0f,
             float energyPerSecond = 1f,
@@ -566,7 +611,7 @@ namespace PlayGround.Tests.PlayMode
                 Kind = IntervalChildKind.Projectile,
                 TemplateKey = key,
                 Position = position,
-                AimDirection = baseDirection,
+                AimDirection = hasAimDirection ? baseDirection : default,
                 Faction = CombatFaction.Player,
                 SourceId = baseProjectileId,
                 JitterSeed = jitterSeed,

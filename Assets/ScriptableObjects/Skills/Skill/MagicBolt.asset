@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.ProjectileSkill
   assetGuid: 2845951cae608d943a8b55c1765dade3
   displayName: Magic Bolt
-  description:
+  description: 
   icon: {fileID: 0}
   baseRate: 2.5
   maxSupportCount: 6
@@ -22,7 +22,7 @@ MonoBehaviour:
     prefab: {fileID: 1001001001001001004, guid: 9bbb2791febb5cd44a3d8fbb50dc1451, type: 3}
     speed: 30
     lifetime: 2
-    damage: 3
+    damage: 1
     count: 1
     spreadDegrees: 0
     jitterDegrees: 0
@@ -31,6 +31,7 @@ MonoBehaviour:
     manaCost: 3
     armSeconds: 0
     directDamageEnabled: 1
+    continuousCollision: 0
     trackingEnabled: 0
     trackingTurnSpeedDegrees: 0
     trackingQueryIntervalSeconds: 0

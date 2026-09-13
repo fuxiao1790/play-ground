@@ -214,8 +214,8 @@ namespace PlayGround.System.Combat.Aoes
                         AimDirection = DirectionFromTo(targetPosition.Value, kinematics.Position),
                         SourceId = baseId,
                         JitterSeed = (uint)baseId * 2654435761u,
-                        // Match projectile-source on-hit bursts: select the side-spray
-                        // expansion path with an impact-unique source id.
+                        // AOE-source on-hit projectile templates use radial expansion. The
+                        // impact-unique source id keeps this one-shot burst distinct.
                         DeterministicIdTickIndex = 1,
                         ContactGateSeedTargetId = targetKey
                     });

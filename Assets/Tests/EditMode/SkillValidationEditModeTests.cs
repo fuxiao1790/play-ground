@@ -8,6 +8,7 @@ using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
 using PlayGround.System.Combat.Platform;
+using PlayGround.System.Combat.Projectiles;
 using PlayGround.System.Combat.Rendering;
 using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
@@ -92,6 +93,30 @@ namespace PlayGround.Tests.EditMode
             RuntimeChildSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).ChildSpawnSetup;
             Assert.That(setup.Behavior.Count, Is.EqualTo(3));
             Assert.That(setup.Behavior.SpreadDegrees, Is.EqualTo(45f));
+            Assert.That(setup.Behavior.PatternType, Is.EqualTo(ProjectileChildSpawnPatternType.SideSpray));
+        }
+
+        [Test]
+        public void CompilerUsesRadialChildPatternForStationaryProjectileSource()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Stationary Projectile Skill");
+            ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Child Projectile Skill");
+            ((ProjectileDefinition)sourceSkill.Definition).speed = 0f;
+            SkillSet sourceSet = CreateSkillSet("Stationary Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
+            IntervalSpawnTrigger trigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(sourceSet, trigger),
+                    new SkillLoadoutNode(targetSet),
+                },
+                0,
+                SkillStatSnapshot.Identity);
+
+            RuntimeChildSpawnSetup setup = ((RuntimeProjectileDefinition)runtime).ChildSpawnSetup;
+            Assert.That(setup.Behavior.PatternType, Is.EqualTo(ProjectileChildSpawnPatternType.Radial));
         }
 
         [Test]
@@ -573,6 +598,7 @@ namespace PlayGround.Tests.EditMode
             var aoe = (RuntimeAoeDefinition)runtime;
             Assert.That(aoe.ChildSpawnSetup, Is.Not.Null);
             Assert.That(aoe.ChildSpawnSetup.ChildDefinition, Is.TypeOf<RuntimeProjectileDefinition>());
+            Assert.That(aoe.ChildSpawnSetup.Behavior.PatternType, Is.EqualTo(ProjectileChildSpawnPatternType.Radial));
             Assert.That(aoe.AoeIntervalSpawnSetup, Is.Null);
         }
 

@@ -385,7 +385,7 @@ namespace PlayGround.Skills
                         EnergyThreshold = trigger.ManaToEnergyCost(childDef.ManaCost),
                         Behavior = new ProjectileChildSpawnBehavior(
                             childDef.Count,
-                            ProjectileChildSpawnPatternType.SideSpray,
+                            ProjectileChildPatternFor(parent),
                             childDef.SpreadDegrees),
                     };
                     if (parent is RuntimeProjectileDefinition projectileParent)
@@ -433,6 +433,11 @@ namespace PlayGround.Skills
                 }
             }
         }
+
+        private static ProjectileChildSpawnPatternType ProjectileChildPatternFor(RuntimeSkillDefinition source) =>
+            source is RuntimeProjectileDefinition { Speed: > 0f }
+                ? ProjectileChildSpawnPatternType.SideSpray
+                : ProjectileChildSpawnPatternType.Radial;
 
         // Selects on-hit field from compiled source and target types. False means
         // pair has no runtime slot, so caller must not stamp incoming mana cost.

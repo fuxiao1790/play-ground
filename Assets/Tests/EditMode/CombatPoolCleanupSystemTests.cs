@@ -116,6 +116,27 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void FanOut_Count4SpreadDegrees30_IncludesTwoForwardProjectiles()
+        {
+            const float speed = 5f;
+            EnqueueEvent(MakeEvent(count: 4, spreadDegrees: 30f, speed: speed));
+
+            Tick(0.01f);
+
+            float2[] velocities = ActiveProjectileVelocities();
+            int forwardCount = 0;
+            for (int i = 0; i < velocities.Length; i++)
+            {
+                if (math.distancesq(velocities[i], new float2(speed, 0f)) < 0.0001f)
+                {
+                    forwardCount++;
+                }
+            }
+
+            Assert.That(forwardCount, Is.EqualTo(2));
+        }
+
+        [Test]
         public void SingleShot_Count1_ProducesOneProjectileWithExactVelocity()
         {
             const float speed = 5f;

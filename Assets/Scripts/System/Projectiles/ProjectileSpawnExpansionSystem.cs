@@ -197,54 +197,67 @@ namespace PlayGround.System.Combat.Projectiles
                     Stamp(ref command, in evt);
                     int count = math.max(1, command.Count);
 
-                    if (command.DeterministicIdTickIndex > 0
-                        && command.SpawnPatternType == ProjectileChildSpawnPatternType.SideSpray)
+                    // Root casts always use forward-volley behavior. Spawn patterns describe child waves only.
+                    if (command.DeterministicIdTickIndex <= 0)
                     {
-                        var rng = new Random(IntervalWaveSeed(in command));
-                        // Interval waves roll their own heading. A moving source must not lock
-                        // every later wave to its travel direction.
-                        float randomForwardAngle = rng.NextFloat(0f, 2f * math.PI);
-                        math.sincos(randomForwardAngle, out float s, out float c);
-                        command.BaseDirection = new float2(c, s);
+                        CreateForwardPattern(in command, count);
+                        continue;
+                    }
 
-                        for (int i = 0; i < count; i++)
-                        {
-                            int id = ProjectileIdFor(in command, i);
-                            float2 velocity = IntervalSideSprayVelocity(in command, i, ref rng);
-                            WriteCommand(in command, id, velocity);
-                        }
-                    }
-                    else if (command.DeterministicIdTickIndex > 0
-                        && command.SpawnPatternType == ProjectileChildSpawnPatternType.Radial)
+                    switch (command.SpawnPatternType)
                     {
-                        for (int i = 0; i < count; i++)
-                        {
-                            int id = ProjectileIdFor(in command, i);
-                            float2 velocity = RadialDirection(i, count) * command.Speed;
-                            WriteCommand(in command, id, velocity);
-                        }
-                    }
-                    else if (count <= 1)
-                    {
-                        WriteCommand(in command, ProjectileIdFor(in command, 0), command.BaseDirection * command.Speed);
-                    }
-                    else
-                    {
-                        var rng = new Random(command.JitterSeed != 0 ? command.JitterSeed : 1u);
-                        for (int i = 0; i < count; i++)
-                        {
-                            float angle = SpreadAngle(command.SpreadDegrees, i, count);
-                            if (command.JitterDegrees > 0f)
-                            {
-                                angle += rng.NextFloat(-command.JitterDegrees, command.JitterDegrees);
-                            }
+                        case ProjectileChildSpawnPatternType.SideSpray:
+                            var waveRng = new Random(IntervalWaveSeed(in command));
+                            CreateSideSprayPattern(in command, count, ref waveRng);
+                            break;
 
-                            int id = ProjectileIdFor(in command, i);
-                            float2 velocity = Rotate(command.BaseDirection, angle) * command.Speed;
-                            WriteCommand(in command, id, velocity);
-                        }
+                        case ProjectileChildSpawnPatternType.Radial:
+                            CreateRadialPattern(in command, count);
+                            break;
+
+                        case ProjectileChildSpawnPatternType.Forward:
+                        default:
+                            CreateForwardPattern(in command, count);
+                            break;
                     }
                 }
+            }
+
+            private void CreateSideSprayPattern(
+                in ProjectileSpawnCommand command,
+                int count,
+                ref Random waveRng)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    int id = ProjectileIdFor(in command, i);
+                    float2 velocity = IntervalSideSprayVelocity(in command, i, ref waveRng);
+                    WriteCommand(in command, id, velocity);
+                }
+            }
+
+            private void CreateRadialPattern(in ProjectileSpawnCommand command, int count)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    int id = ProjectileIdFor(in command, i);
+                    float2 velocity = RadialDirection(i, count) * command.Speed;
+                    WriteCommand(in command, id, velocity);
+                }
+            }
+
+            private void CreateForwardPattern(
+                in ProjectileSpawnCommand command,
+                int count)
+            {
+                if (count <= 1)
+                {
+                    WriteCommand(in command, ProjectileIdFor(in command, 0), command.BaseDirection * command.Speed);
+                    return;
+                }
+
+                var spreadRng = new Random(command.JitterSeed != 0 ? command.JitterSeed : 1u);
+                WriteForwardWave(in command, count, ref spreadRng);
             }
 
             private static void Stamp(ref ProjectileSpawnCommand command, in ProjectileSpawnEvent evt)
@@ -300,8 +313,35 @@ namespace PlayGround.System.Combat.Projectiles
 
             }
 
-            private static float SpreadAngle(float spread, int i, int count) =>
-                count <= 1 ? 0f : -spread * 0.5f + spread / (count - 1) * i;
+            private static float SpreadAngle(float spread, int i, int count)
+            {
+                if (count <= 1)
+                {
+                    return 0f;
+                }
+
+                if ((count & 1) != 0)
+                {
+                    return -spread * 0.5f + spread / (count - 1) * i;
+                }
+
+                // Preserve symmetric spread while keeping a pair directly on the base direction.
+                int shotsPerSide = (count - 2) / 2;
+                if (i == shotsPerSide || i == shotsPerSide + 1)
+                {
+                    return 0f;
+                }
+
+                if (shotsPerSide == 0)
+                {
+                    return 0f;
+                }
+
+                float step = spread * 0.5f / shotsPerSide;
+                return i < shotsPerSide
+                    ? -spread * 0.5f + step * i
+                    : step * (i - shotsPerSide - 1);
+            }
 
             // Seeded per spawner instance (JitterSeed) and per wave (DeterministicIdTickIndex),
             // so no two spawners and no two waves from the same spawner roll the same shots.
@@ -324,6 +364,21 @@ namespace PlayGround.System.Combat.Projectiles
                 float halfSpread = command.SpreadDegrees * 0.5f;
                 float angle = rng.NextFloat(-halfSpread, halfSpread);
                 return Rotate(sideDirection, angle) * command.Speed;
+            }
+
+            private void WriteForwardWave(in ProjectileSpawnCommand command, int count, ref Random rng)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    float angle = SpreadAngle(command.SpreadDegrees, i, count);
+                    if (command.JitterDegrees > 0f)
+                    {
+                        angle += rng.NextFloat(-command.JitterDegrees, command.JitterDegrees);
+                    }
+
+                    int id = ProjectileIdFor(in command, i);
+                    WriteCommand(in command, id, Rotate(command.BaseDirection, angle) * command.Speed);
+                }
             }
 
             private static float2 RadialDirection(int shotIndex, int shotCount)

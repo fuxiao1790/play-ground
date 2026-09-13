@@ -177,8 +177,8 @@ namespace PlayGround.System.Combat.Spawning
                 state.TickIndex = tickIndex;
             }
 
-            // Preserve travel direction for patterns that use it. Interval side-spray
-            // waves select their own heading during expansion.
+            // Moving projectile sources pass their travel direction to side-spray templates.
+            // Directionless sources register radial child templates.
             private static float2 TravelDirectionFor(in CombatKinematicsComponent kinematics) =>
                 math.lengthsq(kinematics.Velocity) > 0.0001f ? kinematics.Velocity : default;
         }

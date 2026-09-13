@@ -63,8 +63,13 @@ namespace PlayGround.System.Combat.Aoes
                 {
                     float angle = rng.NextFloat(0f, 2f * math.PI);
                     float dist = command.ScatterRadius * math.sqrt(rng.NextFloat());
-                    math.sincos(angle, out float s, out float c);
-                    pos += new float2(c, s) * dist;
+                    // Multi-AOE events retain one copy at their aim location. Consume its
+                    // random values too, keeping every scattered copy's seeded result stable.
+                    if (i > 0 || echoCount <= 1)
+                    {
+                        math.sincos(angle, out float s, out float c);
+                        pos += new float2(c, s) * dist;
+                    }
                 }
 
                 CombatCollisionMath.ComputeWorldBounds(

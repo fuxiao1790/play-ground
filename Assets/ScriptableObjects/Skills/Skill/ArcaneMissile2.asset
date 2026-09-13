@@ -22,7 +22,7 @@ MonoBehaviour:
     prefab: {fileID: 1001001001001001004, guid: 9c419b5c13e53224c847b708eea55e25, type: 3}
     speed: 15
     lifetime: 3
-    damage: 1
+    damage: 2
     count: 1
     spreadDegrees: 0
     jitterDegrees: 0

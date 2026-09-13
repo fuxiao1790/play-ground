@@ -155,6 +155,26 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void AoeEchoScatterKeepsOneCopyAtAimLocation()
+        {
+            const int TypeId = 9103;
+            float2 aimLocation = new(3.5f, -1.25f);
+
+            SpawnEchoAoe(TypeId, aimLocation, echoCount: 4, scatterRadius: 3f, jitterSeed: 987u, sourceId: 2050);
+            TickSimulationOnly(0.01f);
+
+            AoeSpawnSnapshot[] snapshots = ReadAoeSnapshotsByType(TypeId);
+            Assert.That(snapshots, Has.Length.EqualTo(4));
+            bool hasCopyAtAimLocation = false;
+            for (int i = 0; i < snapshots.Length; i++)
+            {
+                hasCopyAtAimLocation |= math.lengthsq(snapshots[i].Position - aimLocation) < 0.000001f;
+            }
+
+            Assert.That(hasCopyAtAimLocation, Is.True);
+        }
+
+        [Test]
         public void AoeEchoScatterStaysWithinRadiusAndMovesCopies()
         {
             const int TypeId = 9102;

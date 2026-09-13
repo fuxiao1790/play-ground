@@ -744,7 +744,7 @@ namespace PlayGround.Skills
                         depth + 1,
                         warnings,
                         slotIndex,
-                        ProjectileChildSpawnPatternType.SideSpray);
+                        ProjectileChildSpawnPatternType.Radial);
                 if (aoeDef.StackingDetonation != null)
                     RegisterSpawnTemplatesRecursive(aoeDef.StackingDetonation, depth + 1, warnings, slotIndex);
 

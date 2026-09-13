@@ -132,10 +132,11 @@ Current flow:
    producers enqueue events into the matching AOE expansion system queue.
 2. `ImpactAoeSpawnExpansionSystem` and `LingeringAoeSpawnExpansionSystem` drain
    their native event queues and matching scope buffers.
-3. Expansion fans `EchoCount` copies, scatters each copy inside
-   `ScatterRadius` using a deterministic random disk seeded by `JitterSeed`,
-   computes per-copy bounds, and writes one `AoeSpawnCommand` per copy to the
-   impact or lingering command container.
+3. Expansion fans `EchoCount` copies. For scattered multi-AOE events, one copy
+   remains at event aim location; remaining copies scatter inside `ScatterRadius`
+   using deterministic random disk seeded by `JitterSeed`. Expansion computes
+   per-copy bounds and writes one `AoeSpawnCommand` per copy to impact or
+   lingering command container.
 4. `ImpactAoeSpawnApplySystem` and `LingeringAoeSpawnApplySystem` read their
    command containers and count reusable AOE slots with `WithDisabled<Active>()`.
 5. If disabled slots are short of demand,

@@ -20,14 +20,14 @@ MonoBehaviour:
   maxSupportCount: 6
   definition:
     prefab: {fileID: 1001001001001001004, guid: 8eb4432e3dd98ac42b7af3e68d24a219, type: 3}
-    speed: 100
+    speed: 200
     lifetime: 0.1
-    damage: 3
+    damage: 15
     count: 1
     spreadDegrees: 0
     jitterDegrees: 0
     pierceCount: 0
-    repeatHitCooldown: 0
+    repeatHitCooldown: 0.25
     manaCost: 5
     armSeconds: 0
     directDamageEnabled: 1
