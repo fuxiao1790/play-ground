@@ -16,10 +16,6 @@ MonoBehaviour:
   displayName: 
   description: 
   icon: {fileID: 0}
-  manaCostMultiplier: 1.1
-  manaCostIncreased: 1.1
-  energyPerSecond: 25
-  projectileCount: 1
-  sideSpreadDegrees: 30
-  echoCount: 1
-  scatterRadius: 5
+  manaCostMultiplier: 1.2
+  manaCostIncreased: 1.2
+  energyPerSecond: 15

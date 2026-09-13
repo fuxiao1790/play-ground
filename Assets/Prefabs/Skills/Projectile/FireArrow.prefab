@@ -139,6 +139,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Sim::PlayGround.System.Combat.Authoring.BasicAttackPrefab
   spriteRenderer: {fileID: 6416970736168755285}
   hurtbox: {fileID: 1469189744092702574}
+  spawnSound: {fileID: 0}
+  spawnSoundRadius: 0
+  trailEffect: {fileID: 8926484042661614526, guid: fa4db3941ec78804c8ebcfeaa67f2e91, type: 3}
+  trailEffectShape: 2
+  trailWidth: 0.25
+  trailStepDistance: 0.5
 --- !u!1 &7079102651487229076
 GameObject:
   m_ObjectHideFlags: 0
