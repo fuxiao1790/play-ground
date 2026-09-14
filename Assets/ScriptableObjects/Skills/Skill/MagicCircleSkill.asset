@@ -19,13 +19,13 @@ MonoBehaviour:
   baseRate: 1
   maxSupportCount: 6
   definition:
-    baseAreaSize: 2
-    damage: 1
+    baseAreaSize: 4
+    damage: 10
     echoCount: 1
     scatterRadius: 0
     manaCost: 8
     armSeconds: 0.3
     directDamageEnabled: 1
     prefab: {fileID: 1037899157007725660, guid: f8387e53bc1080f45b089cbd77570694, type: 3}
-    lifetimeSeconds: 3
+    lifetimeSeconds: 1.5
     tickIntervalSeconds: 0.2

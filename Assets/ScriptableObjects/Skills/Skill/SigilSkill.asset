@@ -13,14 +13,19 @@ MonoBehaviour:
   m_Name: SigilSkill
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.LingeringAoeSkill
   assetGuid: 6539f094aa736534781901f6238c9723
+  displayName: 
+  description: 
+  icon: {fileID: 0}
   baseRate: 1
+  maxSupportCount: 6
   definition:
-    baseAreaSize: 2.2
+    baseAreaSize: 8
     damage: 10
     echoCount: 1
     scatterRadius: 0
+    manaCost: 1
     armSeconds: 0.3
     directDamageEnabled: 1
     prefab: {fileID: 1037899157007725660, guid: 41d5eb1328725cb43ac0a062223fbacd, type: 3}
-    lifetimeSeconds: 5
+    lifetimeSeconds: 3
     tickIntervalSeconds: 0.2
