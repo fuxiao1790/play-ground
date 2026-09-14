@@ -1,3 +1,4 @@
+using PlayGround.System.Combat;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Aoes;
 using PlayGround.System.Combat.Collision;
@@ -70,7 +71,7 @@ namespace PlayGround.System.Combat.Targeted
             JobHandle handle = new TargetedResolveJob
             {
                 DeltaTime = SystemAPI.Time.DeltaTime,
-                TargetSnapshot = new TargetedAcquisition.Snapshot(
+                TargetSnapshot = new CombatTargetAcquisition.Snapshot(
                     hash.TargetEntities.AsArray(),
                     hash.TargetPositions.AsArray(),
                     hash.TargetShapes.AsArray(),
@@ -110,7 +111,7 @@ namespace PlayGround.System.Combat.Targeted
         private partial struct TargetedResolveJob : IJobEntity
         {
             public float DeltaTime;
-            public TargetedAcquisition.Snapshot TargetSnapshot;
+            public CombatTargetAcquisition.Snapshot TargetSnapshot;
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
             public NativeQueue<ImpactCircleVfxEvent>.ParallelWriter CircularVfxPending;
             public NativeQueue<LingeringCircleVfxEvent>.ParallelWriter TimedCircularVfxPending;
@@ -198,7 +199,7 @@ namespace PlayGround.System.Combat.Targeted
                         ? math.clamp(identity.InstanceIndex, 0, MaxChainCount - 1)
                         : 0;
 
-                    if (!TargetedAcquisition.TrySelectNthNearest(
+                    if (!CombatTargetAcquisition.TrySelectNthNearest(
                             TargetSnapshot,
                             searchFrom,
                             config.ChainDistance,
@@ -215,7 +216,7 @@ namespace PlayGround.System.Combat.Targeted
                     chain.LinkSource = firstLink ? chain.Origin : currentPosition;
                     currentPosition = targetPosition;
                     chain.LinkTarget = currentPosition;
-                    chain.LastTargetKey = TargetedAcquisition.TargetKey(targetEntity);
+                    chain.LastTargetKey = CombatTargetAcquisition.TargetKey(targetEntity);
 
                     HitWriter.Enqueue(new CombatHitEvent
                     {

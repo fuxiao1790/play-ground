@@ -15,7 +15,7 @@ MonoBehaviour:
   maxHealth: 10000
   maxMana: 2000
   healthRegenPerSecond: 100
-  manaRegenPerSecond: 200
+  manaRegenPerSecond: 500
   moveSpeed: 10
   increasedRatePercent: 100
   damageMultiplier: 1

@@ -19,7 +19,10 @@ translation.
 
 Current snapshot categories:
 
-- runtime projectile definitions
+- runtime projectile definitions (includes copied trigger-authored launch-aim
+  mode/range for a trigger's projectile target only; root definitions keep the
+  disabled default — see
+  [Skill Gameplay System](../reference/game-logic/skill-gameplay-system.md#projectile-launch-aim))
 - runtime AOE definitions
 - `CombatHitPayload`
 - `StackEffectSnapshot`

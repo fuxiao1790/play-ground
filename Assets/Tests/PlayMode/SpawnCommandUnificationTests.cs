@@ -123,6 +123,42 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void SpawnTemplateHash_DifferentLaunchAimModeProducesDistinctKey()
+        {
+            ProjectileSpawnCommand a = MakeProjectileTemplate(ProjectileLaunchAimMode.None, launchAimRange: 0f);
+            ProjectileSpawnCommand b = MakeProjectileTemplate(ProjectileLaunchAimMode.NearestHostile, launchAimRange: 0f);
+
+            Hash128 keyA = SpawnTemplateHash.Of(in a);
+            Hash128 keyB = SpawnTemplateHash.Of(in b);
+
+            Assert.That(keyA, Is.Not.EqualTo(keyB));
+        }
+
+        [Test]
+        public void SpawnTemplateHash_DifferentLaunchAimRangeProducesDistinctKey()
+        {
+            ProjectileSpawnCommand a = MakeProjectileTemplate(ProjectileLaunchAimMode.NearestHostile, launchAimRange: 5f);
+            ProjectileSpawnCommand b = MakeProjectileTemplate(ProjectileLaunchAimMode.NearestHostile, launchAimRange: 10f);
+
+            Hash128 keyA = SpawnTemplateHash.Of(in a);
+            Hash128 keyB = SpawnTemplateHash.Of(in b);
+
+            Assert.That(keyA, Is.Not.EqualTo(keyB));
+        }
+
+        [Test]
+        public void SpawnTemplateHash_IdenticalLaunchAimContentProducesSameKey()
+        {
+            ProjectileSpawnCommand a = MakeProjectileTemplate(ProjectileLaunchAimMode.NearestHostile, launchAimRange: 5f);
+            ProjectileSpawnCommand b = MakeProjectileTemplate(ProjectileLaunchAimMode.NearestHostile, launchAimRange: 5f);
+
+            Hash128 keyA = SpawnTemplateHash.Of(in a);
+            Hash128 keyB = SpawnTemplateHash.Of(in b);
+
+            Assert.That(keyA, Is.EqualTo(keyB));
+        }
+
+        [Test]
         public void SpawnTemplateHash_PriorEchoCountReusesPriorKey()
         {
             AoeSpawnCommand original = MakeAoeTemplate(radius: 2f, typeId: 1, echoCount: 3);
@@ -241,6 +277,32 @@ namespace PlayGround.Tests.PlayMode
                 AreaSize = radius,
                 ShapeType = CombatShapeType.Circle,
                 HitPayload = new CombatHitPayload { DamageAmount = 1f, DirectDamageEnabled = true }
+            };
+        }
+
+        private static ProjectileSpawnCommand MakeProjectileTemplate(
+            ProjectileLaunchAimMode launchAimMode,
+            float launchAimRange,
+            int typeId = 1)
+        {
+            return new ProjectileSpawnCommand
+            {
+                TypeId = typeId,
+                RenderTypeId = typeId,
+                Count = 1,
+                SpawnPatternType = ProjectileChildSpawnPatternType.Forward,
+                Speed = 5f,
+                Lifetime = 10f,
+                Radius = 0.25f,
+                HalfExtents = float2.zero,
+                ShapeType = CombatShapeType.Circle,
+                LaunchAimMode = launchAimMode,
+                LaunchAimRange = launchAimRange,
+                HitPayload = new ProjectileHitPayload(new CombatHitPayload
+                {
+                    DamageAmount = 1f,
+                    DirectDamageEnabled = true
+                })
             };
         }
     }

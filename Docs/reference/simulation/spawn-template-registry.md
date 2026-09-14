@@ -336,6 +336,11 @@ Projectile commands and component data carry:
 
 - `ProjectileHitPayload` 鈥?hit payload with optional `OnHitSpawnRef (kind, key)`
 - `TimedSpawnComponent` 鈥?optional interval-child spawn config
+- `LaunchAimMode` / `LaunchAimRange` 鈥?trigger-authored launch-aim policy,
+  copied at compile time onto a trigger's projectile target only (never the
+  root); template-level, not per-instance, so it participates in
+  `SpawnTemplateHash` like `Speed` or `ContinuousCollision`. See
+  [Launch Aim](../simulation/projectile-system.md#launch-aim).
 
 Projectile entities carry `ProjectileHitComponent`:
 

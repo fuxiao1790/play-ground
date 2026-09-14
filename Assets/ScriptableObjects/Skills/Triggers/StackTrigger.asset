@@ -14,5 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.StackTrigger
   assetGuid: c4000000000000000000000000000001
   displayName: Stack Trigger
-  description:
+  description: 
   icon: {fileID: 0}
+  manaCostMultiplier: 1
+  manaCostIncreased: 1
+  projectileLaunchAimMode: 1
+  projectileLaunchAimRange: 50
+  stackThreshold: 3
+  debuffLifetimeSeconds: 4
+  stacksPerHit: 1

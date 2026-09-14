@@ -65,6 +65,8 @@ namespace PlayGround.Skills.Runtime
         public bool SpawnBlocked { get; set; }
         public bool TrackingMayTunnel { get; set; }
         public ProjectileTrackingConfig Tracking { get; set; }
+        public ProjectileLaunchAimMode ProjectileLaunchAimMode { get; set; }
+        public float ProjectileLaunchAimRange { get; set; }
 
         // Compiled from ProjectileIntervalSpawnTrigger; null if none.
         public RuntimeChildSpawnSetup ChildSpawnSetup { get; set; }

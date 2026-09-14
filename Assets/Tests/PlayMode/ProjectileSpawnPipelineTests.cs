@@ -1,8 +1,11 @@
 using System;
 using NUnit.Framework;
+using PlayGround.System.Combat;
 using PlayGround.System.Combat.Aoes;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
+using PlayGround.System.Combat.Collision.Broadphase;
+using PlayGround.System.Combat.Collision.Narrowphase;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
 using PlayGround.System.Combat.Platform;
@@ -34,36 +37,13 @@ namespace PlayGround.Tests.PlayMode
         [SetUp]
         public void SetUp()
         {
-            testWorld = new World("ProjectileSpawnPipelineTest");
-            entityManager = testWorld.EntityManager;
-            simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<CombatArmingSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<CombatLifetimeSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileMovementSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContinuousOriginSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<TimedSpawnSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>());
-            // TimedSpawnSystem now reads all three spawn lanes unconditionally, so the AoE
-            // expansion systems must exist to create their lane singletons on world init.
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnExpansionSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnExpansionSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileDiscreteSpawnApplySystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileContinuousSpawnApplySystem>());
-            testWorld.GetOrCreateSystemManaged<CombatStatsGatherSystem>();
-            // Arming/lifetime/expansion now write the VFX lane unconditionally, so its owning
-            // system must exist (to create the lane singleton) and tick (to drain it). It no-ops
-            // without a VfxRoot.
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatAoeVfxDispatchSystem>());
-            simGroup.SortSystems();
-
-            scopeEntity = entityManager.CreateEntity(typeof(CombatScope));
-            templateRegistryState = SpawnTemplateRegistryTestState.Add(entityManager, scopeEntity);
-            entityManager.AddBuffer<ProjectileSpawnEvent>(scopeEntity);
-            entityManager.AddBuffer<ImpactAoeSpawnEvent>(scopeEntity);
-            entityManager.AddBuffer<LingeringAoeSpawnEvent>(scopeEntity);
-
-            projectileTemplateMap = new NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnCommand>(8, Allocator.Persistent);
-            entityManager.AddComponentData(scopeEntity, new ProjectileSpawnTemplate { Map = projectileTemplateMap });
+            ProjectileHarness harness = CreateHarness("ProjectileSpawnPipelineTest");
+            testWorld = harness.World;
+            entityManager = harness.EntityManager;
+            simGroup = harness.SimGroup;
+            scopeEntity = harness.ScopeEntity;
+            templateRegistryState = harness.RegistryState;
+            projectileTemplateMap = harness.ProjectileTemplateMap;
             childProjectileTemplateKey = RegisterChildProjectileTemplate();
         }
 
@@ -75,6 +55,62 @@ namespace PlayGround.Tests.PlayMode
                 projectileTemplateMap.Dispose();
             if (testWorld.IsCreated)
                 testWorld.Dispose();
+        }
+
+        // Minimal bundle of everything a fresh isolated projectile-spawn world needs. Factored
+        // out of SetUp so the launch-aim RNG-preservation tests can stand up a second,
+        // completely independent world (matching parameters except the field under test) without
+        // duplicating the whole system/entity bootstrap inline.
+        private struct ProjectileHarness
+        {
+            public World World;
+            public EntityManager EntityManager;
+            public SimulationSystemGroup SimGroup;
+            public Entity ScopeEntity;
+            public NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnCommand> ProjectileTemplateMap;
+            public SpawnTemplateRegistryState RegistryState;
+        }
+
+        private static ProjectileHarness CreateHarness(string worldName)
+        {
+            var harness = new ProjectileHarness { World = new World(worldName) };
+            harness.EntityManager = harness.World.EntityManager;
+            harness.SimGroup = harness.World.GetOrCreateSystemManaged<SimulationSystemGroup>();
+            harness.SimGroup.AddSystemToUpdateList(harness.World.GetOrCreateSystem<CombatArmingSystem>());
+            harness.SimGroup.AddSystemToUpdateList(harness.World.GetOrCreateSystem<CombatLifetimeSystem>());
+            harness.SimGroup.AddSystemToUpdateList(harness.World.GetOrCreateSystem<ProjectileMovementSystem>());
+            harness.SimGroup.AddSystemToUpdateList(harness.World.GetOrCreateSystem<ProjectileContinuousOriginSystem>());
+            harness.SimGroup.AddSystemToUpdateList(harness.World.GetOrCreateSystem<TimedSpawnSystem>());
+            // Required (task 004) so ProjectileSpawnExpansionSystem's [UpdateAfter(TargetSpatialHashSystem)]
+            // constraint is satisfiable and the launch-aim acquisition query has a real
+            // TargetSpatialHashSingleton to read each tick.
+            harness.SimGroup.AddSystemToUpdateList(harness.World.GetOrCreateSystem<TargetSpatialHashSystem>());
+            harness.SimGroup.AddSystemToUpdateList(harness.World.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>());
+            // TimedSpawnSystem now reads all three spawn lanes unconditionally, so the AoE
+            // expansion systems must exist to create their lane singletons on world init.
+            harness.SimGroup.AddSystemToUpdateList(harness.World.GetOrCreateSystemManaged<ImpactAoeSpawnExpansionSystem>());
+            harness.SimGroup.AddSystemToUpdateList(harness.World.GetOrCreateSystemManaged<LingeringAoeSpawnExpansionSystem>());
+            harness.SimGroup.AddSystemToUpdateList(harness.World.GetOrCreateSystemManaged<ProjectileDiscreteSpawnApplySystem>());
+            harness.SimGroup.AddSystemToUpdateList(harness.World.GetOrCreateSystemManaged<ProjectileContinuousSpawnApplySystem>());
+            harness.World.GetOrCreateSystemManaged<CombatStatsGatherSystem>();
+            // Arming/lifetime/expansion now write the VFX lane unconditionally, so its owning
+            // system must exist (to create the lane singleton) and tick (to drain it). It no-ops
+            // without a VfxRoot.
+            harness.SimGroup.AddSystemToUpdateList(harness.World.GetOrCreateSystemManaged<CombatAoeVfxDispatchSystem>());
+            harness.SimGroup.SortSystems();
+
+            harness.ScopeEntity = harness.EntityManager.CreateEntity(typeof(CombatScope));
+            harness.RegistryState = SpawnTemplateRegistryTestState.Add(harness.EntityManager, harness.ScopeEntity);
+            harness.EntityManager.AddBuffer<ProjectileSpawnEvent>(harness.ScopeEntity);
+            harness.EntityManager.AddBuffer<ImpactAoeSpawnEvent>(harness.ScopeEntity);
+            harness.EntityManager.AddBuffer<LingeringAoeSpawnEvent>(harness.ScopeEntity);
+
+            harness.ProjectileTemplateMap =
+                new NativeHashMap<Unity.Entities.Hash128, ProjectileSpawnCommand>(8, Allocator.Persistent);
+            harness.EntityManager.AddComponentData(
+                harness.ScopeEntity, new ProjectileSpawnTemplate { Map = harness.ProjectileTemplateMap });
+
+            return harness;
         }
 
         [Test]
@@ -539,6 +575,294 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(display.ActiveProjectiles, Is.EqualTo(2));
         }
 
+        [Test]
+        public void NearestHostileInRangeAimsSingleShotVelocity()
+        {
+            // Also covers "single-shot wave aims directly at target" — the same scenario.
+            CreateTargetProxy(new float2(10f, 5f), radius: 0.5f, faction: CombatFaction.Mob);
+            const float speed = 5f;
+            EnqueueEvent(MakeEvent(
+                count: 1,
+                position: float2.zero,
+                baseDirection: new float2(1f, 0f),
+                speed: speed,
+                deterministicIdTickIndex: 1,
+                spawnPatternType: ProjectileChildSpawnPatternType.Forward,
+                launchAimMode: ProjectileLaunchAimMode.NearestHostile,
+                launchAimRange: 20f));
+
+            Tick(0.01f);
+
+            float2[] velocities = ActiveProjectileVelocities();
+            Assert.That(velocities.Length, Is.EqualTo(1));
+            float2 expected = math.normalize(new float2(10f, 5f)) * speed;
+            Assert.That(velocities[0].x, Is.EqualTo(expected.x).Within(0.001f));
+            Assert.That(velocities[0].y, Is.EqualTo(expected.y).Within(0.001f));
+        }
+
+        [Test]
+        public void SameFactionNearerTargetIsSkippedInFavorOfHostile()
+        {
+            CreateTargetProxy(new float2(2f, 0f), radius: 0.5f, faction: CombatFaction.Player); // ally, nearer
+            CreateTargetProxy(new float2(10f, 0f), radius: 0.5f, faction: CombatFaction.Mob); // hostile, farther
+            const float speed = 5f;
+            EnqueueEvent(MakeEvent(
+                count: 1,
+                position: float2.zero,
+                baseDirection: new float2(0f, 1f),
+                speed: speed,
+                deterministicIdTickIndex: 1,
+                launchAimMode: ProjectileLaunchAimMode.NearestHostile,
+                launchAimRange: 20f,
+                faction: CombatFaction.Player));
+
+            Tick(0.01f);
+
+            float2[] velocities = ActiveProjectileVelocities();
+            var expected = new float2(speed, 0f); // toward the hostile at (10, 0), not the nearer ally
+            Assert.That(velocities[0].x, Is.EqualTo(expected.x).Within(0.001f));
+            Assert.That(velocities[0].y, Is.EqualTo(expected.y).Within(0.001f));
+        }
+
+        [Test]
+        public void ContactGateSeedTargetIsExcludedAndNextNearestHostileIsSelected()
+        {
+            Entity nearHostile = CreateTargetProxy(new float2(5f, 0f), radius: 0.5f, faction: CombatFaction.Mob);
+            CreateTargetProxy(new float2(10f, 0f), radius: 0.5f, faction: CombatFaction.Mob);
+            const float speed = 5f;
+            int excludeKey = CombatTargetAcquisition.TargetKey(nearHostile);
+            EnqueueEvent(MakeEvent(
+                count: 1,
+                position: float2.zero,
+                baseDirection: new float2(0f, 1f),
+                speed: speed,
+                deterministicIdTickIndex: 1,
+                launchAimMode: ProjectileLaunchAimMode.NearestHostile,
+                launchAimRange: 20f,
+                contactGateSeedTargetId: excludeKey));
+
+            Tick(0.01f);
+
+            float2[] velocities = ActiveProjectileVelocities();
+            var expected = new float2(speed, 0f); // the farther hostile at (10, 0); nearer one excluded
+            Assert.That(velocities[0].x, Is.EqualTo(expected.x).Within(0.001f));
+            Assert.That(velocities[0].y, Is.EqualTo(expected.y).Within(0.001f));
+        }
+
+        [Test]
+        public void NoHostileInRangePreservesFallbackPattern()
+        {
+            CreateTargetProxy(new float2(2f, 0f), radius: 0.5f, faction: CombatFaction.Player); // same faction only
+            const float speed = 5f;
+            var baseDir = new float2(1f, 0f);
+            EnqueueEvent(MakeEvent(
+                count: 1,
+                position: float2.zero,
+                baseDirection: baseDir,
+                speed: speed,
+                deterministicIdTickIndex: 1,
+                launchAimMode: ProjectileLaunchAimMode.NearestHostile,
+                launchAimRange: 20f));
+
+            Tick(0.01f);
+
+            float2[] velocities = ActiveProjectileVelocities();
+            Assert.That(velocities[0].x, Is.EqualTo(baseDir.x * speed).Within(0.001f));
+            Assert.That(velocities[0].y, Is.EqualTo(baseDir.y * speed).Within(0.001f));
+        }
+
+        [Test]
+        public void MissingOrEmptyTargetHashFallsBackToNormalPattern()
+        {
+            // No target proxies are created at all. TargetSpatialHashSingleton still exists
+            // (TargetSpatialHashSystem is wired into the shared harness) but reports zero
+            // targets, so CombatTargetAcquisition finds no eligible candidate — the same
+            // "acquisition unavailable -> fallback" outcome a genuinely absent singleton would
+            // produce, without standing up a second world that omits TargetSpatialHashSystem.
+            const float speed = 5f;
+            var baseDir = new float2(0f, 1f);
+            EnqueueEvent(MakeEvent(
+                count: 1,
+                position: float2.zero,
+                baseDirection: baseDir,
+                speed: speed,
+                deterministicIdTickIndex: 1,
+                launchAimMode: ProjectileLaunchAimMode.NearestHostile,
+                launchAimRange: 20f));
+
+            Tick(0.01f);
+
+            float2[] velocities = ActiveProjectileVelocities();
+            Assert.That(velocities[0].x, Is.EqualTo(baseDir.x * speed).Within(0.001f));
+            Assert.That(velocities[0].y, Is.EqualTo(baseDir.y * speed).Within(0.001f));
+        }
+
+        [Test]
+        public void DisabledLaunchAimPreservesFallbackPatternWithHostilePresent()
+        {
+            CreateTargetProxy(new float2(10f, 5f), radius: 0.5f, faction: CombatFaction.Mob);
+            const float speed = 5f;
+            var baseDir = new float2(1f, 0f);
+            EnqueueEvent(MakeEvent(
+                count: 1,
+                position: float2.zero,
+                baseDirection: baseDir,
+                speed: speed,
+                deterministicIdTickIndex: 1,
+                launchAimMode: ProjectileLaunchAimMode.None,
+                launchAimRange: 20f));
+
+            Tick(0.01f);
+
+            float2[] velocities = ActiveProjectileVelocities();
+            Assert.That(velocities[0].x, Is.EqualTo(baseDir.x * speed).Within(0.001f));
+            Assert.That(velocities[0].y, Is.EqualTo(baseDir.y * speed).Within(0.001f));
+        }
+
+        [Test]
+        public void LaunchAimDoesNotAddProjectilesOrAlterDeterministicIds()
+        {
+            const int count = 4;
+            const uint seed = 55u;
+            const int tickIndex = 1;
+            const int baseId = 700;
+
+            CreateTargetProxy(new float2(10f, 5f), radius: 0.5f, faction: CombatFaction.Mob);
+            EnqueueEvent(MakeEvent(
+                count: count,
+                position: float2.zero,
+                speed: 5f,
+                jitterSeed: seed,
+                deterministicIdTickIndex: tickIndex,
+                baseProjectileId: baseId,
+                spawnPatternType: ProjectileChildSpawnPatternType.Radial,
+                launchAimMode: ProjectileLaunchAimMode.NearestHostile,
+                launchAimRange: 20f));
+
+            Tick(0.01f);
+
+            int[] aimedIds = ActiveProjectileIds();
+            Assert.That(aimedIds.Length, Is.EqualTo(count));
+
+            var expectedIds = new int[count];
+            for (int i = 0; i < count; i++)
+                expectedIds[i] = ExpectedChildId(baseId, (int)seed, tickIndex, i);
+
+            global::System.Array.Sort(aimedIds);
+            global::System.Array.Sort(expectedIds);
+            Assert.That(aimedIds, Is.EqualTo(expectedIds));
+        }
+
+        [Test]
+        public void ContinuousCommandReceivesLaunchAimWithoutTracking()
+        {
+            CreateTargetProxy(new float2(10f, 0f), radius: 0.5f, faction: CombatFaction.Mob);
+            const float speed = 5f;
+            EnqueueEvent(MakeEvent(
+                count: 1,
+                position: float2.zero,
+                baseDirection: new float2(0f, 1f),
+                speed: speed,
+                deterministicIdTickIndex: 1,
+                continuousCollision: true,
+                launchAimMode: ProjectileLaunchAimMode.NearestHostile,
+                launchAimRange: 20f));
+
+            Tick(0.01f);
+
+            using EntityQuery continuousSlots = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<ProjectileTag>(),
+                ComponentType.ReadOnly<ProjectileContinuousTag>(),
+                ComponentType.ReadOnly<Active>());
+            using NativeArray<Entity> entities = continuousSlots.ToEntityArray(Allocator.Temp);
+            Assert.That(entities.Length, Is.EqualTo(1));
+            Assert.That(entityManager.HasComponent<ProjectileTrackingComponent>(entities[0]), Is.False);
+
+            CombatKinematicsComponent kinematics = entityManager.GetComponentData<CombatKinematicsComponent>(entities[0]);
+            var expected = new float2(speed, 0f); // toward the hostile at (10, 0)
+            Assert.That(kinematics.Velocity.x, Is.EqualTo(expected.x).Within(0.001f));
+            Assert.That(kinematics.Velocity.y, Is.EqualTo(expected.y).Within(0.001f));
+        }
+
+        [Test]
+        public void AimedNovaBypassesStoredSideSprayPatternWithCount4UpLeftDownRightOrder()
+        {
+            const float speed = 5f;
+            const uint seed = 33u;
+            const int tickIndex = 1;
+            const int baseId = 800;
+            const int count = 4;
+
+            CreateTargetProxy(new float2(0f, 10f), radius: 0.5f, faction: CombatFaction.Mob);
+            EnqueueEvent(MakeEvent(
+                count: count,
+                position: float2.zero,
+                speed: speed,
+                spreadDegrees: 45f,
+                jitterSeed: seed,
+                deterministicIdTickIndex: tickIndex,
+                baseProjectileId: baseId,
+                spawnPatternType: ProjectileChildSpawnPatternType.SideSpray,
+                launchAimMode: ProjectileLaunchAimMode.NearestHostile,
+                launchAimRange: 20f));
+
+            Tick(0.01f);
+
+            float2[] velocities = VelocitiesByShotIndex(count, baseId, seed, tickIndex);
+            float2[] expected =
+            {
+                new(0f, speed),   // shot 0: directly at target (up)
+                new(-speed, 0f),  // shot 1: 90 degrees around (left)
+                new(0f, -speed),  // shot 2: 180 degrees around (down)
+                new(speed, 0f),   // shot 3: 270 degrees around (right)
+            };
+            for (int i = 0; i < count; i++)
+            {
+                Assert.That(velocities[i].x, Is.EqualTo(expected[i].x).Within(0.001f), $"shot {i} x");
+                Assert.That(velocities[i].y, Is.EqualTo(expected[i].y).Within(0.001f), $"shot {i} y");
+            }
+        }
+
+        [Test]
+        public void AimedNovaBypassesStoredForwardPatternWithCount3EvenAngularSpacing()
+        {
+            const float speed = 5f;
+            const uint seed = 71u;
+            const int tickIndex = 1;
+            const int baseId = 900;
+            const int count = 3;
+            var targetOffset = new float2(7f, 3f); // arbitrary non-axis direction
+
+            CreateTargetProxy(targetOffset, radius: 0.5f, faction: CombatFaction.Mob);
+            EnqueueEvent(MakeEvent(
+                count: count,
+                position: float2.zero,
+                speed: speed,
+                spreadDegrees: 45f,
+                jitterSeed: seed,
+                deterministicIdTickIndex: tickIndex,
+                baseProjectileId: baseId,
+                spawnPatternType: ProjectileChildSpawnPatternType.Forward,
+                launchAimMode: ProjectileLaunchAimMode.NearestHostile,
+                launchAimRange: 20f));
+
+            Tick(0.01f);
+
+            float2[] velocities = VelocitiesByShotIndex(count, baseId, seed, tickIndex);
+            float2 expectedShot0 = math.normalize(targetOffset) * speed;
+            Assert.That(velocities[0].x, Is.EqualTo(expectedShot0.x).Within(0.001f));
+            Assert.That(velocities[0].y, Is.EqualTo(expectedShot0.y).Within(0.001f));
+
+            for (int i = 0; i < count; i++)
+            {
+                int j = (i + 1) % count;
+                float cosAngle = math.dot(math.normalize(velocities[i]), math.normalize(velocities[j]));
+                float angleDegrees = math.degrees(math.acos(math.clamp(cosAngle, -1f, 1f)));
+                Assert.That(angleDegrees, Is.EqualTo(120f).Within(0.5f),
+                    $"angle between shot {i} and shot {j}");
+            }
+        }
+
         private void Tick(float dt)
         {
             elapsedTime += dt;
@@ -568,7 +892,11 @@ namespace PlayGround.Tests.PlayMode
             float armSeconds = 0f,
             float energyPerSecond = 1f,
             float spawnEnergyCost = 1f,
-            bool continuousCollision = false)
+            bool continuousCollision = false,
+            ProjectileLaunchAimMode launchAimMode = ProjectileLaunchAimMode.None,
+            float launchAimRange = 0f,
+            CombatFaction faction = CombatFaction.Player,
+            int contactGateSeedTargetId = 0)
         {
             if (math.lengthsq(baseDirection) < 0.0001f)
                 baseDirection = new float2(1f, 0f);
@@ -583,6 +911,8 @@ namespace PlayGround.Tests.PlayMode
                 Count = count,
                 SpreadDegrees = spreadDegrees,
                 SpawnPatternType = spawnPatternType,
+                LaunchAimMode = launchAimMode,
+                LaunchAimRange = launchAimRange,
                 Lifetime = lifetime,
                 ArmSeconds = armSeconds,
                 Radius = 0.25f,
@@ -612,10 +942,11 @@ namespace PlayGround.Tests.PlayMode
                 TemplateKey = key,
                 Position = position,
                 AimDirection = hasAimDirection ? baseDirection : default,
-                Faction = CombatFaction.Player,
+                Faction = faction,
                 SourceId = baseProjectileId,
                 JitterSeed = jitterSeed,
-                DeterministicIdTickIndex = deterministicIdTickIndex
+                DeterministicIdTickIndex = deterministicIdTickIndex,
+                ContactGateSeedTargetId = contactGateSeedTargetId
             };
         }
 
@@ -650,6 +981,61 @@ namespace PlayGround.Tests.PlayMode
             Unity.Entities.Hash128 key = SpawnTemplateHash.Of(in template);
             projectileTemplateMap.TryAdd(key, template);
             return key;
+        }
+
+        private Entity CreateTargetProxy(float2 position, float radius, CombatFaction faction) =>
+            CreateTargetProxy(entityManager, position, radius, faction);
+
+        private static Entity CreateTargetProxy(
+            EntityManager entityManager, float2 position, float radius, CombatFaction faction)
+        {
+            Entity entity = entityManager.CreateEntity(
+                typeof(TargetProxyTag),
+                typeof(TargetPosition),
+                typeof(TargetCollisionShape),
+                typeof(TargetFaction));
+            entityManager.SetComponentData(entity, new TargetPosition { Value = position });
+            CombatCollisionMath.ComputeWorldBounds(
+                position, radius, float2.zero, 0f, CombatShapeType.Circle,
+                out float2 boundsMin, out float2 boundsMax);
+            entityManager.SetComponentData(entity, new TargetCollisionShape
+            {
+                ShapeType = CombatShapeType.Circle,
+                Radius = radius,
+                BoundsMin = boundsMin,
+                BoundsMax = boundsMax
+            });
+            entityManager.SetComponentData(entity, new TargetFaction { Value = faction });
+            return entity;
+        }
+
+        private static Entity FindProjectileById(EntityManager entityManager, int projectileId)
+        {
+            using EntityQuery q = entityManager.CreateEntityQuery(ComponentType.ReadOnly<ProjectileIdentityComponent>());
+            using NativeArray<Entity> entities = q.ToEntityArray(Allocator.Temp);
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (entityManager.GetComponentData<ProjectileIdentityComponent>(entities[i]).ProjectileId == projectileId)
+                    return entities[i];
+            }
+
+            Assert.Fail($"Projectile {projectileId} was not spawned.");
+            return Entity.Null;
+        }
+
+        // Resolves each shot's velocity by its deterministic id (via ExpectedChildId and
+        // FindProjectileById), which is index-safe. ActiveProjectileVelocities() is not, since
+        // it returns query-iteration order, not shot order.
+        private float2[] VelocitiesByShotIndex(int count, int baseProjectileId, uint jitterSeed, int tickIndex)
+        {
+            var velocities = new float2[count];
+            for (int shotIndex = 0; shotIndex < count; shotIndex++)
+            {
+                int id = ExpectedChildId(baseProjectileId, (int)jitterSeed, tickIndex, shotIndex);
+                Entity entity = FindProjectileById(entityManager, id);
+                velocities[shotIndex] = entityManager.GetComponentData<CombatKinematicsComponent>(entity).Velocity;
+            }
+            return velocities;
         }
 
         private Entity ProjectileById(int projectileId)

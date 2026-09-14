@@ -71,7 +71,10 @@ namespace PlayGround.Skills
                     RuntimeSkillDefinition compiledTarget = CompileInternal(
                         nodes, targetNodeIndex, snapshot, includeTriggeredManaCosts: false);
                     if (AttachOnHitTarget(runtime, compiledTarget))
+                    {
                         ApplyIncomingTriggerManaCostMultiplier(compiledTarget, link);
+                        ApplyIncomingTriggerLaunchAim(compiledTarget, link);
+                    }
                 }
                 else if (link is StackTrigger stackTrigger)
                 {
@@ -89,6 +92,7 @@ namespace PlayGround.Skills
                         };
 
                         ApplyIncomingTriggerManaCostMultiplier(stackingDetonation, link);
+                        ApplyIncomingTriggerLaunchAim(compiledTarget, link);
 
                         if (runtime is RuntimeProjectileDefinition projDef)
                             projDef.StackingDetonation = stackingDetonation;
@@ -393,6 +397,7 @@ namespace PlayGround.Skills
                     else if (parent is RuntimeAoeDefinition aoeParent)
                         aoeParent.ChildSpawnSetup = setup;
                     ApplyIncomingTriggerManaCostMultiplier(childDef, trigger);
+                    ApplyIncomingTriggerLaunchAim(childDef, trigger);
                     break;
                 }
 
@@ -521,6 +526,17 @@ namespace PlayGround.Skills
 
             triggeredDefinition.IncomingManaCostFactor =
                 Mathf.Max(0f, triggerLink.ResolveManaCostFactor());
+        }
+
+        private static void ApplyIncomingTriggerLaunchAim(
+            RuntimeSkillDefinition triggeredDefinition,
+            TriggerLink triggerLink)
+        {
+            if (triggeredDefinition is not RuntimeProjectileDefinition projectileDefinition || triggerLink == null)
+                return;
+
+            projectileDefinition.ProjectileLaunchAimMode = triggerLink.ProjectileLaunchAimMode;
+            projectileDefinition.ProjectileLaunchAimRange = triggerLink.ResolveProjectileLaunchAimRange();
         }
 
         private static float GetOwnManaCost(RuntimeSkillDefinition definition)

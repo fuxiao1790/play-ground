@@ -1440,6 +1440,8 @@ namespace PlayGround.Skills
                 SpreadDegrees = behavior.SpreadDegrees,
                 JitterDegrees = Mathf.Max(0f, jitterDegrees),
                 SpawnPatternType = behavior.PatternType,
+                LaunchAimMode = child.ProjectileLaunchAimMode,
+                LaunchAimRange = child.ProjectileLaunchAimRange,
                 PierceRemaining = child.PierceCount,
                 RepeatHitCooldownSeconds = child.RepeatHitCooldown,
                 Lifetime = child.Lifetime,

@@ -12,3 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1000000000000000000000000000014, type: 3}
   m_Name: OnExpireTrigger
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.Skills.OnExpireTrigger
+  assetGuid: 86e85261c10932a48b8ce826d2e508c0
+  displayName: 
+  description: 
+  icon: {fileID: 0}
+  manaCostMultiplier: 1
+  manaCostIncreased: 1
+  projectileLaunchAimMode: 1
+  projectileLaunchAimRange: 50

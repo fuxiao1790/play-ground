@@ -8,10 +8,10 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 
-namespace PlayGround.System.Combat.Targeted
+namespace PlayGround.System.Combat
 {
     [BurstCompile]
-    public static class TargetedAcquisition
+    public static class CombatTargetAcquisition
     {
         public readonly struct Snapshot
         {

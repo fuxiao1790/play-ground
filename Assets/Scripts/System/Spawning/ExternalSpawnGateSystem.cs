@@ -1,3 +1,4 @@
+using PlayGround.System.Combat;
 using PlayGround.System.Combat.Aoes;
 using PlayGround.System.Combat.Collision.Broadphase;
 using PlayGround.System.Combat.Core;
@@ -159,13 +160,13 @@ namespace PlayGround.System.Combat.Spawning
                     && SystemAPI.TryGetSingleton(out TargetSpatialHashSingleton hash))
                 {
                     hash.BuildHandle.Complete();
-                    TargetedAcquisition.Snapshot snapshot = new(
+                    CombatTargetAcquisition.Snapshot snapshot = new(
                         hash.TargetEntities.AsArray(),
                         hash.TargetPositions.AsArray(),
                         hash.TargetShapes.AsArray(),
                         hash.TargetFactions.AsArray(),
                         hash.AoeOccupiedCells);
-                    if (TargetedAcquisition.TryNearestHostile(
+                    if (CombatTargetAcquisition.TryNearestHostile(
                             snapshot,
                             acquireAnchor,
                             command.Resolve.ChainDistance,

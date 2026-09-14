@@ -18,3 +18,5 @@ MonoBehaviour:
   icon: {fileID: 0}
   manaCostMultiplier: 1.5
   manaCostIncreased: 1.5
+  projectileLaunchAimMode: 1
+  projectileLaunchAimRange: 50

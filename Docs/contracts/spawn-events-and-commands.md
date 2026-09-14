@@ -43,6 +43,19 @@ dereferencing the event's template key against the registry, applying the
 instance frame, and exploding template-level multiplicity (count, spread, jitter)
 into one command per spawned entity.
 
+`ProjectileSpawnCommand` also carries authored launch-aim policy
+(`LaunchAimMode`, `LaunchAimRange`) copied from the compiled runtime projectile
+definition at template-build time — it is template-level policy, not
+per-instance frame, so `ProjectileSpawnEvent` carries no launch-aim field.
+Expansion resolves nearest-hostile acquisition once per event/wave from the
+dereferenced template, before count/spread fan-out and before the
+discrete/continuous split; on success it recomputes the whole wave as one
+radial nova oriented from the acquired direction (shot `0` points at the
+target, remaining shots are spaced `360/count` degrees around it), bypassing
+the stored pattern entirely — it does not redirect a single shot in isolation.
+See
+[Projectile System](../reference/simulation/projectile-system.md#launch-aim).
+
 Projectile expansion fans commands into discrete and continuous command lists on
 `ProjectileSpawnEventSingleton`, using authored `ProjectileSpawnCommand.ContinuousCollision`.
 This split is at command level, not event level: interval and on-hit producers only carry a

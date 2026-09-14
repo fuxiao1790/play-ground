@@ -1,5 +1,7 @@
+using PlayGround.System.Combat;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
+using PlayGround.System.Combat.Collision.Broadphase;
 using PlayGround.System.Combat.Collision.Narrowphase;
 using PlayGround.System.Combat.Core;
 using PlayGround.System.Combat.Lifetime;
@@ -38,6 +40,7 @@ namespace PlayGround.System.Combat.Projectiles
     [UpdateAfter(typeof(ProjectileDiscreteCollisionSystem))]
     [UpdateAfter(typeof(PlayGround.System.Combat.Aoes.ImpactAoeCollisionSystem))]
     [UpdateAfter(typeof(StatusProcessSystem))]
+    [UpdateAfter(typeof(TargetSpatialHashSystem))]
     [UpdateBefore(typeof(ProjectileDiscreteSpawnApplySystem))]
     [UpdateBefore(typeof(PlayGround.System.Combat.Aoes.ImpactAoeSpawnApplySystem))]
     [UpdateBefore(typeof(PlayGround.System.Combat.Aoes.LingeringAoeSpawnApplySystem))]
@@ -161,15 +164,38 @@ namespace PlayGround.System.Combat.Projectiles
             NativeList<ProjectileSpawnCommand> continuousCommands =
                 new(events.Length, Allocator.TempJob);
 
+            bool hasTargetHash = SystemAPI.TryGetSingleton(out TargetSpatialHashSingleton targetHash);
+            CombatTargetAcquisition.Snapshot targetSnapshot = hasTargetHash
+                ? new CombatTargetAcquisition.Snapshot(
+                    targetHash.TargetEntities.AsArray(),
+                    targetHash.TargetPositions.AsArray(),
+                    targetHash.TargetShapes.AsArray(),
+                    targetHash.TargetFactions.AsArray(),
+                    targetHash.AoeOccupiedCells)
+                : default;
+            JobHandle expansionScheduleDependency = hasTargetHash
+                ? JobHandle.CombineDependencies(Dependency, targetHash.BuildHandle)
+                : Dependency;
+
             Dependency = new ProjectileExpansionJob
             {
                 Events = events,
                 Templates = templates.Map,
                 DiscreteCommands = discreteCommands,
-                ContinuousCommands = continuousCommands
-            }.Schedule(Dependency);
+                ContinuousCommands = continuousCommands,
+                HasTargetHash = hasTargetHash,
+                TargetSnapshot = targetSnapshot
+            }.Schedule(expansionScheduleDependency);
 
             Dependency = events.Dispose(Dependency);
+            if (hasTargetHash)
+            {
+                RefRW<TargetSpatialHashSingleton> targetHashRw =
+                    SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
+                targetHashRw.ValueRW.ConsumerHandle =
+                    JobHandle.CombineDependencies(targetHashRw.ValueRW.ConsumerHandle, Dependency);
+            }
+
             singleton.DiscreteCommands = discreteCommands;
             singleton.ContinuousCommands = continuousCommands;
             singleton.PendingHandle = Dependency;
@@ -182,6 +208,8 @@ namespace PlayGround.System.Combat.Projectiles
             [ReadOnly] public NativeHashMap<Hash128, ProjectileSpawnCommand> Templates;
             public NativeList<ProjectileSpawnCommand> DiscreteCommands;
             public NativeList<ProjectileSpawnCommand> ContinuousCommands;
+            public bool HasTargetHash;
+            public CombatTargetAcquisition.Snapshot TargetSnapshot;
 
             public void Execute()
             {
@@ -196,6 +224,12 @@ namespace PlayGround.System.Combat.Projectiles
 
                     Stamp(ref command, in evt);
                     int count = math.max(1, command.Count);
+
+                    if (TryResolveAimedDirection(in command, out float2 aimedDirection))
+                    {
+                        CreateAimedNovaPattern(in command, count, aimedDirection);
+                        continue;
+                    }
 
                     // Root casts always use forward-volley behavior. Spawn patterns describe child waves only.
                     if (command.DeterministicIdTickIndex <= 0)
@@ -220,6 +254,50 @@ namespace PlayGround.System.Combat.Projectiles
                             CreateForwardPattern(in command, count);
                             break;
                     }
+                }
+            }
+
+            private bool TryResolveAimedDirection(in ProjectileSpawnCommand command, out float2 aimedDirection)
+            {
+                aimedDirection = default;
+                if (!HasTargetHash
+                    || command.LaunchAimMode != ProjectileLaunchAimMode.NearestHostile
+                    || command.LaunchAimRange <= 0f
+                    || command.Faction == CombatFaction.None)
+                {
+                    return false;
+                }
+
+                if (!CombatTargetAcquisition.TrySelectNthNearest(
+                        TargetSnapshot,
+                        command.Position,
+                        command.LaunchAimRange,
+                        0,
+                        command.Faction,
+                        command.SeedContactGateTargetId,
+                        out Entity _,
+                        out float2 targetPosition))
+                {
+                    return false;
+                }
+
+                float2 diff = targetPosition - command.Position;
+                if (math.lengthsq(diff) <= 0.0001f)
+                {
+                    return false;
+                }
+
+                aimedDirection = math.normalize(diff);
+                return true;
+            }
+
+            private void CreateAimedNovaPattern(in ProjectileSpawnCommand command, int count, float2 aimedDirection)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    int id = ProjectileIdFor(in command, i);
+                    float2 direction = Rotate(aimedDirection, 360f * i / count);
+                    WriteCommand(in command, id, direction * command.Speed);
                 }
             }
 

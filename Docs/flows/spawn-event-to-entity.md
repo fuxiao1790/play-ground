@@ -10,8 +10,8 @@ Trace how projectile, AOE, and targeted intent becomes reusable ECS entities.
    `ImpactAoeSpawnEvent`, `LingeringAoeSpawnEvent`, or `TargetedSpawnEvent`.
 2. Expansion systems drain scope buffers and native event queues after producer
    jobs complete.
-3. Expansion owns count, spread, jitter, bounds, deterministic id, and command
-   production.
+3. Expansion owns count, spread, jitter, bounds, deterministic id, launch-aim
+   acquisition, and command production.
 4. Expansion writes `ProjectileSpawnCommand`, `AoeSpawnCommand`, or
    `TargetedSpawnCommand`. Projectile commands are routed into a discrete or
    continuous list by their `ContinuousCollision` flag; the two lanes are

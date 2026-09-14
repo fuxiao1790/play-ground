@@ -1,3 +1,4 @@
+using PlayGround.System.Combat;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Aoes;
 using PlayGround.System.Combat.Collision;
@@ -11,7 +12,6 @@ using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
-using PlayGround.System.Combat.Targeted;
 using PlayGround.System.Combat.Vfx;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
@@ -368,7 +368,7 @@ namespace PlayGround.System.Combat.Collision.Broadphase
                 for (int i = 0; i < TargetEntities.Length; i++)
                 {
                     TrackingIndicesById.TryAdd(
-                        TargetIdKey(TargetedAcquisition.TargetKey(TargetEntities[i])), i);
+                        TargetIdKey(CombatTargetAcquisition.TargetKey(TargetEntities[i])), i);
                     int2 cell = CombatSpatialHash.FloorCell(
                         TargetPositions[i].Value,
                         CombatSpatialHash.TrackingCellSize);

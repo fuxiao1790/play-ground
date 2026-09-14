@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using PlayGround.System.Combat;
 using PlayGround.System.Combat.Application;
 using PlayGround.System.Combat.Collision;
 using PlayGround.System.Combat.Collision.Broadphase;
@@ -319,14 +320,14 @@ namespace PlayGround.Tests.EditMode
             TargetSpatialHashSingleton hash = _entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<TargetSpatialHashSingleton>()).GetSingleton<TargetSpatialHashSingleton>();
             hash.BuildHandle.Complete();
-            TargetedAcquisition.Snapshot snapshot = new(
+            CombatTargetAcquisition.Snapshot snapshot = new(
                 hash.TargetEntities.AsArray(),
                 hash.TargetPositions.AsArray(),
                 hash.TargetShapes.AsArray(),
                 hash.TargetFactions.AsArray(),
                 hash.AoeOccupiedCells);
             Assert.That(
-                TargetedAcquisition.TryNearestHostile(
+                CombatTargetAcquisition.TryNearestHostile(
                     snapshot,
                     float2.zero,
                     3f,

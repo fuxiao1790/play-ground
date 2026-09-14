@@ -268,6 +268,45 @@ Child projectiles use the same projectile pool. They may carry damage, stack
 effect, impact AOE, and impact projectile snapshots. They only emit interval
 children when `TimedSpawnComponent` is enabled.
 
+## Launch Aim
+
+Trigger-authored launch aim gives one triggered projectile wave a one-time
+initial-velocity redirect toward the nearest hostile, resolved once per
+`ProjectileSpawnEvent` inside `ProjectileSpawnExpansionSystem`, before
+count/spread/jitter fan-out and before the discrete/continuous lane split. It
+is authored on the incoming `TriggerLink`, not on `SkillDefinition`: root and
+player casts never carry it, and it is copied onto the compiled
+`RuntimeProjectileDefinition` only for a trigger's compiled projectile target
+(interval child, on-hit target, or stack detonation), then into the
+`ProjectileSpawnCommand` template alongside the other template-level fields
+that participate in `SpawnTemplateHash`.
+
+When a wave's template carries `LaunchAimMode == NearestHostile`, `Range > 0`,
+and a valid faction, expansion queries the shared `TargetSpatialHashSingleton`
+through `CombatTargetAcquisition.TrySelectNthNearest` (the same nearest-hostile
+selection targeted chains use, rank 0, excluding the event's contact-gate seed
+target) once per event. On success it recomputes every shot in the wave as one
+radial nova oriented from the acquired direction: shot `i`'s velocity is
+`Rotate(aimDirection, 360 degrees * i / count) * Speed`, so shot `0` points
+exactly at the target and shots `1..count-1` occupy the remaining equally
+`360/count`-spaced slots around it. This bypasses the stored
+forward/side-spray/radial pattern and its spread/jitter/RNG entirely for that
+wave — a successful aim is a nova, not a partial pattern edit. A missing hash
+singleton, non-positive range, `CombatFaction.None`, no hostile in range, or a
+target coincident with the spawn position all fall through to the unmodified
+stored pattern output.
+
+Both the discrete and continuous lanes receive the same aimed nova, since
+acquisition runs once per event before `WriteCommand` routes each shot by
+`ContinuousCollision`. Launch aim only sets each shot's initial velocity; it
+adds no per-frame steering, target ownership, or entity state, and it does not
+enable tracking — the continuous archetype still has no
+`ProjectileTrackingComponent`, and a discrete projectile's separately authored
+tracking (see [Tracking And Movement](#tracking-and-movement)) may still steer
+after an aimed launch. `ProjectileSpawnExpansionSystem` schedules its
+acquisition read dependent on `TargetSpatialHashSingleton.BuildHandle` and
+publishes its handle into `ConsumerHandle`, exactly like `TargetedResolveSystem`.
+
 ## Tracking And Movement
 
 Tracking is discrete-lane only. `ProjectileTrackingSystem` builds target lookup
@@ -435,6 +474,10 @@ Projectile authoring flows through skills and spawn requests:
   they compile into provide shape, speed, lifetime, damage, count, spread,
   pierce, tracking, lane membership (`continuousCollision`), impact
    AOE/projectile, and child-spawn data.
+- `TriggerLink` (not `SkillDefinition`) authors trigger-only projectile
+  launch-aim mode/range; `SkillSetCompiler` copies it onto a trigger's compiled
+  projectile target only, never the root. See
+  [Launch Aim](#launch-aim).
 - `BasicAttackPrefab` optionally carries a trail VFX asset, `LineSegment` shape,
   width, and `StepDistance`. `SkillDriver` registers it like other VFX slots and copies
   its resolved id, width, and step distance into skill-built projectile commands.

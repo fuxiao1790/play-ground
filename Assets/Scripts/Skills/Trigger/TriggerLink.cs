@@ -1,6 +1,7 @@
 using System;
 using PlayGround.Common;
 using PlayGround.Common.Modifiers;
+using PlayGround.System.Combat.Projectiles;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -54,6 +55,17 @@ namespace PlayGround.Skills
                 addedBase: 0f,
                 increased: manaCostIncreased,
                 multiplier: manaCostMultiplier);
+
+        [Header("Projectile Launch Aim")]
+        [SerializeField, Tooltip("Aim policy for projectile effects spawned through this trigger only; root/player cast aim is unaffected.")]
+        private ProjectileLaunchAimMode projectileLaunchAimMode;
+
+        [SerializeField, Min(0f), Tooltip("Acquisition range used when this trigger's projectile launch-aim mode selects a target. Affects projectile effects spawned through this trigger only; root/player cast aim is unaffected.")]
+        private float projectileLaunchAimRange;
+
+        public ProjectileLaunchAimMode ProjectileLaunchAimMode => projectileLaunchAimMode;
+
+        public float ResolveProjectileLaunchAimRange() => Mathf.Max(0f, projectileLaunchAimRange);
 
         public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
         public string Description => description;

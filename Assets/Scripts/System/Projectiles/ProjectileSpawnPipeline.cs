@@ -52,6 +52,8 @@ namespace PlayGround.System.Combat.Projectiles
         public float JitterDegrees;
         public uint JitterSeed;
         public ProjectileChildSpawnPatternType SpawnPatternType;
+        public ProjectileLaunchAimMode LaunchAimMode;
+        public float LaunchAimRange;
         public int DeterministicIdTickIndex;
         public int PierceRemaining;
         public float RepeatHitCooldownSeconds;

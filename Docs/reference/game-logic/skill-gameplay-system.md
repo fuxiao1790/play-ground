@@ -132,6 +132,29 @@ Supported trigger meanings:
 - `StackTrigger`: applicator writes target stacks; threshold fires configured
   detonation.
 
+### Projectile Launch Aim
+
+A trigger link may additionally author a projectile launch-aim policy:
+`ProjectileLaunchAimMode` (`None` or `NearestHostile`) plus a non-negative
+acquisition range. This governs how the *triggered* projectile effect is
+launched, not the trigger's own targeting or cost — root/player casts always
+use manual aim or existing player aim assist; launch-aim policy applies only to
+projectile effects reached through an incoming trigger edge, and only when the
+compiled target is itself a projectile. Values are inert for AOE/targeted
+targets and for the top-level/root compiled projectile.
+
+Launch aim is independent of discrete-only homing (`Tracking`/`trackingEnabled`
+on `ProjectileDefinition`): a triggered projectile may enable one, the other,
+both, or neither. On successful acquisition, launch aim recomputes the whole
+wave as one full radial nova oriented from the acquired direction — shot `0`
+points exactly at the target, and every other shot is spaced evenly (`360`
+degrees divided by shot count) around it — applied once at spawn, not steered
+per frame; homing, by contrast, is continuous re-steering after spawn, and only
+the discrete projectile archetype carries a tracking component at all. Failed
+or disabled acquisition leaves the trigger's normally authored pattern
+untouched. See [Projectile System](../simulation/projectile-system.md#launch-aim)
+for the exact rotation formula and fallback conditions.
+
 Root cast spends mana once for complete valid trigger chain. Each link resolves
 its own increased/multiplier factor. For active `A` and triggered `T1`, `T2`:
 

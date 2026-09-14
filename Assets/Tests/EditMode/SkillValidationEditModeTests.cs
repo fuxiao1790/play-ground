@@ -1053,6 +1053,155 @@ namespace PlayGround.Tests.EditMode
             Assert.That(warnings[0].Code, Is.EqualTo(SkillValidationWarningCode.UnsupportedTriggerTarget));
         }
 
+        [Test]
+        public void CompilerCopiesLaunchAimPolicyToIntervalProjectileChildOnly()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Child Projectile Skill");
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("Child Projectile Set", targetSkill);
+            IntervalSpawnTrigger trigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
+            SetTriggerLinkField(trigger, "projectileLaunchAimMode", ProjectileLaunchAimMode.NearestHostile);
+            SetTriggerLinkField(trigger, "projectileLaunchAimRange", 5f);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(sourceSet, trigger),
+                    new SkillLoadoutNode(targetSet),
+                },
+                0,
+                SkillStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
+            var rootProjectile = (RuntimeProjectileDefinition)runtime;
+            Assert.That(rootProjectile.ProjectileLaunchAimMode, Is.EqualTo(ProjectileLaunchAimMode.None),
+                "Root/active-skill projectile must never inherit a trigger's launch-aim policy.");
+
+            RuntimeProjectileDefinition childDefinition = rootProjectile.ChildSpawnSetup.ChildDefinition;
+            Assert.That(childDefinition.ProjectileLaunchAimMode, Is.EqualTo(ProjectileLaunchAimMode.NearestHostile));
+            Assert.That(childDefinition.ProjectileLaunchAimRange, Is.EqualTo(5f).Within(0.0001f));
+        }
+
+        [Test]
+        public void CompilerCopiesLaunchAimPolicyToOnHitProjectileTargetOnly()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            ProjectileSkill targetSkill = CreateAsset<ProjectileSkill>("Impact Projectile Skill");
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("Impact Projectile Set", targetSkill);
+            OnHitTrigger trigger = CreateAsset<OnHitTrigger>("On Hit");
+            SetTriggerLinkField(trigger, "projectileLaunchAimMode", ProjectileLaunchAimMode.NearestHostile);
+            SetTriggerLinkField(trigger, "projectileLaunchAimRange", 5f);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(sourceSet, trigger),
+                    new SkillLoadoutNode(targetSet),
+                },
+                0,
+                SkillStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
+            var rootProjectile = (RuntimeProjectileDefinition)runtime;
+            Assert.That(rootProjectile.ProjectileLaunchAimMode, Is.EqualTo(ProjectileLaunchAimMode.None),
+                "Root/active-skill projectile must never inherit a trigger's launch-aim policy.");
+            Assert.That(rootProjectile.ImpactProjectileDefinition, Is.Not.Null);
+            Assert.That(rootProjectile.ImpactProjectileDefinition.ProjectileLaunchAimMode,
+                Is.EqualTo(ProjectileLaunchAimMode.NearestHostile));
+            Assert.That(rootProjectile.ImpactProjectileDefinition.ProjectileLaunchAimRange,
+                Is.EqualTo(5f).Within(0.0001f));
+        }
+
+        [Test]
+        public void CompilerCopiesLaunchAimPolicyToStackProjectileDetonationOnly()
+        {
+            ProjectileSkill applicatorSkill = CreateAsset<ProjectileSkill>("Applicator Projectile Skill");
+            ProjectileSkill detonationSkill = CreateAsset<ProjectileSkill>("Detonation Projectile Skill");
+            StackTrigger trigger = CreateAsset<StackTrigger>("Stack Trigger");
+            SetTriggerLinkField(trigger, "projectileLaunchAimMode", ProjectileLaunchAimMode.NearestHostile);
+            SetTriggerLinkField(trigger, "projectileLaunchAimRange", 5f);
+            SkillSet applicatorSet = CreateSkillSet("Applicator Projectile Set", applicatorSkill);
+            SkillSet detonationSet = CreateSkillSet("Detonation Projectile Set", detonationSkill);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(applicatorSet, trigger),
+                    new SkillLoadoutNode(detonationSet),
+                },
+                0,
+                SkillStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
+            var applicator = (RuntimeProjectileDefinition)runtime;
+            Assert.That(applicator.ProjectileLaunchAimMode, Is.EqualTo(ProjectileLaunchAimMode.None),
+                "Root/active-skill projectile must never inherit a trigger's launch-aim policy.");
+            Assert.That(applicator.StackingDetonation, Is.Not.Null);
+            Assert.That(applicator.StackingDetonation.Detonation, Is.TypeOf<RuntimeProjectileDefinition>());
+            var detonation = (RuntimeProjectileDefinition)applicator.StackingDetonation.Detonation;
+            Assert.That(detonation.ProjectileLaunchAimMode, Is.EqualTo(ProjectileLaunchAimMode.NearestHostile));
+            Assert.That(detonation.ProjectileLaunchAimRange, Is.EqualTo(5f).Within(0.0001f));
+        }
+
+        [Test]
+        public void CompilerRetainsContinuousCollisionAlongsideLaunchAimWithoutImpliedTracking()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            ProjectileSkill childSkill = CreateAsset<ProjectileSkill>("Continuous Child Projectile Skill");
+            ((ProjectileDefinition)childSkill.Definition).continuousCollision = true;
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet childSet = CreateSkillSet("Continuous Child Projectile Set", childSkill);
+            IntervalSpawnTrigger trigger = CreateAsset<IntervalSpawnTrigger>("Interval Spawn");
+            SetTriggerLinkField(trigger, "projectileLaunchAimMode", ProjectileLaunchAimMode.NearestHostile);
+            SetTriggerLinkField(trigger, "projectileLaunchAimRange", 5f);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(sourceSet, trigger),
+                    new SkillLoadoutNode(childSet),
+                },
+                0,
+                SkillStatSnapshot.Identity);
+
+            RuntimeProjectileDefinition childDefinition =
+                ((RuntimeProjectileDefinition)runtime).ChildSpawnSetup.ChildDefinition;
+            Assert.That(childDefinition.ContinuousCollision, Is.True);
+            Assert.That(childDefinition.ProjectileLaunchAimMode, Is.EqualTo(ProjectileLaunchAimMode.NearestHostile));
+            Assert.That(childDefinition.ProjectileLaunchAimRange, Is.EqualTo(5f).Within(0.0001f));
+            Assert.That(childDefinition.Tracking.Enabled, Is.False,
+                "Launch aim must not implicitly enable homing/tracking.");
+        }
+
+        [Test]
+        public void CompilerLeavesLaunchAimInertForNonProjectileOnHitTarget()
+        {
+            ProjectileSkill sourceSkill = CreateAsset<ProjectileSkill>("Projectile Skill");
+            AoeSkill targetSkill = CreateAsset<AoeSkill>("Aoe Skill");
+            SkillSet sourceSet = CreateSkillSet("Projectile Set", sourceSkill);
+            SkillSet targetSet = CreateSkillSet("Aoe Set", targetSkill);
+            OnHitTrigger trigger = CreateAsset<OnHitTrigger>("On Hit");
+            SetTriggerLinkField(trigger, "projectileLaunchAimMode", ProjectileLaunchAimMode.NearestHostile);
+            SetTriggerLinkField(trigger, "projectileLaunchAimRange", 5f);
+
+            RuntimeSkillDefinition runtime = SkillSetCompiler.Compile(
+                new[]
+                {
+                    new SkillLoadoutNode(sourceSet, trigger),
+                    new SkillLoadoutNode(targetSet),
+                },
+                0,
+                SkillStatSnapshot.Identity);
+
+            Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
+            var rootProjectile = (RuntimeProjectileDefinition)runtime;
+            Assert.That(rootProjectile.ProjectileLaunchAimMode, Is.EqualTo(ProjectileLaunchAimMode.None));
+            Assert.That(rootProjectile.ImpactAoeDefinition, Is.Not.Null);
+            Assert.That(rootProjectile.ImpactAoeDefinition, Is.TypeOf<RuntimeAoeDefinition>());
+        }
+
         private SkillValidationWarning[] Validate(params SkillLoadoutNode[] nodes)
         {
             var list = new List<SkillLoadoutNode>(nodes);
@@ -1106,6 +1255,19 @@ namespace PlayGround.Tests.EditMode
         private static void SetField(object target, string fieldName, object value)
         {
             FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            field.SetValue(target, value);
+        }
+
+        // TriggerLink.GetType().GetField(...) cannot find projectileLaunchAimMode/Range: they
+        // are private fields declared on the abstract TriggerLink base, and reflection's
+        // instance+non-public lookup does not surface a base type's private fields through a
+        // derived instance's runtime type (verified: only typeof(TriggerLink).GetField finds
+        // them, not subclass.GetType().GetField). Query the declaring base type directly instead
+        // of widening the shared SetField helper used by every other test in this file.
+        private static void SetTriggerLinkField(TriggerLink target, string fieldName, object value)
+        {
+            FieldInfo field = typeof(TriggerLink).GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null);
             field.SetValue(target, value);
         }
