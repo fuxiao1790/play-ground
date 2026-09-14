@@ -19,8 +19,8 @@ MonoBehaviour:
   baseRate: 1
   maxSupportCount: 6
   definition:
-    baseAreaSize: 2.3
-    damage: 18
+    baseAreaSize: 3.5
+    damage: 50
     echoCount: 1
     scatterRadius: 0
     manaCost: 3

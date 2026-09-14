@@ -19,7 +19,7 @@ MonoBehaviour:
   baseRate: 5
   maxSupportCount: 6
   definition:
-    baseAreaSize: 3
+    baseAreaSize: 4.5
     damage: 3
     echoCount: 1
     scatterRadius: 0
@@ -27,5 +27,5 @@ MonoBehaviour:
     armSeconds: 0
     directDamageEnabled: 1
     prefab: {fileID: 1037899157007725660, guid: 97b6a23e42b43d94f949dc96f390d7b1, type: 3}
-    lifetimeSeconds: 5
+    lifetimeSeconds: 2
     tickIntervalSeconds: 0.25
