@@ -1,6 +1,6 @@
 ---
 name: vfx-graph-agent
-description: Inspect Unity VFX Graphs through AgentVFX commands. Never inspect serialized .vfx text or screenshots.
+description: Inspect Unity VFX Graph assets through AgentVFX CLI output instead of screenshots or serialized .vfx text. Use when understanding an existing VFX Graph; not for graph authoring or mutation.
 ---
 
 # VFX Graph Inspection
