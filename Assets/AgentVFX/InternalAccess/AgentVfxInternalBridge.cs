@@ -55,11 +55,12 @@ namespace AgentVFX.Internal
         {
             var nodes = new List<NodeSnapshot>();
             var slots = new List<SlotSnapshot>();
+            var collectedSlots = new HashSet<VFXSlot>();
             var connections = new List<ConnectionSnapshot>();
             var flowConnections = new List<FlowConnectionSnapshot>();
 
             foreach (var model in graph.children)
-                CollectNodeRecursive(model, graph, nodes, slots, connections, flowConnections);
+                CollectNodeRecursive(model, graph, nodes, slots, collectedSlots, connections, flowConnections);
 
             var blackboard = graph.children
                 .OfType<VFXParameter>()
@@ -83,6 +84,7 @@ namespace AgentVFX.Internal
             VFXModel parent,
             List<NodeSnapshot> nodes,
             List<SlotSnapshot> slots,
+            HashSet<VFXSlot> collectedSlots,
             List<ConnectionSnapshot> connections,
             List<FlowConnectionSnapshot> flowConnections)
         {
@@ -91,9 +93,9 @@ namespace AgentVFX.Internal
             if (model is IVFXSlotContainer container)
             {
                 foreach (var slot in container.inputSlots)
-                    CollectSlotRecursive(slot, null, slots, connections);
+                    CollectSlotRecursive(slot, slots, collectedSlots, connections);
                 foreach (var slot in container.outputSlots)
-                    CollectSlotRecursive(slot, null, slots, connections);
+                    CollectSlotRecursive(slot, slots, collectedSlots, connections);
             }
 
             if (model is VFXContext context)
@@ -113,7 +115,7 @@ namespace AgentVFX.Internal
                 }
 
                 foreach (var child in context.children)
-                    CollectNodeRecursive(child, context, nodes, slots, connections, flowConnections);
+                    CollectNodeRecursive(child, context, nodes, slots, collectedSlots, connections, flowConnections);
             }
         }
     }

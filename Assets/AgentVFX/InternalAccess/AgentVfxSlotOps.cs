@@ -17,10 +17,32 @@ namespace AgentVFX.Internal
 
         internal static void CollectSlotRecursive(
             VFXSlot slot,
-            VFXSlot parentSlot,
             List<SlotSnapshot> slots,
+            HashSet<VFXSlot> collectedSlots,
             List<ConnectionSnapshot> connections)
         {
+            AddSlotWithAncestors(slot, slots, collectedSlots, connections);
+
+            foreach (var child in slot.children.Cast<VFXSlot>())
+                CollectSlotRecursive(child, slots, collectedSlots, connections);
+        }
+
+        private static void AddSlotWithAncestors(
+            VFXSlot slot,
+            List<SlotSnapshot> slots,
+            HashSet<VFXSlot> collectedSlots,
+            List<ConnectionSnapshot> connections)
+        {
+            if (collectedSlots.Contains(slot))
+                return;
+
+            var parentSlot = slot.GetParent();
+            if (parentSlot != null)
+                AddSlotWithAncestors(parentSlot, slots, collectedSlots, connections);
+
+            if (!collectedSlots.Add(slot))
+                return;
+
             slots.Add(BuildSlotSnapshot(slot, parentSlot));
 
             if (slot.HasLink(recursive: false) && slot.refSlot != slot)
@@ -35,8 +57,6 @@ namespace AgentVFX.Internal
                 });
             }
 
-            foreach (var child in slot.children.Cast<VFXSlot>())
-                CollectSlotRecursive(child, slot, slots, connections);
         }
 
         private static SlotSnapshot BuildSlotSnapshot(VFXSlot slot, VFXSlot parentSlot = null)
