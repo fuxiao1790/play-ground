@@ -48,7 +48,7 @@ namespace PlayGround.Tests.EditMode
         [Test]
         public void ReadGraph_RejectsAssetOutsideVfxRoot()
         {
-            Assert.Throws<System.InvalidOperationException>(() =>
+            Assert.Throws<global::System.InvalidOperationException>(() =>
                 AgentVfxApi.ReadGraph("Assets/Tests/not-a-vfx-graph.vfx"));
         }
 
