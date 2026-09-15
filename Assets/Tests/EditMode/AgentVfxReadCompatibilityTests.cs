@@ -20,7 +20,7 @@ namespace PlayGround.Tests.EditMode
             Assert.That(graph.slots, Is.Not.Empty);
             Assert.That(graph.nodes.Any(node => node.kind == "Context"), Is.True);
             Assert.That(graph.slots.All(slot => graph.nodes.Any(node => node.id == slot.nodeId)), Is.True);
-            Assert.That(graph.slots.Where(slot => slot.parentSlotId != null)
+            Assert.That(graph.slots.Where(slot => !string.IsNullOrEmpty(slot.parentSlotId))
                 .All(slot => graph.slots.Any(parent => parent.id == slot.parentSlotId)), Is.True);
         }
 
