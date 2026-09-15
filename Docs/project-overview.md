@@ -1,5 +1,9 @@
 # Project Overview
 
+For VFX Graph inspection, read and follow
+[VFX Graph Inspection](../.agent/vfx-graph-agent.md). Use AgentVFX commands;
+never inspect `.vfx` serialization or screenshots.
+
 ## Agent instructions
 
 Rules apply to all agents working in this project:

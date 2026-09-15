@@ -7,7 +7,10 @@
         "PlayGround.Editor",
         "Unity.Collections",
         "Unity.Entities",
-        "Unity.Mathematics"
+        "Unity.Mathematics",
+        "AgentVFX.Editor",
+        "AgentVFX.Commands",
+        "Unity.Pipeline"
     ],
     "includePlatforms": [
         "Editor"
