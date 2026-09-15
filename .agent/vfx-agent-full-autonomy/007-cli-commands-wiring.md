@@ -1,41 +1,52 @@
-# 007 — CLI Command Wiring
+# 007 - CLI Wiring and Top-Level Node Contract
 
 ## Goal
-Expose every new bridge capability (tasks 002-006) through
-`AgentVFX.Commands` as real `[CliCommand]`s, following the guide's final
-architecture (§25): convenience commands unchanged, four new commands added
-alongside them.
+
+Expose bounded reflection through Pipeline without double-encoding request JSON,
+and fix the existing top-level-node CLI gap directly.
 
 ## Dependencies
-004, 005, 006 (needs the bridge methods and `AgentVfxApi` pass-throughs to
-already exist).
 
-## Files to change
-- `Assets/AgentVFX/Editor/AgentVfxApi.cs` — add pass-through methods for
-  everything task 004/005/006 added to `AgentVfxInternalBridge`, in the same
-  one-line style as every existing method here.
-- `Assets/AgentVFX/Commands/AgentVfxCommands.cs` — add:
-  ```csharp
-  [CliCommand("vfx_internal_find_types", "...", MainThreadRequired = true)]
-  [CliCommand("vfx_internal_describe_type", "...", MainThreadRequired = true)]
-  [CliCommand("vfx_internal_describe_object", "...", MainThreadRequired = true)]
-  [CliCommand("vfx_internal_exec", "...", MainThreadRequired = true)]
-  ```
-  matching the existing naming/description/`MainThreadRequired = true`
-  convention exactly. `vfx_internal_exec`'s parameter is
-  `string operationsJson` (bare JSON text, per index.md invariant 6) — do
-  not attempt to give it a typed C# parameter shape; that was the explicit
-  reason task 005 kept the executor's wire format as a string.
+004-006.
+
+## Files
+
+- Update `AgentVfxApi.cs` with thin JSON/DTO pass-throughs.
+- Update `AgentVfxCommands.cs` with four main-thread commands:
+  `vfx_internal_find_types`, `vfx_internal_describe_type`,
+  `vfx_internal_describe_object`, and `vfx_internal_exec`.
+- Correct stale `AgentVfxCommands.cs` comment claiming `com.unity.pipeline` is
+  not installed.
+
+## Binding Contract
+
+`vfx_internal_exec` command accepts a Newtonsoft `JToken request`, then sends
+`request.ToString(Formatting.None)` to `AgentVfxApi.ExecInternal`. Pipeline's
+installed `CommandLineBinder` explicitly preserves JToken/JObject/JArray shapes;
+do not force callers to put JSON inside a JSON string. Internal bridge boundary
+still receives only a string.
+
+`vfx_internal_describe_object` accepts both `assetPath` and `handleId`, ensuring
+object lookup is graph-scoped.
+
+## Top-Level Node Fix
+
+- Define non-empty CLI sentinel `graph` for `vfx_node_create.parentId`.
+- Update `AgentVfxInternalBridge.CreateNode` to treat null, empty, or `graph` as
+  graph parent, preserving direct API compatibility while bypassing Pipeline's
+  empty-string validation problem.
+- Document and test sentinel. Do not make executor the only way to create a
+  top-level Operator/Context.
 
 ## Acceptance Criteria
-- `unity command` command listing includes all four new commands (per
-  `.agent/vfx-graph-agent.md`'s *Before Doing Anything* connectivity check
-  pattern — this task doesn't need to run that check itself, but the
-  resulting commands must be listable the same way `vfx_ping` etc. already
-  are).
-- Existing commands' behavior/signatures are untouched (diff review: this
-  task should show only additions to `AgentVfxCommands.cs`/`AgentVfxApi.cs`,
-  no changes to existing lines).
+
+- Command registry lists all four new commands.
+- Structured request reaches executor without double serialization.
+- Calling `vfx_node_create` with `parentId:"graph"` creates top-level node.
+- Existing null-parent `AgentVfxApi.CreateNode` behavior remains valid.
+- Existing command signatures change only where sentinel documentation or new
+  commands require it.
 
 ## Scope
-Small — pure wiring, no new logic.
+
+Small-medium.

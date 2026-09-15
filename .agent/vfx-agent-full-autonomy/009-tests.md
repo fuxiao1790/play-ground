@@ -1,66 +1,91 @@
-# 009 — Tests
+# 009 - EditMode and Command-Contract Tests
 
 ## Goal
-Guide §24's test list, adapted to this codebase's actual test file
-(`AgentVfxCompatibilityTests.cs`) and conventions. Per
-`Docs/project-overview.md`/`.agent/vfx-graph-agent.md` §*Test Policy*: write
-these, do not run them — hand exact class/method names to the user for the
-Unity EditMode runner and review the exported XML before claiming anything
-passed.
+
+Verify behavior only through public AgentVFX/command surfaces. Tests never
+target production `Assets/Vfx/` content.
 
 ## Dependencies
-001-008 (exercises everything built).
 
-## Files to change
-- `Assets/Tests/EditMode/AgentVfxCompatibilityTests.cs` — add tests
-  following the existing `[SetUp]`/`[TearDown]`/`TestDir` fixture pattern
-  already in this file. Guide §24's list, mapped to what actually exists
-  here:
-  - `AgentAssemblyCanAccessVfxInternals` — the task 001 smoke check, kept as
-    a permanent regression test (not the throwaway scratch method from
-    001's acceptance criteria).
-  - `CanFindInternalTypes`, `CanDescribeNonPublicMembers` (task 004).
-  - `CanExecGet`, `CanExecSet`, `CanExecInstanceMethod`,
-    `CanExecStaticMethod`, `CanExecNonPublicMethod`,
-    `CanExecCreateInstance`, `CanExecCreateScriptableObject`,
-    `CanExecEnumerate`, `CanExecReferencePreviousResult` (tasks 005-006 —
-    the last one specifically exercises the `"as"`/`$myName` local-alias
-    chaining from task 005).
-  - `CanReadFlowConnections`, `CanReadBlockOwnership` (childIndex),
-    `CanReadNestedSlots`, `CanReadModelSettings` (task 008) — reuse the
-    `MagicBoltTrail.vfx` fixture like `CanReadRealProductionGraph` does,
-    since a bridge-created throwaway graph won't have real flow wiring to
-    assert against.
-  - `CanPerformFlowEditViaGenericExecutor` — the guide's own suggested
-    acceptance test (§24): wire two contexts' flow slots via `call`/`set`
-    exec ops (something `vfx_node_create`/no convenience command can do
-    today, per `.agent/vfx-graph-agent.md`'s Not-Available list) and verify
-    via the extended `vfx_graph_read`'s `flowConnections`.
-  - `CanPerformPreviouslyUnsupportedEditViaGenericExecutor` — pick ONE more
-    item from the Not-Available list (e.g. reading/writing an
-    `AnimationCurve` slot value, or creating a genuine new top-level
-    Operator, which is blocked today by the server-side `parentId`
-    validation bug documented in `.agent/vfx-graph-agent.md`, but not by
-    anything in this bridge itself — the exec path calls
-    `graph.AddChild(model)` directly, bypassing the buggy CLI argument
-    path entirely) and prove it end-to-end through the executor.
-  - Handle-map unit-shaped tests for `AgentVfxHandleMap` (task 002's
-    acceptance criteria, written as real `[Test]` methods here rather than
-    left informal).
-  - Value-codec round-trip tests for `AgentVfxExecValueCodec` (task 003's
-    acceptance criteria).
-- If `AgentVfxCompatibilityTests.cs` grows unwieldy, splitting into
-  `AgentVfxExecCompatibilityTests.cs` alongside it is reasonable — use
-  judgment at implementation time; not a hard requirement either way.
+001-008.
+
+## Files
+
+- Add `Assets/Tests/EditMode/AgentVfxExecCompatibilityTests.cs` rather than
+  overloading existing compatibility class.
+- Extend `AgentVfxCompatibilityTests.cs` for unified slot codec and complete
+  graph snapshot.
+- Add `AgentVFX.Commands` and `Unity.Pipeline` test-assembly references only if
+  needed for direct command/registry binding tests.
+
+## Required Tests
+
+`AgentVfxCompatibilityTests`:
+
+- `CanReadCompleteGraphSnapshot`
+- `CanReadNestedSlots`
+- `CanReadFlowConnections`
+- `CanReadBlockOwnershipOrder`
+- `CanIdentifySharedContextData`
+- `CanRoundTripAnimationCurveSlot`
+- `CanRoundTripTextureAssetSlot`
+
+`AgentVfxExecCompatibilityTests`:
+
+- `CanFindAllowedInternalTypes`
+- `RejectsTypeOutsideReflectionPolicy`
+- `CanDescribeKnownNonPublicMember`
+- `CanDescribeScopedObject`
+- `RejectsCrossGraphObjectHandle`
+- `CanExecGetEnumerateAndReuseModelIds`
+- `CanExecReferenceLocalResultInArgument`
+- `CanExecCastWithDeclaredType`
+- `CanExecInstanceMethodWithExactOverload`
+- `CanExecCreateTransientValue`
+- `CanExecCreateAndAttachVfxModel`
+- `CanPerformFlowEditViaExecutor`
+- `StopsAtFailureWithoutSaving`
+- `ReportsPartialMutationAfterFailure`
+- `SavesOnlyAfterSuccessfulBatch`
+- `RejectsStaticCall`
+- `RejectsOperationAndEnumerationLimits`
+
+Command contract:
+
+- `CanBindStructuredInternalExecRequest`
+- `CanCreateTopLevelNodeUsingGraphSentinel`
+- `ListsInternalVfxCommands`
+
+## Test Rules
+
+- Use unique assets under `Assets/AgentGenerated/__AgentVfx...__` and delete
+  them in teardown through `AssetDatabase`.
+- Copy/import real fixture shapes; never mutate
+  `Assets/AgentGenerated/TestFixtures/MagicBoltTrail.vfx` in place when a test
+  changes topology.
+- Core acceptance tests must select deterministic known package types/fixture
+  nodes. Do not hide regressions behind `Assert.Ignore` probes.
+- Test public results, persisted snapshots, and command binding; do not add
+  production test hooks for internal maps/codecs.
+
+## User-Run Barrier
+
+Agent writes but does not run tests. Ask user to run EditMode classes:
+
+- `PlayGround.Tests.EditMode.AgentVfxCompatibilityTests`
+- `PlayGround.Tests.EditMode.AgentVfxExecCompatibilityTests`
+
+Export result to `Logs/TestResults-EditMode-VfxAgent.xml`. Review XML before
+claiming pass or finalizing capability documentation.
 
 ## Acceptance Criteria
-- Every guide §24 test name (or this repo's adapted equivalent, listed
-  above) exists as a real `[Test]` method.
-- Test file compiles.
-- A clear, numbered list of exact test class + method names (EditMode) is
-  produced for the user to run, per this repo's test policy — do not run
-  them, do not claim a result without the user's exported XML.
+
+- Every required method exists under named EditMode classes and compiles.
+- Tests use only public AgentVFX/command surfaces and scratch assets.
+- User receives exact class names and XML output path; agent does not invoke
+  Unity Test Runner.
+- Capability status remains unverified until exported XML is reviewed.
 
 ## Scope
-Medium-large in line count, low in design risk — mechanical given tasks
-001-008 are done first.
+
+Large in line count; medium design risk.
