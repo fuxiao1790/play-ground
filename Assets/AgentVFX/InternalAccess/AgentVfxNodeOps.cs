@@ -86,12 +86,12 @@ namespace AgentVFX.Internal
                 y = model.position.y,
                 inputSlotIds = inputIds,
                 outputSlotIds = outputIds,
-                settings = GetSettingNames(model)
-                    .Select(name => new SettingSnapshot
+                settings = model.GetSettings(listHidden: true)
+                    .Select(setting => new SettingSnapshot
                     {
-                        name = name,
-                        typeName = FindSettingField(model, name)?.FieldType.FullName,
-                        valueJson = AgentVfxJson.ToJson(model.GetSettingValue(name)),
+                        name = setting.name,
+                        typeName = setting.field.FieldType.FullName,
+                        valueJson = AgentVfxJson.ToJson(setting.value),
                     })
                     .ToArray(),
             };
@@ -131,23 +131,6 @@ namespace AgentVFX.Internal
             return string.IsNullOrEmpty(value) ? "unnamed" : value.Replace(' ', '_').Replace('/', '_');
         }
 
-        private static System.Reflection.FieldInfo FindSettingField(VFXModel model, string settingName)
-        {
-            const System.Reflection.BindingFlags flags =
-                System.Reflection.BindingFlags.Instance |
-                System.Reflection.BindingFlags.Public |
-                System.Reflection.BindingFlags.NonPublic;
-
-            for (var type = model.GetType(); type != null; type = type.BaseType)
-            {
-                var field = type.GetField(settingName, flags);
-                if (field != null)
-                    return field;
-            }
-
-            return null;
-        }
-
         // Decomposes a [Flags] VFXContextType into its individual single-bit flag
         // names, ignoring Unity's own combo aliases (InitAndUpdate, All, ...) so
         // the agent gets one array entry per real context kind, not a mix.
@@ -167,25 +150,8 @@ namespace AgentVFX.Internal
             return names.ToArray();
         }
 
-        private static string[] GetSettingNames(VFXModel model)
-        {
-            const System.Reflection.BindingFlags flags =
-                System.Reflection.BindingFlags.Instance |
-                System.Reflection.BindingFlags.Public |
-                System.Reflection.BindingFlags.NonPublic |
-                System.Reflection.BindingFlags.DeclaredOnly;
-
-            var names = new List<string>();
-            for (var type = model.GetType(); type != null && type != typeof(VFXModel); type = type.BaseType)
-            {
-                names.AddRange(type
-                    .GetFields(flags)
-                    .Where(f => f.GetCustomAttributes(typeof(VFXSettingAttribute), true).Length > 0)
-                    .Select(f => f.Name));
-            }
-
-            return names.ToArray();
-        }
+        private static string[] GetSettingNames(VFXModel model) =>
+            model.GetSettings(listHidden: true).Select(setting => setting.name).ToArray();
 
         [Serializable]
         private sealed class TypeListSnapshot
