@@ -8,10 +8,25 @@ namespace PlayGround.Skills
         {
             void CollectAdded(AddedSink sink);
         }
+
+        public interface IIncreasedModifier
+        {
+            void CollectIncreases(IncreasedSink sink);
+        }
+
+        public interface IMultiplierModifier
+        {
+            void CollectMultipliers(MultiplierSink sink);
+        }
     }
 
     public interface IAreaSizeModifiers
     {
+        public interface IBaseValueModifier
+        {
+            void CollectAdded(AddedSink sink);
+        }
+
         public interface IIncreasedModifier
         {
             void CollectIncreases(IncreasedSink sink);
@@ -25,6 +40,16 @@ namespace PlayGround.Skills
 
     public interface IProjectileSpeedModifiers
     {
+        public interface IBaseValueModifier
+        {
+            void CollectAdded(AddedSink sink);
+        }
+
+        public interface IIncreasedModifier
+        {
+            void CollectIncreases(IncreasedSink sink);
+        }
+
         public interface IMultiplierModifier
         {
             void CollectMultipliers(MultiplierSink sink);
@@ -51,9 +76,19 @@ namespace PlayGround.Skills
 
     public interface IRateModifiers
     {
+        public interface IBaseValueModifier
+        {
+            void CollectAdded(AddedSink sink);
+        }
+
         public interface IIncreasedModifier
         {
             void CollectIncreases(IncreasedSink sink);
+        }
+
+        public interface IMultiplierModifier
+        {
+            void CollectMultipliers(MultiplierSink sink);
         }
     }
 
@@ -62,6 +97,16 @@ namespace PlayGround.Skills
         public interface IBaseValueModifier
         {
             void CollectAdded(AddedSink sink);
+        }
+
+        public interface IIncreasedModifier
+        {
+            void CollectIncreases(IncreasedSink sink);
+        }
+
+        public interface IMultiplierModifier
+        {
+            void CollectMultipliers(MultiplierSink sink);
         }
     }
 

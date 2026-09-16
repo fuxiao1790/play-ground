@@ -26,7 +26,12 @@ it can replace the compiled runtime shape after normal stat and behavior baking.
 triggered-only.
 
 The stat-specific augment interfaces are composable, not mutually exclusive
-base classes:
+base classes. Every stat kind (`Damage`, `AreaSize`, `ProjectileSpeed`,
+`Duration`, `Rate`, `PierceCount`, `Mana`) exposes all three modifier
+interfaces - `IBaseValueModifier`, `IIncreasedModifier`, `IMultiplierModifier`
+- so any support can contribute to any stat through whichever kinds its
+authored fields need. A support is free to implement only the kinds it
+actually uses:
 
 ```csharp
 abstract class SkillSupport : ScriptableObject { }
@@ -39,9 +44,21 @@ interface IDamageModifiers {
     interface IBaseValueModifier {
         void CollectAdded(AddedSink sink);
     }
+
+    interface IIncreasedModifier {
+        void CollectIncreases(IncreasedSink sink);
+    }
+
+    interface IMultiplierModifier {
+        void CollectMultipliers(MultiplierSink sink);
+    }
 }
 
 interface IAreaSizeModifiers {
+    interface IBaseValueModifier {
+        void CollectAdded(AddedSink sink);
+    }
+
     interface IIncreasedModifier {
         void CollectIncreases(IncreasedSink sink);
     }
@@ -52,6 +69,14 @@ interface IAreaSizeModifiers {
 }
 
 interface IProjectileSpeedModifiers {
+    interface IBaseValueModifier {
+        void CollectAdded(AddedSink sink);
+    }
+
+    interface IIncreasedModifier {
+        void CollectIncreases(IncreasedSink sink);
+    }
+
     interface IMultiplierModifier {
         void CollectMultipliers(MultiplierSink sink);
     }
@@ -72,14 +97,30 @@ interface IDurationModifiers {
 }
 
 interface IRateModifiers {
+    interface IBaseValueModifier {
+        void CollectAdded(AddedSink sink);
+    }
+
     interface IIncreasedModifier {
         void CollectIncreases(IncreasedSink sink);
+    }
+
+    interface IMultiplierModifier {
+        void CollectMultipliers(MultiplierSink sink);
     }
 }
 
 interface IPierceCountModifiers {
     interface IBaseValueModifier {
         void CollectAdded(AddedSink sink);
+    }
+
+    interface IIncreasedModifier {
+        void CollectIncreases(IncreasedSink sink);
+    }
+
+    interface IMultiplierModifier {
+        void CollectMultipliers(MultiplierSink sink);
     }
 }
 
@@ -206,7 +247,7 @@ how the factor aggregates across a full trigger chain.
 | Piercing | `IPierceCountModifiers.IBaseValueModifier`, `IManaModifiers.IBaseValueModifier`, `IProjectileBehaviorModifier` | Adds `ManaCost` and `PierceCount`; sets projectile `repeatHitCooldown` |
 | Homing | `IManaModifiers.IBaseValueModifier`, `IManaModifiers.IIncreasedModifier`, `IManaModifiers.IMultiplierModifier`, `IProjectileBehaviorModifier` | Adds, increases, and multiplies `ManaCost`; enables tracking and sets turn speed/query interval |
 | Concentrated Effect | `IAreaSizeModifiers.IMultiplierModifier`, `IManaModifiers.IMultiplierModifier` | Multiplier on `AreaSize`; also multiplies `ManaCost` |
-| Increased AOE Effect | `IAreaSizeModifiers.IIncreasedModifier`, `IManaModifiers.IIncreasedModifier` | Increased percent on `AreaSize`; also increases `ManaCost` |
+| Increased AOE Effect | `IAreaSizeModifiers.IBaseValueModifier`, `IAreaSizeModifiers.IIncreasedModifier`, `IAreaSizeModifiers.IMultiplierModifier`, `IManaModifiers.IBaseValueModifier`, `IManaModifiers.IIncreasedModifier`, `IManaModifiers.IMultiplierModifier` | Adds, increases, and multiplies `AreaSize` and `ManaCost` through independent authored fields |
 | Faster Projectiles | `IProjectileSpeedModifiers.IMultiplierModifier`, `IDurationModifiers.IMultiplierModifier`, `IManaModifiers.IMultiplierModifier` | Multipliers on `ProjectileSpeed`, `Duration`; also multiplies `ManaCost` |
 | Added Damage | `IDamageModifiers.IBaseValueModifier`, `IManaModifiers.IBaseValueModifier` | Adds `Damage`; may also add `ManaCost` (default `0`) |
 | Increased Skill Speed | `IRateModifiers.IIncreasedModifier`, `IManaModifiers.IIncreasedModifier` | Increased percent on `Rate`; also increases `ManaCost` |

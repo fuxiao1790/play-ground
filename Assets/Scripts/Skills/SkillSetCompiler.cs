@@ -145,14 +145,35 @@ namespace PlayGround.Skills
                 if (support is IDamageModifiers.IBaseValueModifier damageAdded)
                     damageAdded.CollectAdded(new AddedSink(modifiers));
 
+                if (support is IDamageModifiers.IIncreasedModifier damageIncreased)
+                    damageIncreased.CollectIncreases(new IncreasedSink(modifiers));
+
+                if (support is IDamageModifiers.IMultiplierModifier damageMultiplier)
+                    damageMultiplier.CollectMultipliers(new MultiplierSink(modifiers));
+
                 if (support is IPierceCountModifiers.IBaseValueModifier pierceCountAdded)
                     pierceCountAdded.CollectAdded(new AddedSink(modifiers));
+
+                if (support is IPierceCountModifiers.IIncreasedModifier pierceCountIncreased)
+                    pierceCountIncreased.CollectIncreases(new IncreasedSink(modifiers));
+
+                if (support is IPierceCountModifiers.IMultiplierModifier pierceCountMultiplier)
+                    pierceCountMultiplier.CollectMultipliers(new MultiplierSink(modifiers));
+
+                if (support is IAreaSizeModifiers.IBaseValueModifier areaSizeAdded)
+                    areaSizeAdded.CollectAdded(new AddedSink(modifiers));
 
                 if (support is IAreaSizeModifiers.IIncreasedModifier areaSizeIncreased)
                     areaSizeIncreased.CollectIncreases(new IncreasedSink(modifiers));
 
                 if (support is IAreaSizeModifiers.IMultiplierModifier areaSizeMultiplier)
                     areaSizeMultiplier.CollectMultipliers(new MultiplierSink(modifiers));
+
+                if (support is IProjectileSpeedModifiers.IBaseValueModifier speedAdded)
+                    speedAdded.CollectAdded(new AddedSink(modifiers));
+
+                if (support is IProjectileSpeedModifiers.IIncreasedModifier speedIncreased)
+                    speedIncreased.CollectIncreases(new IncreasedSink(modifiers));
 
                 if (support is IProjectileSpeedModifiers.IMultiplierModifier speedMultiplier)
                     speedMultiplier.CollectMultipliers(new MultiplierSink(modifiers));
@@ -166,8 +187,14 @@ namespace PlayGround.Skills
                 if (support is IDurationModifiers.IMultiplierModifier durationMultiplier)
                     durationMultiplier.CollectMultipliers(new MultiplierSink(modifiers));
 
+                if (support is IRateModifiers.IBaseValueModifier rateAdded)
+                    rateAdded.CollectAdded(new AddedSink(modifiers));
+
                 if (support is IRateModifiers.IIncreasedModifier rateIncreased)
                     rateIncreased.CollectIncreases(new IncreasedSink(modifiers));
+
+                if (support is IRateModifiers.IMultiplierModifier rateMultiplier)
+                    rateMultiplier.CollectMultipliers(new MultiplierSink(modifiers));
 
                 if (support is IManaModifiers.IBaseValueModifier manaAdded)
                     manaAdded.CollectAdded(new AddedSink(modifiers));

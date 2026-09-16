@@ -16,5 +16,9 @@ MonoBehaviour:
   displayName: Increased Aoe
   description: 
   icon: {fileID: 0}
-  areaSizeMultiplier: 1.3
-  manaCostIncreased: 1
+  areaSizeAdded: 1
+  areaSizeIncreased: 1.2
+  areaSizeMultiplier: 1.2
+  manaCostAdded: 1
+  manaCostIncreased: 1.1
+  manaCostMultiplier: 1.1

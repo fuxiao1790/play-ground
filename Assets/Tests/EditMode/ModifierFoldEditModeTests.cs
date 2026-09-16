@@ -31,7 +31,7 @@ namespace PlayGround.Tests.EditMode
         {
             AoeSkill firstSkill = CreateAoeSkill("First AOE Skill", areaSize: 12f);
             IncreasedAoeSupport increased = CreateAsset<IncreasedAoeSupport>("Increased AOE");
-            SetField(increased, "areaSizeMultiplier", 1.5f);
+            SetField(increased, "areaSizeIncreased", 1.5f);
             ConcentratedEffectSupport multiplier = CreateAsset<ConcentratedEffectSupport>("Concentrated Effect");
             SetField(multiplier, "areaSizeMultiplier", 0.5f);
             SkillSet firstSet = CreateSkillSet("First Set", firstSkill, increased, multiplier);
@@ -44,6 +44,26 @@ namespace PlayGround.Tests.EditMode
 
             Assert.That(first.AreaSize, Is.EqualTo(9f).Within(0.0001f));
             Assert.That(second.AreaSize, Is.EqualTo(first.AreaSize).Within(0.0001f));
+        }
+
+        [Test]
+        public void IncreasedAoeSupportContributesAllAreaSizeAndManaModifierKinds()
+        {
+            AoeSkill skill = CreateAoeSkill("AOE Skill", areaSize: 4f);
+            ((AoeDefinition)skill.Definition).manaCost = 10f;
+            IncreasedAoeSupport support = CreateAsset<IncreasedAoeSupport>("Increased AOE");
+            SetField(support, "areaSizeAdded", 2f);
+            SetField(support, "areaSizeIncreased", 1.5f);
+            SetField(support, "areaSizeMultiplier", 2f);
+            SetField(support, "manaCostAdded", 3f);
+            SetField(support, "manaCostIncreased", 1.5f);
+            SetField(support, "manaCostMultiplier", 2f);
+            SkillSet set = CreateSkillSet("Set", skill, support);
+
+            var runtime = (RuntimeAoeDefinition)Compile(set);
+
+            Assert.That(runtime.AreaSize, Is.EqualTo(18f).Within(0.0001f));
+            Assert.That(runtime.ManaCost, Is.EqualTo(39f).Within(0.0001f));
         }
 
         [Test]

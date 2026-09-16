@@ -1,0 +1,4732 @@
+fileFormatVersion: 2
+guid: 60879a332ed3dcb40bbae6f5a85029a9
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -6461419698693243183
+    second: arcane-spark-clusters2_0
+  - first:
+      213: 1984769254003480144
+    second: arcane-spark-clusters2_1
+  - first:
+      213: 5865942862755230730
+    second: arcane-spark-clusters2_2
+  - first:
+      213: -6986857454150178586
+    second: arcane-spark-clusters2_3
+  - first:
+      213: -7734597464876895185
+    second: arcane-spark-clusters2_4
+  - first:
+      213: -7913265613387825738
+    second: arcane-spark-clusters2_5
+  - first:
+      213: 5856799776904499460
+    second: arcane-spark-clusters2_6
+  - first:
+      213: 7004738994371866211
+    second: arcane-spark-clusters2_7
+  - first:
+      213: -4766692865783396864
+    second: arcane-spark-clusters2_8
+  - first:
+      213: 8576897675725103184
+    second: arcane-spark-clusters2_9
+  - first:
+      213: 5046663443460484495
+    second: arcane-spark-clusters2_10
+  - first:
+      213: -1171301013748645146
+    second: arcane-spark-clusters2_11
+  - first:
+      213: -2907531264208097263
+    second: arcane-spark-clusters2_12
+  - first:
+      213: 3336792862890472695
+    second: arcane-spark-clusters2_13
+  - first:
+      213: 3243566672046757376
+    second: arcane-spark-clusters2_14
+  - first:
+      213: -3813870597128477405
+    second: arcane-spark-clusters2_15
+  - first:
+      213: -2132948464569210861
+    second: arcane-spark-clusters2_16
+  - first:
+      213: 5143779928933810283
+    second: arcane-spark-clusters2_17
+  - first:
+      213: -4662961358811184109
+    second: arcane-spark-clusters2_18
+  - first:
+      213: 5788313598993480355
+    second: arcane-spark-clusters2_19
+  - first:
+      213: 2583077537618564969
+    second: arcane-spark-clusters2_20
+  - first:
+      213: 2066018190694805077
+    second: arcane-spark-clusters2_21
+  - first:
+      213: 5487776332988613066
+    second: arcane-spark-clusters2_22
+  - first:
+      213: -5462708587558576105
+    second: arcane-spark-clusters2_23
+  - first:
+      213: -2050502626141550808
+    second: arcane-spark-clusters2_24
+  - first:
+      213: -8154113088996873306
+    second: arcane-spark-clusters2_25
+  - first:
+      213: 7882264733407630964
+    second: arcane-spark-clusters2_26
+  - first:
+      213: -1666408152728823844
+    second: arcane-spark-clusters2_27
+  - first:
+      213: 4293394255043884294
+    second: arcane-spark-clusters2_28
+  - first:
+      213: 8225138628723759123
+    second: arcane-spark-clusters2_29
+  - first:
+      213: 7456655982836703237
+    second: arcane-spark-clusters2_30
+  - first:
+      213: 540263868667232695
+    second: arcane-spark-clusters2_31
+  - first:
+      213: -2653724494110559908
+    second: arcane-spark-clusters2_32
+  - first:
+      213: -7562940339244485624
+    second: arcane-spark-clusters2_33
+  - first:
+      213: 5322227472334505001
+    second: arcane-spark-clusters2_34
+  - first:
+      213: -2346566937052360135
+    second: arcane-spark-clusters2_35
+  - first:
+      213: -5682895659003459978
+    second: arcane-spark-clusters2_36
+  - first:
+      213: 3153976528993135121
+    second: arcane-spark-clusters2_37
+  - first:
+      213: -5714938277377040213
+    second: arcane-spark-clusters2_38
+  - first:
+      213: 4439437239672232281
+    second: arcane-spark-clusters2_39
+  - first:
+      213: 1721097750050022178
+    second: arcane-spark-clusters2_40
+  - first:
+      213: 4928697332319925957
+    second: arcane-spark-clusters2_41
+  - first:
+      213: 4051972426793321488
+    second: arcane-spark-clusters2_42
+  - first:
+      213: -7798320858741332223
+    second: arcane-spark-clusters2_43
+  - first:
+      213: -8687454078621449567
+    second: arcane-spark-clusters2_44
+  - first:
+      213: 3879586861433297747
+    second: arcane-spark-clusters2_45
+  - first:
+      213: 1197743489277663104
+    second: arcane-spark-clusters2_46
+  - first:
+      213: 4291388713928886149
+    second: arcane-spark-clusters2_47
+  - first:
+      213: -9071614529946315252
+    second: arcane-spark-clusters2_48
+  - first:
+      213: -9086422670054263793
+    second: arcane-spark-clusters2_49
+  - first:
+      213: -286120658287902714
+    second: arcane-spark-clusters2_50
+  - first:
+      213: -3229893484289483125
+    second: arcane-spark-clusters2_51
+  - first:
+      213: 5094521608850798689
+    second: arcane-spark-clusters2_52
+  - first:
+      213: 6876958585528632943
+    second: arcane-spark-clusters2_53
+  - first:
+      213: -223272238046994746
+    second: arcane-spark-clusters2_54
+  - first:
+      213: -3762530700740445031
+    second: arcane-spark-clusters2_55
+  - first:
+      213: -7746962749941671537
+    second: arcane-spark-clusters2_56
+  - first:
+      213: 7687337200644915418
+    second: arcane-spark-clusters2_57
+  - first:
+      213: 686743997296426511
+    second: arcane-spark-clusters2_58
+  - first:
+      213: 9057564196325066892
+    second: arcane-spark-clusters2_59
+  - first:
+      213: -2602728027239203253
+    second: arcane-spark-clusters2_60
+  - first:
+      213: -6475100013438443164
+    second: arcane-spark-clusters2_61
+  - first:
+      213: -3800517083498960820
+    second: arcane-spark-clusters2_62
+  - first:
+      213: -4133728452640070043
+    second: arcane-spark-clusters2_63
+  - first:
+      213: 7406591883527395947
+    second: arcane-spark-clusters2_64
+  - first:
+      213: 2849055035273675434
+    second: arcane-spark-clusters2_65
+  - first:
+      213: -4969236007630190021
+    second: arcane-spark-clusters2_66
+  - first:
+      213: 5138336851003727047
+    second: arcane-spark-clusters2_67
+  - first:
+      213: 7607021820481345836
+    second: arcane-spark-clusters2_68
+  - first:
+      213: -1124544570817285160
+    second: arcane-spark-clusters2_69
+  - first:
+      213: -3402310823036169893
+    second: arcane-spark-clusters2_70
+  - first:
+      213: -7545433055696317837
+    second: arcane-spark-clusters2_71
+  - first:
+      213: -2084819379389329428
+    second: arcane-spark-clusters2_72
+  - first:
+      213: -4666819319622110298
+    second: arcane-spark-clusters2_73
+  - first:
+      213: -5518445216400450550
+    second: arcane-spark-clusters2_74
+  - first:
+      213: 3698985241004312421
+    second: arcane-spark-clusters2_75
+  - first:
+      213: -928897329768683829
+    second: arcane-spark-clusters2_76
+  - first:
+      213: -2598272259890890442
+    second: arcane-spark-clusters2_77
+  - first:
+      213: 9041142870512474808
+    second: arcane-spark-clusters2_78
+  - first:
+      213: -4486144343184298890
+    second: arcane-spark-clusters2_79
+  - first:
+      213: 3806257500527677160
+    second: arcane-spark-clusters2_80
+  - first:
+      213: 8200398104459110056
+    second: arcane-spark-clusters2_81
+  - first:
+      213: 1183645507431641974
+    second: arcane-spark-clusters2_82
+  - first:
+      213: -7653333720542941635
+    second: arcane-spark-clusters2_83
+  - first:
+      213: -3428155108497404613
+    second: arcane-spark-clusters2_84
+  - first:
+      213: -680044592110127304
+    second: arcane-spark-clusters2_85
+  - first:
+      213: 5652259023165398843
+    second: arcane-spark-clusters2_86
+  - first:
+      213: -8105906613881501020
+    second: arcane-spark-clusters2_87
+  - first:
+      213: -4980602307158695050
+    second: arcane-spark-clusters2_88
+  - first:
+      213: -6518012566651325492
+    second: arcane-spark-clusters2_89
+  - first:
+      213: -3570004394355307923
+    second: arcane-spark-clusters2_90
+  - first:
+      213: -4823658401059714320
+    second: arcane-spark-clusters2_91
+  - first:
+      213: 399238897792957678
+    second: arcane-spark-clusters2_92
+  - first:
+      213: -5365886736692791992
+    second: arcane-spark-clusters2_93
+  - first:
+      213: -5964289629632328225
+    second: arcane-spark-clusters2_94
+  - first:
+      213: 2371849882621344614
+    second: arcane-spark-clusters2_95
+  - first:
+      213: 5749741608621676203
+    second: arcane-spark-clusters2_96
+  - first:
+      213: -104827554683010438
+    second: arcane-spark-clusters2_97
+  - first:
+      213: -5509604147539195198
+    second: arcane-spark-clusters2_98
+  - first:
+      213: -3009347209794685120
+    second: arcane-spark-clusters2_99
+  - first:
+      213: 9052614235221959577
+    second: arcane-spark-clusters2_100
+  - first:
+      213: 2300622371166753734
+    second: arcane-spark-clusters2_101
+  - first:
+      213: -5682800192238897387
+    second: arcane-spark-clusters2_102
+  - first:
+      213: -2593504093214005447
+    second: arcane-spark-clusters2_103
+  - first:
+      213: -6653349865150583879
+    second: arcane-spark-clusters2_104
+  - first:
+      213: -6255700284890790446
+    second: arcane-spark-clusters2_105
+  - first:
+      213: 4639761456334921228
+    second: arcane-spark-clusters2_106
+  - first:
+      213: 6994397405015094418
+    second: arcane-spark-clusters2_107
+  - first:
+      213: 337359858892969735
+    second: arcane-spark-clusters2_108
+  - first:
+      213: -7479933414865447509
+    second: arcane-spark-clusters2_109
+  - first:
+      213: 8911051621381498312
+    second: arcane-spark-clusters2_110
+  - first:
+      213: 804306160726496725
+    second: arcane-spark-clusters2_111
+  - first:
+      213: -1107580877610206226
+    second: arcane-spark-clusters2_112
+  - first:
+      213: -6183455573658873349
+    second: arcane-spark-clusters2_113
+  - first:
+      213: 6551192455983975293
+    second: arcane-spark-clusters2_114
+  - first:
+      213: -2686736473663082654
+    second: arcane-spark-clusters2_115
+  - first:
+      213: 2583141812030706979
+    second: arcane-spark-clusters2_116
+  - first:
+      213: 7257442708166312556
+    second: arcane-spark-clusters2_117
+  - first:
+      213: -3162620027505519651
+    second: arcane-spark-clusters2_118
+  - first:
+      213: -5671581694683034630
+    second: arcane-spark-clusters2_119
+  - first:
+      213: 6070839913771971357
+    second: arcane-spark-clusters2_120
+  - first:
+      213: -6024911560439904214
+    second: arcane-spark-clusters2_121
+  - first:
+      213: 5236118314225143803
+    second: arcane-spark-clusters2_122
+  - first:
+      213: -4950985200561248005
+    second: arcane-spark-clusters2_123
+  - first:
+      213: 5678530001017551734
+    second: arcane-spark-clusters2_124
+  - first:
+      213: 7416178368360662616
+    second: arcane-spark-clusters2_125
+  - first:
+      213: -2815119172284408506
+    second: arcane-spark-clusters2_126
+  - first:
+      213: -353064286055437619
+    second: arcane-spark-clusters2_127
+  - first:
+      213: 8957717160313449246
+    second: arcane-spark-clusters2_128
+  - first:
+      213: -179779679667492155
+    second: arcane-spark-clusters2_129
+  - first:
+      213: -2324878582308876581
+    second: arcane-spark-clusters2_130
+  - first:
+      213: -1663482234840687102
+    second: arcane-spark-clusters2_131
+  - first:
+      213: -8461947969014040967
+    second: arcane-spark-clusters2_132
+  - first:
+      213: -4445359977041033080
+    second: arcane-spark-clusters2_133
+  - first:
+      213: -5194771998622482337
+    second: arcane-spark-clusters2_134
+  - first:
+      213: 7592580818002894793
+    second: arcane-spark-clusters2_135
+  - first:
+      213: -6328630172782957283
+    second: arcane-spark-clusters2_136
+  - first:
+      213: -8822999889443653286
+    second: arcane-spark-clusters2_137
+  - first:
+      213: -6759432142124188110
+    second: arcane-spark-clusters2_138
+  - first:
+      213: 3506496471555222083
+    second: arcane-spark-clusters2_139
+  - first:
+      213: 3869550406187143718
+    second: arcane-spark-clusters2_140
+  - first:
+      213: -1985601101944533849
+    second: arcane-spark-clusters2_141
+  - first:
+      213: 8207307980814574111
+    second: arcane-spark-clusters2_142
+  - first:
+      213: 1462998465811977667
+    second: arcane-spark-clusters2_143
+  - first:
+      213: -95304054738895075
+    second: arcane-spark-clusters2_144
+  - first:
+      213: 291219633691168263
+    second: arcane-spark-clusters2_145
+  - first:
+      213: -8642026694101128762
+    second: arcane-spark-clusters2_146
+  - first:
+      213: -8030792800579221389
+    second: arcane-spark-clusters2_147
+  - first:
+      213: -7349854925185843635
+    second: arcane-spark-clusters2_148
+  - first:
+      213: 1543818822286779600
+    second: arcane-spark-clusters2_149
+  - first:
+      213: 8980038065603745312
+    second: arcane-spark-clusters2_150
+  - first:
+      213: 6025463495964807781
+    second: arcane-spark-clusters2_151
+  - first:
+      213: -6811856943553474417
+    second: arcane-spark-clusters2_152
+  - first:
+      213: 1263887659091340163
+    second: arcane-spark-clusters2_153
+  - first:
+      213: 205950923877350910
+    second: arcane-spark-clusters2_154
+  - first:
+      213: 4958998138482660206
+    second: arcane-spark-clusters2_155
+  - first:
+      213: -7156441985207417893
+    second: arcane-spark-clusters2_156
+  - first:
+      213: -8020180922485940970
+    second: arcane-spark-clusters2_157
+  - first:
+      213: -629745441768913187
+    second: arcane-spark-clusters2_158
+  - first:
+      213: 6799500588390425485
+    second: arcane-spark-clusters2_159
+  - first:
+      213: -2049683756108009788
+    second: arcane-spark-clusters2_160
+  - first:
+      213: -2893761603631152123
+    second: arcane-spark-clusters2_161
+  - first:
+      213: 4755762609349901997
+    second: arcane-spark-clusters2_162
+  - first:
+      213: -365141474150451218
+    second: arcane-spark-clusters2_163
+  - first:
+      213: 7543817749572657297
+    second: arcane-spark-clusters2_164
+  - first:
+      213: -2591788086627013915
+    second: arcane-spark-clusters2_165
+  - first:
+      213: 1991350733410750020
+    second: arcane-spark-clusters2_166
+  - first:
+      213: 8238954001706094270
+    second: arcane-spark-clusters2_167
+  - first:
+      213: 6009499238861399712
+    second: arcane-spark-clusters2_168
+  - first:
+      213: 4507312238498039047
+    second: arcane-spark-clusters2_169
+  - first:
+      213: -7396481249816128942
+    second: arcane-spark-clusters2_170
+  - first:
+      213: -2753487884507949651
+    second: arcane-spark-clusters2_171
+  - first:
+      213: 7573640176524340962
+    second: arcane-spark-clusters2_172
+  - first:
+      213: 3623358873152438144
+    second: arcane-spark-clusters2_173
+  - first:
+      213: 376130917592587945
+    second: arcane-spark-clusters2_174
+  - first:
+      213: -6841862312898364084
+    second: arcane-spark-clusters2_175
+  - first:
+      213: -957265496564329191
+    second: arcane-spark-clusters2_176
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_0
+      rect:
+        serializedVersion: 2
+        x: 524
+        y: 1249
+        width: 14
+        height: 5
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1de7da2a40d6456a0800000000000000
+      internalID: -6461419698693243183
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_1
+      rect:
+        serializedVersion: 2
+        x: 528
+        y: 1213
+        width: 30
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0569ef9ee115b8b10800000000000000
+      internalID: 1984769254003480144
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_2
+      rect:
+        serializedVersion: 2
+        x: 549
+        y: 1249
+        width: 11
+        height: 5
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a04734f54f3086150800000000000000
+      internalID: 5865942862755230730
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_3
+      rect:
+        serializedVersion: 2
+        x: 778
+        y: 1212
+        width: 43
+        height: 42
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6e8a615d922b90f90800000000000000
+      internalID: -6986857454150178586
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_4
+      rect:
+        serializedVersion: 2
+        x: 938
+        y: 1211
+        width: 26
+        height: 43
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f243069d59039a490800000000000000
+      internalID: -7734597464876895185
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_5
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 501
+        width: 684
+        height: 717
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6bd74b4d9de6e2290800000000000000
+      internalID: -7913265613387825738
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_6
+      rect:
+        serializedVersion: 2
+        x: 38
+        y: 1054
+        width: 196
+        height: 180
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 401dafecd58874150800000000000000
+      internalID: 5856799776904499460
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_7
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 1215
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 36eacdfa005d53160800000000000000
+      internalID: 7004738994371866211
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_8
+      rect:
+        serializedVersion: 2
+        x: 287
+        y: 1159
+        width: 44
+        height: 63
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0068795f71e49ddb0800000000000000
+      internalID: -4766692865783396864
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_9
+      rect:
+        serializedVersion: 2
+        x: 327
+        y: 1205
+        width: 62
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 050e7746ef2470770800000000000000
+      internalID: 8576897675725103184
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_10
+      rect:
+        serializedVersion: 2
+        x: 557
+        y: 1082
+        width: 151
+        height: 166
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f8d6968d9a9590640800000000000000
+      internalID: 5046663443460484495
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_11
+      rect:
+        serializedVersion: 2
+        x: 697
+        y: 554
+        width: 464
+        height: 692
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6e2057e0fe3bebfe0800000000000000
+      internalID: -1171301013748645146
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_12
+      rect:
+        serializedVersion: 2
+        x: 713
+        y: 1207
+        width: 8
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 110b88f48bf56a7d0800000000000000
+      internalID: -2907531264208097263
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_13
+      rect:
+        serializedVersion: 2
+        x: 772
+        y: 1213
+        width: 7
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7f435a10e6bae4e20800000000000000
+      internalID: 3336792862890472695
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_14
+      rect:
+        serializedVersion: 2
+        x: 924
+        y: 1201
+        width: 16
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 00694acf3b6730d20800000000000000
+      internalID: 3243566672046757376
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_15
+      rect:
+        serializedVersion: 2
+        x: 1095
+        y: 1205
+        width: 7
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 325a9de06e8621bc0800000000000000
+      internalID: -3813870597128477405
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_16
+      rect:
+        serializedVersion: 2
+        x: 1111
+        y: 1151
+        width: 112
+        height: 81
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 318232d1cae3662e0800000000000000
+      internalID: -2132948464569210861
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_17
+      rect:
+        serializedVersion: 2
+        x: 689
+        y: 1167
+        width: 40
+        height: 47
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b6042eaa790626740800000000000000
+      internalID: 5143779928933810283
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_18
+      rect:
+        serializedVersion: 2
+        x: 1222
+        y: 1197
+        width: 32
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 314cfae7955d94fb0800000000000000
+      internalID: -4662961358811184109
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_19
+      rect:
+        serializedVersion: 2
+        x: 255
+        y: 1173
+        width: 9
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3aab19cec88345050800000000000000
+      internalID: 5788313598993480355
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_20
+      rect:
+        serializedVersion: 2
+        x: 378
+        y: 1159
+        width: 7
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9679b01b55fe8d320800000000000000
+      internalID: 2583077537618564969
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_21
+      rect:
+        serializedVersion: 2
+        x: 715
+        y: 1044
+        width: 128
+        height: 148
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 55eebd32998fbac10800000000000000
+      internalID: 2066018190694805077
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_22
+      rect:
+        serializedVersion: 2
+        x: 249
+        y: 1159
+        width: 7
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ac10596df7f782c40800000000000000
+      internalID: 5487776332988613066
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_23
+      rect:
+        serializedVersion: 2
+        x: 316
+        y: 1154
+        width: 9
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 71068177b7f8034b0800000000000000
+      internalID: -5462708587558576105
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_24
+      rect:
+        serializedVersion: 2
+        x: 526
+        y: 1159
+        width: 12
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 827c3ddb9b62b83e0800000000000000
+      internalID: -2050502626141550808
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_25
+      rect:
+        serializedVersion: 2
+        x: 715
+        y: 1156
+        width: 7
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6ab6aff0955c6de80800000000000000
+      internalID: -8154113088996873306
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_26
+      rect:
+        serializedVersion: 2
+        x: 1151
+        y: 1127
+        width: 14
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 476d954530e636d60800000000000000
+      internalID: 7882264733407630964
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_27
+      rect:
+        serializedVersion: 2
+        x: 1157
+        y: 1132
+        width: 22
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: cd798c53d9abfd8e0800000000000000
+      internalID: -1666408152728823844
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_28
+      rect:
+        serializedVersion: 2
+        x: 1164
+        y: 1124
+        width: 9
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 605f79cd353359b30800000000000000
+      internalID: 4293394255043884294
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_29
+      rect:
+        serializedVersion: 2
+        x: 1172
+        y: 1124
+        width: 21
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3185c611100952270800000000000000
+      internalID: 8225138628723759123
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_30
+      rect:
+        serializedVersion: 2
+        x: 659
+        y: 1094
+        width: 15
+        height: 25
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 500e54dfb1d5b7760800000000000000
+      internalID: 7456655982836703237
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_31
+      rect:
+        serializedVersion: 2
+        x: 715
+        y: 1112
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7b183e840276f7700800000000000000
+      internalID: 540263868667232695
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_32
+      rect:
+        serializedVersion: 2
+        x: 14
+        y: 1034
+        width: 41
+        height: 45
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c5179c4f1a31c2bd0800000000000000
+      internalID: -2653724494110559908
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_33
+      rect:
+        serializedVersion: 2
+        x: 649
+        y: 1052
+        width: 43
+        height: 51
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8043cd5e4d90b0790800000000000000
+      internalID: -7562940339244485624
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_34
+      rect:
+        serializedVersion: 2
+        x: 705
+        y: 1068
+        width: 15
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 924c25e00b95cd940800000000000000
+      internalID: 5322227472334505001
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_35
+      rect:
+        serializedVersion: 2
+        x: 1157
+        y: 1078
+        width: 28
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 932515badc15f6fd0800000000000000
+      internalID: -2346566937052360135
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_36
+      rect:
+        serializedVersion: 2
+        x: 1184
+        y: 1016
+        width: 41
+        height: 71
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6764d75e18c4221b0800000000000000
+      internalID: -5682895659003459978
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_37
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 1019
+        width: 5
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 11a2e8051fc25cb20800000000000000
+      internalID: 3153976528993135121
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_38
+      rect:
+        serializedVersion: 2
+        x: 46
+        y: 1028
+        width: 24
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ba0a8af6ae570b0b0800000000000000
+      internalID: -5714938277377040213
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_39
+      rect:
+        serializedVersion: 2
+        x: 649
+        y: 841
+        width: 110
+        height: 202
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 959dd49f5ac0c9d30800000000000000
+      internalID: 4439437239672232281
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_40
+      rect:
+        serializedVersion: 2
+        x: 20
+        y: 921
+        width: 63
+        height: 92
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 223a47fe84192e710800000000000000
+      internalID: 1721097750050022178
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_41
+      rect:
+        serializedVersion: 2
+        x: 62
+        y: 990
+        width: 25
+        height: 28
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5c638524c10466440800000000000000
+      internalID: 4928697332319925957
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_42
+      rect:
+        serializedVersion: 2
+        x: 633
+        y: 937
+        width: 31
+        height: 54
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 01481b2347f7b3830800000000000000
+      internalID: 4051972426793321488
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_43
+      rect:
+        serializedVersion: 2
+        x: 693
+        y: 982
+        width: 13
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 107243a0f7cc6c390800000000000000
+      internalID: -7798320858741332223
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_44
+      rect:
+        serializedVersion: 2
+        x: 1155
+        y: 988
+        width: 10
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1a200492b86ff6780800000000000000
+      internalID: -8687454078621449567
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_45
+      rect:
+        serializedVersion: 2
+        x: 1190
+        y: 913
+        width: 27
+        height: 62
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 35b110f02bf07d530800000000000000
+      internalID: 3879586861433297747
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_46
+      rect:
+        serializedVersion: 2
+        x: 1214
+        y: 948
+        width: 9
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0879e6a8b5d3f9010800000000000000
+      internalID: 1197743489277663104
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_47
+      rect:
+        serializedVersion: 2
+        x: 1218
+        y: 947
+        width: 9
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5870ade6c431e8b30800000000000000
+      internalID: 4291388713928886149
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_48
+      rect:
+        serializedVersion: 2
+        x: 577
+        y: 895
+        width: 53
+        height: 48
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c06174306a62b1280800000000000000
+      internalID: -9071614529946315252
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_49
+      rect:
+        serializedVersion: 2
+        x: 1165
+        y: 923
+        width: 10
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f04fb5839ba86e180800000000000000
+      internalID: -9086422670054263793
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_50
+      rect:
+        serializedVersion: 2
+        x: 1188
+        y: 884
+        width: 51
+        height: 59
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 60049d7f6ce770cf0800000000000000
+      internalID: -286120658287902714
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_51
+      rect:
+        serializedVersion: 2
+        x: 715
+        y: 857
+        width: 8
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b8e939e1dfc1d23d0800000000000000
+      internalID: -3229893484289483125
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_52
+      rect:
+        serializedVersion: 2
+        x: 38
+        y: 787
+        width: 15
+        height: 18
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1687a1c496063b640800000000000000
+      internalID: 5094521608850798689
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_53
+      rect:
+        serializedVersion: 2
+        x: 1151
+        y: 741
+        width: 74
+        height: 89
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f66c189d56ddf6f50800000000000000
+      internalID: 6876958585528632943
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_54
+      rect:
+        serializedVersion: 2
+        x: 1222
+        y: 767
+        width: 15
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6ce900b1517c6ecf0800000000000000
+      internalID: -223272238046994746
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_55
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 745
+        width: 11
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 99c3ddd234ec8cbc0800000000000000
+      internalID: -3762530700740445031
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_56
+      rect:
+        serializedVersion: 2
+        x: 10
+        y: 738
+        width: 21
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f891b819c624d7490800000000000000
+      internalID: -7746962749941671537
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_57
+      rect:
+        serializedVersion: 2
+        x: 1155
+        y: 676
+        width: 94
+        height: 93
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ad006196478eeaa60800000000000000
+      internalID: 7687337200644915418
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_58
+      rect:
+        serializedVersion: 2
+        x: 1248
+        y: 755
+        width: 6
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f0e3c7ae60ec78900800000000000000
+      internalID: 686743997296426511
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_59
+      rect:
+        serializedVersion: 2
+        x: 1149
+        y: 740
+        width: 6
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c888044c5aee2bd70800000000000000
+      internalID: 9057564196325066892
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_60
+      rect:
+        serializedVersion: 2
+        x: 38
+        y: 666
+        width: 43
+        height: 52
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b4e347926a041ebd0800000000000000
+      internalID: -2602728027239203253
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_61
+      rect:
+        serializedVersion: 2
+        x: 545
+        y: 692
+        width: 33
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 461efd528d2d326a0800000000000000
+      internalID: -6475100013438443164
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_62
+      rect:
+        serializedVersion: 2
+        x: 591
+        y: 709
+        width: 15
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c48ad3b39d9d14bc0800000000000000
+      internalID: -3800517083498960820
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_63
+      rect:
+        serializedVersion: 2
+        x: 629
+        y: 576
+        width: 114
+        height: 140
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 566a67eafdb02a6c0800000000000000
+      internalID: -4133728452640070043
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_64
+      rect:
+        serializedVersion: 2
+        x: 32
+        y: 684
+        width: 7
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b6a11f5831089c660800000000000000
+      internalID: 7406591883527395947
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_65
+      rect:
+        serializedVersion: 2
+        x: 78
+        y: 680
+        width: 17
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: aa2860ba570e98720800000000000000
+      internalID: 2849055035273675434
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_66
+      rect:
+        serializedVersion: 2
+        x: 94
+        y: 676
+        width: 9
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b3a4f10ed2ab90bb0800000000000000
+      internalID: -4969236007630190021
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_67
+      rect:
+        serializedVersion: 2
+        x: 102
+        y: 672
+        width: 18
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7cc5064542a0f4740800000000000000
+      internalID: 5138336851003727047
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_68
+      rect:
+        serializedVersion: 2
+        x: 241
+        y: 690
+        width: 11
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c299f60ca02919960800000000000000
+      internalID: 7607021820481345836
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_69
+      rect:
+        serializedVersion: 2
+        x: 135
+        y: 656
+        width: 21
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8d37752cba0d460f0800000000000000
+      internalID: -1124544570817285160
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_70
+      rect:
+        serializedVersion: 2
+        x: 169
+        y: 650
+        width: 27
+        height: 37
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b515679255098c0d0800000000000000
+      internalID: -3402310823036169893
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_71
+      rect:
+        serializedVersion: 2
+        x: 368
+        y: 662
+        width: 37
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3721bbefc9c394790800000000000000
+      internalID: -7545433055696317837
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_72
+      rect:
+        serializedVersion: 2
+        x: 538
+        y: 676
+        width: 8
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: cef06aef1db3113e0800000000000000
+      internalID: -2084819379389329428
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_73
+      rect:
+        serializedVersion: 2
+        x: 545
+        y: 672
+        width: 13
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6a37efefd802c3fb0800000000000000
+      internalID: -4666819319622110298
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_74
+      rect:
+        serializedVersion: 2
+        x: 593
+        y: 658
+        width: 19
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a0c5ffb405b8a63b0800000000000000
+      internalID: -5518445216400450550
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_75
+      rect:
+        serializedVersion: 2
+        x: 914
+        y: 610
+        width: 72
+        height: 67
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 56789778a7f655330800000000000000
+      internalID: 3698985241004312421
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_76
+      rect:
+        serializedVersion: 2
+        x: 120
+        y: 650
+        width: 6
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bc62452dcc4eb13f0800000000000000
+      internalID: -928897329768683829
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_77
+      rect:
+        serializedVersion: 2
+        x: 303
+        y: 646
+        width: 13
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 639b377552511fbd0800000000000000
+      internalID: -2598272259890890442
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_78
+      rect:
+        serializedVersion: 2
+        x: 492
+        y: 650
+        width: 9
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8ba9378e987987d70800000000000000
+      internalID: 9041142870512474808
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_79
+      rect:
+        serializedVersion: 2
+        x: 500
+        y: 652
+        width: 10
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 67c2f5d0d730eb1c0800000000000000
+      internalID: -4486144343184298890
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_80
+      rect:
+        serializedVersion: 2
+        x: 1025
+        y: 648
+        width: 17
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8ee4e92c70b82d430800000000000000
+      internalID: 3806257500527677160
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_81
+      rect:
+        serializedVersion: 2
+        x: 1147
+        y: 653
+        width: 12
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8a66211e0aaadc170800000000000000
+      internalID: 8200398104459110056
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_82
+      rect:
+        serializedVersion: 2
+        x: 366
+        y: 634
+        width: 19
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 673337a51572d6010800000000000000
+      internalID: 1183645507431641974
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_83
+      rect:
+        serializedVersion: 2
+        x: 416
+        y: 572
+        width: 65
+        height: 65
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d3ee48fb785e9c590800000000000000
+      internalID: -7653333720542941635
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_84
+      rect:
+        serializedVersion: 2
+        x: 480
+        y: 621
+        width: 36
+        height: 25
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b3d421b871fbc60d0800000000000000
+      internalID: -3428155108497404613
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_85
+      rect:
+        serializedVersion: 2
+        x: 617
+        y: 616
+        width: 17
+        height: 35
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 837b9d7eb0fff86f0800000000000000
+      internalID: -680044592110127304
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_86
+      rect:
+        serializedVersion: 2
+        x: 985
+        y: 325
+        width: 269
+        height: 318
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b3f154672abd07e40800000000000000
+      internalID: 5652259023165398843
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_87
+      rect:
+        serializedVersion: 2
+        x: 175
+        y: 608
+        width: 23
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4aa8a11b1e8028f80800000000000000
+      internalID: -8105906613881501020
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_88
+      rect:
+        serializedVersion: 2
+        x: 215
+        y: 594
+        width: 11
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 673a05a079851eab0800000000000000
+      internalID: -4980602307158695050
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_89
+      rect:
+        serializedVersion: 2
+        x: 370
+        y: 606
+        width: 15
+        height: 22
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: cc33733ca1e5b85a0800000000000000
+      internalID: -6518012566651325492
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_90
+      rect:
+        serializedVersion: 2
+        x: 382
+        y: 608
+        width: 27
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d6a4ed30bebc47ec0800000000000000
+      internalID: -3570004394355307923
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_91
+      rect:
+        serializedVersion: 2
+        x: 528
+        y: 602
+        width: 6
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0fac107bd3cee0db0800000000000000
+      internalID: -4823658401059714320
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_92
+      rect:
+        serializedVersion: 2
+        x: 533
+        y: 602
+        width: 17
+        height: 26
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: eecb77b89a16a8500800000000000000
+      internalID: 399238897792957678
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_93
+      rect:
+        serializedVersion: 2
+        x: 737
+        y: 592
+        width: 34
+        height: 27
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8453272517a8885b0800000000000000
+      internalID: -5365886736692791992
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_94
+      rect:
+        serializedVersion: 2
+        x: 778
+        y: 590
+        width: 61
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fdd08389e269a3da0800000000000000
+      internalID: -5964289629632328225
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_95
+      rect:
+        serializedVersion: 2
+        x: 874
+        y: 600
+        width: 9
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 66b7232d6e08ae020800000000000000
+      internalID: 2371849882621344614
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_96
+      rect:
+        serializedVersion: 2
+        x: 965
+        y: 588
+        width: 15
+        height: 22
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ba69d24978f2bcf40800000000000000
+      internalID: 5749741608621676203
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_97
+      rect:
+        serializedVersion: 2
+        x: 72
+        y: 549
+        width: 108
+        height: 58
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a724278f4e39b8ef0800000000000000
+      internalID: -104827554683010438
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_98
+      rect:
+        serializedVersion: 2
+        x: 480
+        y: 585
+        width: 11
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2ca48ec0834f983b0800000000000000
+      internalID: -5509604147539195198
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_99
+      rect:
+        serializedVersion: 2
+        x: 512
+        y: 576
+        width: 20
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 047ff5a28a6ac36d0800000000000000
+      internalID: -3009347209794685120
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_100
+      rect:
+        serializedVersion: 2
+        x: 928
+        y: 569
+        width: 36
+        height: 37
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 993ac032fa851ad70800000000000000
+      internalID: 9052614235221959577
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_101
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 630
+        height: 575
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6c316bb7bd37def10800000000000000
+      internalID: 2300622371166753734
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_102
+      rect:
+        serializedVersion: 2
+        x: 239
+        y: 554
+        width: 23
+        height: 25
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 517341c7553a221b0800000000000000
+      internalID: -5682800192238897387
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_103
+      rect:
+        serializedVersion: 2
+        x: 305
+        y: 572
+        width: 7
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9372578a4c5020cd0800000000000000
+      internalID: -2593504093214005447
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_104
+      rect:
+        serializedVersion: 2
+        x: 418
+        y: 554
+        width: 19
+        height: 27
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9bb6e417c8d8aa3a0800000000000000
+      internalID: -6653349865150583879
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_105
+      rect:
+        serializedVersion: 2
+        x: 436
+        y: 520
+        width: 29
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2d546c92cb94f29a0800000000000000
+      internalID: -6255700284890790446
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_106
+      rect:
+        serializedVersion: 2
+        x: 476
+        y: 552
+        width: 17
+        height: 28
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c0e5467467eb36040800000000000000
+      internalID: 4639761456334921228
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_107
+      rect:
+        serializedVersion: 2
+        x: 490
+        y: 546
+        width: 24
+        height: 27
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 294b6d7c167111160800000000000000
+      internalID: 6994397405015094418
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_108
+      rect:
+        serializedVersion: 2
+        x: 526
+        y: 562
+        width: 16
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7079ac6110b8ea400800000000000000
+      internalID: 337359858892969735
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_109
+      rect:
+        serializedVersion: 2
+        x: 551
+        y: 568
+        width: 7
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ba5de578030f13890800000000000000
+      internalID: -7479933414865447509
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_110
+      rect:
+        serializedVersion: 2
+        x: 920
+        y: 562
+        width: 16
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8c5ec93ac3a6aab70800000000000000
+      internalID: 8911051621381498312
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_111
+      rect:
+        serializedVersion: 2
+        x: 30
+        y: 533
+        width: 9
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5d5d2c81138792b00800000000000000
+      internalID: 804306160726496725
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_112
+      rect:
+        serializedVersion: 2
+        x: 78
+        y: 535
+        width: 9
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: eeb370e5f0511a0f0800000000000000
+      internalID: -1107580877610206226
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_113
+      rect:
+        serializedVersion: 2
+        x: 631
+        y: 409
+        width: 158
+        height: 135
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bf157a7cae3ff2aa0800000000000000
+      internalID: -6183455573658873349
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_114
+      rect:
+        serializedVersion: 2
+        x: 635
+        y: 0
+        width: 600
+        height: 559
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d7bc42a34d28aea50800000000000000
+      internalID: 6551192455983975293
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_115
+      rect:
+        serializedVersion: 2
+        x: 609
+        y: 481
+        width: 27
+        height: 38
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 26fe932896bc6bad0800000000000000
+      internalID: -2686736473663082654
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_116
+      rect:
+        serializedVersion: 2
+        x: 625
+        y: 511
+        width: 15
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3259c8ebac929d320800000000000000
+      internalID: 2583141812030706979
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_117
+      rect:
+        serializedVersion: 2
+        x: 40
+        y: 439
+        width: 25
+        height: 71
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c62800601bd97b460800000000000000
+      internalID: 7257442708166312556
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_118
+      rect:
+        serializedVersion: 2
+        x: 86
+        y: 495
+        width: 14
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: dd35ffc57dd1c14d0800000000000000
+      internalID: -3162620027505519651
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_119
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 465
+        width: 11
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: afb4fcd7f7e7a41b0800000000000000
+      internalID: -5671581694683034630
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_120
+      rect:
+        serializedVersion: 2
+        x: 62
+        y: 441
+        width: 40
+        height: 47
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d1334a4acb4ff3450800000000000000
+      internalID: 6070839913771971357
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_121
+      rect:
+        serializedVersion: 2
+        x: 84
+        y: 487
+        width: 8
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a28c5dc6bd6336ca0800000000000000
+      internalID: -6024911560439904214
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_122
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 399
+        width: 87
+        height: 51
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bff8e495ddd6aa840800000000000000
+      internalID: 5236118314225143803
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_123
+      rect:
+        serializedVersion: 2
+        x: 1210
+        y: 400
+        width: 29
+        height: 49
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bf8a45801319a4bb0800000000000000
+      internalID: -4950985200561248005
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_124
+      rect:
+        serializedVersion: 2
+        x: 24
+        y: 310
+        width: 47
+        height: 62
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 67bbc0523f03ece40800000000000000
+      internalID: 5678530001017551734
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_125
+      rect:
+        serializedVersion: 2
+        x: 26
+        y: 369
+        width: 21
+        height: 26
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 856c215feee8be660800000000000000
+      internalID: 7416178368360662616
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_126
+      rect:
+        serializedVersion: 2
+        x: 46
+        y: 372
+        width: 15
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 64d98972700bee8d0800000000000000
+      internalID: -2815119172284408506
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_127
+      rect:
+        serializedVersion: 2
+        x: 46
+        y: 359
+        width: 9
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: dcae9c607e9a91bf0800000000000000
+      internalID: -353064286055437619
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_128
+      rect:
+        serializedVersion: 2
+        x: 70
+        y: 361
+        width: 42
+        height: 30
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e1b67ea1c44305c70800000000000000
+      internalID: 8957717160313449246
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_129
+      rect:
+        serializedVersion: 2
+        x: 625
+        y: 294
+        width: 92
+        height: 102
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5cae597755b418df0800000000000000
+      internalID: -179779679667492155
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_130
+      rect:
+        serializedVersion: 2
+        x: 621
+        y: 314
+        width: 7
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bdec0934f3f5cbfd0800000000000000
+      internalID: -2324878582308876581
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_131
+      rect:
+        serializedVersion: 2
+        x: 1188
+        y: 300
+        width: 35
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 20ed52e88bf1ae8e0800000000000000
+      internalID: -1663482234840687102
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_132
+      rect:
+        serializedVersion: 2
+        x: 1220
+        y: 320
+        width: 13
+        height: 22
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 976741fc72f119a80800000000000000
+      internalID: -8461947969014040967
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_133
+      rect:
+        serializedVersion: 2
+        x: 1230
+        y: 306
+        width: 19
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8880bb547a8ee42c0800000000000000
+      internalID: -4445359977041033080
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_134
+      rect:
+        serializedVersion: 2
+        x: 621
+        y: 296
+        width: 7
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f5006fce36678e7b0800000000000000
+      internalID: -5194771998622482337
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_135
+      rect:
+        serializedVersion: 2
+        x: 44
+        y: 252
+        width: 23
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9cfd189d6044e5960800000000000000
+      internalID: 7592580818002894793
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_136
+      rect:
+        serializedVersion: 2
+        x: 48
+        y: 264
+        width: 7
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d1de37c63603c28a0800000000000000
+      internalID: -6328630172782957283
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_137
+      rect:
+        serializedVersion: 2
+        x: 68
+        y: 256
+        width: 11
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a597668c8586e8580800000000000000
+      internalID: -8822999889443653286
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_138
+      rect:
+        serializedVersion: 2
+        x: 635
+        y: 256
+        width: 29
+        height: 33
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 23e745d974ca132a0800000000000000
+      internalID: -6759432142124188110
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_139
+      rect:
+        serializedVersion: 2
+        x: 38
+        y: 193
+        width: 29
+        height: 49
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 34aa53176f399a030800000000000000
+      internalID: 3506496471555222083
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_140
+      rect:
+        serializedVersion: 2
+        x: 561
+        y: 150
+        width: 65
+        height: 75
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 622d049b79763b530800000000000000
+      internalID: 3869550406187143718
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_141
+      rect:
+        serializedVersion: 2
+        x: 640
+        y: 168
+        width: 12
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7acc8f4615ab174e0800000000000000
+      internalID: -1985601101944533849
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_142
+      rect:
+        serializedVersion: 2
+        x: 1059
+        y: 37
+        width: 142
+        height: 141
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f126ea6df1736e170800000000000000
+      internalID: 8207307980814574111
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_143
+      rect:
+        serializedVersion: 2
+        x: 649
+        y: 90
+        width: 13
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3c51aa57a5d9d4410800000000000000
+      internalID: 1462998465811977667
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_144
+      rect:
+        serializedVersion: 2
+        x: 665
+        y: 47
+        width: 90
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d1f32a797796daef0800000000000000
+      internalID: -95304054738895075
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_145
+      rect:
+        serializedVersion: 2
+        x: 715
+        y: 101
+        width: 14
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 70e08c1c6be9a0400800000000000000
+      internalID: 291219633691168263
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_146
+      rect:
+        serializedVersion: 2
+        x: 762
+        y: 99
+        width: 11
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6c9a8a6528a511880800000000000000
+      internalID: -8642026694101128762
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_147
+      rect:
+        serializedVersion: 2
+        x: 766
+        y: 103
+        width: 9
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 37806b03f74ec8090800000000000000
+      internalID: -8030792800579221389
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_148
+      rect:
+        serializedVersion: 2
+        x: 1165
+        y: 63
+        width: 66
+        height: 76
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d4e74a103e1100a90800000000000000
+      internalID: -7349854925185843635
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_149
+      rect:
+        serializedVersion: 2
+        x: 1228
+        y: 103
+        width: 11
+        height: 22
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0d427f31a0fbc6510800000000000000
+      internalID: 1543818822286779600
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_150
+      rect:
+        serializedVersion: 2
+        x: 611
+        y: 79
+        width: 7
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0261cc9da018f9c70800000000000000
+      internalID: 8980038065603745312
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_151
+      rect:
+        serializedVersion: 2
+        x: 617
+        y: 65
+        width: 25
+        height: 26
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 562d014102fbe9350800000000000000
+      internalID: 6025463495964807781
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_152
+      rect:
+        serializedVersion: 2
+        x: 649
+        y: 57
+        width: 13
+        height: 31
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f8097ba533c6771a0800000000000000
+      internalID: -6811856943553474417
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_153
+      rect:
+        serializedVersion: 2
+        x: 762
+        y: 86
+        width: 9
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 38ba32c212b3a8110800000000000000
+      internalID: 1263887659091340163
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_154
+      rect:
+        serializedVersion: 2
+        x: 770
+        y: 85
+        width: 11
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: efd7fda264fabd200800000000000000
+      internalID: 205950923877350910
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_155
+      rect:
+        serializedVersion: 2
+        x: 922
+        y: 69
+        width: 13
+        height: 18
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e6315167886e1d440800000000000000
+      internalID: 4958998138482660206
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_156
+      rect:
+        serializedVersion: 2
+        x: 928
+        y: 85
+        width: 11
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bd345005ee53fac90800000000000000
+      internalID: -7156441985207417893
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_157
+      rect:
+        serializedVersion: 2
+        x: 938
+        y: 87
+        width: 12
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 61d5cd891f792b090800000000000000
+      internalID: -8020180922485940970
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_158
+      rect:
+        serializedVersion: 2
+        x: 946
+        y: 87
+        width: 8
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: dd641747bd1b247f0800000000000000
+      internalID: -629745441768913187
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_159
+      rect:
+        serializedVersion: 2
+        x: 38
+        y: 55
+        width: 9
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d83221582cdac5e50800000000000000
+      internalID: 6799500588390425485
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_160
+      rect:
+        serializedVersion: 2
+        x: 657
+        y: 49
+        width: 9
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4ce2b47cb7f0e83e0800000000000000
+      internalID: -2049683756108009788
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_161
+      rect:
+        serializedVersion: 2
+        x: 659
+        y: 59
+        width: 7
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 50486ee372b47d7d0800000000000000
+      internalID: -2893761603631152123
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_162
+      rect:
+        serializedVersion: 2
+        x: 898
+        y: 53
+        width: 17
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: daeb26665ecdff140800000000000000
+      internalID: 4755762609349901997
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_163
+      rect:
+        serializedVersion: 2
+        x: 1035
+        y: 61
+        width: 11
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ee7ff7c83c1ceeaf0800000000000000
+      internalID: -365141474150451218
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_164
+      rect:
+        serializedVersion: 2
+        x: 40
+        y: 13
+        width: 25
+        height: 41
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 190a09d364601b860800000000000000
+      internalID: 7543817749572657297
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_165
+      rect:
+        serializedVersion: 2
+        x: 86
+        y: 45
+        width: 8
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5eae183977e180cd0800000000000000
+      internalID: -2591788086627013915
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_166
+      rect:
+        serializedVersion: 2
+        x: 309
+        y: 53
+        width: 8
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 44e492001f2b2ab10800000000000000
+      internalID: 1991350733410750020
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_167
+      rect:
+        serializedVersion: 2
+        x: 313
+        y: 47
+        width: 8
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ebe89704305a65270800000000000000
+      internalID: 8238954001706094270
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_168
+      rect:
+        serializedVersion: 2
+        x: 1045
+        y: 47
+        width: 7
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0a66052d7b7066350800000000000000
+      internalID: 6009499238861399712
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_169
+      rect:
+        serializedVersion: 2
+        x: 673
+        y: 35
+        width: 9
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7054273a9903d8e30800000000000000
+      internalID: 4507312238498039047
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_170
+      rect:
+        serializedVersion: 2
+        x: 729
+        y: 46
+        width: 8
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2525fd4dd7b6a5990800000000000000
+      internalID: -7396481249816128942
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_171
+      rect:
+        serializedVersion: 2
+        x: 924
+        y: 39
+        width: 10
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: da5df8e8b55a9c9d0800000000000000
+      internalID: -2753487884507949651
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_172
+      rect:
+        serializedVersion: 2
+        x: 1059
+        y: 31
+        width: 7
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2ee2c5a1d99fa1960800000000000000
+      internalID: 7573640176524340962
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_173
+      rect:
+        serializedVersion: 2
+        x: 1127
+        y: 37
+        width: 10
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 08fb200a2b1c84230800000000000000
+      internalID: 3623358873152438144
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_174
+      rect:
+        serializedVersion: 2
+        x: 679
+        y: 33
+        width: 7
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9aed524a319483500800000000000000
+      internalID: 376130917592587945
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_175
+      rect:
+        serializedVersion: 2
+        x: 752
+        y: 11
+        width: 35
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c4d7f85e972dc01a0800000000000000
+      internalID: -6841862312898364084
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: arcane-spark-clusters2_176
+      rect:
+        serializedVersion: 2
+        x: 955
+        y: 33
+        width: 9
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9159b894a1c17b2f0800000000000000
+      internalID: -957265496564329191
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      arcane-spark-clusters2_0: -6461419698693243183
+      arcane-spark-clusters2_1: 1984769254003480144
+      arcane-spark-clusters2_10: 5046663443460484495
+      arcane-spark-clusters2_100: 9052614235221959577
+      arcane-spark-clusters2_101: 2300622371166753734
+      arcane-spark-clusters2_102: -5682800192238897387
+      arcane-spark-clusters2_103: -2593504093214005447
+      arcane-spark-clusters2_104: -6653349865150583879
+      arcane-spark-clusters2_105: -6255700284890790446
+      arcane-spark-clusters2_106: 4639761456334921228
+      arcane-spark-clusters2_107: 6994397405015094418
+      arcane-spark-clusters2_108: 337359858892969735
+      arcane-spark-clusters2_109: -7479933414865447509
+      arcane-spark-clusters2_11: -1171301013748645146
+      arcane-spark-clusters2_110: 8911051621381498312
+      arcane-spark-clusters2_111: 804306160726496725
+      arcane-spark-clusters2_112: -1107580877610206226
+      arcane-spark-clusters2_113: -6183455573658873349
+      arcane-spark-clusters2_114: 6551192455983975293
+      arcane-spark-clusters2_115: -2686736473663082654
+      arcane-spark-clusters2_116: 2583141812030706979
+      arcane-spark-clusters2_117: 7257442708166312556
+      arcane-spark-clusters2_118: -3162620027505519651
+      arcane-spark-clusters2_119: -5671581694683034630
+      arcane-spark-clusters2_12: -2907531264208097263
+      arcane-spark-clusters2_120: 6070839913771971357
+      arcane-spark-clusters2_121: -6024911560439904214
+      arcane-spark-clusters2_122: 5236118314225143803
+      arcane-spark-clusters2_123: -4950985200561248005
+      arcane-spark-clusters2_124: 5678530001017551734
+      arcane-spark-clusters2_125: 7416178368360662616
+      arcane-spark-clusters2_126: -2815119172284408506
+      arcane-spark-clusters2_127: -353064286055437619
+      arcane-spark-clusters2_128: 8957717160313449246
+      arcane-spark-clusters2_129: -179779679667492155
+      arcane-spark-clusters2_13: 3336792862890472695
+      arcane-spark-clusters2_130: -2324878582308876581
+      arcane-spark-clusters2_131: -1663482234840687102
+      arcane-spark-clusters2_132: -8461947969014040967
+      arcane-spark-clusters2_133: -4445359977041033080
+      arcane-spark-clusters2_134: -5194771998622482337
+      arcane-spark-clusters2_135: 7592580818002894793
+      arcane-spark-clusters2_136: -6328630172782957283
+      arcane-spark-clusters2_137: -8822999889443653286
+      arcane-spark-clusters2_138: -6759432142124188110
+      arcane-spark-clusters2_139: 3506496471555222083
+      arcane-spark-clusters2_14: 3243566672046757376
+      arcane-spark-clusters2_140: 3869550406187143718
+      arcane-spark-clusters2_141: -1985601101944533849
+      arcane-spark-clusters2_142: 8207307980814574111
+      arcane-spark-clusters2_143: 1462998465811977667
+      arcane-spark-clusters2_144: -95304054738895075
+      arcane-spark-clusters2_145: 291219633691168263
+      arcane-spark-clusters2_146: -8642026694101128762
+      arcane-spark-clusters2_147: -8030792800579221389
+      arcane-spark-clusters2_148: -7349854925185843635
+      arcane-spark-clusters2_149: 1543818822286779600
+      arcane-spark-clusters2_15: -3813870597128477405
+      arcane-spark-clusters2_150: 8980038065603745312
+      arcane-spark-clusters2_151: 6025463495964807781
+      arcane-spark-clusters2_152: -6811856943553474417
+      arcane-spark-clusters2_153: 1263887659091340163
+      arcane-spark-clusters2_154: 205950923877350910
+      arcane-spark-clusters2_155: 4958998138482660206
+      arcane-spark-clusters2_156: -7156441985207417893
+      arcane-spark-clusters2_157: -8020180922485940970
+      arcane-spark-clusters2_158: -629745441768913187
+      arcane-spark-clusters2_159: 6799500588390425485
+      arcane-spark-clusters2_16: -2132948464569210861
+      arcane-spark-clusters2_160: -2049683756108009788
+      arcane-spark-clusters2_161: -2893761603631152123
+      arcane-spark-clusters2_162: 4755762609349901997
+      arcane-spark-clusters2_163: -365141474150451218
+      arcane-spark-clusters2_164: 7543817749572657297
+      arcane-spark-clusters2_165: -2591788086627013915
+      arcane-spark-clusters2_166: 1991350733410750020
+      arcane-spark-clusters2_167: 8238954001706094270
+      arcane-spark-clusters2_168: 6009499238861399712
+      arcane-spark-clusters2_169: 4507312238498039047
+      arcane-spark-clusters2_17: 5143779928933810283
+      arcane-spark-clusters2_170: -7396481249816128942
+      arcane-spark-clusters2_171: -2753487884507949651
+      arcane-spark-clusters2_172: 7573640176524340962
+      arcane-spark-clusters2_173: 3623358873152438144
+      arcane-spark-clusters2_174: 376130917592587945
+      arcane-spark-clusters2_175: -6841862312898364084
+      arcane-spark-clusters2_176: -957265496564329191
+      arcane-spark-clusters2_18: -4662961358811184109
+      arcane-spark-clusters2_19: 5788313598993480355
+      arcane-spark-clusters2_2: 5865942862755230730
+      arcane-spark-clusters2_20: 2583077537618564969
+      arcane-spark-clusters2_21: 2066018190694805077
+      arcane-spark-clusters2_22: 5487776332988613066
+      arcane-spark-clusters2_23: -5462708587558576105
+      arcane-spark-clusters2_24: -2050502626141550808
+      arcane-spark-clusters2_25: -8154113088996873306
+      arcane-spark-clusters2_26: 7882264733407630964
+      arcane-spark-clusters2_27: -1666408152728823844
+      arcane-spark-clusters2_28: 4293394255043884294
+      arcane-spark-clusters2_29: 8225138628723759123
+      arcane-spark-clusters2_3: -6986857454150178586
+      arcane-spark-clusters2_30: 7456655982836703237
+      arcane-spark-clusters2_31: 540263868667232695
+      arcane-spark-clusters2_32: -2653724494110559908
+      arcane-spark-clusters2_33: -7562940339244485624
+      arcane-spark-clusters2_34: 5322227472334505001
+      arcane-spark-clusters2_35: -2346566937052360135
+      arcane-spark-clusters2_36: -5682895659003459978
+      arcane-spark-clusters2_37: 3153976528993135121
+      arcane-spark-clusters2_38: -5714938277377040213
+      arcane-spark-clusters2_39: 4439437239672232281
+      arcane-spark-clusters2_4: -7734597464876895185
+      arcane-spark-clusters2_40: 1721097750050022178
+      arcane-spark-clusters2_41: 4928697332319925957
+      arcane-spark-clusters2_42: 4051972426793321488
+      arcane-spark-clusters2_43: -7798320858741332223
+      arcane-spark-clusters2_44: -8687454078621449567
+      arcane-spark-clusters2_45: 3879586861433297747
+      arcane-spark-clusters2_46: 1197743489277663104
+      arcane-spark-clusters2_47: 4291388713928886149
+      arcane-spark-clusters2_48: -9071614529946315252
+      arcane-spark-clusters2_49: -9086422670054263793
+      arcane-spark-clusters2_5: -7913265613387825738
+      arcane-spark-clusters2_50: -286120658287902714
+      arcane-spark-clusters2_51: -3229893484289483125
+      arcane-spark-clusters2_52: 5094521608850798689
+      arcane-spark-clusters2_53: 6876958585528632943
+      arcane-spark-clusters2_54: -223272238046994746
+      arcane-spark-clusters2_55: -3762530700740445031
+      arcane-spark-clusters2_56: -7746962749941671537
+      arcane-spark-clusters2_57: 7687337200644915418
+      arcane-spark-clusters2_58: 686743997296426511
+      arcane-spark-clusters2_59: 9057564196325066892
+      arcane-spark-clusters2_6: 5856799776904499460
+      arcane-spark-clusters2_60: -2602728027239203253
+      arcane-spark-clusters2_61: -6475100013438443164
+      arcane-spark-clusters2_62: -3800517083498960820
+      arcane-spark-clusters2_63: -4133728452640070043
+      arcane-spark-clusters2_64: 7406591883527395947
+      arcane-spark-clusters2_65: 2849055035273675434
+      arcane-spark-clusters2_66: -4969236007630190021
+      arcane-spark-clusters2_67: 5138336851003727047
+      arcane-spark-clusters2_68: 7607021820481345836
+      arcane-spark-clusters2_69: -1124544570817285160
+      arcane-spark-clusters2_7: 7004738994371866211
+      arcane-spark-clusters2_70: -3402310823036169893
+      arcane-spark-clusters2_71: -7545433055696317837
+      arcane-spark-clusters2_72: -2084819379389329428
+      arcane-spark-clusters2_73: -4666819319622110298
+      arcane-spark-clusters2_74: -5518445216400450550
+      arcane-spark-clusters2_75: 3698985241004312421
+      arcane-spark-clusters2_76: -928897329768683829
+      arcane-spark-clusters2_77: -2598272259890890442
+      arcane-spark-clusters2_78: 9041142870512474808
+      arcane-spark-clusters2_79: -4486144343184298890
+      arcane-spark-clusters2_8: -4766692865783396864
+      arcane-spark-clusters2_80: 3806257500527677160
+      arcane-spark-clusters2_81: 8200398104459110056
+      arcane-spark-clusters2_82: 1183645507431641974
+      arcane-spark-clusters2_83: -7653333720542941635
+      arcane-spark-clusters2_84: -3428155108497404613
+      arcane-spark-clusters2_85: -680044592110127304
+      arcane-spark-clusters2_86: 5652259023165398843
+      arcane-spark-clusters2_87: -8105906613881501020
+      arcane-spark-clusters2_88: -4980602307158695050
+      arcane-spark-clusters2_89: -6518012566651325492
+      arcane-spark-clusters2_9: 8576897675725103184
+      arcane-spark-clusters2_90: -3570004394355307923
+      arcane-spark-clusters2_91: -4823658401059714320
+      arcane-spark-clusters2_92: 399238897792957678
+      arcane-spark-clusters2_93: -5365886736692791992
+      arcane-spark-clusters2_94: -5964289629632328225
+      arcane-spark-clusters2_95: 2371849882621344614
+      arcane-spark-clusters2_96: 5749741608621676203
+      arcane-spark-clusters2_97: -104827554683010438
+      arcane-spark-clusters2_98: -5509604147539195198
+      arcane-spark-clusters2_99: -3009347209794685120
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
