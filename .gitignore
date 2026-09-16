@@ -74,6 +74,7 @@ desktop.ini
 .vscode/
 
 # Local AI assistant permissions
+.claude/
 .claude/settings.local.json
 
 # Unity Profiler capture output
