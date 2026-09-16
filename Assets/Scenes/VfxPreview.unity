@@ -444,7 +444,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 909a02b3f9ebf8b45bd84b2ca768d3e3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PlayGround.Runtime::PlayGround.System.Vfx.CombatVfxPreviewDriver
-  dataShape: 1
+  dataShape: 0
   spawnCount: 1
   bufferCapacity: 2048
   intervalSeconds: 1
@@ -515,7 +515,7 @@ VisualEffect:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1849630935}
   m_Enabled: 1
-  m_Asset: {fileID: 8926484042661614526, guid: 2cf1ebe567ca4bd4496bd38277510ce1, type: 3}
+  m_Asset: {fileID: 8926484042661614526, guid: 5d59119edd3a9714eb51dc3af75dd222, type: 3}
   m_InitialEventName: OnPlay
   m_InitialEventNameOverriden: 0
   m_StartSeed: 0

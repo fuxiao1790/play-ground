@@ -1,0 +1,62 @@
+digraph ArcaneBlastRedesign {
+  graph [rankdir=LR, nodesep=0.42, ranksep=1.05, splines=ortho, pad=0.2, bgcolor="white"];
+  node [shape=box, style="rounded,filled", fontname="Arial", fontsize=10, color="#333333", fillcolor="#FFFFFF"];
+  edge [fontname="Arial", fontsize=8, color="#333333", weight=1];
+
+  onspawn [label="OnSpawn\nEvent/Trigger", fillcolor="#D8F5C0", color="#2E7D32"];
+  positions [label="Positions\nGraphicsBuffer\ntransient", fillcolor="#BFE3FF", color="#0B5A9E"];
+  areas [label="AreaSizes\nGraphicsBuffer\ntransient", fillcolor="#BFE3FF", color="#0B5A9E"];
+  spawncount [label="SpawnCount\nint\ntransient", fillcolor="#BFE3FF", color="#0B5A9E"];
+  clamp [label="Clamp (uint)\nspawnIndex, 0, SpawnCount - 1", fillcolor="#FFE8A3", color="#8A6D00"];
+  samplepos [label="Sample Graphics Buffer\nPositions[index]", fillcolor="#FFE8A3", color="#8A6D00"];
+  samplearea [label="Sample Graphics Buffer\nAreaSizes[index]", fillcolor="#FFE8A3", color="#8A6D00"];
+  normalize [label="Multiply (float)\nAreaSizes[index] × 4.5\nNormalized Base Size", fillcolor="#FFE8A3", color="#8A6D00"];
+  vector3 [label="Vector3\n(x, y, 0)", fillcolor="#FFE8A3", color="#8A6D00"];
+
+  subgraph cluster_main {
+    label="1. Event → 2. Spawn → 3. Initialize Particle → 4. Update Particle → 5–6. Output Particle|Unlit|Quad";
+    color="#333333"; style="rounded";
+    event [label="1. Event\nname: OnSpawn"];
+    spawn [label="2. Spawn\n1. Single Burst"];
+    init [label="3. Initialize Particle\n1. |Set|_Lifetime\n2. |Set|_Position\n3. |Set|_Base Size\n4. |Set|_Size\n5. |Set|_Angle.Z|Random Uniform\n6. |Set|_Tex Index|Random Uniform"];
+    update [label="4. Update Particle\n1. |Set|_Size\n2. |Set|_Color|Over Life\n3. |Set|_Alpha|Over Life"];
+    ring_output [label="5. Output Particle|Unlit|Quad\n1. Orient: Face Camera Position"];
+    sparks_output [label="6. Output Particle|Unlit|Quad\n1. Orient: Face Camera Position\n2×2 flipbook"];
+  }
+
+  base_size [label="Get|_Base Size|Current", fillcolor="#FFE8A3", color="#8A6D00"];
+  ring_curve [label="shockwave-size-over-life\nAnimationCurve", fillcolor="#FFE8A3", color="#8A6D00"];
+  ring_texture [label="arcane-shockwave-ring.png\nTexture2D", fillcolor="#BFE3FF", color="#0B5A9E"];
+  sparks_texture [label="arcane-spark-clusters.png\nTexture2D 2×2 atlas", fillcolor="#BFE3FF", color="#0B5A9E"];
+
+  onspawn -> event [label="OnSpawn", color="#C0392B", penwidth=2, style=bold, weight=2];
+  event -> spawn [label="event flow"];
+  spawn -> init [label="particle flow"];
+  init -> update [label="particle flow"];
+  update -> ring_output [label="particle flow"];
+  update -> sparks_output [label="particle flow"];
+
+  spawncount -> spawn [label="Single Burst Count"];
+  spawncount -> clamp [label="max = SpawnCount - 1"];
+  positions -> samplepos [label="buffer"];
+  areas -> samplearea [label="buffer"];
+  clamp -> samplepos [label="index"];
+  clamp -> samplearea [label="index"];
+  samplepos -> vector3 [label="x, y"];
+  vector3 -> init [label="|Set|_Position"];
+  samplearea -> normalize [label="raw area size"];
+  normalize -> init [label="|Set|_Base Size; |Set|_Size"];
+  base_size -> update [label="|Set|_Size base"];
+  ring_curve -> update [label="|Set|_Size multiplier"];
+  ring_texture -> ring_output [label="mainTexture"];
+  sparks_texture -> sparks_output [label="mainTexture"];
+
+  subgraph cluster_legend {
+    label="Legend"; color="#333333"; style="rounded";
+    legend_block [label="Context / Block", fillcolor="#FFFFFF", color="#333333"];
+    legend_operator [label="Operator", fillcolor="#FFE8A3", color="#8A6D00"];
+    legend_property [label="Exposed Property", fillcolor="#BFE3FF", color="#0B5A9E"];
+    legend_event [label="Event / Trigger", fillcolor="#D8F5C0", color="#2E7D32"];
+    legend_note [label="One particle/request. Both outputs use stored particle data.\nNo request-buffer path reaches Update or Output.", shape=note, fillcolor="#FFFFFF", color="#333333"];
+  }
+}
