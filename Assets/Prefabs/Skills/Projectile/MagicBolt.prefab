@@ -141,7 +141,7 @@ MonoBehaviour:
   hurtbox: {fileID: 1469189744092702574}
   spawnSound: {fileID: 0}
   spawnSoundRadius: 150
-  trailEffect: {fileID: 8926484042661614526, guid: b82bfc0ee765763469eaf7a503bc2d90, type: 3}
+  trailEffect: {fileID: 8926484042661614526, guid: f69a3565c8a584548910d9c365bf11dd, type: 3}
   trailEffectShape: 2
   trailWidth: 0.25
   trailStepDistance: 0.5

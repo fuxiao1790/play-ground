@@ -1708,7 +1708,7 @@ MonoBehaviour:
   initialZoom: 1.5
   zoomStep: 0.1
   minDistance: 1.5
-  maxDistance: 2.5
+  maxDistance: 10
   zoomSpeed: 0.2
   releaseLimits:
     serializedVersion: 2
