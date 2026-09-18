@@ -1,0 +1,37 @@
+#pragma kernel ResolveIndices
+
+// Disposable proof fixture for .agent/projectile-trail-gpu-strips task 001. Writes the same
+// three buffers index.md architecture decision 5 assigns to the real allocator's compute pass
+// (ResolvedStripIndices, TrailPositions, TrailWidths), so the fixture graph exercises the real
+// buffer set/types/stride, not a simplified stand-in. The real key->slot allocator is task 005,
+// not this shader -- here "resolved index" is just the caller's requested slot, clamped.
+
+StructuredBuffer<uint> _RequestedSlots;
+StructuredBuffer<uint> _BatchTags;
+RWStructuredBuffer<uint> _ResolvedStripIndices;
+RWStructuredBuffer<float2> _TrailPositions;
+RWStructuredBuffer<float> _TrailWidths;
+uint _StripCapacity;
+uint _RequestCount;
+
+static const uint InvalidStripIndex = 0xFFFFFFFFu;
+static const float ProbeWidth = 1.0;
+
+[numthreads(64, 1, 1)]
+void ResolveIndices(uint3 id : SV_DispatchThreadID)
+{
+    uint i = id.x;
+    if (i >= _RequestCount)
+    {
+        return;
+    }
+
+    uint requested = _RequestedSlots[i];
+    _ResolvedStripIndices[i] = requested < _StripCapacity ? requested : InvalidStripIndex;
+
+    // No real trail geometry in this proof; TrailPositions carries the batch tag so the fixture
+    // graph's debug read-back can prove which dispatch a surviving point's data came from.
+    float tag = (float)_BatchTags[i];
+    _TrailPositions[i] = float2(tag, tag);
+    _TrailWidths[i] = ProbeWidth;
+}

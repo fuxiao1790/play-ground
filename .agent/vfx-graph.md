@@ -234,8 +234,11 @@ node that has no corresponding thing the artist places in the editor.
   (`vfx_types_list`, `vfx_type_describe`, or a `vfx_graph_read` of a
   comparable existing graph) rather than guessing.
 
-Use this fixed color hex palette every time; never vary these hex values
-across sessions or effects:
+### Context orientation
+
+Graph layout must match VFX Graph's Context orientation. This requirement is
+about node placement, not a new colour scheme. Keep the fixed element palette
+below in this skill; do not duplicate a palette or legend in `graph.dot`.
 
 | Element | Fill | Stroke |
 |---|---|---|
@@ -247,23 +250,59 @@ across sessions or effects:
 | Normal data-flow edge | n/a | `#333333`, weight 1 |
 | Cross-system trigger edge | n/a | `#C0392B`, weight 2, bold |
 
-Block nodes and Context containers use plain white fill (`#FFFFFF`) only;
-color lives on Operators, Exposed Properties, and edges, never on Block or
-Context fill. Give any cross-system trigger edge (e.g. the `OnSpawn` event
-entering the Spawn Context, or any edge crossing between separately
-dispatched systems) the distinct trigger-edge color and weight above so
-trigger boundaries read at a glance against normal in-graph wiring.
+Each Context must be a tall, narrow container like its Unity editor node:
 
-Use `digraph`, left-to-right layout (`rankdir=LR`), and readable rounded
-nodes. Show flow from event to Spawn to Initialize, then particle lifetime
-flow through Update and Output. Label data edges with the sampled
-buffer/property or persistent attribute name. Make unsafe paths visibly
-absent: no request-buffer node may connect to Update or Output. Include a
-small legend reflecting the palette above and distinguishing transient
-payload from persistent particle data. The DOT is an implementation
-blueprint, not decorative art: list the actual Contexts, Operators, and
-Blocks selected for this effect in node labels, using their exact editor
-names.
+- Context header/settings at top; Blocks form one compact, strictly vertical
+  stack below it, in editor stack order. Blocks must never spread across a row
+  or occupy separate columns inside their Context.
+- Preserve every editor containment relationship. When AgentVFX reports a
+  Block, nested Block, slot, setting, or foldout as belonging to a parent
+  Block, render it inside that parent Block's HTML-like table/record label,
+  with visible indentation and a nested border/row. Do not promote it to a
+  sibling Block or a free-floating node. A connected nested input gets a named
+  port on its nested row, so the external edge terminates at the actual child
+  input while the child remains visibly inside its parent. Only top-level
+  Context Blocks participate in the Context's vertical ordering chain.
+- Only the Context and its Blocks belong inside its cluster. Operators,
+  Blackboard properties, and Events stay outside the Context.
+- Give every Context its own cluster/container; never put the full Event-to-
+  Output lifecycle in one outer cluster. A particle-system boundary, when one
+  is useful, encloses those Context clusters only and must not become a layout
+  column itself.
+- Under the graph's left-to-right layout, put Context header and top-level
+  Blocks in an internal `rank=same` subgraph so they occupy one vertical
+  column. Use a high-weight, invisible, `constraint=false` ordering chain
+  (`Context header -> Block 1 -> Block 2 -> ... -> Block N`) to keep their
+  top-to-bottom order; use the same DOT `group`, `minlen=1`, and compact
+  `nodesep` so the cluster reads as one vertical editor card.
+- Use HTML-like DOT labels/ports where needed: input ports on a Block's left,
+  output ports on its right, and Context flow ports at the Context top/bottom.
+  Edge labels sit beside their actual target port, never above the whole
+  Context.
+
+Use `digraph` with `rankdir=LR` and three fixed visual lanes, left to right:
+
+1. **Inputs** -- Blackboard/exposed properties, Events, and source Attribute
+   reads. Keep this lane on the far left.
+2. **Computations** -- sampling, conversions, math, branching, and composed
+   attribute values. Keep each computation between the inputs it consumes and
+   the Block input it drives; do not interleave it with Contexts.
+3. **Systems** -- Spawn, Initialize, Update, and Output Context containers.
+   Keep them in one far-right vertical lane, in lifecycle order. Their internal
+   Block stacks remain vertical.
+
+Create one `rank=same` subgraph per lane and use invisible, high-weight,
+left-to-right guide edges from Inputs through Computations to Systems. Within
+the Systems lane, use another invisible, high-weight, `constraint=false` chain
+to keep Spawn, Initialize, Update, and Output top-to-bottom. Make ordinary
+data and context-flow edges `constraint=false`; lane guide edges, not wiring
+density, control placement. Draw context flow from Event to Spawn to
+Initialize, then particle lifetime flow through Update and Output. Label data
+edges with the sampled buffer/property or persistent attribute name. Make
+unsafe paths visibly absent: no request-buffer node may connect to Update or
+Output. The DOT is an implementation blueprint, not decorative art: list the
+actual Contexts, Operators, and Blocks selected for this effect in node labels,
+using their exact editor names.
 
 #### `texture-prompts.md`
 

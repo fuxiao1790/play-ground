@@ -140,8 +140,14 @@ concept. No automatic fallback to `LineSegment` on allocator failure.
 
 ## Open dependencies
 
-- AgentVFX bridge unavailable during planning; graph-specific node/settings
-  inspection awaits a reachable Unity editor. Never inspect `.vfx` text.
+- AgentVFX bridge is reachable as of task 001 implementation start (`unity
+  command vfx_ping` succeeded, port 7800); the earlier "no reachable server"
+  note was a planning-time snapshot, not a standing limitation. The bridge
+  remains **read-only** regardless of reachability (`.agent/vfx-graph.md`):
+  it can inspect nodes/settings but has no create/save/node-edit/
+  connection-edit capability, so every graph this plan needs (the task 001
+  fixture, and the real migration in tasks 002/006) is built by hand in the
+  editor, never by an agent. Never inspect `.vfx` text.
 - Same-frame compute-to-VFX ordering and initialization latency need the
   bounded validation in task 001 before implementation relies on them.
 - Exact `MaxStrips`, `ParticlesPerStrip`, `PointLifetimeSeconds`, and visual
