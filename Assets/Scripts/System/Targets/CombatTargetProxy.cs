@@ -29,9 +29,54 @@ namespace PlayGround.System.Combat.Targets
         public float2 Value;
     }
 
+    public enum TargetFactionFilterMode : byte
+    {
+        HostileOnly = 0,
+        AllowedFactionOnly = 1
+    }
+
+    // ECS Lifecycle: present on every target proxy, stamped once at creation by
+    // TargetProxyCreateApplySystem, immutable for the proxy's lifetime in this scope.
     public struct TargetFaction : IComponentData
     {
         public CombatFaction Value;
+        public TargetFactionFilterMode FilterMode;
+        public CombatFaction AllowedAttackerFaction;
+
+        public static TargetFaction Hostile(CombatFaction ownFaction) => new()
+        {
+            Value = ownFaction,
+            FilterMode = TargetFactionFilterMode.HostileOnly,
+            AllowedAttackerFaction = CombatFaction.None
+        };
+
+        public static TargetFaction AllowedFrom(CombatFaction ownFaction, CombatFaction allowedAttacker) => new()
+        {
+            Value = ownFaction,
+            FilterMode = TargetFactionFilterMode.AllowedFactionOnly,
+            AllowedAttackerFaction = allowedAttacker
+        };
+
+        // Single eligibility predicate shared by every selection/collision path (acquisition,
+        // projectile discrete/continuous collision, AOE collision, projectile tracking). Pure
+        // value comparison so it stays Burst-safe and callable from job code.
+        public static bool CanHit(CombatFaction attacker, in TargetFaction target)
+        {
+            if (attacker == CombatFaction.None)
+            {
+                return false;
+            }
+
+            switch (target.FilterMode)
+            {
+                case TargetFactionFilterMode.HostileOnly:
+                    return attacker != target.Value;
+                case TargetFactionFilterMode.AllowedFactionOnly:
+                    return attacker == target.AllowedAttackerFaction;
+                default:
+                    return false;
+            }
+        }
     }
 
     // ECS Lifecycle: target-proxy stack buffer; added empty when the proxy is created, destroyed with the proxy. CombatApplyFinalizeSingleSystem accrues entries, then StatusProcessSystem fizzles or detonates them.
@@ -71,7 +116,10 @@ namespace PlayGround.System.Combat.Targets
         private static World cachedWorld;
         private static EntityArchetype cachedArchetype;
 
-        public static bool Create(EntityManager entityManager, ICombatTarget target, CombatFaction faction)
+        public static bool Create(EntityManager entityManager, ICombatTarget target, CombatFaction faction) =>
+            Create(entityManager, target, TargetFaction.Hostile(faction));
+
+        public static bool Create(EntityManager entityManager, ICombatTarget target, TargetFaction policy)
         {
             if (target == null || entityManager == default)
             {
@@ -102,7 +150,7 @@ namespace PlayGround.System.Combat.Targets
             entityManager.GetBuffer<TargetProxyCreateEvent>(scopeEntity).Add(new TargetProxyCreateEvent
             {
                 Token = token,
-                Faction = faction,
+                FactionPolicy = policy,
                 Position = position,
                 Shape = shape,
                 MaxHealth = maxHealth,

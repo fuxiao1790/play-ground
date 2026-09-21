@@ -29,7 +29,8 @@ submission, audio playback, debug text, and presentation budgets.
 
 ## Inputs
 
-- `CombatTickResult` presentation data.
+- `CombatTickResult` presentation data (includes `TickDeltaSeconds` for actors
+  that need tick duration).
 - Basic and Timed native VFX request queues on the VFX dispatch singleton.
 - Clip-bucketed native sound events on `SoundEventSingleton` plus the managed
   per-clip pending buckets.

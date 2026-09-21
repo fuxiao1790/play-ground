@@ -8,7 +8,7 @@ namespace PlayGround.System.Combat.Targets
     public struct TargetProxyCreateEvent : IBufferElementData
     {
         public int Token;
-        public CombatFaction Faction;
+        public TargetFaction FactionPolicy;
         public TargetPosition Position;
         public TargetCollisionShape Shape;
         public float MaxHealth;

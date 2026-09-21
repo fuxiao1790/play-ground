@@ -36,7 +36,7 @@ namespace PlayGround.System.Combat
             }
         }
 
-        public static bool TryNearestHostile(
+        public static bool TryNearestEligible(
             in Snapshot snapshot,
             float2 from,
             float radius,
@@ -102,8 +102,13 @@ namespace PlayGround.System.Combat
                     do
                     {
                         if (targetIndex < 0
-                            || targetIndex >= snapshot.TargetEntities.Length
-                            || snapshot.TargetFactions[targetIndex].Value == faction
+                            || targetIndex >= snapshot.TargetEntities.Length)
+                        {
+                            continue;
+                        }
+
+                        TargetFaction candidateFaction = snapshot.TargetFactions[targetIndex];
+                        if (!TargetFaction.CanHit(faction, in candidateFaction)
                             || TargetKey(snapshot.TargetEntities[targetIndex]) == excludeKey)
                         {
                             continue;

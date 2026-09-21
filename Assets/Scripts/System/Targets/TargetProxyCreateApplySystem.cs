@@ -40,7 +40,7 @@ namespace PlayGround.System.Combat.Targets
                     }
 
                     Entity proxy = EntityManager.CreateEntity(CombatTargetProxy.Archetype(EntityManager));
-                    EntityManager.SetComponentData(proxy, new TargetFaction { Value = createEvent.Faction });
+                    EntityManager.SetComponentData(proxy, createEvent.FactionPolicy);
                     EntityManager.SetComponentData(proxy, createEvent.Position);
                     EntityManager.SetComponentData(proxy, createEvent.Shape);
                     EntityManager.SetComponentData(proxy, new Health

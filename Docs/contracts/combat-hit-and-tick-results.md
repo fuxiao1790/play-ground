@@ -29,8 +29,14 @@ Current key data:
 - `Health`
 - `TargetStackEntry`
 - `CombatTickResult`
-- hit count, crit count, aggregate damage, final health, and changed status
-  ranges
+- `HitCount` — accepted `CombatHitEvent` count for the target in one finalizer
+  update, including non-damaging/status-only hits
+- `DamageTaken` / `CritCount` — direct-damage-only aggregates, accrued only
+  when the accepted hit's `CombatHitPayload.DirectDamageEnabled` is true
+- `TickDeltaSeconds` — the finalizer's `SystemAPI.Time.DeltaTime` for the
+  update that produced this result
+- `Health` — final health snapshot
+- `StatusStart` / `StatusCount` — changed status range
 
 Older reference docs mention `DamageReplayEvent` and `DamageDispatchBridge`.
 TODO: verify remaining legacy names against current code before removing them.
@@ -39,6 +45,13 @@ TODO: verify remaining legacy names against current code before removing them.
 
 Plain damage and status can be aggregated by target in ECS. Managed presentation
 receives compact target results, not one plain-damage callback per raw hit.
+
+Presentation callbacks fire only for targets whose result has hit or status
+content (`HitCount > 0 || StatusCount > 0`), not for every simulation tick or
+every target. Because `HitCount` now counts every accepted hit rather than
+only direct-damage hits, a non-damaging/status-only accepted contact also
+reaches the callback — previously such a contact could produce `HitCount == 0`
+and be skipped unless it also changed status.
 
 Every hit source archetype that can enqueue `CombatHitEvent` carries
 `CombatHitPayload`, so finalize can resolve payload data through one read-only

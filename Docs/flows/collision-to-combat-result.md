@@ -10,8 +10,8 @@ compact presentation results.
 1. Projectile/AOE collision systems query unmanaged target proxy data, as does
    `TargetedResolveSystem` — a chain selects victims by broadphase query instead
    of a simulated collider, then joins this path unchanged.
-2. Collision systems qualify hits with broad phase, narrow phase, faction, and
-   repeat-hit gates.
+2. Collision systems qualify hits with broad phase, narrow phase, target-policy
+   eligibility, and repeat-hit gates.
 3. Accepted hits emit plain data hit events and optional spawn/VFX consequences.
 4. `CombatApplyFinalizeSingleSystem` groups hits by target proxy, rolls crits,
    sums damage, updates `Health`, accrues `TargetStackEntry`, and freezes

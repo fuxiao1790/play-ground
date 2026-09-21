@@ -200,6 +200,36 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(math.distance(position, new float2(20f, 0f)), Is.GreaterThan(1f));
         }
 
+        [Test]
+        public void SelectedFactionSameFactionTargetIsHit()
+        {
+            Entity target = AddTarget(
+                new float2(2f, 0f),
+                0.25f,
+                TargetFaction.AllowedFrom(CombatFaction.Player, CombatFaction.Player));
+            CreateContinuousProjectile(float2.zero, new float2(10f, 0f), pierce: 0);
+
+            Tick(1f);
+
+            Assert.That(entityManager.GetComponentData<Health>(target).Current, Is.EqualTo(9f).Within(0.0001f),
+                "AllowedFactionOnly must accept an attacker faction equal to the target's own faction.");
+        }
+
+        [Test]
+        public void SelectedFactionUnselectedAttackerIsNotHit()
+        {
+            Entity target = AddTarget(
+                new float2(2f, 0f),
+                0.25f,
+                TargetFaction.AllowedFrom(CombatFaction.Mob, CombatFaction.Mob));
+            CreateContinuousProjectile(float2.zero, new float2(10f, 0f), pierce: 0);
+
+            Tick(1f);
+
+            Assert.That(entityManager.GetComponentData<Health>(target).Current, Is.EqualTo(10f).Within(0.0001f),
+                "Player projectile must not hit a target whose AllowedFactionOnly policy excludes Player.");
+        }
+
         private Entity CreateContinuousProjectile(
             float2 position,
             float2 velocity,
@@ -258,7 +288,10 @@ namespace PlayGround.Tests.PlayMode
             return projectile;
         }
 
-        private Entity AddTarget(float2 position, float radius)
+        private Entity AddTarget(float2 position, float radius) =>
+            AddTarget(position, radius, TargetFaction.Hostile(CombatFaction.Mob));
+
+        private Entity AddTarget(float2 position, float radius, TargetFaction policy)
         {
             CombatCollisionMath.ComputeWorldBounds(
                 position, radius, float2.zero, 0f, CombatShapeType.Circle,
@@ -279,7 +312,7 @@ namespace PlayGround.Tests.PlayMode
                 BoundsMin = boundsMin,
                 BoundsMax = boundsMax
             });
-            entityManager.SetComponentData(target, new TargetFaction { Value = CombatFaction.Mob });
+            entityManager.SetComponentData(target, policy);
             entityManager.SetComponentData(target, new Health { Current = 10f, Max = 10f });
             entityManager.SetComponentData(target, new Mana { Current = 0f, Max = 0f });
             entityManager.AddBuffer<TargetStackEntry>(target);

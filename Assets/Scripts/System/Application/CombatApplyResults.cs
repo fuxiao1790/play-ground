@@ -65,10 +65,23 @@ namespace PlayGround.System.Combat.Application
     {
         public Entity TargetProxy;
         public float Health;
+
+        // Direct-damage-only aggregate: accrued only when the accepted hit's
+        // CombatHitPayload.DirectDamageEnabled is true.
         public float DamageTaken;
+
+        // Accepted CombatHitEvent count for this target during this finalizer
+        // update, including non-damaging/status-only hits.
         public int HitCount;
+
+        // Direct-damage-only aggregate: accrued only when the accepted hit's
+        // CombatHitPayload.DirectDamageEnabled is true.
         public int CritCount;
         public int StatusStart;
         public int StatusCount;
+
+        // The source ECS finalizer's SystemAPI.Time.DeltaTime for the update
+        // that produced this result.
+        public float TickDeltaSeconds;
     }
 }

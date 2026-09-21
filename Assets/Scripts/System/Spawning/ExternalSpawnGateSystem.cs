@@ -166,7 +166,7 @@ namespace PlayGround.System.Combat.Spawning
                         hash.TargetShapes.AsArray(),
                         hash.TargetFactions.AsArray(),
                         hash.AoeOccupiedCells);
-                    if (CombatTargetAcquisition.TryNearestHostile(
+                    if (CombatTargetAcquisition.TryNearestEligible(
                             snapshot,
                             acquireAnchor,
                             command.Resolve.ChainDistance,

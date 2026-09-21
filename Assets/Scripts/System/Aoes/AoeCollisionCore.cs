@@ -87,7 +87,8 @@ namespace PlayGround.System.Combat.Aoes
 
                     do
                     {
-                        if (targetFactions[i].Value == identity.Faction)
+                        TargetFaction candidateFaction = targetFactions[i];
+                        if (!TargetFaction.CanHit(identity.Faction, in candidateFaction))
                             continue;
 
                         Entity targetEntity = targetEntities[i];

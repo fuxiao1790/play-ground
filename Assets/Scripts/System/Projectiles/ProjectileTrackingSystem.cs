@@ -177,7 +177,7 @@ namespace PlayGround.System.Combat.Projectiles
                 if (cachedIndex >= 0
                     && cachedIndex < TargetEntities.Length
                     && TargetKey(TargetEntities[cachedIndex]) == tracking.TrackedTargetId
-                    && TargetFactions[cachedIndex].Value != identity.Faction)
+                    && CanHitCandidate(identity.Faction, cachedIndex))
                 {
                     tracking.TrackedTargetPosition = TargetPositions[cachedIndex].Value;
                     return true;
@@ -189,7 +189,7 @@ namespace PlayGround.System.Combat.Projectiles
                     && mappedIndex >= 0
                     && mappedIndex < TargetEntities.Length
                     && TargetKey(TargetEntities[mappedIndex]) == tracking.TrackedTargetId
-                    && TargetFactions[mappedIndex].Value != identity.Faction)
+                    && CanHitCandidate(identity.Faction, mappedIndex))
                 {
                     tracking.TrackedTargetIndex = mappedIndex;
                     tracking.TrackedTargetPosition = TargetPositions[mappedIndex].Value;
@@ -331,7 +331,7 @@ namespace PlayGround.System.Combat.Projectiles
                         continue;
                     }
 
-                    if (TargetFactions[targetIndex].Value == projectileFaction)
+                    if (!CanHitCandidate(projectileFaction, targetIndex))
                     {
                         continue;
                     }
@@ -416,6 +416,14 @@ namespace PlayGround.System.Combat.Projectiles
                     state ^= state << 5;
                     return state == 0u ? 1u : state;
                 }
+            }
+
+            // NativeArray<T>'s indexer returns by value, so its result cannot be passed
+            // directly to an `in` parameter (CS8156); copy to a local first.
+            private bool CanHitCandidate(CombatFaction attacker, int targetIndex)
+            {
+                TargetFaction candidateFaction = TargetFactions[targetIndex];
+                return TargetFaction.CanHit(attacker, in candidateFaction);
             }
         }
 

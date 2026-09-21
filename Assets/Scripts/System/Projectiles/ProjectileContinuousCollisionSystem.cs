@@ -249,7 +249,8 @@ namespace PlayGround.System.Combat.Projectiles
 
                         do
                         {
-                            if (TargetFactions[targetIndex].Value == identity.Faction)
+                            TargetFaction candidateFaction = TargetFactions[targetIndex];
+                            if (!TargetFaction.CanHit(identity.Faction, in candidateFaction))
                             {
                                 continue;
                             }

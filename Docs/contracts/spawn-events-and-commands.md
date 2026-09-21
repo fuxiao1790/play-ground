@@ -47,8 +47,9 @@ into one command per spawned entity.
 (`LaunchAimMode`, `LaunchAimRange`) copied from the compiled runtime projectile
 definition at template-build time — it is template-level policy, not
 per-instance frame, so `ProjectileSpawnEvent` carries no launch-aim field.
-Expansion resolves nearest-hostile acquisition once per event/wave from the
-dereferenced template, before count/spread fan-out and before the
+Expansion resolves nearest-eligible-target acquisition (under target policy)
+once per event/wave from the dereferenced template, before count/spread
+fan-out and before the
 discrete/continuous split; on success it recomputes the whole wave as one
 radial nova oriented from the acquired direction (shot `0` points at the
 target, remaining shots are spaced `360/count` degrees around it), bypassing
@@ -73,9 +74,9 @@ do not inspect templates at runtime.
 
 Targeted events carry the ordinary instance frame plus `AcquireAnchor` and
 `HasAcquiredTarget`. `Position` is the chain origin. Root casts enter the gate
-with the cursor as `AcquireAnchor`; the gate replaces it with the nearest hostile
-target position within `ChainDistance` and sets `HasAcquiredTarget` when it finds
-one. Interval-child and on-hit chains keep their source/impact anchor and leave
+with the cursor as `AcquireAnchor`; the gate replaces it with the nearest
+policy-eligible target position within `ChainDistance` and sets
+`HasAcquiredTarget` when it finds one. Interval-child and on-hit chains keep their source/impact anchor and leave
 the flag clear. Expansion copies both fields into `TargetedSpawnCommand`; the
 registry template keeps the flag clear.
 

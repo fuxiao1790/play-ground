@@ -182,7 +182,8 @@ namespace PlayGround.System.Combat.Application
                     StatusSnapshots = applyResults.StatusSnapshots,
                     DropCount = applyResults.DropCount,
                     Now = SystemAPI.Time.ElapsedTime,
-                    FrameCount = (uint)UnityEngine.Time.frameCount
+                    FrameCount = (uint)UnityEngine.Time.frameCount,
+                    DeltaTime = SystemAPI.Time.DeltaTime
                 }.Schedule(Dependency);
                 applyResults.ProducerHandle = Dependency;
             }
@@ -200,6 +201,7 @@ namespace PlayGround.System.Combat.Application
             public NativeReference<int> DropCount;
             public double Now;
             public uint FrameCount;
+            public float DeltaTime;
 
             public void Execute()
             {
@@ -259,13 +261,13 @@ namespace PlayGround.System.Combat.Application
                         float rolledAmount = math.max(0f, isCrit ? baseAmount * payload.CritMultiplier : baseAmount);
 
                         acc.DamageTaken += rolledAmount;
-                        acc.HitCount++;
                         if (isCrit)
                         {
                             acc.CritCount++;
                         }
                     }
 
+                    acc.HitCount++;
                     acc.HitIndex++;
                     accums[idx] = acc;
                 }
@@ -278,7 +280,8 @@ namespace PlayGround.System.Combat.Application
                         TargetProxy = acc.Target,
                         DamageTaken = acc.DamageTaken,
                         HitCount = acc.HitCount,
-                        CritCount = acc.CritCount
+                        CritCount = acc.CritCount,
+                        TickDeltaSeconds = DeltaTime
                     };
 
                     if (acc.StackChanged == 1 && acc.HasStackBuffer == 1)

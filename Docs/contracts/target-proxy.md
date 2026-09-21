@@ -23,7 +23,7 @@ Current proxy data includes:
 - `TargetProxyTag`
 - `TargetPosition`
 - `TargetCollisionShape`
-- `TargetFaction` — the target's **own** allegiance (`Player`, `Mob`, etc.); collision and tracking skip same-faction candidates (`self.Faction == target.Faction`)
+- `TargetFaction` — `Value` is the target's **own** allegiance (`Player`, `Mob`, etc.); `FilterMode` (`HostileOnly` or `AllowedFactionOnly`) plus `AllowedAttackerFaction` select the acceptance policy. Collision, acquisition, and tracking all evaluate the same `TargetFaction.CanHit(attacker, target)` rule rather than a raw inequality: `HostileOnly` accepts any attacker faction other than `Value` (the old same-faction-skip behavior), while `AllowedFactionOnly` accepts only `AllowedAttackerFaction` — which can equal the target's own `Value`, so an `AllowedFactionOnly` target can accept an attacker of its own faction
 - `Health`
 - `Mana`
 - `TargetStackEntry` buffer
@@ -84,5 +84,11 @@ preserving current-frame hit/result replay safety.
 ## Notes / TODOs
 
 `TargetFaction` is set once at proxy creation to the target's own allegiance
-(not the firing faction). The friendly-fire gate uses a single inequality test
-in the narrow phase rather than per-faction spatial-hash buckets.
+(not the firing faction), together with the acceptance policy (`FilterMode`
+and, for `AllowedFactionOnly`, `AllowedAttackerFaction`). The eligibility gate
+uses the shared `TargetFaction.CanHit` predicate evaluated per-candidate in
+the narrow phase, rather than per-faction spatial-hash buckets. Selecting a
+policy chooses the whole faction an attacker must belong to, not an
+individual source actor. The policy is stamped at creation and immutable for
+the proxy's lifetime in this scope; runtime policy mutation is not
+implemented.

@@ -61,14 +61,14 @@ Hot despawn only disables `Active`; cleanup trims bounded excess slots later.
 
 `TargetedSpawnEvent` carries template key, origin, acquire anchor, acquisition
 flag, faction, source id, and deterministic frame. For a root cast,
-`ExternalSpawnGateSystem` acquires the nearest hostile proxy to the aim point
-within `ChainDistance`; on success, `AcquireAnchor` becomes that target's
+`ExternalSpawnGateSystem` acquires the nearest policy-eligible proxy to the aim
+point within `ChainDistance`; on success, `AcquireAnchor` becomes that target's
 position instead of the raw cursor. Interval-child and on-hit chains keep
 their source/impact anchor and acquire in resolve. Expansion stamps the
 instance frame and emits one `TargetedSpawnCommand` per echo.
 
 The resolve system runs after target spatial-hash build and arming, before hit
-finalize and spawn expansion. It searches hostile target proxies only:
+finalize and spawn expansion. It searches policy-eligible target proxies only:
 
 1. Link 0 searches from `AcquireAnchor`; later links search from the last
    target. Both use `ChainDistance` — one authored reach, no second radius.

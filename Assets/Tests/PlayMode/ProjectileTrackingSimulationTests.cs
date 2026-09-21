@@ -266,6 +266,61 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void SelectedFactionEligibleTargetIsAcquiredOverCloserIneligibleTarget()
+        {
+            AddTarget(
+                position: new float2(0f, 5f),
+                radius: 0.25f,
+                targetMask: 1,
+                policy: TargetFaction.AllowedFrom(CombatFaction.Mob, CombatFaction.Mob)); // closer, ineligible for Player
+            int eligibleTargetId = AddTarget(
+                position: new float2(0f, 40f),
+                radius: 0.25f,
+                targetMask: 1,
+                policy: TargetFaction.AllowedFrom(CombatFaction.Mob, CombatFaction.Player)); // farther, eligible
+            SpawnTrackedProjectile(
+                position: float2.zero,
+                velocity: new float2(0f, 10f),
+                turnSpeedRadians: math.radians(180f));
+
+            Tick(0.1f);
+
+            ProjectileTrackingComponent tracking =
+                entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(eligibleTargetId),
+                "Acquisition must skip a closer AllowedFactionOnly target whose policy excludes the projectile's faction.");
+        }
+
+        [Test]
+        public void RefreshRejectsAlreadyTrackedPolicyIneligibleTargetAndReacquiresEligibleTarget()
+        {
+            int ineligibleTargetId = AddTarget(
+                position: new float2(0f, 5f),
+                radius: 0.25f,
+                targetMask: 1,
+                policy: TargetFaction.AllowedFrom(CombatFaction.Mob, CombatFaction.Mob)); // closer, ineligible for Player
+            int eligibleTargetId = AddTarget(
+                position: new float2(0f, 40f),
+                radius: 0.25f,
+                targetMask: 1,
+                policy: TargetFaction.AllowedFrom(CombatFaction.Mob, CombatFaction.Player)); // farther, eligible
+            SpawnTrackedProjectile(
+                position: float2.zero,
+                velocity: new float2(0f, 10f),
+                turnSpeedRadians: math.radians(180f),
+                trackedTargetId: ineligibleTargetId,
+                trackedTargetIndex: 0,
+                trackedTargetPosition: new float2(0f, 5f));
+
+            Tick(0.1f);
+
+            ProjectileTrackingComponent tracking =
+                entityManager.GetComponentData<ProjectileTrackingComponent>(projectileEntity);
+            Assert.That(tracking.TrackedTargetId, Is.EqualTo(eligibleTargetId),
+                "Refresh must reject a cached target whose policy no longer allows the tracker's faction, falling back to acquisition.");
+        }
+
+        [Test]
         public void AcquisitionSpreadsIdenticalProjectilesAcrossEqualTargets()
         {
             AddTarget(position: new float2(-5f, 40f), radius: 0.25f, targetMask: 1);
@@ -365,7 +420,10 @@ namespace PlayGround.Tests.PlayMode
             return projectileEntity;
         }
 
-        private int AddTarget(float2 position, float radius, int targetMask, CombatFaction faction = CombatFaction.Mob)
+        private int AddTarget(float2 position, float radius, int targetMask, CombatFaction faction = CombatFaction.Mob) =>
+            AddTarget(position, radius, targetMask, TargetFaction.Hostile(faction));
+
+        private int AddTarget(float2 position, float radius, int targetMask, TargetFaction policy)
         {
             Entity target = entityManager.CreateEntity(
                 typeof(TargetProxyTag),
@@ -383,7 +441,7 @@ namespace PlayGround.Tests.PlayMode
                 BoundsMax = position + radius,
                 Mask = targetMask
             });
-            entityManager.SetComponentData(target, new TargetFaction { Value = faction });
+            entityManager.SetComponentData(target, policy);
             entityManager.SetComponentData(target, new TargetCompanion { Target = new TestTarget(targetMask) });
             return CombatTargetProxy.TargetKey(target);
         }

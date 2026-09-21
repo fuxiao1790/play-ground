@@ -94,6 +94,22 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
+        public void LinkZero_SkipsNearerPolicyIneligibleProxy()
+        {
+            AddCircleTarget(new float2(0.5f, 0f), 0.25f, TargetFaction.AllowedFrom(CombatFaction.Mob, CombatFaction.Mob));
+            Entity eligible = AddCircleTarget(
+                new float2(2f, 0f), 0.25f, TargetFaction.AllowedFrom(CombatFaction.Mob, CombatFaction.Player));
+            AddChain(instanceIndex: 0, chainDistance: 5f, chainCount: 1);
+
+            Tick();
+
+            CombatHitEvent[] hits = DrainHits();
+            Assert.That(hits, Has.Length.EqualTo(1));
+            Assert.That(hits[0].Target, Is.EqualTo(eligible),
+                "Root selection must skip a nearer AllowedFactionOnly target whose policy excludes the chain's faction.");
+        }
+
+        [Test]
         public void ChainHop_SkipsNearerSameFactionProxy()
         {
             Entity firstHostile = AddCircleTarget(new float2(1f, 0f), 0.25f);
@@ -106,6 +122,23 @@ namespace PlayGround.Tests.EditMode
             // Hit order is not guaranteed: the lane is a parallel-writer queue.
             Assert.That(TargetsFor(DrainHits()),
                 Is.EquivalentTo(new[] { firstHostile, secondHostile }));
+        }
+
+        [Test]
+        public void ChainHop_SkipsNearerPolicyIneligibleProxy()
+        {
+            Entity firstEligible = AddCircleTarget(
+                new float2(1f, 0f), 0.25f, TargetFaction.AllowedFrom(CombatFaction.Mob, CombatFaction.Player));
+            AddCircleTarget(new float2(1.2f, 0f), 0.25f, TargetFaction.AllowedFrom(CombatFaction.Mob, CombatFaction.Mob));
+            Entity secondEligible = AddCircleTarget(
+                new float2(2f, 0f), 0.25f, TargetFaction.AllowedFrom(CombatFaction.Mob, CombatFaction.Player));
+            AddChain(instanceIndex: 0, chainDistance: 3f, chainCount: 2);
+
+            Tick();
+
+            // Hit order is not guaranteed: the lane is a parallel-writer queue.
+            Assert.That(TargetsFor(DrainHits()),
+                Is.EquivalentTo(new[] { firstEligible, secondEligible }));
         }
 
         [Test]
@@ -327,7 +360,7 @@ namespace PlayGround.Tests.EditMode
                 hash.TargetFactions.AsArray(),
                 hash.AoeOccupiedCells);
             Assert.That(
-                CombatTargetAcquisition.TryNearestHostile(
+                CombatTargetAcquisition.TryNearestEligible(
                     snapshot,
                     float2.zero,
                     3f,
@@ -378,6 +411,33 @@ namespace PlayGround.Tests.EditMode
                 BoundsMax = boundsMax
             });
             _entityManager.SetComponentData(entity, new TargetFaction { Value = faction });
+            return entity;
+        }
+
+        private Entity AddCircleTarget(float2 position, float radius, TargetFaction policy)
+        {
+            CombatCollisionMath.ComputeWorldBounds(
+                position,
+                radius,
+                float2.zero,
+                0f,
+                CombatShapeType.Circle,
+                out float2 boundsMin,
+                out float2 boundsMax);
+            Entity entity = _entityManager.CreateEntity(
+                typeof(TargetProxyTag),
+                typeof(TargetPosition),
+                typeof(TargetCollisionShape),
+                typeof(TargetFaction));
+            _entityManager.SetComponentData(entity, new TargetPosition { Value = position });
+            _entityManager.SetComponentData(entity, new TargetCollisionShape
+            {
+                ShapeType = CombatShapeType.Circle,
+                Radius = radius,
+                BoundsMin = boundsMin,
+                BoundsMax = boundsMax
+            });
+            _entityManager.SetComponentData(entity, policy);
             return entity;
         }
 

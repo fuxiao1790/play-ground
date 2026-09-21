@@ -590,6 +590,81 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void SelectedFactionSameFactionImpactTargetIsHit()
+        {
+            int targetId = ++nextTargetId;
+            var target = new TestCombatTarget(targetId);
+            target.Position = float2.zero;
+            target.Radius = 0.25f;
+            target.Mask = 1;
+            target.Health = 100f;
+            Assert.That(
+                CombatTargetProxy.Create(
+                    entityManager, target, TargetFaction.AllowedFrom(CombatFaction.Player, CombatFaction.Player)),
+                Is.True);
+            targetProxyCreateApply.Update();
+            targetsById.Add(targetId, target);
+
+            SpawnCircle(float2.zero, 1f, 2f);
+
+            Tick(0.01f);
+            Assert.That(ReadHitCount(), Is.EqualTo(1),
+                "AllowedFactionOnly must accept an attacker faction equal to the target's own faction.");
+        }
+
+        [Test]
+        public void SelectedFactionUnselectedAttackerImpactTargetIsNotHit()
+        {
+            int targetId = ++nextTargetId;
+            var target = new TestCombatTarget(targetId);
+            target.Position = float2.zero;
+            target.Radius = 0.25f;
+            target.Mask = 1;
+            target.Health = 100f;
+            Assert.That(
+                CombatTargetProxy.Create(
+                    entityManager, target, TargetFaction.AllowedFrom(CombatFaction.Mob, CombatFaction.Mob)),
+                Is.True);
+            targetProxyCreateApply.Update();
+            targetsById.Add(targetId, target);
+
+            SpawnCircle(float2.zero, 1f, 2f);
+
+            Tick(0.01f);
+            Assert.That(ReadHitCount(), Is.EqualTo(0),
+                "Player AOE must not hit a target whose AllowedFactionOnly policy excludes Player.");
+        }
+
+        [Test]
+        public void SelectedFactionLingeringTargetStillGatedByRepeatCooldown()
+        {
+            int targetId = ++nextTargetId;
+            var target = new TestCombatTarget(targetId);
+            target.Position = float2.zero;
+            target.Radius = 0.25f;
+            target.Mask = 1;
+            target.Health = 100f;
+            Assert.That(
+                CombatTargetProxy.Create(
+                    entityManager, target, TargetFaction.AllowedFrom(CombatFaction.Player, CombatFaction.Player)),
+                Is.True);
+            targetProxyCreateApply.Update();
+            targetsById.Add(targetId, target);
+
+            SpawnCircle(float2.zero, 1f, 2f, lifetime: 10f, tickInterval: 0.02f);
+
+            Tick(0.01f);
+            int hits = ReadHitCount();
+            Tick(0.01f);
+            hits += ReadHitCount();
+            Tick(0.02f);
+            hits += ReadHitCount();
+
+            Assert.That(hits, Is.EqualTo(2),
+                "The repeat-hit tick gate must still apply to a target selected via AllowedFactionOnly policy.");
+        }
+
+        [Test]
         public void PulseEntityIsReusedOnRespawn()
         {
             AddTarget(float2.zero, 0.25f, 1);

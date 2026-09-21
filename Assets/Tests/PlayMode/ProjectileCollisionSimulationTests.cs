@@ -286,6 +286,32 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void SelectedFactionSameFactionTargetIsHit()
+        {
+            AddTarget(float2.zero, 0.25f, TargetFaction.AllowedFrom(CombatFaction.Player, CombatFaction.Player));
+            Entity projectile = CreateProjectile(pierceRemaining: 0);
+
+            TickSimulationOnly(0.01f);
+
+            Assert.That(ReadFinalizedHitCount(), Is.EqualTo(1),
+                "AllowedFactionOnly must accept an attacker faction equal to the target's own faction.");
+            Assert.That(entityManager.IsComponentEnabled<Active>(projectile), Is.False);
+        }
+
+        [Test]
+        public void SelectedFactionUnselectedAttackerIsNotHit()
+        {
+            AddTarget(float2.zero, 0.25f, TargetFaction.AllowedFrom(CombatFaction.Mob, CombatFaction.Mob));
+            Entity projectile = CreateProjectile(pierceRemaining: 0);
+
+            TickSimulationOnly(0.01f);
+
+            Assert.That(ReadFinalizedHitCount(), Is.EqualTo(0),
+                "Player projectile must not hit a target whose AllowedFactionOnly policy excludes Player.");
+            Assert.That(entityManager.IsComponentEnabled<Active>(projectile), Is.True);
+        }
+
+        [Test]
         public void ProjectileApplicatorProjectileDetonationQueuesNovaWithSummedContribution()
         {
             const float TotalDamage = 15f;
@@ -660,6 +686,14 @@ namespace PlayGround.Tests.PlayMode
         {
             var target = new TestCombatTarget(++nextTargetId, position, radius);
             Assert.That(CombatTargetProxy.Create(entityManager, target, faction), Is.True);
+            targetProxyCreateApply.Update();
+            return target.CombatTargetProxy;
+        }
+
+        private Entity AddTarget(float2 position, float radius, TargetFaction policy)
+        {
+            var target = new TestCombatTarget(++nextTargetId, position, radius);
+            Assert.That(CombatTargetProxy.Create(entityManager, target, policy), Is.True);
             targetProxyCreateApply.Update();
             return target.CombatTargetProxy;
         }

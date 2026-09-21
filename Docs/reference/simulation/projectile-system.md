@@ -271,7 +271,8 @@ children when `TimedSpawnComponent` is enabled.
 ## Launch Aim
 
 Trigger-authored launch aim gives one triggered projectile wave a one-time
-initial-velocity redirect toward the nearest hostile, resolved once per
+initial-velocity redirect toward the nearest eligible target under target
+policy, resolved once per
 `ProjectileSpawnEvent` inside `ProjectileSpawnExpansionSystem`, before
 count/spread/jitter fan-out and before the discrete/continuous lane split. It
 is authored on the incoming `TriggerLink`, not on `SkillDefinition`: root and
@@ -283,18 +284,18 @@ that participate in `SpawnTemplateHash`.
 
 When a wave's template carries `LaunchAimMode == NearestHostile`, `Range > 0`,
 and a valid faction, expansion queries the shared `TargetSpatialHashSingleton`
-through `CombatTargetAcquisition.TrySelectNthNearest` (the same nearest-hostile
-selection targeted chains use, rank 0, excluding the event's contact-gate seed
-target) once per event. On success it recomputes every shot in the wave as one
+through `CombatTargetAcquisition.TrySelectNthNearest` (the same
+nearest-eligible-target selection targeted chains use, rank 0, excluding the
+event's contact-gate seed target) once per event. On success it recomputes every shot in the wave as one
 radial nova oriented from the acquired direction: shot `i`'s velocity is
 `Rotate(aimDirection, 360 degrees * i / count) * Speed`, so shot `0` points
 exactly at the target and shots `1..count-1` occupy the remaining equally
 `360/count`-spaced slots around it. This bypasses the stored
 forward/side-spray/radial pattern and its spread/jitter/RNG entirely for that
 wave — a successful aim is a nova, not a partial pattern edit. A missing hash
-singleton, non-positive range, `CombatFaction.None`, no hostile in range, or a
-target coincident with the spawn position all fall through to the unmodified
-stored pattern output.
+singleton, non-positive range, `CombatFaction.None`, no eligible target in
+range, or a target coincident with the spawn position all fall through to the
+unmodified stored pattern output.
 
 Both the discrete and continuous lanes receive the same aimed nova, since
 acquisition runs once per event before `WriteCommand` routes each shot by
@@ -313,9 +314,10 @@ Tracking is discrete-lane only. `ProjectileTrackingSystem` builds target lookup
 data from `TargetProxyTag`, `TargetPosition`, and `TargetFaction`, then runs a
 single fused acquisition-and-steering job so both phases share one query pass
 over `CombatKinematicsComponent`/`ProjectileTrackingComponent` instead of two.
-It filters by projectile faction so a
-player-faction projectile sees only targets registered to the player-faction
-combat root. It needs no lane filter: continuous projectiles are excluded
+It evaluates `TargetFaction.CanHit(identity.Faction, targetFaction)` per
+candidate, so a hostile-default target still behaves as before, but an
+`AllowedFactionOnly` target can accept an attacker of its own registered
+faction. It needs no lane filter: continuous projectiles are excluded
 structurally because their archetype has no `ProjectileTrackingComponent`.
 
 Movement is shared data math. `ProjectileContinuousOriginSystem` captures only continuous step-start
@@ -333,8 +335,9 @@ continuous system adds on top of it.
 hit qualification and source projectile state for their lane. They may:
 
 - query target proxy data
-- read the shared `TargetSpatialHashSingleton` broad phase and skip cells whose
-  targets match the projectile's own `TargetFaction`
+- read the shared `TargetSpatialHashSingleton` broad phase and reject any
+  candidate that fails `TargetFaction.CanHit` against the projectile's own
+  faction
 - perform target bounds and narrow-phase checks
 - check and refresh per-projectile contact gates
 - decrement pierce count

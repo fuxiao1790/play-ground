@@ -625,6 +625,58 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
+        public void SelectedFactionSameFactionTargetIsAimedAt()
+        {
+            CreateTargetProxy(
+                new float2(10f, 5f), radius: 0.5f, policy: TargetFaction.AllowedFrom(CombatFaction.Player, CombatFaction.Player));
+            const float speed = 5f;
+            EnqueueEvent(MakeEvent(
+                count: 1,
+                position: float2.zero,
+                baseDirection: new float2(1f, 0f),
+                speed: speed,
+                deterministicIdTickIndex: 1,
+                spawnPatternType: ProjectileChildSpawnPatternType.Forward,
+                launchAimMode: ProjectileLaunchAimMode.NearestHostile,
+                launchAimRange: 20f,
+                faction: CombatFaction.Player));
+
+            Tick(0.01f);
+
+            float2[] velocities = ActiveProjectileVelocities();
+            Assert.That(velocities.Length, Is.EqualTo(1));
+            float2 expected = math.normalize(new float2(10f, 5f)) * speed;
+            Assert.That(velocities[0].x, Is.EqualTo(expected.x).Within(0.001f));
+            Assert.That(velocities[0].y, Is.EqualTo(expected.y).Within(0.001f));
+        }
+
+        [Test]
+        public void SelectedFactionNearerIneligibleTargetIsSkippedInFavorOfEligibleTarget()
+        {
+            CreateTargetProxy(
+                new float2(2f, 0f), radius: 0.5f, policy: TargetFaction.AllowedFrom(CombatFaction.Mob, CombatFaction.Mob)); // nearer, ineligible
+            CreateTargetProxy(
+                new float2(10f, 0f), radius: 0.5f, policy: TargetFaction.AllowedFrom(CombatFaction.Mob, CombatFaction.Player)); // farther, eligible
+            const float speed = 5f;
+            EnqueueEvent(MakeEvent(
+                count: 1,
+                position: float2.zero,
+                baseDirection: new float2(0f, 1f),
+                speed: speed,
+                deterministicIdTickIndex: 1,
+                launchAimMode: ProjectileLaunchAimMode.NearestHostile,
+                launchAimRange: 20f,
+                faction: CombatFaction.Player));
+
+            Tick(0.01f);
+
+            float2[] velocities = ActiveProjectileVelocities();
+            var expected = new float2(speed, 0f); // toward the farther eligible target at (10, 0)
+            Assert.That(velocities[0].x, Is.EqualTo(expected.x).Within(0.001f));
+            Assert.That(velocities[0].y, Is.EqualTo(expected.y).Within(0.001f));
+        }
+
+        [Test]
         public void ContactGateSeedTargetIsExcludedAndNextNearestHostileIsSelected()
         {
             Entity nearHostile = CreateTargetProxy(new float2(5f, 0f), radius: 0.5f, faction: CombatFaction.Mob);
@@ -1006,6 +1058,32 @@ namespace PlayGround.Tests.PlayMode
                 BoundsMax = boundsMax
             });
             entityManager.SetComponentData(entity, new TargetFaction { Value = faction });
+            return entity;
+        }
+
+        private Entity CreateTargetProxy(float2 position, float radius, TargetFaction policy) =>
+            CreateTargetProxy(entityManager, position, radius, policy);
+
+        private static Entity CreateTargetProxy(
+            EntityManager entityManager, float2 position, float radius, TargetFaction policy)
+        {
+            Entity entity = entityManager.CreateEntity(
+                typeof(TargetProxyTag),
+                typeof(TargetPosition),
+                typeof(TargetCollisionShape),
+                typeof(TargetFaction));
+            entityManager.SetComponentData(entity, new TargetPosition { Value = position });
+            CombatCollisionMath.ComputeWorldBounds(
+                position, radius, float2.zero, 0f, CombatShapeType.Circle,
+                out float2 boundsMin, out float2 boundsMax);
+            entityManager.SetComponentData(entity, new TargetCollisionShape
+            {
+                ShapeType = CombatShapeType.Circle,
+                Radius = radius,
+                BoundsMin = boundsMin,
+                BoundsMax = boundsMax
+            });
+            entityManager.SetComponentData(entity, policy);
             return entity;
         }
 
