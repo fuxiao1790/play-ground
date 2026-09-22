@@ -13,10 +13,12 @@ compact presentation results.
 2. Collision systems qualify hits with broad phase, narrow phase, target-policy
    eligibility, and repeat-hit gates.
 3. Accepted hits emit plain data hit events and optional spawn/VFX consequences.
-4. `CombatApplyFinalizeSingleSystem` groups hits by target proxy, rolls crits,
+4. Before hit finalization, `StatusProcessSystem` processes `TargetStackEntry`
+   state accrued by prior updates and may enqueue detonation spawns.
+5. `CombatApplyFinalizeSingleSystem` groups hits by target proxy, rolls crits,
    sums damage, updates `Health`, accrues `TargetStackEntry`, and freezes
-   `CombatTickResult`.
-5. `StatusProcessSystem` processes stacks and may enqueue detonation spawns.
+   `CombatTickResult`. Newly accrued stacks become eligible for status
+   processing on the next simulation update.
 6. Presentation bridge resolves `TargetCompanion` and calls managed target
    feedback once per changed target.
 
@@ -44,8 +46,10 @@ actor roots, and spawn expansion systems for follow-up events.
 
 ## Ordering / Timing Requirements
 
-Hit finalization runs after projectile/AOE collision and targeted resolve, and
-before spawn expansion.
+Status processing runs before current-update hit finalization. Finalization runs
+after projectile/AOE collision and targeted resolve, and before spawn
+expansion. A threshold reached during finalization detonates on the next
+simulation update.
 Managed target callbacks run after finalized result data exists.
 
 ## Failure / Edge Cases

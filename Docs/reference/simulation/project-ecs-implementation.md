@@ -184,9 +184,11 @@ target proxy inside one Burst job and emits one aggregate result per hit target.
 - Stack accrual happens in the same finalize job against each target proxy's
   `TargetStackEntry` buffer. Each target key is owned by one job index, so buffer
   writes do not alias.
-- `StatusProcessSystem` runs after finalize and before spawn expansion. It
-  processes target stack buffers in parallel, decays/fizzles entries, and queues
-  threshold AOE or projectile detonations for same-frame expansion.
+- `StatusProcessSystem` runs before current-update finalize and before
+  spawn expansion. It processes stack entries accrued by prior updates, expires
+  stale entries, and queues threshold AOE or projectile detonations for
+  expansion. Stacks written by current-update finalize become eligible on the
+  next simulation update.
 - `CombatApplyBridge` keeps the managed push on the main thread. It resolves
   `TargetCompanion` and calls `ICombatTarget.ReceiveCombatTick` once per target
   that received direct damage or changed status.

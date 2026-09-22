@@ -252,9 +252,11 @@ Docs/
 - `Assets/Scripts/Skills/Skill/TargetedSkill.cs`: the targeted skill asset and
   its base type.
 - `Assets/Scripts/Skills/Trigger/OnHitTrigger.cs`: unified immediate on-hit
-  trigger link.
+  trigger link; no energy accumulator or threshold.
 - `Assets/Scripts/Skills/Trigger/IntervalSpawnTrigger.cs`: single energy-driven
   interval-spawn trigger link for compiled projectile, AOE, or targeted effects.
+- `Assets/Scripts/Skills/Trigger/StackTrigger.cs`: target-local stack trigger;
+  owns threshold, lifetime, and stacks-per-hit configuration.
 - `Assets/Scripts/Skills/Support/MultipleChainsSupport.cs`: targeted echo count
   and mana support.
 - `Assets/Scripts/Skills/Validator/TargetedPrefab.cs`: targeted prefab and VFX validation.

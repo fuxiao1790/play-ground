@@ -27,11 +27,6 @@ an AOE, a targeted chain, a beam. Owns base visual, collision shape, base rate (
 per second), and behavior data. A Skill slotted alone fires with base behavior and no
 augmentation.
 
-**Stacking Support** - a conversion support placed on a normal skill set to make
-that set a stack detonation. It owns threshold, lifetime, stacks-per-hit, and
-presentation config. A stacking set is triggered-only and fires only when reached
-through a `StackTrigger`.
-
 **Stat Modifier Support** - augments the Skill in the same set through typed
 modifier kinds: flat base additions, increased percentages, multipliers, or
 behavior contexts. Only ever affects the one Skill it shares a set with. No
@@ -41,7 +36,7 @@ cross-set influence. See
 **Skill Set** 鈥?the unit of authoring. Contains one or more Skills and zero or
 more Skill Supports. Self-contained: its Skills are only modified by its own
 Supports. Skill Sets have no knowledge of what triggers them or what they
-trigger, except that a conversion support can mark the set triggered-only.
+trigger.
 
 **Trigger Link** 鈥?external wiring between two Skill Sets. Owned by the
 loadout, not by either set. Defines the source set whose events fire the
@@ -110,7 +105,7 @@ Layer 2.5 (SkillSpawnTranslator) - stateless utility used by Layer 2. Not a chai
 
 ### Layer 1: Equipment State
 
-Types: `Skill`, `StatModifierSupport`, `ConversionSupport`, `SkillSet`,
+Types: `Skill`, `StatModifierSupport`, `SkillSet`,
 `TriggerLink`, `SkillLoadout`
 
 - Owns all stat sources: base skill stats, base rate, supports, items,
@@ -389,43 +384,47 @@ combat application. Health does not regenerate a depleted unit back to life.
 Root casts submit an `ExternalSpawnRequest` carrying the compiled root skill's
 `ManaCost`, caster proxy, and cast token. The serial `ExternalSpawnGateSystem`
 deducts `Mana` then emits the usual internal spawn event, or emits a rejection.
-`SkillDriver` refunds the matching cooldown on rejection. Interval, impact, and
-other ECS child spawns remain energy-funded and never spend mana.
+`SkillDriver` refunds the matching cooldown on rejection. Internal interval,
+on-hit, and stack-triggered child spawns never spend mana. Only interval spawns
+are energy-funded; on-hit emission and stack accumulation do not use energy.
 
-### StackingSupport
+### StackTrigger
 
 ```
-StackingSupport
-  stack rules: stackThreshold, debuffLifetimeSeconds, stacksPerHit,
-               debuffName, cosmeticDebuffStatus
+StackTrigger
+  stack rules: stackThreshold, debuffLifetimeSeconds, stacksPerHit
 ```
 
-A stacking detonation is authored as a normal skill set whose skill is the
-detonation effect and whose supports include `StackingSupport`. The support
-converts that set to `RuntimeStackingDetonation`, marks it triggered-only, and
-keeps the set out of player-cast roots. The applicator is not bundled into this
-set; it is any normal projectile or AOE set wired to the stacking set by a
-`StackTrigger` link.
+A stack detonation is authored by wiring an applicator set to a normal
+projectile or AOE detonation set with `StackTrigger`. The link compiles the
+target skill and wraps it in `RuntimeStackingDetonation`; no stacking support is
+required. Source can be projectile, AOE, or targeted.
 
 On each applicator hit, ECS writes one target-bucketed hit payload containing
 the registration-derived debuff key, the stack contribution, threshold,
-lifetime refresh, and detonation snapshot. `HitApplyFinalizeSystem` owns stack
-accrual into each target proxy's `TargetStackEntry` buffer. `StatusProcessSystem`
-then owns tick, fizzle, and threshold detonation processing.
+lifetime refresh, and detonation snapshot. `CombatApplyFinalizeSingleSystem`
+owns accrual into each target proxy's `TargetStackEntry` buffer, keyed by
+`DebuffKey`. Because `StatusProcessSystem` runs before finalization, it owns
+expiry and threshold detonation processing on the next simulation update. This
+count is target-local stack state, not energy.
 
-Detonation supports AOE and projectile outputs. A projectile detonation is a
-nova from the target point and reuses the existing AOE projectile-burst spawn
-path: the compiled detonation carries an `AoeProjectileBurstSnapshot`, and
-`StatusProcessSystem` emits a `ProjectileSpawnEvent` for
-`ProjectileSpawnExpansionSystem`. `SummedProjectileCount` becomes the nova
-count. `SummedDamage` is treated as total nova damage and is split across the
-spawned projectiles.
+`StackEffectSnapshot.Enabled` requires `Lifetime > 0`, so authored
+`debuffLifetimeSeconds = 0` disables stack application rather than creating a
+non-expiring entry.
+
+Detonation supports AOE and projectile outputs. `StatusProcessSystem` emits an
+AOE or projectile event carrying the registered detonation template key; spawn
+expansion obtains damage, count, area, and other behavior from that template.
+`CombatApplyFinalizeSingleSystem` still accumulates `SummedDamage`,
+`SummedProjectileCount`, and `SummedArea` in `TargetStackEntry`, but current
+detonation processing does not read those fields.
 
 The debuff key is minted during runtime registration for each compiled
 `RuntimeStackingDetonation`. It is not authored and is not the detonation type
 id. Two slots using the same stacking set still compile to separate runtime
-instances with separate keys, so their stacks cannot collide. `debuffName` and
-`cosmeticDebuffStatus` are presentation flavor only.
+instances with separate keys, so their stacks cannot collide. `DebuffName` is a
+runtime display/debug label derived from the target skill asset name; it is not
+accrual identity.
 
 ---
 
@@ -433,10 +432,8 @@ instances with separate keys, so their stacks cannot collide. `debuffName` and
 
 Each support derives from `SkillSupport`. Augment supports derive from
 `StatModifierSupport`, which carries `SupportedSkillTags` for validation, and
-then implement one or more stat-modifier kind interfaces. `ConversionSupport`
-stays separate: it can replace the compiled runtime shape after normal stat
-and behavior baking. `StackingSupport` is the current conversion support and
-marks its set triggered-only.
+then implement one or more stat-modifier kind interfaces. Stack behavior is
+owned by `StackTrigger`, not by a support.
 
 See [skill-modifiers.md](./skill-modifiers.md) for the modifier kind
 interfaces, the current augment support roster, and their compatible skill
@@ -608,7 +605,9 @@ Directionality defaults:
 **OnHitTrigger**
 
 Fires the effect set when the cause skill hits. The trigger carries no effect
-attributes; compiled source and effect types select the runtime field.
+attributes; compiled source and effect types select the runtime field. Every
+accepted collision emits immediately. `OnHitTrigger` has no accumulator,
+energy rate, or threshold.
 
 | Source | Projectile effect | AOE effect | Targeted effect |
 |---|---|---|---|
@@ -658,20 +657,29 @@ slot).
 
 **StackTrigger**
 
-Wires a normal applicator set to a stacking detonation set. The source may be
-a projectile, AOE, or targeted runtime definition. The effect must be a normal
-skill set with `StackingSupport`, which compiles to `RuntimeStackingDetonation`.
-At compile time the trigger stores the detonation on the applicator; at spawn
-time the applicator bakes a `StackEffectSnapshot` into its hit payload.
+Wires a normal applicator set to a projectile or AOE detonation set. The source
+may be a projectile, AOE, or targeted runtime definition. `StackTrigger` owns
+`stackThreshold`, `debuffLifetimeSeconds`, and `stacksPerHit`. At compile time it
+wraps the compiled target in `RuntimeStackingDetonation` and stores that on the
+applicator; at spawn time the applicator bakes a `StackEffectSnapshot` into its
+hit payload.
 
 ```csharp
-class StackTrigger : TriggerLink { }
+class StackTrigger : TriggerLink {
+    int stackThreshold;
+    float debuffLifetimeSeconds;
+    int stacksPerHit;
+}
 ```
 
-Compatible tags: source `Projectile`, `Aoe`, or `Targeted`; target set must
-have `StackingSupport`. For a targeted applicator, every chain-link hit reads
+Compatible tags: source `Projectile`, `Aoe`, or `Targeted`; target must be
+`Projectile` or `Aoe`. For a targeted applicator, every chain-link hit reads
 the same baked `StackEffectSnapshot` off the spawning entity's hit payload —
-identical to the projectile/AOE path.
+identical to the projectile/AOE path. `CombatApplyFinalizeSingleSystem` accrues
+target-local `TargetStackEntry` state by `DebuffKey`. On the next simulation
+update, `StatusProcessSystem` expires entries or emits one detonation per full
+threshold and keeps the remainder. This stack count is not the time-based energy
+used by `IntervalSpawnTrigger`.
 Trigger links are tag-validated. An `IntervalSpawnTrigger` from a projectile
 set to an AOE set is valid and compiles an AOE interval setup. A pulse AOE or
 targeted interval source instead fails the generic source-tag check at Error
@@ -708,9 +716,6 @@ Current warning cases:
 - interval trigger source has no `Interval` tag (pulse AOE or targeted):
   `UnsupportedTriggerSource` Error from generic tag validation; it compiles to
   no timed-child setup
-- stacking set is not the effect of a `StackTrigger`
-- `StackTrigger` targets a set without `StackingSupport`
-- stacking set is targeted by a normal trigger link
 - `ContinuousCollisionCannotTrack`: error. `continuousCollision` cannot combine with tracking,
   including tracking enabled by a support; cast is refunded and does not fire.
 - `TrackingProjectileMayTunnel`: advisory warning. A tracking projectile is fast enough to
@@ -783,9 +788,6 @@ compile(SkillSet set, allChains, snapshot) -> RuntimeSkillDefinition:
         else if def is AoeDefinitionBase and support is IAoeBehaviorModifier:
             support.ApplyToAoe(new AoeBehaviorContext(def))
     runtime = BuildRuntime(def, acc, snapshot)    // numeric fields resolve through the fold
-    for each support in set.supports:
-        if support is ConversionSupport:
-            runtime = support.Compile(set.skill.Definition, runtime, snapshot)
     rate = acc.Resolve(Rate, set.skill.BaseRate)
     runtime.RecoveryTime = 1 / max(0.01, rate)
     for each chain in allChains where chain.cause == set:
@@ -806,8 +808,10 @@ compile(SkillSet set, allChains, snapshot) -> RuntimeSkillDefinition:
                 RuntimeAoeDefinition -> set runtime.OnHitAoeSpawnDefinition
                 RuntimeTargetedDefinition -> set runtime.OnHitTargetedSpawnDefinition
         if chain.link is StackTrigger:
-            compile chain.effect recursively to RuntimeStackingDetonation
-            set runtime.StackingDetonation
+            compile chain.effect recursively
+            wrap effect as RuntimeStackingDetonation using link stackThreshold,
+                debuffLifetimeSeconds, and stacksPerHit
+            set runtime.StackingDetonation to wrapper
     return runtime
 
 compileLoadout(SkillLoadout loadout):
@@ -815,8 +819,7 @@ compileLoadout(SkillLoadout loadout):
     chains = parseChains(loadout.slots)
     effects = { chain.effect for each chain }
     rootSets = [ slot.skillSet for each SkillSetSlot in slots
-                 if slot.skillSet not in effects
-                 and no support ConvertsToTriggeredOnly ]
+                 if slot.skillSet not in effects ]
     for each rootSet:
         compiledSlots[i] = compile(rootSet, chains, snapshot)
     RegisterProjectileTypes()   // walk compiled trees; call combatRoot.RegisterTemplate per unique prefab
@@ -944,9 +947,8 @@ editors, skill slot UIs, or player save data:
 | Type | Role |
 |---|---|
 | `Skill` | Authored baseline for one spell or attack; carries base stat fields |
-| `SkillSupport` | Base type for modifier and conversion supports |
+| `SkillSupport` | Base type for modifier supports |
 | `StatModifierSupport` | Base type for augment supports with skill tag validation |
-| `StackingSupport` | Converts a normal skill set into a stack detonation |
 | `SkillSet` | One skill plus its supports |
 | `SkillSetSlot` | Slot entry wrapping a `SkillSet` in the loadout list |
 | `TriggerLinkSlot` | Slot entry wrapping a `TriggerLink` in the loadout list |
@@ -971,19 +973,17 @@ player-facing authoring surface.
 
 ### Creating a Stacking Detonation
 
-A stacking detonation is a normal skill set plus `StackingSupport`. The skill in
-that set is the detonation effect. The support owns stack config and makes the
-set triggered-only.
+A stacking detonation uses a normal projectile or AOE skill set as its effect.
+`StackTrigger` owns stack config and wraps that target effect in
+`RuntimeStackingDetonation` during compilation.
 
 1. Create the detonation skill as a normal `Projectile Skill`, `AOE Skill`, or
    `Lingering AOE Skill`.
-2. Create a `StackingSupport` and set `stackThreshold`,
-   `debuffLifetimeSeconds`, `stacksPerHit`, `debuffName`, and
-   `cosmeticDebuffStatus`.
-3. Create a `SkillSet` for the detonation skill and add the `StackingSupport`.
-4. Create a separate applicator `SkillSet`. The applicator can be any normal
-   projectile or AOE set and can be reached through any normal trigger link.
-5. Wire the applicator set to the stacking set with `StackTrigger`.
+2. Create a `SkillSet` for the detonation skill. No stacking support is needed.
+3. Create a separate applicator `SkillSet`. The applicator can be a projectile,
+   AOE, or targeted set and can be reached through any normal trigger link.
+4. Wire the applicator set to the detonation set with `StackTrigger`, then set
+   `stackThreshold`, `debuffLifetimeSeconds`, and `stacksPerHit` on that link.
 
 Example:
 
@@ -992,23 +992,24 @@ Example:
 [TriggerLinkSlot: OnHit]
 [SkillSetSlot: SetB_Applicator]
 [TriggerLinkSlot: StackTrigger]
-[SkillSetSlot: StackSet_Detonation + StackingSupport]
+[SkillSetSlot: StackSet_Detonation]
 ```
 
 The applicator remains a plain `RuntimeProjectileDefinition` or
 `RuntimeAoeDefinition`, so it still composes with `IntervalSpawn` and `OnHit`.
-Only `StackTrigger` consumes the
-stacking detonation runtime.
+Only `StackTrigger` creates and attaches the stacking detonation runtime.
 
 **Contribution model.** With `stackThreshold = 5` and `stacksPerHit = 1`, each
 applicator hit banks one stack, so five hits reach the threshold. With
 `stacksPerHit = 2`, each hit banks two stacks, so the threshold is reached in
-`ceil(5/2) = 3` hits. At threshold the detonation fires the summed total, so stat
-changes mid-build apply per stack and stay correct across support or set swaps.
+`ceil(5/2) = 3` hits. At threshold the detonation uses the values in its
+registered spawn template. Contribution totals are accumulated on the stack
+entry but currently do not alter that template or the emitted detonation.
 
-**Burst detonation.** Accrual and threshold detonation run in separate systems,
-so a target can bank several thresholds' worth of stacks in one frame (a dense
-applicator volley, or `stacksPerHit` overshoot). `StatusProcessSystem` fires one
+**Burst detonation.** Accrual and threshold detonation run in separate systems.
+Because `StatusProcessSystem` runs before current-update finalization, a dense
+applicator volley or `stacksPerHit` overshoot can bank several thresholds in one
+update; those stacks become eligible on the next simulation update. It fires one
 detonation per full threshold banked, all in the same frame 鈥?`floor(count /
 threshold)` detonations 鈥?and keeps the sub-threshold remainder banked for the
 next hit. This is capped per target per frame so detonation spawn ids stay
@@ -1020,11 +1021,11 @@ the detonation set and then wire the next applicator to its own stacking set:
 ```text
 [SkillSetSlot: FirstApplicator]
 [TriggerLinkSlot: StackTrigger]
-[SkillSetSlot: FirstDetonation + StackingSupport]
+[SkillSetSlot: FirstDetonation]
 [TriggerLinkSlot: OnHit]
 [SkillSetSlot: SecondApplicator]
 [TriggerLinkSlot: StackTrigger]
-[SkillSetSlot: SecondDetonation + StackingSupport]
+[SkillSetSlot: SecondDetonation]
 ```
 ### Creating a Skill Set
 
@@ -1149,14 +1150,15 @@ Slots: [SetA: MagicBullet]
        [OnHit]
        [SetB: VolatileApplicatorAoe]
        [StackTrigger]
-       [SetC: VolatileDetonationAoe + StackingSupport]
+       [SetC: VolatileDetonationAoe]
 ```
 
 SetA releases SetB through a normal on-hit link. SetB remains a plain AOE
 applicator, but `StackTrigger` bakes SetC's stack payload into SetB at compile
-time. When SetB hits a target, `HitApplyFinalizeSystem` adds stacks under SetC's
-minted debuff key. `StatusProcessSystem` handles the threshold detonation using
-the summed contribution.
+time. When SetB hits a target, `CombatApplyFinalizeSingleSystem` adds stacks
+under SetC's minted debuff key. On the next simulation update,
+`StatusProcessSystem` handles the threshold detonation using SetC's registered
+spawn template.
 ---
 
 ## Set Isolation Rules

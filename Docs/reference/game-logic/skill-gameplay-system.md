@@ -44,12 +44,8 @@ rate, typed definition, visual/collision preset reference, and behavior values.
 flat, increased, multiplier, or behavior interfaces. It cannot affect another
 set. See [Skill Modifiers](./skill-modifiers.md).
 
-**Stacking Support** converts its set to triggered-only stack detonation. It
-owns threshold, lifetime, stacks-per-hit, and presentation configuration.
-
 **Skill Set** is one skill plus zero or more supports. It has no knowledge of
-incoming or outgoing triggers, except conversion support can make it
-triggered-only.
+incoming or outgoing triggers.
 
 **Trigger Link** belongs to loadout. It connects source node to next target
 node, and owns condition plus trigger-specific parameters.
@@ -99,7 +95,7 @@ see [Targeted System](../simulation/targeted-system.md).
 
 `SkillStatAggregator` folds player-level sources into `SkillStatSnapshot`.
 `SkillSetCompiler` deep-copies definition, collects compatible support
-modifiers/behavior, applies conversion supports, then produces a
+modifiers/behavior, then produces a
 `RuntimeSkillDefinition` tree. This rebakes on equipment, buff, level, or
 loadout change; no per-frame support stat math.
 
@@ -123,14 +119,20 @@ recursion for inner instance.
 
 Supported trigger meanings:
 
-- `OnHit`: source hit fires target effect.
+- `OnHit`: each accepted source collision immediately queues target effect at
+  impact. It has no accumulator, energy rate, or threshold.
 - `IntervalSpawn`: active projectile or lingering AOE rolls deterministic
   starting charge from negative to positive authored `initialEnergyPercent`
   (Inspector slider, `0..100`) of child threshold. Negative charge delays first
   child; positive charge advances it. Future gain is stat-folded; starting
-  charge is not energy-gain stat input.
-- `StackTrigger`: applicator writes target stacks; threshold fires configured
-  detonation.
+  charge is not energy-gain stat input. This is the only trigger that accrues
+  time-based energy.
+- `StackTrigger`: link owns `stackThreshold`, `debuffLifetimeSeconds`, and
+  `stacksPerHit`. Each applicator hit accrues target-local `TargetStackEntry`
+  state keyed by its compiled `DebuffKey`. Because `StatusProcessSystem` runs
+  before hit finalization, it evaluates newly accrued stacks on the next
+  simulation update, fires one detonation per complete threshold, and preserves
+  any remainder. Stack count is not energy.
 
 ### Projectile Launch Aim
 
@@ -162,9 +164,10 @@ its own increased/multiplier factor. For active `A` and triggered `T1`, `T2`:
 (A * factor1 * factor2) + (T1 * factor1) + (T2 * factor2)
 ```
 
-Internal triggered effects never spend mana again. Interval energy threshold
-uses child resolved mana cost; chain aggregation does not change interval
-timing.
+Internal triggered effects never spend mana again. Only `IntervalSpawnTrigger`
+uses energy: its threshold uses child resolved mana cost, and chain aggregation
+does not change interval timing. `OnHitTrigger` and `StackTrigger` do not accrue
+or consume energy.
 
 ## Root Cast And Rejection
 

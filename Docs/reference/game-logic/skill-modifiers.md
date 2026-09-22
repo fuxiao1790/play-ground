@@ -20,10 +20,8 @@ concrete consumer.
 
 Each support derives from `SkillSupport`. Augment supports derive from
 `StatModifierSupport`, which carries `SupportedSkillTags` for validation, and
-then implement one or more kind interfaces. `ConversionSupport` stays separate:
-it can replace the compiled runtime shape after normal stat and behavior baking.
-`StackingSupport` is the current conversion support and marks its set
-triggered-only.
+then implement one or more kind interfaces. Stack behavior is trigger-link
+configuration on `StackTrigger`, not a support or stat modifier.
 
 The stat-specific augment interfaces are composable, not mutually exclusive
 base classes. Every stat kind (`Damage`, `AreaSize`, `ProjectileSpeed`,
@@ -146,13 +144,6 @@ interface IAoeBehaviorModifier {
     void ApplyToAoe(AoeBehaviorContext ctx);
 }
 
-abstract class ConversionSupport : SkillSupport {
-    public abstract bool ConvertsToTriggeredOnly { get; }
-    public abstract RuntimeSkillDefinition Compile(
-        SkillDefinition definition,
-        RuntimeSkillDefinition runtime,
-        SkillStatSnapshot snapshot);
-}
 ```
 
 A support may implement more than one kind. `PiercingSupport` is both an

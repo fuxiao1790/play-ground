@@ -435,8 +435,7 @@ ProjectileSpawnRequest
      -> CombatHitEvent
      -> optional AOE variant spawn event
      -> optional ProjectileSpawnEvent
-  -> CombatApplyFinalizeSystem
-  -> StatusProcessSystem
+  -> CombatApplyFinalizeSingleSystem
   -> CombatApplyBridge
   -> ICombatTarget.ReceiveCombatTick
 ```
@@ -468,11 +467,14 @@ AoeSpawnRequest
      -> optional ProjectileSpawnEvent
      -> optional AOE variant spawn event
      -> optional CircularVfxSpawnRequest / TimedCircularVfxSpawnRequest
-  -> CombatApplyFinalizeSystem
-  -> StatusProcessSystem
+  -> CombatApplyFinalizeSingleSystem
   -> CombatApplyBridge
   -> ICombatTarget.ReceiveCombatTick
 ```
+
+For stack payloads, finalization writes `TargetStackEntry`. On the next
+simulation update, `StatusProcessSystem` evaluates that entry and may enqueue a
+projectile or AOE detonation event before spawn expansion.
 
 ## Stack Effect Resolution
 
@@ -481,28 +483,38 @@ applied-stack payload, not managed damage replay data.
 
 Current stacking direction:
 
-1. A normal skill set with `StackingSupport` compiles to
-   `RuntimeStackingDetonation`. The debuff key is minted during runtime
-   registration for that compiled detonation instance; it is not authored and is
-   not the detonation type id.
-2. A normal projectile or AOE applicator reaches that detonation through
-   `StackTrigger` and receives one `StackEffectSnapshot`. Spawn expansion and
-   apply copy that payload without transformation.
+1. `StackTrigger` compiles its normal target skill set, wraps that result in a
+   `RuntimeStackingDetonation`, and copies the link's `stackThreshold`,
+   `debuffLifetimeSeconds`, and `stacksPerHit`. The debuff key is minted during
+   runtime registration for that compiled detonation instance; it is not
+   authored and is not the detonation type id.
+2. The source projectile, AOE, or targeted applicator receives one
+   `StackEffectSnapshot`. Spawn expansion and apply copy that payload without
+   transformation.
 3. Applicator collision keeps direct health damage and stack accrual on one ECS
    hit path by emitting `CombatHitEvent` with target proxy, direct-damage data,
    source metadata, and stack snapshot.
-4. `CombatApplyFinalizeSystem` buckets hits by target proxy, rolls crits,
-   subtracts ECS-owned `Health`, writes `TargetStackEntry` buffers, and
-   freezes one `CombatTickResult` per hit target.
-5. `StatusProcessSystem` runs after finalize and before spawn expansion. It
-   processes target stack buffers, decays or fizzles entries, and queues
-   threshold AOE or projectile detonations for same-frame expansion.
+4. `CombatApplyFinalizeSingleSystem` buckets hits by target proxy, rolls crits,
+   subtracts ECS-owned `Health`, writes target-local `TargetStackEntry` buffers
+   keyed by `DebuffKey`, refreshes their expiry deadline, and
+   freezes one `CombatTickResult` per hit target. It also accumulates
+   `SummedDamage`, `SummedProjectileCount`, and `SummedArea`, but current
+   detonation processing does not consume those totals.
+5. On the next simulation update, `StatusProcessSystem` runs before hit
+   finalization and spawn expansion. It expires stale entries and queues one
+   AOE or projectile detonation per full threshold banked, preserving a
+   sub-threshold remainder. Stacks accrued by current-update finalization are
+   therefore not eligible until the next update. Emitted events carry the
+   registered detonation template key, whose stored values determine damage,
+   count, area, and other spawn behavior.
 6. Composition uses ordinary hit-spawn snapshots carried by runtime
    definitions. The next applicator is a new spawn with its own stack payload
    and detonation debuff key.
 
 Managed target callbacks receive aggregated combat tick data and changed status
 snapshots. Stack accrual and threshold detonation are owned by ECS.
+`StackEffectSnapshot.Enabled` requires `Lifetime > 0`; consequently,
+`debuffLifetimeSeconds = 0` disables the stack effect.
 
 ## Damage And Status Finalization
 
@@ -592,14 +604,17 @@ payloads.
 - Confirm stored templates have per-instance fields zeroed before hashing.
 - Confirm `sizeof(AoeSpawnCommand) < 4096`.
 - Fire stacking applicators with AOE and projectile sources whose detonation is
-  projectile; confirm both materialize a projectile nova with summed count and
-  total damage.
+  projectile; confirm both materialize a projectile nova using count and damage
+  from the registered projectile template.
 - Fire a stacking applicator; confirm the applied AOE/projectile entity carries
   one `StackEffectSnapshot` in its hit payload.
 - Apply stacks below threshold and stop refreshing; confirm the target
   `TargetStackEntry` fizzles with no detonation.
-- Apply mixed fire-time contributions to one debuff key; confirm threshold
-  detonation uses the summed contribution and clears the entry.
+- Apply mixed fire-time contributions to one debuff key; confirm contribution
+  totals accumulate on `TargetStackEntry` but detonation still uses the
+  registered template values.
+- Author `debuffLifetimeSeconds = 0`; confirm `StackEffectSnapshot` is disabled
+  and no target stack entry is accrued.
 - Run a lingering-AOE 鈫?on-hit projectile 鈫?stack detonation chain; confirm
   three levels materialize correctly through the registry.
 - Confirm the registry count is unchanged after a simulation tick.

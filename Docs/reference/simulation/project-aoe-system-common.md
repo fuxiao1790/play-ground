@@ -438,9 +438,11 @@ Important ordering:
 4. AOE pulse VFX and collision run.
 5. `TargetedResolveSystem` walks chains, emits hits and link VFX, and expires
    chains whose walk has ended.
-6. `CombatApplyFinalizeSingleSystem` applies hit events to ECS target health and
-   status data.
-7. `StatusProcessSystem` emits stack detonation spawn events.
+6. `StatusProcessSystem` evaluates stack state accrued by prior updates and
+   emits stack detonation spawn events.
+7. `CombatApplyFinalizeSingleSystem` applies current hit events to ECS target
+   health and stack state. Newly accrued stacks become eligible on the next
+   simulation update.
 8. `ProjectileSpawnExpansionSystem`, `AOE spawn expansion systems`, and
    `TargetedSpawnExpansionSystem` drain completed event producers plus managed
    scope buffers.
