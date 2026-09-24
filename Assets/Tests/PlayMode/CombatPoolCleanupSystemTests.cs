@@ -418,7 +418,6 @@ namespace PlayGround.Tests.PlayMode
                 typeof(AoeTag),
                 typeof(AoeIdentityComponent),
                 typeof(AoeHitGateComponent),
-                typeof(AoeHitSpawnComponent),
                 typeof(CombatHitPayload),
                 typeof(AoeAreaComponent),
                 typeof(CombatRenderComponent),

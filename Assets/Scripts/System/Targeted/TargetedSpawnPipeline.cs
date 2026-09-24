@@ -58,7 +58,6 @@ namespace PlayGround.System.Combat.Targeted
         public TargetedVfxSizeComponent VfxSize;
         public CombatRenderComponent Render;
         public CombatRenderAuthoring Authoring;
-        public OnHitSpawnRef OnHitSpawn;
     }
 
     // ECS Lifecycle: stateless VFX timing mapper; reads spawn commands during targeted

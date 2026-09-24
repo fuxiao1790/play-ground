@@ -180,7 +180,6 @@ All AOE entities carry:
 - `ArmingTag`
 - `CombatArmingComponent`
 - `AoeHitGateComponent`
-- `AoeHitSpawnComponent`
 - `AoeAreaComponent`
 - common render components
 
@@ -255,16 +254,6 @@ Accepted hits can produce:
 
 Damage is finalized by `DamageFinalizeSystem` before spawn expansion. Managed
 replay runs later in `DamageDispatchBridge` during `PresentationSystemGroup`.
-
-## Projectile Burst From AOE
-
-AOEs can carry an `AoeProjectileBurstSnapshot` in `AoeHitSpawnComponent`.
-On an accepted AOE hit, the AOE collision systems convert that snapshot into a
-`ProjectileSpawnEvent` by calling `ProjectileSpawnPipeline.BuildBurstEvent`.
-The projectile expansion and apply systems then handle volley expansion, reuse,
-and cold creation.
-
-This keeps AOE collision as an event producer, not an entity allocator.
 
 ## Lifetime And Pulse VFX
 

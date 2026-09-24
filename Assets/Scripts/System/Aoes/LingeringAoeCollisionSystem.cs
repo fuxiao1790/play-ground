@@ -35,7 +35,6 @@ namespace PlayGround.System.Combat.Aoes
                 .WithAll<CombatKinematicsComponent>()
                 .WithAll<CombatCollisionComponent>()
                 .WithAllRW<AoeHitGateComponent>()
-                .WithAll<AoeHitSpawnComponent>()
                 .WithAll<CombatHitPayload>()
                 .WithAll<AoeAreaComponent>()
                 .WithAll<AoeVfxIds>()
@@ -59,17 +58,9 @@ namespace PlayGround.System.Combat.Aoes
             var hash = SystemAPI.GetSingleton<TargetSpatialHashSingleton>();
             state.Dependency = JobHandle.CombineDependencies(state.Dependency, hash.BuildHandle);
 
-            // Spawn lanes, hit dispatch and the VFX lane are all created unconditionally by their
-            // owning systems' OnCreate. Read them directly: a missing lane is a broken world and
-            // must throw here, not be silently skipped.
-            RefRW<ProjectileSpawnEventSingleton> projectileLane =
-                SystemAPI.GetSingletonRW<ProjectileSpawnEventSingleton>();
-            RefRW<ImpactAoeSpawnEventSingleton> impactAoeLane =
-                SystemAPI.GetSingletonRW<ImpactAoeSpawnEventSingleton>();
-            RefRW<LingeringAoeSpawnEventSingleton> lingeringAoeLane =
-                SystemAPI.GetSingletonRW<LingeringAoeSpawnEventSingleton>();
-            RefRW<TargetedSpawnEventSingleton> targetedLane =
-                SystemAPI.GetSingletonRW<TargetedSpawnEventSingleton>();
+            // Hit dispatch and the VFX lane are created unconditionally by their owning systems'
+            // OnCreate. Read them directly: a missing lane is a broken world and must throw here,
+            // not be silently skipped.
             RefRW<CombatHitDispatchSingleton> hitDispatch =
                 SystemAPI.GetSingletonRW<CombatHitDispatchSingleton>();
             RefRW<CombatAoeVfxDispatchSingleton> vfx =
@@ -84,7 +75,6 @@ namespace PlayGround.System.Combat.Aoes
                 KinematicsHandle = SystemAPI.GetComponentTypeHandle<CombatKinematicsComponent>(true),
                 CollisionHandle = SystemAPI.GetComponentTypeHandle<CombatCollisionComponent>(true),
                 HitGateHandle = SystemAPI.GetComponentTypeHandle<AoeHitGateComponent>(false),
-                HitSpawnHandle = SystemAPI.GetComponentTypeHandle<AoeHitSpawnComponent>(true),
                 TimedSpawnHandle = SystemAPI.GetComponentTypeHandle<TimedSpawnComponent>(true),
                 VfxIdsHandle = SystemAPI.GetComponentTypeHandle<AoeVfxIds>(true),
                 TimingHandle = SystemAPI.GetComponentTypeHandle<VfxTimingData>(true),
@@ -101,24 +91,12 @@ namespace PlayGround.System.Combat.Aoes
                 HitWriter = hitDispatch.ValueRO.HitQueue.AsParallelWriter(),
                 CircularVfxPending = vfx.ValueRO.PendingCircularSpawns.AsParallelWriter(),
                 TimedCircularVfxPending = vfx.ValueRO.PendingTimedCircularSpawns.AsParallelWriter(),
-                ProjectileEventWriter = projectileLane.ValueRO.EventQueue.AsParallelWriter(),
-                ImpactAoeEventWriter = impactAoeLane.ValueRO.EventQueue.AsParallelWriter(),
-                LingeringAoeEventWriter = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter(),
-                TargetedEventWriter = targetedLane.ValueRO.EventQueue.AsParallelWriter(),
                 SpawnTemplateDeltas =
                     SystemAPI.GetSingleton<SpawnTemplateRegistryState>().Deltas.AsParallelWriter()
             };
 
             var collisionHandle = job.ScheduleParallel(lingeringAoeQuery, state.Dependency);
 
-            projectileLane.ValueRW.ProducerHandle =
-                JobHandle.CombineDependencies(projectileLane.ValueRW.ProducerHandle, collisionHandle);
-            impactAoeLane.ValueRW.ProducerHandle =
-                JobHandle.CombineDependencies(impactAoeLane.ValueRW.ProducerHandle, collisionHandle);
-            lingeringAoeLane.ValueRW.ProducerHandle =
-                JobHandle.CombineDependencies(lingeringAoeLane.ValueRW.ProducerHandle, collisionHandle);
-            targetedLane.ValueRW.ProducerHandle =
-                JobHandle.CombineDependencies(targetedLane.ValueRW.ProducerHandle, collisionHandle);
             hitDispatch.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(hitDispatch.ValueRW.ProducerHandle, collisionHandle);
             vfx.ValueRW.ProducerHandle =
@@ -139,7 +117,6 @@ namespace PlayGround.System.Combat.Aoes
             [ReadOnly] public ComponentTypeHandle<CombatKinematicsComponent> KinematicsHandle;
             [ReadOnly] public ComponentTypeHandle<CombatCollisionComponent> CollisionHandle;
             public ComponentTypeHandle<AoeHitGateComponent> HitGateHandle;
-            [ReadOnly] public ComponentTypeHandle<AoeHitSpawnComponent> HitSpawnHandle;
             [ReadOnly] public ComponentTypeHandle<TimedSpawnComponent> TimedSpawnHandle;
             [ReadOnly] public ComponentTypeHandle<AoeVfxIds> VfxIdsHandle;
             [ReadOnly] public ComponentTypeHandle<VfxTimingData> TimingHandle;
@@ -155,10 +132,6 @@ namespace PlayGround.System.Combat.Aoes
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
             public NativeQueue<ImpactCircleVfxEvent>.ParallelWriter CircularVfxPending;
             public NativeQueue<LingeringCircleVfxEvent>.ParallelWriter TimedCircularVfxPending;
-            public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
-            public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
-            public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
-            public NativeQueue<TargetedSpawnEvent>.ParallelWriter TargetedEventWriter;
             public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter SpawnTemplateDeltas;
             public float DeltaTime;
 
@@ -176,7 +149,6 @@ namespace PlayGround.System.Combat.Aoes
                 NativeArray<CombatCollisionComponent> collisions =
                     chunk.GetNativeArray(ref CollisionHandle);
                 NativeArray<AoeHitGateComponent> hitGates = chunk.GetNativeArray(ref HitGateHandle);
-                NativeArray<AoeHitSpawnComponent> hitSpawns = chunk.GetNativeArray(ref HitSpawnHandle);
                 NativeArray<TimedSpawnComponent> timedSpawns = chunk.GetNativeArray(ref TimedSpawnHandle);
                 NativeArray<AoeVfxIds> vfxIds = chunk.GetNativeArray(ref VfxIdsHandle);
                 NativeArray<VfxTimingData> timings = chunk.GetNativeArray(ref TimingHandle);
@@ -213,7 +185,6 @@ namespace PlayGround.System.Combat.Aoes
                         payloads[i],
                         kinematics[i],
                         collisions[i],
-                        hitSpawns[i],
                         timedSpawns[i],
                         vfxIds[i],
                         timings[i],
@@ -232,10 +203,6 @@ namespace PlayGround.System.Combat.Aoes
                         HitWriter,
                         CircularVfxPending,
                         TimedCircularVfxPending,
-                        ProjectileEventWriter,
-                        ImpactAoeEventWriter,
-                        LingeringAoeEventWriter,
-                        TargetedEventWriter,
                         SpawnTemplateDeltas);
                 }
             }

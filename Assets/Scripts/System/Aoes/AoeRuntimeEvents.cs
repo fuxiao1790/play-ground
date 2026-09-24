@@ -27,8 +27,7 @@ namespace PlayGround.System.Combat.Aoes
             StackEffectSnapshot stackEffect = default,
             EntityId sourceNodeId = default,
             bool hasTimedSpawner = false,
-            TimedSpawnComponent timedSpawn = default,
-            OnHitSpawnRef onHitSpawn = default)
+            TimedSpawnComponent timedSpawn = default)
         {
             TypeId = typeId;
             Position = position;
@@ -37,7 +36,6 @@ namespace PlayGround.System.Combat.Aoes
             TickIntervalSeconds = Mathf.Max(0f, tickIntervalSeconds);
             Geometry = geometry;
             AreaSize = geometry.IsValid ? geometry.AreaSize : Mathf.Max(0f, areaSize);
-            OnHitSpawn = onHitSpawn;
             CritChance = critChance;
             CritMultiplier = critMultiplier;
             StackEffect = stackEffect;
@@ -53,7 +51,6 @@ namespace PlayGround.System.Combat.Aoes
         public float TickIntervalSeconds { get; }
         public AoeSpawnGeometry Geometry { get; }
         public float AreaSize { get; }
-        public OnHitSpawnRef OnHitSpawn { get; }
         public float CritChance { get; }
         public float CritMultiplier { get; }
         public StackEffectSnapshot StackEffect { get; }

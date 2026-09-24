@@ -351,8 +351,7 @@ namespace PlayGround.System.Combat.Projectiles
             hits[index] = new ProjectileHitComponent
             {
                 PierceRemaining = cfg.PierceRemaining,
-                RepeatHitCooldownSeconds = cfg.RepeatHitCooldownSeconds,
-                OnHitSpawn = cfg.HitPayload.OnHitSpawn
+                RepeatHitCooldownSeconds = cfg.RepeatHitCooldownSeconds
             };
             hitPayloads[index] = HitPayloadFor(in cfg, cfg.Faction);
             renders[index] = cfg.Render;
@@ -393,7 +392,6 @@ namespace PlayGround.System.Combat.Projectiles
             if (spawnState.Active)
             {
                 SpawnTemplateRefEmit.AcquireProjectile(
-                    hits[index],
                     timedSpawns[index],
                     hitPayloads[index],
                     deltas);
@@ -402,8 +400,7 @@ namespace PlayGround.System.Combat.Projectiles
 
         public static bool NeedsCollision(in ProjectileHitPayload payload) =>
             payload.DirectDamageEnabled
-            || payload.StackEffect.Enabled
-            || payload.OnHitSpawn.Enabled;
+            || payload.StackEffect.Enabled;
 
         public readonly struct SpawnState
         {

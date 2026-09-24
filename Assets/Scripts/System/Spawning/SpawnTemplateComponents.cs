@@ -103,35 +103,31 @@ namespace PlayGround.System.Combat.Spawning
         }
 
         public static void AcquireProjectile(
-            in ProjectileHitComponent hit,
             in TimedSpawnComponent timed,
             in CombatHitPayload payload,
             NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas) =>
-            EmitProjectile(in hit, in timed, in payload, 1, deltas);
+            EmitProjectile(in timed, in payload, 1, deltas);
 
         public static void ReleaseProjectile(
-            in ProjectileHitComponent hit,
             in TimedSpawnComponent timed,
             in CombatHitPayload payload,
             NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas) =>
-            EmitProjectile(in hit, in timed, in payload, -1, deltas);
+            EmitProjectile(in timed, in payload, -1, deltas);
 
         public static void AcquireAoe(
-            in AoeHitSpawnComponent hit,
             in TimedSpawnComponent timed,
             in CombatHitPayload payload,
             NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas) =>
-            EmitAoe(in hit, in timed, in payload, 1, deltas);
+            EmitAoe(in timed, in payload, 1, deltas);
 
         public static void ReleaseAoe(
-            in AoeHitSpawnComponent hit,
             in TimedSpawnComponent timed,
             in CombatHitPayload payload,
             NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas) =>
-            EmitAoe(in hit, in timed, in payload, -1, deltas);
+            EmitAoe(in timed, in payload, -1, deltas);
 
-        // Targeted entities carry no OnHitSpawnRef and no TimedSpawnComponent; the stack
-        // detonation key is their only template reference.
+        // Targeted entities carry no TimedSpawnComponent; the stack detonation key is
+        // their only template reference.
         public static void AcquireTargeted(
             in CombatHitPayload payload,
             NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas) =>
@@ -143,26 +139,22 @@ namespace PlayGround.System.Combat.Spawning
             Enqueue(IntervalChildKind.Projectile, payload.StackEffect.DetonationKey, -1, deltas);
 
         private static void EmitProjectile(
-            in ProjectileHitComponent hit,
             in TimedSpawnComponent timed,
             in CombatHitPayload payload,
             int delta,
             NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas)
         {
-            Enqueue(hit.OnHitSpawn.Kind, hit.OnHitSpawn.TemplateKey, delta, deltas);
             Enqueue(timed.ChildKind, timed.TemplateKey, delta, deltas);
             // A stack detonation is always a projectile nova.
             Enqueue(IntervalChildKind.Projectile, payload.StackEffect.DetonationKey, delta, deltas);
         }
 
         private static void EmitAoe(
-            in AoeHitSpawnComponent hit,
             in TimedSpawnComponent timed,
             in CombatHitPayload payload,
             int delta,
             NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas)
         {
-            Enqueue(hit.OnHitSpawn.Kind, hit.OnHitSpawn.TemplateKey, delta, deltas);
             Enqueue(timed.ChildKind, timed.TemplateKey, delta, deltas);
             Enqueue(IntervalChildKind.Projectile, payload.StackEffect.DetonationKey, delta, deltas);
         }
@@ -201,14 +193,6 @@ namespace PlayGround.System.Combat.Spawning
     // on every collision/timer read of the stamped-out Kind value.
     public static class SpawnTemplateValidation
     {
-        public static void EnsureValidChildKind(OnHitSpawnRef onHitSpawn)
-        {
-            if (onHitSpawn.Enabled)
-            {
-                EnsureValidChildKind(onHitSpawn.Kind);
-            }
-        }
-
         public static void EnsureValidChildKind(TimedSpawnComponent timedSpawn)
         {
             if (!timedSpawn.TemplateKey.Equals(default(Unity.Entities.Hash128)))

@@ -45,7 +45,6 @@ namespace PlayGround.System.Combat.Aoes
                 typeof(AoeTag),
                 typeof(AoeIdentityComponent),
                 typeof(AoeHitGateComponent),
-                typeof(AoeHitSpawnComponent),
                 typeof(AoeVfxIds),
                 typeof(VfxTimingData),
                 typeof(CombatHitPayload),
@@ -123,7 +122,6 @@ namespace PlayGround.System.Combat.Aoes
                         KinematicsHandle = GetComponentTypeHandle<CombatKinematicsComponent>(false),
                         CollisionHandle = GetComponentTypeHandle<CombatCollisionComponent>(false),
                         HitGateHandle = GetComponentTypeHandle<AoeHitGateComponent>(false),
-                        HitSpawnHandle = GetComponentTypeHandle<AoeHitSpawnComponent>(false),
                         VfxIdsHandle = GetComponentTypeHandle<AoeVfxIds>(false),
                         VfxTimingHandle = GetComponentTypeHandle<VfxTimingData>(false),
                         HitPayloadHandle = GetComponentTypeHandle<CombatHitPayload>(false),
@@ -167,7 +165,6 @@ namespace PlayGround.System.Combat.Aoes
             public ComponentTypeHandle<CombatKinematicsComponent> KinematicsHandle;
             public ComponentTypeHandle<CombatCollisionComponent> CollisionHandle;
             public ComponentTypeHandle<AoeHitGateComponent> HitGateHandle;
-            public ComponentTypeHandle<AoeHitSpawnComponent> HitSpawnHandle;
             public ComponentTypeHandle<AoeVfxIds> VfxIdsHandle;
             public ComponentTypeHandle<VfxTimingData> VfxTimingHandle;
             public ComponentTypeHandle<CombatHitPayload> HitPayloadHandle;
@@ -202,8 +199,6 @@ namespace PlayGround.System.Combat.Aoes
                         chunk.GetNativeArray(ref CollisionHandle);
                     NativeArray<AoeHitGateComponent> hitGates =
                         chunk.GetNativeArray(ref HitGateHandle);
-                    NativeArray<AoeHitSpawnComponent> hitSpawns =
-                        chunk.GetNativeArray(ref HitSpawnHandle);
                     NativeArray<AoeVfxIds> vfxIds = chunk.GetNativeArray(ref VfxIdsHandle);
                     NativeArray<VfxTimingData> vfxTimings =
                         chunk.GetNativeArray(ref VfxTimingHandle);
@@ -233,7 +228,6 @@ namespace PlayGround.System.Combat.Aoes
                             kinematics,
                             collisions,
                             hitGates,
-                            hitSpawns,
                             vfxIds,
                             vfxTimings,
                             hitPayloads,
@@ -266,7 +260,6 @@ namespace PlayGround.System.Combat.Aoes
                         if (spawnState.Active)
                         {
                             SpawnTemplateRefEmit.AcquireAoe(
-                                hitSpawns[i],
                                 default,
                                 hitPayloads[i],
                                 Deltas);
@@ -306,7 +299,6 @@ namespace PlayGround.System.Combat.Aoes
                 typeof(AoeIdentityComponent),
                 typeof(CombatLifetimeComponent),
                 typeof(AoeHitGateComponent),
-                typeof(AoeHitSpawnComponent),
                 typeof(AoeVfxIds),
                 typeof(VfxTimingData),
                 typeof(CombatHitPayload),
@@ -388,7 +380,6 @@ namespace PlayGround.System.Combat.Aoes
                         CollisionHandle = GetComponentTypeHandle<CombatCollisionComponent>(false),
                         LifetimeHandle = GetComponentTypeHandle<CombatLifetimeComponent>(false),
                         HitGateHandle = GetComponentTypeHandle<AoeHitGateComponent>(false),
-                        HitSpawnHandle = GetComponentTypeHandle<AoeHitSpawnComponent>(false),
                         VfxIdsHandle = GetComponentTypeHandle<AoeVfxIds>(false),
                         VfxTimingHandle = GetComponentTypeHandle<VfxTimingData>(false),
                         HitPayloadHandle = GetComponentTypeHandle<CombatHitPayload>(false),
@@ -437,7 +428,6 @@ namespace PlayGround.System.Combat.Aoes
             public ComponentTypeHandle<CombatCollisionComponent> CollisionHandle;
             public ComponentTypeHandle<CombatLifetimeComponent> LifetimeHandle;
             public ComponentTypeHandle<AoeHitGateComponent> HitGateHandle;
-            public ComponentTypeHandle<AoeHitSpawnComponent> HitSpawnHandle;
             public ComponentTypeHandle<AoeVfxIds> VfxIdsHandle;
             public ComponentTypeHandle<VfxTimingData> VfxTimingHandle;
             public ComponentTypeHandle<CombatHitPayload> HitPayloadHandle;
@@ -478,8 +468,6 @@ namespace PlayGround.System.Combat.Aoes
                         chunk.GetNativeArray(ref LifetimeHandle);
                     NativeArray<AoeHitGateComponent> hitGates =
                         chunk.GetNativeArray(ref HitGateHandle);
-                    NativeArray<AoeHitSpawnComponent> hitSpawns =
-                        chunk.GetNativeArray(ref HitSpawnHandle);
                     NativeArray<AoeVfxIds> vfxIds = chunk.GetNativeArray(ref VfxIdsHandle);
                     NativeArray<VfxTimingData> vfxTimings =
                         chunk.GetNativeArray(ref VfxTimingHandle);
@@ -515,7 +503,6 @@ namespace PlayGround.System.Combat.Aoes
                             kinematics,
                             collisions,
                             hitGates,
-                            hitSpawns,
                             vfxIds,
                             vfxTimings,
                             hitPayloads,
@@ -558,7 +545,6 @@ namespace PlayGround.System.Combat.Aoes
                         if (spawnState.Active)
                         {
                             SpawnTemplateRefEmit.AcquireAoe(
-                                hitSpawns[i],
                                 timedSpawns[i],
                                 hitPayloads[i],
                                 Deltas);
@@ -579,7 +565,6 @@ namespace PlayGround.System.Combat.Aoes
             NativeArray<CombatKinematicsComponent> kinematics,
             NativeArray<CombatCollisionComponent> collisions,
             NativeArray<AoeHitGateComponent> hitGates,
-            NativeArray<AoeHitSpawnComponent> hitSpawns,
             NativeArray<AoeVfxIds> vfxIds,
             NativeArray<VfxTimingData> vfxTimings,
             NativeArray<CombatHitPayload> hitPayloads,
@@ -595,7 +580,6 @@ namespace PlayGround.System.Combat.Aoes
             kinematics[index] = kin;
             collisions[index] = CollisionFor(cfg);
             hitGates[index] = HitGateFor(cfg);
-            hitSpawns[index] = HitSpawnFor(cfg);
             vfxIds[index] = cfg.VfxIds;
             vfxTimings[index] = VfxTimingFor(cfg);
             hitPayloads[index] = HitPayloadFor(cfg.HitPayload, cfg.Faction);
@@ -607,8 +591,7 @@ namespace PlayGround.System.Combat.Aoes
 
         public static bool NeedsCollision(in AoeSpawnCommand cmd) =>
             cmd.HitPayload.DirectDamageEnabled
-            || cmd.HitPayload.StackEffect.Enabled
-            || cmd.OnHitSpawn.Enabled;
+            || cmd.HitPayload.StackEffect.Enabled;
 
         public static bool HasTimedSpawner(in AoeSpawnCommand cmd) =>
             cmd.Lifetime > 0f && cmd.HasTimedSpawner != 0;
@@ -690,12 +673,6 @@ namespace PlayGround.System.Combat.Aoes
 
         private static AoeHitGateComponent HitGateFor(in AoeSpawnCommand cmd) =>
             new() { RepeatHitCooldownSeconds = cmd.RepeatHitCooldownSeconds, Remaining = 0f };
-
-        private static AoeHitSpawnComponent HitSpawnFor(in AoeSpawnCommand cmd) =>
-            new()
-            {
-                OnHitSpawn = cmd.OnHitSpawn
-            };
 
         private static CombatHitPayload HitPayloadFor(CombatHitPayload hitPayload, CombatFaction faction)
         {

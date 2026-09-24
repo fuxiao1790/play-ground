@@ -25,11 +25,6 @@ namespace PlayGround.Skills.Runtime
         public TargetedVfxIds VfxIds { get; set; }
         public TargetedVfxSizeComponent VfxSize { get; set; }
 
-        // Compiled from targeted-as-source trigger links in the next trigger task; declared now
-        // so the runtime shape remains stable while task 010 adds the links.
-        public RuntimeAoeDefinition OnHitAoeSpawnDefinition { get; set; }
-        public RuntimeProjectileDefinition OnHitProjectileSpawnDefinition { get; set; }
-
         // Compiled from StackTrigger; null when no stacking detonation is attached.
         public RuntimeStackingDetonation StackingDetonation { get; set; }
 

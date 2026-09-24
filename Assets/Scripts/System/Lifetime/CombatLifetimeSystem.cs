@@ -87,7 +87,6 @@ namespace PlayGround.System.Combat.Lifetime
             public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter SpawnTemplateDeltas;
 
             private void Execute(
-                in ProjectileHitComponent projectileHit,
                 in TimedSpawnComponent timedSpawn,
                 in CombatHitPayload payload,
                 ref CombatLifetimeComponent lifetime,
@@ -100,7 +99,7 @@ namespace PlayGround.System.Combat.Lifetime
                     lifetime.Remaining = 0f;
                     CombatDeathUtility.Kill(active, arming);
                     SpawnTemplateRefEmit.ReleaseProjectile(
-                        in projectileHit, in timedSpawn, in payload, SpawnTemplateDeltas);
+                        in timedSpawn, in payload, SpawnTemplateDeltas);
                 }
             }
         }
@@ -124,7 +123,6 @@ namespace PlayGround.System.Combat.Lifetime
                 in CombatKinematicsComponent kinematics,
                 in CombatRenderAuthoring authoring,
                 in VfxTimingData timing,
-                in AoeHitSpawnComponent hitSpawn,
                 in TimedSpawnComponent timedSpawn,
                 in CombatHitPayload payload,
                 ref CombatLifetimeComponent lifetime,
@@ -147,7 +145,7 @@ namespace PlayGround.System.Combat.Lifetime
                         math.max(authoring.VisualScale.x, authoring.VisualScale.y),
                         timing);
                     SpawnTemplateRefEmit.ReleaseAoe(
-                        in hitSpawn, in timedSpawn, in payload, SpawnTemplateDeltas);
+                        in timedSpawn, in payload, SpawnTemplateDeltas);
                 }
             }
         }

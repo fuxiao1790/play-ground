@@ -116,7 +116,7 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void ContinuousFlagReachesCommandsForDirectIntervalImpactAndStackPaths()
+        public void ContinuousFlagReachesCommandsForDirectIntervalAndStackPaths()
         {
             BasicAttackPrefab prefab = CreateProjectilePrefab();
             ProjectileSkill directSkill = CreateProjectileSkill(prefab, continuous: true);
@@ -128,13 +128,6 @@ namespace PlayGround.Tests.EditMode
             RuntimeProjectileDefinition intervalRoot = CompileProjectile(
                 CreateSkillSet(intervalRootSkill), interval, CreateSkillSet(intervalChildSkill));
 
-            ProjectileSkill impactRootSkill = CreateProjectileSkill(prefab, continuous: false);
-            ProjectileSkill impactChildSkill = CreateProjectileSkill(prefab, continuous: true);
-            RuntimeProjectileDefinition impactRoot = CompileProjectile(
-                CreateSkillSet(impactRootSkill),
-                CreateAsset<OnHitTrigger>(),
-                CreateSkillSet(impactChildSkill));
-
             ProjectileSkill stackRootSkill = CreateProjectileSkill(prefab, continuous: false);
             ProjectileSkill stackChildSkill = CreateProjectileSkill(prefab, continuous: true);
             RuntimeProjectileDefinition stackRoot = CompileProjectile(
@@ -144,7 +137,6 @@ namespace PlayGround.Tests.EditMode
 
             Assert.That(BuildCommand(direct).ContinuousCollision, Is.EqualTo(1), "Direct cast");
             Assert.That(BuildCommand(intervalRoot.ChildSpawnSetup.ChildDefinition).ContinuousCollision, Is.EqualTo(1), "Interval child");
-            Assert.That(BuildCommand(impactRoot.ImpactProjectileDefinition).ContinuousCollision, Is.EqualTo(1), "On-hit child");
             Assert.That(BuildCommand((RuntimeProjectileDefinition)stackRoot.StackingDetonation.Detonation).ContinuousCollision,
                 Is.EqualTo(1), "Stack detonation");
         }

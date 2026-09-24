@@ -602,59 +602,6 @@ Directionality defaults:
   random disk within the child AOE's `AoeDefinition.scatterRadius` around the center. With
   `AoeDefinition.scatterRadius = 0`, echo copies overlap at the center.
 
-**OnHitTrigger**
-
-Fires the effect set when the cause skill hits. The trigger carries no effect
-attributes; compiled source and effect types select the runtime field. Every
-accepted collision emits immediately. `OnHitTrigger` has no accumulator,
-energy rate, or threshold.
-
-| Source | Projectile effect | AOE effect | Targeted effect |
-|---|---|---|---|
-| `RuntimeProjectileDefinition` | `ImpactProjectileDefinition` | `ImpactAoeDefinition` | `ImpactTargetedDefinition` |
-| `RuntimeAoeDefinition` | `OnHitProjectileSpawnDefinition` | `OnHitAoeSpawnDefinition` (`RuntimeAoeDefinition`) | `OnHitTargetedSpawnDefinition` |
-
-```csharp
-class OnHitTrigger : TriggerLink { }
-```
-
-Compatible tags: source `Projectile` or `Aoe`; target `Projectile`, `Aoe`, or
-`Targeted`. Targeted-as-source remains unwired even though
-`RuntimeTargetedDefinition` declares on-hit fields.
-
-For an AOE effect, projectile sources center it at the impact point and store
-it in `RuntimeProjectileDefinition.ImpactAoeDefinition`; AOE sources fire it on
-their hit and store it in `RuntimeAoeDefinition.OnHitAoeSpawnDefinition`.
-
-For a targeted effect, the child starts at the impact position and uses that
-position as its acquisition anchor.
-
-For a projectile effect, the trigger fires the effect set as a burst when the
-cause skill hits. The cause may be a projectile or an AOE; the effect must compile to a
-`RuntimeProjectileDefinition`. For a projectile source the burst originates at
-the impact point aimed back from impact, and compiles into
-`RuntimeProjectileDefinition.ImpactProjectileDefinition`. For an AOE source the
-burst fires on each AOE hit and compiles into
-`RuntimeAoeDefinition.OnHitProjectileSpawnDefinition`, materialized as the
-`AoeProjectileBurstSnapshot` on the AOE's `AoeHitSpawnComponent`.
-
-The child set alone resolves burst `count` and `spreadDegrees`, including
-`MultipleProjectilesSupport`, exactly as when cast directly. The burst fans
-around the back-aimed impact direction. Proj鈫抪roj鈫抪roj nesting is not supported (a value-type
-struct cannot be recursive); a nested impact-projectile chain on the effect is
-dropped with a compile warning.
-
-Projectile on-hit bursts use the same `SideSpray` pattern as interval projectile
-children: shots alternate to either side of the back-aimed impact direction and
-use the child's spread. Each impact has its own deterministic seed.
-
-From an AOE source the burst is a flat
-`AoeProjectileBurstSnapshot`, so the spawned projectile's own impact AOE/projectile
-chains cannot fire and are dropped with a compile warning. Only top-level and
-interval-spawned AOEs carry the on-hit burst; an AOE reached via a projectile's
-impact-AOE or another AOE's on-hit spawn cannot (those snapshots have no burst
-slot).
-
 **StackTrigger**
 
 Wires a normal applicator set to a projectile or AOE detonation set. The source
@@ -797,16 +744,6 @@ compile(SkillSet set, allChains, snapshot) -> RuntimeSkillDefinition:
                 RuntimeProjectileDefinition -> bake RuntimeChildSpawnSetup
                 RuntimeAoeDefinition -> bake RuntimeAoeIntervalSpawnSetup
                 RuntimeTargetedDefinition -> bake RuntimeTargetedIntervalSpawnSetup
-        if chain.link is OnHitTrigger:
-            compile chain.effect recursively
-            if runtime is projectile:
-                RuntimeProjectileDefinition -> set runtime.ImpactProjectileDefinition
-                RuntimeAoeDefinition -> set runtime.ImpactAoeDefinition
-                RuntimeTargetedDefinition -> set runtime.ImpactTargetedDefinition
-            else if runtime is AOE:
-                RuntimeProjectileDefinition -> set runtime.OnHitProjectileSpawnDefinition
-                RuntimeAoeDefinition -> set runtime.OnHitAoeSpawnDefinition
-                RuntimeTargetedDefinition -> set runtime.OnHitTargetedSpawnDefinition
         if chain.link is StackTrigger:
             compile chain.effect recursively
             wrap effect as RuntimeStackingDetonation using link stackThreshold,

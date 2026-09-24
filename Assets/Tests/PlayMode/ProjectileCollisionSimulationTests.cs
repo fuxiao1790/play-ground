@@ -436,146 +436,6 @@ namespace PlayGround.Tests.PlayMode
             Assert.That(minY, Is.LessThan(-0.5f), "some projectile travels -y");
         }
 
-        [Test]
-        public void ProjectileImpactAoeMaterializesFromRegistry()
-        {
-            const int AoeTypeId = 77;
-            var aoeTemplate = new AoeSpawnCommand
-            {
-                TypeId = AoeTypeId,
-                Radius = 0.5f,
-                ShapeType = CombatShapeType.Circle,
-                HitPayload = new CombatHitPayload { DamageAmount = 1f, DirectDamageEnabled = true },
-                EchoCount = 1
-            };
-            var aoeKey = SpawnTemplateHash.Of(in aoeTemplate);
-            RegisterAoeTemplate(aoeKey, aoeTemplate);
-
-            AddTarget(float2.zero, 0.25f);
-            CreateProjectile(
-                pierceRemaining: 0,
-                onHitSpawn: new OnHitSpawnRef { Kind = IntervalChildKind.ImpactAoe, TemplateKey = aoeKey });
-
-            TickSimulationOnly(0.01f);
-
-            Assert.That(AoeEntityCount(), Is.EqualTo(1));
-            Assert.That(AoeTypeIdOf(FirstAoeEntity()), Is.EqualTo(AoeTypeId));
-        }
-
-        [Test]
-        public void ProjectileImpactProjectileMaterializesFromRegistry()
-        {
-            const int ChildTypeId = 5;
-            var childTemplate = new ProjectileSpawnCommand
-            {
-                TypeId = ChildTypeId,
-                Count = 1,
-                PierceRemaining = 99,
-                Speed = 5f,
-                BaseDirection = new float2(1f, 0f),
-                Radius = 0.5f,
-                ShapeType = CombatShapeType.Circle
-            };
-            var childKey = SpawnTemplateHash.Of(in childTemplate);
-            RegisterProjectileTemplate(childKey, childTemplate);
-
-            AddTarget(float2.zero, 0.25f);
-            CreateProjectile(
-                pierceRemaining: 0,
-                onHitSpawn: new OnHitSpawnRef { Kind = IntervalChildKind.Projectile, TemplateKey = childKey });
-
-            TickSimulationOnly(0.01f);
-
-            // Original projectile is disabled (pierce exhausted); child spawned from registry template.
-            Assert.That(ProjectileCountByTypeId(ChildTypeId), Is.EqualTo(1));
-        }
-
-        [Test]
-        public void ImpactProjectileBurstUsesIntervalSideSpray()
-        {
-            const int ChildTypeId = 8;
-            const float Speed = 5f;
-            var childTemplate = new ProjectileSpawnCommand
-            {
-                TypeId = ChildTypeId,
-                Count = 4,
-                SpreadDegrees = 0f,
-                SpawnPatternType = ProjectileChildSpawnPatternType.SideSpray,
-                Speed = Speed,
-                BaseDirection = new float2(1f, 0f),
-                Radius = 0.5f,
-                ShapeType = CombatShapeType.Circle
-            };
-            var childKey = SpawnTemplateHash.Of(in childTemplate);
-            RegisterProjectileTemplate(childKey, childTemplate);
-
-            // The parent hits to its right. With a zero side spread, the child burst must
-            // travel straight up/down from the impact, rather than forward/backward.
-            AddTarget(new float2(1f, 0f), 0.25f);
-            CreateProjectile(
-                pierceRemaining: 0,
-                onHitSpawn: new OnHitSpawnRef { Kind = IntervalChildKind.Projectile, TemplateKey = childKey });
-
-            TickSimulationOnly(0.01f);
-
-            float2[] velocities = ProjectileVelocitiesByTypeId(ChildTypeId);
-            Assert.That(velocities.Length, Is.EqualTo(4));
-            int upward = 0;
-            int downward = 0;
-            for (int i = 0; i < velocities.Length; i++)
-            {
-                Assert.That(math.abs(velocities[i].x), Is.LessThan(0.0001f));
-                Assert.That(math.abs(math.abs(velocities[i].y) - Speed), Is.LessThan(0.0001f));
-                if (velocities[i].y > 0f)
-                    upward++;
-                else
-                    downward++;
-            }
-
-            Assert.That(upward, Is.EqualTo(2));
-            Assert.That(downward, Is.EqualTo(2));
-        }
-
-        [Test]
-        public void ImpactSpawnContactGateSeedPreventsChildFromHittingSpawnTarget()
-        {
-            const int ChildTypeId = 9;
-            var childTemplate = new ProjectileSpawnCommand
-            {
-                TypeId = ChildTypeId,
-                Count = 1,
-                PierceRemaining = 5,
-                Speed = 5f,
-                BaseDirection = new float2(1f, 0f),
-                Radius = 0.5f,
-                ShapeType = CombatShapeType.Circle,
-                HitPayload = new ProjectileHitPayload(new CombatHitPayload
-                {
-                    DamageAmount = 2f,
-                    CritMultiplier = 1f,
-                    DirectDamageEnabled = true
-                })
-            };
-            var childKey = SpawnTemplateHash.Of(in childTemplate);
-            RegisterProjectileTemplate(childKey, childTemplate);
-
-            AddTarget(float2.zero, 0.25f);
-            CreateProjectile(
-                pierceRemaining: 0,
-                onHitSpawn: new OnHitSpawnRef { Kind = IntervalChildKind.Projectile, TemplateKey = childKey });
-
-            // Tick 1: parent hits target; child materializes with contact-gate seed blocking the same target.
-            TickSimulationOnly(0.01f);
-            int hitsAfterTick1 = ReadFinalizedHitCount();
-
-            // Tick 2: child projectile exists but cannot re-hit the seeded target this tick.
-            TickSimulationOnly(0.01f);
-            int hitsAfterTick2 = ReadFinalizedHitCount();
-
-            Assert.That(hitsAfterTick1, Is.EqualTo(1), "Parent hits target once.");
-            Assert.That(hitsAfterTick2, Is.EqualTo(0), "Child is gated from immediately re-hitting the spawn target.");
-        }
-
         private void TickSimulationOnly(float dt)
         {
             elapsedTime += dt;
@@ -615,8 +475,7 @@ namespace PlayGround.Tests.PlayMode
 
         private Entity CreateProjectile(
             int pierceRemaining,
-            StackEffectSnapshot stackEffect = default,
-            OnHitSpawnRef onHitSpawn = default)
+            StackEffectSnapshot stackEffect = default)
         {
             Entity entity = entityManager.CreateEntity(
                 typeof(ProjectileTag),
@@ -667,8 +526,7 @@ namespace PlayGround.Tests.PlayMode
             entityManager.SetComponentData(entity, new CombatLifetimeComponent { Remaining = 10f });
             entityManager.SetComponentData(entity, new ProjectileHitComponent
             {
-                PierceRemaining = pierceRemaining,
-                OnHitSpawn = onHitSpawn
+                PierceRemaining = pierceRemaining
             });
             entityManager.SetComponentData(entity, new CombatHitPayload
             {

@@ -274,9 +274,6 @@ namespace PlayGround.Skills
                 RegisterSoundsRecursive(aoe.ChildSpawnSetup?.ChildDefinition, depth + 1);
                 RegisterSoundsRecursive(aoe.AoeIntervalSpawnSetup?.ChildDefinition, depth + 1);
                 RegisterSoundsRecursive(aoe.TargetedIntervalSpawnSetup?.ChildDefinition, depth + 1);
-                RegisterSoundsRecursive(aoe.OnHitAoeSpawnDefinition, depth + 1);
-                RegisterSoundsRecursive(aoe.OnHitTargetedSpawnDefinition, depth + 1);
-                RegisterSoundsRecursive(aoe.OnHitProjectileSpawnDefinition, depth + 1);
                 RegisterSoundsRecursive(aoe.StackingDetonation, depth + 1);
                 return;
             }
@@ -289,8 +286,6 @@ namespace PlayGround.Skills
                         targeted.SoundIds,
                         targeted.SpawnSoundRadius);
 
-                RegisterSoundsRecursive(targeted.OnHitAoeSpawnDefinition, depth + 1);
-                RegisterSoundsRecursive(targeted.OnHitProjectileSpawnDefinition, depth + 1);
                 RegisterSoundsRecursive(targeted.StackingDetonation, depth + 1);
                 return;
             }
@@ -300,9 +295,6 @@ namespace PlayGround.Skills
                 RegisterSoundsRecursive(projectile.ChildSpawnSetup?.ChildDefinition, depth + 1);
                 RegisterSoundsRecursive(projectile.AoeIntervalSpawnSetup?.ChildDefinition, depth + 1);
                 RegisterSoundsRecursive(projectile.TargetedIntervalSpawnSetup?.ChildDefinition, depth + 1);
-                RegisterSoundsRecursive(projectile.ImpactAoeDefinition, depth + 1);
-                RegisterSoundsRecursive(projectile.ImpactProjectileDefinition, depth + 1);
-                RegisterSoundsRecursive(projectile.ImpactTargetedDefinition, depth + 1);
                 RegisterSoundsRecursive(projectile.StackingDetonation, depth + 1);
             }
         }
@@ -579,25 +571,12 @@ namespace PlayGround.Skills
                     RegisterProjectileTypesRecursive(aoeDef.AoeIntervalSpawnSetup.ChildDefinition);
                 if (aoeDef.TargetedIntervalSpawnSetup?.ChildDefinition != null)
                     RegisterProjectileTypesRecursive(aoeDef.TargetedIntervalSpawnSetup.ChildDefinition);
-                if (aoeDef.OnHitAoeSpawnDefinition != null)
-                    RegisterProjectileTypesRecursive(aoeDef.OnHitAoeSpawnDefinition);
-                if (aoeDef.OnHitTargetedSpawnDefinition != null)
-                    RegisterProjectileTypesRecursive(aoeDef.OnHitTargetedSpawnDefinition);
-                if (aoeDef.OnHitProjectileSpawnDefinition != null)
-                    RegisterProjectileTypesRecursive(aoeDef.OnHitProjectileSpawnDefinition);
                 if (aoeDef.StackingDetonation != null)
                     RegisterProjectileTypesRecursive(aoeDef.StackingDetonation);
             }
 
             if (def is RuntimeTargetedDefinition targetedDef)
             {
-                if (targetedDef.OnHitAoeSpawnDefinition != null)
-                {
-                    RegisterAoeTypeDefinition(targetedDef.OnHitAoeSpawnDefinition);
-                    RegisterProjectileTypesRecursive(targetedDef.OnHitAoeSpawnDefinition);
-                }
-                if (targetedDef.OnHitProjectileSpawnDefinition != null)
-                    RegisterProjectileTypesRecursive(targetedDef.OnHitProjectileSpawnDefinition);
                 if (targetedDef.StackingDetonation != null)
                     RegisterProjectileTypesRecursive(targetedDef.StackingDetonation);
             }
@@ -621,15 +600,6 @@ namespace PlayGround.Skills
                     RegisterProjectileTypesRecursive(p.AoeIntervalSpawnSetup.ChildDefinition);
                 if (p.TargetedIntervalSpawnSetup?.ChildDefinition != null)
                     RegisterProjectileTypesRecursive(p.TargetedIntervalSpawnSetup.ChildDefinition);
-                if (p.ImpactAoeDefinition != null)
-                {
-                    RegisterAoeTypeDefinition(p.ImpactAoeDefinition);
-                    RegisterProjectileTypesRecursive(p.ImpactAoeDefinition);
-                }
-                if (p.ImpactProjectileDefinition != null)
-                    RegisterProjectileTypesRecursive(p.ImpactProjectileDefinition);
-                if (p.ImpactTargetedDefinition != null)
-                    RegisterProjectileTypesRecursive(p.ImpactTargetedDefinition);
                 if (p.StackingDetonation != null)
                     RegisterProjectileTypesRecursive(p.StackingDetonation);
             }
@@ -734,17 +704,6 @@ namespace PlayGround.Skills
                     }
                 }
 
-                if (aoeDef.OnHitAoeSpawnDefinition != null)
-                    RegisterSpawnTemplatesRecursive(aoeDef.OnHitAoeSpawnDefinition, depth + 1, warnings, slotIndex);
-                if (aoeDef.OnHitTargetedSpawnDefinition != null)
-                    RegisterSpawnTemplatesRecursive(aoeDef.OnHitTargetedSpawnDefinition, depth + 1, warnings, slotIndex);
-                if (aoeDef.OnHitProjectileSpawnDefinition != null)
-                    RegisterSpawnTemplatesRecursive(
-                        aoeDef.OnHitProjectileSpawnDefinition,
-                        depth + 1,
-                        warnings,
-                        slotIndex,
-                        ProjectileChildSpawnPatternType.Radial);
                 if (aoeDef.StackingDetonation != null)
                     RegisterSpawnTemplatesRecursive(aoeDef.StackingDetonation, depth + 1, warnings, slotIndex);
 
@@ -755,7 +714,6 @@ namespace PlayGround.Skills
                         aoeDef,
                         combatRoot,
                         stackEffect,
-                        BuildOnHitSpawnRef(aoeDef),
                         AoeTimedSpawnFromDefinition(aoeDef));
                 if (registerSelfTemplate)
                 {
@@ -772,10 +730,6 @@ namespace PlayGround.Skills
 
             if (def is RuntimeTargetedDefinition targetedDef)
             {
-                if (targetedDef.OnHitAoeSpawnDefinition != null)
-                    RegisterSpawnTemplatesRecursive(targetedDef.OnHitAoeSpawnDefinition, depth + 1, warnings, slotIndex);
-                if (targetedDef.OnHitProjectileSpawnDefinition != null)
-                    RegisterSpawnTemplatesRecursive(targetedDef.OnHitProjectileSpawnDefinition, depth + 1, warnings, slotIndex);
                 if (targetedDef.StackingDetonation != null)
                     RegisterSpawnTemplatesRecursive(targetedDef.StackingDetonation, depth + 1, warnings, slotIndex);
 
@@ -783,8 +737,7 @@ namespace PlayGround.Skills
                     SkillIntervalTemplateBuilder.BuildTargetedTemplate(
                         targetedDef,
                         combatRoot,
-                        SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(targetedDef, combatRoot),
-                        BuildOnHitSpawnRef(targetedDef));
+                        SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(targetedDef, combatRoot));
                 if (registerSelfTemplate)
                 {
                     Unity.Entities.Hash128 key = combatRoot.RegisterSpawnTemplate(in template);
@@ -842,17 +795,6 @@ namespace PlayGround.Skills
                     }
                 }
 
-                if (projDef.ImpactAoeDefinition != null)
-                    RegisterSpawnTemplatesRecursive(projDef.ImpactAoeDefinition, depth + 1, warnings, slotIndex);
-                if (projDef.ImpactTargetedDefinition != null)
-                    RegisterSpawnTemplatesRecursive(projDef.ImpactTargetedDefinition, depth + 1, warnings, slotIndex);
-                if (projDef.ImpactProjectileDefinition != null)
-                    RegisterSpawnTemplatesRecursive(
-                        projDef.ImpactProjectileDefinition,
-                        depth + 1,
-                        warnings,
-                        slotIndex,
-                        ProjectileChildSpawnPatternType.SideSpray);
                 if (projDef.StackingDetonation != null)
                     RegisterSpawnTemplatesRecursive(projDef.StackingDetonation, depth + 1, warnings, slotIndex);
 
@@ -867,7 +809,6 @@ namespace PlayGround.Skills
                             projDef.SpreadDegrees),
                         combatRoot,
                         stackEffect,
-                        BuildOnHitSpawnRef(projDef),
                         ProjectileTimedSpawnFromDefinition(projDef),
                         projDef.JitterDegrees);
                 if (registerSelfTemplate)
@@ -900,7 +841,6 @@ namespace PlayGround.Skills
                     setup.Behavior,
                     combatRoot,
                     stackEffect,
-                    BuildOnHitSpawnRef(child),
                     ProjectileTimedSpawnFromDefinition(child),
                     child.JitterDegrees);
 
@@ -922,7 +862,6 @@ namespace PlayGround.Skills
                     child,
                     combatRoot,
                     stackEffect,
-                    BuildOnHitSpawnRef(child),
                     AoeTimedSpawnFromDefinition(child));
 
             Unity.Entities.Hash128 key = combatRoot.RegisterTimedSpawnTemplate(in template);
@@ -940,8 +879,7 @@ namespace PlayGround.Skills
                 SkillIntervalTemplateBuilder.BuildTargetedTemplate(
                     child,
                     combatRoot,
-                    SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(child, combatRoot),
-                    BuildOnHitSpawnRef(child));
+                    SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(child, combatRoot));
             Unity.Entities.Hash128 key = combatRoot.RegisterTimedSpawnTemplate(in template);
             setup.TemplateKey = key;
             registeredTemplateKeys.Add((IntervalChildKind.Targeted, key));
@@ -966,110 +904,6 @@ namespace PlayGround.Skills
             }
 
             keys.Clear();
-        }
-
-        private static OnHitSpawnRef BuildOnHitSpawnRef(RuntimeProjectileDefinition def)
-        {
-            if (def == null)
-                return default;
-
-            if (def.ImpactProjectileDefinition != null
-                && !IsDefault(def.ImpactProjectileDefinition.SpawnTemplateKey))
-            {
-                return new OnHitSpawnRef
-                {
-                    Kind = IntervalChildKind.Projectile,
-                    TemplateKey = def.ImpactProjectileDefinition.SpawnTemplateKey
-                };
-            }
-
-            if (def.ImpactAoeDefinition != null
-                && !IsDefault(def.ImpactAoeDefinition.SpawnTemplateKey))
-            {
-                return new OnHitSpawnRef
-                {
-                    Kind = AoeVariant.AoeChildKindFor(def.ImpactAoeDefinition.LifetimeSeconds),
-                    TemplateKey = def.ImpactAoeDefinition.SpawnTemplateKey
-                };
-            }
-
-            if (def.ImpactTargetedDefinition != null
-                && !IsDefault(def.ImpactTargetedDefinition.SpawnTemplateKey))
-            {
-                return new OnHitSpawnRef
-                {
-                    Kind = IntervalChildKind.Targeted,
-                    TemplateKey = def.ImpactTargetedDefinition.SpawnTemplateKey
-                };
-            }
-
-            return default;
-        }
-
-        private static OnHitSpawnRef BuildOnHitSpawnRef(RuntimeAoeDefinition def)
-        {
-            if (def == null)
-                return default;
-
-            if (def.OnHitProjectileSpawnDefinition != null
-                && !IsDefault(def.OnHitProjectileSpawnDefinition.SpawnTemplateKey))
-            {
-                return new OnHitSpawnRef
-                {
-                    Kind = IntervalChildKind.Projectile,
-                    TemplateKey = def.OnHitProjectileSpawnDefinition.SpawnTemplateKey
-                };
-            }
-
-            if (def.OnHitAoeSpawnDefinition != null
-                && !IsDefault(def.OnHitAoeSpawnDefinition.SpawnTemplateKey))
-            {
-                return new OnHitSpawnRef
-                {
-                    Kind = AoeVariant.AoeChildKindFor(def.OnHitAoeSpawnDefinition.LifetimeSeconds),
-                    TemplateKey = def.OnHitAoeSpawnDefinition.SpawnTemplateKey
-                };
-            }
-
-            if (def.OnHitTargetedSpawnDefinition != null
-                && !IsDefault(def.OnHitTargetedSpawnDefinition.SpawnTemplateKey))
-            {
-                return new OnHitSpawnRef
-                {
-                    Kind = IntervalChildKind.Targeted,
-                    TemplateKey = def.OnHitTargetedSpawnDefinition.SpawnTemplateKey
-                };
-            }
-
-            return default;
-        }
-
-        private static OnHitSpawnRef BuildOnHitSpawnRef(RuntimeTargetedDefinition def)
-        {
-            if (def == null)
-                return default;
-
-            if (def.OnHitAoeSpawnDefinition != null
-                && !IsDefault(def.OnHitAoeSpawnDefinition.SpawnTemplateKey))
-            {
-                return new OnHitSpawnRef
-                {
-                    Kind = AoeVariant.AoeChildKindFor(def.OnHitAoeSpawnDefinition.LifetimeSeconds),
-                    TemplateKey = def.OnHitAoeSpawnDefinition.SpawnTemplateKey
-                };
-            }
-
-            if (def.OnHitProjectileSpawnDefinition != null
-                && !IsDefault(def.OnHitProjectileSpawnDefinition.SpawnTemplateKey))
-            {
-                return new OnHitSpawnRef
-                {
-                    Kind = IntervalChildKind.Projectile,
-                    TemplateKey = def.OnHitProjectileSpawnDefinition.SpawnTemplateKey
-                };
-            }
-
-            return default;
         }
 
         private static TimedSpawnComponent ProjectileTimedSpawnFromDefinition(RuntimeProjectileDefinition def)
@@ -1167,20 +1001,12 @@ namespace PlayGround.Skills
                     RegisterAoeTypesRecursive(aoeDef.AoeIntervalSpawnSetup.ChildDefinition);
                 if (aoeDef.TargetedIntervalSpawnSetup?.ChildDefinition != null)
                     RegisterAoeTypesRecursive(aoeDef.TargetedIntervalSpawnSetup.ChildDefinition);
-                if (aoeDef.OnHitAoeSpawnDefinition != null)
-                    RegisterAoeTypesRecursive(aoeDef.OnHitAoeSpawnDefinition);
-                if (aoeDef.OnHitTargetedSpawnDefinition != null)
-                    RegisterAoeTypesRecursive(aoeDef.OnHitTargetedSpawnDefinition);
-                if (aoeDef.OnHitProjectileSpawnDefinition != null)
-                    RegisterAoeTypesRecursive(aoeDef.OnHitProjectileSpawnDefinition);
                 if (aoeDef.StackingDetonation != null)
                     RegisterAoeTypesRecursive(aoeDef.StackingDetonation);
             }
 
             if (def is RuntimeTargetedDefinition targetedDef)
             {
-                RegisterAoeTypesRecursive(targetedDef.OnHitAoeSpawnDefinition);
-                RegisterAoeTypesRecursive(targetedDef.OnHitProjectileSpawnDefinition);
                 RegisterAoeTypesRecursive(targetedDef.StackingDetonation);
             }
 
@@ -1192,12 +1018,6 @@ namespace PlayGround.Skills
                     RegisterAoeTypesRecursive(projDef.AoeIntervalSpawnSetup.ChildDefinition);
                 if (projDef.TargetedIntervalSpawnSetup?.ChildDefinition != null)
                     RegisterAoeTypesRecursive(projDef.TargetedIntervalSpawnSetup.ChildDefinition);
-                if (projDef.ImpactAoeDefinition != null)
-                    RegisterAoeTypesRecursive(projDef.ImpactAoeDefinition);
-                if (projDef.ImpactTargetedDefinition != null)
-                    RegisterAoeTypesRecursive(projDef.ImpactTargetedDefinition);
-                if (projDef.ImpactProjectileDefinition != null)
-                    RegisterAoeTypesRecursive(projDef.ImpactProjectileDefinition);
                 if (projDef.StackingDetonation != null)
                     RegisterAoeTypesRecursive(projDef.StackingDetonation);
             }
@@ -1217,8 +1037,6 @@ namespace PlayGround.Skills
             if (def is RuntimeTargetedDefinition targetedDef)
             {
                 RegisterTargetedTypeDefinition(targetedDef);
-                RegisterTargetedTypesRecursive(targetedDef.OnHitAoeSpawnDefinition);
-                RegisterTargetedTypesRecursive(targetedDef.OnHitProjectileSpawnDefinition);
                 RegisterTargetedTypesRecursive(targetedDef.StackingDetonation);
                 return;
             }
@@ -1228,9 +1046,6 @@ namespace PlayGround.Skills
                 RegisterTargetedTypesRecursive(aoeDef.ChildSpawnSetup?.ChildDefinition);
                 RegisterTargetedTypesRecursive(aoeDef.AoeIntervalSpawnSetup?.ChildDefinition);
                 RegisterTargetedTypesRecursive(aoeDef.TargetedIntervalSpawnSetup?.ChildDefinition);
-                RegisterTargetedTypesRecursive(aoeDef.OnHitAoeSpawnDefinition);
-                RegisterTargetedTypesRecursive(aoeDef.OnHitTargetedSpawnDefinition);
-                RegisterTargetedTypesRecursive(aoeDef.OnHitProjectileSpawnDefinition);
                 RegisterTargetedTypesRecursive(aoeDef.StackingDetonation);
                 return;
             }
@@ -1240,9 +1055,6 @@ namespace PlayGround.Skills
                 RegisterTargetedTypesRecursive(projDef.ChildSpawnSetup?.ChildDefinition);
                 RegisterTargetedTypesRecursive(projDef.AoeIntervalSpawnSetup?.ChildDefinition);
                 RegisterTargetedTypesRecursive(projDef.TargetedIntervalSpawnSetup?.ChildDefinition);
-                RegisterTargetedTypesRecursive(projDef.ImpactAoeDefinition);
-                RegisterTargetedTypesRecursive(projDef.ImpactTargetedDefinition);
-                RegisterTargetedTypesRecursive(projDef.ImpactProjectileDefinition);
                 RegisterTargetedTypesRecursive(projDef.StackingDetonation);
             }
         }
@@ -1405,7 +1217,6 @@ namespace PlayGround.Skills
             ProjectileChildSpawnBehavior behavior,
             CombatRoot root,
             StackEffectSnapshot stackEffect,
-            OnHitSpawnRef onHitSpawn = default,
             TimedSpawnComponent timedSpawn = default,
             float jitterDegrees = 0f)
         {
@@ -1460,8 +1271,7 @@ namespace PlayGround.Skills
                         DirectDamageEnabled = child.DirectDamageEnabled,
                         SourceNodeId = default,
                         StackEffect = stackEffect
-                    },
-                    onHitSpawn),
+                    }),
                 Tracking = new ProjectileTrackingComponent
                 {
                     TrackingEnabled = child.Tracking.Enabled,
@@ -1483,7 +1293,6 @@ namespace PlayGround.Skills
             RuntimeAoeDefinition child,
             CombatRoot root,
             StackEffectSnapshot stackEffect,
-            OnHitSpawnRef onHitSpawn = default,
             TimedSpawnComponent timedSpawn = default)
         {
             AoeSpawnGeometry geometry = child.CreateSpawnGeometry();
@@ -1530,7 +1339,6 @@ namespace PlayGround.Skills
                 ScatterRadius = Mathf.Max(0f, child.ScatterRadius),
                 Render = render,
                 Authoring = authoring,
-                OnHitSpawn = onHitSpawn,
                 HasTimedSpawner = hasTimedSpawner ? 1 : 0,
                 TimedSpawn = timedSpawn
             };
@@ -1539,8 +1347,7 @@ namespace PlayGround.Skills
         public static TargetedSpawnCommand BuildTargetedTemplate(
             RuntimeTargetedDefinition child,
             CombatRoot root,
-            StackEffectSnapshot stackEffect,
-            OnHitSpawnRef onHitSpawn = default)
+            StackEffectSnapshot stackEffect)
         {
             CombatRenderComponent render;
             CombatRenderAuthoring authoring;
@@ -1585,8 +1392,7 @@ namespace PlayGround.Skills
                 VfxIds = child.VfxIds,
                 VfxSize = child.VfxSize,
                 Render = render,
-                Authoring = authoring,
-                OnHitSpawn = onHitSpawn
+                Authoring = authoring
             };
         }
 

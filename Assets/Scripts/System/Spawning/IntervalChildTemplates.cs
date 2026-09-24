@@ -20,12 +20,4 @@ namespace PlayGround.System.Combat.Spawning
         LingeringAoe = 2,
         Targeted = 3
     }
-
-    public struct OnHitSpawnRef
-    {
-        public IntervalChildKind Kind;
-        public Unity.Entities.Hash128 TemplateKey;
-
-        public readonly bool Enabled => !TemplateKey.Equals(default(Unity.Entities.Hash128));
-    }
 }

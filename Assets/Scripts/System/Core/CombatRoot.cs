@@ -747,7 +747,6 @@ namespace PlayGround.System.Combat.Core
                 ShapeType = geometry.ShapeType,
                 Render = render,
                 Authoring = authoring,
-                OnHitSpawn = request.OnHitSpawn,
                 HasTimedSpawner = request.HasTimedSpawner ? 1 : 0,
                 TimedSpawn = StampTimedSpawn(request.TimedSpawn, CombatFaction.None, aoeId)
             };
@@ -843,8 +842,7 @@ namespace PlayGround.System.Combat.Core
             StackEffectSnapshot stack = combat.StackEffect;
             stack.Faction = CombatFaction.None;
             combat.StackEffect = stack;
-            template.HitPayload = new ProjectileHitPayload(combat, hp.OnHitSpawn);
-            SpawnTemplateValidation.EnsureValidChildKind(hp.OnHitSpawn);
+            template.HitPayload = new ProjectileHitPayload(combat);
             SpawnTemplateValidation.EnsureValidChildKind(timedSpawn);
             return template;
         }
@@ -868,7 +866,6 @@ namespace PlayGround.System.Combat.Core
             stack.Faction = CombatFaction.None;
             hitPayload.StackEffect = stack;
             template.HitPayload = hitPayload;
-            SpawnTemplateValidation.EnsureValidChildKind(template.OnHitSpawn);
             SpawnTemplateValidation.EnsureValidChildKind(timedSpawn);
             return template;
         }
@@ -889,7 +886,6 @@ namespace PlayGround.System.Combat.Core
             stack.Faction = CombatFaction.None;
             hitPayload.StackEffect = stack;
             template.HitPayload = hitPayload;
-            SpawnTemplateValidation.EnsureValidChildKind(template.OnHitSpawn);
             return template;
         }
 

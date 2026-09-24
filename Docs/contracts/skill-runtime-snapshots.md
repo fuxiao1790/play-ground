@@ -26,7 +26,6 @@ Current snapshot categories:
 - runtime AOE definitions
 - `CombatHitPayload`
 - `StackEffectSnapshot`
-- `OnHitSpawnRef` — `(kind, Hash128)` registry key for all on-hit follow-up spawns
 - `TimedSpawnComponent`
 - spawn template keys (`Hash128`) — used by all follow-up slots
 

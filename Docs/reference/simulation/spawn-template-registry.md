@@ -131,12 +131,9 @@ disabled `Active` slot or cold-create an overflow entity.
 Runtime component snapshot:
 
 - `ProjectileHitComponent`
-- `AoeHitSpawnComponent`
 - `TimedSpawnComponent`
 - `TimedSpawnStateComponent`
 - `CombatHitPayload`
-- impact, burst, and AOE-on-hit snapshot structs in
-  `PlayGround.System.Combat.Spawning`
 
 Scope-owned spawn template registry:
 
@@ -221,7 +218,7 @@ releases the scope.
 `CombatRoot.RegisterSpawnTemplate(in AoeSpawnCommand)` hash the normalized
 command content with `SpawnTemplateHash.Of`. The returned `Hash128` is used as
 the registry key and stored on whichever source carries the follow-up slot
-(e.g., `TimedSpawnComponent.TemplateKey` or `OnHitSpawnRef.TemplateKey`).
+(e.g., `TimedSpawnComponent.TemplateKey`).
 
 Registry rules:
 
@@ -334,7 +331,7 @@ The tick loop must keep these safety guards:
 
 Projectile commands and component data carry:
 
-- `ProjectileHitPayload` 鈥?hit payload with optional `OnHitSpawnRef (kind, key)`
+- `ProjectileHitPayload` 鈥?wraps `CombatHitPayload`
 - `TimedSpawnComponent` 鈥?optional interval-child spawn config
 - `LaunchAimMode` / `LaunchAimRange` 鈥?trigger-authored launch-aim policy,
   copied at compile time onto a trigger's projectile target only (never the
@@ -349,22 +346,14 @@ public struct ProjectileHitComponent : IComponentData
 {
     public int PierceRemaining;
     public float RepeatHitCooldownSeconds;
-    public ProjectileHitPayload HitPayload;
 }
 ```
-
-`ProjectileHitPayload` wraps `CombatHitPayload` plus `OnHitSpawnRef`. The
-`OnHitSpawnRef` is a `(kind, Hash128)` reference into the registry; it replaces
-the former embedded `ProjectileImpactAoeSnapshot` and
-`ProjectileImpactProjectileSnapshot`.
 
 When a projectile hit qualifies, either projectile collision system may emit
 (both route through the shared `ProjectileHitEmission` helpers, so the lane does
 not change what is emitted):
 
 - `CombatHitEvent`
-- `ProjectileSpawnEvent` (slim link) when `OnHitSpawn.Kind == Projectile`
-- `AOE variant spawn event` (slim link) when `OnHitSpawn.Kind == ImpactAoe/LingeringAoe`
 
 The collision system may disable the source projectile by disabling `Active`
 when pierce is consumed.
@@ -374,27 +363,11 @@ when pierce is consumed.
 AOE commands and component data carry:
 
 - `CombatHitPayload` 鈥?hit payload with optional stack effect
-- `OnHitSpawnRef (kind, key)` 鈥?optional on-hit follow-up spawn reference
 - `TimedSpawnComponent` 鈥?optional interval-child spawn config
-
-AOE entities carry `AoeHitSpawnComponent`:
-
-```csharp
-public struct AoeHitSpawnComponent : IComponentData
-{
-    public CombatHitPayload HitPayload;
-    public OnHitSpawnRef OnHitSpawn;
-}
-```
-
-`OnHitSpawnRef` is a `(kind, Hash128)` reference into the registry; it replaces
-the former embedded `AoeProjectileBurstSnapshot` and `AoeOnHitSpawnSnapshot`.
 
 When an AOE hit qualifies, AOE collision may emit:
 
 - `CombatHitEvent`
-- `ProjectileSpawnEvent` (slim link) when `OnHitSpawn.Kind == Projectile`
-- `AOE variant spawn event` (slim link) when `OnHitSpawn.Kind == ImpactAoe/LingeringAoe`
 - `CircularVfxSpawnRequest` / `TimedCircularVfxSpawnRequest` (via `VfxEmit`)
 
 Pulse AOEs disable `Active` after their one collision pass. Lingering AOEs tick
@@ -549,10 +522,6 @@ aggregate damage, hit count, crit count, health, and status ranges.
 Every follow-up spawn uses the same `(kind, Hash128)` reference into the
 registry, regardless of the source:
 
-- projectile on-hit 鈫?AOE: `ProjectileHitPayload.OnHitSpawn {Kind=Aoe, key}`
-- projectile on-hit 鈫?projectile: `ProjectileHitPayload.OnHitSpawn {Kind=Projectile, key}`
-- AOE on-hit 鈫?projectile burst: `AoeHitSpawnComponent.OnHitSpawn {Kind=Projectile, key}`
-- AOE on-hit 鈫?AOE: `AoeHitSpawnComponent.OnHitSpawn {Kind=Aoe, key}`
 - stack projectile detonation: `StackEffectSnapshot.DetonationKey` (Projectile kind)
 - energy child spawn: `TimedSpawnComponent.TemplateKey`
 
@@ -584,14 +553,6 @@ payloads.
 
 ## Testing Checklist
 
-- Fire projectile with `OnHitSpawn {Kind=Aoe, key}`; confirm AOE event reaches
-  AOE expansion and materializes through AOE apply (registry dereference).
-- Fire projectile with `OnHitSpawn {Kind=Projectile, key}`; confirm projectile
-  event reaches projectile expansion and materializes through projectile apply.
-- Fire AOE with `OnHitSpawn {Kind=Projectile, key}`; confirm projectile burst
-  follows the projectile spawn pipeline.
-- Fire AOE with `OnHitSpawn {Kind=Aoe, key}`; confirm child AOE follows the AOE
-  spawn pipeline.
 - Fire timed projectile source; confirm `TimedSpawnSystem` fetches the stored
   projectile command by `TemplateKey` and emits children at the configured
   interval.

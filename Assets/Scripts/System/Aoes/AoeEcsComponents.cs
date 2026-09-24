@@ -41,12 +41,6 @@ namespace PlayGround.System.Combat.Aoes
         public float Remaining;
     }
 
-    // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse; carries fire-time hit-spawn template reference data.
-    public struct AoeHitSpawnComponent : IComponentData
-    {
-        public OnHitSpawnRef OnHitSpawn;
-    }
-
     // ECS Lifecycle: base AOE component; added by spawn materialization; kept until root teardown; reset on reuse; carries fire-time gameplay area size for VFX dispatch.
     public struct AoeAreaComponent : IComponentData
     {

@@ -14,16 +14,12 @@ namespace PlayGround.System.Combat.Projectiles
 {
     public readonly struct ProjectileHitPayload
     {
-        public ProjectileHitPayload(
-            CombatHitPayload hitPayload,
-            OnHitSpawnRef onHitSpawn = default)
+        public ProjectileHitPayload(CombatHitPayload hitPayload)
         {
             HitPayload = hitPayload;
-            OnHitSpawn = onHitSpawn;
         }
 
         public CombatHitPayload HitPayload { get; }
-        public OnHitSpawnRef OnHitSpawn { get; }
 
         public float DamageAmount => HitPayload.DamageAmount;
         public float CritChance => HitPayload.CritChance;

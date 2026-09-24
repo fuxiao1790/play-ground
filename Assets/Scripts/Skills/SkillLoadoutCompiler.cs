@@ -84,8 +84,6 @@ namespace PlayGround.Skills
 
                 AppendCompilerWarnings(projectile.ChildSpawnSetup?.ChildDefinition, slotIndex, warnings);
                 AppendCompilerWarnings(projectile.AoeIntervalSpawnSetup?.ChildDefinition, slotIndex, warnings);
-                AppendCompilerWarnings(projectile.ImpactAoeDefinition, slotIndex, warnings);
-                AppendCompilerWarnings(projectile.ImpactProjectileDefinition, slotIndex, warnings);
                 AppendCompilerWarnings(projectile.StackingDetonation, slotIndex, warnings);
                 return;
             }
@@ -94,8 +92,6 @@ namespace PlayGround.Skills
             {
                 AppendCompilerWarnings(aoe.ChildSpawnSetup?.ChildDefinition, slotIndex, warnings);
                 AppendCompilerWarnings(aoe.AoeIntervalSpawnSetup?.ChildDefinition, slotIndex, warnings);
-                AppendCompilerWarnings(aoe.OnHitAoeSpawnDefinition, slotIndex, warnings);
-                AppendCompilerWarnings(aoe.OnHitProjectileSpawnDefinition, slotIndex, warnings);
                 AppendCompilerWarnings(aoe.StackingDetonation, slotIndex, warnings);
             }
         }

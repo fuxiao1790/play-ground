@@ -53,17 +53,9 @@ namespace PlayGround.System.Combat.Projectiles
             TargetSpatialHashSingleton hash = SystemAPI.GetSingleton<TargetSpatialHashSingleton>();
             state.Dependency = JobHandle.CombineDependencies(state.Dependency, hash.BuildHandle);
 
-            // The spawn lanes and hit-dispatch lane are created unconditionally by their owning
-            // systems' OnCreate. Read them directly: a missing lane is a broken world and must
-            // throw here, not be silently skipped.
-            RefRW<ProjectileSpawnEventSingleton> projectileLane =
-                SystemAPI.GetSingletonRW<ProjectileSpawnEventSingleton>();
-            RefRW<ImpactAoeSpawnEventSingleton> impactAoeLane =
-                SystemAPI.GetSingletonRW<ImpactAoeSpawnEventSingleton>();
-            RefRW<LingeringAoeSpawnEventSingleton> lingeringAoeLane =
-                SystemAPI.GetSingletonRW<LingeringAoeSpawnEventSingleton>();
-            RefRW<TargetedSpawnEventSingleton> targetedLane =
-                SystemAPI.GetSingletonRW<TargetedSpawnEventSingleton>();
+            // The hit-dispatch lane is created unconditionally by its owning system's OnCreate.
+            // Read it directly: a missing lane is a broken world and must throw here, not be
+            // silently skipped.
             RefRW<CombatHitDispatchSingleton> hitDispatch =
                 SystemAPI.GetSingletonRW<CombatHitDispatchSingleton>();
             SpawnTemplateRegistryState registryState = SystemAPI.GetSingleton<SpawnTemplateRegistryState>();
@@ -78,26 +70,11 @@ namespace PlayGround.System.Combat.Projectiles
                 TargetCells = hash.ProjectileCollisionCells,
                 TotalTargetCount = hash.TargetCount,
                 MaxTargetRadius = hash.MaxTargetRadius,
-                HitWriter = hitDispatch.ValueRO.HitQueue.AsParallelWriter(),
-                ProjectileEventWriter = projectileLane.ValueRO.EventQueue.AsParallelWriter(),
-                ImpactAoeEventWriter = impactAoeLane.ValueRO.EventQueue.AsParallelWriter(),
-                LingeringAoeEventWriter = lingeringAoeLane.ValueRO.EventQueue.AsParallelWriter(),
-                TargetedEventWriter = targetedLane.ValueRO.EventQueue.AsParallelWriter()
+                HitWriter = hitDispatch.ValueRO.HitQueue.AsParallelWriter()
             };
 
             var collisionHandle = job.ScheduleParallel(state.Dependency);
 
-            // The collision job writes both expansion EventQueues via ParallelWriter. Those
-            // queues are read on the main thread by the expansion systems, which only complete
-            // their own component-derived dependency. Forward this write job so they wait on it.
-            projectileLane.ValueRW.ProducerHandle =
-                JobHandle.CombineDependencies(projectileLane.ValueRW.ProducerHandle, collisionHandle);
-            impactAoeLane.ValueRW.ProducerHandle =
-                JobHandle.CombineDependencies(impactAoeLane.ValueRW.ProducerHandle, collisionHandle);
-            lingeringAoeLane.ValueRW.ProducerHandle =
-                JobHandle.CombineDependencies(lingeringAoeLane.ValueRW.ProducerHandle, collisionHandle);
-            targetedLane.ValueRW.ProducerHandle =
-                JobHandle.CombineDependencies(targetedLane.ValueRW.ProducerHandle, collisionHandle);
             hitDispatch.ValueRW.ProducerHandle =
                 JobHandle.CombineDependencies(hitDispatch.ValueRW.ProducerHandle, collisionHandle);
             RefRW<TargetSpatialHashSingleton> hashRw = SystemAPI.GetSingletonRW<TargetSpatialHashSingleton>();
@@ -126,10 +103,6 @@ namespace PlayGround.System.Combat.Projectiles
             public int TotalTargetCount;
             [ReadOnly] public NativeReference<float> MaxTargetRadius;
             public NativeQueue<CombatHitEvent>.ParallelWriter HitWriter;
-            public NativeQueue<ProjectileSpawnEvent>.ParallelWriter ProjectileEventWriter;
-            public NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter ImpactAoeEventWriter;
-            public NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter LingeringAoeEventWriter;
-            public NativeQueue<TargetedSpawnEvent>.ParallelWriter TargetedEventWriter;
             public NativeQueue<SpawnTemplateRefDelta>.ParallelWriter SpawnTemplateDeltas;
 
             private struct HitCandidate
@@ -158,7 +131,6 @@ namespace PlayGround.System.Combat.Projectiles
                         ref lifetime,
                         active,
                         arming,
-                        in projectileHit,
                         in timedSpawn,
                         in payload,
                         SpawnTemplateDeltas);
@@ -171,7 +143,6 @@ namespace PlayGround.System.Combat.Projectiles
                         ref lifetime,
                         active,
                         arming,
-                        in projectileHit,
                         in timedSpawn,
                         in payload,
                         SpawnTemplateDeltas);
@@ -185,7 +156,6 @@ namespace PlayGround.System.Combat.Projectiles
                         ref lifetime,
                         active,
                         arming,
-                        in projectileHit,
                         in timedSpawn,
                         in payload,
                         SpawnTemplateDeltas);
@@ -326,16 +296,6 @@ namespace PlayGround.System.Combat.Projectiles
                     float2 impactPoint = math.lerp(segmentStart, segmentEnd, candidate.T);
 
                     ProjectileHitEmission.EnqueueHitEvent(HitWriter, entity, targetEntity, payload);
-                    ProjectileHitEmission.EnqueueOnHitSpawn(
-                        identity,
-                        projectileHit,
-                        impactPoint,
-                        targetPosition.Value,
-                        targetKey,
-                        ProjectileEventWriter,
-                        ImpactAoeEventWriter,
-                        LingeringAoeEventWriter,
-                        TargetedEventWriter);
                     ProjectileHitEmission.AddOrRefreshGate(
                         contactGates,
                         targetKey,
@@ -349,7 +309,6 @@ namespace PlayGround.System.Combat.Projectiles
                             ref lifetime,
                             active,
                             arming,
-                            in projectileHit,
                             in timedSpawn,
                             in payload,
                             SpawnTemplateDeltas);

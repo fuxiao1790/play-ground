@@ -169,38 +169,6 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void ContinuousImpactAoeSpawnsAtImpactInsteadOfFrameEnd()
-        {
-            var template = new AoeSpawnCommand
-            {
-                TypeId = 55,
-                Radius = 0.25f,
-                ShapeType = CombatShapeType.Circle,
-                EchoCount = 1,
-                HitPayload = new CombatHitPayload { DamageAmount = 1f, DirectDamageEnabled = true }
-            };
-            Unity.Entities.Hash128 key = SpawnTemplateHash.Of(in template);
-            aoeTemplateMap.TryAdd(key, template);
-            AddTarget(new float2(8f, 0f), 0.25f);
-            CreateContinuousProjectile(
-                float2.zero,
-                new float2(20f, 0f),
-                pierce: 0,
-                onHitSpawn: new OnHitSpawnRef { Kind = IntervalChildKind.ImpactAoe, TemplateKey = key });
-
-            Tick(1f);
-
-            using EntityQuery query = entityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<AoeTag>(),
-                ComponentType.ReadOnly<CombatKinematicsComponent>());
-            using NativeArray<Entity> aoes = query.ToEntityArray(Allocator.Temp);
-            Assert.That(aoes.Length, Is.EqualTo(1));
-            float2 position = entityManager.GetComponentData<CombatKinematicsComponent>(aoes[0]).Position;
-            Assert.That(math.distance(position, new float2(8f, 0f)), Is.LessThan(0.001f));
-            Assert.That(math.distance(position, new float2(20f, 0f)), Is.GreaterThan(1f));
-        }
-
-        [Test]
         public void SelectedFactionSameFactionTargetIsHit()
         {
             Entity target = AddTarget(
@@ -234,8 +202,7 @@ namespace PlayGround.Tests.PlayMode
             float2 position,
             float2 velocity,
             int pierce,
-            float repeatHitCooldown = 0f,
-            OnHitSpawnRef onHitSpawn = default)
+            float repeatHitCooldown = 0f)
         {
             Entity projectile = entityManager.CreateEntity(
                 typeof(ProjectileTag),
@@ -275,8 +242,7 @@ namespace PlayGround.Tests.PlayMode
             entityManager.SetComponentData(projectile, new ProjectileHitComponent
             {
                 PierceRemaining = pierce,
-                RepeatHitCooldownSeconds = repeatHitCooldown,
-                OnHitSpawn = onHitSpawn
+                RepeatHitCooldownSeconds = repeatHitCooldown
             });
             entityManager.SetComponentData(projectile, new CombatHitPayload
             {

@@ -180,67 +180,6 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator OnImpactTargeted_FiresOneFrameAfterProjectileDamage()
-        {
-            CombatRoot root = CreateRoot(out _);
-            TargetProbe target = CreateTarget(new Vector2(1f, 0f));
-            root.TargetRegistry.Register(target);
-            yield return WaitUntilProxy(target);
-
-            TargetedSpawnCommand targeted = new()
-            {
-                EchoCount = 1,
-                HitPayload = new CombatHitPayload
-                {
-                    DamageAmount = 5f,
-                    CritMultiplier = 1f,
-                    DirectDamageEnabled = true
-                },
-                Resolve = new TargetedResolveConfig
-                {
-                    ChainDistance = 2f,
-                    ChainDamageFalloff = 1f,
-                    ChainCount = 1
-                },
-                VfxSize = new TargetedVfxSizeComponent { EffectSize = 1f, LinkWidth = 1f }
-            };
-            Hash128 targetedKey = root.RegisterSpawnTemplate(in targeted);
-            ProjectileSpawnCommand projectile = new()
-            {
-                Count = 1,
-                Lifetime = 1f,
-                Radius = 0.25f,
-                ShapeType = CombatShapeType.Circle,
-                PierceRemaining = 0,
-                HitPayload = new ProjectileHitPayload(
-                    new CombatHitPayload
-                    {
-                        DamageAmount = 1f,
-                        CritMultiplier = 1f,
-                        DirectDamageEnabled = true
-                    },
-                    new OnHitSpawnRef
-                    {
-                        Kind = IntervalChildKind.Targeted,
-                        TemplateKey = targetedKey
-                    })
-            };
-            Hash128 projectileKey = root.RegisterSpawnTemplate(in projectile);
-            root.SpawnRegisteredProjectile(
-                projectileKey,
-                target.CombatTargetPosition,
-                Vector2.right,
-                count: 1,
-                faction: CombatFaction.Player);
-
-            yield return WaitUntilDamaged(target);
-
-            Assert.That(target.TotalDamage, Is.EqualTo(1f).Within(0.001f));
-            yield return null;
-            Assert.That(target.TotalDamage, Is.EqualTo(6f).Within(0.001f));
-        }
-
-        [UnityTest]
         public IEnumerator LingeringAoeEnergyInterval_SpawnsTargetedChild()
         {
             CombatRoot root = CreateRoot(out _);

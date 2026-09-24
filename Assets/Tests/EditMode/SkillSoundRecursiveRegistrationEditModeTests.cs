@@ -29,17 +29,11 @@ namespace PlayGround.Tests.EditMode
         {
             AudioRoot audioRoot = CreateAudioRoot();
             AudioClip sharedClip = CreateClip("Shared Recursive Spawn");
-            AudioClip impactClip = CreateClip("Impact Spawn");
 
             var intervalChild = new RuntimeAoeDefinition
             {
                 SpawnSound = sharedClip,
                 SpawnSoundRadius = 6f
-            };
-            var impactChild = new RuntimeProjectileDefinition
-            {
-                SpawnSound = impactClip,
-                SpawnSoundRadius = 8f
             };
             var root = new RuntimeProjectileDefinition
             {
@@ -48,33 +42,27 @@ namespace PlayGround.Tests.EditMode
                 AoeIntervalSpawnSetup = new RuntimeAoeIntervalSpawnSetup
                 {
                     ChildDefinition = intervalChild
-                },
-                ImpactProjectileDefinition = impactChild
+                }
             };
             var nullPrefab = new RuntimeProjectileDefinition
             {
                 Prefab = null,
                 SpawnSound = null
             };
-            impactChild.ImpactProjectileDefinition = root;
 
             SkillDriver driver = CreateDriver(audioRoot, root, nullPrefab);
             Assert.DoesNotThrow(() => InvokeRegisterSounds(driver));
 
             int rootId = root.SoundIds.SpawnId;
             int intervalId = intervalChild.SoundIds.SpawnId;
-            int impactId = impactChild.SoundIds.SpawnId;
             Assert.That(rootId, Is.GreaterThan(0));
             Assert.That(intervalId, Is.EqualTo(rootId), "A shared clip must reuse one registry id.");
-            Assert.That(impactId, Is.GreaterThan(0).And.Not.EqualTo(rootId));
             Assert.That(nullPrefab.SoundIds.SpawnId, Is.Zero);
             Assert.That(intervalChild.SpawnSoundRadius, Is.EqualTo(6f));
-            Assert.That(impactChild.SpawnSoundRadius, Is.EqualTo(8f));
 
             Assert.DoesNotThrow(() => InvokeRegisterSounds(driver));
             Assert.That(root.SoundIds.SpawnId, Is.EqualTo(rootId));
             Assert.That(intervalChild.SoundIds.SpawnId, Is.EqualTo(intervalId));
-            Assert.That(impactChild.SoundIds.SpawnId, Is.EqualTo(impactId));
         }
 
         private SkillDriver CreateDriver(

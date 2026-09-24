@@ -98,7 +98,7 @@ namespace PlayGround.Tests.EditMode
                     "Faction", "TargetedId", "TypeId", "RenderTypeId", "InstanceIndex",
                     "JitterSeed", "DeterministicIdTickIndex", "Origin", "AcquireAnchor", "HasAcquiredTarget", "EchoCount",
                     "LifetimeSeconds", "ArmSeconds", "HitPayload", "Resolve",
-                    "VfxIds", "VfxSize", "Render", "Authoring", "OnHitSpawn"
+                    "VfxIds", "VfxSize", "Render", "Authoring"
                 }));
             Assert.That(typeof(TargetedSpawnCommand).GetField("TickIntervalSeconds"), Is.Null);
             Assert.That(typeof(TargetedSpawnCommand).GetField("AimDirection"), Is.Null);

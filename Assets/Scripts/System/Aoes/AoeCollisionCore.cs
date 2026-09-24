@@ -20,20 +20,12 @@ namespace PlayGround.System.Combat.Aoes
 {
     internal static class AoeCollisionCore
     {
-        private const int ImpactAoeIdSalt = 0x5F1A0E;
-        private const int ProjectileBurstIdSalt = 0x7AB025;
-        // ProjectileDiscreteCollisionSystem hashes its own on-hit AOE spawn with the raw
-        // ImpactAoeIdSalt; AoeId and ProjectileId are independent counters that routinely
-        // overlap, so this file's variant is twisted to keep the two id spaces apart.
-        private const int AoeOnHitAoeIdSalt = ImpactAoeIdSalt ^ 0x13579B;
-
         internal static void RunCollision(
             Entity sourceEntity,
             in AoeIdentityComponent identity,
             in CombatHitPayload payload,
             in CombatKinematicsComponent kinematics,
             in CombatCollisionComponent collision,
-            in AoeHitSpawnComponent hitSpawn,
             in TimedSpawnComponent timedSpawn,
             in AoeVfxIds vfxIds,
             in VfxTimingData timing,
@@ -52,16 +44,12 @@ namespace PlayGround.System.Combat.Aoes
             NativeQueue<CombatHitEvent>.ParallelWriter hitWriter,
             NativeQueue<ImpactCircleVfxEvent>.ParallelWriter circularVfxPendingWriter,
             NativeQueue<LingeringCircleVfxEvent>.ParallelWriter timedCircularVfxPendingWriter,
-            NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
-            NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
-            NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter,
-            NativeQueue<TargetedSpawnEvent>.ParallelWriter targetedEventWriter,
             NativeQueue<SpawnTemplateRefDelta>.ParallelWriter spawnTemplateDeltas)
         {
             if (identity.Faction == CombatFaction.None)
             {
                 Deactivate(
-                    active, collisionActive, arming, in hitSpawn, in timedSpawn, in payload, spawnTemplateDeltas);
+                    active, collisionActive, arming, in timedSpawn, in payload, spawnTemplateDeltas);
                 return;
             }
 
@@ -126,16 +114,6 @@ namespace PlayGround.System.Combat.Aoes
 
                         seenTargetKeys[seenTargetKeysStart + seenTargetKeyCount++] = targetKey;
                         EnqueueHitEvent(hitWriter, sourceEntity, targetEntity, in payload);
-                        EnqueueOnHitSpawn(
-                            identity,
-                            kinematics,
-                            hitSpawn,
-                            targetPosition,
-                            targetKey,
-                            projectileEventWriter,
-                            impactAoeEventWriter,
-                            lingeringAoeEventWriter,
-                            targetedEventWriter);
                         EnqueueHitVfx(
                             vfxIds,
                             kinematics,
@@ -154,7 +132,7 @@ namespace PlayGround.System.Combat.Aoes
 
             if (deactivateAfterPass)
                 Deactivate(
-                    active, collisionActive, arming, in hitSpawn, in timedSpawn, in payload, spawnTemplateDeltas);
+                    active, collisionActive, arming, in timedSpawn, in payload, spawnTemplateDeltas);
         }
 
         internal static void EnqueueHitEvent(
@@ -170,90 +148,6 @@ namespace PlayGround.System.Combat.Aoes
                     Source = sourceEntity,
                     Target = targetEntity
                 });
-            }
-        }
-
-        internal static void EnqueueOnHitSpawn(
-            AoeIdentityComponent identity,
-            CombatKinematicsComponent kinematics,
-            AoeHitSpawnComponent hitSpawn,
-            TargetPosition targetPosition,
-            int targetKey,
-            NativeQueue<ProjectileSpawnEvent>.ParallelWriter projectileEventWriter,
-            NativeQueue<ImpactAoeSpawnEvent>.ParallelWriter impactAoeEventWriter,
-            NativeQueue<LingeringAoeSpawnEvent>.ParallelWriter lingeringAoeEventWriter,
-            NativeQueue<TargetedSpawnEvent>.ParallelWriter targetedEventWriter)
-        {
-            if (!hitSpawn.OnHitSpawn.Enabled)
-            {
-                return;
-            }
-
-            switch (hitSpawn.OnHitSpawn.Kind)
-            {
-                case IntervalChildKind.Targeted:
-                    TargetedSpawnEmission.Enqueue(
-                        identity.AoeId,
-                        identity.TypeId,
-                        identity.Faction,
-                        targetPosition.Value,
-                        targetKey,
-                        hitSpawn.OnHitSpawn.Kind,
-                        hitSpawn.OnHitSpawn.TemplateKey,
-                        targetedEventWriter);
-                    break;
-
-                case IntervalChildKind.Projectile:
-                {
-                    int baseId = HashId(identity.AoeId, identity.TypeId, targetKey, ProjectileBurstIdSalt);
-                    projectileEventWriter.Enqueue(new ProjectileSpawnEvent
-                    {
-                        Kind = hitSpawn.OnHitSpawn.Kind,
-                        TemplateKey = hitSpawn.OnHitSpawn.TemplateKey,
-                        Faction = identity.Faction,
-                        Position = targetPosition.Value,
-                        AimDirection = DirectionFromTo(targetPosition.Value, kinematics.Position),
-                        SourceId = baseId,
-                        JitterSeed = (uint)baseId * 2654435761u,
-                        // AOE-source on-hit projectile templates use radial expansion. The
-                        // impact-unique source id keeps this one-shot burst distinct.
-                        DeterministicIdTickIndex = 1,
-                        ContactGateSeedTargetId = targetKey
-                    });
-                    break;
-                }
-
-                case IntervalChildKind.LingeringAoe:
-                {
-                    int aoeId = HashId(identity.AoeId, identity.TypeId, targetKey, AoeOnHitAoeIdSalt);
-                    lingeringAoeEventWriter.Enqueue(new LingeringAoeSpawnEvent
-                    {
-                        Kind = hitSpawn.OnHitSpawn.Kind,
-                        TemplateKey = hitSpawn.OnHitSpawn.TemplateKey,
-                        Faction = identity.Faction,
-                        Position = targetPosition.Value,
-                        SourceId = aoeId,
-                        JitterSeed = (uint)aoeId * 2654435761u,
-                        ContactGateSeedTargetId = targetKey
-                    });
-                    break;
-                }
-
-                case IntervalChildKind.ImpactAoe:
-                {
-                    int aoeId = HashId(identity.AoeId, identity.TypeId, targetKey, AoeOnHitAoeIdSalt);
-                    impactAoeEventWriter.Enqueue(new ImpactAoeSpawnEvent
-                    {
-                        Kind = hitSpawn.OnHitSpawn.Kind,
-                        TemplateKey = hitSpawn.OnHitSpawn.TemplateKey,
-                        Faction = identity.Faction,
-                        Position = targetPosition.Value,
-                        SourceId = aoeId,
-                        JitterSeed = (uint)aoeId * 2654435761u,
-                        ContactGateSeedTargetId = targetKey
-                    });
-                    break;
-                }
             }
         }
 
@@ -288,13 +182,12 @@ namespace PlayGround.System.Combat.Aoes
             EnabledRefRW<Active> active,
             EnabledRefRW<CombatCollisionActiveTag> collisionActive,
             EnabledRefRW<ArmingTag> arming,
-            in AoeHitSpawnComponent hitSpawn,
             in TimedSpawnComponent timedSpawn,
             in CombatHitPayload payload,
             NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas)
         {
             CombatDeathUtility.Kill(active, collisionActive, arming);
-            SpawnTemplateRefEmit.ReleaseAoe(in hitSpawn, in timedSpawn, in payload, deltas);
+            SpawnTemplateRefEmit.ReleaseAoe(in timedSpawn, in payload, deltas);
         }
 
         internal static bool HasHitEvent(in CombatHitPayload payload) =>
@@ -326,30 +219,6 @@ namespace PlayGround.System.Combat.Aoes
             }
 
             return false;
-        }
-
-        private static float2 DirectionFromTo(float2 from, float2 to)
-        {
-            float2 toTarget = to - from;
-            if (math.lengthsq(toTarget) <= 0.0001f)
-            {
-                return new float2(1f, 0f);
-            }
-
-            return math.normalize(toTarget);
-        }
-
-        private static int HashId(int a, int b, int c, int salt)
-        {
-            unchecked
-            {
-                int hash = salt;
-                hash = (hash * 397) ^ a;
-                hash = (hash * 397) ^ b;
-                hash = (hash * 397) ^ c;
-                hash &= int.MaxValue;
-                return hash == 0 ? 1 : hash;
-            }
         }
     }
 }

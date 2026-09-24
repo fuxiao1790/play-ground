@@ -77,15 +77,6 @@ namespace PlayGround.Skills.Runtime
         // Compiled from TargetedIntervalSpawnTrigger; null if none.
         public RuntimeTargetedIntervalSpawnSetup TargetedIntervalSpawnSetup { get; set; }
 
-        // Compiled from OnHitTrigger with an AOE effect; null if none.
-        public RuntimeAoeDefinition ImpactAoeDefinition { get; set; }
-
-        // Compiled from OnHitTrigger with a targeted effect; null if none.
-        public RuntimeTargetedDefinition ImpactTargetedDefinition { get; set; }
-
-        // Compiled from OnHitTrigger with a projectile effect; null if none.
-        public RuntimeProjectileDefinition ImpactProjectileDefinition { get; set; }
-
         // Compiled from StackTrigger; null if none.
         public RuntimeStackingDetonation StackingDetonation { get; set; }
     }

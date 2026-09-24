@@ -166,8 +166,8 @@ its own increased/multiplier factor. For active `A` and triggered `T1`, `T2`:
 
 Internal triggered effects never spend mana again. Only `IntervalSpawnTrigger`
 uses energy: its threshold uses child resolved mana cost, and chain aggregation
-does not change interval timing. `OnHitTrigger` and `StackTrigger` do not accrue
-or consume energy.
+does not change interval timing. `StackTrigger` does not accrue or consume
+energy.
 
 ## Root Cast And Rejection
 

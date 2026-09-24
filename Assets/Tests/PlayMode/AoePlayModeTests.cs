@@ -305,21 +305,6 @@ namespace PlayGround.Tests.PlayMode
             CreateProjectileRoot(out GameObject rootObject, out CombatRoot root);
             var badKind = (IntervalChildKind)99;
 
-            var projectileBadOnHit = new ProjectileSpawnCommand
-            {
-                TypeId = ++nextTargetId,
-                Count = 1,
-                Speed = 10f,
-                Lifetime = 1f,
-                Radius = 0.25f,
-                ShapeType = CombatShapeType.Circle,
-                HitPayload = new ProjectileHitPayload(
-                    new CombatHitPayload { DamageAmount = 1f, DirectDamageEnabled = true },
-                    new OnHitSpawnRef { Kind = badKind, TemplateKey = new Hash128(1u, 0u, 0u, 0u) })
-            };
-            Assert.Throws<global::System.InvalidOperationException>(
-                () => root.RegisterSpawnTemplate(in projectileBadOnHit));
-
             var projectileBadTimedSpawn = new ProjectileSpawnCommand
             {
                 TypeId = ++nextTargetId,
@@ -344,20 +329,6 @@ namespace PlayGround.Tests.PlayMode
             };
             Assert.Throws<global::System.InvalidOperationException>(
                 () => root.RegisterSpawnTemplate(in projectileBadTimedSpawn));
-
-            var aoeBadOnHit = new AoeSpawnCommand
-            {
-                TypeId = ++nextTargetId,
-                Lifetime = 1f,
-                RepeatHitCooldownSeconds = 0.2f,
-                Radius = 1f,
-                ShapeType = CombatShapeType.Circle,
-                EchoCount = 1,
-                HitPayload = new CombatHitPayload { DamageAmount = 1f, DirectDamageEnabled = true },
-                OnHitSpawn = new OnHitSpawnRef { Kind = badKind, TemplateKey = new Hash128(3u, 0u, 0u, 0u) }
-            };
-            Assert.Throws<global::System.InvalidOperationException>(
-                () => root.RegisterSpawnTemplate(in aoeBadOnHit));
 
             Object.DestroyImmediate(rootObject);
         }
@@ -698,91 +669,6 @@ namespace PlayGround.Tests.PlayMode
                 aoeSet,
                 projectileTrigger,
                 aoeTrigger,
-                loadout);
-        }
-
-        [UnityTest]
-        public IEnumerator ProjectileImpactAoeApplicatorStackTriggerDetonatesStackSet()
-        {
-            CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject rootTemplateObject, out _);
-            BasicAttackPrefab projectilePrefab = CreateProjectilePrefab("RootProjectileTemplate");
-            BasicAoePrefab applicatorPrefab = CreateAoePrefab("ApplicatorAoeTemplate");
-            BasicAoePrefab detonationPrefab = CreateAoePrefab("DetonationAoeTemplate");
-            ProjectileSkill rootSkill = ScriptableObject.CreateInstance<ProjectileSkill>();
-            AoeSkill applicatorSkill = ScriptableObject.CreateInstance<AoeSkill>();
-            AoeSkill detonationSkill = ScriptableObject.CreateInstance<AoeSkill>();
-            SkillSet rootSet = ScriptableObject.CreateInstance<SkillSet>();
-            SkillSet applicatorSet = ScriptableObject.CreateInstance<SkillSet>();
-            SkillSet detonationSet = ScriptableObject.CreateInstance<SkillSet>();
-            OnHitTrigger impactTrigger = ScriptableObject.CreateInstance<OnHitTrigger>();
-            StackTrigger stackTrigger = ScriptableObject.CreateInstance<StackTrigger>();
-            SkillLoadout loadout = ScriptableObject.CreateInstance<SkillLoadout>();
-            GameObject driverObject = new("SkillDriverHarness");
-            driverObject.SetActive(false);
-            SkillDriver driver = driverObject.AddComponent<SkillDriver>();
-
-            ConfigureProjectile(rootSkill, projectilePrefab, damage: 0f);
-            ConfigureAoe(applicatorSkill, applicatorPrefab, damage: 0f);
-            ConfigureAoe(detonationSkill, detonationPrefab, damage: 6f);
-            stackTrigger.stackThreshold = 2;
-            stackTrigger.debuffLifetimeSeconds = 10f;
-            SetField(rootSet, "skill", rootSkill);
-            SetField(rootSet, "supports", global::System.Array.Empty<SkillSupport>());
-            SetField(applicatorSet, "skill", applicatorSkill);
-            SetField(applicatorSet, "supports", global::System.Array.Empty<SkillSupport>());
-            SetField(detonationSet, "skill", detonationSkill);
-            SetField(detonationSet, "supports", global::System.Array.Empty<SkillSupport>());
-            SetField(loadout, "slots", new global::System.Collections.Generic.List<LoadoutSlot>
-            {
-                new SkillSetSlot { skillSet = rootSet },
-                new TriggerLinkSlot { link = impactTrigger },
-                new SkillSetSlot { skillSet = applicatorSet },
-                new TriggerLinkSlot { link = stackTrigger },
-                new SkillSetSlot { skillSet = detonationSet },
-            });
-            SetField(driver, "loadout", loadout);
-            SetField(driver, "combatRoot", root);
-            CompileAndRegister(driver);
-            RuntimeSkillDefinition runtime = FirstCompiledRuntime(driver);
-            Assert.That(runtime, Is.TypeOf<RuntimeProjectileDefinition>());
-            var projectileRuntime = (RuntimeProjectileDefinition)runtime;
-            Assert.That(projectileRuntime.ImpactAoeDefinition, Is.Not.Null);
-            Assert.That(projectileRuntime.ImpactAoeDefinition.StackingDetonation, Is.Not.Null);
-
-            MobRoot mob = CreateMobTarget(new Vector2(1f, 0f));
-            mob.BindCombatRoot(root);
-            mob.Register(root.TargetRegistry);
-            SkillSpawnTranslator.Spawn(runtime, Vector2.zero, Vector2.right, Vector2.zero, root, CombatFaction.Player);
-            for (int i = 0; i < 4; i++)
-                yield return null;
-
-            int debuffKey = projectileRuntime.ImpactAoeDefinition.StackingDetonation.DebuffKey;
-            Assert.That(EcsDebuffStackCount(mob, debuffKey), Is.EqualTo(1));
-
-            SkillSpawnTranslator.Spawn(runtime, Vector2.zero, Vector2.right, Vector2.zero, root, CombatFaction.Player);
-            for (int i = 0; i < 8; i++)
-                yield return null;
-
-            Assert.That(EcsDebuffStackCount(mob, debuffKey), Is.EqualTo(0));
-            Assert.That(mob.CurrentHealth, Is.EqualTo(mob.MaxHealth - 6f).Within(0.001f));
-
-            Cleanup(
-                rootObject,
-                rootTemplateObject,
-                projectilePrefab.gameObject,
-                applicatorPrefab.gameObject,
-                detonationPrefab.gameObject,
-                driverObject,
-                mob.gameObject);
-            CleanupObjects(
-                rootSkill,
-                applicatorSkill,
-                detonationSkill,
-                rootSet,
-                applicatorSet,
-                detonationSet,
-                impactTrigger,
-                stackTrigger,
                 loadout);
         }
 
