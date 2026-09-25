@@ -59,7 +59,6 @@ namespace PlayGround.System.Combat.Projectiles
                 typeof(CombatRenderComponent),
                 typeof(CombatRenderAuthoring),
                 typeof(CombatRenderKindId),
-                typeof(ProjectileTrailVfxComponent),
                 typeof(Active),
                 typeof(CombatCollisionActiveTag),
                 typeof(ArmingTag),
@@ -149,7 +148,6 @@ namespace PlayGround.System.Combat.Projectiles
                         RenderHandle = GetComponentTypeHandle<CombatRenderComponent>(false),
                         AuthoringHandle = GetComponentTypeHandle<CombatRenderAuthoring>(false),
                         RenderBatchIdHandle = GetComponentTypeHandle<CombatRenderKindId>(false),
-                        TrailVfxHandle = GetComponentTypeHandle<ProjectileTrailVfxComponent>(false),
                         ContactGateHandle = GetBufferTypeHandle<ProjectileContactGateElement>(false),
                         ArmingHandle = GetComponentTypeHandle<CombatArmingComponent>(false),
                         ArmingTagHandle = GetComponentTypeHandle<ArmingTag>(false),
@@ -195,7 +193,6 @@ namespace PlayGround.System.Combat.Projectiles
             public ComponentTypeHandle<CombatRenderComponent> RenderHandle;
             public ComponentTypeHandle<CombatRenderAuthoring> AuthoringHandle;
             public ComponentTypeHandle<CombatRenderKindId> RenderBatchIdHandle;
-            public ComponentTypeHandle<ProjectileTrailVfxComponent> TrailVfxHandle;
             public BufferTypeHandle<ProjectileContactGateElement> ContactGateHandle;
             public ComponentTypeHandle<CombatArmingComponent> ArmingHandle;
             public ComponentTypeHandle<ArmingTag> ArmingTagHandle;
@@ -238,8 +235,6 @@ namespace PlayGround.System.Combat.Projectiles
                         chunk.GetNativeArray(ref AuthoringHandle);
                     NativeArray<CombatRenderKindId> batchIds =
                         chunk.GetNativeArray(ref RenderBatchIdHandle);
-                    NativeArray<ProjectileTrailVfxComponent> trailVfx =
-                        chunk.GetNativeArray(ref TrailVfxHandle);
                     BufferAccessor<ProjectileContactGateElement> gates =
                         chunk.GetBufferAccessor(ref ContactGateHandle);
                     NativeArray<CombatArmingComponent> armings =
@@ -268,7 +263,6 @@ namespace PlayGround.System.Combat.Projectiles
                             renders,
                             authorings,
                             batchIds,
-                            trailVfx,
                             gates,
                             armings,
                             timedSpawns,

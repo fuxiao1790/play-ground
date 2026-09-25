@@ -11,7 +11,6 @@ using PlayGround.System.Combat.Stats;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Projectiles;
-using PlayGround.System.Combat.Vfx;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
@@ -242,7 +241,6 @@ namespace PlayGround.Tests.PlayMode
         private void TickMovement(float dt)
         {
             SimulationSystemGroup simGroup = testWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
-            testWorld.GetOrCreateSystemManaged<CombatAoeVfxDispatchSystem>();
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileMovementSystem>());
             simGroup.SortSystems();
             elapsedTime += dt;
@@ -387,7 +385,6 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatRenderComponent),
                 typeof(CombatRenderAuthoring),
                 typeof(CombatRenderKindId),
-                typeof(ProjectileTrailVfxComponent),
                 typeof(Active),
                 typeof(CombatCollisionActiveTag),
                 typeof(ArmingTag),

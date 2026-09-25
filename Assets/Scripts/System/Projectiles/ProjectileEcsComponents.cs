@@ -32,17 +32,6 @@ namespace PlayGround.System.Combat.Projectiles
         public float RepeatHitCooldownSeconds;
     }
 
-    // ECS Lifecycle: base projectile component; added by spawn materialization; reset on reuse.
-    // LastEmitPosition reseeds to spawn position, preventing a reused slot from drawing back to
-    // its previous occupant. TrailId 0 means no authored trail and an immediate movement-job return.
-    public struct ProjectileTrailVfxComponent : IComponentData
-    {
-        public int TrailId;
-        public float Width;
-        public float StepDistance;
-        public float2 LastEmitPosition;
-    }
-
     // ECS Lifecycle: enableable base projectile component; added by spawn materialization; kept until root teardown; reset and enabled only for homing projectiles on reuse.
     public struct ProjectileTrackingComponent : IComponentData, IEnableableComponent
     {

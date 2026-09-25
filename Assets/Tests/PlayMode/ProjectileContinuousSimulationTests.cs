@@ -211,7 +211,6 @@ namespace PlayGround.Tests.PlayMode
                 typeof(CombatKinematicsComponent),
                 typeof(ProjectileContinuousStepComponent),
                 typeof(CombatCollisionComponent),
-                typeof(ProjectileTrailVfxComponent),
                 typeof(CombatLifetimeComponent),
                 typeof(ProjectileHitComponent),
                 typeof(CombatHitPayload),

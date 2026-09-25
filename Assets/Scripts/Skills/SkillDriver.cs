@@ -568,7 +568,6 @@ namespace PlayGround.Skills
 
             if (def is RuntimeProjectileDefinition projDef && projDef.Prefab != null)
             {
-                RegisterProjectileVfx(projDef);
                 if (combatRoot != null && projDef.TypeId < 0)
                 {
                     projDef.TypeId = combatRoot.RegisterTemplate(projDef.Prefab);
@@ -1165,18 +1164,6 @@ namespace PlayGround.Skills
             definition.SetVfxIds(vfxIds);
         }
 
-        private void RegisterProjectileVfx(RuntimeProjectileDefinition projDef)
-        {
-            if (projDef?.Prefab == null)
-                return;
-
-            projDef.TrailVfxId = vfxRoot != null
-                ? vfxRoot.Register(projDef.Prefab.TrailEffect, projDef.Prefab.TrailEffectShape)
-                : 0;
-            projDef.TrailWidth = projDef.Prefab.TrailWidth;
-            projDef.TrailStepDistance = projDef.Prefab.TrailStepDistance;
-        }
-
         private static T FindRootByTag<T>(string tag) where T : Component
         {
             try
@@ -1224,9 +1211,6 @@ namespace PlayGround.Skills
                 SoundIds = child.SoundIds,
                 SpawnSoundRadius = child.SpawnSoundRadius,
                 RenderTypeId = child.RenderId,
-                TrailVfxId = child.TrailVfxId,
-                TrailWidth = child.TrailWidth,
-                TrailStepDistance = child.TrailStepDistance,
                 HasTimedSpawner = hasTimedSpawner ? 1 : 0,
                 ContinuousCollision = child.ContinuousCollision ? 1 : 0,
                 Speed = child.Speed,

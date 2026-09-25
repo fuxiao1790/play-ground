@@ -8,7 +8,7 @@ namespace PlayGround.Tests.EditMode
 {
     public class AgentVfxReadCompatibilityTests
     {
-        private const string GraphPath = "Assets/Vfx/LineSeg/MagicBoltTrail.vfx";
+        private const string GraphPath = "Assets/Vfx/LineSeg/PlagueLink.vfx";
 
         [Test]
         public void ReadGraph_ReportsNodesSlotsAndFlow()
