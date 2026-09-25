@@ -127,12 +127,18 @@ Supported trigger meanings:
   child; positive charge advances it. Future gain is stat-folded; starting
   charge is not energy-gain stat input. This is the only trigger that accrues
   time-based energy.
-- `StackTrigger`: link owns `stackThreshold`, `debuffLifetimeSeconds`, and
-  `stacksPerHit`. Each applicator hit accrues target-local `TargetStackEntry`
-  state keyed by its compiled `DebuffKey`. Because `StatusProcessSystem` runs
-  before hit finalization, it evaluates newly accrued stacks on the next
-  simulation update, fires one detonation per complete threshold, and preserves
-  any remainder. Stack count is not energy.
+- `HitEnergyTrigger`: link compiles as a `RuntimeHitEnergyTrigger` attached to
+  the adjacent source definition; it is composition, not a skill-definition
+  subtype. Effective values are
+  `max(1e-3, source.TriggerEnergy * energyContributionMultiplier)` per accepted
+  hit and
+  `max(1e-3, triggered.TriggerEnergy * energyRequirementMultiplier)` per
+  activation. Each compiled edge receives a unique `AccumulatorId`, so repeated
+  use of the same assets or equal values cannot share target-local
+  `TargetHitEnergy`. `HitEnergyActivationSystem` processes retained float energy
+  before hit finalization, emits one registered-template spawn per complete
+  requirement, preserves fractional remainder and capped overflow, and sees
+  deposits from the current update on the next update.
 
 ### Projectile Launch Aim
 
@@ -164,10 +170,11 @@ its own increased/multiplier factor. For active `A` and triggered `T1`, `T2`:
 (A * factor1 * factor2) + (T1 * factor1) + (T2 * factor2)
 ```
 
-Internal triggered effects never spend mana again. Only `IntervalSpawnTrigger`
-uses energy: its threshold uses child resolved mana cost, and chain aggregation
-does not change interval timing. `StackTrigger` does not accrue or consume
-energy.
+Internal triggered effects never spend mana again. `IntervalSpawnTrigger`
+alone uses time-based interval energy: its threshold uses child resolved mana
+cost, and chain aggregation does not change interval timing. Hit energy is a
+separate target-local value deposited by accepted hits; it never changes
+interval charge or mana behavior.
 
 ## Root Cast And Rejection
 

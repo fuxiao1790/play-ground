@@ -10,7 +10,7 @@ Target loop:
 - move, dash, aim, and fire from the player
 - spawn mobs from authored spawn points
 - mobs wander, acquire player, chase, react to damage, attack, and die
-- player attacks include projectiles, AOEs, impact explosions, and stack-triggered explosions
+- player attacks include projectiles, AOEs, impact explosions, and hit-energy activations
 - combat pressure grows through richer mob behavior, attack modifiers, spawn tuning, and damage patterns
 
 ## Core Design

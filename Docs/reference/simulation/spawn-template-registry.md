@@ -25,7 +25,7 @@ The flow is plain-data end to end:
 - damage and status are finalized in ECS and bridged once per hit target
 
 This rule applies to projectile -> AOE, projectile -> projectile, AOE ->
-projectile, AOE -> AOE, stack-triggered detonations, energy-driven child spawns,
+projectile, AOE -> AOE, hit-energy activations, energy-driven child spawns,
 and future chained effects.
 
 ## Registry Concurrency Contract
@@ -51,7 +51,7 @@ reads remain safe; this ordering is load-bearing, not incidental.
 ## Unified Spawn Model
 
 A follow-up spawn is just a spawn. The source 鈥?projectile impact, AOE on-hit,
-stack detonation, interval tick 鈥?does not change the result: some projectiles or
+hit-energy activation, interval tick 鈥?does not change the result: some projectiles or
 AOEs are created. Every follow-up therefore reduces to one keyed spawn, not a
 bespoke per-source snapshot.
 
@@ -65,10 +65,9 @@ source holds the key; expansion dereferences it. This replaces the embedded
 per-source snapshot structs (`AoeProjectileBurstSnapshot`,
 `ProjectileImpactProjectileSnapshot`, `ProjectileImpactAoeSnapshot`,
 `AoeOnHitSpawnSnapshot`) and removes the value-type cycle they forced
-(`StackEffectSnapshot -> DetonationSnapshot -> AoeProjectileBurstSnapshot`): a key
-reference cannot form a struct cycle. A stacking detonation is likewise just a
-`(kind, key)` plus contribution; `StackEffectSnapshot` carries the detonation key,
-not an embedded `DetonationSnapshot`.
+formerly caused by embedded recursive snapshots: a key reference cannot form a
+struct cycle. Hit-energy output likewise carries a compact `HitEnergySpawn`
+reference `(kind, faction, key)`; registered template data is not embedded.
 
 ### Events Carry No Data
 
@@ -184,19 +183,19 @@ public struct CombatHitPayload
     public float CritMultiplier;
     public bool DirectDamageEnabled;
     public EntityId SourceNodeId;
-    public StackEffectSnapshot StackEffect;
+    public HitEnergyPayload HitEnergy;
 }
 ```
 
-It carries direct damage, crit inputs, source-node identity, and the optional
-applied-stack payload. The stack payload is plain data resolved before root
-spawn; in-flight entities never read authoring assets or registries.
+It carries direct damage, crit inputs, source-node identity, and optional
+hit-energy payload. Payload values are copied before root spawn; in-flight
+entities never read authoring assets.
 
 ## Events As Templates
 
 Spawn template registries store command-shaped templates so entities that can
 spawn other entities can reference them by key. This is the shared storage for
-all follow-up spawn behavior 鈥?interval, on-hit, and detonation:
+all follow-up spawn behavior 鈥?interval, on-hit, and hit-energy activation:
 
 ```csharp
 public struct ProjectileSpawnTemplate : IComponentData
@@ -247,6 +246,10 @@ despawn emits one release onto a shared `NativeQueue<SpawnTemplateRefDelta>`;
 count. Spawn-apply, collision, and lifetime systems hold a `ParallelWriter` and
 nothing more. Both halves go through `SpawnTemplateRefEmit`, the single definition of
 which keys each domain carries, so acquire and release cannot disagree.
+Because parallel queue order is undefined, the drain first sums signed deltas by
+registry identity and applies each net change once. A release observed before its
+same-tick acquire therefore cannot create a false negative count or leak a reference;
+the negative-count assertion reports only a genuinely negative net lifetime balance.
 
 Two rules keep the accounting exact:
 
@@ -362,7 +365,7 @@ when pierce is consumed.
 
 AOE commands and component data carry:
 
-- `CombatHitPayload` 鈥?hit payload with optional stack effect
+- `CombatHitPayload` 鈥?hit payload with optional hit-energy contribution
 - `TimedSpawnComponent` 鈥?optional interval-child spawn config
 
 When an AOE hit qualifies, AOE collision may emit:
@@ -383,7 +386,7 @@ Targets are represented by proxy entities:
 - `TargetFaction`
 - `Health`
 - `TargetCompanion`
-- `TargetStackEntry` buffer
+- `TargetHitEnergy` buffer
 
 Player and mob roots push position and shape into their proxy in `Update()`.
 Collision, tracking, damage apply, and status jobs read only unmanaged proxy
@@ -445,49 +448,43 @@ AoeSpawnRequest
   -> ICombatTarget.ReceiveCombatTick
 ```
 
-For stack payloads, finalization writes `TargetStackEntry`. On the next
-simulation update, `StatusProcessSystem` evaluates that entry and may enqueue a
-projectile or AOE detonation event before spawn expansion.
+For hit-energy payloads, finalization deposits into `TargetHitEnergy`. On the
+next simulation update, `HitEnergyActivationSystem` may enqueue an output before
+spawn expansion.
 
-## Stack Effect Resolution
+## Hit-Energy Resolution
 
-`StackEffectSnapshot` is part of `CombatHitPayload`. It is a single-level
-applied-stack payload, not managed damage replay data.
+`HitEnergyPayload` is part of `CombatHitPayload`. It carries only copied
+primitive values and ids required by ECS.
 
-Current stacking direction:
+1. `HitEnergyTrigger` compiles its adjacent output SkillSet into a
+   `RuntimeHitEnergyTrigger` composition attached to the source definition.
+   Every compiled edge receives a unique `AccumulatorId`, independent of asset
+   identity, equal values, runtime type, or template key.
+2. Effective contribution is
+   `max(1e-3, source.TriggerEnergy * energyContributionMultiplier)`. Effective
+   requirement is
+   `max(1e-3, triggered.TriggerEnergy * energyRequirementMultiplier)`.
+3. Output registration happens before source payload construction.
+   `HitEnergySpawn` carries only output kind, faction, and registered template
+   key. That template is sole authority for damage, area, count, crit, launch,
+   and descendant behavior.
+4. Projectile, impact AOE, lingering AOE, and targeted source entities receive
+   the same `HitEnergyPayload`. Collision emits it unchanged with accepted hits.
+5. `CombatApplyFinalizeSingleSystem` deposits `EnergyPerHit` into target-local
+   `TargetHitEnergy` keyed by `AccumulatorId`, refreshes `EnergyRequired`, output
+   reference, and expiry, then freezes one `CombatTickResult` per hit target.
+6. `HitEnergyActivationSystem` runs before current-update finalization and spawn
+   expansion. It expires stale entries, emits one registered output per complete
+   requirement, subtracts only emitted energy, and retains float remainder plus
+   overflow beyond 256 activations per target/update. Current-update deposits
+   therefore become eligible on the next update.
+7. Only the adjacent source node funds its next node. Reused Skill and SkillSet
+   assets compile into independent runtime nodes and independent edge ids.
 
-1. `StackTrigger` compiles its normal target skill set, wraps that result in a
-   `RuntimeStackingDetonation`, and copies the link's `stackThreshold`,
-   `debuffLifetimeSeconds`, and `stacksPerHit`. The debuff key is minted during
-   runtime registration for that compiled detonation instance; it is not
-   authored and is not the detonation type id.
-2. The source projectile, AOE, or targeted applicator receives one
-   `StackEffectSnapshot`. Spawn expansion and apply copy that payload without
-   transformation.
-3. Applicator collision keeps direct health damage and stack accrual on one ECS
-   hit path by emitting `CombatHitEvent` with target proxy, direct-damage data,
-   source metadata, and stack snapshot.
-4. `CombatApplyFinalizeSingleSystem` buckets hits by target proxy, rolls crits,
-   subtracts ECS-owned `Health`, writes target-local `TargetStackEntry` buffers
-   keyed by `DebuffKey`, refreshes their expiry deadline, and
-   freezes one `CombatTickResult` per hit target. It also accumulates
-   `SummedDamage`, `SummedProjectileCount`, and `SummedArea`, but current
-   detonation processing does not consume those totals.
-5. On the next simulation update, `StatusProcessSystem` runs before hit
-   finalization and spawn expansion. It expires stale entries and queues one
-   AOE or projectile detonation per full threshold banked, preserving a
-   sub-threshold remainder. Stacks accrued by current-update finalization are
-   therefore not eligible until the next update. Emitted events carry the
-   registered detonation template key, whose stored values determine damage,
-   count, area, and other spawn behavior.
-6. Composition uses ordinary hit-spawn snapshots carried by runtime
-   definitions. The next applicator is a new spawn with its own stack payload
-   and detonation debuff key.
-
-Managed target callbacks receive aggregated combat tick data and changed status
-snapshots. Stack accrual and threshold detonation are owned by ECS.
-`StackEffectSnapshot.Enabled` requires `Lifetime > 0`; consequently,
-`debuffLifetimeSeconds = 0` disables the stack effect.
+Managed callbacks receive aggregated combat results and changed
+`HitEnergyProgress`; ECS owns target-local accumulation and activation. Hit
+energy remains separate from `IntervalSpawnTrigger` time-based interval energy.
 
 ## Damage And Status Finalization
 
@@ -502,12 +499,12 @@ Collision jobs enqueue `CombatHitEvent` into
 - hit position
 - source node id
 - source id and type id
-- stack snapshot
+- hit-energy payload
 
 `CombatApplyFinalizeSystem` runs after collision and before spawn expansion. It
 completes producers, buckets hits by target proxy, rolls crits with deterministic
 random state, sums damage per target, subtracts ECS-owned `Health`, accrues
-status stacks, and freezes one `CombatTickResult` per hit target.
+hit-energy progress, and freezes one `CombatTickResult` per hit target.
 
 `CombatApplyBridge` runs in `PresentationSystemGroup`. It resolves
 `TargetCompanion` and calls `ICombatTarget.ReceiveCombatTick` once per target
@@ -522,7 +519,7 @@ aggregate damage, hit count, crit count, health, and status ranges.
 Every follow-up spawn uses the same `(kind, Hash128)` reference into the
 registry, regardless of the source:
 
-- stack projectile detonation: `StackEffectSnapshot.DetonationKey` (Projectile kind)
+- hit-energy output: `HitEnergyPayload.Spawn.TemplateKey`
 - energy child spawn: `TimedSpawnComponent.TemplateKey`
 
 Collision and timed-spawn systems emit slim `SpawnEvent` links (kind + key +
@@ -564,20 +561,15 @@ payloads.
   reuses the old key.
 - Confirm stored templates have per-instance fields zeroed before hashing.
 - Confirm `sizeof(AoeSpawnCommand) < 4096`.
-- Fire stacking applicators with AOE and projectile sources whose detonation is
-  projectile; confirm both materialize a projectile nova using count and damage
-  from the registered projectile template.
-- Fire a stacking applicator; confirm the applied AOE/projectile entity carries
-  one `StackEffectSnapshot` in its hit payload.
-- Apply stacks below threshold and stop refreshing; confirm the target
-  `TargetStackEntry` fizzles with no detonation.
-- Apply mixed fire-time contributions to one debuff key; confirm contribution
-  totals accumulate on `TargetStackEntry` but detonation still uses the
-  registered template values.
-- Author `debuffLifetimeSeconds = 0`; confirm `StackEffectSnapshot` is disabled
-  and no target stack entry is accrued.
-- Run a lingering-AOE 鈫?on-hit projectile 鈫?stack detonation chain; confirm
-  three levels materialize correctly through the registry.
+- Fire AOE and projectile sources with a hit-energy projectile output; confirm
+  both materialize using count and damage from the registered template.
+- Confirm each applied source entity carries one `HitEnergyPayload`.
+- Deposit energy below requirement and stop refreshing; confirm target
+  `TargetHitEnergy` expires with no activation.
+- Deposit fractional energy; confirm activation preserves exact remainder and
+  still uses registered template values.
+- Run a lingering-AOE -> on-hit projectile -> hit-energy output chain; confirm
+  all three levels materialize correctly through the registry.
 - Confirm the registry count is unchanged after a simulation tick.
 - Register identical content twice, unregister one owner, and confirm the entry
   survives. Release the final owner and confirm it reclaims after the sweep.

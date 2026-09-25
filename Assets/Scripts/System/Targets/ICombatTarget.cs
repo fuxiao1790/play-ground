@@ -31,14 +31,14 @@ namespace PlayGround.System.Combat.Targets
             DamageSnapshot damage,
             Vector2 position,
             bool directDamageEnabled = true,
-            StackEffectSnapshot stackEffect = default,
+            HitEnergyPayload hitEnergy = default,
             EntityId sourceNodeId = default)
         {
             Kind = kind;
             Damage = damage;
             Position = position;
             DirectDamageEnabled = directDamageEnabled;
-            StackEffect = stackEffect;
+            HitEnergy = hitEnergy;
             SourceNodeId = sourceNodeId;
         }
 
@@ -46,22 +46,28 @@ namespace PlayGround.System.Combat.Targets
         public DamageSnapshot Damage { get; }
         public Vector2 Position { get; }
         public bool DirectDamageEnabled { get; }
-        public StackEffectSnapshot StackEffect { get; }
+        public HitEnergyPayload HitEnergy { get; }
         public EntityId SourceNodeId { get; }
     }
 
-    public readonly struct StatusStackSnapshot
+    public readonly struct HitEnergyProgress
     {
-        public StatusStackSnapshot(int debuffKey, int count, float lifetimeRemaining)
+        public HitEnergyProgress(
+            int accumulatorId,
+            float storedEnergy,
+            float energyRequired,
+            float retentionRemaining)
         {
-            DebuffKey = debuffKey;
-            Count = count;
-            LifetimeRemaining = lifetimeRemaining;
+            AccumulatorId = accumulatorId;
+            StoredEnergy = storedEnergy;
+            EnergyRequired = energyRequired;
+            RetentionRemaining = retentionRemaining;
         }
 
-        public int DebuffKey { get; }
-        public int Count { get; }
-        public float LifetimeRemaining { get; }
+        public int AccumulatorId { get; }
+        public float StoredEnergy { get; }
+        public float EnergyRequired { get; }
+        public float RetentionRemaining { get; }
     }
 
     public interface ICombatTarget
@@ -90,7 +96,7 @@ namespace PlayGround.System.Combat.Targets
 
         void ReceiveCombatTick(
             in CombatTickResult result,
-            IReadOnlyList<StatusStackSnapshot> stacks)
+            IReadOnlyList<HitEnergyProgress> hitEnergyProgress)
         {
             if (result.DamageTaken > 0f)
             {
@@ -101,9 +107,9 @@ namespace PlayGround.System.Combat.Targets
                 ReceiveHit(in aggregateHit);
             }
 
-            if (stacks.Count > 0)
+            if (hitEnergyProgress.Count > 0)
             {
-                ReceiveStatus(stacks);
+                ReceiveHitEnergyProgress(hitEnergyProgress);
             }
         }
 
@@ -116,7 +122,7 @@ namespace PlayGround.System.Combat.Targets
             }
         }
 
-        void ReceiveStatus(IReadOnlyList<StatusStackSnapshot> stacks)
+        void ReceiveHitEnergyProgress(IReadOnlyList<HitEnergyProgress> progress)
         {
         }
 
@@ -126,12 +132,12 @@ namespace PlayGround.System.Combat.Targets
 
         void ReceiveCombat(
             IReadOnlyList<CombatHitData> hits,
-            IReadOnlyList<StatusStackSnapshot> stacks)
+            IReadOnlyList<HitEnergyProgress> hitEnergyProgress)
         {
             ReceiveHits(hits);
-            if (stacks.Count > 0)
+            if (hitEnergyProgress.Count > 0)
             {
-                ReceiveStatus(stacks);
+                ReceiveHitEnergyProgress(hitEnergyProgress);
             }
         }
     }

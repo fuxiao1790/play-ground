@@ -20,8 +20,8 @@ concrete consumer.
 
 Each support derives from `SkillSupport`. Augment supports derive from
 `StatModifierSupport`, which carries `SupportedSkillTags` for validation, and
-then implement one or more kind interfaces. Stack behavior is trigger-link
-configuration on `StackTrigger`, not a support or stat modifier.
+then implement one or more kind interfaces. Hit-energy behavior is trigger-link
+configuration on `HitEnergyTrigger`, not a support or stat modifier.
 
 The stat-specific augment interfaces are composable, not mutually exclusive
 base classes. Every stat kind (`Damage`, `AreaSize`, `ProjectileSpeed`,

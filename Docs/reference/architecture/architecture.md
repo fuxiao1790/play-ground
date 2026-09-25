@@ -67,7 +67,7 @@ stay narrow and explicit.
 - `GameRoot`: scene-level service binding and diagnostics.
 - `PlayerRoot`: player movement, facing, skill driver, health, target proxy
   push/delete, and `ICombatTarget` implementation.
-- `MobRoot`: mob health, behavior, projectile attack, status stacks, death
+- `MobRoot`: mob health, behavior, projectile attack, hit-energy progress, death
   cleanup, target proxy push/delete, and `ICombatTarget` implementation.
 - Mob spawning: reset; replacement ownership is not yet defined.
 - `CombatRoot`: per-faction combat bridge. Owns target registry, projectile/AOE
@@ -278,12 +278,13 @@ One held fire input can perform every ready equipped skill in the same frame.
 - health and soft death
 - behavior triggers and state driver
 - optional projectile attack
-- stack/status handling
+- hit-energy/status handling
 - target proxy lifecycle
 - managed hit replay through `ICombatTarget`
 
-Stack-triggered AOEs are decided on the mob/status side and submitted through a
-combat root. The AOE runtime only materializes and resolves the spawned AOE.
+Hit-energy AOEs are emitted by `HitEnergyActivationSystem` through existing
+spawn lanes and a registered output template. The AOE runtime only materializes
+and resolves the spawned AOE.
 
 ## Camera And Play Area
 

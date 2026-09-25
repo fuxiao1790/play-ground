@@ -73,7 +73,8 @@ PlayMode:
 - projectile children carry child-specific hit payloads
 - player AOE hits mobs only
 - mob AOE hits player only
-- stack-triggered projectile explosion
+- hit-energy projectile activation, fractional remainder, retention, per-edge
+  isolation, activation cap, and registered-template output authority
 - targeted root cast chains mobs without projectile or AOE entities
 - targeted impact and interval trigger chains
 - targeted link VFX emits one line segment per resolved link
@@ -116,6 +117,27 @@ apart — `TestResults-PlayMode-Baseline.xml`,
 
 This file is the only evidence an agent may use to report a test outcome. Logs,
 console output, and screenshots do not substitute for it.
+
+For hit-energy validation, export these two result files and keep them separate:
+
+- EditMode: `Logs/TestResults-EditMode-HitEnergyTrigger.xml`; run
+  `PlayGround.Tests.EditMode.TriggerEnergyCompilerEditModeTests`,
+  `PlayGround.Tests.EditMode.SkillValidationEditModeTests`,
+  `PlayGround.Tests.EditMode.ProjectileContinuousAuthoringEditModeTests`,
+  `PlayGround.Tests.EditMode.CombatHitDamageScaleEditModeTests`, and
+  `PlayGround.Tests.EditMode.SpawnTemplateRefCountSystemEditModeTests`.
+- PlayMode: `Logs/TestResults-PlayMode-HitEnergyTrigger.xml`; run
+  `PlayGround.Tests.PlayMode.AoeSimulationTests`,
+  `PlayGround.Tests.PlayMode.AoePlayModeTests`,
+  `PlayGround.Tests.PlayMode.TargetedSkillPlayModeTests`,
+  `PlayGround.Tests.PlayMode.ProjectileCollisionSimulationTests`,
+  `PlayGround.Tests.PlayMode.ProjectileContinuousSimulationTests`, and
+  `PlayGround.Tests.PlayMode.SpawnCommandUnificationTests`.
+
+Hit-energy tests cover compiler formulas and adjacency, repeated-asset edge
+isolation, float threshold/remainder/expiry behavior, 32-entry and
+256-activation bounds, next-update timing, and registered-template authority.
+Interval-energy tests remain separate and must continue to pass unchanged.
 
 For non-test editor automation, such as scene or prefab builders, use headless
 batch mode and include `-quit` because the called editor method owns the work:

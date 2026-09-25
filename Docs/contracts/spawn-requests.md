@@ -22,7 +22,7 @@ Current request types:
 
 They carry resolved runtime values such as position, direction, faction, type
 ids, geometry, damage/crit values, lifetime, tracking, count/spread, render
-data, VFX ids, stack snapshots, and optional child/impact spawn snapshots.
+data, VFX ids, hit-energy payloads, and optional child/impact spawn references.
 
 ## Guarantees
 

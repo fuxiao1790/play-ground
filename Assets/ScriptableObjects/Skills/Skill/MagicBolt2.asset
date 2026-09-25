@@ -17,6 +17,7 @@ MonoBehaviour:
   description: 
   icon: {fileID: 0}
   baseRate: 2
+  triggerEnergy: 1
   maxSupportCount: 6
   definition:
     prefab: {fileID: 1001001001001001004, guid: d0710379c8622cb4d978ec137c4f1a4b, type: 3}

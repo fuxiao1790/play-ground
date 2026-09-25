@@ -330,7 +330,7 @@ namespace PlayGround.System.Combat.Projectiles
         }
 
         internal static bool HasHitEvent(in CombatHitPayload payload) =>
-            payload.DirectDamageEnabled || payload.StackEffect.Enabled;
+            payload.DirectDamageEnabled || payload.HitEnergy.Enabled;
 
         internal static int TargetKey(Entity entity)
         {

@@ -15,9 +15,9 @@ namespace PlayGround.System.Combat.Application
         private static readonly ProfilerMarker<int> TickReplayMarker =
             new("CombatApplyBridge.TickReplay", "Combat Tick Results");
         private static readonly ProfilerCounterValue<int> EntryDropCounter =
-            new(ProfilerCategory.Scripts, "CombatApplyFinalizeSingleSystem.StackEntryDrops", ProfilerMarkerDataUnit.Count);
+            new(ProfilerCategory.Scripts, "CombatApplyFinalizeSingleSystem.HitEnergyEntryDrops", ProfilerMarkerDataUnit.Count);
 
-        private static readonly List<StatusStackSnapshot> statusScratch = new();
+        private static readonly List<HitEnergyProgress> hitEnergyScratch = new();
         private int entryDrops;
 
         protected override void OnUpdate()
@@ -39,8 +39,8 @@ namespace PlayGround.System.Combat.Application
                 return;
             }
 
-            bool hasStatusSnapshots = HasAnyStatusRange(lane.Results);
-            if (lane.Results.Length == 0 && !hasStatusSnapshots)
+            bool hasHitEnergyProgress = HasAnyHitEnergyRange(lane.Results);
+            if (lane.Results.Length == 0 && !hasHitEnergyProgress)
             {
                 lane.Clear();
                 return;
@@ -51,7 +51,7 @@ namespace PlayGround.System.Combat.Application
             {
                 ReplayCombat(
                     lane.Results,
-                    lane.StatusSnapshots,
+                    lane.HitEnergyProgress,
                     EntityManager);
             }
 
@@ -77,13 +77,13 @@ namespace PlayGround.System.Combat.Application
 
         private static void ReplayCombat(
             NativeList<CombatTickResult> results,
-            NativeList<StatusStackSnapshot> statusSnapshots,
+            NativeList<HitEnergyProgress> hitEnergyProgress,
             EntityManager entityManager)
         {
             for (int resultIndex = 0; resultIndex < results.Length; resultIndex++)
             {
                 CombatTickResult result = results[resultIndex];
-                if (result.HitCount <= 0 && result.StatusCount <= 0)
+                if (result.HitCount <= 0 && result.HitEnergyCount <= 0)
                 {
                     continue;
                 }
@@ -94,19 +94,19 @@ namespace PlayGround.System.Combat.Application
                     continue;
                 }
 
-                statusScratch.Clear();
-                for (int i = 0; i < result.StatusCount; i++)
+                hitEnergyScratch.Clear();
+                for (int i = 0; i < result.HitEnergyCount; i++)
                 {
-                    statusScratch.Add(statusSnapshots[result.StatusStart + i]);
+                    hitEnergyScratch.Add(hitEnergyProgress[result.HitEnergyStart + i]);
                 }
 
-                target.ReceiveCombatTick(in result, statusScratch);
+                target.ReceiveCombatTick(in result, hitEnergyScratch);
             }
 
-            statusScratch.Clear();
+            hitEnergyScratch.Clear();
         }
 
-        private static bool HasAnyStatusRange(NativeList<CombatTickResult> results)
+        private static bool HasAnyHitEnergyRange(NativeList<CombatTickResult> results)
         {
             if (!results.IsCreated)
             {
@@ -115,7 +115,7 @@ namespace PlayGround.System.Combat.Application
 
             for (int i = 0; i < results.Length; i++)
             {
-                if (results[i].StatusCount > 0)
+                if (results[i].HitEnergyCount > 0)
                 {
                     return true;
                 }

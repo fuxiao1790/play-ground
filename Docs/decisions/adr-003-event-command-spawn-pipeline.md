@@ -7,7 +7,7 @@ Accepted
 ## Context
 
 Combat spawns can come from managed input, skills, timed child effects,
-collision consequences, and status detonations. Those producers should not also
+collision consequences, and hit-energy activations. Those producers should not also
 own entity allocation details.
 
 ## Decision

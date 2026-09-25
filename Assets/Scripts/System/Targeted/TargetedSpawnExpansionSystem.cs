@@ -120,7 +120,7 @@ namespace PlayGround.System.Combat.Targeted
     [UpdateAfter(typeof(ImpactAoeCollisionSystem))]
     [UpdateAfter(typeof(LingeringAoeCollisionSystem))]
     [UpdateAfter(typeof(PlayGround.System.Combat.Projectiles.ProjectileDiscreteCollisionSystem))]
-    [UpdateAfter(typeof(StatusProcessSystem))]
+    [UpdateAfter(typeof(HitEnergyActivationSystem))]
     [UpdateBefore(typeof(TargetedSpawnApplySystem))]
     public partial class TargetedSpawnExpansionSystem : SystemBase
     {

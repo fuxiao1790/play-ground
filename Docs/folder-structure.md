@@ -253,8 +253,8 @@ Docs/
   its base type.
 - `Assets/Scripts/Skills/Trigger/IntervalSpawnTrigger.cs`: single energy-driven
   interval-spawn trigger link for compiled projectile, AOE, or targeted effects.
-- `Assets/Scripts/Skills/Trigger/StackTrigger.cs`: target-local stack trigger;
-  owns threshold, lifetime, and stacks-per-hit configuration.
+- `Assets/Scripts/Skills/Trigger/HitEnergyTrigger.cs`: adjacent-edge hit-energy
+  trigger; owns contribution multiplier, requirement multiplier, and retention.
 - `Assets/Scripts/Skills/Support/MultipleChainsSupport.cs`: targeted echo count
   and mana support.
 - `Assets/Scripts/Skills/Validator/TargetedPrefab.cs`: targeted prefab and VFX validation.

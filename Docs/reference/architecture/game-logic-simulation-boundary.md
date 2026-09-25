@@ -35,10 +35,10 @@ projectile or AOE entities directly.
 |---|---|---|
 | Player-facing concepts | Skills, supports, triggers, loadouts, mobs, spawn rules, input, cooldowns, difficulty intent. | None, except the simulation contract needed to support them. |
 | Authoring data | ScriptableObjects, prefabs as authoring templates, validators, skill loadout state, mob behavior config. | Baked type ids, type registries, ECS component shapes, proxy data, native containers. |
-| Composition rules | Which supports can modify which skills, trigger graph rules, stacking detonation authoring, stat aggregation. | How compiled intent is represented as events, commands, hit payloads, status data, and timed-spawn templates. |
+| Composition rules | Which supports can modify which skills, trigger graph rules, hit-energy edge authoring, stat aggregation. | How compiled intent is represented as events, commands, hit payloads, target-local energy, and timed-spawn templates. |
 | Runtime orchestration | `SkillDriver`, cooldown gates, compile on equipment/stat change, root input fire. | System ordering, event drains, expansion, apply, movement, collision, status processing, render preparation. |
 | Translation boundary | Stateless translators that convert compiled game logic into spawn requests/events. | Event and command contracts consumed by ECS systems. |
-| Collision and damage | Design meaning of damage, crit, stack, trigger, and status effects. | Target proxies, hit qualification, damage/status aggregation, consequence event emission. |
+| Collision and damage | Design meaning of damage, crit, hit energy, triggers, and status effects. | Target proxies, hit qualification, damage/status aggregation, consequence event emission. |
 | Presentation | Actor roots, animation, hurt flashes, UI/debug text, death object lifetime. | Compact combat tick/status results and VFX spawn requests ready for presentation systems. |
 | Performance limits | Design budgets and player-facing fallback rules. | Pooling, enableable components, Burst jobs, spatial hashing, batch rendering, native queue/stream ownership. |
 
@@ -56,7 +56,7 @@ Skill docs should describe:
 Simulation docs should describe:
 
 - the spawn event shape produced by compiled skills
-- how impact, interval, stack, and on-hit follow-up effects are snapshotted
+- how impact, interval, hit-energy, and on-hit follow-up effects are snapshotted
 - how events become commands and commands become reusable ECS entities
 - which ECS components carry damage, crit, status, collision, render, and VFX
   data

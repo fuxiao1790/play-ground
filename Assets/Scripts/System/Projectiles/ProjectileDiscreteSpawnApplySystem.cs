@@ -400,7 +400,7 @@ namespace PlayGround.System.Combat.Projectiles
 
         public static bool NeedsCollision(in ProjectileHitPayload payload) =>
             payload.DirectDamageEnabled
-            || payload.StackEffect.Enabled;
+            || payload.HitEnergy.Enabled;
 
         public readonly struct SpawnState
         {
@@ -433,9 +433,11 @@ namespace PlayGround.System.Combat.Projectiles
         public static CombatHitPayload HitPayloadFor(in ProjectileSpawnCommand cmd, CombatFaction faction)
         {
             CombatHitPayload hitPayload = cmd.HitPayload.HitPayload;
-            StackEffectSnapshot stack = hitPayload.StackEffect;
-            stack.Faction = faction;
-            hitPayload.StackEffect = stack;
+            HitEnergyPayload hitEnergy = hitPayload.HitEnergy;
+            HitEnergySpawn spawn = hitEnergy.Spawn;
+            spawn.Faction = faction;
+            hitEnergy.Spawn = spawn;
+            hitPayload.HitEnergy = hitEnergy;
             return hitPayload;
         }
 

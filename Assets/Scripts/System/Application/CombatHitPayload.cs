@@ -18,7 +18,7 @@ using UnityEngine;
 namespace PlayGround.System.Combat.Application
 {
     // ECS Lifecycle: base hit-source component; added by projectile/AOE spawn materialization; kept until root teardown; reset on reuse.
-    // Fire-time hit snapshot shared by all combat domains (projectile, AOE). Carries damage, crit, and stack data snapshotted at spawn time.
+    // Fire-time hit snapshot shared by all combat domains (projectile, AOE). Carries damage, crit, and hit-energy data snapshotted at spawn time.
     public struct CombatHitPayload : IComponentData
     {
         public float DamageAmount;
@@ -26,6 +26,6 @@ namespace PlayGround.System.Combat.Application
         public float CritMultiplier;
         public bool DirectDamageEnabled; //todo: remove this field, if damage is not enabled, the hit even shouldn't be produced. 
         public EntityId SourceNodeId;
-        public StackEffectSnapshot StackEffect;
+        public HitEnergyPayload HitEnergy;
     }
 }

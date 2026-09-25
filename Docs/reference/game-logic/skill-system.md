@@ -385,46 +385,39 @@ Root casts submit an `ExternalSpawnRequest` carrying the compiled root skill's
 `ManaCost`, caster proxy, and cast token. The serial `ExternalSpawnGateSystem`
 deducts `Mana` then emits the usual internal spawn event, or emits a rejection.
 `SkillDriver` refunds the matching cooldown on rejection. Internal interval,
-on-hit, and stack-triggered child spawns never spend mana. Only interval spawns
-are energy-funded; on-hit emission and stack accumulation do not use energy.
+on-hit, and hit-energy-activated child spawns never spend mana again.
 
-### StackTrigger
+### HitEnergyTrigger
 
+`HitEnergyTrigger` connects an adjacent projectile, AOE, or targeted source to
+a projectile or AOE output. Compilation attaches a `RuntimeHitEnergyTrigger` to
+the source definition; this is edge composition, not a
+`RuntimeSkillDefinition` subtype.
+
+Each accepted source hit carries a `HitEnergyPayload` with copied primitive
+values. Effective values use one positive floor:
+
+```text
+EnergyPerHit = max(1e-3, source.TriggerEnergy * energyContributionMultiplier)
+EnergyRequired = max(1e-3, triggered.TriggerEnergy * energyRequirementMultiplier)
 ```
-StackTrigger
-  stack rules: stackThreshold, debuffLifetimeSeconds, stacksPerHit
-```
 
-A stack detonation is authored by wiring an applicator set to a normal
-projectile or AOE detonation set with `StackTrigger`. The link compiles the
-target skill and wraps it in `RuntimeStackingDetonation`; no stacking support is
-required. Source can be projectile, AOE, or targeted.
+`CombatApplyFinalizeSingleSystem` deposits `EnergyPerHit` into target-local
+`TargetHitEnergy`, refreshes expiry from `retentionSeconds`, and keeps entries
+keyed by `AccumulatorId`. Every compiled edge receives a distinct id independent
+of asset identity, equal values, runtime type, or template key. Only an adjacent
+source funds its next node; repeated use of the same Skill or SkillSet asset
+still produces isolated runtime nodes and edge accumulators.
 
-On each applicator hit, ECS writes one target-bucketed hit payload containing
-the registration-derived debuff key, the stack contribution, threshold,
-lifetime refresh, and detonation snapshot. `CombatApplyFinalizeSingleSystem`
-owns accrual into each target proxy's `TargetStackEntry` buffer, keyed by
-`DebuffKey`. Because `StatusProcessSystem` runs before finalization, it owns
-expiry and threshold detonation processing on the next simulation update. This
-count is target-local stack state, not energy.
+`HitEnergyActivationSystem` runs before current-update hit finalization. It
+expires stale entries, emits one output per complete `EnergyRequired`, preserves
+float remainder and overflow beyond the 256-per-target/update cap, and uses the
+registered `HitEnergySpawn` template reference as the sole source of output
+damage, area, count, crit, launch, and descendant behavior. Current-update
+deposits therefore activate no earlier than the next simulation update.
 
-`StackEffectSnapshot.Enabled` requires `Lifetime > 0`, so authored
-`debuffLifetimeSeconds = 0` disables stack application rather than creating a
-non-expiring entry.
-
-Detonation supports AOE and projectile outputs. `StatusProcessSystem` emits an
-AOE or projectile event carrying the registered detonation template key; spawn
-expansion obtains damage, count, area, and other behavior from that template.
-`CombatApplyFinalizeSingleSystem` still accumulates `SummedDamage`,
-`SummedProjectileCount`, and `SummedArea` in `TargetStackEntry`, but current
-detonation processing does not read those fields.
-
-The debuff key is minted during runtime registration for each compiled
-`RuntimeStackingDetonation`. It is not authored and is not the detonation type
-id. Two slots using the same stacking set still compile to separate runtime
-instances with separate keys, so their stacks cannot collide. `DebuffName` is a
-runtime display/debug label derived from the target skill asset name; it is not
-accrual identity.
+Hit energy is distinct from time-based interval energy. It does not change
+`IntervalSpawnTrigger` charge, thresholds, or mana behavior.
 
 ---
 
@@ -432,8 +425,8 @@ accrual identity.
 
 Each support derives from `SkillSupport`. Augment supports derive from
 `StatModifierSupport`, which carries `SupportedSkillTags` for validation, and
-then implement one or more stat-modifier kind interfaces. Stack behavior is
-owned by `StackTrigger`, not by a support.
+then implement one or more stat-modifier kind interfaces. Hit-energy behavior
+is owned by `HitEnergyTrigger`, not by a support.
 
 See [skill-modifiers.md](./skill-modifiers.md) for the modifier kind
 interfaces, the current augment support roster, and their compatible skill
@@ -602,31 +595,29 @@ Directionality defaults:
   random disk within the child AOE's `AoeDefinition.scatterRadius` around the center. With
   `AoeDefinition.scatterRadius = 0`, echo copies overlap at the center.
 
-**StackTrigger**
+**HitEnergyTrigger**
 
-Wires a normal applicator set to a projectile or AOE detonation set. The source
-may be a projectile, AOE, or targeted runtime definition. `StackTrigger` owns
-`stackThreshold`, `debuffLifetimeSeconds`, and `stacksPerHit`. At compile time it
-wraps the compiled target in `RuntimeStackingDetonation` and stores that on the
-applicator; at spawn time the applicator bakes a `StackEffectSnapshot` into its
-hit payload.
+Wires a projectile, AOE, or targeted source to an adjacent projectile or AOE
+output. It authors positive `energyContributionMultiplier`, positive
+`energyRequirementMultiplier`, and positive `retentionSeconds`. Compilation creates a
+`RuntimeHitEnergyTrigger` composition containing the compiled `TriggeredSkill`
+and a unique per-edge `AccumulatorId`; it does not wrap or subclass that skill.
 
 ```csharp
-class StackTrigger : TriggerLink {
-    int stackThreshold;
-    float debuffLifetimeSeconds;
-    int stacksPerHit;
+class HitEnergyTrigger : TriggerLink {
+    float energyContributionMultiplier;
+    float energyRequirementMultiplier;
+    float retentionSeconds;
 }
 ```
 
-Compatible tags: source `Projectile`, `Aoe`, or `Targeted`; target must be
-`Projectile` or `Aoe`. For a targeted applicator, every chain-link hit reads
-the same baked `StackEffectSnapshot` off the spawning entity's hit payload —
-identical to the projectile/AOE path. `CombatApplyFinalizeSingleSystem` accrues
-target-local `TargetStackEntry` state by `DebuffKey`. On the next simulation
-update, `StatusProcessSystem` expires entries or emits one detonation per full
-threshold and keeps the remainder. This stack count is not the time-based energy
-used by `IntervalSpawnTrigger`.
+At fire time, projectile, AOE, lingering AOE, and targeted sources receive the
+same plain `HitEnergyPayload`. Finalization deposits float energy into
+target-local `TargetHitEnergy`; activation on a later update spends complete
+requirements and retains fractional remainder. `HitEnergySpawn` contains only
+output kind, faction, and registered template key, so the registered output
+template remains authoritative. This target-local hit energy is separate from
+the time-based interval energy used by `IntervalSpawnTrigger`.
 Trigger links are tag-validated. An `IntervalSpawnTrigger` from a projectile
 set to an AOE set is valid and compiles an AOE interval setup. A pulse AOE or
 targeted interval source instead fails the generic source-tag check at Error
@@ -744,11 +735,11 @@ compile(SkillSet set, allChains, snapshot) -> RuntimeSkillDefinition:
                 RuntimeProjectileDefinition -> bake RuntimeChildSpawnSetup
                 RuntimeAoeDefinition -> bake RuntimeAoeIntervalSpawnSetup
                 RuntimeTargetedDefinition -> bake RuntimeTargetedIntervalSpawnSetup
-        if chain.link is StackTrigger:
-            compile chain.effect recursively
-            wrap effect as RuntimeStackingDetonation using link stackThreshold,
-                debuffLifetimeSeconds, and stacksPerHit
-            set runtime.StackingDetonation to wrapper
+        if chain.link is HitEnergyTrigger:
+            triggered = compile chain.effect recursively
+            create RuntimeHitEnergyTrigger composition using triggered,
+                both link multipliers, retentionSeconds, and a unique AccumulatorId
+            attach composition only to runtime for the adjacent source
     return runtime
 
 compileLoadout(SkillLoadout loadout):
@@ -762,8 +753,8 @@ compileLoadout(SkillLoadout loadout):
     RegisterProjectileTypes()   // walk compiled trees; call combatRoot.RegisterTemplate per unique prefab
     RegisterAoeTypes()          // walk compiled trees; call combatRoot.RegisterType per unique AoeTypeDefinition
     RegisterSounds()            // register each root SpawnSound; store SkillSoundIds.SpawnId
-    AssignStackingDebuffKeys()  // mint one dedicated key per compiled RuntimeStackingDetonation
-    RegisterSpawnTemplates()      // register new content-hash keys, then release prior compile keys
+    AssignHitEnergyAccumulatorIds() // mint one id per compiled edge
+    RegisterSpawnTemplates()       // register outputs before payload construction
 ```
 
 The compiled runtime tree feeds directly into the existing spawn request and
@@ -784,12 +775,12 @@ After compilation, `SkillDriver` recursively walks all compiled trees:
 - Spawn sounds: every compiled definition's prefab-authored `SpawnSound` is
   registered recursively with `AudioRoot`; its stable id is stored in
   `SkillSoundIds.SpawnId` and copied into its spawn template. Root casts,
-  interval children, on-hit spawns, and stacking detonations emit at expansion.
+  interval children, on-hit spawns, and hit-energy activations emit at expansion.
 
-- Stacking detonations: each compiled `RuntimeStackingDetonation`
-  receives a dedicated debuff key during the same registration walk if it does
-  not already have one. The key is per compiled instance and separate from AOE
-  type registration.
+- Hit-energy edges: each compiled `RuntimeHitEnergyTrigger` receives a dedicated
+  `AccumulatorId`. Reused assets and identical values remain isolated by graph
+  position. Its triggered skill is registered first; the resulting
+  `HitEnergySpawn` kind/key reference becomes output authority.
 - Energy-driven child spawn templates: each compiled `RuntimeChildSpawnSetup` or
   `RuntimeAoeIntervalSpawnSetup` builds one unified spawn template for its
   child domain and registers it with `CombatRoot.RegisterTimedSpawnTemplate`.
@@ -905,22 +896,19 @@ player-facing authoring surface.
 
 1. `Assets > Create > PlayGround > Skills > Projectile Skill` or `AOE Skill`.
 2. Assign sprite, material, and collision shape fields.
-3. Set `baseRate` (attacks/casts per second).
+3. Set `baseRate` (attacks/casts per second) and positive `triggerEnergy`.
 4. Set base behavior values (speed, damage, lifetime, etc.).
 
-### Creating a Stacking Detonation
+### Creating a Hit-Energy Activation
 
-A stacking detonation uses a normal projectile or AOE skill set as its effect.
-`StackTrigger` owns stack config and wraps that target effect in
-`RuntimeStackingDetonation` during compilation.
-
-1. Create the detonation skill as a normal `Projectile Skill`, `AOE Skill`, or
-   `Lingering AOE Skill`.
-2. Create a `SkillSet` for the detonation skill. No stacking support is needed.
-3. Create a separate applicator `SkillSet`. The applicator can be a projectile,
-   AOE, or targeted set and can be reached through any normal trigger link.
-4. Wire the applicator set to the detonation set with `StackTrigger`, then set
-   `stackThreshold`, `debuffLifetimeSeconds`, and `stacksPerHit` on that link.
+1. Create the output as a normal `Projectile Skill`, `AOE Skill`, or
+   `Lingering AOE Skill`, and set its `triggerEnergy` base requirement.
+2. Create a `SkillSet` for the output.
+3. Create a separate projectile, AOE, or targeted source `SkillSet`, and set its
+   `triggerEnergy` base contribution.
+4. Wire source to output with `HitEnergyTrigger`, then set
+   `energyContributionMultiplier`, `energyRequirementMultiplier`, and
+   `retentionSeconds` on that link.
 
 Example:
 
@@ -928,41 +916,37 @@ Example:
 [SkillSetSlot: SetA]
 [TriggerLinkSlot: OnHit]
 [SkillSetSlot: SetB_Applicator]
-[TriggerLinkSlot: StackTrigger]
-[SkillSetSlot: StackSet_Detonation]
+[TriggerLinkSlot: HitEnergyTrigger]
+[SkillSetSlot: SetC_Output]
 ```
 
 The applicator remains a plain `RuntimeProjectileDefinition` or
 `RuntimeAoeDefinition`, so it still composes with `IntervalSpawn` and `OnHit`.
-Only `StackTrigger` creates and attaches the stacking detonation runtime.
+`RuntimeHitEnergyTrigger` is attached composition on that source.
 
-**Contribution model.** With `stackThreshold = 5` and `stacksPerHit = 1`, each
-applicator hit banks one stack, so five hits reach the threshold. With
-`stacksPerHit = 2`, each hit banks two stacks, so the threshold is reached in
-`ceil(5/2) = 3` hits. At threshold the detonation uses the values in its
-registered spawn template. Contribution totals are accumulated on the stack
-entry but currently do not alter that template or the emitted detonation.
+**Contribution model.** If source `TriggerEnergy = 2` with contribution
+multiplier `0.5`, each accepted hit deposits `1`. If output
+`TriggerEnergy = 4` with requirement multiplier `1.5`, each activation costs
+`6`. The `1e-3` floor applies to both effective values. Damage and all other
+output behavior come only from the registered output template.
 
-**Burst detonation.** Accrual and threshold detonation run in separate systems.
-Because `StatusProcessSystem` runs before current-update finalization, a dense
-applicator volley or `stacksPerHit` overshoot can bank several thresholds in one
-update; those stacks become eligible on the next simulation update. It fires one
-detonation per full threshold banked, all in the same frame 鈥?`floor(count /
-threshold)` detonations 鈥?and keeps the sub-threshold remainder banked for the
-next hit. This is capped per target per frame so detonation spawn ids stay
-bounded and unique; overflow beyond the cap rolls to the next frame.
+**Burst activation.** `HitEnergyActivationSystem` runs before current-update
+finalization. It activates `floor(StoredEnergy / EnergyRequired)` times, capped
+at 256 outputs per target/update, subtracts only emitted energy, and retains
+fractional remainder plus overflow. Deposits finalized this update become
+eligible on the next update.
 
-**Composition.** To chain after a detonation AOE, put a normal AOE trigger after
-the detonation set and then wire the next applicator to its own stacking set:
+**Composition.** To chain after an activated AOE, put a normal AOE trigger after
+the output set, then wire the next source to its own hit-energy output:
 
 ```text
 [SkillSetSlot: FirstApplicator]
-[TriggerLinkSlot: StackTrigger]
-[SkillSetSlot: FirstDetonation]
+[TriggerLinkSlot: HitEnergyTrigger]
+[SkillSetSlot: FirstOutput]
 [TriggerLinkSlot: OnHit]
 [SkillSetSlot: SecondApplicator]
-[TriggerLinkSlot: StackTrigger]
-[SkillSetSlot: SecondDetonation]
+[TriggerLinkSlot: HitEnergyTrigger]
+[SkillSetSlot: SecondOutput]
 ```
 ### Creating a Skill Set
 
@@ -1080,22 +1064,22 @@ SetC's burst radius is its own authored value, unaffected by SetA or SetB.
 
 ---
 
-### Stacking chain
+### Hit-energy chain
 
 ```
 Slots: [SetA: MagicBullet]
        [OnHit]
        [SetB: VolatileApplicatorAoe]
-       [StackTrigger]
-       [SetC: VolatileDetonationAoe]
+       [HitEnergyTrigger]
+       [SetC: VolatileOutputAoe]
 ```
 
 SetA releases SetB through a normal on-hit link. SetB remains a plain AOE
-applicator, but `StackTrigger` bakes SetC's stack payload into SetB at compile
-time. When SetB hits a target, `CombatApplyFinalizeSingleSystem` adds stacks
-under SetC's minted debuff key. On the next simulation update,
-`StatusProcessSystem` handles the threshold detonation using SetC's registered
-spawn template.
+source, while `HitEnergyTrigger` compiles SetC as edge composition attached to
+SetB. When SetB hits a target, `CombatApplyFinalizeSingleSystem` deposits energy
+under that edge's `AccumulatorId`. On the next simulation update,
+`HitEnergyActivationSystem` spends complete requirements and emits SetC through
+its registered spawn template.
 ---
 
 ## Set Isolation Rules
@@ -1151,7 +1135,7 @@ compiling (cause and effect share the same SO reference), it passes an empty cha
 for that pass to prevent an infinite loop. The effect instance produced is still fully
 independent 鈥?it just carries no outgoing trigger setup.
 
-Practical use: one applicator can spawn another compiled instance of the same
-applicator set through a normal trigger. If each instance points through
-`StackTrigger` to a stacking set, each compiled detonation receives its own
-debuff key and snapshots, so accumulator state stays independent.
+Practical use: one source can spawn another compiled instance of the same set
+through a normal trigger. If each instance has a `HitEnergyTrigger` edge, every
+edge receives its own `AccumulatorId`, so target-local accumulation stays
+independent even when assets and effective values are identical.

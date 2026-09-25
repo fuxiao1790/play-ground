@@ -591,7 +591,7 @@ namespace PlayGround.System.Combat.Aoes
 
         public static bool NeedsCollision(in AoeSpawnCommand cmd) =>
             cmd.HitPayload.DirectDamageEnabled
-            || cmd.HitPayload.StackEffect.Enabled;
+            || cmd.HitPayload.HitEnergy.Enabled;
 
         public static bool HasTimedSpawner(in AoeSpawnCommand cmd) =>
             cmd.Lifetime > 0f && cmd.HasTimedSpawner != 0;
@@ -676,9 +676,11 @@ namespace PlayGround.System.Combat.Aoes
 
         private static CombatHitPayload HitPayloadFor(CombatHitPayload hitPayload, CombatFaction faction)
         {
-            StackEffectSnapshot stack = hitPayload.StackEffect;
-            stack.Faction = faction;
-            hitPayload.StackEffect = stack;
+            HitEnergyPayload hitEnergy = hitPayload.HitEnergy;
+            HitEnergySpawn spawn = hitEnergy.Spawn;
+            spawn.Faction = faction;
+            hitEnergy.Spawn = spawn;
+            hitPayload.HitEnergy = hitEnergy;
             return hitPayload;
         }
 

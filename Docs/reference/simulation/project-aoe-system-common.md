@@ -83,8 +83,8 @@ consequence events, and frame timing. Domain-specific details still live in
   targeted pool's slot reuse and cold creation.
 - `Assets/Scripts/System/Targeted/TargetedResolveSystem.cs`: the chain walk, hit
   and VFX emission, and walk-end expiry.
-- `Assets/Scripts/System/Status/StatusProcessSystem.cs`: status-stack
-  detonation producer that emits projectile or AOE spawn events.
+- `Assets/Scripts/System/Status/HitEnergyActivationSystem.cs`: target-local
+  energy consumer that emits registered projectile or AOE output events.
 
 ## Shared Combat Scope
 
@@ -133,7 +133,7 @@ Target proxies carry:
 - `TargetCollisionShape`
 - `TargetFaction`
 - `Health`
-- `TargetStackEntry`
+- `TargetHitEnergy`
 - managed `TargetCompanion`
 
 Simulation jobs read unmanaged target proxy data. Managed companion access is
@@ -198,9 +198,9 @@ Current producers:
   data.
 - `AoeCollisionCore` enqueues projectile burst events, on-hit AOE events, and
   on-hit targeted events from accepted AOE hits.
-- `StatusProcessSystem` enqueues stack detonation projectile or AOE events. A
-  targeted chain can apply the stacks that lead to a detonation, but is not
-  itself a detonation output.
+- `HitEnergyActivationSystem` enqueues projectile or AOE output events for
+  complete target-local energy requirements. Targeted sources may deposit hit
+  energy, but targeted skills are not valid hit-energy outputs.
 - Targeted producers route through `TargetedSpawnEmission`, which drops any
   event whose kind is not `IntervalChildKind.Targeted`.
 
@@ -369,9 +369,9 @@ Current consequence paths include:
   `CombatHitEvent.DamageScale` to their falloff, while other producers leave it
   unset (`0`, read as `1`)
 - `ProjectileSpawnEvent` values for impact projectiles, AOE projectile bursts,
-  and stack detonation projectiles
-- `AOE variant spawn event` values for impact AOEs, on-hit AOEs, timed AOEs, and stack
-  detonation AOEs
+  and hit-energy projectile outputs
+- `AOE variant spawn event` values for impact AOEs, on-hit AOEs, timed AOEs, and
+  hit-energy AOE outputs
 - `TargetedSpawnEvent` values for on-impact and interval-triggered chains
 - `CircularVfxSpawnRequest` / `TimedCircularVfxSpawnRequest` values written to the per-shape VFX
   queues via `VfxEmit`, plus `LineSegmentVfxSpawn` values from the targeted
@@ -438,11 +438,11 @@ Important ordering:
 4. AOE pulse VFX and collision run.
 5. `TargetedResolveSystem` walks chains, emits hits and link VFX, and expires
    chains whose walk has ended.
-6. `StatusProcessSystem` evaluates stack state accrued by prior updates and
-   emits stack detonation spawn events.
+6. `HitEnergyActivationSystem` evaluates target-local energy accrued by prior
+   updates and emits registered output events for complete requirements.
 7. `CombatApplyFinalizeSingleSystem` applies current hit events to ECS target
-   health and stack state. Newly accrued stacks become eligible on the next
-   simulation update.
+   health and hit-energy state. Newly deposited energy becomes eligible on the
+   next simulation update.
 8. `ProjectileSpawnExpansionSystem`, `AOE spawn expansion systems`, and
    `TargetedSpawnExpansionSystem` drain completed event producers plus managed
    scope buffers.

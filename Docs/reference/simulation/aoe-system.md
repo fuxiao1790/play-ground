@@ -30,7 +30,7 @@ Primary uses:
 - player AOEs hitting mobs
 - mob AOEs hitting the player
 - projectile impact explosions
-- stack-triggered explosions
+- hit-energy-activated AOEs
 - lingering fields with per-AOE tick intervals
 - AOE projectile bursts
 - batched AOE rendering and VFX
@@ -117,7 +117,7 @@ from:
 
 - `CombatRoot.Spawn(AoeSpawnRequest)`
 - projectile impact AOE snapshots
-- stack-triggered managed spawns through mob/player hit handling
+- hit-energy output events from `HitEnergyActivationSystem`
 
 `AoeSpawnCommand` is the AOE command shape used by the spawn-template registry
 and by apply. Before expansion it can carry fan-out behavior such as
@@ -155,8 +155,8 @@ and apply only materializes already-resolved single-entity commands.
 
 The impact-vs-lingering variant is chosen at authoring from child lifetime:
 `Lifetime > 0` means lingering AOE, otherwise impact AOE. That variant is
-carried on `IntervalChildKind` / `StackDetonationKind`, so collision, timed
-spawn, and status producers route by kind without looking up templates.
+carried on `IntervalChildKind` or `HitEnergySpawnKind`, so collision, timed
+spawn, and hit-energy producers route by kind without looking up templates.
 
 ## Entity Data And Reuse
 
@@ -330,14 +330,14 @@ ids and build render resources. `CombatRoot.Spawn(AoeSpawnRequest)` validates
 the type id and resolved geometry before appending an impact or lingering AOE
 spawn event.
 
-## Stack-Triggered AOE
+## Hit-Energy AOE
 
-Stack-triggered AOE remains above the AOE runtime. For example, `MobRoot`
-receives hit data, applies stack state, and when a threshold triggers it submits
-an `AoeSpawnRequest` through the player-faction `CombatRoot`.
-
-The AOE runtime only materializes and resolves the spawned area. It does not own
-the gameplay decision that a stack threshold should create an explosion.
+Accepted source hits deposit target-local float energy during
+`CombatApplyFinalizeSingleSystem`. On a later update,
+`HitEnergyActivationSystem` consumes complete requirements and emits the AOE
+through its registered `HitEnergySpawn` template reference. AOE expansion and
+apply remain responsible only for materializing and resolving the registered
+output.
 
 ## Performance Notes
 

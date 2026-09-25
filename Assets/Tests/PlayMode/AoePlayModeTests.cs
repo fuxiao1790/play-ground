@@ -30,9 +30,9 @@ namespace PlayGround.Tests.PlayMode
     public sealed class AoePlayModeTests
     {
         private const int DefaultTargetMask = 1;
-        private const int VolatileStackKey = 101;
-        private const int PoisonStackKey = 201;
-        private const int BurningStackKey = 202;
+        private const int VolatileAccumulatorId = 101;
+        private const int PoisonAccumulatorId = 201;
+        private const int BurningAccumulatorId = 202;
         private static int nextTargetId = 1000;
 
         [UnityTest]
@@ -946,15 +946,15 @@ namespace PlayGround.Tests.PlayMode
             }
         }
 
-        private static StackEffectSnapshot StackEffect(
+        private static HitEnergyPayload HitEnergy(
             CombatRoot root,
             AoeSpawnGeometry geometry,
-            int debuffKey,
+            int accumulatorId,
             int aoeTypeId,
             float damage,
-            int threshold)
+            float energyRequired)
         {
-            var detonationTemplate = new AoeSpawnCommand
+            var outputTemplate = new AoeSpawnCommand
             {
                 TypeId = aoeTypeId,
                 Lifetime = 0f,
@@ -972,47 +972,44 @@ namespace PlayGround.Tests.PlayMode
                     DirectDamageEnabled = damage > 0f
                 }
             };
-            Hash128 detonationKey = root.RegisterSpawnTemplate(in detonationTemplate);
+            Hash128 templateKey = root.RegisterSpawnTemplate(in outputTemplate);
 
-            return new StackEffectSnapshot
+            return new HitEnergyPayload
             {
-                DebuffKey = debuffKey,
-                Threshold = threshold,
-                Lifetime = 10f,
-                Faction = CombatFaction.None,
-                Contribution = new StackContribution
+                AccumulatorId = accumulatorId,
+                EnergyPerHit = 1f,
+                EnergyRequired = energyRequired,
+                RetentionSeconds = 10f,
+                Spawn = new HitEnergySpawn
                 {
-                    Damage = damage / threshold,
-                    ProjectileCount = 0,
-                    AreaSize = geometry.AreaSize / threshold
-                },
-                DetonationKind = StackDetonationKind.ImpactAoe,
-                DetonationKey = detonationKey
+                    Faction = CombatFaction.None,
+                    Kind = HitEnergySpawnKind.ImpactAoe,
+                    TemplateKey = templateKey
+                }
             };
         }
 
         // ── AOE stack trigger tests ───────────────────────────────────────────────
 
         [UnityTest]
-        public IEnumerator LingeringAoeInitialHitAndPulseApplyDebuffStacks()
+        public IEnumerator LingeringAoeInitialHitAndPulseDepositHitEnergy()
         {
-            // Lingering AOE (damage=0, tickInterval=0) applies Volatile stacks each hit.
-            // Threshold=10 ensures detonation never fires within 2 frames; a registered
-            // detonation type is still required for StackEffectSnapshot.Enabled = true.
+            // Lingering AOE deposits one energy per accepted hit. Requirement 10 prevents
+            // activation within 2 frames; registered output template enables payload.
             CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out _);
             var lingeringDef = new AoeTypeDefinition();
             lingeringDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
             int lingeringTypeId = root.RegisterType(lingeringDef);
-            var detonationDef = new AoeTypeDefinition();
-            detonationDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
-            int detonationTypeId = root.RegisterType(detonationDef);
+            var outputDef = new AoeTypeDefinition();
+            outputDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
+            int outputTypeId = root.RegisterType(outputDef);
 
             MobRoot mob = CreateMobTarget(Vector2.zero);
             mob.BindCombatRoot(root);
             mob.Register(root.TargetRegistry);
 
             AoeSpawnGeometry geometry = Geometry(templateObject, 2f);
-            var stackEffect = StackEffect(root, geometry, VolatileStackKey, detonationTypeId, 0f, 10);
+            HitEnergyPayload hitEnergy = HitEnergy(root, geometry, VolatileAccumulatorId, outputTypeId, 0f, 10f);
 
             root.Spawn(new AoeSpawnRequest(
                 lingeringTypeId,
@@ -1021,24 +1018,22 @@ namespace PlayGround.Tests.PlayMode
                 lifetimeSeconds: 10f,
                 tickIntervalSeconds: 0f,
                 geometry: geometry,
-                stackEffect: stackEffect), CombatFaction.Player);
+                hitEnergy: hitEnergy), CombatFaction.Player);
 
-            yield return null; // frame 1: initial hit, 1 stack
-            Assert.That(EcsDebuffStackCount(mob, VolatileStackKey), Is.EqualTo(1),
-                "Initial AOE hit should apply 1 Volatile stack.");
+            yield return null; // frame 1: initial hit deposits 1
+            Assert.That(EcsStoredHitEnergy(mob, VolatileAccumulatorId), Is.EqualTo(1f).Within(0.0001f));
 
-            yield return null; // frame 2: pulse hit (gate expired at dt=0), 2 stacks
-            Assert.That(EcsDebuffStackCount(mob, VolatileStackKey), Is.EqualTo(2),
-                "AOE pulse hit should increment stack to 2.");
+            yield return null; // frame 2: pulse hit deposits another 1
+            Assert.That(EcsStoredHitEnergy(mob, VolatileAccumulatorId), Is.EqualTo(2f).Within(0.0001f));
 
             Cleanup(rootObject, templateObject, mob.gameObject);
         }
 
         [UnityTest]
-        public IEnumerator AoeStackThresholdChainFiresLinkedPulseAoe()
+        public IEnumerator AoeHitEnergyThresholdFiresLinkedPulseAoe()
         {
-            // Lingering AOE (damage=0, tickInterval=0) builds Volatile stacks.
-            // After 3 hits the threshold fires a linked pulse AOE that deals 5 damage.
+            // Lingering AOE builds energy. Third hit crosses requirement; activation occurs
+            // on following update and registered pulse template supplies 5 damage.
             CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out _);
             var lingeringDef = new AoeTypeDefinition();
             lingeringDef.Configure(templateObject, templateObject.GetComponentInChildren<CircleCollider2D>(true));
@@ -1053,7 +1048,7 @@ namespace PlayGround.Tests.PlayMode
 
             const float ChainDamage = 5f;
             AoeSpawnGeometry geometry = Geometry(templateObject, 2f);
-            var stackEffect = StackEffect(root, geometry, VolatileStackKey, pulseTypeId, ChainDamage, 3);
+            HitEnergyPayload hitEnergy = HitEnergy(root, geometry, VolatileAccumulatorId, pulseTypeId, ChainDamage, 3f);
 
             root.Spawn(new AoeSpawnRequest(
                 lingeringTypeId,
@@ -1062,18 +1057,21 @@ namespace PlayGround.Tests.PlayMode
                 lifetimeSeconds: 10f,
                 tickIntervalSeconds: 0f,
                 geometry: geometry,
-                stackEffect: stackEffect), CombatFaction.Player);
+                hitEnergy: hitEnergy), CombatFaction.Player);
 
-            yield return null; // frame 1: 1 stack
-            yield return null; // frame 2: 2 stacks
-            yield return null; // frame 3: 3 stacks -> threshold -> detonation spawned
+            yield return null; // frame 1: stored 1
+            yield return null; // frame 2: stored 2
+            yield return null; // frame 3: stored 3 after activation phase already ran
+            Assert.That(ScopedAoeCount(root, pulseTypeId), Is.Zero,
+                "Threshold crossing cannot activate during same update.");
+            yield return null; // frame 4: activation emits and materializes registered pulse
 
             Assert.That(ScopedAoeCount(root, pulseTypeId), Is.EqualTo(1),
-                "Stack threshold should have spawned the linked pulse AOE.");
-            Assert.That(EcsDebuffStackCount(mob, VolatileStackKey), Is.EqualTo(0),
-                "Stacks should be cleared after the threshold fires.");
+                "Energy threshold should have spawned linked pulse AOE.");
+            Assert.That(EcsStoredHitEnergy(mob, VolatileAccumulatorId), Is.EqualTo(1f).Within(0.0001f),
+                "Source pulse deposits next cycle after activation consumes previous requirement.");
 
-            yield return null; // frame 4: detonation pulse materialises and hits
+            yield return null; // frame 5: presentation observes pulse damage
 
             Assert.That(mob.CurrentHealth, Is.EqualTo(mob.MaxHealth - ChainDamage).Within(0.001f),
                 "Chain pulse AOE should deal its damage on the frame it materialises.");
@@ -1082,7 +1080,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator StackAccrualKeepsDifferentDebuffKeysIndependent()
+        public IEnumerator HitEnergyAccrualKeepsDifferentAccumulatorIdsIndependent()
         {
             CreateAoeFixture(out GameObject rootObject, out CombatRoot root, out GameObject templateObject, out _);
             var poisonTypeDef = new AoeTypeDefinition();
@@ -1103,7 +1101,7 @@ namespace PlayGround.Tests.PlayMode
                 lifetimeSeconds: 10f,
                 tickIntervalSeconds: 0f,
                 geometry: geometry,
-                stackEffect: SingleStageStackEffect(root, geometry, PoisonStackKey, poisonTypeId, 2)), CombatFaction.Player);
+                hitEnergy: SingleStageHitEnergy(root, geometry, PoisonAccumulatorId, poisonTypeId, 2f)), CombatFaction.Player);
             root.Spawn(new AoeSpawnRequest(
                 burningTypeId,
                 Vector2.zero,
@@ -1111,24 +1109,28 @@ namespace PlayGround.Tests.PlayMode
                 lifetimeSeconds: 10f,
                 tickIntervalSeconds: 0f,
                 geometry: geometry,
-                stackEffect: SingleStageStackEffect(root, geometry, BurningStackKey, burningTypeId, 3)), CombatFaction.Player);
+                hitEnergy: SingleStageHitEnergy(root, geometry, BurningAccumulatorId, burningTypeId, 3f)), CombatFaction.Player);
 
             yield return null;
-            Assert.That(EcsDebuffStackCount(mob, PoisonStackKey), Is.EqualTo(1));
-            Assert.That(EcsDebuffStackCount(mob, BurningStackKey), Is.EqualTo(1));
+            Assert.That(EcsStoredHitEnergy(mob, PoisonAccumulatorId), Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(EcsStoredHitEnergy(mob, BurningAccumulatorId), Is.EqualTo(1f).Within(0.0001f));
             Assert.That(ScopedAoeCount(root, poisonTypeId), Is.EqualTo(1));
             Assert.That(ScopedAoeCount(root, burningTypeId), Is.EqualTo(1));
 
             yield return null;
-            Assert.That(EcsDebuffStackCount(mob, PoisonStackKey), Is.EqualTo(0));
-            Assert.That(EcsDebuffStackCount(mob, BurningStackKey), Is.EqualTo(2));
+            Assert.That(EcsStoredHitEnergy(mob, PoisonAccumulatorId), Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(EcsStoredHitEnergy(mob, BurningAccumulatorId), Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(ScopedAoeCount(root, poisonTypeId), Is.EqualTo(1));
+            Assert.That(ScopedAoeCount(root, burningTypeId), Is.EqualTo(1));
+
+            yield return null;
+            Assert.That(EcsStoredHitEnergy(mob, PoisonAccumulatorId), Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(EcsStoredHitEnergy(mob, BurningAccumulatorId), Is.EqualTo(3f).Within(0.0001f));
             Assert.That(ScopedAoeCount(root, poisonTypeId), Is.EqualTo(2));
             Assert.That(ScopedAoeCount(root, burningTypeId), Is.EqualTo(1));
 
             yield return null;
-            Assert.That(EcsDebuffStackCount(mob, PoisonStackKey), Is.EqualTo(1));
-            Assert.That(EcsDebuffStackCount(mob, BurningStackKey), Is.EqualTo(0));
-            Assert.That(ScopedAoeCount(root, poisonTypeId), Is.EqualTo(2));
+            Assert.That(EcsStoredHitEnergy(mob, BurningAccumulatorId), Is.EqualTo(1f).Within(0.0001f));
             Assert.That(ScopedAoeCount(root, burningTypeId), Is.EqualTo(2));
 
             Cleanup(rootObject, templateObject, mob.gameObject);
@@ -1142,31 +1144,31 @@ namespace PlayGround.Tests.PlayMode
             }
         }
 
-        private static int EcsDebuffStackCount(ICombatTarget target, int debuffKey)
+        private static float EcsStoredHitEnergy(ICombatTarget target, int accumulatorId)
         {
             EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
             Assert.That(target.CombatTargetProxy, Is.Not.EqualTo(Entity.Null));
-            Assert.That(entityManager.HasBuffer<TargetStackEntry>(target.CombatTargetProxy), Is.True);
+            Assert.That(entityManager.HasBuffer<TargetHitEnergy>(target.CombatTargetProxy), Is.True);
 
-            DynamicBuffer<TargetStackEntry> entries =
-                entityManager.GetBuffer<TargetStackEntry>(target.CombatTargetProxy);
+            DynamicBuffer<TargetHitEnergy> entries =
+                entityManager.GetBuffer<TargetHitEnergy>(target.CombatTargetProxy);
             for (int i = 0; i < entries.Length; i++)
             {
-                if (entries[i].DebuffKey == debuffKey)
-                    return entries[i].Count;
+                if (entries[i].AccumulatorId == accumulatorId)
+                    return entries[i].StoredEnergy;
             }
 
             return 0;
         }
 
-        private static StackEffectSnapshot SingleStageStackEffect(
+        private static HitEnergyPayload SingleStageHitEnergy(
             CombatRoot root,
             AoeSpawnGeometry geometry,
-            int debuffKey,
+            int accumulatorId,
             int aoeTypeId,
-            int threshold)
+            float energyRequired)
         {
-            return StackEffect(root, geometry, debuffKey, aoeTypeId, 0f, threshold);
+            return HitEnergy(root, geometry, accumulatorId, aoeTypeId, 0f, energyRequired);
         }
 
         private static int ScopedAoeCount(CombatRoot root, int typeId)

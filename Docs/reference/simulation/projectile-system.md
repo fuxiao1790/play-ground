@@ -264,7 +264,7 @@ spawn cooldown using variable `deltaTime`, catches up missed intervals, and
 enqueues `ProjectileSpawnEvent` or `AOE variant spawn event` values directly into the
 matching expansion queue.
 
-Child projectiles use the same projectile pool. They may carry damage, stack
+Child projectiles use the same projectile pool. They may carry damage, hit-energy
 effect, impact AOE, and impact projectile snapshots. They only emit interval
 children when `TimedSpawnComponent` is enabled.
 
@@ -278,7 +278,7 @@ count/spread/jitter fan-out and before the discrete/continuous lane split. It
 is authored on the incoming `TriggerLink`, not on `SkillDefinition`: root and
 player casts never carry it, and it is copied onto the compiled
 `RuntimeProjectileDefinition` only for a trigger's compiled projectile target
-(interval child, on-hit target, or stack detonation), then into the
+(interval child, on-hit target, or hit-energy output), then into the
 `ProjectileSpawnCommand` template alongside the other template-level fields
 that participate in `SpawnTemplateHash`.
 

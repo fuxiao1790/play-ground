@@ -26,7 +26,8 @@ Current proxy data includes:
 - `TargetFaction` — `Value` is the target's **own** allegiance (`Player`, `Mob`, etc.); `FilterMode` (`HostileOnly` or `AllowedFactionOnly`) plus `AllowedAttackerFaction` select the acceptance policy. Collision, acquisition, and tracking all evaluate the same `TargetFaction.CanHit(attacker, target)` rule rather than a raw inequality: `HostileOnly` accepts any attacker faction other than `Value` (the old same-faction-skip behavior), while `AllowedFactionOnly` accepts only `AllowedAttackerFaction` — which can equal the target's own `Value`, so an `AllowedFactionOnly` target can accept an attacker of its own faction
 - `Health`
 - `Mana`
-- `TargetStackEntry` buffer
+- `TargetHitEnergy` buffer keyed by unique compiled-edge `AccumulatorId`; each
+  entry stores float energy, requirement, expiry, and compact output reference
 - managed `TargetCompanion`
 - compatibility `CombatTargetElement` in older code paths
 
@@ -35,6 +36,10 @@ Current proxy data includes:
 Simulation systems can read unmanaged proxy data without touching Unity
 objects. Presentation bridge can resolve `TargetCompanion` after finalized
 results exist.
+
+`TargetHitEnergy` is capped at 32 entries per target. Same-asset graph nodes
+remain isolated because identity belongs to compiled edge position, not asset,
+values, runtime type, or template key.
 
 Each actor root owns its resolved proxy `Entity` handle. Once non-null, that
 handle remains valid until the actor fires its proxy-despawn event and clears

@@ -51,7 +51,7 @@ token. `ExternalSpawnGateSystem` owns live ECS mana deduction and either emits
 normal internal spawn event or rejection. Rejection reaches gameplay bridge so
 `SkillDriver` can refund matching cooldown.
 
-Interval, impact, on-hit, and stack-triggered child effects are internal ECS
+Interval, impact, on-hit, and hit-energy-activated child effects are internal ECS
 events. They never spend player mana again.
 
 ## Skill Domains
@@ -61,7 +61,7 @@ events. They never spend player mana again.
 | Projectile | Discrete or continuous lane, move, optional tracking, collision, pierce, impact/timed child events, lifetime, render preparation. | [Projectile System](./projectile-system.md) |
 | Pulse/lingering AOE | Event expansion, active pulse/tick collision, child events, lifetime, VFX, reuse. | [AOE System](./aoe-system.md) |
 | Targeted chain | Target-proxy walk, delay/falloff, link VFX, walk-end expiry, reuse. | [Targeted System](./targeted-system.md) |
-| Stacking detonation | Target-bucketed stack/state processing, threshold detonation event, status/result aggregation. | [Mob Combat State ECS](./mob-combat-state-ecs.md) |
+| Hit-energy activation | Target-local float accumulation, requirement consumption, registered output event, and compact progress aggregation. | [Spawn Template Registry](./spawn-template-registry.md) |
 
 Targeted chains query target proxies through spatial hash. They do not use a
 gameplay collider or Physics2D. Tracking, projectile, and AOE target reads use
@@ -84,6 +84,17 @@ negative, delaying first child; future gain uses `EnergyPerSecond`.
 `TimedSpawnSystem` stamps per-instance fields and emits normal child event when
 threshold is met. Template ownership/counting prevents in-flight or pooled
 entity data from disappearing after gameplay recompile.
+
+Hit energy is separate from this time-based interval energy. A
+`RuntimeHitEnergyTrigger` is source-attached edge composition. Its payload uses
+`EnergyPerHit = max(1e-3, source.TriggerEnergy * contributionMultiplier)` and
+`EnergyRequired = max(1e-3, triggered.TriggerEnergy * requirementMultiplier)`.
+Every compiled edge has a unique `AccumulatorId`, including repeated use of the
+same assets or equal values. Finalization deposits into `TargetHitEnergy` and
+refreshes retention. `HitEnergyActivationSystem` runs before finalization,
+spends complete requirements from prior updates, retains float remainder and
+capped overflow, and emits through existing spawn lanes. `HitEnergySpawn`'s
+registered template is sole output-stat authority.
 
 Full shape, hashing, lifetime, and cleanup rules:
 [Spawn Template Registry](./spawn-template-registry.md).

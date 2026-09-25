@@ -65,12 +65,12 @@ template key; expansion is where the template resolves the lane discriminator.
 See [spawn-template-registry.md](../reference/simulation/spawn-template-registry.md)
 for the registry concurrency contract and the `(kind, key)` model.
 
-AOE variants are decided at authoring from child lifetime and carried on
-`IntervalChildKind` / `StackDetonationKind`: `Lifetime > 0` routes to lingering
-AOE, otherwise impact AOE. Targeted has no such split — a chain lives exactly as
-long as its walk, so `IntervalChildKind` carries a single `Targeted` value
-alongside the projectile and AOE ones. Producers route by the carried kind and
-do not inspect templates at runtime.
+AOE variants are decided at authoring from child lifetime. Interval producers
+carry `IntervalChildKind`; hit-energy producers carry `HitEnergySpawnKind`.
+`Lifetime > 0` routes to lingering AOE, otherwise impact AOE. Targeted has no
+such split — a chain lives exactly as long as its walk, and targeted skills are
+not valid hit-energy outputs. Producers route by carried kind and do not inspect
+template contents at runtime.
 
 Targeted events carry the ordinary instance frame plus `AcquireAnchor` and
 `HasAcquiredTarget`. `Position` is the chain origin. Root casts enter the gate

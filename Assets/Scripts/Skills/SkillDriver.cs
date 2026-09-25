@@ -43,7 +43,7 @@ namespace PlayGround.Skills
         private static readonly ProfilerMarker CooldownsMarker = new("SkillDriver.Tick.Cooldowns");
         private static readonly ProfilerMarker SpawnReadySlotsMarker = new("SkillDriver.Tick.SpawnReadySlots");
         private static readonly ProfilerMarker SpawnMarker = new("SkillDriver.Tick.Spawn");
-        private static int nextStackingDebuffKey;
+        private static int nextHitEnergyAccumulatorId;
         private int activeSlotCount;
         private ulong revision;
         private bool hasPendingEdit;
@@ -255,12 +255,6 @@ namespace PlayGround.Skills
             if (definition == null || depth > CombatRoot.MaxSpawnChainDepth)
                 return;
 
-            if (definition is RuntimeStackingDetonation stackingDetonation)
-            {
-                RegisterSoundsRecursive(stackingDetonation.Detonation, depth);
-                return;
-            }
-
             definition.SoundIds = new SkillSoundIds
             {
                 SpawnId = audioRoot != null ? audioRoot.Register(definition.SpawnSound) : 0
@@ -274,7 +268,7 @@ namespace PlayGround.Skills
                 RegisterSoundsRecursive(aoe.ChildSpawnSetup?.ChildDefinition, depth + 1);
                 RegisterSoundsRecursive(aoe.AoeIntervalSpawnSetup?.ChildDefinition, depth + 1);
                 RegisterSoundsRecursive(aoe.TargetedIntervalSpawnSetup?.ChildDefinition, depth + 1);
-                RegisterSoundsRecursive(aoe.StackingDetonation, depth + 1);
+                RegisterSoundsRecursive(aoe.HitEnergyTrigger?.TriggeredSkill, depth + 1);
                 return;
             }
 
@@ -286,7 +280,7 @@ namespace PlayGround.Skills
                         targeted.SoundIds,
                         targeted.SpawnSoundRadius);
 
-                RegisterSoundsRecursive(targeted.StackingDetonation, depth + 1);
+                RegisterSoundsRecursive(targeted.HitEnergyTrigger?.TriggeredSkill, depth + 1);
                 return;
             }
 
@@ -295,7 +289,7 @@ namespace PlayGround.Skills
                 RegisterSoundsRecursive(projectile.ChildSpawnSetup?.ChildDefinition, depth + 1);
                 RegisterSoundsRecursive(projectile.AoeIntervalSpawnSetup?.ChildDefinition, depth + 1);
                 RegisterSoundsRecursive(projectile.TargetedIntervalSpawnSetup?.ChildDefinition, depth + 1);
-                RegisterSoundsRecursive(projectile.StackingDetonation, depth + 1);
+                RegisterSoundsRecursive(projectile.HitEnergyTrigger?.TriggeredSkill, depth + 1);
             }
         }
 
@@ -556,13 +550,6 @@ namespace PlayGround.Skills
         {
             if (def == null) return;
 
-            if (def is RuntimeStackingDetonation stackingDetonation)
-            {
-                EnsureStackingDetonationDebuffKey(stackingDetonation);
-                RegisterProjectileTypesRecursive(stackingDetonation.Detonation);
-                return;
-            }
-
             if (def is RuntimeAoeDefinition aoeDef)
             {
                 if (aoeDef.ChildSpawnSetup?.ChildDefinition != null)
@@ -571,14 +558,12 @@ namespace PlayGround.Skills
                     RegisterProjectileTypesRecursive(aoeDef.AoeIntervalSpawnSetup.ChildDefinition);
                 if (aoeDef.TargetedIntervalSpawnSetup?.ChildDefinition != null)
                     RegisterProjectileTypesRecursive(aoeDef.TargetedIntervalSpawnSetup.ChildDefinition);
-                if (aoeDef.StackingDetonation != null)
-                    RegisterProjectileTypesRecursive(aoeDef.StackingDetonation);
+                RegisterProjectileTypesRecursive(aoeDef.HitEnergyTrigger?.TriggeredSkill);
             }
 
             if (def is RuntimeTargetedDefinition targetedDef)
             {
-                if (targetedDef.StackingDetonation != null)
-                    RegisterProjectileTypesRecursive(targetedDef.StackingDetonation);
+                RegisterProjectileTypesRecursive(targetedDef.HitEnergyTrigger?.TriggeredSkill);
             }
 
             if (def is RuntimeProjectileDefinition projDef && projDef.Prefab != null)
@@ -600,8 +585,7 @@ namespace PlayGround.Skills
                     RegisterProjectileTypesRecursive(p.AoeIntervalSpawnSetup.ChildDefinition);
                 if (p.TargetedIntervalSpawnSetup?.ChildDefinition != null)
                     RegisterProjectileTypesRecursive(p.TargetedIntervalSpawnSetup.ChildDefinition);
-                if (p.StackingDetonation != null)
-                    RegisterProjectileTypesRecursive(p.StackingDetonation);
+                RegisterProjectileTypesRecursive(p.HitEnergyTrigger?.TriggeredSkill);
             }
         }
 
@@ -637,8 +621,8 @@ namespace PlayGround.Skills
             List<SkillValidationWarning> warnings,
             int slotIndex,
             ProjectileChildSpawnPatternType selfPattern = ProjectileChildSpawnPatternType.Forward,
-            // Interval edges register their own behavior-specific templates. Root, on-hit,
-            // and stacking edges need the definition's generic key instead.
+            // Interval edges register their own behavior-specific templates. Root and
+            // hit-energy edges need the definition's generic key instead.
             bool registerSelfTemplate = true)
         {
             if (def == null) return false;
@@ -649,18 +633,6 @@ namespace PlayGround.Skills
                     slotIndex,
                     $"Spawn chain exceeds max depth {CombatRoot.MaxSpawnChainDepth}. Overflow link will be ignored."));
                 return false;
-            }
-
-            if (def is RuntimeStackingDetonation stackingDetonation)
-            {
-                EnsureStackingDetonationDebuffKey(stackingDetonation);
-                // A projectile detonation fires as a radial nova from the detonation point,
-                // so its own template is built with the radial pattern (its children, if any,
-                // keep the default forward pattern).
-                return RegisterSpawnTemplatesRecursive(
-                    stackingDetonation.Detonation, depth, warnings, slotIndex,
-                    ProjectileChildSpawnPatternType.Radial,
-                    registerSelfTemplate: true);
             }
 
             if (def is RuntimeAoeDefinition aoeDef)
@@ -704,16 +676,25 @@ namespace PlayGround.Skills
                     }
                 }
 
-                if (aoeDef.StackingDetonation != null)
-                    RegisterSpawnTemplatesRecursive(aoeDef.StackingDetonation, depth + 1, warnings, slotIndex);
+                if (aoeDef.HitEnergyTrigger != null)
+                {
+                    EnsureHitEnergyAccumulatorId(aoeDef.HitEnergyTrigger);
+                    RegisterSpawnTemplatesRecursive(
+                        aoeDef.HitEnergyTrigger.TriggeredSkill,
+                        depth + 1,
+                        warnings,
+                        slotIndex,
+                        ProjectileChildSpawnPatternType.Radial,
+                        registerSelfTemplate: true);
+                }
 
-                StackEffectSnapshot stackEffect =
-                    SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(aoeDef, combatRoot);
+                HitEnergyPayload hitEnergy =
+                    SkillIntervalTemplateBuilder.BuildApplicatorHitEnergyPayload(aoeDef);
                 AoeSpawnCommand template =
                     SkillIntervalTemplateBuilder.BuildAoeTemplate(
                         aoeDef,
                         combatRoot,
-                        stackEffect,
+                        hitEnergy,
                         AoeTimedSpawnFromDefinition(aoeDef));
                 if (registerSelfTemplate)
                 {
@@ -730,14 +711,23 @@ namespace PlayGround.Skills
 
             if (def is RuntimeTargetedDefinition targetedDef)
             {
-                if (targetedDef.StackingDetonation != null)
-                    RegisterSpawnTemplatesRecursive(targetedDef.StackingDetonation, depth + 1, warnings, slotIndex);
+                if (targetedDef.HitEnergyTrigger != null)
+                {
+                    EnsureHitEnergyAccumulatorId(targetedDef.HitEnergyTrigger);
+                    RegisterSpawnTemplatesRecursive(
+                        targetedDef.HitEnergyTrigger.TriggeredSkill,
+                        depth + 1,
+                        warnings,
+                        slotIndex,
+                        ProjectileChildSpawnPatternType.Radial,
+                        registerSelfTemplate: true);
+                }
 
                 TargetedSpawnCommand template =
                     SkillIntervalTemplateBuilder.BuildTargetedTemplate(
                         targetedDef,
                         combatRoot,
-                        SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(targetedDef, combatRoot));
+                        SkillIntervalTemplateBuilder.BuildApplicatorHitEnergyPayload(targetedDef));
                 if (registerSelfTemplate)
                 {
                     Unity.Entities.Hash128 key = combatRoot.RegisterSpawnTemplate(in template);
@@ -795,11 +785,20 @@ namespace PlayGround.Skills
                     }
                 }
 
-                if (projDef.StackingDetonation != null)
-                    RegisterSpawnTemplatesRecursive(projDef.StackingDetonation, depth + 1, warnings, slotIndex);
+                if (projDef.HitEnergyTrigger != null)
+                {
+                    EnsureHitEnergyAccumulatorId(projDef.HitEnergyTrigger);
+                    RegisterSpawnTemplatesRecursive(
+                        projDef.HitEnergyTrigger.TriggeredSkill,
+                        depth + 1,
+                        warnings,
+                        slotIndex,
+                        ProjectileChildSpawnPatternType.Radial,
+                        registerSelfTemplate: true);
+                }
 
-                StackEffectSnapshot stackEffect =
-                    SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(projDef, combatRoot);
+                HitEnergyPayload hitEnergy =
+                    SkillIntervalTemplateBuilder.BuildApplicatorHitEnergyPayload(projDef);
                 ProjectileSpawnCommand template =
                     SkillIntervalTemplateBuilder.BuildProjectileTemplate(
                         projDef,
@@ -808,7 +807,7 @@ namespace PlayGround.Skills
                             selfPattern,
                             projDef.SpreadDegrees),
                         combatRoot,
-                        stackEffect,
+                        hitEnergy,
                         ProjectileTimedSpawnFromDefinition(projDef),
                         projDef.JitterDegrees);
                 if (registerSelfTemplate)
@@ -833,14 +832,14 @@ namespace PlayGround.Skills
             if (setup == null || child == null || child.TypeId < 0 || child.Prefab == null)
                 return;
 
-            StackEffectSnapshot stackEffect =
-                SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(child, combatRoot);
+            HitEnergyPayload hitEnergy =
+                SkillIntervalTemplateBuilder.BuildApplicatorHitEnergyPayload(child);
             ProjectileSpawnCommand template =
                 SkillIntervalTemplateBuilder.BuildProjectileTemplate(
                     child,
                     setup.Behavior,
                     combatRoot,
-                    stackEffect,
+                    hitEnergy,
                     ProjectileTimedSpawnFromDefinition(child),
                     child.JitterDegrees);
 
@@ -855,13 +854,13 @@ namespace PlayGround.Skills
             if (setup == null || child == null || child.TypeId < 0)
                 return;
 
-            StackEffectSnapshot stackEffect =
-                SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(child, combatRoot);
+            HitEnergyPayload hitEnergy =
+                SkillIntervalTemplateBuilder.BuildApplicatorHitEnergyPayload(child);
             AoeSpawnCommand template =
                 SkillIntervalTemplateBuilder.BuildAoeTemplate(
                     child,
                     combatRoot,
-                    stackEffect,
+                    hitEnergy,
                     AoeTimedSpawnFromDefinition(child));
 
             Unity.Entities.Hash128 key = combatRoot.RegisterTimedSpawnTemplate(in template);
@@ -879,7 +878,7 @@ namespace PlayGround.Skills
                 SkillIntervalTemplateBuilder.BuildTargetedTemplate(
                     child,
                     combatRoot,
-                    SkillIntervalTemplateBuilder.BuildApplicatorStackEffectSnapshot(child, combatRoot));
+                    SkillIntervalTemplateBuilder.BuildApplicatorHitEnergyPayload(child));
             Unity.Entities.Hash128 key = combatRoot.RegisterTimedSpawnTemplate(in template);
             setup.TemplateKey = key;
             registeredTemplateKeys.Add((IntervalChildKind.Targeted, key));
@@ -985,13 +984,6 @@ namespace PlayGround.Skills
         {
             if (def == null) return;
 
-            if (def is RuntimeStackingDetonation stackingDetonation)
-            {
-                EnsureStackingDetonationDebuffKey(stackingDetonation);
-                RegisterAoeTypesRecursive(stackingDetonation.Detonation);
-                return;
-            }
-
             if (def is RuntimeAoeDefinition aoeDef)
             {
                 RegisterAoeTypeDefinition(aoeDef);
@@ -1001,13 +993,12 @@ namespace PlayGround.Skills
                     RegisterAoeTypesRecursive(aoeDef.AoeIntervalSpawnSetup.ChildDefinition);
                 if (aoeDef.TargetedIntervalSpawnSetup?.ChildDefinition != null)
                     RegisterAoeTypesRecursive(aoeDef.TargetedIntervalSpawnSetup.ChildDefinition);
-                if (aoeDef.StackingDetonation != null)
-                    RegisterAoeTypesRecursive(aoeDef.StackingDetonation);
+                RegisterAoeTypesRecursive(aoeDef.HitEnergyTrigger?.TriggeredSkill);
             }
 
             if (def is RuntimeTargetedDefinition targetedDef)
             {
-                RegisterAoeTypesRecursive(targetedDef.StackingDetonation);
+                RegisterAoeTypesRecursive(targetedDef.HitEnergyTrigger?.TriggeredSkill);
             }
 
             if (def is RuntimeProjectileDefinition projDef)
@@ -1018,8 +1009,7 @@ namespace PlayGround.Skills
                     RegisterAoeTypesRecursive(projDef.AoeIntervalSpawnSetup.ChildDefinition);
                 if (projDef.TargetedIntervalSpawnSetup?.ChildDefinition != null)
                     RegisterAoeTypesRecursive(projDef.TargetedIntervalSpawnSetup.ChildDefinition);
-                if (projDef.StackingDetonation != null)
-                    RegisterAoeTypesRecursive(projDef.StackingDetonation);
+                RegisterAoeTypesRecursive(projDef.HitEnergyTrigger?.TriggeredSkill);
             }
         }
 
@@ -1027,17 +1017,10 @@ namespace PlayGround.Skills
         {
             if (def == null) return;
 
-            if (def is RuntimeStackingDetonation stackingDetonation)
-            {
-                EnsureStackingDetonationDebuffKey(stackingDetonation);
-                RegisterTargetedTypesRecursive(stackingDetonation.Detonation);
-                return;
-            }
-
             if (def is RuntimeTargetedDefinition targetedDef)
             {
                 RegisterTargetedTypeDefinition(targetedDef);
-                RegisterTargetedTypesRecursive(targetedDef.StackingDetonation);
+                RegisterTargetedTypesRecursive(targetedDef.HitEnergyTrigger?.TriggeredSkill);
                 return;
             }
 
@@ -1046,7 +1029,7 @@ namespace PlayGround.Skills
                 RegisterTargetedTypesRecursive(aoeDef.ChildSpawnSetup?.ChildDefinition);
                 RegisterTargetedTypesRecursive(aoeDef.AoeIntervalSpawnSetup?.ChildDefinition);
                 RegisterTargetedTypesRecursive(aoeDef.TargetedIntervalSpawnSetup?.ChildDefinition);
-                RegisterTargetedTypesRecursive(aoeDef.StackingDetonation);
+                RegisterTargetedTypesRecursive(aoeDef.HitEnergyTrigger?.TriggeredSkill);
                 return;
             }
 
@@ -1055,16 +1038,16 @@ namespace PlayGround.Skills
                 RegisterTargetedTypesRecursive(projDef.ChildSpawnSetup?.ChildDefinition);
                 RegisterTargetedTypesRecursive(projDef.AoeIntervalSpawnSetup?.ChildDefinition);
                 RegisterTargetedTypesRecursive(projDef.TargetedIntervalSpawnSetup?.ChildDefinition);
-                RegisterTargetedTypesRecursive(projDef.StackingDetonation);
+                RegisterTargetedTypesRecursive(projDef.HitEnergyTrigger?.TriggeredSkill);
             }
         }
 
-        private static void EnsureStackingDetonationDebuffKey(RuntimeStackingDetonation stackingDef)
+        private static void EnsureHitEnergyAccumulatorId(RuntimeHitEnergyTrigger hitEnergyTrigger)
         {
-            if (stackingDef == null || stackingDef.DebuffKey >= 0)
+            if (hitEnergyTrigger == null || hitEnergyTrigger.AccumulatorId >= 0)
                 return;
 
-            stackingDef.DebuffKey = ++nextStackingDebuffKey;
+            hitEnergyTrigger.AccumulatorId = ++nextHitEnergyAccumulatorId;
         }
 
         private void RegisterAoeTypeDefinition(RuntimeAoeDefinition aoeDef)
@@ -1216,7 +1199,7 @@ namespace PlayGround.Skills
             RuntimeProjectileDefinition child,
             ProjectileChildSpawnBehavior behavior,
             CombatRoot root,
-            StackEffectSnapshot stackEffect,
+            HitEnergyPayload hitEnergy,
             TimedSpawnComponent timedSpawn = default,
             float jitterDegrees = 0f)
         {
@@ -1270,7 +1253,7 @@ namespace PlayGround.Skills
                         CritMultiplier = child.CritMultiplier,
                         DirectDamageEnabled = child.DirectDamageEnabled,
                         SourceNodeId = default,
-                        StackEffect = stackEffect
+                        HitEnergy = hitEnergy
                     }),
                 Tracking = new ProjectileTrackingComponent
                 {
@@ -1292,7 +1275,7 @@ namespace PlayGround.Skills
         public static AoeSpawnCommand BuildAoeTemplate(
             RuntimeAoeDefinition child,
             CombatRoot root,
-            StackEffectSnapshot stackEffect,
+            HitEnergyPayload hitEnergy,
             TimedSpawnComponent timedSpawn = default)
         {
             AoeSpawnGeometry geometry = child.CreateSpawnGeometry();
@@ -1328,7 +1311,7 @@ namespace PlayGround.Skills
                     CritMultiplier = child.CritMultiplier,
                     DirectDamageEnabled = child.DirectDamageEnabled,
                     SourceNodeId = default,
-                    StackEffect = stackEffect
+                    HitEnergy = hitEnergy
                 },
                 AreaSize = geometry.AreaSize,
                 Radius = geometry.Radius,
@@ -1347,7 +1330,7 @@ namespace PlayGround.Skills
         public static TargetedSpawnCommand BuildTargetedTemplate(
             RuntimeTargetedDefinition child,
             CombatRoot root,
-            StackEffectSnapshot stackEffect)
+            HitEnergyPayload hitEnergy)
         {
             CombatRenderComponent render;
             CombatRenderAuthoring authoring;
@@ -1380,7 +1363,7 @@ namespace PlayGround.Skills
                     CritMultiplier = child.CritMultiplier,
                     DirectDamageEnabled = child.DirectDamageEnabled,
                     SourceNodeId = default,
-                    StackEffect = stackEffect
+                    HitEnergy = hitEnergy
                 },
                 Resolve = new TargetedResolveConfig
                 {
@@ -1396,20 +1379,20 @@ namespace PlayGround.Skills
             };
         }
 
-        public static StackEffectSnapshot BuildApplicatorStackEffectSnapshot(
+        public static HitEnergyPayload BuildApplicatorHitEnergyPayload(
             RuntimeSkillDefinition def,
-            CombatRoot root,
-            StackEffectSnapshot fallback = default)
+            HitEnergyPayload fallback = default)
         {
-            StackEffectSnapshot stackEffect = default;
+            RuntimeHitEnergyTrigger hitEnergyTrigger = null;
             if (def is RuntimeProjectileDefinition projectile)
-                stackEffect = BuildStackEffectSnapshot(projectile.StackingDetonation, root);
+                hitEnergyTrigger = projectile.HitEnergyTrigger;
             else if (def is RuntimeAoeDefinition aoe)
-                stackEffect = BuildStackEffectSnapshot(aoe.StackingDetonation, root);
+                hitEnergyTrigger = aoe.HitEnergyTrigger;
             else if (def is RuntimeTargetedDefinition targeted)
-                stackEffect = BuildStackEffectSnapshot(targeted.StackingDetonation, root);
+                hitEnergyTrigger = targeted.HitEnergyTrigger;
 
-            return stackEffect.Enabled ? stackEffect : fallback;
+            HitEnergyPayload hitEnergy = BuildHitEnergyPayload(def, hitEnergyTrigger);
+            return hitEnergy.Enabled ? hitEnergy : fallback;
         }
 
         private static CombatRenderComponent ProjectileRenderComponentFor(int renderId)
@@ -1498,82 +1481,62 @@ namespace PlayGround.Skills
             };
         }
 
-        private static StackEffectSnapshot BuildStackEffectSnapshot(
-            RuntimeStackingDetonation stacking,
-            CombatRoot root)
+        private static HitEnergyPayload BuildHitEnergyPayload(
+            RuntimeSkillDefinition source,
+            RuntimeHitEnergyTrigger hitEnergyTrigger)
         {
-            if (stacking == null || root == null || stacking.DebuffKey < 0)
+            if (source == null || hitEnergyTrigger == null || hitEnergyTrigger.AccumulatorId < 0)
                 return default;
 
-            int threshold = Mathf.Max(1, stacking.StackThreshold);
-            if (stacking.Detonation is RuntimeAoeDefinition aoe && aoe.TypeId >= 0)
-                return BuildAoeStackEffectSnapshot(stacking, root, aoe, threshold);
+            RuntimeSkillDefinition triggeredSkill = hitEnergyTrigger.TriggeredSkill;
+            if (triggeredSkill == null)
+                return default;
 
-            if (stacking.Detonation is RuntimeProjectileDefinition projectile
+            HitEnergySpawn spawn = HitEnergySpawnFor(triggeredSkill);
+            var payload = new HitEnergyPayload
+            {
+                AccumulatorId = hitEnergyTrigger.AccumulatorId,
+                EnergyPerHit = ResolvePositiveHitEnergy(
+                    source.TriggerEnergy * hitEnergyTrigger.EnergyContributionMultiplier),
+                EnergyRequired = ResolvePositiveHitEnergy(
+                    triggeredSkill.TriggerEnergy * hitEnergyTrigger.EnergyRequirementMultiplier),
+                RetentionSeconds = hitEnergyTrigger.RetentionSeconds,
+                Spawn = spawn
+            };
+            return payload.Enabled ? payload : default;
+        }
+
+        private static HitEnergySpawn HitEnergySpawnFor(RuntimeSkillDefinition triggeredSkill)
+        {
+            if (triggeredSkill is RuntimeAoeDefinition aoe && aoe.TypeId >= 0)
+            {
+                return new HitEnergySpawn
+                {
+                    Kind = AoeVariant.HitEnergySpawnKindFor(aoe.LifetimeSeconds),
+                    Faction = CombatFaction.None,
+                    TemplateKey = aoe.SpawnTemplateKey
+                };
+            }
+
+            if (triggeredSkill is RuntimeProjectileDefinition projectile
                 && projectile.TypeId >= 0
                 && projectile.Prefab != null)
             {
-                return BuildProjectileStackEffectSnapshot(stacking, root, projectile, threshold);
+                return new HitEnergySpawn
+                {
+                    Kind = HitEnergySpawnKind.Projectile,
+                    Faction = CombatFaction.None,
+                    TemplateKey = projectile.SpawnTemplateKey
+                };
             }
 
             return default;
         }
 
-        private static StackEffectSnapshot BuildAoeStackEffectSnapshot(
-            RuntimeStackingDetonation stacking,
-            CombatRoot root,
-            RuntimeAoeDefinition aoe,
-            int threshold)
-        {
-            if (aoe.SpawnTemplateKey.Equals(default(Unity.Entities.Hash128)))
-                return default;
-
-            float stacksPerHit = Mathf.Max(1, stacking.StacksPerHit);
-            return new StackEffectSnapshot
-            {
-                DebuffKey = stacking.DebuffKey,
-                Threshold = threshold,
-                StacksPerHit = Mathf.Max(1, stacking.StacksPerHit),
-                Lifetime = Mathf.Max(0f, stacking.DebuffLifetimeSeconds),
-                Contribution = new StackContribution
-                {
-                    Damage = Mathf.Max(0f, aoe.Damage) * stacksPerHit / threshold,
-                    ProjectileCount = 0,
-                    AreaSize = Mathf.Max(0.01f, aoe.AreaSize) * stacksPerHit / threshold
-                },
-                Faction = CombatFaction.None,
-                DetonationKind = AoeVariant.AoeDetonationKindFor(aoe.LifetimeSeconds),
-                DetonationKey = aoe.SpawnTemplateKey
-            };
-        }
-
-        private static StackEffectSnapshot BuildProjectileStackEffectSnapshot(
-            RuntimeStackingDetonation stacking,
-            CombatRoot root,
-            RuntimeProjectileDefinition projectile,
-            int threshold)
-        {
-            if (projectile.SpawnTemplateKey.Equals(default(Unity.Entities.Hash128)))
-                return default;
-
-            float stacksPerHit = Mathf.Max(1, stacking.StacksPerHit);
-            return new StackEffectSnapshot
-            {
-                DebuffKey = stacking.DebuffKey,
-                Threshold = threshold,
-                StacksPerHit = Mathf.Max(1, stacking.StacksPerHit),
-                Lifetime = Mathf.Max(0f, stacking.DebuffLifetimeSeconds),
-                Contribution = new StackContribution
-                {
-                    Damage = Mathf.Max(0f, projectile.Damage) * stacksPerHit / threshold,
-                    ProjectileCount = Mathf.Max(1, Mathf.RoundToInt(projectile.Count * stacksPerHit)),
-                    AreaSize = 0f
-                },
-                Faction = CombatFaction.None,
-                DetonationKind = StackDetonationKind.Projectile,
-                DetonationKey = projectile.SpawnTemplateKey
-            };
-        }
+        private static float ResolvePositiveHitEnergy(float value) =>
+            float.IsNaN(value) || float.IsInfinity(value)
+                ? 1e-3f
+                : Mathf.Max(1e-3f, value);
 
         private static bool IsTimedSpawnEnabled(TimedSpawnComponent timedSpawn) =>
             timedSpawn.JitterSeed > 0

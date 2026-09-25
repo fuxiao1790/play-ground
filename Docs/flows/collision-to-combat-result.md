@@ -13,23 +13,25 @@ compact presentation results.
 2. Collision systems qualify hits with broad phase, narrow phase, target-policy
    eligibility, and repeat-hit gates.
 3. Accepted hits emit plain data hit events and optional spawn/VFX consequences.
-4. Before hit finalization, `StatusProcessSystem` processes `TargetStackEntry`
-   state accrued by prior updates and may enqueue detonation spawns.
+4. Before hit finalization, `HitEnergyActivationSystem` processes
+   `TargetHitEnergy` accrued by prior updates and may enqueue registered output
+   spawns.
 5. `CombatApplyFinalizeSingleSystem` groups hits by target proxy, rolls crits,
-   sums damage, updates `Health`, accrues `TargetStackEntry`, and freezes
-   `CombatTickResult`. Newly accrued stacks become eligible for status
-   processing on the next simulation update.
+   sums damage, updates `Health`, deposits each accepted hit's float
+   `EnergyPerHit` into `TargetHitEnergy`, refreshes expiry, and freezes
+   `CombatTickResult`. Newly deposited energy becomes eligible on the next
+   simulation update.
 6. Presentation bridge resolves `TargetCompanion` and calls managed target
    feedback once per changed target.
 
 ## Producers
 
 `ProjectileDiscreteCollisionSystem`, `ProjectileContinuousCollisionSystem`, AOE
-collision systems, `TargetedResolveSystem`, and status systems.
+collision systems, `TargetedResolveSystem`, and `HitEnergyActivationSystem`.
 
 ## Consumers
 
-`CombatApplyFinalizeSingleSystem`, `StatusProcessSystem`, presentation bridge,
+`CombatApplyFinalizeSingleSystem`, `HitEnergyActivationSystem`, presentation bridge,
 actor roots, and spawn expansion systems for follow-up events.
 
 ## Contracts Used
@@ -46,10 +48,12 @@ actor roots, and spawn expansion systems for follow-up events.
 
 ## Ordering / Timing Requirements
 
-Status processing runs before current-update hit finalization. Finalization runs
-after projectile/AOE collision and targeted resolve, and before spawn
-expansion. A threshold reached during finalization detonates on the next
-simulation update.
+Hit-energy activation runs before current-update hit finalization. Finalization
+runs after projectile/AOE collision and targeted resolve, and before spawn
+expansion. A requirement reached during finalization activates on the next
+simulation update. Activation spends complete requirements, preserves float
+remainder and capped overflow, and emits through `HitEnergySpawn`; registered
+template values remain output authority.
 Managed target callbacks run after finalized result data exists.
 
 ## Failure / Edge Cases

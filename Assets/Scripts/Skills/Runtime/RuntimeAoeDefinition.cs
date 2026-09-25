@@ -49,8 +49,8 @@ namespace PlayGround.Skills.Runtime
         // Compiled from TargetedIntervalSpawnTrigger on lingering AOEs; null if none.
         public RuntimeTargetedIntervalSpawnSetup TargetedIntervalSpawnSetup { get; set; }
 
-        // Compiled from StackTrigger; null if none.
-        public RuntimeStackingDetonation StackingDetonation { get; set; }
+        // Compiled from HitEnergyTrigger; null if none.
+        public RuntimeHitEnergyTrigger HitEnergyTrigger { get; set; }
 
         public AoeSpawnGeometry CreateSpawnGeometry()
         {

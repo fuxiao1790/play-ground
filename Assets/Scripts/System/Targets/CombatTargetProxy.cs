@@ -79,23 +79,19 @@ namespace PlayGround.System.Combat.Targets
         }
     }
 
-    // ECS Lifecycle: target-proxy stack buffer; added empty when the proxy is created, destroyed with the proxy. CombatApplyFinalizeSingleSystem accrues entries, then StatusProcessSystem fizzles or detonates them.
+    // ECS Lifecycle: target-proxy hit-energy buffer; added empty when the proxy is
+    // created and destroyed with the proxy. CombatApplyFinalizeSingleSystem deposits
+    // accepted-hit energy, then HitEnergyActivationSystem expires or activates entries.
     [InternalBufferCapacity(8)]
-    public struct TargetStackEntry : IBufferElementData
+    public struct TargetHitEnergy : IBufferElementData
     {
-        public int DebuffKey;
-        public int Threshold;
-        public int Count;
-        public float SummedDamage;
-        public int SummedProjectileCount;
-        public float SummedArea;
-        // Absolute expiry deadline in world ElapsedTime seconds. Written only on accrual
-        // (CombatApplyFinalizeSingleSystem); StatusProcessSystem only reads it to test
-        // expiry. Storing a deadline instead of a decrementing remaining-time means the
-        // two systems no longer both write this field, so they need no shared frame token
-        // and their execution order no longer matters for lifetime.
-        public double ExpiryTime;
-        public DetonationSnapshot Detonation;
+        public int AccumulatorId;
+        public float StoredEnergy;
+        public float EnergyRequired;
+        // Absolute expiry deadline in world ElapsedTime seconds. Finalization refreshes
+        // it on deposit; activation only reads it while deciding whether state expired.
+        public double ExpiresAt;
+        public HitEnergySpawn HitEnergySpawn;
     }
 
     public sealed class TargetCompanion : IComponentData
@@ -422,7 +418,7 @@ namespace PlayGround.System.Combat.Targets
                 typeof(TargetFaction),
                 typeof(Health),
                 typeof(Mana),
-                typeof(TargetStackEntry));
+                typeof(TargetHitEnergy));
             return cachedArchetype;
         }
 

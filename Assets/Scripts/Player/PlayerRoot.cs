@@ -57,7 +57,7 @@ namespace PlayGround.Player
         private bool requestHurtOnHealthChanged;
         private bool deathHandled;
         private static int nextTargetId;
-        private readonly List<StatusStackSnapshot> statusSnapshots = new();
+        private readonly List<HitEnergyProgress> hitEnergyProgress = new();
         private readonly List<CombatTargetRegistry<ICombatTarget>> registries = new();
         private CombatTargetSet combatTargetSet;
         private Entity combatTargetProxy;
@@ -93,7 +93,7 @@ namespace PlayGround.Player
         public float CurrentHealth => health?.Current ?? 0f;
         public float CurrentMana => mana?.Current ?? 0f;
         public int EquippedAttackCount => skillDriver?.SlotCount ?? 0;
-        public IReadOnlyList<StatusStackSnapshot> StatusSnapshots => statusSnapshots;
+        public IReadOnlyList<HitEnergyProgress> HitEnergyProgress => hitEnergyProgress;
         public bool GameplayInputBlocked => gameplayInputBlocks != GameplayInputBlock.None;
 
         public void SetFireInput(IGameplayInputSource source) => fireInput = source;
@@ -292,7 +292,7 @@ namespace PlayGround.Player
 
         public void ReceiveCombatTick(
             in CombatTickResult result,
-            IReadOnlyList<StatusStackSnapshot> stacks)
+            IReadOnlyList<HitEnergyProgress> progress)
         {
             if (result.HitCount > 0)
             {
@@ -301,18 +301,18 @@ namespace PlayGround.Player
                 requestHurtOnHealthChanged = false;
             }
 
-            if (result.StatusCount > 0)
+            if (result.HitEnergyCount > 0)
             {
-                ReceiveStatus(stacks);
+                ReceiveHitEnergyProgress(progress);
             }
         }
 
-        public void ReceiveStatus(IReadOnlyList<StatusStackSnapshot> stacks)
+        public void ReceiveHitEnergyProgress(IReadOnlyList<HitEnergyProgress> progress)
         {
-            statusSnapshots.Clear();
-            for (int i = 0; i < stacks.Count; i++)
+            hitEnergyProgress.Clear();
+            for (int i = 0; i < progress.Count; i++)
             {
-                statusSnapshots.Add(stacks[i]);
+                hitEnergyProgress.Add(progress[i]);
             }
         }
 

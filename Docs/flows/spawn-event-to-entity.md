@@ -28,7 +28,7 @@ Trace how projectile, AOE, and targeted intent becomes reusable ECS entities.
 
 `CombatRoot`, `TimedSpawnSystem`, `ProjectileDiscreteCollisionSystem`,
 `ProjectileContinuousCollisionSystem`, `AoeCollisionCore`, and
-`StatusProcessSystem`.
+`HitEnergyActivationSystem`.
 
 ## Consumers
 

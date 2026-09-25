@@ -29,13 +29,13 @@ namespace PlayGround.System.Combat.Application
         public JobHandle ProducerHandle;
     }
 
-    // Applies queued combat hit events to ECS target health and stack buffers, then
+    // Applies queued combat hit events to ECS target health and hit-energy buffers, then
     // writes compact native results for presentation systems to replay later.
     //
     // The finalize work runs in a single Burst IJob over one pass of the hit array:
     //   - no bucketing job / multihashmap
     //   - no GetUniqueKeyArray
-    //   - status snapshots are packed densely instead of on a fixed per-target stride
+    //   - hit-energy progress is packed densely instead of on a fixed per-target stride
     // Multi-threading the workload was not worth it: the upfront main-thread setup to
     // enable the parallel split (flatten, bucket, unique-key extraction, oversized
     // persistent allocation) cost more than the parallel finalize ever saved. See the
@@ -47,10 +47,10 @@ namespace PlayGround.System.Combat.Application
     [UpdateBefore(typeof(ImpactAoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(LingeringAoeSpawnExpansionSystem))]
     [UpdateBefore(typeof(ProjectileSpawnExpansionSystem))]
-    [UpdateAfter(typeof(StatusProcessSystem))]
+    [UpdateAfter(typeof(HitEnergyActivationSystem))]
     public partial class CombatApplyFinalizeSingleSystem : SystemBase
     {
-        private const int MaxTargetStackEntries = 32;
+        private const int MaxTargetHitEnergyEntries = 32;
 
         private static readonly ProfilerMarker Marker = new("CombatApplyFinalizeSingleSystem");
         private static readonly ProfilerMarker CompleteProducersMarker =
@@ -75,7 +75,7 @@ namespace PlayGround.System.Combat.Application
             EntityManager.SetComponentData(resultEntity, new CombatApplyResultSingleton
             {
                 Results = new NativeList<CombatTickResult>(Allocator.Persistent),
-                StatusSnapshots = new NativeList<StatusStackSnapshot>(Allocator.Persistent),
+                HitEnergyProgress = new NativeList<HitEnergyProgress>(Allocator.Persistent),
                 DropCount = new NativeReference<int>(Allocator.Persistent)
             });
         }
@@ -121,9 +121,9 @@ namespace PlayGround.System.Combat.Application
                 results.Results.Dispose();
             }
 
-            if (results.StatusSnapshots.IsCreated)
+            if (results.HitEnergyProgress.IsCreated)
             {
-                results.StatusSnapshots.Dispose();
+                results.HitEnergyProgress.Dispose();
             }
 
             if (results.DropCount.IsCreated)
@@ -170,16 +170,16 @@ namespace PlayGround.System.Combat.Application
 
                 applyResults.EnsureCapacity(
                     math.max(16, hitCount / 4),
-                    MaxTargetStackEntries);
+                    MaxTargetHitEnergyEntries);
 
                 Dependency = new FinalizeCombatSingleJob
                 {
                     HitQueue = singleton.HitQueue,
                     PayloadLookup = GetComponentLookup<CombatHitPayload>(isReadOnly: true),
                     HealthLookup = GetComponentLookup<Health>(),
-                    StackBuffers = GetBufferLookup<TargetStackEntry>(),
+                    HitEnergyBuffers = GetBufferLookup<TargetHitEnergy>(),
                     Results = applyResults.Results,
-                    StatusSnapshots = applyResults.StatusSnapshots,
+                    HitEnergyProgress = applyResults.HitEnergyProgress,
                     DropCount = applyResults.DropCount,
                     Now = SystemAPI.Time.ElapsedTime,
                     FrameCount = (uint)UnityEngine.Time.frameCount,
@@ -195,9 +195,9 @@ namespace PlayGround.System.Combat.Application
             public NativeQueue<CombatHitEvent> HitQueue;
             [ReadOnly] public ComponentLookup<CombatHitPayload> PayloadLookup;
             public ComponentLookup<Health> HealthLookup;
-            public BufferLookup<TargetStackEntry> StackBuffers;
+            public BufferLookup<TargetHitEnergy> HitEnergyBuffers;
             public NativeList<CombatTickResult> Results;
-            public NativeList<StatusStackSnapshot> StatusSnapshots;
+            public NativeList<HitEnergyProgress> HitEnergyProgress;
             public NativeReference<int> DropCount;
             public double Now;
             public uint FrameCount;
@@ -229,18 +229,18 @@ namespace PlayGround.System.Combat.Application
                         accums.Add(new TargetAccum
                         {
                             Target = target,
-                            HasStackBuffer = StackBuffers.HasBuffer(target) ? (byte)1 : (byte)0
+                            HasHitEnergyBuffer = HitEnergyBuffers.HasBuffer(target) ? (byte)1 : (byte)0
                         });
                     }
 
                     TargetAccum acc = accums[idx];
 
-                    if (payload.StackEffect.Enabled && acc.HasStackBuffer == 1)
+                    if (payload.HitEnergy.Enabled && acc.HasHitEnergyBuffer == 1)
                     {
-                        DynamicBuffer<TargetStackEntry> buffer = StackBuffers[target];
-                        if (AccrueStack(buffer, payload.StackEffect, Now, ref dropCount))
+                        DynamicBuffer<TargetHitEnergy> buffer = HitEnergyBuffers[target];
+                        if (DepositHitEnergy(buffer, payload.HitEnergy, Now, ref dropCount))
                         {
-                            acc.StackChanged = 1;
+                            acc.HitEnergyChanged = 1;
                         }
                     }
 
@@ -284,22 +284,23 @@ namespace PlayGround.System.Combat.Application
                         TickDeltaSeconds = DeltaTime
                     };
 
-                    if (acc.StackChanged == 1 && acc.HasStackBuffer == 1)
+                    if (acc.HitEnergyChanged == 1 && acc.HasHitEnergyBuffer == 1)
                     {
-                        DynamicBuffer<TargetStackEntry> buffer = StackBuffers[acc.Target];
-                        int statusCount = math.min(buffer.Length, MaxTargetStackEntries);
-                        int statusStart = StatusSnapshots.Length;
-                        for (int j = 0; j < statusCount; j++)
+                        DynamicBuffer<TargetHitEnergy> buffer = HitEnergyBuffers[acc.Target];
+                        int progressCount = math.min(buffer.Length, MaxTargetHitEnergyEntries);
+                        int progressStart = HitEnergyProgress.Length;
+                        for (int j = 0; j < progressCount; j++)
                         {
-                            TargetStackEntry entry = buffer[j];
-                            StatusSnapshots.Add(new StatusStackSnapshot(
-                                entry.DebuffKey,
-                                entry.Count,
-                                (float)math.max(0.0, entry.ExpiryTime - Now)));
+                            TargetHitEnergy entry = buffer[j];
+                            HitEnergyProgress.Add(new HitEnergyProgress(
+                                entry.AccumulatorId,
+                                entry.StoredEnergy,
+                                entry.EnergyRequired,
+                                (float)math.max(0.0, entry.ExpiresAt - Now)));
                         }
 
-                        result.StatusStart = statusStart;
-                        result.StatusCount = statusCount;
+                        result.HitEnergyStart = progressStart;
+                        result.HitEnergyCount = progressCount;
                     }
 
                     if (HealthLookup.HasComponent(acc.Target))
@@ -325,78 +326,64 @@ namespace PlayGround.System.Combat.Application
                 public int HitCount;
                 public int CritCount;
                 public int HitIndex;
-                public byte StackChanged;
-                public byte HasStackBuffer;
+                public byte HitEnergyChanged;
+                public byte HasHitEnergyBuffer;
             }
 
-            private static bool AccrueStack(
-                DynamicBuffer<TargetStackEntry> stackEntries,
-                in StackEffectSnapshot stack,
+            private static bool DepositHitEnergy(
+                DynamicBuffer<TargetHitEnergy> entries,
+                in HitEnergyPayload payload,
                 double now,
                 ref int dropCount)
             {
-                int entryIndex = FindEntryIndex(stackEntries, stack.DebuffKey);
+                int entryIndex = FindEntryIndex(entries, payload.AccumulatorId);
                 if (entryIndex < 0)
                 {
-                    entryIndex = AddEntry(stackEntries, stack, now, ref dropCount);
+                    entryIndex = AddEntry(entries, payload, now, ref dropCount);
                     if (entryIndex < 0)
                     {
                         return false;
                     }
                 }
 
-                TargetStackEntry entry = stackEntries[entryIndex];
-                entry.Threshold = math.max(1, stack.Threshold);
-                entry.Count += math.max(1, stack.StacksPerHit);
-                entry.SummedDamage += stack.Contribution.Damage;
-                entry.SummedProjectileCount += stack.Contribution.ProjectileCount;
-                entry.SummedArea += stack.Contribution.AreaSize;
-                entry.ExpiryTime = now + math.max(0f, stack.Lifetime);
-                entry.Detonation = DetonationFor(in stack);
-                stackEntries[entryIndex] = entry;
+                TargetHitEnergy entry = entries[entryIndex];
+                entry.StoredEnergy += payload.EnergyPerHit;
+                entry.EnergyRequired = payload.EnergyRequired;
+                entry.ExpiresAt = now + payload.RetentionSeconds;
+                entry.HitEnergySpawn = payload.Spawn;
+                entries[entryIndex] = entry;
                 return true;
             }
 
             private static int AddEntry(
-                DynamicBuffer<TargetStackEntry> stackEntries,
-                in StackEffectSnapshot stack,
+                DynamicBuffer<TargetHitEnergy> entries,
+                in HitEnergyPayload payload,
                 double now,
                 ref int dropCount)
             {
-                if (stackEntries.Length >= MaxTargetStackEntries)
+                if (entries.Length >= MaxTargetHitEnergyEntries)
                 {
                     dropCount++;
                     return -1;
                 }
 
-                stackEntries.Add(new TargetStackEntry
+                entries.Add(new TargetHitEnergy
                 {
-                    DebuffKey = stack.DebuffKey,
-                    Threshold = math.max(1, stack.Threshold),
-                    Count = 0,
-                    SummedDamage = 0f,
-                    SummedProjectileCount = 0,
-                    SummedArea = 0f,
-                    ExpiryTime = now + math.max(0f, stack.Lifetime),
-                    Detonation = DetonationFor(in stack)
+                    AccumulatorId = payload.AccumulatorId,
+                    StoredEnergy = 0f,
+                    EnergyRequired = payload.EnergyRequired,
+                    ExpiresAt = now + payload.RetentionSeconds,
+                    HitEnergySpawn = payload.Spawn
                 });
 
-                return stackEntries.Length - 1;
+                return entries.Length - 1;
             }
 
-            private static DetonationSnapshot DetonationFor(in StackEffectSnapshot stack) =>
-                new()
-                {
-                    Kind = stack.DetonationKind,
-                    Faction = stack.Faction,
-                    TemplateKey = stack.DetonationKey
-                };
-
-            private static int FindEntryIndex(DynamicBuffer<TargetStackEntry> stackEntries, int debuffKey)
+            private static int FindEntryIndex(DynamicBuffer<TargetHitEnergy> entries, int accumulatorId)
             {
-                for (int i = 0; i < stackEntries.Length; i++)
+                for (int i = 0; i < entries.Length; i++)
                 {
-                    if (stackEntries[i].DebuffKey == debuffKey)
+                    if (entries[i].AccumulatorId == accumulatorId)
                     {
                         return i;
                     }

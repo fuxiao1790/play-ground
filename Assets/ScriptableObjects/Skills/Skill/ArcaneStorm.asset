@@ -17,6 +17,7 @@ MonoBehaviour:
   description: 
   icon: {fileID: 0}
   baseRate: 5
+  triggerEnergy: 1
   maxSupportCount: 6
   definition:
     baseAreaSize: 4.5

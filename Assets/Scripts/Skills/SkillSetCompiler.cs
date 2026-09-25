@@ -12,6 +12,7 @@ namespace PlayGround.Skills
     {
         private const float NominalTickSeconds = 1f / 60f;
         private const float SmallestExpectedTargetRadius = 0.35f;
+        private const float MinimumTriggerEnergy = 1e-3f;
         private static int nextChildJitterSeed;
 
         // Temporary test-fixture compatibility while the existing EditMode cases
@@ -45,13 +46,22 @@ namespace PlayGround.Skills
             bool includeTriggeredManaCosts)
         {
             SkillSet set = GetSkillSet(nodes, nodeIndex);
-            if (set == null || set.Skill == null) return null;
+            Skill skill = set?.Skill;
+            if (skill == null) return null;
 
-            CompileDefinitionResult compiled = CompileDefinition(set.Skill.Definition, set.Supports, snapshot);
+            SkillDefinition definition = skill.Definition;
+            SkillSupport[] supports = set.Supports;
+            float baseRate = skill.BaseRate;
+            float authoredTriggerEnergy = skill.TriggerEnergy;
+
+            CompileDefinitionResult compiled = CompileDefinition(definition, supports, snapshot);
             RuntimeSkillDefinition runtime = compiled.Runtime;
             if (runtime == null) return null;
 
-            runtime.RecoveryTime = ResolveRecoveryTime(set.Skill.BaseRate, compiled.Modifiers);
+            runtime.TriggerEnergy = float.IsNaN(authoredTriggerEnergy) || float.IsInfinity(authoredTriggerEnergy)
+                ? MinimumTriggerEnergy
+                : Mathf.Max(MinimumTriggerEnergy, authoredTriggerEnergy);
+            runtime.RecoveryTime = ResolveRecoveryTime(baseRate, compiled.Modifiers);
 
             // Adjacency is forward-only (i -> i + 1); recursion terminates by
             // strictly increasing node index. No cycle is possible.
@@ -66,30 +76,32 @@ namespace PlayGround.Skills
                 {
                     ApplyIntervalSpawn(runtime, intervalTrigger, nodes, targetNodeIndex, snapshot);
                 }
-                else if (link is StackTrigger stackTrigger)
+                else if (link is HitEnergyTrigger hitEnergyTrigger)
                 {
                     RuntimeSkillDefinition compiledTarget = CompileInternal(
                         nodes, targetNodeIndex, snapshot, includeTriggeredManaCosts: false);
                     if (compiledTarget != null)
                     {
-                        var stackingDetonation = new RuntimeStackingDetonation
+                        var runtimeHitEnergyTrigger = new RuntimeHitEnergyTrigger
                         {
-                            Detonation = compiledTarget,
-                            StackThreshold = Mathf.Max(1, stackTrigger.stackThreshold),
-                            DebuffLifetimeSeconds = Mathf.Max(0f, stackTrigger.debuffLifetimeSeconds),
-                            StacksPerHit = Mathf.Max(1, stackTrigger.stacksPerHit),
-                            DebuffName = GetSkillSet(nodes, targetNodeIndex)?.Skill?.name,
+                            TriggeredSkill = compiledTarget,
+                            EnergyContributionMultiplier = ResolvePositiveHitEnergy(
+                                hitEnergyTrigger.EnergyContributionMultiplier),
+                            EnergyRequirementMultiplier = ResolvePositiveHitEnergy(
+                                hitEnergyTrigger.EnergyRequirementMultiplier),
+                            RetentionSeconds = ResolveHitEnergyRetention(
+                                hitEnergyTrigger.RetentionSeconds)
                         };
 
-                        ApplyIncomingTriggerManaCostMultiplier(stackingDetonation, link);
+                        ApplyIncomingTriggerManaCostMultiplier(compiledTarget, link);
                         ApplyIncomingTriggerLaunchAim(compiledTarget, link);
 
                         if (runtime is RuntimeProjectileDefinition projDef)
-                            projDef.StackingDetonation = stackingDetonation;
+                            projDef.HitEnergyTrigger = runtimeHitEnergyTrigger;
                         else if (runtime is RuntimeAoeDefinition aoeDef)
-                            aoeDef.StackingDetonation = stackingDetonation;
+                            aoeDef.HitEnergyTrigger = runtimeHitEnergyTrigger;
                         else if (runtime is RuntimeTargetedDefinition targetedDef)
-                            targetedDef.StackingDetonation = stackingDetonation;
+                            targetedDef.HitEnergyTrigger = runtimeHitEnergyTrigger;
                     }
                 }
             }
@@ -500,9 +512,6 @@ namespace PlayGround.Skills
         {
             switch (definition)
             {
-                case RuntimeStackingDetonation stacking:
-                    return GetOwnManaCost(stacking.Detonation);
-
                 case RuntimeProjectileDefinition projectile:
                     return projectile.ManaCost;
 
@@ -521,15 +530,6 @@ namespace PlayGround.Skills
             RuntimeSkillDefinition definition,
             bool includeCurrent)
         {
-            if (definition is RuntimeStackingDetonation stacking)
-            {
-                float stackingMultiplier = includeCurrent
-                    ? stacking.IncomingManaCostFactor
-                    : 1f;
-                return stackingMultiplier * GetManaCostMultiplier(
-                    stacking.Detonation, includeCurrent: false);
-            }
-
             float multiplier = includeCurrent
                 ? definition?.IncomingManaCostFactor ?? 1f
                 : 1f;
@@ -540,7 +540,7 @@ namespace PlayGround.Skills
                     * GetManaCostMultiplier(projectile.ChildSpawnSetup?.ChildDefinition, includeCurrent: true)
                     * GetManaCostMultiplier(projectile.AoeIntervalSpawnSetup?.ChildDefinition, includeCurrent: true)
                     * GetManaCostMultiplier(projectile.TargetedIntervalSpawnSetup?.ChildDefinition, includeCurrent: true)
-                    * GetManaCostMultiplier(projectile.StackingDetonation, includeCurrent: true);
+                    * GetManaCostMultiplier(projectile.HitEnergyTrigger?.TriggeredSkill, includeCurrent: true);
             }
 
             if (definition is RuntimeAoeDefinition aoe)
@@ -549,13 +549,13 @@ namespace PlayGround.Skills
                     * GetManaCostMultiplier(aoe.ChildSpawnSetup?.ChildDefinition, includeCurrent: true)
                     * GetManaCostMultiplier(aoe.AoeIntervalSpawnSetup?.ChildDefinition, includeCurrent: true)
                     * GetManaCostMultiplier(aoe.TargetedIntervalSpawnSetup?.ChildDefinition, includeCurrent: true)
-                    * GetManaCostMultiplier(aoe.StackingDetonation, includeCurrent: true);
+                    * GetManaCostMultiplier(aoe.HitEnergyTrigger?.TriggeredSkill, includeCurrent: true);
             }
 
             if (definition is RuntimeTargetedDefinition targeted)
             {
                 return multiplier
-                    * GetManaCostMultiplier(targeted.StackingDetonation, includeCurrent: true);
+                    * GetManaCostMultiplier(targeted.HitEnergyTrigger?.TriggeredSkill, includeCurrent: true);
             }
 
             return multiplier;
@@ -568,15 +568,6 @@ namespace PlayGround.Skills
             if (definition == null)
                 return 0f;
 
-            if (definition is RuntimeStackingDetonation stacking)
-            {
-                float stackingManaCost = isTriggeredSkill
-                    ? GetOwnManaCost(stacking) * stacking.IncomingManaCostFactor
-                    : 0f;
-                return stackingManaCost
-                    + SumTriggeredSkillManaCosts(stacking.Detonation, isTriggeredSkill: false);
-            }
-
             float manaCost = isTriggeredSkill
                 ? GetOwnManaCost(definition) * definition.IncomingManaCostFactor
                 : 0f;
@@ -587,7 +578,7 @@ namespace PlayGround.Skills
                     + SumTriggeredSkillManaCosts(projectile.ChildSpawnSetup?.ChildDefinition, isTriggeredSkill: true)
                     + SumTriggeredSkillManaCosts(projectile.AoeIntervalSpawnSetup?.ChildDefinition, isTriggeredSkill: true)
                     + SumTriggeredSkillManaCosts(projectile.TargetedIntervalSpawnSetup?.ChildDefinition, isTriggeredSkill: true)
-                    + SumTriggeredSkillManaCosts(projectile.StackingDetonation, isTriggeredSkill: true);
+                    + SumTriggeredSkillManaCosts(projectile.HitEnergyTrigger?.TriggeredSkill, isTriggeredSkill: true);
             }
 
             if (definition is RuntimeAoeDefinition aoe)
@@ -596,13 +587,13 @@ namespace PlayGround.Skills
                     + SumTriggeredSkillManaCosts(aoe.ChildSpawnSetup?.ChildDefinition, isTriggeredSkill: true)
                     + SumTriggeredSkillManaCosts(aoe.AoeIntervalSpawnSetup?.ChildDefinition, isTriggeredSkill: true)
                     + SumTriggeredSkillManaCosts(aoe.TargetedIntervalSpawnSetup?.ChildDefinition, isTriggeredSkill: true)
-                    + SumTriggeredSkillManaCosts(aoe.StackingDetonation, isTriggeredSkill: true);
+                    + SumTriggeredSkillManaCosts(aoe.HitEnergyTrigger?.TriggeredSkill, isTriggeredSkill: true);
             }
 
             if (definition is RuntimeTargetedDefinition targeted)
             {
                 return manaCost
-                    + SumTriggeredSkillManaCosts(targeted.StackingDetonation, isTriggeredSkill: true);
+                    + SumTriggeredSkillManaCosts(targeted.HitEnergyTrigger?.TriggeredSkill, isTriggeredSkill: true);
             }
 
             return manaCost;
@@ -613,10 +604,6 @@ namespace PlayGround.Skills
             float resolvedManaCost = Mathf.Max(0f, manaCost);
             switch (definition)
             {
-                case RuntimeStackingDetonation stacking:
-                    SetManaCost(stacking.Detonation, resolvedManaCost);
-                    break;
-
                 case RuntimeProjectileDefinition projectile:
                     projectile.ManaCost = resolvedManaCost;
                     break;
@@ -630,6 +617,16 @@ namespace PlayGround.Skills
                     break;
             }
         }
+
+        private static float ResolvePositiveHitEnergy(float value) =>
+            float.IsNaN(value) || float.IsInfinity(value)
+                ? MinimumTriggerEnergy
+                : Mathf.Max(MinimumTriggerEnergy, value);
+
+        private static float ResolveHitEnergyRetention(float value) =>
+            float.IsNaN(value) || float.IsInfinity(value)
+                ? 0f
+                : Mathf.Max(0f, value);
 
         private static SkillSet GetSkillSet(IReadOnlyList<SkillLoadoutNode> nodes, int nodeIndex)
         {

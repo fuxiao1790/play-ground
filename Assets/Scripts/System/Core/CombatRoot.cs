@@ -737,7 +737,7 @@ namespace PlayGround.System.Combat.Core
                     CritMultiplier = request.CritMultiplier,
                     DirectDamageEnabled = true,
                     SourceNodeId = request.SourceNodeId,
-                    StackEffect = request.StackEffect
+                    HitEnergy = request.HitEnergy
                 },
                 AreaSize = geometry.AreaSize,
                 Radius = geometry.Radius,
@@ -839,9 +839,11 @@ namespace PlayGround.System.Combat.Core
             template.TimedSpawn = timedSpawn;
             ProjectileHitPayload hp = template.HitPayload;
             CombatHitPayload combat = hp.HitPayload;
-            StackEffectSnapshot stack = combat.StackEffect;
-            stack.Faction = CombatFaction.None;
-            combat.StackEffect = stack;
+            HitEnergyPayload hitEnergy = combat.HitEnergy;
+            HitEnergySpawn hitEnergySpawn = hitEnergy.Spawn;
+            hitEnergySpawn.Faction = CombatFaction.None;
+            hitEnergy.Spawn = hitEnergySpawn;
+            combat.HitEnergy = hitEnergy;
             template.HitPayload = new ProjectileHitPayload(combat);
             SpawnTemplateValidation.EnsureValidChildKind(timedSpawn);
             return template;
@@ -862,9 +864,11 @@ namespace PlayGround.System.Combat.Core
             timedSpawn.SourceId = 0;
             template.TimedSpawn = timedSpawn;
             CombatHitPayload hitPayload = template.HitPayload;
-            StackEffectSnapshot stack = hitPayload.StackEffect;
-            stack.Faction = CombatFaction.None;
-            hitPayload.StackEffect = stack;
+            HitEnergyPayload hitEnergy = hitPayload.HitEnergy;
+            HitEnergySpawn hitEnergySpawn = hitEnergy.Spawn;
+            hitEnergySpawn.Faction = CombatFaction.None;
+            hitEnergy.Spawn = hitEnergySpawn;
+            hitPayload.HitEnergy = hitEnergy;
             template.HitPayload = hitPayload;
             SpawnTemplateValidation.EnsureValidChildKind(timedSpawn);
             return template;
@@ -882,9 +886,11 @@ namespace PlayGround.System.Combat.Core
             template.AcquireAnchor = default;
             template.HasAcquiredTarget = 0;
             CombatHitPayload hitPayload = template.HitPayload;
-            StackEffectSnapshot stack = hitPayload.StackEffect;
-            stack.Faction = CombatFaction.None;
-            hitPayload.StackEffect = stack;
+            HitEnergyPayload hitEnergy = hitPayload.HitEnergy;
+            HitEnergySpawn hitEnergySpawn = hitEnergy.Spawn;
+            hitEnergySpawn.Faction = CombatFaction.None;
+            hitEnergy.Spawn = hitEnergySpawn;
+            hitPayload.HitEnergy = hitEnergy;
             template.HitPayload = hitPayload;
             return template;
         }

@@ -25,7 +25,7 @@ namespace PlayGround.System.Combat.Application
     public struct CombatApplyResultSingleton : IComponentData
     {
         public NativeList<CombatTickResult> Results;
-        public NativeList<StatusStackSnapshot> StatusSnapshots;
+        public NativeList<HitEnergyProgress> HitEnergyProgress;
         public NativeReference<int> DropCount;
         public JobHandle ProducerHandle;
 
@@ -36,9 +36,9 @@ namespace PlayGround.System.Combat.Application
                 Results.Clear();
             }
 
-            if (StatusSnapshots.IsCreated)
+            if (HitEnergyProgress.IsCreated)
             {
-                StatusSnapshots.Clear();
+                HitEnergyProgress.Clear();
             }
 
             if (DropCount.IsCreated)
@@ -47,16 +47,16 @@ namespace PlayGround.System.Combat.Application
             }
         }
 
-        public void EnsureCapacity(int resultCapacity, int statusSnapshotCapacity)
+        public void EnsureCapacity(int resultCapacity, int hitEnergyProgressCapacity)
         {
             if (Results.IsCreated && Results.Capacity < resultCapacity)
             {
                 Results.Capacity = resultCapacity;
             }
 
-            if (StatusSnapshots.IsCreated && StatusSnapshots.Capacity < statusSnapshotCapacity)
+            if (HitEnergyProgress.IsCreated && HitEnergyProgress.Capacity < hitEnergyProgressCapacity)
             {
-                StatusSnapshots.Capacity = statusSnapshotCapacity;
+                HitEnergyProgress.Capacity = hitEnergyProgressCapacity;
             }
         }
     }
@@ -71,14 +71,14 @@ namespace PlayGround.System.Combat.Application
         public float DamageTaken;
 
         // Accepted CombatHitEvent count for this target during this finalizer
-        // update, including non-damaging/status-only hits.
+        // update, including non-damaging hit-energy-only hits.
         public int HitCount;
 
         // Direct-damage-only aggregate: accrued only when the accepted hit's
         // CombatHitPayload.DirectDamageEnabled is true.
         public int CritCount;
-        public int StatusStart;
-        public int StatusCount;
+        public int HitEnergyStart;
+        public int HitEnergyCount;
 
         // The source ECS finalizer's SystemAPI.Time.DeltaTime for the update
         // that produced this result.

@@ -56,12 +56,6 @@ namespace PlayGround.Skills
             if (def == null || warnings == null)
                 return;
 
-            if (def is RuntimeStackingDetonation stacking)
-            {
-                AppendCompilerWarnings(stacking.Detonation, slotIndex, warnings);
-                return;
-            }
-
             if (def is RuntimeProjectileDefinition projectile)
             {
                 if (projectile.SpawnBlocked)
@@ -84,7 +78,7 @@ namespace PlayGround.Skills
 
                 AppendCompilerWarnings(projectile.ChildSpawnSetup?.ChildDefinition, slotIndex, warnings);
                 AppendCompilerWarnings(projectile.AoeIntervalSpawnSetup?.ChildDefinition, slotIndex, warnings);
-                AppendCompilerWarnings(projectile.StackingDetonation, slotIndex, warnings);
+                AppendCompilerWarnings(projectile.HitEnergyTrigger?.TriggeredSkill, slotIndex, warnings);
                 return;
             }
 
@@ -92,7 +86,13 @@ namespace PlayGround.Skills
             {
                 AppendCompilerWarnings(aoe.ChildSpawnSetup?.ChildDefinition, slotIndex, warnings);
                 AppendCompilerWarnings(aoe.AoeIntervalSpawnSetup?.ChildDefinition, slotIndex, warnings);
-                AppendCompilerWarnings(aoe.StackingDetonation, slotIndex, warnings);
+                AppendCompilerWarnings(aoe.HitEnergyTrigger?.TriggeredSkill, slotIndex, warnings);
+                return;
+            }
+
+            if (def is RuntimeTargetedDefinition targeted)
+            {
+                AppendCompilerWarnings(targeted.HitEnergyTrigger?.TriggeredSkill, slotIndex, warnings);
             }
         }
     }

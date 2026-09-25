@@ -59,7 +59,7 @@ namespace PlayGround.System.Combat.Projectiles
             ProjectileChildSpawnConfig childSpawn = default,
             bool directDamageEnabled = true,
             EntityId sourceNodeId = default,
-            StackEffectSnapshot stackEffect = default,
+            HitEnergyPayload hitEnergy = default,
             float critChance = 0f,
             float critMultiplier = 1.5f,
             int count = 1,
@@ -92,7 +92,7 @@ namespace PlayGround.System.Combat.Projectiles
                     CritMultiplier = critMultiplier,
                     DirectDamageEnabled = directDamageEnabled,
                     SourceNodeId = sourceNodeId,
-                    StackEffect = stackEffect
+                    HitEnergy = hitEnergy
                 });
             Count = Mathf.Max(1, count);
             SpreadDegrees = Mathf.Max(0f, spreadDegrees);
@@ -175,7 +175,7 @@ namespace PlayGround.System.Combat.Projectiles
             float visualRotationDegrees = 0f,
             ProjectileTrackingConfig tracking = default,
             ProjectileChildSpawnBehavior behavior = default,
-            StackEffectSnapshot stackEffect = default,
+            HitEnergyPayload hitEnergy = default,
             Hash128 templateKey = default,
             bool continuousCollision = false,
             float initialEnergyPercent = 0f)
@@ -199,7 +199,7 @@ namespace PlayGround.System.Combat.Projectiles
             VisualRotationDegrees = visualRotationDegrees;
             Tracking = tracking;
             Behavior = behavior;
-            StackEffect = stackEffect;
+            HitEnergy = hitEnergy;
             TemplateKey = templateKey;
             ContinuousCollision = continuousCollision;
         }
@@ -223,7 +223,7 @@ namespace PlayGround.System.Combat.Projectiles
         public float VisualRotationDegrees { get; }
         public ProjectileTrackingConfig Tracking { get; }
         public ProjectileChildSpawnBehavior Behavior { get; }
-        public StackEffectSnapshot StackEffect { get; }
+        public HitEnergyPayload HitEnergy { get; }
         public Hash128 TemplateKey { get; }
         public bool ContinuousCollision { get; }
         public bool Enabled => JitterSeed > 0 && EnergyPerSecond > 0f && EnergyThreshold > 0f;

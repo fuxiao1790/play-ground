@@ -39,7 +39,7 @@ namespace PlayGround.System.Combat.Projectiles
     [UpdateAfter(typeof(TimedSpawnSystem))]
     [UpdateAfter(typeof(ProjectileDiscreteCollisionSystem))]
     [UpdateAfter(typeof(PlayGround.System.Combat.Aoes.ImpactAoeCollisionSystem))]
-    [UpdateAfter(typeof(StatusProcessSystem))]
+    [UpdateAfter(typeof(HitEnergyActivationSystem))]
     [UpdateAfter(typeof(TargetSpatialHashSystem))]
     [UpdateBefore(typeof(ProjectileDiscreteSpawnApplySystem))]
     [UpdateBefore(typeof(PlayGround.System.Combat.Aoes.ImpactAoeSpawnApplySystem))]

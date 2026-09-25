@@ -25,7 +25,8 @@ Current snapshot categories:
   [Skill Gameplay System](../reference/game-logic/skill-gameplay-system.md#projectile-launch-aim))
 - runtime AOE definitions
 - `CombatHitPayload`
-- `StackEffectSnapshot`
+- `HitEnergyPayload` with copied `AccumulatorId`, effective contribution,
+  effective requirement, retention, and `HitEnergySpawn` template reference
 - `TimedSpawnComponent`
 - spawn template keys (`Hash128`) — used by all follow-up slots
 
@@ -46,8 +47,8 @@ commands, and ECS components. In-flight entities keep their own copied values.
 
 ## Ordering
 
-Resolve authored data and register timed templates before commands initialize
-runtime entities.
+Resolve authored data and register output templates before hit-energy payloads
+or commands initialize runtime entities.
 
 ## Related Layers
 

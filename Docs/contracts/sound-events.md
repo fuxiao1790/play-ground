@@ -17,7 +17,7 @@ by `SoundEventSingleton`:
 - deferred armed-AOE completion in `CombatArmingSystem`
 
 This covers every materialized spawn: root casts, trigger-linked skills,
-interval children, on-hit spawns, stacking detonations, volley projectiles, and
+interval children, on-hit spawns, hit-energy activations, volley projectiles, and
 AOE/targeted echoes. A volley or echo emits once per spawned entity; selection
 and the per-clip frame cap collapse redundant copies at playback time.
 

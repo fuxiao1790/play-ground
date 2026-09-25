@@ -61,7 +61,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileDiscreteCollisionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSingleSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ResourceRegenSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<StatusProcessSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<HitEnergyActivationSystem>());
             simGroup.AddSystemToUpdateList(projectileExpansion);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileDiscreteSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(impactAoeExpansion);
@@ -312,12 +312,12 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void ProjectileApplicatorProjectileDetonationQueuesNovaWithSummedContribution()
+        public void ProjectileApplicatorHitEnergyQueuesNovaFromRegisteredTemplateNextUpdate()
         {
             const float TotalDamage = 15f;
             const int ProjectileCount = 6;
-            var detonationKey = new Hash128(0xBEEFu, 0xCAFEu, 0u, 0u);
-            RegisterProjectileTemplate(detonationKey, new ProjectileSpawnCommand
+            var templateKey = new Hash128(0xBEEFu, 0xCAFEu, 0u, 0u);
+            RegisterProjectileTemplate(templateKey, new ProjectileSpawnCommand
             {
                 TypeId = 42,
                 Count = ProjectileCount,
@@ -327,25 +327,28 @@ namespace PlayGround.Tests.PlayMode
             AddTarget(float2.zero, 0.25f);
             CreateProjectile(
                 pierceRemaining: 0,
-                stackEffect: ProjectileStackEffect(
-                    debuffKey: 801,
-                    threshold: 1,
-                    lifetime: 10f,
-                    damage: TotalDamage,
-                    projectileCount: ProjectileCount));
+                hitEnergy: ProjectileHitEnergy(
+                    accumulatorId: 801,
+                    energyRequired: 1f,
+                    retentionSeconds: 10f,
+                    energyPerHit: 1f,
+                    unusedDamage: TotalDamage,
+                    unusedProjectileCount: 999));
 
+            TickSimulationOnly(0.01f);
+            Assert.That(ProjectileCountByTypeId(42), Is.Zero, "Threshold crossing activates next update.");
             TickSimulationOnly(0.01f);
 
             Assert.That(ProjectileCountByTypeId(42), Is.EqualTo(ProjectileCount));
         }
 
         [Test]
-        public void StackDetonationNovaIsGatedFromReHittingDetonationTarget()
+        public void HitEnergyNovaIsGatedFromReHittingActivationTarget()
         {
             const int NovaTypeId = 55;
             const int NovaCount = 4;
-            var detonationKey = new Hash128(0xBEEFu, 0xCAFEu, 0u, 0u);
-            RegisterProjectileTemplate(detonationKey, new ProjectileSpawnCommand
+            var outputTemplateKey = new Hash128(0xBEEFu, 0xCAFEu, 0u, 0u);
+            RegisterProjectileTemplate(outputTemplateKey, new ProjectileSpawnCommand
             {
                 TypeId = NovaTypeId,
                 Count = NovaCount,
@@ -365,37 +368,36 @@ namespace PlayGround.Tests.PlayMode
             AddTarget(float2.zero, 1f);
             CreateProjectile(
                 pierceRemaining: 0,
-                stackEffect: ProjectileStackEffect(
-                    debuffKey: 900,
-                    threshold: 1,
-                    lifetime: 10f,
-                    damage: 5f,
-                    projectileCount: NovaCount));
+                hitEnergy: ProjectileHitEnergy(
+                    accumulatorId: 900,
+                    energyRequired: 1f,
+                    retentionSeconds: 10f,
+                    energyPerHit: 1f,
+                    unusedDamage: 5f,
+                    unusedProjectileCount: NovaCount));
 
-            // Tick 1: applicator hits the target once, reaches threshold, and the nova
-            // detonates and spawns on top of the target.
+            // Tick 1 deposits. Tick 2 activates and spawns nova on target.
             TickSimulationOnly(0.001f);
-            int hitsAfterTick1 = ReadFinalizedHitCount();
+            Assert.That(ReadFinalizedHitCount(), Is.EqualTo(1));
+            TickSimulationOnly(0.001f);
             int novaCount = ProjectileCountByTypeId(NovaTypeId);
 
-            // Tick 2: the nova projectiles overlap the detonation target but must be gated
-            // from instantly re-hitting it.
+            // Tick 3: nova projectiles overlap activation target but remain contact-gated.
             TickSimulationOnly(0.001f);
-            int hitsAfterTick2 = ReadFinalizedHitCount();
+            int hitsAfterNovaSpawn = ReadFinalizedHitCount();
 
-            Assert.That(novaCount, Is.EqualTo(NovaCount), "Detonation nova spawns on the target.");
-            Assert.That(hitsAfterTick1, Is.EqualTo(1), "Applicator hits the target once.");
-            Assert.That(hitsAfterTick2, Is.EqualTo(0),
-                "Nova is gated from instantly re-hitting the detonation target it spawned on.");
+            Assert.That(novaCount, Is.EqualTo(NovaCount), "Activation nova spawns on target.");
+            Assert.That(hitsAfterNovaSpawn, Is.EqualTo(0),
+                "Nova is gated from instantly re-hitting activation target it spawned on.");
         }
 
         [Test]
-        public void ProjectileStackDetonationFansOutAsRadialNova()
+        public void ProjectileHitEnergyActivationFansOutAsRadialNova()
         {
             const int NovaTypeId = 56;
             const int NovaCount = 4;
-            var detonationKey = new Hash128(0xBEEFu, 0xCAFEu, 0u, 0u);
-            RegisterProjectileTemplate(detonationKey, new ProjectileSpawnCommand
+            var outputTemplateKey = new Hash128(0xBEEFu, 0xCAFEu, 0u, 0u);
+            RegisterProjectileTemplate(outputTemplateKey, new ProjectileSpawnCommand
             {
                 TypeId = NovaTypeId,
                 Count = NovaCount,
@@ -408,17 +410,19 @@ namespace PlayGround.Tests.PlayMode
             AddTarget(float2.zero, 1f);
             CreateProjectile(
                 pierceRemaining: 0,
-                stackEffect: ProjectileStackEffect(
-                    debuffKey: 910,
-                    threshold: 1,
-                    lifetime: 10f,
-                    damage: 5f,
-                    projectileCount: NovaCount));
+                hitEnergy: ProjectileHitEnergy(
+                    accumulatorId: 910,
+                    energyRequired: 1f,
+                    retentionSeconds: 10f,
+                    energyPerHit: 1f,
+                    unusedDamage: 5f,
+                    unusedProjectileCount: NovaCount));
 
+            TickSimulationOnly(0.001f);
             TickSimulationOnly(0.001f);
 
             float2[] velocities = ProjectileVelocitiesByTypeId(NovaTypeId);
-            Assert.That(velocities.Length, Is.EqualTo(NovaCount), "Detonation spawns the full nova.");
+            Assert.That(velocities.Length, Is.EqualTo(NovaCount), "Activation spawns full registered-template nova.");
 
             // Radial nova: directions must cover opposing sides on both axes, proving the
             // projectiles fan around the full circle instead of clustering in a forward cone.
@@ -475,7 +479,7 @@ namespace PlayGround.Tests.PlayMode
 
         private Entity CreateProjectile(
             int pierceRemaining,
-            StackEffectSnapshot stackEffect = default)
+            HitEnergyPayload hitEnergy = default)
         {
             Entity entity = entityManager.CreateEntity(
                 typeof(ProjectileTag),
@@ -533,7 +537,7 @@ namespace PlayGround.Tests.PlayMode
                 DamageAmount = 1f,
                 CritMultiplier = 1f,
                 DirectDamageEnabled = true,
-                StackEffect = stackEffect
+                HitEnergy = hitEnergy
             });
             entityManager.SetComponentEnabled<ArmingTag>(entity, false);
 
@@ -630,28 +634,28 @@ namespace PlayGround.Tests.PlayMode
             return velocities;
         }
 
-        // ---- Stack-effect factory ----
+        // ---- Hit-energy factory ----
 
-        private static StackEffectSnapshot ProjectileStackEffect(
-            int debuffKey,
-            int threshold,
-            float lifetime,
-            float damage,
-            int projectileCount)
+        private static HitEnergyPayload ProjectileHitEnergy(
+            int accumulatorId,
+            float energyRequired,
+            float retentionSeconds,
+            float energyPerHit,
+            float unusedDamage,
+            int unusedProjectileCount)
         {
-            return new StackEffectSnapshot
+            return new HitEnergyPayload
             {
-                DebuffKey = debuffKey,
-                Threshold = threshold,
-                Lifetime = lifetime,
-                Contribution = new StackContribution
+                AccumulatorId = accumulatorId,
+                EnergyRequired = energyRequired,
+                EnergyPerHit = energyPerHit,
+                RetentionSeconds = retentionSeconds,
+                Spawn = new HitEnergySpawn
                 {
-                    Damage = damage,
-                    ProjectileCount = projectileCount,
-                    AreaSize = 0f
-                },
-                DetonationKind = StackDetonationKind.Projectile,
-                DetonationKey = new Hash128(0xBEEFu, 0xCAFEu, 0u, 0u)
+                    Faction = CombatFaction.Player,
+                    Kind = HitEnergySpawnKind.Projectile,
+                    TemplateKey = new Hash128(0xBEEFu, 0xCAFEu, 0u, 0u)
+                }
             };
         }
 

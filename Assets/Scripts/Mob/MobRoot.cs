@@ -47,7 +47,7 @@ namespace PlayGround.Mob
         private static readonly ProfilerMarker SkillTickMarker = new("MobRoot.SkillDriver.Tick");
 
         private static int nextTargetId;
-        private readonly List<StatusStackSnapshot> statusSnapshots = new();
+        private readonly List<HitEnergyProgress> hitEnergyProgress = new();
         private readonly List<CombatTargetRegistry<ICombatTarget>> registries = new();
         private CombatTargetSet combatTargetSet;
         private Entity combatTargetProxy;
@@ -76,7 +76,7 @@ namespace PlayGround.Mob
         public float CurrentHealth => health?.Current ?? 0f;
         public float MaxHealth => health?.Max ?? statSheet.MaxHealth;
         public float CurrentMana => mana?.Current ?? 0f;
-        public IReadOnlyList<StatusStackSnapshot> StatusSnapshots => statusSnapshots;
+        public IReadOnlyList<HitEnergyProgress> HitEnergyProgress => hitEnergyProgress;
         public Vector3 ResourceBarAnchorPosition => transform.TransformPoint(resourceBarOffset);
         public Transform Target => target;
         public int TargetId => targetId;
@@ -260,7 +260,7 @@ namespace PlayGround.Mob
             {
                 mana.Reset(statSheet.MaxMana, statSheet.ManaRegenPerSecond);
             }
-            statusSnapshots.Clear();
+            hitEnergyProgress.Clear();
             CacheCombatTargetShape();
 
             if (bodyCollider != null)
@@ -296,25 +296,25 @@ namespace PlayGround.Mob
 
         public void ReceiveCombatTick(
             in CombatTickResult result,
-            IReadOnlyList<StatusStackSnapshot> stacks)
+            IReadOnlyList<HitEnergyProgress> progress)
         {
             if (result.HitCount > 0)
             {
                 health.MirrorCurrent(result.Health);
             }
 
-            if (result.StatusCount > 0)
+            if (result.HitEnergyCount > 0)
             {
-                ReceiveStatus(stacks);
+                ReceiveHitEnergyProgress(progress);
             }
         }
 
-        public void ReceiveStatus(IReadOnlyList<StatusStackSnapshot> stacks)
+        public void ReceiveHitEnergyProgress(IReadOnlyList<HitEnergyProgress> progress)
         {
-            statusSnapshots.Clear();
-            for (int i = 0; i < stacks.Count; i++)
+            hitEnergyProgress.Clear();
+            for (int i = 0; i < progress.Count; i++)
             {
-                statusSnapshots.Add(stacks[i]);
+                hitEnergyProgress.Add(progress[i]);
             }
         }
 

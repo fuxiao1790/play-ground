@@ -116,7 +116,7 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void ContinuousFlagReachesCommandsForDirectIntervalAndStackPaths()
+        public void ContinuousFlagReachesCommandsForDirectIntervalAndHitEnergyPaths()
         {
             BasicAttackPrefab prefab = CreateProjectilePrefab();
             ProjectileSkill directSkill = CreateProjectileSkill(prefab, continuous: true);
@@ -130,15 +130,15 @@ namespace PlayGround.Tests.EditMode
 
             ProjectileSkill stackRootSkill = CreateProjectileSkill(prefab, continuous: false);
             ProjectileSkill stackChildSkill = CreateProjectileSkill(prefab, continuous: true);
-            RuntimeProjectileDefinition stackRoot = CompileProjectile(
+            RuntimeProjectileDefinition hitEnergyRoot = CompileProjectile(
                 CreateSkillSet(stackRootSkill),
-                CreateAsset<StackTrigger>(),
+                CreateAsset<HitEnergyTrigger>(),
                 CreateSkillSet(stackChildSkill));
 
             Assert.That(BuildCommand(direct).ContinuousCollision, Is.EqualTo(1), "Direct cast");
             Assert.That(BuildCommand(intervalRoot.ChildSpawnSetup.ChildDefinition).ContinuousCollision, Is.EqualTo(1), "Interval child");
-            Assert.That(BuildCommand((RuntimeProjectileDefinition)stackRoot.StackingDetonation.Detonation).ContinuousCollision,
-                Is.EqualTo(1), "Stack detonation");
+            Assert.That(BuildCommand((RuntimeProjectileDefinition)hitEnergyRoot.HitEnergyTrigger.TriggeredSkill).ContinuousCollision,
+                Is.EqualTo(1), "Hit-energy output");
         }
 
         [Test]
@@ -222,7 +222,6 @@ namespace PlayGround.Tests.EditMode
                 null,
                 Activator.CreateInstance(parameters[3].ParameterType),
                 Activator.CreateInstance(parameters[4].ParameterType),
-                Activator.CreateInstance(parameters[5].ParameterType),
                 0f
             });
             return (ProjectileSpawnCommand)command;

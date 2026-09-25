@@ -19,9 +19,10 @@ Show the cross-layer order for one gameplay frame.
 6. AOE systems emit pulse VFX and collide on their tick intervals.
 7. Targeted resolve walks chains, emitting one hit and one line segment per link,
    and expires each chain when its walk ends.
-8. Combat apply/finalize aggregates hit data into ECS health/status and freezes
-   compact results.
-9. Status processing may enqueue detonation spawn events.
+8. `HitEnergyActivationSystem` consumes complete requirements from energy
+   deposited on prior updates and may enqueue registered output events.
+9. Combat apply/finalize aggregates hit data into ECS health/hit-energy state
+   and freezes compact results; current deposits activate next update.
 10. Spawn expansion drains managed and ECS event queues into commands.
 11. Apply systems reuse disabled slots or cold-create overflow.
 12. Render prep writes matrices.

@@ -83,15 +83,15 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void StatusOnlyHit_IncrementsHitCountButLeavesDamageAndCritUntouched()
+        public void HitEnergyOnlyHit_IncrementsHitCountButLeavesDamageAndCritUntouched()
         {
-            Entity target = CreateStackableTarget();
+            Entity target = CreateHitEnergyTarget();
             CombatTickResult result = FinalizeHits(
                 target,
                 new CombatHitPayload
                 {
                     DirectDamageEnabled = false,
-                    StackEffect = EnabledStackEffect()
+                    HitEnergy = EnabledHitEnergy()
                 });
 
             Assert.That(result.HitCount, Is.EqualTo(1));
@@ -100,9 +100,9 @@ namespace PlayGround.Tests.EditMode
         }
 
         [Test]
-        public void MixedDirectAndStatusEvents_AggregateIntoOneResultWithTotalHitCountAndDirectDamageOnlyTotals()
+        public void MixedDirectAndHitEnergyEvents_AggregateIntoOneResultWithTotalHitCountAndDirectDamageOnlyTotals()
         {
-            Entity target = CreateStackableTarget();
+            Entity target = CreateHitEnergyTarget();
             CombatTickResult result = FinalizeHits(
                 target,
                 new CombatHitPayload
@@ -114,7 +114,7 @@ namespace PlayGround.Tests.EditMode
                 new CombatHitPayload
                 {
                     DirectDamageEnabled = false,
-                    StackEffect = EnabledStackEffect()
+                    HitEnergy = EnabledHitEnergy()
                 },
                 new CombatHitPayload
                 {
@@ -123,8 +123,8 @@ namespace PlayGround.Tests.EditMode
                     DirectDamageEnabled = true
                 });
 
-            Assert.That(result.HitCount, Is.EqualTo(3), "Total accepted-hit count includes the status-only event.");
-            Assert.That(result.DamageTaken, Is.EqualTo(15f).Within(0.0001f), "Direct-damage-only aggregate excludes the status-only event.");
+            Assert.That(result.HitCount, Is.EqualTo(3), "Total accepted-hit count includes the hit-energy-only event.");
+            Assert.That(result.DamageTaken, Is.EqualTo(15f).Within(0.0001f), "Direct-damage-only aggregate excludes the hit-energy-only event.");
         }
 
         [Test]
@@ -134,7 +134,7 @@ namespace PlayGround.Tests.EditMode
             elapsedTime += deltaTime;
             testWorld.SetTime(new TimeData(elapsedTime, deltaTime));
 
-            Entity target = CreateStackableTarget();
+            Entity target = CreateHitEnergyTarget();
             CombatTickResult result = FinalizeHits(
                 target,
                 new CombatHitPayload
@@ -189,26 +189,29 @@ namespace PlayGround.Tests.EditMode
             Assert.That(listener.LastResult.TickDeltaSeconds, Is.EqualTo(deltaTime).Within(0.0001f));
         }
 
-        private static StackEffectSnapshot EnabledStackEffect() => new()
+        private static HitEnergyPayload EnabledHitEnergy() => new()
         {
-            DebuffKey = 1,
-            Threshold = 1,
-            StacksPerHit = 1,
-            Lifetime = 10f,
-            DetonationKind = StackDetonationKind.Projectile,
-            DetonationKey = new Unity.Entities.Hash128(0xBEEFu, 0xCAFEu, 0u, 0u)
+            AccumulatorId = 1,
+            EnergyPerHit = 1f,
+            EnergyRequired = 1f,
+            RetentionSeconds = 10f,
+            Spawn = new HitEnergySpawn
+            {
+                Kind = HitEnergySpawnKind.Projectile,
+                TemplateKey = new Unity.Entities.Hash128(0xBEEFu, 0xCAFEu, 0u, 0u)
+            }
         };
 
-        private Entity CreateStackableTarget()
+        private Entity CreateHitEnergyTarget()
         {
-            Entity target = entityManager.CreateEntity(typeof(Health), typeof(TargetStackEntry));
+            Entity target = entityManager.CreateEntity(typeof(Health), typeof(TargetHitEnergy));
             entityManager.SetComponentData(target, new Health { Current = 100f, Max = 100f });
             return target;
         }
 
         // Sibling to FinalizeDirectHits: enqueues one hit per payload (each from its own source
         // entity) against a single shared target, for cases that don't fit FinalizeDirectHits'
-        // one-payload-many-damage-scales signature (status-only and mixed direct+status events).
+        // one-payload-many-damage-scales signature (hit-energy-only and mixed direct+energy events).
         private CombatTickResult FinalizeHits(Entity target, params CombatHitPayload[] payloads)
         {
             using EntityQuery hitQuery = entityManager.CreateEntityQuery(
@@ -252,7 +255,7 @@ namespace PlayGround.Tests.EditMode
             {
             }
 
-            public void ReceiveCombatTick(in CombatTickResult result, IReadOnlyList<StatusStackSnapshot> stacks)
+            public void ReceiveCombatTick(in CombatTickResult result, IReadOnlyList<HitEnergyProgress> progress)
             {
                 ReceiveCombatTickCallCount++;
                 LastResult = result;

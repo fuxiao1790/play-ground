@@ -25,9 +25,10 @@ Current key data:
   target proxy entity. An unset scale (`0`) means `1`; targeted links use their
   falloff scale explicitly.
 - `CombatHitPayload`: source-side ECS component carrying damage amount, crit
-  chance, crit multiplier, direct-damage flag, source node id, and stack effect.
+  chance, crit multiplier, direct-damage flag, source node id, and
+  `HitEnergyPayload`.
 - `Health`
-- `TargetStackEntry`
+- `TargetHitEnergy`
 - `CombatTickResult`
 - `HitCount` — accepted `CombatHitEvent` count for the target in one finalizer
   update, including non-damaging/status-only hits
@@ -73,8 +74,10 @@ presentation bridge dispatches and clears result data.
 
 ## Ordering
 
-Hit finalization runs after collision and before status detonation spawn
-expansion. Presentation bridge runs after finalize.
+`HitEnergyActivationSystem` processes prior-update target energy before current
+hit finalization and spawn expansion. Finalization deposits current-update
+energy, so it cannot activate until the next update. Presentation bridge runs
+after finalize.
 
 ## Related Layers
 

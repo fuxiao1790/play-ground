@@ -224,9 +224,11 @@ namespace PlayGround.System.Combat.Targeted
                 CombatFaction faction)
             {
                 CombatHitPayload payload = hitPayload;
-                StackEffectSnapshot stack = payload.StackEffect;
-                stack.Faction = faction;
-                payload.StackEffect = stack;
+                HitEnergyPayload hitEnergy = payload.HitEnergy;
+                HitEnergySpawn spawn = hitEnergy.Spawn;
+                spawn.Faction = faction;
+                hitEnergy.Spawn = spawn;
+                payload.HitEnergy = hitEnergy;
                 return payload;
             }
         }

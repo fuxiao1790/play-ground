@@ -269,7 +269,7 @@ namespace PlayGround.Tests.PlayMode
                 typeof(TargetFaction),
                 typeof(Health),
                 typeof(Mana),
-                typeof(TargetStackEntry));
+                typeof(TargetHitEnergy));
             entityManager.SetComponentData(target, new TargetPosition { Value = position });
             entityManager.SetComponentData(target, new TargetCollisionShape
             {
@@ -281,7 +281,6 @@ namespace PlayGround.Tests.PlayMode
             entityManager.SetComponentData(target, policy);
             entityManager.SetComponentData(target, new Health { Current = 10f, Max = 10f });
             entityManager.SetComponentData(target, new Mana { Current = 0f, Max = 0f });
-            entityManager.AddBuffer<TargetStackEntry>(target);
             return target;
         }
 

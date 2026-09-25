@@ -126,17 +126,17 @@ namespace PlayGround.System.Combat.Spawning
             NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas) =>
             EmitAoe(in timed, in payload, -1, deltas);
 
-        // Targeted entities carry no TimedSpawnComponent; the stack detonation key is
+        // Targeted entities carry no TimedSpawnComponent; their hit-energy spawn is
         // their only template reference.
         public static void AcquireTargeted(
             in CombatHitPayload payload,
             NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas) =>
-            Enqueue(IntervalChildKind.Projectile, payload.StackEffect.DetonationKey, 1, deltas);
+            EnqueueHitEnergy(in payload, 1, deltas);
 
         public static void ReleaseTargeted(
             in CombatHitPayload payload,
             NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas) =>
-            Enqueue(IntervalChildKind.Projectile, payload.StackEffect.DetonationKey, -1, deltas);
+            EnqueueHitEnergy(in payload, -1, deltas);
 
         private static void EmitProjectile(
             in TimedSpawnComponent timed,
@@ -145,8 +145,7 @@ namespace PlayGround.System.Combat.Spawning
             NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas)
         {
             Enqueue(timed.ChildKind, timed.TemplateKey, delta, deltas);
-            // A stack detonation is always a projectile nova.
-            Enqueue(IntervalChildKind.Projectile, payload.StackEffect.DetonationKey, delta, deltas);
+            EnqueueHitEnergy(in payload, delta, deltas);
         }
 
         private static void EmitAoe(
@@ -156,7 +155,27 @@ namespace PlayGround.System.Combat.Spawning
             NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas)
         {
             Enqueue(timed.ChildKind, timed.TemplateKey, delta, deltas);
-            Enqueue(IntervalChildKind.Projectile, payload.StackEffect.DetonationKey, delta, deltas);
+            EnqueueHitEnergy(in payload, delta, deltas);
+        }
+
+        private static void EnqueueHitEnergy(
+            in CombatHitPayload payload,
+            int delta,
+            NativeQueue<SpawnTemplateRefDelta>.ParallelWriter deltas)
+        {
+            HitEnergySpawn spawn = payload.HitEnergy.Spawn;
+            switch (spawn.Kind)
+            {
+                case HitEnergySpawnKind.ImpactAoe:
+                    Enqueue(IntervalChildKind.ImpactAoe, spawn.TemplateKey, delta, deltas);
+                    break;
+                case HitEnergySpawnKind.LingeringAoe:
+                    Enqueue(IntervalChildKind.LingeringAoe, spawn.TemplateKey, delta, deltas);
+                    break;
+                case HitEnergySpawnKind.Projectile:
+                    Enqueue(IntervalChildKind.Projectile, spawn.TemplateKey, delta, deltas);
+                    break;
+            }
         }
     }
 

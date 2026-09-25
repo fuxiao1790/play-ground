@@ -13,9 +13,11 @@ ECS simulation groups, and ECS presentation systems.
 6. AOE pulse VFX and collision run.
 7. The targeted resolve system walks target proxies, emits hits, and expires chains
    whose walk has ended.
-8. Combat apply/finalize consumes hit events, updates ECS health/status, and
-   freezes presentation-ready results.
-9. Status processing may emit stack detonation projectile, AOE, or targeted spawn events.
+8. `HitEnergyActivationSystem` expires prior target-local energy and emits
+   registered projectile or AOE output events for complete requirements.
+9. Combat apply/finalize consumes hit events, updates ECS health and
+   `TargetHitEnergy`, and freezes presentation-ready results. Current-update
+   deposits are therefore first eligible on the next update.
 10. Projectile, AOE, and targeted expansion systems drain managed scope buffers and ECS
    event queues into commands.
 11. Projectile, AOE, and targeted apply systems reuse disabled slots or cold-create
@@ -35,8 +37,8 @@ runtime objects, and target proxy handles. It may write actor state, movement
 intent, and target proxy position/shape.
 
 ECS simulation may read ECS component data, buffers, native containers, and
-unmanaged target proxy data. It may write projectile, AOE, targeted, status, hit, spawn,
-render-prep, and VFX request data.
+unmanaged target proxy data. It may write projectile, AOE, targeted, hit-energy,
+hit, spawn, render-prep, and VFX request data.
 
 ECS simulation may not read managed target companions or live Unity objects.
 

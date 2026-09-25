@@ -51,7 +51,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ImpactAoeSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSingleSystem>());
-            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<StatusProcessSystem>());
+            simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<HitEnergyActivationSystem>());
             simGroup.AddSystemToUpdateList(projectileExpansion);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileDiscreteSpawnApplySystem>());
             // The AoE expansion systems now read the VFX lane unconditionally, so its owning system

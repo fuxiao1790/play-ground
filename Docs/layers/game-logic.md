@@ -14,7 +14,7 @@ meaning before data is snapshotted for simulation.
   `SkillSpawnTranslator`.
 - Mob behavior state machines, triggers, event queues, and low-count AI choices.
 - Mob spawn rules once the replacement spawning system is authored.
-- Player-facing meaning of damage, crit, stacks, detonations, and triggers.
+- Player-facing meaning of damage, crit, hit energy, activations, and triggers.
 
 ## Does Not Own
 

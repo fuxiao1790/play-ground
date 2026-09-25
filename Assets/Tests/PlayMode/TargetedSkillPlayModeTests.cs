@@ -234,7 +234,7 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator StackApplicator_ChainDetonatesEveryLinkedMobAtThreshold()
+        public IEnumerator HitEnergyApplicator_ChainActivatesEveryLinkedMobAtThreshold()
         {
             CombatRoot root = CreateRoot(out _);
             TargetProbe first = CreateTarget(new Vector2(1f, 0f));
@@ -244,7 +244,7 @@ namespace PlayGround.Tests.PlayMode
             root.TargetRegistry.Register(second);
             root.TargetRegistry.Register(third);
 
-            AoeSpawnCommand detonation = new()
+            AoeSpawnCommand outputTemplate = new()
             {
                 EchoCount = 1,
                 Radius = 0.25f,
@@ -257,22 +257,25 @@ namespace PlayGround.Tests.PlayMode
                     DirectDamageEnabled = true
                 }
             };
-            Hash128 detonationKey = root.RegisterSpawnTemplate(in detonation);
+            Hash128 outputTemplateKey = root.RegisterSpawnTemplate(in outputTemplate);
             TargetedSpawnCommand applicator = new()
             {
                 EchoCount = 1,
                 HitPayload = new CombatHitPayload
                 {
                     CritMultiplier = 1f,
-                    StackEffect = new StackEffectSnapshot
+                    HitEnergy = new HitEnergyPayload
                     {
-                        DebuffKey = 91,
-                        Threshold = 1,
-                        StacksPerHit = 1,
-                        Lifetime = 1f,
-                        Faction = CombatFaction.Player,
-                        DetonationKind = StackDetonationKind.ImpactAoe,
-                        DetonationKey = detonationKey
+                        AccumulatorId = 91,
+                        EnergyRequired = 1f,
+                        EnergyPerHit = 1f,
+                        RetentionSeconds = 1f,
+                        Spawn = new HitEnergySpawn
+                        {
+                            Faction = CombatFaction.Player,
+                            Kind = HitEnergySpawnKind.ImpactAoe,
+                            TemplateKey = outputTemplateKey
+                        }
                     }
                 },
                 Resolve = new TargetedResolveConfig

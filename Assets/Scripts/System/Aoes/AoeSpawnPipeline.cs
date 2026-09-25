@@ -49,8 +49,8 @@ namespace PlayGround.System.Combat.Aoes
         public static IntervalChildKind AoeChildKindFor(float lifetimeSeconds) =>
             lifetimeSeconds > 0f ? IntervalChildKind.LingeringAoe : IntervalChildKind.ImpactAoe;
 
-        public static StackDetonationKind AoeDetonationKindFor(float lifetimeSeconds) =>
-            lifetimeSeconds > 0f ? StackDetonationKind.LingeringAoe : StackDetonationKind.ImpactAoe;
+        public static HitEnergySpawnKind HitEnergySpawnKindFor(float lifetimeSeconds) =>
+            lifetimeSeconds > 0f ? HitEnergySpawnKind.LingeringAoe : HitEnergySpawnKind.ImpactAoe;
     }
 
     // ECS Lifecycle: resolved single-entity allocation intent; produced by expansion, consumed by apply.

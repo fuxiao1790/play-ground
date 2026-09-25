@@ -146,7 +146,7 @@ Per-frame combat work is explicit in ECS systems and actor roots:
   every registered kind together via the registry's shared atlas
   mesh/material instead of one batch per kind.
 - `CombatApplyFinalizeSingleSystem` (`SimulationSystemGroup`) applies grouped
-  `CombatHitEvent` values to ECS-owned `Health`, accrues status stacks,
+  `CombatHitEvent` values to ECS-owned `Health`, deposits target-local hit energy,
   and freezes one `CombatTickResult` per hit target after collision and before
   spawn expansion.
 - `CombatApplyBridge` (`PresentationSystemGroup`) is the only reader of managed
@@ -181,14 +181,14 @@ target proxy inside one Burst job and emits one aggregate result per hit target.
   with deterministic `Unity.Mathematics.Random`, sums damage per target,
   subtracts from `Health.Current`, and freezes one `CombatTickResult` for
   the presentation bridge.
-- Stack accrual happens in the same finalize job against each target proxy's
-  `TargetStackEntry` buffer. Each target key is owned by one job index, so buffer
-  writes do not alias.
-- `StatusProcessSystem` runs before current-update finalize and before
-  spawn expansion. It processes stack entries accrued by prior updates, expires
-  stale entries, and queues threshold AOE or projectile detonations for
-  expansion. Stacks written by current-update finalize become eligible on the
-  next simulation update.
+- Hit-energy deposition happens in the same finalize job against each target
+  proxy's `TargetHitEnergy` buffer. Each target key is owned by one job index,
+  so buffer writes do not alias.
+- `HitEnergyActivationSystem` runs before current-update finalize and before
+  spawn expansion. It processes energy deposited on prior updates, expires
+  stale entries, and queues registered AOE or projectile outputs for complete
+  requirements. Energy written by current-update finalize becomes eligible on
+  the next simulation update.
 - `CombatApplyBridge` keeps the managed push on the main thread. It resolves
   `TargetCompanion` and calls `ICombatTarget.ReceiveCombatTick` once per target
   that received direct damage or changed status.
@@ -207,7 +207,7 @@ target proxy inside one Burst job and emits one aggregate result per hit target.
 - The managed boundary cost is reduced to one `ReceiveCombatTick` per hit target
   per tick.
 - Debug counters still need clearer separation between raw collision hits,
-  aggregate combat ticks, status changes, detonation spawns, and VFX requests.
+  aggregate combat ticks, hit-energy activations, and VFX requests.
 
 ### Future Target Direction
 

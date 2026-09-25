@@ -19,6 +19,7 @@ namespace PlayGround.Skills.Runtime
         public float RecoveryTime { get; set; } = 0.2f;
         public float CritChance { get; set; }
         public float CritMultiplier { get; set; } = 1.5f;
+        public float TriggerEnergy { get; set; } = 1f;
         public Hash128 SpawnTemplateKey { get; set; }
 
         // Set only when this definition is attached through a valid trigger link.

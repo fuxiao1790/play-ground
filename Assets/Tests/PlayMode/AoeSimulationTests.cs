@@ -35,7 +35,7 @@ namespace PlayGround.Tests.PlayMode
         private LingeringAoeSpawnExpansionSystem lingeringAoeExpansion;
         private ProjectileSpawnExpansionSystem projectileExpansion;
         private CombatApplyFinalizeSingleSystem hitApply;
-        private StatusProcessSystem statusProcess;
+        private HitEnergyActivationSystem hitEnergyActivation;
         private TargetProxyCreateApplySystem targetProxyCreateApply;
         private TargetProxyUpdateApplySystem targetProxyUpdateApply;
         private TargetProxyDeleteApplySystem targetProxyDeleteApply;
@@ -59,7 +59,7 @@ namespace PlayGround.Tests.PlayMode
             lingeringAoeExpansion = testWorld.GetOrCreateSystemManaged<LingeringAoeSpawnExpansionSystem>();
             projectileExpansion = testWorld.GetOrCreateSystemManaged<ProjectileSpawnExpansionSystem>();
             hitApply = testWorld.GetOrCreateSystemManaged<CombatApplyFinalizeSingleSystem>();
-            statusProcess = testWorld.GetOrCreateSystemManaged<StatusProcessSystem>();
+            hitEnergyActivation = testWorld.GetOrCreateSystemManaged<HitEnergyActivationSystem>();
             targetProxyCreateApply = testWorld.GetOrCreateSystemManaged<TargetProxyCreateApplySystem>();
             targetProxyUpdateApply = testWorld.GetOrCreateSystemManaged<TargetProxyUpdateApplySystem>();
             targetProxyDeleteApply = testWorld.GetOrCreateSystemManaged<TargetProxyDeleteApplySystem>();
@@ -76,7 +76,7 @@ namespace PlayGround.Tests.PlayMode
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ImpactAoeCollisionSystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<LingeringAoeCollisionSystem>());
             simGroup.AddSystemToUpdateList(hitApply);
-            simGroup.AddSystemToUpdateList(statusProcess);
+            simGroup.AddSystemToUpdateList(hitEnergyActivation);
             simGroup.AddSystemToUpdateList(projectileExpansion);
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystemManaged<ProjectileDiscreteSpawnApplySystem>());
             simGroup.AddSystemToUpdateList(testWorld.GetOrCreateSystem<ProjectileContactGateSystem>());
@@ -1000,261 +1000,279 @@ namespace PlayGround.Tests.PlayMode
         }
 
         [Test]
-        public void StatusProcessFizzleRemovesPartialStackWithoutDetonation()
+        public void HitEnergyActivationExpiresPartialEnergyWithoutOutput()
         {
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
 
-            QueueStackHit(target.Proxy, StackEffect(debuffKey: 101, threshold: 2, lifetime: 0.05f, damage: 3f, area: 1f, detonationTypeId: 7));
+            QueueHitEnergyHit(target.Proxy, HitEnergy(accumulatorId: 101, energyRequired: 2f, retentionSeconds: 0.05f, energyPerHit: 1f, unusedArea: 1f, outputTypeId: 7));
 
             TickStatusPipelineOnly(0f);
-            Assert.That(ReadStackEntry(target.Proxy, 101).Count, Is.EqualTo(1));
+            Assert.That(ReadHitEnergyEntry(target.Proxy, 101).StoredEnergy, Is.EqualTo(1f).Within(0.0001f));
 
             TickStatusPipelineOnly(0.06f);
 
-            Assert.That(TryReadStackEntry(target.Proxy, 101, out _), Is.False);
+            Assert.That(TryReadHitEnergyEntry(target.Proxy, 101, out _), Is.False);
             Assert.That(ImpactAoeEventQueue().Count + LingeringAoeEventQueue().Count, Is.EqualTo(0));
         }
 
         [Test]
-        public void StatusProcessProjectileDetonationFizzleQueuesNoNova()
+        public void HitEnergyProjectileOutputExpiresPartialEnergyWithoutNova()
         {
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
 
-            QueueStackHit(
+            QueueHitEnergyHit(
                 target.Proxy,
-                ProjectileStackEffect(
-                debuffKey: 301,
-                threshold: 2,
-                lifetime: 0.05f,
-                damage: 7f,
-                projectileCount: 3));
+                ProjectileHitEnergy(
+                accumulatorId: 301,
+                energyRequired: 2f,
+                retentionSeconds: 0.05f,
+                energyPerHit: 1f,
+                unusedProjectileCount: 3));
 
             TickStatusPipelineOnly(0f);
-            Assert.That(ReadStackEntry(target.Proxy, 301).Count, Is.EqualTo(1));
+            Assert.That(ReadHitEnergyEntry(target.Proxy, 301).StoredEnergy, Is.EqualTo(1f).Within(0.0001f));
 
             TickStatusPipelineOnly(0.06f);
 
-            Assert.That(TryReadStackEntry(target.Proxy, 301, out _), Is.False);
+            Assert.That(TryReadHitEnergyEntry(target.Proxy, 301, out _), Is.False);
             Assert.That(ProjectileEventQueue().Count, Is.EqualTo(0));
         }
 
         [Test]
-        public void StatusProcessSumsFireTimeContributionsUntilThreshold()
+        public void HitEnergyFractionalDepositsActivateOnceAndRetainRemainderNextUpdate()
         {
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
 
-            QueueStackHit(target.Proxy, StackEffect(debuffKey: 102, threshold: 3, lifetime: 10f, damage: 2f, area: 1f, detonationTypeId: 7));
-            QueueStackHit(target.Proxy, StackEffect(debuffKey: 102, threshold: 3, lifetime: 10f, damage: 5f, area: 2f, detonationTypeId: 7));
+            QueueHitEnergyHit(target.Proxy, HitEnergy(accumulatorId: 102, energyRequired: 1f, retentionSeconds: 10f, energyPerHit: 0.4f, unusedArea: 1f, outputTypeId: 7));
+            QueueHitEnergyHit(target.Proxy, HitEnergy(accumulatorId: 102, energyRequired: 1f, retentionSeconds: 10f, energyPerHit: 0.4f, unusedArea: 2f, outputTypeId: 7));
             TickStatusPipelineOnly(0f);
 
-            TargetStackEntry partial = ReadStackEntry(target.Proxy, 102);
-            Assert.That(partial.Count, Is.EqualTo(2));
-            Assert.That(partial.SummedDamage, Is.EqualTo(7f).Within(0.0001f));
-            Assert.That(partial.SummedArea, Is.EqualTo(3f).Within(0.0001f));
+            TargetHitEnergy partial = ReadHitEnergyEntry(target.Proxy, 102);
+            Assert.That(partial.StoredEnergy, Is.EqualTo(0.8f).Within(0.0001f));
+            Assert.That(ImpactAoeEventQueue().Count, Is.Zero, "Activation runs before same-update finalization.");
 
-            QueueStackHit(target.Proxy, StackEffect(debuffKey: 102, threshold: 3, lifetime: 10f, damage: 11f, area: 3f, detonationTypeId: 7));
-            TickStatusPipelineOnly(0f); // Finalize accrues to threshold (Status ran first this tick)
-            TickStatusPipelineOnly(0f); // Status detonates the banked stack on the following tick
+            QueueHitEnergyHit(target.Proxy, HitEnergy(accumulatorId: 102, energyRequired: 1f, retentionSeconds: 10f, energyPerHit: 0.4f, unusedArea: 3f, outputTypeId: 7));
+            TickStatusPipelineOnly(0f);
+            Assert.That(ImpactAoeEventQueue().Count, Is.Zero, "Threshold crossing does not activate until next update.");
+            TickStatusPipelineOnly(0f);
 
             Assert.That(ImpactAoeEventQueue().Count, Is.EqualTo(1));
-            Assert.That(TryReadStackEntry(target.Proxy, 102, out _), Is.False);
+            Assert.That(ReadHitEnergyEntry(target.Proxy, 102).StoredEnergy, Is.EqualTo(0.2f).Within(0.0001f));
         }
 
         [Test]
-        public void StatusProcessAoeDetonationPreservesGeometryAndDamage()
+        public void HitEnergyAoeActivationPreservesTargetPosition()
         {
             AddTarget(new float2(3f, -2f), 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
 
-            QueueStackHit(target.Proxy, StackEffect(
-                debuffKey: 104,
-                threshold: 2,
-                lifetime: 10f,
-                damage: 4f,
-                area: 2f,
-                detonationTypeId: 77));
-            QueueStackHit(target.Proxy, StackEffect(
-                debuffKey: 104,
-                threshold: 2,
-                lifetime: 10f,
-                damage: 6f,
-                area: 4f,
-                detonationTypeId: 77));
+            QueueHitEnergyHit(target.Proxy, HitEnergy(
+                accumulatorId: 104, energyRequired: 2f, retentionSeconds: 10f,
+                energyPerHit: 1f, unusedArea: 2f, outputTypeId: 77));
+            QueueHitEnergyHit(target.Proxy, HitEnergy(
+                accumulatorId: 104, energyRequired: 2f, retentionSeconds: 10f,
+                energyPerHit: 1f, unusedArea: 4f, outputTypeId: 77));
 
             TickStatusPipelineOnly(0f); // Finalize accrues to threshold
             TickStatusPipelineOnly(0f); // Status detonates on the following tick
 
-            ImpactAoeSpawnEvent detonation = DequeueSingleImpactAoeEvent();
-            Assert.That(detonation.Position.x, Is.EqualTo(3f).Within(0.0001f));
-            Assert.That(detonation.Position.y, Is.EqualTo(-2f).Within(0.0001f));
+            ImpactAoeSpawnEvent output = DequeueSingleImpactAoeEvent();
+            Assert.That(output.Position.x, Is.EqualTo(3f).Within(0.0001f));
+            Assert.That(output.Position.y, Is.EqualTo(-2f).Within(0.0001f));
         }
 
         [Test]
-        public void StatusProcessStacksPerHitBanksTowardThreshold()
+        public void HitEnergyActivationRoutesLingeringAoeOutput()
+        {
+            AddTarget(float2.zero, 0.25f, 1);
+            TestCombatTarget target = targetsById[nextTargetId];
+            QueueHitEnergyHit(target.Proxy, HitEnergy(
+                accumulatorId: 119,
+                energyRequired: 1f,
+                retentionSeconds: 10f,
+                energyPerHit: 1f,
+                unusedArea: 1f,
+                outputTypeId: 8,
+                kind: HitEnergySpawnKind.LingeringAoe));
+
+            TickStatusPipelineOnly(0f);
+            Assert.That(LingeringAoeEventQueue().Count, Is.Zero);
+            TickStatusPipelineOnly(0f);
+
+            Assert.That(LingeringAoeEventQueue().Count, Is.EqualTo(1));
+            Assert.That(ImpactAoeEventQueue().Count, Is.Zero);
+        }
+
+        [Test]
+        public void HitEnergyLargeDepositBanksRemainderAfterActivation()
         {
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
 
-            StackEffectSnapshot stack = StackEffect(
-                debuffKey: 120, threshold: 3, lifetime: 10f, damage: 2f, area: 1f, detonationTypeId: 7);
-            stack.StacksPerHit = 2;
+            HitEnergyPayload hitEnergy = HitEnergy(
+                accumulatorId: 120, energyRequired: 3f, retentionSeconds: 10f,
+                energyPerHit: 2f, unusedArea: 1f, outputTypeId: 7);
 
-            // Hit 1 banks 2 stacks (< 3): no detonation yet.
-            QueueStackHit(target.Proxy, stack);
+            // Hit 1 banks 2 energy (< 3): no activation yet.
+            QueueHitEnergyHit(target.Proxy, hitEnergy);
             TickStatusPipelineOnly(0f);
-            Assert.That(ReadStackEntry(target.Proxy, 120).Count, Is.EqualTo(2));
+            Assert.That(ReadHitEnergyEntry(target.Proxy, 120).StoredEnergy, Is.EqualTo(2f).Within(0.0001f));
             Assert.That(ImpactAoeEventQueue().Count, Is.EqualTo(0));
 
             // Hit 2 banks to 4 (>= 3): detonates in two hits, not three. One full
             // threshold is consumed and the sub-threshold remainder stays banked.
-            QueueStackHit(target.Proxy, stack);
-            TickStatusPipelineOnly(0f); // Finalize banks to 4; Status ran first, so no detonation yet
-            TickStatusPipelineOnly(0f); // Status detonates one threshold, remainder stays banked
+            QueueHitEnergyHit(target.Proxy, hitEnergy);
+            TickStatusPipelineOnly(0f); // Finalize banks to 4; activation already ran
+            TickStatusPipelineOnly(0f); // Activation consumes one requirement; remainder stays banked
             Assert.That(ImpactAoeEventQueue().Count, Is.EqualTo(1));
-            Assert.That(ReadStackEntry(target.Proxy, 120).Count, Is.EqualTo(1));
+            Assert.That(ReadHitEnergyEntry(target.Proxy, 120).StoredEnergy, Is.EqualTo(1f).Within(0.0001f));
         }
 
         [Test]
-        public void StatusProcessBurstFiresOneDetonationPerThreshold()
+        public void HitEnergyBurstFiresOneActivationPerCompleteRequirement()
         {
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
 
-            // Four applicator hits land in one tick at threshold 2 => once Status processes
-            // the banked stack it fires two full detonations, not one with the overflow lost.
+            // Four applicator hits land in one update at requirement 2; following activation
+            // emits twice without losing overflow.
             for (int i = 0; i < 4; i++)
             {
-                QueueStackHit(target.Proxy, StackEffect(
-                    debuffKey: 121, threshold: 2, lifetime: 10f, damage: 2f, area: 1f, detonationTypeId: 7));
+                QueueHitEnergyHit(target.Proxy, HitEnergy(
+                    accumulatorId: 121, energyRequired: 2f, retentionSeconds: 10f,
+                    energyPerHit: 1f, unusedArea: 1f, outputTypeId: 7));
             }
 
-            TickStatusPipelineOnly(0f); // Finalize banks all four (Status ran first)
-            TickStatusPipelineOnly(0f); // Status fires both detonations on the following tick
+            TickStatusPipelineOnly(0f); // Finalize banks all four after activation phase
+            TickStatusPipelineOnly(0f); // Activation emits twice on following update
 
             Assert.That(ImpactAoeEventQueue().Count, Is.EqualTo(2));
-            Assert.That(TryReadStackEntry(target.Proxy, 121, out _), Is.False);
+            Assert.That(TryReadHitEnergyEntry(target.Proxy, 121, out _), Is.False);
         }
 
         [Test]
-        public void StackAccrualDropsNewDebuffWhenStackBufferIsFull()
+        public void HitEnergyActivationCapsLargeOverflowAndRetainsUnemittedEnergy()
         {
-            const int MaxStacks = 32;
-            const int FirstDebuffKey = 2000;
-            const int OverflowDebuffKey = 9999;
+            const int MaxActivationsPerUpdate = 256;
+            AddTarget(float2.zero, 0.25f, 1);
+            TestCombatTarget target = targetsById[nextTargetId];
+            QueueHitEnergyHit(target.Proxy, HitEnergy(
+                accumulatorId: 122,
+                energyRequired: 1f,
+                retentionSeconds: 10f,
+                energyPerHit: 300f,
+                unusedArea: 1f,
+                outputTypeId: 7));
+
+            TickStatusPipelineOnly(0f);
+            Assert.That(ImpactAoeEventQueue().Count, Is.Zero, "Deposit cannot activate in same update.");
+            TickStatusPipelineOnly(0f);
+
+            Assert.That(ImpactAoeEventQueue().Count, Is.EqualTo(MaxActivationsPerUpdate));
+            Assert.That(ReadHitEnergyEntry(target.Proxy, 122).StoredEnergy,
+                Is.EqualTo(44f).Within(0.0001f));
+        }
+
+        [Test]
+        public void HitEnergyAccrualDropsNewAccumulatorWhenBufferIsFull()
+        {
+            const int MaxEntries = 32;
+            const int FirstAccumulatorId = 2000;
+            const int OverflowAccumulatorId = 9999;
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
 
-            for (int i = 0; i < MaxStacks; i++)
+            for (int i = 0; i < MaxEntries; i++)
             {
-                QueueStackHit(target.Proxy, StackEffect(
-                    debuffKey: FirstDebuffKey + i,
-                    threshold: 100,
-                    lifetime: 10f,
-                    damage: 1f,
-                    area: 1f,
-                    detonationTypeId: 7));
+                QueueHitEnergyHit(target.Proxy, HitEnergy(
+                    accumulatorId: FirstAccumulatorId + i, energyRequired: 100f,
+                    retentionSeconds: 10f, energyPerHit: 1f, unusedArea: 1f, outputTypeId: 7));
             }
 
             TickStatusPipelineOnly(0f);
-            DynamicBuffer<TargetStackEntry> entries = entityManager.GetBuffer<TargetStackEntry>(target.Proxy);
-            Assert.That(entries.Length, Is.EqualTo(MaxStacks));
+            DynamicBuffer<TargetHitEnergy> entries = entityManager.GetBuffer<TargetHitEnergy>(target.Proxy);
+            Assert.That(entries.Length, Is.EqualTo(MaxEntries));
 
-            QueueStackHit(target.Proxy, StackEffect(
-                debuffKey: OverflowDebuffKey,
-                threshold: 100,
-                lifetime: 10f,
-                damage: 1f,
-                area: 1f,
-                detonationTypeId: 7));
+            QueueHitEnergyHit(target.Proxy, HitEnergy(
+                accumulatorId: OverflowAccumulatorId, energyRequired: 100f,
+                retentionSeconds: 10f, energyPerHit: 1f, unusedArea: 1f, outputTypeId: 7));
 
             TickStatusPipelineOnly(0f);
 
-            entries = entityManager.GetBuffer<TargetStackEntry>(target.Proxy);
-            Assert.That(entries.Length, Is.EqualTo(MaxStacks));
-            Assert.That(TryReadStackEntry(target.Proxy, OverflowDebuffKey, out _), Is.False);
-            Assert.That(ReadStackEntry(target.Proxy, FirstDebuffKey).Count, Is.EqualTo(1));
+            entries = entityManager.GetBuffer<TargetHitEnergy>(target.Proxy);
+            Assert.That(entries.Length, Is.EqualTo(MaxEntries));
+            Assert.That(TryReadHitEnergyEntry(target.Proxy, OverflowAccumulatorId, out _), Is.False);
+            Assert.That(ReadHitEnergyEntry(target.Proxy, FirstAccumulatorId).StoredEnergy, Is.EqualTo(1f).Within(0.0001f));
         }
 
         [Test]
-        public void StackAccrualRefreshesExistingDebuffWhenStackBufferIsFull()
+        public void HitEnergyAccrualRefreshesExistingAccumulatorWhenBufferIsFull()
         {
-            const int MaxStacks = 32;
-            const int FirstDebuffKey = 3000;
+            const int MaxEntries = 32;
+            const int FirstAccumulatorId = 3000;
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
 
-            for (int i = 0; i < MaxStacks; i++)
+            for (int i = 0; i < MaxEntries; i++)
             {
-                QueueStackHit(target.Proxy, StackEffect(
-                    debuffKey: FirstDebuffKey + i,
-                    threshold: 100,
-                    lifetime: 10f,
-                    damage: 1f,
-                    area: 1f,
-                    detonationTypeId: 7));
+                QueueHitEnergyHit(target.Proxy, HitEnergy(
+                    accumulatorId: FirstAccumulatorId + i, energyRequired: 100f,
+                    retentionSeconds: 10f, energyPerHit: 1f, unusedArea: 1f, outputTypeId: 7));
             }
 
             TickStatusPipelineOnly(0f);
 
-            QueueStackHit(target.Proxy, StackEffect(
-                debuffKey: FirstDebuffKey,
-                threshold: 100,
-                lifetime: 20f,
-                damage: 4f,
-                area: 2f,
-                detonationTypeId: 7));
+            QueueHitEnergyHit(target.Proxy, HitEnergy(
+                accumulatorId: FirstAccumulatorId, energyRequired: 100f,
+                retentionSeconds: 20f, energyPerHit: 4f, unusedArea: 2f, outputTypeId: 7));
 
             TickStatusPipelineOnly(0f);
 
-            DynamicBuffer<TargetStackEntry> entries = entityManager.GetBuffer<TargetStackEntry>(target.Proxy);
-            TargetStackEntry refreshed = ReadStackEntry(target.Proxy, FirstDebuffKey);
-            Assert.That(entries.Length, Is.EqualTo(MaxStacks));
-            Assert.That(refreshed.Count, Is.EqualTo(2));
-            Assert.That(refreshed.SummedDamage, Is.EqualTo(5f).Within(0.0001f));
-            Assert.That(refreshed.SummedArea, Is.EqualTo(3f).Within(0.0001f));
+            DynamicBuffer<TargetHitEnergy> entries = entityManager.GetBuffer<TargetHitEnergy>(target.Proxy);
+            TargetHitEnergy refreshed = ReadHitEnergyEntry(target.Proxy, FirstAccumulatorId);
+            Assert.That(entries.Length, Is.EqualTo(MaxEntries));
+            Assert.That(refreshed.StoredEnergy, Is.EqualTo(5f).Within(0.0001f));
+            Assert.That(refreshed.ExpiresAt, Is.EqualTo(elapsedTime + 20f).Within(0.0001));
         }
 
         [Test]
-        public void StatusPushFiresOnlyWhenStackChanges()
+        public void HitEnergyProgressPushFiresOnlyWhenEnergyChanges()
         {
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
 
-            QueueStackHit(target.Proxy, StackEffect(
-                debuffKey: 105,
-                threshold: 3,
-                lifetime: 5f,
-                damage: 2f,
-                area: 1f,
-                detonationTypeId: 7));
+            QueueHitEnergyHit(target.Proxy, HitEnergy(
+                accumulatorId: 105, energyRequired: 3f, retentionSeconds: 5f,
+                energyPerHit: 1f, unusedArea: 1f, outputTypeId: 7));
 
             TickStatusPipelineOnly(0f);
             presentationGroup.Update();
 
-            Assert.That(target.StatusPushCount, Is.EqualTo(1));
-            Assert.That(target.StatusSnapshots, Has.Count.EqualTo(1));
-            Assert.That(target.StatusSnapshots[0].DebuffKey, Is.EqualTo(105));
-            Assert.That(target.StatusSnapshots[0].Count, Is.EqualTo(1));
-            Assert.That(target.StatusSnapshots[0].LifetimeRemaining, Is.EqualTo(5f).Within(0.0001f));
+            Assert.That(target.HitEnergyPushCount, Is.EqualTo(1));
+            Assert.That(target.HitEnergySnapshots, Has.Count.EqualTo(1));
+            Assert.That(target.HitEnergySnapshots[0].AccumulatorId, Is.EqualTo(105));
+            Assert.That(target.HitEnergySnapshots[0].StoredEnergy, Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(target.HitEnergySnapshots[0].EnergyRequired, Is.EqualTo(3f).Within(0.0001f));
+            Assert.That(target.HitEnergySnapshots[0].RetentionRemaining, Is.EqualTo(5f).Within(0.0001f));
 
             TickStatusPipelineOnly(0.25f);
             presentationGroup.Update();
 
-            Assert.That(target.StatusPushCount, Is.EqualTo(1));
+            Assert.That(target.HitEnergyPushCount, Is.EqualTo(1));
         }
 
         [Test]
-        public void AoeApplicatorProjectileDetonationQueuesNovaWithSummedContribution()
+        public void AoeApplicatorHitEnergyQueuesProjectileNovaFromRegisteredTemplate()
         {
             const int ProjectileCount = 5;
-            const int DetonationTypeId = 70;
-            var detonationKey = new Hash128(0xBEEFu, (uint)DetonationTypeId, 0u, 0u);
-            RegisterProjectileTemplate(detonationKey, new ProjectileSpawnCommand
+            const int OutputTypeId = 70;
+            var outputTemplateKey = new Hash128(0xBEEFu, (uint)OutputTypeId, 0u, 0u);
+            RegisterProjectileTemplate(outputTemplateKey, new ProjectileSpawnCommand
             {
-                TypeId = DetonationTypeId,
+                TypeId = OutputTypeId,
                 Count = ProjectileCount,
                 Speed = 5f
             });
@@ -1264,45 +1282,43 @@ namespace PlayGround.Tests.PlayMode
                 float2.zero,
                 1f,
                 0f,
-                stackEffect: ProjectileStackEffect(
-                    debuffKey: 302,
-                    threshold: 1,
-                    lifetime: 10f,
-                    damage: 12f,
-                    projectileCount: ProjectileCount));
+                hitEnergy: ProjectileHitEnergy(
+                    accumulatorId: 302,
+                    energyRequired: 1f,
+                    retentionSeconds: 10f,
+                    energyPerHit: 1f,
+                    unusedProjectileCount: 999));
 
             // Tick 1: AOE materializes, hits target, Finalize banks the stack (Status ran first).
             // Tick 2: Status detonates the banked stack; projectile expansion materializes the nova.
             TickSimulationOnly(0.01f);
             TickSimulationOnly(0.01f);
 
-            Assert.That(ProjectileCountByTypeId(DetonationTypeId), Is.EqualTo(ProjectileCount));
+            Assert.That(ProjectileCountByTypeId(OutputTypeId), Is.EqualTo(ProjectileCount));
         }
 
         [Test]
-        public void StatusProcessUnhandledDetonationKindQueuesNoSpawn()
+        public void HitEnergyActivationUnknownSpawnKindQueuesNoSpawn()
         {
             AddTarget(float2.zero, 0.25f, 1);
             TestCombatTarget target = targetsById[nextTargetId];
 
-            QueueStackHit(target.Proxy, new StackEffectSnapshot
+            QueueHitEnergyHit(target.Proxy, new HitEnergyPayload
             {
-                DebuffKey = 303,
-                Threshold = 1,
-                Lifetime = 10f,
-                Contribution = new StackContribution
+                AccumulatorId = 303,
+                EnergyRequired = 1f,
+                EnergyPerHit = 1f,
+                RetentionSeconds = 10f,
+                Spawn = new HitEnergySpawn
                 {
-                    Damage = 5f,
-                    ProjectileCount = 2,
-                    AreaSize = 1f
-                },
-                Faction = CombatFaction.Player,
-                DetonationKind = (StackDetonationKind)999,
-                DetonationKey = new Hash128(1u, 0u, 0u, 0u)
+                    Faction = CombatFaction.Player,
+                    Kind = (HitEnergySpawnKind)999,
+                    TemplateKey = new Hash128(1u, 0u, 0u, 0u)
+                }
             });
 
             TickStatusPipelineOnly(0f); // Finalize accrues to threshold
-            TickStatusPipelineOnly(0f); // Status reaches the detonation switch; unhandled kind enqueues nothing
+            TickStatusPipelineOnly(0f); // Activation reaches unknown-kind switch and enqueues nothing
 
             Assert.That(ImpactAoeEventQueue().Count + LingeringAoeEventQueue().Count, Is.EqualTo(0));
             Assert.That(ProjectileEventQueue().Count, Is.EqualTo(0));
@@ -1320,10 +1336,10 @@ namespace PlayGround.Tests.PlayMode
         {
             elapsedTime += dt;
             testWorld.SetTime(new TimeData(elapsedTime, dt));
-            // Mirror the production sim-group order: StatusProcess runs before Finalize, so a
+            // Mirror production order: activation runs before finalization, so energy queued for
             // hit queued for this tick is accrued by Finalize (second) and only detonated by
-            // Status on the following tick. Detonation therefore lags accrual by one tick.
-            statusProcess.Update();
+            // activation on following update. Activation therefore lags accrual by one update.
+            hitEnergyActivation.Update();
             hitApply.Update();
         }
 
@@ -1340,7 +1356,7 @@ namespace PlayGround.Tests.PlayMode
             float damage,
             float lifetime = 0f,
             float tickInterval = 0f,
-            StackEffectSnapshot stackEffect = default,
+            HitEnergyPayload hitEnergy = default,
             int renderTypeId = 1,
             TimedSpawnComponent timedSpawn = default,
             bool hasTimedSpawner = false,
@@ -1358,7 +1374,7 @@ namespace PlayGround.Tests.PlayMode
                 {
                     DamageAmount = damage,
                     DirectDamageEnabled = damage > 0f,
-                    StackEffect = stackEffect
+                    HitEnergy = hitEnergy
                 },
                 Radius = radius,
                 AreaSize = radius,
@@ -1746,12 +1762,12 @@ namespace PlayGround.Tests.PlayMode
             return copy;
         }
 
-        private void QueueStackHit(Entity target, StackEffectSnapshot stackEffect)
+        private void QueueHitEnergyHit(Entity target, HitEnergyPayload hitEnergy)
         {
             Entity source = CreateHitSource(new CombatHitPayload
             {
                 DirectDamageEnabled = false,
-                StackEffect = stackEffect
+                HitEnergy = hitEnergy
             });
             NativeQueue<CombatHitEvent> hitQueue = HitQueue();
             hitQueue.Enqueue(new CombatHitEvent
@@ -1789,52 +1805,50 @@ namespace PlayGround.Tests.PlayMode
             return source;
         }
 
-        private static StackEffectSnapshot StackEffect(
-            int debuffKey,
-            int threshold,
-            float lifetime,
-            float damage,
-            float area,
-            int detonationTypeId)
+        private static HitEnergyPayload HitEnergy(
+            int accumulatorId,
+            float energyRequired,
+            float retentionSeconds,
+            float energyPerHit,
+            float unusedArea,
+            int outputTypeId,
+            HitEnergySpawnKind kind = HitEnergySpawnKind.ImpactAoe)
         {
-            return new StackEffectSnapshot
+            return new HitEnergyPayload
             {
-                DebuffKey = debuffKey,
-                Threshold = threshold,
-                Lifetime = lifetime,
-                Contribution = new StackContribution
+                AccumulatorId = accumulatorId,
+                EnergyRequired = energyRequired,
+                EnergyPerHit = energyPerHit,
+                RetentionSeconds = retentionSeconds,
+                Spawn = new HitEnergySpawn
                 {
-                    Damage = damage,
-                    AreaSize = area
-                },
-                Faction = CombatFaction.Player,
-                DetonationKind = StackDetonationKind.ImpactAoe,
-                DetonationKey = new Hash128((uint)detonationTypeId, 0xAABBCCDDu, 0u, 0u)
+                    Faction = CombatFaction.Player,
+                    Kind = kind,
+                    TemplateKey = new Hash128((uint)outputTypeId, 0xAABBCCDDu, 0u, 0u)
+                }
             };
         }
 
-        private static StackEffectSnapshot ProjectileStackEffect(
-            int debuffKey,
-            int threshold,
-            float lifetime,
-            float damage,
-            int projectileCount,
+        private static HitEnergyPayload ProjectileHitEnergy(
+            int accumulatorId,
+            float energyRequired,
+            float retentionSeconds,
+            float energyPerHit,
+            int unusedProjectileCount,
             int projectileTypeId = 70)
         {
-            return new StackEffectSnapshot
+            return new HitEnergyPayload
             {
-                DebuffKey = debuffKey,
-                Threshold = threshold,
-                Lifetime = lifetime,
-                Contribution = new StackContribution
+                AccumulatorId = accumulatorId,
+                EnergyRequired = energyRequired,
+                EnergyPerHit = energyPerHit,
+                RetentionSeconds = retentionSeconds,
+                Spawn = new HitEnergySpawn
                 {
-                    Damage = damage,
-                    ProjectileCount = projectileCount,
-                    AreaSize = 0f
-                },
-                Faction = CombatFaction.Player,
-                DetonationKind = StackDetonationKind.Projectile,
-                DetonationKey = new Hash128(0xBEEFu, (uint)projectileTypeId, 0u, 0u)
+                    Faction = CombatFaction.Player,
+                    Kind = HitEnergySpawnKind.Projectile,
+                    TemplateKey = new Hash128(0xBEEFu, (uint)projectileTypeId, 0u, 0u)
+                }
             };
         }
 
@@ -1850,18 +1864,18 @@ namespace PlayGround.Tests.PlayMode
                 0f);
         }
 
-        private TargetStackEntry ReadStackEntry(Entity target, int debuffKey)
+        private TargetHitEnergy ReadHitEnergyEntry(Entity target, int accumulatorId)
         {
-            Assert.That(TryReadStackEntry(target, debuffKey, out TargetStackEntry entry), Is.True);
+            Assert.That(TryReadHitEnergyEntry(target, accumulatorId, out TargetHitEnergy entry), Is.True);
             return entry;
         }
 
-        private bool TryReadStackEntry(Entity target, int debuffKey, out TargetStackEntry entry)
+        private bool TryReadHitEnergyEntry(Entity target, int accumulatorId, out TargetHitEnergy entry)
         {
-            DynamicBuffer<TargetStackEntry> entries = entityManager.GetBuffer<TargetStackEntry>(target);
+            DynamicBuffer<TargetHitEnergy> entries = entityManager.GetBuffer<TargetHitEnergy>(target);
             for (int i = 0; i < entries.Length; i++)
             {
-                if (entries[i].DebuffKey == debuffKey)
+                if (entries[i].AccumulatorId == accumulatorId)
                 {
                     entry = entries[i];
                     return true;
@@ -2041,8 +2055,8 @@ namespace PlayGround.Tests.PlayMode
             public int Mask { get; set; }
             public int HitCount { get; private set; }
             public List<CombatHitData> Hits { get; } = new();
-            public List<StatusStackSnapshot> StatusSnapshots { get; } = new();
-            public int StatusPushCount { get; private set; }
+            public List<HitEnergyProgress> HitEnergySnapshots { get; } = new();
+            public int HitEnergyPushCount { get; private set; }
             public bool ClampHealthOnHit { get; set; }
             public float Health { get; set; } = 100f;
             public float LastPreClampHealth { get; private set; }
@@ -2082,13 +2096,13 @@ namespace PlayGround.Tests.PlayMode
                 }
             }
 
-            public void ReceiveStatus(IReadOnlyList<StatusStackSnapshot> stacks)
+            public void ReceiveHitEnergyProgress(IReadOnlyList<HitEnergyProgress> progress)
             {
-                StatusPushCount++;
-                StatusSnapshots.Clear();
-                for (int i = 0; i < stacks.Count; i++)
+                HitEnergyPushCount++;
+                HitEnergySnapshots.Clear();
+                for (int i = 0; i < progress.Count; i++)
                 {
-                    StatusSnapshots.Add(stacks[i]);
+                    HitEnergySnapshots.Add(progress[i]);
                 }
             }
         }

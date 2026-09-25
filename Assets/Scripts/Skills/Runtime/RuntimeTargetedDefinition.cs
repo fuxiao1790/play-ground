@@ -25,8 +25,8 @@ namespace PlayGround.Skills.Runtime
         public TargetedVfxIds VfxIds { get; set; }
         public TargetedVfxSizeComponent VfxSize { get; set; }
 
-        // Compiled from StackTrigger; null when no stacking detonation is attached.
-        public RuntimeStackingDetonation StackingDetonation { get; set; }
+        // Compiled from HitEnergyTrigger; null when no hit-energy edge is attached.
+        public RuntimeHitEnergyTrigger HitEnergyTrigger { get; set; }
 
         // Margin over the walk's worst case so a frame-rate hitch or a catch-up update can never
         // expire an instance that still has links owed to it.
