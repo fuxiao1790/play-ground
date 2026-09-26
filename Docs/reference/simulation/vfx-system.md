@@ -174,7 +174,10 @@ AOE simulation producers call `VfxEmit.Enqueue`, which decodes the existing
 Circular or TimedCircular slot id and writes the matching concrete
 request. `TargetedResolveSystem` calls `VfxEmit.EnqueueLineSegment` with each
 resolved link's start and end coordinates, and `VfxEmit.Enqueue` for its hit and
-expire effects.
+expire effects. `ProjectileMovementSystem` calls `VfxEmit.EnqueueLineSegment`
+when its optional trail id is nonzero and it has travelled at least its authored
+`StepDistance` since the previous segment. It uses the previous segment end and
+current position, so emission is distance-gated rather than frame-gated.
 
 Current AOE emitters:
 
@@ -186,8 +189,9 @@ Current AOE emitters:
 
 LineSegment producers:
 
-- `TargetedResolveSystem` for resolved chain links, currently the only producer
-  of this shape
+- `TargetedResolveSystem` for resolved chain links
+- `ProjectileMovementSystem` for authored projectile trails, distance-gated to one
+  segment per `StepDistance` of travel
 
 No emitter branches on `LingeringAoeTag` to choose VFX shape, and no emitter
 uses `CombatLifetimeComponent.Remaining` as a duration source.
@@ -207,11 +211,15 @@ TimedCircular slots are an opt-in alternative for graphs that can self-drive
 their whole-duration visuals from one emission.
 
 LineSegment is the directional shape. Its graph receives a start and end
-coordinate plus width per spawn. Targeted chains are its only current
-producer. `TargetedPrefab`'s link slot must use `VfxDataShape.LineSegment`;
-targeted prefab validation rejects a bad link shape. `SkillDriver` registers
-the slot. `VfxEmit.EnqueueLineSegment` silently drops an id whose encoded
-shape is not LineSegment. No AOE producer emits this shape.
+coordinate plus width per spawn. Targeted chains and optional projectile trails
+are its only producers. `TargetedPrefab`'s link slot and `BasicAttackPrefab`'s
+trail slot must use `VfxDataShape.LineSegment`; targeted prefab validation
+rejects a bad link shape, while projectile loadout validation warns about an
+assigned bad trail shape, non-positive trail width, or non-positive trail step
+distance. `SkillDriver` registers both slots. Projectile trail pacing mirrors
+Unity's `TrailRenderer.minVertexDistance`: segments are emitted by distance
+travelled, not once per frame. `VfxEmit.EnqueueLineSegment` silently drops an
+id whose encoded shape is not LineSegment. No AOE producer emits this shape.
 
 ## Performance Notes
 

@@ -8,7 +8,9 @@ using PlayGround.System.Combat.Spawning;
 using PlayGround.System.Combat.Status;
 using PlayGround.System.Combat.Targets;
 using PlayGround.System.Combat.Projectiles;
+using PlayGround.System.Combat.Vfx;
 using UnityEngine;
+using UnityEngine.VFX;
 
 namespace PlayGround.System.Combat.Authoring
 {
@@ -18,11 +20,19 @@ namespace PlayGround.System.Combat.Authoring
         [SerializeField] private Collider2D hurtbox;
         [SerializeField] private AudioClip spawnSound;
         [SerializeField, Min(0f)] private float spawnSoundRadius;
+        [SerializeField] private VisualEffectAsset trailEffect;
+        [SerializeField] private VfxDataShape trailEffectShape = VfxDataShape.LineSegment;
+        [SerializeField, Min(0f)] private float trailWidth = 0.25f;
+        [SerializeField, Min(0f)] private float trailStepDistance = 0.5f;
 
         public Sprite Sprite => spriteRenderer != null ? spriteRenderer.sprite : null;
         public Material Material => spriteRenderer != null ? spriteRenderer.sharedMaterial : null;
         public AudioClip SpawnSound => spawnSound;
         public float SpawnSoundRadius => spawnSoundRadius;
+        public VisualEffectAsset TrailEffect => trailEffect;
+        public VfxDataShape TrailEffectShape => trailEffectShape;
+        public float TrailWidth => trailWidth;
+        public float TrailStepDistance => trailStepDistance;
         public float VisualScale => spriteRenderer != null
             ? Mathf.Max(Mathf.Abs(spriteRenderer.transform.lossyScale.x), Mathf.Abs(spriteRenderer.transform.lossyScale.y))
             : 1f;

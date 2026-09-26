@@ -57,6 +57,9 @@ namespace PlayGround.Skills.Runtime
         public float RepeatHitCooldown { get; set; }
         public float ManaCost { get; set; }
         public float ArmSeconds { get; set; }
+        public int TrailVfxId { get; set; }
+        public float TrailWidth { get; set; }
+        public float TrailStepDistance { get; set; }
         public bool DirectDamageEnabled { get; set; } = true;
         public bool ContinuousCollision { get; set; }
         public bool SpawnBlocked { get; set; }

@@ -17,6 +17,7 @@ namespace PlayGround.Skills
         TargetedChainWarning,
         TargetedIntervalWarning,
         TargetedVisualWarning,
+        ProjectileVisualWarning,
     }
 
     public enum SkillValidationSeverity
